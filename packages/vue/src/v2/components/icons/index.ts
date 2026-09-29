@@ -20,4 +20,7 @@ export {
   CheckCircle as IconCheckCircle,
   Circle as IconCircle,
   PanelLeftOpen as IconPanelLeftOpen,
+  History as IconHistory,
+  Play as IconPlay,
+  Pause as IconPause,
 } from "lucide-vue-next";

@@ -616,7 +616,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           template: `
             <CopilotChatView :messages="sampleMessages" :is-running="true">
               <template #message-view="{ messages, isRunning }">
-                <CopilotChatMessageView :messages="messages" :is-running="isRunning">
+                <CopilotChatMessageView :messages="messages" :is-running="isRunning" :inline-cursor="false">
                   <template #cursor>
                     <div data-testid="custom-cursor">cursor</div>
                   </template>

@@ -1,10 +1,9 @@
-import { onMounted, onUnmounted, ref } from "vue";
+import { ref } from "vue";
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import {
-  CopilotChatConfigurationProvider,
-  CopilotChatInput,
-} from "@copilotkit/vue";
+import { CopilotChatInput } from "@copilotkit/vue";
 import type { ToolsMenuItem } from "@copilotkit/vue";
+import { withFakeMicrophone } from "./support/fake-microphone";
+import { withCenteredStage, withStyles } from "./support/layouts";
 
 const extractValue = (event: Event) =>
   (event.target as HTMLTextAreaElement).value;
@@ -13,30 +12,7 @@ const meta = {
   title: "UI/CopilotChatInput",
   component: CopilotChatInput,
   tags: ["autodocs"],
-  decorators: [
-    (story) => ({
-      components: { story, CopilotChatConfigurationProvider },
-      template: `
-        <div
-          style="
-            position: fixed;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            justify-content: center;
-            padding: 16px;
-          "
-        >
-          <div style="width: 100%; max-width: 640px">
-            <CopilotChatConfigurationProvider thread-id="storybook-thread">
-              <story />
-            </CopilotChatConfigurationProvider>
-          </div>
-        </div>
-      `,
-    }),
-  ],
+  decorators: [withCenteredStage],
   parameters: {
     layout: "fullscreen",
   },
@@ -45,38 +21,136 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+// A distinct brand look that still reads in both themes.
 const CUSTOM_STYLING_CSS = `
   .custom-chat-input [data-testid='copilot-chat-input-shell'] {
-    border: 2px solid #4f46e5 !important;
+    --brand: oklch(0.51 0.23 277);
+    border: 2px solid var(--brand) !important;
     border-radius: 14px !important;
-    background: linear-gradient(to right, #eef2ff, #ffffff) !important;
-    box-shadow: 0 4px 10px rgb(79 70 229 / 0.15) !important;
+    background: linear-gradient(to right, color-mix(in oklch, var(--brand) 10%, var(--background)), var(--background)) !important;
+    box-shadow: 0 4px 10px color-mix(in oklch, var(--brand) 18%, transparent) !important;
+  }
+
+  .dark .custom-chat-input [data-testid='copilot-chat-input-shell'] {
+    --brand: oklch(0.68 0.16 277);
   }
 
   .custom-chat-input textarea {
-    font-family: 'JetBrains Mono', monospace !important;
+    font-family: var(--story-mono) !important;
     font-size: 14px !important;
   }
 
   .custom-chat-input [data-testid='copilot-chat-input-add'] {
-    border: 1px solid #c7d2fe !important;
-    background: #ffffff !important;
-    color: #4f46e5 !important;
+    border: 1px solid color-mix(in oklch, var(--brand, oklch(0.51 0.23 277)) 35%, transparent) !important;
+    color: oklch(0.51 0.23 277) !important;
   }
 
-  .custom-chat-input [data-testid='copilot-chat-input-add']:hover {
-    background: #eef2ff !important;
+  .dark .custom-chat-input [data-testid='copilot-chat-input-add'] {
+    color: oklch(0.78 0.12 277) !important;
   }
 
   .custom-chat-input [data-testid='copilot-chat-input-send']:not(:disabled) {
-    background: #4f46e5 !important;
-    color: #ffffff !important;
+    background: oklch(0.51 0.23 277) !important;
+    color: #fff !important;
   }
 
   .custom-chat-input [data-testid='copilot-chat-input-send']:not(:disabled):hover {
-    background: #4338ca !important;
+    background: oklch(0.45 0.23 277) !important;
     opacity: 1 !important;
   }
+`;
+
+// Hand-rolled controls for the slot and layout stories.
+const CUSTOM_CONTROLS_CSS = `
+  .demo-send-button {
+    display: inline-flex;
+    width: 40px;
+    height: 40px;
+    margin-right: 8px;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 999px;
+    background: oklch(0.58 0.2 277);
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    transition: opacity 150ms;
+  }
+  .demo-send-button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .demo-add-button {
+    display: inline-flex;
+    width: 36px;
+    height: 36px;
+    margin-left: 4px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid color-mix(in oklch, oklch(0.58 0.2 277) 40%, transparent);
+    border-radius: 999px;
+    background: transparent;
+    color: oklch(0.58 0.2 277);
+    cursor: pointer;
+  }
+  .demo-add-button:hover { background: color-mix(in oklch, oklch(0.58 0.2 277) 10%, transparent); }
+  .demo-add-button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .demo-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--card);
+    color: var(--card-foreground);
+    padding: 16px;
+  }
+  .demo-layout__top { display: flex; align-items: center; justify-content: space-between; }
+  .demo-layout__label { font-size: 14px; font-weight: 500; color: var(--muted-foreground); }
+  .demo-layout__bottom { display: flex; align-items: flex-end; gap: 8px; }
+  .demo-layout__textarea {
+    flex: 1;
+    resize: none;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    padding: 12px 20px 12px 0;
+    font: inherit;
+    font-size: 16px;
+    line-height: 1.6;
+    outline: none;
+    overflow: auto;
+  }
+  .demo-layout__textarea::placeholder { color: var(--muted-foreground); }
+  .demo-layout__menu-anchor { position: relative; }
+  .demo-layout__menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 30;
+    min-width: 220px;
+    margin-top: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card);
+    box-shadow: 0 10px 30px rgb(0 0 0 / 0.12);
+    padding: 4px 0;
+  }
+  .demo-layout__menu-separator { height: 1px; margin: 4px 0; background: var(--border); }
+  .demo-layout__menu-label { padding: 4px 12px; font-size: 12px; font-weight: 600; color: var(--muted-foreground); }
+  .demo-layout__menu-item {
+    display: block;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: var(--foreground);
+    padding: 8px 12px;
+    text-align: left;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .demo-layout__menu-item:hover { background: var(--accent); }
 `;
 
 export const Default: Story = {
@@ -94,6 +168,25 @@ export const Default: Story = {
         @add-file="() => console.log('[Storybook] Add file clicked')"
         @start-transcribe="() => console.log('[Storybook] Start transcribe')"
         @stop="() => console.log('[Storybook] Stop')"
+      />
+    `,
+  }),
+};
+
+/** A run in flight: the send button becomes a stop button. */
+export const Running: Story = {
+  render: () => ({
+    components: { CopilotChatInput },
+    setup() {
+      const value = ref("");
+      return { value };
+    },
+    template: `
+      <CopilotChatInput
+        v-model="value"
+        :is-running="true"
+        :show-disclaimer="false"
+        @stop="() => console.log('[Storybook] Stop clicked')"
       />
     `,
   }),
@@ -139,6 +232,15 @@ export const WithMenuItems: Story = {
 };
 
 export const TranscribeMode: Story = {
+  decorators: [withFakeMicrophone],
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Recording state. Storybook feeds the recorder a synthetic tone instead of your microphone.",
+      },
+    },
+  },
   render: () => ({
     components: { CopilotChatInput },
     setup() {
@@ -159,6 +261,7 @@ export const TranscribeMode: Story = {
 };
 
 export const CustomButtons: Story = {
+  decorators: [withStyles(CUSTOM_CONTROLS_CSS)],
   render: () => ({
     components: { CopilotChatInput },
     setup() {
@@ -174,23 +277,22 @@ export const CustomButtons: Story = {
         @start-transcribe="() => console.log('[Storybook] Start transcribe')"
       >
         <template #send-button="{ disabled, onClick }">
-          <div class="mr-2">
-            <button
-              type="button"
-              :disabled="disabled"
-              aria-label="Send message"
-              class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500 text-white transition hover:bg-indigo-600 disabled:opacity-40"
-              @click="onClick"
-            >
-              ✈️
-            </button>
-          </div>
+          <button
+            type="button"
+            class="demo-send-button"
+            :disabled="disabled"
+            aria-label="Send message"
+            @click="onClick"
+          >
+            ✈️
+          </button>
         </template>
         <template #add-menu-button="{ disabled, toggleMenu }">
           <button
             type="button"
+            class="demo-add-button"
             :disabled="disabled"
-            class="ml-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-indigo-200 bg-white text-indigo-500 hover:bg-indigo-50 disabled:opacity-40"
+            aria-label="Add"
             @click.stop="toggleMenu"
           >
             <svg
@@ -256,28 +358,7 @@ export const ExpandedTextarea: Story = {
 };
 
 export const CustomStyling: Story = {
-  decorators: [
-    (story) => ({
-      components: { story },
-      setup() {
-        let styleElement: HTMLStyleElement | null = null;
-
-        onMounted(() => {
-          styleElement = document.createElement("style");
-          styleElement.textContent = CUSTOM_STYLING_CSS;
-          document.head.appendChild(styleElement);
-        });
-
-        onUnmounted(() => {
-          styleElement?.remove();
-          styleElement = null;
-        });
-      },
-      template: `
-        <story />
-      `,
-    }),
-  ],
+  decorators: [withStyles(CUSTOM_STYLING_CSS)],
   render: () => ({
     components: { CopilotChatInput },
     setup() {
@@ -297,6 +378,7 @@ export const CustomStyling: Story = {
 };
 
 export const CustomLayout: Story = {
+  decorators: [withStyles(CUSTOM_CONTROLS_CSS)],
   render: () => ({
     components: { CopilotChatInput },
     setup() {
@@ -325,15 +407,16 @@ export const CustomLayout: Story = {
             onKeydown
           }"
         >
-          <div class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-medium text-slate-600">
+          <div class="demo-layout">
+            <div class="demo-layout__top">
+              <span class="demo-layout__label">
                 {{ isMultiline ? "Multiline message" : "Single line message" }}
               </span>
-              <div class="relative">
+              <div class="demo-layout__menu-anchor">
                 <button
                   type="button"
-                  class="ml-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-transparent text-[#444444] transition-colors hover:bg-[#f8f8f8] hover:text-[#333333] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-[#444444]"
+                  class="demo-add-button"
+                  aria-label="Add"
                   :disabled="disabled"
                   @click.stop="onToggleMenu"
                 >
@@ -352,15 +435,12 @@ export const CustomLayout: Story = {
                     <path d="M12 5v14" />
                   </svg>
                 </button>
-                <div
-                  v-if="menuOpen"
-                  class="absolute right-0 top-full z-30 mt-2 min-w-[220px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
-                >
+                <div v-if="menuOpen" class="demo-layout__menu">
                   <template v-for="entry in menuItems" :key="entry.key">
-                    <div v-if="entry.type === 'separator'" class="my-1 h-px bg-slate-200" />
+                    <div v-if="entry.type === 'separator'" class="demo-layout__menu-separator" />
                     <div
                       v-else-if="entry.type === 'label'"
-                      class="px-3 py-1 text-xs font-semibold text-slate-500"
+                      class="demo-layout__menu-label"
                       :style="{ paddingLeft: (12 + entry.depth * 12) + 'px' }"
                     >
                       {{ entry.label }}
@@ -368,7 +448,7 @@ export const CustomLayout: Story = {
                     <button
                       v-else
                       type="button"
-                      class="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                      class="demo-layout__menu-item"
                       :style="{ paddingLeft: (12 + entry.depth * 12) + 'px' }"
                       @click="onMenuAction(entry.action)"
                     >
@@ -378,22 +458,20 @@ export const CustomLayout: Story = {
                 </div>
               </div>
             </div>
-            <div class="flex items-end gap-2">
-              <div class="flex-1">
-                <textarea
-                  class="w-full resize-none bg-transparent py-3 pr-5 text-[16px] leading-relaxed text-[#171717] antialiased outline-none placeholder:text-[#00000077]"
-                  style="overflow: auto"
-                  rows="1"
-                  :value="currentValue"
-                  :disabled="disabled"
-                  :placeholder="placeholder"
-                  @input="onUpdateValue(extractValue($event))"
-                  @keydown="onKeydown"
-                />
-              </div>
+            <div class="demo-layout__bottom">
+              <textarea
+                class="demo-layout__textarea"
+                rows="1"
+                :value="currentValue"
+                :disabled="disabled"
+                :placeholder="placeholder"
+                @input="onUpdateValue(extractValue($event))"
+                @keydown="onKeydown"
+              />
               <button
                 type="button"
-                class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black text-white transition-colors hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-[#00000014] disabled:text-[rgb(13,13,13)] disabled:hover:opacity-100"
+                class="demo-send-button"
+                aria-label="Send message"
                 :disabled="sendDisabled"
                 @click="onSendClick"
               >
@@ -442,6 +520,80 @@ export const ControlledInputExample: Story = {
         @add-file="() => console.log('[Storybook] Add file clicked')"
         @start-transcribe="() => console.log('[Storybook] Start transcribe')"
       />
+    `,
+  }),
+};
+
+const markdownDraft = `Can you review this plan? It covers three things:
+- migrate the chat to the v2 hooks
+- update the [upgrade guide](https://docs.copilotkit.ai)
+- link the demo at https://copilotkit.ai`;
+
+/**
+ * The composer styles list markers and links as you type, with the syntax
+ * dimmed but still editable. Pass `:highlight-markdown="false"` for plain
+ * text.
+ */
+export const MarkdownDraft: Story = {
+  render: () => ({
+    components: { CopilotChatInput },
+    setup() {
+      const value = ref(markdownDraft);
+      return { value };
+    },
+    template: `
+      <CopilotChatInput
+        v-model="value"
+        :show-disclaimer="false"
+        @submit-message="(submitted) => console.log('[Storybook] Submitted:', submitted)"
+        @add-file="() => console.log('[Storybook] Add file clicked')"
+        @start-transcribe="() => console.log('[Storybook] Start transcribe')"
+      />
+    `,
+  }),
+};
+
+const CONTAINER_WIDTHS = [280, 340, 400, 520];
+const WIDTH_DRAFT =
+  "Summarize the launch thread and list owners for each open item";
+
+/**
+ * The input sizes itself by its container, not the viewport: a single short
+ * row while the text fits, the text on its own full-width row once it wraps,
+ * and voice input folded into the "+" menu under ~320px.
+ */
+export const ContainerWidths: Story = {
+  decorators: [],
+  parameters: { layout: "fullscreen" },
+  render: () => ({
+    components: { CopilotChatInput },
+    setup() {
+      const columns = CONTAINER_WIDTHS.map((width) => ({
+        width,
+        drafts: [ref(""), ref(WIDTH_DRAFT)],
+      }));
+      return { columns };
+    },
+    template: `
+      <div class="story-widths">
+        <div
+          v-for="column in columns"
+          :key="column.width"
+          class="story-widths-column"
+          :style="{ width: column.width + 'px' }"
+        >
+          <div class="story-widths-label">{{ column.width }}px</div>
+          <CopilotChatInput
+            v-for="(draft, index) in column.drafts"
+            :key="index"
+            v-model="draft.value"
+            :show-disclaimer="false"
+            @submit-message="() => {}"
+            @start-transcribe="() => {}"
+            @add-file="() => {}"
+          />
+        </div>
+      </div>
     `,
   }),
 };

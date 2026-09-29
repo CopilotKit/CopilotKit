@@ -2,10 +2,10 @@ import { defineComponent } from "vue";
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { Minus, MessageCirclePlus } from "lucide-vue-next";
 import {
-  CopilotChatConfigurationProvider,
   CopilotChatToggleButton,
   useCopilotChatConfiguration,
 } from "@copilotkit/vue";
+import type { CopilotKitStoryParameters } from "../.storybook/preview";
 
 const StatePreview = defineComponent({
   name: "CopilotChatToggleButtonStoryPreview",
@@ -29,18 +29,18 @@ const StatePreview = defineComponent({
     return { configuration };
   },
   template: `
-    <div class="flex flex-col items-center gap-3">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 12px">
       <CopilotChatToggleButton :disabled="disabled">
         <template v-if="customIcons" #open-icon="{ iconClass }">
-          <MessageCirclePlus :class="[iconClass, 'text-emerald-400']" :stroke-width="1.5" />
+          <MessageCirclePlus :class="iconClass" style="color: oklch(0.77 0.15 163)" :stroke-width="1.5" />
         </template>
         <template v-if="customIcons" #close-icon="{ iconClass }">
-          <Minus :class="[iconClass, 'text-rose-400']" :stroke-width="2" />
+          <Minus :class="iconClass" style="color: oklch(0.71 0.17 13)" :stroke-width="2" />
         </template>
       </CopilotChatToggleButton>
-      <span class="text-sm text-muted-foreground">
+      <p class="story-caption">
         {{ configuration?.isModalOpen ? "Chat is open" : "Chat is closed" }}
-      </span>
+      </p>
     </div>
   `,
 });
@@ -50,19 +50,18 @@ const meta = {
   component: CopilotChatToggleButton,
   parameters: {
     layout: "centered",
+    // Give the chat configuration modal state so the button drives it.
+    copilotkit: {
+      isModalDefaultOpen: false,
+    } satisfies CopilotKitStoryParameters,
   },
   render: (args) => ({
-    components: {
-      CopilotChatConfigurationProvider,
-      StatePreview,
-    },
+    components: { StatePreview },
     setup() {
       return { args };
     },
     template: `
-      <CopilotChatConfigurationProvider thread-id="storybook-toggle-button">
-        <StatePreview :disabled="Boolean(args.disabled)" :custom-icons="Boolean(args.customIcons)" />
-      </CopilotChatConfigurationProvider>
+      <StatePreview :disabled="Boolean(args.disabled)" />
     `,
   }),
 } satisfies Meta<typeof CopilotChatToggleButton>;
@@ -74,15 +73,8 @@ export const Default: Story = {};
 
 export const WithCustomIcons: Story = {
   render: () => ({
-    components: {
-      CopilotChatConfigurationProvider,
-      StatePreview,
-    },
-    template: `
-      <CopilotChatConfigurationProvider thread-id="storybook-toggle-button-custom-icons">
-        <StatePreview :custom-icons="true" />
-      </CopilotChatConfigurationProvider>
-    `,
+    components: { StatePreview },
+    template: `<StatePreview :custom-icons="true" />`,
   }),
 };
 

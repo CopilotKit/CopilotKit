@@ -91,6 +91,21 @@ type WebsandboxModule = {
   ) => SandboxInstance;
 };
 
+/** Runs in the sandbox: posts the content's height back to the host once. */
+const MEASURE_HEIGHT_ONCE = `
+  (function() {
+    var s = document.createElement('style');
+    s.textContent = 'body { height: auto !important; min-height: 0 !important; }';
+    document.head.appendChild(s);
+    var h = document.body.scrollHeight;
+    var cs = getComputedStyle(document.body);
+    h += parseFloat(cs.marginTop) || 0;
+    h += parseFloat(cs.marginBottom) || 0;
+    s.remove();
+    parent.postMessage({ type: "__ck_resize", height: Math.ceil(h) }, "*");
+  })();
+`;
+
 async function loadWebsandbox(): Promise<WebsandboxModule> {
   const mod = (await import("@jetbrains/websandbox")) as any;
   return (mod.default?.default ?? mod.default) as WebsandboxModule;
@@ -117,6 +132,7 @@ export const OpenGenerativeUIRenderer = defineComponent({
     const executedExpressionIndex = ref(0);
     const jsFunctionsInjected = ref(false);
     const pendingQueue = ref<string[]>([]);
+    const autoHeight = ref<number | null>(null);
 
     const localApi = computed(() => {
       const api: Record<string, unknown> = {};
@@ -184,9 +200,16 @@ export const OpenGenerativeUIRenderer = defineComponent({
     const hasVisibleSandbox = computed(
       () => !!fullHtml.value || hasPreview.value,
     );
-    const resolvedHeight = computed(
-      () => `${throttledContent.value.initialHeight ?? 200}px`,
-    );
+    // The measured height grows the frame to fit its content, but never
+    // shrinks it below a provided `initialHeight`.
+    const resolvedHeight = computed(() => {
+      const { initialHeight } = throttledContent.value;
+      const height =
+        autoHeight.value === null
+          ? (initialHeight ?? 200)
+          : Math.max(autoHeight.value, initialHeight ?? 0);
+      return `${height}px`;
+    });
 
     const destroyPreview = () => {
       if (previewSandboxRef.value) {
@@ -389,6 +412,40 @@ export const OpenGenerativeUIRenderer = defineComponent({
     const isGenerating = computed(
       () => throttledContent.value.generating !== false,
     );
+
+    // One-shot height measurement once generation completes, for each sandbox
+    // (so content that is already complete when its sandbox mounts is sized
+    // too). Uses body.scrollHeight, not documentElement.scrollHeight: the
+    // latter is clamped to the iframe viewport and can never shrink below it.
+    watch(
+      [isGenerating, sandboxRef],
+      ([generating, sandbox], _previous, onCleanup) => {
+        if (generating || !sandbox) return;
+
+        let handled = false;
+        const onMessage = (event: MessageEvent) => {
+          if (handled) return;
+          if (
+            event.source === sandbox.iframe.contentWindow &&
+            event.data?.type === "__ck_resize"
+          ) {
+            handled = true;
+            autoHeight.value = event.data.height;
+            window.removeEventListener("message", onMessage);
+          }
+        };
+        window.addEventListener("message", onMessage);
+
+        if (sandboxReady.value) {
+          void sandbox.run(MEASURE_HEIGHT_ONCE);
+        } else {
+          pendingQueue.value.push(MEASURE_HEIGHT_ONCE);
+        }
+
+        onCleanup(() => window.removeEventListener("message", onMessage));
+      },
+      { immediate: true },
+    );
     watch(
       [hasPreview, fullHtml],
       ([previewVisible, html]) => {
@@ -416,11 +473,13 @@ export const OpenGenerativeUIRenderer = defineComponent({
             position: "relative",
             width: "100%",
             height: resolvedHeight.value,
-            borderRadius: "8px",
+            borderRadius: "var(--radius, 8px)",
             backgroundColor: hasVisibleSandbox.value
               ? "transparent"
-              : "#f5f5f5",
-            border: hasVisibleSandbox.value ? "none" : "1px solid #e0e0e0",
+              : "var(--muted, #f5f5f5)",
+            border: hasVisibleSandbox.value
+              ? "none"
+              : "1px solid var(--border, #e5e5e5)",
             overflow: "hidden",
             display: hasVisibleSandbox.value ? "block" : "flex",
             alignItems: hasVisibleSandbox.value ? undefined : "center",
@@ -444,12 +503,12 @@ export const OpenGenerativeUIRenderer = defineComponent({
                       cx: "12",
                       cy: "12",
                       r: "10",
-                      stroke: "#e0e0e0",
+                      style: { stroke: "var(--border, #e5e5e5)" },
                       "stroke-width": "3",
                     }),
                     h("path", {
                       d: "M12 2a10 10 0 0 1 10 10",
-                      stroke: "#999",
+                      style: { stroke: "var(--muted-foreground, #737373)" },
                       "stroke-width": "3",
                       "stroke-linecap": "round",
                     }),
@@ -467,7 +526,8 @@ export const OpenGenerativeUIRenderer = defineComponent({
                 style: {
                   position: "absolute",
                   inset: 0,
-                  backgroundColor: "rgba(255,255,255,0.45)",
+                  backgroundColor:
+                    "color-mix(in oklab, var(--background, #fff) 45%, transparent)",
                 },
               })
             : null,
@@ -533,7 +593,11 @@ export const OpenGenerativeUIToolRenderer = defineComponent({
       return h(
         "div",
         {
-          style: { padding: "8px 12px", color: "#999", fontSize: "14px" },
+          style: {
+            padding: "8px 12px",
+            color: "var(--muted-foreground, #737373)",
+            fontSize: "14px",
+          },
           "data-testid": "open-generative-ui-tool-placeholder",
         },
         currentMessage,

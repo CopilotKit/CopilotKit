@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, provide, ref } from "vue";
+import { computed, inject, provide, ref, watch } from "vue";
 import type { ComputedRef } from "vue";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
 import { CopilotChatConfigurationKey } from "./keys";
@@ -17,6 +17,7 @@ const props = withDefaults(
   {
     hasExplicitThreadId: undefined,
     isModalDefaultOpen: undefined,
+    forwardThreadSwitching: false,
   },
 );
 
@@ -34,6 +35,8 @@ const propIsAuthoritative = computed(
 );
 
 // Imperative active-thread override (a picked row or a fresh startNewThread).
+// A provider with `forwardThreadSwitching` never sets its own: it hands the
+// switch to the provider above (see setActiveThreadId below).
 const activeThreadOverride = ref<{
   threadId: string;
   explicit: boolean;
@@ -51,14 +54,25 @@ const resolvedAgentId = computed(
   () => props.agentId ?? parentConfigValue.value?.agentId ?? DEFAULT_AGENT_ID,
 );
 
-const fallbackThreadId = randomUUID();
+// Clearing the `threadId` prop starts a fresh thread rather than returning to
+// the one minted at mount.
+const fallbackThreadId = ref(randomUUID());
+watch(
+  () => props.threadId,
+  (threadId, previous) => {
+    if (threadId === undefined && previous !== undefined) {
+      fallbackThreadId.value = randomUUID();
+    }
+  },
+  { flush: "sync" },
+);
 const resolvedThreadId = computed(() => {
   if (propIsAuthoritative.value) return props.threadId as string;
   if (activeThreadOverride.value) return activeThreadOverride.value.threadId;
   if (props.threadId) return props.threadId;
   if (parentConfigValue.value?.threadId)
     return parentConfigValue.value.threadId;
-  return fallbackThreadId;
+  return fallbackThreadId.value;
 });
 
 const resolvedHasExplicitThreadId = computed(() => {
@@ -95,12 +109,21 @@ const resolvedSetModalOpen = computed(() =>
     : parentConfigValue.value?.setModalOpen,
 );
 
+// Active-thread setters. A provider whose own `threadId` prop pins the thread
+// no-ops + warns. Past that guard, a `forwardThreadSwitching` provider (the
+// ones CopilotChat and the chat modals render) hands the switch to the
+// provider above, where the chat's thread comes from.
 function setActiveThreadId(threadId: string, options?: { explicit?: boolean }) {
   if (propIsAuthoritative.value) {
     console.warn(
       "[CopilotKit] Ignoring setActiveThreadId(): threadId is controlled " +
         "via the `threadId` prop on CopilotChatConfigurationProvider.",
     );
+    return;
+  }
+  const parent = parentConfigValue.value;
+  if (props.forwardThreadSwitching && parent) {
+    parent.setActiveThreadId(threadId, options);
     return;
   }
   activeThreadOverride.value = {
@@ -115,6 +138,11 @@ function startNewThread() {
       "[CopilotKit] Ignoring startNewThread(): threadId is controlled via " +
         "the `threadId` prop on CopilotChatConfigurationProvider.",
     );
+    return;
+  }
+  const parent = parentConfigValue.value;
+  if (props.forwardThreadSwitching && parent) {
+    parent.startNewThread();
     return;
   }
   activeThreadOverride.value = { threadId: randomUUID(), explicit: false };
@@ -197,6 +225,8 @@ const configurationValue = computed<CopilotChatConfigurationValue>(() => ({
   setDrawerOpen: resolvedSetDrawerOpen.value,
   drawerRegistered: resolvedDrawerRegistered.value,
   registerDrawer: resolvedRegisterDrawer.value,
+  // A nested provider inside a modal-hosted drawer scope keeps the overlay flag.
+  ...(parentConfigValue.value?.ɵdrawerOverlay ? { ɵdrawerOverlay: true } : {}),
   setActiveThreadId,
   startNewThread,
 }));

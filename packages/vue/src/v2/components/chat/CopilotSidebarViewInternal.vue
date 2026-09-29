@@ -13,6 +13,8 @@ import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfi
 import CopilotChatToggleButton from "./CopilotChatToggleButton.vue";
 import CopilotChatView from "./CopilotChatView.vue";
 import CopilotModalHeader from "./CopilotModalHeader.vue";
+import CopilotThreadsDrawer from "./CopilotThreadsDrawer.vue";
+import { ModalThreadsDrawerHost } from "./modal-threads-drawer";
 import type {
   CopilotChatFeatherSlotProps,
   CopilotChatMessageViewSlotProps,
@@ -23,6 +25,8 @@ import type {
   CopilotSidebarWelcomeScreenSuggestionViewSlotProps,
   CopilotSidebarViewHeaderSlotProps,
   CopilotSidebarViewProps,
+  CopilotModalThreadsDrawerSlotProps,
+  CopilotThreadsDrawerProps,
   CopilotSidebarViewToggleButtonSlotProps,
 } from "./types";
 
@@ -32,7 +36,12 @@ const DEFAULT_SIDEBAR_WIDTH = 480;
 const SIDEBAR_TRANSITION_MS = 260;
 
 const props = withDefaults(
-  defineProps<Omit<CopilotSidebarViewProps, "defaultOpen">>(),
+  defineProps<
+    Omit<CopilotSidebarViewProps, "defaultOpen" | "threadsDrawer"> & {
+      /** Resolved `threadsDrawer` props, or `null` when the drawer is off. */
+      drawerProps?: CopilotThreadsDrawerProps | null;
+    }
+  >(),
   {
     messages: () => [],
     autoScroll: true,
@@ -40,15 +49,21 @@ const props = withDefaults(
     suggestions: () => [],
     suggestionLoadingIndexes: () => [],
     welcomeScreen: true,
+    introAnimation: true,
+    inlineCursor: undefined,
+    userMessageMarkdown: true,
     inputValue: undefined,
     inputMode: "input",
     inputToolsMenu: () => [],
+    inputHighlightMarkdown: true,
     width: undefined,
     onFinishTranscribeWithAudio: undefined,
+    drawerProps: null,
   },
 );
 
 defineSlots<{
+  "threads-drawer"?: (props: CopilotModalThreadsDrawerSlotProps) => unknown;
   header?: (props: CopilotSidebarViewHeaderSlotProps) => unknown;
   "toggle-button"?: (props: CopilotSidebarViewToggleButtonSlotProps) => unknown;
   "message-view"?: (props: CopilotChatMessageViewSlotProps) => unknown;
@@ -82,6 +97,21 @@ const emit = defineEmits<{
 const attrs = useAttrs();
 const config = useCopilotChatConfiguration();
 
+// What a `threads-drawer` slot that replaces the default drawer works with.
+const drawerSlotProps = computed<CopilotModalThreadsDrawerSlotProps>(() => {
+  const setOpen = (open: boolean) => config.value?.setDrawerOpen?.(open);
+  const isOpen = config.value?.drawerOpen ?? false;
+  return {
+    isOpen,
+    open: () => setOpen(true),
+    close: () => setOpen(false),
+    toggle: () => setOpen(!isOpen),
+    threadId: config.value?.threadId,
+    selectThread: (threadId) => config.value?.setActiveThreadId(threadId),
+    startNewThread: () => config.value?.startNewThread(),
+  };
+});
+
 const sidebarRef = ref<HTMLElement | null>(null);
 const measuredSidebarWidth = ref<number | string>(
   props.width ?? DEFAULT_SIDEBAR_WIDTH,
@@ -89,6 +119,27 @@ const measuredSidebarWidth = ref<number | string>(
 let resizeObserver: ResizeObserver | null = null;
 
 const isSidebarOpen = computed(() => config.value?.isModalOpen ?? false);
+// The sidebar stays mounted while closed, so the welcome screen's intro plays
+// each time it opens.
+const playIntro = computed(
+  () => isSidebarOpen.value && props.introAnimation !== false,
+);
+
+// Escape closes an open in-sidebar drawer even when focus sits outside it
+// (the drawer handles Escape itself while it holds focus).
+const drawerOverlayOpen = computed(
+  () => props.drawerProps !== null && (config.value?.drawerOpen ?? false),
+);
+watch(drawerOverlayOpen, (open, _previous, onCleanup) => {
+  if (!open || typeof window === "undefined") return;
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    config.value?.setDrawerOpen(false);
+  };
+  window.addEventListener("keydown", handleKeyDown);
+  onCleanup(() => window.removeEventListener("keydown", handleKeyDown));
+});
 const resolvedSidebarWidth = computed(
   () => props.width ?? measuredSidebarWidth.value,
 );
@@ -99,7 +150,7 @@ const headerTitle = computed(
 );
 const asideClass = computed(() => [
   "cpk:fixed cpk:right-0 cpk:top-0 cpk:z-[1200] cpk:flex cpk:h-[100vh] cpk:h-[100dvh] cpk:max-h-screen cpk:w-full",
-  "cpk:border-l cpk:border-border cpk:bg-background cpk:text-foreground cpk:shadow-xl",
+  "cpk:border-l cpk:border-border cpk:bg-background cpk:text-foreground cpk:shadow-[0_0_48px_-16px_rgb(0_0_0/0.20)]",
   "cpk:transition-transform cpk:duration-300 cpk:ease-out",
   isSidebarOpen.value
     ? "cpk:translate-x-0"
@@ -302,9 +353,15 @@ onBeforeUnmount(() => {
           :suggestions="suggestions"
           :suggestion-loading-indexes="suggestionLoadingIndexes"
           :welcome-screen="welcomeScreen"
+          :intro-animation="playIntro"
+          :inline-cursor="inlineCursor"
+          :assistant-message-toolbar-scope="assistantMessageToolbarScope"
+          :user-message-markdown="userMessageMarkdown"
           :input-value="inputValue"
           :input-mode="inputMode"
           :input-tools-menu="inputToolsMenu"
+          :input-layout="inputLayout"
+          :input-highlight-markdown="inputHighlightMarkdown"
           :on-finish-transcribe-with-audio="onFinishTranscribeWithAudio"
           v-bind="chatViewEventProps"
         >
@@ -348,5 +405,15 @@ onBeforeUnmount(() => {
         </CopilotChatView>
       </div>
     </div>
+    <ModalThreadsDrawerHost v-if="drawerProps">
+      <!-- Not the slot's fallback: that also shows when a closed replacement
+           renders nothing. -->
+      <slot
+        v-if="$slots['threads-drawer']"
+        name="threads-drawer"
+        v-bind="drawerSlotProps"
+      />
+      <CopilotThreadsDrawer v-else v-bind="drawerProps" />
+    </ModalThreadsDrawerHost>
   </aside>
 </template>

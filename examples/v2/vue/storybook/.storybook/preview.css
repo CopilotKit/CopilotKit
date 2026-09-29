@@ -1,13 +1,513 @@
-html.dark {
-  background-color: #212121;
+/*
+ * The Storybook preview plays the part of a host app with shadcn-style tokens
+ * on :root/.dark. CopilotKit's components bring their own `cpk:`-prefixed CSS
+ * scoped under [data-copilotkit], so anything that looks right here looks
+ * right in an app.
+ *
+ * Host content is styled with the plain classes below rather than Tailwind
+ * utilities: CopilotKit only generates `cpk:`-prefixed classes, so unprefixed
+ * utilities in stories would never be emitted.
+ *
+ * The token values mirror CopilotKit's defaults so the canvas matches the
+ * component surfaces in both themes.
+ */
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --story-font:
+    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
+  --story-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
 }
 
-html.dark body {
-  background-color: #212121;
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --ring: oklch(0.556 0 0);
 }
 
-html.dark .docs-story,
-html.dark .sb-show-main,
-html.dark .sb-main-padded {
-  background-color: #212121;
+html,
+body,
+.sb-show-main,
+.docs-story {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+body {
+  font-family: var(--story-font);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * A host app's reset. CopilotSidebar docks by pushing the page aside with a
+ * plain `body { margin-inline-end }` rule, which wins over this. Storybook's
+ * layout classes zero the body margin with class specificity instead, so the
+ * sidebar stories use `layout: "none"` and rely on this reset.
+ */
+body {
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Story layouts (see stories/support/layouts.ts)
+ * ------------------------------------------------------------------------- */
+
+.story-column {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+.story-stage {
+  box-sizing: border-box;
+  display: flex;
+  min-height: 360px;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.story-stage > * {
+  width: 100%;
+  max-width: 42rem;
+}
+
+.story-full {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* A composer-shaped frame (CopilotChatAttachmentQueue stories). */
+.story-composer-frame {
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.story-composer-frame__placeholder {
+  margin: 0;
+  padding: 4px 16px 12px;
+  font-size: 14px;
+  color: var(--muted-foreground);
+}
+
+/* Side-by-side fixed-width columns (CopilotChatInput/ContainerWidths). */
+.story-widths {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 24px;
+}
+
+.story-widths-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.story-widths-label {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+
+.story-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.story-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.story-caption {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.story-label {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+/* ---------------------------------------------------------------------------
+ * Mock host app (stories/support/HostPage.vue)
+ * ------------------------------------------------------------------------- */
+
+.host-page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--story-font);
+}
+
+.host-page__header {
+  display: flex;
+  height: 56px;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+}
+
+.host-page__logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--primary);
+}
+
+.host-page__brand {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.host-page__nav {
+  display: flex;
+  gap: 20px;
+  margin-left: 24px;
+  font-size: 14px;
+  color: var(--muted-foreground);
+}
+
+.host-page__nav-active {
+  color: var(--foreground);
+}
+
+.host-page__main {
+  box-sizing: border-box;
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+.host-page__title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+}
+
+.host-page__lede {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--muted-foreground);
+}
+
+.host-page__grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+@media (min-width: 640px) {
+  .host-page__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.host-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--card-foreground);
+  padding: 16px;
+}
+
+.host-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.host-card__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.host-card__meta {
+  margin: 24px 0 0;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.host-badge {
+  border-radius: 999px;
+  background: var(--muted);
+  padding: 2px 8px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+ * Demo controls used in slot / customization stories
+ * ------------------------------------------------------------------------- */
+
+.story-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  padding: 0 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 150ms;
+}
+
+.story-button:hover {
+  background: var(--accent);
+}
+
+.story-button--primary {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.story-button--primary:hover {
+  background: var(--primary);
+  opacity: 0.85;
+}
+
+.story-icon-button {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted-foreground);
+  padding: 0;
+  font-size: 15px;
+  cursor: pointer;
+  transition:
+    background-color 150ms,
+    color 150ms;
+}
+
+.story-icon-button:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.story-panel {
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--card-foreground);
+  padding: 16px;
+  font-size: 14px;
+}
+
+.story-panel__title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.story-log {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  font-family: var(--story-mono);
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.story-log li + li {
+  margin-top: 4px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Story-only tool call renderers (stories/support/ToolCard.vue)
+ * ------------------------------------------------------------------------- */
+
+.story-tool {
+  box-sizing: border-box;
+  margin: 8px 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--card-foreground);
+  padding: 16px;
+  font-size: 14px;
+}
+
+.story-tool__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.story-tool__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.story-tool__icon {
+  display: flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.story-tool__icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.story-tool__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.story-tool__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--foreground);
+}
+
+.story-tool__dot--running {
+  background: var(--muted-foreground);
+  animation: story-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes story-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.story-tool__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.story-tool__body p {
+  margin: 0;
+}
+
+.story-tool__muted {
+  color: var(--muted-foreground);
+}
+
+.story-tool__strong {
+  color: var(--foreground);
+}
+
+.story-tool__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.story-tool__result {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  color: var(--muted-foreground);
+}
+
+.story-tool__equation {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.story-tool__expression {
+  font-family: var(--story-mono);
+  color: var(--muted-foreground);
+}
+
+.story-tool__answer {
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.story-tool__counters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.story-tool__counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }

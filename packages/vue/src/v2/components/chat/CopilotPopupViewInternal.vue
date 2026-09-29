@@ -13,6 +13,8 @@ import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfi
 import CopilotChatToggleButton from "./CopilotChatToggleButton.vue";
 import CopilotChatView from "./CopilotChatView.vue";
 import CopilotModalHeader from "./CopilotModalHeader.vue";
+import CopilotThreadsDrawer from "./CopilotThreadsDrawer.vue";
+import { ModalThreadsDrawerHost } from "./modal-threads-drawer";
 import type {
   CopilotChatFeatherSlotProps,
   CopilotChatMessageViewSlotProps,
@@ -21,6 +23,8 @@ import type {
   CopilotChatWelcomeScreenSlotProps,
   CopilotPopupViewHeaderSlotProps,
   CopilotPopupViewProps,
+  CopilotModalThreadsDrawerSlotProps,
+  CopilotThreadsDrawerProps,
   CopilotPopupViewToggleButtonSlotProps,
   CopilotSidebarWelcomeScreenInputSlotProps,
   CopilotSidebarWelcomeScreenSuggestionViewSlotProps,
@@ -33,7 +37,12 @@ const DEFAULT_POPUP_HEIGHT = 560;
 const POPUP_ANIMATION_MS = 200;
 
 const props = withDefaults(
-  defineProps<Omit<CopilotPopupViewProps, "defaultOpen">>(),
+  defineProps<
+    Omit<CopilotPopupViewProps, "defaultOpen" | "threadsDrawer"> & {
+      /** Resolved `threadsDrawer` props, or `null` when the drawer is off. */
+      drawerProps?: CopilotThreadsDrawerProps | null;
+    }
+  >(),
   {
     messages: () => [],
     autoScroll: true,
@@ -41,17 +50,23 @@ const props = withDefaults(
     suggestions: () => [],
     suggestionLoadingIndexes: () => [],
     welcomeScreen: true,
+    introAnimation: true,
+    inlineCursor: undefined,
+    userMessageMarkdown: true,
     inputValue: undefined,
     inputMode: "input",
     inputToolsMenu: () => [],
+    inputHighlightMarkdown: true,
     width: undefined,
     height: undefined,
     clickOutsideToClose: false,
     onFinishTranscribeWithAudio: undefined,
+    drawerProps: null,
   },
 );
 
 defineSlots<{
+  "threads-drawer"?: (props: CopilotModalThreadsDrawerSlotProps) => unknown;
   header?: (props: CopilotPopupViewHeaderSlotProps) => unknown;
   "toggle-button"?: (props: CopilotPopupViewToggleButtonSlotProps) => unknown;
   "message-view"?: (props: CopilotChatMessageViewSlotProps) => unknown;
@@ -84,6 +99,21 @@ const emit = defineEmits<{
 
 const attrs = useAttrs();
 const config = useCopilotChatConfiguration();
+
+// What a `threads-drawer` slot that replaces the default drawer works with.
+const drawerSlotProps = computed<CopilotModalThreadsDrawerSlotProps>(() => {
+  const setOpen = (open: boolean) => config.value?.setDrawerOpen?.(open);
+  const isOpen = config.value?.drawerOpen ?? false;
+  return {
+    isOpen,
+    open: () => setOpen(true),
+    close: () => setOpen(false),
+    toggle: () => setOpen(!isOpen),
+    threadId: config.value?.threadId,
+    selectThread: (threadId) => config.value?.setActiveThreadId(threadId),
+    startNewThread: () => config.value?.startNewThread(),
+  };
+});
 
 const containerRef = ref<HTMLElement | null>(null);
 const isRendered = ref(config.value?.isModalOpen ?? false);
@@ -249,6 +279,12 @@ watch(
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
+        // An open in-popup drawer takes Escape first; the next Escape closes
+        // the popup.
+        if (props.drawerProps && config.value?.drawerOpen) {
+          config.value.setDrawerOpen(false);
+          return;
+        }
         closePopup();
       }
     };
@@ -367,7 +403,7 @@ onBeforeUnmount(() => {
         'cpk:rounded-none cpk:border cpk:border-border/0 cpk:shadow-none cpk:ring-0',
         'cpk:md:h-[var(--copilot-popup-height)] cpk:md:w-[var(--copilot-popup-width)]',
         'cpk:md:max-h-[var(--copilot-popup-max-height)] cpk:md:max-w-[var(--copilot-popup-max-width)]',
-        'cpk:md:origin-bottom-right cpk:md:rounded-2xl cpk:md:border-border cpk:md:shadow-xl cpk:md:ring-1 cpk:md:ring-border/40',
+        'cpk:md:origin-bottom-right cpk:md:rounded-2xl cpk:md:border-border cpk:md:shadow-[0_2px_6px_-1px_rgb(0_0_0/0.06),0_24px_64px_-12px_rgb(0_0_0/0.22)]',
         popupAnimationClass,
       ]"
       :style="popupStyle"
@@ -389,9 +425,15 @@ onBeforeUnmount(() => {
           :suggestions="suggestions"
           :suggestion-loading-indexes="suggestionLoadingIndexes"
           :welcome-screen="welcomeScreen"
+          :intro-animation="introAnimation"
+          :inline-cursor="inlineCursor"
+          :assistant-message-toolbar-scope="assistantMessageToolbarScope"
+          :user-message-markdown="userMessageMarkdown"
           :input-value="inputValue"
           :input-mode="inputMode"
           :input-tools-menu="inputToolsMenu"
+          :input-layout="inputLayout"
+          :input-highlight-markdown="inputHighlightMarkdown"
           :on-finish-transcribe-with-audio="onFinishTranscribeWithAudio"
           v-bind="chatViewBindings"
         >
@@ -434,6 +476,16 @@ onBeforeUnmount(() => {
           </template>
         </CopilotChatView>
       </div>
+      <ModalThreadsDrawerHost v-if="drawerProps">
+        <!-- Not the slot's fallback: that also shows when a closed replacement
+             renders nothing. -->
+        <slot
+          v-if="$slots['threads-drawer']"
+          name="threads-drawer"
+          v-bind="drawerSlotProps"
+        />
+        <CopilotThreadsDrawer v-else v-bind="drawerProps" />
+      </ModalThreadsDrawerHost>
     </div>
   </div>
 </template>

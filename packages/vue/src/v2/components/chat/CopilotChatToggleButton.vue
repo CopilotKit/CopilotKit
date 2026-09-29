@@ -34,9 +34,10 @@ const ariaLabel = computed(() =>
 );
 const buttonClass = computed(() => [
   "cpk:fixed cpk:bottom-6 cpk:right-6 cpk:z-[1100] cpk:flex cpk:h-14 cpk:w-14 cpk:items-center cpk:justify-center",
-  "cpk:rounded-full cpk:border cpk:border-primary cpk:bg-primary cpk:text-primary-foreground",
-  "cpk:shadow-sm cpk:transition-all cpk:duration-200 cpk:ease-out",
-  "cpk:hover:scale-[1.04] cpk:hover:shadow-md cpk:cursor-pointer cpk:active:scale-[0.96]",
+  "cpk:rounded-full cpk:bg-primary cpk:text-primary-foreground",
+  "cpk:shadow-[0_1px_2px_0_rgb(0_0_0/0.10),0_8px_24px_-6px_rgb(0_0_0/0.25)] cpk:ring-1 cpk:ring-foreground/5",
+  "cpk:transition-[transform,box-shadow] cpk:duration-200 cpk:ease-out",
+  "cpk:hover:scale-[1.04] cpk:hover:shadow-[0_2px_4px_0_rgb(0_0_0/0.12),0_12px_32px_-8px_rgb(0_0_0/0.30)] cpk:cursor-pointer cpk:active:scale-[0.96]",
   "cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-primary/50 cpk:focus-visible:ring-offset-2 cpk:focus-visible:ring-offset-background",
   "cpk:disabled:pointer-events-none cpk:disabled:opacity-60",
   attrs.class,
@@ -46,7 +47,7 @@ const buttonAttrs = computed(() => {
   return rest;
 });
 
-const iconClass = "cpk:h-6 cpk:w-6";
+const iconClass = "cpk:size-6";
 const iconTransitionStyle = Object.freeze({
   transition:
     "opacity 120ms ease-out, transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",

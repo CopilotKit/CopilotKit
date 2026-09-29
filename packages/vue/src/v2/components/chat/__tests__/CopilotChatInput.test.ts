@@ -667,8 +667,8 @@ describe("CopilotChatInput", () => {
     mockLayoutMetrics(container);
 
     const textarea = screen.getByRole("textbox");
-    expect(textarea.className).toContain("pr-5");
-    expect(textarea.className).not.toContain("px-5");
+    expect(textarea.className).toContain("pr-3");
+    expect(textarea.className).not.toContain("px-3");
 
     await fireEvent.input(textarea, {
       target: {
@@ -678,8 +678,8 @@ describe("CopilotChatInput", () => {
     });
 
     await waitFor(() => {
-      expect(textarea.className).toContain("px-5");
-      expect(textarea.className).not.toContain("pr-5");
+      expect(textarea.className).toContain("px-3");
+      expect(textarea.className).not.toContain("pr-3");
     });
   });
 
@@ -1081,5 +1081,115 @@ describe("CopilotChatInput", () => {
 
       expect(input.value).toBe("部分");
     });
+  });
+});
+
+describe("CopilotChatInput layout prop", () => {
+  const layoutOf = (textarea: HTMLElement) =>
+    (textarea.closest("[data-layout]") as HTMLElement).getAttribute(
+      "data-layout",
+    );
+
+  it("keeps a single row in narrow inputs while the text fits", async () => {
+    const { container } = renderWithProvider({
+      listeners: { onSubmitMessage: mockOnSubmitMessage },
+    });
+    mockLayoutMetrics(container, { gridWidth: 360 });
+    const textarea = screen.getByRole("textbox");
+    await fireEvent.update(textarea, "hi");
+    await waitFor(() => expect(layoutOf(textarea)).toBe("compact"));
+  });
+
+  it('always stacks with layout="stacked"', async () => {
+    const { container } = renderWithProvider({
+      props: { layout: "stacked" },
+      listeners: { onSubmitMessage: mockOnSubmitMessage },
+    });
+    mockLayoutMetrics(container, { gridWidth: 900 });
+    const textarea = screen.getByRole("textbox");
+    await fireEvent.update(textarea, "hi");
+    await waitFor(() => expect(layoutOf(textarea)).toBe("expanded"));
+  });
+
+  it("folds voice input into the + menu in very narrow inputs", async () => {
+    const { container } = renderWithProvider({
+      listeners: {
+        onSubmitMessage: mockOnSubmitMessage,
+        onStartTranscribe: () => {},
+      },
+    });
+    expect(
+      screen.getByTestId("copilot-chat-input-start-transcribe"),
+    ).toBeDefined();
+
+    mockLayoutMetrics(container, { gridWidth: 280 });
+    await fireEvent.update(screen.getByRole("textbox"), "hi");
+
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId("copilot-chat-input-start-transcribe"),
+      ).toBeNull(),
+    );
+    // The + menu now has an item, so it's enabled even without onAddFile.
+    expect(getAddMenuButton().disabled).toBe(false);
+  });
+
+  it("keeps a custom start-transcribe-button in the toolbar in very narrow inputs", async () => {
+    const { container } = renderWithProvider({
+      template: `
+        <CopilotChatConfigurationProvider :thread-id="TEST_THREAD_ID">
+          <CopilotChatInput @submit-message="() => {}" @start-transcribe="() => {}">
+            <template #start-transcribe-button="{ onClick }">
+              <button data-testid="custom-mic" @click="onClick">Mic</button>
+            </template>
+          </CopilotChatInput>
+        </CopilotChatConfigurationProvider>
+      `,
+    });
+
+    mockLayoutMetrics(container, { gridWidth: 280 });
+    await fireEvent.update(screen.getByRole("textbox"), "hi");
+    await waitFor(() =>
+      expect(document.querySelector("[data-layout]")).not.toBeNull(),
+    );
+
+    expect(screen.getByTestId("custom-mic")).toBeDefined();
+    // Nothing folded into the + menu, so it stays disabled without onAddFile.
+    expect(getAddMenuButton().disabled).toBe(true);
+  });
+});
+
+describe("CopilotChatInput markdown preview", () => {
+  const preview = () =>
+    screen.getByTestId("copilot-chat-input-textarea-preview");
+
+  it("hides the textarea's glyphs without touching its text color", () => {
+    renderWithProvider();
+    const textarea = screen.getByRole("textbox");
+    expect(textarea.classList).toContain("cpk-md-input");
+    expect(textarea.classList).not.toContain("cpk:text-transparent");
+  });
+
+  it("copies the textarea's typography and text color onto the preview", async () => {
+    renderWithProvider();
+    const textarea = screen.getByRole("textbox");
+    // What host CSS restyling the textarea would do.
+    Object.assign(textarea.style, {
+      fontSize: "13px",
+      lineHeight: "20px",
+      letterSpacing: "0.5px",
+      paddingLeft: "20px",
+      tabSize: "2",
+      color: "rgb(200, 0, 0)",
+    });
+
+    await fireEvent.update(textarea, "- item");
+
+    await waitFor(() => expect(preview().style.fontSize).toBe("13px"));
+    expect(preview().style.lineHeight).toBe("20px");
+    expect(preview().style.letterSpacing).toBe("0.5px");
+    expect(preview().style.paddingLeft).toBe("20px");
+    expect(preview().style.getPropertyValue("tab-size")).toBe("2");
+    expect(preview().style.color).toBe("rgb(200, 0, 0)");
   });
 });

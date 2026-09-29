@@ -351,6 +351,185 @@ describe("CopilotChatConfiguration active-thread setters", () => {
   });
 });
 
+/** A provider nested in another; returns the outer and inner configurations. */
+function nestedHarness(
+  outerProps: Record<string, unknown>,
+  innerProps: Record<string, unknown>,
+) {
+  let outer!: ReturnType<typeof useCopilotChatConfiguration>;
+  let inner!: ReturnType<typeof useCopilotChatConfiguration>;
+  const OuterProbe = defineComponent({
+    setup(_, { slots }) {
+      outer = useCopilotChatConfiguration();
+      return () => slots.default?.();
+    },
+  });
+  const InnerProbe = defineComponent({
+    setup() {
+      inner = useCopilotChatConfiguration();
+      return () => h("div", inner.value?.threadId ?? "none");
+    },
+  });
+  mount(CopilotChatConfigurationProvider, {
+    props: outerProps,
+    slots: {
+      default: () =>
+        h(OuterProbe, null, {
+          default: () =>
+            h(CopilotChatConfigurationProvider, innerProps, {
+              default: () => h(InnerProbe),
+            }),
+        }),
+    },
+  });
+  return { outer: () => outer.value!, inner: () => inner.value! };
+}
+
+describe("CopilotChatConfiguration active-thread setters in a nested chain", () => {
+  it("a set from an uncontrolled child under a non-explicit seed parent switches the thread", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { inner } = nestedHarness(
+      { threadId: "auto-minted-seed", hasExplicitThreadId: false },
+      {},
+    );
+    expect(inner().threadId).toBe("auto-minted-seed");
+
+    inner().setActiveThreadId("picked-thread");
+    await nextTick();
+
+    expect(inner().threadId).toBe("picked-thread");
+    expect(inner().hasExplicitThreadId).toBe(true);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("a nested provider you add keeps its own thread", async () => {
+    const { outer, inner } = nestedHarness({}, {});
+    const outerThread = outer().threadId;
+
+    inner().setActiveThreadId("picked-thread");
+    await nextTick();
+    expect(inner().threadId).toBe("picked-thread");
+    expect(outer().threadId).toBe(outerThread);
+
+    inner().startNewThread();
+    await nextTick();
+    expect(inner().threadId).not.toBe("picked-thread");
+    expect(outer().threadId).toBe(outerThread);
+  });
+
+  it("a nested non-explicit seed wins over the parent's thread", () => {
+    const { inner } = nestedHarness(
+      { threadId: "outer-thread" },
+      { threadId: "inner-seed", hasExplicitThreadId: false },
+    );
+    expect(inner().threadId).toBe("inner-seed");
+  });
+
+  it("sibling providers switch threads independently", async () => {
+    let first!: ReturnType<typeof useCopilotChatConfiguration>;
+    let second!: ReturnType<typeof useCopilotChatConfiguration>;
+    const probe = (assign: (cfg: typeof first) => void) =>
+      defineComponent({
+        setup() {
+          const cfg = useCopilotChatConfiguration();
+          assign(cfg);
+          return () => h("div", cfg.value?.threadId);
+        },
+      });
+    const First = probe((cfg) => (first = cfg));
+    const Second = probe((cfg) => (second = cfg));
+    mount(CopilotChatConfigurationProvider, {
+      props: { threadId: "page-seed", hasExplicitThreadId: false },
+      slots: {
+        default: () => [
+          h(CopilotChatConfigurationProvider, null, {
+            default: () => h(First),
+          }),
+          h(CopilotChatConfigurationProvider, null, {
+            default: () => h(Second),
+          }),
+        ],
+      },
+    });
+
+    first.value!.setActiveThreadId("first-thread");
+    await nextTick();
+    expect(first.value!.threadId).toBe("first-thread");
+    expect(second.value!.threadId).toBe("page-seed");
+
+    second.value!.startNewThread();
+    await nextTick();
+    expect(first.value!.threadId).toBe("first-thread");
+    expect(second.value!.threadId).not.toBe("page-seed");
+  });
+
+  it("a forwardThreadSwitching child switches the thread of the provider above", async () => {
+    // CopilotChat's own provider: a derived, non-explicit threadId under the
+    // provider that owns the thread.
+    const { outer, inner } = nestedHarness(
+      {},
+      {
+        threadId: "derived",
+        hasExplicitThreadId: false,
+        forwardThreadSwitching: true,
+      },
+    );
+
+    inner().setActiveThreadId("picked-thread");
+    await nextTick();
+    expect(outer().threadId).toBe("picked-thread");
+    expect(outer().hasExplicitThreadId).toBe(true);
+    expect(inner().hasExplicitThreadId).toBe(true);
+
+    inner().startNewThread();
+    await nextTick();
+    expect(outer().threadId).not.toBe("picked-thread");
+    expect(outer().hasExplicitThreadId).toBe(false);
+  });
+
+  it("a set from inside a controlled nested provider no-ops + warns", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { inner } = nestedHarness(
+      {},
+      { threadId: "pinned-inner", forwardThreadSwitching: true },
+    );
+
+    inner().setActiveThreadId("ignored");
+    inner().startNewThread();
+    await nextTick();
+
+    expect(inner().threadId).toBe("pinned-inner");
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+});
+
+describe("CopilotChatConfiguration threadId prop", () => {
+  it("starts a fresh thread when the threadId prop is cleared", async () => {
+    let cfg!: ReturnType<typeof useCopilotChatConfiguration>;
+    const Probe = defineComponent({
+      setup() {
+        cfg = useCopilotChatConfiguration();
+        return () => h("div", cfg.value?.threadId);
+      },
+    });
+    const wrapper = mount(CopilotChatConfigurationProvider, {
+      props: { threadId: undefined as string | undefined },
+      slots: { default: () => h(Probe) },
+    });
+    const mountThread = cfg.value!.threadId;
+
+    await wrapper.setProps({ threadId: "chosen" });
+    expect(cfg.value!.threadId).toBe("chosen");
+
+    await wrapper.setProps({ threadId: undefined });
+    expect(cfg.value!.threadId).not.toBe("chosen");
+    expect(cfg.value!.threadId).not.toBe(mountThread);
+    expect(cfg.value!.hasExplicitThreadId).toBe(false);
+  });
+});
+
 describe("CopilotChatConfiguration drawer-awareness", () => {
   it("registerDrawer flips drawerRegistered and cleans up", async () => {
     const cfg = harness({ isModalDefaultOpen: true });

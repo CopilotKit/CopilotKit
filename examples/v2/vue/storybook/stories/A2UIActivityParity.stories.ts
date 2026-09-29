@@ -1,37 +1,59 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { defineComponent, nextTick } from "vue";
 import type { ActivityMessage, Message } from "@ag-ui/core";
 import {
   A2UISurfaceActivityRenderer,
   A2UISurfaceActivityType,
   CopilotChatMessageView,
-  CopilotChatConfigurationProvider,
-  CopilotKitProvider,
-  useCopilotKit,
+  vueBasicCatalog,
 } from "@copilotkit/vue";
+import type { CopilotKitStoryParameters } from "../.storybook/preview";
+import { withMessageColumn } from "./support/layouts";
 
 const sampleContent = {
   operations: [
     {
-      beginRendering: {
+      version: "v0.9",
+      createSurface: {
         surfaceId: "story-surface",
-        root: "root",
+        catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json",
       },
     },
     {
-      surfaceUpdate: {
+      version: "v0.9",
+      updateComponents: {
         surfaceId: "story-surface",
         components: [
-          { id: "root", text: { literalString: "Hello from A2UI" } },
+          { id: "root", component: "Column", children: ["title", "body"] },
+          {
+            id: "title",
+            component: "Text",
+            text: "Hello from A2UI",
+            variant: "h3",
+          },
+          {
+            id: "body",
+            component: "Text",
+            text: "This surface was declared by the agent and rendered with the basic catalog.",
+            variant: "body",
+          },
         ],
       },
     },
   ],
 };
 
+const activityMessage: ActivityMessage = {
+  id: "story-activity",
+  role: "activity",
+  activityType: A2UISurfaceActivityType,
+  content: sampleContent,
+} as ActivityMessage;
+
 const meta = {
   title: "Parity/A2UI Activity",
+  decorators: [withMessageColumn],
   parameters: {
+    layout: "fullscreen",
     docs: {
       description: {
         component:
@@ -48,84 +70,42 @@ export const BuiltInRenderer: Story = {
   render: () => ({
     components: { A2UISurfaceActivityRenderer },
     setup() {
-      return {
-        sampleContent,
-      };
+      return { sampleContent, activityMessage };
     },
     template: `
-      <div style="padding: 12px; max-width: 720px;">
-        <A2UISurfaceActivityRenderer
-          activity-type="a2ui-surface"
-          :content="sampleContent"
-          :message="{ id: 'story-msg', role: 'activity', activityType: 'a2ui-surface', content: sampleContent }"
-        />
-      </div>
+      <A2UISurfaceActivityRenderer
+        :activity-type="activityMessage.activityType"
+        :content="sampleContent"
+        :message="activityMessage"
+      />
     `,
   }),
 };
 
+/**
+ * A2UI is enabled by passing a catalog to the provider; the generic
+ * `#activity-message` slot still takes precedence over the built-in renderer.
+ */
 export const ChatSlotPrecedence: Story = {
+  parameters: {
+    copilotkit: {
+      provider: { a2ui: { catalog: vueBasicCatalog } },
+    } satisfies CopilotKitStoryParameters,
+  },
   render: () => ({
-    components: {
-      CopilotKitProvider,
-      CopilotChatConfigurationProvider,
-      CopilotChatMessageView,
-    },
+    components: { CopilotChatMessageView },
     setup() {
-      const messages: Message[] = [
-        {
-          id: "story-activity",
-          role: "activity",
-          activityType: A2UISurfaceActivityType,
-          content: sampleContent,
-        } as ActivityMessage,
-      ];
-
-      const EnableRuntimeA2UI = defineComponent({
-        setup() {
-          const { copilotkit } = useCopilotKit();
-          const enable = async () => {
-            Object.defineProperty(copilotkit.value as object, "a2uiEnabled", {
-              configurable: true,
-              get: () => true,
-            });
-            const testAccess = copilotkit.value as unknown as {
-              notifySubscribers: (
-                handler: (subscriber: {
-                  onRuntimeConnectionStatusChanged?: () => void | Promise<void>;
-                }) => void | Promise<void>,
-                errorMessage: string,
-              ) => Promise<void>;
-            };
-            await testAccess.notifySubscribers(
-              (subscriber) => subscriber.onRuntimeConnectionStatusChanged?.(),
-              "storybook enable a2ui",
-            );
-            await nextTick();
-          };
-
-          void enable();
-          return () => null;
-        },
-      });
-
-      return { messages, EnableRuntimeA2UI };
+      const messages: Message[] = [activityMessage];
+      return { messages };
     },
     template: `
-      <div style="padding: 12px; max-width: 720px;">
-        <CopilotKitProvider runtime-url="/api/copilotkit">
-          <EnableRuntimeA2UI />
-          <CopilotChatConfigurationProvider thread-id="story-thread" agent-id="default">
-            <CopilotChatMessageView :messages="messages">
-              <template #activity-message>
-                <div style="padding: 8px; border: 1px solid #d1d5db; border-radius: 8px;">
-                  Generic slot overrides built-in A2UI fallback
-                </div>
-              </template>
-            </CopilotChatMessageView>
-          </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>
-      </div>
+      <CopilotChatMessageView :messages="messages">
+        <template #activity-message>
+          <div class="story-panel">
+            Generic slot overrides built-in A2UI fallback
+          </div>
+        </template>
+      </CopilotChatMessageView>
     `,
   }),
 };

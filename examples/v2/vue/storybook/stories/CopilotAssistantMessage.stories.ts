@@ -1,13 +1,14 @@
 import type { AssistantMessage } from "@ag-ui/core";
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import {
-  CopilotChatAssistantMessage,
-  CopilotChatConfigurationProvider,
-  CopilotKitProvider,
-} from "@copilotkit/vue";
+import { CopilotChatAssistantMessage } from "@copilotkit/vue";
+import { withMessageColumn } from "./support/layouts";
 
 const createAlertHandler = (message: string) => () => window.alert(message);
 const createLogHandler = (message: string) => () => console.log(message);
+
+// Markdown images must be http(s); Storybook's own favicon keeps the sample
+// same-origin, so the story makes no external request.
+const sameOriginImage = new URL("favicon.svg", window.location.href).href;
 
 const simpleMessage: AssistantMessage = {
   id: "simple-message",
@@ -85,7 +86,7 @@ Here's some \`inline code\` that should not have a copy button. You can also hav
 ## Links and Images
 - [External link](https://example.com)
 - [Internal link](#section)
-- ![Alt text](https://picsum.photos/150/100)
+- ![Storybook logo](${sameOriginImage})
 
 ## Blockquotes
 > This is a blockquote
@@ -287,12 +288,9 @@ const codeBlocksMessage: AssistantMessage = {
 const meta = {
   title: "UI/CopilotChatAssistantMessage",
   component: CopilotChatAssistantMessage,
+  decorators: [withMessageColumn],
   render: (args) => ({
-    components: {
-      CopilotKitProvider,
-      CopilotChatConfigurationProvider,
-      CopilotChatAssistantMessage,
-    },
+    components: { CopilotChatAssistantMessage },
     setup() {
       return {
         args,
@@ -305,22 +303,14 @@ const meta = {
       };
     },
     template: `
-      <div style="display:flex; justify-content:center; align-items:flex-start; min-height:100vh; padding:16px">
-        <div style="width:100%; max-width:640px">
-          <CopilotKitProvider runtime-url="https://copilotkit.ai">
-            <CopilotChatConfigurationProvider thread-id="storybook-thread">
-              <CopilotChatAssistantMessage
-                v-bind="args"
-                :messages="[args.message]"
-                @thumbs-up="handleThumbsUp"
-                @thumbs-down="handleThumbsDown"
-                @read-aloud="handleReadAloud"
-                @regenerate="handleRegenerate"
-              />
-            </CopilotChatConfigurationProvider>
-          </CopilotKitProvider>
-        </div>
-      </div>
+      <CopilotChatAssistantMessage
+        v-bind="args"
+        :messages="[args.message]"
+        @thumbs-up="handleThumbsUp"
+        @thumbs-down="handleThumbsDown"
+        @read-aloud="handleReadAloud"
+        @regenerate="handleRegenerate"
+      />
     `,
   }),
   args: {
@@ -344,11 +334,7 @@ export const WithToolbarButtons: Story = {
     message: simpleMessage,
   },
   render: (args: Story["args"]) => ({
-    components: {
-      CopilotKitProvider,
-      CopilotChatConfigurationProvider,
-      CopilotChatAssistantMessage,
-    },
+    components: { CopilotChatAssistantMessage },
     setup() {
       return {
         args,
@@ -359,33 +345,21 @@ export const WithToolbarButtons: Story = {
       };
     },
     template: `
-      <div style="display:flex; justify-content:center; align-items:flex-start; min-height:100vh; padding:16px">
-        <div style="width:100%; max-width:640px">
-          <CopilotKitProvider runtime-url="https://copilotkit.ai">
-            <CopilotChatConfigurationProvider thread-id="storybook-thread">
-              <CopilotChatAssistantMessage
-                v-bind="args"
-                :messages="[args.message]"
-                @thumbs-up="handleThumbsUp"
-                @thumbs-down="handleThumbsDown"
-                @read-aloud="handleReadAloud"
-                @regenerate="handleRegenerate"
-              />
-            </CopilotChatConfigurationProvider>
-          </CopilotKitProvider>
-        </div>
-      </div>
+      <CopilotChatAssistantMessage
+        v-bind="args"
+        :messages="[args.message]"
+        @thumbs-up="handleThumbsUp"
+        @thumbs-down="handleThumbsDown"
+        @read-aloud="handleReadAloud"
+        @regenerate="handleRegenerate"
+      />
     `,
   }),
 };
 
 export const WithAdditionalToolbarItems: Story = {
   render: (args: Story["args"]) => ({
-    components: {
-      CopilotKitProvider,
-      CopilotChatConfigurationProvider,
-      CopilotChatAssistantMessage,
-    },
+    components: { CopilotChatAssistantMessage },
     setup() {
       return {
         args,
@@ -398,41 +372,35 @@ export const WithAdditionalToolbarItems: Story = {
       };
     },
     template: `
-      <div style="display:flex; justify-content:center; align-items:flex-start; min-height:100vh; padding:16px">
-        <div style="width:100%; max-width:640px">
-          <CopilotKitProvider runtime-url="https://copilotkit.ai">
-            <CopilotChatConfigurationProvider thread-id="storybook-thread">
-              <CopilotChatAssistantMessage
-                v-bind="args"
-                :messages="[args.message]"
-                @thumbs-up="handleThumbsUp"
-                @thumbs-down="handleThumbsDown"
-                @read-aloud="handleReadAloud"
-                @regenerate="handleRegenerate"
-              >
-                <template #toolbar-items>
-                  <button
-                    type="button"
-                    class="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
-                    title="Custom Action 1"
-                    @click="onCustomButton1"
-                  >
-                    📌
-                  </button>
-                  <button
-                    type="button"
-                    class="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
-                    title="Custom Action 2"
-                    @click="onCustomButton2"
-                  >
-                    ❤️
-                  </button>
-                </template>
-              </CopilotChatAssistantMessage>
-            </CopilotChatConfigurationProvider>
-          </CopilotKitProvider>
-        </div>
-      </div>
+      <CopilotChatAssistantMessage
+        v-bind="args"
+        :messages="[args.message]"
+        @thumbs-up="handleThumbsUp"
+        @thumbs-down="handleThumbsDown"
+        @read-aloud="handleReadAloud"
+        @regenerate="handleRegenerate"
+      >
+        <template #toolbar-items>
+          <button
+            type="button"
+            class="story-icon-button"
+            title="Custom Action 1"
+            aria-label="Custom Action 1"
+            @click="onCustomButton1"
+          >
+            📌
+          </button>
+          <button
+            type="button"
+            class="story-icon-button"
+            title="Custom Action 2"
+            aria-label="Custom Action 2"
+            @click="onCustomButton2"
+          >
+            ❤️
+          </button>
+        </template>
+      </CopilotChatAssistantMessage>
     `,
   }),
   args: {
