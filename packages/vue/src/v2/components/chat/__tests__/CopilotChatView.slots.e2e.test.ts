@@ -630,6 +630,30 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       });
     });
 
+    describe("messageView -> transformMessages forwarding", () => {
+      it("forwards transformMessages through the message-view slot to a v-bound CopilotChatMessageView", () => {
+        const hideAssistant = (list: typeof sampleMessages) =>
+          list.filter((m) => m.role !== "assistant");
+        const Host = defineComponent({
+          components: { CopilotChatView, CopilotChatMessageView },
+          setup() {
+            return { sampleMessages, hideAssistant };
+          },
+          template: `
+            <CopilotChatView :messages="sampleMessages" :transform-messages="hideAssistant">
+              <template #message-view="slotProps">
+                <CopilotChatMessageView v-bind="slotProps" />
+              </template>
+            </CopilotChatView>
+          `,
+        });
+        const { container } = renderInWrapper(Host);
+        const text = container.textContent ?? "";
+        expect(text).toContain("Hello");
+        expect(text).not.toContain("Hi there!");
+      });
+    });
+
     describe("input -> textArea drill-down", () => {
       it("should allow customizing textArea within input", () => {
         const Host = defineComponent({

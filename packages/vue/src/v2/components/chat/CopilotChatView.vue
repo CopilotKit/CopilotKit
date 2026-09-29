@@ -52,6 +52,7 @@ defineSlots<{
   "message-view"?: (props: {
     messages: Message[];
     isRunning: boolean;
+    transformMessages?: (messages: Message[]) => Message[];
   }) => unknown;
   "scroll-view"?: (props: {
     messages: Message[];
@@ -591,6 +592,7 @@ onBeforeUnmount(() => {
                   name="message-view"
                   :messages="messages"
                   :is-running="isRunning"
+                  :transform-messages="transformMessages"
                 >
                   <CopilotChatMessageView
                     :messages="messages"
