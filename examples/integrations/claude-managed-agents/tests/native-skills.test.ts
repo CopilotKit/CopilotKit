@@ -47,12 +47,15 @@ function snapshot(revision = "r1") {
 /** Isolated SDK ports with all network calls captured in memory. */
 function setup() {
   const calls: { url: string; body: unknown; signal: AbortSignal }[] = [];
+  const baseSkills: { type: "anthropic"; skill_id: string; version: string }[] =
+    [];
   const uploads: { files: File[]; display_name: string }[] = [];
   let current = snapshot();
   let denied = false;
   let failUpload = false;
   const fetchSkills = createSkillsFetch({
     containerId: "learning-test",
+    agents: { retrieve: async () => ({ version: 3, skills: baseSkills }) },
     intelligence: {
       getLearnedSkillsSnapshot: async ({ containerId, signal }) => {
         assert.equal(containerId, "learning-test");
@@ -95,6 +98,7 @@ function setup() {
     );
   return {
     create,
+    baseSkills,
     fetchSkills,
     calls,
     uploads,
@@ -126,6 +130,7 @@ test("uploads every file and pins native skills while preserving session and too
     agent: {
       type: "agent_with_overrides",
       id: "agent_test",
+      version: 3,
       tools: [{ type: "custom", name: "example" }],
       skills: [{ type: "custom", skill_id: "skill_1", version: "version_1" }],
     },
@@ -175,4 +180,69 @@ test("cancellation prevents session creation", async () => {
   const s = setup();
   await assert.rejects(s.create(AbortSignal.abort()));
   assert.equal(s.calls.length, 0);
+});
+
+test("injecting learned skills preserves the agent's configured native skills", async () => {
+  const s = setup();
+  s.baseSkills.push({ type: "anthropic", skill_id: "xlsx", version: "pinned" });
+  await s.create();
+  const body = s.calls[0].body as { agent: { skills: unknown[] } };
+  assert.deepEqual(body.agent.skills, [
+    { type: "anthropic", skill_id: "xlsx", version: "pinned" },
+    { type: "custom", skill_id: "skill_1", version: "version_1" },
+  ]);
+});
+
+test("aborting a session stops waiting without cancelling a shared Skill upload", async () => {
+  let finishUpload!: (value: unknown) => void;
+  let uploadStarted!: () => void;
+  const started = new Promise<void>((resolve) => {
+    uploadStarted = resolve;
+  });
+  const pending = new Promise<unknown>((resolve) => {
+    finishUpload = resolve;
+  });
+  let uploads = 0;
+  let sessions = 0;
+  const bridge = createSkillsFetch({
+    containerId: "learning-test",
+    intelligence: { getLearnedSkillsSnapshot: async () => snapshot() },
+    agents: { retrieve: async () => ({ version: 1, skills: [] }) },
+    skills: {
+      create: () => {
+        uploads++;
+        uploadStarted();
+        return pending;
+      },
+    },
+    fetch: async () => {
+      sessions++;
+      return Response.json({ id: "session_test" });
+    },
+  });
+  const create = (signal?: AbortSignal) =>
+    bridge("https://api.anthropic.com/v1/sessions", {
+      method: "POST",
+      signal,
+      body: JSON.stringify({ agent: { type: "agent", id: "agent_test" } }),
+    });
+  const controller = new AbortController();
+  const cancelled = create(controller.signal);
+  await started;
+  const remaining = create();
+  controller.abort();
+  const outcome = await Promise.race([
+    cancelled.then(
+      () => "resolved",
+      () => "aborted",
+    ),
+    new Promise<string>((resolve) =>
+      setTimeout(() => resolve("still waiting"), 100),
+    ),
+  ]);
+  finishUpload({ id: "skill_test", latest_version_id: "v1" });
+  await Promise.allSettled([cancelled, remaining]);
+  assert.equal(outcome, "aborted");
+  assert.equal(uploads, 1);
+  assert.equal(sessions, 1);
 });

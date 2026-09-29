@@ -29,10 +29,12 @@ function createHandler() {
   const intelligence = new CopilotKitIntelligence(config.intelligence);
   const nativeClient = new Anthropic(); // SDK resolves and refreshes Ant OAuth.
   const client = new Anthropic({
+    maxRetries: 0, // Do not repeat session creation or Skill preparation on transport errors.
     fetch: createSkillsFetch({
       intelligence,
       containerId: config.containerId,
       skills: nativeClient.beta.skills,
+      agents: nativeClient.beta.agents,
     }),
   });
   const { agentId, environmentId } = requireStack();

@@ -37,7 +37,7 @@ Set `CPK_INTELLIGENCE_LEARNING_CONTAINER_ID=claude-assistant` in `.env.local`. R
 1. The runtime uses the server-configured container ID in `getLearningContainerId`. Intelligence binds new threads to that container.
 2. Before each new Managed Agents session, `lib/native-skills.ts` fetches a snapshot through the Intelligence SDK and validates the archive and file hashes.
 3. The bridge uploads each Skill directory, including binary supporting files, to Anthropic's Skills API. It attaches exact skill-version IDs through a session-local agent override.
-4. Claude receives native skills in its sandbox and loads relevant files. The shared agent resource is unchanged.
+4. Claude receives native skills in its sandbox and loads relevant files. Skills already configured on the agent remain available. The shared agent resource is unchanged.
 
 Existing sessions keep their skills for their lifetime. New chats fetch the current published snapshot. An empty container starts with no skills; unpublished candidates are never injected. A fetch, validation, or upload error stops session creation instead of quietly omitting skills.
 

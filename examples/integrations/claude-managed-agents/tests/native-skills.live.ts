@@ -67,10 +67,12 @@ const intelligence = new CopilotKitIntelligence({
 });
 const native = new Anthropic();
 const client = new Anthropic({
+  maxRetries: 0, // Do not repeat session creation or Skill preparation on transport errors.
   fetch: createSkillsFetch({
     intelligence,
     containerId: "live-proof",
     skills: native.beta.skills,
+    agents: native.beta.agents,
   }),
 });
 const agent = new ManagedAgentsAgent({

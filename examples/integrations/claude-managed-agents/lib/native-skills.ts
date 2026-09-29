@@ -6,11 +6,22 @@ import {
 } from "@copilotkit/runtime/internal/learned-skills";
 import { z } from "zod";
 
+const skillReferenceSchema = z.object({
+  type: z.enum(["custom", "anthropic"]),
+  skill_id: z.string().min(1),
+  version: z.string().min(1),
+});
+const baseAgentSchema = z.object({
+  version: z.number().int().positive(),
+  skills: z.array(skillReferenceSchema),
+});
 const sessionSchema = z
   .object({
     agent: z
       .object({
         id: z.string(),
+        version: z.number().int().positive().optional(),
+        skills: z.array(skillReferenceSchema).optional(),
         type: z.enum(["agent", "agent_with_overrides"]),
       })
       .passthrough(),
@@ -32,7 +43,33 @@ interface SkillsBridgeOptions {
       options: { signal: AbortSignal; maxRetries: number },
     ): PromiseLike<unknown>;
   };
+  agents: {
+    retrieve(
+      id: string,
+      params: { version?: number },
+      options: { signal: AbortSignal },
+    ): PromiseLike<unknown>;
+  };
   fetch?: typeof globalThis.fetch;
+}
+
+/** Stop waiting on cancellation without aborting an upload shared by other sessions. */
+function waitForUpload<T>(upload: Promise<T>, signal: AbortSignal): Promise<T> {
+  signal.throwIfAborted();
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    signal.addEventListener("abort", onAbort, { once: true });
+    upload.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
 }
 
 /**
@@ -68,7 +105,15 @@ export function createSkillsFetch(
     if (result.status !== "snapshot")
       throw new Error("Intelligence did not return Skill files.");
     const snapshot = await validateSnapshot(result, signal);
-    if (snapshot.skills.length > 500)
+    const baseAgent = baseAgentSchema.parse(
+      await options.agents.retrieve(
+        body.agent.id,
+        { version: body.agent.version },
+        { signal },
+      ),
+    );
+    const baseSkills = body.agent.skills ?? baseAgent.skills;
+    if (snapshot.skills.length + baseSkills.length > 500)
       throw new Error(
         "Managed Agents supports at most 500 skills per session.",
       );
@@ -119,11 +164,11 @@ export function createSkillsFetch(
         uploads.set(digest, upload);
         if (uploads.size > 1_000) uploads.delete(uploads.keys().next().value!);
       }
-      skills.push(await upload);
+      skills.push(await waitForUpload(upload, signal));
     }
     signal.throwIfAborted();
-    // This starter makes its configured Learning Container authoritative for
-    // session skills. The base agent's prompt, model, tools, and version survive.
+    // Preserve native skills configured on the agent. Pin the same agent version
+    // we just read so a concurrent Console edit cannot change this snapshot.
     const headers = new Headers(request.headers);
     headers.delete("content-length");
     return transport(
@@ -131,7 +176,12 @@ export function createSkillsFetch(
         headers,
         body: JSON.stringify({
           ...body,
-          agent: { ...body.agent, type: "agent_with_overrides", skills },
+          agent: {
+            ...body.agent,
+            type: "agent_with_overrides",
+            version: baseAgent.version,
+            skills: [...baseSkills, ...skills],
+          },
         }),
         signal,
       }),
