@@ -7,14 +7,12 @@ Start with two SDK components: the thread drawer and Beautiful Chat. Claude runs
 Requires Node.js 20.19+, npm, [Ant](https://github.com/anthropics/anthropic-cli), a CopilotKit Intelligence account with Learning access, and a Claude Console workspace with Managed Agents access and credits.
 
 ```bash
-npx copilotkit@latest login
-ant auth login
-npx copilotkit@latest anthropic my-claude-app --project your-project-slug
+npx copilotkit@latest init --template claude-managed-agents
 ```
 
-The `anthropic` command requires a CLI release that includes this starter. It checks both logins, clones the app, installs dependencies, creates a Learning Container and a project runtime key, and runs `ant apply`. It starts the app at <http://localhost:3000> in an interactive terminal.
+This command requires a CLI release that includes this starter. The Ink setup flow asks for an app name and an Intelligence project, guides login, and offers to install Ant with Homebrew or Go if it is missing. It clones the app, installs dependencies, creates a Learning Container and a project runtime key, and runs `ant apply`. After setup, it asks whether to start the app at <http://localhost:3000>.
 
-Use `--create "Project name"` instead of `--project` to create a project. Without either flag, the command uses the current directory's selected Intelligence project. `--no-dev` stops after setup. `--profile work` chooses an Ant profile and saves its name for later runs. `--yes` suppresses login prompts and server startup; it requires both logins already to exist. `--skip-install` still provisions resources but leaves dependency installation to you.
+Use `--name my-app` to name the directory, `--project <slug>` to select a project, or `--create "Project name"` to create one. Without project flags, interactive setup shows the project picker. `--no-dev` skips the server-start prompt. `--profile work` chooses an Ant profile and saves its name for later runs. With `--yes` or no terminal, setup requires existing logins and Ant on `PATH`, and never prompts or starts the server. In that mode, omitted project flags use the current directory's selected Intelligence project. `--skip-install` leaves app dependency installation to you. The earlier `anthropic [directory]` command remains an alias.
 
 Ant owns Anthropic OAuth credentials. The Anthropic SDK reads and refreshes them; no OAuth token is copied into the app. The CLI writes the Intelligence project key and container ID to gitignored `.env.local` with private file permissions.
 
