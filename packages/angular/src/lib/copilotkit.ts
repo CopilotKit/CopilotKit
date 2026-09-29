@@ -193,22 +193,34 @@ export class CopilotKit {
   readonly suggestionsByAgent = this.#suggestionsByAgent.asReadonly();
 
   /**
-   * The public-key header default computed once from this instance's config
+   * The public-key header default, computed once from this instance's config
    * (license key / already-present header, see `resolveLicense` in
-   * `config.ts`). Reused for every `ɵwithHeaderDefaults` call below so a
-   * header SOURCE keeps a stable wrapped identity across an unchanged config
-   * — `ɵwithHeaderDefaults` mints a new function identity on each call for a
-   * function source, and calling it with a fresh `defaults` object every
-   * time would look like a new source to `core.setHeaders` (#1937).
+   * `config.ts`).
    */
   readonly #publicKeyDefaults = ɵresolvePublicKeyHeaderDefaults(this.#config);
 
+  // `ɵwithHeaderDefaults` returns a new function for a function source on
+  // every call. Remember the last source and its wrapper, so passing the same
+  // builder again hands core the same function and stays a no-op (#1937).
+  #lastHeadersSource: CopilotKitHeadersSource | undefined;
+  #lastWrappedHeaders: CopilotKitHeadersSource | undefined;
+
+  #withPublicKeyDefaults(
+    source: CopilotKitHeadersSource,
+  ): CopilotKitHeadersSource {
+    if (source !== this.#lastHeadersSource) {
+      this.#lastHeadersSource = source;
+      this.#lastWrappedHeaders = ɵwithHeaderDefaults(
+        source,
+        this.#publicKeyDefaults,
+      );
+    }
+    return this.#lastWrappedHeaders!;
+  }
+
   readonly core = new CopilotKitCore({
     runtimeUrl: this.#config.runtimeUrl,
-    headers: ɵwithHeaderDefaults(
-      this.#config.headers ?? {},
-      this.#publicKeyDefaults,
-    ),
+    headers: this.#withPublicKeyDefaults(this.#config.headers ?? {}),
     credentials: this.#config.credentials,
     messageFilter: this.#config.messageFilter,
     agents__unsafe_dev_only: {
@@ -751,9 +763,7 @@ export class CopilotKit {
       this.#runtimeTransport.set(options.runtimeTransport);
     }
     if (options.headers !== undefined) {
-      this.core.setHeaders(
-        ɵwithHeaderDefaults(options.headers, this.#publicKeyDefaults),
-      );
+      this.core.setHeaders(this.#withPublicKeyDefaults(options.headers));
       this.#headers.set(this.core.headers);
     }
     if ("credentials" in options) {

@@ -478,6 +478,48 @@ describe("CopilotKit — headers builder evaluated at send time (#1937)", () => 
     expect(calls).toHaveLength(0);
   });
 
+  it("with a license key, updateRuntime with the same builder is a no-op; a new builder is a change", async () => {
+    const calls: Call[] = [];
+    vi.stubGlobal("fetch", stubFetch(calls));
+    const builder = (() => ({
+      Authorization: `Bearer ${token}`,
+    })) as CopilotKitHeadersSource;
+
+    const copilotkit = configureCopilotKit({
+      runtimeUrl: "http://rt.test/api/copilotkit",
+      licenseKey: "ck_pub_" + "a".repeat(32),
+      headers: builder,
+    });
+    await vi.waitFor(() =>
+      expect(copilotkit.core.getAgent("default")).toBeDefined(),
+    );
+
+    // Discriminating assertion first: re-passing the builder the config
+    // already holds must not look like a new source to core.
+    const generation = copilotkit.core.ɵheadersGeneration;
+    copilotkit.updateRuntime({ headers: builder });
+    copilotkit.updateRuntime({ headers: builder });
+    expect(copilotkit.core.ɵheadersGeneration).toBe(generation);
+
+    const nextBuilder = (() => ({
+      Authorization: "Bearer next-user",
+    })) as CopilotKitHeadersSource;
+    copilotkit.updateRuntime({ headers: nextBuilder });
+    expect(copilotkit.core.ɵheadersGeneration).toBe(generation + 1);
+
+    // The license-key default still applies to the new builder's requests.
+    const callsBefore = calls.length;
+    await copilotkit.core
+      .runAgent({ agent: copilotkit.core.getAgent("default")! })
+      .catch(() => {});
+    const runCalls = calls.slice(callsBefore);
+    expect(runCalls.length).toBeGreaterThan(0);
+    expect(runCalls.every((c) => c.auth === "Bearer next-user")).toBe(true);
+    expect(
+      runCalls.every((c) => c.publicApiKey === "ck_pub_" + "a".repeat(32)),
+    ).toBe(true);
+  });
+
   it("type: an async headers builder compiles in CopilotKitConfig", () => {
     // The compile-time half of this guarantee lives in
     // `headers-source.type-check.ts` — a plain `.ts` file, not `.spec.ts`,
