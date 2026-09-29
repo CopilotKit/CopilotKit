@@ -96,8 +96,9 @@ export interface CopilotKitProps extends Omit<
    * `<CopilotKit>`'s v2 provider (agent runs, threads, the inspector, and
    * so on). The legacy v1 `CopilotTask` / GraphQL path (and anything else
    * that reads the internal `copilotApiConfig.headers` snapshot) never
-   * awaits it — see `CopilotTask`'s own docs for the sync-only fallback it
-   * uses instead.
+   * awaits it: an async builder is called once, its result (and any
+   * rejection) is discarded, and every read there gets an empty object
+   * instead, with one console warning per provider instance in development.
    */
   headers?: CopilotKitHeadersSource;
 
