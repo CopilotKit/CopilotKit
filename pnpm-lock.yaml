@@ -3020,7 +3020,7 @@ importers:
         specifier: 7.8.1
         version: 7.8.1
       streamdown:
-        specifier: ^1.3.0
+        specifier: ^1.6.0
         version: 1.6.11(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.2.3)
       tailwind-merge:
         specifier: ^3.3.1

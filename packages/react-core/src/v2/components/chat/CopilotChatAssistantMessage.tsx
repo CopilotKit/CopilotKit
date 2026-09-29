@@ -22,9 +22,10 @@ import {
 import { useKatexStyles } from "../../hooks/useKatexStyles";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
-import { Streamdown } from "streamdown";
+import { Streamdown, defaultRehypePlugins } from "streamdown";
 import { copyToClipboard } from "@copilotkit/shared";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";
+import { rehypeCursorAnchor } from "./streaming-cursor";
 import { useCopilotKitInspector } from "../CopilotKitInspectorContext";
 import {
   CopilotChatInspectorButton,
@@ -65,6 +66,11 @@ export type CopilotChatAssistantMessageProps = WithSlots<
     isLatest?: boolean;
     additionalToolbarItems?: React.ReactNode;
     toolbarVisible?: boolean;
+    /**
+     * Shows a pulsing cursor at the end of the text while it's being written.
+     * `CopilotChatMessageView` sets this on the reply that's streaming.
+     */
+    showCursor?: boolean;
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
@@ -113,6 +119,7 @@ export function CopilotChatAssistantMessage({
   onRegenerate,
   additionalToolbarItems,
   toolbarVisible = true,
+  showCursor = false,
   markdownRenderer,
   toolbar,
   copyButton,
@@ -253,6 +260,7 @@ export function CopilotChatAssistantMessage({
           onRegenerate,
           additionalToolbarItems,
           toolbarVisible: shouldShowToolbar,
+          showCursor,
         })}
       </div>
     );
@@ -269,7 +277,10 @@ export function CopilotChatAssistantMessage({
       {...props}
       data-message-id={message.id}
     >
-      <div className="cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert">
+      <div
+        className="cpk:prose cpk:max-w-full cpk:break-words cpk:text-foreground cpk:dark:prose-invert"
+        data-streaming-cursor={showCursor ? "" : undefined}
+      >
         {boundMarkdownRenderer}
       </div>
       {boundToolCallsView}
@@ -280,12 +291,18 @@ export function CopilotChatAssistantMessage({
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CopilotChatAssistantMessage {
+  // Streamdown's plugins plus the streaming cursor's anchor.
+  const rehypePlugins = [
+    ...Object.values(defaultRehypePlugins),
+    rehypeCursorAnchor,
+  ];
+
   export const MarkdownRenderer: React.FC<
     Omit<React.ComponentProps<typeof Streamdown>, "children"> & {
       content: string;
     }
   > = ({ content, className, ...props }) => (
-    <Streamdown className={className} {...props}>
+    <Streamdown className={className} rehypePlugins={rehypePlugins} {...props}>
       {content ?? ""}
     </Streamdown>
   );
