@@ -54,7 +54,6 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
         icon: "sparkles",
       },
       { href: "/frontend-tools", label: "Agent behavior", icon: "bot" },
-      { href: "/threads", label: "AG-UI Streams", icon: "layers" },
     ],
   },
   {
