@@ -235,4 +235,34 @@ describe("Vue CopilotChatMessageView transformMessages", () => {
     ).toBe(true);
     warn.mockRestore();
   });
+
+  it("warns only once for a duplicate id that persists across renders", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // Defined once, so re-renders below reuse the same function reference.
+    const appendFirst = (list: Message[]) => [...list, list[0]!];
+
+    const { state } = mountView({
+      messages: [userMsg("m-0"), userMsg("m-1")],
+      transformMessages: appendFirst,
+    });
+    await nextTick();
+
+    const countDuplicateWarnings = () =>
+      warn.mock.calls.filter(([text]) =>
+        String(text).includes('more than one message with id "m-0"'),
+      ).length;
+
+    expect(countDuplicateWarnings()).toBe(1);
+
+    // Re-render on an unrelated prop change. The same duplicate persists.
+    state.value = {
+      messages: [userMsg("m-0"), userMsg("m-1")],
+      isRunning: true,
+      transformMessages: appendFirst,
+    };
+    await nextTick();
+
+    expect(countDuplicateWarnings()).toBe(1);
+    warn.mockRestore();
+  });
 });

@@ -480,4 +480,34 @@ describe("CopilotChatMessageView transformMessages", () => {
     ).toBe(true);
     warn.mockRestore();
   });
+
+  it("warns only once for a duplicate id that persists across renders", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // Defined once, so the re-render below reuses the same function reference.
+    const appendFirst = (list: Message[]) => [...list, list[0]!];
+
+    const fixture = renderView({
+      messages: [userMessage, assistantMessage],
+      transformMessages: appendFirst,
+    });
+
+    const countDuplicateWarnings = () =>
+      warn.mock.calls.filter(([text]) =>
+        String(text).includes(
+          `more than one message with id "${userMessage.id}"`,
+        ),
+      ).length;
+
+    expect(countDuplicateWarnings()).toBe(1);
+
+    // A new messages array that still holds the same duplicate.
+    fixture.componentRef.setInput("messages", [
+      { ...userMessage },
+      { ...assistantMessage },
+    ]);
+    fixture.detectChanges();
+
+    expect(countDuplicateWarnings()).toBe(1);
+    warn.mockRestore();
+  });
 });
