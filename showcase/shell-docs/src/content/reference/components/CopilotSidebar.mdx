@@ -50,6 +50,29 @@ import "@copilotkit/react-core/v2/styles.css";
   `"400px"`, `"30vw"`).
 </PropertyReference>
 
+<PropertyReference name="threadsDrawer" type="boolean | SlotValue<typeof CopilotThreadsDrawer>" default="false">
+  Adds a threads drawer to the sidebar. The header gets a history button
+  (top-left) that slides the drawer in from the sidebar's left edge, over the
+  chat. Escape, the scrim, or picking a thread closes it. Picking a thread or
+  "New Thread" switches the chat. Off by default; the drawer code loads only
+  when this is set.
+
+  It's a slot:
+
+  - `true`: the default [`CopilotThreadsDrawer`](/reference/components/CopilotThreadsDrawer).
+  - A class name: added to the default drawer.
+  - An object of its props (`label`, `recentLabel`, `limit`, `renderRow`, ...): configures the default drawer.
+  - A component: replaces the drawer. It renders inside the sidebar's chat
+    configuration, so `useCopilotChatConfiguration()` gives it `drawerOpen` /
+    `setDrawerOpen` and `setActiveThreadId` / `startNewThread`, and
+    `useThreads()` lists the threads. The history button opens it like the
+    default.
+
+  The history button itself is the header's `drawerLauncher` slot:
+  `header={{ drawerLauncher: MyButton }}`. Threads need CopilotKit
+  Intelligence; without it the default drawer shows its locked view.
+</PropertyReference>
+
 ### Inherited CopilotChat Props
 
 `CopilotSidebar` accepts all props from [`CopilotChatProps`](/reference/components/CopilotChat) **except** `chatView`, which is set internally to `CopilotSidebarView`. This includes:
@@ -130,11 +153,20 @@ function App() {
 }
 ```
 
+### With a Threads Drawer
+
+```tsx
+function App() {
+  return <CopilotSidebar agentId="my-agent" threadsDrawer />;
+}
+```
+
 ## Behavior
 
 - **Toggle button**: Renders a floating toggle button that opens and closes the sidebar. The button uses `CopilotChatToggleButton` internally.
 - **Modal state**: Open/close state is managed via the chat configuration context. The `defaultOpen` prop sets the initial state; after that, state changes come from user interaction (toggle button, close button in the header). Pass `open` and `onOpenChange` to own the state yourself, and to open or close the sidebar from your own UI.
-- **Layout**: The sidebar uses `CopilotSidebarView` internally, which provides a sidebar-specific welcome screen layout with suggestions at the top, the welcome message in the middle, and the input fixed at the bottom.
+- **Layout**: The sidebar uses `CopilotSidebarView` internally. Its welcome screen centers the greeting, the suggestion cards, and the input together. Once the conversation starts, suggestions move to a row of pills above the input.
+- **Threads drawer**: With `threadsDrawer`, the drawer and its open state live inside the sidebar, so no shared `CopilotChatConfigurationProvider` is needed. The header's history button shows at every viewport width.
 - **Fixed positioning**: The sidebar renders as a fixed panel on one side of the viewport, pushing or overlaying content depending on CSS.
 - **Agent connection**: All agent wiring (messages, running state, suggestions) is handled by the parent `CopilotChat` logic.
 

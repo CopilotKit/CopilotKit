@@ -5,7 +5,7 @@ description: "Vue 3 component for rendering a list of chat messages"
 
 ## Overview
 
-`CopilotChatMessageView` renders a list of chat messages and, optionally, a typing cursor while the agent is running. It dispatches each message to a default child component based on its `role` (assistant, user, or reasoning) and exposes named slots so you can replace or wrap that rendering. A pulsing cursor is shown after the last message while `isRunning` is `true`.
+`CopilotChatMessageView` renders a list of chat messages and a streaming cursor while the agent is running. It dispatches each message to a default child component based on its `role` (assistant, user, or reasoning) and exposes named slots so you can replace or wrap that rendering. While a reply's text streams, the cursor sits at the end of that text; otherwise a pulsing cursor is shown after the last message while `isRunning` is `true`.
 
 Unlike the React reference component, customization in Vue is driven entirely through named slots rather than render props or a slot-prop system. The component also surfaces slots for interrupts, activity messages, tool calls, and custom message renderers registered on the CopilotKit instance.
 
@@ -46,9 +46,28 @@ const { agent } = useAgent();
 </PropertyReference>
 
 <PropertyReference name="isRunning" type="boolean" default="false">
-  Whether the agent is currently executing. When `true`, the `cursor` slot is
-  rendered after the last message to indicate ongoing activity. The cursor is
-  suppressed when the last message is a reasoning message.
+  Whether the agent is currently executing. When `true`, a streaming cursor
+  indicates ongoing activity (see `inlineCursor`). The cursor is suppressed when
+  the last message is a reasoning message.
+</PropertyReference>
+
+<PropertyReference name="inlineCursor" type="boolean">
+  While a reply streams, show the cursor at the end of its text, as if it were
+  being typed (the assistant message's `showCursor`). Before the reply has any
+  text, for example while a tool runs, the `cursor` slot shows below the
+  messages instead. On by default, unless you provide a custom `cursor` or
+  `assistant-message` slot, which keeps the cursor below the messages. Set it
+  explicitly (`true` or `false`) to override either way.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageToolbarScope" type='"turn" | "message"'>
+  Forwarded to each default assistant message as `toolbarScope`. When unset, the
+  assistant message's own default (`"turn"`) applies.
+</PropertyReference>
+
+<PropertyReference name="userMessageMarkdown" type="boolean" default="true">
+  Forwarded to each default user message as `markdown`. Set `false` to show user
+  messages as plain text.
 </PropertyReference>
 
 <Callout type="info">
@@ -60,10 +79,11 @@ const { agent } = useAgent();
 
 Each slot below is named. Use a `<template #slot-name="slotProps">` block to override or wrap the default rendering. Where a slot has a default, omitting it falls back to the built-in child component.
 
-<PropertyReference name="assistant-message" type="{ message: AssistantMessage; messages: Message[]; isRunning: boolean }">
+<PropertyReference name="assistant-message" type="{ message: AssistantMessage; messages: Message[]; isRunning: boolean; showCursor: boolean }">
   Rendered for messages with `role === "assistant"`. Defaults to
   [`CopilotChatAssistantMessage`](/reference/vue/components/CopilotChatAssistantMessage),
   which provides Markdown rendering, tool call display, and an action toolbar.
+  `showCursor` is `true` on the streaming reply that carries the inline cursor.
 
 ```vue
 <template>
@@ -100,8 +120,10 @@ Each slot below is named. Use a `<template #slot-name="slotProps">` block to ove
 </PropertyReference>
 
 <PropertyReference name="cursor" type="() => unknown">
-  The typing indicator displayed while `isRunning` is `true` (and the last
-  message is not a reasoning message). Defaults to a pulsing dot animation.
+  The typing indicator displayed below the messages while `isRunning` is `true`,
+  the last message is not a reasoning message, and no streaming text carries the
+  inline cursor (or always, with `inlineCursor` set to `false`). Defaults to a
+  pulsing dot animation.
 
 ```vue
 <template>
@@ -243,7 +265,7 @@ const { agent } = useAgent();
 
 - **Message rendering**: Each message is dispatched to the matching default child component based on its `role` (assistant, user, reasoning, or activity), unless the corresponding named slot is provided.
 - **Deduplication**: Messages sharing an `id` are deduplicated; assistant fragments with the same id are merged (content and tool calls combined). In development, a console warning is logged when duplicates are dropped.
-- **Cursor display**: The `cursor` slot is rendered only when `isRunning` is `true` and the last message is not a reasoning message. It appears after the last message.
+- **Cursor display**: With `inlineCursor` on (the default when no custom `cursor` or `assistant-message` slot is provided), while `isRunning` is `true` and the last message is an assistant reply with text, the cursor rides at the end of that text. Otherwise the `cursor` slot is rendered after the last message, unless the last message is a reasoning message.
 - **Slot forwarding**: Slots passed to `CopilotChatMessageView` (including `tool-call` and `tool-call-<name>`) are forwarded to the default assistant and user message children, so tool rendering works without re-implementing those components.
 - **Custom and activity renderers**: When `message-before`, `message-after`, or `activity-message` slots are omitted, the component falls back to renderers registered on the CopilotKit instance, scoped to the active `agentId` when applicable.
 

@@ -76,8 +76,10 @@ function handleSubmit(value: string) {
 </PropertyReference>
 
 <PropertyReference name="suggestions" type="Suggestion[]" default="[]">
-  Array of suggestion objects to display as clickable pills near the input area.
-  Suggestions are only shown when the view is not connecting and not running.
+  Array of suggestion objects to display. On the welcome screen they appear as
+  cards (the `title` as header, the `message` as body); once the conversation
+  starts they appear as a row of pills docked above the input. Suggestions are
+  only shown when the view is not connecting and not running.
 </PropertyReference>
 
 <PropertyReference name="suggestionLoadingIndexes" type="ReadonlyArray<number>" default="[]">
@@ -89,6 +91,34 @@ function handleSubmit(value: string) {
   Whether to show the welcome screen when the `messages` array is empty. Set to
   `false` to disable it. Customize the welcome layout with the `welcome-screen`
   and `welcome-message` slots.
+</PropertyReference>
+
+<PropertyReference name="introAnimation" type="boolean" default="true">
+  Eases the welcome screen in: the greeting, suggestion cards, and input rise
+  into place in sequence. Set `false` to show them immediately. The animation is
+  always off when the user prefers reduced motion.
+</PropertyReference>
+
+Vue has no sub-component props, so the message and input options are set here and forwarded:
+
+<PropertyReference name="inlineCursor" type="boolean">
+  While a reply streams, show the cursor at the end of its text. On by default, unless you provide a custom `cursor` or `assistant-message` slot, which keeps the cursor below the messages. Set it explicitly to override either way.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageToolbarScope" type='"turn" | "message"' default='"turn"'>
+  Where assistant toolbars appear: one per reply (`"turn"`) or one per assistant message (`"message"`). Forwarded to each assistant message as `toolbarScope`.
+</PropertyReference>
+
+<PropertyReference name="userMessageMarkdown" type="boolean" default="true">
+  Render user messages as markdown. Set `false` to show them as plain text as typed. Forwarded to each user message as `markdown`.
+</PropertyReference>
+
+<PropertyReference name="inputLayout" type='"auto" | "stacked"' default='"auto"'>
+  The input's `layout`: `"auto"` keeps the text beside the actions until it wraps; `"stacked"` always puts the actions underneath.
+</PropertyReference>
+
+<PropertyReference name="inputHighlightMarkdown" type="boolean" default="true">
+  The input's `highlightMarkdown`: style list markers and links as the user types.
 </PropertyReference>
 
 <PropertyReference name="attachments" type="Attachment[]">
@@ -217,7 +247,8 @@ that the default implementation also consumes, so a replacement can reuse them.
 <PropertyReference name="scroll-view" type="{ messages: Message[]; isRunning: boolean; suggestions: Suggestion[]; loadingIndexes: ReadonlyArray<number>; messagePaddingBottom: string; showScrollToBottomButton: boolean; onSelectSuggestion: (suggestion, index) => void; onScroll: () => void; scrollToBottom: () => void }">
   The scrollable container wrapping the message list. The default handles
   auto-scroll behavior and scroll-position tracking. Replace it to implement
-  custom scroll mechanics.
+  custom scroll mechanics. A custom `scroll-view` renders the suggestions itself
+  from its slot props; the row of pills above the input is not shown.
 </PropertyReference>
 
 <PropertyReference name="feather" type="() => unknown">
@@ -248,9 +279,10 @@ that the default implementation also consumes, so a replacement can reuse them.
 </PropertyReference>
 
 <PropertyReference name="suggestion-view" type="{ suggestions: Suggestion[]; loadingIndexes: ReadonlyArray<number>; onSelectSuggestion: (suggestion, index) => void }">
-  The component that renders suggestion pills. Defaults to
-  `CopilotChatSuggestionView`. Rendered in the welcome screen and within the
-  transcript when suggestions are present.
+  The component that renders suggestions. Defaults to
+  [`CopilotChatSuggestionView`](#copilotchatsuggestionview), with
+  `appearance="cards"` on the welcome screen and pills in the row docked above
+  the input during a conversation. The same slot is used in both places.
 </PropertyReference>
 
 <PropertyReference name="welcome-screen" type="{ suggestions: Suggestion[]; loadingIndexes: ReadonlyArray<number>; attachments: Attachment[]; modelValue: string; isRunning: boolean; inputMode: CopilotChatInputMode; inputToolsMenu: (ToolsMenuItem | '-')[]; canStop: boolean; canAddFile: boolean; canTranscribe: boolean; onUpdateModelValue; onSubmitMessage; onStop; onAddFile; onStartTranscribe; onCancelTranscribe; onFinishTranscribe; onFinishTranscribeWithAudio; onSelectSuggestion }">
@@ -264,6 +296,52 @@ that the default implementation also consumes, so a replacement can reuse them.
 <PropertyReference name="welcome-message" type="() => unknown">
   The heading shown inside the default welcome screen. The default renders the
   configured welcome message text. Override it to provide custom welcome content.
+</PropertyReference>
+
+## CopilotChatSuggestionView
+
+The default `suggestion-view`. It renders a list of suggestions as pills or
+cards and emits `select-suggestion` when one is picked.
+
+```vue
+<script setup lang="ts">
+import {
+  CopilotChatSuggestionView,
+  CopilotChatSuggestionPill,
+} from "@copilotkit/vue/v2";
+</script>
+```
+
+<PropertyReference name="suggestions" type="Suggestion[]" required>
+  The suggestions to render.
+</PropertyReference>
+
+<PropertyReference name="loadingIndexes" type="ReadonlyArray<number>" default="[]">
+  Indexes of suggestions to show in a loading state.
+</PropertyReference>
+
+<PropertyReference name="appearance" type='"pills" | "cards"' default='"pills"'>
+  How the suggestions are laid out:
+
+  - `"pills"`: compact chips in a single row that scrolls horizontally when the pills overflow.
+  - `"cards"`: a two-column grid of cards. Each card shows the suggestion's `title` as its header and its `message` as its body. The body is omitted when the message matches the title.
+</PropertyReference>
+
+Its `suggestion` slot receives `suggestion`, `index`, `isLoading`,
+`appearance` (`"pill"` or `"card"`), `description`, and `onSelect`. The
+`container` and `layout` slots replace the wrapper.
+
+`CopilotChatSuggestionPill` renders one suggestion as a `<button>`. Its default
+slot is the label. It accepts `icon`, `isLoading`, `disabled`, and `type`, plus:
+
+<PropertyReference name="appearance" type='"pill" | "card"' default='"pill"'>
+  `"pill"` is a compact chip. `"card"` is a larger tile with the label as its
+  header and `description` as its body.
+</PropertyReference>
+
+<PropertyReference name="description" type="string">
+  Body text shown under the label when `appearance` is `"card"`. A
+  `description` slot can replace it.
 </PropertyReference>
 
 ## Usage
@@ -358,7 +436,7 @@ import { CopilotChatView } from "@copilotkit/vue/v2";
 ## Behavior
 
 - **Auto-scroll**: `pin-to-bottom` keeps the latest message visible while the user is at the bottom; `pin-to-send` anchors the latest user message near the top while the assistant streams. A scroll-to-bottom button appears when the user scrolls up.
-- **Welcome screen**: Rendered when `messages` is empty and the welcome screen is not suppressed by `welcomeScreen="false"`, `isConnecting`, or `hasExplicitThreadId`. The welcome screen embeds the input and suggestion slots.
+- **Welcome screen**: Rendered when `messages` is empty and the welcome screen is not suppressed by `welcomeScreen="false"`, `isConnecting`, or `hasExplicitThreadId`. The welcome screen embeds the input and suggestion slots: the greeting, then the suggestions as cards, then the input, eased in unless `introAnimation` is `false`.
 - **Input overlay positioning**: The input is rendered in an absolutely positioned overlay at the bottom of the chat, and the scroll content is padded to avoid overlap. The component measures the overlay height with a `ResizeObserver` and keeps the padding in sync.
 - **Mobile keyboard**: The view tracks the on-screen keyboard height so the input can translate above the keyboard on mobile devices.
 
