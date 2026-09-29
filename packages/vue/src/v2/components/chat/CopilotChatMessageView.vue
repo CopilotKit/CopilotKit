@@ -65,6 +65,9 @@ const props = withDefaults(
      * Tool-result lookups still look up their results in the full
      * `messages` prop, so hiding tool-result messages here does not strip
      * results from the cards that display them.
+     *
+     * Pass a function defined once, not inline in the template, or it
+     * reruns on every render.
      */
     transformMessages?: (messages: Message[]) => Message[];
   }>(),

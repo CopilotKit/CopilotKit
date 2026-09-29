@@ -58,6 +58,9 @@ export interface CopilotChatViewProps {
    * Tool-result lookups still look up their results in the full message
    * list, so hiding tool-result messages here does not strip results from
    * the cards that display them.
+   *
+   * Pass a function defined once, not inline in the template, or it reruns
+   * on every render.
    */
   transformMessages?: (messages: Message[]) => Message[];
   suggestions?: Suggestion[];
