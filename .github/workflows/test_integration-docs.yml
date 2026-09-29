@@ -10,6 +10,10 @@ on:
       - "scripts/deprecations/**"
       - "showcase/shell-docs/model-allowlist.json"
       - "showcase/shell-docs/src/lib/__tests__/ms-agent-dotnet-provider.test.ts"
+      # The @ag-ui install-pin check compares docs install lines with the
+      # runtime's dependency, so a runtime pin bump must run it too.
+      - "showcase/shell-docs/src/lib/__tests__/ag-ui-install-pin.test.ts"
+      - "packages/runtime/package.json"
       # The setup-concept gate below reads snippets owned by the integration
       # packages and by the docs-only snippet tree, so a new or edited snippet
       # has to trigger this workflow. Before OSS-1036 neither path was listed,
@@ -54,6 +58,10 @@ on:
       - "scripts/deprecations/**"
       - "showcase/shell-docs/model-allowlist.json"
       - "showcase/shell-docs/src/lib/__tests__/ms-agent-dotnet-provider.test.ts"
+      # The @ag-ui install-pin check compares docs install lines with the
+      # runtime's dependency, so a runtime pin bump must run it too.
+      - "showcase/shell-docs/src/lib/__tests__/ag-ui-install-pin.test.ts"
+      - "packages/runtime/package.json"
       # The setup-concept gate below reads snippets owned by the integration
       # packages and by the docs-only snippet tree, so a new or edited snippet
       # has to trigger this workflow. Before OSS-1036 neither path was listed,
@@ -142,6 +150,9 @@ jobs:
       - name: Check Microsoft Agent Framework .NET guidance
         working-directory: showcase/shell-docs
         run: npm exec -- vitest run src/lib/__tests__/ms-agent-dotnet-provider.test.ts
+      - name: Check docs @ag-ui installs match the runtime
+        working-directory: showcase/shell-docs
+        run: npm exec -- vitest run src/lib/__tests__/ag-ui-install-pin.test.ts
 
   setup-concept-coverage:
     name: Framework setup-concept coverage
