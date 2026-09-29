@@ -1894,6 +1894,35 @@ test("Enter on slotted row content selects the row unless it is interactive", as
   teardown();
 });
 
+test("clicking slotted row content selects the row unless it is interactive", async () => {
+  const { element, events, teardown } = await setupOverlay({
+    threads: [makeThread({ id: "row-a", name: "A" })],
+    open: true,
+  });
+  const content = document.createElement("span");
+  content.slot = "row:row-a";
+  const link = document.createElement("a");
+  link.href = "#details";
+  content.append("Custom A", link);
+  element.appendChild(content);
+  await flush(element);
+
+  // A link in the row (clicked, or activated from the keyboard) does its own
+  // thing: no selection, and the overlay stays open.
+  link.addEventListener("click", (e) => e.preventDefault());
+  link.click();
+  await flush(element);
+  expect(events.find((e) => e.type === "thread-selected")).toBeUndefined();
+  expect(element.open).toBe(true);
+
+  content.click();
+  await flush(element);
+  expect(events.filter((e) => e.type === "thread-selected")).toEqual([
+    { type: "thread-selected", detail: { threadId: "row-a" } },
+  ]);
+  teardown();
+});
+
 test("host theme tokens drive hovers, text sizes and the launcher cluster (CSS contract)", () => {
   const cssText = (CopilotKitThreadsDrawer.styles as { cssText: string })
     .cssText;

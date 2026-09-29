@@ -1267,7 +1267,10 @@ export class CopilotKitThreadsDrawer extends LitElement {
         aria-selected=${isActive ? "true" : "false"}
         tabindex="0"
         data-thread-id=${thread.id}
-        @click=${() => {
+        @click=${(e: Event) => {
+          // A link or button in slotted row content does its own thing,
+          // including when activated from the keyboard.
+          if (startedOnInteractiveDescendant(e)) return;
           // Selecting a row dismisses any open kebab menu (it belongs to a row,
           // not the selection) before emitting the selection intent.
           this._openMenuId = null;
