@@ -170,11 +170,13 @@ import "@copilotkit/react-core/v2/styles.css";
 <Step>
 ### Upgrade AG-UI client if using it directly
 
-If you import from `@ag-ui/client` directly, upgrade to the latest version:
+If you import from `@ag-ui/client` directly, install the version that `@copilotkit/runtime` depends on:
 
 ```bash
-npm install @ag-ui/client@latest
+npm install @ag-ui/client@0.0.59
 ```
+
+A different version installs a second copy of the package, with its own `HttpAgent` class. Run `npm ls @ag-ui/client` to make sure that only one version is installed.
 
 Note: If you only use CopilotKit's React packages, `@ag-ui/client` types are already re-exported from `@copilotkit/react-core/v2` and you don't need a separate install.
 

@@ -73,7 +73,7 @@ export const CURATED_LLM_PAGES = [
     url: "threads",
     title: "Rich Threads",
     description:
-      "Build persistent conversations that restore messages, UI, inputs, and live runs across sessions.",
+      "Add persistent conversations with generative UI, tool activity, and app state to your existing agent stack. Keep your thread provider or use CopilotKit's built-in thread store.",
   },
   {
     url: "learning",
