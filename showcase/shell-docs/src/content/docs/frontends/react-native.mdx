@@ -487,6 +487,8 @@ import "@copilotkit/react-native/polyfills/location";
   ```
 
   A token kept in a ref, module variable, or async SDK cache with no accompanying render will keep sending the **stale** value indefinitely. If you can't re-render, call `copilotkit.setHeaders({ ... })` directly when the token rotates.
+
+  The web provider's `headers` builder now runs when each request is sent, and also accepts an async function. Neither applies here yet: the React Native provider still evaluates its builder at render time and only accepts a sync function.
 </Callout>
 
 <Callout type="info" title="Cloud props aren't wired on React Native yet">

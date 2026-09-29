@@ -80,8 +80,19 @@ This feature is only available when using CopilotKit's cloud-hosted service. To 
 
 <PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>)"  >
 Additional headers to be sent with runtime requests. Pass an object for static
-headers, or a function when headers need to be refreshed from current auth
-state.
+headers, or a function that builds them fresh. The function runs when each
+request is sent, so a refreshed token is always used. Async builders are a v2
+feature — `<CopilotKitProvider>` only, not `<CopilotKit>`.
+
+Cache inside the builder. Clerk's and Auth0's `getToken()` already cache. A
+builder that calls the network every time adds one call per request.
+
+If the builder throws, that request is not sent and `onError` gets
+`header_resolution_failed`.
+
+Core headers are also sent to any `selfManagedAgents` /
+`agents__unsafe_dev_only` agent, including ones on other origins. Don't put a
+bearer token in core headers if those agents point at a third party.
 
 For example:
 

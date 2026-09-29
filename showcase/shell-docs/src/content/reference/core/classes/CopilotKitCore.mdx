@@ -30,8 +30,13 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
     Transport style for runtime endpoints. `"auto"` probes REST and falls back to single-route.
   </PropertyReference>
 
-  <PropertyReference name="headers" type="Record<string, string>" default="{}">
-    Headers appended to every HTTP request made by the core.
+  <PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>) | (() => Promise<Record<string, string>>)" default="{}">
+    Headers appended to every HTTP request made by the core. Pass a record for
+    static headers, or a function (sync or async) to build them fresh. A
+    builder runs when each request is sent, so a refreshed token is always
+    used. Cache inside the builder — a builder that calls the network every
+    time adds one call per request. If the builder throws or rejects, the
+    request is not sent and `onError` gets `HEADER_RESOLUTION_FAILED`.
   </PropertyReference>
 
   <PropertyReference name="credentials" type="RequestCredentials">
@@ -179,8 +184,31 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
   Updates the transport style.
 </PropertyReference>
 
-<PropertyReference name="setHeaders(headers: Record<string, string | null | undefined>): void" type="method">
-  Replaces the request headers and re-applies them to existing agents. Any key whose value is `null` or `undefined` is dropped from the stored headers, which is the supported way to clear a header (e.g. `Authorization` on logout). An empty string remains a valid header value and is preserved. Core clears trusted Inspector metadata before refreshing it with the new headers.
+<PropertyReference name="setHeaders(headers: CopilotKitHeadersSource): void" type="method">
+  Replaces the request headers and re-applies them to existing agents. Pass a
+  record, a sync builder, or an async builder — see the
+  [`headers`](/reference/core/types/CopilotKitCoreConfig) config option. For a
+  record, any key whose value is `null` or `undefined` is dropped from the
+  stored headers, which is the supported way to clear a header (e.g.
+  `Authorization` on logout). An empty string remains a valid header value and
+  is preserved. Core clears trusted Inspector metadata before refreshing it
+  with the new headers, and `onHeadersChanged` subscribers are notified.
+
+  This is a no-op — no Inspector refresh, no `onHeadersChanged` — when the
+  current source is also a record with equal normalized values. A new builder
+  function, a record with different values, or a record↔builder switch all
+  count as a change. A builder resolving a new token on its own (a rotated
+  auth token, for example) never fires `onHeadersChanged` and never re-applies
+  headers on its own — it is picked up the next time a request is sent. Key
+  reactive work off a change in headers, not off header values or object
+  identity.
+</PropertyReference>
+
+<PropertyReference name="resolveHeaders(): Record<string, string> | Promise<Record<string, string>>" type="method">
+  Resolves the current headers: synchronous for a record or a sync builder, a
+  promise for an async builder. Concurrent calls share one in-flight builder
+  call. Use this to get the value a builder would produce right now — the
+  `headers` getter below only reflects the last resolved value.
 </PropertyReference>
 
 <PropertyReference name="setCredentials(credentials: RequestCredentials | undefined): void" type="method">
@@ -248,7 +276,10 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
 </PropertyReference>
 
 <PropertyReference name="headers / credentials / properties" type="getter">
-  Snapshots of the configured headers, credentials mode, and forwarded properties.
+  Snapshots of the configured headers, credentials mode, and forwarded
+  properties. `headers` is the last resolved value — with a builder this may
+  be `{}` before the first request, or stale between requests. Call
+  `resolveHeaders()` for the value a builder would produce right now.
 </PropertyReference>
 
 ## Usage
@@ -285,7 +316,7 @@ subscription.unsubscribe();
 - **Asynchronous agent population** — `agents` is populated after the runtime responds, so it may be empty immediately after construction. Use `subscribe({ onAgentsChanged })` to react when agents become available.
 - **Error surfacing** — failures (runtime fetch, agent run, tool execution, subscriber callbacks) are delivered through the `onError` subscriber callback with a [CopilotKitCoreErrorCode](/reference/core/enums/CopilotKitCoreErrorCode); they are not thrown from the originating method — except `runTool()`, which also throws when the named tool or its resolved agent cannot be found.
 - **Subscriber isolation** — a throw in one subscriber callback is caught and logged; it does not stall notifications to other subscribers.
-- **Inspector metadata isolation** — metadata loads after the connected and agent notifications finish. Header or credential changes refresh it. Runtime URL, transport, auth, connection, and capability checks prevent a stale request from replacing a newer value.
+- **Inspector metadata isolation** — metadata loads after the connected and agent notifications finish. A `setHeaders` call that changes the resolved values, or a credential change, refreshes it — it does not refetch `/info`. Runtime URL, transport, auth, connection, and capability checks prevent a stale request from replacing a newer value.
 - **`__unsafe_dev_only` APIs** — the `*Agent__unsafe_dev_only` methods register local in-memory agents for development. Production setups must go through a CopilotRuntime.
 
 ## Related
