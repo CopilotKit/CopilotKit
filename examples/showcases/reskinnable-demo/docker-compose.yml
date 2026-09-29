@@ -88,8 +88,11 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # MinIO no longer publishes minio/minio or minio/mc on Docker Hub (pulls fail
+  # with "pull access denied"). Chainguard's image ships both `minio` and `mc`
+  # plus /bin/sh, so it serves the server and the minio-init oneshot below.
   minio:
-    image: minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest
     command: server /data --console-address ":9001"
     ports:
       - "${MINIO_HOST_PORT:-7260}:9000"
@@ -113,7 +116,7 @@ services:
   # service name at container start, so retry `mc alias set` until it resolves.
   # The `$$` escapes compose interpolation so the container shell sees `$`.
   minio-init:
-    image: minio/mc:latest
+    image: cgr.dev/chainguard/minio:latest
     depends_on:
       minio:
         condition: service_healthy
