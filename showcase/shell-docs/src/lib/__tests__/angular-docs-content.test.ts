@@ -326,16 +326,11 @@ test("keeps every rendered root Angular link in the Angular surface", () => {
   expect(findAngularLinkLeaks(null, slugs)).toEqual([]);
 });
 
-test("keeps every rendered backend-specific Angular link in context", () => {
-  const leaks: string[] = [];
-
-  for (const integration of getIntegrations()) {
-    if (integration.docs_mode === "hidden") continue;
-    const slugs = pageSlugs(getAngularDocsNavTree(integration.slug));
-    leaks.push(...findAngularLinkLeaks(integration.slug, slugs));
-  }
-
-  expect(leaks).toEqual([]);
+test.each(
+  getIntegrations().filter((integration) => integration.docs_mode !== "hidden"),
+)("keeps rendered Angular links in context for $slug", (integration) => {
+  const slugs = pageSlugs(getAngularDocsNavTree(integration.slug));
+  expect(findAngularLinkLeaks(integration.slug, slugs)).toEqual([]);
 });
 
 test("keeps every Angular and backend combination frontend-native", () => {

@@ -154,7 +154,7 @@ The importer reads `--api-url` and `--api-key` or the current process environmen
 
 Project selection updates the app configuration; the importer still receives its destination through flags or exported environment variables.
 
-For the full adoption flow, see [Import & Synchronize Thread History](/threads-import). Source-specific setup lives in [Synchronize ADK threads](/google-adk/threads-import) and [Synchronize LangGraph threads](/langgraph-python/threads-import).
+For the full adoption flow, see [Add AG-UI Streams to Existing Threads](/threads-import). Source-specific setup lives in [Add AG-UI streams to ADK sessions](/google-adk/threads-import) and [Add AG-UI streams to LangGraph threads](/langgraph-python/threads-import).
 
 ## Verify your setup
 
@@ -242,5 +242,5 @@ Re-running `project select` is safe when you need to move a CLI-created app to a
 
 - **Cloud-hosted platform:** [Cloud-hosted CopilotKit Intelligence](/intelligence/managed-intelligence-platform) — login, projects, API keys, threads, and plans in the cloud-hosted web app
 - **Add threads:** use the [Threads Drawer](/prebuilt-components/copilot-threads-drawer) for a drop-in thread switcher, or [Headless Threads](/headless-threads) to build your own thread UI
-- **Synchronize thread history:** [Import & Synchronize Thread History](/threads-import) — import existing ADK or LangGraph conversations and keep future CopilotKit runs synchronized
+- **Add AG-UI streams to existing threads:** [Add AG-UI Streams to Existing Threads](/threads-import) — connect Intelligence for ongoing delivery, then optionally import supported ADK or LangGraph history
 - **Self-hosting:** [Self-host CopilotKit Intelligence](/intelligence/self-hosting) — run CopilotKit Intelligence in your own Kubernetes cluster

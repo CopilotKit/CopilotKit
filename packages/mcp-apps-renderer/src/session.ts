@@ -206,7 +206,13 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
         { openLinks: {}, logging: {}, message: { text: {} } },
         // Seed the host context at construction so it is already in place when
         // the widget's ui/initialize is handled (deterministic, not a race).
-        { hostContext: { theme: "light", platform: "web" } },
+        // The theme follows CopilotKit's dark selector: a `.dark` ancestor.
+        {
+          hostContext: {
+            theme: iframe.closest(".dark") ? "dark" : "light",
+            platform: "web",
+          },
+        },
       );
 
       // Sandbox handshake: on proxy ready, load the widget HTML into the inner

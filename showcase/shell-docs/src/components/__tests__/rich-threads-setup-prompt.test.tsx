@@ -26,14 +26,14 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-test("copies the Rich Threads prompt using the standard actions", async () => {
+test("copies the AG-UI Streams prompt using the standard actions", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.assign(navigator, { clipboard: { writeText } });
   render(<RichThreadsSetupPrompt />);
   fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
   await waitFor(() =>
     expect(writeText.mock.calls[0]?.[0]).toMatch(
-      /^Read https:\/\/copilotkit\.ai\/onboarding-prompts\/[a-f0-9]{12}\?intent=add-rich-threads and help me set this up\.$/,
+      /^Set up AG-UI streams, formerly known as Rich Threads, while keeping my framework threads and existing SDK APIs\. Read https:\/\/copilotkit\.ai\/onboarding-prompts\/[a-f0-9]{12}\?intent=add-rich-threads and help me set this up\.$/,
     ),
   );
   expect(screen.getByRole("status").textContent).toBe("Prompt copied");
@@ -51,12 +51,12 @@ test("previews the exact setup prompt and recovers from blocked clipboard access
   fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
   await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
   expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toMatch(
-    /^Read https:\/\/copilotkit\.ai\/onboarding-prompts\/[a-f0-9]{12}\?intent=add-rich-threads and help me set this up\.$/,
+    /^Set up AG-UI streams, formerly known as Rich Threads, while keeping my framework threads and existing SDK APIs\. Read https:\/\/copilotkit\.ai\/onboarding-prompts\/[a-f0-9]{12}\?intent=add-rich-threads and help me set this up\.$/,
   );
   expect(screen.getByRole("status").textContent).toContain("Copy blocked");
 });
 
-test("sends the coding agent to the Rich Threads route and carries nothing else", () => {
+test("sends the coding agent to the AG-UI Streams route and carries nothing else", () => {
   // The route owns the guide links, the identity rules, the ownership checks
   // and the Inspector proof this prompt used to repeat. A copy of them here
   // drifts the next time the Runtime API changes, which is what OSS-1150

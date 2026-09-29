@@ -43,9 +43,9 @@ test("opens a five-column docs map with Intelligence featured", () => {
   expect(intelligence.querySelector("svg")?.getAttribute("fill")).toBe(
     "currentColor",
   );
-  for (const link of screen.getAllByRole("link", { name: "Rich Threads" })) {
-    expect(link.getAttribute("href")).toBe("/threads");
-  }
+  expect(
+    screen.getByRole("link", { name: "AG-UI Streams" }).getAttribute("href"),
+  ).toBe("/threads");
   expect(
     screen.getByRole("link", { name: "User Memories" }).getAttribute("href"),
   ).toBe("/intelligence/memories");
