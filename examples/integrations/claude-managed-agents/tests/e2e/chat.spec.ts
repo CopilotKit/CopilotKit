@@ -1,6 +1,21 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
+// Model the licensed Intelligence thread-list contract while chat uses local fixtures.
+// Live validation separately covers actual project entitlements and persisted threads.
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/copilotkit/info", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      json: { ...(await response.json()), licenseStatus: "valid" },
+    });
+  });
+  await page.route("**/api/copilotkit/threads?*", (route) =>
+    route.fulfill({ json: { threads: [] } }),
+  );
+});
+
 test("chat streams a reply, continues, and starts a separate conversation", async ({
   page,
 }) => {
@@ -12,6 +27,8 @@ test("chat streams a reply, continues, and starts a separate conversation", asyn
     }
   });
   await page.goto("/");
+  await expect(page.getByTestId("copilot-threads-drawer")).toBeVisible();
+  await expect(page.getByRole("img", { name: "CopilotKit" })).toHaveCount(0);
   await page.getByRole("textbox").fill("Hello");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await expect(
@@ -26,9 +43,11 @@ test("chat streams a reply, continues, and starts a separate conversation", asyn
       exact: true,
     }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "New chat" }).click();
+  await page
+    .getByRole("button", { name: "New Conversation", exact: true })
+    .click();
   await expect(
-    page.getByText("How can I help you?", { exact: true }),
+    page.getByText("How can I help you today?", { exact: true }),
   ).toBeVisible();
   await page.getByRole("textbox").fill("Fresh start");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
@@ -47,7 +66,7 @@ for (const width of [390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto("/");
     await expect(
-      page.getByText("How can I help you?", { exact: true }),
+      page.getByText("How can I help you today?", { exact: true }),
     ).toBeVisible();
     const result = await new AxeBuilder({ page }).analyze();
     expect(

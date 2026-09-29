@@ -45,41 +45,26 @@ button:focus-visible {
   outline-offset: 3px;
 }
 .shell {
+  display: grid;
+  grid-template-columns: var(--cpk-drawer-reserved-width, 320px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   height: 100dvh;
-  display: flex;
-  flex-direction: column;
-}
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 24px 32px;
-}
-.new-chat {
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: #fff;
-  padding: 9px 16px;
-  font-size: 13px;
-  color: var(--foreground);
-}
-.new-chat:hover {
-  background: var(--muted);
+  overflow: hidden;
+  --cpk-drawer-launcher-top: 16px;
+  --cpk-drawer-launcher-left: 16px;
 }
 .chat {
-  flex: 1;
+  grid-column: 2;
+  min-width: 0;
   min-height: 0;
-  width: 100%;
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 0 24px 16px;
+  padding: 16px;
 }
-@media (max-width: 600px) {
-  .header {
-    padding: 20px;
+@media (max-width: 768px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
   }
   .chat {
-    padding: 0 12px 12px;
+    grid-column: auto;
+    padding: 12px;
   }
 }

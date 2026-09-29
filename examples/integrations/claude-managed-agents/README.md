@@ -1,6 +1,6 @@
 # Claude Managed Agents + CopilotKit
 
-Start with the LangGraph starter's Beautiful Chat frontend, stripped down to a chat and a New chat button. Claude runs in a Managed Agents sandbox. CopilotKit Intelligence stores the conversations, links new threads to a Learning Container, and supplies published Skill files.
+Start with two SDK components: the thread drawer and Beautiful Chat. Claude runs in a Managed Agents sandbox. CopilotKit Intelligence stores the conversations, links new threads to a Learning Container, and supplies published Skill files.
 
 ## Start
 
@@ -70,7 +70,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-From the monorepo, use `pnpm nx run-many -p starter-claude-managed-agents -t test,typecheck,lint,build`, then `pnpm nx run starter-claude-managed-agents:e2e`. Keep build and browser checks sequential because both write `.next`. `npm run dev:mock` serves synthetic text streams with no Anthropic or Intelligence calls. Browser tests cover chat, follow-ups, new threads, mobile layout, and accessibility. Unit tests cover skill-file delivery, version pinning, failures, and cancellation. Mock tests do not prove live OAuth or Learning storage.
+From the monorepo, use `pnpm nx run-many -p starter-claude-managed-agents -t test,typecheck,lint,build`, then `pnpm nx run starter-claude-managed-agents:e2e`. Keep build and browser checks sequential because both write `.next`. `npm run dev:mock` serves synthetic text streams with no Anthropic or Intelligence calls. Browser tests cover chat, follow-ups, the thread drawer, new threads, mobile layout, and accessibility. Unit tests cover skill-file delivery, version pinning, failures, and cancellation. Mock tests do not prove live OAuth or Learning storage.
 
 ## Local use and deployment
 
