@@ -40,10 +40,11 @@ function provideCopilotKit(config: CopilotKitConfig): Provider;
   one call per request. If the builder throws or rejects, that request is not
   sent and `onError` gets `header_resolution_failed`.
 
-  On a user switch, call `copilotKit.updateRuntime({ headers })` (see the
-  [`CopilotKit`](/reference/angular/services/CopilotKit) service) so Inspector
-  metadata and thread lists reload for the new user. This does not refetch
-  the runtime's `/info`.
+  Re-passing the same builder function is a no-op. On a user switch, pass a
+  new function (or a record) to `copilotKit.updateRuntime({ headers })` (see
+  the [`CopilotKit`](/reference/angular/services/CopilotKit) service), or
+  remount, so Inspector metadata and thread lists reload for the new user.
+  This does not refetch the runtime's `/info`.
 
   Core headers are also sent to any `selfManagedAgents` /
   `agents__unsafe_dev_only` agent, including ones on other origins. Don't put

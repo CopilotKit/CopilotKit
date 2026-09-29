@@ -194,10 +194,11 @@ All reactive state is exposed as read-only Angular signals. Read a signal by cal
 
   `headers` accepts a record, a sync builder, or an async builder — the same
   as [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit).
-  Call `updateRuntime({ headers })` on a user switch so Inspector metadata and
-  thread lists reload for the new user (this does not refetch the runtime's
-  `/info`). Passing a record equal (by value) to the currently applied one is
-  a no-op.
+  Re-passing the same builder function is a no-op. On a user switch, call
+  `updateRuntime({ headers })` with a new function (or a record), or remount,
+  so Inspector metadata and thread lists reload for the new user (this does
+  not refetch the runtime's `/info`). Passing a record equal (by value) to
+  the currently applied one is also a no-op.
 </PropertyReference>
 
 ## Usage

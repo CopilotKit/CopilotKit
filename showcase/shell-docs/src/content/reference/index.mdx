@@ -77,9 +77,9 @@ The [`<CopilotKit>`](/reference/components/CopilotKit) export is the v1 compatib
   If the builder throws or rejects, that request is not sent and `onError`
   gets `header_resolution_failed`.
 
-  On a user switch, call `copilotkit.setHeaders(...)` or remount the provider,
-  so Inspector metadata and thread lists reload for the new user. This does
-  not refetch the runtime's `/info`.
+  Re-passing the same builder function is a no-op. On a user switch, remount
+  the provider (e.g. `key={userId}`), so Inspector metadata and thread lists
+  reload for the new user. This does not refetch the runtime's `/info`.
 
   `copilotkit.headers` is the last resolved value. Use
   `await copilotkit.resolveHeaders()` for your own requests.

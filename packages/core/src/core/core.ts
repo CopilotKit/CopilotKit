@@ -877,7 +877,7 @@ export class CopilotKitCore {
    * Pass a function to have headers evaluated when each request is sent
    * (sync or async). Setting the same function again is a no-op. A new token
    * from the builder doesn't notify `onHeadersChanged`. On a user switch,
-   * call `setHeaders` again or remount the provider.
+   * call `setHeaders` with a NEW function (or a record), or remount.
    *
    * Passing a record equal (by value) to the currently applied record is
    * also a no-op — safe to call on every render with a fresh object literal.

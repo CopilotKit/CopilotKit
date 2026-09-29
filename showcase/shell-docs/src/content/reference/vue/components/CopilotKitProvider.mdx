@@ -58,9 +58,10 @@ builder that calls the network every time adds one call per request.
 If the builder throws or rejects, that request is not sent and `onError`
 gets `header_resolution_failed`.
 
-On a user switch, call `copilotkit.value.setHeaders(...)` or remount the
-provider, so Inspector metadata and thread lists reload for the new user.
-This does not refetch the runtime's `/info`.
+Re-passing the same builder function is a no-op. On a user switch, pass a new
+function (or a record) to `copilotkit.value.setHeaders(...)` or the `headers`
+prop, or remount the provider, so Inspector metadata and thread lists reload
+for the new user. This does not refetch the runtime's `/info`.
 
 `copilotkit.value.headers` is the last resolved value. Use
 `await copilotkit.value.resolveHeaders()` for your own requests.
