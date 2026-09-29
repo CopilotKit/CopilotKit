@@ -37,10 +37,7 @@ test("copies the Rich Threads prompt using the standard actions", async () => {
     ),
   );
   expect(screen.getByRole("status").textContent).toBe("Prompt copied");
-  expect(
-    screen.getByRole("button", { name: "Open in Claude Code" }),
-  ).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Open in Codex" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /^Open in / })).toBeNull();
   expect(
     screen.getByRole("button", { name: "More page actions" }),
   ).toBeTruthy();
