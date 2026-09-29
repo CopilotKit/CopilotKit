@@ -498,3 +498,86 @@ test("does not reload thread inspection on a token rotation, but reloads exactly
     document.body.replaceChildren();
   }
 });
+
+// M7: `.headers` was dropped when `resolveHeaders`/`headersGeneration`
+// replaced it, silently breaking a host that only ever set `.headers`. It's
+// restored as a deprecated fallback, used only when `resolveHeaders` is left
+// at its default (unset).
+test("a standalone CpkThreadInspector with only .headers set sends them on its fetches", async () => {
+  const requests: RequestRecord[] = [];
+  const fetchMock = vi.fn(
+    async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = new URL(
+        input instanceof Request ? input.url : String(input),
+        window.location.href,
+      );
+      const route = classifyRoute(url);
+      if (route) requests.push({ route, headers: headersOfInit(init) });
+      if (route === "events") return jsonResponse({ events: [] });
+      if (route === "messages") return jsonResponse({ messages: [] });
+      if (route === "state") return jsonResponse({ state: {} });
+      return jsonResponse({});
+    },
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  document.body.replaceChildren();
+
+  const detail = new CpkThreadInspector();
+  // `resolveHeaders` is left at its default (never assigned) — only the
+  // deprecated `.headers` fallback is set.
+  detail.headers = { Authorization: "Bearer legacy" };
+  detail.runtimeUrl = RUNTIME_URL;
+  detail.threadInspectionAvailable = true;
+  detail.threadId = "thread-legacy-headers";
+  document.body.append(detail);
+
+  const eventFetches = () => requests.filter((r) => r.route === "events");
+  try {
+    await waitFor(() => eventFetches().length > 0, "the initial thread load");
+    expect(eventFetches()[0]?.headers.Authorization).toBe("Bearer legacy");
+  } finally {
+    detail.remove();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    document.body.replaceChildren();
+  }
+});
+
+test("when both .headers and resolveHeaders are set on CpkThreadInspector, resolveHeaders wins", async () => {
+  const requests: RequestRecord[] = [];
+  const fetchMock = vi.fn(
+    async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = new URL(
+        input instanceof Request ? input.url : String(input),
+        window.location.href,
+      );
+      const route = classifyRoute(url);
+      if (route) requests.push({ route, headers: headersOfInit(init) });
+      if (route === "events") return jsonResponse({ events: [] });
+      if (route === "messages") return jsonResponse({ messages: [] });
+      if (route === "state") return jsonResponse({ state: {} });
+      return jsonResponse({});
+    },
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  document.body.replaceChildren();
+
+  const detail = new CpkThreadInspector();
+  detail.headers = { Authorization: "Bearer legacy" };
+  detail.resolveHeaders = () => ({ Authorization: "Bearer current" });
+  detail.runtimeUrl = RUNTIME_URL;
+  detail.threadInspectionAvailable = true;
+  detail.threadId = "thread-both-headers";
+  document.body.append(detail);
+
+  const eventFetches = () => requests.filter((r) => r.route === "events");
+  try {
+    await waitFor(() => eventFetches().length > 0, "the initial thread load");
+    expect(eventFetches()[0]?.headers.Authorization).toBe("Bearer current");
+  } finally {
+    detail.remove();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    document.body.replaceChildren();
+  }
+});
