@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, h } from "vue";
+import { defineComponent, h, nextTick, ref } from "vue";
 import { mount } from "@vue/test-utils";
 import type { Message } from "@ag-ui/core";
 import { CopilotKitCore } from "@copilotkit/core";
 import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
 import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConfigurationProvider.vue";
 import CopilotChatMessageView from "../CopilotChatMessageView.vue";
+import CopilotChat from "../CopilotChat.vue";
+import { renderWithCopilotKit } from "../../../__tests__/utils/mount";
+import { StateCapturingAgent } from "../../../__tests__/utils/agents";
 
 /**
  * `getStateByRun` deep-clones the whole run state. The `#message-before` and
@@ -137,5 +140,48 @@ describe("CopilotChatMessageView message slot meta cost", () => {
       received.every((s) => (s as { plan: string }).plan === "cloned"),
     ).toBe(true);
     expect(getStateByRun).toHaveBeenCalledTimes(6);
+  });
+
+  it("re-renders slot content when state the slot reads changes", async () => {
+    installRunSpies();
+    const label = ref("first");
+
+    const wrapper = mountMessageView({
+      "message-after": ({ message }: { message: Message }) =>
+        h("span", { "data-testid": "after" }, `${message.id}:${label.value}`),
+    });
+
+    expect(wrapper.findAll("[data-testid='after']")[0]!.text()).toBe(
+      "user-1:first",
+    );
+
+    label.value = "second";
+    await nextTick();
+
+    expect(wrapper.findAll("[data-testid='after']")[0]!.text()).toBe(
+      "user-1:second",
+    );
+  });
+
+  it("keeps the snapshot lazy through CopilotChat slot forwarding", () => {
+    const getStateByRun = installRunSpies();
+    const agent = new StateCapturingAgent([], "default");
+    agent.setMessages(messages);
+
+    const { wrapper } = renderWithCopilotKit(
+      () =>
+        h(
+          CopilotChat,
+          { welcomeScreen: false },
+          {
+            "message-after": ({ message }: { message: Message }) =>
+              h("span", { "data-testid": "after" }, message.id),
+          },
+        ),
+      { agents: { default: agent } },
+    );
+
+    expect(wrapper.findAll("[data-testid='after']")).toHaveLength(3);
+    expect(getStateByRun).not.toHaveBeenCalled();
   });
 });
