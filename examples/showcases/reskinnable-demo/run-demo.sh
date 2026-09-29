@@ -61,12 +61,23 @@ grep -q '^OPENAI_API_KEY=.\+' .env || die "OPENAI_API_KEY not set in .env (the a
 # Checked here, not at agent start, so a missing uv fails before the multi-minute
 # stack build rather than after it.
 command -v uv >/dev/null 2>&1 || die "uv not found (banking's agent needs it). Install: https://docs.astral.sh/uv/"
+command -v pnpm >/dev/null 2>&1 || die "pnpm not found (the Next.js app needs it). Install: https://pnpm.io/installation"
 # The composite image build context + the dev-license signer both need the
 # (private) Intelligence source. Default to the sibling checkout the compose uses.
 export INTELLIGENCE_REPO="${INTELLIGENCE_REPO:-$(cd "$DEMO_DIR/../../../../Intelligence" 2>/dev/null && pwd || true)}"
 [ -n "$INTELLIGENCE_REPO" ] && [ -d "$INTELLIGENCE_REPO" ] \
   || die "INTELLIGENCE_REPO not found. Point it at your Intelligence checkout (self-hosted mode needs the source to build the image + mint a dev license)."
 ok "docker running, .env present, INTELLIGENCE_REPO=$INTELLIGENCE_REPO"
+
+# --- App dependencies -------------------------------------------------------
+# Run from HERE: this directory is its own pnpm root (see pnpm-workspace.yaml),
+# so a repo-root install leaves it without node_modules and `pnpm dev` dies at
+# the very end with `next: command not found`. Done before the stack build so a
+# failed install surfaces in seconds; a no-op when node_modules is current.
+say "Installing app dependencies (pnpm install)"
+pnpm install --frozen-lockfile --prefer-offline --reporter=silent \
+  || die "pnpm install failed in $DEMO_DIR"
+ok "node_modules up to date"
 
 # --- Dev license ------------------------------------------------------------
 # Self-hosted memory is gated behind a signed offline license. Mint one only if
