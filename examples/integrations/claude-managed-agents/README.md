@@ -47,13 +47,13 @@ See Anthropic's [native skills](https://platform.claude.com/docs/en/managed-agen
 
 ## Build on it
 
-| File                                      | What to change                                                                                                 |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `app/page.tsx`, `app/globals.css`         | Chat layout, labels, and Beautiful Chat theme tokens. Set `enableInspector` to true for local Inspector tools. |
-| `anthropic/agents/assistant.md`           | Model, tools, and system prompt. Apply changes with `npm run agent:apply`.                                     |
-| `anthropic/environments/sandbox.yaml`     | Sandbox networking. Add API hosts when your agent needs them.                                                  |
-| `app/api/copilotkit/[[...slug]]/route.ts` | Runtime, user identity, and Managed Agents adapter.                                                            |
-| `lib/native-skills.ts`                    | Intelligence-to-Anthropic file delivery.                                                                       |
+| File                                      | What to change                                                                             |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `app/page.tsx`, `app/globals.css`         | Chat layout, labels, and Beautiful Chat theme tokens. The Inspector uses the SDK defaults. |
+| `anthropic/agents/assistant.md`           | Model, tools, and system prompt. Apply changes with `npm run agent:apply`.                 |
+| `anthropic/environments/sandbox.yaml`     | Sandbox networking. Add API hosts when your agent needs them.                              |
+| `app/api/copilotkit/[[...slug]]/route.ts` | Runtime, user identity, and Managed Agents adapter.                                        |
+| `lib/native-skills.ts`                    | Intelligence-to-Anthropic file delivery.                                                   |
 
 `npm run agent:plan` previews remote changes. `npm run agent:apply` creates or updates resources and writes IDs to `claude-lock.json`. Commit that lockfile when teammates should use the same resources; it contains IDs, not credentials.
 

@@ -28,7 +28,7 @@ function Chat() {
 /** The SDK drawer and chat share one uncontrolled thread configuration. */
 export default function Home() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" enableInspector={false}>
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
       <CopilotChatConfigurationProvider agentId="default">
         <div className="shell">
           <CopilotThreadsDrawer agentId="default" />

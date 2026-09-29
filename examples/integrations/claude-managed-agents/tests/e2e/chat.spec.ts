@@ -28,6 +28,9 @@ test("chat streams a reply, continues, and starts a separate conversation", asyn
   });
   await page.goto("/");
   await expect(page.getByTestId("copilot-threads-drawer")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^Web Inspector/ }),
+  ).toBeVisible();
   await expect(page.getByRole("img", { name: "CopilotKit" })).toHaveCount(0);
   await page.getByRole("textbox").fill("Hello");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
