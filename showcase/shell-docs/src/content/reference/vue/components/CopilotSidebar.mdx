@@ -78,6 +78,10 @@ All reactive props are declared with `defineProps`. `CopilotSidebar` extends the
   Controlled value for the chat input. When provided, the chat treats the input as controlled and mirrors changes back through the `input-change` event.
 </PropertyReference>
 
+<PropertyReference name="transformMessages" type="(messages: Message[]) => Message[]">
+  Reshapes the list before it renders: drop, replace or reorder messages with the whole list in view. Receives the messages after duplicate ids are merged and returns the list to render. Row keys, the streaming cursor, and the "latest message" check all follow the returned list, so a dropped message takes no row. Tool-call cards still look up their results in the full message list, so hiding a tool-result message does not empty the card that shows it. In development, the component warns once if the transform returns the same id twice. When omitted, the deduplicated list renders as is. Pass it as `:transform-messages="fn"`. Pass a stable function, so the list does not recompute on every render.
+</PropertyReference>
+
 <PropertyReference name="inputMode" type='"input" | "transcribe" | "processing"' default='"input"'>
   Initial input mode. The component manages transitions between these modes during audio transcription.
 </PropertyReference>
