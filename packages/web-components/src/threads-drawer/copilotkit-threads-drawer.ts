@@ -37,6 +37,24 @@ function rowSlotName(id: string): string | null {
   return `row:${id}`;
 }
 
+/** Elements that handle Enter / Space themselves. */
+const INTERACTIVE_SELECTOR =
+  'a[href], button, input, select, textarea, summary, [contenteditable]:not([contenteditable="false"]), [role="button"], [role="link"]';
+
+/**
+ * Whether `event` started on an interactive element inside its current target
+ * (in the shadow tree, like a row's actions button, or slotted in).
+ */
+function startedOnInteractiveDescendant(event: Event): boolean {
+  const path = event.composedPath();
+  const end = path.indexOf(event.currentTarget as EventTarget);
+  return path
+    .slice(0, end)
+    .some(
+      (node) => node instanceof Element && node.matches(INTERACTIVE_SELECTOR),
+    );
+}
+
 /**
  * Inline row-action icons. The element is framework-agnostic Lit, so it cannot
  * depend on a React icon library — these are the lucide `archive`,
@@ -117,12 +135,12 @@ const iconSidebar = html`
 `;
 
 /**
- * Header / control icons for the redesigned drawer chrome (ENT-1051). Inlined
- * lucide glyphs (`square-plus`, `filter`, `ellipsis-vertical`) drawn with
- * `currentColor` so they inherit the button's themed color — the element cannot
- * depend on a React icon library.
+ * Header / control icons for the drawer chrome. Inlined lucide glyphs
+ * (`square-pen`, `filter`, `ellipsis`, `check`, `rotate-ccw`, `sparkles`) drawn
+ * with `currentColor` so they inherit the button's themed color — the element
+ * cannot depend on a React icon library.
  */
-const iconPlusSquare = html`
+const iconNewChat = html`
   <svg
     class="icon"
     viewBox="0 0 24 24"
@@ -133,9 +151,10 @@ const iconPlusSquare = html`
     stroke-linejoin="round"
     aria-hidden="true"
   >
-    <rect width="18" height="18" x="3" y="3" rx="2" />
-    <path d="M8 12h8" />
-    <path d="M12 8v8" />
+    <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+    <path
+      d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"
+    />
   </svg>
 `;
 const iconFunnel = html`
@@ -154,11 +173,58 @@ const iconFunnel = html`
     <line x1="10" y1="19" x2="14" y2="19" />
   </svg>
 `;
-const iconKebab = html`
+const iconEllipsis = html`
   <svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-    <circle cx="12" cy="5" r="1.6" />
-    <circle cx="12" cy="12" r="1.6" />
-    <circle cx="12" cy="19" r="1.6" />
+    <circle cx="5" cy="12" r="1.75" />
+    <circle cx="12" cy="12" r="1.75" />
+    <circle cx="19" cy="12" r="1.75" />
+  </svg>
+`;
+const iconCheck = html`
+  <svg
+    class="icon"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M20 6 9 17l-5-5" />
+  </svg>
+`;
+const iconRetry = html`
+  <svg
+    class="icon"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+  </svg>
+`;
+const iconSparkles = html`
+  <svg
+    class="icon"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path
+      d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"
+    />
+    <path d="M20 3v4" />
+    <path d="M22 5h-4" />
   </svg>
 `;
 
@@ -172,6 +238,11 @@ const iconKebab = html`
  * animations) while the consumer owns DOMAIN state. `open` is additionally
  * externally controllable via the `open` property + `open-change` event so a
  * host can coordinate mobile open/close.
+ *
+ * Set `overlay` to host the drawer as a floating panel inside a container
+ * (e.g. a chat popup): it then covers its nearest positioned ancestor, slides
+ * in from that box's left edge over a scrim while `open`, and closes itself on
+ * Escape, a scrim click, or picking a thread / starting a new one.
  *
  * The element is AUTHORITATIVE over row order and the Active/All filter.
  */
@@ -194,6 +265,8 @@ export class CopilotKitThreadsDrawer extends LitElement {
     // Inbound: configurable "Recent Conversations" section heading text.
     recentLabel: { attribute: "recent-label", type: String },
     collapsible: { type: Boolean },
+    // Inbound: render as a floating panel inside the nearest positioned ancestor.
+    overlay: { type: Boolean, reflect: true },
     // Externally-controllable VIEW state.
     open: { type: Boolean, reflect: true },
     collapsed: { type: Boolean, reflect: true },
@@ -201,18 +274,18 @@ export class CopilotKitThreadsDrawer extends LitElement {
     _filter: { state: true },
     _confirmingDeleteId: { state: true },
     _viewportIsMobile: { state: true },
-    _hasHeader: { state: true },
     _hasMemories: { state: true },
+    _hasHeader: { state: true },
     _hasFooter: { state: true },
     _filterOpen: { state: true },
     _openMenuId: { state: true },
   };
 
   /**
-   * Inbound: accessible label for the drawer region — drives the screen-reader
-   * region name (on `.root`) and the listbox name (on `.list`) ONLY. The
-   * redesign has no visible title; project visible header chrome via the
-   * optional `header` slot instead. Defaults to `"Threads"`.
+   * Inbound: label for the drawer — the visible header title, the
+   * screen-reader region name (on `.root`) and the listbox name (on `.list`).
+   * Project `slot="header"` content to replace the visible title only.
+   * Defaults to `"Threads"`.
    */
   label = "Threads";
 
@@ -250,8 +323,8 @@ export class CopilotKitThreadsDrawer extends LitElement {
    * Externally-controllable: whether the drawer is open (mobile coordination).
    * Defaults to `false` so a mobile-width first render does NOT paint the open
    * modal (backdrop + body scroll-lock + focus steal) for one frame before a
-   * wrapper's post-mount effect can close it. Desktop is unaffected — only
-   * `.root.mobile.open` / `_isMobileModalOpen()` consume `open`.
+   * wrapper's post-mount effect can close it. The desktop sidebar is
+   * unaffected — only the mobile and `overlay` panels consume `open`.
    */
   open = false;
   /**
@@ -268,12 +341,24 @@ export class CopilotKitThreadsDrawer extends LitElement {
    * `collapsed` is set) — mobile off-canvas open/close is independent.
    */
   collapsible = true;
+  /**
+   * Inbound: render as a floating overlay panel contained by the nearest
+   * positioned ancestor, at any viewport width. Attribute: `overlay`
+   * (reflected). The host element then covers that ancestor (`position:
+   * absolute; inset: 0`) without intercepting pointer events; while `open` the
+   * panel slides in from the left edge over a scrim and behaves as a modal
+   * dialog (focus moves in, Tab is trapped, Escape and the scrim close it).
+   * Choosing a thread or starting a new one also closes it. No launcher
+   * cluster, collapse toggle or body scroll-lock is rendered — the host
+   * supplies the launcher and drives `open`. Defaults to `false`.
+   */
+  overlay = false;
 
   private _filter: DrawerFilter = "active";
   private _confirmingDeleteId: string | null = null;
   private _viewportIsMobile = false;
-  private _hasHeader = false;
   private _hasMemories = false;
+  private _hasHeader = false;
   private _hasFooter = false;
   /** Whether the funnel filter popover (Active/All) is open. */
   private _filterOpen = false;
@@ -305,7 +390,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
         event.stopPropagation();
         return;
       }
-      if (this._viewportIsMobile && this.open) {
+      if (this._isFloating() && this.open) {
         this._setOpen(false);
         event.stopPropagation();
       }
@@ -438,17 +523,21 @@ export class CopilotKitThreadsDrawer extends LitElement {
   }
 
   protected override updated(changed: PropertyValues<this>): void {
-    // Scroll-lock is a mobile-modal concern only.
+    // Focus moves into the panel whenever it opens as a modal (mobile or
+    // overlay). Scroll-lock is a viewport-modal concern only: an overlay is
+    // contained by its host box, so the page behind it keeps scrolling.
     if (
       changed.has("open") ||
+      changed.has("overlay") ||
       changed.has("_viewportIsMobile" as keyof CopilotKitThreadsDrawer)
     ) {
-      if (this._isMobileModalOpen()) {
+      const modalOpen = this._isModalOpen();
+      if (modalOpen && !this.overlay) {
         this._applyScrollLock();
-        this._focusFirstFocusable();
       } else {
         this._releaseScrollLock();
       }
+      if (modalOpen) this._focusFirstFocusable();
     }
 
     // Reclaim the reserved layout column when the desktop collapse state (or the
@@ -456,6 +545,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
     if (
       changed.has("collapsed") ||
       changed.has("collapsible") ||
+      changed.has("overlay") ||
       changed.has("_viewportIsMobile" as keyof CopilotKitThreadsDrawer)
     ) {
       this._syncReservedWidth();
@@ -498,8 +588,26 @@ export class CopilotKitThreadsDrawer extends LitElement {
 
   // --- View-state helpers ----------------------------------------------------
 
-  private _isMobileModalOpen(): boolean {
-    return this._viewportIsMobile && this.open;
+  /**
+   * Whether the panel is an off-canvas surface governed by `open` — the mobile
+   * viewport modal, or the contained `overlay` panel — rather than a
+   * persistent desktop sidebar.
+   */
+  private _isFloating(): boolean {
+    return this.overlay || this._viewportIsMobile;
+  }
+
+  /** Whether the panel is currently open as a modal (mobile or overlay). */
+  private _isModalOpen(): boolean {
+    return this._isFloating() && this.open;
+  }
+
+  /**
+   * Overlay mode dismisses itself once the user has made their choice (a row
+   * or "New Thread"), mirroring a mobile navigation drawer.
+   */
+  private _closeOverlayAfterChoice(): void {
+    if (this.overlay) this._setOpen(false);
   }
 
   private _setOpen(next: boolean): void {
@@ -534,7 +642,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
   private _syncReservedWidth(): void {
     if (typeof document === "undefined") return;
     const desktopCollapsed =
-      this.collapsible && this.collapsed && !this._viewportIsMobile;
+      this.collapsible && this.collapsed && !this._isFloating();
     const root = document.documentElement;
     if (desktopCollapsed) {
       root.style.setProperty("--cpk-drawer-reserved-width", "0px");
@@ -560,6 +668,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
     if (!rect || (rect.width === 0 && rect.height === 0)) {
       dialog.style.removeProperty("--confirm-cx");
       dialog.style.removeProperty("--confirm-cy");
+      dialog.style.removeProperty("--confirm-band");
       return;
     }
     // Center over the drawer's VISIBLE box (its rect intersected with the
@@ -575,6 +684,9 @@ export class CopilotKitThreadsDrawer extends LitElement {
     const visBottom = Math.min(rect.bottom, vh);
     dialog.style.setProperty("--confirm-cx", `${(visLeft + visRight) / 2}px`);
     dialog.style.setProperty("--confirm-cy", `${(visTop + visBottom) / 2}px`);
+    // Cap the card to the visible drawer band (the overlay panel is narrower
+    // than the in-flow width).
+    dialog.style.setProperty("--confirm-band", `${visRight - visLeft}px`);
   }
 
   /** Bound reposition handler for scroll/resize while the confirm dialog is open. */
@@ -676,6 +788,16 @@ export class CopilotKitThreadsDrawer extends LitElement {
   private _focusFirstFocusable(): void {
     // Defer so the rendered tree exists.
     queueMicrotask(() => {
+      // The overlay panel takes focus itself (dialog-container pattern): its
+      // first control is the close toggle, and landing there would paint a
+      // focus ring right after a pointer click on the host's launcher. Tab
+      // still reaches every control, and Escape works from the panel.
+      if (this.overlay) {
+        this.renderRoot
+          .querySelector<HTMLElement>(".root")
+          ?.focus({ preventScroll: true });
+        return;
+      }
       const focusable = this._composedFocusable();
       // Prefer the first real control over the backdrop scrim so opening the
       // modal lands focus on actionable content, not the close-on-click overlay
@@ -687,7 +809,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
   }
 
   private readonly _trapTab = (event: KeyboardEvent) => {
-    if (event.key !== "Tab" || !this._isMobileModalOpen()) return;
+    if (event.key !== "Tab" || !this._isModalOpen()) return;
     const focusable = this._composedFocusable();
     if (focusable.length === 0) return;
     const first = focusable[0]!;
@@ -710,55 +832,71 @@ export class CopilotKitThreadsDrawer extends LitElement {
     // closed on mobile — both show the same launcher cluster and hide the panel
     // body. Mobile keeps the body rendered (off-canvas, ready to slide in);
     // desktop-collapsed omits it entirely so the reserved column can reclaim.
+    // The overlay panel never shows the cluster: its host owns the launcher.
     const desktopCollapsed =
-      this.collapsible && this.collapsed && !this._viewportIsMobile;
-    const mobileClosed = this._viewportIsMobile && !this.open;
+      this.collapsible && this.collapsed && !this._isFloating();
+    const mobileViewportPanel = this._viewportIsMobile && !this.overlay;
+    const mobileClosed = mobileViewportPanel && !this.open;
     const showCluster = desktopCollapsed || mobileClosed;
+    const modalOpen = this._isModalOpen();
     const rootClasses = {
       root: true,
-      mobile: this._viewportIsMobile,
+      mobile: mobileViewportPanel,
+      overlay: this.overlay,
       open: this.open,
       collapsed: desktopCollapsed,
     };
 
     return html`
       ${showCluster ? this._renderCluster() : nothing}
-      ${
-        this._isMobileModalOpen()
-          ? html`<button
-            class="backdrop"
-            part="backdrop"
-            aria-label="Close threads drawer"
-            @click=${() => this._setOpen(false)}
-          ></button>`
-          : nothing
-      }
+      ${this._renderBackdrop(modalOpen)}
       <div
         class=${classMap(rootClasses)}
         part="root"
-        role=${this._isMobileModalOpen() ? "dialog" : "region"}
-        aria-modal=${this._isMobileModalOpen() ? "true" : nothing}
+        role=${modalOpen ? "dialog" : "region"}
+        aria-modal=${modalOpen ? "true" : nothing}
         aria-hidden=${desktopCollapsed ? "true" : nothing}
         aria-label=${this.label}
+        tabindex=${this.overlay ? "-1" : nothing}
       >
         ${
           desktopCollapsed
             ? nothing
             : html`${this._renderHeader()} ${this._renderBody()}
-              ${this._renderMemories()} ${this._renderFooter()}
-              ${this._renderConfirmDialog()}`
+            ${this._renderMemories()} ${this._renderFooter()}
+            ${this._renderConfirmDialog()}`
         }
       </div>
     `;
   }
 
   /**
+   * The scrim behind an open modal panel. The mobile scrim mounts only while
+   * open; the overlay scrim stays mounted so it can fade out with the panel's
+   * slide-out (it is `visibility: hidden` — so neither clickable nor focusable —
+   * while closed).
+   */
+  private _renderBackdrop(modalOpen: boolean) {
+    if (!this.overlay && !modalOpen) return nothing;
+    return html`<button
+      class=${classMap({
+        backdrop: true,
+        overlay: this.overlay,
+        open: modalOpen,
+      })}
+      part="backdrop"
+      aria-label="Close threads drawer"
+      @click=${() => this._setOpen(false)}
+    ></button>`;
+  }
+
+  /**
    * Floating launcher cluster from the Figma "closed" mockup: a sidebar-glyph
-   * toggle + a "New Conversation" (+) icon button. Shown in TWO states — the
+   * toggle + a "New Thread" (square-pen) icon button. Shown in TWO states — the
    * mobile closed state (toggle opens the off-canvas modal) and the desktop
    * collapsed state (toggle expands the sidebar). The primary toggle keeps
    * `part="launcher"` for mobile-launcher theme compat; the new-thread button is
-   * suppressed in the locked/unlicensed view, mirroring the New Conversation row.
+   * suppressed in the locked/unlicensed view, mirroring the "New Thread" row.
    */
   private _renderCluster() {
     const onToggle = this._viewportIsMobile
@@ -780,13 +918,14 @@ export class CopilotKitThreadsDrawer extends LitElement {
         ${
           this.licensed
             ? html`<button
-                class="launcher launcher-new-thread"
-                part="launcher-new-thread"
-                aria-label="New Conversation"
-                @click=${() => this._emit("new-thread", {})}
-              >
-                ${iconPlusSquare}
-              </button>`
+              class="launcher launcher-new-thread"
+              part="launcher-new-thread"
+              aria-label="New Thread"
+              title="New Thread"
+              @click=${() => this._emit("new-thread", {})}
+            >
+              ${iconNewChat}
+            </button>`
             : nothing
         }
       </div>
@@ -794,44 +933,40 @@ export class CopilotKitThreadsDrawer extends LitElement {
   }
 
   private _renderHeader() {
-    // The header is a reserved consumer-projection surface with no built-in
-    // controls (search and the desktop collapse toggle were both removed), so
-    // it stays hidden until a consumer projects `slot="header"` content — a
-    // `slotchange` listener drives `_hasHeader`, mirroring the memories/footer
-    // gating. Without this gate the empty padded header bar would render above
-    // the "New Conversation" row. The "New Conversation" row is suppressed in
-    // the locked/unlicensed view (only the Upgrade panel shows), mirroring the
-    // section-heading gating.
-    // On mobile the drawer is an off-canvas modal, so it needs an in-header
-    // close affordance (desktop is a persistent sidebar — nothing to close).
-    // The header therefore also renders when the mobile modal is open, even
-    // with no projected `slot="header"` content.
-    const showMobileClose = this._viewportIsMobile && this.open;
-    // Desktop collapse toggle: always available on desktop when collapsing is
-    // permitted, so the header renders on desktop even with no projected
-    // `slot="header"` content. Mobile uses the launcher/close affordances.
-    const showCollapseToggle = this.collapsible && !this._viewportIsMobile;
+    // One compact top bar: [title] … [panel toggle]. The title is the drawer's
+    // `label`; project `slot="header"` content to replace it. With no control
+    // to show (collapsible=false on desktop) and nothing projected, the bar
+    // stays hidden, as it did before the title existed. The toggle is
+    // the desktop collapse control, or — for the off-canvas panels (mobile
+    // modal while open, and the overlay panel, which stays mounted while
+    // closed) — the close control. Below the bar sits the "New Thread" row,
+    // suppressed in the locked/unlicensed view (only the Upgrade card shows),
+    // mirroring the section-heading gating.
+    const showClose = this.overlay || (this._viewportIsMobile && this.open);
+    const showCollapseToggle = this.collapsible && !this._isFloating();
     return html`
       <div
         class="header"
         part="header"
-        ?hidden=${!this._hasHeader && !showMobileClose && !showCollapseToggle}
+        ?hidden=${!this._hasHeader && !showClose && !showCollapseToggle}
       >
         <slot
           name="header"
+          class="header-slot"
           @slotchange=${(e: Event) => {
             const slot = e.target as HTMLSlotElement;
             this._hasHeader = slot.assignedElements().length > 0;
           }}
-        ></slot>
+        >
+          <span class="title" part="title">${this.label}</span>
+        </slot>
         ${
-          // Toggle sits at the END so it right-aligns (the projected header slot
-          // has flex:1 and pushes it over) — matching the mobile close button.
           showCollapseToggle
             ? html`<button
               class="icon-btn"
               part="collapse-toggle"
               aria-label="Collapse threads"
+              title="Collapse threads"
               @click=${() => this._setCollapsed(true)}
             >
               ${iconSidebar}
@@ -839,11 +974,12 @@ export class CopilotKitThreadsDrawer extends LitElement {
             : nothing
         }
         ${
-          showMobileClose
+          showClose
             ? html`<button
-              class="icon-btn"
+              class="icon-btn close-toggle"
               part="close-toggle"
               aria-label="Close threads"
+              title="Close threads"
               @click=${() => this._setOpen(false)}
             >
               ${iconSidebar}
@@ -857,19 +993,22 @@ export class CopilotKitThreadsDrawer extends LitElement {
   }
 
   /**
-   * Dedicated full-width "New Conversation" row. Keeps `part="new-thread-button"`
-   * and fires the existing `new-thread` event, so wrappers/themes that hook the
-   * old header pill are unaffected.
+   * The full-width "New Thread" row under the header. Keeps
+   * `part="new-thread-button"` and fires the existing `new-thread` event, so
+   * wrappers/themes that hook it are unaffected.
    */
   private _renderNewConversation() {
     return html`
       <button
         class="new-conversation"
         part="new-thread-button"
-        @click=${() => this._emit("new-thread", {})}
+        @click=${() => {
+          this._emit("new-thread", {});
+          this._closeOverlayAfterChoice();
+        }}
       >
-        ${iconPlusSquare}
-        <span>New Conversation</span>
+        ${iconNewChat}
+        <span>New Thread</span>
       </button>
     `;
   }
@@ -892,7 +1031,12 @@ export class CopilotKitThreadsDrawer extends LitElement {
       <div class="section-heading" part="section-heading">
         <span class="section-title">${this.recentLabel}</span>
         <button
-          class="icon-btn small"
+          class=${classMap({
+            "icon-btn": true,
+            small: true,
+            "filter-toggle": true,
+            filtered: this._filter !== "active",
+          })}
           part="filter-toggle"
           aria-label="Filter threads"
           aria-expanded=${this._filterOpen}
@@ -926,7 +1070,8 @@ export class CopilotKitThreadsDrawer extends LitElement {
                   this._filterOpen = false;
                 }}
               >
-                Active
+                <span>Active</span>
+                ${this._filter === "active" ? iconCheck : nothing}
               </button>
               <button
                 class="filter-opt"
@@ -937,7 +1082,8 @@ export class CopilotKitThreadsDrawer extends LitElement {
                   this._filterOpen = false;
                 }}
               >
-                All
+                <span>All</span>
+                ${this._filter === "all" ? iconCheck : nothing}
               </button>
             </div>`
             : nothing
@@ -990,14 +1136,20 @@ export class CopilotKitThreadsDrawer extends LitElement {
     return html`
       <div class="licensed" part="licensed" data-testid="drawer-licensed">
         <slot name="licensed">
-          <p>Threads are a CopilotKit Intelligence feature.</p>
-          <button
-            class="primary"
-            part="licensed-cta"
-            @click=${() => this._onLicensedCta()}
-          >
-            Upgrade
-          </button>
+          <div class="upsell" part="licensed-card">
+            <span class="upsell-icon">${iconSparkles}</span>
+            <p class="upsell-title">Keep every conversation</p>
+            <p class="upsell-text">
+              Threads are a CopilotKit Intelligence feature.
+            </p>
+            <button
+              class="primary"
+              part="licensed-cta"
+              @click=${() => this._onLicensedCta()}
+            >
+              Upgrade
+            </button>
+          </div>
         </slot>
       </div>
     `;
@@ -1013,11 +1165,11 @@ export class CopilotKitThreadsDrawer extends LitElement {
       >
         <p>${this.error}</p>
         <button
-          class="primary"
+          class="quiet-btn"
           part="retry-button"
           @click=${() => this._emit("retry", { scope: "initial" })}
         >
-          Retry
+          ${iconRetry}<span>Retry</span>
         </button>
       </div>
     `;
@@ -1025,8 +1177,21 @@ export class CopilotKitThreadsDrawer extends LitElement {
 
   private _renderLoading() {
     return html`
-      <div class="state" part="loading" data-testid="drawer-loading" aria-busy="true">
-        Loading threads…
+      <div
+        class="skeleton"
+        part="loading"
+        data-testid="drawer-loading"
+        role="status"
+        aria-busy="true"
+      >
+        <span class="sr-only">Loading threads…</span>
+        ${[0, 1, 2, 3, 4, 5].map(
+          () => html`
+            <div class="skeleton-row" part="skeleton-row" aria-hidden="true">
+              <span class="skeleton-bar"></span>
+            </div>
+          `,
+        )}
       </div>
     `;
   }
@@ -1107,13 +1272,17 @@ export class CopilotKitThreadsDrawer extends LitElement {
           // not the selection) before emitting the selection intent.
           this._openMenuId = null;
           this._emit("thread-selected", { threadId: thread.id });
+          this._closeOverlayAfterChoice();
         }}
         @keydown=${(e: KeyboardEvent) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            this._openMenuId = null;
-            this._emit("thread-selected", { threadId: thread.id });
-          }
+          if (e.key !== "Enter" && e.key !== " ") return;
+          // Enter/Space on the row's actions button, or on a link or button in
+          // slotted row content, activates that instead of picking the thread.
+          if (startedOnInteractiveDescendant(e)) return;
+          e.preventDefault();
+          this._openMenuId = null;
+          this._emit("thread-selected", { threadId: thread.id });
+          this._closeOverlayAfterChoice();
         }}
       >
         ${
@@ -1132,7 +1301,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
             this._openMenuId = menuOpen ? null : thread.id;
           }}
         >
-          ${iconKebab}
+          ${iconEllipsis}
         </button>
         ${
           menuOpen
@@ -1297,27 +1466,27 @@ export class CopilotKitThreadsDrawer extends LitElement {
         ${
           id !== null
             ? html`
-                <p>Delete this thread? This cannot be undone.</p>
-                <div class="dialog-actions">
-                  <button
-                    class="row-action"
-                    part="confirm-cancel"
-                    @click=${() => (this._confirmingDeleteId = null)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    class="primary"
-                    part="confirm-delete"
-                    @click=${() => {
-                      this._confirmingDeleteId = null;
-                      this._emit("delete", { threadId: id });
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              `
+              <p>Delete this thread? This cannot be undone.</p>
+              <div class="dialog-actions">
+                <button
+                  class="row-action"
+                  part="confirm-cancel"
+                  @click=${() => (this._confirmingDeleteId = null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  class="primary"
+                  part="confirm-delete"
+                  @click=${() => {
+                    this._confirmingDeleteId = null;
+                    this._emit("delete", { threadId: id });
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            `
             : nothing
         }
       </dialog>
