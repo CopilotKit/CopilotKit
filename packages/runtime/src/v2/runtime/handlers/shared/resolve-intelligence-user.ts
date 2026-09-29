@@ -7,20 +7,29 @@ import { isValidIdentifier } from "./intelligence-utils";
 
 const resolvedUsers = new WeakMap<
   Request,
-  Promise<CopilotRuntimeUser | Response>
+  WeakMap<
+    CopilotIntelligenceRuntimeLike,
+    Promise<CopilotRuntimeUser | Response>
+  >
 >();
 
+/** Resolves identity once per request and Runtime. */
 export async function resolveIntelligenceUser(params: {
   runtime: CopilotIntelligenceRuntimeLike;
   request: Request;
 }): Promise<CopilotRuntimeUser | Response> {
   const { runtime, request } = params;
 
-  const existing = resolvedUsers.get(request);
+  let byRuntime = resolvedUsers.get(request);
+  if (!byRuntime) {
+    byRuntime = new WeakMap();
+    resolvedUsers.set(request, byRuntime);
+  }
+  const existing = byRuntime.get(runtime);
   if (existing) return existing;
 
   const resolution = resolveUser(runtime, request);
-  resolvedUsers.set(request, resolution);
+  byRuntime.set(runtime, resolution);
   return resolution;
 }
 

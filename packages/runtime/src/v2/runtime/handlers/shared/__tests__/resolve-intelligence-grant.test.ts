@@ -106,8 +106,15 @@ describe("resolveIntelligenceGrant", () => {
   it("evaluates the policy once per request and surface", async () => {
     const access = vi.fn().mockResolvedValue(null);
     const request = new Request("https://x");
-    const first = await resolve(access, request);
-    const second = await resolve(access, request);
+    const owner = runtime(access);
+    const input = {
+      runtime: owner,
+      request,
+      user,
+      surface: "inspector",
+    } as const;
+    const first = await resolveIntelligenceGrant(input);
+    const second = await resolveIntelligenceGrant(input);
     expect(second).toBe(first);
     expect(access).toHaveBeenCalledOnce();
 

@@ -25,7 +25,7 @@ type GrantResolution = IntelligenceAccessGrant | undefined | Response;
 
 const resolvedGrants = new WeakMap<
   Request,
-  Map<IntelligenceAccessSurface, Promise<GrantResolution>>
+  WeakMap<CopilotIntelligenceRuntimeLike, Map<string, Promise<GrantResolution>>>
 >();
 
 /**
@@ -37,8 +37,8 @@ const resolvedGrants = new WeakMap<
  * - A malformed grant or a throwing policy: a 500 `Response`. A broken
  *   policy must fail loudly rather than quietly widen or narrow access.
  *
- * The policy runs once per request and surface unless a long-running read
- * explicitly refreshes it before returning protected data.
+ * The policy runs once per request, Runtime, identity, and surface. A long-running
+ * read can explicitly refresh it before returning protected data.
  */
 export function resolveIntelligenceGrant(params: {
   runtime: CopilotIntelligenceRuntimeLike;
@@ -48,16 +48,23 @@ export function resolveIntelligenceGrant(params: {
   refresh?: boolean;
 }): Promise<GrantResolution> {
   if (params.refresh) return resolveGrant(params);
-  const { request, surface } = params;
-  let bySurface = resolvedGrants.get(request);
-  if (!bySurface) {
-    bySurface = new Map();
-    resolvedGrants.set(request, bySurface);
+  const { runtime, request, surface, user } = params;
+  if (!runtime.access) return resolveGrant(params);
+  let byRuntime = resolvedGrants.get(request);
+  if (!byRuntime) {
+    byRuntime = new WeakMap();
+    resolvedGrants.set(request, byRuntime);
   }
-  const existing = bySurface.get(surface);
+  let byContext = byRuntime.get(runtime);
+  if (!byContext) {
+    byContext = new Map();
+    byRuntime.set(runtime, byContext);
+  }
+  const key = JSON.stringify([surface, user.id, user.name]);
+  const existing = byContext.get(key);
   if (existing) return existing;
   const resolution = resolveGrant(params);
-  bySurface.set(surface, resolution);
+  byContext.set(key, resolution);
   return resolution;
 }
 
