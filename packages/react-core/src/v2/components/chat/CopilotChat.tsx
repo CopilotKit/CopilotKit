@@ -157,6 +157,10 @@ export function CopilotChat({
   const resolvedThreadId = inspectorThreadId ?? baseThreadId;
   const hasExplicitThreadId =
     inspectorThreadId !== null || baseHasExplicitThreadId;
+  // The chat's own provider locks the thread only when this chat chose it (its
+  // `threadId` prop or an Inspector override). A thread inherited from a parent
+  // stays switchable from inside the chat, e.g. by a popup's threads drawer.
+  const choosesOwnThread = !!threadId || inspectorThreadId !== null;
 
   const { agent, isReady } = useAgent({
     agentId: resolvedAgentId,
@@ -1260,7 +1264,7 @@ export function CopilotChat({
     <CopilotChatConfigurationProvider
       agentId={resolvedAgentId}
       threadId={resolvedThreadId}
-      hasExplicitThreadId={hasExplicitThreadId}
+      hasExplicitThreadId={choosesOwnThread}
       labels={labels}
       isModalDefaultOpen={isModalDefaultOpen}
     >
@@ -1283,7 +1287,7 @@ export function CopilotChat({
               bottom: "100px",
               left: "50%",
               transform: "translateX(-50%)",
-              backgroundColor: "#ef4444",
+              backgroundColor: "var(--destructive, #ef4444)",
               color: "white",
               padding: "8px 16px",
               borderRadius: "8px",

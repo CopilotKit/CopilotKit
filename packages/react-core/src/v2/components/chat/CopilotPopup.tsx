@@ -9,6 +9,10 @@ import CopilotChatView from "./CopilotChatView";
 import type { CopilotPopupViewProps } from "./CopilotPopupView";
 import CopilotPopupView from "./CopilotPopupView";
 import { ModalOpenControlProvider } from "./modal-open-control";
+import {
+  ModalThreadsScope,
+  hasModalThreadsDrawer,
+} from "./modal-threads-drawer";
 
 /**
  * Carries the popup shell props (header, toggle, width, height, …) to the
@@ -29,6 +33,7 @@ type PopupShellProps = {
   height?: CopilotPopupViewProps["height"];
   clickOutsideToClose?: CopilotPopupViewProps["clickOutsideToClose"];
   defaultOpen?: boolean;
+  threadsDrawer?: CopilotPopupViewProps["threadsDrawer"];
 };
 
 const PopupShellPropsContext = React.createContext<PopupShellProps>({});
@@ -44,6 +49,7 @@ const PopupViewOverride: React.FC<CopilotChatViewProps> = (viewProps) => {
     height: viewHeight,
     clickOutsideToClose: viewClickOutsideToClose,
     defaultOpen: viewDefaultOpen,
+    threadsDrawer: viewThreadsDrawer,
     ...restProps
   } = viewProps as CopilotPopupViewProps;
 
@@ -58,6 +64,7 @@ const PopupViewOverride: React.FC<CopilotChatViewProps> = (viewProps) => {
       height={shell.height ?? viewHeight}
       clickOutsideToClose={shell.clickOutsideToClose ?? viewClickOutsideToClose}
       defaultOpen={shell.defaultOpen ?? viewDefaultOpen}
+      threadsDrawer={shell.threadsDrawer ?? viewThreadsDrawer}
     />
   );
 };
@@ -91,6 +98,14 @@ export type CopilotPopupProps = Omit<CopilotChatProps, "chatView"> & {
   width?: CopilotPopupViewProps["width"];
   height?: CopilotPopupViewProps["height"];
   clickOutsideToClose?: CopilotPopupViewProps["clickOutsideToClose"];
+  /**
+   * Adds a threads drawer to the popup: a thread-list launcher in the header
+   * opens it as a panel sliding in over the chat. Defaults to off. A slot:
+   * `true` for the default `CopilotThreadsDrawer`, a class name or an object
+   * of its props to configure it, or a component to replace it. See
+   * `CopilotPopupViewProps["threadsDrawer"]`.
+   */
+  threadsDrawer?: CopilotPopupViewProps["threadsDrawer"];
 };
 
 export function CopilotPopup({
@@ -102,6 +117,7 @@ export function CopilotPopup({
   width,
   height,
   clickOutsideToClose,
+  threadsDrawer,
   ...chatProps
 }: CopilotPopupProps) {
   const { checkFeature } = useLicenseContext();
@@ -123,22 +139,36 @@ export function CopilotPopup({
       height,
       clickOutsideToClose,
       defaultOpen,
+      threadsDrawer,
     }),
-    [clickOutsideToClose, header, toggleButton, height, width, defaultOpen],
+    [
+      clickOutsideToClose,
+      header,
+      toggleButton,
+      height,
+      width,
+      defaultOpen,
+      threadsDrawer,
+    ],
   );
 
   return (
     <>
       {!isPopupLicensed && <InlineFeatureWarning featureName="Popup" />}
       <PopupShellPropsContext.Provider value={shellProps}>
-        <ModalOpenControlProvider open={open} onOpenChange={onOpenChange}>
-          <CopilotChat
-            welcomeScreen={CopilotPopupView.WelcomeScreen}
-            {...chatProps}
-            isModalDefaultOpen={defaultOpen}
-            chatView={PopupViewOverrideWithStatics}
-          />
-        </ModalOpenControlProvider>
+        <ModalThreadsScope
+          enabled={hasModalThreadsDrawer(threadsDrawer)}
+          threadId={chatProps.threadId}
+        >
+          <ModalOpenControlProvider open={open} onOpenChange={onOpenChange}>
+            <CopilotChat
+              welcomeScreen={CopilotPopupView.WelcomeScreen}
+              {...chatProps}
+              isModalDefaultOpen={defaultOpen}
+              chatView={PopupViewOverrideWithStatics}
+            />
+          </ModalOpenControlProvider>
+        </ModalThreadsScope>
       </PopupShellPropsContext.Provider>
     </>
   );
