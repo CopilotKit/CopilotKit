@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import React, { useEffect, useId, useRef, useState } from "react";
 import { Check, Copy, Eye, X } from "lucide-react";
 import {
@@ -161,6 +162,25 @@ export function PromptPill({
             <Copy aria-hidden="true" />
           )}
           <span>Copy Prompt</span>
+          {/* Say that the prompt belongs in a coding agent. Decoration only:
+              the logos open nothing, and a click on them copies (PE-381). */}
+          <span className="prompt-pill-logos" aria-hidden="true">
+            <span className="prompt-pill-divider" />
+            <Image
+              unoptimized
+              src="/images/prompt-claude.webp"
+              alt=""
+              width={18}
+              height={18}
+            />
+            <Image
+              unoptimized
+              src="/images/prompt-codex.webp"
+              alt=""
+              width={18}
+              height={18}
+            />
+          </span>
         </button>
         {/* A touch screen cannot hover to reveal the shelf, so View prompt
             sits in the pill, as on the Intelligence Home. CSS shows this or

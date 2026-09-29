@@ -38,15 +38,30 @@ afterEach(() => {
 // A web page cannot choose the folder that a `claude-cli://` or `codex://`
 // link opens the agent in, and the link does nothing without the app. About
 // 90% of those clicks reached no agent (PE-337), so Copy is the only action
-// (PE-381).
-it("offers Copy and View prompt, and no app links or logos", () => {
+// (PE-381). The logos stay as decoration inside Copy: they say where the
+// prompt goes, open nothing, and a click on them copies.
+it("offers Copy and View prompt, with static logos and no app links", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
   const { container } = render(
     <PromptPill createPrompt={() => ({ text: "Run" })} />,
   );
   expect(
     screen.getAllByRole("button").map((button) => button.textContent),
   ).toEqual(["Copy Prompt", "", "View prompt"]);
-  expect(container.querySelector("img, a")).toBeNull();
+  expect(container.querySelector("a")).toBeNull();
+  const copy = screen.getByRole("button", { name: "Copy prompt" });
+  const logos = Array.from(container.querySelectorAll("img"));
+  expect(logos.map((logo) => logo.getAttribute("src"))).toEqual([
+    "/images/prompt-claude.webp",
+    "/images/prompt-codex.webp",
+  ]);
+  for (const logo of logos) {
+    expect(copy.contains(logo)).toBe(true);
+    expect(logo.getAttribute("alt")).toBe("");
+  }
+  fireEvent.click(logos[1]);
+  await waitFor(() => expect(writeText).toHaveBeenCalledWith("Run"));
 });
 
 // A touch screen cannot hover to reveal the shelf, so View prompt is also an

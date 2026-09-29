@@ -88,6 +88,25 @@
 .prompt-pill-view:active {
   background: var(--prompt-active, #e8e8f1);
 }
+/* The agent logos inside Copy: decoration, not links (PE-381). */
+.prompt-pill-logos {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.prompt-pill-divider {
+  width: 1px;
+  height: 19px;
+  background: var(--prompt-border, #e4e4ec);
+  margin-right: 1px;
+}
+.prompt-pill-logos img {
+  display: block;
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
 .prompt-pill-check {
   color: var(--prompt-success, #189370);
 }
