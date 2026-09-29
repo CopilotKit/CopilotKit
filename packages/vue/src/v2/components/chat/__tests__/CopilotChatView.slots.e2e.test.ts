@@ -15,6 +15,9 @@ const sampleMessages = [
   { id: "2", role: "assistant" as const, content: "Hi there!" },
 ];
 
+const hideAssistant = (list: typeof sampleMessages) =>
+  list.filter((m) => m.role !== "assistant");
+
 const sampleSuggestions = [
   { title: "Test", message: "Test message", isLoading: false },
   { title: "Another", message: "Another message", isLoading: false },
@@ -632,8 +635,6 @@ describe("CopilotChatView Slot System E2E Tests", () => {
 
     describe("messageView -> transformMessages forwarding", () => {
       it("forwards transformMessages through the message-view slot to a v-bound CopilotChatMessageView", () => {
-        const hideAssistant = (list: typeof sampleMessages) =>
-          list.filter((m) => m.role !== "assistant");
         const Host = defineComponent({
           components: { CopilotChatView, CopilotChatMessageView },
           setup() {
