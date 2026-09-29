@@ -147,17 +147,13 @@ export function debugEventsSuite(
     it("streams debug event envelopes with correct structure during an agent run", async () => {
       const controller = new AbortController();
 
-      // Start the debug stream. For real HTTP servers, fetch blocks until
-      // the first chunk arrives, so we also start the agent run concurrently.
-      const debugFetchPromise = doFetch(url("/cpk-debug-events"), {
+      // The endpoint sends a connected comment before any events. Waiting for
+      // its response ensures the subscription exists before starting the run.
+      const debugRes = await doFetch(url("/cpk-debug-events"), {
         signal: controller.signal,
       });
 
-      // Give the subscription a tick to register
-      await new Promise((r) => setTimeout(r, 50));
-
-      // Trigger an agent run. We start it AND begin consuming its stream
-      // concurrently with reading the debug stream.
+      // Trigger an agent run after the debug subscription is connected.
       const runRes = await doFetch(url("/agent/default/run"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -172,13 +168,9 @@ export function debugEventsSuite(
         }),
       });
 
-      // Consume the run stream and the debug stream concurrently.
-      // Both are needed: the debug stream blocks until events arrive,
-      // and the run stream must be consumed to avoid backpressure.
-      const [debugRes, runPayload] = await Promise.all([
-        debugFetchPromise,
-        readSSEStream(runRes.body!),
-      ]);
+      // Consume the run so its output cannot block on backpressure. Debug
+      // events are buffered in the already-connected stream.
+      const runPayload = await readSSEStream(runRes.body!);
 
       // ── SSE response format ──
       expect(debugRes.status).toBe(200);
