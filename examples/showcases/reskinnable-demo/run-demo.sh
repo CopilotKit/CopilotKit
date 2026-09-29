@@ -121,6 +121,21 @@ else
 fi
 ok "stack healthy: app-api :7250, gateway :7253"
 
+# --- Seed data --------------------------------------------------------------
+# The composite image no longer seeds demo data (Intelligence a4a75545f, "stop
+# seeding demo data in deployment images"), so without this the stack comes up
+# healthy with an EMPTY cpki.api_keys and every runtime call 401s with
+# AUTH_UNAUTHENTICATED. seed.sql is idempotent (ON CONFLICT / WHERE NOT EXISTS),
+# so it runs every time. Piped through the postgres container so the host needs
+# no psql.
+say "Seeding Intelligence demo org/project/keys (seed.sql)"
+SEED_SQL="$INTELLIGENCE_REPO/app-db-migrations/seed.sql"
+[ -f "$SEED_SQL" ] || die "seed.sql not found at $SEED_SQL"
+docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -q -U intelligence -d intelligence_app \
+  < "$SEED_SQL" > "$LOG_DIR/seed.log" 2>&1 \
+  || die "seeding failed (see $LOG_DIR/seed.log)"
+ok "seed keys present (casa-de-erlang, haus-von-haskell, cafe-du-caml)"
+
 # --- Banking's agent --------------------------------------------------------
 # REQUIRED, not optional, and it is NOT a compose service: banking's agent is a
 # Python LangChain deep agent in `agent/`, registered by the app as a plain
