@@ -65,7 +65,7 @@ export class MessagesComponent {
 </PropertyReference>
 
 <PropertyReference name="transformMessages" type="(messages: Message[]) => Message[]">
-  Reshapes the message list before it renders: drop, replace or reorder messages with the whole list in view. Angular has no dedupe step, so the transform receives the `messages` input directly. Row keys, the streaming cursor, and the reasoning message's "latest" check all follow the returned list, so a dropped message takes no row. Tool-call cards still look up their results in the full message list, so hiding a tool-result message does not empty the card that shows it. In development, the component warns once if the transform returns the same id twice. When omitted, every message renders. Pass it as `[transformMessages]="fn"`. Pass a stable function, so the list does not recompute on every render.
+  Reshapes the message list before it renders: drop, replace or reorder messages with the whole list in view. Angular has no dedupe step, so the transform receives the `messages` input directly. Row keys, the streaming cursor, and the reasoning message's "latest" check all follow the returned list, so a dropped message takes no row. Tool-call cards still look up their results in the full message list, so hiding a tool-result message does not empty the card that shows it. In development, the component warns once if the transform returns the same id twice. When omitted, every message renders. Pass it as `[transformMessages]="fn"`. Pass a stable function, so the list does not recompute on every render. Return a new array. Do not change the array you receive.
 </PropertyReference>
 
 ### Assistant message slot inputs

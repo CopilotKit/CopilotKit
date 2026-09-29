@@ -61,7 +61,8 @@ const { agent } = useAgent();
   card that shows it. In development, the component warns once if the
   transform returns the same id twice. When omitted, the deduplicated list
   renders as is. Pass it as `:transform-messages="fn"`. Pass a stable
-  function, so the list does not recompute on every render.
+  function, so the list does not recompute on every render. Return a new
+  array. Do not change the array you receive.
 </PropertyReference>
 
 <Callout type="info">
