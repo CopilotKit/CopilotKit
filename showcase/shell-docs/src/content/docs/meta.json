@@ -12,15 +12,11 @@
     "---Build Chat UIs---",
     "prebuilt-components",
     {
-      "title": "Rich Threads",
+      "title": "Threads",
       "defaultOpen": true,
       "pages": [
-        "threads",
         "prebuilt-components/copilot-threads-drawer",
-        "headless-threads",
-        "threads-lifecycle",
-        "threads-import",
-        "intelligence/threads-explained"
+        "headless-threads"
       ]
     },
     "custom-look-and-feel",
@@ -56,7 +52,16 @@
     "intelligence/overview",
     "intelligence/quickstart",
     "intelligence/intelligence-platform",
-    "threads",
+    {
+      "title": "AG-UI Streams",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "threads-import",
+        "threads-lifecycle",
+        "intelligence/threads-explained"
+      ]
+    },
     "intelligence/memories",
     "learning",
     "intelligence/learned-skills",
