@@ -842,6 +842,30 @@ describe("framework nav", () => {
     }
   });
 
+  it("preserves new authored Threads pages through sidebar normalization", () => {
+    const nav = structuredClone(buildRootSurfaceNav("built-in-agent"));
+    const threads = nav.find(
+      (node) => node.type === "group" && node.title === "Threads",
+    );
+    if (!threads || threads.type !== "group")
+      throw new Error("Missing Threads group");
+    threads.children.push({
+      type: "page",
+      title: "Custom thread UI",
+      slug: "custom-thread-ui",
+    });
+    const normalized = normalizeSidebarNav(nav);
+    expect(groupPageEntries(normalized, "Threads")).toContainEqual({
+      title: "Custom thread UI",
+      slug: "custom-thread-ui",
+    });
+    expect(
+      navAncestorBreadcrumbsForSlug(normalized, "custom-thread-ui")?.map(
+        ({ label }) => label,
+      ),
+    ).toEqual(["Basics", "Threads"]);
+  });
+
   it("orders the AG-UI Streams job routes consistently across framework modes", () => {
     const generatedNav = buildFrameworkNav(
       "langgraph",

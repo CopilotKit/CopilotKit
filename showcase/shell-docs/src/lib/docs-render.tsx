@@ -1044,10 +1044,10 @@ export function normalizeSidebarNav(
   const inputBasics = sidebarSectionChildren(input, "Basics");
   const canonicalBasics = sidebarSectionChildren(canonical, "Basics");
   const existingChat = findGroup(inputBasics, "Chat");
-  const threadUiSlugs = [
-    "prebuilt-components/copilot-threads-drawer",
-    "headless-threads",
-  ];
+  const authoredThreads =
+    findGroup(inputBasics, "Threads") ?? findGroup(canonicalBasics, "Threads");
+  const threadUiChildren =
+    authoredThreads?.type === "group" ? authoredThreads.children : [];
   const threadDeliverySlugs = [
     "threads",
     "threads-import",
@@ -1063,9 +1063,8 @@ export function normalizeSidebarNav(
         ) &&
         !(
           node.type === "page" &&
-          ["inspector", ...threadUiSlugs, ...threadDeliverySlugs].includes(
-            node.slug,
-          )
+          (["inspector", ...threadDeliverySlugs].includes(node.slug) ||
+            Boolean(findPageBySlug(threadUiChildren, node.slug)))
         ),
     );
   const inputChatNodes = filterChatNodes(inputBasics);
@@ -1084,9 +1083,7 @@ export function normalizeSidebarNav(
   const threadUiTopic = sidebarTopicGroup(
     "Threads",
     "sidebar#threads-ui",
-    threadUiSlugs
-      .map(findPage)
-      .filter((node): node is NavNode => Boolean(node)),
+    threadUiChildren,
   );
   const frontendTools = findPage("frontend-tools");
 
