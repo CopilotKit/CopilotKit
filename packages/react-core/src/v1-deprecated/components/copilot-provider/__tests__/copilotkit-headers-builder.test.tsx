@@ -245,7 +245,11 @@ describe("v1 <CopilotKit> — headers builder evaluated at send time (#1937)", (
       const third = readHeaders();
 
       // Never a Promise, and never the builder's (unawaited) resolved value.
-      expect(Object.prototype.hasOwnProperty.call(first, "then")).toBe(false);
+      // (`hasOwnProperty(first, "then")` would be vacuous here — a real
+      // Promise's `.then` lives on `Promise.prototype`, not as an own
+      // property of the instance, so that check is always `false` whether
+      // or not `first` actually is a Promise.)
+      expect(first).not.toBeInstanceOf(Promise);
       expect(first).toEqual({});
       expect(second).toEqual({});
       expect(third).toEqual({});
@@ -267,6 +271,63 @@ describe("v1 <CopilotKit> — headers builder evaluated at send time (#1937)", (
       readHeaders();
       expect(warnSpy).toHaveBeenCalledTimes(1);
     } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("a rejecting async headers builder triggers no unhandled promise rejection", async () => {
+    const calls: Call[] = [];
+    vi.stubGlobal("fetch", stubFetch(calls));
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const unhandled: unknown[] = [];
+    const onUnhandledRejection = (reason: unknown) => {
+      unhandled.push(reason);
+    };
+    process.on("unhandledRejection", onUnhandledRejection);
+
+    let readHeaders!: () => Record<string, string>;
+
+    function Reader() {
+      const context = useCopilotContext();
+      readHeaders = () => context.copilotApiConfig.headers;
+      return null;
+    }
+
+    function App() {
+      return (
+        <CopilotKit
+          runtimeUrl="http://rt.test/api/copilotkit"
+          headers={async () => {
+            throw new Error("boom (headers builder rejection)");
+          }}
+        >
+          <Reader />
+        </CopilotKit>
+      );
+    }
+
+    try {
+      render(<App />);
+      // Let the v2 path's own mount-time header resolution (which handles
+      // this same rejection through its own, already-covered
+      // `CopilotKitHeaderResolutionError` path) run and settle first.
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      // The v1-internal getter's OWN call to the same (rejecting) builder —
+      // this is the discarded promise fix round 1 landed.
+      readHeaders();
+
+      // Discriminating assertion FIRST: Node's `unhandledRejection` check
+      // runs on a later tick, after promises have had a chance to attach a
+      // handler — give it a couple of ticks before asserting.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onUnhandledRejection);
       warnSpy.mockRestore();
     }
   });

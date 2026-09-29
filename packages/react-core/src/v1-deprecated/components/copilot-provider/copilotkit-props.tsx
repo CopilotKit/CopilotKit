@@ -94,8 +94,10 @@ export interface CopilotKitProps extends Omit<
    *
    * An async builder is only awaited on the request paths served by
    * `<CopilotKit>`'s v2 provider (agent runs, threads, the inspector, and
-   * so on). The legacy `CopilotTask` / GraphQL path never awaits it — see
-   * that API's own docs for the sync-only fallback it uses instead.
+   * so on). The legacy v1 `CopilotTask` / GraphQL path (and anything else
+   * that reads the internal `copilotApiConfig.headers` snapshot) never
+   * awaits it — see `CopilotTask`'s own docs for the sync-only fallback it
+   * uses instead.
    */
   headers?: CopilotKitHeadersSource;
 

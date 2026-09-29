@@ -415,11 +415,20 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     // closing over `props.headers` — that keeps it live even across a
     // render where this memo doesn't recompute.
     //
-    // This is the ONLY consumer of `copilotApiConfig.headers`: the legacy
-    // `CopilotTask` / GraphQL path (`lib/copilot-task.ts`). That path has no
-    // send-time hook to await a builder on, so a v2 `CopilotKitHeadersSource`
-    // (record, sync builder, or async builder — see `copilotkit-props.tsx`)
-    // is handled here as follows:
+    // `copilotApiConfig.headers` is consumed by the legacy `CopilotTask` /
+    // GraphQL path (`lib/copilot-task.ts`), which reads it from inside
+    // `CopilotTask.run()` — not during render. Verified with a
+    // `packages/`-wide (non-test) grep for `copilotApiConfig.headers` and
+    // for any full-object spread/read of `copilotApiConfig` at fix round 1
+    // of #1937: that grep also caught (and fixed) a SECOND, unrelated
+    // render-time read in `react-textarea`'s
+    // `useMakeStandardAutosuggestionFunction`, which had nothing to do with
+    // `CopilotTask` — a reminder that a NEW consumer of
+    // `copilotApiConfig.headers` anywhere in the repo (not just
+    // `react-core`) must either read it lazily, outside render, or be
+    // rejected. That path has no send-time hook to await a builder on, so a
+    // v2 `CopilotKitHeadersSource` (record, sync builder, or async builder —
+    // see `copilotkit-props.tsx`) is handled here as follows:
     //  - a record: returned as-is, unchanged.
     //  - a sync builder: called fresh on every read (today's behavior), so
     //    a rotated token still reaches `CopilotTask`.
@@ -430,9 +439,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     //    returns `{}` without calling it again. A one-time (per provider
     //    instance) dev warning explains why.
     //
-    // None of this ever runs during React's render phase: a getter is only
-    // evaluated when something actually reads `.headers`, which for this
-    // config object only happens from inside `CopilotTask.run()`.
+    // A getter is only evaluated when something actually reads `.headers` —
+    // it never runs merely because this component (or this memo) rendered.
     Object.defineProperty(config, "headers", {
       enumerable: true,
       configurable: true,
@@ -455,6 +463,12 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
         if (isAsync) {
           headersBuilderStateRef.current = { fn: source, isAsync: true };
+          // This path never awaits `result` — its value (and any rejection)
+          // is intentionally discarded (see above: an async builder isn't
+          // supported here). Attach a no-op rejection handler so a builder
+          // that rejects doesn't surface as an unhandled promise rejection;
+          // the rejection reason itself is never inspected or logged.
+          (result as PromiseLike<unknown>).then(undefined, () => {});
           if (
             process.env.NODE_ENV !== "production" &&
             !warnedAsyncHeadersRef.current
