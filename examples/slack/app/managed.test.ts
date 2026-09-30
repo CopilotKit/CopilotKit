@@ -198,11 +198,13 @@ describe("managed channel entrypoint", () => {
     vi.resetModules();
     await import("./managed.js");
 
-    expect(fakes.CopilotKitIntelligence).toHaveBeenCalledWith({
-      apiUrl: "http://localhost:4201",
-      wsUrl: "ws://localhost:4401",
-      apiKey: "cpk-opentag",
-    });
+    await vi.waitFor(() =>
+      expect(fakes.CopilotKitIntelligence).toHaveBeenCalledWith({
+        apiUrl: "http://localhost:4201",
+        wsUrl: "ws://localhost:4401",
+        apiKey: "cpk-opentag",
+      }),
+    );
     expect(fakes.ready).toHaveBeenCalledOnce();
   });
 
@@ -224,6 +226,7 @@ describe("managed channel entrypoint", () => {
 
     vi.resetModules();
     await import("./managed.js");
+    await vi.waitFor(() => expect(fakes.bot.onMention).toHaveBeenCalledOnce());
 
     const onTurn = fakes.bot.onMention.mock.calls[0]?.[0] as (args: {
       thread: {

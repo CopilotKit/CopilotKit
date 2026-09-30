@@ -323,8 +323,6 @@ export class Thread implements ThreadInterface {
     });
   }
 
-  }
-
   /**
    * Render a resolved React element to a PNG via the configured (or default
    * lazy Takumi) renderer, then upload it through `postFile`.
@@ -353,7 +351,8 @@ export class Thread implements ThreadInterface {
     };
     const renderFn = this.deps.renderImage ?? defaultRenderImage;
     const bytes = await renderFn(node, cfg);
-    const res = await this.postFile({
+    // post() already tracks this operation; calling postFile() would track it twice.
+    const res = await this.deps.adapter.postFile(this.deps.replyTarget, {
       bytes,
       filename: opts?.filename ?? "image.png",
       title: opts?.title,
