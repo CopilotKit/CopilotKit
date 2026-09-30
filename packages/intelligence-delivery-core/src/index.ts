@@ -16,6 +16,7 @@ export {
 } from "@copilotkit/runtime/internal/learned-skills";
 export type {
   SkillRegistryOptions,
+  SkillRegistryContainer,
   RegistryConfig,
   SkillDeliveryErrorCode,
   SkillRegistryStatus,

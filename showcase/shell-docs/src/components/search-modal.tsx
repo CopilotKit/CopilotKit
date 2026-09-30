@@ -191,7 +191,10 @@ function matchesQuery(
   query: string,
 ): boolean {
   const terms = normalizeQuery(query).split(/\s+/).filter(Boolean);
-  const haystack = normalizeHaystack(fields.filter(Boolean).join(" "));
+  const aliases = fields.includes("AG-UI Streams") ? "Rich Threads" : "";
+  const haystack = normalizeHaystack(
+    [...fields, aliases].filter(Boolean).join(" "),
+  );
   return terms.every((term) => haystack.includes(term));
 }
 
@@ -353,12 +356,17 @@ function scoreResult(
   if (result.frameworkName) score -= 6;
   // Spelling the title out in words is still naming it exactly: "ag ui"
   // for "AG-UI", "use Copilot kit" for `useCopilotKit`.
-  if (condense(result.title) === condense(query)) score -= 30;
+  if (
+    condense(result.title) === condense(query) ||
+    (result.title === "AG-UI Streams" &&
+      ["threads", "rich threads"].includes(q))
+  )
+    score -= 30;
   // A whole-word hit anywhere in the title beats one buried inside a
   // longer word. This slot used to be `title.startsWith(q)`, which was a
   // crude stand-in for the same idea: it rewarded the query only when it
   // was the FIRST word, so searching "threads" put "Threads Drawer" above
-  // the canonical "Rich Threads" guide, and left "useThreads" — where
+  // the canonical "AG-UI Streams" guide, and left "useThreads" — where
   // "threads" is not a word at all — tied with it.
   else if (matchesWholeWord(title, q)) score -= 18;
   else if (title.includes(q)) score -= 8;
@@ -388,8 +396,7 @@ function compareResults(
   if (byScore !== 0) return byScore;
 
   // A shorter title is nearly always the more general, canonical page for
-  // a topic: "Rich Threads" is the Threads guide, "Threads Drawer" is one
-  // component within it.
+  // a topic. Explicit naming-transition aliases are handled above.
   if (a.title.length !== b.title.length) {
     return a.title.length - b.title.length;
   }
@@ -402,6 +409,28 @@ function compareResults(
   // the order total, so it never falls through to the order the index
   // happened to be generated in.
   return a.href.localeCompare(b.href);
+}
+
+let registryLoad: Promise<Registry> | undefined;
+
+/**
+ * The registry behind the framework picker, fetched once per page and
+ * shared by every later open of the modal. A failed fetch is forgotten so
+ * the next open retries it rather than replaying the failure.
+ *
+ * Exported so tests can await the one real load up front: under vitest every
+ * bare `import()` of this JSON is a fresh round trip to the main process,
+ * which stalls for seconds when the whole suite runs in parallel.
+ */
+export function loadRegistry(): Promise<Registry> {
+  registryLoad ??= import("@/data/registry.json").then(
+    (mod) => mod.default as Registry,
+    (err: unknown) => {
+      registryLoad = undefined;
+      throw err;
+    },
+  );
+  return registryLoad;
 }
 
 export function SearchModal({ onClose }: { onClose: () => void }) {
@@ -439,9 +468,9 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
     const frameId = window.requestAnimationFrame(focusInput);
     const focusId = window.setTimeout(focusInput, 80);
     let cancelled = false;
-    import("@/data/registry.json")
-      .then((mod) => {
-        if (!cancelled) setRegistryData(mod.default as Registry);
+    loadRegistry()
+      .then((registry) => {
+        if (!cancelled) setRegistryData(registry);
       })
       .catch((err) => {
         if (!cancelled) {

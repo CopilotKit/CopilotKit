@@ -110,7 +110,7 @@ describe("ChannelsActivationStrip", () => {
     expect(prompt).not.toContain("--intent");
     expect(prompt).not.toMatch(/slack|teams/i);
     // Minted per click, so one copy is one attempt rather than one shared row.
-    expect(prompt).toMatch(/--run [0-9a-f]{12}\b/);
+    expect(prompt).toMatch(/\/onboarding-prompts\/[0-9a-f]{12}\b/);
     expect(await screen.findByText("Prompt copied")).toBeTruthy();
     expect(analytics.capture).toHaveBeenCalledWith(
       CHANNELS_ACTIVATION_EVENTS.promptCopied,

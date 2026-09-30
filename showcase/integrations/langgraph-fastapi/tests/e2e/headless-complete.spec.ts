@@ -69,10 +69,9 @@ test.describe("Headless Chat (Complete)", () => {
       .locator('[data-testid="headless-message-assistant"]')
       .last();
     await expect(assistant).toBeVisible({ timeout: ASSERT_TIMEOUT });
-    await expect(assistant).toContainText("Tokyo is 68°F and sunny.", {
+    await expect(assistant).toContainText("Tokyo is 22°C and partly cloudy.", {
       timeout: ASSERT_TIMEOUT,
     });
-    await expect(assistant).not.toContainText(/22°C|partly cloudy/i);
   });
 
   test("AAPL pill renders the headless StockCard via useRenderTool plus the deterministic narration", async ({

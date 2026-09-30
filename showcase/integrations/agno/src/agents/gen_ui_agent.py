@@ -29,7 +29,6 @@ pattern as `shared_state_read_write` and `subagents`.
 
 from __future__ import annotations
 
-import json
 from textwrap import dedent
 
 import dotenv
@@ -84,7 +83,7 @@ def set_steps(run_context: RunContext, steps: list[dict]) -> str:
         if isinstance(s, dict):
             cleaned.append(s)
     run_context.session_state["steps"] = cleaned
-    return json.dumps(cleaned, ensure_ascii=False, separators=(",", ":"))
+    return f"Published {len(cleaned)} step(s)."
 
 
 agent = Agent(

@@ -12,8 +12,8 @@
 #
 #   1. services_csv — the EXISTING leaf-set CSV the actual promote loop consumes.
 #      For a single service this is just that service's SSOT name; for `all` it
-#      is every prod-eligible (`probe.prod == true`) SSOT name, sorted (the prior
-#      inline behavior, byte-for-byte). U4 still drives the real promote off this.
+#      is every prod-eligible (`probe.prod == true`) and not-standalone SSOT
+#      name, sorted. U4 still drives the real promote off this.
 #
 #   2. closure_csv / closure_plan — the TIERED promote closure computed from the
 #      generated JSON's `closure` block: the requested set ∪ transitive
@@ -77,7 +77,7 @@ if [ "$INPUT" = "all" ]; then
     echo "::error::--digest cannot be combined with 'all' (a single digest is meaningless across multiple services); pick one service."
     exit 1
   fi
-  CSV=$(jq -r '.services[] | select(.probe.prod == true) | .name' "$GENERATED" | sort -u | tr '\n' ',' | sed 's/,$//')
+  CSV=$(jq -r '.services[] | select(.probe.prod == true and .standalone != true) | .name' "$GENERATED" | sort -u | tr '\n' ',' | sed 's/,$//')
   # Fail loud if 'all' resolved to nothing (e.g. an SSOT regression dropped every
   # probe.prod entry). An empty CSV would otherwise propagate downstream with
   # exit 0; mirror the single-service branch's fail-loud style.

@@ -2,13 +2,14 @@
 
 // Shared State (Read-only) — the UI publishes a recipe to the agent via
 // `agent.setState`; the agent reads that recipe on every turn but does
-// not mutate it (the dedicated recipe reader has no mutation tools).
+// not mutate it (the wired graph is the neutral default agent with no
+// tools — see manifest entry `shared-state-read`).
 //
 // Single source of truth: `agent.state.recipe`. The form is a pure
 // controlled component on top of that — every edit flows straight into
 // `agent.setState({...})` and the next render reflects it.
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import {
   CopilotKit,
   CopilotSidebar,
@@ -43,7 +44,6 @@ function Recipe() {
     updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
   });
   const { copilotkit } = useCopilotKit();
-  const latestRecipe = useRef<RecipeData>(INITIAL_RECIPE);
 
   useConfigureSuggestions({
     suggestions: [
@@ -63,21 +63,20 @@ function Recipe() {
     available: "always",
   });
 
-  // Discovery replaces the provisional agent. Seed each new instance,
-  // retaining edits made before discovery without overwriting existing state.
+  // Seed the initial recipe into agent state once so the agent has
+  // something to read on the first turn. After this, every edit lands
+  // via `agent.setState` below.
   useEffect(() => {
     if (!(agent.state as RecipeAgentState | undefined)?.recipe) {
-      agent.setState({
-        recipe: latestRecipe.current,
-      } satisfies RecipeAgentState);
+      agent.setState({ recipe: INITIAL_RECIPE } satisfies RecipeAgentState);
     }
-  }, [agent]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const recipe =
     (agent.state as RecipeAgentState | undefined)?.recipe ?? INITIAL_RECIPE;
 
   const handleChange = (next: RecipeData) => {
-    latestRecipe.current = next;
     agent.setState({ recipe: next } satisfies RecipeAgentState);
   };
 

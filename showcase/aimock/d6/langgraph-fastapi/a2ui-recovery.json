@@ -1,33 +1,16 @@
 {
  "_meta": {
   "description": "D6 fixtures for langgraph-fastapi / a2ui-recovery (A2UI error recovery)",
-  "_note": "Backend-owned A2UI (get_a2ui_tools, injectA2UITool=false). NO context match field: inner model calls carry no x-aimock-context or x-test-id; unique recovery prompts isolate the integration. HEAL: unresolved_child retry feedback selects the valid surface, and fresh outer tool-call IDs keep repeated healed activities distinct. EXHAUST: invalid every attempt -> exhausts.",
+  "_note": "Backend-owned A2UI (get_a2ui_tools, injectA2UITool=false). NO `context` match field: a real browser (the dojo) does not send x-aimock-context, so context-scoped fixtures would 404 in-browser; the recovery pills' prompts are UNIQUE per framework, so userMessage alone disambiguates. HEAL: seq 0 invalid -> retry -> seq 1 valid -> paints. EXHAUST: invalid every attempt -> exhausts. Mirrors langgraph-python/a2ui-recovery.json.",
   "created": "2026-06-26"
  },
  "fixtures": [
   {
-   "_comment": "HEAL pill - inner retry after the malformed root: VALID surface -> paints (declarative-metric x2). Match the actual validation feedback, not a process-wide sequence counter.",
+   "_comment": "HEAL pill - inner render_a2ui attempt 1 (sequenceIndex 0): INVALID (dangling child) -> retry.",
    "match": {
     "userMessage": "Put together a quarterly metrics overview and repair a malformed first attempt.",
     "toolName": "render_a2ui",
-    "systemMessage": "[unresolved_child] components[0].children[0]: Child reference 'missing-metric' does not match any component id"
-   },
-   "response": {
-    "toolCalls": [
-     {
-      "id": "call_d6_fa_recover_heal_good",
-      "name": "render_a2ui",
-      "arguments": "{\"surfaceId\": \"recovery-demo\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"m1\", \"m2\"]}, {\"id\": \"m1\", \"component\": \"Metric\", \"label\": \"Quarterly Revenue\", \"value\": \"$4.2M\", \"trend\": \"up\", \"trendValue\": \"+12% QoQ\"}, {\"id\": \"m2\", \"component\": \"Metric\", \"label\": \"Win Rate\", \"value\": \"31%\", \"trend\": \"down\", \"trendValue\": \"-2 pts\"}], \"data\": {}}"
-     }
-    ]
-   },
-   "chunkSize": 9999
-  },
-  {
-   "_comment": "HEAL pill - inner first attempt: INVALID (dangling child) -> retry. The more specific retry fixture above takes precedence after validation feedback is added.",
-   "match": {
-    "userMessage": "Put together a quarterly metrics overview and repair a malformed first attempt.",
-    "toolName": "render_a2ui"
+    "sequenceIndex": 0
    },
    "response": {
     "toolCalls": [
@@ -41,11 +24,27 @@
    "chunkSize": 9999
   },
   {
-   "_comment": "HEAL continuation - narrate after the current generate_a2ui result; match request shape so each render can use a fresh tool-call ID.",
+   "_comment": "HEAL pill - inner render_a2ui attempt 2 (sequenceIndex 1): VALID surface -> paints (declarative-metric x2).",
    "match": {
     "userMessage": "Put together a quarterly metrics overview and repair a malformed first attempt.",
-    "toolName": "generate_a2ui",
-    "hasToolResult": true
+    "toolName": "render_a2ui",
+    "sequenceIndex": 1
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_fa_recover_heal_good",
+      "name": "render_a2ui",
+      "arguments": "{\"surfaceId\": \"recovery-demo\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"m1\", \"m2\"]}, {\"id\": \"m1\", \"component\": \"Metric\", \"label\": \"Quarterly Revenue\", \"value\": \"$4.2M\", \"trend\": \"up\", \"trendValue\": \"+12% QoQ\"}, {\"id\": \"m2\", \"component\": \"Metric\", \"label\": \"Win Rate\", \"value\": \"31%\", \"trend\": \"down\", \"trendValue\": \"-2 pts\"}], \"data\": {}}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "HEAL pill - outer narration (matched by the emit's unique toolCallId).",
+   "match": {
+    "toolCallId": "call_d6_fa_recover_heal_outer_001"
    },
    "response": {
     "content": "The first render came back malformed - I recovered and painted your metrics overview."
@@ -53,15 +52,14 @@
    "chunkSize": 9999
   },
   {
-   "_comment": "HEAL initiation - the current turn has no result yet. Omit the call ID so each generated surface receives a fresh activity identity.",
+   "_comment": "HEAL pill - outer agent emits generate_a2ui (matched by the unique prompt).",
    "match": {
-    "userMessage": "Put together a quarterly metrics overview and repair a malformed first attempt.",
-    "toolName": "generate_a2ui",
-    "hasToolResult": false
+    "userMessage": "Put together a quarterly metrics overview and repair a malformed first attempt."
    },
    "response": {
     "toolCalls": [
      {
+      "id": "call_d6_fa_recover_heal_outer_001",
       "name": "generate_a2ui",
       "arguments": "{\"intent\": \"create\"}"
      }

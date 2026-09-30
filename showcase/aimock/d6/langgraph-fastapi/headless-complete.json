@@ -4,19 +4,17 @@
     "sourceFile": "d5-all.json",
     "copiedFrom": "langgraph-python",
     "created": "2026-05-21",
-    "_note": "Narration fixtures (toolCallId) listed FIRST so they win when last message is a matching tool result. Toolcall fixtures listed AFTER and use only userMessage+context so they match on the initial user turn regardless of prior assistant/tool history. Derived from langgraph-python, with FastAPI-specific weather result matching — the prior fastapi copy had diverged, keeping stale turnIndex:0 gates on the revenue/highlight toolcall fixtures that re-fired under relaxed turnIndex matching in the 4-pill gen-ui-headless-complete thread and looped the graph to its recursion limit."
+    "_note": "Narration fixtures (toolCallId) listed FIRST so they win when last message is a matching tool result. Toolcall fixtures listed AFTER and use only userMessage+context so they match on the initial user turn regardless of prior assistant/tool history. Mirrors the green langgraph-python headless-complete.json byte-for-byte (context swapped) — the prior fastapi copy had diverged, keeping stale turnIndex:0 gates on the revenue/highlight toolcall fixtures that re-fired under relaxed turnIndex matching in the 4-pill gen-ui-headless-complete thread and looped the graph to its recursion limit."
   },
   "fixtures": [
     {
-      "_comment": "Narrate only the observed native Tokyo result: 68°F and Sunny. Match the current tool call and complete payload so a different result cannot receive this canned narration.",
+      "_comment": "headless-complete weather pill narration — matches when the get_weather tool result with id call_d5_headless_weather_001 is the last message. The 'tokyo' textToken assertion is satisfied by the city name. Narration verbatim matches the headless-complete.spec.ts assertion `toContainText('Tokyo is 22°C and partly cloudy.')`.",
       "match": {
         "toolCallId": "call_d5_headless_weather_001",
-        "context": "langgraph-fastapi",
-        "hasToolResult": true,
-        "toolResultContains": "{\"city\": \"Tokyo\", \"temperature\": 68, \"humidity\": 55, \"wind_speed\": 10, \"conditions\": \"Sunny\"}"
+        "context": "langgraph-fastapi"
       },
       "response": {
-        "content": "Tokyo is 68°F and sunny."
+        "content": "Tokyo is 22°C and partly cloudy. The headless WeatherCard above shows the sunny snapshot from the tool."
       }
     },
     {

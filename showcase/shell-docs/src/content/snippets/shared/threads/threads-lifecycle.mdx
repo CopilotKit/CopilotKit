@@ -9,7 +9,7 @@ Every CopilotKit conversation is scoped to a **thread**, identified by a `thread
 ## The lifecycle at a glance
 
 1. **Mint.** When a chat mounts without an explicit `threadId`, the client generates one (a UUID v4).
-2. **Run.** Messages and tool calls stream under that `threadId`. If a server-side store is configured (CopilotKit Intelligence, or a persisting `AgentRunner`), they are persisted as they happen so the thread can be replayed later. A runtime with no persistence layer keeps nothing server-side. See [Threads & Persistence Architecture](/intelligence/threads-explained) for the full server-side model.
+2. **Run.** Messages and tool calls stream under that `threadId`. If a server-side store is configured (CopilotKit Intelligence, or a persisting `AgentRunner`), they are persisted as they happen so the thread can be replayed later. A runtime with no persistence layer keeps nothing server-side. See [AG-UI Streams & Framework Threads](/intelligence/threads-explained) for the full server-side model.
 3. **Hydrate.** When a chat mounts *with* a known `threadId`, the client connects and replays the persisted history into the UI.
 4. **Switch / start.** You change the active thread (restoring its history) or start a fresh one (clearing the view).
 
@@ -72,7 +72,9 @@ function MyComponent() {
   There is no v2 `useCopilotChat` hook and no v2 `initialMessages` prop. Read messages from `useAgent().agent.messages` and mutate with `agent.setMessages(...)` / `agent.addMessage(...)`. (`initialMessages` still exists on the **v1** `useCopilotChat` hook; see [below](#v1-vs-v2).)
 </Callout>
 
-## Scope Rich Threads to the signed-in user
+<span id="scope-rich-threads-to-the-signed-in-user" />
+
+## Scope AG-UI Streams to the signed-in user
 
 Your application owns end-user authentication. For an Intelligence-enabled
 Runtime, implement `identifyUser(request)` with the server-verified session or
@@ -108,7 +110,7 @@ archive, unarchive, and delete operations. The project Runtime API key is a
 separate credential: keep it on the server and do not use the developer who
 created that key as the application user.
 
-[Connect your runtime to Intelligence](/intelligence/connect-your-runtime) covers the
+[Connect your runtime to Intelligence](/intelligence/quickstart) covers the
 `CopilotKitIntelligence` constructor in full — where the project API key comes
 from, the self-hosted `apiUrl` / `wsUrl` override rule, and how to confirm the
 credential is actually being read rather than silently ignored.
@@ -121,7 +123,7 @@ credential is actually being read rather than silently ignored.
 
 See [Authentication](/auth) for forwarding and verifying your provider's auth
 context. `identifyUser` is the additional Runtime contract that assigns the
-verified application user to Rich Threads.
+verified application user to threads.
 
 ## Switching threads and starting new ones
 
@@ -215,7 +217,7 @@ The bridge between the two is the `threadId`: when you pass an explicit CopilotK
 ### Future runs can remain durable in both places
 
 After historical import, future conversations that run through CopilotKit are
-written to CopilotKit Intelligence as Rich Threads. If your LangGraph agent
+written to CopilotKit Intelligence as threads. If your LangGraph agent
 continues using a durable checkpointer or LangGraph Platform, those same runs
 also continue through LangGraph's native persistence. The same applies to an ADK
 agent that remains connected to a durable session service with retained
@@ -246,6 +248,6 @@ Practically, MCP App UI restores the same way the rest of the conversation does:
 ## See also
 
 - [Headless Threads](/headless-threads) — the full `useThreads` API
-- [Threads & Persistence Architecture](/intelligence/threads-explained) — server-side replay, resume, realtime sync
+- [AG-UI Streams & Framework Threads](/intelligence/threads-explained) — server-side replay, resume, realtime sync
 - [Multi-conversation chat](/tutorials/multi-conversation-chat) — build a chat-history sidebar
 - [Importing and synchronizing thread history](/threads-import) — bring existing framework conversations into the platform and keep future runs continuous

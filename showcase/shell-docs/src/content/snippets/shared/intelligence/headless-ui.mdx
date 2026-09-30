@@ -16,16 +16,14 @@ import {
 
 ## Overview
 
-CopilotKit offers **fully headless UI** through the `useCopilotChatHeadless_c` hook. By using this hook, you can build your own chat interfaces from the ground up while still utilizing CopilotKit's core features and ease-of-use.
+Headless UI uses the `useCopilotChatHeadless_c` hook. You build the chat UI. CopilotKit still runs threads, generative UI, suggestions, and interrupts.
 
 <Callout type="warn">
-  **This guide applies to self-hosted and OSS projects only.**
-  `useCopilotChatHeadless_c` checks for a `publicLicenseKey` on the provider and
-  returns a non-functional fallback without one. Managed Intelligence projects
-  are issued a project-scoped `CPK_INTELLIGENCE_API_KEY` and no license key, so
-  this hook is not available to them. If the CopilotKit CLI created your
-  project, build your headless UI on the ungated v2 primitives described in
-  [Fully Headless UI](/built-in-agent/custom-look-and-feel/headless-ui) instead.
+  **This hook needs a public license key.**
+  Self-hosted and open-source projects use that key. A cloud-hosted project uses
+  `CPK_INTELLIGENCE_API_KEY` and does not include this hook. If the CopilotKit CLI
+  created your project, build the UI with the v2 primitives in
+  [Headless UI](/built-in-agent/custom-look-and-feel/headless-ui).
 </Callout>
 
 ## Navigation
@@ -37,7 +35,7 @@ This page has all the information you need to get started with CopilotKit's head
     icon={<MessageCircleDashed className="text-primary" />}
     className="p-6 rounded-xl text-base md:col-span-2"
     title="Getting started"
-    description="Build a fully headless chat interface from the ground up to get started."
+    description="Build a Headless UI chat from the ground up to get started."
     href="#getting-started"
   />
   <Card
@@ -82,15 +80,15 @@ This page has all the information you need to get started with CopilotKit's head
 />
 
 These steps need a `publicLicenseKey`. `npx copilotkit@latest create` creates a
-**managed** project, which receives `CPK_INTELLIGENCE_API_KEY` and no license
+**cloud-hosted** project, which receives `CPK_INTELLIGENCE_API_KEY` and no license
 key, so do not follow this section for a CLI-scaffolded project. Use
-[Fully Headless UI](/built-in-agent/custom-look-and-feel/headless-ui) instead.
+[Headless UI](/built-in-agent/custom-look-and-feel/headless-ui) instead.
 
 <Steps>
 <Step>
 ### Create a new application
 
-Scaffold a self-hosted or OSS CopilotKit project:
+Scaffold a self-hosted or open-source CopilotKit project:
 
 ```bash
 npx copilotkit@latest create

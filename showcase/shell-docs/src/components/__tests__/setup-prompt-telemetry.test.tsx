@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { LearningSetupPrompt } from "../learning-setup-prompt";
@@ -15,7 +16,6 @@ import { WebMCPSetupPrompt } from "../webmcp-setup-prompt";
 import { IntelligenceOnboardingPrompt } from "../intelligence-onboarding-prompt";
 import { ChannelsStartPrompt } from "../channels-start-prompt";
 import { DocsPromptActionsProvider } from "../docs-prompt-actions";
-import { launchPrompt } from "@/lib/launch-prompt";
 
 const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
 vi.mock("posthog-js/react", () => ({ usePostHog: () => analytics }));
@@ -26,7 +26,6 @@ vi.mock("fumadocs-core/framework", () => ({
 vi.mock("@/lib/runtime-config.client", () => ({
   getRuntimeConfig: () => ({ baseUrl: "https://docs.copilotkit.ai" }),
 }));
-vi.mock("@/lib/launch-prompt", () => ({ launchPrompt: vi.fn() }));
 const actionEvent = "docs.intelligence_onboarding_prompt_action_clicked";
 const copiedEvent = "docs.intelligence_onboarding_prompt_copied";
 function events(name: string) {
@@ -86,7 +85,9 @@ test.each([
       expect(event.onboarding_run_id).toMatch(/^[a-f0-9]{12}$/);
       expect(
         vi.mocked(navigator.clipboard.writeText).mock.calls[count - 1][0],
-      ).toContain(`--intent ${intent} --run ${event.onboarding_run_id}`);
+      ).toContain(
+        `/onboarding-prompts/${event.onboarding_run_id}?intent=${intent}`,
+      );
       expect(events(actionEvent)[count - 1]).toEqual(event);
     }
     expect(events(copiedEvent)[0].onboarding_run_id).not.toBe(
@@ -100,7 +101,11 @@ test("preview, rejected copy and retry retain the same run without false success
     new Error("denied"),
   );
   render(<LearningSetupPrompt />);
-  fireEvent.click(screen.getByRole("button", { name: "View prompt" }));
+  fireEvent.click(
+    within(
+      document.querySelector(".prompt-pill-shelf") as HTMLElement,
+    ).getByRole("button", { name: "View prompt" }),
+  );
   const displayed = (screen.getByRole("textbox") as HTMLTextAreaElement).value;
   const attempt = events(actionEvent)[0];
   expect(attempt.action).toBe("view_prompt");
@@ -160,28 +165,17 @@ test.each([
     "docs.channels_activation_prompt_copied",
   ],
 ] as const)(
-  "%s distinguishes both app launches from copy actions",
+  "%s offers Copy as its only prompt action",
   async (_name, component, successEvent) => {
     render(component);
-    for (const [label, action, app] of [
-      ["Open in Claude Code", "open_claude", "claude"],
-      ["Open in Codex", "open_codex", "codex"],
-    ]) {
-      fireEvent.click(screen.getByRole("button", { name: label }));
-      await waitFor(() =>
-        expect(events(successEvent).at(-1)?.action).toBe(action),
-      );
-      const clicked = events(actionEvent).at(-1);
-      expect(clicked?.action).toBe(action);
-      expect(events(successEvent).at(-1)).toEqual(clicked);
-      const text = vi
-        .mocked(navigator.clipboard.writeText)
-        .mock.calls.at(-1)?.[0];
-      expect(launchPrompt).toHaveBeenLastCalledWith(app, text);
-      expect(text).toContain(clicked?.onboarding_run_id);
-    }
-    expect(events(actionEvent)).toHaveLength(2);
-    expect(events(successEvent)).toHaveLength(2);
+    // The `claude-cli://` and `codex://` links could not choose the folder the
+    // agent opens in, and did nothing without the app (PE-381).
+    expect(screen.queryByRole("button", { name: /^Open in / })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
+    await waitFor(() => expect(events(successEvent)).toHaveLength(1));
+    const clicked = events(actionEvent)[0];
+    expect(clicked?.action).toBe("copy");
+    expect(events(successEvent)[0]).toEqual(clicked);
   },
 );
 

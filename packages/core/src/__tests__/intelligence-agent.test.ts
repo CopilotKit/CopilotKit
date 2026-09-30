@@ -1,3 +1,4 @@
+import type { ConnectionReplayLifecycle } from "../utils/connect-replay";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { BaseEvent, RunAgentInput, RunAgentResult } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
@@ -117,7 +118,10 @@ interface IntelligenceAgentTestAccess {
   activeChannel: MockChannel | null;
   canonicalRunId: string | null;
   config: unknown;
-  connect(input: RunAgentInput): Observable<BaseEvent>;
+  connect(
+    input: RunAgentInput,
+    lifecycle?: ConnectionReplayLifecycle,
+  ): Observable<BaseEvent>;
   messages: RunAgentInput["messages"];
   socket: MockSocket | null;
   threadId: string | undefined;
@@ -179,8 +183,9 @@ function getChannel(agent: IntelligenceAgentInstance): MockChannel | null {
 function connectWithTestAccess(
   agent: IntelligenceAgentInstance,
   input = defaultInput,
+  lifecycle?: ConnectionReplayLifecycle,
 ) {
-  return getAgentTestAccess(agent).connect(input);
+  return getAgentTestAccess(agent).connect(input, lifecycle);
 }
 
 function setThreadIdForTest(
@@ -538,6 +543,83 @@ describe("IntelligenceAgent", () => {
         stream_mode: "connect",
         last_seen_event_id: "event-2",
       });
+    });
+
+    // A realtime endpoint that answers 503 never opens the socket. Each exhausted
+    // session fetched fresh credentials and started over with no limit, so one chat
+    // turn waited about 96 s before anything reached the developer (PE-84).
+    it("fails the run with a realtime error when refreshed sockets never open", async () => {
+      mockFetch.mockImplementation(() =>
+        jsonResponse(
+          runtimeCredentials({ clientUrl: "wss://rt.example/client" }),
+        ),
+      );
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+
+      for (let round = 0; round < 10; round += 1) {
+        await waitForConnection(agent);
+        const socket = getSocket(agent);
+        if (!socket) break;
+        for (let i = 0; i < 5; i++) {
+          socket.triggerError(new Error("503"));
+        }
+      }
+
+      const result = await promise;
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(result.completed).toBe(false);
+      expect(result.error?.message).toContain("wss://rt.example/client");
+      expect(result.error?.message).toContain("never opened");
+    });
+
+    it("keeps reconnecting a connect whose sockets never open", async () => {
+      mockFetch.mockImplementation(() => jsonResponse(runtimeCredentials()));
+      const agent = createAgent();
+      let error: Error | null = null;
+      connectWithTestAccess(agent).subscribe({
+        next: () => {},
+        error: (err) => {
+          error = err;
+        },
+      });
+
+      for (let round = 0; round < 5; round += 1) {
+        await waitForConnection(agent);
+        const socket = getSocket(agent)!;
+        for (let i = 0; i < 5; i++) {
+          socket.triggerError(new Error("503"));
+        }
+      }
+      await waitForConnection(agent);
+
+      expect(mockFetch).toHaveBeenCalledTimes(6);
+      expect(error).toBeNull();
+    });
+
+    it("keeps refreshing credentials when the refreshed socket opened before failing", async () => {
+      mockFetch.mockImplementation(() => jsonResponse(runtimeCredentials()));
+      const agent = createAgent();
+      let error: Error | null = null;
+      agent.run(defaultInput).subscribe({
+        next: () => {},
+        error: (err) => {
+          error = err;
+        },
+      });
+
+      for (let round = 0; round < 5; round += 1) {
+        await waitForConnection(agent);
+        const socket = getSocket(agent)!;
+        socket.triggerOpen();
+        for (let i = 0; i < 5; i++) {
+          socket.triggerError(new Error("network failure"));
+        }
+      }
+      await waitForConnection(agent);
+
+      expect(mockFetch).toHaveBeenCalledTimes(6);
+      expect(error).toBeNull();
     });
 
     it("cleans up stale socket and channel before joining with refreshed credentials", async () => {
@@ -1126,6 +1208,27 @@ describe("IntelligenceAgent", () => {
       expect(result.channel).toBeNull();
     });
 
+    it("brackets empty history with replay hooks before completing a 204 connect", async () => {
+      mockFetch.mockResolvedValueOnce(await emptyResponse());
+      const agent = createAgent();
+      const order: string[] = [];
+      await new Promise<void>((resolve, reject) => {
+        connectWithTestAccess(agent, defaultInput, {
+          onReplayStarted: () => order.push("started"),
+          onReplayFinished: () => order.push("finished"),
+        }).subscribe({
+          complete: () => {
+            order.push("completed");
+            resolve();
+          },
+          error: reject,
+        });
+      });
+      expect(order).toEqual(["started", "finished", "completed"]);
+      expect(getSocket(agent)).toBeNull();
+      expect(getChannel(agent)).toBeNull();
+    });
+
     it("completes on RUN_ERROR from server", async () => {
       mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
 
@@ -1369,6 +1472,31 @@ describe("IntelligenceAgent", () => {
       expect(agent.state).toEqual(finalSnapshot);
     });
 
+    it.each([true, false])(
+      "finishes replay before completion with idleFirst=%s",
+      async (idleFirst) => {
+        mockFetch.mockResolvedValueOnce(
+          await jsonResponse(runtimeCredentials()),
+        );
+        const agent = createAgent();
+        const order: string[] = [];
+        connectWithTestAccess(agent, defaultInput, {
+          onReplayStarted: () => order.push("started"),
+          onReplayFinished: () => order.push("finished"),
+        }).subscribe({ complete: () => order.push("completed") });
+        await waitForConnection(agent);
+        const channel = getChannel(agent)!;
+        channel.triggerJoin("ok");
+        const controls = idleFirst
+          ? ["stream_idle", "replay_complete"]
+          : ["replay_complete", "stream_idle"];
+        for (const control of controls)
+          channel.serverPush(control, { latestEventId: "event-1" });
+        await flushAsyncWork();
+        expect(order).toEqual(["started", "finished", "completed"]);
+      },
+    );
+
     it("completes connect streams on stream_idle after replay_complete", async () => {
       mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
 
@@ -1407,6 +1535,7 @@ describe("IntelligenceAgent", () => {
       channel.serverPush("stream_idle", { latestEventId: "event-2" });
       await flushAsyncWork();
 
+      expect(events).toHaveLength(1);
       expect(events[0]).toEqual({
         type: EventType.RUN_STARTED,
         threadId: "thread-1",
@@ -1526,6 +1655,105 @@ describe("IntelligenceAgent", () => {
       });
       getChannel(agent)!.serverPush("stream_idle", {
         latestEventId: "event-3",
+      });
+      await expectConnectAgentToResolve(secondConnectPromise);
+    });
+
+    it("keeps live progress when stream_idle repeats the older replay checkpoint", async () => {
+      mockFetch
+        .mockResolvedValueOnce(await jsonResponse(runtimeCredentials()))
+        .mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+
+      const agent = createAgent();
+      setThreadIdForTest(agent, "thread-1");
+
+      const firstConnectPromise = agent.connectAgent({ runId: "run-1" });
+      await waitForConnection(agent);
+
+      // Production order from an older gateway: history ends at event 3, the
+      // run streams live to event 1073, then stream_idle repeats event 3.
+      const firstChannel = getChannel(agent)!;
+      firstChannel.triggerJoin("ok");
+      firstChannel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        run_id: "backend-run-1",
+        input: { messages: [] },
+        metadata: { cpki_event_id: "event-3", cpki_event_seq: 3 },
+      } as BaseEvent);
+      firstChannel.serverPush("replay_complete", { latestEventId: "event-3" });
+      firstChannel.serverPush("ag_ui_event", {
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        run_id: "backend-run-1",
+        metadata: { cpki_event_id: "event-1073", cpki_event_seq: 1073 },
+      } as BaseEvent);
+      firstChannel.serverPush("stream_idle", { latestEventId: "event-3" });
+      await expectConnectAgentToResolve(firstConnectPromise);
+
+      const secondConnectPromise = agent.connectAgent({ runId: "run-2" });
+      await waitForConnection(agent);
+
+      expect(JSON.parse(mockFetch.mock.calls[1]![1].body)).toMatchObject({
+        lastSeenEventId: "event-1073",
+      });
+      expect(getChannel(agent)!.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: "event-1073",
+      });
+
+      getChannel(agent)!.triggerJoin("ok");
+      getChannel(agent)!.serverPush("replay_complete", {
+        latestEventId: "event-1073",
+      });
+      getChannel(agent)!.serverPush("stream_idle", {
+        latestEventId: "event-1073",
+      });
+      await expectConnectAgentToResolve(secondConnectPromise);
+    });
+
+    it("rolls back to the prior cursor on every control frame after replay_failed", async () => {
+      mockFetch
+        .mockResolvedValueOnce(await jsonResponse(runtimeCredentials()))
+        .mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+
+      const agent = createAgent();
+      setThreadIdForTest(agent, "thread-1");
+
+      const firstConnectPromise = agent.connectAgent({ runId: "run-1" });
+      await waitForConnection(agent);
+
+      // The history failed to load, so the gateway keeps sending the prior
+      // cursor. The next join must ask for that history again.
+      const firstChannel = getChannel(agent)!;
+      firstChannel.triggerJoin("ok");
+      firstChannel.serverPush("replay_failed", { reason: "timeout" });
+      firstChannel.serverPush("replay_complete", {
+        latestEventId: "prior-cursor",
+      });
+      firstChannel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        run_id: "backend-run-1",
+        input: { messages: [] },
+        metadata: { cpki_event_id: "live-after-failure", cpki_event_seq: 9 },
+      } as BaseEvent);
+      firstChannel.serverPush("stream_idle", { latestEventId: "prior-cursor" });
+      await expectConnectAgentToResolve(firstConnectPromise);
+
+      const secondConnectPromise = agent.connectAgent({ runId: "run-2" });
+      await waitForConnection(agent);
+
+      expect(JSON.parse(mockFetch.mock.calls[1]![1].body)).toMatchObject({
+        lastSeenEventId: "prior-cursor",
+      });
+
+      getChannel(agent)!.triggerJoin("ok");
+      getChannel(agent)!.serverPush("replay_complete", {
+        latestEventId: "prior-cursor",
+      });
+      getChannel(agent)!.serverPush("stream_idle", {
+        latestEventId: "prior-cursor",
       });
       await expectConnectAgentToResolve(secondConnectPromise);
     });

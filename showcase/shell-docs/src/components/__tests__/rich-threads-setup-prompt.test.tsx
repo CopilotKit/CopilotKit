@@ -26,21 +26,18 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-test("copies the Rich Threads prompt using the standard actions", async () => {
+test("copies the AG-UI Streams prompt using the standard actions", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.assign(navigator, { clipboard: { writeText } });
   render(<RichThreadsSetupPrompt />);
   fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
   await waitFor(() =>
-    expect(
-      writeText.mock.calls[0]?.[0]?.replace(/ --run [a-f0-9]{12}/, ""),
-    ).toBe(RICH_THREADS_SETUP_PROMPT),
+    expect(writeText.mock.calls[0]?.[0]).toMatch(
+      /^Set up AG-UI streams, formerly known as Rich Threads, while keeping my framework threads and existing SDK APIs\. Read https:\/\/copilotkit\.ai\/onboarding-prompts\/[a-f0-9]{12}\?intent=add-rich-threads and help me set this up\.$/,
+    ),
   );
   expect(screen.getByRole("status").textContent).toBe("Prompt copied");
-  expect(
-    screen.getByRole("button", { name: "Open in Claude Code" }),
-  ).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Open in Codex" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /^Open in / })).toBeNull();
   expect(
     screen.getByRole("button", { name: "More page actions" }),
   ).toBeTruthy();
@@ -53,16 +50,13 @@ test("previews the exact setup prompt and recovers from blocked clipboard access
   render(<RichThreadsSetupPrompt />);
   fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
   await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
-  expect(
-    (screen.getByRole("textbox") as HTMLTextAreaElement).value.replace(
-      / --run [a-f0-9]{12}/,
-      "",
-    ),
-  ).toBe(RICH_THREADS_SETUP_PROMPT);
+  expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toMatch(
+    /^Set up AG-UI streams, formerly known as Rich Threads, while keeping my framework threads and existing SDK APIs\. Read https:\/\/copilotkit\.ai\/onboarding-prompts\/[a-f0-9]{12}\?intent=add-rich-threads and help me set this up\.$/,
+  );
   expect(screen.getByRole("status").textContent).toContain("Copy blocked");
 });
 
-test("sends the coding agent to the Rich Threads route and carries nothing else", () => {
+test("sends the coding agent to the AG-UI Streams route and carries nothing else", () => {
   // The route owns the guide links, the identity rules, the ownership checks
   // and the Inspector proof this prompt used to repeat. A copy of them here
   // drifts the next time the Runtime API changes, which is what OSS-1150
@@ -76,7 +70,9 @@ test("sends the coding agent to the Rich Threads route and carries nothing else"
     "Never use a fixed demo identity in production",
   );
   // No run id: this string is static and llm-text inlines it into cached raw
-  // Markdown, so one minted here would be shared by every reader.
+  // Markdown, so one minted here would be shared by every reader. That is also
+  // why it keeps the command rather than a link -- a run-id-less URL could be
+  // counted but never joined (PE-224).
   expect(RICH_THREADS_SETUP_PROMPT).not.toContain("--run");
 });
 

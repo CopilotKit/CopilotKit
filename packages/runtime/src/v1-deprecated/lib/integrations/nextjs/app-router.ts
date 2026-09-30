@@ -17,7 +17,7 @@
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import { createCopilotEndpointSingleRoute } from "../../../../v2/runtime";
+import { createCopilotEndpointSingleRoute } from "../../../../v2/runtime/endpoints/hono-single";
 import type { CreateCopilotRuntimeServerOptions } from "../shared";
 import { getCommonConfig } from "../shared";
 import telemetry, {

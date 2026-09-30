@@ -1,4 +1,4 @@
-import { AgentState } from "@/lib/state";
+import type { AgentState } from "@/lib/state";
 
 interface KanbanBoardProps {
   state: AgentState;
@@ -79,7 +79,7 @@ function TaskCard({ task, assignedUser }: TaskCardProps) {
               alt={assignedUser.name}
               className="w-8 h-8 rounded-full object-cover border-2 border-white/20"
             />
-            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>
+            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white" />
           </div>
           <div className="flex-1">
             <div className="text-xs font-medium text-white">

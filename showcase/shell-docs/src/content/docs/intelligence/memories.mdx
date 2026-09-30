@@ -1,5 +1,5 @@
 ---
-title: "Memories & Recall"
+title: "User Memories"
 description: "Give your agents long-term memory across conversations."
 icon: "lucide/Brain"
 doc_type: explanation
@@ -7,13 +7,21 @@ doc_type: explanation
 
 import { MemorySetupPrompt } from "@/components/memory-setup-prompt";
 
-Threads remember a conversation. Memories remember a person. This page explains
+## Overview
+
+AG-UI Streams remember a conversation. User Memory remembers a person. This page explains
 what a memory is, how recall selects them, and what has to be true of your
 deployment before the memory surfaces exist at all.
 
 If you are looking for the persistence architecture beneath a single
-conversation, read [Threads & Persistence Architecture](/intelligence/threads-explained)
+conversation, read [AG-UI Streams & Framework Threads](/intelligence/threads-explained)
 instead.
+
+## Start with your coding agent
+
+Copy this prompt into your coding agent to inspect your existing CopilotKit app and configure long-term memory for your users. Prefer to work through the setup yourself? Follow the manual steps below.
+
+<MemorySetupPrompt />
 
 ## What is a memory?
 
@@ -28,6 +36,30 @@ recalled into a conversation that has not happened yet.
 Memories are stored as text plus a vector embedding, so recall is semantic
 rather than a keyword match. Asking for "how does this user like updates" can
 surface "prefers concise status updates" without sharing a word with it.
+
+## Set up User Memories
+
+When you are done, your app will be able to save a memory for a signed-in user and recall it in a later conversation.
+
+<Steps>
+  <Step>
+    ### Connect CopilotKit Intelligence
+
+    Complete the [Intelligence quickstart](/intelligence/quickstart#set-it-up-manually). That page signs you in with the CLI, selects the project, and configures server-side user identity. Your existing app and agent stay in place.
+  </Step>
+
+  <Step>
+    ### Confirm memory access
+
+    Check your deployment's memory entitlement and embedding configuration using [Activating memory](#activating-memory) below. Cloud-hosted deployments require no embedder configuration on your side. Self-hosted deployments need both a memory-enabled license and a configured embedder.
+  </Step>
+
+  <Step>
+    ### Save and recall a memory
+
+    Choose the appropriate [reading and writing interface](#reading-and-writing-memories) for your app. Save a memory for the signed-in user, then recall it with a related query in a new conversation. Confirm the saved memory is returned.
+  </Step>
+</Steps>
 
 ## Key concepts
 
@@ -85,36 +117,6 @@ any `sourceThreadIds` you want to keep.
 Removing a memory retires it rather than erasing it. Retired memories are
 excluded from recall and from the default list, and can be surfaced again by
 asking for invalidated rows explicitly.
-
-## Start with your coding agent
-
-Copy this prompt into your coding agent to inspect your existing CopilotKit app and configure long-term memory for your users. Prefer to work through the setup yourself? Follow the manual steps below.
-
-<MemorySetupPrompt />
-
-## Set up Memory manually
-
-When you are done, your app will be able to save a memory for a signed-in user and recall it in a later conversation.
-
-<Steps>
-  <Step>
-    ### Connect CopilotKit Intelligence
-
-    Complete the [Intelligence quickstart](/intelligence/quickstart#set-it-up-manually) to connect your existing app and configure server-side user identity.
-  </Step>
-
-  <Step>
-    ### Confirm memory access
-
-    Check your deployment's memory entitlement and embedding configuration using [Activating memory](#activating-memory) below. Managed deployments require no embedder configuration on your side; self-hosted deployments need both a memory-enabled license and a configured embedder.
-  </Step>
-
-  <Step>
-    ### Save and recall a memory
-
-    Choose the appropriate [reading and writing interface](#reading-and-writing-memories) for your app. Save a memory for the signed-in user, then recall it with a related query in a new conversation. Confirm the saved memory is returned.
-  </Step>
-</Steps>
 
 ## Activating memory
 
@@ -182,11 +184,114 @@ so recall quality degrades until they are re-embedded. Treat a model change as a
 migration, not a config tweak.
 </Callout>
 
-### Managed
+### Cloud-hosted
 
-On the managed platform, memory is resolved per organization from that
+On cloud-hosted Intelligence, memory is resolved per organization from that
 organization's effective entitlement, combining its plan features with any
 enterprise override. Nothing needs configuring on your side.
+
+## Limiting access per request
+
+Entitlement decides whether memory exists for a deployment. `memory.access`
+decides what one request may do with it. It is a single policy on the
+Intelligence runtime, and it governs **both** memory surfaces: the tools an
+agent gets during a run, and the browser routes behind `useMemories()`.
+
+<Callout type="warn">
+Omitting the `memory` option does not switch memory off — it removes the limit.
+On its own it leaves both surfaces off, but either can still be turned on without
+a policy, and then it runs with `read-write` on both scopes for every
+authenticated request:
+
+- With `enableEnterpriseLearning` on, agent runs get all three memory tools,
+  subject only to your organization's entitlement.
+- The deprecated `exposeMemoryRoutes: true` flag mounts the browser routes with
+  no policy behind them.
+
+This is the opposite of Channels, where a run gets no memory unless it asks.
+Configure `memory.access` whenever either surface is on.
+</Callout>
+
+```ts title="runtime.ts"
+const runtime = new CopilotRuntime({
+  intelligence,
+  identifyUser: async (request) => resolveUser(request),
+  memory: {
+    access: ({ user, consumer }) => {
+      // Tenants on the free plan get recall, but record nothing new.
+      if (isFreePlan(user)) return { user: "read", project: "none" };
+
+      // The browser inspector is read-only; the agent may write.
+      return consumer === "client"
+        ? { user: "read", project: "read" }
+        : { user: "read-write", project: "read-write" };
+    },
+  },
+});
+```
+
+The callback runs once per request, after `identifyUser` has resolved, and
+receives:
+
+| Field | Meaning |
+|-------|---------|
+| `request` | The incoming `Request`, if the decision needs a header, cookie, or path. |
+| `user` | The application user `identifyUser` returned. |
+| `consumer` | `"agent"` for an agent run, `"client"` for the browser memory routes. |
+
+Return a grant naming both scopes, or `null`. Each scope takes `"none"`,
+`"read"`, or `"read-write"`. The policy may be async.
+
+### What each outcome does
+
+`null` and a grant with every scope at `"none"` are one outcome, not two — both
+mean "this request gets no memory". What that costs depends on what the caller
+asked for:
+
+| The policy returns | Agent run | Browser `/memories/*` |
+|--------------------|-----------|------------------------|
+| A grant with any scope above `"none"` | Memory tools attach, filtered to the granted scopes | The request proceeds |
+| `null`, or every scope `"none"` | **The run proceeds with no memory tools** | **403** |
+| Nothing (`undefined`), or an access level outside the three | 500 | 500 |
+| A thrown error | 500 | 500 |
+
+The asymmetry is deliberate. A conversation asked for something other than
+memories, so switching memory off must not cost the user their assistant. The
+browser routes exist only to serve memories, so "you may not have them" answers
+the question actually asked — and an empty list would falsely imply none exist.
+
+A missing return is treated as a broken policy rather than a restrictive one,
+so a branch that forgets to `return` fails loudly instead of quietly switching
+memory off.
+
+A grant that allows one scope and not the other is honoured exactly: a
+`{ user: "read", project: "none" }` grant registers `recall_memory` alone,
+scoped to user memory, and leaves `save_memory` and `forget_memory` unregistered
+so the agent never sees a tool it may not call.
+
+<Callout type="info">
+`memory.access` is a memory policy, not an authorization gate on the request.
+To reject a request outright, use `beforeRequestMiddleware`, which can refuse
+before any of this runs.
+</Callout>
+
+### It also mounts the browser routes
+
+Configuring `memory` turns on `/memories`, `/memories/recall`,
+`/memories/subscribe`, and `/memories/:id`. Without it those routes 404 as if
+they did not exist, so an un-opted-in deployment reveals nothing about memory
+even when Intelligence is configured.
+
+The older `exposeMemoryRoutes: true` flag did the mounting without the policy
+and is deprecated. `memory.access` replaces it: one option that both exposes
+the surfaces and bounds what they may do.
+
+### Channels grant memory per run instead
+
+A Channel run carries its own grant on `runAgent`, using the same three access
+levels, rather than consulting `memory.access`. See
+[Identity and Memory](/channels/identity-and-memory) for that path, including
+how to choose the memory subject in a group conversation.
 
 ## Reading and writing memories
 
@@ -300,6 +405,13 @@ prerequisite for MCP generally rather than a memory setting. Registration is
 still checked per request against the caller organization's memory entitlement,
 so mounting MCP does not grant memory.
 
+Registration is then narrowed again by the run's grant, so an agent is only ever
+offered tools it may actually call: a readable scope registers `recall_memory`,
+a writable one adds `save_memory` and `forget_memory`, and a grant of nothing
+registers none of them. See
+[Limiting access per request](#limiting-access-per-request) for where that grant
+comes from.
+
 ## How recall works
 
 Recall is hybrid. A query is embedded and compared against stored vectors, and
@@ -313,7 +425,7 @@ meaningfully ranked against a query embedded under another.
 
 ## Next steps
 
-- **Threads:** [Threads & Persistence Architecture](/intelligence/threads-explained), the
+- **Threads:** [AG-UI Streams & Framework Threads](/intelligence/threads-explained), the
   persistence model for a single conversation
 - **Platform:** [CopilotKit Intelligence](/intelligence/overview), where
   memory sits among the other pillars

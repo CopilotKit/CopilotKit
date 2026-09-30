@@ -1,5 +1,5 @@
-import { Trip } from "@/lib/types";
-import { Map } from "leaflet";
+import type { Trip } from "@/lib/types";
+import type { Map } from "leaflet";
 import { PlaceForMap } from "@/components/PlaceForMap";
 import { AddPlace } from "./AddPlace";
 
@@ -20,7 +20,7 @@ export function TripContent({ map, trip }: TripContentProps) {
       )}
       {trip.places &&
         trip.places.map((place, i) => (
-          <PlaceForMap key={i} place={place} map={map} number={i + 1} />
+          <PlaceForMap key={place.id} place={place} map={map} number={i + 1} />
         ))}
     </div>
   );

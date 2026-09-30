@@ -151,7 +151,7 @@ describe("llms-mdx route", () => {
               source: "",
               filePath: "threads-import.mdx",
               fm: {
-                title: "Import & Synchronize Thread History",
+                title: "Add AG-UI Streams to Existing Threads",
                 description: "Cross-source overview.",
               },
             }

@@ -5,7 +5,8 @@ export function useDeclarativeGenUISuggestions() {
     suggestions: [
       {
         title: "Show a KPI dashboard",
-        message: "Show me my sales dashboard for this quarter.",
+        message:
+          "Show me a quick KPI dashboard with 3-4 metrics (revenue, signups, churn).",
       },
       {
         title: "Pie chart — sales by region",
@@ -16,8 +17,9 @@ export function useDeclarativeGenUISuggestions() {
         message: "Render a bar chart of quarterly revenue.",
       },
       {
-        title: "Accounts at risk",
-        message: "Are any accounts or pipeline deals at risk this quarter?",
+        title: "Status report",
+        message:
+          "Give me a status report on system health — API, database, and background workers.",
       },
     ],
     available: "always",

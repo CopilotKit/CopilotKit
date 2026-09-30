@@ -183,7 +183,7 @@ Use this prompt to connect your React single-page app to a separately hosted Cop
         npx tsx --env-file=.env server.ts
         ```
 
-        A standalone Node process does not load `.env` automatically. The flag loads it before runtime imports run, including `CPK_INTELLIGENCE_API_KEY` when you connect [Intelligence](/intelligence/connect-your-runtime). If the CLI wrote `.env` in a parent directory, point `--env-file` at that file instead. Keep server credentials out of `VITE_*` variables, which are exposed to the browser.
+        A standalone Node process does not load `.env` automatically. The flag loads it before runtime imports run, including `CPK_INTELLIGENCE_API_KEY` when you connect [Intelligence](/intelligence/quickstart). If the CLI wrote `.env` in a parent directory, point `--env-file` at that file instead. Keep server credentials out of `VITE_*` variables, which are exposed to the browser.
 
         The `--env-file` flag preserves variables already set in the shell.
         If the project's `.env` should override those values for local
@@ -280,3 +280,70 @@ The runtime is the only SPA-specific piece. From here the root React docs apply 
 - [React reference](/reference/v2) — full provider, hook and component API
 
 To connect an agent framework instead of `BuiltInAgent`, follow any [integration quickstart](/quickstart) and keep the `server.ts` host and absolute `runtimeUrl` from this page in place of its Next.js route handler.
+
+## Connect a remote agent with Intelligence
+
+Most integration quickstarts run the agent as its own server and show the runtime as a Next.js route handler. For a single-page app, put the same runtime in `server.ts`. This example registers an agent server at `http://localhost:8000/` with `HttpAgent` and connects the runtime to [Intelligence](/intelligence/quickstart).
+
+Install the AG-UI client at the version that `@copilotkit/runtime` depends on:
+
+```bash
+npm install @ag-ui/client@0.0.59
+```
+
+```ts title="server.ts"
+import { createServer } from "node:http";
+import { HttpAgent } from "@ag-ui/client";
+import {
+  CopilotKitIntelligence,
+  CopilotRuntime,
+} from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+  },
+  intelligence: new CopilotKitIntelligence({
+    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+  }),
+  // Local development only. See the warning below.
+  identifyUser: (request) => ({
+    id: request.headers.get("x-user-id") ?? "anonymous",
+    name: request.headers.get("x-user-name") ?? "Anonymous",
+  }),
+});
+
+const port = 8200;
+
+createServer(
+  createCopilotNodeListener({
+    runtime,
+    basePath: "/api/copilotkit",
+    cors: true,
+  }),
+).listen(port, () => {
+  console.log(
+    `Copilot Runtime listening at http://localhost:${port}/api/copilotkit`,
+  );
+});
+```
+
+<Callout type="warn" title="Replace the header identity before you deploy">
+  This `identifyUser` trusts the `x-user-id` header, so any caller can pick a user, and a request without the header shares the `anonymous` threads. Return the user from a verified session or token, and reject requests that have none. `identifyUser` does not scope the `threads/events` and `threads/state` routes, so add your own ownership check for them. See [Thread authorization](/auth#thread-authorization).
+</Callout>
+
+Run `npx copilotkit@latest project select` beside `server.ts` to write `CPK_INTELLIGENCE_API_KEY` to `.env`. Then start the runtime with `npx tsx --env-file=.env server.ts`, as in the steps above.
+
+On the frontend, set `agentId` to the key in the `agents` map:
+
+```tsx
+<CopilotKitProvider
+  runtimeUrl="http://localhost:8200/api/copilotkit"
+  agentId="my_agent"
+>
+  <CopilotChat />
+</CopilotKitProvider>
+```
+
+With Intelligence, the run route does not stream events to the browser. The provider reads them from Intelligence over a websocket. See [Run and connect with Intelligence](/backend/runtime-endpoints#run-and-connect-with-intelligence).

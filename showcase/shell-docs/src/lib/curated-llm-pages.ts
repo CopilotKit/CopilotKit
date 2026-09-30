@@ -71,9 +71,9 @@ export const CURATED_LLM_PAGES = [
   },
   {
     url: "threads",
-    title: "Rich Threads",
+    title: "AG-UI Streams",
     description:
-      "Build persistent conversations that restore messages, UI, inputs, and live runs across sessions.",
+      "Keep framework threads and add Intelligence’s AG-UI streams for reconnection, catch-up, and delivery across devices.",
   },
   {
     url: "learning",
@@ -85,31 +85,31 @@ export const CURATED_LLM_PAGES = [
     url: "intelligence/overview",
     title: "CopilotKit Intelligence",
     description:
-      "Evaluate the durability, memory, learning, inspection, and operations layer for production agents.",
+      "Evaluate AG-UI Streams, User Memories, Automatic Learning, Product Analytics, and Channels for your existing agent and frontend.",
   },
   {
     url: "slack",
     title: "Channels for Slack",
     description:
-      "Bring an AG-UI agent into Slack with native messages and approvals through Channels and managed Intelligence connections.",
+      "Bring an AG-UI agent into Slack with native messages and approvals through Channels and cloud-hosted Intelligence connections.",
   },
   {
     url: "teams",
     title: "Channels for Microsoft Teams",
     description:
-      "Build agents with native Microsoft Teams messages and approvals through Channels; review the managed integration availability and direct SDK options.",
+      "Bring an AG-UI agent into Microsoft Teams with native messages and approvals through generally available cloud-hosted Intelligence connections or direct SDK options.",
   },
   {
     url: "langgraph-python/threads-import",
-    title: "Import LangGraph and LangChain Threads",
+    title: "Add AG-UI Streams to LangGraph Threads",
     description:
-      "Import existing LangGraph, LangSmith, or LangChain-authenticated thread history into Intelligence.",
+      "Connect Intelligence for ongoing AG-UI delivery; optionally import earlier LangGraph Server, Platform, or LangSmith Deployment history exposed through the thread and run APIs.",
   },
   {
     url: "google-adk/threads-import",
-    title: "Import Google ADK Threads",
+    title: "Add AG-UI Streams to ADK Sessions",
     description:
-      "Import existing Google ADK sessions into Intelligence and keep future conversations synchronized.",
+      "Connect Intelligence for ongoing AG-UI delivery alongside ADK persistence; optionally import earlier sessions from supported ADK stores.",
   },
   {
     url: "quickstart",
@@ -137,7 +137,7 @@ export const CURATED_LLM_PAGES = [
   },
   {
     url: "concepts/oss-vs-enterprise",
-    title: "Open Source and Intelligence",
+    title: "Open source vs Intelligence",
     description:
       "Decide which capabilities belong to the open-source stack and which require Intelligence.",
   },
@@ -214,12 +214,6 @@ export const CURATED_LLM_PAGES = [
       "Understand thread creation, restoration, switching, and framework persistence boundaries.",
   },
   {
-    url: "threads-self-managed",
-    title: "Self-Managed Thread Persistence",
-    description:
-      "Plan the persistence responsibilities your application owns when it does not use Intelligence.",
-  },
-  {
     url: "intelligence/quickstart",
     title: "Intelligence Quickstart",
     description:
@@ -227,9 +221,15 @@ export const CURATED_LLM_PAGES = [
   },
   {
     url: "intelligence/memories",
-    title: "Memories and Recall",
+    title: "User Memories",
     description:
       "Choose memory scope and integrate long-term recall through React, Angular, REST, or MCP.",
+  },
+  {
+    url: "intelligence/analytics",
+    title: "Product Analytics",
+    description:
+      "Understand how people use your agent with project-level usage, thread, and tool-call data.",
   },
   {
     url: "auth",

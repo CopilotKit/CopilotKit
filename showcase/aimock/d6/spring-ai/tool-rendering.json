@@ -248,7 +248,7 @@
         "context": "spring-ai"
       },
       "response": {
-        "content": "Check the weather card for Tokyo's temperature and conditions."
+        "content": "Tokyo is 22°C and partly cloudy."
       }
     },
     {

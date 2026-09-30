@@ -46,6 +46,7 @@ vi.mock("../../lib/react-core", () => {
     setHeaders() {}
     setCredentials() {}
     setProperties() {}
+    setMessageFilter() {}
     setTools() {}
     setRenderToolCalls() {}
     setRenderActivityMessages() {}

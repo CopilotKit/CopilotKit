@@ -15,15 +15,11 @@ import {
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
-import { createAgnoMultimodalFetch } from "./multimodal-message-compat";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 const multimodalAgent = new HttpAgent({
   url: `${AGENT_URL}/multimodal/agui`,
-  // The shared UI also emits legacy mirrors; Agno's current schema accepts
-  // modern image/document parts only. Adapt at this backend's wire boundary.
-  fetch: createAgnoMultimodalFetch(),
 });
 
 const agents = {

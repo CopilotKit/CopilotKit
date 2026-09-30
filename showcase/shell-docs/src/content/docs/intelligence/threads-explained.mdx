@@ -1,6 +1,6 @@
 ---
-title: "Threads & Persistence Architecture"
-description: "Architecture and mental model behind CopilotKit threads: how persistent conversations work, how reconnection replays history, and what to expect from thread lifecycle operations."
+title: "AG-UI Streams & Framework Threads"
+description: "Understand how Intelligence’s AG-UI streams deliver conversation history, catch-up, and reconnection alongside framework-managed agent context."
 icon: "lucide/MessageSquareMore"
 doc_type: explanation
 ---
@@ -10,7 +10,9 @@ doc_type: explanation
   surface="docs_learn_threads"
 />
 
-Start with the [Rich Threads overview](/threads) to understand what Rich Threads provide
+## Overview
+
+Start with the [AG-UI Streams overview](/threads) to understand what AG-UI Streams provide
 and choose between the prebuilt Drawer and a custom headless UI. This page
 explains the persistence and replay architecture beneath both paths. For the
 client-side lifecycle (minting a `threadId`, hydrating history on load, and
@@ -18,19 +20,27 @@ switching or starting threads), see [Thread & History Lifecycle](/threads-lifecy
 
 ## What are threads?
 
-A thread is a persistent, server-side container for a multi-turn conversation between a user and an agent. Unlike ephemeral chat sessions that disappear when the page reloads, threads store the full event history (every message, tool call, and state change), so conversations can be paused, resumed, and replayed across sessions and devices.
+Framework threads manage an agent’s conversation and model context. Intelligence’s **AG-UI streams** record and deliver the interaction to your users.
 
-CopilotKit threads are a platform-level concept that works across agent frameworks.
+A CopilotKit `threadId` identifies the conversation whose AG-UI events Intelligence stores and replays. Use `useThreads` or `CopilotThreadsDrawer` to list and select conversations, then pass the selected `threadId` to your chat.
 
-## How Rich Threads complement framework persistence
+| Concept | Responsibility |
+|---|---|
+| Framework thread or ADK session | Agent conversation, model context, and framework-specific execution state. |
+| Intelligence’s AG-UI stream | Recorded interaction events, replay, catch-up, and delivery to connected clients. |
+| Channel thread | The native Slack or Microsoft Teams conversation. |
+
+Model-context compaction and user-visible history serve different purposes. Intelligence records the AG-UI events delivered through it independently of the framework’s context store. Replay uses those recorded events; this separation does not imply unlimited retention or recovery of history that was never recorded.
+
+## How threads work with framework storage
 
 Starting fresh? CopilotKit Intelligence provides conversation persistence: it stores interaction events so users can reopen rich conversations across sessions and devices, reconnect to active runs, and manage their threads.
 
 Already using framework persistence? Keep it configured. [LangGraph threads](https://docs.langchain.com/oss/python/langgraph/persistence) retain graph state and checkpoints; [Google ADK sessions](https://google.github.io/adk-docs/sessions/session/) retain conversation events and state. Intelligence adds the event history and synchronization used to restore the user's interactive conversation. Replaying that history is distinct from resuming framework execution from a checkpoint; framework-specific execution recovery remains with the framework.
 
-For runs through CopilotKit, Intelligence records the Rich Thread history while the agent continues using its configured durable LangGraph checkpointer, LangGraph deployment, or ADK agent with a durable session service. Keep a stable mapping between the CopilotKit `threadId` and the native thread or session identifier so subsequent runs use the same conversation in both systems.
+For runs through CopilotKit, Intelligence records the thread history while the agent continues using its configured durable LangGraph checkpointer, LangGraph deployment, or ADK agent with a durable session service. Keep a stable mapping between the CopilotKit `threadId` and the native thread or session identifier so subsequent runs use the same conversation in both systems.
 
-[Import supported LangGraph or ADK history](/threads-import) to bring existing conversations into Rich Threads. Importing is a one-time adoption step, not a general replication link between databases. Frontend rename, archive, and delete operations change only the Intelligence thread; they do not mutate native framework records.
+[Import supported LangGraph or ADK history](/threads-import) to make existing conversations available through Intelligence’s AG-UI streams. Importing is a one-time adoption step, not a general replication link between databases. Frontend rename, archive, and delete operations change only the Intelligence thread; they do not mutate native framework records.
 
 ## Key concepts
 
@@ -73,14 +83,14 @@ The client-side steps (minting a `threadId`, hydrating history on load, and swit
 
 ### Persistence and replay
 
-As an agent runs, the runtime writes each event (messages, tool calls, and state updates) to the thread in CopilotKit Intelligence. It stores the raw event stream rather than a snapshot of the final message list, so a returning client can be restored to the exact state it left, and can fetch only the events it missed rather than reloading the whole history.
+As an agent runs, the runtime writes each event (messages, tool calls, and state updates) to the thread in CopilotKit Intelligence. Intelligence persists AG-UI events and constructs a replay for returning clients. A reconnecting client can use its replay cursor to catch up on missed events.
 
-When a client opens an existing thread, the platform checks whether a run is in progress:
+When a client opens an existing thread, the Runtime provides connection credentials. The frontend joins the event stream and receives the recorded history. If a run is active, new events continue over the same connection after replay.
+Replayed history is followed by live updates when a run is active. If a tool call from a previous thread completes while the client is switching away, its result is discarded rather than inserted into the new thread, so stale output never leaks between conversations.
 
-- **No active run.** The platform returns the historical events only, and the client replays them to reconstruct the conversation.
-- **Active run.** The platform returns the historical events *plus* opens a WebSocket connection. The client replays the history, then receives live events as they stream in.
+### Background execution
 
-In either case the transition from replayed history to live updates is seamless. If a tool call from a previous thread completes while the client is switching away, its result is discarded rather than inserted into the new thread, so stale output never leaks between conversations.
+A browser disconnect does not by itself stop the authoritative agent run. While your Runtime and agent remain running, execution can continue and Intelligence records its events. Reopening the conversation lets the user catch up. This does not replace the framework’s checkpoint recovery or recover a run after a Runtime failure.
 
 ### Realtime sync
 
@@ -133,10 +143,10 @@ If a run completes normally, the lock is released immediately. The TTL is a safe
 
 ### Why event replay instead of message snapshots?
 
-Threads store the raw event stream rather than a snapshot of the final message list. This enables:
+Intelligence records AG-UI events rather than relying only on the framework’s current message list. This enables:
 
-- **Partial replay.** When reconnecting, the client only fetches events it missed rather than reloading the entire history.
-- **Faithful reproduction.** Streaming tokens, tool calls, and state changes replay exactly as they originally occurred.
+- **Catch-up.** A reconnecting client can use its replay cursor to fetch missed events rather than reloading the entire history.
+- **Interactive history.** Recorded messages, tool calls, and state updates reconstruct the conversation. Replay may compact events for delivery; it is not a guarantee that every original event is sent unchanged.
 
 The trade-off is that replay is more complex than loading a message array. The platform handles this complexity so your application doesn't have to.
 
@@ -148,7 +158,7 @@ The trade-off is that replay is more complex than loading a message array. The p
 ## Next steps
 
 - **Client lifecycle:** [Thread & History Lifecycle](/threads-lifecycle) — how a `threadId` is minted, hydrated, and switched on the client
-- **Overview:** [Rich Threads](/threads) — understand the feature and choose an implementation path
+- **Overview:** [AG-UI Streams](/threads) — understand the feature and choose an implementation path
 - **Step-by-step guide:** [Headless Threads](/headless-threads) — build a custom thread-management UI
 <FrontendOnly frontend="react">
 - **API reference:** [useThreads](/reference/hooks/useThreads) — parameters, return values, types
