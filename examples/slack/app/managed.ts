@@ -62,13 +62,11 @@ const required = (...names: string[]): string => {
  * Resolves the Intelligence project key.
  *
  * `CPK_INTELLIGENCE_API_KEY` is the canonical name. The older
- * `COPILOTKIT_API_KEY` and `INTELLIGENCE_API_KEY` names remain supported.
+ * `COPILOTKIT_API_KEY` name remains supported.
  */
 const requiredIntelligenceKey = (): string => {
   const key =
-    process.env.CPK_INTELLIGENCE_API_KEY ??
-    process.env.COPILOTKIT_API_KEY ??
-    process.env.INTELLIGENCE_API_KEY;
+    process.env.CPK_INTELLIGENCE_API_KEY ?? process.env.COPILOTKIT_API_KEY;
   if (!key) {
     console.error(
       "Missing required env var: CPK_INTELLIGENCE_API_KEY\n" +
@@ -80,11 +78,8 @@ const requiredIntelligenceKey = (): string => {
     process.exit(1);
   }
   if (!process.env.CPK_INTELLIGENCE_API_KEY) {
-    const alias = process.env.COPILOTKIT_API_KEY
-      ? "COPILOTKIT_API_KEY"
-      : "INTELLIGENCE_API_KEY";
     console.warn(
-      `${alias} is a deprecated alias; rename it to CPK_INTELLIGENCE_API_KEY.`,
+      "COPILOTKIT_API_KEY is a deprecated alias; rename it to CPK_INTELLIGENCE_API_KEY.",
     );
   }
   return key;
@@ -101,7 +96,6 @@ const channelName = firstEnv("INTELLIGENCE_CHANNEL_NAME") ?? "triage";
 function intelligenceApiKey(): string {
   const candidates = [
     firstEnv("CPK_INTELLIGENCE_API_KEY"),
-    firstEnv("INTELLIGENCE_API_KEY"),
     firstEnv("COPILOTKIT_API_KEY"),
   ].filter((value): value is string => Boolean(value));
   const matching = candidates.find((key) => /^cpk-\d+_/.test(key));

@@ -384,8 +384,8 @@ cp .env.example .env
 #   LINEAR_API_KEY / NOTION_*
 ```
 
-`CPK_INTELLIGENCE_API_KEY` is required. The older `COPILOTKIT_API_KEY` and
-`INTELLIGENCE_API_KEY` names still work as aliases.
+`CPK_INTELLIGENCE_API_KEY` is required. The older `COPILOTKIT_API_KEY`
+name still works as a deprecated alias.
 URLs default to the managed Intelligence platform. Slack tokens are not used
 on `pnpm dev`. Use `pnpm direct` only if you want local adapters.
 
