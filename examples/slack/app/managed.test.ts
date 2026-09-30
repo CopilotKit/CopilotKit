@@ -70,7 +70,6 @@ const envKeys = [
   "COPILOTKIT_INTELLIGENCE_WS_URL",
   "COPILOTKIT_API_KEY",
   "CPK_INTELLIGENCE_API_KEY",
-  "INTELLIGENCE_API_KEY",
   "INTELLIGENCE_API_URL",
   "INTELLIGENCE_GATEWAY_WS_URL",
   "INTELLIGENCE_CHANNEL_NAME",
@@ -171,14 +170,14 @@ describe("managed channel entrypoint", () => {
     );
   });
 
-  it("accepts the OpenTag Intelligence aliases", async () => {
+  it("accepts the OpenTag Intelligence URL aliases", async () => {
     for (const key of envKeys) previousEnv.set(key, process.env[key]);
     delete process.env.CPK_INTELLIGENCE_API_KEY;
     delete process.env.COPILOTKIT_API_KEY;
     delete process.env.COPILOTKIT_INTELLIGENCE_URL;
     delete process.env.COPILOTKIT_INTELLIGENCE_WS_URL;
     process.env.AGENT_URL = "http://agent.test/run";
-    process.env.INTELLIGENCE_API_KEY = "cpk-opentag";
+    process.env.CPK_INTELLIGENCE_API_KEY = "cpk-opentag";
     process.env.INTELLIGENCE_API_URL = "http://localhost:4201";
     process.env.INTELLIGENCE_GATEWAY_WS_URL = "ws://localhost:4401";
     process.env.INTELLIGENCE_CHANNEL_NAME = "open-tag";
@@ -210,9 +209,8 @@ describe("managed channel entrypoint", () => {
 
   it("runs the agent when the user asks for a carousel in plain text", async () => {
     for (const key of envKeys) previousEnv.set(key, process.env[key]);
-    delete process.env.CPK_INTELLIGENCE_API_KEY;
     process.env.AGENT_URL = "http://agent.test/run";
-    process.env.INTELLIGENCE_API_KEY = "cpk-test";
+    process.env.CPK_INTELLIGENCE_API_KEY = "cpk-test";
     fakes.bot.onMention.mockClear();
     vi.spyOn(process, "on").mockImplementation(
       (() => process) as typeof process.on,
