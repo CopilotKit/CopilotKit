@@ -160,6 +160,12 @@ export const CURATED_LLM_PAGES = [
       "Use a custom model router or AI SDK implementation behind CopilotKit's built-in agent interface.",
   },
   {
+    url: "backend/custom-ag-ui-agent",
+    title: "Write Your Own AG-UI Agent",
+    description:
+      "Extend AbstractAgent, register it in the runtime, and override clone for constructor fields.",
+  },
+  {
     url: "backend/self-managed-agents",
     title: "Self-Managed Agents",
     description:

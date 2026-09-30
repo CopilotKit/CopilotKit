@@ -96,6 +96,8 @@ The runtime supports multiple agent types. `BuiltInAgent` is the primary agent c
 - **Simple mode:** pass a model string and let CopilotKit handle the rest. Best for quick setup. See [Quickstart](/quickstart).
 - **Factory mode:** bring your own AI SDK, TanStack AI, or custom LLM backend. Best when you need full control. See [Factory Mode](/backend/custom-agent).
 
+To register agent logic you wrote yourself, extend AG-UI's `AbstractAgent`. See [Write your own AG-UI agent](/backend/custom-ag-ui-agent).
+
 <Callout type="warn" title="Wiring an external agent: what to pass, and which URL">
 Two mistakes account for most failures here.
 
