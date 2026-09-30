@@ -86,6 +86,19 @@ function arrived(value: unknown): string | null {
   return t.length ? t : null;
 }
 
+/**
+ * The journey id a browser tool was called with. The ADK agent's own server
+ * tools all take `journey_id`, and the model sometimes carries that spelling
+ * over to these camelCase browser tools — `openJourney({ journey_id })` sent the
+ * builder to `/journey/undefined` and hid the publish panel mid-demo. Accept
+ * both, plus a bare `id`.
+ */
+function journeyIdOf(args: unknown): string | null {
+  if (!args || typeof args !== "object") return null;
+  const a = args as Record<string, unknown>;
+  return arrived(a.journeyId) ?? arrived(a.journey_id) ?? arrived(a.id);
+}
+
 function ToolCard({
   tone = "brand",
   children,
@@ -177,7 +190,11 @@ export function MyelinTools() {
       parameters: z.object({
         journeyId: z.string().describe("The journey id, e.g. j-seafood."),
       }),
-      handler: async ({ journeyId }) => {
+      handler: async (args) => {
+        const journeyId = journeyIdOf(args);
+        if (!journeyId) {
+          return "Nothing opened: call openJourney with journeyId set to the journey's id (e.g. j-seafood).";
+        }
         const j = findJourney(ledgerRef.current, journeyId);
         // A just-created journey may not be in this window's ledger yet — the
         // poll is a second behind the agent's write. Navigate by id anyway.
@@ -207,8 +224,9 @@ export function MyelinTools() {
             "One sentence naming the admin's saved conventions you applied, e.g. 'Kept every lesson under 5 minutes, as you like.'",
           ),
       }),
-      render: ({ journeyId, note }) => {
-        const id = arrived(journeyId);
+      render: (props) => {
+        const id = journeyIdOf(props);
+        const note = (props as { note?: unknown }).note;
         if (!id) return <Muted>Pulling up the journey…</Muted>;
         const j = findJourney(data, id);
         if (!j) return <Muted>Loading {id}…</Muted>;
@@ -286,7 +304,7 @@ export function MyelinTools() {
             </ToolCard>
           );
         }
-        const id = arrived(args?.journeyId);
+        const id = journeyIdOf(args);
         if (!id) return <Muted>Preparing the audience check…</Muted>;
         return (
           <ReviewPublishCard
@@ -342,7 +360,7 @@ export function MyelinTools() {
           );
         }
         const state = ledgerRef.current;
-        const j = findJourney(state, arrived(args?.journeyId));
+        const j = findJourney(state, journeyIdOf(args));
         const groupId = arrived(args?.groupId);
         const status = args?.status as LearnerStatus | "all" | undefined;
         const sortBy = args?.sortBy as LearnerSort | undefined;
@@ -420,59 +438,41 @@ export function MyelinTools() {
       name: "offerWorkflowRecording",
       description:
         "Call this when a write was refused and you have no saved procedure for it. Say plainly you do not know " +
-        "this one and offer to watch the admin do it. Never guess a workaround instead.",
+        "this one and offer to watch the admin do it. Never guess a workaround instead. If the admin agrees, this " +
+        "same card records them doing it in the app and returns the observed steps when they finish, so wait for it.",
       parameters: z.object({
         situation: z
           .string()
           .describe("What you were blocked on, in one line."),
       }),
       render: ({ args, respond, result }) => {
+        // Replay-safe: the settled result is either the recorder's directive
+        // ("The user finished after N steps…") or a decline.
         if (typeof result === "string") {
+          const count = readDemonstratedStepCount(result);
           return (
-            <ToolCard>
+            <ToolCard tone={count === null ? "brand" : "positive"}>
               <p className="text-[0.78rem] text-ink-muted">
-                {/agreed to demonstrate/i.test(result)
-                  ? "Watching you do it once."
-                  : "Left it for now — nothing was recorded."}
+                {count !== null
+                  ? `Recorded ${count} ${count === 1 ? "step" : "steps"}.`
+                  : /agreed to demonstrate/i.test(result)
+                    ? "Watching you do it once."
+                    : "Left it for now — nothing was recorded."}
               </p>
             </ToolCard>
           );
         }
-        const situation = arrived(args?.situation);
         return (
-          <ToolCard>
-            <p className="text-[0.8rem]">
-              I don&rsquo;t have a saved way to handle this yet
-              {situation ? ` — ${situation.replace(/\.+$/, "")}` : ""}. Want to
-              show me once, and I&rsquo;ll remember it?
-            </p>
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  void settleInterrupt(
-                    respond,
-                    "The user agreed to demonstrate. Call awaitDemonstration now and wait — do not guess any steps.",
-                  )
-                }
-                className="rounded-md bg-brand px-3 py-1.5 text-[0.75rem] font-semibold text-brand-foreground"
-              >
-                Show me
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  void settleInterrupt(
-                    respond,
-                    "The user declined to demonstrate. Stop here.",
-                  )
-                }
-                className="rounded-md border border-hairline px-3 py-1.5 text-[0.75rem] text-ink-muted hover:text-ink"
-              >
-                Not now
-              </button>
-            </div>
-          </ToolCard>
+          <OfferThenRecord
+            situation={arrived(args?.situation)}
+            onDone={(directive) => settleInterrupt(respond, directive)}
+            onDecline={() =>
+              void settleInterrupt(
+                respond,
+                "The user declined to demonstrate. Stop here.",
+              )
+            }
+          />
         );
       },
     },
@@ -734,6 +734,51 @@ function ReviewPublishCard({
           className="rounded-md border border-hairline px-3 py-1.5 text-[0.75rem] text-ink-muted hover:text-ink"
         >
           Hold
+        </button>
+      </div>
+    </ToolCard>
+  );
+}
+
+// ── Teach mode: offer, then record, in ONE card ─────────────────────────────
+//
+// "Show me" used to settle the offer and rely on the model to call
+// awaitDemonstration next. It usually did, but not always — and when it wrote a
+// sentence instead, the recorder never opened and the teach beat died on stage.
+// So the click now opens the recorder right here, and the tool only settles when
+// the admin clicks "I'm done", handing back the observed steps.
+function OfferThenRecord({
+  situation,
+  onDone,
+  onDecline,
+}: {
+  situation: string | null;
+  onDone: (directive: string) => Promise<string | null>;
+  onDecline: () => void;
+}) {
+  const [recording, setRecording] = useState(false);
+  if (recording) return <DemonstrationCard onDone={onDone} />;
+  return (
+    <ToolCard>
+      <p className="text-[0.8rem]">
+        I don&rsquo;t have a saved way to handle this yet
+        {situation ? ` — ${situation.replace(/\.+$/, "")}` : ""}. Want to show
+        me once, and I&rsquo;ll remember it?
+      </p>
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          onClick={() => setRecording(true)}
+          className="rounded-md bg-brand px-3 py-1.5 text-[0.75rem] font-semibold text-brand-foreground"
+        >
+          Show me
+        </button>
+        <button
+          type="button"
+          onClick={onDecline}
+          className="rounded-md border border-hairline px-3 py-1.5 text-[0.75rem] text-ink-muted hover:text-ink"
+        >
+          Not now
         </button>
       </div>
     </ToolCard>
