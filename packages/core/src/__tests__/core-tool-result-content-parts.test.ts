@@ -59,6 +59,19 @@ describe("CopilotKitCore - tool handlers that return content parts", () => {
     expect(toolMessage?.content).toBe('[{"type":"row","id":1}]');
   });
 
+  it("still stringifies an array with a part the AG-UI schema rejects", async () => {
+    // The runtime parses the request with the same schema, and one invalid
+    // part there fails the whole run. A data source needs a mimeType.
+    const parts = [
+      { type: "text", text: "ok" },
+      { type: "image", source: { type: "data", value: "iVBORw0KGgo=" } },
+    ];
+    const agent = await runWithTool("broken", parts);
+
+    const [toolMessage] = toolMessages(agent);
+    expect(toolMessage?.content).toBe(JSON.stringify(parts));
+  });
+
   it("still stringifies an empty array", async () => {
     const agent = await runWithTool("empty", []);
 

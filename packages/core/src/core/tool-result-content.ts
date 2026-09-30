@@ -46,16 +46,43 @@ export function isForwardedToClientPlaceholder(content: unknown): boolean {
 
 const MEDIA_PART_TYPES = new Set(["image", "audio", "video", "document"]);
 
-function isContentPart(value: unknown): value is ContentPart {
+function isOptionalString(value: unknown): boolean {
+  return value === undefined || typeof value === "string";
+}
+
+function isPartSource(value: unknown): boolean {
   if (!value || typeof value !== "object") return false;
-  const part = value as { type?: unknown; text?: unknown; source?: unknown };
-  if (part.type === "text") return typeof part.text === "string";
-  if (typeof part.type !== "string" || !MEDIA_PART_TYPES.has(part.type)) {
-    return false;
+  const source = value as Record<string, unknown>;
+  if (typeof source.value !== "string") return false;
+  switch (source.type) {
+    case "data":
+      return typeof source.mimeType === "string";
+    case "url":
+      return isOptionalString(source.mimeType);
+    case "file":
+      return (
+        isOptionalString(source.provider) && isOptionalString(source.mimeType)
+      );
+    default:
+      return false;
   }
-  const source = part.source as { type?: unknown } | null | undefined;
+}
+
+/**
+ * Mirrors `ContentPartSchema` from `@ag-ui/core/schemas`. The runtime parses
+ * the request with that schema, and one invalid part there fails the whole run.
+ * Core does not import the schema because the UMD build has no global for it.
+ * A test checks this function against the schema.
+ */
+export function isContentPart(value: unknown): value is ContentPart {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const part = value as Record<string, unknown>;
+  if (!isOptionalString(part.id) || part.metadata === null) return false;
+  if (part.type === "text") return typeof part.text === "string";
   return (
-    !!source && typeof source === "object" && typeof source.type === "string"
+    typeof part.type === "string" &&
+    MEDIA_PART_TYPES.has(part.type) &&
+    isPartSource(part.source)
   );
 }
 
