@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from copy import deepcopy
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -309,6 +310,111 @@ def test_get_copilotkit_context_handles_missing_config(monkeypatch):
     result = middleware._get_copilotkit_context(state)
 
     assert result == {}
+
+
+@pytest.mark.parametrize("async_call", [False, True], ids=["sync", "async"])
+@pytest.mark.parametrize("carrier", ["runtime", "context", "configurable"])
+@pytest.mark.parametrize(
+    "payload, expected_context, expected_actions",
+    [
+        pytest.param({"context": "private-context"}, None, [], id="raw-context"),
+        pytest.param(
+            {"actions": [{"name": "private_action"}]}, None, [], id="raw-actions"
+        ),
+        *[
+            pytest.param(
+                {
+                    "context": "private-context",
+                    "actions": [{"name": "private_action"}],
+                    "copilotkit": namespace,
+                },
+                None,
+                [],
+                id=f"{name}-namespace",
+            )
+            for name, namespace in [("empty", {}), ("none", None), ("invalid", "raw")]
+        ],
+        pytest.param(
+            {"copilotkit": {"context": "shared-context"}},
+            "shared-context",
+            [],
+            id="namespaced-context",
+        ),
+        pytest.param(
+            {"copilotkit": {"actions": [{"name": "frontend_action"}]}},
+            None,
+            [{"name": "frontend_action"}],
+            id="namespaced-actions",
+        ),
+        pytest.param(
+            {
+                "context": "private-context",
+                "actions": [{"name": "private_action"}],
+                "copilotkit": {
+                    "context": "shared-context",
+                    "actions": [{"name": "frontend_action"}],
+                },
+            },
+            "shared-context",
+            [{"name": "frontend_action"}],
+            id="mixed-namespace",
+        ),
+    ],
+)
+def test_model_wrappers_require_namespaced_carrier_payload(
+    monkeypatch, async_call, carrier, payload, expected_context, expected_actions
+):
+    """Only explicit CopilotKit payloads may become model context or tools (#7536)."""
+    payload = deepcopy(payload)
+    request = _make_request(
+        state={"messages": [HumanMessage("hi")]},
+        messages=[HumanMessage("hi")],
+        tools=[{"name": "backend"}],
+        system_message=SystemMessage(content="Original instructions"),
+    )
+    config = {}
+    if carrier == "runtime":
+        request.runtime.context = payload
+    else:
+        config[carrier] = payload
+    monkeypatch.setattr("langgraph.config.get_config", lambda: config)
+    originals = deepcopy(
+        (
+            request.state,
+            request.messages,
+            request.tools,
+            request.system_message,
+            config,
+            payload,
+        )
+    )
+    middleware = CopilotKitMiddleware()
+    handler = _CapturingHandler()
+
+    async def async_handler(req):
+        return handler(req)
+
+    if async_call:
+        result = asyncio.run(middleware.awrap_model_call(request, async_handler))
+    else:
+        result = middleware.wrap_model_call(request, handler)
+
+    assert result == "model-response"
+    seen = handler.received
+    assert seen is not None
+    expected_message = "Original instructions"
+    if expected_context is not None:
+        expected_message += "\n\nApp Context:\n" + expected_context
+    assert _system_message_text(seen) == expected_message
+    assert seen.tools == [{"name": "backend"}, *expected_actions]
+    assert (
+        request.state,
+        request.messages,
+        request.tools,
+        request.system_message,
+        config,
+        payload,
+    ) == originals
 
 
 def test_wrap_model_call_injects_frontend_tools_from_context_bridge(monkeypatch):
@@ -809,9 +915,7 @@ def test_wrap_model_call_renders_namespaced_copilotkit_runtime_context():
     middleware = CopilotKitMiddleware()
     request = _make_request(state={"messages": [HumanMessage("hi")], "copilotkit": {}})
     request.runtime.context = {
-        "copilotkit": {
-            "context": [{"description": "viewer role", "value": "admin"}]
-        },
+        "copilotkit": {"context": [{"description": "viewer role", "value": "admin"}]},
         "thread_id": "t-1",
     }
 

@@ -283,13 +283,12 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
 
     @staticmethod
     def _copilotkit_from_runtime_context(runtime_context: Any) -> dict[str, Any]:
+        """Read only namespaced payloads; sibling context/actions belong to the app."""
         if not isinstance(runtime_context, dict):
             return {}
         nested = runtime_context.get("copilotkit")
         if CopilotKitMiddleware._has_copilotkit_payload(nested):
             return nested
-        if CopilotKitMiddleware._has_copilotkit_payload(runtime_context):
-            return runtime_context
         return {}
 
     @staticmethod
