@@ -78,6 +78,23 @@ describe("Thread.post image routing", () => {
     expect(ref.id).toBe("M1");
   });
 
+  it("preserves the adapter's full image message reference for deletion", async () => {
+    const adapter = new FakeAdapter();
+    const deleteMessage = vi.spyOn(adapter, "delete");
+    const messageRef = { id: "M1", channel: "C1", context: { key: "ctx" } };
+    adapter.postFile = async () => ({
+      ok: true,
+      messageId: "M1",
+      messageRef,
+    });
+    const thread = makeThread(adapter, async () => new Uint8Array([1]));
+
+    const ref = await thread.post(createElement("div"));
+    expect(ref).toBe(messageRef);
+    await thread.delete(ref);
+    expect(deleteMessage).toHaveBeenCalledWith(messageRef);
+  });
+
   it("keeps a branded channel component on the native path", async () => {
     const adapter = new FakeAdapter();
     const renderImage = vi.fn(async () => new Uint8Array());

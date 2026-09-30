@@ -19,11 +19,18 @@ describe("defaultAllowImageUrl", () => {
     for (const u of [
       "http://localhost/a.png",
       "http://LOCALHOST:3000/a.png",
+      "http://localhost./a.png",
+      "http://localhost../a.png",
+      "http://redis.internal./a.png",
       "http://api.localhost/a.png",
       "http://127.0.0.1/a.png",
       "http://127.1.2.3/a.png",
       "http://0.0.0.0/a.png",
       "http://[::1]/a.png",
+      "http://[::]/a.png",
+      "http://[::ffff:127.0.0.1]/a.png",
+      "http://[::ffff:10.0.0.1]/a.png",
+      "http://[2606:4700:4700::1111]/a.png",
       "http://printer.local/a.png",
     ])
       expect(defaultAllowImageUrl(u), u).toBe(false);

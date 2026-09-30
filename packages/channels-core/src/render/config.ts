@@ -15,16 +15,18 @@ export interface RenderConfig {
    * CSS `url()`, emoji sheets). Return `false` to skip the fetch.
    *
    * Defaults to `defaultAllowImageUrl` (render/url-policy), which denies non-HTTP(S) schemes and
-   * literally private/loopback/link-local hosts (cloud metadata endpoints
-   * included) so model-supplied URLs can't turn the renderer into an SSRF probe.
-   * That check cannot resolve DNS (the hook is synchronous), so if your JSX can
-   * carry untrusted URLs, pass an explicit allowlist here:
+   * literally private/loopback/link-local hosts, including all IPv6 literals.
+   * The renderer checks redirect targets with this predicate too, but the
+   * synchronous check cannot resolve DNS. A public-looking name at any hop
+   * may resolve to a private address, so use a trusted-origin allowlist when
+   * JSX can carry untrusted URLs:
    *
    * ```ts
    * allowImageUrl: (url) => new URL(url).origin === "https://cdn.example.com"
    * ```
    *
-   * Pass `() => false` to block all remote fetching.
+   * Pass `() => false` to block all remote fetching, and enforce network egress
+   * restrictions where the renderer runs.
    */
   allowImageUrl?: (url: string) => boolean;
 }

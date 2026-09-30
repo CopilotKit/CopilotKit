@@ -296,12 +296,12 @@ export interface ReactElementLike {
 /**
  * Result of a file upload.
  *
- * `messageId` is the id of the *message* the file was posted as, and is the only
- * field safe to hand back as a `MessageRef` (for `delete`/`react`/`update`).
+ * `messageId` is the id of the *message* the file was posted as; `messageRef`
+ * also carries adapter-specific routing fields needed by delete/react/update.
  * Platforms that upload media separately from posting it (Slack, Telegram,
  * WhatsApp) return a media/storage id in `fileId` that those APIs will NOT
- * accept as a message id; platforms that post the file as a message in one call
- * (Discord, Teams) set `messageId`. Either may be absent — an upload can succeed
+ * accept as a message id. Teams retains its historical message-id `fileId`
+ * alias for compatibility. Either may be absent — an upload can succeed
  * on a surface that never reports an id at all (e.g. the managed transport,
  * which hands the upload to an async outbox).
  */
@@ -309,8 +309,12 @@ export interface PostFileResult {
   ok: boolean;
   /** Platform message id, when the upload produced an addressable message. */
   messageId?: string;
-  /** Platform media/storage id, when the platform exposes one. Not a message id. */
+  /** Complete adapter reference for the posted message, when available. */
+  messageRef?: MessageRef;
+  /** Platform media/storage id. Teams also returns its message id here as a deprecated compatibility alias. */
   fileId?: string;
+  /** Managed transport asset handle (retained for existing callers). */
+  assetId?: string;
   error?: string;
 }
 
