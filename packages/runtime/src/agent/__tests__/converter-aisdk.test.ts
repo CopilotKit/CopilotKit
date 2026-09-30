@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { compactEvents, EventType } from "@ag-ui/client";
 import {
   createAgent,
@@ -769,27 +769,29 @@ describe("AI SDK Converter", () => {
   // ---------------------------------------------------------------------------
 
   describe("Edge Cases", () => {
-    it("unknown event types fail the run instead of being silently ignored", async () => {
+    it("unknown event types are ignored with one warning per type", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       const agent = createAgent("aisdk", [
         { type: "some-unknown-event", data: "hello" },
         textDelta("text after unknown"),
+        { type: "some-unknown-event", data: "again" },
+        { type: "another-mystery-event" },
+        finish(),
       ]);
       const input = createDefaultInput();
-      const { events, errored } = await collectEventsIncludingErrors(
-        agent.run(input),
-      );
+      const events = await collectEvents(agent.run(input));
 
-      expect(errored).toBe(true);
-      const errorEvents = events.filter(
-        (event) => event.type === EventType.RUN_ERROR,
-      );
-      expect(errorEvents).toHaveLength(1);
-      expect(eventField<string>(errorEvents[0], "message")).toBe(
-        "Unsupported AI SDK stream part: some-unknown-event",
-      );
-      expect(
-        events.some((event) => event.type === EventType.RUN_FINISHED),
-      ).toBe(false);
+      // No events for unknown types — only RUN_STARTED, TEXT_MESSAGE_CHUNK, RUN_FINISHED
+      expectEventSequence(events, [
+        EventType.RUN_STARTED,
+        EventType.TEXT_MESSAGE_CHUNK,
+        EventType.RUN_FINISHED,
+      ]);
+      expect(warn.mock.calls.map((call) => call[0])).toEqual([
+        "[convertAISDKStream] Ignoring unhandled AI SDK stream part: some-unknown-event",
+        "[convertAISDKStream] Ignoring unhandled AI SDK stream part: another-mystery-event",
+      ]);
+      warn.mockRestore();
     });
 
     it("large text deltas (100k chars) are passed through", async () => {

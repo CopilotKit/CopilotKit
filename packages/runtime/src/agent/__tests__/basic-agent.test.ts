@@ -315,6 +315,46 @@ describe("BasicAgent", () => {
         false,
       );
     });
+
+    it("should warn once and keep running on an unknown stream part", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          { type: "future-part" },
+          textDelta("still here"),
+          { type: "future-part" },
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(
+        false,
+      );
+      expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
+      expect(
+        warn.mock.calls.filter((call) =>
+          String(call[0]).includes("future-part"),
+        ),
+      ).toEqual([
+        ["[BuiltInAgent] Ignoring unhandled AI SDK stream part: future-part"],
+      ]);
+      warn.mockRestore();
+    });
   });
 
   describe("Prompt Building", () => {

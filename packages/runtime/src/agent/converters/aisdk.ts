@@ -146,6 +146,7 @@ export async function* convertAISDKStream(
   }
 
   try {
+    const warnedUnknownPartTypes = new Set<string>();
     for await (const part of fullStream) {
       const p = part as Record<string, unknown>;
 
@@ -389,20 +390,9 @@ export async function* convertAISDKStream(
             throw new Error("AI SDK tool-error is missing toolCallId");
           }
 
-          // Prefer the name captured from the preceding tool-call part because
-          // some providers omit toolName on the error part.
-          const toolName =
-            ("toolName" in p
-              ? (p.toolName as string | undefined)
-              : undefined) ??
-            toolCallStates.get(toolCallId)?.toolName ??
-            "";
-
           // Interrupt tools do not execute on the server. Their result is
-          // supplied by the human on the resume run, so suppress this part just
-          // like a normal tool-result.
+          // supplied by the human on the resume run, so suppress this part.
           if (
-            toolName &&
             pendingInterrupts?.some(
               (interrupt) => interrupt.toolCallId === toolCallId,
             )
@@ -508,8 +498,8 @@ export async function* convertAISDKStream(
         }
 
         // These AI SDK fullStream parts carry metadata that has no AG-UI event
-        // equivalent. They are known and intentionally ignored; keeping them
-        // explicit lets the default branch catch genuinely new parts.
+        // equivalent. They are known and intentionally ignored; listing them
+        // keeps the default's warning for genuinely new parts.
         case "start":
         case "start-step":
         case "finish-step":
@@ -520,8 +510,18 @@ export async function* convertAISDKStream(
         case "raw":
           break;
 
-        default:
-          throw new Error(`Unsupported AI SDK stream part: ${String(p.type)}`);
+        default: {
+          // Parts come from the caller's own `ai` install, which can be newer
+          // than ours. Warn once per type and keep the run alive.
+          const unknownType = String(p.type);
+          if (!warnedUnknownPartTypes.has(unknownType)) {
+            warnedUnknownPartTypes.add(unknownType);
+            console.warn(
+              `[convertAISDKStream] Ignoring unhandled AI SDK stream part: ${unknownType}`,
+            );
+          }
+          break;
+        }
       }
     }
   } finally {

@@ -1643,6 +1643,7 @@ export class BuiltInAgent extends AbstractAgent {
           };
 
           // Process fullStream events
+          const warnedUnknownPartTypes = new Set<string>();
           for await (const part of response.fullStream) {
             // Close any open reasoning lifecycle on every event except
             // reasoning-delta, which arrives mid-block and must not interrupt it.
@@ -2014,8 +2015,9 @@ export class BuiltInAgent extends AbstractAgent {
               }
 
               // These AI SDK fullStream parts carry metadata that has no AG-UI
-              // event equivalent. They are known and intentionally ignored;
-              // the default branch catches genuinely new parts.
+              // event equivalent. They are known and intentionally ignored.
+              // `tool-approval-request` cannot occur here: the tools built for
+              // this path never set `needsApproval`.
               case "start":
               case "start-step":
               case "finish-step":
@@ -2023,13 +2025,26 @@ export class BuiltInAgent extends AbstractAgent {
               case "source":
               case "file":
               case "tool-output-denied":
+              case "tool-approval-request":
               case "raw":
                 break;
 
-              default:
-                throw new Error(
-                  `Unsupported AI SDK stream part: ${String(part.type)}`,
+              default: {
+                // The exhaustiveness check catches parts the pinned `ai`
+                // version adds. At runtime a newer `ai` can still send a part
+                // we do not know; warn and keep the run alive.
+                const _exhaustive: never = part;
+                const unknownType = String(
+                  (_exhaustive as { type?: unknown }).type,
                 );
+                if (!warnedUnknownPartTypes.has(unknownType)) {
+                  warnedUnknownPartTypes.add(unknownType);
+                  console.warn(
+                    `[BuiltInAgent] Ignoring unhandled AI SDK stream part: ${unknownType}`,
+                  );
+                }
+                break;
+              }
             }
           }
 
