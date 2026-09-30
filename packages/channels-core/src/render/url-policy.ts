@@ -21,9 +21,6 @@ const BLOCKED_HOSTS = new Set([
   "localhost",
   "127.0.0.1",
   "0.0.0.0",
-  "[::]",
-  "[::1]",
-  "::1",
   "metadata.google.internal",
 ]);
 
@@ -33,9 +30,6 @@ const BLOCKED_SUFFIXES = [".localhost", ".local", ".internal", ".localdomain"];
 /** Private / loopback / link-local / CGNAT IPv4 ranges, as literal-text patterns. */
 const BLOCKED_IPV4 =
   /^(?:10\.|127\.|0\.|169\.254\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/;
-
-/** IPv6 loopback (::1), unique-local (fc00::/7) and link-local (fe80::/10). */
-const BLOCKED_IPV6 = /^(?:::1|f[cd][0-9a-f]{2}:|fe[89ab][0-9a-f]:)/;
 
 /**
  * Default `allowImageUrl`: deny non-HTTP(S) schemes and literally-private hosts,
@@ -51,10 +45,16 @@ export function defaultAllowImageUrl(url: string): boolean {
   }
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
   // `URL.hostname` keeps the brackets on an IPv6 literal (`[::1]`); compare bare.
-  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  const host = parsed.hostname
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "")
+    .replace(/\.+$/, "");
+  // Deny all IPv6 literals: Node canonicalizes mapped IPv4 addresses to hex
+  // (for example ::ffff:7f00:1), which prefix checks can miss. Apps that need
+  // trusted IPv6 image hosts can opt in with an explicit allowImageUrl policy.
+  if (parsed.hostname.startsWith("[")) return false;
   if (BLOCKED_HOSTS.has(host)) return false;
   if (BLOCKED_SUFFIXES.some((s) => host.endsWith(s))) return false;
   if (BLOCKED_IPV4.test(host)) return false;
-  if (BLOCKED_IPV6.test(host)) return false;
   return true;
 }

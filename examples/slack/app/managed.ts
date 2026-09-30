@@ -133,6 +133,8 @@ async function main() {
       width: 760,
       stylesheets: brand.stylesheets,
       fonts: brand.fonts,
+      // Bundled card assets need no remote fetches; reject model-supplied URLs.
+      allowImageUrl: () => false,
     },
   });
 

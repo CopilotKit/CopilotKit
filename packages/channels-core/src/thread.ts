@@ -370,8 +370,8 @@ export class Thread implements ThreadInterface {
     // separately from posting it (Slack, Telegram, WhatsApp) also return a
     // media id in `fileId`, which their delete/react/update APIs reject — so
     // never pass that off as a message id.
-    if (!res.messageId) warnNoMessageId(this.platform);
-    return { id: res.messageId ?? "" };
+    if (!res.messageRef && !res.messageId) warnNoMessageId(this.platform);
+    return res.messageRef ?? { id: res.messageId ?? "" };
   }
 
   /** @internal Post a registered component through the normal bind and adapter path. */

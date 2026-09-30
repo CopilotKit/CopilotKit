@@ -310,7 +310,7 @@ describe("SlackAdapter.getMessages", () => {
 
 describe("SlackAdapter.postFile", () => {
   it("uploads via files.uploadV2 and reports the file id plus the share ts as the message id", async () => {
-    const { adapter } = makeAdapter();
+    const { adapter, chat } = makeAdapter();
     // uploadV2 nests the result: { files: [ { files: [ { id, shares } ] } ] }.
     // The F-id is the FILE; the ts under `shares` is the message it landed in,
     // and the only value Slack's chat.delete / reactions.add accept.
@@ -324,8 +324,9 @@ describe("SlackAdapter.postFile", () => {
         },
       ],
     }));
-    (adapter as unknown as { client: { files: unknown } }).client = {
+    (adapter as unknown as { client: unknown }).client = {
       files: { uploadV2 },
+      chat,
     };
 
     const res = await adapter.postFile(
@@ -338,7 +339,14 @@ describe("SlackAdapter.postFile", () => {
       },
     );
 
-    expect(res).toEqual({ ok: true, fileId: "F123", messageId: "300.5" });
+    expect(res).toEqual({
+      ok: true,
+      fileId: "F123",
+      messageId: "300.5",
+      messageRef: { id: "300.5", channel: "C1", ts: "300.5" },
+    });
+    await adapter.delete(res.messageRef!);
+    expect(chat.delete).toHaveBeenCalledWith({ channel: "C1", ts: "300.5" });
     expect(uploadV2).toHaveBeenCalledTimes(1);
     const arg = uploadV2.mock.calls[0]![0] as {
       channel_id: string;
@@ -391,7 +399,35 @@ describe("SlackAdapter.postFile", () => {
       { bytes: new Uint8Array([1]), filename: "x.png" },
     );
 
-    expect(res).toEqual({ ok: true, fileId: "F77", messageId: undefined });
+    expect(res).toEqual({
+      ok: true,
+      fileId: "F77",
+      messageId: undefined,
+      messageRef: undefined,
+    });
+  });
+
+  it("does not use a share timestamp from another channel", async () => {
+    const { adapter } = makeAdapter();
+    const uploadV2 = vi.fn(async () => ({
+      files: [
+        {
+          files: [
+            { id: "F1", shares: { public: { OTHER: [{ ts: "400.1" }] } } },
+          ],
+        },
+      ],
+    }));
+    (adapter as unknown as { client: { files: unknown } }).client = {
+      files: { uploadV2 },
+    };
+    const res = await adapter.postFile(
+      { channel: "C1" },
+      { bytes: new Uint8Array([1]), filename: "x.png" },
+    );
+    expect(res).toMatchObject({ ok: true, fileId: "F1" });
+    expect(res.messageId).toBeUndefined();
+    expect(res.messageRef).toBeUndefined();
   });
 
   it("threads the upload under statusTs when the target has no threadTs (flat DM)", async () => {

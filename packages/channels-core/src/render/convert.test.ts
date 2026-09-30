@@ -1,8 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { createElement } from "react";
 import { PNG } from "pngjs";
 import { renderJsxToPng } from "./takumi.js";
 import { resolveArbitraryElement } from "./detect.js";
+import { defaultAllowImageUrl } from "./url-policy.js";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 
 const cfg = {
@@ -71,5 +72,30 @@ describe("takumi converter: host React element with a NESTED component node", ()
     const png = await renderJsxToPng(tree, cfg);
     expect([png[0], png[1], png[2], png[3]]).toEqual([0x89, 0x50, 0x4e, 0x47]);
     expect(countPalettePixels(Buffer.from(png))).toBeGreaterThan(50);
+  });
+});
+
+describe("renderer remote image gate", () => {
+  it("does not fetch a mapped private IPv6 image", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const url = "http://[::ffff:127.0.0.1]/image.png";
+      expect(defaultAllowImageUrl(url)).toBe(false);
+      try {
+        await renderJsxToPng(
+          createElement("img", { src: url, width: 1, height: 1 }),
+          {
+            ...cfg,
+            allowImageUrl: defaultAllowImageUrl,
+          },
+        );
+      } catch {
+        // Takumi may reject a denied image; the fetch boundary is the assertion.
+      }
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

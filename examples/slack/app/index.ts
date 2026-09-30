@@ -282,6 +282,8 @@ async function main() {
       width: 760,
       stylesheets: brand.stylesheets,
       fonts: brand.fonts,
+      // This demo's cards use bundled assets. Do not fetch model-supplied URLs.
+      allowImageUrl: () => false,
     },
   });
 

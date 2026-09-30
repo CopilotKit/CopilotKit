@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createChannel } from "@copilotkit/channels";
 
 const fakes = vi.hoisted(() => {
   const stop = vi.fn(async () => {
@@ -111,6 +112,14 @@ describe("managed channel entrypoint", () => {
 
     await import("./managed.js");
     await vi.waitFor(() => expect(sigterm).toBeTypeOf("function"));
+
+    // The default managed entrypoint must use the same deny-all renderer URL
+    // policy as the optional direct entrypoint; cards use bundled assets.
+    const render = vi.mocked(createChannel).mock.lastCall?.[0].render;
+    expect(render?.allowImageUrl?.("https://cdn.example.com/image.png")).toBe(
+      false,
+    );
+    expect(render?.allowImageUrl?.("http://127.0.0.1/image.png")).toBe(false);
 
     // The canonical name reaches the client. A key that is merely present in
     // the environment proves nothing; this proves it was consumed.

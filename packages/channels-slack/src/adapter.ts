@@ -1024,12 +1024,13 @@ export class SlackAdapter implements PlatformAdapter {
    * it was posted into: `shares.public|private[channelId] = [{ ts, ... }]`.
    * That `ts` is the message id Slack's chat.delete / reactions.add want.
    */
-  private static firstShareTsOf(file?: SlackUploadedFile): string | undefined {
+  private static firstShareTsOf(
+    file: SlackUploadedFile | undefined,
+    channel: string,
+  ): string | undefined {
     for (const group of [file?.shares?.public, file?.shares?.private]) {
-      for (const entries of Object.values(group ?? {})) {
-        const ts = entries?.[0]?.ts;
-        if (ts) return ts;
-      }
+      const ts = group?.[channel]?.find((entry) => entry?.ts)?.ts;
+      if (ts) return ts;
     }
     return undefined;
   }
@@ -1069,13 +1070,17 @@ export class SlackAdapter implements PlatformAdapter {
       )) as { files?: Array<{ files?: Array<SlackUploadedFile> }> };
       // uploadV2 nests the uploaded file(s): { files: [ { files: [ { id, shares } ] } ] }.
       const file = result.files?.[0]?.files?.[0];
+      const messageId = SlackAdapter.firstShareTsOf(file, t.channel);
       return {
         ok: true,
         // The F-id identifies the FILE. Slack's chat.delete/reactions.add need
         // the ts of the message the file was shared into, which rides along in
         // `shares` — surface both, honestly labeled.
         fileId: file?.id,
-        messageId: SlackAdapter.firstShareTsOf(file),
+        messageId,
+        messageRef: messageId
+          ? { id: messageId, channel: t.channel, ts: messageId }
+          : undefined,
       };
     } catch (e) {
       return { ok: false, error: (e as Error).message };

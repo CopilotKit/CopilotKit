@@ -475,8 +475,14 @@ export class TeamsAdapter implements PlatformAdapter {
 
   async delete(ref: MessageRef): Promise<void> {
     const r = ref as TeamsMessageRef;
-    if (!r.context || !r.id) return;
-    await r.context.deleteActivity(r.id);
+    if (!r.id) return;
+    if (r.context) {
+      await r.context.deleteActivity(r.id);
+    } else if (r.reference) {
+      await this.withProactive(r.reference, (context) =>
+        context.deleteActivity(r.id),
+      );
+    }
   }
 
   /**
@@ -513,7 +519,19 @@ export class TeamsAdapter implements PlatformAdapter {
       // message id (usable for update/delete) — not a media-storage handle.
       if (t.context) {
         const res = await t.context.sendActivity(activity);
-        return { ok: true, messageId: res?.id };
+        const messageId = res?.id;
+        return {
+          ok: true,
+          messageId,
+          fileId: messageId, // Deprecated alias for pre-image-post callers.
+          messageRef: messageId
+            ? {
+                id: messageId,
+                conversationKey: t.conversationKey,
+                context: t.context,
+              }
+            : undefined,
+        };
       }
       if (this.cloud && t.reference) {
         let messageId: string | undefined;
@@ -526,7 +544,18 @@ export class TeamsAdapter implements PlatformAdapter {
             messageId = res?.id;
           },
         );
-        return { ok: true, messageId };
+        return {
+          ok: true,
+          messageId,
+          fileId: messageId,
+          messageRef: messageId
+            ? {
+                id: messageId,
+                conversationKey: t.conversationKey,
+                reference: t.reference,
+              }
+            : undefined,
+        };
       }
       return { ok: false, error: "no live or proactive context to post on" };
     } catch (e) {
