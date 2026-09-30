@@ -166,6 +166,34 @@ export function Chat() {
 }
 ```
 
+## Reshaping the Message List
+
+Slots change how each message renders. To change _which_ messages render — hide some, replace them, reorder them — pass `transformMessages` to the message view. It receives the whole list and returns the list to render.
+
+```tsx title="page.tsx"
+import { useCallback } from "react";
+import { CopilotChat, type Message } from "@copilotkit/react-core/v2";
+
+export function Chat() {
+  // [!code highlight:4]
+  const transformMessages = useCallback(
+    (messages: Message[]) => messages.filter((m) => m.role !== "tool"),
+    [],
+  );
+
+  return <CopilotChat messageView={{ transformMessages }} />;
+}
+```
+
+A few things to know:
+
+- **Long threads stay virtualized.** Once a thread passes 50 messages the chat only mounts the rows on screen. It counts the messages `transformMessages` returns, so hidden messages take no row.
+- **Tool cards keep their results.** Tool-call renderers look up results in the full list, so hiding tool-result messages, as above, does not empty the cards that display them.
+- **Keep ids unique and stable.** Return each message id at most once. A message you build yourself, such as one that stands in for several, needs its own id, and that id must stay the same while the thread streams. Derive it from something fixed, like the id of the first message it replaces. The chat uses the last message you return to decide which one is still streaming.
+- **Pass a stable function.** The transform reruns whenever the messages or the function change. An inline function works, but reruns on every render.
+
+If you pass the message view a `children` render function to lay out the rendered messages yourself, virtualization turns off and every message is mounted. Prefer `transformMessages` for list-level changes; in development the chat warns when `children` is what turned virtualization off.
+
 ## Labels
 
 Customize any text string in the UI via the `labels` prop. This does not use the slot system — it's a separate convenience prop on `CopilotChat`, `CopilotSidebar`, and `CopilotPopup`.

@@ -272,7 +272,7 @@ export const MCP_APPS_SESSION_DEFAULTS: Readonly<
   initializationTimeoutMs: 30_000,
   hostInfo: { name: "CopilotKit MCP Apps Host", version: "1.0.0" },
   hostCapabilities: { openLinks: {}, logging: {}, message: { text: {} } },
-  hostContext: { theme: "light", platform: "web" },
+  hostContext: { platform: "web" },
 };
 
 /**
@@ -657,7 +657,14 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
         settings.hostCapabilities,
         // Seed the host context at construction so it is already in place when
         // the widget's ui/initialize is handled (deterministic, not a race).
-        { hostContext: settings.hostContext },
+        {
+          hostContext: {
+            // The theme follows CopilotKit's dark selector (a `.dark`
+            // ancestor) unless the host configured one explicitly.
+            theme: iframe.closest(".dark") ? "dark" : "light",
+            ...settings.hostContext,
+          },
+        },
       );
 
       // Sandbox handshake: on proxy ready, load the widget HTML into the inner

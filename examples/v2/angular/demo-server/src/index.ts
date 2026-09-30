@@ -12,6 +12,8 @@ import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime/v2";
 import { createOpenAI } from "@ai-sdk/openai";
 import { SlowToolCallStreamingAgent } from "@copilotkit/demo-agents";
+import { A2UIDashboardAgent } from "./agents/a2ui-dashboard.js";
+import { A2UIRecoveryAgent } from "./agents/a2ui-recovery.js";
 
 const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
 const openAIApiKey = process.env.OPENAI_API_KEY?.trim();
@@ -124,6 +126,10 @@ const agents = {
   default: builtInAgent,
   "slow-tools": new SlowToolCallStreamingAgent(),
   "mcp-apps": mcpAgent,
+  // Scripted A2UI agent for the /a2ui-angular route; needs no API key.
+  "a2ui-dashboard": new A2UIDashboardAgent(),
+  // Scripted A2UI recovery lifecycle for the /a2ui-recovery route.
+  "a2ui-recovery": new A2UIRecoveryAgent(),
 };
 
 const runtime = new CopilotRuntime({

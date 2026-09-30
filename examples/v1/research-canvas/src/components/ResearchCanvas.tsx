@@ -3,89 +3,86 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  useCoAgent,
-  useCoAgentStateRender,
-  useCopilotAction,
-} from "@copilotkit/react-core";
-import { Progress } from "./Progress";
+import { useAgent, useHumanInTheLoop } from "@copilotkit/react-core/v2";
 import { EditResourceDialog } from "./EditResourceDialog";
 import { AddResourceDialog } from "./AddResourceDialog";
 import { Resources } from "./Resources";
-import { AgentState, Resource } from "@/lib/types";
+import type { AgentState, Resource } from "@/lib/types";
 import { useModelSelectorContext } from "@/lib/model-selector-provider";
+import { z } from "zod";
 
 export function ResearchCanvas() {
   const { model, agent } = useModelSelectorContext();
 
-  const { state, setState } = useCoAgent<AgentState>({
-    name: agent,
-    initialState: {
-      model,
-    },
-  });
+  const { agent: researchAgent, isReady } = useAgent({ agentId: agent });
+  const state: AgentState = {
+    model,
+    research_question: "",
+    resources: [],
+    report: "",
+    logs: [],
+    ...(researchAgent.state as Partial<AgentState> | undefined),
+  };
+  const setState = (nextState: AgentState) => {
+    if (!isReady) {
+      return;
+    }
 
-  useCoAgentStateRender({
-    name: agent,
-    render: ({ state, nodeName, status }) => {
-      if (!state.logs || state.logs.length === 0) {
-        return null;
-      }
-      return <Progress logs={state.logs} />;
-    },
-  });
-
-  useCopilotAction({
-    name: "DeleteResources",
-    description:
-      "Prompt the user for resource delete confirmation, and then perform resource deletion",
-    available: "remote",
-    parameters: [
-      {
-        name: "urls",
-        type: "string[]",
-      },
-    ],
-    renderAndWait: ({ args, status, handler }) => {
-      return (
-        <div
-          className=""
-          data-test-id="delete-resource-generative-ui-container"
-        >
-          <div className="font-bold text-base mb-2">
-            Delete these resources?
-          </div>
-          <Resources
-            resources={resources.filter((resource) =>
-              (args.urls || []).includes(resource.url),
-            )}
-            customWidth={200}
-          />
-          {status === "executing" && (
-            <div className="mt-4 flex justify-start space-x-2">
-              <button
-                onClick={() => handler("NO")}
-                className="px-4 py-2 text-[#6766FC] border border-[#6766FC] rounded text-sm font-bold"
-              >
-                Cancel
-              </button>
-              <button
-                data-test-id="button-delete"
-                onClick={() => handler("YES")}
-                className="px-4 py-2 bg-[#6766FC] text-white rounded text-sm font-bold"
-              >
-                Delete
-              </button>
-            </div>
-          )}
-        </div>
-      );
-    },
-  });
-
+    researchAgent.setState(nextState);
+  };
   const resources: Resource[] = state.resources || [];
-  const setResources = (resources: Resource[]) => {
-    setState({ ...state, resources });
+
+  useHumanInTheLoop(
+    {
+      agentId: agent,
+      name: "DeleteResources",
+      description:
+        "Prompt the user for resource delete confirmation, and then perform resource deletion",
+      parameters: z.object({
+        urls: z.array(z.string()),
+      }),
+      render: ({ args, status, respond }) => {
+        if (status === "complete") {
+          return <div role="status">Response recorded.</div>;
+        }
+
+        return (
+          <div data-test-id="delete-resource-generative-ui-container">
+            <div className="font-bold text-base mb-2">
+              Delete these resources?
+            </div>
+            <Resources
+              resources={resources.filter((resource) =>
+                (args.urls || []).includes(resource.url),
+              )}
+              customWidth={200}
+            />
+            {status === "executing" && (
+              <div className="mt-4 flex justify-start space-x-2">
+                <button
+                  onClick={() => void respond?.("NO")}
+                  className="px-4 py-2 text-[#6766FC] border border-[#6766FC] rounded text-sm font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  data-test-id="button-delete"
+                  onClick={() => void respond?.("YES")}
+                  className="px-4 py-2 bg-[#6766FC] text-white rounded text-sm font-bold"
+                >
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    [agent, resources],
+  );
+
+  const setResources = (nextResources: Resource[]) => {
+    setState({ ...state, resources: nextResources });
   };
 
   // const [resources, setResources] = useState<Resource[]>(dummyResources);
@@ -135,7 +132,11 @@ export function ResearchCanvas() {
 
   return (
     <div className="w-full h-full overflow-y-auto p-10 bg-[#F5F8FF]">
-      <div className="space-y-8 pb-10">
+      <fieldset
+        disabled={!isReady}
+        aria-busy={!isReady}
+        className="min-w-0 space-y-8 border-0 p-0 pb-10"
+      >
         <div>
           <h2 className="text-lg font-medium mb-3 text-primary">
             Research Question
@@ -178,8 +179,8 @@ export function ResearchCanvas() {
           {resources.length !== 0 && (
             <Resources
               resources={resources}
-              handleCardClick={handleCardClick}
-              removeResource={removeResource}
+              handleCardClick={isReady ? handleCardClick : undefined}
+              removeResource={isReady ? removeResource : undefined}
             />
           )}
         </div>
@@ -199,7 +200,7 @@ export function ResearchCanvas() {
             style={{ minHeight: "200px" }}
           />
         </div>
-      </div>
+      </fieldset>
     </div>
   );
 }

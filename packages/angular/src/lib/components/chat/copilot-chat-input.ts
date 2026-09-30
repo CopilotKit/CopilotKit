@@ -12,6 +12,7 @@ import {
   output,
   viewChild,
   afterNextRender,
+  inject,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
@@ -34,6 +35,7 @@ import type {
 import { cn } from "../../utils";
 import { injectChatState } from "../../chat-state";
 import { explicitEffect } from "../../explicit-effect";
+import { CopilotKit } from "../../copilotkit";
 
 /**
  * Context provided to slot templates
@@ -197,19 +199,25 @@ export interface ToolbarContext {
           </copilot-chat-finish-transcribe-button>
         }
       } @else {
-        @if (startTranscribeButtonTemplate() || startTranscribeButtonComponent()) {
-          <copilot-slot
-            [slot]="
-              startTranscribeButtonTemplate() || startTranscribeButtonComponent()
-            "
-            [context]="{}"
-            [outputs]="startTranscribeButtonOutputs"
-            [defaultComponent]="CopilotChatStartTranscribeButton"
-          >
-          </copilot-slot>
-        } @else {
-          <copilot-chat-start-transcribe-button (clicked)="handleStartTranscribe()">
-          </copilot-chat-start-transcribe-button>
+        @if (audioTranscriptionEnabled()) {
+          @if (
+            startTranscribeButtonTemplate() || startTranscribeButtonComponent()
+          ) {
+            <copilot-slot
+              [slot]="
+                startTranscribeButtonTemplate() || startTranscribeButtonComponent()
+              "
+              [context]="{}"
+              [outputs]="startTranscribeButtonOutputs"
+              [defaultComponent]="CopilotChatStartTranscribeButton"
+            >
+            </copilot-slot>
+          } @else {
+            <copilot-chat-start-transcribe-button
+              (clicked)="handleStartTranscribe()"
+            >
+            </copilot-chat-start-transcribe-button>
+          }
         }
         <!-- Send button with slot -->
         @if (sendButtonTemplate() || sendButtonComponent()) {
@@ -390,6 +398,7 @@ export class CopilotChatInput implements OnDestroy {
   readonly labels = injectChatLabels();
   // readonly chatConfig = injectChatConfig();
   readonly chatState = injectChatState();
+  readonly copilotKit = inject(CopilotKit);
 
   // Signals
   modeSignal = signal<CopilotChatInputMode>("input");
@@ -412,6 +421,9 @@ export class CopilotChatInput implements OnDestroy {
   computedMode = computed(() => this.mode() ?? this.modeSignal());
   computedToolsMenu = computed(() => this.toolsMenu() ?? []);
   computedAutoFocus = computed(() => this.autoFocus() ?? true);
+  audioTranscriptionEnabled = computed(
+    () => this.copilotKit.audioFileTranscriptionEnabled() === true,
+  );
   computedValue = computed(() => {
     const customValue = this.value();
     return customValue !== undefined
@@ -576,6 +588,9 @@ export class CopilotChatInput implements OnDestroy {
   }
 
   handleStartTranscribe(): void {
+    if (!this.audioTranscriptionEnabled()) {
+      return;
+    }
     this.startTranscribe.emit();
     this.modeSignal.set("transcribe");
   }

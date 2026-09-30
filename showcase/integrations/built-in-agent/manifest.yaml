@@ -546,6 +546,7 @@ demos:
       - src/app/demos/voice/page.tsx
       - src/app/demos/voice/sample-audio-button.tsx
       - src/lib/factory/tanstack-factory.ts
+      - src/lib/transcription-service.ts
       - src/app/api/copilotkit-voice/[[...slug]]/route.ts
   - id: agent-config
     name: Agent Config Object

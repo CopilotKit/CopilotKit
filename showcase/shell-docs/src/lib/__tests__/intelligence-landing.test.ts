@@ -21,7 +21,7 @@ test("the Intelligence overview uses landing-page chrome", () => {
   expect(page.data.title).toBe("CopilotKit Intelligence");
   expect(page.data.nav_title).toBe("Overview");
   expect(page.data.description).toBe(
-    "CopilotKit Intelligence adds Rich Threads, User Memories, Automatic Learning, Channels, and Product Analytics to the CopilotKit app you already run.",
+    "CopilotKit Intelligence adds AG-UI Streams, User Memories, Automatic Learning, Channels, and Product Analytics to the CopilotKit app you already run.",
   );
   expect(page.data.hideHeader).toBeUndefined();
   expect(page.data.full).toBe(true);
