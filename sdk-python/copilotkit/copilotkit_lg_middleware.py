@@ -396,18 +396,16 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         state: dict[str, Any],
         runtime_context: Any = None,
     ) -> str | None:
+        # Only render explicitly structured CopilotKit context
+        # (``state["copilotkit"]["context"]`` or namespaced
+        # ``runtime_context["copilotkit"]``, both resolved via
+        # ``_get_copilotkit_context``). Never fall back to dumping the raw
+        # ``runtime_context`` dict: with ag-ui-langgraph>=0.0.42 the LangGraph
+        # runtime context carries ``config["configurable"]`` (thread_id,
+        # tenant/user ids, ...), which must not reach the model-visible
+        # system prompt. See #7077.
         copilotkit_state = self._get_copilotkit_context(state, runtime_context)
         app_context = copilotkit_state.get("context")
-
-        if not app_context:
-            if isinstance(runtime_context, dict):
-                app_context = {
-                    k: v
-                    for k, v in runtime_context.items()
-                    if k != "copilotkit_forwarded_headers"
-                }
-            else:
-                app_context = runtime_context
 
         if isinstance(app_context, dict):
             app_context = {
