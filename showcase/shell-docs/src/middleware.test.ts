@@ -16,16 +16,16 @@ type CapturedEvent = {
   properties: Record<string, unknown>;
 };
 
-const captured: CapturedEvent[] = [];
-const pending: Promise<unknown>[] = [];
+let captured: CapturedEvent[] = [];
+let pending: Promise<unknown>[] = [];
 let NextRequestConstructor: typeof NextRequest;
 let middleware: typeof middlewareHandler;
 
 /** A `NextFetchEvent` stub that records the work middleware defers. */
-function fetchEvent(): NextFetchEvent {
+function fetchEvent(deferred: Promise<unknown>[]): NextFetchEvent {
   return {
     waitUntil: (promise: Promise<unknown>) => {
-      pending.push(promise);
+      deferred.push(promise);
     },
   } as unknown as NextFetchEvent;
 }
@@ -39,19 +39,24 @@ async function runMiddleware(
     headers?: Record<string, string>;
   } = {},
 ): Promise<{ response: Response; events: CapturedEvent[] }> {
+  const events = captured;
+  const deferred = pending;
   const headers = new Headers(init.headers ?? {});
   if (init.userAgent) headers.set("user-agent", init.userAgent);
   if (init.ip) headers.set("x-forwarded-for", init.ip);
 
   const request = new NextRequestConstructor(
     new URL(pathname, "https://docs.copilotkit.ai"),
-    { method: init.method ?? "GET", headers },
+    {
+      method: init.method ?? "GET",
+      headers,
+    },
   );
 
-  const before = captured.length;
-  const response = middleware(request as NextRequest, fetchEvent());
-  await Promise.all(pending.splice(0));
-  return { response, events: captured.slice(before) };
+  const before = events.length;
+  const response = middleware(request as NextRequest, fetchEvent(deferred));
+  await Promise.all(deferred);
+  return { response, events: events.slice(before) };
 }
 
 const CLAUDE_CODE = "claude-code/1.2.0";
@@ -59,28 +64,31 @@ const CHROME =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 beforeEach(async () => {
-  captured.length = 0;
-  pending.length = 0;
+  const events: CapturedEvent[] = [];
+  captured = events;
+  pending = [];
   vi.resetModules();
   vi.stubEnv("POSTHOG_KEY", "phc_test_key");
   vi.stubEnv("NEXT_PUBLIC_POSTHOG_HOST", "https://eu.i.posthog.com");
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_url: string, init?: RequestInit) => {
-      captured.push(JSON.parse(String(init?.body)) as CapturedEvent);
+      events.push(JSON.parse(String(init?.body)) as CapturedEvent);
       return new Response(JSON.stringify({ status: 1 }), { status: 200 });
     }),
   );
-
-  // Module loading belongs to setup: a cold import must finish before a test
-  // can start recording requests in the shared capture buffer.
+  // Load the request fixture before the request test starts its timer.
   ({ NextRequest: NextRequestConstructor } = await import("next/server"));
   ({ middleware } = await import("./middleware"));
 });
 
-afterEach(() => {
-  vi.unstubAllEnvs();
-  vi.unstubAllGlobals();
+afterEach(async () => {
+  try {
+    await Promise.allSettled(pending);
+  } finally {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  }
 });
 
 describe("the agent-facing raw text surface", () => {
@@ -247,15 +255,14 @@ describe("telemetry must not be able to break a fetch", () => {
     warn.mockRestore();
   });
 
-  describe("when no PostHog key is configured", () => {
+  describe("without a PostHog key", () => {
     beforeEach(async () => {
-      vi.stubEnv("POSTHOG_KEY", "");
-      // The key is read at module load, so reload after this case's override.
       vi.resetModules();
+      vi.stubEnv("POSTHOG_KEY", "");
       ({ middleware } = await import("./middleware"));
     });
 
-    it("stays silent", async () => {
+    it("stays silent when no PostHog key is configured", async () => {
       const { events } = await runMiddleware("/llms.txt", {
         userAgent: CLAUDE_CODE,
       });

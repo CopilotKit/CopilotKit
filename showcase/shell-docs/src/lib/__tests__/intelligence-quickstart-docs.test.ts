@@ -27,7 +27,7 @@ test("guides people and agents to a persistent Intelligence thread", () => {
   expect(agentPrompt).toBeGreaterThan(-1);
   expect(manualSteps).toBeGreaterThan(agentPrompt);
   expect(source).toContain(
-    "You want Rich Threads, User Memory, Automatic Learning, Channels, and Product Analytics",
+    "You want AG-UI Streams, User Memory, Automatic Learning, Channels, and Product Analytics",
   );
   expect(source).toContain("Intelligence adds that layer");
   expect(source).toContain("npx copilotkit@latest project select");

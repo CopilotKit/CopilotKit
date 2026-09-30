@@ -82,7 +82,7 @@ handler half below applies to you.
 
 <Callout type="info" title="The framework wrappers support Intelligence resources">
   Every `copilotRuntime*Endpoint` wrapper builds its handler with
-  `mode: "single-route"`. A current client and Runtime carry Rich Threads,
+  `mode: "single-route"`. A current client and Runtime carry AG-UI Streams,
   Memory, and annotation requests through that endpoint. Setting
   `useSingleEndpoint={false}` still points the browser at REST routes that these
   wrappers do not serve.
@@ -281,7 +281,9 @@ You should get back a JSON body describing the registered agents. If you get a
 isn't mounted). If you get a connection error, the server isn't listening on that
 host/port.
 
-## Enable Rich Threads routes
+<span id="enable-rich-threads-routes" />
+
+## Enable AG-UI Streams routes
 
 If the Inspector shows the Rich Threads setup view, the client did not find the
 features used to list and inspect saved Threads. This view is based on Runtime
@@ -290,7 +292,7 @@ advertises those features and the Inspector can load saved history.
 
 ### Start with your coding agent
 
-Use this prompt to configure Intelligence and verify that your Runtime exposes Rich Threads.
+Use this prompt to configure Intelligence and verify that your Runtime exposes AG-UI Streams.
 
 <RichThreadsSetupPrompt />
 
@@ -298,7 +300,7 @@ Use this prompt to configure Intelligence and verify that your Runtime exposes R
 <Step>
 ### Choose a Runtime route mode
 
-Single-route and multi-route handlers both expose Rich Threads. Use single-route
+Single-route and multi-route handlers both expose AG-UI Streams. Use single-route
 when your server should expose only one `POST` endpoint:
 
 ```ts
@@ -393,7 +395,7 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-See [Scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user)
+See [Scope AG-UI Streams to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user)
 for the full identity and authorization pattern.
 
 </Step>
@@ -429,7 +431,7 @@ Restart the Runtime. For multi-route, request its info endpoint:
 curl -s http://localhost:4000/api/copilotkit/info
 ```
 
-An Intelligence-backed web Runtime that is ready for Rich Threads includes:
+An Intelligence-backed web Runtime that is ready for AG-UI Streams includes:
 
 ```json
 {

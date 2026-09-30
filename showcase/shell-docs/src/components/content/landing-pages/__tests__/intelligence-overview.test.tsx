@@ -103,7 +103,7 @@ describe("IntelligenceOverview", () => {
     render(<IntelligenceFeatureCards />);
 
     const expected: Array<[string, string]> = [
-      ["Rich Threads", "/threads"],
+      ["AG-UI Streams", "/threads"],
       ["Channels", "/intelligence/channels"],
       ["User Memories", "/intelligence/memories"],
       ["Product Analytics", "/intelligence/analytics"],
