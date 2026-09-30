@@ -17,7 +17,7 @@
 //
 // Run: node scripts/generate-external-reexports.mjs [--check]
 // The generated file is committed; `--check` fails when it is out of date.
-import ts from "typescript";
+import ts from "typescript-js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

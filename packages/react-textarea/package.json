@@ -35,7 +35,8 @@
       "require": "./dist/index.cjs"
     },
     "./package.json": "./package.json",
-    "./styles.css": "./dist/index.css"
+    "./style.css": "./dist/style.css",
+    "./styles.css": "./dist/style.css"
   },
   "publishConfig": {
     "access": "public"
@@ -90,8 +91,8 @@
     "tailwind-config": "workspace:*",
     "tailwindcss": "^3.3.0",
     "tsconfig": "workspace:*",
-    "tsdown": "^0.20.3",
-    "typescript": "^5.2.3",
+    "tsdown": "^0.22.14",
+    "typescript": "7.0.2",
     "vitest": "^3.2.4"
   },
   "peerDependencies": {

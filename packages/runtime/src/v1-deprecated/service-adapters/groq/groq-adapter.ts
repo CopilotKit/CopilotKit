@@ -43,7 +43,7 @@
 import type { LanguageModel } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { Groq } from "groq-sdk";
-import type { ChatCompletionMessageParam } from "groq-sdk/resources/chat";
+import type { ChatCompletionMessageParam } from "groq-sdk/resources/chat/completions";
 import type {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,

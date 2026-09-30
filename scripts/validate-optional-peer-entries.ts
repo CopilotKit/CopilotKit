@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import ts from "typescript";
+import ts from "typescript-js";
 
 // An optional peer dependency is one the consumer may simply not install. That
 // promise only holds if the entry points they DO import never reach it at
