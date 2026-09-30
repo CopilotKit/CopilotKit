@@ -413,7 +413,11 @@ async function main() {
   // (each platform adapter has its own — e.g. WhatsApp's webhook on $PORT); it
   // only owns the Channel lifecycle and keeps the process alive.
   const channelPort = Number(process.env.CHANNELS_PORT ?? 8300);
-  if (!Number.isInteger(channelPort) || channelPort < 1 || channelPort > 65535) {
+  if (
+    !Number.isInteger(channelPort) ||
+    channelPort < 1 ||
+    channelPort > 65535
+  ) {
     throw new Error(`Invalid CHANNELS_PORT: "${process.env.CHANNELS_PORT}"`);
   }
   const listener = createCopilotNodeListener({

@@ -311,7 +311,10 @@ export class Thread implements ThreadInterface {
     }
   }
 
-  post(ui: Renderable | ReactElementLike, opts?: PostImageOptions): Promise<MessageRef> {
+  post(
+    ui: Renderable | ReactElementLike,
+    opts?: PostImageOptions,
+  ): Promise<MessageRef> {
     return this.trackOperation(async () => {
       const el = resolveArbitraryElement(ui);
       if (el) return this.postImage(el, opts);

@@ -247,7 +247,9 @@ async function main() {
   // process alive.
   const port = Number(process.env.PORT ?? 8300);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error(`Invalid PORT: "${process.env.PORT}" is not a valid port number`);
+    throw new Error(
+      `Invalid PORT: "${process.env.PORT}" is not a valid port number`,
+    );
   }
   const listener = createCopilotNodeListener({
     runtime,
