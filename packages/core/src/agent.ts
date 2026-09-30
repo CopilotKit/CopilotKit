@@ -37,6 +37,7 @@ import type {
 import { IntelligenceAgent } from "./intelligence-agent";
 import type { CopilotRuntimeTransport } from "./types";
 import { runtimeInfoError } from "./utils/runtime-info-error";
+import type { ConnectionReplayLifecycle } from "./utils/connect-replay";
 import { ɵconnectWithoutEventVerification } from "./utils/connect-replay";
 import type { CopilotKitMessageFilter } from "./core/message-filter";
 import { ɵrepairToolCallPairs } from "./core/message-filter";
@@ -44,7 +45,10 @@ import { ɵrepairToolCallPairs } from "./core/message-filter";
 type ResolvedRuntimeMode = RuntimeMode | "pending";
 
 interface RunnableAgent {
-  connect(input: RunAgentInput): Observable<BaseEvent>;
+  connect(
+    input: RunAgentInput,
+    lifecycle?: ConnectionReplayLifecycle,
+  ): Observable<BaseEvent>;
   run(input: RunAgentInput): Observable<BaseEvent>;
 }
 
@@ -454,7 +458,12 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       // followed by a later RUN_STARTED. The base pipeline's `verifyEvents`
       // step enforces single-run lifecycle rules and rejects that stream
       // outright, so an existing thread never hydrates (#4943).
-      return ɵconnectWithoutEventVerification(this, parameters, subscriber);
+      return ɵconnectWithoutEventVerification(
+        this,
+        parameters,
+        subscriber,
+        (input, lifecycle) => this.connect(input, lifecycle),
+      );
     }
 
     // Ensure the delegate exists and is synced with the proxy's current state.
@@ -494,10 +503,16 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         if (!isCurrentConnection()) return;
         this.isRunning = false;
       },
-      // Protocol-level RUN_ERROR event from the backend
+      // The connect pipeline updates the delegate before forwarding events:
+      // live errors clear busy, historical errors keep replay busy, and a
+      // successor run can start while the same connection keeps listening.
       onRunErrorEvent: () => {
         if (!isCurrentConnection()) return;
-        this.isRunning = false;
+        this.isRunning = delegate.isRunning;
+      },
+      onRunStartedEvent: () => {
+        if (!isCurrentConnection()) return;
+        this.isRunning = delegate.isRunning;
       },
     });
 
@@ -547,18 +562,21 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     }
   }
 
-  connect(input: RunAgentInput): Observable<BaseEvent> {
+  connect(
+    input: RunAgentInput,
+    lifecycle?: ConnectionReplayLifecycle,
+  ): Observable<BaseEvent> {
     if (
       this.runtimeMode === "pending" ||
       (this.transport === "auto" &&
         this.runtimeMode !== RUNTIME_MODE_INTELLIGENCE)
     ) {
       return defer(() => from(this.ensureRuntimeConfiguration())).pipe(
-        switchMap(() => this.connect(input)),
+        switchMap(() => this.connect(input, lifecycle)),
       );
     }
     if (this.runtimeMode === RUNTIME_MODE_INTELLIGENCE) {
-      return this.#connectViaDelegate(input);
+      return this.#connectViaDelegate(input, lifecycle);
     }
     return this.#connectViaHttp(input);
   }
@@ -579,9 +597,14 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     return this.#runViaHttp(input);
   }
 
-  #connectViaDelegate(input: RunAgentInput): Observable<BaseEvent> {
+  #connectViaDelegate(
+    input: RunAgentInput,
+    lifecycle?: ConnectionReplayLifecycle,
+  ): Observable<BaseEvent> {
     return defer(() => from(this.resolveDelegate())).pipe(
-      switchMap((delegate) => withAbortErrorHandling(delegate.connect(input))),
+      switchMap((delegate) =>
+        withAbortErrorHandling(delegate.connect(input, lifecycle)),
+      ),
     );
   }
 
@@ -930,6 +953,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     delegate.agentId = this.routedAgentId();
     delegate.description = this.description;
     delegate.threadId = this.threadId;
+    delegate.debugLogger = this.debugLogger;
     delegate.setMessages(this.messages);
     delegate.setState(this.state);
     delegate.pendingInterrupts = structuredClone_(this.pendingInterrupts);

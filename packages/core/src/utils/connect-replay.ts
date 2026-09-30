@@ -2,19 +2,27 @@ import type {
   AbstractAgent,
   AgentSubscriber,
   BaseEvent,
+  RunAgentInput,
   RunAgentParameters,
   RunAgentResult,
 } from "@ag-ui/client";
 import {
   AGUIConnectNotImplementedError,
   CompatibilityBoundary,
+  EventType,
   randomUUID,
   structuredClone_,
   transformChunks,
 } from "@ag-ui/client";
 import type { Observable } from "rxjs";
 import { EMPTY, Subject, defer, lastValueFrom } from "rxjs";
-import { catchError, finalize, takeUntil } from "rxjs/operators";
+import { catchError, finalize, takeUntil, tap } from "rxjs/operators";
+
+/** Internal connection callbacks; HTTP connections keep their EOF behavior. */
+export interface ConnectionReplayLifecycle {
+  onReplayStarted?: () => void;
+  onReplayFinished?: () => void;
+}
 
 /**
  * Runs an agent's `connect()` stream through the AbstractAgent apply pipeline
@@ -38,13 +46,20 @@ import { catchError, finalize, takeUntil } from "rxjs/operators";
  * replays RUN_STARTED without `runId`, for example) must not stop the whole
  * thread from hydrating. That keeps the leniency this path had before 1.0.
  *
- * This mirrors the base `AbstractAgent.connectAgent` implementation apart from
- * those two omissions, so callers keep the same subscriber notifications,
- * detach semantics, and `{ result, newMessages }` return shape.
+ * Connection-local replay hooks track the phase before applying events. An
+ * explicitly live RUN_ERROR clears busy without closing the connection;
+ * historical errors remain data. Connections without hooks retain the existing
+ * completion behavior.
+ *
+ * Apart from the above, this mirrors the base `AbstractAgent.connectAgent`
+ * implementation, so callers keep the same subscriber notifications, detach
+ * semantics, and `{ result, newMessages }` return shape.
  *
  * TODO: Remove this in favour of the base implementation once AG-UI's
  * AbstractAgent supports opting out of `verifyEvents` for transports whose
- * connection life-cycle isn't a single run. As of `@ag-ui/client@1.0.1`
+ * connection life-cycle isn't a single run AND preserves the connection-local
+ * replay lifecycle and running-state behavior below. Skipping verification alone
+ * is insufficient. As of `@ag-ui/client@1.0.1`
  * `connectAgent(parameters?, subscriber?)` takes no such option.
  *
  * @param agent - The agent whose `connect()` stream should be consumed.
@@ -55,6 +70,10 @@ export async function ɵconnectWithoutEventVerification(
   agent: AbstractAgent,
   parameters?: RunAgentParameters,
   subscriber?: AgentSubscriber,
+  connect?: (
+    input: RunAgentInput,
+    lifecycle: ConnectionReplayLifecycle,
+  ) => Observable<BaseEvent>,
 ): Promise<RunAgentResult> {
   // Access protected/private members through a type escape hatch — they are
   // set and read by the base class and must be managed identically to the
@@ -74,8 +93,18 @@ export async function ɵconnectWithoutEventVerification(
     const input = self.prepareRunAgentInput(parameters);
     let result: RunAgentResult["result"];
     const previousMessageIds = new Set(agent.messages.map((m) => m.id));
+    // Record the phase when an error arrives: subscriber callbacks may run
+    // asynchronously after replay_complete has already changed the phase.
+    let isReplaying = true;
+    const liveErrors = new WeakSet<BaseEvent>();
     const subscribers: AgentSubscriber[] = [
       {
+        onRunStartedEvent: () => {
+          agent.isRunning = true;
+        },
+        onRunErrorEvent: ({ event }) => {
+          if (liveErrors.has(event)) agent.isRunning = false;
+        },
         onRunFinishedEvent: (event) => {
           if (event.outcome === "success") {
             result = event.result;
@@ -117,14 +146,33 @@ export async function ɵconnectWithoutEventVerification(
     await self.onInitialize(input, subscribers);
     if (detached) return { result: undefined, newMessages: [] };
 
+    // Only an explicitly live error changes busy state. Connection lifetime
+    // remains owned by the transport (Intelligence idle or HTTP EOF).
+    const lifecycle: ConnectionReplayLifecycle = {
+      onReplayStarted: () => {
+        isReplaying = true;
+        agent.isRunning = true;
+      },
+      onReplayFinished: () => {
+        isReplaying = false;
+      },
+    };
     const source$ = defer(() =>
       // The boundary is a middleware; hand it a stand-in agent whose run() is
       // this connect stream, as AG-UI's own connect operator does internally.
       new CompatibilityBoundary().run(input, {
-        run: () => self.connect(input) as Observable<BaseEvent>,
+        run: () =>
+          connect
+            ? connect(input, lifecycle)
+            : (self.connect(input) as Observable<BaseEvent>),
       } as unknown as AbstractAgent),
     ).pipe(
       // NOTE: enforceEvents is intentionally omitted here. See JSDoc above.
+      tap((event) => {
+        if (!isReplaying && event.type === EventType.RUN_ERROR) {
+          liveErrors.add(event);
+        }
+      }),
       // transformChunks reassembles partial/streamed messages — still needed.
       transformChunks(self.debugLogger),
       // NOTE: verifyEvents is intentionally omitted here. See JSDoc above.

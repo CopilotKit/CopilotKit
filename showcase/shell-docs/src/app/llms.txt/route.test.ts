@@ -46,6 +46,8 @@ test("publishes the curated decision index and exhaustive retrieval link", async
       `- [${page.title}](${baseUrl}/${page.url}): ${page.description}`,
     );
   }
+  expect(body).toContain("AG-UI streams, formerly known as Rich Threads");
+  expect(body).toContain("useThreads");
   expect(body).not.toContain("/slack/mastra/tools)");
   expect(body).not.toContain("/teams/langgraph-fastapi/interactive)");
 });

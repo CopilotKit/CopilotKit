@@ -56,6 +56,7 @@ import { schemaToJsonSchema } from "@copilotkit/shared";
 import { jsonSchema as aiJsonSchema } from "ai";
 import {
   convertAISDKStream,
+  formatToolError,
   getAISDKRunFinishedDetails,
 } from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
@@ -1710,6 +1711,7 @@ export class BuiltInAgent extends AbstractAgent {
           };
 
           // Process fullStream events
+          const warnedUnknownPartTypes = new Set<string>();
           for await (const part of response.fullStream) {
             // Close any open reasoning lifecycle on every event except
             // reasoning-delta, which arrives mid-block and must not interrupt it.
@@ -1988,6 +1990,34 @@ export class BuiltInAgent extends AbstractAgent {
                 break;
               }
 
+              case "tool-error": {
+                const toolCallId = part.toolCallId;
+                const toolName =
+                  ("toolName" in part && part.toolName) ||
+                  toolCallStates.get(toolCallId)?.toolName ||
+                  "";
+
+                // Interrupt tools do not execute on the server. Their result
+                // is supplied by the human on the resume run.
+                if (toolName && interruptToolNames.has(toolName)) {
+                  toolCallStates.delete(toolCallId);
+                  break;
+                }
+
+                toolCallStates.delete(toolCallId);
+                const resultEvent: ToolCallResultEvent = {
+                  type: EventType.TOOL_CALL_RESULT,
+                  role: "tool",
+                  messageId: randomUUID(),
+                  toolCallId,
+                  // Keep tool exceptions as tool results so the client and the
+                  // next model step both receive the failure.
+                  content: `Error: ${formatToolError(part.error)}`,
+                };
+                subscriber.next(resultEvent);
+                break;
+              }
+
               case "finish": {
                 // Emit run finished event
                 const model = streamTextParams.model as unknown;
@@ -2055,6 +2085,38 @@ export class BuiltInAgent extends AbstractAgent {
                       typeof err === "string" ? err : `AI SDK stream error`,
                     ),
                   );
+                break;
+              }
+
+              // These AI SDK fullStream parts carry metadata that has no AG-UI
+              // event equivalent. They are known and intentionally ignored.
+              // `tool-approval-request` cannot occur here: the tools built for
+              // this path never set `needsApproval`.
+              case "start":
+              case "start-step":
+              case "finish-step":
+              case "text-end":
+              case "source":
+              case "file":
+              case "tool-output-denied":
+              case "tool-approval-request":
+              case "raw":
+                break;
+
+              default: {
+                // The exhaustiveness check catches parts the pinned `ai`
+                // version adds. At runtime a newer `ai` can still send a part
+                // we do not know; warn and keep the run alive.
+                const _exhaustive: never = part;
+                const unknownType = String(
+                  (_exhaustive as { type?: unknown }).type,
+                );
+                if (!warnedUnknownPartTypes.has(unknownType)) {
+                  warnedUnknownPartTypes.add(unknownType);
+                  console.warn(
+                    `[BuiltInAgent] Ignoring unhandled AI SDK stream part: ${unknownType}`,
+                  );
+                }
                 break;
               }
             }

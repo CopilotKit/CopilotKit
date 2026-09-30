@@ -7,6 +7,18 @@ import {
 } from "../docs-mega-menu";
 
 describe("docs mega menu data", () => {
+  it("lists AG-UI Streams once alongside Intelligence", () => {
+    const columnsWithStreams = DOCS_MEGA_MENU_COLUMNS.flatMap((column) =>
+      column.links.filter((link) => link.href === "/threads").map(() => column),
+    );
+    expect(columnsWithStreams).toHaveLength(1);
+    expect(
+      columnsWithStreams[0].links.some(
+        (link) => link.href === INTELLIGENCE_DOCS_HREF,
+      ),
+    ).toBe(true);
+  });
+
   it("keeps Intelligence as the featured Ship & Operate entry", () => {
     const titles = DOCS_MEGA_MENU_COLUMNS.map((column) => column.title);
     expect(titles).toEqual([
@@ -33,7 +45,7 @@ describe("docs mega menu data", () => {
     });
     expect(shipColumn?.links.map((link) => [link.label, link.href])).toEqual([
       ["Intelligence", "/intelligence/overview"],
-      ["Rich Threads", "/threads"],
+      ["AG-UI Streams", "/threads"],
       ["Automatic Learning", "/learning"],
       ["Product Analytics", "/intelligence/analytics"],
       ["User Memories", "/intelligence/memories"],

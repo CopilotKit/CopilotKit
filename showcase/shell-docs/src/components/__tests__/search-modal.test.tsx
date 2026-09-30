@@ -167,13 +167,21 @@ describe("docs search results stay on the docs host", () => {
 });
 
 describe("docs search ordering", () => {
-  it("ranks the canonical Rich Threads guide above the threads drawer page", async () => {
+  it.each(["AG-UI streams", "Rich Threads"])(
+    "finds the canonical guide by its current or previous name: %s",
+    async (query) => {
+      await search(query);
+      expect(resultTitles()[0]).toBe("AG-UI Streams");
+    },
+  );
+
+  it("ranks the canonical AG-UI Streams guide above the threads drawer page", async () => {
     await search("threads");
 
     const titles = resultTitles();
-    expect(titles).toContain("Rich Threads");
+    expect(titles).toContain("AG-UI Streams");
     expect(titles).toContain("Threads Drawer");
-    expect(titles.indexOf("Rich Threads")).toBeLessThan(
+    expect(titles.indexOf("AG-UI Streams")).toBeLessThan(
       titles.indexOf("Threads Drawer"),
     );
   });

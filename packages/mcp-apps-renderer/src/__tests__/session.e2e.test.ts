@@ -303,6 +303,35 @@ describe("bindMcpApp ui/initialize negotiation", () => {
     });
   });
 
+  it("advertises the dark theme when the iframe sits under a .dark ancestor", async () => {
+    const agent = makeAgent();
+    const darkRoot = document.createElement("div");
+    darkRoot.className = "dark";
+    document.body.appendChild(darkRoot);
+    const iframe = mount();
+    darkRoot.appendChild(iframe);
+    const { captured } = await bindAndConnect(iframe, agent);
+
+    const reqId = "init-dark";
+    fromIframe(iframe, {
+      jsonrpc: "2.0",
+      id: reqId,
+      method: "ui/initialize",
+      params: {
+        appInfo: { name: "test-widget", version: "1.0.0" },
+        appCapabilities: {},
+        protocolVersion: LATEST_PROTOCOL_VERSION,
+      },
+    });
+    await tick(30);
+
+    const response = captured.find(
+      (m) => m && m.jsonrpc === "2.0" && m.id === reqId && m.result,
+    );
+    expect(response?.result.hostContext).toMatchObject({ theme: "dark" });
+    darkRoot.remove();
+  });
+
   it("rejects an initialize that omits required fields with -32603", async () => {
     const agent = makeAgent();
     const iframe = mount();

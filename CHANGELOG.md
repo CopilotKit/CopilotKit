@@ -16,6 +16,31 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.75.2 - 2026-09-30
+
+### Fixes
+
+- fix(react-core): use new run IDs for standard interrupt resumes (#7001) (081e745)
+- fix(vue): stop cloning run state six times per row for message slots (#7525) (bd39b04)
+
+## 1.75.1 - 2026-09-29
+
+### Features
+
+- feat(angular)!: render A2UI without Lit and support web component cat… (#7504) (b3d1aad)
+
+### Fixes
+
+- fix(core): distinguish Intelligence replay errors from live failures (#7353) (278a78d)
+- fix(mcp-apps-renderer): follow the host page's dark theme (#7467) (2476de1)
+- fix(runtime): forward imported backend thread identity (#7489) (5fd09ab)
+- fix: PE-440 onboarding docs gaps; un-deprecate sdk-js/langgraph (#7518) (7a7a500)
+- fix(react-core): compare purity-scan entry keys with forward slashes (#7445) (a1fbc07)
+
+### Breaking Changes
+
+- feat(angular)!: render A2UI without Lit and support web component cat… (#7504) (b3d1aad)
+
 ## 1.75.0 - 2026-09-28
 
 ### Features
