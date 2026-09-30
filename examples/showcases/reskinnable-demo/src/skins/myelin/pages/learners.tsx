@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAgentContext } from "@copilotkit/react-core/v2";
 import { Sparkles } from "lucide-react";
@@ -51,11 +51,9 @@ export function LearnersPage() {
       : "daysOverdue",
   };
   const byAgent = params.get("levers") === "1";
-  const { journeyId, status, groupId, sortBy } = filters;
-  const rows = useMemo(
-    () => learnerRows(data, { journeyId, status, groupId, sortBy }),
-    [data, journeyId, status, groupId, sortBy],
-  );
+  // Not memoized: a filter + sort over ~150 sample learners is cheaper than the
+  // bookkeeping, and the React Compiler handles the rest.
+  const rows = learnerRows(data, filters);
   const journey = data.journeys.find((j) => j.id === filters.journeyId);
   const groupsInJourney = data.groups.filter((g) =>
     journey?.audienceGroupIds.includes(g.id),
