@@ -7,6 +7,7 @@ Covers:
 """
 
 import json
+import logging
 from contextlib import contextmanager
 from typing import Any, List
 from unittest.mock import MagicMock, patch
@@ -24,7 +25,6 @@ from langgraph.constants import END, START
 from langgraph.graph import StateGraph
 from typing_extensions import TypedDict
 from copilotkit import CopilotKitRemoteEndpoint
-from copilotkit.exc import CopilotKitMisuseError
 from copilotkit.langgraph_agui_agent import (
     CustomEventNames,
     LangGraphAGUIAgent,
@@ -893,15 +893,18 @@ class TestConfiguredSchemaKeys:
 
         assert keys["output"] == ["messages"]
 
-    def test_unknown_bucket_is_ignored(self):
-        """A bucket the base class does not return should not be invented."""
-        agent = self._agent({"schema_keys": {"nonsense": ["steps"]}})
+    def test_unknown_bucket_is_ignored_with_a_warning(self, caplog):
+        """A bucket the base class does not return is not invented, but is reported."""
+        with caplog.at_level(logging.WARNING, logger="copilotkit.langgraph_agui_agent"):
+            agent = self._agent({"schema_keys": {"outputs": ["steps"]}})
         with self._base_returns(
             {"input": [], "output": [], "config": [], "context": []}
         ):
             keys = agent.get_schema_keys({})
 
-        assert "nonsense" not in keys
+        assert "outputs" not in keys
+        assert keys["output"] == []
+        assert "unknown config['schema_keys'] buckets ['outputs']" in caplog.text
 
     def test_no_config_leaves_base_result_untouched(self):
         """Without config["schema_keys"], get_schema_keys returns the base result."""
@@ -934,26 +937,57 @@ class TestConfiguredSchemaKeys:
     @pytest.mark.parametrize(
         ("schema_keys", "match"),
         [
-            pytest.param(["steps"], "must be a dict", id="not-a-dict"),
+            pytest.param(["steps"], "expected a dict", id="not-a-dict"),
             pytest.param(
                 {"output": "steps"},
-                "must be a list of strings",
+                "expected a list of strings",
                 id="bucket-is-a-string",
             ),
             pytest.param(
-                {"output": 1}, "must be a list of strings", id="bucket-is-not-a-list"
+                {"output": 1}, "expected a list of strings", id="bucket-is-not-a-list"
             ),
             pytest.param(
                 {"output": ["steps", 2]},
-                "must contain only strings",
+                "expected a list of strings",
                 id="bucket-holds-a-non-string",
             ),
         ],
     )
-    def test_malformed_schema_keys_raise_at_construction(self, schema_keys, match):
-        """Static misuse should fail when the agent is built, not on every run."""
-        with pytest.raises(CopilotKitMisuseError, match=match):
-            self._agent({"schema_keys": schema_keys})
+    def test_malformed_schema_keys_warn_and_fall_back(self, schema_keys, match, caplog):
+        """Malformed config is reported at construction and never stops the agent.
+
+        Before this option existed a stray `schema_keys` was silently ignored, so
+        raising here would stop an upgraded app from booting.
+        """
+        derived = {"input": [], "output": ["messages"], "config": [], "context": []}
+        with caplog.at_level(logging.WARNING, logger="copilotkit.langgraph_agui_agent"):
+            agent = self._agent({"schema_keys": schema_keys})
+        with self._base_returns(dict(derived)):
+            keys = agent.get_schema_keys({})
+
+        assert keys == derived
+        assert match in caplog.text
+
+    def test_malformed_bucket_does_not_discard_valid_ones(self):
+        """One bad bucket is skipped; the other configured buckets still apply."""
+        agent = self._agent({"schema_keys": {"input": "a", "output": ["steps"]}})
+        with self._base_returns(
+            {"input": [], "output": [], "config": [], "context": []}
+        ):
+            keys = agent.get_schema_keys({})
+
+        assert keys["input"] == []
+        assert keys["output"] == ["steps"]
+
+    def test_configured_keys_survive_clone(self):
+        """The FastAPI endpoint clones the agent per request; the keys must travel."""
+        agent = self._agent({"schema_keys": {"output": ["steps"]}})
+        with self._base_returns(
+            {"input": [], "output": ["messages"], "config": [], "context": []}
+        ):
+            keys = agent.clone().get_schema_keys({})
+
+        assert keys["output"] == ["messages", "steps"]
 
 
 class TestConfiguredSchemaKeysStateSnapshot:

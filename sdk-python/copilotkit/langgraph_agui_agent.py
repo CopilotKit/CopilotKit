@@ -93,15 +93,17 @@ class LangGraphAGUIAgent(LangGraphAgent):
         self.constant_schema_keys = self.constant_schema_keys + ["copilotkit"]
         self._copilotkit_runtime_payload: dict[str, Any] | None = None
         # Validated at construction rather than inside get_schema_keys, which runs
-        # once per run: a bad `schema_keys` is static misuse, so it should fail
-        # before the first run instead of on every one.
+        # once per run, so a bad `schema_keys` is reported once, before the first
+        # run. It warns instead of raising: before this option existed a stray
+        # `schema_keys` was silently ignored, and an app carrying one must keep
+        # booting after an upgrade.
         self._configured_schema_keys = self._read_configured_schema_keys(config)
 
     @staticmethod
     def _read_configured_schema_keys(
         config: Union[Optional[RunnableConfig], dict],
     ) -> SchemaKeys:
-        """Extract and validate `config["schema_keys"]`, ignoring unknown buckets."""
+        """Extract `config["schema_keys"]`, warning about and skipping bad entries."""
         if not isinstance(config, dict):
             return {}
 
@@ -109,8 +111,18 @@ class LangGraphAGUIAgent(LangGraphAgent):
         if configured is None:
             return {}
         if not isinstance(configured, dict):
-            raise CopilotKitMisuseError(
-                f"config['schema_keys'] must be a dict, got {type(configured).__name__}"
+            logger.warning(
+                "Ignoring config['schema_keys']: expected a dict, got %s",
+                type(configured).__name__,
+            )
+            return {}
+
+        unknown = [bucket for bucket in configured if bucket not in SCHEMA_KEY_BUCKETS]
+        if unknown:
+            logger.warning(
+                "Ignoring unknown config['schema_keys'] buckets %s; expected any of %s",
+                unknown,
+                list(SCHEMA_KEY_BUCKETS),
             )
 
         validated: SchemaKeys = {}
@@ -118,17 +130,15 @@ class LangGraphAGUIAgent(LangGraphAgent):
             keys = configured.get(bucket)
             if keys is None:
                 continue
-            if not isinstance(keys, (list, tuple)):
-                raise CopilotKitMisuseError(
-                    f"config['schema_keys']['{bucket}'] must be a list of strings, "
-                    f"got {type(keys).__name__}"
+            if not isinstance(keys, (list, tuple)) or not all(
+                isinstance(key, str) for key in keys
+            ):
+                logger.warning(
+                    "Ignoring config['schema_keys']['%s']: expected a list of strings, got %r",
+                    bucket,
+                    keys,
                 )
-            for key in keys:
-                if not isinstance(key, str):
-                    raise CopilotKitMisuseError(
-                        f"config['schema_keys']['{bucket}'] must contain only strings, "
-                        f"got {type(key).__name__}"
-                    )
+                continue
             validated[bucket] = list(keys)
 
         return validated
@@ -136,8 +146,8 @@ class LangGraphAGUIAgent(LangGraphAgent):
     def get_schema_keys(self, config: RunnableConfig) -> SchemaKeys:
         """Add keys declared in `config["schema_keys"]` to the graph-derived ones.
 
-        Graph introspection only sees fields declared on the state schema, so a
-        state key that cannot be declared there is filtered out of every
+        Graph introspection only sees fields declared on the output schema, so a
+        state key outside the output schema is filtered out of every
         STATE_SNAPSHOT. Declaring it in the agent's `config` puts it back:
 
             LangGraphAGUIAgent(
