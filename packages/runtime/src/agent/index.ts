@@ -150,6 +150,8 @@ export interface MCPClientConfigHTTP {
    * MCP server's tool or with an app tool, the MCP tool is exposed as
    * `<name>_<tool>`. Without a name, the prefix is `mcp<N>`, where N is the
    * server's position among `mcpClients` and then `mcpServers`, from 1.
+   * Give each server a different name: if a prefixed name is already in use,
+   * a number is added (`<name>_<tool>_2`).
    */
   name?: string;
   /** URL of the MCP server */
@@ -174,6 +176,8 @@ export interface MCPClientConfigSSE {
    * MCP server's tool or with an app tool, the MCP tool is exposed as
    * `<name>_<tool>`. Without a name, the prefix is `mcp<N>`, where N is the
    * server's position among `mcpClients` and then `mcpServers`, from 1.
+   * Give each server a different name: if a prefixed name is already in use,
+   * a number is added (`<name>_<tool>_2`).
    */
   name?: string;
   /** URL of the MCP server */
