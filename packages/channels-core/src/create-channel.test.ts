@@ -2194,8 +2194,8 @@ describe("createChannel render config", () => {
       adapters: [adapter],
       render: { stylesheets: [".card{color:red}"], width: 800 },
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     expect(adapter.started).toBe(true);
-    await channel.stop();
+    await channel.ɵruntime.stop();
   });
 });
