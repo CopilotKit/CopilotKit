@@ -166,6 +166,21 @@ else
 fi
 wait_http "http://localhost:8124/health" "banking agent" 90
 
+# --- Myelin's agent ---------------------------------------------------------
+# Same shape as banking's: an out-of-process Python service (Google ADK over
+# AG-UI, in `agent-myelin/`) that the myelin skin reaches as an `HttpAgent` at
+# MYELIN_AGENT_URL (default http://localhost:8125/). It loads this demo's `.env`
+# for OPENAI_API_KEY, so the preflight above covers it too.
+if [ "$(curl -s -m3 -o /dev/null -w '%{http_code}' http://localhost:8125/health 2>/dev/null)" != "200" ]; then
+  say "Syncing myelin's agent venv (uv sync)"
+  ( cd agent-myelin && uv sync --quiet ) || die "uv sync failed in agent-myelin/"
+  say "Starting myelin's ADK agent on :8125"
+  ( cd agent-myelin && nohup .venv/bin/python main.py > "$LOG_DIR/myelin-agent.log" 2>&1 & )
+else
+  ok "myelin agent already up on :8125"
+fi
+wait_http "http://localhost:8125/health" "myelin agent" 90
+
 # --- App --------------------------------------------------------------------
 say "Starting the Next.js dev server (http://localhost:3000)"
 say "    (Ctrl-C stops only the dev server; ./stop-demo.sh stops the rest)"
