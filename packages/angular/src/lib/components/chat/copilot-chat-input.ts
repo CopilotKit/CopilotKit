@@ -53,7 +53,7 @@ export interface ToolbarContext {
 
 @Component({
   selector: "copilot-chat-input",
-  host: { "data-copilotkit": "" },
+  host: { "data-copilotkit": "", class: "cpk:block cpk:w-full" },
   imports: [
     CommonModule,
     CopilotSlot,
@@ -276,10 +276,6 @@ export interface ToolbarContext {
   `,
   styles: [
     `
-      :host {
-        display: block;
-        width: 100%;
-      }
       .ck-input-shadow {
         box-shadow:
           0 4px 4px 0 #0000000a,

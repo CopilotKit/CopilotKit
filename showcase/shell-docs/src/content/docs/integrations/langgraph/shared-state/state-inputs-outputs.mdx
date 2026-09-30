@@ -212,3 +212,30 @@ In addition, some state properties contain a lot of information. Syncing them ba
     ```
   </Step>
 </Steps>
+
+## Emitting a state key outside the output schema
+
+The filtering above is driven by the graph's output schema. If you compile the
+graph with an output schema that is narrower than its state, for example
+`StateGraph(State, output_schema=Output)`, state keys outside `Output` never
+reach the frontend.
+
+In Python, list the keys that the frontend needs under `schema_keys` in the
+agent's `config`. They are emitted alongside the schema-derived ones, and the
+graph's own output schema does not change:
+
+```python title="agent.py"
+from copilotkit import LangGraphAGUIAgent
+
+agent = LangGraphAGUIAgent(
+    name="sample_agent",
+    graph=graph,
+    config={"schema_keys": {"output": ["steps"]}},
+)
+```
+
+<Callout type="info">
+  This adds to what the output schema already exposes, it does not replace it. If
+  you can add the key to the output schema instead, do that. A malformed
+  `schema_keys` value is logged as a warning and ignored.
+</Callout>
