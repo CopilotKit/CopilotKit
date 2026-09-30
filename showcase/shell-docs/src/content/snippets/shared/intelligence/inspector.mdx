@@ -136,13 +136,13 @@ Inspector appears by default in React, Vue, and Angular development builds. It
 is never loaded or rendered in a production build or during server-side
 rendering.
 
-| Goal                                       | Action                                                                                                           |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| Close the current view                     | Use the close control; reopen it from the Inspector button                                                       |
-| See your application without an overlay    | Use the pop-out control in the Inspector header                                                                  |
-| Hide Inspector temporarily on this domain  | Choose **Hide Inspector for a day** from the launcher HUD, or **Hide Inspector for one week** in settings        |
-| Hide Inspector indefinitely on this domain | Choose **Always hide Inspector** in settings; delete the `cpk_inspector_dismissed_until` cookie to bring it back |
-| Disable Inspector for the development app  | Set `enableInspector` to `false`                                                                                 |
+| Goal                                       | Action                                                                                                    |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| Close the current view                     | Use the close control; reopen it from the Inspector button                                                |
+| See your application without an overlay    | Use the pop-out control in the Inspector header                                                           |
+| Hide Inspector temporarily on this domain  | Choose **Hide Inspector for a day** from the launcher HUD, or **Hide Inspector for one week** in settings |
+| Hide Inspector indefinitely on this domain | Choose **Always hide Inspector** in settings; see below to bring it back                                  |
+| Disable Inspector for the development app  | Set `enableInspector` to `false`                                                                          |
 
 To disable Inspector in React:
 
@@ -164,6 +164,15 @@ the complete React provider API.
 Pop-out keeps the same live session in a separate browser window. A temporary
 hide removes the overlay and launcher on the current domain until the selected
 period ends.
+
+**Always hide Inspector** keeps the overlay and launcher hidden on the current
+domain until you bring them back. To restore Inspector, run this in the browser
+console on the page where you hid it, then reload:
+
+```js
+document.cookie = "cpk_inspector_dismissed_until=; Path=/; Max-Age=0";
+localStorage.removeItem("cpk:inspector:dismissed_until");
+```
 
 ## Understand project and usage information
 
