@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { compactEvents, EventType } from "@ag-ui/client";
 import {
   createAgent,
@@ -14,6 +14,7 @@ import {
   toolCallDelta,
   toolCall,
   toolResult,
+  toolError,
   reasoningStart,
   reasoningDelta,
   reasoningEnd,
@@ -277,6 +278,32 @@ describe("AI SDK Converter", () => {
       );
       expect(JSON.parse(eventField<string>(resultsB[0], "content"))).toBe(
         "resultB",
+      );
+    });
+
+    it("tool errors emit a visible result instead of silently succeeding", async () => {
+      const agent = createAgent("aisdk", [
+        toolCall("tc-error", "getCats", { limit: 1 }),
+        toolError("tc-error", "getCats", new Error("Missing API key")),
+        finish(),
+      ]);
+      const input = createDefaultInput();
+      const events = await collectEvents(agent.run(input));
+
+      expectLifecycleWrapped(events);
+
+      const resultEvents = events.filter(
+        (event) => event.type === EventType.TOOL_CALL_RESULT,
+      );
+      expect(resultEvents).toHaveLength(1);
+      expect(eventField<string>(resultEvents[0], "toolCallId")).toBe(
+        "tc-error",
+      );
+      expect(eventField<string>(resultEvents[0], "content")).toBe(
+        "Error: Missing API key",
+      );
+      expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(
+        false,
       );
     });
   });
@@ -742,23 +769,17 @@ describe("AI SDK Converter", () => {
   // ---------------------------------------------------------------------------
 
   describe("Edge Cases", () => {
-    it("unknown event types are silently ignored", async () => {
+    it("unknown event types are ignored with one warning per type", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       const agent = createAgent("aisdk", [
         { type: "some-unknown-event", data: "hello" },
         textDelta("text after unknown"),
+        { type: "some-unknown-event", data: "again" },
         { type: "another-mystery-event" },
         finish(),
       ]);
       const input = createDefaultInput();
       const events = await collectEvents(agent.run(input));
-
-      expectLifecycleWrapped(events);
-
-      // Should still have the text chunk
-      const textChunks = events.filter(
-        (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      );
-      expect(textChunks).toHaveLength(1);
 
       // No events for unknown types — only RUN_STARTED, TEXT_MESSAGE_CHUNK, RUN_FINISHED
       expectEventSequence(events, [
@@ -766,6 +787,11 @@ describe("AI SDK Converter", () => {
         EventType.TEXT_MESSAGE_CHUNK,
         EventType.RUN_FINISHED,
       ]);
+      expect(warn.mock.calls.map((call) => call[0])).toEqual([
+        "[convertAISDKStream] Ignoring unhandled AI SDK stream part: some-unknown-event",
+        "[convertAISDKStream] Ignoring unhandled AI SDK stream part: another-mystery-event",
+      ]);
+      warn.mockRestore();
     });
 
     it("large text deltas (100k chars) are passed through", async () => {
