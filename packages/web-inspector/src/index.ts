@@ -11025,6 +11025,16 @@ export class WebInspectorElement extends LitElement {
         color: #010507 !important;
       }
 
+      @media (max-width: 480px) {
+        .inspector-account-strip {
+          flex-wrap: nowrap;
+        }
+        .inspector-account-brand,
+        .inspector-account-cta {
+          display: none;
+        }
+      }
+
       .inspector-window[data-color-scheme="dark"] .drag-handle,
       .inspector-window[data-color-scheme="dark"] .inspector-account-strip {
         background: #15171e !important;
@@ -11395,6 +11405,7 @@ export class WebInspectorElement extends LitElement {
         false;
       this.ensureBrandFonts();
       window.addEventListener("resize", this.handleResize);
+      window.addEventListener("keydown", this.handleInspectorKeydown);
       window.addEventListener(
         "pointerdown",
         this.handleGlobalPointerDown as EventListener,
@@ -11470,6 +11481,7 @@ export class WebInspectorElement extends LitElement {
     if (typeof window !== "undefined") {
       this.unsubscribeFromSystemColorScheme();
       window.removeEventListener("resize", this.handleResize);
+      window.removeEventListener("keydown", this.handleInspectorKeydown);
       window.removeEventListener(
         "pointerdown",
         this.handleGlobalPointerDown as EventListener,
@@ -12082,6 +12094,17 @@ export class WebInspectorElement extends LitElement {
       return;
     }
     this.closeLauncherHud();
+  };
+
+  private handleInspectorKeydown = (event: KeyboardEvent): void => {
+    if (event.key !== "Escape" || event.defaultPrevented) return;
+    if (this.launcherHudOpen) {
+      this.closeLauncherHud();
+      return;
+    }
+    if (!this.isOpen || this.isPoppedOut) return;
+    event.preventDefault();
+    this.closeInspector();
   };
 
   private handleLauncherHudKeydown = (event: KeyboardEvent): void => {
@@ -14284,8 +14307,8 @@ export class WebInspectorElement extends LitElement {
         : {
             width: `${Math.round(windowState.size.width)}px`,
             height: `${Math.round(windowState.size.height)}px`,
-            minWidth: `${MIN_WINDOW_WIDTH}px`,
-            minHeight: `${MIN_WINDOW_HEIGHT}px`,
+            minWidth: `${Math.min(MIN_WINDOW_WIDTH, Math.max(0, window.innerWidth - EDGE_MARGIN * 2))}px`,
+            minHeight: `${Math.min(MIN_WINDOW_HEIGHT, Math.max(0, window.innerHeight - EDGE_MARGIN * 2))}px`,
             overflowX: "hidden",
           };
 
@@ -14301,7 +14324,8 @@ export class WebInspectorElement extends LitElement {
       dockedLeft: this.dockMode === "docked-left",
       width: viewportWidth,
     });
-    const iconRail = this.sidebarCollapsed || automaticallyCollapsed;
+    const iconRail =
+      this.sidebarCollapsed || automaticallyCollapsed || viewportWidth <= 480;
     const contextDropdown = hasContextDropdown
       ? this.renderContextDropdown(iconRail)
       : nothing;
@@ -15359,8 +15383,11 @@ export class WebInspectorElement extends LitElement {
       size,
       viewport,
       EDGE_MARGIN,
-      minWidth,
-      MIN_WINDOW_HEIGHT,
+      Math.min(minWidth, Math.max(0, viewport.width - EDGE_MARGIN * 2)),
+      Math.min(
+        MIN_WINDOW_HEIGHT,
+        Math.max(0, viewport.height - EDGE_MARGIN * 2),
+      ),
     );
   }
 
@@ -15380,7 +15407,10 @@ export class WebInspectorElement extends LitElement {
     if (mode !== "floating") {
       // For docking, set the target size immediately so body margins are correct
       if (mode === "docked-left") {
-        this.contextState.window.size.width = DOCKED_LEFT_WIDTH;
+        this.contextState.window.size.width = Math.min(
+          DOCKED_LEFT_WIDTH,
+          window.innerWidth,
+        );
       }
 
       // Then apply dock styles with correct sizes
@@ -15428,7 +15458,7 @@ export class WebInspectorElement extends LitElement {
 
     // Apply body margins with the actual window sizes
     if (this.dockMode === "docked-left") {
-      document.body.style.marginLeft = `${this.contextState.window.size.width}px`;
+      document.body.style.marginLeft = `${Math.min(this.contextState.window.size.width, window.innerWidth)}px`;
       if (this.previousHtmlOverflowX === null) {
         this.previousHtmlOverflowX = document.documentElement.style.overflowX;
       }
@@ -15825,9 +15855,10 @@ export class WebInspectorElement extends LitElement {
         top: "0",
         left: "0",
         bottom: "0",
-        width: `${Math.round(this.contextState.window.size.width)}px`,
+        width: `${Math.min(Math.round(this.contextState.window.size.width), window.innerWidth)}px`,
         height: "auto",
-        minWidth: `${MIN_WINDOW_WIDTH_DOCKED_LEFT}px`,
+        minWidth: `${Math.min(MIN_WINDOW_WIDTH_DOCKED_LEFT, window.innerWidth)}px`,
+        minHeight: `${Math.min(MIN_WINDOW_HEIGHT, window.innerHeight)}px`,
         borderRadius: "0",
       };
     }
@@ -15835,8 +15866,8 @@ export class WebInspectorElement extends LitElement {
     return {
       width: `${Math.round(this.contextState.window.size.width)}px`,
       height: `${Math.round(this.contextState.window.size.height)}px`,
-      minWidth: `${MIN_WINDOW_WIDTH}px`,
-      minHeight: `${MIN_WINDOW_HEIGHT}px`,
+      minWidth: `${Math.min(MIN_WINDOW_WIDTH, Math.max(0, window.innerWidth - EDGE_MARGIN * 2))}px`,
+      minHeight: `${Math.min(MIN_WINDOW_HEIGHT, Math.max(0, window.innerHeight - EDGE_MARGIN * 2))}px`,
     };
   }
 
