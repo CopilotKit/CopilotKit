@@ -1268,7 +1268,7 @@ test("Settings offers the longer one-week dismissal", async () => {
   expect(dismissalDeadline()).toBeLessThanOrEqual(Date.now() + WEEK_MS);
 });
 
-test("Settings offers an always-hide dismissal that lasts a year", async () => {
+test("Settings offers an always-hide dismissal that never expires", async () => {
   const context = await setup({ persistedMenu: "threads" });
   await click(context.inspector, launcherButton(context.inspector));
   await click(
@@ -1279,7 +1279,7 @@ test("Settings offers an always-hide dismissal that lasts a year", async () => {
   );
   const action = requireElement(
     root(context.inspector).querySelector<HTMLButtonElement>(
-      '[data-cpk-dismiss-inspector="year"]',
+      '[data-cpk-dismiss-inspector="forever"]',
     ),
   );
   expect(action.textContent?.replace(/\s+/g, " ").trim()).toBe(
@@ -1287,7 +1287,12 @@ test("Settings offers an always-hide dismissal that lasts a year", async () => {
   );
 
   const clickedAt = Date.now();
+  const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
   await click(context.inspector, action);
+  const delays = setTimeoutSpy.mock.calls.map((call) => Number(call[1] ?? 0));
+  setTimeoutSpy.mockRestore();
+  // A delay above 2^31-1 ms fires immediately and would re-arm in a loop.
+  expect(Math.max(...delays)).toBeLessThanOrEqual(2 ** 31 - 1);
   expect(root(context.inspector).querySelector(".console-button")).toBeNull();
   expect(dismissalDeadline()).toBeGreaterThanOrEqual(clickedAt + YEAR_MS);
   expect(dismissalDeadline()).toBeLessThanOrEqual(Date.now() + YEAR_MS);

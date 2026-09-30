@@ -80,6 +80,7 @@ import {
   loadInspectorState,
   hasNotificationPulsed,
   saveNotificationPulsedId,
+  saveInspectorDismissedForever,
   saveInspectorDismissedUntil,
   saveInspectorState,
   isValidAnchor,
@@ -424,13 +425,14 @@ const HUD_THREADS_LABEL = "Rich Threads";
 const HUD_LEARNING_LABEL = "Automatic Learning";
 const HUD_LEARN_MORE_LABEL = "Click to learn more";
 
-type InspectorDismissalDuration = "day" | "week" | "year";
+type InspectorDismissalDuration = "day" | "week" | "forever";
 const INSPECTOR_DISMISSAL_MS: Readonly<
   Record<InspectorDismissalDuration, number>
 > = {
   day: 24 * 60 * 60 * 1000,
   week: 7 * 24 * 60 * 60 * 1000,
-  year: INSPECTOR_DISMISSAL_MAX_DURATION_MS,
+  // Renewed to a full window on every load; see saveInspectorDismissedForever.
+  forever: INSPECTOR_DISMISSAL_MAX_DURATION_MS,
 };
 // setTimeout fires immediately for delays above 2^31-1 ms (~24.8 days).
 const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
@@ -11953,7 +11955,8 @@ export class WebInspectorElement extends LitElement {
   private dismissInspectorFor(duration: InspectorDismissalDuration): void {
     const now = Date.now();
     const until = now + INSPECTOR_DISMISSAL_MS[duration];
-    saveInspectorDismissedUntil(until, now);
+    if (duration === "forever") saveInspectorDismissedForever(now);
+    else saveInspectorDismissedUntil(until, now);
     this.inspectorDismissedUntil = until;
     this.scheduleInspectorDismissalExpiry();
     this.settingsOpen = false;
@@ -17309,16 +17312,17 @@ export class WebInspectorElement extends LitElement {
             <div>
               <h3>Hide the Inspector indefinitely</h3>
               <p>
-                Keep the Inspector hidden on this domain. Clear the
-                <code>cpk_inspector_dismissed_until</code> cookie to bring it
-                back.
+                Keep the Inspector hidden on this domain until you bring it
+                back. To restore it, delete the
+                <code>cpk_inspector_dismissed_until</code> cookie and the
+                <code>cpk:inspector:dismissed_until</code> localStorage entry.
               </p>
             </div>
             <button
               type="button"
               class="inspector-settings-dismiss"
-              data-cpk-dismiss-inspector="year"
-              @click=${() => this.dismissInspectorFor("year")}
+              data-cpk-dismiss-inspector="forever"
+              @click=${() => this.dismissInspectorFor("forever")}
             >
               <span aria-hidden="true">${this.renderIcon("EyeOff")}</span>
               Always hide Inspector
