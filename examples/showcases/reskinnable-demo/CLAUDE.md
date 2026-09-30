@@ -3,7 +3,7 @@
 One Next.js app whose **entire** experience — brand, theme, layout, pages,
 tools, and agent — is reskinnable at runtime. A skin-agnostic **shell** hosts
 one **skin** per route segment `/[skin]/...`. The registered roster is `banking`,
-`airline`, `logistics`, `keel`, `people`, `commerce`, `bookstore` and `exec` —
+`airline`, `logistics`, `keel`, `people`, `commerce`, `bookstore`, `exec` and `myelin` —
 switchable from a dropdown at the top of the assistant column, plus a repo-local
 **reskin skill** (`.claude/skills/reskin/`) for authoring new ones.
 
@@ -838,7 +838,7 @@ Run tasks through Nx per the repo convention where applicable.
 ## Reference
 
 - `src/shell/skin-contract.ts` — the contract (source of truth).
-- `src/skins/{banking,airline,logistics,keel,people,commerce,bookstore,exec}/skin.tsx`
+- `src/skins/{banking,airline,logistics,keel,people,commerce,bookstore,exec,myelin}/skin.tsx`
   — eight implementations. (`ls src/skins/` re-derives that roster; the drift
   guard in `src/shell/skin-roster-docs.test.ts` fails if the list above falls
   behind the registry, which is what makes writing it out safe here.)

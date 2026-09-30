@@ -15,6 +15,8 @@ import { bookstoreAgent } from "@/skins/bookstore/agent";
 import { bookstoreIdentifyUser } from "@/skins/bookstore/intelligence/user-id";
 import { execAgent } from "@/skins/exec/agent";
 import { execIdentifyUser } from "@/skins/exec/intelligence/user-id";
+import { myelinAgent } from "@/skins/myelin/agent";
+import { myelinIdentifyUser } from "@/skins/myelin/intelligence/user-id";
 
 /**
  * Server-safe map of skin id → its server-side registration (agent factory +
@@ -189,6 +191,8 @@ const REGISTRATIONS: Record<string, AgentRegistration> = {
   // ORGANIZATION does. See the note above `IdentifyRunUser`, and this skin's
   // own `intelligence/user-id.ts` for how it names buckets.
   exec: { createAgent: execAgent, identifyUser: execIdentifyUser },
+  // Myelin's agent is Google ADK in Python (agent-myelin/, :8125) over AG-UI.
+  myelin: { createAgent: myelinAgent, identifyUser: myelinIdentifyUser },
 };
 
 /**

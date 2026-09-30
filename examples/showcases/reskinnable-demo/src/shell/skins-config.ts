@@ -22,6 +22,7 @@ export const skinIds = [
   "commerce",
   "bookstore",
   "exec",
+  "myelin",
 ] as const;
 
 // Skin id → { brand, tagline }, duplicated from each skin's `identity.brand`
@@ -66,5 +67,9 @@ export const skinIdentities: Record<
   exec: {
     brand: "Vantage",
     tagline: "Cascade Industries' executive reporting desk",
+  },
+  myelin: {
+    brand: "Myelin",
+    tagline: "Frontline learning journeys, built with an agent.",
   },
 };
