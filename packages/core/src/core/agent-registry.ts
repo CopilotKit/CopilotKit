@@ -1,5 +1,6 @@
 import type { AbstractAgent } from "@ag-ui/client";
-import { HttpAgent } from "@ag-ui/client";
+import type { HttpAgent } from "@ag-ui/client";
+import { ɵisHttpAgent } from "../utils/http-agent";
 import type {
   RuntimeInfo,
   RuntimeMode,
@@ -574,7 +575,7 @@ export class AgentRegistry {
    * because only `HttpAgent` carries a `headers` field. See #5635.
    */
   applyHeadersToAgent(agent: AbstractAgent): void {
-    if (agent instanceof HttpAgent) {
+    if (ɵisHttpAgent(agent)) {
       // Capture the agent's construction-time headers once, before any core
       // headers overwrite them. On every subsequent apply we rebuild from this
       // baseline so re-applying core headers (e.g. via setHeaders) never loses

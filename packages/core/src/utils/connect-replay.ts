@@ -8,6 +8,7 @@ import type {
 } from "@ag-ui/client";
 import {
   AGUIConnectNotImplementedError,
+  CompatibilityBoundary,
   EventType,
   randomUUID,
   structuredClone_,
@@ -38,18 +39,27 @@ export interface ConnectionReplayLifecycle {
  *   Cannot send event type 'RUN_STARTED': The run has already errored with
  *   'RUN_ERROR'. No further events can be sent.
  *
- * `transformChunks` is still applied — message reassembly is needed either way.
+ * The AG-UI 1.0 compatibility boundary still runs first, so stored 0.x history
+ * is translated (THINKING_* events, `binary` parts, legacy nulls) exactly as in
+ * the base pipeline. `enforceEvents` is omitted too: a replay is stored
+ * history, and one event that the 1.0 schema rejects (the Intelligence gateway
+ * replays RUN_STARTED without `runId`, for example) must not stop the whole
+ * thread from hydrating. That keeps the leniency this path had before 1.0.
  *
  * Connection-local replay hooks track the phase before applying events. An
  * explicitly live RUN_ERROR clears busy without closing the connection;
  * historical errors remain data. Connections without hooks retain the existing
- * completion behavior. Subscriber, detach, and result contracts are preserved.
+ * completion behavior.
+ *
+ * Apart from the above, this mirrors the base `AbstractAgent.connectAgent`
+ * implementation, so callers keep the same subscriber notifications, detach
+ * semantics, and `{ result, newMessages }` return shape.
  *
  * TODO: Remove this in favour of the base implementation once AG-UI's
  * AbstractAgent supports opting out of `verifyEvents` for transports whose
  * connection life-cycle isn't a single run AND preserves the connection-local
  * replay lifecycle and running-state behavior below. Skipping verification alone
- * is insufficient. As of `@ag-ui/client@0.0.57`
+ * is insufficient. As of `@ag-ui/client@1.0.1`
  * `connectAgent(parameters?, subscriber?)` takes no such option.
  *
  * @param agent - The agent whose `connect()` stream should be consumed.
@@ -72,6 +82,9 @@ export async function ɵconnectWithoutEventVerification(
   // same name produces `never`.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const self = agent as any;
+  let finalizeRun = () => {
+    agent.isRunning = false;
+  };
 
   try {
     agent.isRunning = true;
@@ -102,13 +115,36 @@ export async function ɵconnectWithoutEventVerification(
       subscriber ?? {},
     ];
 
-    await self.onInitialize(input, subscribers);
-
-    self.activeRunDetach$ = new Subject<void>();
+    const activeRunDetach$ = new Subject<void>();
+    self.activeRunDetach$ = activeRunDetach$;
     let resolveCompletion: (() => void) | undefined;
     self.activeRunCompletionPromise = new Promise<void>((resolve) => {
       resolveCompletion = resolve;
     });
+    let detached = false;
+    let finalized = false;
+    const detachSubscription = activeRunDetach$.subscribe(() => {
+      detached = true;
+    });
+    finalizeRun = () => {
+      if (finalized) return;
+      finalized = true;
+      detachSubscription.unsubscribe();
+      if (self.activeRunDetach$ === activeRunDetach$) {
+        agent.isRunning = false;
+        self.activeRunCompletionPromise = undefined;
+        self.activeRunDetach$ = undefined;
+        // Keep AG-UI's callback timing. A finalizer can await the next run.
+        void self.onFinalize(input, subscribers);
+      }
+      resolveCompletion?.();
+      resolveCompletion = undefined;
+    };
+
+    // Initialization can await subscribers that return state mutations.
+    // Publish teardown first, then wait for those mutations before releasing it.
+    await self.onInitialize(input, subscribers);
+    if (detached) return { result: undefined, newMessages: [] };
 
     // Only an explicitly live error changes busy state. Connection lifetime
     // remains owned by the transport (Intelligence idle or HTTP EOF).
@@ -122,10 +158,16 @@ export async function ɵconnectWithoutEventVerification(
       },
     };
     const source$ = defer(() =>
-      connect
-        ? connect(input, lifecycle)
-        : (self.connect(input) as Observable<BaseEvent>),
+      // The boundary is a middleware; hand it a stand-in agent whose run() is
+      // this connect stream, as AG-UI's own connect operator does internally.
+      new CompatibilityBoundary().run(input, {
+        run: () =>
+          connect
+            ? connect(input, lifecycle)
+            : (self.connect(input) as Observable<BaseEvent>),
+      } as unknown as AbstractAgent),
     ).pipe(
+      // NOTE: enforceEvents is intentionally omitted here. See JSDoc above.
       tap((event) => {
         if (!isReplaying && event.type === EventType.RUN_ERROR) {
           liveErrors.add(event);
@@ -134,7 +176,7 @@ export async function ɵconnectWithoutEventVerification(
       // transformChunks reassembles partial/streamed messages — still needed.
       transformChunks(self.debugLogger),
       // NOTE: verifyEvents is intentionally omitted here. See JSDoc above.
-      takeUntil(self.activeRunDetach$),
+      takeUntil(activeRunDetach$),
     );
 
     const applied$ = self.apply(input, source$, subscribers);
@@ -143,6 +185,7 @@ export async function ɵconnectWithoutEventVerification(
     await lastValueFrom(
       processed$.pipe(
         catchError((error: unknown) => {
+          if (self.activeRunDetach$ !== activeRunDetach$) return EMPTY;
           agent.isRunning = false;
           // An agent that doesn't implement connect() is not an error worth
           // surfacing: the base pipeline swallows it, and callers rely on that.
@@ -156,14 +199,7 @@ export async function ɵconnectWithoutEventVerification(
           }
           return self.onError(input, error, subscribers);
         }),
-        finalize(() => {
-          agent.isRunning = false;
-          void self.onFinalize(input, subscribers);
-          resolveCompletion?.();
-          resolveCompletion = undefined;
-          self.activeRunCompletionPromise = undefined;
-          self.activeRunDetach$ = undefined;
-        }),
+        finalize(() => finalizeRun()),
       ),
       { defaultValue: undefined },
     );
@@ -173,6 +209,6 @@ export async function ɵconnectWithoutEventVerification(
     );
     return { result, newMessages };
   } finally {
-    agent.isRunning = false;
+    finalizeRun();
   }
 }

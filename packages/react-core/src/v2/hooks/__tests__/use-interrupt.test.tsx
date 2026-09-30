@@ -291,7 +291,7 @@ describe("useInterrupt", () => {
     },
   );
 
-  it("keeps the legacy command.resume wire runId", async () => {
+  it("uses a fresh run ID for legacy command.resume", async () => {
     const agent = new InterruptingAgent("legacy");
     const core = new CopilotKitCore({});
     mockUseAgent.mockReturnValue({ agent });
@@ -309,9 +309,9 @@ describe("useInterrupt", () => {
       screen.getByTestId("interrupt").click();
     });
     await waitFor(() => expect(agent.inputs).toHaveLength(2));
+    expect(agent.inputs[1]!.runId).not.toBe("legacy-original");
     expect(agent.inputs[1]).toMatchObject({
       threadId: "test-thread",
-      runId: "legacy-original",
       forwardedProps: {
         command: {
           resume: { approved: true, value: { question: "Proceed?" } },
@@ -407,7 +407,6 @@ describe("useInterrupt", () => {
     expect(runAgentMock).toHaveBeenCalledTimes(1);
     expect(runAgentMock).toHaveBeenCalledWith({
       agent: mockAgent,
-      runId: "legacy-run",
       forwardedProps: {
         command: {
           resume: { approved: true, value: "approve-me" },
@@ -1092,7 +1091,7 @@ describe("useInterrupt", () => {
       expect(mockAgent.addMessage).not.toHaveBeenCalled();
     });
 
-    it("suppresses duplicate resolves without pinning the interrupting runId", async () => {
+    it("uses a fresh run ID and suppresses duplicate resolves", async () => {
       const events: string[] = [];
       runAgentMock.mockImplementation(async () => {
         events.push("resume");
@@ -1152,7 +1151,7 @@ describe("useInterrupt", () => {
       });
     });
 
-    it("preserves each interrupt ID when resolutions overlap", async () => {
+    it("uses fresh run IDs when interrupt resolutions overlap", async () => {
       let releaseRunAgent!: () => void;
       const runAgentGate = new Promise<void>((resolve) => {
         releaseRunAgent = resolve;
@@ -1347,14 +1346,13 @@ describe("useInterrupt", () => {
       });
       expect(runAgentMock).toHaveBeenCalledWith({
         agent: mockAgent,
-        runId: "legacy-run-id",
         forwardedProps: {
           command: { resume: { approved: true }, interruptEvent: "q?" },
         },
       });
     });
 
-    it("preserves the run ID when legacy resolve omits its payload", async () => {
+    it("uses a fresh run ID when legacy resolve omits its payload", async () => {
       runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
       const calls: Array<{
         resolve: (payload?: unknown) => Promise<unknown>;
@@ -1384,7 +1382,6 @@ describe("useInterrupt", () => {
 
       expect(runAgentMock).toHaveBeenCalledWith({
         agent: mockAgent,
-        runId: "legacy-empty-run-id",
         forwardedProps: {
           command: { resume: undefined, interruptEvent: "q?" },
         },

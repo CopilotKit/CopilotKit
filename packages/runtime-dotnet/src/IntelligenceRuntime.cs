@@ -24,6 +24,8 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
     private readonly RuntimeTelemetry telemetry;
     private readonly CancellationTokenSource stopping = new();
     private readonly ConcurrentDictionary<string, ActiveRun> runs = new();
+    private readonly object admissionGate = new();
+    private readonly HashSet<Task> pendingStarts = new();
     private int disposed;
     private sealed class MemoryPolicyException(string message, Exception? innerException = null) : Exception(message, innerException);
     private sealed class ActiveRun(CancellationTokenSource cancellation, string runId, string agentId)
@@ -129,7 +131,9 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
                     if (result is null) { context.Response.StatusCode = 204; return; }
                     var canonical = RequiredPlatformString(result, "threadId"); var token = RequiredPlatformString(result, "joinToken");
                     context.Response.Headers.CacheControl = "no-cache";
-                    await WriteAsync(context, ConnectionInfo(canonical, token), ct); return;
+                    var connection = ConnectionInfo(canonical, token);
+                    if (result.AsObject().ContainsKey("runId")) connection["runId"] = result["runId"]?.DeepClone();
+                    await WriteAsync(context, connection, ct); return;
                 }
                 throw new RuntimeRequestException(404, "Route not found");
             }
@@ -202,6 +206,25 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
 
     private async Task<JsonObject> StartRunAsync(HttpContext context, RuntimeUser user, string agentId, IRuntimeAgent agent, JsonObject input, CancellationToken ct)
     {
+        var admission = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (admissionGate)
+        {
+            if (disposed != 0) throw new RuntimeRequestException(503, "Runtime shutting down");
+            pendingStarts.Add(admission.Task);
+        }
+        try { return await StartRunCoreAsync(context, user, agentId, agent, input, ct); }
+        finally
+        {
+            lock (admissionGate)
+            {
+                admission.TrySetResult();
+                pendingStarts.Remove(admission.Task);
+            }
+        }
+    }
+
+    private async Task<JsonObject> StartRunCoreAsync(HttpContext context, RuntimeUser user, string agentId, IRuntimeAgent agent, JsonObject input, CancellationToken ct)
+    {
         var mcpServers = options.McpAppsServers.Where(server => server.AgentId is null || server.AgentId == agentId).ToList();
         if (mcpServers.Count > 0 || input["forwardedProps"]?["__proxiedMCPRequest"] is not null) agent = new McpAppsAgent(agent, mcpServers, mcpHttp, name => telemetry.Record(name, "agent.run"));
         var providerCatalog = input["forwardedProps"]?["a2uiCatalogAvailable"] is JsonValue catalog && catalog.TryGetValue<bool>(out var hasCatalog) && hasCatalog;
@@ -228,9 +251,32 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
         {
             thread = RequiredPlatformString(locked, "threadId"); run = RequiredPlatformString(locked, "runId"); var joinToken = RequiredPlatformString(locked, "joinToken");
             state = new ActiveRun(CancellationTokenSource.CreateLinkedTokenSource(stopping.Token), run, agentId);
-            if (!runs.TryAdd(thread, state)) throw new RuntimeRequestException(409, "Thread already running");
             state.Renewal = RenewAsync(thread, run, state.Cancellation, state.RenewalStop.Token);
             using var startup = CancellationTokenSource.CreateLinkedTokenSource(ct, state.Cancellation.Token);
+            startup.CancelAfter(options.RequestTimeout);
+            while (true)
+            {
+                ActiveRun? predecessor;
+                lock (admissionGate)
+                {
+                    startup.Token.ThrowIfCancellationRequested();
+                    if (disposed != 0) throw new RuntimeRequestException(503, "Runtime shutting down");
+                    if (runs.TryAdd(thread, state)) break;
+                    runs.TryGetValue(thread, out predecessor);
+                }
+                if (predecessor is null) continue;
+                // A new lease can follow expiry while the old agent still runs.
+                try
+                {
+                    var cancellation = predecessor.Cancellation.CancelAsync();
+                    // Observe a late callback failure even when admission times out.
+                    _ = cancellation.ContinueWith(completed => { _ = completed.Exception; }, CancellationToken.None,
+                        TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                    await cancellation.WaitAsync(startup.Token);
+                }
+                catch (ObjectDisposedException) { }
+                await predecessor.Completion.WaitAsync(startup.Token);
+            }
             var canonical = (JsonObject)input.DeepClone(); canonical["threadId"] = thread; canonical["runId"] = run;
             var history = await PlatformAsync("GET", ThreadPath(thread) + "/messages?userId=" + Escape(user.Id), null, user, startup.Token);
             if (history?["messages"] is not JsonArray historic) throw new RuntimeRequestException(502, "Invalid thread history response");
@@ -519,15 +565,25 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref disposed, 1) != 0) return;
+        Task[] lifecycles;
+        Task[] admissions;
+        lock (admissionGate)
+        {
+            if (disposed != 0) return;
+            disposed = 1;
+            admissions = pendingStarts.ToArray();
+            lifecycles = admissions.Concat(runs.Values.Select(run => run.Completion)).ToArray();
+        }
         await stopping.CancelAsync();
-        try { await Task.WhenAll(runs.Values.Select(run => run.Completion)).WaitAsync(options.RequestTimeout); }
+        try { await Task.WhenAll(lifecycles).WaitAsync(options.RequestTimeout); }
         catch (TimeoutException error)
         {
             ReportError("agent.run", "RUN_SHUTDOWN_TIMEOUT", error);
             var outstanding = runs.ToArray();
             foreach (var pair in outstanding) pair.Value.AbortPublisher?.Invoke();
             await Task.WhenAll(outstanding.Select(pair => CleanupLockAsync(pair.Key, pair.Value.RunId)));
+            try { await Task.WhenAll(admissions).WaitAsync(options.RequestTimeout); }
+            catch (TimeoutException pendingError) { ReportError("agent.run", "RUN_SHUTDOWN_TIMEOUT", pendingError); }
         }
         await telemetry.DisposeAsync(); stopping.Dispose(); mcpHttp.Dispose(); if (ownsHttp) http.Dispose();
         if (ownsIntelligence) Intelligence.Dispose();

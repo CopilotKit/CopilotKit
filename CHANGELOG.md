@@ -16,6 +16,13 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.75.2 - 2026-09-30
+
+### Fixes
+
+- fix(react-core): use new run IDs for standard interrupt resumes (#7001) (081e745)
+- fix(vue): stop cloning run state six times per row for message slots (#7525) (bd39b04)
+
 ## 1.75.1 - 2026-09-29
 
 ### Features
