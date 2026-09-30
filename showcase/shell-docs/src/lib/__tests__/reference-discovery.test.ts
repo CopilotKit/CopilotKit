@@ -60,7 +60,6 @@ test("publishes the maintained Channels SDK reference in its original surface", 
       "channels/classes/Channel",
       "channels/classes/Thread",
       "channels/components/Button",
-      "channels/components/Chart",
       "channels/functions/createChannel",
       "channels/functions/defineChannelTool",
       "channels/sdk/direct-adapters",
@@ -72,7 +71,7 @@ test("publishes the maintained Channels SDK reference in its original surface", 
   expect(referenceOverview).toContain('href: referenceVersionHref("channels")');
 
   const navigationUrls = collectPageUrls(buildReferencePageTree("channels"));
-  expect(navigationUrls).toHaveLength(34);
+  expect(navigationUrls).toHaveLength(33);
   expect(navigationUrls).toEqual(
     expect.arrayContaining([
       "/reference/channels/classes/Channel",
@@ -81,7 +80,6 @@ test("publishes the maintained Channels SDK reference in its original surface", 
       "/reference/channels/classes/Transcripts",
       "/reference/channels/components/Message",
       "/reference/channels/components/Button",
-      "/reference/channels/components/Chart",
       "/reference/channels/components/Modal",
       "/reference/channels/functions/createChannel",
       "/reference/channels/functions/defineChannelCommand",
