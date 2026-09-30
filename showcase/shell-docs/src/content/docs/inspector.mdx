@@ -237,13 +237,14 @@ to the web app to choose it. See [Automatic Learning](/learning) for the complet
 
 Use the option that matches what you are trying to do:
 
-| Goal                                      | Action                                                                                                    |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Close the current view                    | Use the close control; reopen it from the Inspector button                                                |
-| See your application without an overlay   | Use the pop-out control in the Inspector header                                                           |
-| Hide chat message shortcuts until reload  | Open a message's Inspector shortcut menu and choose **Hide this icon**                                    |
-| Hide Inspector temporarily on this domain | Choose **Hide Inspector for a day** from the launcher HUD, or **Hide Inspector for one week** in settings |
-| Disable Inspector for the development app | Set `enableInspector` to `false`                                                                          |
+| Goal                                       | Action                                                                                                           |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Close the current view                     | Use the close control; reopen it from the Inspector button                                                       |
+| See your application without an overlay    | Use the pop-out control in the Inspector header                                                                  |
+| Hide chat message shortcuts until reload   | Open a message's Inspector shortcut menu and choose **Hide this icon**                                           |
+| Hide Inspector temporarily on this domain  | Choose **Hide Inspector for a day** from the launcher HUD, or **Hide Inspector for one week** in settings        |
+| Hide Inspector indefinitely on this domain | Choose **Always hide Inspector** in settings; delete the `cpk_inspector_dismissed_until` cookie to bring it back |
+| Disable Inspector for the development app  | Set `enableInspector` to `false`                                                                                 |
 
 Pop-out opens the same live Inspector session in a separate browser window and
 hides the overlay and floating button on the application page. Close the extra
