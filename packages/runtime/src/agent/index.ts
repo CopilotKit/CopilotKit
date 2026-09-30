@@ -58,6 +58,7 @@ import {
   convertAISDKStream,
   formatToolError,
   getAISDKRunFinishedDetails,
+  resolveStreamPartMessageId,
 } from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
 import {
@@ -1767,17 +1768,9 @@ export class BuiltInAgent extends AbstractAgent {
                 break;
               }
               case "reasoning-start": {
-                // Use SDK-provided id, or generate a fresh UUID if the id is falsy,
-                // "0", or matches the non-unique pattern emitted by @ai-sdk/openai-compatible
-                // (e.g. "txt-0", "reasoning-0", "msg-0").
-                const providedId = "id" in part ? part.id : undefined;
-                const isNonUniqueId =
-                  !providedId ||
-                  providedId === "0" ||
-                  /^(txt|reasoning|msg)-0$/.test(providedId);
-                reasoningMessageId = isNonUniqueId
-                  ? randomUUID()
-                  : (providedId as typeof reasoningMessageId);
+                reasoningMessageId = resolveStreamPartMessageId(
+                  "id" in part ? part.id : undefined,
+                );
                 const reasoningStartEvent: ReasoningStartEvent = {
                   type: EventType.REASONING_START,
                   messageId: reasoningMessageId,
@@ -1844,17 +1837,9 @@ export class BuiltInAgent extends AbstractAgent {
               }
 
               case "text-start": {
-                // New text message starting - use the SDK-provided id
-                // Use randomUUID() if part.id is falsy, "0", or matches the non-unique
-                // pattern emitted by @ai-sdk/openai-compatible (e.g. "txt-0", "msg-0").
-                const providedId = "id" in part ? part.id : undefined;
-                const isNonUniqueTextId =
-                  !providedId ||
-                  providedId === "0" ||
-                  /^(txt|reasoning|msg)-0$/.test(providedId);
-                messageId = isNonUniqueTextId
-                  ? randomUUID()
-                  : (providedId as typeof messageId);
+                messageId = resolveStreamPartMessageId(
+                  "id" in part ? part.id : undefined,
+                );
                 break;
               }
 
