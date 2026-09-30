@@ -4484,6 +4484,14 @@ packages:
   '@ag-ui/core@0.0.59':
     resolution: {integrity: sha512-hDgy4ipTqXieT8YG8Mr917Y+FD/f11VK1GefZ5CwTDCuNqS/oTwjJ5l/DZkicThgS8hQW/Y7wPylPBMBJ8BkUg==}
 
+  '@ag-ui/core@1.0.0':
+    resolution: {integrity: sha512-yCRhsQvb4+lmGMrDsi4TOJxqKpm/kb3H64wwL+Z90jNVrkhy17RErfzsNgybfbjNKLM0nenEDYDVJsZHJJSigQ==}
+    peerDependencies:
+      zod: '>=3.22.3'
+    peerDependenciesMeta:
+      zod:
+        optional: true
+
   '@ag-ui/core@1.0.1':
     resolution: {integrity: sha512-Q6pxgI7gcey/0pHfM37S7GNrsYqTrrjjFLpi1dckHNGX2l9VTL0CjnyNc44lwPfHIzFmmEvQfbrAeEPINGGg/Q==}
     peerDependencies:
@@ -28522,15 +28530,6 @@ packages:
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
-  "@ag-ui/core@1.0.0":
-    resolution:
-      integrity: sha512-yCRhsQvb4+lmGMrDsi4TOJxqKpm/kb3H64wwL+Z90jNVrkhy17RErfzsNgybfbjNKLM0nenEDYDVJsZHJJSigQ==
-    peerDependencies:
-      zod: ">=3.22.3"
-    peerDependenciesMeta:
-      zod:
-        optional: true
-
 snapshots:
 
   '@0no-co/graphql.web@1.2.0(graphql@16.12.0)':
@@ -28610,6 +28609,15 @@ snapshots:
     dependencies:
       '@a2a-js/sdk': 0.2.5
       '@ag-ui/client': 0.0.42
+      '@ag-ui/core': 1.0.1(zod@3.25.76)
+      rxjs: 7.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  '@ag-ui/a2a@0.0.6(@ag-ui/client@1.0.1)(@ag-ui/core@1.0.1(zod@3.25.76))':
+    dependencies:
+      '@a2a-js/sdk': 0.2.5
+      '@ag-ui/client': 1.0.1
       '@ag-ui/core': 1.0.1(zod@3.25.76)
       rxjs: 7.8.1
     transitivePeerDependencies:
@@ -28736,6 +28744,10 @@ snapshots:
 
   '@ag-ui/core@0.0.59':
     dependencies:
+      zod: 3.25.76
+
+  '@ag-ui/core@1.0.0(zod@3.25.76)':
+    optionalDependencies:
       zod: 3.25.76
 
   '@ag-ui/core@1.0.1(zod@3.25.76)':
@@ -28990,6 +29002,16 @@ snapshots:
   '@ag-ui/mcp-apps-middleware@0.0.1(@ag-ui/client@0.0.42)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)':
     dependencies:
       '@ag-ui/client': 0.0.42
+      '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
+      rxjs: 7.8.1
+    transitivePeerDependencies:
+      - '@cfworker/json-schema'
+      - supports-color
+      - zod
+
+  '@ag-ui/mcp-apps-middleware@0.0.1(@ag-ui/client@1.0.1)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)':
+    dependencies:
+      '@ag-ui/client': 1.0.1
       '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
       rxjs: 7.8.1
     transitivePeerDependencies:
@@ -64639,26 +64661,3 @@ snapshots:
       react: 19.2.3
 
   zwitch@2.0.4: {}
-
-  "@ag-ui/a2a@0.0.6(@ag-ui/client@1.0.1)(@ag-ui/core@1.0.1(zod@3.25.76))":
-    dependencies:
-      "@a2a-js/sdk": 0.2.5
-      "@ag-ui/client": 1.0.1
-      "@ag-ui/core": 1.0.1(zod@3.25.76)
-      rxjs: 7.8.1
-    transitivePeerDependencies:
-      - supports-color
-
-  "@ag-ui/mcp-apps-middleware@0.0.1(@ag-ui/client@1.0.1)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)":
-    dependencies:
-      "@ag-ui/client": 1.0.1
-      "@modelcontextprotocol/sdk": 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
-      rxjs: 7.8.1
-    transitivePeerDependencies:
-      - "@cfworker/json-schema"
-      - supports-color
-      - zod
-
-  "@ag-ui/core@1.0.0(zod@3.25.76)":
-    optionalDependencies:
-      zod: 3.25.76
