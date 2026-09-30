@@ -99,6 +99,22 @@ export interface CopilotKitProps extends Omit<
    * awaits it: an async builder is called once, its result (and any
    * rejection) is discarded, and every read there gets an empty object
    * instead, with one console warning per provider instance in development.
+   *
+   * Cache inside the builder. Clerk's and Auth0's `getToken()` already
+   * cache. A builder that calls the network every time adds one call per
+   * request.
+   *
+   * If the builder throws or rejects, that request is not sent and
+   * `onError` gets `header_resolution_failed`.
+   *
+   * Passing the same builder again, or a new builder function, does not
+   * reload anything, because the provider keeps one stable wrapper. On a
+   * user switch, remount the provider (for example `key={userId}`) so
+   * thread lists and Inspector metadata reload for the new user.
+   *
+   * Core headers are also sent to any self-managed agent registered
+   * directly with CopilotKit, including ones on other origins. Don't put a
+   * bearer token in core headers if those agents point at a third party.
    */
   headers?: CopilotKitHeadersSource;
 
