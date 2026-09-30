@@ -190,6 +190,7 @@ export function installStreamingFetch(): void {
         signal.addEventListener("abort", onAbort);
       }
 
+      /** Remove the abort listener from the signal once it is no longer needed. */
       function cleanupAbortListener() {
         if (signal) {
           signal.removeEventListener("abort", onAbort);
