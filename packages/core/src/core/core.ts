@@ -1,4 +1,9 @@
-import type { AbstractAgent, Context, State } from "@ag-ui/client";
+import type {
+  AbstractAgent,
+  Context,
+  State,
+  RunAgentInput,
+} from "@ag-ui/client";
 import type { AgentSubscriber } from "@ag-ui/client";
 import { Throttler } from "@tanstack/pacer";
 import type {
@@ -386,6 +391,10 @@ export interface CopilotKitCoreFriendsAccess {
   waitForPendingFrameworkUpdates(): Promise<void>;
 
   readonly stateManager: {
+    getContinuationRunId(
+      agent: AbstractAgent,
+      input: Pick<RunAgentInput, "threadId" | "resume" | "forwardedProps">,
+    ): string | undefined;
     markNextRunAsContinuation(
       agent: AbstractAgent,
       expectedRunId?: string,

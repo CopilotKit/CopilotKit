@@ -3,6 +3,7 @@ import type {
   BaseEvent,
   RunAgentInput,
   Message,
+  ContentPart,
   ReasoningEndEvent,
   ReasoningMessageContentEvent,
   ReasoningMessageEndEvent,
@@ -18,8 +19,9 @@ import type {
   RunErrorEvent,
   Interrupt,
   ResumeEntry,
+  ToolMessage,
 } from "@ag-ui/client";
-import { AbstractAgent, EventType } from "@ag-ui/client";
+import { AbstractAgent, EventType, PROTOCOL_VERSION } from "@ag-ui/client";
 import { Validator } from "@cfworker/json-schema";
 import type { AgentCapabilities } from "@ag-ui/core";
 import type {
@@ -211,6 +213,68 @@ export interface MCPClientProvider {
  * @param apiKey - Optional API key to use instead of environment variables
  * @returns LanguageModel instance
  */
+
+/**
+ * An AG-UI tool result as the AI SDK's tool result output.
+ *
+ * Providers hold one response per tool call, and the Google adapter emits one
+ * functionResponse per text entry of a content list, so all of a result's text
+ * is collected into a single entry: text parts run together, and a
+ * URL-referenced part contributes the URL it carries on a line of its own —
+ * the bytes are not here to hand over, and the reference is the content the
+ * tool actually returned. A result with no inline media is that text alone.
+ * One with inline media is a content list: the text entry first, when there is
+ * any, then each media part with its bytes and media type. A media-only result
+ * is media alone: a placeholder text would be content the tool never returned.
+ * Which adapters can place media inside a tool response is theirs to decide.
+ * A provider file handle (`file` source) is neither bytes nor a URL, and this
+ * path cannot hand it to the provider, so the part is dropped with a warning.
+ * A result whose parts were all dropped is the empty string, as AG-UI 1.0
+ * requires: the call must still be answered.
+ */
+function warnDroppedFileSource(what: string): void {
+  console.warn(
+    `[CopilotKit] Dropping a ${what} that references a provider file handle: it is not a URL or inline data, so it cannot be sent to the model here.`,
+  );
+}
+
+function toolResultOutput(
+  content: ToolMessage["content"],
+): ToolResultPart["output"] {
+  if (typeof content === "string") return { type: "text", value: content };
+  const segments: string[] = [];
+  const media: Array<{ type: "media"; data: string; mediaType: string }> = [];
+  let open = false; // whether the last segment is text still being appended to
+  for (const part of content) {
+    if (part.type === "text") {
+      if (open) segments[segments.length - 1] += part.text;
+      else segments.push(part.text);
+      open = true;
+    } else if (part.source.type === "file") {
+      warnDroppedFileSource(`${part.type} part in a tool result`);
+    } else if (part.source.type === "url") {
+      segments.push(part.source.value);
+      open = false;
+    } else {
+      media.push({
+        type: "media",
+        data: part.source.value,
+        mediaType: part.source.mimeType,
+      });
+      open = false;
+    }
+  }
+  const text = segments.join("\n");
+  if (media.length === 0) return { type: "text", value: text };
+  return {
+    type: "content",
+    value: [
+      ...(text.length > 0 ? [{ type: "text" as const, text }] : []),
+      ...media,
+    ],
+  };
+}
+
 export function resolveModel(
   spec: ModelSpecifier,
   apiKey?: string,
@@ -424,7 +488,12 @@ export function defineTool<TParameters extends StandardSchemaV1>(config: {
   };
 }
 
-type AGUIUserMessage = Extract<Message, { role: "user" }>;
+type LegacyBinaryInputContent = {
+  type: "binary";
+  mimeType?: string;
+  data?: string;
+  url?: string;
+};
 
 /**
  * Converts AG-UI user message content to Vercel AI SDK UserContent format.
@@ -432,7 +501,7 @@ type AGUIUserMessage = Extract<Message, { role: "user" }>;
  * and legacy BinaryInputContent for backward compatibility.
  */
 function convertUserMessageContent(
-  content: AGUIUserMessage["content"],
+  content: string | Array<ContentPart | LegacyBinaryInputContent>,
 ): string | Array<TextPart | ImagePart | FilePart> {
   if (!content) {
     return "";
@@ -467,6 +536,8 @@ function convertUserMessageContent(
             image: source.value,
             mediaType: source.mimeType,
           });
+        } else if (source.type === "file") {
+          warnDroppedFileSource("image part");
         } else if (source.type === "url") {
           try {
             parts.push({
@@ -494,6 +565,8 @@ function convertUserMessageContent(
             data: source.value,
             mediaType: source.mimeType,
           });
+        } else if (source.type === "file") {
+          warnDroppedFileSource(`${part.type} part`);
         } else if (source.type === "url") {
           try {
             parts.push({
@@ -512,11 +585,7 @@ function convertUserMessageContent(
 
       // Legacy BinaryInputContent backward compatibility
       case "binary": {
-        const legacy = part as {
-          mimeType?: string;
-          data?: string;
-          url?: string;
-        };
+        const legacy = part;
         const mimeType = legacy.mimeType ?? "application/octet-stream";
         const isImage = mimeType.startsWith("image/");
 
@@ -640,10 +709,7 @@ export function convertMessagesToVercelAISDKMessages(
         type: "tool-result",
         toolCallId: message.toolCallId,
         toolName: toolName,
-        output: {
-          type: "text",
-          value: message.content,
-        },
+        output: toolResultOutput(message.content),
       };
 
       const toolMsg: ToolModelMessage = {
@@ -1179,6 +1245,8 @@ export class BuiltInAgent extends AbstractAgent {
         type: EventType.RUN_STARTED,
         threadId: input.threadId,
         runId: input.runId,
+        // AG-UI 1.0: a producer states its own protocol version.
+        protocolVersion: PROTOCOL_VERSION,
       };
       subscriber.next(startEvent);
 
@@ -1684,6 +1752,12 @@ export class BuiltInAgent extends AbstractAgent {
                   type: EventType.RUN_FINISHED,
                   threadId: input.threadId,
                   runId: input.runId,
+                  // A stopped run is cancelled, not a success. A client that
+                  // declares no protocolVersion predates 1.0 and cannot parse
+                  // the cancelled outcome, so it keeps the plain event.
+                  ...(input.protocolVersion !== undefined
+                    ? { outcome: { type: "cancelled" as const } }
+                    : {}),
                 };
                 subscriber.next(abortEndEvent);
                 terminalEventEmitted = true;
@@ -2154,6 +2228,8 @@ export class BuiltInAgent extends AbstractAgent {
         type: EventType.RUN_STARTED,
         threadId: input.threadId,
         runId: input.runId,
+        // AG-UI 1.0: a producer states its own protocol version.
+        protocolVersion: PROTOCOL_VERSION,
       };
       subscriber.next(startEvent);
 
@@ -2174,48 +2250,89 @@ export class BuiltInAgent extends AbstractAgent {
         },
       };
 
-      // Resume injection (aisdk/tanstack): map each ResumeEntry to a tool-role
-      // message keyed by interruptId (=== the paused tool call's id) and append
-      // it to the messages the factory sees. Both SDK converters
-      // (convertMessagesToVercelAISDKMessages / convertInputToTanStackAI) turn a
-      // tool-role message into that SDK's native tool-result, so the model
-      // continues — no SDK-specific approval-response wiring needed. The `custom`
-      // factory reads input.resume itself via ctx.interrupt(), so leave it alone.
-      // Idempotent: skip entries the client already recorded as a tool-result
-      // message in the thread (useInterrupt persists resolutions so the
-      // conversation stays well-formed across turns). Only synthesize results
-      // for entries that aren't already answered, so we never double-answer a
-      // tool call.
-      const answeredToolCallIds = new Set(
-        input.messages
-          .filter((m) => m.role === "tool")
-          .map((m) => (m as { toolCallId?: string }).toolCallId)
-          .filter((id): id is string => typeof id === "string"),
-      );
-      const resumeToolMessages: Message[] = (input.resume ?? [])
-        .filter(
-          (entry: ResumeEntry) => !answeredToolCallIds.has(entry.interruptId),
-        )
-        .map(
-          (entry: ResumeEntry): Message => ({
-            id: randomUUID(),
-            role: "tool",
-            toolCallId: entry.interruptId,
-            content: JSON.stringify(
-              entry.status === "cancelled"
-                ? { status: "cancelled" }
-                : (entry.payload ?? { status: "resolved" }),
-            ),
-          }),
-        );
-      const factoryInput: RunAgentInput =
-        resumeToolMessages.length > 0 && config.type !== "custom"
-          ? { ...input, messages: [...input.messages, ...resumeToolMessages] }
-          : input;
-
       (async () => {
         const runFinishedDetails: AgentRunFinishedDetails = {};
         try {
+          // Resume injection (aisdk/tanstack): map each ResumeEntry to a tool-role
+          // message keyed by interruptId (=== the paused tool call's id) and append
+          // it to the messages the factory sees. Both SDK converters
+          // (convertMessagesToVercelAISDKMessages / convertInputToTanStackAI) turn a
+          // tool-role message into that SDK's native tool-result, so the model
+          // continues — no SDK-specific approval-response wiring needed. The `custom`
+          // factory reads input.resume itself via ctx.interrupt(), so leave it alone.
+          // Idempotent: skip entries the client already recorded as a tool-result
+          // message in the thread (useInterrupt persists resolutions so the
+          // conversation stays well-formed across turns). Only synthesize results
+          // for entries that aren't already answered, so we never double-answer a
+          // tool call.
+          const toolCallIds = new Set(
+            input.messages.flatMap((message) =>
+              message.role === "assistant"
+                ? (message.toolCalls ?? []).map((call) => call.id)
+                : [],
+            ),
+          );
+          const answeredToolMessages = input.messages.filter(
+            (message): message is ToolMessage => message.role === "tool",
+          );
+          const answeredToolCallIds = new Set(
+            answeredToolMessages.map((message) => message.toolCallId),
+          );
+          const nativeResume =
+            config.type === "custom" ? [] : (input.resume ?? []);
+          const resumeToolMessages: ToolMessage[] = [];
+          const decisionsByCall = new Map<string, string>();
+          for (const entry of nativeResume) {
+            if (!toolCallIds.has(entry.interruptId)) continue;
+            const content = JSON.stringify(
+              entry.status === "cancelled"
+                ? { status: "cancelled" }
+                : (entry.payload ?? { status: "resolved" }),
+            );
+            if (decisionsByCall.has(entry.interruptId)) {
+              if (decisionsByCall.get(entry.interruptId) !== content) {
+                throw new Error(
+                  `Conflicting decisions for resumed tool call ${entry.interruptId}`,
+                );
+              }
+              continue;
+            }
+            decisionsByCall.set(entry.interruptId, content);
+            if (answeredToolCallIds.has(entry.interruptId)) continue;
+            resumeToolMessages.push({
+              id: randomUUID(),
+              role: "tool",
+              toolCallId: entry.interruptId,
+              content,
+            });
+          }
+          const resumedIds = new Set(
+            nativeResume.map((entry) => entry.interruptId),
+          );
+          const resumedResults = new Map(
+            [...answeredToolMessages, ...resumeToolMessages]
+              .filter((message) => resumedIds.has(message.toolCallId))
+              .map((message) => [message.toolCallId, message.content]),
+          );
+          // Save accepted answers before model work, so Stop cannot discard them.
+          for (const message of resumeToolMessages) {
+            const event: ToolCallResultEvent = {
+              type: EventType.TOOL_CALL_RESULT,
+              messageId: message.id,
+              toolCallId: message.toolCallId,
+              role: "tool",
+              content: message.content,
+            };
+            subscriber.next(event);
+          }
+          const factoryInput: RunAgentInput =
+            resumeToolMessages.length > 0 && config.type !== "custom"
+              ? {
+                  ...input,
+                  messages: [...input.messages, ...resumeToolMessages],
+                }
+              : input;
+
           const learnedSkills = await prepareLearnedSkills(
             this.skillRegistry,
             controller.signal,
@@ -2268,6 +2385,20 @@ export class BuiltInAgent extends AbstractAgent {
           }
 
           for await (const event of events) {
+            if (
+              event.type === EventType.TOOL_CALL_RESULT &&
+              "toolCallId" in event &&
+              typeof event.toolCallId === "string" &&
+              "content" in event &&
+              resumedResults.has(event.toolCallId)
+            ) {
+              if (resumedResults.get(event.toolCallId) !== event.content) {
+                throw new Error(
+                  `Conflicting result for resumed tool call ${event.toolCallId}`,
+                );
+              }
+              continue;
+            }
             if (
               config.type === "custom" &&
               event.type === EventType.RUN_FINISHED

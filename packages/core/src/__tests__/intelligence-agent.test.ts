@@ -6,6 +6,7 @@ import type { Observable } from "rxjs";
 import { RUNTIME_MODE_INTELLIGENCE } from "@copilotkit/shared";
 import type { MockChannel } from "./test-utils";
 import { MockSocket } from "./test-utils";
+import { CopilotKitCore } from "../core";
 
 vi.mock("phoenix", () => ({
   Socket: MockSocket,
@@ -425,6 +426,42 @@ describe("IntelligenceAgent", () => {
       expect(result.completed).toBe(true);
       expect(result.error).toBeNull();
       expect(result.events).toContainEqual(finishedEvent);
+    });
+
+    it("removes the runner's routing fields from run stream events", async () => {
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+
+      const routing = {
+        threadId: "thread-1",
+        runId: "run-1",
+        thread_id: "thread-1",
+        run_id: "run-1",
+      };
+      channel.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "msg-1",
+        delta: "hello",
+        ...routing,
+      } as BaseEvent);
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_FINISHED,
+        ...routing,
+      } as BaseEvent);
+
+      const result = await promise;
+      expect(result.events).toEqual([
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "hello",
+        },
+        { type: EventType.RUN_FINISHED, threadId: "thread-1", runId: "run-1" },
+      ]);
     });
 
     it("errors the observable on RUN_ERROR", async () => {
@@ -2110,6 +2147,152 @@ describe("IntelligenceAgent", () => {
 });
 
 describe("ProxiedCopilotRuntimeAgent (intelligence mode)", () => {
+  it.each(["run", "connect"])(
+    "preserves approvals and incremental history after %s on the proxy and its clone",
+    async (source) => {
+      const agent = new ProxiedCopilotRuntimeAgent({
+        runtimeUrl: "http://localhost:4000/api/copilotkit",
+        agentId: "default",
+        runtimeMode: RUNTIME_MODE_INTELLIGENCE,
+        intelligence: { wsUrl: "ws://localhost:4401/client" },
+      });
+      agent.threadId = "thread-1";
+      const core = new CopilotKitCore({});
+      core.addAgent__unsafe_dev_only({ id: "default", agent });
+      const first =
+        source === "run"
+          ? core.runAgent({ agent, runId: "run-1" })
+          : core.connectAgent({ agent });
+      await flushAsyncWork();
+      const delegate = (
+        agent as unknown as { delegate: IntelligenceAgentInstance }
+      ).delegate;
+      await waitForConnection(delegate);
+      const channel = getChannel(delegate)!;
+      channel.triggerJoin("ok");
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        runId: "run-1",
+      });
+      channel.serverPush("ag_ui_event", {
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [
+          { id: "approval-message", role: "assistant", content: "Approve?" },
+        ],
+      });
+      channel.serverPush("ag_ui_event", {
+        type: EventType.STATE_SNAPSHOT,
+        snapshot: { approval: "pending" },
+      });
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        runId: "run-1",
+        metadata: { cpki_event_id: "approval-end" },
+        outcome: {
+          type: "interrupt",
+          interrupts: [{ id: "approval-one", reason: "approval" }],
+        },
+      });
+      channel.serverPush("replay_complete", { latestEventId: "approval-end" });
+      channel.serverPush("stream_idle", { latestEventId: "approval-end" });
+      await first;
+      expect(agent.pendingInterrupts.map((interrupt) => interrupt.id)).toEqual([
+        "approval-one",
+      ]);
+      expect(agent.clone().pendingInterrupts).toEqual(agent.pendingInterrupts);
+      const requests = mockFetch.mock.calls.length;
+      await expect(agent.runAgent()).rejects.toThrow(/resume/i);
+      expect(mockFetch).toHaveBeenCalledTimes(requests);
+
+      const second = core.connectAgent({ agent });
+      await waitForConnection(delegate);
+      const incremental = getChannel(delegate)!;
+      expect(incremental.params).toMatchObject({
+        last_seen_event_id: "approval-end",
+      });
+      expect(agent.messages.map((message) => message.content)).toEqual([
+        "Approve?",
+      ]);
+      expect(agent.state).toEqual({ approval: "pending" });
+      incremental.triggerJoin("ok");
+      incremental.serverPush("replay_complete", {
+        latestEventId: "approval-end",
+      });
+      incremental.serverPush("stream_idle", { latestEventId: "approval-end" });
+      await second;
+      expect(agent.messages.map((message) => message.content)).toEqual([
+        "Approve?",
+      ]);
+      expect(agent.state).toEqual({ approval: "pending" });
+      expect(agent.pendingInterrupts.map((interrupt) => interrupt.id)).toEqual([
+        "approval-one",
+      ]);
+    },
+  );
+
+  it("ignores an old delegate completion after a successor connects", async () => {
+    let releaseOld = () => {};
+    const oldCompletion = new Promise<void>((resolve) => {
+      releaseOld = resolve;
+    });
+    const originalConnect = IntelligenceAgent.prototype.connectAgent;
+    let calls = 0;
+    const connectSpy = vi
+      .spyOn(IntelligenceAgent.prototype, "connectAgent")
+      .mockImplementation(
+        async function (
+          this: IntelligenceAgentInstance,
+          parameters,
+          subscriber,
+        ) {
+          const call = ++calls;
+          const result = await originalConnect.call(
+            this,
+            parameters,
+            subscriber,
+          );
+          if (call === 1) await oldCompletion;
+          return result;
+        },
+      );
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "http://localhost:4000/api/copilotkit",
+      agentId: "default",
+      runtimeMode: RUNTIME_MODE_INTELLIGENCE,
+      intelligence: { wsUrl: "ws://localhost:4401/client" },
+    });
+    agent.threadId = "thread-1";
+    const old = agent.connectAgent();
+    await flushAsyncWork();
+    const delegate = (
+      agent as unknown as { delegate: IntelligenceAgentInstance }
+    ).delegate;
+    await waitForConnection(delegate);
+    getChannel(delegate)!.triggerJoin("ok");
+    await agent.detachActiveRun();
+    expect(agent.isRunning).toBe(false);
+    const current = agent.connectAgent();
+    await waitForConnection(delegate);
+    const channel = getChannel(delegate)!;
+    channel.triggerJoin("ok");
+    channel.serverPush("ag_ui_event", {
+      type: EventType.STATE_SNAPSHOT,
+      snapshot: { current: true },
+    });
+    await flushAsyncWork();
+    expect(agent.isRunning).toBe(true);
+    releaseOld();
+    await old;
+    expect(agent.isRunning).toBe(true);
+    expect(agent.state).toEqual({ current: true });
+    await agent.detachActiveRun();
+    await current;
+    expect(agent.isRunning).toBe(false);
+    connectSpy.mockRestore();
+  });
+
   // Mirrors the real demo wiring: Vite app → BFF runtime that exposes a
   // ProxiedCopilotRuntimeAgent in intelligence mode → IntelligenceAgent delegate
   // talking to the realtime gateway. On thread resume, gateway replay emits

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { defineComponent, h, nextTick } from "vue";
+import { defineComponent, h, nextTick, ref } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
 import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
 import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConfigurationProvider.vue";
@@ -14,6 +14,134 @@ import CopilotChat from "../CopilotChat.vue";
 //     configuration transitions to a fresh, non-explicit thread via
 //     startNewThread()
 describe("CopilotChat clear-on-fresh", () => {
+  it.each(["clearReplayCursor", "clearReconnectCursor"] as const)(
+    "clears state and the captured %s cursor on a fresh selection",
+    async (method) => {
+      const agent = new StateCapturingAgent();
+      const cursors = new Map<string, string>();
+      Object.defineProperty(agent, method, {
+        value: (threadId: string) => cursors.delete(threadId),
+      });
+      const threadId = ref("saved");
+      const explicit = ref(true);
+      const wrapper = mount(CopilotKitProvider, {
+        props: { agents__unsafe_dev_only: { default: agent } },
+        slots: {
+          default: () =>
+            h(
+              CopilotChatConfigurationProvider,
+              { threadId: threadId.value, hasExplicitThreadId: explicit.value },
+              { default: () => h(CopilotChat, { welcomeScreen: false }) },
+            ),
+        },
+      });
+      await flushPromises();
+      agent.setState({ saved: true });
+      agent.pendingInterrupts = [{ id: "approval-A", reason: "confirmation" }];
+      cursors.set("saved", "last-event");
+      cursors.set("other", "keep-other");
+      threadId.value = "fresh";
+      explicit.value = false;
+      await flushPromises();
+      expect(agent.state).toEqual({});
+      expect(agent.pendingInterrupts).toEqual([]);
+      expect(cursors.get("saved")).toBeUndefined();
+      expect(cursors.get("other")).toBe("keep-other");
+      wrapper.unmount();
+    },
+  );
+  it.each(["fresh", "saved", "other", "via-fresh", "swap"])(
+    "protects %s from an abandoned connect that completes later",
+    async (destination) => {
+      let releaseDetach = () => {};
+      let releaseConnect = () => {};
+      let pendingDetach: Promise<void> | undefined;
+      const oldConnect = new Promise<void>((resolve) => {
+        releaseConnect = resolve;
+      });
+      const cursors = new Map<string, string>();
+      const requests: (string | null)[] = [];
+      class ReplayAgent extends StateCapturingAgent {
+        clearReplayCursor(threadId: string) {
+          cursors.delete(threadId);
+        }
+        async detachActiveRun() {
+          await pendingDetach;
+          await super.detachActiveRun();
+        }
+        async connectAgent(
+          ...args: Parameters<StateCapturingAgent["connectAgent"]>
+        ) {
+          requests.push(cursors.get(this.threadId) ?? null);
+          const first = requests.length === 1;
+          const result = await super.connectAgent(...args);
+          if (first) await oldConnect;
+          return result;
+        }
+      }
+      const agent = new ReplayAgent();
+      let currentAgent = agent;
+      const threadId = ref("saved");
+      const explicit = ref(true);
+      const wrapper = mount(CopilotKitProvider, {
+        props: { agents__unsafe_dev_only: { default: agent } },
+        slots: {
+          default: () =>
+            h(
+              CopilotChatConfigurationProvider,
+              { threadId: threadId.value, hasExplicitThreadId: explicit.value },
+              { default: () => h(CopilotChat, { welcomeScreen: false }) },
+            ),
+        },
+      });
+      await flushPromises();
+      expect(requests).toEqual([null]);
+      pendingDetach = new Promise<void>((resolve) => {
+        releaseDetach = resolve;
+      });
+      cursors.set("saved", "old-event");
+      threadId.value = "fresh";
+      explicit.value = false;
+      await nextTick();
+      if (destination === "via-fresh") {
+        threadId.value = "fresh-again";
+        await nextTick();
+      }
+      if (destination === "swap") {
+        currentAgent = new ReplayAgent();
+        await wrapper.setProps({
+          agents__unsafe_dev_only: { default: currentAgent },
+        });
+      }
+      const target =
+        destination === "via-fresh" || destination === "swap"
+          ? "saved"
+          : destination;
+      if (target !== "fresh") {
+        threadId.value = target;
+        explicit.value = true;
+        await nextTick();
+      }
+      expect(requests).toEqual([null]);
+      cursors.set("saved", "late-event");
+      releaseDetach();
+      await flushPromises();
+      expect(requests).toEqual(target === "fresh" ? [null] : [null, null]);
+      currentAgent.setState({ current: true });
+      currentAgent.pendingInterrupts = [
+        { id: "approval-new", reason: "confirmation" },
+      ];
+      cursors.set(target, "new-event");
+      releaseConnect();
+      await flushPromises();
+      expect(currentAgent.state).toEqual({ current: true });
+      expect(currentAgent.pendingInterrupts).toEqual([
+        { id: "approval-new", reason: "confirmation" },
+      ]);
+      expect(cursors.get(target)).toBe("new-event");
+      wrapper.unmount();
+    },
+  );
   it("does not clear messages on initial mount", async () => {
     const agent = new StateCapturingAgent();
     // Spy before mount: attaching afterwards can never observe a mount-time
@@ -133,7 +261,7 @@ describe("CopilotChat clear-on-fresh", () => {
     await nextTick();
     expect(currentThreadId).toBe("elsewhere");
 
-    newAgent!.setMessages([{ id: "m1", role: "user", content: "hi" } as never]);
+    newAgent!.setMessages([{ id: "m1", role: "user", content: "hi" }]);
     expect(newAgent!.messages.length).toBe(1);
 
     // Switch back non-explicitly. Any `setMessages([])` observed here must come

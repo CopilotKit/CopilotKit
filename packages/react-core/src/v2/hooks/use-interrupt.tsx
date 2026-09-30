@@ -181,7 +181,6 @@ export function useInterrupt<
     useState<InterruptResult<any, TResult>>(null);
 
   const interruptStateRef = useRef(new ɵInterruptState());
-  const legacyRunIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const interruptState = interruptStateRef.current;
@@ -202,17 +201,15 @@ export function useInterrupt<
       onRunStartedEvent: () => {
         localLegacy = null;
         localStandard = null;
-        legacyRunIdRef.current = undefined;
         interruptState.clear();
         setPending(null);
       },
-      onRunFinalized: (params) => {
+      onRunFinalized: () => {
         // Standard wins if both somehow appear for one run.
         if (localStandard && localStandard.length > 0) {
           interruptState.setStandard(localStandard);
           setPending(interruptState.pending);
         } else if (localLegacy) {
-          legacyRunIdRef.current = params.input.runId;
           interruptState.setLegacy(localLegacy);
           setPending(interruptState.pending);
         }
@@ -222,7 +219,6 @@ export function useInterrupt<
       onRunFailed: () => {
         localLegacy = null;
         localStandard = null;
-        legacyRunIdRef.current = undefined;
         interruptState.clear();
         setPending(null);
       },
@@ -250,11 +246,9 @@ export function useInterrupt<
       }
       const decision = interruptStateRef.current.resolve(payload, interruptId);
       if (decision.kind === "legacy-resume") {
-        const runId = legacyRunIdRef.current;
         try {
           return await copilotkit.runAgent({
             agent,
-            ...(runId !== undefined ? { runId } : {}),
             forwardedProps: {
               command: {
                 resume: decision.payload,

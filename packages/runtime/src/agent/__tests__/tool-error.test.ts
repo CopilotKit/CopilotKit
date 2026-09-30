@@ -155,7 +155,7 @@ describe("tool execute throws (real streamText)", () => {
     const results = events.filter((e) => e.type === EventType.TOOL_CALL_RESULT);
     expect(results).toHaveLength(1);
     expect(results[0]).toMatchObject({ toolCallId: "tc-1" });
-    expect((results[0] as { content: string }).content).toMatch(
+    expect((results[0] as unknown as { content: string }).content).toMatch(
       /^Error: Invalid input for tool showCity: .*Invalid arguments for tool showCity/s,
     );
     expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
