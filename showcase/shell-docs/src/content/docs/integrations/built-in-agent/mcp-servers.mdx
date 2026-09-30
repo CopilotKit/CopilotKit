@@ -114,7 +114,7 @@ const builtInAgent = new BuiltInAgent({
 - If a server has no `name`, the prefix is `mcp<N>`, where N is the server's position in `mcpClients` and then `mcpServers`, from 1. Entries in `mcpClients` have no `name`, so they always use `mcp<N>`.
 - Characters other than letters, digits, `_` and `-` in `name` become `_`.
 - If a prefixed name is already in use, a number is added, for example `production_search_2`. This happens when two servers have the same `name`, so give each server a different `name`.
-- A renderer that you register for an MCP tool name, for example with `useRenderTool`, matches only the exposed name. If `search` becomes `production_search`, register the renderer for `production_search`.
+- A tool renderer that you register in the frontend matches only the exposed name. If `search` becomes `production_search`, register the renderer for `production_search`.
 
 ## Combining with server tools
 
