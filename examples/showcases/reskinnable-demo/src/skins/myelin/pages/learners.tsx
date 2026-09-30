@@ -51,10 +51,11 @@ export function LearnersPage() {
       : "daysOverdue",
   };
   const byAgent = params.get("levers") === "1";
+  const { journeyId, status, groupId, sortBy } = filters;
   const rows = useMemo(
-    () => learnerRows(data, filters),
-    [data, filters.journeyId, filters.status, filters.groupId, filters.sortBy],
-  ); // eslint-disable-line react-hooks/exhaustive-deps
+    () => learnerRows(data, { journeyId, status, groupId, sortBy }),
+    [data, journeyId, status, groupId, sortBy],
+  );
   const journey = data.journeys.find((j) => j.id === filters.journeyId);
   const groupsInJourney = data.groups.filter((g) =>
     journey?.audienceGroupIds.includes(g.id),

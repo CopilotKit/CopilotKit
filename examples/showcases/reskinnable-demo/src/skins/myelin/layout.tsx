@@ -11,7 +11,6 @@ import { useSkin } from "@/shell/skin-provider";
 import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
 import { usePresenterReset } from "@/shell/presenter-reset-context";
 import { useCanvas } from "@/shell/canvas/canvas-context";
-import { GovernancePopover } from "@/shell/governance-popover";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
   Tooltip,
@@ -240,7 +239,10 @@ export function MyelinLayout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="mt-auto">
-          <GovernancePopover />
+          {/* No GovernancePopover (the tenant / memory-posture control) here, on
+              purpose: this skin's story is journey governance, and a second
+              "governance" control about memory isolation muddies it. Memory
+              runs on the default posture (isolated: user read-write). */}
           <TooltipProvider delayDuration={200}>
             <div className="flex items-center gap-1 border-t border-hairline px-1 pt-3">
               {resetEnabled ? (
