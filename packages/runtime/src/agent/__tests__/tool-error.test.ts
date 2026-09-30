@@ -4,6 +4,8 @@
  * `streamText` emits a `tool-error` part. Both the classic BuiltInAgent path
  * and the factory (`convertAISDKStream`) path must surface it as a
  * TOOL_CALL_RESULT instead of finishing the run with no result and no error.
+ * `streamText` also emits `tool-error` when a call's arguments fail the tool's
+ * schema, including AG-UI frontend tools validated on the server.
  */
 import { describe, it, expect } from "vitest";
 import { EventType } from "@ag-ui/client";
@@ -109,5 +111,53 @@ describe("tool execute throws (real streamText)", () => {
     });
 
     expectToolErrorSurfaced(await collectEvents(agent.run(runInput)));
+  });
+
+  it("frontend tool called with invalid arguments emits the validation error", async () => {
+    const model = new MockLanguageModelV3({
+      doStream: async () => ({
+        stream: simulateReadableStream({
+          chunks: [
+            {
+              type: "tool-call",
+              toolCallId: "tc-1",
+              toolName: "showCity",
+              input: JSON.stringify({ city: 42 }),
+            },
+            {
+              type: "finish",
+              finishReason: { unified: "tool-calls", raw: "tool-calls" },
+              usage: USAGE,
+            },
+          ],
+        }),
+      }),
+    });
+    const agent = new BuiltInAgent({ model });
+
+    const events = await collectEvents(
+      agent.run({
+        ...runInput,
+        tools: [
+          {
+            name: "showCity",
+            description: "Show a city",
+            parameters: {
+              type: "object",
+              properties: { city: { type: "string" } },
+              required: ["city"],
+            },
+          },
+        ],
+      }),
+    );
+
+    const results = events.filter((e) => e.type === EventType.TOOL_CALL_RESULT);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({ toolCallId: "tc-1" });
+    expect((results[0] as { content: string }).content).toMatch(
+      /^Error: Invalid input for tool showCity: .*Invalid arguments for tool showCity/s,
+    );
+    expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
   });
 });
