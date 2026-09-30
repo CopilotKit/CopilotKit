@@ -90,3 +90,16 @@ test("forwards thread mutation methods in linked framework examples", () => {
     "DELETE: ({ request }) => handler(request)",
   );
 });
+
+// Coding agents consume flattened Markdown rather than interactive tabs. Keep
+// every native setup available, including imports inside its code fences.
+test("expands all runtime setup snippets for coding agents", () => {
+  const output = renderDoc("intelligence/quickstart");
+
+  expect(output).toContain("from copilotkit_runtime import HttpAgent");
+  expect(output).toContain("copilotkit.HTTPAgent");
+  expect(output).toContain("require 'copilotkit/runtime'");
+  expect(output).toContain("using CopilotKit.Intelligence;");
+  expect(output).toContain("Authorization");
+  expect(output).not.toMatch(/<(Python|Go|Ruby|Dotnet)Runtime\s*\/>/);
+});

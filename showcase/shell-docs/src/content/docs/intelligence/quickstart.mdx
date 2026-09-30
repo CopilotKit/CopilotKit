@@ -6,21 +6,28 @@ icon: "lucide/Play"
 doc_type: how-to
 ---
 
+import PythonRuntime from "@/snippets/intelligence/runtime-python.mdx";
+import GoRuntime from "@/snippets/intelligence/runtime-go.mdx";
+import RubyRuntime from "@/snippets/intelligence/runtime-ruby.mdx";
+import DotnetRuntime from "@/snippets/intelligence/runtime-dotnet.mdx";
+
 ## Overview
 
 You want AG-UI Streams, User Memory, Automatic Learning, Channels, and Product Analytics on the app you already have. Intelligence adds that layer. Your frontend and your agent stay where they are.
 
 You are done when Inspector shows that Intelligence is connected and shows your first saved thread. A React Native app has no Inspector. Confirm the thread in the cloud-hosted project instead.
 
+TypeScript is the default and most fully featured runtime. It can run with or without Intelligence. Python, Go, Ruby, and C#/.NET runtimes require Intelligence, either cloud-hosted or self-hosted. Pick the language of your **runtime server** below; your agent framework and frontend stay the same.
+
 ## Start with your coding agent
 
-If your app already has a working CopilotKit agent and frontend, use this prompt to configure the remaining Intelligence pieces.
+If your app already has a working TypeScript CopilotKit runtime, agent, and frontend, use this prompt to configure the remaining Intelligence pieces. For another runtime language, follow the manual setup below.
 
 <RichThreadsSetupPrompt />
 
 ## Set it up manually
 
-Before you start, make sure that you have a CopilotKit app with a working agent, runtime, and frontend.
+Before you start, have a working CopilotKit frontend and agent. The TypeScript tab connects your existing runtime; the other tabs mount a native runtime in front of an agent that already serves AG-UI over HTTP. Use your agent's AG-UI URL, not the CopilotKit runtime URL.
 
 <Steps>
   <Step>
@@ -47,7 +54,18 @@ Before you start, make sure that you have a CopilotKit app with a working agent,
   <Step>
     ### Connect your runtime
 
-    Add an Intelligence client to the CopilotKit runtime you already run. Keep the agents you already configured. The client is the same for every agent framework.
+    Choose your runtime language. The selection also applies to the self-hosted settings below. These examples use multi-route HTTP endpoints in every language.
+
+    <Tabs groupId="runtime_language" persist default="TypeScript" items={["TypeScript", "Python", "Go", "Ruby", "C#/.NET"]}>
+    <Tab value="TypeScript">
+
+    Keep your existing TypeScript runtime and agent registration. Install the current package if you have not already:
+
+    ```bash
+    npm install @copilotkit/runtime
+    ```
+
+    Add an Intelligence client. The client is the same for every agent framework.
 
     ```ts title="Your CopilotKit runtime"
     import {
@@ -87,7 +105,7 @@ Before you start, make sure that you have a CopilotKit app with a working agent,
 
     The runtime reads the key from the client you pass. It does not read the key from the environment on its own. `apiKey` is the only required field. You do not pass an organization id or a project id.
 
-    ### An existing runtime that already has a runner
+    #### An existing runtime that already has a runner
 
     An open-source runtime often passes `runner`. That option chooses where runs are stored. Intelligence stores the runs itself. Remove `runner` when you add `intelligence`.
 
@@ -108,42 +126,66 @@ Before you start, make sure that you have a CopilotKit app with a working agent,
     ```
 
     You can keep `runner` and omit `intelligence`. The runtime then stays in SSE mode, and Threads in Inspector stay locked. See [AgentRunner and persistence](/backend/agent-runner).
-  </Step>
 
-  <Step>
-    ### Expose one Runtime route
+    #### Mount the TypeScript handler
 
-    Create one handler and mount it on a single POST route in the server you already use.
+    Create one handler and mount it for all runtime subpaths and HTTP methods in the server you already use. For Next.js, use a catch-all route:
 
-    ```ts title="Your runtime server"
+    ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
     import { createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
 
     const handler = createCopilotRuntimeHandler({
       runtime,
       basePath: "/api/copilotkit",
-      mode: "single-route",
     });
+
+    export const GET = handler;
+    export const POST = handler;
+    export const PATCH = handler;
+    export const DELETE = handler;
     ```
 
-    Pass `handler` to that server as the POST handler for `basePath`. The handler accepts a Web `Request` and returns a Web `Response`. The file name and the export depend on your server. Mount the handler with the [runtime adapter guide](/runtime-server-adapter).
+    Use this handler in the same module as the configured `runtime` above. It accepts a Web `Request` and returns a Web `Response`. For Express, Hono, and other hosts, use the [TypeScript server adapter guide](/runtime-server-adapter).
 
-    The client and server negotiate resource support before the client sends Intelligence requests through this route. Multi-route remains supported.
+    TypeScript also supports `mode: "single-route"`. If your existing app uses that mode, keep its single POST route and matching frontend transport. That option does not apply to the other runtime languages.
+
+    </Tab>
+    <Tab value="Python">
+      <PythonRuntime />
+    </Tab>
+    <Tab value="Go">
+      <GoRuntime />
+    </Tab>
+    <Tab value="Ruby">
+      <RubyRuntime />
+    </Tab>
+    <Tab value="C#/.NET">
+      <DotnetRuntime />
+    </Tab>
+    </Tabs>
   </Step>
 
   <Step>
-    ### Use the single-route frontend transport
+    ### Connect your frontend
 
-    Point your frontend provider at the runtime base path.
+    Point your frontend provider at the runtime base path. Use `/api/copilotkit` if your frontend proxies that path to the runtime. For a separate local server, use `http://localhost:8200/api/copilotkit` and allow your frontend's exact origin in the runtime's CORS configuration.
+
+    Keep your existing application authentication headers or session. The native examples use a local application token: send `Authorization: Bearer <APP_AUTH_TOKEN>` with runtime requests. This is a development token you set yourself, **not** `CPK_INTELLIGENCE_API_KEY`. In the examples below, replace `<APP_AUTH_TOKEN>` with the same local token you configured on the server. For your existing TypeScript app, keep its real authentication headers or session instead. Replace the local scheme with your application's authentication before deployment.
 
     <FrontendOnly frontend="react">
-      Add `runtimeUrl` and `useSingleEndpoint` to your `CopilotKitProvider`.
+      Set `useSingleEndpoint={false}` for the multi-route servers above. If you kept an existing TypeScript single-route server, keep `useSingleEndpoint={true}` instead.
 
       ```tsx title="Your CopilotKit provider"
       import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 
+      // For a same-origin TypeScript handler, use runtimeUrl="/api/copilotkit".
       export function App() {
         return (
-          <CopilotKitProvider runtimeUrl="/api/copilotkit" useSingleEndpoint>
+          <CopilotKitProvider
+            runtimeUrl="http://localhost:8200/api/copilotkit"
+            useSingleEndpoint={false}
+            headers={{ Authorization: "Bearer <APP_AUTH_TOKEN>" }}
+          >
             <YourApp />
           </CopilotKitProvider>
         );
@@ -162,6 +204,7 @@ Before you start, make sure that you have a CopilotKit app with a working agent,
         providers: [
           provideCopilotKit({
             runtimeUrl: "http://localhost:8200/api/copilotkit",
+            headers: { Authorization: "Bearer <APP_AUTH_TOKEN>" },
           }),
         ],
       };
@@ -178,7 +221,10 @@ Before you start, make sure that you have a CopilotKit app with a working agent,
       </script>
 
       <template>
-        <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
+        <CopilotKitProvider
+          runtime-url="http://localhost:8200/api/copilotkit"
+          :headers="{ Authorization: 'Bearer <APP_AUTH_TOKEN>' }"
+        >
           <YourApp />
         </CopilotKitProvider>
       </template>
@@ -200,19 +246,30 @@ Before you start, make sure that you have a CopilotKit app with a working agent,
 
       export default function App() {
         return (
-          <CopilotKitProvider runtimeUrl={runtimeUrl}>
+          <CopilotKitProvider
+            runtimeUrl={runtimeUrl}
+            headers={{ Authorization: "Bearer <APP_AUTH_TOKEN>" }}
+          >
             <AppContent />
           </CopilotKitProvider>
         );
       }
       ```
 
-      On a physical device, replace the host with your development machine's LAN IP address.
+      The native server examples bind to loopback for local development. For an Android emulator or a physical device that cannot reach that listener, also bind the runtime server to your development machine's LAN interface (or `0.0.0.0`). On a physical device, replace the frontend URL's host with the machine's LAN IP address. Keep authentication enabled and restrict access to your development network.
     </FrontendOnly>
   </Step>
 
   <Step>
     ### Confirm the connection
+
+    Start the runtime and check discovery at `{runtimeUrl}/info`. For the native examples:
+
+    ```bash
+    curl --fail http://localhost:8200/api/copilotkit/info
+    ```
+
+    The response should report `mode: "intelligence"` and your registered agent. Discovery alone does not prove persistence; create and inspect a thread next.
 
     <FrontendOnly frontend="react">
       Start your app and open it on localhost. Click the Inspector button (Kite icon) in the corner of the app.
@@ -257,7 +314,12 @@ A chat reply does not prove that the key is in use. An SSE runtime replies with 
 
 ## Self-hosted deployments
 
-`apiUrl` and `wsUrl` default to the cloud-hosted service. Set both, or set neither. The API and the realtime service use different hosts. The client cannot derive the websocket URL from the API URL. One URL alone leaves the other host on the cloud-hosted service.
+All runtimes default to cloud-hosted Intelligence. For self-hosting, replace the endpoint settings in your selected runtime's configuration. Keep the project key and authentication from the setup above. Use the public addresses that your runtime and browser can reach.
+
+<Tabs groupId="runtime_language" persist default="TypeScript" items={["TypeScript", "Python", "Go", "Ruby", "C#/.NET"]}>
+<Tab value="TypeScript">
+
+Set both `apiUrl` and `wsUrl` on `CopilotKitIntelligence`. Pass a bare WebSocket base; the client appends `/runner` and `/client`.
 
 ```ts
 const intelligence = new CopilotKitIntelligence({
@@ -267,7 +329,61 @@ const intelligence = new CopilotKitIntelligence({
 });
 ```
 
-Pass the bare websocket base. The client appends `/runner` and `/client`. It also prepends `/api` to every REST call. An `apiUrl` that already ends in `/api` produces `/api/api/threads`.
+</Tab>
+<Tab value="Python">
+
+Set all three URLs on `RuntimeConfig`. The runner and browser URLs include different suffixes:
+
+```python
+config = RuntimeConfig(
+    api_key=os.environ["CPK_INTELLIGENCE_API_KEY"],
+    api_url="https://api.intelligence.internal",
+    runner_url="wss://realtime.intelligence.internal/runner",
+    client_url="wss://realtime.intelligence.internal/client",
+    base_path="/api/copilotkit",
+    allowed_origins=("http://localhost:3000",),
+)
+```
+
+Pass `config` to `IntelligenceRuntime` in place of the cloud-hosted configuration.
+
+</Tab>
+<Tab value="Go">
+
+Add these fields to the existing `copilotkit.Config`:
+
+```go
+APIURL:    "https://api.intelligence.internal",
+RunnerURL: "wss://realtime.intelligence.internal/runner",
+ClientURL: "wss://realtime.intelligence.internal/client",
+```
+
+</Tab>
+<Tab value="Ruby">
+
+Add these keyword arguments to `CopilotKit::Runtime.new`:
+
+```ruby
+api_url: 'https://api.intelligence.internal',
+runner_url: 'wss://realtime.intelligence.internal/runner',
+client_url: 'wss://realtime.intelligence.internal/client',
+```
+
+</Tab>
+<Tab value="C#/.NET">
+
+Add these properties to the existing `RuntimeOptions`:
+
+```csharp
+ApiUrl = new Uri("https://api.intelligence.internal"),
+RunnerUrl = new Uri("wss://realtime.intelligence.internal/runner"),
+ClientUrl = new Uri("wss://realtime.intelligence.internal/client"),
+```
+
+</Tab>
+</Tabs>
+
+Do not append `/api` to the API host or `/websocket` to either WebSocket URL. The clients add those path segments. Setting only some endpoints can leave requests split between your deployment and cloud-hosted Intelligence.
 
 Install steps are on [Self-host on Kubernetes](/intelligence/self-hosting) and [Self-host on ECS](/intelligence/self-hosting-ecs).
 
@@ -275,18 +391,18 @@ Install steps are on [Self-host on Kubernetes](/intelligence/self-hosting) and [
 
 <Accordions>
   <Accordion title="Chat works, and the project has no thread">
-    `intelligence` was not passed to `CopilotRuntime`. The runtime is in SSE mode.
+    In TypeScript, check that `intelligence` was passed to `CopilotRuntime`; otherwise it stays in SSE mode. The other runtimes have no SSE-only fallback. Check their server diagnostics and Intelligence endpoint settings.
   </Accordion>
   <Accordion title="An auth error on the first request">
     `CPK_INTELLIGENCE_API_KEY` is empty, or it belongs to another project.
   </Accordion>
   <Accordion title="The socket stays on connecting, then reports that it did not settle in time">
-    `wsUrl` was set alone, or it points at the API host.
+    Check every endpoint in the self-hosted settings above. The realtime host differs from the API host. Native runtimes need separate `/runner` and `/client` URLs; TypeScript uses the bare `wsUrl`.
   </Accordion>
   <Accordion title="Request logs show /api/api/...">
     `apiUrl` included an `/api` suffix.
   </Accordion>
   <Accordion title="A type error or a throw that names runner">
-    `runner` and `intelligence` are both set. Intelligence wires its own runner.
+    This is a TypeScript configuration error: `runner` and `intelligence` are both set. Intelligence wires its own runner.
   </Accordion>
 </Accordions>
