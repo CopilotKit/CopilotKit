@@ -127,38 +127,121 @@ An unversioned `zod` install selects Zod 4, which does not satisfy this SDK rele
           <Step>
               ### Initialize your agent project
 
-              If you don't already have a Python project set up, create one using `uv`:
+              <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+                <Tab value="Python">
+                  If you don't already have a Python project set up, create one using `uv`:
 
-              ```bash
-              uv init my-agent
-              cd my-agent
-              ```
+                  ```bash
+                  uv init my-agent
+                  cd my-agent
+                  ```
+                </Tab>
+                <Tab value="TypeScript">
+                  If you don't already have a Node.js project set up, create one with `npm`:
+
+                  ```bash
+                  mkdir my-agent
+                  cd my-agent
+                  npm init -y
+                  ```
+                </Tab>
+              </Tabs>
           </Step>
           <Step>
               ### Install LangGraph
 
               Add the packages the agent code below imports:
 
-              ```bash
-              uv add langgraph langchain-openai langchain-core python-dotenv
-              ```
+              <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+                <Tab value="Python">
+                  ```bash
+                  uv add langgraph langchain-openai langchain-core python-dotenv
+                  ```
 
-              Both tabs below import all four. The **FastAPI** tab installs what
-              its own code needs on top of these — `ag-ui-langgraph`, `fastapi`,
-              `uvicorn` and `copilotkit` — in its own step; the LangSmith path
-              imports none of them, so they are not in this line.
+                  Both tabs in the next step import all four. The **FastAPI** tab installs what
+                  its own code needs on top of these — `ag-ui-langgraph`, `fastapi`,
+                  `uvicorn` and `copilotkit` — in its own step; the LangSmith path
+                  imports none of them, so they are not in this line.
 
-              <Callout type="warn" title="Project with pinned dependencies?">
-                `uv add` resolves and rewrites your lockfile. If your project
-                pins exact versions (`==`), add these to your dependency file by
-                hand instead so the rest of your pins stay put.
-              </Callout>
+                  <Callout type="warn" title="Project with pinned dependencies?">
+                    `uv add` resolves and rewrites your lockfile. If your project
+                    pins exact versions (`==`), add these to your dependency file by
+                    hand instead so the rest of your pins stay put.
+                  </Callout>
+                </Tab>
+                <Tab value="TypeScript">
+                  ```bash
+                  npm install @langchain/langgraph @langchain/core @langchain/openai
+                  ```
+
+                  The agent does not need `dotenv`. The LangGraph CLI loads the
+                  `.env` file that `langgraph.json` names in the next step.
+                </Tab>
+              </Tabs>
           </Step>
           <Step>
             ### Expose your agent via AG-UI
 
             If you already have a LangGraph agent written, just reference the following code. In this step
             we create a simple LangGraph agent for the sake of demonstration.
+
+            <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+              <Tab value="TypeScript">
+                A TypeScript agent runs on the LangGraph API server, with the
+                `@langchain/langgraph-cli` tool. This is the **LangSmith**
+                path. The **FastAPI** path is Python only.
+
+                Create the agent in `src/agent.ts`:
+
+                ```ts title="src/agent.ts" doctest="component"
+                import { SystemMessage } from "@langchain/core/messages";
+                import { ChatOpenAI } from "@langchain/openai";
+                import {
+                  END,
+                  MessagesAnnotation,
+                  START,
+                  StateGraph,
+                } from "@langchain/langgraph";
+
+                async function mockLlm(state: typeof MessagesAnnotation.State) {
+                  const model = new ChatOpenAI({ model: "gpt-4.1-mini" });
+                  const response = await model.invoke([
+                    new SystemMessage("You are a helpful assistant."),
+                    ...state.messages,
+                  ]);
+                  return { messages: response };
+                }
+
+                // [!code highlight:5]
+                export const graph = new StateGraph(MessagesAnnotation)
+                  .addNode("mock_llm", mockLlm)
+                  .addEdge(START, "mock_llm")
+                  .addEdge("mock_llm", END)
+                  .compile();
+                ```
+
+                Do not pass a `checkpointer` to `compile()`. The LangGraph API
+                server supplies persistence at run time.
+
+                Then add a `langgraph.json` in the agent directory:
+
+                ```json title="langgraph.json"
+                {
+                  "node_version": "20",
+                  "dependencies": ["."],
+                  "graphs": {
+                    "sample_agent": "./src/agent.ts:graph"
+                  },
+                  "env": ".env"
+                }
+                ```
+
+                The `graphs` entry is `<file>:<export>`. It must name the
+                exported `graph` constant, or the CLI fails with
+                "graph is nullish". The key `sample_agent` is the `graphId`
+                that the runtime route below connects to.
+              </Tab>
+              <Tab value="Python">
               <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
                 <Tab value="LangSmith">
                   First, we'll create a simple LangGraph agent:
@@ -303,6 +386,8 @@ An unversioned `zod` install selects Zod 4, which does not satisfy this SDK rele
                   you pick a different one.
                 </Tab>
               </Tabs>
+              </Tab>
+            </Tabs>
 
               <Callout type="info" title="What is AG-UI?">
                 AG-UI is an open protocol for frontend-agent communication.
@@ -359,6 +444,10 @@ An unversioned `zod` install selects Zod 4, which does not satisfy this SDK rele
                 endpoint. They negotiate this support before sending resource
                 requests. The example below uses that mode.
               </Callout>
+
+              If your agent is in TypeScript, use the **LangSmith** tab.
+              `LangGraphAgent` connects to the LangGraph API server that
+              `@langchain/langgraph-cli` starts.
 
               <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
                 <Tab value="LangSmith">
@@ -542,6 +631,17 @@ An unversioned `zod` install selects Zod 4, which does not satisfy this SDK rele
               ### Start your agent
               From your agent directory, start the agent server:
 
+              <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+                <Tab value="TypeScript">
+                  ```bash
+                  cd ..
+                  npx @langchain/langgraph-cli dev --port 8123 --no-browser
+                  ```
+
+                  `--port 8123` matches the `http://localhost:8123` fallback in
+                  the runtime route. A bare `langgraph dev` serves on **2024**.
+                </Tab>
+                <Tab value="Python">
               <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
                 <Tab value="LangSmith">
                   ```bash
@@ -568,6 +668,8 @@ An unversioned `zod` install selects Zod 4, which does not satisfy this SDK rele
 
                   This serves on **8123**, the port set in `main.py`'s
                   `uvicorn.run(...)` call.
+                </Tab>
+              </Tabs>
                 </Tab>
               </Tabs>
 
