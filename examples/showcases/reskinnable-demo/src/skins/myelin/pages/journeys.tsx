@@ -28,6 +28,7 @@ import {
   totalMinutes,
 } from "../data/derive";
 import { ITEM_KINDS } from "../data/types";
+import { RULE_OPTIONS } from "../data/audience-rules";
 import type {
   AudienceConflict,
   ItemKind,
@@ -484,23 +485,8 @@ interface AudienceCheck {
   unresolved: number;
 }
 
-/**
- * The options an admin can pick to clear an overlap. They live ONLY in this
- * browser component — never in a readable, a tool schema, a description or a
- * refusal — because the teach-a-skill beat depends on the agent not knowing
- * which one works until it has watched an admin do it.
- */
-const RULE_OPTIONS = [
-  {
-    rule: "stagger",
-    label: "Stagger: start after their current journey finishes",
-  },
-  { rule: "exclude", label: "Exclude overlapping learners from this journey" },
-  {
-    rule: "override-cap",
-    label: "Override the one-onboarding-at-a-time policy",
-  },
-] as const;
+// The overlap-resolution options (RULE_OPTIONS) live in ../data/audience-rules,
+// shared with the store and withheld from the agent — see that module.
 
 export function useAudienceCheck(
   journey: Journey | undefined,

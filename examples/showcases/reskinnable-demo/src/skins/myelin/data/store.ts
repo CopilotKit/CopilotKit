@@ -22,6 +22,7 @@ import {
   ONBOARDING_POLICY,
 } from "./seed";
 import { ITEM_KINDS } from "./types";
+import { resolveAudienceRule } from "./audience-rules";
 import type {
   Activity,
   AudienceConflict,
@@ -398,10 +399,10 @@ export function applyAudienceRule(
 ): Journey {
   const j = journey(journeyId);
   assertEditable(j);
-  const normalized = rule.trim().toLowerCase();
-  if (normalized === "exclude") throw new Error("RULE_EXCLUDE_BLOCKED");
-  if (normalized === "override-cap") throw new Error("RULE_CAP_LOCKED");
-  if (normalized !== "stagger") throw new Error("UNKNOWN_RULE");
+  const resolved = resolveAudienceRule(rule);
+  if (resolved === "exclude") throw new Error("RULE_EXCLUDE_BLOCKED");
+  if (resolved === "override-cap") throw new Error("RULE_CAP_LOCKED");
+  if (resolved !== "stagger") throw new Error("UNKNOWN_RULE");
   if (!j.audienceRules.some((r) => r.rule === "stagger")) {
     j.audienceRules = [
       ...j.audienceRules,

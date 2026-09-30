@@ -193,7 +193,8 @@ audience check.
 
 IF YOU FIND ONE:
 1. Follow it exactly, including the exact audience rule name it saved. Pass
-   that name to apply_audience_rule verbatim. Do not substitute a different rule
+   that NAME to apply_audience_rule verbatim: the short identifier (the word in
+   quotes after "rule named"), not a longer human-readable label. Do not substitute a different rule
    because it sounds more appropriate: the saved one is known to work, and the
    others are known not to.
 2. Run the whole thing without asking permission: apply the rule, then call
