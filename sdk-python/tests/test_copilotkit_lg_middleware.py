@@ -776,6 +776,70 @@ def test_wrap_model_call_uses_runtime_context_when_state_context_empty():
     assert "/dashboard" in body
 
 
+@pytest.mark.parametrize("async_call", [False, True])
+@pytest.mark.parametrize(
+    "runtime_context, explicit_context, expected_context",
+    [
+        ({"__event_streaming_v2": True, "thread_id": "platform-thread"}, None, None),
+        (
+            {
+                "__event_streaming_v2": True,
+                "thread_id": "platform-thread",
+                "route": "/dashboard",
+            },
+            None,
+            {"route": "/dashboard"},
+        ),
+        (
+            {"__event_streaming_v2": True, "thread_id": "platform-thread"},
+            {"thread_id": "application-thread", "route": "/account"},
+            {"thread_id": "application-thread", "route": "/account"},
+        ),
+        (
+            {"thread_id": "application-thread"},
+            None,
+            {"thread_id": "application-thread"},
+        ),
+    ],
+)
+def test_model_request_filters_platform_context(
+    async_call, runtime_context, explicit_context, expected_context
+):
+    """Platform copies configurable into runtime context before middleware runs."""
+    from copilotkit import CopilotKitMiddleware as PublicMiddleware
+
+    middleware = PublicMiddleware()
+    state = {"messages": [HumanMessage("hi")]}
+    if explicit_context is not None:
+        state["copilotkit"] = {"context": explicit_context}
+    request = _make_request(
+        state=state, system_message=SystemMessage(content="Original instructions")
+    )
+    request.runtime.context = runtime_context.copy()
+    captured = []
+
+    def handler(req):
+        captured.append(req)
+        return "ok"
+
+    async def async_handler(req):
+        return handler(req)
+
+    if async_call:
+        asyncio.run(middleware.awrap_model_call(request, async_handler))
+    else:
+        middleware.wrap_model_call(request, handler)
+
+    assert len(captured) == 1
+    body = _system_message_text(captured[0])
+    expected = "Original instructions"
+    if expected_context is not None:
+        expected += "\n\nApp Context:\n" + json.dumps(expected_context, indent=2)
+    assert body == expected
+    assert request.runtime.context == runtime_context
+    assert request.state == state
+
+
 def test_before_agent_strips_copilotkit_forwarded_headers_from_runtime_context():
     """``copilotkit_forwarded_headers`` is a transport-layer plumbing key that
     langgraph-api auto-copies from ``configurable`` into ``context``. It must

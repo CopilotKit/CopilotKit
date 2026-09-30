@@ -401,10 +401,16 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
 
         if not app_context:
             if isinstance(runtime_context, dict):
+                excluded_keys = {"copilotkit_forwarded_headers"}
+                # Platform's V3 endpoint copies configurable into context when
+                # no application context was supplied. These fields control
+                # transport/checkpointing and must not become model instructions.
+                # Only filter this fallback: explicit CopilotKit context and
+                # ordinary application dictionaries retain their own thread_id.
+                if runtime_context.get("__event_streaming_v2") is True:
+                    excluded_keys.update({"__event_streaming_v2", "thread_id"})
                 app_context = {
-                    k: v
-                    for k, v in runtime_context.items()
-                    if k != "copilotkit_forwarded_headers"
+                    k: v for k, v in runtime_context.items() if k not in excluded_keys
                 }
             else:
                 app_context = runtime_context
