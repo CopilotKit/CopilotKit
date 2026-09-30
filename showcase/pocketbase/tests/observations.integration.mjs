@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { createServer } from "node:http";
 import assert from "node:assert/strict";
+import { isDeepStrictEqual } from "node:util";
 const url = process.env.PB_TEST_URL ?? "http://127.0.0.1:43120";
 const mode = process.env.PB_TEST_MODE ?? "atomic";
 let token;
@@ -95,10 +96,12 @@ async function apply(body) {
     ? audit
     : { status: 200, data: { replay: false, outcome: body.outcome } };
 }
-const list = async (name) =>
+const list = async (name, observationKey = key) =>
   (
     await ok(
-      collection(name) + "?filter=" + encodeURIComponent(`key = "${key}"`),
+      collection(name) +
+        "?filter=" +
+        encodeURIComponent(`key = "${observationKey}"`),
     )
   ).items;
 if (mode === "missing-schema") {
@@ -153,9 +156,9 @@ const unauthenticated = await request(
 );
 assert.equal(unauthenticated.status, 401);
 assert.equal((await apply({ ...input, jobId: "missingjob00000" })).status, 404);
-const snapshot = async (jobId = job.id) => ({
-  status: await list("status"),
-  history: await list("status_history"),
+const snapshot = async (jobId = job.id, observationKey = key) => ({
+  status: await list("status", observationKey),
+  history: await list("status_history", observationKey),
   job: await ok(collection("probe_jobs") + "/" + jobId),
 });
 
@@ -186,6 +189,52 @@ for (const fault of ["status", "history", "receipt"]) {
     `PASS server-side ${fault} failure rolls back status/history/receipt`,
   );
 }
+// PB's JSON field accepts scalar values. A malformed receipt map must fail
+// before any status/history write, including values that JavaScript finds falsy.
+const malformedReceipts = [];
+for (const receipts of [false, 0, "", true, 1, "not-a-map", []]) {
+  const malformedKey = key + "-malformed-" + malformedReceipts.length;
+  const malformedJob = await ok(collection("probe_jobs"), "POST", {
+    probe_key: malformedKey,
+    status: "done",
+    result: { proof: "immutable" },
+    result_observation_receipts: receipts,
+  });
+  assert.deepEqual(malformedJob.result_observation_receipts, receipts);
+  const before = await snapshot(malformedJob.id, malformedKey);
+  const failure = await apply({
+    ...input,
+    jobId: malformedJob.id,
+    key: malformedKey,
+    status: { mode: "upsert", values: { ...values, key: malformedKey } },
+    history: { ...history, key: malformedKey },
+  });
+  malformedReceipts.push({
+    receipts,
+    status: failure.status,
+    code: failure.data.data?.code,
+    unchanged: isDeepStrictEqual(
+      await snapshot(malformedJob.id, malformedKey),
+      before,
+    ),
+  });
+}
+console.log(
+  JSON.stringify({ case: "malformed receipt maps", malformedReceipts }),
+);
+assert.deepEqual(
+  malformedReceipts,
+  [false, 0, "", true, 1, "not-a-map", []].map((receipts) => ({
+    receipts,
+    status: 500,
+    code: "persistence_failure",
+    unchanged: true,
+  })),
+);
+console.log(
+  "PASS malformed receipt maps reject without status/history/job effects",
+);
+assert.equal(job.result_observation_receipts, null);
 const success = await apply(input);
 assert.equal(success.status, 200, JSON.stringify(success));
 assert.deepEqual(success.data, { replay: false, outcome });

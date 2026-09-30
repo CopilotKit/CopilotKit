@@ -83,9 +83,10 @@ routerAdd(
           return;
         }
         const job = jobs[0];
-        const receipts =
-          JSON.parse(job.getString("result_observation_receipts") || "null") ||
-          {};
+        const storedReceipts = JSON.parse(
+          job.getString("result_observation_receipts") || "null",
+        );
+        const receipts = storedReceipts === null ? {} : storedReceipts;
         if (!object(receipts))
           throw new Error("Invalid stored observation receipts");
         if (own(receipts, data.key)) {
