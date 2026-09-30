@@ -246,6 +246,7 @@ export class RunHandler {
    * inspector and intermittent "Message not found" toasts.
    */
   private _lastConnectedThreadIdsByAgent = new Map<string, string | null>();
+  private _lastActiveThreadIdsByAgent = new Map<string, string | null>();
   private _anonymousAgentIds = new WeakMap<AbstractAgent, string>();
   private _nextAnonymousAgentId = 0;
 
@@ -509,7 +510,8 @@ export class RunHandler {
   async connectAgent({
     agent,
   }: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult> {
-    this._connectionGenerations.set(agent, {});
+    const connection = {};
+    this._connectionGenerations.set(agent, connection);
     const incomingThreadId = agent.threadId ?? null;
     const previousReplay = this._interactionAbortControllers.get(agent);
     if (previousReplay && previousReplay.threadId !== incomingThreadId) {
@@ -521,16 +523,26 @@ export class RunHandler {
     }
     try {
       const restoreKey = this.getConnectRestoreKey(agent);
+      const previousThreadId = this._lastActiveThreadIdsByAgent.get(restoreKey);
       const isFreshRestore =
         incomingThreadId !==
-        (this._lastConnectedThreadIdsByAgent.get(restoreKey) ?? null);
-      this._lastConnectedThreadIdsByAgent.set(restoreKey, incomingThreadId);
+        (previousThreadId ??
+          this._lastConnectedThreadIdsByAgent.get(restoreKey) ??
+          null);
 
       // Detach any active run before connecting to avoid previous runs
       // interfering. This stays unconditional — both fresh restores and
       // churn re-connects need the previous socket torn down before a new
       // one can open.
       await agent.detachActiveRun();
+      if (
+        this._connectionGenerations.get(agent) !== connection ||
+        (agent.threadId ?? null) !== incomingThreadId
+      ) {
+        return { result: undefined, newMessages: [] };
+      }
+      this._lastConnectedThreadIdsByAgent.set(restoreKey, incomingThreadId);
+      this._lastActiveThreadIdsByAgent.set(restoreKey, incomingThreadId);
 
       // State reset + replay-cursor clear are gated on actually moving
       // to a different thread. On same-thread churn, the local
@@ -540,6 +552,12 @@ export class RunHandler {
       if (isFreshRestore) {
         agent.setMessages([]);
         agent.setState({});
+        if (
+          previousThreadId !== undefined &&
+          previousThreadId !== incomingThreadId
+        ) {
+          agent.pendingInterrupts = [];
+        }
         const cursorAware = agent as {
           clearReconnectCursor?: (id: string) => void;
           clearReplayCursor?: (id: string) => void;
@@ -572,6 +590,12 @@ export class RunHandler {
           }),
         "Subscriber onAgentRunStarted error:",
       );
+      if (
+        this._connectionGenerations.get(agent) !== connection ||
+        (agent.threadId ?? null) !== incomingThreadId
+      ) {
+        return { result: undefined, newMessages: [] };
+      }
 
       const runAgentResult = await agent.connectAgent(
         {
@@ -585,7 +609,11 @@ export class RunHandler {
       // Connecting ends when history is restored, not when a human answers.
       // Keeping this promise open would block run-activity reconnects while
       // another client answers the same interaction.
-      if ((agent.threadId ?? null) !== incomingThreadId) return runAgentResult;
+      if (
+        this._connectionGenerations.get(agent) !== connection ||
+        (agent.threadId ?? null) !== incomingThreadId
+      )
+        return runAgentResult;
       const controller = new AbortController();
       const replay = this._interactionAbortControllers.get(agent) ?? {
         threadId: incomingThreadId,
@@ -686,6 +714,23 @@ export class RunHandler {
       }
     }
 
+    const resumedRunId = this._internal.stateManager.getContinuationRunId(
+      agent,
+      {
+        threadId: agent.threadId,
+        resume,
+        forwardedProps,
+      },
+    );
+    const logicalHandoff =
+      continuationHandoff ??
+      (resumedRunId
+        ? this._internal.stateManager.markNextRunAsContinuation(
+            agent,
+            resumedRunId,
+          )
+        : undefined);
+
     // Set up abort controller and agent.abortRun() intercept only for the
     // top-level call. Recursive follow-up calls from processAgentResult
     // reuse the same controller.
@@ -723,20 +768,24 @@ export class RunHandler {
     this._runDepth++;
 
     try {
-      let logicalRunId = runId;
+      let logicalRunId = resumedRunId ?? runId;
       const agentSubscriber = this.createAgentErrorSubscriber(agent);
       let started = false;
       const onRunStartedEvent = agentSubscriber.onRunStartedEvent;
       const onRunInitialized = agentSubscriber.onRunInitialized;
       agentSubscriber.onRunInitialized = async (params) => {
-        continuationHandoff?.bind(params.input);
+        this._lastActiveThreadIdsByAgent.set(
+          this.getConnectRestoreKey(agent),
+          params.input.threadId,
+        );
+        logicalHandoff?.bind(params.input);
         return onRunInitialized?.(params);
       };
       agentSubscriber.onRunStartedEvent = async (params) => {
         started = true;
         // A continuation keeps reporting under the run it continues; only an
         // ordinary run adopts the id the transport assigned it.
-        if (!continuationHandoff) {
+        if (!logicalHandoff) {
           logicalRunId = params.input.runId;
         }
         return onRunStartedEvent?.(params);
@@ -770,7 +819,7 @@ export class RunHandler {
         agentSubscriber,
       );
       if (!started) {
-        continuationHandoff?.cancel();
+        logicalHandoff?.cancel();
       }
       return await this.processAgentResult({
         runAgentResult,
@@ -778,7 +827,7 @@ export class RunHandler {
         runId: logicalRunId,
       });
     } catch (error) {
-      continuationHandoff?.cancel();
+      logicalHandoff?.cancel();
       const runError =
         error instanceof Error ? error : new Error(String(error));
       const context: Record<string, any> = {};

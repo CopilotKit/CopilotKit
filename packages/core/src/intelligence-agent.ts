@@ -1,3 +1,4 @@
+import type { ConnectionReplayLifecycle } from "./utils/connect-replay";
 import type {
   RunAgentInput,
   RunAgentParameters,
@@ -25,7 +26,9 @@ import {
   filter,
   finalize,
   ignoreElements,
+  map,
   mergeMap,
+  startWith,
   share,
   shareReplay,
   switchMap as switchMapOperator,
@@ -33,7 +36,10 @@ import {
   takeUntil,
   tap,
 } from "rxjs/operators";
-import { phoenixExponentialBackoff } from "@copilotkit/shared";
+import {
+  phoenixExponentialBackoff,
+  stripIntelligenceRoutingFields,
+} from "@copilotkit/shared";
 import { ɵconnectWithoutEventVerification } from "./utils/connect-replay";
 import {
   ɵphoenixChannel$,
@@ -69,6 +75,7 @@ const REPLAY_FAILED_EVENT = "replay_failed";
 const STREAM_IDLE_EVENT = "stream_idle";
 const STOP_RUN_EVENT = "stop_run";
 const CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS = 100;
+const CONNECT_IDLE_WARNING_MS = 30_000;
 // Credential refreshes allowed in a row for sockets that never opened. Past this,
 // the run fails instead of waiting on a realtime endpoint that is not answering.
 const MAX_UNOPENED_CREDENTIAL_REFRESHES = 2;
@@ -251,6 +258,7 @@ export class IntelligenceAgent extends AbstractAgent {
       this,
       effectiveParameters,
       subscriber,
+      (input, lifecycle) => this.connect(input, lifecycle),
     );
   }
 
@@ -328,7 +336,10 @@ export class IntelligenceAgent extends AbstractAgent {
    * gateway only streams events past it instead of replaying the
    * entire history every time the chat re-opens a socket.
    */
-  protected connect(input: RunAgentInput): Observable<BaseEvent> {
+  protected connect(
+    input: RunAgentInput,
+    lifecycle?: ConnectionReplayLifecycle,
+  ): Observable<BaseEvent> {
     this.threadId = input.threadId;
     this.canonicalRunId = null;
     const replayCursor = this.getReconnectCursor(input);
@@ -338,6 +349,8 @@ export class IntelligenceAgent extends AbstractAgent {
     ).pipe(
       switchMap((credentials) => {
         if (credentials === null) {
+          lifecycle?.onReplayStarted?.();
+          lifecycle?.onReplayFinished?.();
           return EMPTY;
         }
 
@@ -351,6 +364,7 @@ export class IntelligenceAgent extends AbstractAgent {
           completeOnRunError: false,
           streamMode: "connect",
           replayCursor,
+          lifecycle,
         });
       }),
     );
@@ -504,6 +518,7 @@ export class IntelligenceAgent extends AbstractAgent {
     options: {
       completeOnRunError: boolean;
       streamMode: "run" | "connect";
+      lifecycle?: ConnectionReplayLifecycle;
       channelMode?: "run" | "connect";
       replayCursor?: string | null;
       unopenedRefreshes?: number;
@@ -583,12 +598,14 @@ export class IntelligenceAgent extends AbstractAgent {
     options: {
       completeOnRunError: boolean;
       streamMode: "run" | "connect";
+      lifecycle?: ConnectionReplayLifecycle;
       channelMode?: "run" | "connect";
       replayCursor?: string | null;
       onSocketOpen?: () => void;
     },
   ): Observable<BaseEvent> {
     return defer(() => {
+      options.lifecycle?.onReplayStarted?.();
       // Capture references to the socket and channel created by THIS pipeline
       // so the finalize closure only tears down its own resources.  Without
       // this, a fire-and-forget detachActiveRun() from run-handler can race:
@@ -598,6 +615,33 @@ export class IntelligenceAgent extends AbstractAgent {
       // the stop signal from ever reaching the backend.
       let ownSocket: Socket | null = null;
       let ownChannel: Channel | null = null;
+
+      // Silence after replay may mean a long-running agent or an unavailable
+      // thread-lock lookup. Diagnose it without declaring an active run idle.
+      let replayFinished = false;
+      let warnedAboutIdle = false;
+      let idleWarning: ReturnType<typeof setTimeout> | undefined;
+      const clearIdleWarning = () => {
+        clearTimeout(idleWarning);
+        idleWarning = undefined;
+      };
+      const scheduleIdleWarning = () => {
+        clearIdleWarning();
+        if (
+          options.streamMode !== "connect" ||
+          !replayFinished ||
+          warnedAboutIdle
+        )
+          return;
+        idleWarning = setTimeout(() => {
+          warnedAboutIdle = true;
+          this.debugLogger?.lifecycle(
+            "INTELLIGENCE",
+            "No progress or stream_idle for 30 seconds after replay_complete; the run may still be active or its status unavailable.",
+            { threadId: input.threadId },
+          );
+        }, CONNECT_IDLE_WARNING_MS);
+      };
 
       const socket$ = ɵphoenixSocket$({
         url: credentials.realtime.clientUrl,
@@ -644,6 +688,7 @@ export class IntelligenceAgent extends AbstractAgent {
         tap((payload) => {
           latestObservedReplayCursor =
             this.readEventId(payload) ?? latestObservedReplayCursor;
+          scheduleIdleWarning();
         }),
         share(),
       );
@@ -659,37 +704,82 @@ export class IntelligenceAgent extends AbstractAgent {
           controlCursor.replayFailed = true;
         }),
       );
+      // Controls are scoped to each replay epoch, not cached across rejoin.
       const replayComplete$ = this.observeControlEvent$(
         input.threadId,
         channel$,
         REPLAY_COMPLETE_EVENT,
         controlCursor,
-      ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
+      ).pipe(
+        // Notify before idle completion can unsubscribe other observers.
+        tap(() => {
+          replayFinished = true;
+          scheduleIdleWarning();
+          options.lifecycle?.onReplayFinished?.();
+        }),
+        share(),
+      );
       const streamIdle$ = this.observeControlEvent$(
         input.threadId,
         channel$,
         STREAM_IDLE_EVENT,
         controlCursor,
-      ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
+      ).pipe(share());
+      const replayRestart$ = merge(
+        this.observeControlEvent$(
+          input.threadId,
+          channel$,
+          "phx_error",
+          controlCursor,
+        ),
+        ɵobservePhoenixSocketSignals$(socket$).pipe(
+          filter((signal) => signal.type === "error"),
+        ),
+      ).pipe(
+        tap(() => {
+          replayFinished = false;
+          warnedAboutIdle = false;
+          clearIdleWarning();
+          options.lifecycle?.onReplayStarted?.();
+        }),
+        share(),
+      );
       const streamIdleCompletion$ =
         options.streamMode === "connect"
-          ? merge(
-              combineLatest([
-                replayComplete$.pipe(take(1)),
-                streamIdle$.pipe(take(1)),
-              ]),
-              streamIdle$.pipe(
-                take(1),
-                filter((payload) =>
-                  this.canFallbackCompleteConnect(
-                    payload,
-                    reconnectCursor,
-                    latestObservedReplayCursor,
+          ? replayRestart$.pipe(
+              startWith(null),
+              switchMap(() =>
+                merge(
+                  combineLatest([
+                    replayComplete$.pipe(take(1)),
+                    streamIdle$.pipe(take(1)),
+                  ]),
+                  streamIdle$.pipe(
+                    take(1),
+                    filter((payload) =>
+                      this.canFallbackCompleteConnect(
+                        payload,
+                        reconnectCursor,
+                        latestObservedReplayCursor,
+                      ),
+                    ),
+                    delay(CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS),
+                    tap(() => {
+                      this.debugLogger?.lifecycle(
+                        "INTELLIGENCE",
+                        "Completing connection on stream_idle fallback without replay_complete.",
+                        {
+                          threadId: input.threadId,
+                          fallbackMs: CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS,
+                        },
+                      );
+                    }),
                   ),
                 ),
-                delay(CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS),
               ),
-            ).pipe(take(1))
+              take(1),
+              shareReplay({ bufferSize: 1, refCount: true }),
+            )
           : EMPTY;
       const threadCompleted$ = threadEvents$.pipe(
         ignoreElements(),
@@ -699,18 +789,24 @@ export class IntelligenceAgent extends AbstractAgent {
       const terminal$ = merge(threadCompleted$, streamIdleCompletion$);
 
       return merge(
+        // Install replay/idle observers before joining the channel.
+        replayFailed$.pipe(ignoreElements(), takeUntil(terminal$)),
+        replayComplete$.pipe(ignoreElements(), takeUntil(terminal$)),
         this.joinThreadChannel$(channel$),
         this.observeSocketHealth$(socket$, options.onSocketOpen).pipe(
           takeUntil(terminal$),
         ),
         threadEvents$.pipe(takeUntil(streamIdleCompletion$)),
-        replayFailed$.pipe(ignoreElements(), takeUntil(terminal$)),
-        replayComplete$.pipe(ignoreElements(), takeUntil(terminal$)),
         streamIdleCompletion$.pipe(
           ignoreElements(),
           takeUntil(threadCompleted$),
         ),
-      ).pipe(finalize(() => this.cleanupOwned(ownChannel, ownSocket)));
+      ).pipe(
+        finalize(() => {
+          clearIdleWarning();
+          this.cleanupOwned(ownChannel, ownSocket);
+        }),
+      );
     });
   }
 
@@ -746,6 +842,13 @@ export class IntelligenceAgent extends AbstractAgent {
       tap((payload) => {
         this.updateLastSeenEventId(threadId, payload);
       }),
+      // Only the run stream goes through AG-UI 1.0 enforcement, which would
+      // strip these fields with a warning each. Replays stay as sent.
+      map((payload) =>
+        options.streamMode === "run"
+          ? stripIntelligenceRoutingFields(payload)
+          : payload,
+      ),
       mergeMap(
         (payload) =>
           this.createThreadNotifications(payload, {

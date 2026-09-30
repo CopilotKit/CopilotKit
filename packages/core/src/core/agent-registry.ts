@@ -1,5 +1,6 @@
 import type { AbstractAgent } from "@ag-ui/client";
-import { HttpAgent } from "@ag-ui/client";
+import type { HttpAgent } from "@ag-ui/client";
+import { ɵisHttpAgent } from "../utils/http-agent";
 import type {
   RuntimeInfo,
   RuntimeMode,
@@ -615,7 +616,7 @@ export class AgentRegistry {
    * reported once.
    */
   applyHeadersToAgent(agent: AbstractAgent): void {
-    if (!(agent instanceof HttpAgent)) return;
+    if (!ɵisHttpAgent(agent)) return;
     const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
     this.applyHeaderRecordToAgent(agent, friends.headers);
   }
@@ -629,7 +630,7 @@ export class AgentRegistry {
   applyHeadersToAgents(agents: Record<string, AbstractAgent>): void {
     const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
     Object.values(agents).forEach((agent) => {
-      if (agent instanceof HttpAgent) {
+      if (ɵisHttpAgent(agent)) {
         this.applyHeaderRecordToAgent(agent, friends.headers);
       }
     });
@@ -650,7 +651,7 @@ export class AgentRegistry {
    * own headers are (re)applied.
    */
   prepareAgentHeadersForRun(agent: AbstractAgent): void | Promise<void> {
-    if (!(agent instanceof HttpAgent)) return;
+    if (!ɵisHttpAgent(agent)) return;
     if (agent instanceof ProxiedCopilotRuntimeAgent) {
       this.applyHeaderRecordToAgent(agent, {});
       return;

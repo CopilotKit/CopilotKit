@@ -35,6 +35,7 @@ describe("useAgent stability during runtime connection", () => {
     // need a no-op subscription object here; stability/ref-identity behavior
     // is orthogonal to subscribe internals.
     subscribeToAgentWithOptions: ReturnType<typeof vi.fn>;
+    applyHeadersToAgent: ReturnType<typeof vi.fn>;
   };
 
   let mockCopilotkit: MockCopilotkit;
@@ -60,6 +61,7 @@ describe("useAgent stability during runtime connection", () => {
         }
       },
       subscribeToAgentWithOptions: vi.fn(() => ({ unsubscribe: vi.fn() })),
+      applyHeadersToAgent: vi.fn(),
     });
     mockCopilotkit = copilotkitRef.value;
 

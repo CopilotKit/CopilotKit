@@ -1,4 +1,9 @@
-import type { AbstractAgent, Context, State } from "@ag-ui/client";
+import type {
+  AbstractAgent,
+  Context,
+  State,
+  RunAgentInput,
+} from "@ag-ui/client";
 import type { AgentSubscriber } from "@ag-ui/client";
 import { Throttler } from "@tanstack/pacer";
 import type {
@@ -273,6 +278,7 @@ const SUBSCRIBE_TO_AGENT_KEYS = [
   "onMessagesChanged",
   "onStateChanged",
   "onRunInitialized",
+  "onRunStartedEvent",
   "onRunFinalized",
   "onRunFailed",
   "onRunErrorEvent",
@@ -289,8 +295,8 @@ const ALLOWED_KEYS: ReadonlySet<(typeof SUBSCRIBE_TO_AGENT_KEYS)[number]> =
  * The subset of `AgentSubscriber` callbacks accepted by
  * {@link CopilotKitCore.subscribeToAgentWithOptions}. Only the callbacks
  * listed in {@link SUBSCRIBE_TO_AGENT_KEYS} are supported:
- * `onMessagesChanged`, `onStateChanged`, and the four run lifecycle
- * callbacks (`onRunInitialized`, `onRunFinalized`, `onRunFailed`,
+ * `onMessagesChanged`, `onStateChanged`, and the run lifecycle
+ * callbacks (`onRunInitialized`, `onRunStartedEvent`, `onRunFinalized`, `onRunFailed`,
  * `onRunErrorEvent`).
  *
  * Two categories of `AgentSubscriber` members are excluded:
@@ -305,16 +311,15 @@ const ALLOWED_KEYS: ReadonlySet<(typeof SUBSCRIBE_TO_AGENT_KEYS)[number]> =
  *   same data at a coarser granularity, and throttling per-item callbacks
  *   would have different semantic expectations.
  *
- * `onRunErrorEvent` is technically an AG-UI event handler (its return type
- * includes `stopPropagation`), but it is included here because all
- * framework consumers need it to reset `isRunning` on protocol-level
- * `RUN_ERROR` events — distinct from `onRunFailed` which handles local
- * exceptions like network errors. In practice, consumers return `void`
- * from this callback, so the `stopPropagation` semantics are unused.
+ * `onRunErrorEvent` and `onRunStartedEvent` are AG-UI event handlers whose
+ * return types include `stopPropagation`. They are included so framework
+ * consumers can reflect running-state changes while a connection stays open:
+ * a live error clears busy and a successor run marks it busy again. Consumers
+ * use these callbacks for notification and return `void`.
  *
  * Note: the included lifecycle callbacks return
  * `Omit<AgentStateMutation, "stopPropagation">` (or full
- * `AgentStateMutation` in the case of `onRunErrorEvent`). On the error
+ * `AgentStateMutation` for the included AG-UI event handlers). On the error
  * path, `safeCall` discards those return values (see its inline
  * documentation).
  *
@@ -408,6 +413,10 @@ export interface CopilotKitCoreFriendsAccess {
   waitForPendingFrameworkUpdates(): Promise<void>;
 
   readonly stateManager: {
+    getContinuationRunId(
+      agent: AbstractAgent,
+      input: Pick<RunAgentInput, "threadId" | "resume" | "forwardedProps">,
+    ): string | undefined;
     markNextRunAsContinuation(
       agent: AbstractAgent,
       expectedRunId?: string,
@@ -1314,6 +1323,11 @@ export class CopilotKitCore {
         guarded.onRunInitialized = (params) =>
           safeCall("onRunInitialized", fn, params);
       }
+      if (sub.onRunStartedEvent) {
+        const fn = sub.onRunStartedEvent;
+        guarded.onRunStartedEvent = (params) =>
+          safeCall("onRunStartedEvent", fn, params);
+      }
       if (sub.onRunFinalized) {
         const fn = sub.onRunFinalized;
         guarded.onRunFinalized = (params) =>
@@ -1395,6 +1409,8 @@ export class CopilotKitCore {
     const lifecycleOnly: SubscribeToAgentSubscriber = {};
     if (subscriber.onRunInitialized)
       lifecycleOnly.onRunInitialized = subscriber.onRunInitialized;
+    if (subscriber.onRunStartedEvent)
+      lifecycleOnly.onRunStartedEvent = subscriber.onRunStartedEvent;
     if (subscriber.onRunFinalized)
       lifecycleOnly.onRunFinalized = subscriber.onRunFinalized;
     if (subscriber.onRunFailed)

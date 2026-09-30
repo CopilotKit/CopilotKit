@@ -23,8 +23,8 @@ import { provideCopilotKit } from "../../../config";
 import {
   injectChatConfiguration,
   provideCopilotChatConfiguration,
-  type CopilotChatConfiguration,
 } from "../../../chat-configuration";
+import type { CopilotChatConfiguration } from "../../../chat-configuration";
 
 @Component({
   selector: "test-assistant-message",
@@ -186,8 +186,7 @@ function createConfiguredChatFixture({
 
   /** Returns true when the component's hasExplicitThreadId signal is true. */
   const isThreadExplicit = () =>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (fixture.componentInstance as any)["hasExplicitThreadId"]();
+    fixture.componentInstance["hasExplicitThreadId"]();
 
   /** Returns the threadId pinned onto the resolved agent. */
   const agentThreadId = () =>
@@ -200,8 +199,7 @@ function createConfiguredChatFixture({
  * Reads the component's loading cursor binding.
  */
 function readShowCursor(fixture: { componentInstance: CopilotChat }): boolean {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (fixture.componentInstance as any)["showCursor"]() as boolean;
+  return fixture.componentInstance["showCursor"]();
 }
 
 class StreamingAgent extends AbstractAgent {
@@ -584,6 +582,47 @@ describe("CopilotChat", () => {
   });
 
   describe("connection lifecycle", () => {
+    test("removing a standalone thread input resets its saved baseline without connecting the fresh thread", async () => {
+      const cursors = new Map<string, string>();
+      class CursorAgent extends StreamingAgent {
+        clearReplayCursor(threadId: string) {
+          cursors.delete(threadId);
+        }
+      }
+      const agent = new CursorAgent();
+      TestBed.configureTestingModule({
+        teardown: { destroyAfterEach: true },
+        imports: [CopilotChat],
+        providers: [
+          provideZonelessChangeDetection(),
+          provideCopilotKit({
+            licenseKey: "ck_pub_00000000000000000000000000000000",
+            agents: { default: agent },
+          }),
+        ],
+      });
+      const fixture = TestBed.createComponent(CopilotChat);
+      fixture.componentRef.setInput("threadId", "saved");
+      fixture.detectChanges();
+      await vi.waitFor(() => expect(agent.connects).toBe(1));
+      agent.setMessages([
+        { id: "saved-message", role: "user", content: "saved" },
+      ]);
+      agent.setState({ saved: true });
+      agent.pendingInterrupts = [{ id: "approval-A", reason: "confirmation" }];
+      cursors.set("saved", "old-event");
+      fixture.componentRef.setInput("threadId", undefined);
+      fixture.detectChanges();
+      await vi.waitFor(() => {
+        expect(agent.messages).toEqual([]);
+        expect(agent.state).toEqual({});
+        expect(agent.pendingInterrupts).toEqual([]);
+        expect(cursors.get("saved")).toBeUndefined();
+      });
+      expect(agent.threadId).not.toBe("saved");
+      expect(agent.connects).toBe(1);
+      fixture.destroy();
+    });
     describe("agent connections", () => {
       let agent: StreamingAgent;
       let context: ReturnType<typeof createChatFixture>;
