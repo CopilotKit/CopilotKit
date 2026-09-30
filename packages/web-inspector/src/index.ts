@@ -662,6 +662,12 @@ const DRAG_THRESHOLD = 6;
 const MIN_WINDOW_WIDTH = 880;
 const MIN_WINDOW_WIDTH_DOCKED_LEFT = 640;
 const MIN_WINDOW_HEIGHT = 480;
+/**
+ * A window minimum that gives way on screens smaller than it, so the window
+ * (and its close control) never runs past the viewport edge.
+ */
+const viewportCappedMin = (px: number, unit: "vw" | "vh"): string =>
+  `min(${px}px, calc(100${unit} - ${EDGE_MARGIN * 2}px))`;
 const INSPECTOR_STORAGE_KEY = "cpk:inspector:state";
 // The launcher keeps its current touch target on compact screens and grows to
 // an exactly 20% larger desktop cap. `box-sizing` makes these OUTER sizes.
@@ -14284,8 +14290,8 @@ export class WebInspectorElement extends LitElement {
         : {
             width: `${Math.round(windowState.size.width)}px`,
             height: `${Math.round(windowState.size.height)}px`,
-            minWidth: `${MIN_WINDOW_WIDTH}px`,
-            minHeight: `${MIN_WINDOW_HEIGHT}px`,
+            minWidth: viewportCappedMin(MIN_WINDOW_WIDTH, "vw"),
+            minHeight: viewportCappedMin(MIN_WINDOW_HEIGHT, "vh"),
             overflowX: "hidden",
           };
 
@@ -15827,7 +15833,7 @@ export class WebInspectorElement extends LitElement {
         bottom: "0",
         width: `${Math.round(this.contextState.window.size.width)}px`,
         height: "auto",
-        minWidth: `${MIN_WINDOW_WIDTH_DOCKED_LEFT}px`,
+        minWidth: viewportCappedMin(MIN_WINDOW_WIDTH_DOCKED_LEFT, "vw"),
         borderRadius: "0",
       };
     }
@@ -15835,8 +15841,8 @@ export class WebInspectorElement extends LitElement {
     return {
       width: `${Math.round(this.contextState.window.size.width)}px`,
       height: `${Math.round(this.contextState.window.size.height)}px`,
-      minWidth: `${MIN_WINDOW_WIDTH}px`,
-      minHeight: `${MIN_WINDOW_HEIGHT}px`,
+      minWidth: viewportCappedMin(MIN_WINDOW_WIDTH, "vw"),
+      minHeight: viewportCappedMin(MIN_WINDOW_HEIGHT, "vh"),
     };
   }
 
@@ -19042,7 +19048,7 @@ export class WebInspectorElement extends LitElement {
           <div
             style="display:${this.threadListCollapsed ? "none" : "flex"};width:${
               this.threadListWidth
-            }px;flex-shrink:0;overflow:hidden;flex-direction:column;border-right:1px solid #DBDBE5;"
+            }px;max-width:calc(100% - 160px);flex-shrink:0;overflow:hidden;flex-direction:column;border-right:1px solid #DBDBE5;"
           >
         ${
           ephemeral
