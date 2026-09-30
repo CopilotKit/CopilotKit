@@ -1,9 +1,15 @@
-import type { BaseEvent, RunErrorEvent } from "@ag-ui/client";
+import type { BaseEvent, RunErrorEvent, RunFinishedEvent } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
 
 export interface FinalizeRunOptions {
   stopRequested?: boolean;
   interruptionMessage?: string;
+  /**
+   * Ids for the synthetic RUN_FINISHED when no RUN_STARTED was observed.
+   * A RUN_STARTED that was observed takes precedence.
+   */
+  threadId?: string;
+  runId?: string;
 }
 
 export interface RunEventFinalizer {
@@ -32,11 +38,19 @@ export function createRunEventFinalizer(): RunEventFinalizer {
   const openMessageIds = new Set<string>();
   const openToolCalls = new Map<string, OpenToolCall>();
   let terminalEventObserved = false;
+  let threadId: string | undefined;
+  let runId: string | undefined;
 
   const observe = (event: BaseEvent) => {
     if (terminalEventObserved) return;
 
     switch (event.type) {
+      case EventType.RUN_STARTED: {
+        const started = event as { threadId?: string; runId?: string };
+        threadId = started.threadId;
+        runId = started.runId;
+        break;
+      }
       case EventType.TEXT_MESSAGE_START: {
         const messageId = (event as { messageId?: string }).messageId;
         if (messageId) openMessageIds.add(messageId);
@@ -127,7 +141,12 @@ export function createRunEventFinalizer(): RunEventFinalizer {
     }
 
     if (stopRequested) {
-      appended.push({ type: EventType.RUN_FINISHED } as BaseEvent);
+      const finishedEvent: RunFinishedEvent = {
+        type: EventType.RUN_FINISHED,
+        threadId: threadId ?? options.threadId ?? "",
+        runId: runId ?? options.runId ?? "",
+      };
+      appended.push(finishedEvent);
     } else {
       const errorEvent: RunErrorEvent = {
         type: EventType.RUN_ERROR,

@@ -327,6 +327,8 @@ export class SqliteAgentRunner extends AgentRunner {
         const connection = ACTIVE_CONNECTIONS.get(request.threadId);
         const appendedEvents = finalizeRunEvents(currentRunEvents, {
           stopRequested: connection?.stopRequested ?? false,
+          threadId: request.threadId,
+          runId: request.input.runId,
         });
         for (const event of appendedEvents) {
           runSubject.next(event);
@@ -361,6 +363,8 @@ export class SqliteAgentRunner extends AgentRunner {
         const connection = ACTIVE_CONNECTIONS.get(request.threadId);
         const appendedEvents = finalizeRunEvents(currentRunEvents, {
           stopRequested: connection?.stopRequested ?? false,
+          threadId: request.threadId,
+          runId: request.input.runId,
         });
         for (const event of appendedEvents) {
           runSubject.next(event);

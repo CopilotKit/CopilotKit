@@ -4,6 +4,7 @@ import type {
   ToolCallResultEvent,
 } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
+import { EventSchemas } from "@ag-ui/core";
 import { describe, expect, it } from "vitest";
 
 import { createRunEventFinalizer, finalizeRunEvents } from "./finalize-events";
@@ -119,6 +120,29 @@ describe("createRunEventFinalizer", () => {
 });
 
 describe("finalizeRunEvents", () => {
+  it("gives the synthetic RUN_FINISHED the threadId and runId of RUN_STARTED", () => {
+    const events = [
+      event({
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        runId: "run-1",
+      }),
+      event({ type: EventType.TEXT_MESSAGE_START, messageId: "message-1" }),
+    ];
+
+    finalizeRunEvents(events, { stopRequested: true });
+
+    const terminal = events[events.length - 1];
+    expect(terminal).toEqual({
+      type: EventType.RUN_FINISHED,
+      threadId: "thread-1",
+      runId: "run-1",
+    });
+    // The replayed stream must satisfy @ag-ui/core's schema, which requires
+    // both ids on RUN_FINISHED.
+    expect(() => EventSchemas.parse(terminal)).not.toThrow();
+  });
+
   it("appends the closers in place and keeps the interruption message", () => {
     const events = [
       event({ type: EventType.TOOL_CALL_START, toolCallId: "tool-1" }),
