@@ -79,6 +79,7 @@ const MemoizedAssistantMessage = React.memo(
     messages,
     isRunning,
     isLatest,
+    showCursor,
     AssistantMessageComponent,
     slotProps,
   }: {
@@ -86,6 +87,7 @@ const MemoizedAssistantMessage = React.memo(
     messages: Message[];
     isRunning: boolean;
     isLatest: boolean;
+    showCursor: boolean;
     AssistantMessageComponent: typeof CopilotChatAssistantMessage;
     slotProps?: Partial<
       React.ComponentProps<typeof CopilotChatAssistantMessage>
@@ -97,6 +99,7 @@ const MemoizedAssistantMessage = React.memo(
         messages={messages}
         isRunning={isRunning}
         isLatest={isLatest}
+        showCursor={showCursor}
         {...slotProps}
       />
     );
@@ -105,6 +108,7 @@ const MemoizedAssistantMessage = React.memo(
     // Only re-render if this specific message changed
     if (prevProps.message.id !== nextProps.message.id) return false;
     if (prevProps.message.content !== nextProps.message.content) return false;
+    if (prevProps.showCursor !== nextProps.showCursor) return false;
 
     // Compare tool calls if present
     const prevToolCalls = prevProps.message.toolCalls;
@@ -430,6 +434,14 @@ export type CopilotChatMessageViewProps = Omit<
        * (e.g. `useCallback`) or it reruns on every render.
        */
       transformMessages?: (messages: Message[]) => Message[];
+      /**
+       * While a reply streams, show the cursor at the end of its text, as if
+       * it were being typed. Defaults to `true`; set `false` to keep the
+       * cursor below the messages. A custom `cursor`, assistant message
+       * component, assistant `children` or `children` layout also keeps it
+       * below the messages.
+       */
+      inlineCursor?: boolean;
     } & React.HTMLAttributes<HTMLDivElement>
   >,
   "children"
@@ -456,6 +468,7 @@ export function CopilotChatMessageView({
   intelligenceIndicator,
   isRunning = false,
   transformMessages,
+  inlineCursor = true,
   children,
   className,
   ...props
@@ -831,6 +844,25 @@ export function CopilotChatMessageView({
   // ---------------------------------------------------------------------------
   // Per-message rendering helper (shared by flat and virtual paths)
   // ---------------------------------------------------------------------------
+  // A streaming reply with text carries the cursor at the end of that text;
+  // otherwise (waiting for the reply, running a tool) it sits below the list.
+  // Only the default cursor and assistant message draw the inline cursor, so a
+  // custom `cursor`, assistant message or list layout keeps it below the list.
+  const lastMessage = renderedMessages[renderedMessages.length - 1];
+  const canInlineCursor =
+    inlineCursor &&
+    cursor === undefined &&
+    !children &&
+    AssistantComponent === CopilotChatAssistantMessage &&
+    !assistantSlotProps?.children;
+  const cursorMessageId =
+    canInlineCursor &&
+    isRunning &&
+    lastMessage?.role === "assistant" &&
+    lastMessage.content
+      ? lastMessage.id
+      : undefined;
+
   const renderMessageBlock = (message: Message): React.ReactElement[] => {
     const elements: (React.ReactElement | null | undefined)[] = [];
     // Only custom message renderers consume the snapshot, and resolving it
@@ -864,6 +896,7 @@ export function CopilotChatMessageView({
           messages={messages}
           isRunning={isRunning}
           isLatest={message.id === latestRenderedId}
+          showCursor={message.id === cursorMessageId}
           AssistantMessageComponent={AssistantComponent}
           slotProps={assistantSlotPropsWithFeedback}
         />,
@@ -951,8 +984,9 @@ export function CopilotChatMessageView({
   // Hide the chat-level loading cursor when the last rendered message is a
   // reasoning message — the reasoning card already shows its own loading
   // indicator. A reasoning message the transform hid shows no indicator.
-  const lastMessage = renderedMessages[renderedMessages.length - 1];
-  const showCursor = isRunning && lastMessage?.role !== "reasoning";
+  // A reply streaming text carries the cursor inline instead.
+  const showCursor =
+    isRunning && lastMessage?.role !== "reasoning" && !cursorMessageId;
 
   // ---------------------------------------------------------------------------
   // Render — shared wrapper, conditional inner content (virtual vs flat)

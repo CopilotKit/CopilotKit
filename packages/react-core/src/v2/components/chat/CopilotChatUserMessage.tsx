@@ -22,6 +22,29 @@ import type {
   DocumentInputPart,
 } from "@copilotkit/shared";
 import { CopilotChatAttachmentRenderer } from "./CopilotChatAttachmentRenderer";
+import { Streamdown, defaultRemarkPlugins } from "streamdown";
+import { prepareUserMarkdown, remarkHtmlAsText } from "./user-markdown";
+
+// Headings that slip past prepareUserMarkdown (e.g. setext underlines) render
+// as plain paragraphs: a user message never grows article-sized headings.
+const PlainParagraph = ({ children }: { children?: React.ReactNode }) => (
+  <p>{children}</p>
+);
+
+const userMarkdownComponents = {
+  h1: PlainParagraph,
+  h2: PlainParagraph,
+  h3: PlainParagraph,
+  h4: PlainParagraph,
+  h5: PlainParagraph,
+  h6: PlainParagraph,
+};
+
+// Pasted HTML shows as the text the user typed.
+const remarkPlugins = [
+  ...Object.values(defaultRemarkPlugins),
+  remarkHtmlAsText,
+];
 
 function flattenUserMessageContent(content?: UserMessage["content"]): string {
   if (!content) {
@@ -106,6 +129,11 @@ export type CopilotChatUserMessageProps = WithSlots<
     branchIndex?: number;
     numberOfBranches?: number;
     additionalToolbarItems?: React.ReactNode;
+    /**
+     * Render the message as markdown (code blocks, lists, links; headings stay
+     * literal). Defaults to `true`; set `false` for the plain text as typed.
+     */
+    markdown?: boolean;
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
@@ -116,6 +144,7 @@ export function CopilotChatUserMessage({
   numberOfBranches,
   onSwitchToBranch,
   additionalToolbarItems,
+  markdown = true,
   messageRenderer,
   toolbar,
   copyButton,
@@ -140,6 +169,7 @@ export function CopilotChatUserMessage({
     CopilotChatUserMessage.MessageRenderer,
     {
       content: flattenedContent,
+      markdown,
     },
   );
 
@@ -180,7 +210,7 @@ export function CopilotChatUserMessage({
 
   const BoundToolbar = renderSlot(toolbar, CopilotChatUserMessage.Toolbar, {
     children: (
-      <div className="cpk:flex cpk:items-center cpk:gap-1 cpk:justify-end">
+      <div className="cpk:flex cpk:items-center cpk:gap-0.5 cpk:justify-end">
         {additionalToolbarItems}
         {BoundCopyButton}
         {onEditMessage && BoundEditButton}
@@ -212,7 +242,7 @@ export function CopilotChatUserMessage({
       data-copilotkit
       data-testid="copilot-user-message"
       className={twMerge(
-        "copilotKitMessage copilotKitUserMessage cpk:flex cpk:flex-col cpk:items-end cpk:group cpk:pt-10",
+        "copilotKitMessage copilotKitUserMessage cpk:flex cpk:flex-col cpk:items-end cpk:group cpk:pt-8",
         className,
       )}
       data-message-id={message.id}
@@ -254,15 +284,33 @@ export namespace CopilotChatUserMessage {
 
   export const MessageRenderer: React.FC<{
     content: string;
+    /** Render as markdown (default) or as the plain text as typed. */
+    markdown?: boolean;
     className?: string;
-  }> = ({ content, className }) => (
+  }> = ({ content, markdown = true, className }) => (
     <div
       className={twMerge(
-        "cpk:prose cpk:dark:prose-invert cpk:bg-muted cpk:relative cpk:max-w-[80%] cpk:rounded-[18px] cpk:px-4 cpk:py-1.5 cpk:data-[multiline]:py-3 cpk:inline-block cpk:whitespace-pre-wrap",
+        "cpk:prose cpk:dark:prose-invert cpk:bg-muted cpk:text-foreground cpk:relative cpk:max-w-[80%] cpk:min-w-0 cpk:rounded-2xl cpk:px-4 cpk:py-2 cpk:inline-block cpk:break-words",
+        !markdown && "cpk:whitespace-pre-wrap",
         className,
       )}
     >
-      {content}
+      {markdown ? (
+        // User text arrives complete, so render it statically. The key
+        // remounts on edits: streamdown's elements memoize on source position,
+        // so a same-length change would otherwise keep the old text.
+        <Streamdown
+          key={content}
+          mode="static"
+          parseIncompleteMarkdown={false}
+          remarkPlugins={remarkPlugins}
+          components={userMarkdownComponents}
+        >
+          {prepareUserMarkdown(content)}
+        </Streamdown>
+      ) : (
+        content
+      )}
     </div>
   );
 
@@ -273,7 +321,7 @@ export namespace CopilotChatUserMessage {
     <div
       data-testid="copilot-user-toolbar"
       className={twMerge(
-        "cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:-mr-[5px] cpk:mt-[4px] cpk:invisible cpk:group-hover:visible",
+        "cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:-mr-1 cpk:mt-1 cpk:opacity-0 cpk:transition-opacity cpk:duration-150 cpk:group-hover:opacity-100 cpk:focus-within:opacity-100",
         className,
       )}
       {...props}
@@ -336,9 +384,9 @@ export namespace CopilotChatUserMessage {
         {...props}
       >
         {copied ? (
-          <Check className="cpk:size-[18px]" />
+          <Check className="cpk:size-4" />
         ) : (
-          <Copy className="cpk:size-[18px]" />
+          <Copy className="cpk:size-4" />
         )}
       </ToolbarButton>
     );
@@ -356,7 +404,7 @@ export namespace CopilotChatUserMessage {
         className={className}
         {...props}
       >
-        <Edit className="cpk:size-[18px]" />
+        <Edit className="cpk:size-4" />
       </ToolbarButton>
     );
   };
@@ -388,7 +436,7 @@ export namespace CopilotChatUserMessage {
     return (
       <div
         data-testid="copilot-branch-navigation"
-        className={twMerge("cpk:flex cpk:items-center cpk:gap-1", className)}
+        className={twMerge("cpk:flex cpk:items-center cpk:gap-0.5", className)}
         {...props}
       >
         <Button
@@ -402,11 +450,11 @@ export namespace CopilotChatUserMessage {
             })
           }
           disabled={!canGoPrev}
-          className="cpk:h-6 cpk:w-6 cpk:p-0"
+          className="cpk:size-6 cpk:p-0"
         >
-          <ChevronLeft className="cpk:size-[20px]" />
+          <ChevronLeft className="cpk:size-4" />
         </Button>
-        <span className="cpk:text-sm cpk:text-muted-foreground cpk:px-0 cpk:font-medium">
+        <span className="cpk:min-w-7 cpk:text-center cpk:text-xs cpk:tabular-nums cpk:text-muted-foreground cpk:font-medium">
           {currentBranch + 1}/{numberOfBranches}
         </span>
         <Button
@@ -420,9 +468,9 @@ export namespace CopilotChatUserMessage {
             })
           }
           disabled={!canGoNext}
-          className="cpk:h-6 cpk:w-6 cpk:p-0"
+          className="cpk:size-6 cpk:p-0"
         >
-          <ChevronRight className="cpk:size-[20px]" />
+          <ChevronRight className="cpk:size-4" />
         </Button>
       </div>
     );
