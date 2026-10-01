@@ -29,10 +29,12 @@ NX_DAEMON=false NX_TUI=false pnpm exec nx exec \
 ```
 
 Docker uses the current context. Set `PB_TEST_DOCKER_CONTEXT` to choose another;
-use that same context for both builds. For an intentionally failing baseline
-run, set `PB_TEST_MODE=legacy`: a complete result over 64 KiB returns HTTP 400
-where the persistence assertion expects HTTP 200. No candidate image is needed
-for this RED run.
+use that same context for both builds. Supported contexts target a local engine
+sharing the caller's filesystem and loopback. Remote engines are unsupported
+because the tests use local ports and host temporary directory mounts. For an
+intentionally failing baseline run, set `PB_TEST_MODE=legacy`: a complete result
+over 64 KiB returns HTTP 400 where the persistence assertion expects HTTP 200.
+No candidate image is needed for this RED run.
 
 The ordinary suite verifies baseline rejection, then upgrades the **same
 volume, row, and complete payload**. It checks preserved legacy row data and
