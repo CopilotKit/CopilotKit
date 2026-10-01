@@ -170,7 +170,7 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
 
     Point your frontend provider at the runtime base path. Use `/api/copilotkit` if your frontend proxies that path to the runtime. For a separate local server, use `http://localhost:8200/api/copilotkit` and allow your frontend's exact origin in the runtime's CORS configuration.
 
-    Keep your existing application authentication headers or session. The native examples use a local application token: send `Authorization: Bearer <APP_AUTH_TOKEN>` with runtime requests. This is a development token you set yourself, **not** `CPK_INTELLIGENCE_API_KEY`. In the examples below, replace `<APP_AUTH_TOKEN>` with the same local token you configured on the server. For your existing TypeScript app, keep its real authentication headers or session instead. Replace the local scheme with your application's authentication before deployment.
+    Keep your existing application authentication headers or session. The examples below connect to a TypeScript runtime. For a Python, Go, Ruby, or C#/.NET runtime from the tabs above, use `http://localhost:8200/api/copilotkit` and uncomment the `headers` line. Those native examples use a local application token: `Authorization: Bearer <APP_AUTH_TOKEN>`. This is a development token you set yourself, **not** `CPK_INTELLIGENCE_API_KEY`. Replace `<APP_AUTH_TOKEN>` with the same local token you configured on the server, and replace the local scheme with your application's authentication before deployment.
 
     <FrontendOnly frontend="react">
       Set `useSingleEndpoint={false}` for the multi-route servers above. If you kept an existing TypeScript single-route server, keep `useSingleEndpoint={true}` instead.
@@ -178,13 +178,13 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
       ```tsx title="Your CopilotKit provider"
       import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 
-      // For a same-origin TypeScript handler, use runtimeUrl="/api/copilotkit".
       export function App() {
         return (
           <CopilotKitProvider
-            runtimeUrl="http://localhost:8200/api/copilotkit"
+            runtimeUrl="/api/copilotkit"
             useSingleEndpoint={false}
-            headers={{ Authorization: "Bearer <APP_AUTH_TOKEN>" }}
+            // Native runtime: runtimeUrl="http://localhost:8200/api/copilotkit" and
+            // headers={{ Authorization: "Bearer <APP_AUTH_TOKEN>" }}
           >
             <YourApp />
           </CopilotKitProvider>
@@ -204,7 +204,7 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
         providers: [
           provideCopilotKit({
             runtimeUrl: "http://localhost:8200/api/copilotkit",
-            headers: { Authorization: "Bearer <APP_AUTH_TOKEN>" },
+            // Native runtime: headers: { Authorization: "Bearer <APP_AUTH_TOKEN>" },
           }),
         ],
       };
@@ -221,10 +221,8 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
       </script>
 
       <template>
-        <CopilotKitProvider
-          runtime-url="http://localhost:8200/api/copilotkit"
-          :headers="{ Authorization: 'Bearer <APP_AUTH_TOKEN>' }"
-        >
+        <!-- Native runtime: add :headers="{ Authorization: 'Bearer <APP_AUTH_TOKEN>' }" -->
+        <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
           <YourApp />
         </CopilotKitProvider>
       </template>
@@ -248,7 +246,7 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
         return (
           <CopilotKitProvider
             runtimeUrl={runtimeUrl}
-            headers={{ Authorization: "Bearer <APP_AUTH_TOKEN>" }}
+            // Native runtime: headers={{ Authorization: "Bearer <APP_AUTH_TOKEN>" }}
           >
             <AppContent />
           </CopilotKitProvider>
@@ -263,11 +261,13 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
   <Step>
     ### Confirm the connection
 
-    Start the runtime and check discovery at `{runtimeUrl}/info`. For the native examples:
+    Start the runtime and check discovery at `{runtimeUrl}/info`. For a Next.js TypeScript handler on port 3000:
 
     ```bash
-    curl --fail http://localhost:8200/api/copilotkit/info
+    curl --fail http://localhost:3000/api/copilotkit/info
     ```
+
+    For the native examples, use `http://localhost:8200/api/copilotkit/info`.
 
     The response should report `mode: "intelligence"` and your registered agent. Discovery alone does not prove persistence; create and inspect a thread next.
 

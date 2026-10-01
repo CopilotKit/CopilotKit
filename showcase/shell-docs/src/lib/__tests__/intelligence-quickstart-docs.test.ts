@@ -103,3 +103,42 @@ test("expands all runtime setup snippets for coding agents", () => {
   expect(output).toContain("Authorization");
   expect(output).not.toMatch(/<(Python|Go|Ruby|Dotnet)Runtime\s*\/>/);
 });
+
+// The quickstart, the runtime endpoints page, and the CLI onboarding prompt
+// must show the same multi-route mount (PE-476).
+test("mounts the TypeScript runtime as the multi-route subtree", () => {
+  const source = loadRequiredDoc("intelligence/quickstart").source;
+
+  expect(source).toContain("app/api/copilotkit/[[...slug]]/route.ts");
+  for (const verb of ["GET", "POST", "PATCH", "DELETE"]) {
+    expect(source).toContain(`export const ${verb} = handler;`);
+  }
+  expect(source).toContain("useSingleEndpoint={false}");
+});
+
+// TypeScript is the default runtime tab, so the shared frontend examples must
+// work as copied against a TypeScript runtime. The native runtimes' local token
+// stays a commented opt-in.
+test("frontend examples default to a TypeScript runtime", () => {
+  const source = loadRequiredDoc("intelligence/quickstart").source;
+  const step = source.slice(
+    source.indexOf("### Connect your frontend"),
+    source.indexOf("### Confirm the connection"),
+  );
+  const reactBlock = step.slice(
+    step.indexOf('<FrontendOnly frontend="react">'),
+    step.indexOf('<FrontendOnly frontend="angular">'),
+  );
+
+  expect(reactBlock).toMatch(/^\s*runtimeUrl="\/api\/copilotkit"$/m);
+  for (const line of step.split("\n")) {
+    if (
+      line.includes("Bearer <APP_AUTH_TOKEN>") &&
+      /^\s*(headers|:headers)\b/.test(line)
+    ) {
+      throw new Error(
+        `uncommented native-runtime token in a frontend example: ${line.trim()}`,
+      );
+    }
+  }
+});
