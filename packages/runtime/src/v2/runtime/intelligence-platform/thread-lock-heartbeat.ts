@@ -17,11 +17,17 @@ export interface ThreadLockHeartbeatOptions {
   /** Delay between successful renewals. */
   intervalMs: number;
   /**
-   * Lock lifetime assumed when the platform has not reported one: from
-   * acquisition until the first successful renewal, and for responses that
-   * omit `ttlSeconds`.
+   * Lock lifetime assumed when the platform has not reported one: until the
+   * first successful renewal when {@link initialTtlSeconds} is absent, and
+   * for renewal responses that omit `ttlSeconds`.
    */
   fallbackTtlSeconds: number;
+  /**
+   * Remaining lock lifetime when the heartbeat starts, as reported by the
+   * platform at acquisition. Used until the first successful renewal; when
+   * absent or not positive, {@link fallbackTtlSeconds} applies instead.
+   */
+  initialTtlSeconds?: number;
   /**
    * Called once when the lock can no longer be kept: a non-retryable failure,
    * or retryable failures that ran out the lock's remaining lifetime. Never
@@ -64,7 +70,8 @@ export function isRetryableLockRenewalError(error: unknown): boolean {
  * Renews every `intervalMs`, with at most one renewal in flight. A failed
  * renewal is retried with exponential backoff while the lock is still valid:
  * the deadline is the last successful renewal plus the `ttlSeconds` it
- * returned (initially acquisition plus `fallbackTtlSeconds`). A non-retryable
+ * returned (initially start plus `initialTtlSeconds`, or `fallbackTtlSeconds`
+ * when the platform reported no lifetime at acquisition). A non-retryable
  * failure, or running out of time before the deadline, calls `onLost`.
  * A `"completed"` response means the run already ended on the platform, so
  * the heartbeat stops without calling `onLost`.
@@ -75,7 +82,12 @@ export function startThreadLockHeartbeat(
   const { renew, intervalMs, fallbackTtlSeconds, onLost } = options;
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let deadline = Date.now() + fallbackTtlSeconds * 1_000;
+  const initialTtlSeconds =
+    typeof options.initialTtlSeconds === "number" &&
+    options.initialTtlSeconds > 0
+      ? options.initialTtlSeconds
+      : fallbackTtlSeconds;
+  let deadline = Date.now() + initialTtlSeconds * 1_000;
   let failedAttempts = 0;
 
   const schedule = (delayMs: number): void => {

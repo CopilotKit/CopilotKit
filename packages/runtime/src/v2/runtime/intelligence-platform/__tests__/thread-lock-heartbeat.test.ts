@@ -246,6 +246,70 @@ describe("startThreadLockHeartbeat", () => {
     expect(renew).toHaveBeenCalledTimes(4);
     expect(onLost).toHaveBeenCalledTimes(1);
   });
+
+  it("keeps retrying a failed first renewal within the lifetime set at acquisition", async () => {
+    const renew = vi
+      .fn<() => Promise<RenewThreadLockResponse>>()
+      .mockRejectedValueOnce(serverError())
+      .mockRejectedValueOnce(serverError())
+      .mockRejectedValueOnce(serverError())
+      .mockRejectedValueOnce(serverError())
+      .mockRejectedValueOnce(serverError())
+      .mockRejectedValueOnce(serverError())
+      .mockResolvedValue(renewed);
+    const onLost = vi.fn();
+    const heartbeat = startThreadLockHeartbeat({
+      renew,
+      intervalMs: 15_000,
+      fallbackTtlSeconds: 20,
+      initialTtlSeconds: 120,
+      onLost,
+    });
+
+    // Failures at t=15, 16, 18, 22, 30 and 38s run well past the 20s
+    // fallback; the platform set 120s, so the heartbeat keeps going.
+    await vi.advanceTimersByTimeAsync(38_000);
+    expect(renew).toHaveBeenCalledTimes(6);
+    expect(onLost).not.toHaveBeenCalled();
+
+    // The retry at t=46s succeeds, then the regular cadence resumes.
+    await vi.advanceTimersByTimeAsync(8_000);
+    expect(renew).toHaveBeenCalledTimes(7);
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(renew).toHaveBeenCalledTimes(8);
+    expect(onLost).not.toHaveBeenCalled();
+
+    heartbeat.stop();
+  });
+
+  it.each([
+    ["absent", undefined],
+    ["not positive", 0],
+  ])(
+    "uses the fallback TTL for the first renewal when the initial lifetime is %s",
+    async (_label, initialTtlSeconds) => {
+      const renew = vi
+        .fn<() => Promise<RenewThreadLockResponse>>()
+        .mockRejectedValue(serverError());
+      const onLost = vi.fn();
+      startThreadLockHeartbeat({
+        renew,
+        intervalMs: 15_000,
+        fallbackTtlSeconds: 20,
+        initialTtlSeconds,
+        onLost,
+      });
+
+      // Deadline t=20s. Failures at t=15, 16 and 18s; the 4s backoff would
+      // pass t=19s, so the lock is declared lost at t=18s.
+      await vi.advanceTimersByTimeAsync(17_999);
+      expect(onLost).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+
+      expect(renew).toHaveBeenCalledTimes(3);
+      expect(onLost).toHaveBeenCalledTimes(1);
+    },
+  );
 });
 
 describe("isRetryableLockRenewalError", () => {

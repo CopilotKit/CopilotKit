@@ -748,6 +748,8 @@ async function runCanonicalChannelAgent(
       }),
     intervalMs: lockHeartbeatIntervalSeconds * 1_000,
     fallbackTtlSeconds: lockTtlSeconds,
+    initialTtlSeconds: lock.ttlSeconds,
+
     unref: true,
     onLost: (error) => {
       heartbeatError = error;

@@ -2,7 +2,7 @@ import type { BaseEvent, RunAgentInput, RunAgentResult } from "@ag-ui/client";
 import { AbstractAgent } from "@ag-ui/client";
 import type { Subscriber } from "rxjs";
 import { EMPTY, Observable } from "rxjs";
-import { expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import { CopilotIntelligenceRuntime } from "../core/runtime";
 import { handleIntelligenceRun } from "../handlers/intelligence/run";
@@ -168,7 +168,7 @@ test("does not abort a completed run when an in-flight lock renewal fails", asyn
 class ScriptedRenewalIntelligence extends CopilotKitIntelligence {
   readonly renew = vi.fn<() => Promise<RenewThreadLockResponse>>();
 
-  constructor() {
+  constructor(private readonly acquiredTtlSeconds?: number) {
     super({
       apiKey: "test-api-key",
       apiUrl: "https://intelligence.example",
@@ -192,6 +192,9 @@ class ScriptedRenewalIntelligence extends CopilotKitIntelligence {
       threadId: "thread-1",
       runId: "run-1",
       joinToken: "join-token-1",
+      ...(this.acquiredTtlSeconds === undefined
+        ? {}
+        : { ttlSeconds: this.acquiredTtlSeconds }),
     };
   }
 
@@ -269,4 +272,58 @@ test("aborts the run as soon as the platform reports the lock lost", async () =>
   } finally {
     vi.useRealTimers();
   }
+});
+
+describe("when the first renewal fails repeatedly", () => {
+  // Interval 1s, lockTtlSeconds 20s. Failures at t=1, 2, 4, 8 and 16s; the
+  // next 8s backoff would pass the 20s fallback deadline.
+  const failFirstRenewals = (intelligence: ScriptedRenewalIntelligence) => {
+    for (let i = 0; i < 5; i++) {
+      intelligence.renew.mockRejectedValueOnce(
+        new PlatformRequestError("Intelligence platform error 500", 500, true),
+      );
+    }
+    intelligence.renew.mockResolvedValue({
+      ttlSeconds: 120,
+      status: "renewed",
+    });
+  };
+
+  test("keeps the run alive within the lifetime the platform set at acquisition", async () => {
+    vi.useFakeTimers();
+    const intelligence = new ScriptedRenewalIntelligence(120);
+    failFirstRenewals(intelligence);
+
+    try {
+      const { agent, runner } = await startRun(intelligence);
+      await vi.advanceTimersByTimeAsync(16_000);
+      expect(intelligence.renew).toHaveBeenCalledTimes(5);
+      expect(agent.abortRun).not.toHaveBeenCalled();
+
+      // The retry at t=24s succeeds.
+      await vi.advanceTimersByTimeAsync(8_000);
+      expect(intelligence.renew).toHaveBeenCalledTimes(6);
+      expect(agent.abortRun).not.toHaveBeenCalled();
+      runner.complete();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("aborts within the lockTtlSeconds fallback when the platform reports no lifetime", async () => {
+    vi.useFakeTimers();
+    const intelligence = new ScriptedRenewalIntelligence();
+    failFirstRenewals(intelligence);
+
+    try {
+      const { agent, runner } = await startRun(intelligence);
+      await vi.advanceTimersByTimeAsync(16_000);
+
+      expect(intelligence.renew).toHaveBeenCalledTimes(5);
+      expect(agent.abortRun).toHaveBeenCalledTimes(1);
+      runner.complete();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

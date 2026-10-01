@@ -78,6 +78,8 @@ async function captureRunCanonical(
     };
     lockHeartbeatIntervalSeconds?: number;
     lockTtlSeconds?: number;
+    /** `ttlSeconds` returned by the mocked lock acquisition. */
+    acquiredTtlSeconds?: number;
   } = {},
 ): Promise<RunCanonical> {
   let captured: RunCanonical | undefined;
@@ -98,6 +100,9 @@ async function captureRunCanonical(
   vi.spyOn(intelligence, "ɵacquireThreadLock").mockResolvedValue({
     ...canonicalIdentity,
     joinToken: "join_token_not_used_by_channels",
+    ...(runtimeOptions.acquiredTtlSeconds !== undefined
+      ? { ttlSeconds: runtimeOptions.acquiredTtlSeconds }
+      : {}),
   });
   // Always mock cleanup/renew so unit tests never issue real HTTP to apiUrl.
   if (!vi.isMockFunction(intelligence.ɵcleanupThreadLock)) {
@@ -325,6 +330,52 @@ test("runCanonical keeps the run alive through a transient renewal failure", asy
     // Failure at t=1s, retry succeeds at t=2s.
     await vi.advanceTimersByTimeAsync(2_000);
     expect(renew).toHaveBeenCalledTimes(2);
+
+    completeRun?.();
+    await expect(running).resolves.toBeDefined();
+    expect(stopRun).not.toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("runCanonical retries a failed first renewal within the lifetime set at acquisition", async () => {
+  vi.useFakeTimers();
+  try {
+    const intelligence = new CopilotKitIntelligence({
+      apiUrl: "https://runtime.example",
+      wsUrl: "wss://runtime.example",
+      apiKey: "cpk-42_short_long",
+    });
+    const renew = vi.spyOn(intelligence, "ɵrenewThreadLock");
+    for (let i = 0; i < 5; i++) {
+      renew.mockRejectedValueOnce(
+        new PlatformRequestError("Intelligence platform error 500", 500, true),
+      );
+    }
+    renew.mockResolvedValue({ ttlSeconds: 120, status: "renewed" });
+    let completeRun: (() => void) | undefined;
+    const stopRun = vi.fn(async () => true);
+    const runner = new TestRunner(
+      () =>
+        new Observable<BaseEvent>((observer) => {
+          completeRun = () => observer.complete();
+        }),
+      stopRun,
+    );
+    const runCanonical = await captureRunCanonical(runner, {
+      intelligence,
+      lockHeartbeatIntervalSeconds: 1,
+      lockTtlSeconds: 20,
+      acquiredTtlSeconds: 120,
+    });
+
+    const running = runCanonical(runArgs());
+    // Failures at t=1, 2, 4, 8 and 16s would exhaust the 20s fallback; the
+    // platform set 120s at acquisition, so the retry at t=24s still runs.
+    await vi.advanceTimersByTimeAsync(24_000);
+    expect(renew).toHaveBeenCalledTimes(6);
+    expect(stopRun).not.toHaveBeenCalled();
 
     completeRun?.();
     await expect(running).resolves.toBeDefined();

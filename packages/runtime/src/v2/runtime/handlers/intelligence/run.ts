@@ -160,6 +160,8 @@ export async function handleIntelligenceRun({
   let canonicalRunId = input.runId;
   let joinToken: string | undefined;
   let backendThreadId: string | undefined;
+  let lockTtlSeconds: number | undefined;
+  let lockAcquiredAt = 0;
   try {
     const lockResult = await runtime.intelligence.ɵacquireThreadLock({
       supportsBackendThreadId: true,
@@ -177,6 +179,8 @@ export async function handleIntelligenceRun({
     canonicalRunId = lockResult.runId;
     joinToken = lockResult.joinToken;
     backendThreadId = lockResult.backendThreadId;
+    lockTtlSeconds = lockResult.ttlSeconds;
+    lockAcquiredAt = Date.now();
   } catch (error) {
     logger.error("Thread lock denied:", error);
     const platformStatus = getPlatformErrorStatus(error);
@@ -263,6 +267,12 @@ export async function handleIntelligenceRun({
       }),
     intervalMs: runtime.lockHeartbeatIntervalSeconds * 1_000,
     fallbackTtlSeconds: runtime.lockTtlSeconds,
+    // The history lookup above runs between acquisition and now, so pass the
+    // lifetime the platform set minus the time already spent.
+    initialTtlSeconds:
+      lockTtlSeconds === undefined
+        ? undefined
+        : lockTtlSeconds - (Date.now() - lockAcquiredAt) / 1_000,
     onLost: (err) => {
       logger.error("Failed to renew thread lock:", err);
       try {

@@ -518,6 +518,12 @@ export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
   backendThreadId?: string;
   /** Canonical platform run identifier for the acquired lock. */
   runId: string;
+  /**
+   * Seconds the lock remains valid from acquisition, as set by the platform.
+   * The platform may ignore the requested TTL, so callers should trust this
+   * value. Absent on platforms that predate the field.
+   */
+  ttlSeconds?: number;
 }
 
 /**
