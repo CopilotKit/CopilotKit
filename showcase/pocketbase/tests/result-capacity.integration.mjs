@@ -1,27 +1,18 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 // Every database belongs to a uniquely named, loopback-only test container.
 // No caller-supplied database URL or volume can be mutated by this driver.
-assert.equal(
-  process.env.PB_TEST_RESULT_FILE,
-  undefined,
-  "PB_TEST_RESULT_FILE is unsupported; use the deterministic 42-cell regression fixture",
-);
 const baselineImage = process.env.PB_TEST_BASELINE_IMAGE;
 assert.ok(
   baselineImage,
   "PB_TEST_BASELINE_IMAGE must be an official baseline image",
 );
 const candidateImage = process.env.PB_TEST_CANDIDATE_IMAGE;
-const legacy = process.env.PB_TEST_MODE === "legacy";
-const context = process.env.PB_TEST_DOCKER_CONTEXT;
-const evidence = process.env.PB_TEST_EVIDENCE_DIR;
-const keep = process.env.PB_TEST_KEEP_ARTIFACTS === "1";
 const prefix = `pb-capacity-${randomUUID().slice(0, 8)}`;
 const containers = [];
 const volumes = [];
@@ -29,31 +20,11 @@ const failures = [];
 const temporary = mkdtempSync(join(tmpdir(), "pb-capacity-"));
 const migration = "1779990600_probe_jobs_result_capacity.js";
 const docker = (...args) =>
-  execFileSync(
-    "docker",
-    [...(context ? ["--context", context] : []), ...args],
-    {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  ).trim();
+  execFileSync("docker", args, {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
 const sleep = () => new Promise((resolve) => setTimeout(resolve, 100));
-const canonical = (value) =>
-  JSON.stringify(value, (_, item) =>
-    item && typeof item === "object" && !Array.isArray(item)
-      ? Object.fromEntries(
-          Object.keys(item)
-            .sort()
-            .map((key) => [key, item[key]]),
-        )
-      : item,
-  );
-const digest = (value) =>
-  createHash("sha256").update(canonical(value)).digest("hex");
-function save(name, value) {
-  if (evidence)
-    writeFileSync(join(evidence, name), JSON.stringify(value, null, 2) + "\n");
-}
 function volume(label) {
   const name = `${prefix}-${label}`;
   volumes.push(name);
@@ -188,17 +159,10 @@ try {
       proof: "complete proof α ".repeat(160),
     })),
   };
-  const payloadBytes = Buffer.byteLength(canonical(payload));
+  const payloadBytes = Buffer.byteLength(JSON.stringify(payload));
   assert.ok(
     payloadBytes > 65536 && payloadBytes < 2000000,
     "Proof payload must exceed the old cap and fit the new cap",
-  );
-  console.log(
-    JSON.stringify({
-      payloadBytes,
-      payloadSha256: digest(payload),
-      fixture: "deterministic 42-cell regression fixture",
-    }),
   );
   const dataVolume = volume("upgrade");
   let name = start(baselineImage, dataVolume, "baseline");
@@ -207,21 +171,6 @@ try {
   assert.equal(capacity(originalSchema), 65536);
   const originalRow = await pb.seed();
   const red = await pb.patch(originalRow.id, payload);
-  console.log(
-    JSON.stringify({
-      case: "complete result write before migration",
-      status: red.status,
-      error: red.data.data?.result,
-      rowId: originalRow.id,
-    }),
-  );
-  save("baseline-red.json", {
-    payloadBytes,
-    payloadSha256: digest(payload),
-    response: red,
-  });
-  if (legacy)
-    assert.equal(red.status, 200, "Complete result over 64 KiB must persist");
   assert.equal(red.status, 400);
   assert.equal(red.data.data.result.code, "validation_json_size_limit");
   assert.deepEqual(await pb.row(originalRow.id), originalRow);
@@ -243,17 +192,7 @@ try {
   assert.equal(green.status, 200, JSON.stringify(green));
   const retainedRow = await pb.row(originalRow.id);
   assert.deepEqual(retainedRow.result, payload);
-  assert.equal(canonical(retainedRow.result), canonical(payload));
-  save("upgrade-green.json", {
-    payloadBytes,
-    payloadSha256: digest(payload),
-    readbackSha256: digest(retainedRow.result),
-    rowId: retainedRow.id,
-    capacity: capacity(upgradedSchema),
-  });
-  console.log(
-    "PASS same row and complete payload GREEN; all data and canonical UTF-8 bytes retained",
-  );
+  console.log("PASS same row retains complete payload after migration");
   const overflow = await pb.patch(originalRow.id, {
     padding: "x".repeat(2000000),
   });
@@ -286,21 +225,10 @@ try {
   assert.deepEqual(await pb.row(originalRow.id), retainedRow);
   assert.equal((await pb.patch(originalRow.id, payload)).status, 200);
   const afterRollbackWrite = await pb.row(originalRow.id);
-  assert.equal(
-    digest(afterRollbackWrite.result),
-    digest(payload),
-    "Rollback write must retain the complete fixture payload",
-  );
-  assert.equal(canonical(afterRollbackWrite.result), canonical(payload));
   assert.deepEqual(afterRollbackWrite.result, payload);
   assert.deepEqual(afterRollbackWrite, {
     ...retainedRow,
     updated: afterRollbackWrite.updated,
-  });
-  save("rollback-green.json", {
-    payloadSha256: digest(payload),
-    readbackSha256: digest(afterRollbackWrite.result),
-    rowId: afterRollbackWrite.id,
   });
   console.log(
     "PASS application-image rollback retains capacity/result and accepts complete writes; no down migration",
@@ -310,19 +238,8 @@ try {
   pb = await connect(name);
   unchangedSchema(upgradedSchema, await pb.schema());
   const afterReupgrade = await pb.row(originalRow.id);
-  assert.equal(
-    digest(afterReupgrade.result),
-    digest(payload),
-    "Re-upgrade must retain the complete fixture payload",
-  );
-  assert.equal(canonical(afterReupgrade.result), canonical(payload));
   assert.deepEqual(afterReupgrade.result, payload);
   assert.deepEqual(afterReupgrade, afterRollbackWrite);
-  save("reupgrade-green.json", {
-    payloadSha256: digest(payload),
-    readbackSha256: digest(afterReupgrade.result),
-    rowId: afterReupgrade.id,
-  });
   console.log("PASS application-image re-upgrade retains schema and result");
   for (const variant of ["larger", "wrong-type", "missing"]) {
     const variantVolume = volume(variant);
@@ -431,44 +348,12 @@ try {
 } catch (error) {
   failures.push(error);
 } finally {
-  const retainedContainers = [];
-  const retainedVolumes = [];
-  for (const name of containers.toReversed()) {
-    if (evidence)
-      attempt(`Collect evidence for ${name}`, () => {
-        const logs = ownedDocker("logs", name);
-        if (logs !== null)
-          writeFileSync(join(evidence, `${name}.log`), logs + "\n");
-      });
-    if (keep) {
-      const stopped = attempt(`Stop ${name}`, () => {
-        if (ownedDocker("stop", name) !== null) retainedContainers.push(name);
-      });
-      // Preservation may retain only stopped resources. A failed stop must
-      // still attempt removal so it cannot intentionally leave a live server.
-      if (stopped) continue;
-    }
+  for (const name of containers.toReversed())
     attempt(`Remove ${name}`, () => ownedDocker("rm", "-f", "-v", name));
-  }
-  for (const name of volumes) {
-    if (keep)
-      attempt(`Inspect retained volume ${name}`, () => {
-        if (ownedDocker("volume", "inspect", name) !== null)
-          retainedVolumes.push(name);
-      });
-    else
-      attempt(`Remove volume ${name}`, () => ownedDocker("volume", "rm", name));
-  }
+  for (const name of volumes)
+    attempt(`Remove volume ${name}`, () => ownedDocker("volume", "rm", name));
   attempt("Remove temporary migrations", () =>
     rmSync(temporary, { recursive: true, force: true }),
-  );
-  attempt("Report retained resources", () =>
-    console.log(
-      JSON.stringify({
-        retainedVolumes,
-        containers: retainedContainers,
-      }),
-    ),
   );
 }
 if (failures.length === 1) throw failures[0];
