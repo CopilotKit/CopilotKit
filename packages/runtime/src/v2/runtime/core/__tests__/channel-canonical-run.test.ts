@@ -4,6 +4,7 @@ import { createChannel } from "@copilotkit/channels";
 import { EMPTY, Observable, of, throwError } from "rxjs";
 import { expect, test, vi } from "vitest";
 import { CopilotKitIntelligence } from "../../intelligence-platform";
+import { PlatformRequestError } from "../../intelligence-platform/client";
 import { AgentRunner } from "../../runner/agent-runner";
 import type {
   AgentRunnerConnectRequest,
@@ -291,6 +292,48 @@ test("runCanonical stops only its exact run when the delivery is superseded", as
   });
 });
 
+test("runCanonical keeps the run alive through a transient renewal failure", async () => {
+  vi.useFakeTimers();
+  try {
+    const intelligence = new CopilotKitIntelligence({
+      apiUrl: "https://runtime.example",
+      wsUrl: "wss://runtime.example",
+      apiKey: "cpk-42_short_long",
+    });
+    const renew = vi
+      .spyOn(intelligence, "ɵrenewThreadLock")
+      .mockRejectedValueOnce(
+        new PlatformRequestError("Intelligence platform error 500", 500, true),
+      )
+      .mockResolvedValue({ ttlSeconds: 120, status: "renewed" });
+    let completeRun: (() => void) | undefined;
+    const stopRun = vi.fn(async () => true);
+    const runner = new TestRunner(
+      () =>
+        new Observable<BaseEvent>((observer) => {
+          completeRun = () => observer.complete();
+        }),
+      stopRun,
+    );
+    const runCanonical = await captureRunCanonical(runner, {
+      intelligence,
+      lockHeartbeatIntervalSeconds: 1,
+      lockTtlSeconds: 120,
+    });
+
+    const running = runCanonical(runArgs());
+    // Failure at t=1s, retry succeeds at t=2s.
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(renew).toHaveBeenCalledTimes(2);
+
+    completeRun?.();
+    await expect(running).resolves.toBeDefined();
+    expect(stopRun).not.toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 test("runCanonical stops the standard runner when lock renewal fails", async () => {
   vi.useFakeTimers();
   try {
@@ -300,7 +343,7 @@ test("runCanonical stops the standard runner when lock renewal fails", async () 
       apiKey: "cpk-42_short_long",
     });
     vi.spyOn(intelligence, "ɵrenewThreadLock").mockRejectedValue(
-      new Error("thread lock lost"),
+      new PlatformRequestError("thread lock lost", 409, false),
     );
     let completeRun: (() => void) | undefined;
     const stopRun = vi.fn(async () => {

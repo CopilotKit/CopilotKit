@@ -8,6 +8,7 @@ import { CopilotRuntime } from "../core/runtime";
 import type { CopilotRuntimeMemoryConfig } from "../core/runtime";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
+import { PlatformRequestError } from "../intelligence-platform/client";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 
 describe("handleRunAgent", () => {
@@ -1231,7 +1232,9 @@ describe("handleRunAgent", () => {
           runId: "canonical-run",
           joinToken: "jt-123",
         }),
-        ɵrenewThreadLock: vi.fn().mockRejectedValue(new Error("lost lock")),
+        ɵrenewThreadLock: vi
+          .fn()
+          .mockRejectedValue(new PlatformRequestError("lost lock", 409, false)),
       };
       const runtime = createIntelligenceRuntime(baseAgent, platform, {
         lockHeartbeatIntervalSeconds: 1,

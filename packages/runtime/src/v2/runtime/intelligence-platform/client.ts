@@ -232,6 +232,25 @@ export class PlatformRequestError extends Error {
   }
 }
 
+/**
+ * Read the platform's `retryable` hint from an error response body. The
+ * platform sends `{ error: { code, message, category, retryable } }`; anything
+ * else (non-JSON, proxies, older platforms) yields `undefined`.
+ */
+function readErrorBodyRetryable(text: string): boolean | undefined {
+  if (!text) return undefined;
+  try {
+    const body: unknown = JSON.parse(text);
+    if (typeof body !== "object" || body === null) return undefined;
+    const error = (body as { error?: unknown }).error;
+    if (typeof error !== "object" || error === null) return undefined;
+    const retryable = (error as { retryable?: unknown }).retryable;
+    return typeof retryable === "boolean" ? retryable : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Copy a public Runtime entitlement so callers cannot mutate cached authority. */
 function cloneRuntimeEntitlementResponse(
   response: RuntimeEntitlementResponse,
@@ -640,7 +659,20 @@ export interface CleanupThreadLockRequest {
 }
 
 export interface RenewThreadLockResponse {
+  /**
+   * Seconds the lock remains valid from now, as set by the platform. The
+   * platform may ignore the requested TTL, so callers should trust this value.
+   * `0` when {@link status} is `"completed"`.
+   */
   ttlSeconds: number;
+  threadId?: string;
+  runId?: string;
+  /**
+   * `"renewed"` when the lock was extended; `"completed"` when the run already
+   * reached a terminal event, so nothing was renewed and none is needed.
+   * Absent on platforms that predate the field.
+   */
+  status?: "renewed" | "completed";
 }
 
 export interface ThreadLockInfo {
@@ -1389,6 +1421,7 @@ export class CopilotKitIntelligence {
       throw new PlatformRequestError(
         `Intelligence platform error ${response.status}: ${text || response.statusText}`,
         response.status,
+        readErrorBodyRetryable(text),
       );
     }
 

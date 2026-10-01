@@ -6,7 +6,11 @@ import { expect, test, vi } from "vitest";
 
 import { CopilotIntelligenceRuntime } from "../core/runtime";
 import { handleIntelligenceRun } from "../handlers/intelligence/run";
-import { CopilotKitIntelligence } from "../intelligence-platform/client";
+import {
+  CopilotKitIntelligence,
+  PlatformRequestError,
+} from "../intelligence-platform/client";
+import type { RenewThreadLockResponse } from "../intelligence-platform/client";
 import type {
   AgentRunnerConnectRequest,
   AgentRunnerIsRunningRequest,
@@ -156,6 +160,112 @@ test("does not abort a completed run when an in-flight lock renewal fails", asyn
 
     expect(response.status).toBe(200);
     expect(agent.abortRun).not.toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+class ScriptedRenewalIntelligence extends CopilotKitIntelligence {
+  readonly renew = vi.fn<() => Promise<RenewThreadLockResponse>>();
+
+  constructor() {
+    super({
+      apiKey: "test-api-key",
+      apiUrl: "https://intelligence.example",
+      wsUrl: "wss://intelligence.example",
+    });
+  }
+
+  override async getOrCreateThread() {
+    return {
+      thread: { id: "thread-1", name: "Thread One" },
+      created: false,
+    };
+  }
+
+  override async getThreadMessages() {
+    return { messages: [] };
+  }
+
+  override async ɵacquireThreadLock() {
+    return {
+      threadId: "thread-1",
+      runId: "run-1",
+      joinToken: "join-token-1",
+    };
+  }
+
+  override ɵrenewThreadLock() {
+    return this.renew();
+  }
+}
+
+async function startRun(intelligence: ScriptedRenewalIntelligence) {
+  const agent = new HeartbeatTestAgent();
+  const runner = new ControllableRunner();
+  const runtime = new CopilotIntelligenceRuntime({
+    agents: { "test-agent": agent },
+    intelligence,
+    identifyUser: async () => ({ id: "user-1", name: "User One" }),
+    lockHeartbeatIntervalSeconds: 1,
+    lockTtlSeconds: 20,
+  });
+  runtime.runner = runner;
+  const response = await handleIntelligenceRun({
+    runtime,
+    request: new Request("https://runtime.example/agent/test-agent/run"),
+    agentId: "test-agent",
+    agent,
+    input: {
+      threadId: "thread-1",
+      runId: "run-1",
+      state: {},
+      messages: [],
+      tools: [],
+      context: [],
+      forwardedProps: {},
+    },
+  });
+  return { agent, runner, response };
+}
+
+test("retries a transient lock renewal failure instead of aborting the run", async () => {
+  vi.useFakeTimers();
+  const intelligence = new ScriptedRenewalIntelligence();
+  intelligence.renew
+    .mockRejectedValueOnce(
+      new PlatformRequestError("Intelligence platform error 500", 500, true),
+    )
+    .mockResolvedValue({ ttlSeconds: 120, status: "renewed" });
+
+  try {
+    const { agent, runner, response } = await startRun(intelligence);
+    await vi.advanceTimersByTimeAsync(3_000);
+
+    expect(response.status).toBe(200);
+    expect(intelligence.renew).toHaveBeenCalledTimes(3);
+    expect(agent.abortRun).not.toHaveBeenCalled();
+    runner.complete();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("aborts the run as soon as the platform reports the lock lost", async () => {
+  vi.useFakeTimers();
+  const intelligence = new ScriptedRenewalIntelligence();
+  intelligence.renew.mockRejectedValue(
+    new PlatformRequestError("Intelligence platform error 409", 409, false),
+  );
+
+  try {
+    const { agent, runner } = await startRun(intelligence);
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(agent.abortRun).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(intelligence.renew).toHaveBeenCalledTimes(1);
+    runner.complete();
   } finally {
     vi.useRealTimers();
   }
