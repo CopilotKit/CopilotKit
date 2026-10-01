@@ -11,9 +11,7 @@ from agent.__main__ import build_app
 
 
 class DeterministicExecutor(AgentExecutor):
-    async def execute(
-        self, context: RequestContext, event_queue: EventQueue
-    ) -> None:
+    async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         await event_queue.enqueue_event(
             new_agent_text_message(
                 "Rendered",
@@ -22,9 +20,7 @@ class DeterministicExecutor(AgentExecutor):
             )
         )
 
-    async def cancel(
-        self, context: RequestContext, event_queue: EventQueue
-    ) -> None:
+    async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
         raise NotImplementedError
 
 
