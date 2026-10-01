@@ -50,10 +50,13 @@ export const config = {
   // kebab-case (`phi-access-contractor`) and its run ids are `RUN-1041`-style —
   // so the extension test cannot swallow a real page.
   //
-  // `intelligence` is excluded too: `/intelligence/*` is the separate
-  // Intelligence product screens (src/app/intelligence), not a page of any
-  // skin, so a lock must not rewrite it to `/<locked>/intelligence`.
-  matcher: ["/((?!api(?:/|$)|intelligence(?:/|$)|_next(?:/|$)|__nextjs|.*\\..*).*)"],
+  // `intelligence` and `eval-platform` are excluded too: they are separate
+  // product screens (src/app/intelligence, and a stand-in for the customer's
+  // eval tool in src/app/eval-platform), not pages of any skin, so a lock must
+  // not rewrite them to `/<locked>/...`.
+  matcher: [
+    "/((?!api(?:/|$)|intelligence(?:/|$)|eval-platform(?:/|$)|_next(?:/|$)|__nextjs|.*\\..*).*)",
+  ],
 };
 
 export function proxy(request: NextRequest) {

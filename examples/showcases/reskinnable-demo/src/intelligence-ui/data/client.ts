@@ -90,7 +90,8 @@ async function request<T>(
   }
   if (!response.ok) {
     const detail = (body ?? {}) as { error?: string; message?: string };
-    if (!detail.error && !detail.message) throw new Unreachable(`${response.status} for ${path}`);
+    if (!detail.error && !detail.message)
+      throw new Unreachable(`${response.status} for ${path}`);
     throw new LearningApiError(
       detail.message ?? `${response.status} ${response.statusText}`,
       response.status,
@@ -105,7 +106,11 @@ function sampleRead<T>(path: string): T {
   const exportMatch = path.match(/^\/trajectories\/([^/?]+)\/export$/);
   const key = exportMatch ? `/trajectories/${exportMatch[1]}` : path;
   if (!(key in sample)) {
-    throw new LearningApiError(`Not in the sample data: ${path}`, 404, "NOT_FOUND");
+    throw new LearningApiError(
+      `Not in the sample data: ${path}`,
+      404,
+      "NOT_FOUND",
+    );
   }
   return structuredClone(sample[key]) as T;
 }
@@ -115,13 +120,18 @@ function sampleWrite(path: string, body: Record<string, unknown>): unknown {
   if ((match = path.match(/^\/eval-candidates\/([^/]+)\/review$/))) {
     const list = sample["/eval-candidates"] as EvalCandidate[];
     const candidate = list.find((c) => c.id === match?.[1]);
-    if (candidate) (candidate as { status: string }).status = String(body.decision);
+    if (candidate)
+      (candidate as { status: string }).status = String(body.decision);
     return candidate;
   }
   if ((match = path.match(/^\/skills\/([^/]+)\/(approve|disable)$/))) {
     const list = sample["/skills"] as DemoSkill[];
-    const skill = list.find((s) => s.name === decodeURIComponent(match?.[1] ?? ""));
-    if (skill) (skill as { status: string }).status = match[2] === "approve" ? "published" : "disabled";
+    const skill = list.find(
+      (s) => s.name === decodeURIComponent(match?.[1] ?? ""),
+    );
+    if (skill)
+      (skill as { status: string }).status =
+        match[2] === "approve" ? "published" : "disabled";
     return skill;
   }
   if (path === "/learn") {
@@ -130,6 +140,10 @@ function sampleWrite(path: string, body: Record<string, unknown>): unknown {
     sample["/skills"] = result.skills;
     sample["/eval-candidates"] = result.evalCandidates;
     return result;
+  }
+  if (path === "/evals/import") {
+    // Sample mode: nothing reaches the eval platform; report it honestly.
+    return { imported: body.cases, platform: "Benchline Evals", sample: true };
   }
   if (path === "/reset") {
     sample = structuredClone(seed);
@@ -150,10 +164,16 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   return sampleRead<T>(path);
 }
 
-async function post<T>(path: string, body: Record<string, unknown> = {}): Promise<T> {
+async function post<T>(
+  path: string,
+  body: Record<string, unknown> = {},
+): Promise<T> {
   if (source !== "sample") {
     try {
-      return await request<T>(path, { method: "POST", body: JSON.stringify(body) });
+      return await request<T>(path, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
     } catch (error) {
       if (!(error instanceof Unreachable)) throw error;
       setSource("sample");
@@ -172,18 +192,37 @@ export async function probe(): Promise<void> {
 }
 
 export const learningV1 = {
-  trajectories: (signal?: AbortSignal) => get<TrajectorySummary[]>("/trajectories", signal),
+  trajectories: (signal?: AbortSignal) =>
+    get<TrajectorySummary[]>("/trajectories", signal),
   trajectory: (id: string, signal?: AbortSignal) =>
     get<TrajectoryDetail>(`/trajectories/${encodeURIComponent(id)}`, signal),
-  exportTrajectory: (id: string) => get<unknown>(`/trajectories/${encodeURIComponent(id)}/export`),
+  exportTrajectory: (id: string) =>
+    get<unknown>(`/trajectories/${encodeURIComponent(id)}/export`),
   evals: (signal?: AbortSignal) => get<EvalSuite>("/evals", signal),
-  evalCandidates: (signal?: AbortSignal) => get<EvalCandidate[]>("/eval-candidates", signal),
+  evalCandidates: (signal?: AbortSignal) =>
+    get<EvalCandidate[]>("/eval-candidates", signal),
   reviewEvalCandidate: (id: string, decision: "accepted" | "rejected") =>
-    post<unknown>(`/eval-candidates/${encodeURIComponent(id)}/review`, { decision }),
+    post<unknown>(`/eval-candidates/${encodeURIComponent(id)}/review`, {
+      decision,
+    }),
+  importToEvalPlatform: (
+    cases: readonly {
+      id: string;
+      query: string;
+      checks: readonly string[];
+      sourceTrajectoryIds: readonly string[];
+    }[],
+  ) =>
+    post<{ imported: unknown[]; platform: string; sample?: boolean }>(
+      "/evals/import",
+      { cases },
+    ),
   insights: (signal?: AbortSignal) => get<DemoInsight[]>("/insights", signal),
   skills: (signal?: AbortSignal) => get<DemoSkill[]>("/skills", signal),
-  approveSkill: (name: string) => post<unknown>(`/skills/${encodeURIComponent(name)}/approve`),
-  disableSkill: (name: string) => post<unknown>(`/skills/${encodeURIComponent(name)}/disable`),
+  approveSkill: (name: string) =>
+    post<unknown>(`/skills/${encodeURIComponent(name)}/approve`),
+  disableSkill: (name: string) =>
+    post<unknown>(`/skills/${encodeURIComponent(name)}/disable`),
   learn: () => post<LearnResult>("/learn"),
   fineTunePreview: (target: FineTuneTarget, signal?: AbortSignal) =>
     get<FineTunePreview>(`/fine-tune/preview?target=${target}`, signal),

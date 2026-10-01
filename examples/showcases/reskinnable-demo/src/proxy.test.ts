@@ -127,6 +127,7 @@ describe("proxy matcher", () => {
     expect(matches("/intelligence")).toBe(false);
     expect(matches("/intelligence/trajectories/trj_1")).toBe(false);
     expect(matches("/intelligence-notes")).toBe(true);
+    expect(matches("/eval-platform")).toBe(false);
   });
 
   it("matches the pages a lock has to rewrite", () => {

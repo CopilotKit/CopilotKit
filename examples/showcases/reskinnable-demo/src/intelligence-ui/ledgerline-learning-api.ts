@@ -115,8 +115,10 @@ function toCandidate(
 }
 
 function toSkill(skill: DemoSkill, createdAt: string): LearningSkill {
+  // Extra field read by the demo's container-workspace: every Insight the Skill rests on.
+  const links = { sourceInsightIds: skill.supportingInsightIds };
   return {
-    sourceInsightIds: skill.supportingInsightIds,
+    ...links,
     createdAt,
     description: skill.description,
     id: `skill:${skill.name}`,
