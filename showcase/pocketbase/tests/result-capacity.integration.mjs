@@ -286,6 +286,22 @@ try {
   assert.deepEqual(await pb.row(originalRow.id), retainedRow);
   assert.equal((await pb.patch(originalRow.id, payload)).status, 200);
   const afterRollbackWrite = await pb.row(originalRow.id);
+  assert.equal(
+    digest(afterRollbackWrite.result),
+    digest(payload),
+    "Rollback write must retain the complete fixture payload",
+  );
+  assert.equal(canonical(afterRollbackWrite.result), canonical(payload));
+  assert.deepEqual(afterRollbackWrite.result, payload);
+  assert.deepEqual(afterRollbackWrite, {
+    ...retainedRow,
+    updated: afterRollbackWrite.updated,
+  });
+  save("rollback-green.json", {
+    payloadSha256: digest(payload),
+    readbackSha256: digest(afterRollbackWrite.result),
+    rowId: afterRollbackWrite.id,
+  });
   console.log(
     "PASS application-image rollback retains capacity/result and accepts complete writes; no down migration",
   );
@@ -293,7 +309,20 @@ try {
   name = start(candidateImage, dataVolume, "reupgrade");
   pb = await connect(name);
   unchangedSchema(upgradedSchema, await pb.schema());
-  assert.deepEqual(await pb.row(originalRow.id), afterRollbackWrite);
+  const afterReupgrade = await pb.row(originalRow.id);
+  assert.equal(
+    digest(afterReupgrade.result),
+    digest(payload),
+    "Re-upgrade must retain the complete fixture payload",
+  );
+  assert.equal(canonical(afterReupgrade.result), canonical(payload));
+  assert.deepEqual(afterReupgrade.result, payload);
+  assert.deepEqual(afterReupgrade, afterRollbackWrite);
+  save("reupgrade-green.json", {
+    payloadSha256: digest(payload),
+    readbackSha256: digest(afterReupgrade.result),
+    rowId: afterReupgrade.id,
+  });
   console.log("PASS application-image re-upgrade retains schema and result");
   for (const variant of ["larger", "wrong-type", "missing"]) {
     const variantVolume = volume(variant);
