@@ -513,4 +513,36 @@ describe("OpenGenerativeUIRenderer", () => {
       expect(options.frameContent).not.toBe("<head></head><body></body>");
     });
   });
+
+  describe("auto height", () => {
+    it.each([
+      { measured: 120, expected: "400px" },
+      { measured: 640, expected: "640px" },
+    ])(
+      "sizes a $measured px tall result to $expected with initialHeight 400",
+      async ({ measured, expected }) => {
+        const { getByTestId } = renderRenderer({
+          html: ["<head></head><body><div>Done</div></body>"],
+          htmlComplete: true,
+          generating: false,
+          initialHeight: 400,
+        });
+        await flushImport();
+        mockPromiseResolve();
+        await flushImport();
+
+        // The sandbox posts its content height back once generation is done.
+        window.dispatchEvent(
+          new MessageEvent("message", {
+            data: { type: "__ck_resize", height: measured },
+          }),
+        );
+        await flushImport();
+
+        expect(getByTestId("open-generative-ui-renderer").style.height).toBe(
+          expected,
+        );
+      },
+    );
+  });
 });

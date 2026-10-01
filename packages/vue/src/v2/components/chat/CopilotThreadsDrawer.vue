@@ -85,6 +85,9 @@ const resolvedAgentId = computed(
   () => props.agentId ?? config.value?.agentId ?? DEFAULT_AGENT_ID,
 );
 const activeThreadId = computed(() => config.value?.threadId ?? null);
+// Hosted inside a chat modal (`threads-drawer` on the popup/sidebar): render
+// as an overlay panel over the modal instead of an in-flow sidebar.
+const overlay = computed(() => config.value?.ɵdrawerOverlay === true);
 
 // Provider-less fallback: without a surrounding chat configuration there is
 // no shared open-state to bind to, so the wrapper keeps its own local
@@ -154,6 +157,8 @@ watchEffect(
     // "couldn't load more — retry" panel without disturbing the loaded list.
     el.fetchMoreError = threadsApi.fetchMoreError.value?.message ?? null;
     el.open = drawerOpen.value;
+    (el as CopilotKitThreadsDrawerElement & { overlay: boolean }).overlay =
+      overlay.value;
     if (props.label !== undefined) el.label = props.label;
     if (props.licenseUrl !== undefined) el.licenseUrl = props.licenseUrl;
     // `collapsible` is a default-true boolean PROPERTY (like `licensed`); leave
@@ -181,6 +186,10 @@ if (unregisterDrawer) onScopeDispose(unregisterDrawer);
 const CHAT_INPUT_TESTID = "copilot-chat-input-textarea";
 /** The chat view container's documented `data-testid`. */
 const CHAT_CONTAINER_TESTID = "copilot-chat-view";
+/** The chat modals (popup / sidebar) that can host the drawer as an overlay. */
+const CHAT_MODAL_SELECTOR = "[data-copilot-popup], [data-copilot-sidebar]";
+/** The modal header's thread-list launcher `data-testid` (focus-return target). */
+const DRAWER_LAUNCHER_TESTID = "drawer-launcher";
 
 /**
  * Returns the chat input element for focus-return after a thread is selected.
@@ -207,9 +216,35 @@ function findChatInput(origin: Element | null): HTMLElement | null {
     );
     if (scoped) return scoped;
   }
+  // A drawer hosted inside a chat modal sits beside (not inside) the modal's
+  // chat view: scope the lookup to that modal.
+  const modal = origin?.closest?.(CHAT_MODAL_SELECTOR);
+  if (modal) {
+    const scoped = modal.querySelector<HTMLElement>(
+      `[data-testid="${CHAT_INPUT_TESTID}"]`,
+    );
+    if (scoped) return scoped;
+  }
   return document.querySelector<HTMLElement>(
     `[data-testid="${CHAT_INPUT_TESTID}"]`,
   );
+}
+
+/**
+ * When an overlay drawer closes while focus is still inside it (Escape, the
+ * scrim, its close button), hands focus back to the launcher in the header of
+ * the modal hosting it. A close that follows a thread pick has already moved
+ * focus to the chat input, so it is left alone.
+ */
+function returnFocusToLauncher(drawer: HTMLElement | null): void {
+  if (!drawer || typeof document === "undefined") return;
+  const active = document.activeElement;
+  // Focus inside the shadow root reports the host as `activeElement`.
+  if (active !== drawer && !drawer.contains(active)) return;
+  drawer
+    .closest(CHAT_MODAL_SELECTOR)
+    ?.querySelector<HTMLElement>(`[data-testid="${DRAWER_LAUNCHER_TESTID}"]`)
+    ?.focus({ preventScroll: true });
 }
 
 function focusChatInput() {
@@ -226,6 +261,12 @@ function handleNewThread() {
   threadsApi.startNewThread();
   if (props.onNewThread) props.onNewThread();
   else config.value?.startNewThread?.();
+  if (overlay.value) {
+    // The overlay closes itself on "New Thread"; land in the composer.
+    // Deferred a tick because the reset swaps the chat to its welcome screen,
+    // which mounts a fresh input.
+    setTimeout(() => findChatInput(elRef.value)?.focus(), 0);
+  }
 }
 function onArchive(event: Event) {
   const { threadId } = (event as CustomEvent<ArchiveDetail>).detail;
@@ -275,6 +316,7 @@ function onLoadMore() {
 function onOpenChange(event: Event) {
   const { open } = (event as CustomEvent<OpenChangeDetail>).detail;
   setDrawerOpen(open);
+  if (!open && overlay.value) returnFocusToLauncher(elRef.value);
 }
 function handleLicensed() {
   props.onLicensed?.();
@@ -307,6 +349,7 @@ defineSlots<{
     ref="elRef"
     :data-testid="dataTestId"
     :recent-label="recentLabel"
+    :overlay="overlay || undefined"
     @thread-selected="onThreadSelected"
     @new-thread="handleNewThread"
     @archive="onArchive"

@@ -5,7 +5,7 @@ import { CopilotChatDefaultLabels } from "../../providers/types";
 import { MOBILE_MAX_WIDTH_QUERY } from "../../lib/is-mobile-viewport";
 import CopilotModalHeaderCloseButton from "./CopilotModalHeaderCloseButton";
 import CopilotModalHeaderTitle from "./CopilotModalHeaderTitle";
-import { IconPanelLeftOpen } from "../icons";
+import { IconHistory } from "../icons";
 import type {
   CopilotModalHeaderCloseButtonSlotProps,
   CopilotModalHeaderLayoutSlotProps,
@@ -33,7 +33,7 @@ const resolvedTitle = computed(
     CopilotChatDefaultLabels.modalHeaderTitle,
 );
 const headerClass = computed(() => [
-  "cpk:flex cpk:items-center cpk:justify-between cpk:border-b cpk:border-border cpk:px-4 cpk:py-4",
+  "cpk:flex cpk:min-h-14 cpk:shrink-0 cpk:items-center cpk:justify-between cpk:border-b cpk:border-border cpk:px-3",
   "cpk:bg-background/95 cpk:backdrop-blur cpk:supports-[backdrop-filter]:bg-background/80",
   attrs.class,
 ]);
@@ -82,8 +82,12 @@ onBeforeUnmount(() => {
 // an "open the drawer" launcher there is a dead no-op — it only does
 // anything for the mobile off-canvas drawer. Chats with no drawer get no
 // launcher and no behavior change.
+// A drawer hosted inside this modal (`threads-drawer` on the popup/sidebar)
+// is an overlay at every width, so its launcher shows on desktop too.
 const showDrawerLauncher = computed(
-  () => (config.value?.drawerRegistered ?? false) && isMobile.value,
+  () =>
+    (config.value?.drawerRegistered ?? false) &&
+    (isMobile.value || config.value?.ɵdrawerOverlay === true),
 );
 
 function toggleDrawer() {
@@ -105,12 +109,12 @@ function toggleDrawer() {
             v-if="showDrawerLauncher"
             type="button"
             data-testid="drawer-launcher"
-            class="cpk:inline-flex cpk:size-8 cpk:items-center cpk:justify-center cpk:rounded-full cpk:text-muted-foreground cpk:transition cpk:cursor-pointer cpk:hover:bg-muted cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring"
+            class="cpk:inline-flex cpk:size-8 cpk:items-center cpk:justify-center cpk:rounded-lg cpk:text-muted-foreground cpk:transition-colors cpk:cursor-pointer cpk:hover:bg-accent cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring/50"
             :aria-expanded="config?.drawerOpen ?? false"
             aria-label="Open threads"
             @click="toggleDrawer"
           >
-            <IconPanelLeftOpen class="cpk:h-4 cpk:w-4" aria-hidden="true" />
+            <IconHistory class="cpk:size-4" aria-hidden="true" />
           </button>
           <span v-else aria-hidden="true" />
         </div>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, watch } from "vue";
 import CopilotChat from "./CopilotChat.vue";
+import ModalThreadsScope from "../../providers/ModalThreadsScope.vue";
 import CopilotPopupView from "./CopilotPopupView.vue";
 import CopilotPopupWelcomeScreen from "./CopilotPopupWelcomeScreen.vue";
 import InlineFeatureWarning from "../InlineFeatureWarning.vue";
@@ -9,6 +10,7 @@ import type {
   CopilotChatMessageViewSlotProps,
   CopilotChatViewOverrideSlotProps,
   CopilotChatWelcomeScreenSlotProps,
+  CopilotModalThreadsDrawerSlotProps,
   CopilotPopupProps,
   CopilotPopupViewHeaderSlotProps,
   CopilotPopupViewToggleButtonSlotProps,
@@ -37,17 +39,23 @@ function popupViewEventBindings(slotProps: CopilotChatViewOverrideSlotProps) {
 const props = withDefaults(defineProps<CopilotPopupProps>(), {
   autoScroll: true,
   welcomeScreen: true,
+  introAnimation: true,
+  inlineCursor: undefined,
+  userMessageMarkdown: true,
   inputValue: undefined,
   inputMode: "input",
   inputToolsMenu: () => [],
+  inputHighlightMarkdown: true,
   width: undefined,
   height: undefined,
   clickOutsideToClose: false,
   defaultOpen: true,
+  threadsDrawer: false,
   onFinishTranscribeWithAudio: undefined,
 });
 
 defineSlots<{
+  "threads-drawer"?: (props: CopilotModalThreadsDrawerSlotProps) => unknown;
   header?: (props: CopilotPopupViewHeaderSlotProps) => unknown;
   "toggle-button"?: (props: CopilotPopupViewToggleButtonSlotProps) => unknown;
   "chat-view"?: (props: CopilotChatViewOverrideSlotProps) => unknown;
@@ -89,92 +97,115 @@ watch(
 
 <template>
   <InlineFeatureWarning v-if="!isPopupLicensed" feature-name="Popup" />
-  <CopilotChat
-    v-bind="props"
-    @submit-message="$emit('submit-message', $event)"
-    @stop="$emit('stop')"
-    @input-change="$emit('input-change', $event)"
-    @select-suggestion="
-      (suggestion, index) => $emit('select-suggestion', suggestion, index)
-    "
-    @add-file="$emit('add-file')"
-    @start-transcribe="$emit('start-transcribe')"
-    @cancel-transcribe="$emit('cancel-transcribe')"
-    @finish-transcribe="$emit('finish-transcribe')"
+  <ModalThreadsScope
+    :enabled="!!threadsDrawer || !!$slots['threads-drawer']"
+    :thread-id="threadId"
   >
-    <template #chat-view="slotProps">
-      <slot v-if="$slots['chat-view']" name="chat-view" v-bind="slotProps" />
-      <CopilotPopupView
-        v-else
-        :messages="slotProps.messages"
-        :auto-scroll="slotProps.autoScroll"
-        :is-running="slotProps.isRunning"
-        :suggestions="slotProps.suggestions"
-        :suggestion-loading-indexes="slotProps.suggestionLoadingIndexes"
-        :welcome-screen="slotProps.welcomeScreen"
-        :input-value="slotProps.inputValue"
-        :input-mode="slotProps.inputMode"
-        :input-tools-menu="slotProps.inputToolsMenu"
-        :width="width"
-        :height="height"
-        :click-outside-to-close="clickOutsideToClose"
-        :default-open="defaultOpen"
-        :on-finish-transcribe-with-audio="slotProps.onFinishTranscribeWithAudio"
-        v-bind="popupViewEventBindings(slotProps)"
-      >
-        <template v-if="$slots.header" #header="headerProps">
-          <slot name="header" v-bind="headerProps" />
-        </template>
-
-        <template
-          v-if="$slots['toggle-button']"
-          #toggle-button="toggleButtonProps"
+    <CopilotChat
+      v-bind="props"
+      @submit-message="$emit('submit-message', $event)"
+      @stop="$emit('stop')"
+      @input-change="$emit('input-change', $event)"
+      @select-suggestion="
+        (suggestion, index) => $emit('select-suggestion', suggestion, index)
+      "
+      @add-file="$emit('add-file')"
+      @start-transcribe="$emit('start-transcribe')"
+      @cancel-transcribe="$emit('cancel-transcribe')"
+      @finish-transcribe="$emit('finish-transcribe')"
+    >
+      <template #chat-view="slotProps">
+        <slot v-if="$slots['chat-view']" name="chat-view" v-bind="slotProps" />
+        <CopilotPopupView
+          v-else
+          :messages="slotProps.messages"
+          :auto-scroll="slotProps.autoScroll"
+          :is-running="slotProps.isRunning"
+          :suggestions="slotProps.suggestions"
+          :suggestion-loading-indexes="slotProps.suggestionLoadingIndexes"
+          :welcome-screen="slotProps.welcomeScreen"
+          :intro-animation="slotProps.introAnimation"
+          :inline-cursor="slotProps.inlineCursor"
+          :assistant-message-toolbar-scope="
+            slotProps.assistantMessageToolbarScope
+          "
+          :user-message-markdown="slotProps.userMessageMarkdown"
+          :input-value="slotProps.inputValue"
+          :input-mode="slotProps.inputMode"
+          :input-tools-menu="slotProps.inputToolsMenu"
+          :input-layout="slotProps.inputLayout"
+          :input-highlight-markdown="slotProps.inputHighlightMarkdown"
+          :width="width"
+          :height="height"
+          :click-outside-to-close="clickOutsideToClose"
+          :default-open="defaultOpen"
+          :threads-drawer="threadsDrawer"
+          :on-finish-transcribe-with-audio="
+            slotProps.onFinishTranscribeWithAudio
+          "
+          v-bind="popupViewEventBindings(slotProps)"
         >
-          <slot name="toggle-button" v-bind="toggleButtonProps" />
-        </template>
+          <template
+            v-if="$slots['threads-drawer']"
+            #threads-drawer="drawerSlotProps"
+          >
+            <slot name="threads-drawer" v-bind="drawerSlotProps" />
+          </template>
 
-        <template #welcome-screen="welcomeScreenProps">
-          <slot
-            v-if="$slots['welcome-screen']"
-            name="welcome-screen"
-            v-bind="welcomeScreenProps"
-          />
-          <CopilotPopupWelcomeScreen v-else v-bind="welcomeScreenProps">
-            <template v-if="$slots['welcome-message']" #welcome-message>
-              <slot name="welcome-message" />
-            </template>
+          <template v-if="$slots.header" #header="headerProps">
+            <slot name="header" v-bind="headerProps" />
+          </template>
 
-            <template
-              v-if="$slots['suggestion-view']"
-              #suggestion-view="suggestionViewProps"
-            >
-              <slot name="suggestion-view" v-bind="suggestionViewProps" />
-            </template>
+          <template
+            v-if="$slots['toggle-button']"
+            #toggle-button="toggleButtonProps"
+          >
+            <slot name="toggle-button" v-bind="toggleButtonProps" />
+          </template>
 
-            <template v-if="$slots.input" #input="inputProps">
-              <slot name="input" v-bind="inputProps" />
-            </template>
-          </CopilotPopupWelcomeScreen>
-        </template>
+          <template #welcome-screen="welcomeScreenProps">
+            <slot
+              v-if="$slots['welcome-screen']"
+              name="welcome-screen"
+              v-bind="welcomeScreenProps"
+            />
+            <CopilotPopupWelcomeScreen v-else v-bind="welcomeScreenProps">
+              <template v-if="$slots['welcome-message']" #welcome-message>
+                <slot name="welcome-message" />
+              </template>
 
-        <template
-          v-if="$slots['message-view']"
-          #message-view="messageViewProps"
-        >
-          <slot name="message-view" v-bind="messageViewProps" />
-        </template>
+              <template
+                v-if="$slots['suggestion-view']"
+                #suggestion-view="suggestionViewProps"
+              >
+                <slot name="suggestion-view" v-bind="suggestionViewProps" />
+              </template>
 
-        <template v-if="$slots.input" #input="inputProps">
-          <slot name="input" v-bind="inputProps" />
-        </template>
+              <template v-if="$slots.input" #input="inputProps">
+                <slot name="input" v-bind="inputProps" />
+              </template>
+            </CopilotPopupWelcomeScreen>
+          </template>
 
-        <template
-          v-if="$slots['suggestion-view']"
-          #suggestion-view="suggestionViewProps"
-        >
-          <slot name="suggestion-view" v-bind="suggestionViewProps" />
-        </template>
-      </CopilotPopupView>
-    </template>
-  </CopilotChat>
+          <template
+            v-if="$slots['message-view']"
+            #message-view="messageViewProps"
+          >
+            <slot name="message-view" v-bind="messageViewProps" />
+          </template>
+
+          <template v-if="$slots.input" #input="inputProps">
+            <slot name="input" v-bind="inputProps" />
+          </template>
+
+          <template
+            v-if="$slots['suggestion-view']"
+            #suggestion-view="suggestionViewProps"
+          >
+            <slot name="suggestion-view" v-bind="suggestionViewProps" />
+          </template>
+        </CopilotPopupView>
+      </template>
+    </CopilotChat>
+  </ModalThreadsScope>
 </template>

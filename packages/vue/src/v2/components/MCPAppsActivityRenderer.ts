@@ -731,9 +731,9 @@ export const MCPAppsActivityRenderer = defineComponent({
       const prefersBorder = fetchedResource.value?._meta?.ui?.prefersBorder;
       if (prefersBorder !== true) return {};
       return {
-        borderRadius: "8px",
-        backgroundColor: "#f9f9f9",
-        border: "1px solid #e0e0e0",
+        borderRadius: "var(--radius, 8px)",
+        backgroundColor: "var(--card, #fff)",
+        border: "1px solid var(--border, #e5e5e5)",
       };
     });
 
@@ -763,14 +763,24 @@ export const MCPAppsActivityRenderer = defineComponent({
           isLoading.value
             ? h(
                 "div",
-                { style: { padding: "1rem", color: "#666" } },
+                {
+                  style: {
+                    padding: "1rem",
+                    color: "var(--muted-foreground, #737373)",
+                  },
+                },
                 "Loading...",
               )
             : null,
           error.value
             ? h(
                 "div",
-                { style: { color: "red", padding: "1rem" } },
+                {
+                  style: {
+                    color: "var(--destructive, #dc2626)",
+                    padding: "1rem",
+                  },
+                },
                 `Error: ${error.value.message}`,
               )
             : null,

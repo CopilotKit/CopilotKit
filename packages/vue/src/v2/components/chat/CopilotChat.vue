@@ -52,9 +52,13 @@ defineOptions({ inheritAttrs: false });
 const props = withDefaults(defineProps<CopilotChatProps>(), {
   autoScroll: true,
   welcomeScreen: true,
+  introAnimation: true,
+  inlineCursor: undefined,
+  userMessageMarkdown: true,
   inputValue: undefined,
   inputMode: "input",
   inputToolsMenu: () => [],
+  inputHighlightMarkdown: true,
   onFinishTranscribeWithAudio: undefined,
 });
 
@@ -148,6 +152,13 @@ const resolvedThreadId = computed(
 );
 const hasExplicitThreadId = computed(
   () => inspectorThreadId.value !== null || baseHasExplicitThreadId.value,
+);
+// Whether this chat itself pins its thread (a `threadId` prop or an inspector
+// override). An explicit thread inherited from a surrounding provider stays
+// that provider's to switch, so a threads drawer inside the chat (popup and
+// sidebar) can keep picking threads; explicitness still flows down from it.
+const pinsThreadId = computed(
+  () => !!props.threadId || inspectorThreadId.value !== null,
 );
 const lastConnectedThreadId = ref<string | null>(null);
 const isConnecting = computed(
@@ -824,11 +835,17 @@ const chatViewSlotProps = computed<CopilotChatViewOverrideSlotProps>(() => ({
   suggestions: autoSuggestions.value,
   suggestionLoadingIndexes: [],
   welcomeScreen: props.welcomeScreen,
+  introAnimation: props.introAnimation,
+  inlineCursor: props.inlineCursor,
+  assistantMessageToolbarScope: props.assistantMessageToolbarScope,
+  userMessageMarkdown: props.userMessageMarkdown,
   attachments: attachments.value,
   dragOver: dragOver.value,
   inputValue: inputValue.value,
   inputMode: effectiveMode.value,
   inputToolsMenu: props.inputToolsMenu,
+  inputLayout: props.inputLayout,
+  inputHighlightMarkdown: props.inputHighlightMarkdown,
   isConnecting: isConnecting.value,
   hasExplicitThreadId: hasExplicitThreadId.value,
   canStop: shouldAllowStop.value,
@@ -883,8 +900,9 @@ const defaultChatViewBindings = computed(() => {
   <CopilotChatConfigurationProvider
     :agent-id="resolvedAgentId"
     :thread-id="resolvedThreadId"
-    :has-explicit-thread-id="hasExplicitThreadId"
+    :has-explicit-thread-id="pinsThreadId"
     :labels="resolvedLabels"
+    forward-thread-switching
   >
     <div ref="attachmentContainerRef" style="display: contents">
       <input
@@ -926,9 +944,17 @@ const defaultChatViewBindings = computed(() => {
             chatViewSlotProps.suggestionLoadingIndexes
           "
           :welcome-screen="chatViewSlotProps.welcomeScreen"
+          :intro-animation="chatViewSlotProps.introAnimation"
+          :inline-cursor="chatViewSlotProps.inlineCursor"
+          :assistant-message-toolbar-scope="
+            chatViewSlotProps.assistantMessageToolbarScope
+          "
+          :user-message-markdown="chatViewSlotProps.userMessageMarkdown"
           :input-value="chatViewSlotProps.inputValue"
           :input-mode="chatViewSlotProps.inputMode"
           :input-tools-menu="chatViewSlotProps.inputToolsMenu"
+          :input-layout="chatViewSlotProps.inputLayout"
+          :input-highlight-markdown="chatViewSlotProps.inputHighlightMarkdown"
           :is-connecting="chatViewSlotProps.isConnecting"
           :has-explicit-thread-id="chatViewSlotProps.hasExplicitThreadId"
           :on-finish-transcribe-with-audio="

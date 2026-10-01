@@ -7,6 +7,8 @@ type SuggestionPillStoryArgs = {
   label: string;
   isLoading?: boolean;
   icon?: Component;
+  appearance?: "pill" | "card";
+  description?: string;
 };
 type SuggestionPillIcon = InstanceType<
   typeof CopilotChatSuggestionPill
@@ -27,7 +29,12 @@ const meta = {
       return { args };
     },
     template: `
-      <CopilotChatSuggestionPill :icon="args.icon" :is-loading="args.isLoading">
+      <CopilotChatSuggestionPill
+        :icon="args.icon"
+        :is-loading="args.isLoading"
+        :appearance="args.appearance"
+        :description="args.description"
+      >
         {{ args.label }}
       </CopilotChatSuggestionPill>
     `,
@@ -56,4 +63,24 @@ export const WithArrow: Story = {
     icon: ArrowRight as unknown as SuggestionPillIcon,
     label: "Summarize notes into next steps",
   },
+};
+
+/** The card appearance used on welcome screens: label as header, description as body. */
+export const Card: Story = {
+  args: {
+    appearance: "card",
+    label: "Plan a launch",
+    description: "Turn the Q3 goals into a week-by-week launch checklist",
+  },
+  decorators: [
+    (story) => ({
+      components: { story },
+      template: `<div style="width: 20rem"><story /></div>`,
+    }),
+  ],
+};
+
+export const CardLoading: Story = {
+  ...Card,
+  args: { ...Card.args, isLoading: true },
 };

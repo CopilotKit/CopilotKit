@@ -7,6 +7,8 @@ import {
 } from "@copilotkit/shared";
 import type { Attachment } from "@copilotkit/shared";
 import type { CopilotChatAttachmentQueueProps } from "./types";
+import CopilotChatAttachmentAudioPreview from "./CopilotChatAttachmentAudioPreview.vue";
+import { IconX } from "../icons";
 
 const props = withDefaults(defineProps<CopilotChatAttachmentQueueProps>(), {
   attachments: () => [],
@@ -47,7 +49,7 @@ const lightboxDocumentSource = computed(() => {
 
 watch(
   activeLightboxAttachment,
-  (next, previous) => {
+  (next) => {
     if (documentBlobUrl.value) {
       URL.revokeObjectURL(documentBlobUrl.value);
       documentBlobUrl.value = null;
@@ -117,9 +119,6 @@ function cardClassName(attachment: Attachment) {
   if (attachment.type === "image" || attachment.type === "video") {
     return "cpk:w-[72px] cpk:h-[72px]";
   }
-  if (attachment.type === "audio") {
-    return "cpk:min-w-[200px] cpk:max-w-[280px] cpk:flex-col cpk:p-1 cpk:pr-8";
-  }
   return "cpk:p-2 cpk:px-3 cpk:pr-8 cpk:max-w-[240px]";
 }
 
@@ -155,25 +154,26 @@ function createBlobUrl(
 <template>
   <div
     v-if="props.attachments.length > 0"
-    class="cpk:flex cpk:flex-wrap cpk:gap-2 cpk:p-2"
+    data-copilotkit
+    class="cpk:flex cpk:flex-wrap cpk:gap-2 cpk:bg-transparent cpk:p-2"
     :class="props.className"
     data-testid="copilot-chat-attachment-queue"
   >
     <div
       v-for="attachment in props.attachments"
       :key="attachment.id"
-      class="cpk:relative cpk:inline-flex cpk:rounded-lg cpk:overflow-hidden cpk:border cpk:border-border"
+      class="cpk:relative cpk:inline-flex cpk:rounded-xl cpk:overflow-hidden cpk:border cpk:border-border cpk:bg-card"
       :class="cardClassName(attachment)"
       data-testid="copilot-chat-attachment-item"
       :data-card-type="attachment.type"
     >
       <div
         v-if="attachment.status === 'uploading'"
-        class="cpk:absolute cpk:inset-0 cpk:flex cpk:items-center cpk:justify-center cpk:bg-black/40 cpk:z-10"
+        class="cpk:absolute cpk:inset-0 cpk:flex cpk:items-center cpk:justify-center cpk:bg-background/60 cpk:z-10"
         data-testid="copilot-chat-attachment-uploading-overlay"
       >
         <div
-          class="cpk:w-5 cpk:h-5 cpk:border-2 cpk:border-white cpk:border-t-transparent cpk:rounded-full cpk:animate-spin"
+          class="cpk:size-5 cpk:border-2 cpk:border-foreground/70 cpk:border-t-transparent cpk:rounded-full cpk:animate-spin"
         />
       </div>
 
@@ -227,24 +227,10 @@ function createBlobUrl(
           </button>
         </div>
 
-        <div
+        <CopilotChatAttachmentAudioPreview
           v-else-if="attachment.type === 'audio'"
-          class="cpk:flex cpk:flex-col cpk:gap-1 cpk:w-full"
-        >
-          <audio
-            :src="getSourceUrl(attachment.source)"
-            controls
-            preload="metadata"
-            class="cpk:w-full cpk:h-8"
-            data-testid="copilot-chat-attachment-audio-player"
-          />
-          <span
-            v-if="attachment.filename"
-            class="cpk:text-xs cpk:font-medium cpk:overflow-hidden cpk:text-ellipsis cpk:whitespace-nowrap"
-          >
-            {{ attachment.filename }}
-          </span>
-        </div>
+          :attachment="attachment"
+        />
 
         <button
           v-else
@@ -264,13 +250,13 @@ function createBlobUrl(
           "
         >
           <div
-            class="cpk:w-8 cpk:h-8 cpk:rounded-md cpk:bg-primary cpk:text-primary-foreground cpk:flex cpk:items-center cpk:justify-center cpk:text-[10px] cpk:font-semibold cpk:shrink-0"
+            class="cpk:size-8 cpk:rounded-lg cpk:bg-primary/10 cpk:text-primary cpk:flex cpk:items-center cpk:justify-center cpk:text-[10px] cpk:font-semibold cpk:shrink-0"
           >
             {{ getDocumentIcon(attachment.source.mimeType ?? "") }}
           </div>
           <div class="cpk:flex cpk:flex-col cpk:min-w-0">
             <span
-              class="cpk:text-xs cpk:font-medium cpk:break-all cpk:leading-tight"
+              class="cpk:text-xs cpk:font-medium cpk:break-all cpk:leading-tight cpk:text-foreground"
               data-testid="copilot-chat-attachment-document-filename"
             >
               {{ attachment.filename || "Document" }}
@@ -293,11 +279,16 @@ function createBlobUrl(
 
       <button
         type="button"
-        class="cpk:absolute cpk:bg-black/60 cpk:text-white cpk:border-none cpk:rounded-full cpk:w-5 cpk:h-5 cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer cpk:text-[10px] cpk:z-20 cpk:top-1 cpk:right-1"
+        class="cpk:absolute cpk:bg-foreground/80 cpk:text-background cpk:hover:bg-foreground cpk:border-none cpk:rounded-full cpk:size-5 cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer cpk:z-20 cpk:shadow-sm cpk:transition-colors"
+        :class="
+          attachment.type === 'image' || attachment.type === 'video'
+            ? 'cpk:top-1 cpk:right-1'
+            : 'cpk:top-1.5 cpk:right-1.5'
+        "
         aria-label="Remove attachment"
         @click="emit('remove-attachment', attachment.id)"
       >
-        ✕
+        <IconX class="cpk:size-3" :stroke-width="2.5" aria-hidden="true" />
       </button>
     </div>
   </div>
@@ -305,7 +296,8 @@ function createBlobUrl(
   <Teleport to="body">
     <div
       v-if="activeLightboxAttachment"
-      class="cpk:fixed cpk:inset-0 cpk:z-[9999] cpk:flex cpk:items-center cpk:justify-center cpk:bg-black/80"
+      data-copilotkit
+      class="cpk:fixed cpk:inset-0 cpk:z-[9999] cpk:flex cpk:items-center cpk:justify-center cpk:bg-black/80 cpk:backdrop-blur-sm"
       data-testid="copilot-chat-attachment-lightbox"
       @click="closeLightbox"
     >
@@ -345,7 +337,7 @@ function createBlobUrl(
             "
             :src="lightboxDocumentSource"
             :title="activeLightboxAttachment.filename || 'PDF preview'"
-            class="cpk:w-[90vw] cpk:h-[90vh] cpk:max-w-[1000px] cpk:rounded-lg cpk:bg-white"
+            class="cpk:w-[90vw] cpk:h-[90vh] cpk:max-w-[1000px] cpk:rounded-xl cpk:bg-white"
             data-testid="copilot-chat-attachment-lightbox-document-iframe"
           />
 
@@ -354,11 +346,11 @@ function createBlobUrl(
               isPreviewableDocument &&
               isText(activeLightboxAttachment.source.mimeType)
             "
-            class="cpk:w-[90vw] cpk:max-w-[800px] cpk:max-h-[90vh] cpk:overflow-auto cpk:rounded-lg cpk:bg-white cpk:dark:bg-gray-900 cpk:p-6"
+            class="cpk:w-[90vw] cpk:max-w-[800px] cpk:max-h-[90vh] cpk:overflow-auto cpk:rounded-xl cpk:bg-background cpk:text-foreground cpk:p-6"
           >
             <pre
               v-if="decodedTextPreview !== null"
-              class="cpk:text-sm cpk:whitespace-pre-wrap cpk:wrap-break-word cpk:text-gray-800 cpk:dark:text-gray-200 cpk:font-mono cpk:m-0"
+              class="cpk:text-sm cpk:whitespace-pre-wrap cpk:wrap-break-word cpk:text-foreground cpk:font-mono cpk:m-0"
               data-testid="copilot-chat-attachment-lightbox-document-text"
               >{{ decodedTextPreview }}</pre
             >
@@ -373,25 +365,21 @@ function createBlobUrl(
 
           <div
             v-else
-            class="cpk:flex cpk:flex-col cpk:items-center cpk:gap-4 cpk:p-8 cpk:rounded-lg cpk:bg-white cpk:dark:bg-gray-900"
+            class="cpk:flex cpk:flex-col cpk:items-center cpk:gap-4 cpk:p-8 cpk:rounded-xl cpk:bg-background cpk:text-foreground"
             data-testid="copilot-chat-attachment-lightbox-document-fallback"
           >
             <div
-              class="cpk:w-16 cpk:h-16 cpk:rounded-xl cpk:bg-primary cpk:text-primary-foreground cpk:flex cpk:items-center cpk:justify-center cpk:text-xl cpk:font-bold"
+              class="cpk:size-16 cpk:rounded-2xl cpk:bg-primary/10 cpk:text-primary cpk:flex cpk:items-center cpk:justify-center cpk:text-lg cpk:font-semibold"
             >
               {{
                 getDocumentIcon(activeLightboxAttachment.source.mimeType ?? "")
               }}
             </div>
             <div class="cpk:text-center">
-              <div
-                class="cpk:text-base cpk:font-medium cpk:text-gray-800 cpk:dark:text-gray-200"
-              >
+              <div class="cpk:text-base cpk:font-medium cpk:text-foreground">
                 {{ activeLightboxAttachment.filename || "Document" }}
               </div>
-              <div
-                class="cpk:text-sm cpk:text-gray-500 cpk:dark:text-gray-400 cpk:mt-1"
-              >
+              <div class="cpk:text-sm cpk:text-muted-foreground cpk:mt-1">
                 {{ activeLightboxAttachment.source.mimeType || "Unknown type" }}
                 {{
                   activeLightboxAttachment.size != null
@@ -400,7 +388,7 @@ function createBlobUrl(
                 }}
               </div>
             </div>
-            <div class="cpk:text-xs cpk:text-gray-400 cpk:dark:text-gray-500">
+            <div class="cpk:text-xs cpk:text-muted-foreground">
               No preview available for this file type
             </div>
           </div>

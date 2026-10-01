@@ -3,6 +3,12 @@ import type { WatchSource } from "vue";
 import type { Component, VNodeChild } from "vue";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useRenderTool } from "./use-render-tool";
+import {
+  IconCheck,
+  IconChevronRight,
+  IconCircle,
+  IconLoader2,
+} from "../components/icons";
 
 type DefaultRenderProps = {
   name: string;
@@ -145,6 +151,15 @@ const DefaultToolCallRenderer = defineComponent({
         : isComplete
           ? "Done"
           : props.status;
+      const StatusIcon = isActive
+        ? IconLoader2
+        : isComplete
+          ? IconCheck
+          : IconCircle;
+      const preClass =
+        "cpk:m-0 cpk:mt-1.5 cpk:max-h-[200px] cpk:overflow-auto cpk:rounded-lg cpk:bg-muted cpk:p-2.5 cpk:font-mono cpk:text-xs cpk:leading-relaxed cpk:text-foreground cpk:whitespace-pre-wrap cpk:break-words";
+      const labelClass =
+        "cpk:text-[11px] cpk:font-medium cpk:uppercase cpk:tracking-wide cpk:text-muted-foreground";
 
       return h(
         "div",
@@ -155,20 +170,18 @@ const DefaultToolCallRenderer = defineComponent({
           "data-status": props.status,
           "data-args": safeStringifyForAttr(props.parameters),
           "data-result": safeStringifyForAttr(props.result),
-          style: { marginTop: "8px", paddingBottom: "8px" },
+          class: "cpk:my-2",
         },
         [
           h(
             "div",
             {
-              style: {
-                borderRadius: "12px",
-                border: "1px solid #e4e4e7",
-                backgroundColor: "#fafafa",
-                padding: "14px 16px",
-              },
+              class:
+                "cpk:overflow-hidden cpk:rounded-xl cpk:border cpk:border-border cpk:bg-card cpk:text-card-foreground",
             },
             [
+              // Header row — always visible. A real <button> with
+              // aria-expanded so it is keyboard-accessible.
               h(
                 "button",
                 {
@@ -177,52 +190,82 @@ const DefaultToolCallRenderer = defineComponent({
                   onClick: () => {
                     isExpanded.value = !isExpanded.value;
                   },
-                  style: {
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "10px",
-                    cursor: "pointer",
-                    border: "none",
-                    padding: 0,
-                    margin: 0,
-                    background: "transparent",
-                    textAlign: "left",
-                  },
+                  class:
+                    "cpk:flex cpk:w-full cpk:cursor-pointer cpk:select-none cpk:items-center cpk:gap-2.5 cpk:border-none cpk:bg-transparent cpk:m-0 cpk:px-3.5 cpk:py-2.5 cpk:text-left cpk:text-inherit cpk:transition-colors cpk:hover:bg-accent/60 cpk:focus-visible:outline-2 cpk:focus-visible:-outline-offset-2 cpk:focus-visible:outline-ring cpk:focus-visible:bg-accent/60",
+                  style: { font: "inherit" },
                 },
                 [
+                  h(StatusIcon, {
+                    "aria-hidden": "true",
+                    class: [
+                      "cpk:size-3.5 cpk:shrink-0",
+                      isComplete
+                        ? "cpk:text-foreground"
+                        : "cpk:text-muted-foreground",
+                      isActive ? "cpk:animate-spin" : "",
+                    ],
+                  }),
                   h(
                     "span",
                     {
                       "data-testid": "copilot-tool-render-name",
-                      style: { fontWeight: "600" },
+                      class: [
+                        "cpk:min-w-0 cpk:flex-1 cpk:truncate cpk:font-mono cpk:text-[13px] cpk:font-medium cpk:text-foreground",
+                        isActive ? "cpk-shimmer" : "",
+                      ],
                     },
                     props.name,
                   ),
                   h(
                     "span",
-                    { "data-testid": "copilot-tool-render-status" },
+                    {
+                      "data-testid": "copilot-tool-render-status",
+                      class: [
+                        "cpk:shrink-0 cpk:text-xs cpk:text-muted-foreground",
+                        isActive ? "cpk-shimmer" : "",
+                      ],
+                    },
                     statusLabel,
                   ),
+                  h(IconChevronRight, {
+                    "aria-hidden": "true",
+                    class: [
+                      "cpk:size-3.5 cpk:shrink-0 cpk:text-muted-foreground cpk:transition-transform cpk:duration-200",
+                      isExpanded.value ? "cpk:rotate-90" : "",
+                    ],
+                  }),
                 ],
               ),
               isExpanded.value
-                ? h("div", { style: { marginTop: "12px" } }, [
-                    h("div", "Arguments"),
-                    h("pre", safeStringifyForPre(props.parameters ?? {})),
-                    props.result !== undefined
-                      ? h("div", [
-                          h("div", "Result"),
-                          h(
-                            "pre",
-                            typeof props.result === "string"
-                              ? props.result
-                              : safeStringifyForPre(props.result),
-                          ),
-                        ])
-                      : null,
-                  ])
+                ? h(
+                    "div",
+                    {
+                      class:
+                        "cpk:grid cpk:gap-3 cpk:border-t cpk:border-border cpk:px-3.5 cpk:py-3",
+                    },
+                    [
+                      h("div", [
+                        h("div", { class: labelClass }, "Arguments"),
+                        h(
+                          "pre",
+                          { class: preClass },
+                          safeStringifyForPre(props.parameters ?? {}),
+                        ),
+                      ]),
+                      props.result !== undefined
+                        ? h("div", [
+                            h("div", { class: labelClass }, "Result"),
+                            h(
+                              "pre",
+                              { class: preClass },
+                              typeof props.result === "string"
+                                ? props.result
+                                : safeStringifyForPre(props.result),
+                            ),
+                          ])
+                        : null,
+                    ],
+                  )
                 : null,
             ],
           ),

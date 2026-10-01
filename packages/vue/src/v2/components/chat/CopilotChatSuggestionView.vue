@@ -14,9 +14,16 @@ const props = withDefaults(
   defineProps<{
     suggestions: Suggestion[];
     loadingIndexes?: ReadonlyArray<number>;
+    /**
+     * `"pills"` (default): compact chips in a single scrollable row.
+     * `"cards"`: a grid of cards, each with the suggestion's title as header
+     * and its message as body. Welcome screens use cards.
+     */
+    appearance?: "pills" | "cards";
   }>(),
   {
     loadingIndexes: () => [],
+    appearance: "pills",
   },
 );
 
@@ -32,14 +39,34 @@ const emit = defineEmits<{
 
 const attrs = useAttrs();
 const loadingSet = computed(() => new Set(props.loadingIndexes));
+// Pills: a single scrollable row whose right edge fades when pills overflow.
+const rowClass = [
+  "cpk:flex cpk:flex-nowrap cpk:items-center cpk:gap-2 cpk:overflow-x-auto cpk:py-1",
+  "cpk:[scrollbar-width:none] cpk:[&::-webkit-scrollbar]:hidden",
+  "cpk:[mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)]",
+].join(" ");
+// Cards: two columns at every width, so cards stay close to square in narrow
+// chats (popup, sidebar) too. `auto-rows-fr` gives every card the same height.
+const gridClass =
+  "cpk:grid cpk:w-full cpk:auto-rows-fr cpk:grid-cols-2 cpk:gap-2";
+
 const containerClass = computed(() => [
-  "cpk:flex cpk:flex-wrap cpk:items-center cpk:gap-1.5 cpk:pl-0 cpk:pr-4 cpk:pointer-events-none cpk:sm:gap-2 cpk:@3xl:px-0",
+  props.appearance === "cards" ? gridClass : rowClass,
+  "cpk:pointer-events-auto",
   attrs.class,
 ]);
 const containerAttrs = computed(() => {
   const { class: _className, ...rest } = attrs;
-  return rest;
+  return { ...rest, "data-appearance": props.appearance };
 });
+
+/** Cards show the suggestion's message under its title (unless they match). */
+function descriptionFor(suggestion: Suggestion): string | undefined {
+  if (props.appearance !== "cards") return undefined;
+  return suggestion.message && suggestion.message !== suggestion.title
+    ? suggestion.message
+    : undefined;
+}
 
 function isLoading(index: number, suggestion: Suggestion) {
   return loadingSet.value.has(index) || suggestion.isLoading === true;
@@ -76,10 +103,14 @@ const slotProps = computed<CopilotChatSuggestionViewContainerSlotProps>(() => ({
             :suggestion="suggestion"
             :index="index"
             :is-loading="isLoading(index, suggestion)"
+            :appearance="appearance === 'cards' ? 'card' : 'pill'"
+            :description="descriptionFor(suggestion)"
             :on-select="() => handleSelectSuggestion(suggestion, index)"
           >
             <CopilotChatSuggestionPill
               :is-loading="isLoading(index, suggestion)"
+              :appearance="appearance === 'cards' ? 'card' : 'pill'"
+              :description="descriptionFor(suggestion)"
               type="button"
               @click="handleSelectSuggestion(suggestion, index)"
             >

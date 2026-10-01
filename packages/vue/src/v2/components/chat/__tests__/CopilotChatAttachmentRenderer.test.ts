@@ -4,15 +4,45 @@ import CopilotChatAttachmentRenderer from "../CopilotChatAttachmentRenderer.vue"
 
 describe("CopilotChatAttachmentRenderer", () => {
   it("renders image attachments from source", () => {
+    const { getByTestId, queryByTestId } = render(
+      CopilotChatAttachmentRenderer,
+      {
+        props: {
+          type: "image",
+          source: { type: "url", value: "https://example.com/image.png" },
+        },
+      },
+    );
+
+    const image = getByTestId("copilot-chat-attachment-renderer-image");
+    expect(image.getAttribute("src")).toBe("https://example.com/image.png");
+    expect(
+      queryByTestId("copilot-chat-attachment-renderer-image-fallback"),
+    ).toBeNull();
+  });
+
+  it("opens an image thumbnail full size and closes on Escape", async () => {
     const { getByTestId } = render(CopilotChatAttachmentRenderer, {
       props: {
         type: "image",
         source: { type: "url", value: "https://example.com/image.png" },
       },
     });
+    const lightbox = () =>
+      document.querySelector(
+        "[data-testid='copilot-chat-attachment-renderer-lightbox']",
+      );
+    expect(lightbox()).toBeNull();
 
-    const image = getByTestId("copilot-chat-attachment-renderer-image");
-    expect(image.getAttribute("src")).toBe("https://example.com/image.png");
+    await fireEvent.click(
+      getByTestId("copilot-chat-attachment-renderer-image"),
+    );
+    expect(lightbox()?.querySelector("img")?.getAttribute("src")).toBe(
+      "https://example.com/image.png",
+    );
+
+    await fireEvent.keyDown(document, { key: "Escape" });
+    expect(lightbox()).toBeNull();
   });
 
   it("shows image fallback on load error", async () => {
@@ -121,4 +151,39 @@ describe("CopilotChatAttachmentRenderer", () => {
       ).textContent,
     ).toContain("Unknown type");
   });
+
+  it.each([
+    {
+      type: "image",
+      testId: "copilot-chat-attachment-renderer-image",
+    },
+    {
+      type: "audio",
+      testId: "copilot-chat-attachment-renderer-audio",
+    },
+    {
+      type: "video",
+      testId: "copilot-chat-attachment-renderer-video",
+    },
+    {
+      type: "document",
+      testId: "copilot-chat-attachment-renderer-document",
+    },
+  ] as const)(
+    "puts class, style and id on the $type element",
+    ({ type, testId }) => {
+      const { getByTestId } = render(CopilotChatAttachmentRenderer, {
+        props: {
+          type,
+          source: { type: "url", value: "https://example.com/file" },
+        },
+        attrs: { class: "host-class", style: "margin: 4px", id: "host-id" },
+      });
+
+      const element = getByTestId(testId);
+      expect(element.classList).toContain("host-class");
+      expect(element.style.margin).toBe("4px");
+      expect(element.id).toBe("host-id");
+    },
+  );
 });
