@@ -2,6 +2,11 @@ import { test, expect } from "@playwright/test";
 
 const EXAMPLE = process.env.EXAMPLE ?? "form-filling";
 
+// Use domcontentloaded because the team avatars load from ui-avatars.com.
+// When that host stalls from the CI runners, the default "load" waitUntil
+// never fires, even though the board has rendered.
+const GOTO_OPTIONS = { waitUntil: "domcontentloaded" } as const;
+
 test.describe("mastra-pm", () => {
   test.skip(EXAMPLE !== "mastra-pm", `EXAMPLE=${EXAMPLE}`);
 
@@ -9,7 +14,7 @@ test.describe("mastra-pm", () => {
     page,
     request,
   }) => {
-    await page.goto("/");
+    await page.goto("/", GOTO_OPTIONS);
     await expect(
       page.getByRole("heading", { name: "My Project", exact: true }),
     ).toBeVisible();
@@ -82,7 +87,7 @@ test.describe("mastra-pm", () => {
           .join(""),
       });
     });
-    await page.goto("/");
+    await page.goto("/", GOTO_OPTIONS);
     await expect(
       page.getByRole("heading", { name: "My Project", exact: true }),
     ).toBeVisible();

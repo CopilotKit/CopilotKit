@@ -331,6 +331,26 @@ describe("loadDoc", () => {
       "[Enable AG-UI Streams routes](/backend/runtime-endpoints#enable-rich-threads-routes)",
     );
   });
+
+  // An Intelligence runtime answers GET /threads with 400 unless the request
+  // names an agentId, so a copied list example must carry one.
+  it("documents agentId on the thread list route and its examples", () => {
+    const runtimeEndpoints = loadDoc("backend/runtime-endpoints")?.source ?? "";
+    const listRow = runtimeEndpoints
+      .split("\n")
+      .find((line) => line.startsWith("| `GET /api/copilotkit/threads`"));
+    const listCurls = runtimeEndpoints
+      .split("\n")
+      .filter((line) =>
+        /curl .*\/api\/copilotkit\/threads(?![/\w])/.test(line),
+      );
+
+    expect(listRow).toContain("`agentId`");
+    expect(listCurls.length).toBeGreaterThan(0);
+    for (const curl of listCurls) {
+      expect(curl).toContain("agentId=");
+    }
+  });
 });
 
 describe("readIcon", () => {

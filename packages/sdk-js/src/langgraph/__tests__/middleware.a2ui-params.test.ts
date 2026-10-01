@@ -17,12 +17,17 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-const { captured } = vi.hoisted(() => ({ captured: [] as any[] }));
+import type { A2UIToolParams } from "@ag-ui/langgraph";
+
+const { captured } = vi.hoisted(() => {
+  const params: A2UIToolParams[] = [];
+  return { captured: params };
+});
 
 vi.mock("@ag-ui/langgraph", () => ({
-  getA2UITools: (params: any) => {
+  getA2UITools: (params: A2UIToolParams) => {
     captured.push(params);
-    return { name: "generate_a2ui" };
+    return { name: "generate_a2ui", invoke: async () => "ok" };
   },
 }));
 
