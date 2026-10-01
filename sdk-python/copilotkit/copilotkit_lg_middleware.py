@@ -18,7 +18,7 @@ import json
 import re
 from collections.abc import Awaitable, Callable, Iterable
 from copy import copy, deepcopy
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 from langchain.agents.middleware import (
     AgentMiddleware,
@@ -26,7 +26,7 @@ from langchain.agents.middleware import (
     ModelRequest,
     ModelResponse,
 )
-from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.runtime import Runtime
 from langgraph.types import interrupt
 
@@ -253,6 +253,12 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             - ``list``/``tuple``/``set[str]`` — only surface the named keys.
               Use this when you want explicit control over what the LLM
               sees (e.g. ``["liked", "todos"]``).
+        context_placement: Where App Context and exposed-state notes are added
+            to the model request. ``"system"`` (default) preserves the current
+            behavior. ``"user"`` prepends them to the latest human message,
+            keeping the system message stable for provider prompt caching. If a
+            request has no human message, the notes fall back to the system
+            message so they are still visible to the model.
         a2ui_params: Optional host overrides for the auto-injected
             ``generate_a2ui`` tool, forwarded to ``get_a2ui_tools`` when A2UI
             injection fires. An ``A2UIToolParams``-shaped dict: ``guidelines``
@@ -294,10 +300,14 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         self,
         *,
         expose_state: bool | Iterable[str] = False,
+        context_placement: Literal["system", "user"] = "system",
         a2ui_params: "A2UIToolParams | None" = None,
         interrupt_frontend_tools: bool = False,
     ):
         super().__init__()
+        if context_placement not in ("system", "user"):
+            raise ValueError("context_placement must be 'system' or 'user'")
+        self._context_placement = context_placement
         if isinstance(expose_state, bool):
             self._expose_state: bool | frozenset[str] = expose_state
         else:
@@ -397,7 +407,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     # ------------------------------------------------------------------
 
     def _build_state_note(self, state: dict) -> str | None:
-        """Serialize a snapshot of user state into a system-prompt note.
+        """Serialize a snapshot of user state into a model-request note.
 
         Returns ``None`` when nothing should be appended (feature disabled
         or no non-empty user keys present).
@@ -440,10 +450,10 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             body = str(snapshot)
         return f"Current agent state:\n{body}"
 
-    def _apply_state_note(self, request: ModelRequest) -> ModelRequest:
-        note = self._build_state_note(request.state or {})
-        if not note:
-            return request
+    @staticmethod
+    def _append_note_to_system_message(
+        request: ModelRequest, note: str
+    ) -> ModelRequest:
         existing = request.system_message
         if existing is None:
             return request.override(system_message=SystemMessage(content=note))
@@ -455,6 +465,50 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         return request.override(
             system_message=SystemMessage(content=f"{base}\n\n{note}")
         )
+
+    def _apply_context_note(self, request: ModelRequest, note: str) -> ModelRequest:
+        if self._context_placement == "system":
+            return self._append_note_to_system_message(request, note)
+
+        messages = list(request.messages)
+        human_index = next(
+            (
+                index
+                for index in range(len(messages) - 1, -1, -1)
+                if isinstance(messages[index], HumanMessage)
+            ),
+            None,
+        )
+        if human_index is None:
+            return self._append_note_to_system_message(request, note)
+
+        human_message = messages[human_index]
+        content = human_message.content
+        background = (
+            "[Background application context; not user-authored]\n"
+            f"{note}\n\n[User message]\n"
+        )
+        if isinstance(content, str):
+            updated_content = f"{background}{content}"
+        elif isinstance(content, list):
+            # Preserve multimodal content blocks; the note is an added text
+            # part rather than a stringification of the user's content.
+            updated_content = [{"type": "text", "text": background}, *content]
+        else:
+            # Keep the note visible for any future HumanMessage content shape
+            # that this middleware does not know how to prepend to safely.
+            return self._append_note_to_system_message(request, note)
+
+        messages[human_index] = human_message.model_copy(
+            update={"content": updated_content}
+        )
+        return request.override(messages=messages)
+
+    def _apply_state_note(self, request: ModelRequest) -> ModelRequest:
+        note = self._build_state_note(request.state or {})
+        if not note:
+            return request
+        return self._apply_context_note(request, note)
 
     def _build_app_context_note(
         self,
@@ -506,17 +560,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         )
         if not note:
             return request
-        existing = request.system_message
-        if existing is None:
-            return request.override(system_message=SystemMessage(content=note))
-        base = (
-            existing.content
-            if isinstance(existing.content, str)
-            else str(existing.content)
-        )
-        return request.override(
-            system_message=SystemMessage(content=f"{base}\n\n{note}")
-        )
+        return self._apply_context_note(request, note)
 
     # ------------------------------------------------------------------
     # Auto-A2UI tool injection
