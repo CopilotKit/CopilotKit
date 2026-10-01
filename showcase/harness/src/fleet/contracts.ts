@@ -540,18 +540,15 @@ export function runSummaryForServiceJobResult(result: ServiceJobResult): {
 } {
   if (
     functionalAdmission(result.probeKey, "green") === "unverified" ||
-    functionalAdmission(result.aggregateKey, "green") === "unverified"
-  ) {
-    // These are non-passing observations, not newly observed product failures.
-    return {
-      total: result.rollup.total,
-      passed: 0,
-      failed: result.rollup.total,
-    };
-  }
-  if (
+    functionalAdmission(result.aggregateKey, "green") === "unverified" ||
     result.cells.some(
-      (cell) => functionalAdmission(cell.cellKey, "green") === "unverified",
+      (cell) =>
+        functionalAdmission(
+          cell.cellKey,
+          "green",
+          cell.signal,
+          cell.observedAt,
+        ) === "unverified",
     )
   ) {
     const passed = Math.min(
@@ -559,7 +556,12 @@ export function runSummaryForServiceJobResult(result: ServiceJobResult): {
       result.cells.filter(
         (cell) =>
           cell.state === "green" &&
-          functionalAdmission(cell.cellKey, cell.state) !== "unverified",
+          functionalAdmission(
+            cell.cellKey,
+            cell.state,
+            cell.signal,
+            cell.observedAt,
+          ) !== "unverified",
       ).length,
     );
     return {

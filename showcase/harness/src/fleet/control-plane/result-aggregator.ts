@@ -1168,7 +1168,12 @@ export function createResultAggregator(
         if (
           o.previousState === "red" &&
           o.newState === "green" &&
-          functionalAdmission(key, o.newState) !== "unverified"
+          functionalAdmission(
+            key,
+            o.newState,
+            probeResults.find((pr) => pr.key === key)?.signal,
+            probeResults.find((pr) => pr.key === key)?.observedAt,
+          ) !== "unverified"
         ) {
           redsCleared += 1;
         }

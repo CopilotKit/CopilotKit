@@ -337,12 +337,25 @@ export interface CanonicalConversation {
 export interface PublicObservation {
   userMessages: readonly { id: string; content: string }[];
   runsFinished: number;
+  terminal?: { runId: string; threadId: string; messageId: string };
   running: CopilotRunningState;
   error?: string;
 }
 
 export interface FunctionalProof {
-  disposition: "failed" | "unverified";
+  disposition: "completed" | "failed" | "unverified";
+  assertionId?: string;
+  attempts?: number;
+  binding?: {
+    key: string;
+    observedAt: string;
+    runId?: string;
+    frontend: string;
+    targetRevision?: string;
+    canonicalRevision?: string;
+    outerUrl: string;
+    iframeUrl: string;
+  };
   canonicalId?: string;
   requiredActionIds: string[];
   attemptedActionIds: string[];
@@ -352,6 +365,13 @@ export interface FunctionalProof {
     dispatch: boolean;
     terminal: boolean;
     result: boolean;
+    label?: string;
+    prompt?: string;
+    startedAt?: string;
+    completedAt?: string;
+    runId?: string;
+    threadId?: string;
+    terminalMessageId?: string;
     emittedMessageId?: string;
   }[];
   firstFailure?: { actionId?: string; turn: number; error: string };
@@ -549,13 +569,13 @@ async function runPublicPills(
   const proof: FunctionalProof = {
     disposition: "unverified",
     canonicalId: canonical?.id,
+    assertionId: canonical?.assertionId,
+    attempts: 1,
     requiredActionIds: [...(canonical?.requiredActionIds ?? [])],
     attemptedActionIds: [],
     successfulActionIds: [],
     actions: [],
-    incompleteReason:
-      canonical?.incompleteReason ??
-      "Local proof is not yet qualified for functional credit",
+    incompleteReason: canonical?.incompleteReason,
   };
   const result: ConversationResult = {
     turns_completed: 0,
@@ -642,8 +662,11 @@ async function runPublicPills(
           "canonical pill must have exactly one visible enabled exact raw label",
         );
       proof.attemptedActionIds.push(action.id);
-      const actionProof = {
+      const actionProof: FunctionalProof["actions"][number] = {
         actionId: action.id,
+        label: action.label,
+        prompt: action.prompt,
+        startedAt: new Date(startedAt).toISOString(),
         dispatch: false,
         terminal: false,
         result: false,
@@ -707,6 +730,10 @@ async function runPublicPills(
         throw new Error(
           "canonical pill evidence changed during result assertions",
         );
+      actionProof.runId = finalObservation.terminal?.runId;
+      actionProof.threadId = finalObservation.terminal?.threadId;
+      actionProof.terminalMessageId = finalObservation.terminal?.messageId;
+      actionProof.completedAt = new Date().toISOString();
       actionProof.result = true;
       proof.successfulActionIds.push(action.id);
       result.turns_completed++;
@@ -719,6 +746,7 @@ async function runPublicPills(
       )
     )
       throw new Error("public pill required action program incomplete");
+    if (!canonical.incompleteReason) proof.disposition = "completed";
   } catch (error) {
     const message = errorMessage(error);
     result.failure_turn = currentTurn;

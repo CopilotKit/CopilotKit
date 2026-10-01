@@ -48,6 +48,7 @@ import type { CvdiagPbWriter } from "../../cvdiag/pb-writer.js";
 import type { ProbeDriver } from "../types.js";
 import type { Logger, ProbeContext, ProbeResult } from "../../types/index.js";
 import type { BrowserPool } from "../helpers/browser-pool.js";
+import { createPlaywrightProbeExecutor } from "../frontend-matrix-playwright.js";
 import { clearRemoteThreads } from "../helpers/clear-remote-threads.js";
 import type playwright from "playwright";
 
@@ -111,6 +112,8 @@ const inputSchema = z
     notSupportedFeatures: z.array(z.string()).optional(),
     shape: showcaseShapeSchema.optional(),
     deployedAt: z.string().optional(),
+    targetRevision: z.string().optional(),
+    canonicalRevision: z.string().optional(),
     /**
      * D5-take-one scoping. When true, the computed `requestedFeatures`
      * are filtered to ONLY the featureTypes present in the representatives
@@ -152,6 +155,7 @@ type E2eFullDriverInput = z.infer<typeof inputSchema>;
  * Diagnostic only — not consumed by dashboard rollup.
  */
 export interface E2eFullFeatureSignal {
+  functional?: ConversationResult["functional"];
   slug: string;
   featureType: string;
   backendUrl: string;
@@ -231,6 +235,7 @@ export interface E2eFullPage extends Page {
 }
 
 export interface E2eFullBrowserContext {
+  publicContext?: Pick<playwright.BrowserContext, "newPage" | "close">;
   newPage(): Promise<E2eFullPage>;
   close(): Promise<void>;
 }
@@ -238,6 +243,7 @@ export interface E2eFullBrowserContext {
 export interface E2eFullBrowser {
   newContext(opts?: {
     extraHTTPHeaders?: Record<string, string>;
+    publicMode?: boolean;
   }): Promise<E2eFullBrowserContext>;
   close(): Promise<void>;
 }
@@ -488,6 +494,7 @@ const defaultLauncher: E2eFullBrowserLauncher =
     return {
       async newContext(contextOpts?: {
         extraHTTPHeaders?: Record<string, string>;
+        publicMode?: boolean;
       }): Promise<E2eFullBrowserContext> {
         // GUARD: open the context on the shared browser only while it is LIVE,
         // and convert a mid-open disconnect into a clean BrowserDisconnectedError
@@ -498,12 +505,16 @@ const defaultLauncher: E2eFullBrowserLauncher =
           browser,
           {
             extraHTTPHeaders: {
-              ...resolveAimockStrictHeaders(),
+              ...(contextOpts?.publicMode ? {} : resolveAimockStrictHeaders()),
               ...contextOpts?.extraHTTPHeaders,
             },
           },
         );
         return {
+          publicContext: {
+            newPage: () => ctx.newPage(),
+            close: () => ctx.close(),
+          },
           async newPage(): Promise<E2eFullPage> {
             const page = await ctx.newPage();
 
@@ -628,9 +639,11 @@ export function createPooledE2eFullLauncher(
     return {
       async newContext(contextOpts?: {
         extraHTTPHeaders?: Record<string, string>;
+        publicMode?: boolean;
       }): Promise<E2eFullBrowserContext> {
         const ctx = await pool.acquire({
           extraHTTPHeaders: contextOpts?.extraHTTPHeaders,
+          publicMode: contextOpts?.publicMode,
         });
         // If the signal was already aborted at launcher construction (the
         // pre-aborted branch never attached the live abort listener), a context
@@ -643,6 +656,13 @@ export function createPooledE2eFullLauncher(
         const ctxHandle = { close: () => pool.release(ctx) };
         openContexts.add(ctxHandle);
         return {
+          publicContext: {
+            newPage: () => ctx.newPage(),
+            close: async () => {
+              openContexts.delete(ctxHandle);
+              await pool.release(ctx);
+            },
+          },
           async newPage(): Promise<E2eFullPage> {
             const page = await ctx.newPage();
 
@@ -829,7 +849,7 @@ export function createE2eFullDriver(
       // component tag distinguishes the D5 take-one path from a full D6 run
       // even though they share THIS driver — that distinction is the whole
       // point of the CV incident (D5/CV red while D6 green).
-      const runId = idFactory();
+      const runId = ctx.runId ?? idFactory();
       const cvComponent = rowPrefix === "d5" ? "harness-d5" : "harness-d6";
       // The aimock base URL the framework apps are wired to send X-AIMock-*
       // against. Read from env (orchestrator sets AIMOCK_URL; the CLI sets
@@ -1324,6 +1344,15 @@ export function createE2eFullDriver(
                 // inbound-boundary line at header injection.
                 runId,
                 cvComponent,
+                key: sideKey,
+                targetRevision: input.targetRevision,
+                canonicalRevision: input.canonicalRevision,
+                featureTimeoutMs,
+                publicShellBaseUrl:
+                  ctx.env.SHOWCASE_PUBLIC_URL ??
+                  (backendUrl.includes(".staging.")
+                    ? "https://showcase.staging.copilotkit.ai"
+                    : "https://showcase.copilotkit.ai"),
                 // CVDIAG probe-session: the emitter (when present) + buffer dir
                 // let runFeature construct a `CvdiagProbeSession` per feature
                 // and emit the probe-layer boundaries (probe.start / navigate /
@@ -1367,6 +1396,7 @@ export function createE2eFullDriver(
               const attempt1Duration = Date.now() - attempt1Start;
 
               if (
+                ft !== "frontend-tools" &&
                 !featureResult.ok &&
                 !abort.signal.aborted &&
                 !featureAbort.signal.aborted &&
@@ -1407,12 +1437,15 @@ export function createE2eFullDriver(
                   backendUrl,
                   url,
                   fixtureFile: script.fixtureFile,
+                  functional: featureResult.conversation.functional,
                   turns_completed: featureResult.conversation.turns_completed,
                   total_turns: featureResult.conversation.total_turns,
                   turn_durations_ms:
                     featureResult.conversation.turn_durations_ms,
                 },
-                observedAt: ctx.now().toISOString(),
+                observedAt:
+                  featureResult.conversation.functional?.binding?.observedAt ??
+                  ctx.now().toISOString(),
               });
               ctx.logger.info("probe.e2e-full.feature-complete", {
                 slug,
@@ -1463,6 +1496,7 @@ export function createE2eFullDriver(
                     turns_completed:
                       featureResult.conversation?.turns_completed,
                     total_turns: featureResult.conversation?.total_turns,
+                    functional: featureResult.conversation?.functional,
                     failure_turn: featureResult.conversation?.failure_turn,
                     turn_durations_ms:
                       featureResult.conversation?.turn_durations_ms,
@@ -1661,6 +1695,11 @@ async function runFeature(opts: {
   runId: string;
   /** CVDIAG component tag (`harness-d5` | `harness-d6`). */
   cvComponent: string;
+  key: string;
+  featureTimeoutMs: number;
+  targetRevision?: string;
+  canonicalRevision?: string;
+  publicShellBaseUrl: string;
   /**
    * CVDIAG probe-session emitter for THIS feature cell. Absent → no
    * probe-layer emission (instrumentation off). Same session as the d4 driver
@@ -1694,6 +1733,59 @@ async function runFeature(opts: {
     cvdiagEmitter,
     cvdiagBufferDir,
   } = opts;
+
+  if (featureType === "frontend-tools" && script.canonical) {
+    const run = createPlaywrightProbeExecutor({
+      browser: {
+        newContext: async () => {
+          const context = await browser.newContext({ publicMode: true });
+          if (!context.publicContext) {
+            await context.close();
+            throw new Error("public browser context missing");
+          }
+          return context.publicContext;
+        },
+      },
+      scripts: new Map([[featureType, script]]),
+      executionMode: "public-pill",
+      probeTimeoutMs: opts.featureTimeoutMs,
+    });
+    const result = await run({
+      cell: {
+        id: `react/${slug}/frontend-tools`,
+        frontend: "react",
+        integration: slug,
+        feature: "frontend-tools",
+        featureTypes: [featureType],
+      },
+      featureType,
+      url: `${opts.publicShellBaseUrl.replace(/\/$/, "")}/react/${slug}/frontend-tools/preview`,
+      backendUrl: buildCtx.baseUrl,
+      testId: buildE2eTestId(slug, runId),
+      key: opts.key,
+      runId,
+      targetRevision: opts.targetRevision,
+      canonicalRevision: opts.canonicalRevision,
+    });
+    const conversation: ConversationResult = {
+      turns_completed: Number(result.diagnostics?.turnsCompleted ?? 0),
+      total_turns: script.canonical.actions.length,
+      turn_durations_ms: [],
+      functional: result.functional,
+    };
+    return result.status === "failed"
+      ? {
+          ok: false,
+          errorClass: result.errorClass ?? "conversation-error",
+          errorDesc:
+            result.functional?.firstFailure?.error ??
+            result.error ??
+            "public action failed",
+          conversation,
+          diagnostics: result.diagnostics,
+        }
+      : { ok: true, conversation };
+  }
 
   const testId = buildE2eTestId(slug, runId);
   // CVDIAG probe-session for THIS feature cell (one test_id). The session

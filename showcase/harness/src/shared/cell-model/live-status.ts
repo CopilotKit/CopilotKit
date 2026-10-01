@@ -26,15 +26,170 @@ import {
 
 export type State = "green" | "red" | "degraded";
 
-/** Current callers have no independent expected contract. Producer flags cannot admit D5/D6 green. */
+/** The complete shared theme program; readers do not trust a producer's required list. */
+export const FRONTEND_TOOLS_CANONICAL = {
+  id: "frontend-tools-v1",
+  assertionId: "frontend-tools-gradients-v1",
+  requiredActionIds: ["sunset", "forest", "cosmic"],
+  actions: [
+    {
+      id: "sunset",
+      kind: "pill-dispatch",
+      label: "Sunset theme",
+      prompt: "Make the background a sunset gradient.",
+      gradient:
+        "linear-gradient(135deg, #ff7e5f 0%, #feb47b 50%, #ff6b6b 100%)",
+    },
+    {
+      id: "forest",
+      kind: "pill-dispatch",
+      label: "Forest theme",
+      prompt: "Switch to a deep green forest gradient.",
+      gradient:
+        "linear-gradient(135deg, #0a3d2e 0%, #166534 50%, #059669 100%)",
+    },
+    {
+      id: "cosmic",
+      kind: "pill-dispatch",
+      label: "Cosmic theme",
+      prompt: "Make it a navy → magenta cosmic gradient.",
+      gradient:
+        "linear-gradient(135deg, #1e3a8a 0%, #6b21a8 50%, #9333ea 100%)",
+    },
+  ],
+} as const;
+
+/** Missing/legacy evidence cannot grant functional credit or clear a failure. */
 export function functionalAdmission(
   key: string,
   state: string,
+  signal?: unknown,
+  observedAt?: string,
+  expected?: {
+    runId?: string;
+    targetRevision?: string;
+    canonicalRevision?: string;
+    frontend?: string;
+  },
 ): "unverified" | "unchanged" {
-  return /^(?:d5|d6|d5-single-pill-e2e|d6-all-pills-e2e):/.test(key.trim()) &&
-    state === "green"
-    ? "unverified"
-    : "unchanged";
+  if (
+    state !== "green" ||
+    !/^(?:d5|d6|d5-single-pill-e2e|d6-all-pills-e2e):/.test(key)
+  )
+    return "unchanged";
+  const object = (value: unknown): Record<string, unknown> | undefined =>
+    value !== null && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : undefined;
+  const proof = object(object(signal)?.functional);
+  const binding = object(proof?.binding);
+  const match = /^(?:d5|d6):([^/]+)\/frontend-tools$/.exec(key);
+  const canonical = FRONTEND_TOOLS_CANONICAL;
+  if (
+    !match ||
+    !proof ||
+    !binding ||
+    !observedAt ||
+    binding.key !== key ||
+    Date.parse(String(binding.observedAt)) !== Date.parse(observedAt) ||
+    binding.frontend !== "react" ||
+    typeof binding.runId !== "string" ||
+    !binding.runId ||
+    typeof binding.targetRevision !== "string" ||
+    !/^sha256:[0-9a-f]{64}$/.test(binding.targetRevision) ||
+    binding.canonicalRevision !== canonical.id ||
+    proof.canonicalId !== canonical.id ||
+    proof.assertionId !== canonical.assertionId ||
+    proof.disposition !== "completed" ||
+    proof.attempts !== 1 ||
+    proof.firstFailure ||
+    proof.incompleteReason
+  )
+    return "unverified";
+  if (
+    expected &&
+    Object.entries(expected).some(
+      ([field, value]) => value === undefined || binding[field] !== value,
+    )
+  )
+    return "unverified";
+  try {
+    const outer = new URL(String(binding.outerUrl));
+    const frame = new URL(String(binding.iframeUrl));
+    if (
+      ![outer, frame].every(
+        (url) =>
+          ["http:", "https:"].includes(url.protocol) &&
+          !url.username &&
+          !url.password &&
+          !url.search &&
+          !url.hash,
+      ) ||
+      outer.pathname !== `/react/${match[1]}/frontend-tools/preview` ||
+      frame.pathname !== "/demos/frontend-tools"
+    )
+      return "unverified";
+  } catch {
+    return "unverified";
+  }
+  for (const field of [
+    "requiredActionIds",
+    "attemptedActionIds",
+    "successfulActionIds",
+  ]) {
+    const list = proof[field];
+    if (
+      !Array.isArray(list) ||
+      list.length !== canonical.requiredActionIds.length ||
+      list.some((id, i) => id !== canonical.requiredActionIds[i])
+    )
+      return "unverified";
+  }
+  if (
+    !Array.isArray(proof.actions) ||
+    proof.actions.length !== canonical.actions.length
+  )
+    return "unverified";
+  const messageIds = new Set<string>();
+  let previousEnd = 0;
+  const observed = Date.parse(observedAt);
+  if (!Number.isFinite(observed)) return "unverified";
+  for (const [index, raw] of proof.actions.entries()) {
+    const action = object(raw);
+    const required = canonical.actions[index]!;
+    if (
+      !action ||
+      action.actionId !== required.id ||
+      action.label !== required.label ||
+      action.prompt !== required.prompt ||
+      action.dispatch !== true ||
+      action.terminal !== true ||
+      action.result !== true ||
+      typeof action.emittedMessageId !== "string" ||
+      !action.emittedMessageId ||
+      messageIds.has(action.emittedMessageId) ||
+      action.terminalMessageId !== action.emittedMessageId ||
+      typeof action.runId !== "string" ||
+      !action.runId ||
+      typeof action.threadId !== "string" ||
+      !action.threadId
+    )
+      return "unverified";
+    const start = Date.parse(String(action.startedAt));
+    const end = Date.parse(String(action.completedAt));
+    if (
+      !Number.isFinite(start) ||
+      !Number.isFinite(end) ||
+      start < previousEnd ||
+      end < start ||
+      end > observed ||
+      observed - end > 180_000
+    )
+      return "unverified";
+    previousEnd = end;
+    messageIds.add(action.emittedMessageId);
+  }
+  return "unchanged";
 }
 
 /* ------------------------------------------------------------------ */
@@ -649,7 +804,12 @@ export function resolveD5Row(
     const row = live.get(keyFor("d5", slug, d5Key)) ?? null;
     if (
       !row ||
-      functionalAdmission(keyFor("d5", slug, d5Key), row.state) === "unverified"
+      functionalAdmission(
+        keyFor("d5", slug, d5Key),
+        row.state,
+        row.signal,
+        row.observed_at,
+      ) === "unverified"
     ) {
       anyMissing = true;
       continue;
@@ -720,7 +880,12 @@ export function resolveD6Row(
     const row = live.get(keyFor("d6", slug, d6Key)) ?? null;
     if (
       !row ||
-      functionalAdmission(keyFor("d6", slug, d6Key), row.state) === "unverified"
+      functionalAdmission(
+        keyFor("d6", slug, d6Key),
+        row.state,
+        row.signal,
+        row.observed_at,
+      ) === "unverified"
     ) {
       anyMissing = true;
       continue;
@@ -1577,6 +1742,23 @@ function rowsAreNoop(prev: unknown, next: unknown): boolean {
   if (prev === next) return true;
   const a = prev as Record<string, unknown>;
   const b = next as Record<string, unknown>;
+  if (
+    typeof a.key === "string" &&
+    functionalAdmission(a.key, "green") === "unverified" &&
+    functionalAdmission(
+      a.key,
+      String(a.state),
+      a.signal,
+      String(a.observed_at),
+    ) !==
+      functionalAdmission(
+        a.key,
+        String(b.state),
+        b.signal,
+        String(b.observed_at),
+      )
+  )
+    return false;
   return (a.signal === undefined) === (b.signal === undefined);
 }
 

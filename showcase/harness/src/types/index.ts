@@ -159,6 +159,7 @@ export interface ProbeResult<Signal = unknown> {
 }
 
 export interface ProbeContext {
+  runId?: string;
   now: () => Date;
   logger: Logger;
   env: Readonly<Record<string, string | undefined>>;

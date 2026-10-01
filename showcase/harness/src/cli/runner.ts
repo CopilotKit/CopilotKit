@@ -326,6 +326,7 @@ export async function run(
           return {
             async newContext(contextOpts?: {
               extraHTTPHeaders?: Record<string, string>;
+              publicMode?: boolean;
             }) {
               // GUARD: same shared-browser disconnect guard as defaultLauncher
               // — refuse to open on a dead browser and convert a mid-open
@@ -335,11 +336,17 @@ export async function run(
                 Awaited<ReturnType<typeof browser.newContext>>
               >(browser, {
                 extraHTTPHeaders: {
-                  "X-AIMock-Strict": "true",
+                  ...(contextOpts?.publicMode
+                    ? {}
+                    : { "X-AIMock-Strict": "true" }),
                   ...contextOpts?.extraHTTPHeaders,
                 },
               });
               return {
+                publicContext: {
+                  newPage: () => bCtx.newPage(),
+                  close: () => bCtx.close(),
+                },
                 async newPage() {
                   const page = await bCtx.newPage();
                   const consoleLogs: string[] = [];

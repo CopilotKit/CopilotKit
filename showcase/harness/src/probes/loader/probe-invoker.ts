@@ -652,7 +652,12 @@ export function buildProbeInvoker(
           tracker.fail(key, errDesc);
           failed++;
         } else if (
-          functionalAdmission(result.key, result.state) === "unverified"
+          functionalAdmission(
+            result.key,
+            result.state,
+            result.signal,
+            result.observedAt,
+          ) === "unverified"
         ) {
           tracker.fail(key, "functional observation unverified");
           failed++;

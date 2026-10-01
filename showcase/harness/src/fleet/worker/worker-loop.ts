@@ -1,3 +1,4 @@
+import { functionalAdmission } from "../../shared/cell-model/live-status.js";
 /**
  * Fleet WORKER loop (BLITZ S7).
  *
@@ -83,6 +84,7 @@ export interface ServiceJobDriver {
  * type-checks against it without a cast.
  */
 export interface ServiceDriverContext {
+  runId?: string;
   now: () => Date;
   logger: Logger;
   env: Readonly<Record<string, string | undefined>>;
@@ -734,7 +736,45 @@ export function buildServiceJobResult(args: {
     aggregateState: aggregate.state,
     aggregateKey: aggregate.key,
     aggregateSignal: aggregate.signal,
-    cells,
+    cells: cells.map((cell) => {
+      if (
+        !cell.signal ||
+        typeof cell.signal !== "object" ||
+        Array.isArray(cell.signal)
+      )
+        return cell;
+      const signal = cell.signal as Record<string, unknown>;
+      const proof = signal.functional;
+      if (!proof || typeof proof !== "object" || Array.isArray(proof))
+        return cell;
+      const expected = {
+        runId: payload.meta.runId,
+        frontend: "react",
+        targetRevision:
+          typeof payload.driverInputs?.targetRevision === "string"
+            ? payload.driverInputs.targetRevision
+            : undefined,
+        canonicalRevision:
+          typeof payload.driverInputs?.canonicalRevision === "string"
+            ? payload.driverInputs.canonicalRevision
+            : undefined,
+      };
+      return functionalAdmission(
+        cell.cellKey,
+        cell.state,
+        cell.signal,
+        cell.observedAt,
+        expected,
+      ) === "unverified"
+        ? {
+            ...cell,
+            signal: {
+              ...signal,
+              functional: { ...proof, disposition: "unverified" },
+            },
+          }
+        : cell;
+    }),
     rollup: computeRollup(cells),
     finishedAt,
   };
@@ -1104,6 +1144,7 @@ export async function runClaimedJob(
 
   try {
     const ctx: ServiceDriverContext = {
+      runId: payload.meta.runId,
       now,
       logger,
       env,

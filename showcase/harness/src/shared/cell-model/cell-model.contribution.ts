@@ -526,8 +526,14 @@ export function classifyRung(raw: RawRung, now: number): RungContribution {
       raw.anyExpectedMissing ||
       raw.rows.some(
         (row) =>
-          functionalAdmission(`${kind.toLowerCase()}:`, row.state) ===
-          "unverified",
+          functionalAdmission(
+            row.key.startsWith(`${kind.toLowerCase()}:`)
+              ? row.key
+              : `${kind.toLowerCase()}:`,
+            row.state,
+            row.signal,
+            row.observed_at,
+          ) === "unverified",
       )
     ) {
       return { ...base, contribution: "NO_DATA", rawStatus: null };
