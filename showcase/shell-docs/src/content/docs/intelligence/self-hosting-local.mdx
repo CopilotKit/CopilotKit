@@ -10,8 +10,8 @@ doc_type: how-to
 
 The CopilotKit CLI can run CopilotKit Intelligence in Docker on your own machine. You connect an app to it, sign in to a local dashboard, and try Intelligence with your own data and model. You do not need Kubernetes experience, a cloud account, or a Team Self-hosted plan.
 
-<Callout type="warn" title="Local evaluation is a preview">
-  Use it to try Intelligence on one machine. It is not a production installation. To run Intelligence for your team, use the [Kubernetes guide](/intelligence/self-hosting) or the [AWS ECS guide](/intelligence/self-hosting-ecs).
+<Callout type="warn" title="Preview: macOS only">
+  Local evaluation is a preview, available on macOS with Docker Desktop. Use it to try Intelligence on one machine. It is not a production installation. To run Intelligence for your team, use the [Kubernetes guide](/intelligence/self-hosting) or the [AWS ECS guide](/intelligence/self-hosting-ecs).
 </Callout>
 
 ## What runs on your machine
@@ -34,7 +34,7 @@ After installation, the stack runs without internet access while its license is 
 
 ## Before you start
 
-- **Operating system:** macOS with Docker Desktop, or Linux with rootful Docker Engine. The CLI refuses Windows, rootless Docker, Podman, Colima, OrbStack, Rancher Desktop, and Docker Desktop on Linux.
+- **Operating system:** macOS on Apple silicon or Intel, with Docker Desktop. The CLI refuses other Docker engines on macOS, such as Colima, OrbStack, and Rancher Desktop, and it does not run on Windows.
 - **Docker resources:** at least 4 CPUs, 12 GiB RAM, and 40 GiB free storage for each stack. The CLI checks what Docker has left after your other containers, and stops if it is not enough.
 - **Node.js:** version 22 or newer for local sign-in.
 - **A CopilotKit account:** the CLI uses it to get your evaluation license. The Developer plan qualifies.
