@@ -1,6 +1,7 @@
 "use client";
 
 import { PanelLeftOpen } from "lucide-react";
+import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
 import {
@@ -43,6 +44,7 @@ export function ShellFrame({
 }) {
   const { sidebarSide, sidebarOpen, setSidebarOpen } = useLayoutPreferences();
   const isDesktop = useIsDesktop();
+  const hydrated = useHydrated();
 
   // A distinct saved layout per side. v4 has no `order` prop, so swapping sides
   // means reversing JSX order; keying the layout by side is what stops a
@@ -130,6 +132,13 @@ export function ShellFrame({
   return (
     <div data-testid="shell-frame" className="h-screen bg-canvas p-2">
       <ResizableGroup
+        // Remount once hydration is done. The server renders the panels with
+        // `flex-basis: <defaultSize>px`; the client computes `flex-basis: 0` +
+        // a grow share, and React does NOT patch inline-style mismatches on
+        // hydration — so the SSR basis stuck, and the assistant could never
+        // be dragged narrower than its 600px default whatever `minSize` said.
+        // A fresh client mount writes the library's real styles.
+        key={hydrated ? "client" : "server"}
         orientation="horizontal"
         defaultLayout={defaultLayout}
         onLayoutChanged={onLayoutChanged}
@@ -139,6 +148,17 @@ export function ShellFrame({
         {sidebarSide === "left" ? appPanel : sidebarPanel}
       </ResizableGroup>
     </div>
+  );
+}
+
+const noopSubscribe = () => () => {};
+
+/** `false` during SSR and the hydration render, `true` on every client render after. */
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
   );
 }
 

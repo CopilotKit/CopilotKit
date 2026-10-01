@@ -7,6 +7,7 @@ import people from "@/skins/people/skin";
 import commerce from "@/skins/commerce/skin";
 import bookstore from "@/skins/bookstore/skin";
 import exec from "@/skins/exec/skin";
+import myelin from "@/skins/myelin/skin";
 
 // Client-side skin registry. Each skin's server-side agent factory is
 // registered separately in agent-registry.ts under the SAME id (=== agentId).
@@ -19,6 +20,7 @@ export const SkinRegistry: Record<string, Skin> = {
   [commerce.id]: commerce,
   [bookstore.id]: bookstore,
   [exec.id]: exec,
+  [myelin.id]: myelin,
 };
 
 /**

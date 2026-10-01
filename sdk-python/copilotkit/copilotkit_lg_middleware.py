@@ -26,6 +26,7 @@ from langchain.agents.middleware import (
     ModelResponse,
 )
 from langgraph.runtime import Runtime
+from langgraph.types import interrupt
 
 from .header_propagation import install_httpx_hook, set_forwarded_headers
 from .langgraph import CopilotKitProperties
@@ -61,6 +62,21 @@ _a2ui_tools_by_thread: dict[str, Any] = {}
 # acceptable edge — the deployed path always carries a thread id.
 _DEFAULT_THREAD_KEY = "__copilotkit_a2ui_default__"
 _FRONTEND_TOOL_RESULT_CONTENT = json.dumps({"status": "forwarded_to_frontend"})
+
+# ``reason`` on each frontend-tool interrupt, surfaced as AG-UI
+# ``Interrupt.reason``. "tool_call" is what CopilotKit's runtime uses for a tool
+# call awaiting its result, and what ``useInterrupt`` pairs with ``toolCallId``.
+_FE_TOOL_INTERRUPT_REASON = "tool_call"
+
+# What the AG-UI adapter hands ``interrupt()`` for a cancelled resume entry.
+# Only ag-ui-langgraph >= 0.0.43 has ``resume[]`` entries (and this sentinel);
+# older versions never send a cancelled entry, so there is nothing to match.
+try:
+    from ag_ui_langgraph.interrupts import (
+        DEFAULT_RESUME_SENTINEL_CANCELLED as _AGUI_CANCELLED_KEY,
+    )
+except ImportError:  # ag-ui-langgraph < 0.0.43
+    _AGUI_CANCELLED_KEY = None
 
 
 def _current_thread_id() -> "str | None":
@@ -249,6 +265,24 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             model (the host cannot supply the live, header-hooked model), and
             folds the registered catalog id + component schema into the params
             unless the host already set them — so host values win.
+        interrupt_frontend_tools: Experimental. Await frontend tool results in
+            the same turn via LangGraph's ``interrupt()``, instead of the default
+            strip-and-restore that only delivers them on the next run.
+
+            Requires a client that resumes each call by interrupt id. Today's
+            React client does not: it still runs the frontend handler, and its
+            follow-up run fails on the pending interrupt. Requires Python 3.11+
+            when the graph runs async.
+
+            Each call pauses on its own ``interrupt()`` in the tool node, with
+            ``{"reason": "tool_call", "toolCallId", "name", "args"}`` as the
+            value. The resume value for that interrupt becomes the call's
+            ``ToolMessage``. Parallel calls pause in parallel, so resuming more
+            than one needs ids — send ``RunAgentInput.resume[]`` through
+            ``LangGraphAGUIAgent`` with ``emit_interrupt_outcome=True``
+            (ag-ui-langgraph >= 0.0.43). The legacy
+            ``forwardedProps.command.resume`` carries no id, so it can only
+            answer a lone pending call.
     """
 
     state_schema = StateSchema
@@ -259,6 +293,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         *,
         expose_state: Union[bool, Iterable[str]] = False,
         a2ui_params: "Optional[A2UIToolParams]" = None,
+        interrupt_frontend_tools: bool = False,
     ):
         super().__init__()
         if isinstance(expose_state, bool):
@@ -270,6 +305,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         # bleed into the middleware. ``model`` + the registered catalog are
         # layered in at build time; everything here is host-owned and wins.
         self._a2ui_params: dict = dict(a2ui_params or {})
+        self._interrupt_frontend_tools = interrupt_frontend_tools
 
     @property
     def name(self) -> str:
@@ -396,18 +432,16 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         state: dict[str, Any],
         runtime_context: Any = None,
     ) -> str | None:
+        # Only render explicitly structured CopilotKit context
+        # (``state["copilotkit"]["context"]`` or namespaced
+        # ``runtime_context["copilotkit"]``, both resolved via
+        # ``_get_copilotkit_context``). Never fall back to dumping the raw
+        # ``runtime_context`` dict: with ag-ui-langgraph>=0.0.42 the LangGraph
+        # runtime context carries ``config["configurable"]`` (thread_id,
+        # tenant/user ids, ...), which must not reach the model-visible
+        # system prompt. See #7077.
         copilotkit_state = self._get_copilotkit_context(state, runtime_context)
         app_context = copilotkit_state.get("context")
-
-        if not app_context:
-            if isinstance(runtime_context, dict):
-                app_context = {
-                    k: v
-                    for k, v in runtime_context.items()
-                    if k != "copilotkit_forwarded_headers"
-                }
-            else:
-                app_context = runtime_context
 
         if isinstance(app_context, dict):
             app_context = {
@@ -1024,11 +1058,48 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             return request.override(tool=tool)
         return request
 
+    def _await_frontend_tool_call(self, request: Any) -> ToolMessage | None:
+        """Interrupt mode: pause this frontend call until the client answers it.
+
+        ``create_agent`` sends every tool call to the tool node as its own task,
+        so each call gets its own interrupt, id and resume value. Returns None
+        for anything that is not an unregistered frontend tool.
+        """
+        call = request.tool_call
+        if not self._interrupt_frontend_tools or request.tool is not None:
+            return None
+        state = request.state if isinstance(request.state, dict) else {}
+        if call.get("name") not in self._frontend_tool_names(state, request.runtime):
+            return None
+
+        # Not wrapped in try/except — interrupt() signals the pause by raising.
+        answer = interrupt(
+            {
+                "reason": _FE_TOOL_INTERRUPT_REASON,
+                "toolCallId": call["id"],
+                "name": call["name"],
+                "args": call.get("args") or {},
+            }
+        )
+
+        status = "success"
+        if isinstance(answer, dict) and answer.get(_AGUI_CANCELLED_KEY):
+            answer, status = {"ok": False, "error": "cancelled"}, "error"
+        return ToolMessage(
+            content=answer if isinstance(answer, str) else json.dumps(answer),
+            tool_call_id=call["id"],
+            name=call["name"],
+            status=status,
+        )
+
     def wrap_tool_call(
         self,
         request: Any,
         handler: Callable[[Any], Any],
     ) -> Any:
+        awaited = self._await_frontend_tool_call(request)
+        if awaited is not None:
+            return awaited
         return handler(self._resolve_a2ui_request(request))
 
     async def awrap_tool_call(
@@ -1036,6 +1107,9 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         request: Any,
         handler: Callable[[Any], Awaitable[Any]],
     ) -> Any:
+        awaited = self._await_frontend_tool_call(request)
+        if awaited is not None:
+            return awaited
         return await handler(self._resolve_a2ui_request(request))
 
     # Inject app context before agent runs
@@ -1054,22 +1128,41 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         # Delegate to sync implementation
         return self.before_agent(state, runtime)
 
-    # Intercept frontend tool calls after model returns, before ToolNode executes
+    @classmethod
+    def _frontend_tool_names(
+        cls,
+        state: StateSchema,
+        runtime: Runtime[Any],
+    ) -> set[str]:
+        """Names of the frontend tools the client forwarded for this run."""
+        frontend_tools = cls._get_copilotkit_context(
+            state,
+            getattr(runtime, "context", None),
+        ).get("actions", [])
+        return {
+            (t.get("function") or {}).get("name") or t.get("name")
+            for t in frontend_tools
+        }
+
     def after_model(
         self,
         state: StateSchema,
         runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
-        frontend_tools = self._get_copilotkit_context(
-            state,
-            getattr(runtime, "context", None),
-        ).get("actions", [])
-        if not frontend_tools:
+        # Interrupt mode leaves the calls for the tool node (wrap_tool_call).
+        if self._interrupt_frontend_tools:
             return None
+        return self._strip_frontend_tool_calls(state, runtime)
 
-        frontend_tool_names = {
-            t.get("function", {}).get("name") or t.get("name") for t in frontend_tools
-        }
+    def _strip_frontend_tool_calls(
+        self,
+        state: StateSchema,
+        runtime: Runtime[Any],
+    ) -> dict[str, Any] | None:
+        """Default path: park frontend calls until the next run answers them."""
+        frontend_tool_names = self._frontend_tool_names(state, runtime)
+        if not frontend_tool_names:
+            return None
 
         # Find last AI message with tool calls
         messages = state.get("messages", [])

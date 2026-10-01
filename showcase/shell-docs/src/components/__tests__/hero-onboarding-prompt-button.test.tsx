@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { frameworkPromptSuffix } from "@/lib/intelligence-onboarding-framework";
@@ -237,7 +238,11 @@ it("records view and preview copy with the same run id and framework context", a
       framework={{ slug: "mastra", name: "Mastra" }}
     />,
   );
-  fireEvent.click(screen.getByRole("button", { name: "View prompt" }));
+  fireEvent.click(
+    within(
+      document.querySelector(".prompt-pill-shelf") as HTMLElement,
+    ).getByRole("button", { name: "View prompt" }),
+  );
   fireEvent.click(
     screen.getByRole("button", { name: "Copy displayed prompt" }),
   );

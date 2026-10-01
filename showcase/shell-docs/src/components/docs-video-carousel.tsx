@@ -36,7 +36,7 @@ const RECORDINGS: readonly Recording[] = [
   {
     id: "rich-threads",
     icon: MessagesSquare,
-    title: "Rich Threads",
+    title: "AG-UI Streams",
     description:
       "Persist and resume rich conversations with generative UI, messages, tool activity, and app state. Import existing thread history so users can pick up where they left off.",
     href: "/threads",

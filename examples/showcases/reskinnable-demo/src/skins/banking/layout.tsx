@@ -35,6 +35,7 @@ import { usePresenterReset } from "@/shell/presenter-reset-context";
 import { useCanvas } from "@/shell/canvas/canvas-context";
 import { useAskCopilot } from "@/skins/banking/components/wow/use-ask-copilot";
 
+import { GovernancePopover } from "@/shell/governance-popover";
 /** Compact violet→indigo logo mark used at the top of the floating rail. */
 function BrandMark({
   logo: Logo,
@@ -242,6 +243,12 @@ export function LayoutComponent({ children }: { children: React.ReactNode }) {
                 </Tooltip>
               </TooltipProvider>
             )}
+            {/* Which CUSTOMER is signed in, and how much memory they are allowed.
+                Shell-owned — every skin scopes memory through the same two runtime
+                callbacks — but placed in the skin's own chrome, beside its user
+                switcher, because together they answer one question: the memory
+                bucket is <organization>:<persona>. */}
+            <GovernancePopover variant="icon" />
             <ThemeToggle />
             <UserNavigation
               availableUsers={users}
