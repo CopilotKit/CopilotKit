@@ -35,5 +35,23 @@
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "nx": {
+    "targets": {
+      "test": {
+        "executor": "nx:run-commands",
+        "dependsOn": [
+          {
+            "projects": ["@copilotkit/runtime"],
+            "target": "build"
+          }
+        ],
+        "options": {
+          "command": "node --experimental-strip-types --test tests/runtime-a2a-client.test.mjs",
+          "cwd": "examples/showcases/generative-ui-playground"
+        },
+        "cache": false
+      }
+    }
   }
 }
