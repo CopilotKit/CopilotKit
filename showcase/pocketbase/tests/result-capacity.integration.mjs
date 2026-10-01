@@ -1,18 +1,17 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import {
-  cpSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 // Every database belongs to a uniquely named, loopback-only test container.
 // No caller-supplied database URL or volume can be mutated by this driver.
+assert.equal(
+  process.env.PB_TEST_RESULT_FILE,
+  undefined,
+  "PB_TEST_RESULT_FILE is unsupported; use the deterministic 42-cell regression fixture",
+);
 const baselineImage = process.env.PB_TEST_BASELINE_IMAGE;
 assert.ok(
   baselineImage,
@@ -181,16 +180,14 @@ function ownedDocker(...args) {
   }
 }
 try {
-  const payload = process.env.PB_TEST_RESULT_FILE
-    ? JSON.parse(readFileSync(process.env.PB_TEST_RESULT_FILE, "utf8"))
-    : {
-        dimension: "d5",
-        cells: Array.from({ length: 42 }, (_, index) => ({
-          key: `cell-${index}`,
-          verdict: index % 2 ? "pass" : "fail",
-          proof: "complete proof α ".repeat(160),
-        })),
-      };
+  const payload = {
+    dimension: "d5",
+    cells: Array.from({ length: 42 }, (_, index) => ({
+      key: `cell-${index}`,
+      verdict: index % 2 ? "pass" : "fail",
+      proof: "complete proof α ".repeat(160),
+    })),
+  };
   const payloadBytes = Buffer.byteLength(canonical(payload));
   assert.ok(
     payloadBytes > 65536 && payloadBytes < 2000000,
@@ -200,9 +197,7 @@ try {
     JSON.stringify({
       payloadBytes,
       payloadSha256: digest(payload),
-      fixture:
-        process.env.PB_TEST_RESULT_FILE ??
-        "deterministic 42-cell regression fixture",
+      fixture: "deterministic 42-cell regression fixture",
     }),
   );
   const dataVolume = volume("upgrade");

@@ -39,9 +39,12 @@ volume, row, and complete payload**. It checks preserved legacy row data and
 unrelated schema, a finite 2,000,000-byte cap, full result readback equality and
 canonical UTF-8 JSON hashes, rejected overflow without mutation, and a fresh
 candidate volume. The deterministic 42-cell fixture includes every verdict and
-proof field; it is a regression fixture, not a captured framework probe. Set
-`PB_TEST_RESULT_FILE` to an absolute JSON capture path to test your own complete
-payload between 65,536 and 2,000,000 canonical UTF-8 bytes.
+proof field; it is a regression fixture, not a captured framework probe. Custom
+fixtures are unsupported: if `PB_TEST_RESULT_FILE` is present, including an empty
+value, the driver fails before allocating resources. Unset it to run the checked
+deterministic fixture. Canonical UTF-8 JSON size is evidence for this fixture;
+PocketBase's JSON encoding can escape characters and size custom payloads
+differently.
 
 Additional private databases prove that an existing 3,000,000-byte field and
 result over 2 MiB are preserved, and that missing or non-JSON result fields fail
