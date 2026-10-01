@@ -4,18 +4,29 @@ import type {
   Collector,
   CollectorOptions,
   StartOptions,
+  JsonValue,
+  StartResult,
+  TrajectoryCaptureOptions,
 } from "@copilotkit/learning";
 import type { AbstractAgent, AgentSubscriber, Message } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
+import { TrajectoryConnection } from "./trajectory-connection";
 
 /** Interaction capture settings for {@link CopilotKitCore}. See `@copilotkit/learning`. */
-export interface LearningConfig extends Omit<
+export interface LegacyLearningConfig extends Omit<
   CollectorOptions,
   "enrich" | "capture"
 > {
   /** Capture modules, plus `agentText` to include assistant reply text (off by default). */
   capture?: CaptureOptions & { agentText?: boolean };
 }
+
+export type LearningConfig =
+  | LegacyLearningConfig
+  | (TrajectoryCaptureOptions & { sink?: undefined });
+export type TrajectoryStartOptions = Omit<StartOptions, "trajectoryId"> & {
+  trajectoryId?: string;
+};
 
 /** Returned by {@link CopilotKitCore.registerOpenThread}. */
 export interface OpenThreadRegistration {
@@ -53,8 +64,8 @@ const COPILOTKIT_OWN_URLS = [
 ];
 
 /**
- * Wires `@copilotkit/learning` into Core: agent events, the open-Thread registry,
- * and click attribution to messages and tool calls. Internal to Core.
+ * Wires `@copilotkit/learning` into Core. Default capture uses Runtime and Phoenix;
+ * explicit legacy sinks also use agent events and open-Thread attribution.
  */
 export class LearningBridge {
   private collector: Collector | null = null;
@@ -66,12 +77,15 @@ export class LearningBridge {
   private readonly lastRunIds = new WeakMap<AbstractAgent, string>();
   private lastLinkedThreadId: string | null = null;
   private subscribed = false;
-  private activeConfig: LearningConfig | undefined;
+  private activeConfig: LegacyLearningConfig | undefined;
+  private readonly connection: TrajectoryConnection;
 
   constructor(
     private readonly core: CopilotKitCore,
     private config: LearningConfig | undefined,
+    onChange: () => void = () => {},
   ) {
+    this.connection = new TrajectoryConnection(core, onChange);
     this.setConfig(config);
   }
 
@@ -81,7 +95,7 @@ export class LearningBridge {
       this.stop();
       return;
     }
-    if (this.subscribed) return;
+    if (config.sink === undefined || this.subscribed) return;
     this.subscribed = true;
     this.core.subscribe({
       onAgentsChanged: ({ agents }) => {
@@ -107,17 +121,28 @@ export class LearningBridge {
   }
 
   get trajectoryId(): string | null {
-    return this.collector?.trajectoryId ?? null;
+    return this.connection.trajectoryId ?? this.collector?.trajectoryId ?? null;
   }
 
-  start(options: StartOptions) {
+  start(options: TrajectoryStartOptions = {}): Promise<StartResult> {
     const config = this.config;
     if (config === undefined) {
       console.warn(
         "[CopilotKit] startTrajectory() needs the `learning` option on CopilotKitCore (or the CopilotKitProvider `learning` prop).",
       );
-      return;
+      return Promise.resolve({ status: "error", code: "LEARNING_DISABLED" });
     }
+    if (config.sink === undefined) {
+      this.collector?.stop();
+      this.collector = null;
+      this.activeConfig = undefined;
+      return this.connection.start(options.trajectoryId, config);
+    }
+    this.connection.stop();
+    const trajectoryId =
+      options.trajectoryId ??
+      this.collector?.trajectoryId ??
+      crypto.randomUUID();
     if (this.collector === null) {
       this.activeConfig = config;
       const runtimeUrl = this.core.runtimeUrl;
@@ -132,22 +157,32 @@ export class LearningBridge {
       });
     }
     const wasActive = this.collector.trajectoryId !== null;
-    this.collector.start(options);
-    if (wasActive) return;
+    this.collector.start({ ...options, trajectoryId });
+    if (wasActive)
+      return Promise.resolve(
+        this.collector.trajectoryId === trajectoryId
+          ? { status: "started", trajectoryId }
+          : { status: "error", code: "TRAJECTORY_ACTIVE" },
+      );
     this.lastLinkedThreadId = null;
     for (const threadId of this.distinctOpenThreadIds())
       this.emitThreadLinked(threadId, "start");
+    return Promise.resolve({ status: "started", trajectoryId });
   }
 
   stop() {
+    this.connection.stop();
     this.collector?.stop();
     this.collector = null;
     this.activeConfig = undefined;
   }
 
-  /** A developer event, such as an outcome. It carries the open-Thread context unless `value` sets it. */
-  emit(name: string, value: Record<string, unknown>) {
-    this.collector?.emit(name, { ...this.openThreadContext(), ...value });
+  /** A developer event. Only an explicit legacy sink adds open-Thread context. */
+  emit(name: string, value: JsonValue) {
+    this.connection.emit(name, value);
+    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+      this.collector?.emit(name, { ...this.openThreadContext(), ...value });
+    }
   }
 
   registerOpenThread(params: OpenThread) {

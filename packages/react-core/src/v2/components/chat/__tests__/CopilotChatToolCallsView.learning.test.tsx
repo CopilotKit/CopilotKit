@@ -56,7 +56,7 @@ describe("tool call capture attributes", () => {
     expect(view.container.querySelector("[data-tool-call-id]")).toBeNull();
   });
 
-  it("adds capture attributes only while a manually started Trajectory is active", () => {
+  it("adds capture attributes only while a manually started Trajectory is active", async () => {
     let core: CopilotKitCore | undefined;
     const view = render(
       <CopilotKitProvider learning={learning} renderToolCalls={renderers}>
@@ -72,7 +72,9 @@ describe("tool call capture attributes", () => {
     );
 
     expect(view.container.querySelector("[data-tool-call-id]")).toBeNull();
-    act(() => core?.startTrajectory({ trajectoryId: "traj-1" }));
+    await act(async () => {
+      await core?.startTrajectory({ trajectoryId: "traj-1" });
+    });
     expect(
       screen
         .getByRole("button", { name: "Approve" })

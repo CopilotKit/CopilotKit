@@ -304,14 +304,15 @@ export interface CopilotKitProviderProps {
    */
   debug?: DebugConfig;
   /**
-   * Turns on interaction capture (`@copilotkit/learning`). Clicks, page
-   * changes, and network metadata become AG-UI `CUSTOM` events that carry the
-   * Thread, message, tool call, and run they belong to. Updated settings apply
-   * to the next Trajectory; removing the prop stops capture.
-   * Set `trajectoryId` to start capture right away; it stops on unmount.
+   * Configures interaction capture (`@copilotkit/learning`). Without a sink,
+   * Core authenticates with the runtime and sends browser events to Intelligence.
+   * A custom sink keeps the standalone collector behavior. Updated settings apply
+   * to the next Trajectory; removing the prop stops capture and cancels startup.
+   * Set `trajectoryId` to start after mount; otherwise call `startTrajectory()`.
+   * Capture stops on unmount, including manually started Trajectories.
    *
    * @example
-   * <CopilotKitProvider learning={{ sink: httpSink("/api/learning-events"), trajectoryId }}>
+   * <CopilotKitProvider runtimeUrl="/api/copilotkit" learning={{ trajectoryId }}>
    */
   learning?: LearningConfig & {
     trajectoryId?: string;
@@ -986,6 +987,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // Start the Trajectory in the commit phase, after the runtime URL is set, so
   // CopilotKit's own runtime traffic is never captured. Under StrictMode the
   // start/stop/start sequence installs the capture hooks once.
+  const learningEnabled = learning !== undefined;
   const trajectoryId = learning?.trajectoryId;
   const learningContainerIdsRef = useRef(learning?.learningContainerIds);
   useEffect(() => {
@@ -994,13 +996,28 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [copilotkit, learning]);
 
   useEffect(() => {
-    if (trajectoryId === undefined) return;
-    copilotkit.startTrajectory({
-      trajectoryId,
-      learningContainerIds: learningContainerIdsRef.current,
-    });
-    return () => copilotkit.stopTrajectory();
-  }, [copilotkit, trajectoryId]);
+    if (!learningEnabled) return;
+    let disposed = false;
+    if (trajectoryId !== undefined) {
+      void copilotkit
+        .startTrajectory({
+          trajectoryId,
+          learningContainerIds: learningContainerIdsRef.current,
+        })
+        .catch(() => {
+          // Expected authentication/connection failures use LearningConfig.onError.
+          // Consume unexpected rejections without logging credentials or errors from
+          // a previous effect after a new Trajectory has already started.
+          if (!disposed) {
+            console.warn("[CopilotKit] Failed to start interaction capture.");
+          }
+        });
+    }
+    return () => {
+      disposed = true;
+      copilotkit.stopTrajectory();
+    };
+  }, [copilotkit, learningEnabled, trajectoryId]);
 
   // Sync render/tool arrays to the stable instance via setters.
   // On mount, the constructor already receives the correct initial values,

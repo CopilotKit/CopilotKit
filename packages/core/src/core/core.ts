@@ -44,8 +44,8 @@ import { StateManager } from "./state-manager";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
 import { LearningBridge } from "./learning-bridge";
-import type { LearningConfig } from "./learning-bridge";
-import type { StartOptions } from "@copilotkit/learning";
+import type { LearningConfig, TrajectoryStartOptions } from "./learning-bridge";
+import type { JsonValue, StartResult } from "@copilotkit/learning";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
 import type { ɵMemoryStore } from "../memory";
@@ -91,15 +91,23 @@ export interface CopilotKitCoreConfig {
   debug?: DebugConfig;
   /**
    * Turns on interaction capture (`@copilotkit/learning`). Capture starts only
-   * when you call {@link CopilotKitCore.startTrajectory}. Events carry the Thread,
-   * message, tool call, and run they belong to. Update future captures with
+   * when {@link CopilotKitCore.startTrajectory} authenticates and joins the
+   * capture channel. The default path captures outside-chat activity. An explicit
+   * legacy sink also receives Thread, message, tool call, and run context.
+   * Update future captures with
    * {@link CopilotKitCore.setLearningConfig}.
    */
   learning?: LearningConfig;
 }
 
 export type { CopilotKitMessageFilter } from "./message-filter";
-export type { LearningConfig, OpenThreadRegistration } from "./learning-bridge";
+export type {
+  LearningConfig,
+  LegacyLearningConfig,
+  TrajectoryStartOptions,
+  OpenThreadRegistration,
+} from "./learning-bridge";
+export type { JsonValue, StartResult } from "@copilotkit/learning";
 
 export type {
   CopilotKitCoreAddAgentParams,
@@ -451,6 +459,7 @@ export class CopilotKitCore {
   private stateManager: StateManager;
   private threadStoreRegistry: ThreadStoreRegistry;
   private learningBridge: LearningBridge;
+  private notifiedTrajectoryId: string | null = null;
   /**
    * The single core-owned memory store, created lazily on first
    * `getMemoryStore()` and kept user-scoped for the lifetime of the core.
@@ -500,7 +509,9 @@ export class CopilotKitCore {
     this.suggestionEngine.initialize(suggestionsConfig);
     this.stateManager.initialize();
     // After agent initialization: the bridge reads the initial agents.
-    this.learningBridge = new LearningBridge(this, learning);
+    this.learningBridge = new LearningBridge(this, learning, () =>
+      this.notifyTrajectoryChanged(),
+    );
 
     this.agentRegistry.setRuntimeTransport(runtimeTransport);
     this.agentRegistry.setRuntimeUrl(runtimeUrl, {
@@ -762,6 +773,11 @@ export class CopilotKitCore {
     return this.agentRegistry.runtimeConnectionStatus;
   }
 
+  /** @internal The verbatim single-endpoint URL, including any trailing slash. */
+  get ɵruntimeEndpointUrl(): string | undefined {
+    return this.agentRegistry.runtimeEndpointUrl;
+  }
+
   get ɵruntimeFetch(): typeof fetch {
     return this.agentRegistry.createRuntimeFetch();
   }
@@ -964,9 +980,8 @@ export class CopilotKitCore {
 
   /** Updates settings for the next capture. Removing the config stops capture. */
   setLearningConfig(config: LearningConfig | undefined): void {
-    const previousId = this.trajectoryId;
     this.learningBridge.setConfig(config);
-    this.notifyTrajectoryChanged(previousId);
+    this.notifyTrajectoryChanged();
   }
 
   /** The active capture's Trajectory ID, or null while capture is stopped. */
@@ -974,9 +989,10 @@ export class CopilotKitCore {
     return this.learningBridge.trajectoryId;
   }
 
-  private notifyTrajectoryChanged(previousId: string | null): void {
+  private notifyTrajectoryChanged(): void {
     const trajectoryId = this.trajectoryId;
-    if (trajectoryId === previousId) return;
+    if (trajectoryId === this.notifiedTrajectoryId) return;
+    this.notifiedTrajectoryId = trajectoryId;
     void this.notifySubscribers(
       (subscriber) =>
         subscriber.onTrajectoryChanged?.({ copilotkit: this, trajectoryId }),
@@ -985,33 +1001,34 @@ export class CopilotKitCore {
   }
 
   /**
-   * Starts capturing interactions for one Trajectory. Needs the `learning` config.
-   * One Trajectory runs at a time: the same id again is a no-op, and another id
-   * logs a warning until you call {@link CopilotKitCore.stopTrajectory}.
+   * Starts one Trajectory after Runtime authorization and the Gateway join.
+   * Omit the ID to create one. Repeated starts await the active connection;
+   * a different ID stops the previous capture. Explicit sinks retain the
+   * prototype's synchronous capture and require a stop before changing IDs.
    *
    * @example copilotkit.startTrajectory({ trajectoryId: crypto.randomUUID() })
    */
-  startTrajectory(options: StartOptions) {
-    const previousId = this.trajectoryId;
-    this.learningBridge.start(options);
-    this.notifyTrajectoryChanged(previousId);
+  startTrajectory(options: TrajectoryStartOptions = {}): Promise<StartResult> {
+    const result = this.learningBridge.start(options);
+    this.notifyTrajectoryChanged();
+    return result;
   }
 
-  /** Stops capture, removes listeners and patches, and sends queued events once. */
+  /** Cancels pending starts and reconnects and stops capture. Legacy sinks flush once. */
   stopTrajectory() {
-    const previousId = this.trajectoryId;
     this.learningBridge.stop();
-    this.notifyTrajectoryChanged(previousId);
+    this.notifyTrajectoryChanged();
   }
 
   /**
    * Records an outcome that clicks cannot show, such as a saved report or an
-   * approved deal. The event gets the open Thread unless `value` sets `threadId`.
+   * approved deal. JSON values are preserved in threadless capture. Explicit
+   * legacy sinks retain object-only events with open-Thread enrichment.
    * No-op while no Trajectory runs. Built-in names such as `click` are rejected.
    *
    * @example copilotkit.emitTrajectoryEvent("deal.approved", { dealId: "deal-1" })
    */
-  emitTrajectoryEvent(name: string, value: Record<string, unknown> = {}) {
+  emitTrajectoryEvent(name: string, value: JsonValue = {}) {
     this.learningBridge.emit(name, value);
   }
 

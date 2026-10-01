@@ -1,11 +1,11 @@
 import React, { StrictMode } from "react";
 import { render } from "@testing-library/react";
-import type { LearningConfig } from "@copilotkit/core";
+import type { LegacyLearningConfig } from "@copilotkit/core";
 import { CopilotKitProvider } from "../CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../CopilotChatConfigurationProvider";
 
 // react-core reaches @copilotkit/learning only through Core, so derive its types from Core.
-type LearningSink = LearningConfig["sink"];
+type LearningSink = LegacyLearningConfig["sink"];
 type LearningBatch = Parameters<LearningSink>[0];
 
 const nativePushState = History.prototype.pushState;
@@ -26,7 +26,7 @@ function App({
   learning?: boolean;
   trajectoryId?: string;
   learningContainerIds?: string[];
-  learningConfig?: Partial<LearningConfig>;
+  learningConfig?: Partial<LegacyLearningConfig>;
 }) {
   return (
     <StrictMode>
@@ -86,7 +86,7 @@ describe("CopilotKitProvider learning prop", () => {
 
   it("uses the latest config and container IDs for the next Trajectory", () => {
     const nextBatches: LearningBatch[] = [];
-    const nextConfig: Partial<LearningConfig> = {
+    const nextConfig: Partial<LegacyLearningConfig> = {
       sink: (batch) => {
         nextBatches.push(batch);
       },

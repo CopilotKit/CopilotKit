@@ -9,7 +9,7 @@ import type {
 import { from } from "rxjs";
 import { CopilotKitCore } from "../core";
 import { LearningBridge } from "../core/learning-bridge";
-import type { LearningConfig } from "../core/learning-bridge";
+import type { LegacyLearningConfig } from "../core/learning-bridge";
 
 const ASSISTANT_WITH_TOOL: Message = {
   id: "m-assistant",
@@ -79,7 +79,9 @@ function targetIn(attributes: Record<string, string>) {
 
 let batches: LearningBatch[] = [];
 
-function createConfig(overrides: Partial<LearningConfig> = {}): LearningConfig {
+function createConfig(
+  overrides: Partial<LegacyLearningConfig> = {},
+): LegacyLearningConfig {
   const sink: LearningSink = (batch) => {
     batches.push(batch);
   };
