@@ -13,7 +13,7 @@ export interface LearningConfig extends Omit<
   CollectorOptions,
   "enrich" | "capture"
 > {
-  /** Capture modules, plus `agentText` to include assistant reply text (off by default). */
+  /** Capture modules, plus `agentText: false` to omit message text (included in full by default). */
   capture?: CaptureOptions & { agentText?: boolean };
 }
 
@@ -44,8 +44,6 @@ interface ToolCallOrigin {
   runId: string | undefined;
 }
 
-const MAX_AGENT_TEXT = 2000;
-
 // CopilotKit's own browser traffic (Inspector telemetry and announcements) is not app activity.
 const COPILOTKIT_OWN_URLS = [
   "https://telemetry.copilotkit.ai/",
@@ -58,14 +56,18 @@ const COPILOTKIT_OWN_URLS = [
  */
 export class LearningBridge {
   private collector: Collector | null = null;
-  private readonly agents = new Set<AbstractAgent>();
-  private readonly agentSubscriptions = new WeakSet<AbstractAgent>();
+  private readonly agents = new Map<
+    AbstractAgent,
+    ReturnType<AbstractAgent["subscribe"]>
+  >();
   private readonly openThreads = new Set<OpenThread>();
   private readonly toolCalls = new Map<string, ToolCallOrigin>();
   private readonly executingTools = new Map<string, number>();
   private readonly lastRunIds = new WeakMap<AbstractAgent, string>();
   private lastLinkedThreadId: string | null = null;
-  private subscribed = false;
+  private coreSubscription: ReturnType<CopilotKitCore["subscribe"]> | null =
+    null;
+  private seq = 0;
   private activeConfig: LearningConfig | undefined;
 
   constructor(
@@ -77,23 +79,24 @@ export class LearningBridge {
 
   setConfig(config: LearningConfig | undefined) {
     this.config = config;
-    if (config === undefined) {
-      this.stop();
-      return;
-    }
-    if (this.subscribed) return;
-    this.subscribed = true;
-    this.core.subscribe({
+    if (config === undefined) this.stop();
+  }
+
+  private startTracking() {
+    if (this.coreSubscription !== null || this.trajectoryId === null) return;
+    this.coreSubscription = this.core.subscribe({
       onAgentsChanged: ({ agents }) => {
         for (const agent of Object.values(agents)) this.track(agent);
       },
       // Per-thread clones are not in `core.agents`; track the running instance too.
       onAgentRunStarted: ({ agent }) => this.track(agent),
       onToolExecutionStart: ({ toolCallId, agentId, toolName }) => {
+        if (this.trajectoryId === null) return;
         this.executingTools.set(toolCallId, Date.now());
         this.emitToolCall("executing", toolCallId, agentId, toolName, {});
       },
       onToolExecutionEnd: ({ toolCallId, agentId, toolName, error }) => {
+        if (this.trajectoryId === null) return;
         const startedAt = this.executingTools.get(toolCallId);
         this.executingTools.delete(toolCallId);
         this.emitToolCall("completed", toolCallId, agentId, toolName, {
@@ -101,6 +104,7 @@ export class LearningBridge {
             startedAt === undefined ? undefined : Date.now() - startedAt,
           outcome: error === undefined ? "ok" : "error",
         });
+        this.toolCalls.delete(toolCallId);
       },
     });
     for (const agent of Object.values(this.core.agents)) this.track(agent);
@@ -123,6 +127,15 @@ export class LearningBridge {
       const runtimeUrl = this.core.runtimeUrl;
       this.collector = createCollector({
         ...config,
+        beforeSend: (event) => {
+          const sequenced = {
+            ...event,
+            value: { ...event.value, seq: ++this.seq },
+          };
+          return config.beforeSend === undefined
+            ? sequenced
+            : config.beforeSend(sequenced);
+        },
         ignoreUrls: [
           ...(config.ignoreUrls ?? []),
           ...COPILOTKIT_OWN_URLS,
@@ -134,6 +147,7 @@ export class LearningBridge {
     const wasActive = this.collector.trajectoryId !== null;
     this.collector.start(options);
     if (wasActive) return;
+    this.startTracking();
     this.lastLinkedThreadId = null;
     for (const threadId of this.distinctOpenThreadIds())
       this.emitThreadLinked(threadId, "start");
@@ -143,6 +157,12 @@ export class LearningBridge {
     this.collector?.stop();
     this.collector = null;
     this.activeConfig = undefined;
+    this.coreSubscription?.unsubscribe();
+    this.coreSubscription = null;
+    for (const subscription of this.agents.values()) subscription.unsubscribe();
+    this.agents.clear();
+    this.toolCalls.clear();
+    this.executingTools.clear();
   }
 
   /** A developer event, such as an outcome. It carries the open-Thread context unless `value` sets it. */
@@ -198,15 +218,21 @@ export class LearningBridge {
   }
 
   private findAgentForThread(threadId: string) {
-    return [...this.agents].find((agent) => agent.threadId === threadId);
+    return [...this.agents.keys()].find((agent) => agent.threadId === threadId);
   }
 
   private track(agent: AbstractAgent) {
     const agentId = agent.agentId;
-    if (this.agentSubscriptions.has(agent) || agentId === undefined) return;
-    this.agentSubscriptions.add(agent);
-    this.agents.add(agent);
-    agent.subscribe(this.agentSubscriber(agent, agentId));
+    if (
+      this.trajectoryId === null ||
+      this.agents.has(agent) ||
+      agentId === undefined
+    )
+      return;
+    this.agents.set(
+      agent,
+      agent.subscribe(this.agentSubscriber(agent, agentId)),
+    );
   }
 
   private agentSubscriber(agent: AbstractAgent, agentId: string) {
@@ -223,6 +249,7 @@ export class LearningBridge {
         this.emitRun("error", agent, agent.threadId, runIdFor() ?? null);
       },
       onToolCallStartEvent: ({ event }) => {
+        if (this.trajectoryId === null) return;
         const origin: ToolCallOrigin = {
           agentId,
           threadId: agent.threadId,
@@ -237,6 +264,11 @@ export class LearningBridge {
           event.toolCallName,
           {},
         );
+      },
+      onToolCallResultEvent: ({ event }) => {
+        if (!this.executingTools.has(event.toolCallId)) {
+          this.toolCalls.delete(event.toolCallId);
+        }
       },
       onNewMessage: ({ message }) => this.emitMessage(agent, message),
     };
@@ -262,8 +294,8 @@ export class LearningBridge {
     // `tool.call` events carry the tool name and this `messageId`.
     const content = typeof message.content === "string" ? message.content : "";
     const includeText =
-      this.activeConfig?.capture?.agentText === true &&
-      message.role === "assistant";
+      this.activeConfig?.capture?.agentText !== false &&
+      typeof message.content === "string";
     this.collector?.ɵemit("agent.message", {
       messageId: message.id,
       runId: this.runIdForMessage(agent, message.id),
@@ -271,7 +303,7 @@ export class LearningBridge {
       agentId: agent.agentId,
       role: message.role,
       textLength: content.length,
-      ...(includeText ? { text: content.slice(0, MAX_AGENT_TEXT) } : {}),
+      ...(includeText ? { text: content } : {}),
     });
   }
 
@@ -306,7 +338,7 @@ export class LearningBridge {
   }
 
   private findMessage(messageId: string) {
-    for (const agent of this.agents) {
+    for (const agent of this.agents.keys()) {
       const message = agent.messages.find(
         (candidate) => candidate.id === messageId,
       );
