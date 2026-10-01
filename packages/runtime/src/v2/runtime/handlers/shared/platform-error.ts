@@ -31,22 +31,3 @@ export function platformErrorResponse(
   }
   return errorResponse(message, 500);
 }
-
-/**
- * True when the platform said specifically "no such thread".
- *
- * On a READ, that is not a failure: a conversation that has not been spoken in
- * yet has no events, no messages and no state, and the client asks for all
- * three the moment a fresh chat mounts. Reporting it as a server error put a
- * 500 in the browser console on every new conversation — which is worse than
- * noise, because it made a genuinely broken run look exactly like the normal
- * case, and a reader who has learned to ignore the red badge cannot see the
- * real one underneath it.
- *
- * Deliberately NOT applied to the mutation paths. Renaming, archiving or
- * deleting a thread that does not exist IS a client error, and 404 is the
- * useful answer there.
- */
-export function isThreadNotFound(error: unknown): boolean {
-  return error instanceof PlatformRequestError && error.status === 404;
-}
