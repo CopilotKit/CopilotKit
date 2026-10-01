@@ -48,6 +48,31 @@ export interface ChunkedEditStreamConfig {
 const DEFAULT_LIMIT = Math.floor(TELEGRAM_LIMITS.messageText / 2); // 2048
 const DEFAULT_MIN_INTERVAL_MS = 1000;
 
+/**
+ * Info string of the ``` fence left open at the end of `text`, or null when
+ * every fence in it is closed.
+ */
+function openFenceInfo(text: string): string | null {
+  const parts = text.split("```");
+  if (parts.length % 2 === 1) return null;
+  return (parts.at(-1)!.split("\n", 1)[0] ?? "").trim();
+}
+
+/**
+ * Balance the code fences of one chunk's slice. `transform` runs per message,
+ * so a block split across messages would otherwise render as prose on both
+ * sides (and `__init__` would turn bold). Re-open the block at the start of a
+ * continuation chunk and close it at the end of the chunk it overflows.
+ */
+function balanceFences(before: string, slice: string): string {
+  const info = openFenceInfo(before);
+  let out = info === null ? slice : "```" + info + "\n" + slice;
+  if (openFenceInfo(out) !== null) {
+    out += out.endsWith("\n") ? "```" : "\n```";
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Internal single-message stream (mirrors Slack's MessageStream)
 // ---------------------------------------------------------------------------
@@ -240,7 +265,9 @@ export class ChunkedEditStream {
       const slice = this.buffer.slice(start, end);
       // Bug 2 fix: never dispatch an empty slice.
       if (slice.length > 0) {
-        this.streams[i]!.append(slice);
+        this.streams[i]!.append(
+          balanceFences(this.buffer.slice(0, start), slice),
+        );
       }
     }
   }

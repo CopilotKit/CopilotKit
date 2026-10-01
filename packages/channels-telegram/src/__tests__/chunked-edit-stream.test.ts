@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { ChunkedEditStream } from "../chunked-edit-stream.js";
+import { telegramHtml } from "../telegram-html.js";
 
 describe("ChunkedEditStream", () => {
   it("posts a placeholder then edits it with accumulated text", async () => {
@@ -221,6 +222,40 @@ describe("ChunkedEditStream", () => {
     await s.finish();
     for (const p of placeholders) {
       expect(p).not.toContain("_");
+    }
+  });
+
+  it("keeps a code block that spans a chunk boundary rendered as code", async () => {
+    let id = 0;
+    const edits: Record<number, string> = {};
+    const s = new ChunkedEditStream({
+      limit: 120,
+      minIntervalMs: 0,
+      transform: telegramHtml,
+      postPlaceholder: async () => ++id,
+      editAt: async (mid, text) => {
+        edits[mid] = text;
+      },
+    });
+    s.append(
+      "Here is the class you asked for, with the constructor fixed as discussed.\n\n" +
+        "```python\nclass Repo:\n    def __init__(self, *args, **kwargs):\n" +
+        "        self.items = []\n\n    def add(self, item):\n" +
+        "        self.items.append(item)\n```\n\nThat's it.",
+    );
+    await s.finish();
+
+    expect(s.chunkCount).toBeGreaterThan(1);
+    const all = Object.values(edits).join("\n");
+    // Each message holding part of the block wraps that part in <pre>, so
+    // `__init__` stays literal instead of turning into bold "init".
+    expect(all).toContain("def __init__(self, *args, **kwargs):");
+    expect(all).not.toContain("<b>init</b>");
+    for (const text of Object.values(edits)) {
+      if (text.includes("self.items")) {
+        expect(text).toContain('<pre><code class="language-python">');
+        expect(text).toContain("</code></pre>");
+      }
     }
   });
 });
