@@ -4,6 +4,7 @@ import { useAgent, useRenderTool } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import { readSources } from "../lib/sources";
 
+/** Show safe source links and distinguish completed, partial, unreadable and interrupted results. */
 function SourceCard({ label, complete, result }: { label: string; complete: boolean; result: unknown }) {
   const { agent } = useAgent();
   const [interrupted, setInterrupted] = useState(false);
@@ -25,6 +26,7 @@ function SourceCard({ label, complete, result }: { label: string; complete: bool
   </section>;
 }
 
+/** Register source cards for Parallel search and extraction tool calls. */
 export function ToolRenderers() {
   useRenderTool({
     name: "web_search",

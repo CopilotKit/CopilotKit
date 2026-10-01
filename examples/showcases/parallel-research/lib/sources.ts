@@ -1,16 +1,16 @@
 export interface Source { url: string; title: string }
 export interface SourceResult { sources: Source[]; failed: boolean; recognized: boolean }
 
-// MCP tools may return structuredContent, JSON text blocks, or serialized JSON.
-// Only render source records from the result payload, never tool inputs.
+/** Extract safe source links and failure status from structured or serialized MCP results. */
 export function readSources(result: unknown): SourceResult {
   const sources = new Map<string, Source>();
   let failed = false;
   let recognized = false;
+  /** Traverse result containers up to six levels; JSON decoding adds no structural depth. */
   function visit(value: unknown, depth = 0) {
     if (depth > 6 || value == null) return;
     if (typeof value === "string") {
-      try { visit(JSON.parse(value), depth + 1); } catch { /* Non-JSON text has no source records. */ }
+      try { visit(JSON.parse(value), depth); } catch { /* Non-JSON text has no source records. */ }
       return;
     }
     if (Array.isArray(value)) { value.forEach((item) => visit(item, depth + 1)); return; }
