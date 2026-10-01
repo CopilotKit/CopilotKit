@@ -1371,23 +1371,30 @@ export class CopilotKitIntelligence {
     user: { id: string; name: string };
     signal?: AbortSignal;
   }): Promise<TrajectoryConnectionGrant> {
-    const response = await fetch(
-      `${this.#apiUrl}/api/trajectories/${encodeURIComponent(params.trajectoryId)}/connect`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.#apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ user: params.user }),
-        signal: params.signal,
+    const response = await fetch(`${this.#apiUrl}/api/trajectories/join`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.#apiKey}`,
+        "Content-Type": "application/json",
       },
-    );
+      // Project scope comes from the API key. Containers remain unassigned
+      // until there is a server-side selector with Trajectory context.
+      body: JSON.stringify({
+        trajectoryId: params.trajectoryId,
+        appUserId: params.user.id,
+      }),
+      signal: params.signal,
+      redirect: "error",
+    });
     const payload: unknown = await response.json().catch(() => undefined);
     if (!response.ok) {
       throw trajectoryResponseError(payload, response.status, this.#apiKey);
     }
-    return parseTrajectoryConnectionGrant(payload);
+    return parseTrajectoryConnectionGrant(
+      payload,
+      params.trajectoryId,
+      this.ɵgetClientWsUrl(),
+    );
   }
 
   async #request<T>(

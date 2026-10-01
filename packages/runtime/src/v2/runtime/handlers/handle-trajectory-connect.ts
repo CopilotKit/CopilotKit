@@ -1,7 +1,9 @@
 import type { CopilotRuntimeLike } from "../core/runtime";
 import { isIntelligenceRuntime } from "../core/runtime";
-import { TrajectoryConnectionError } from "../intelligence-platform/trajectories";
-import { isValidIdentifier } from "./shared/intelligence-utils";
+import {
+  isValidTrajectoryId,
+  TrajectoryConnectionError,
+} from "../intelligence-platform/trajectories";
 import { resolveIntelligenceUser } from "./shared/resolve-intelligence-user";
 
 export function trajectoryErrorResponse(
@@ -24,7 +26,7 @@ export async function handleTrajectoryConnect({
   request: Request;
   trajectoryId: string;
 }): Promise<Response> {
-  if (!isValidIdentifier(trajectoryId) || /^\.+$/.test(trajectoryId)) {
+  if (!isValidTrajectoryId(trajectoryId)) {
     return trajectoryErrorResponse(
       "INVALID_REQUEST",
       "A valid trajectoryId is required",

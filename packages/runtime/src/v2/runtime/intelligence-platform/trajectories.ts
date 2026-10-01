@@ -5,6 +5,17 @@ export interface TrajectoryConnectionGrant {
   realtime: { clientUrl: string; topic: string };
 }
 
+const trajectoryIdSchema = z.string().uuid();
+
+export function isValidTrajectoryId(value: unknown): value is string {
+  return trajectoryIdSchema.safeParse(value).success;
+}
+
+const joinResponseSchema = z.object({
+  joinToken: z.string().refine((value) => value.trim().length > 0),
+  trajectoryId: trajectoryIdSchema,
+});
+
 const grantSchema = z.object({
   joinToken: z.string().refine((value) => value.trim().length > 0),
   realtime: z.object({
@@ -21,24 +32,26 @@ const grantSchema = z.object({
       }),
     topic: z
       .string()
-      .refine(
-        (value) =>
-          value.trim().length > 0 && !/[\u0000-\u001f\u007f]/.test(value),
-      ),
+      .refine((value) => value.trim().length > 0 && !/\p{Cc}/u.test(value)),
   }),
 });
 
 const contractErrorSchema = z.object({
-  code: z.enum([
-    "IDENTITY_REQUIRED",
-    "FORBIDDEN",
-    "TOKEN_INVALID",
-    "INVALID_REQUEST",
-    "NOT_FOUND",
-    "RATE_LIMITED",
-    "CONNECTION_FAILED",
-  ]),
-  message: z.string().trim().min(1).max(512),
+  error: z.object({
+    code: z.enum([
+      "AUTH_UNAUTHENTICATED",
+      "VALIDATION_ERROR",
+      "TRAJECTORY_APP_USER_CONFLICT",
+      "LEARNING_CONTAINER_NOT_FOUND",
+      "API_KEY_NOT_FOUND",
+      "ORG_NOT_FOUND",
+      "PROJECT_NOT_FOUND",
+      "RATE_LIMIT_EXCEEDED",
+      "INTERNAL_SERVER_ERROR",
+      "MARKETPLACE_LICENSE_REQUIRED",
+    ]),
+    message: z.string().trim().min(1).max(512),
+  }),
 });
 
 export class TrajectoryConnectionError extends Error {
@@ -54,8 +67,18 @@ export class TrajectoryConnectionError extends Error {
 
 export function parseTrajectoryConnectionGrant(
   value: unknown,
+  trajectoryId: string,
+  clientUrl: string,
 ): TrajectoryConnectionGrant {
-  const result = grantSchema.safeParse(value);
+  const join = joinResponseSchema.safeParse(value);
+  const result = grantSchema.safeParse(
+    join.success && join.data.trajectoryId === trajectoryId
+      ? {
+          joinToken: join.data.joinToken,
+          realtime: { clientUrl, topic: `trajectory:${trajectoryId}` },
+        }
+      : undefined,
+  );
   if (!result.success) {
     throw new TrajectoryConnectionError(
       "CONNECTION_FAILED",
@@ -79,10 +102,10 @@ export function trajectoryResponseError(
   apiKey: string,
 ): TrajectoryConnectionError {
   const result = contractErrorSchema.safeParse(value);
-  if (result.success && !result.data.message.includes(apiKey)) {
+  if (result.success && !result.data.error.message.includes(apiKey)) {
     return new TrajectoryConnectionError(
-      result.data.code,
-      result.data.message,
+      result.data.error.code,
+      result.data.error.message,
       status,
     );
   }
