@@ -6,7 +6,11 @@ frontend:
   kind: universal
 ---
 
-The CopilotKit runtime is **framework-agnostic**. At its core, it's a pure Fetch handler — a function that takes a `Request` and returns a `Response`. This means it runs natively on any platform that supports the [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API), and thin adapters are provided for Node.js-based frameworks like Express and Hono.
+The TypeScript CopilotKit runtime is **framework-agnostic**. At its core, it's a pure Fetch handler — a function that takes a `Request` and returns a `Response`. This means it runs natively on any platform that supports the [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API), and thin adapters are provided for Node.js-based frameworks like Express and Hono.
+
+<Callout type="info" title="TypeScript server adapters">
+This guide covers the TypeScript runtime, which works with or without Intelligence. For Python, Go, Ruby, or C#/.NET servers, follow the [Intelligence quickstart](/intelligence/quickstart#connect-your-runtime). Those runtimes require Intelligence and expose multi-route endpoints.
+</Callout>
 
 ## Quick Overview
 
