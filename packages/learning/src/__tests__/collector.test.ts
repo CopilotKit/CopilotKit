@@ -70,15 +70,21 @@ describe("createCollector", () => {
             type: "CUSTOM",
             name: "page",
             timestamp: NOW,
-            value: { route: "/learning", seq: 1 },
+            value: {
+              route: "/learning",
+              url: `${location.origin}/learning`,
+              title: document.title,
+              referrer: document.referrer,
+              seq: 1,
+            },
           },
           {
             type: "CUSTOM",
             name: "navigation",
             timestamp: NOW,
             value: {
-              from: "/learning",
-              to: "/learning/deals/:id",
+              from: `${location.origin}/learning`,
+              to: `${location.origin}/learning/deals/1`,
               navigationType: "push",
               seq: 2,
             },
@@ -123,6 +129,9 @@ describe("createCollector", () => {
     vi.advanceTimersByTime(2000);
 
     expect(names(batches)).toEqual(["page", "page", "navigation"]);
+    expect(
+      batches.flatMap((batch) => batch.events.map((event) => event.value.seq)),
+    ).toEqual([1, 2, 3]);
   });
 
   it("sends the final outcome once and removes capture hooks on stop", () => {
@@ -166,17 +175,18 @@ describe("createCollector", () => {
       expect(sink.mock.calls[1]?.[0]).toMatchObject({
         trajectoryId: "traj-2",
         dropped: 0,
-        events: [{ name: "page", value: { seq: 1 } }],
+        events: [{ name: "page", value: { seq: 3 } }],
       });
     },
   );
 
-  it("masks private paths in page, navigation, and network events", async () => {
+  it("retains raw paths and full URLs in captured activity", async () => {
     history.replaceState(null, "", "/reset/eyJhbGc.eyJzdWIi.sig");
     const { collector, batches } = setup();
     collector.start({ trajectoryId: "traj-1" });
-    history.pushState(null, "", "/users/jane@x.com");
+    history.pushState(null, "", "/users/jane@x.com?q=hello#details");
     await fetch("/search/private%20search");
+    await vi.advanceTimersByTimeAsync(0);
 
     collector.stop();
 
@@ -184,18 +194,20 @@ describe("createCollector", () => {
       expect.arrayContaining([
         expect.objectContaining({
           name: "page",
-          value: expect.objectContaining({ route: "/reset/:id" }),
+          value: expect.objectContaining({
+            route: "/reset/eyJhbGc.eyJzdWIi.sig",
+          }),
         }),
         expect.objectContaining({
           name: "navigation",
           value: expect.objectContaining({
-            from: "/reset/:id",
-            to: "/users/:id",
+            from: `${location.origin}/reset/eyJhbGc.eyJzdWIi.sig`,
+            to: `${location.origin}/users/jane@x.com?q=hello#details`,
           }),
         }),
         expect.objectContaining({
           name: "network",
-          value: expect.objectContaining({ route: "/search/:id" }),
+          value: expect.objectContaining({ route: "/search/private%20search" }),
         }),
       ]),
     );

@@ -1,8 +1,7 @@
 import type { ClickTarget, Emit, EnrichFn } from "./types";
 
 const INTERACTIVE =
-  "button, a[href], input, select, textarea, label, summary, [role], [data-copilotkit-action]";
-const MAX_ANCESTORS = 50;
+  'button, a[href], input, select, textarea, label, summary, [role], [data-copilotkit-action], [contenteditable]:not([contenteditable="false"])';
 const RECOVERY_DISTANCE_PX = 5;
 
 interface Described {
@@ -17,30 +16,62 @@ interface PointerOrigin {
 }
 
 /**
- * Finds the element a click means and describes it without reading any text.
- * Returns `null` inside `[data-copilotkit-ignore]` or for abnormal ancestor chains.
+ * Finds the nearest interactive element and retains its text, attributes, and value.
+ * The explicit `data-copilotkit-ignore` opt-out still applies.
  */
 export function describeTarget(el: Element) {
-  let interactive: Element | null = null;
-  let current: Element | null = el;
-  for (let depth = 0; current !== null; depth += 1) {
-    if (depth > MAX_ANCESTORS) return null;
-    if (current.hasAttribute("data-copilotkit-ignore")) return null;
-    if (interactive === null && current.matches(INTERACTIVE)) {
-      interactive = current;
-    }
-    current = current.parentElement;
-  }
-  const element = interactive ?? el;
+  if (el.closest("[data-copilotkit-ignore]") !== null) return null;
+  const element = el.closest(INTERACTIVE) ?? el;
   const described: Described = {
     element,
     target: {
       tag: element.localName,
       role: element.getAttribute("role"),
       action: element.getAttribute("data-copilotkit-action"),
+      text: element.textContent ?? "",
+      attributes: Object.fromEntries(
+        Array.from(element.attributes, ({ name, value }) => [name, value]),
+      ),
+      ...readControlValue(element),
     },
   };
   return described;
+}
+
+/** Snapshot live control properties; HTML attributes do not reflect edited values. */
+export function readControlValue(element: Element) {
+  if (element instanceof HTMLInputElement) {
+    return {
+      value: element.value,
+      ...(["checkbox", "radio"].includes(element.type)
+        ? { checked: element.checked }
+        : {}),
+      ...(element.type === "file"
+        ? {
+            files: Array.from(element.files ?? [], (file) => ({
+              name: file.name,
+              type: file.type,
+              size: file.size,
+              lastModified: file.lastModified,
+            })),
+          }
+        : {}),
+    };
+  }
+  if (element instanceof HTMLSelectElement) {
+    return {
+      value: element.value,
+      selectedValues: Array.from(
+        element.selectedOptions,
+        (option) => option.value,
+      ),
+    };
+  }
+  if (element instanceof HTMLTextAreaElement) return { value: element.value };
+  if (element.matches('[contenteditable]:not([contenteditable="false"])')) {
+    return { value: element.textContent ?? "" };
+  }
+  return {};
 }
 
 function eventElement(event: Event) {
@@ -112,6 +143,7 @@ export function installClickCapture(params: {
       emit("click", {
         target: { ...described.target, input },
         route: getRoute(),
+        url: location.href,
         ...enrich?.(described.element),
       });
     } catch {

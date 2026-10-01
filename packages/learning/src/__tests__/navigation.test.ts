@@ -30,7 +30,7 @@ function setup() {
 }
 
 describe("installNavigationCapture (history fallback)", () => {
-  it("emits push and replace when the route template changes", () => {
+  it("emits push and replace when the full URL changes", () => {
     const events = setup();
 
     history.pushState(null, "", "/learning/deals/42");
@@ -40,29 +40,32 @@ describe("installNavigationCapture (history fallback)", () => {
       {
         name: "navigation",
         value: {
-          from: "/learning",
-          to: "/learning/deals/:id",
+          from: `${location.origin}/learning`,
+          to: `${location.origin}/learning/deals/42`,
           navigationType: "push",
         },
       },
       {
         name: "navigation",
         value: {
-          from: "/learning/deals/:id",
-          to: "/learning/events",
+          from: `${location.origin}/learning/deals/42`,
+          to: `${location.origin}/learning/events`,
           navigationType: "replace",
         },
       },
     ]);
   });
 
-  it("ignores changes that keep the same route", () => {
+  it("records changes within a route, including query strings and fragments", () => {
     const events = setup();
 
     history.pushState(null, "", "/learning/deals/1");
     history.pushState(null, "", "/learning/deals/2?tab=notes#top");
 
-    expect(events).toHaveLength(1);
+    expect(events).toHaveLength(2);
+    expect(events[1]?.value.to).toBe(
+      `${location.origin}/learning/deals/2?tab=notes#top`,
+    );
   });
 
   it("still fires when a router wrapped the instance method before install", () => {
@@ -78,8 +81,8 @@ describe("installNavigationCapture (history fallback)", () => {
       {
         name: "navigation",
         value: {
-          from: "/learning",
-          to: "/learning/deals/:id",
+          from: `${location.origin}/learning`,
+          to: `${location.origin}/learning/deals/7`,
           navigationType: "push",
         },
       },
@@ -97,8 +100,8 @@ describe("installNavigationCapture (history fallback)", () => {
     await popped;
 
     expect(events.at(-1)?.value).toEqual({
-      from: "/learning/deals/:id",
-      to: "/learning",
+      from: `${location.origin}/learning/deals/3`,
+      to: `${location.origin}/learning`,
       navigationType: "traverse",
     });
   });

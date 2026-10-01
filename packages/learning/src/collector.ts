@@ -1,4 +1,5 @@
 import { installClickCapture } from "./clicks";
+import { installInputCapture } from "./inputs";
 import { installNavigationCapture } from "./navigation";
 import { installNetworkCapture } from "./network";
 import { toRoute } from "./routes";
@@ -21,7 +22,6 @@ const BUILT_IN = new Set<string>(BUILT_IN_EVENT_NAMES);
 interface Session {
   trajectoryId: string;
   learningContainerIds: string[] | undefined;
-  seq: number;
   queue: LearningEvent[];
   dropped: number;
   uninstalls: (() => void)[];
@@ -43,9 +43,11 @@ export function createCollector(options: CollectorOptions) {
     clicks: true,
     navigation: true,
     network: true,
+    inputs: true,
     ...options.capture,
   };
   let session: Session | null = null;
+  let seq = 0;
 
   const getRoute = () => toRoute(location.pathname, routes);
 
@@ -77,11 +79,11 @@ export function createCollector(options: CollectorOptions) {
     const current = session;
     if (current === null) return;
     try {
-      current.seq += 1;
+      seq += 1;
       const event: LearningEvent = {
         type: "CUSTOM",
         name,
-        value: { ...value, seq: current.seq },
+        value: { ...value, seq },
         timestamp: Date.now(),
       };
       const kept = beforeSend === undefined ? event : beforeSend(event);
@@ -102,40 +104,53 @@ export function createCollector(options: CollectorOptions) {
       }
       return;
     }
-    if (typeof window === "undefined") return;
+    if (
+      typeof window === "undefined" ||
+      typeof window.addEventListener !== "function"
+    )
+      return;
     const current: Session = {
       trajectoryId,
       learningContainerIds,
-      seq: 0,
       queue: [],
       dropped: 0,
       uninstalls: [],
       timer: undefined,
     };
     session = current;
+    const recordCurrent: typeof record = (name, value) => {
+      if (session === current) record(name, value);
+    };
     const ignoreUrls = [
       ...(options.ignoreUrls ?? []),
       ...(sink.url === undefined ? [] : [sink.url]),
     ];
     if (capture.clicks)
       current.uninstalls.push(
-        installClickCapture({ emit: record, getRoute, enrich }),
+        installClickCapture({ emit: recordCurrent, getRoute, enrich }),
       );
     if (capture.navigation)
       current.uninstalls.push(
-        installNavigationCapture({ emit: record, routes }),
+        installNavigationCapture({ emit: recordCurrent, routes }),
       );
     if (capture.network)
       current.uninstalls.push(
-        installNetworkCapture({ emit: record, routes, ignoreUrls }),
+        installNetworkCapture({ emit: recordCurrent, routes, ignoreUrls }),
       );
+    if (capture.inputs)
+      current.uninstalls.push(installInputCapture({ emit: recordCurrent }));
     const onPageHide = () => flush({ beacon: true });
     window.addEventListener("pagehide", onPageHide);
     current.uninstalls.push(() =>
       window.removeEventListener("pagehide", onPageHide),
     );
     current.timer = setInterval(() => flush(), FLUSH_INTERVAL_MS);
-    record("page", { route: getRoute() });
+    record("page", {
+      route: getRoute(),
+      url: location.href,
+      title: document.title,
+      referrer: document.referrer,
+    });
   };
 
   const stop = () => {

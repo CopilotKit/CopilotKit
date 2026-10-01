@@ -1,48 +1,26 @@
-import { toOriginAndRoute } from "./routes";
+import { createBodyCapture, snapshotText } from "./network-body";
+import type { BodySnapshot } from "./network-body";
 import type { Emit } from "./types";
 
 type Outcome = "ok" | "error" | "aborted";
-
-interface RequestInfoParts {
+interface RequestParts {
   url: string;
   method: string;
-  framework: ReturnType<typeof detectFramework>;
+  headers: Record<string, string>;
 }
-
-function toAbsolute(url: string) {
-  return new URL(url, location.href).href;
+interface ResponseParts {
+  url?: string;
+  headers: Record<string, string>;
+  body: Promise<BodySnapshot>;
 }
+const emptyBody = () => Promise.resolve<BodySnapshot>({ status: "empty" });
+const unavailableBody = (reason: string) =>
+  Promise.resolve<BodySnapshot>({ status: "unavailable", reason });
+const toAbsolute = (url: string) => new URL(url, location.href).href;
+const headerValues = (headers: Headers) =>
+  Object.fromEntries(headers.entries());
 
-/**
- * Marks requests a framework makes on its own (Next.js RSC payloads, prefetches,
- * server actions). Reads header names only, never their values.
- */
-function detectFramework(url: string, headers: Headers) {
-  if (headers.has("next-action")) return "next-action";
-  if (headers.has("next-router-prefetch")) return "next-prefetch";
-  const isRsc = headers.has("rsc") || new URL(url).searchParams.has("_rsc");
-  return isRsc ? "next-rsc" : null;
-}
-
-function readFetchRequest(
-  input: RequestInfo | URL,
-  init: RequestInit | undefined,
-) {
-  const isRequest = input instanceof Request;
-  const url = toAbsolute(isRequest ? input.url : String(input));
-  const method = init?.method ?? (isRequest ? input.method : "GET");
-  const headers = new Headers(
-    init?.headers ?? (isRequest ? input.headers : undefined),
-  );
-  const parts: RequestInfoParts = {
-    url,
-    method: method.toUpperCase(),
-    framework: detectFramework(url, headers),
-  };
-  return parts;
-}
-
-// Checks the name, not `instanceof`: a DOMException from another realm is not an `Error` there.
+// Checks the name, not instanceof: errors can come from another realm.
 function isAbortError(error: unknown) {
   return (
     typeof error === "object" &&
@@ -52,162 +30,335 @@ function isAbortError(error: unknown) {
   );
 }
 
-/**
- * Records method, status, duration, and a masked route for `fetch` and `XMLHttpRequest`.
- * Never clones or reads a body: a streaming response is returned untouched, and its
- * duration ends when the headers arrive.
- */
+/** Records browser-visible request/response data without consuming the app's bodies. */
 export function installNetworkCapture(params: {
   emit: Emit;
   routes?: string[];
   ignoreUrls: (string | RegExp)[];
 }) {
-  const { emit, routes } = params;
+  let active = true;
+  const bodies = createBodyCapture();
   const ignoreUrls = params.ignoreUrls.map((pattern) =>
-    typeof pattern === "string" ? toAbsolute(pattern) : pattern,
+    typeof pattern === "string"
+      ? toAbsolute(pattern)
+      : new RegExp(pattern.source, pattern.flags),
   );
   const isIgnored = (url: string) =>
-    ignoreUrls.some((pattern) =>
-      typeof pattern === "string" ? url.startsWith(pattern) : pattern.test(url),
-    );
+    ignoreUrls.some((pattern) => {
+      if (typeof pattern === "string") return url.startsWith(pattern);
+      pattern.lastIndex = 0;
+      return pattern.test(url);
+    });
 
-  const record: RecordFn = (transport, request, startedAt, status, outcome) => {
-    try {
-      emit("network", {
-        transport,
-        method: request.method,
-        ...toOriginAndRoute(request.url, routes),
-        status,
-        durationMs: Math.round(performance.now() - startedAt),
-        outcome,
-        ...(request.framework === null ? {} : { framework: request.framework }),
+  const record: RecordFn = (
+    transport,
+    request,
+    requestBody,
+    startedAt,
+    status,
+    outcome,
+    response,
+  ) => {
+    const durationMs = Math.round(performance.now() - startedAt);
+    const completedAt = Date.now();
+    void Promise.all([
+      requestBody,
+      response?.body ?? unavailableBody("no-response"),
+    ])
+      .then(([sent, received]) => {
+        if (!active) return;
+        const url = new URL(request.url);
+        params.emit("network", {
+          transport,
+          method: request.method,
+          url: request.url,
+          origin: url.origin,
+          route: url.pathname,
+          status,
+          durationMs,
+          completedAt,
+          outcome,
+          request: { headers: request.headers, body: sent },
+          response: {
+            ...(response?.url ? { url: response.url } : {}),
+            headers: response?.headers ?? {},
+            body: received,
+          },
+        });
+      })
+      .catch(() => {
+        /* Capture must never affect the host request. */
       });
-    } catch {
-      // Capture must never break the request.
-    }
   };
 
-  const uninstallFetch = patchFetch(isIgnored, record);
-  const uninstallXhr = patchXhr(isIgnored, record);
+  const originalFetch = globalThis.fetch;
+  const wrappedFetch: typeof fetch = (input, init) => {
+    if (!active) return originalFetch.call(globalThis, input, init);
+    let request: RequestParts;
+    let ignored: boolean;
+    try {
+      const source =
+        typeof Request !== "undefined" && input instanceof Request
+          ? input
+          : undefined;
+      request = {
+        url: toAbsolute(source ? source.url : String(input)),
+        method: (init?.method ?? source?.method ?? "GET").toUpperCase(),
+        headers: headerValues(new Headers(init?.headers ?? source?.headers)),
+      };
+      ignored = isIgnored(request.url);
+    } catch {
+      return originalFetch.call(globalThis, input, init);
+    }
+    if (ignored) return originalFetch.call(globalThis, input, init);
+    const startedAt = performance.now();
+    let requestBody: Promise<BodySnapshot>;
+    try {
+      requestBody =
+        init?.body != null
+          ? bodies.body(init.body, request.headers["content-type"])
+          : typeof Request !== "undefined" && input instanceof Request
+            ? bodies.read(input.clone().body, request.headers["content-type"])
+            : emptyBody();
+    } catch {
+      requestBody = unavailableBody("request-clone-failed");
+    }
+    const failed = (error: unknown) =>
+      record(
+        "fetch",
+        request,
+        requestBody,
+        startedAt,
+        null,
+        isAbortError(error) ? "aborted" : "error",
+      );
+    let promise: Promise<Response>;
+    try {
+      promise = originalFetch.call(globalThis, input, init);
+    } catch (error) {
+      failed(error);
+      throw error;
+    }
+    void promise
+      .then((response) => {
+        if (!active) return;
+        let responseBody: Promise<BodySnapshot>;
+        try {
+          responseBody =
+            response.type === "opaque" || response.type === "opaqueredirect"
+              ? unavailableBody("opaque-response")
+              : bodies.read(
+                  response.clone().body,
+                  response.headers.get("content-type") ?? "",
+                );
+        } catch {
+          responseBody = unavailableBody("response-clone-failed");
+        }
+        record(
+          "fetch",
+          request,
+          requestBody,
+          startedAt,
+          response.status,
+          "ok",
+          {
+            url: response.url,
+            headers: headerValues(response.headers),
+            body: responseBody,
+          },
+        );
+      }, failed)
+      .catch(() => {});
+    // Return the identical native Promise, Response, and rejection to the caller.
+    return promise;
+  };
+  if (typeof originalFetch === "function") globalThis.fetch = wrappedFetch;
+  const uninstallXhr = patchXhr(isIgnored, record, bodies);
   return () => {
-    uninstallFetch();
+    active = false;
+    bodies.stop();
+    if (globalThis.fetch === wrappedFetch) globalThis.fetch = originalFetch;
     uninstallXhr();
   };
 }
 
 type RecordFn = (
   transport: "fetch" | "xhr",
-  request: RequestInfoParts,
+  request: RequestParts,
+  requestBody: Promise<BodySnapshot>,
   startedAt: number,
   status: number | null,
   outcome: Outcome,
+  response?: ResponseParts,
 ) => void;
 
-function patchFetch(isIgnored: (url: string) => boolean, record: RecordFn) {
-  const originalFetch = globalThis.fetch;
-  if (typeof originalFetch !== "function") return () => {};
-  let active = true;
-
-  const wrappedFetch: typeof fetch = (input, init) => {
-    if (!active) return originalFetch.call(globalThis, input, init);
-    let request: RequestInfoParts | null = null;
-    try {
-      request = readFetchRequest(input, init);
-    } catch {
-      request = null;
-    }
-    if (request === null || isIgnored(request.url)) {
-      return originalFetch.call(globalThis, input, init);
-    }
-    const startedAt = performance.now();
-    const response = originalFetch.call(globalThis, input, init);
-    const observed = request;
-    // Observe only. The caller gets the original promise, so the Response and any error are unchanged.
-    response.then(
-      (res) => record("fetch", observed, startedAt, res.status, "ok"),
-      (error: unknown) =>
-        record(
-          "fetch",
-          observed,
-          startedAt,
-          null,
-          isAbortError(error) ? "aborted" : "error",
-        ),
-    );
-    return response;
-  };
-
-  globalThis.fetch = wrappedFetch;
-  return () => {
-    // Restore only if no one wrapped fetch after us; otherwise our wrapper passes straight through.
-    if (globalThis.fetch === wrappedFetch) globalThis.fetch = originalFetch;
-    active = false;
-  };
-}
-
-function patchXhr(isIgnored: (url: string) => boolean, record: RecordFn) {
+function patchXhr(
+  isIgnored: (url: string) => boolean,
+  record: RecordFn,
+  bodies: ReturnType<typeof createBodyCapture>,
+) {
   if (typeof XMLHttpRequest !== "function") return () => {};
   const proto = XMLHttpRequest.prototype;
   const originalOpen = proto.open;
   const originalSend = proto.send;
-  const requests = new WeakMap<XMLHttpRequest, RequestInfoParts>();
+  const originalSetHeader = proto.setRequestHeader;
+  const requests = new WeakMap<XMLHttpRequest, RequestParts>();
+  const listeners = new Set<() => void>();
   let active = true;
-
   const wrappedOpen = function (
     this: XMLHttpRequest,
     method: string,
     url: string | URL,
     ...rest: unknown[]
   ) {
+    const result = Reflect.apply(originalOpen, this, [method, url, ...rest]);
     try {
-      // ponytail: XHR is not marked; Next.js and other modern routers use fetch.
       requests.set(this, {
         url: toAbsolute(String(url)),
         method: method.toUpperCase(),
-        framework: null,
+        headers: {},
       });
     } catch {
       requests.delete(this);
     }
-    return Reflect.apply(originalOpen, this, [method, url, ...rest]);
+    return result;
   };
-
+  const wrappedSetHeader = function (
+    this: XMLHttpRequest,
+    name: string,
+    value: string,
+  ) {
+    const result = originalSetHeader.call(this, name, value);
+    const request = requests.get(this);
+    if (active && request) {
+      try {
+        const headers = new Headers(request.headers);
+        headers.append(name, value);
+        request.headers = headerValues(headers);
+      } catch {
+        /* Preserve successful native calls even if observation fails. */
+      }
+    }
+    return result;
+  };
   const wrappedSend = function (
     this: XMLHttpRequest,
     body?: Document | XMLHttpRequestBodyInit | null,
   ) {
     const request = requests.get(this);
-    if (active && request !== undefined && !isIgnored(request.url)) {
-      const startedAt = performance.now();
-      let aborted = false;
-      this.addEventListener("abort", () => (aborted = true), { once: true });
-      this.addEventListener(
-        "loadend",
-        () => {
-          const outcome: Outcome = aborted
-            ? "aborted"
-            : this.status === 0
-              ? "error"
-              : "ok";
-          record(
-            "xhr",
-            request,
-            startedAt,
-            outcome === "ok" ? this.status : null,
-            outcome,
-          );
-        },
-        { once: true },
-      );
+    if (!active || !request || isIgnored(request.url))
+      return originalSend.call(this, body);
+    const startedAt = performance.now();
+    let requestBody: Promise<BodySnapshot>;
+    try {
+      requestBody =
+        typeof Document !== "undefined" && body instanceof Document
+          ? Promise.resolve(
+              snapshotText(new XMLSerializer().serializeToString(body)),
+            )
+          : bodies.body(
+              body as BodyInit | null | undefined,
+              request.headers["content-type"],
+            );
+    } catch {
+      requestBody = unavailableBody("request-body-unavailable");
     }
-    return originalSend.call(this, body);
+    let aborted = false;
+    const onAbort = () => {
+      aborted = true;
+    };
+    const cleanup = () => {
+      this.removeEventListener("abort", onAbort);
+      this.removeEventListener("loadend", onEnd);
+      listeners.delete(cleanup);
+    };
+    const onEnd = () => {
+      cleanup();
+      if (!active) return;
+      const outcome = aborted ? "aborted" : this.status === 0 ? "error" : "ok";
+      const headers: Record<string, string> = {};
+      try {
+        for (const line of this.getAllResponseHeaders().split(/\r?\n/)) {
+          const split = line.indexOf(":");
+          if (split > 0)
+            headers[line.slice(0, split).toLowerCase()] = line
+              .slice(split + 1)
+              .trim();
+        }
+      } catch {
+        /* Cross-origin or failed requests can hide response headers. */
+      }
+      let responseBody: Promise<BodySnapshot>;
+      try {
+        if (this.responseType === "" || this.responseType === "text") {
+          responseBody = Promise.resolve(
+            snapshotText(
+              this.responseText,
+              outcome === "ok" ? "complete" : "interrupted",
+              outcome === "ok" ? undefined : `request-${outcome}`,
+            ),
+          );
+        } else if (this.responseType === "json")
+          responseBody = Promise.resolve(
+            snapshotText(JSON.stringify(this.response)),
+          );
+        else if (this.responseType === "document")
+          responseBody = this.responseXML
+            ? Promise.resolve(
+                snapshotText(
+                  new XMLSerializer().serializeToString(this.responseXML),
+                ),
+              )
+            : unavailableBody("empty-document");
+        else
+          responseBody = bodies.body(
+            this.response as BodyInit,
+            headers["content-type"] ?? "application/octet-stream",
+          );
+      } catch {
+        responseBody = unavailableBody("response-body-unavailable");
+      }
+      record(
+        "xhr",
+        request,
+        requestBody,
+        startedAt,
+        outcome === "ok" ? this.status : null,
+        outcome,
+        {
+          url: this.responseURL,
+          headers,
+          body: responseBody,
+        },
+      );
+    };
+    this.addEventListener("abort", onAbort);
+    this.addEventListener("loadend", onEnd);
+    listeners.add(cleanup);
+    try {
+      return originalSend.call(this, body);
+    } catch (error) {
+      cleanup();
+      record(
+        "xhr",
+        request,
+        requestBody,
+        startedAt,
+        null,
+        isAbortError(error) ? "aborted" : "error",
+      );
+      throw error;
+    }
   };
-
   proto.open = wrappedOpen;
   proto.send = wrappedSend;
+  proto.setRequestHeader = wrappedSetHeader;
   return () => {
+    active = false;
+    for (const cleanup of listeners) cleanup();
     if (proto.open === wrappedOpen) proto.open = originalOpen;
     if (proto.send === wrappedSend) proto.send = originalSend;
-    active = false;
+    if (proto.setRequestHeader === wrappedSetHeader)
+      proto.setRequestHeader = originalSetHeader;
   };
 }

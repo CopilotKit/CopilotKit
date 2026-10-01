@@ -1,4 +1,3 @@
-import { toRoute } from "./routes";
 import type { Emit } from "./types";
 
 type NavigationType = "push" | "replace" | "traverse" | "reload";
@@ -42,7 +41,7 @@ function toNavigationType(value: unknown): NavigationType {
 }
 
 /**
- * Emits `navigation` when the route template changes in a single-page app.
+ * Emits `navigation` when the full URL changes in a single-page app.
  * Uses the Navigation API when it exists. Otherwise patches `pushState` and
  * `replaceState` on the prototype and on the instance, because some routers
  * (Next.js) wrap the instance method.
@@ -51,12 +50,12 @@ export function installNavigationCapture(params: {
   emit: Emit;
   routes?: string[];
 }) {
-  const { emit, routes } = params;
-  let current = toRoute(location.pathname, routes);
+  const { emit } = params;
+  let current = location.href;
 
   const check = (navigationType: NavigationType) => {
     try {
-      const next = toRoute(location.pathname, routes);
+      const next = location.href;
       if (next === current) return;
       emit("navigation", { from: current, to: next, navigationType });
       current = next;
@@ -106,10 +105,12 @@ function installHistoryFallback(
 
   const onPopState = () => check("traverse");
   window.addEventListener("popstate", onPopState);
+  window.addEventListener("hashchange", onPopState);
 
   return () => {
     active = false;
     window.removeEventListener("popstate", onPopState);
+    window.removeEventListener("hashchange", onPopState);
     for (const restore of restores) restore();
   };
 }
