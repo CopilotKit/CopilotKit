@@ -1,8 +1,8 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/refs -- copied verbatim from the Intelligence web app, whose lint config does not enable the React Compiler rules. */
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { Switch } from '../ui/forms';
-import { Button } from '../ui/primitives';
-import styles from './skill-delivery.module.css';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { Switch } from "../ui/forms";
+import { Button } from "../ui/primitives";
+import styles from "./skill-delivery.module.css";
 
 /** Displays only the server-confirmed delivery setting and serializes updates. */
 export function SkillDeliveryToggle(props: {
@@ -13,7 +13,7 @@ export function SkillDeliveryToggle(props: {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(Boolean(props.onLoad));
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const request = useRef<AbortController | null>(null);
   const saving = useRef(false);
@@ -37,7 +37,7 @@ export function SkillDeliveryToggle(props: {
     saving.current = false;
     setEnabled(null);
     setPending(false);
-    setError('');
+    setError("");
     setLoading(Boolean(props.onLoad));
     props.onLoad?.(controller.signal).then(
       (value) => {
@@ -66,12 +66,12 @@ export function SkillDeliveryToggle(props: {
       if (!controller.signal.aborted) {
         restoreFocus.current = document.activeElement === retryRef.current;
         setEnabled(next);
-        setError('');
+        setError("");
       }
     } catch (cause) {
       if (!controller.signal.aborted) {
         setError(
-          cause instanceof Error ? cause.message : 'Could not change delivery.',
+          cause instanceof Error ? cause.message : "Could not change delivery.",
         );
       }
     } finally {
@@ -83,16 +83,16 @@ export function SkillDeliveryToggle(props: {
   }
 
   const status = loading
-    ? 'Loading delivery status…'
+    ? "Loading delivery status…"
     : enabled === null
-      ? 'Delivery status unavailable.'
+      ? "Delivery status unavailable."
       : pending
         ? enabled
-          ? 'Pausing delivery…'
-          : 'Enabling delivery…'
+          ? "Pausing delivery…"
+          : "Enabling delivery…"
         : enabled
-          ? 'Delivery enabled.'
-          : 'Delivery paused.';
+          ? "Delivery enabled."
+          : "Delivery paused.";
 
   return (
     <div
@@ -112,6 +112,8 @@ export function SkillDeliveryToggle(props: {
           </span>
         }
         checked={enabled === true}
+        // Demo: keep a browser's form-state restore from flipping the switch after a reload.
+        autoComplete="off"
         disabled={enabled === null || loading}
         aria-disabled={pending || undefined}
         onChange={save}
@@ -124,8 +126,8 @@ export function SkillDeliveryToggle(props: {
       </span>
       <span id={`${id}-note`} className={styles.footnote}>
         {enabled === false
-          ? 'Agents keep Skills they already loaded.'
-          : 'Controls new requests for published Skills.'}
+          ? "Agents keep Skills they already loaded."
+          : "Controls new requests for published Skills."}
       </span>
       {enabled === null && props.onLoad && (!loading || attempt > 0) ? (
         <Button

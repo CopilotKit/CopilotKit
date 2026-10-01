@@ -35,6 +35,8 @@ import type {
   LearningCandidate,
   LearningCandidateDetail,
   LearningContainer,
+  LearningContainerStats,
+  LearningContainerStatsResult,
   LearningInsight,
   LearningInsightEvidence,
   LearningRun,
@@ -296,6 +298,14 @@ async function runLearning(): Promise<LearningRun> {
   return run;
 }
 
+const pendingOf = (stats: LearningContainerStatsResult): number =>
+  Array.isArray(stats)
+    ? (stats as readonly LearningContainerStats[]).reduce(
+        (n, x) => n + x.pendingThreadCount,
+        0,
+      )
+    : 0;
+
 export const ledgerlineLearningApi: LearningApi = {
   approveCandidate: async (_projectId, _containerId, id) => {
     const name = id.replace(/^candidate:/, "");
@@ -466,14 +476,16 @@ export const ledgerlineLearningApi: LearningApi = {
       learningV1.skills(),
       learningV1.insights(),
     ]);
-    const at = iso(
-      insights.length
-        ? Math.max(...insights.map((i) => i.createdAt))
-        : Date.now(),
-    );
+    // Each Skill dates from the newest Insight it rests on, so seeded Skills keep their older dates.
+    const dated = (s: DemoSkill): string => {
+      const own = insights
+        .filter((i) => s.supportingInsightIds.includes(i.id))
+        .map((i) => i.createdAt);
+      return iso(own.length ? Math.max(...own) : Date.now());
+    };
     return skills
       .filter((s) => s.status === "published")
-      .map((s) => toSkill(s, at));
+      .map((s) => toSkill(s, dated(s)));
   },
   listRuns: async () => allRuns(),
   runLearning: async () => runLearning(),
@@ -485,7 +497,13 @@ export const ledgerlineLearningApi: LearningApi = {
       activeRun: active,
       blocked: false,
       containerId: LEDGERLINE_CONTAINER_ID,
-      eligibleThreadCount: 1,
+      // Same count the stats report, so "Threads ready" agrees with the run button.
+      eligibleThreadCount: pendingOf(
+        await ledgerlineLearningApi.listContainerStats(
+          LEDGERLINE_PROJECT_ID,
+          {} as never,
+        ),
+      ),
       enabled: true,
       projectId: LEDGERLINE_PROJECT_ID,
       requiredThreadCount: 1,
