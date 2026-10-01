@@ -252,9 +252,10 @@ src/app/api/*/v1/dev/reset` for the reset routes. Check BOTH, because a reset
   and in such a skin a project-scoped memory **survives every presenter reset** —
   save beat 6's procedure there and the second run of the day opens already-taught:
   the agent never declines, never offers to record, and the beat proves nothing
-  while looking perfect. Banking is self-consistent the other way (project scope +
-  a sweep that deletes everything) and is the one exception, not the pattern;
-  every other skin scopes `user`
+  while looking perfect. Every skin, banking included, scopes `user` — and the
+  default memory posture (`isolated` in `src/shell/governance.ts`) grants no
+  project scope at all, so a project-scoped procedure could be neither saved nor
+  recalled
   (`grep -n 'scope:' src/skins/*/intelligence/seed-memories.ts`, where each records
   the reasoning beside the field).
 - `identifyUser` is reached through the **server-only** registry, so it MUST be
