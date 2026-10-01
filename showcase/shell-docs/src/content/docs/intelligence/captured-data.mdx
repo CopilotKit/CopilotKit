@@ -18,7 +18,7 @@ You need to approve what leaves the browser before capture goes live. This page 
 - Query strings and URL hashes.
 - Assistant reply text (CopilotKit adds it only with `capture.agentText`).
 
-Paths are reduced to route templates. A path that matches no template gets ID-like segments replaced with `:id`: numbers, UUIDs, long hex strings, and long tokens that contain digits.
+Paths are reduced to route templates. A path that matches no template gets ID-like segments replaced with `:id`: numbers, UUIDs, long hex strings, and long tokens that contain digits. Segments that contain `.`, `@`, `%`, or `=` also become `:id` unless the path matches a configured template.
 
 ## Events
 

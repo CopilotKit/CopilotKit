@@ -154,6 +154,6 @@ function StartCaptureButton({ projectId }: { projectId: string }) {
 }
 ```
 
-One Trajectory runs at a time. Starting the same ID again does nothing. `copilotkit.stopTrajectory()` removes every listener and drops events that were not sent yet.
+One Trajectory runs at a time. Starting the same ID again does nothing. `copilotkit.stopTrajectory()` removes every listener and sends queued events once. It does not wait for delivery or retry a failed send.
 
 Need capture in an app without CopilotKit? Use the [standalone collector](/intelligence/standalone-collector).

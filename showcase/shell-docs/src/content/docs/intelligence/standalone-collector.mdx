@@ -59,7 +59,7 @@ When you are done, your app sends batches of events to your own endpoint. You ca
     collector.stop();
     ```
 
-    `stop()` removes every listener and patch, and drops events that were not sent yet.
+    `stop()` removes every listener and patch, then sends queued events once. It does not wait for delivery or retry a failed send.
 
   </Step>
 </Steps>

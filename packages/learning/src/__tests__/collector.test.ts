@@ -122,19 +122,83 @@ describe("createCollector", () => {
     history.pushState(null, "", "/learning/deals/9");
     vi.advanceTimersByTime(2000);
 
-    expect(names(batches)).toEqual(["page", "navigation"]);
+    expect(names(batches)).toEqual(["page", "page", "navigation"]);
   });
 
-  it("drops unsent events and restores fetch on stop", () => {
+  it("sends the final outcome once and removes capture hooks on stop", () => {
     const { collector, batches } = setup();
     collector.start({ trajectoryId: "traj-1" });
-    collector.emit("deal.viewed", {});
+    collector.emit("deal.approved", { dealId: "deal-1" });
 
     collector.stop();
+    collector.stop();
+    collector.emit("deal.viewed", {});
+    history.pushState(null, "", "/learning/deals/1");
     vi.advanceTimersByTime(5000);
 
-    expect(batches).toEqual([]);
+    expect(batches).toHaveLength(1);
+    expect(batches[0]?.trajectoryId).toBe("traj-1");
+    expect(names(batches)).toEqual(["page", "deal.approved"]);
+    expect(batches[0]?.events[1]?.value).toEqual({ dealId: "deal-1", seq: 2 });
+    expect(collector.trajectoryId).toBeNull();
     expect(globalThis.fetch).toBe(fakeFetch);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it.each(["throw", "reject"])(
+    "does not retry or carry failed final events into the next trajectory (%s)",
+    async (failure) => {
+      const sink = vi.fn<LearningSink>(() => {
+        if (failure === "throw") throw new Error("offline");
+        return Promise.reject(new Error("offline"));
+      });
+      const { collector } = setup({ sink });
+      collector.start({ trajectoryId: "traj-1" });
+      collector.emit("deal.approved", {});
+
+      expect(() => collector.stop()).not.toThrow();
+      expect(collector.trajectoryId).toBeNull();
+      sink.mockImplementation(() => {});
+      collector.start({ trajectoryId: "traj-2" });
+      await vi.advanceTimersByTimeAsync(5000);
+
+      expect(sink).toHaveBeenCalledTimes(2);
+      expect(sink.mock.calls[1]?.[0]).toMatchObject({
+        trajectoryId: "traj-2",
+        dropped: 0,
+        events: [{ name: "page", value: { seq: 1 } }],
+      });
+    },
+  );
+
+  it("masks private paths in page, navigation, and network events", async () => {
+    history.replaceState(null, "", "/reset/eyJhbGc.eyJzdWIi.sig");
+    const { collector, batches } = setup();
+    collector.start({ trajectoryId: "traj-1" });
+    history.pushState(null, "", "/users/jane@x.com");
+    await fetch("/search/private%20search");
+
+    collector.stop();
+
+    expect(batches[0]?.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "page",
+          value: expect.objectContaining({ route: "/reset/:id" }),
+        }),
+        expect.objectContaining({
+          name: "navigation",
+          value: expect.objectContaining({
+            from: "/reset/:id",
+            to: "/users/:id",
+          }),
+        }),
+        expect.objectContaining({
+          name: "network",
+          value: expect.objectContaining({ route: "/search/:id" }),
+        }),
+      ]),
+    );
   });
 
   it("lets beforeSend redact or drop events", () => {

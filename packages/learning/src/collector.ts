@@ -30,8 +30,8 @@ interface Session {
 
 /**
  * Creates a collector. Nothing is installed until `start()`: no listeners,
- * no patches, no timers, no buffer. `stop()` removes all of them and drops
- * events that were not sent yet.
+ * no patches, no timers, no buffer. `stop()` removes all of them and sends
+ * queued events once, without retries.
  *
  * @example
  * const collector = createCollector({ sink: httpSink("/api/learning-events") });
@@ -141,9 +141,10 @@ export function createCollector(options: CollectorOptions) {
   const stop = () => {
     const current = session;
     if (current === null) return;
-    session = null;
     clearInterval(current.timer);
     for (const uninstall of current.uninstalls) uninstall();
+    flush();
+    session = null;
   };
 
   const emit = (name: string, value: Record<string, unknown>) => {

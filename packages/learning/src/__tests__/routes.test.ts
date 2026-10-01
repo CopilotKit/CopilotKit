@@ -26,6 +26,25 @@ describe("toRoute", () => {
   it("returns / for the root path", () => {
     expect(toRoute("/")).toBe("/");
   });
+
+  it.each([
+    ["/reset/eyJhbGc.eyJzdWIi.sig", "/reset/:id"],
+    ["/users/jane@x", "/users/:id"],
+    ["/users/jane@x.com", "/users/:id"],
+    ["/search/private%20search", "/search/:id"],
+    ["/reset/c2VjcmV0=", "/reset/:id"],
+  ])("masks sensitive path segments in %s", (pathname, expected) => {
+    expect(toRoute(pathname)).toBe(expected);
+  });
+
+  it("uses configured templates before masking punctuation", () => {
+    expect(toRoute("/users/jane@x.com", ["/users/:userId"])).toBe(
+      "/users/:userId",
+    );
+    expect(toRoute("/docs/index.html", ["/docs/index.html"])).toBe(
+      "/docs/index.html",
+    );
+  });
 });
 
 describe("toOriginAndRoute", () => {
@@ -39,5 +58,11 @@ describe("toOriginAndRoute", () => {
     expect(
       toOriginAndRoute("/deals/9", ["/deals/:id"], "https://app.example.com/x"),
     ).toEqual({ origin: "https://app.example.com", route: "/deals/:id" });
+  });
+
+  it("masks sensitive segments in network URLs", () => {
+    expect(
+      toOriginAndRoute("https://api.example.com/users/jane@x.com?token=secret"),
+    ).toEqual({ origin: "https://api.example.com", route: "/users/:id" });
   });
 });

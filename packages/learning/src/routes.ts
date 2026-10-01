@@ -3,6 +3,7 @@ const DIGITS = /^\d+$/;
 const LONG_HEX = /^[0-9a-f]{16,}$/i;
 const TOKEN = /^[A-Za-z0-9_-]{20,}$/;
 const HAS_DIGIT = /\d/;
+const SENSITIVE_PUNCTUATION = /[.@%=]/;
 
 // ponytail: shape heuristic, not a dictionary. Slugs like "alice" stay; add a route template for exact names.
 function isIdLike(segment: string) {
@@ -11,6 +12,7 @@ function isIdLike(segment: string) {
     DIGITS.test(segment) ||
     UUID.test(segment) ||
     LONG_HEX.test(segment) ||
+    SENSITIVE_PUNCTUATION.test(segment) ||
     isToken
   );
 }
@@ -30,8 +32,9 @@ function matchesTemplate(segments: string[], template: string) {
 /**
  * Turns a pathname into a route without IDs.
  *
- * A matching template wins (`/deals/:id`). Otherwise ID-like segments become
- * `:id`. Pass a pathname only: the query string and hash are never part of a route.
+ * A matching template wins (`/deals/:id`). Otherwise ID-like segments and
+ * segments containing `.`, `@`, `%`, or `=` become `:id`.
+ * Pass a pathname only: the query string and hash are never part of a route.
  *
  * @example toRoute("/deals/42/notes", ["/deals/:dealId/notes"]) // "/deals/:dealId/notes"
  */
