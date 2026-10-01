@@ -1,7 +1,11 @@
 "use client";
 
 import type { AbstractAgent } from "@ag-ui/client";
-import type { CopilotKitMessageFilter, FrontendTool } from "@copilotkit/core";
+import type {
+  CopilotKitMessageFilter,
+  FrontendTool,
+  LearningConfig,
+} from "@copilotkit/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import type React from "react";
 import {
@@ -299,6 +303,19 @@ export interface CopilotKitProviderProps {
    * Enable debug logging for the client-side event pipeline.
    */
   debug?: DebugConfig;
+  /**
+   * Turns on interaction capture (`@copilotkit/learning`). Clicks, page
+   * changes, and network metadata become AG-UI `CUSTOM` events that carry the
+   * Thread, message, tool call, and run they belong to. Read once, on mount.
+   * Set `trajectoryId` to start capture right away; it stops on unmount.
+   *
+   * @example
+   * <CopilotKitProvider learning={{ sink: httpSink("/api/learning-events"), trajectoryId }}>
+   */
+  learning?: LearningConfig & {
+    trajectoryId?: string;
+    learningContainerIds?: string[];
+  };
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -350,6 +367,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   a2ui,
   defaultThrottleMs,
   debug,
+  learning,
 }) => {
   // Keep the server render and the first client render identical. The
   // Inspector only runs in local development. Resolve its host and build
@@ -768,6 +786,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       renderActivityMessages: allActivityRenderers,
       renderCustomMessages: renderCustomMessagesList,
       debug,
+      // Read once: the collector's sink and options are fixed for the provider lifetime.
+      learning,
     });
     // Set initial defaultThrottleMs synchronously so child hooks see the
     // correct value on their first render (before useEffect fires).
@@ -962,6 +982,20 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     useSingleEndpoint,
     debug,
   ]);
+
+  // Start the Trajectory in the commit phase, after the runtime URL is set, so
+  // CopilotKit's own runtime traffic is never captured. Under StrictMode the
+  // start/stop/start sequence installs the capture hooks once.
+  const trajectoryId = learning?.trajectoryId;
+  const learningContainerIdsRef = useRef(learning?.learningContainerIds);
+  useEffect(() => {
+    if (trajectoryId === undefined) return;
+    copilotkit.startTrajectory({
+      trajectoryId,
+      learningContainerIds: learningContainerIdsRef.current,
+    });
+    return () => copilotkit.stopTrajectory();
+  }, [copilotkit, trajectoryId]);
 
   // Sync render/tool arrays to the stable instance via setters.
   // On mount, the constructor already receives the correct initial values,

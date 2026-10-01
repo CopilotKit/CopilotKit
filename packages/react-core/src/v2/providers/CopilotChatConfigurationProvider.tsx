@@ -9,7 +9,8 @@ import React, {
   useState,
 } from "react";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
-import { useDefaultAgentId } from "../context";
+import type { OpenThreadRegistration } from "@copilotkit/core";
+import { CopilotKitContext, useDefaultAgentId } from "../context";
 // Import from the tailwind-free leaf module (not ../lib/slots, which pulls
 // tailwind-merge) so this provider stays lean in the headless entry (issue #4893).
 import { useShallowStableRef } from "../lib/shallow-stable-ref";
@@ -261,6 +262,29 @@ export const CopilotChatConfigurationProvider: React.FC<
     parentConfig?.threadId,
     activeThreadOverride,
   ]);
+
+  // Tell Core which Thread this view shows, so captured interactions can link
+  // to it. Read the context directly: this provider also works without a
+  // CopilotKitProvider, and then there is nothing to register with.
+  const copilotkit = useContext(CopilotKitContext)?.copilotkit;
+  const openThreadRef = useRef<OpenThreadRegistration | null>(null);
+  const latestThreadIdRef = useRef(resolvedThreadId);
+  latestThreadIdRef.current = resolvedThreadId;
+  useEffect(() => {
+    if (copilotkit === undefined) return;
+    const registration = copilotkit.registerOpenThread({
+      agentId: resolvedAgentId,
+      threadId: latestThreadIdRef.current,
+    });
+    openThreadRef.current = registration;
+    return () => {
+      registration.unregister();
+      openThreadRef.current = null;
+    };
+  }, [copilotkit, resolvedAgentId]);
+  useEffect(() => {
+    openThreadRef.current?.update(resolvedThreadId);
+  }, [resolvedThreadId]);
 
   // Explicitness of this provider's own thread, mirroring the resolution order
   // above: an authoritative prop is a caller choice; otherwise an imperative

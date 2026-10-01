@@ -24,13 +24,19 @@ export function CopilotChatToolCallsView({
           (m) => m.role === "tool" && m.toolCallId === toolCall.id,
         ) as ToolMessage | undefined;
 
+        // `display: contents` keeps layout unchanged. The id lets interaction
+        // capture tie a click inside the rendered tool UI to this tool call.
         return (
-          <React.Fragment key={toolCall.id}>
+          <div
+            key={toolCall.id}
+            data-tool-call-id={toolCall.id}
+            style={{ display: "contents" }}
+          >
             {renderToolCall({
               toolCall,
               toolMessage,
             })}
-          </React.Fragment>
+          </div>
         );
       })}
     </>
