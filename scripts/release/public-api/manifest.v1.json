@@ -1161,6 +1161,67 @@
       }
     },
     {
+      "name": "@copilotkit/learning",
+      "version": "1.76.0",
+      "sourceDirectory": "packages/learning",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/learning",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/learning/package.json",
+            "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/learning/package.json",
+          "exportKey": "./package.json",
+          "kind": "metadata",
+          "conditions": "./package.json",
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/learning/package.json",
+            "selector": "exports[\"./package.json\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/learning/package.json",
+            "selector": "engines"
+          }
+        ]
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/learning/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/learning/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.monorepo.packages"
+        }
+      }
+    },
+    {
       "name": "@copilotkit/mcp-apps-renderer",
       "version": "1.76.0",
       "sourceDirectory": "packages/mcp-apps-renderer",

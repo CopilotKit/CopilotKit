@@ -1,0 +1,45 @@
+{
+  "name": "@copilotkit/learning",
+  "version": "1.76.0",
+  "description": "Capture clicks, page changes, and network metadata in the browser as AG-UI CUSTOM events",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "size": "node scripts/check-size.mjs",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
+  },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:*",
+    "jsdom": "^26.1.0",
+    "tsdown": "^0.20.3",
+    "typescript": "5.8.2",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
