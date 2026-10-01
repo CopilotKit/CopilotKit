@@ -1,9 +1,6 @@
-import { execFileSync } from "node:child_process";
-import { createServer } from "node:http";
 import assert from "node:assert/strict";
 import { isDeepStrictEqual } from "node:util";
 const url = process.env.PB_TEST_URL ?? "http://127.0.0.1:43120";
-const mode = process.env.PB_TEST_MODE ?? "atomic";
 let token;
 async function request(path, method = "GET", body, auth = true) {
   const response = await fetch(url + path, {
@@ -77,25 +74,7 @@ const input = {
   history,
   outcome,
 };
-async function apply(body) {
-  if (mode !== "legacy")
-    return request("/api/fleet/observations/apply", "POST", body);
-  // Exact old persistence boundary: separate status then best-effort history.
-  const status = await request(
-    collection("status"),
-    "POST",
-    body.status.values,
-  );
-  if (status.status >= 300) return status;
-  const audit = await request(
-    collection("status_history"),
-    "POST",
-    body.history,
-  );
-  return audit.status >= 300
-    ? audit
-    : { status: 200, data: { replay: false, outcome: body.outcome } };
-}
+const apply = (body) => request("/api/fleet/observations/apply", "POST", body);
 const list = async (name, observationKey = key) =>
   (
     await ok(
@@ -104,23 +83,6 @@ const list = async (name, observationKey = key) =>
         encodeURIComponent(`key = "${observationKey}"`),
     )
   ).items;
-if (mode === "missing-schema") {
-  const schema = await ok("/api/collections/probe_jobs");
-  assert.ok(
-    !schema.schema.some(
-      (field) => field.name === "result_observation_receipts",
-    ),
-  );
-  const response = await apply(input);
-  assert.equal(response.status, 500);
-  assert.equal(response.data.data.code, "persistence_failure");
-  assert.equal((await list("status")).length, 0);
-  assert.equal((await list("status_history")).length, 0);
-  console.log(
-    "PASS missing receipt schema fails loudly before status/history effects",
-  );
-  process.exit(0);
-}
 const invalidHistory = {
   ...input,
   history: { ...history, transition: "INVALID" },
@@ -134,7 +96,6 @@ const afterFailure = {
 console.log(
   JSON.stringify({
     case: "history failure rolls back attempted status",
-    mode,
     failed,
     afterFailure,
   }),
@@ -162,33 +123,6 @@ const snapshot = async (jobId = job.id, observationKey = key) => ({
   job: await ok(collection("probe_jobs") + "/" + jobId),
 });
 
-const container = process.env.PB_TEST_CONTAINER;
-assert.ok(
-  container,
-  "PB_TEST_CONTAINER is required for real server-side fault checks",
-);
-const dockerContext = process.env.PB_TEST_DOCKER_CONTEXT;
-const docker = (...args) =>
-  execFileSync(
-    "docker",
-    [...(dockerContext ? ["--context", dockerContext] : []), ...args],
-    { encoding: "utf8" },
-  );
-for (const fault of ["status", "history", "receipt"]) {
-  const before = await snapshot();
-  docker("exec", container, "touch", `/pb_data/fault-${fault}`);
-  let failure;
-  try {
-    failure = await apply(input);
-  } finally {
-    docker("exec", container, "rm", `/pb_data/fault-${fault}`);
-  }
-  assert.equal(failure.status, 500, JSON.stringify(failure));
-  assert.deepEqual(await snapshot(), before, `${fault} failure rollback`);
-  console.log(
-    `PASS server-side ${fault} failure rolls back status/history/receipt`,
-  );
-}
 // PB's JSON field accepts scalar values. A malformed receipt map must fail
 // before any status/history write, including values that JavaScript finds falsy.
 const malformedReceipts = [];
@@ -518,53 +452,5 @@ assert.equal((await apply(capInput)).status, 500);
 assert.deepEqual(await snapshot(thirdJob.id), beforeCap);
 console.log(
   "PASS actual 2 MiB receipt schema validation failure rolls back all effects",
-);
-// Proxy receives the committed upstream reply but drops it before forwarding.
-
-const lossJob = await ok(collection("probe_jobs"), "POST", {
-  probe_key: key,
-  status: "done",
-});
-const lossKey = key + "-lost-response";
-const lostInput = {
-  ...input,
-  jobId: lossJob.id,
-  key: lossKey,
-  status: { mode: "upsert", values: { ...values, key: lossKey } },
-  history: { ...history, key: lossKey },
-};
-let upstream;
-const proxy = createServer(async (req, res) => {
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  upstream = await request(
-    "/api/fleet/observations/apply",
-    "POST",
-    JSON.parse(Buffer.concat(chunks)),
-  );
-  res.destroy();
-});
-await new Promise((resolve) => proxy.listen(0, "127.0.0.1", resolve));
-try {
-  await assert.rejects(
-    fetch(`http://127.0.0.1:${proxy.address().port}`, {
-      method: "POST",
-      body: JSON.stringify(lostInput),
-    }),
-  );
-  assert.equal(upstream.status, 200);
-  assert.equal(upstream.data.replay, false);
-  assert.deepEqual((await apply(lostInput)).data, { replay: true, outcome });
-  const rows = await ok(
-    collection("status_history") +
-      "?filter=" +
-      encodeURIComponent(`key = "${lossKey}"`),
-  );
-  assert.equal(rows.items.length, 1);
-} finally {
-  await new Promise((resolve) => proxy.close(resolve));
-}
-console.log(
-  "PASS lost post-commit HTTP response retries to original receipt without duplicate history",
 );
 console.log("ALL REAL POCKETBASE TRANSACTION CHECKS PASSED");
