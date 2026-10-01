@@ -16,6 +16,18 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.76.0 - 2026-09-30
+
+### Features
+
+- feat: AG-UI 1.0 for CopilotKit (#7270) (7693a04)
+
+### Fixes
+
+- fix(runtime): stop reusing per-response provider ids as message ids (#7522) (5832fff)
+- fix(web-inspector): fit and scale the Inspector on small screens (#7529) (5135c56)
+- fix(runtime): prefix MCP tools whose names collide instead of dropping them (#7495) (c7c4538)
+
 ## 1.75.2 - 2026-09-30
 
 ### Fixes
