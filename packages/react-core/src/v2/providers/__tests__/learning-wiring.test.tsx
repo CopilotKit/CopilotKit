@@ -147,37 +147,69 @@ describe("CopilotKitProvider learning prop", () => {
   });
 
   it("keeps one set of capture hooks under StrictMode and links the open Thread", () => {
-    const view = render(<App threadId="t-1" />);
+    // React 19 only replays initial effects when StrictMode is at the root.
+    // Exercise setup/cleanup/setup in both supported React versions. Cleanup
+    // flushes the first capture, so each setup emits its own page and link.
+    const view = render(<App threadId="t-1" />, { wrapper: StrictMode });
+    const startupEvents = drain();
+
+    expect(
+      batches.map((batch) => batch.events.map((event) => event.name)),
+    ).toEqual([
+      ["page", "thread.linked"],
+      ["page", "thread.linked"],
+    ]);
+    expect(
+      startupEvents
+        .filter((event) => event.name === "thread.linked")
+        .map((event) => event.value),
+    ).toEqual([
+      expect.objectContaining({
+        threadId: "t-1",
+        agentId: "default",
+        reason: "start",
+      }),
+      expect.objectContaining({
+        threadId: "t-1",
+        agentId: "default",
+        reason: "start",
+      }),
+    ]);
+    batches = [];
 
     history.pushState(null, "", "/learning/deals/42");
     const events = drain();
     view.unmount();
 
-    expect(events.map((event) => event.name)).toEqual([
-      "page",
-      "thread.linked",
-      "navigation",
-    ]);
-    expect(events[1]?.value).toMatchObject({
-      threadId: "t-1",
-      agentId: "default",
-      reason: "start",
-    });
+    // Replayed effects must leave one active listener, not one per setup.
+    expect(events.map((event) => event.name)).toEqual(["navigation"]);
+    expect(History.prototype.pushState).toBe(nativePushState);
   });
 
   it("emits a switch when the open Thread changes", () => {
     const view = render(<App threadId="t-1" />);
+    // Initial effect replay differs between React 18 and 19. Start from the
+    // settled mount and test the user-visible thread change independently.
+    drain();
+    batches = [];
+    const capturePushState = History.prototype.pushState;
 
     view.rerender(<App threadId="t-2" />);
-    const linked = drain().filter((event) => event.name === "thread.linked");
-    view.unmount();
+    const events = drain();
 
     expect(
-      linked.map((event) => [event.value.threadId, event.value.reason]),
-    ).toEqual([
-      ["t-1", "start"],
-      ["t-2", "switch"],
-    ]);
+      events.map((event) => [
+        event.name,
+        event.value.threadId,
+        event.value.reason,
+      ]),
+    ).toEqual([["thread.linked", "t-2", "switch"]]);
+    expect(History.prototype.pushState).toBe(capturePushState);
+
+    batches = [];
+    view.rerender(<App threadId="t-2" />);
+    expect(drain()).toEqual([]);
+    view.unmount();
   });
 
   it("stops capture on unmount", () => {
