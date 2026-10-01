@@ -12,6 +12,11 @@ import type {
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import type { GetLearningContainerId } from "../core/learning";
+import {
+  parseTrajectoryConnectionGrant,
+  trajectoryResponseError,
+} from "./trajectories";
+import type { TrajectoryConnectionGrant } from "./trajectories";
 
 import {
   LearnedSkillsError,
@@ -1358,6 +1363,31 @@ export class CopilotKitIntelligence {
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  /** Mint a browser capture grant using only the Runtime's project and user. */
+  async ɵconnectTrajectory(params: {
+    trajectoryId: string;
+    user: { id: string; name: string };
+    signal?: AbortSignal;
+  }): Promise<TrajectoryConnectionGrant> {
+    const response = await fetch(
+      `${this.#apiUrl}/api/trajectories/${encodeURIComponent(params.trajectoryId)}/connect`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.#apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ user: params.user }),
+        signal: params.signal,
+      },
+    );
+    const payload: unknown = await response.json().catch(() => undefined);
+    if (!response.ok) {
+      throw trajectoryResponseError(payload, response.status, this.#apiKey);
+    }
+    return parseTrajectoryConnectionGrant(payload);
   }
 
   async #request<T>(
