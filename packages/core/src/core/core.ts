@@ -1025,7 +1025,8 @@ export class CopilotKitCore {
    * approved deal. The wire adds `value.seq`; arrays, primitives, and objects
    * already containing `seq` are preserved under `value.data`. Explicit legacy
    * sinks retain object-only events with open-Thread enrichment.
-   * No-op while no Trajectory runs. Built-in names such as `click` are rejected.
+   * No-op while no Trajectory runs. Events emitted during connection recovery
+   * count as dropped. Built-in names such as `click` are rejected.
    *
    * @example copilotkit.emitTrajectoryEvent("deal.approved", { dealId: "deal-1" })
    */

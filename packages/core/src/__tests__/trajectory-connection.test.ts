@@ -288,6 +288,92 @@ describe("Core trajectory connection", () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
+  it.each([{}, { addEventListener: null, removeEventListener: false }])(
+    "supports an RN-like window without browser connectivity listeners",
+    async (nativeWindow) => {
+      vi.stubGlobal("window", nativeWindow);
+      const { core, channel } = await start();
+      expect(core.trajectoryId).toBe("trajectory-1");
+      expect(names(channel)).toEqual(["page"]);
+      expect(() => core.stopTrajectory()).not.toThrow();
+      expect(core.trajectoryId).toBeNull();
+      expect(channel.left).toBe(true);
+      expect(transport.sockets[0]!.disconnected).toBe(true);
+      const pending = core.startTrajectory();
+      expect(() => core.stopTrajectory()).not.toThrow();
+      expect(await pending).toEqual({ status: "error", code: "CANCELLED" });
+    },
+  );
+
+  it.each(["offline", "channel loss"])(
+    "counts only developer events discarded during an established session's %s recovery",
+    async (loss) => {
+      const core = makeCore({
+        learning: {
+          capture: { clicks: false, navigation: false },
+          beforeSend: (event: TrajectoryEvent) =>
+            event.name === "page" ? null : event,
+          onError,
+        },
+      });
+      core.emitTrajectoryEvent("app.beforeStart", {});
+      const pending = core.startTrajectory({ trajectoryId: "trajectory-1" });
+      core.emitTrajectoryEvent("app.beforeAuth", {});
+      await authorize();
+      core.emitTrajectoryEvent("app.beforeFirstJoin", {});
+      const first = join();
+      expect((await pending).status).toBe("started");
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(first.pushes).toEqual([]);
+      if (loss === "offline") window.dispatchEvent(new Event("offline"));
+      else first.callbacks.get("phx_error")!();
+      core.emitTrajectoryEvent("app.lost1", { private: "never queued" });
+      core.emitTrajectoryEvent("app.lost2", [1, 2]);
+      if (loss === "offline") window.dispatchEvent(new Event("online"));
+      else await vi.advanceTimersByTimeAsync(1_000);
+      core.emitTrajectoryEvent("app.duringReauth", {});
+      await authorize(1);
+      core.emitTrajectoryEvent("app.beforeRejoin", {});
+      const next = join(1);
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(first.pushes).toEqual([]);
+      expect(next.pushes[0]!.payload).toEqual({ events: [], dropped: 4 });
+      persist(next);
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(next.pushes).toHaveLength(1);
+      core.stopTrajectory();
+      core.emitTrajectoryEvent("app.afterStop", {});
+      const later = core.startTrajectory({ trajectoryId: "later" });
+      await authorize(2);
+      const last = join(2);
+      expect((await later).status).toBe("started");
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(last.pushes).toEqual([]);
+    },
+  );
+
+  it.each(["unauthorized", "trajectory_mismatch"])(
+    "closes a terminal %s channel without flushing its queued tail or retrying",
+    async (reason) => {
+      const { core, channel } = await start();
+      core.emitTrajectoryEvent("app.sent", {});
+      await vi.advanceTimersByTimeAsync(2_000);
+      core.emitTrajectoryEvent("app.queued", {});
+      channel.pushes[1]!.push.reply("error", { reason });
+      expect(core.trajectoryId).toBeNull();
+      expect(channel.left).toBe(true);
+      expect(transport.sockets[0]!.disconnected).toBe(true);
+      expect(names(channel)).toEqual(["page", "app.sent"]);
+      expect(onError.mock.calls.map(([error]) => error.code)).toEqual([
+        reason.toUpperCase(),
+      ]);
+      core.emitTrajectoryEvent("app.afterRefusal", {});
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(channel.pushes).toHaveLength(2);
+      expect(requests).toHaveLength(1);
+    },
+  );
+
   it("uses the scoped REST path when REST was selected", async () => {
     const core = makeCore({ runtimeTransport: "rest" });
     const pending = core.startTrajectory({ trajectoryId: "id/needs escaping" });
@@ -455,7 +541,7 @@ describe("Core trajectory connection", () => {
     await vi.advanceTimersByTimeAsync(2_000);
     expect(names(next)).toEqual(["page"]);
     expect(next.pushes[0]!.payload).toMatchObject({
-      dropped: 1,
+      dropped: 2,
       events: [{ value: { seq: 3 } }],
     });
     expect(names(channel)).toEqual(["page", "app.uncertain"]);
@@ -519,7 +605,6 @@ describe("Core trajectory connection", () => {
     ["error", { reason: "invalid_batch" }, "INVALID_BATCH", 1],
     ["error", { reason: "batch_too_large" }, "BATCH_TOO_LARGE", 1],
     ["error", { reason: "batch_too_many_events" }, "BATCH_TOO_MANY_EVENTS", 1],
-    ["error", { reason: "trajectory_mismatch" }, "TRAJECTORY_MISMATCH", 1],
     ["error", { reason: "storage_unavailable" }, "STORAGE_UNAVAILABLE", 1],
     ["error", {}, "PERSISTENCE_UNKNOWN", 0],
     ["error", { reason: "unrecognized" }, "PERSISTENCE_UNKNOWN", 0],

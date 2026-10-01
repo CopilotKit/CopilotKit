@@ -28,7 +28,7 @@ const reconnectDelay = phoenixExponentialBackoff(1_000, 10_000);
 
 interface PendingPush {
   timer: ReturnType<typeof setTimeout>;
-  finish(code?: string, knownRollback?: boolean): void;
+  finish(code?: string, knownRollback?: boolean, flushNext?: boolean): void;
 }
 
 interface Connection {
@@ -62,6 +62,30 @@ interface Session {
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+interface BatchAcknowledgement {
+  highestSeq: number | null;
+  accepted: number;
+  rejected: number;
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+function isBatchAcknowledgement(
+  value: unknown,
+  eventCount: number,
+): value is BatchAcknowledgement {
+  return (
+    isObject(value) &&
+    isNonNegativeInteger(value.accepted) &&
+    isNonNegativeInteger(value.rejected) &&
+    value.accepted + value.rejected === eventCount &&
+    (value.highestSeq === null || isNonNegativeInteger(value.highestSeq)) &&
+    (value.accepted === 0 || value.highestSeq !== null)
+  );
 }
 
 function isGrant(value: unknown): value is ConnectionGrant {
@@ -146,7 +170,10 @@ export class TrajectoryConnection {
       },
     };
     this.session = session;
-    if (typeof window !== "undefined") {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.addEventListener === "function"
+    ) {
       window.addEventListener("offline", session.onOffline);
       window.addEventListener("online", session.onOnline);
     }
@@ -169,7 +196,13 @@ export class TrajectoryConnection {
   }
 
   emit(name: string, value: JsonValue): void {
-    if (this.session?.ready) this.session.collector?.emit(name, value);
+    const session = this.session;
+    if (session?.ready) session.collector?.emit(name, value);
+    else if (session?.started) {
+      // An explicit developer event during recovery is observable loss. Its
+      // contents are discarded immediately; only the count survives reconnect.
+      this.addDropped(session, 1, false);
+    }
   }
 
   private report(session: Session, code: string): void {
@@ -203,7 +236,10 @@ export class TrajectoryConnection {
       }
       this.cleanup(session, session.connection);
     }
-    if (typeof window !== "undefined") {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.removeEventListener === "function"
+    ) {
       window.removeEventListener("offline", session.onOffline);
       window.removeEventListener("online", session.onOnline);
     }
@@ -511,7 +547,7 @@ export class TrajectoryConnection {
         () => pending.finish("PERSISTENCE_UNKNOWN"),
         TIMEOUT_MS,
       ),
-      finish: (code, knownRollback = false) => {
+      finish: (code, knownRollback = false, flushNext = true) => {
         if (finished) return;
         finished = true;
         clearTimeout(pending.timer);
@@ -523,6 +559,7 @@ export class TrajectoryConnection {
         if (code && this.current(session, connection))
           this.report(session, code);
         if (
+          flushNext &&
           this.current(session, connection) &&
           session.ready &&
           (session.queue.length > 0 || (!knownRollback && session.dropped > 0))
@@ -535,39 +572,33 @@ export class TrajectoryConnection {
       connection
         .channel!.push("events", batch, TIMEOUT_MS)
         .receive("ok", (payload: unknown) => {
-          const valid =
-            isObject(payload) &&
-            Number.isSafeInteger(payload.accepted) &&
-            (payload.accepted as number) >= 0 &&
-            Number.isSafeInteger(payload.rejected) &&
-            (payload.rejected as number) >= 0 &&
-            (payload.accepted as number) + (payload.rejected as number) ===
-              batch.events.length &&
-            (payload.highestSeq === null ||
-              (Number.isSafeInteger(payload.highestSeq) &&
-                (payload.highestSeq as number) >= 0)) &&
-            (payload.accepted === 0 || payload.highestSeq !== null);
           // Rejected rows are already counted by Gateway; don't also mark them
           // as client drops. The aggregate reply cannot identify rejected rows.
           pending.finish(
-            !valid
+            !isBatchAcknowledgement(payload, batch.events.length)
               ? "PERSISTENCE_UNKNOWN"
-              : (payload.rejected as number) > 0
+              : payload.rejected > 0
                 ? "EVENTS_REJECTED"
                 : undefined,
           );
         })
         .receive("error", (payload: unknown) => {
+          if (!this.current(session, connection)) return;
           const reason = isObject(payload) ? payload.reason : undefined;
+          if (reason === "unauthorized" || reason === "trajectory_mismatch") {
+            // Finish the known rollback without flushing the queued tail onto
+            // a channel whose scope has just been refused.
+            pending.finish(undefined, true, false);
+            this.fail(session, connection, reason.toUpperCase(), false);
+            return;
+          }
           const rollback =
             typeof reason === "string" &&
             [
               "invalid_batch",
               "batch_too_large",
               "batch_too_many_events",
-              "trajectory_mismatch",
               "storage_unavailable",
-              "unauthorized",
               "unsupported_event",
             ].includes(reason);
           pending.finish(
