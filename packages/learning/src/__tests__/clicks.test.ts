@@ -47,7 +47,7 @@ function click(
 }
 
 describe("installClickCapture", () => {
-  it("describes the interactive ancestor of an icon, without text", () => {
+  it("describes the interactive ancestor of an icon, with its text and attributes", () => {
     document.body.innerHTML = `<button id="b" data-copilotkit-action="deal.approve">
       <svg><path id="icon"></path></svg> Approve $12,000
     </button>`;
@@ -55,7 +55,7 @@ describe("installClickCapture", () => {
 
     click(byId("icon"));
 
-    expect(events).toEqual([
+    expect(events).toMatchObject([
       {
         name: "click",
         value: {
@@ -63,6 +63,8 @@ describe("installClickCapture", () => {
             tag: "button",
             role: null,
             action: "deal.approve",
+            text: expect.stringContaining("Approve $12,000"),
+            attributes: { id: "b", "data-copilotkit-action": "deal.approve" },
             input: "pointer",
           },
           route: "/deals/:id",
@@ -71,13 +73,27 @@ describe("installClickCapture", () => {
     ]);
   });
 
+  it("captures clicks deeper than 50 ancestors and still honors an explicit opt-out", () => {
+    document.body.innerHTML = `${"<div>".repeat(75)}<button id="deep">Deep action</button>${"</div>".repeat(75)}`;
+    const events = setup();
+    click(byId("deep"));
+    expect(events[0]?.value.target).toMatchObject({
+      tag: "button",
+      text: "Deep action",
+    });
+    document.body.setAttribute("data-copilotkit-ignore", "");
+    click(byId("deep"));
+    expect(events).toHaveLength(1);
+    document.body.removeAttribute("data-copilotkit-ignore");
+  });
+
   it("marks keyboard activation and keeps the role", () => {
     document.body.innerHTML = `<div id="tab" role="tab">Overview</div>`;
     const events = setup();
 
     click(byId("tab"), { detail: 0 });
 
-    expect(events[0]?.value.target).toEqual({
+    expect(events[0]?.value.target).toMatchObject({
       tag: "div",
       role: "tab",
       action: null,
@@ -91,7 +107,7 @@ describe("installClickCapture", () => {
 
     click(byId("b"));
 
-    expect(events).toEqual([]);
+    expect(events).toMatchObject([]);
   });
 
   it("drops programmatic clicks by default", () => {
@@ -100,7 +116,7 @@ describe("installClickCapture", () => {
 
     byId("b").click();
 
-    expect(events).toEqual([]);
+    expect(events).toMatchObject([]);
   });
 
   it("uses the pointerdown target when a re-render moves the click to body", () => {
@@ -111,7 +127,7 @@ describe("installClickCapture", () => {
     byId("b").remove();
     click(document.body);
 
-    expect(events[0]?.value.target).toEqual({
+    expect(events[0]?.value.target).toMatchObject({
       tag: "button",
       role: null,
       action: "row.open",
@@ -144,6 +160,6 @@ describe("installClickCapture", () => {
 
     click(byId("b"));
 
-    expect(events).toEqual([]);
+    expect(events).toMatchObject([]);
   });
 });

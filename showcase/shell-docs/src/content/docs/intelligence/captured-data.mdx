@@ -1,6 +1,6 @@
 ---
 title: Captured data
-description: Every event and field that interaction capture sends, what it never reads, and how to block or add data.
+description: Interaction capture fields, body limits, and explicit controls for excluding or changing data.
 icon: "lucide/Shield"
 frontend: universal
 doc_type: reference
@@ -8,47 +8,52 @@ doc_type: reference
 
 ## Overview
 
-You need to approve what leaves the browser before capture goes live. This page lists every event, every field, and every control. Filtering runs in the browser, before any data is sent.
+This page describes the experimental self-hosted collector and its custom-sink integration with CopilotKit. Capture retains browser-visible data by default. Your app can exclude or change events before the sink receives them.
 
-## Never read by default
+## Captured by default
 
-- Page text, including button labels.
-- Input, select, and text area values.
-- Request and response headers and bodies.
-- Query strings and URL hashes.
-- Assistant reply text (CopilotKit adds it only with `capture.agentText`).
+- Full URLs, including query strings and hashes, plus the page title and referrer.
+- Clicked element text and all attributes, plus live control values.
+- Input, select, text area, and editable element values on input and change events.
+- Browser-visible request and response headers and bounded body snapshots.
+- Full agent message text in CopilotKit's custom-sink integration, unless `capture.agentText` is `false`.
 
-Paths are reduced to route templates. A path that matches no template gets ID-like segments replaced with `:id`: numbers, UUIDs, long hex strings, and long tokens that contain digits. Segments that contain `.`, `@`, `%`, or `=` also become `:id` unless the path matches a configured template.
+Capture applies no default field redaction. Paths remain unchanged. The deprecated `routes` option no longer transforms them. The collector still skips its sink URL to prevent capture of its own sends.
 
 ## Events
 
-Each event is an AG-UI `CUSTOM` event: `{ type: "CUSTOM", name, value, timestamp }`. Every `value` has `seq`, the capture order in the Trajectory.
+Each event is an AG-UI `CUSTOM` event: `{ type: "CUSTOM", name, value, timestamp }`. Every `value` has `seq`, which increases throughout the collector or Core instance's lifetime, including across stop/start cycles.
 
 | `name` | Main `value` fields | Source |
 | --- | --- | --- |
-| `page` | `route` | Collector, at start |
+| `page` | `route`, `url`, `title`, `referrer` | Collector, at start |
 | `navigation` | `from`, `to`, `navigationType` | Collector |
-| `click` | `target` (`tag`, `role`, `action`, `input`), `route` | Collector |
-| `network` | `transport`, `method`, `origin`, `route`, `status`, `durationMs`, `outcome`, `framework` | Collector |
-| `thread.linked` | `threadId`, `agentId`, `hasMessages`, `reason` | CopilotKit Core |
-| `agent.run` | `phase`, `runId`, `threadId`, `agentId` | CopilotKit Core |
-| `agent.message` | `messageId`, `runId`, `threadId`, `role`, `textLength`, `text` (opt-in) | CopilotKit Core |
-| `tool.call` | `phase`, `toolCallId`, `toolName`, `threadId`, `messageId`, `runId`, `durationMs`, `outcome` | CopilotKit Core |
+| `click` | `target` (`tag`, `role`, `action`, `text`, `attributes`, control values, `input`), `route`, `url` | Collector |
+| `input` | `eventType`, `target` (element details and control values), `route`, `url` | Collector |
+| `network` | `transport`, `method`, `url`, `origin`, `route`, `status`, `durationMs`, `outcome`, `request`, `response` | Collector |
+| `thread.linked` | `threadId`, `agentId`, `hasMessages`, `reason` | Core custom-sink integration |
+| `agent.run` | `phase`, `runId`, `threadId`, `agentId` | Core custom-sink integration |
+| `agent.message` | `messageId`, `runId`, `threadId`, `role`, `textLength`, `text` | Core custom-sink integration |
+| `tool.call` | `phase`, `toolCallId`, `toolName`, `threadId`, `messageId`, `runId`, `durationMs`, `outcome` | Core custom-sink integration |
 
-With CopilotKit, a `click` also carries `threadId`, `agentId`, `messageId`, `runId`, `toolCallId`, `toolName`, and `toolStatus`, or `threadAmbiguity` when two chats show different Threads.
+In the custom-sink integration, a `click` also carries `threadId`, `agentId`, `messageId`, `runId`, `toolCallId`, `toolName`, and `toolStatus`. When two chats show different Threads, `threadAmbiguity` describes the candidates. Standalone browser capture does not add these fields or emit chat events.
 
-A `network` duration ends when the response headers arrive. Streaming responses are never read.
+Control values include `value`, `checked` for checkboxes and radio buttons, `selectedValues` for select elements, and file metadata for file inputs.
 
-`framework` marks requests that Next.js makes on its own: `next-rsc`, `next-prefetch`, or `next-action`. The collector checks only whether a header exists. It never reads header values.
+Network `request` and `response` fields contain `headers` and a `body` snapshot. Each serialized body snapshot is limited to 4 KiB. A snapshot reports `status`: `complete`, `empty`, `truncated`, `unavailable`, `interrupted`, or `timeout`. It can also include `text`, `encoding` (`utf-8` or `base64`), `truncated`, and `reason`.
 
-Your own events, sent with `emit()` or `emitTrajectoryEvent()`, use your names. With CopilotKit, they also carry the open Thread.
+Fetch body capture reads a cloned stream and leaves the app's response unchanged. It stops at the size limit or after one second. Browser restrictions and unreadable bodies produce an explicit status.
+
+Fetch duration ends when headers arrive. XHR duration ends at `loadend`. Network events no longer include a `framework` classification.
+
+Your own events, sent with `emit()` or `emitTrajectoryEvent()`, use your names. The custom-sink integration also adds the open Thread.
 
 ## Batches
 
 The sink receives `{ trajectoryId, learningContainerIds, events, dropped }`.
 
 - The collector sends a batch every 2 seconds, or as soon as 50 events wait.
-- When the page closes, it sends the last batch with `navigator.sendBeacon`.
+- On `pagehide`, the collector requests a final send. `httpSink` uses `navigator.sendBeacon` for that request.
 - A failed send is not retried. `dropped` in the next batch counts the lost events.
 
 ## Controls
@@ -57,16 +62,16 @@ In code:
 
 | Option | Effect |
 | --- | --- |
-| `routes` | Route templates such as `/deals/:id`. They match before ID masking. |
+| `routes` | Deprecated and ignored. Paths and URLs remain unchanged. |
 | `ignoreUrls` | URL prefixes or patterns that network capture skips. |
-| `capture` | Turn off `clicks`, `navigation`, or `network`. |
+| `capture` | Turn off `clicks`, `inputs`, `navigation`, or `network`. All four default to on. |
 | `beforeSend` | Runs last, in the browser. Return the event, a changed copy, or `null` to drop it. |
-| `capture.agentText` | CopilotKit only. Adds assistant reply text, cut at 2000 characters. |
+| `capture.agentText` | Custom-sink integration only. Set to `false` to omit agent message text. Text is included in full by default. |
 
 In markup:
 
 - `data-copilotkit-action="deal.approve"` names a control. The name goes into `target.action`.
-- `data-copilotkit-ignore` drops every click inside that element.
+- `data-copilotkit-ignore` excludes clicks and input events inside that element.
 
 Example: drop all network events for one service.
 

@@ -1,6 +1,6 @@
 ---
 title: Standalone collector
-description: Capture clicks, page changes, and network metadata as AG-UI events in any web app, without CopilotKit.
+description: Capture clicks, form edits, page changes, and network requests as AG-UI events in any web app, without CopilotKit.
 icon: "lucide/Network"
 frontend: universal
 doc_type: how-to
@@ -8,7 +8,9 @@ doc_type: how-to
 
 ## Overview
 
-Your app does not use CopilotKit, but you want to record what people do in it. `@copilotkit/learning` works on its own: it captures clicks, page changes, and network metadata as AG-UI `CUSTOM` events and sends them to a sink you provide.
+`@copilotkit/learning` captures clicks, form edits, page changes, and network requests as AG-UI `CUSTOM` events. It sends batches to a sink you provide. This standalone integration is experimental and self-hosted.
+
+Capture retains browser-visible text, values, headers, bounded body snapshots, and full URLs by default. See [Captured data](/intelligence/captured-data) for fields, limits, and explicit exclusions.
 
 When you are done, your app sends batches of events to your own endpoint. You can also add events for the outcomes that matter to you.
 
@@ -31,7 +33,6 @@ When you are done, your app sends batches of events to your own endpoint. You ca
 
     export const collector = createCollector({
       sink: httpSink("/api/learning-events"),
-      routes: ["/reports/:reportId"],
     });
 
     collector.start({ trajectoryId: crypto.randomUUID() });
@@ -76,11 +77,12 @@ import type { LearningBatch } from "@copilotkit/learning";
 
 const collector = createCollector({
   sink: async (batch: LearningBatch) => {
-    await fetch("https://events.example.com/ingest", {
+    const response = await fetch("https://events.example.com/ingest", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(batch),
     });
+    if (!response.ok) throw new Error(`Capture endpoint returned ${response.status}`);
   },
   ignoreUrls: ["https://events.example.com/"],
 });
@@ -101,6 +103,6 @@ const collector = createCollector({
 });
 ```
 
-Read attributes you control. Do not read text or input values, because they can contain personal data.
+Capture already includes element text, attributes, and live control values. Use `enrich` for additional app context. Use `beforeSend`, capture flags, or `data-copilotkit-ignore` to exclude data.
 
 For every field and control, see [Captured data](/intelligence/captured-data). With CopilotKit, use the [`learning` prop](/intelligence/capture-interactions) instead.

@@ -3,6 +3,7 @@ export const BUILT_IN_EVENT_NAMES = [
   "page",
   "navigation",
   "click",
+  "input",
   "network",
   "thread.linked",
   "agent.run",
@@ -44,6 +45,12 @@ export interface ClickTarget {
   tag: string;
   role: string | null;
   action: string | null;
+  text: string;
+  attributes: Record<string, string>;
+  value?: string;
+  checked?: boolean;
+  selectedValues?: string[];
+  files?: { name: string; type: string; size: number; lastModified: number }[];
   input: "pointer" | "keyboard";
 }
 
@@ -56,11 +63,12 @@ export interface CaptureOptions {
   clicks?: boolean;
   navigation?: boolean;
   network?: boolean;
+  inputs?: boolean;
 }
 
 export interface CollectorOptions {
   sink: LearningSink;
-  /** Route templates such as `/deals/:id`. Unmatched paths get ID-like segments masked. */
+  /** @deprecated Capture retains raw URLs; route templates no longer transform events. */
   routes?: string[];
   /** URLs (prefix match on the absolute URL) or patterns that network capture skips. */
   ignoreUrls?: (string | RegExp)[];

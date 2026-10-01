@@ -26,7 +26,11 @@ const ASSISTANT_WITH_TOOL: Message = {
 };
 
 class DealAgent extends AbstractAgent {
-  constructor(threadId: string, initialMessages: Message[] = []) {
+  constructor(
+    threadId: string,
+    initialMessages: Message[] = [],
+    private readonly serverResult = false,
+  ) {
     super({ agentId: "default", threadId, initialMessages });
   }
 
@@ -62,6 +66,14 @@ class DealAgent extends AbstractAgent {
         runId: input.runId,
       },
     ];
+    if (this.serverResult) {
+      events.splice(events.length - 1, 0, {
+        type: EventType.TOOL_CALL_RESULT,
+        messageId: "m-tool-result",
+        toolCallId: "tc-9",
+        content: "approved",
+      });
+    }
     return from(events);
   }
 }
@@ -106,9 +118,10 @@ function valuesOf(events: LearningEvent[], name: string) {
 
 beforeEach(() => {
   batches = [];
-  // Core tests run in Node; capture needs only these two browser globals here.
+  // Core tests run in Node; supply the browser metadata used by page capture.
   vi.stubGlobal("window", new EventTarget());
   vi.stubGlobal("location", new URL("http://localhost/learning"));
+  vi.stubGlobal("document", { title: "Learning", referrer: "" });
 });
 
 afterEach(() => {
@@ -229,6 +242,34 @@ describe("Core learning wiring", () => {
     expect(valuesOf(drain(), "app.after-stop")).toEqual([]);
   });
 
+  it("continues sequence numbers across restarts and config changes before beforeSend", () => {
+    const seen: number[] = [];
+    const beforeSend = (event: LearningEvent) => {
+      seen.push(event.value.seq as number);
+      return event.name === "app.filtered" ? null : event;
+    };
+    const core = new CopilotKitCore({
+      learning: createConfig({ beforeSend }),
+    });
+    core.startTrajectory({ trajectoryId: "same" });
+    core.emitTrajectoryEvent("app.filtered", {});
+    core.stopTrajectory();
+    core.startTrajectory({ trajectoryId: "same" });
+    core.emitTrajectoryEvent("app.kept", {});
+    core.setLearningConfig(undefined);
+    core.setLearningConfig(createConfig({ beforeSend }));
+    core.startTrajectory({ trajectoryId: "another" });
+    core.stopTrajectory();
+
+    expect(seen).toEqual([1, 2, 3, 4, 5]);
+    expect(drain().map((event) => event.value.seq)).toEqual([1, 3, 4, 5]);
+    expect(batches.map((batch) => batch.trajectoryId)).toEqual([
+      "same",
+      "same",
+      "another",
+    ]);
+  });
+
   it("links a Thread once when StrictMode registers it twice", () => {
     const core = new CopilotKitCore({ learning: createConfig() });
     core.startTrajectory({ trajectoryId: "traj-1" });
@@ -272,11 +313,12 @@ describe("Core learning wiring", () => {
 
     await fetch("https://telemetry.copilotkit.ai/ingest", { method: "POST" });
     await fetch("https://api.example.com/deals/7");
-    await Promise.resolve();
 
-    expect(valuesOf(drain(), "network").map((value) => value.origin)).toEqual([
-      "https://api.example.com",
-    ]);
+    await vi.waitFor(() =>
+      expect(valuesOf(drain(), "network").map((value) => value.origin)).toEqual(
+        ["https://api.example.com"],
+      ),
+    );
     core.stopTrajectory();
   });
 
@@ -363,33 +405,59 @@ describe("Core learning wiring", () => {
     });
   });
 
-  it("adds assistant text only when agentText is on", async () => {
-    const off = new CopilotKitCore({ learning: createConfig() });
-    off.startTrajectory({ trajectoryId: "off" });
-    await off.runAgent({ agent: new DealAgent("t-off") });
-    const withoutText = valuesOf(drain(), "agent.message").find(
-      (value) => value.role === "assistant",
-    );
-
-    batches = [];
-    const on = new CopilotKitCore({
+  it("includes full message text by default and honors agentText false", async () => {
+    const off = new CopilotKitCore({
       learning: createConfig({
         capture: {
           clicks: false,
           navigation: false,
           network: false,
-          agentText: true,
+          agentText: false,
         },
       }),
     });
-    on.startTrajectory({ trajectoryId: "on" });
-    await on.runAgent({ agent: new DealAgent("t-on") });
-    const withText = valuesOf(drain(), "agent.message").find(
+    off.startTrajectory({ trajectoryId: "off" });
+    await off.runAgent({ agent: new DealAgent("t-off") });
+    const withoutText = valuesOf(drain(), "agent.message").find(
       (value) => value.role === "assistant",
     );
+    off.stopTrajectory();
+
+    batches = [];
+    const fullText = "Complete answer. ".repeat(300);
+    const agent = new DealAgent("t-on");
+    const on = new CopilotKitCore({
+      learning: createConfig(),
+      agents__unsafe_dev_only: { default: agent },
+    });
+    on.startTrajectory({ trajectoryId: "on" });
+    agent.addMessages([
+      { id: "user-full", role: "user", content: fullText },
+      { id: "assistant-full", role: "assistant", content: fullText },
+      {
+        id: "tool-full",
+        role: "tool",
+        toolCallId: "tc-full",
+        content: fullText,
+      },
+    ]);
+    await vi.waitFor(() =>
+      expect(valuesOf(drain(), "agent.message")).toHaveLength(3),
+    );
+    const messages = valuesOf(drain(), "agent.message");
 
     expect(withoutText).not.toHaveProperty("text");
-    expect(withText).toMatchObject({ text: "Please approve." });
+    expect(messages.map((value) => value.role)).toEqual([
+      "user",
+      "assistant",
+      "tool",
+    ]);
+    for (const message of messages)
+      expect(message).toMatchObject({
+        text: fullText,
+        textLength: fullText.length,
+      });
+    on.stopTrajectory();
   });
 
   it("stops emitting after stopTrajectory", async () => {
@@ -421,7 +489,9 @@ describe("click attribution", () => {
     const core = new CopilotKitCore({
       agents__unsafe_dev_only: { default: agent },
     });
-    return new LearningBridge(core, createConfig());
+    const bridge = new LearningBridge(core, createConfig());
+    bridge.start({ trajectoryId: "traj-clicks" });
+    return bridge;
   }
 
   it("uses the clicked message and tool call when the click is inside one", () => {
@@ -443,6 +513,7 @@ describe("click attribution", () => {
       toolName: "approveDeal",
       toolStatus: "inProgress",
     });
+    bridge.stop();
   });
 
   it("falls back to the single open Thread, then to null", () => {
@@ -452,6 +523,7 @@ describe("click attribution", () => {
     bridge.registerOpenThread({ agentId: "default", threadId: "t-1" });
     bridge.registerOpenThread({ agentId: "default", threadId: "t-1" });
     expect(bridge.enrich(targetIn({}))).toEqual({ threadId: "t-1" });
+    bridge.stop();
   });
 
   it("reports ambiguity instead of guessing when two Threads are open", () => {
@@ -469,5 +541,159 @@ describe("click attribution", () => {
 
     second.unregister();
     expect(bridge.enrich(targetIn({}))).toEqual({ threadId: "t-1" });
+    bridge.stop();
   });
+});
+
+describe("capture subscription lifecycle", () => {
+  it("subscribes only while active and reattaches current Core agents after stop", () => {
+    const agent = new DealAgent("t-1", [ASSISTANT_WITH_TOOL]);
+    const core = new CopilotKitCore({
+      agents__unsafe_dev_only: { default: agent },
+    });
+    const subscribeCore = vi.spyOn(core, "subscribe");
+    const subscribeAgent = vi.spyOn(agent, "subscribe");
+    const bridge = new LearningBridge(core, createConfig());
+    const target = targetIn({ "data-message-id": "m-assistant" });
+
+    expect(subscribeCore).not.toHaveBeenCalled();
+    expect(subscribeAgent).not.toHaveBeenCalled();
+    expect(bridge.enrich(target)).toEqual({ threadId: null });
+
+    bridge.start({ trajectoryId: "same" });
+    bridge.start({ trajectoryId: "same" });
+    expect(subscribeCore).toHaveBeenCalledTimes(1);
+    expect(subscribeAgent).toHaveBeenCalledTimes(1);
+    expect(bridge.enrich(target)).toMatchObject({ messageId: "m-assistant" });
+    const unsubscribeCore = vi.spyOn(
+      subscribeCore.mock.results[0]!.value,
+      "unsubscribe",
+    );
+    const unsubscribeAgent = vi.spyOn(
+      subscribeAgent.mock.results[0]!.value,
+      "unsubscribe",
+    );
+
+    bridge.stop();
+    bridge.stop();
+    expect(unsubscribeCore).toHaveBeenCalledTimes(1);
+    expect(unsubscribeAgent).toHaveBeenCalledTimes(1);
+    expect(bridge.enrich(target)).toEqual({ threadId: null });
+
+    bridge.start({ trajectoryId: "same" });
+    expect(subscribeCore).toHaveBeenCalledTimes(2);
+    expect(subscribeAgent).toHaveBeenCalledTimes(2);
+    expect(bridge.enrich(target)).toMatchObject({ messageId: "m-assistant" });
+    bridge.setConfig(undefined);
+    expect(bridge.enrich(target)).toEqual({ threadId: null });
+  });
+
+  it("does not retain per-thread clones across stopped capture", async () => {
+    const core = new CopilotKitCore({});
+    const bridge = new LearningBridge(core, createConfig());
+    const clone = new DealAgent("t-clone");
+    const target = targetIn({ "data-message-id": "m-reply" });
+
+    await core.runAgent({ agent: clone });
+    expect(bridge.enrich(target)).toEqual({ threadId: null });
+    bridge.start({ trajectoryId: "same" });
+    await core.runAgent({ agent: clone });
+    expect(bridge.enrich(target)).toMatchObject({ threadId: "t-clone" });
+    bridge.stop();
+    batches = [];
+
+    await core.runAgent({ agent: clone });
+    expect(drain()).toEqual([]);
+    expect(bridge.enrich(target)).toEqual({ threadId: null });
+    bridge.start({ trajectoryId: "same" });
+    expect(bridge.enrich(target)).toEqual({ threadId: null });
+    await core.runAgent({ agent: clone });
+    expect(valuesOf(drain(), "agent.run").map((value) => value.phase)).toEqual([
+      "started",
+      "finished",
+    ]);
+    bridge.stop();
+  });
+
+  it.each(["client", "server"])(
+    "releases completed %s tool-call origins while preserving click attribution",
+    async (execution) => {
+      const agent = new DealAgent("t-clone", [], execution === "server");
+      const subscribeAgent = vi.spyOn(agent, "subscribe");
+      const core = new CopilotKitCore({
+        tools: [
+          {
+            name: "approveDeal",
+            handler: async () => {
+              const onResult = subscribeAgent.mock.calls
+                .map(([subscriber]) => subscriber.onToolCallResultEvent)
+                .find((callback) => callback !== undefined);
+              expect(onResult).toBeTypeOf("function");
+              // A streamed result may precede the local execution-end callback.
+              await onResult?.({
+                event: {
+                  type: EventType.TOOL_CALL_RESULT,
+                  toolCallId: "tc-9",
+                  messageId: "m-tool-result",
+                  content: "approved",
+                },
+                agent,
+                messages: agent.messages,
+                state: agent.state,
+                input: {
+                  threadId: agent.threadId,
+                  runId: "run-result",
+                  messages: [],
+                  state: {},
+                  tools: [],
+                  context: [],
+                  forwardedProps: {},
+                },
+              });
+              return "approved";
+            },
+            followUp: false,
+          },
+        ],
+      });
+      const subscribeCore = vi.spyOn(core, "subscribe");
+      const bridge = new LearningBridge(core, createConfig());
+      bridge.start({ trajectoryId: "same" });
+      const subscriber = subscribeCore.mock.calls[0]![0];
+      await core.runAgent({ agent });
+
+      expect(valuesOf(drain(), "tool.call").at(-1)).toMatchObject({
+        phase: execution === "client" ? "completed" : "started",
+        ...(execution === "client" ? { outcome: "ok" } : {}),
+        threadId: "t-clone",
+        messageId: "m-reply",
+      });
+      expect(
+        bridge.enrich(
+          targetIn({
+            "data-message-id": "m-reply",
+            "data-tool-call-id": "tc-9",
+          }),
+        ),
+      ).toMatchObject({
+        threadId: "t-clone",
+        toolCallId: "tc-9",
+        toolStatus: "complete",
+      });
+
+      // A later execution with the same ID must not inherit a completed call's origin.
+      await subscriber.onToolExecutionStart?.({
+        copilotkit: core,
+        toolCallId: "tc-9",
+        agentId: "default",
+        toolName: "approveDeal",
+        args: {},
+      });
+      expect(valuesOf(drain(), "tool.call").at(-1)).toMatchObject({
+        phase: "executing",
+        threadId: null,
+      });
+      bridge.stop();
+    },
+  );
 });

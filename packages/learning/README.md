@@ -1,12 +1,14 @@
 # @copilotkit/learning
 
-Capture page context, navigation, clicks, and developer events as AG-UI `CUSTOM` events.
+Capture page context, navigation, clicks, form edits, network requests, and developer events as AG-UI `CUSTOM` events. Use the authenticated Core integration to send events to CopilotKit Intelligence.
 
-By default, nothing reads DOM text, input values, headers, bodies, query strings, or hashes.
+Capture retains raw URLs, query strings, hashes, page titles, referrers, element text, attributes, and live control values by default. Network events include browser-visible request and response headers and body snapshots. Each body snapshot has a 4 KiB limit and an explicit status for incomplete or unavailable content. Capture does not redact these fields by default.
+
+Use `capture`, `beforeSend`, `ignoreUrls`, and `data-copilotkit-ignore` for your app's exclusions. The deprecated `routes` option no longer masks or transforms paths.
 
 ## Authenticated Trajectories
 
-Use Core to connect capture to CopilotKit Intelligence. This integration targets the join and batch APIs in [Intelligence #1569](https://github.com/CopilotKit/Intelligence/pull/1569).
+Use Core to connect capture to CopilotKit Intelligence. This experimental integration targets the join and batch APIs in [Intelligence #1569](https://github.com/CopilotKit/Intelligence/pull/1569).
 
 ```ts
 import { CopilotKitCore } from "@copilotkit/core";
@@ -15,7 +17,6 @@ const copilotkit = new CopilotKitCore({
   runtimeUrl: "/api/copilotkit",
   runtimeTransport: "single",
   learning: {
-    routes: ["/deals", "/deals/:id"],
     onError: ({ code }) => console.warn("Trajectory capture:", code),
   },
 });
@@ -31,9 +32,9 @@ copilotkit.stopTrajectory();
 
 An omitted `trajectoryId` generates a UUID. Start succeeds after Runtime authentication and the Phoenix channel join. The Runtime resolves the user on the server and sends only their ID to Intelligence. Browser-supplied identity and container IDs are ignored; container assignment is deferred. Setting `learningContainerIds` for authenticated capture produces a warning. That option applies only to custom sinks.
 
-Capture includes page context, navigation, clicks, and developer events. Unmatched routes become `null`. Thread linking, network capture, and agent events are deferred for this connection path.
+Capture includes page context, navigation, clicks, form edits, network requests, and developer events. Paths remain unchanged. Thread linking and agent events are deferred for this connection path.
 
-Core sends Phoenix `events` messages with `{ events, dropped }`. It flushes after two seconds, at 50 events, or before the batch exceeds 64 KiB. Each event must fit within 16 KiB, including sequence metadata. Sizes use serialized UTF-8 JSON. The Gateway replies with `{ highestSeq, accepted, rejected }`; this receipt does not identify individual rejected events.
+Core sends Phoenix `events` messages with `{ events, dropped }`. It flushes after two seconds, at 50 events, or before the batch exceeds 64 KiB. Each event must fit within 16 KiB, including sequence metadata. Sizes use serialized UTF-8 JSON. The Gateway replies with `{ highestSeq, accepted, rejected }`. This receipt confirms Redis acceptance, not a Postgres commit. Postgres projection follows asynchronously. The receipt does not identify individual rejected events.
 
 Developer events accept any JSON value. Core adds `seq` to object values. It wraps scalars, arrays, `null`, and objects that already contain `seq` as `{ data: value, seq }`, preserving the developer's data.
 
@@ -47,17 +48,20 @@ In React, pass the same configuration to `CopilotKitProvider`. Set `learning.tra
 
 ## Custom batch sinks
 
-The original `createCollector` API supports a custom batch sink, including optional network metadata capture. It does not authenticate or connect to the Gateway.
+The original `createCollector` API supports an experimental self-hosted custom batch sink with the same browser capture defaults. It does not authenticate or connect to the Gateway.
 
 ```ts
 import { createCollector, httpSink } from "@copilotkit/learning";
 
 const collector = createCollector({
   sink: httpSink("/api/learning-events"),
-  routes: ["/deals/:id"],
 });
 
 collector.start({ trajectoryId: crypto.randomUUID() });
 ```
+
+With the custom-sink integration, pass `learning` to `CopilotKitProvider` instead. Core adds Thread context and emits agent and tool events. Agent message text is included in full unless `capture.agentText` is `false`. These additions belong to the custom-sink integration, not standalone browser capture.
+
+Event sequence numbers increase for the lifetime of the collector or Core instance, including across stop/start cycles.
 
 Docs: https://docs.copilotkit.ai/intelligence/capture-interactions
