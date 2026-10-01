@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { CopilotModalHeader } from "../CopilotModalHeader";
 import {
   CopilotChatConfigurationProvider,
+  ModalThreadsDrawerScope,
   useCopilotChatConfiguration,
 } from "../../../providers/CopilotChatConfigurationProvider";
 
@@ -56,6 +57,38 @@ describe("CopilotModalHeader drawer launcher", () => {
       <CopilotChatConfigurationProvider threadId="t">
         <DrawerRegistrar />
         <CopilotModalHeader title="Chat" />
+      </CopilotChatConfigurationProvider>,
+    );
+
+    expect(screen.queryByTestId("copilot-threads-drawer-launcher")).toBeNull();
+  });
+
+  it("renders the launcher on desktop for a drawer hosted inside the modal", () => {
+    mockViewport(false);
+    render(
+      <CopilotChatConfigurationProvider threadId="t">
+        <ModalThreadsDrawerScope>
+          <DrawerRegistrar />
+          <CopilotModalHeader title="Chat" />
+          <DrawerStateProbe />
+        </ModalThreadsDrawerScope>
+      </CopilotChatConfigurationProvider>,
+    );
+
+    const launcher = screen.getByTestId("copilot-threads-drawer-launcher");
+    act(() => {
+      fireEvent.click(launcher);
+    });
+    expect(screen.getByTestId("drawer-state").textContent).toBe("true");
+  });
+
+  it("does NOT render the launcher inside the modal scope until a drawer registers", () => {
+    mockViewport(false);
+    render(
+      <CopilotChatConfigurationProvider threadId="t">
+        <ModalThreadsDrawerScope>
+          <CopilotModalHeader title="Chat" />
+        </ModalThreadsDrawerScope>
       </CopilotChatConfigurationProvider>,
     );
 

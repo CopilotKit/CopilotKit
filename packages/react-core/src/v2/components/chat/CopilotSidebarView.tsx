@@ -8,9 +8,15 @@ import CopilotChatView from "./CopilotChatView";
 import {
   ControlledModalOpenScope,
   CopilotChatConfigurationProvider,
+  ModalThreadsDrawerScope,
   useCopilotChatConfiguration,
 } from "../../providers/CopilotChatConfigurationProvider";
 import { useModalOpenControl } from "./modal-open-control";
+import {
+  ModalThreadsDrawer,
+  hasModalThreadsDrawer,
+} from "./modal-threads-drawer";
+import type { ModalThreadsDrawerProp } from "./modal-threads-drawer";
 import CopilotChatToggleButton from "./CopilotChatToggleButton";
 import { cn } from "../../lib/utils";
 import { CopilotModalHeader } from "./CopilotModalHeader";
@@ -26,6 +32,26 @@ export type CopilotSidebarViewProps = CopilotChatViewProps & {
   width?: number | string;
   defaultOpen?: boolean;
   position?: "left" | "right";
+  /**
+   * Adds a threads drawer to the sidebar. The header gets a thread-list
+   * launcher (top-left) that slides the drawer in from the sidebar's left
+   * edge, over the chat; Escape, the scrim, or picking a thread closes it, and
+   * picking a thread or "New Thread" drives the chat. Defaults to off.
+   *
+   * `true` renders the default `CopilotThreadsDrawer`. Like other slots, a
+   * class name or an object of its props configures it, and a component
+   * replaces it. A replacement renders inside the sidebar's chat configuration:
+   * `useCopilotChatConfiguration()` gives it `drawerOpen` / `setDrawerOpen`
+   * and `setActiveThreadId` / `startNewThread`, and `useThreads()` lists the
+   * threads. The header launcher shows for either. Threads need CopilotKit
+   * Intelligence; without it the default drawer shows its upgrade prompt.
+   *
+   * A picked thread reaches the chat through a chat configuration above the
+   * chat. `<CopilotSidebar>` adds one. If you render this view yourself (for
+   * example as a `chatView`), wrap the chat in a
+   * `CopilotChatConfigurationProvider`.
+   */
+  threadsDrawer?: ModalThreadsDrawerProp;
 };
 
 export function CopilotSidebarView({
@@ -34,6 +60,7 @@ export function CopilotSidebarView({
   width,
   defaultOpen = true,
   position = "right",
+  threadsDrawer,
   ...props
 }: CopilotSidebarViewProps) {
   // Controlled open state supplied by `<CopilotSidebar open onOpenChange>`.
@@ -42,14 +69,22 @@ export function CopilotSidebarView({
   // `onOpenChange` reports requests even while the sidebar manages itself.
   const hasOpenControl = open !== undefined || onOpenChange !== undefined;
 
+  const hasDrawer = hasModalThreadsDrawer(threadsDrawer);
   const internal = (
     <CopilotSidebarViewInternal
       header={header}
       toggleButton={toggleButton}
       width={width}
       position={position}
+      threadsDrawer={threadsDrawer}
       {...props}
     />
+  );
+  // The drawer's open state is local to this sidebar (see ModalThreadsDrawerScope).
+  const surface = hasDrawer ? (
+    <ModalThreadsDrawerScope>{internal}</ModalThreadsDrawerScope>
+  ) : (
+    internal
   );
 
   return (
@@ -60,10 +95,10 @@ export function CopilotSidebarView({
     <CopilotChatConfigurationProvider isModalDefaultOpen={open ?? defaultOpen}>
       {hasOpenControl ? (
         <ControlledModalOpenScope open={open} onOpenChange={onOpenChange}>
-          {internal}
+          {surface}
         </ControlledModalOpenScope>
       ) : (
-        internal
+        surface
       )}
     </CopilotChatConfigurationProvider>
   );
@@ -74,11 +109,32 @@ function CopilotSidebarViewInternal({
   toggleButton,
   width,
   position = "right",
+  threadsDrawer,
   ...props
 }: Omit<CopilotSidebarViewProps, "defaultOpen">) {
   const configuration = useCopilotChatConfiguration();
 
   const isSidebarOpen = configuration?.isModalOpen ?? false;
+  // The sidebar stays mounted while closed, so the welcome screen's intro
+  // plays each time it opens.
+  const playIntro = isSidebarOpen && props.introAnimation !== false;
+
+  // Escape closes an open in-sidebar drawer even when focus sits outside it
+  // (the drawer handles Escape itself while it holds focus).
+  const drawerOverlayOpen =
+    hasModalThreadsDrawer(threadsDrawer) &&
+    (configuration?.drawerOpen ?? false);
+  const setDrawerOpen = configuration?.setDrawerOpen;
+  useEffect(() => {
+    if (!drawerOverlayOpen || typeof window === "undefined") return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setDrawerOpen?.(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [drawerOverlayOpen, setDrawerOpen]);
 
   const sidebarRef = useRef<HTMLDivElement | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState<number | string>(
@@ -194,7 +250,7 @@ function CopilotSidebarViewInternal({
           // Responsive width: full on mobile, custom on desktop
           "cpk:w-full",
           position === "left" ? "cpk:border-r" : "cpk:border-l",
-          "cpk:border-border cpk:bg-background cpk:text-foreground cpk:shadow-xl",
+          "cpk:border-border cpk:bg-background cpk:text-foreground cpk:shadow-[0_0_48px_-16px_rgb(0_0_0/0.20)]",
           "cpk:transition-transform cpk:duration-300 cpk:ease-out",
           isSidebarOpen
             ? "cpk:translate-x-0"
@@ -218,9 +274,12 @@ function CopilotSidebarViewInternal({
         <div className="cpk:flex cpk:h-full cpk:w-full cpk:flex-col cpk:overflow-hidden">
           {headerElement}
           <div className="cpk:flex-1 cpk:overflow-hidden" data-sidebar-chat>
-            <CopilotChatView {...props} />
+            <CopilotChatView {...props} introAnimation={playIntro} />
           </div>
         </div>
+        {threadsDrawer !== undefined && threadsDrawer !== false && (
+          <ModalThreadsDrawer threadsDrawer={threadsDrawer} />
+        )}
       </aside>
     </>
   );
@@ -231,10 +290,8 @@ CopilotSidebarView.displayName = "CopilotSidebarView";
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CopilotSidebarView {
   /**
-   * Sidebar-specific welcome screen layout:
-   * - Suggestions at the top
-   * - Welcome message in the middle
-   * - Input fixed at the bottom (like normal chat)
+   * Sidebar-specific welcome screen: the greeting, the suggestion cards
+   * and the input, centered together.
    */
   export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     welcomeMessage,
@@ -270,18 +327,16 @@ export namespace CopilotSidebarView {
         className={cn("cpk:h-full cpk:flex cpk:flex-col", className)}
         {...props}
       >
-        {/* Welcome message - centered vertically */}
-        <div className="cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4">
-          {BoundWelcomeMessage}
-        </div>
-
-        {/* Suggestions and input at bottom */}
-        <div className="cpk:px-8 cpk:pb-4">
-          <div className="cpk:max-w-3xl cpk:mx-auto">
-            {/* Suggestions above input */}
-            <div className="cpk:mb-4 cpk:flex cpk:justify-center">
-              {suggestionView}
-            </div>
+        {/* Greeting, suggestions and input, centered together */}
+        <div className="cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:gap-5 cpk:px-8 cpk:py-6">
+          <div className="cpk-intro">{BoundWelcomeMessage}</div>
+          <div className="cpk-intro-stagger cpk:flex cpk:w-full cpk:justify-center cpk:empty:hidden">
+            {suggestionView}
+          </div>
+          <div
+            className="cpk-intro cpk:w-full"
+            style={{ "--cpk-intro-delay": "180ms" } as React.CSSProperties}
+          >
             {input}
           </div>
         </div>

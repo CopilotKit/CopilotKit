@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useContext, useEffect, useMemo } from "react";
 import { useLicenseContext } from "../../providers/CopilotKitProvider";
 import { InlineFeatureWarning } from "../license-warning-banner";
 
@@ -9,6 +9,19 @@ import CopilotChatView from "./CopilotChatView";
 import type { CopilotSidebarViewProps } from "./CopilotSidebarView";
 import { CopilotSidebarView } from "./CopilotSidebarView";
 import { ModalOpenControlProvider } from "./modal-open-control";
+import {
+  ModalThreadsScope,
+  hasModalThreadsDrawer,
+} from "./modal-threads-drawer";
+
+/**
+ * Carries `threadsDrawer` to the sidebar's chatView override by context rather
+ * than as a `useMemo` dependency of the override: an inline object prop is a
+ * new value every render, and minting a new override component would remount
+ * the whole chat subtree (see `ModalOpenControlProvider`).
+ */
+const SidebarThreadsDrawerContext =
+  React.createContext<CopilotSidebarViewProps["threadsDrawer"]>(undefined);
 
 export type CopilotSidebarProps = Omit<CopilotChatProps, "chatView"> & {
   header?: CopilotSidebarViewProps["header"];
@@ -29,6 +42,14 @@ export type CopilotSidebarProps = Omit<CopilotChatProps, "chatView"> & {
   onOpenChange?: (open: boolean) => void;
   width?: number | string;
   position?: CopilotSidebarViewProps["position"];
+  /**
+   * Adds a threads drawer to the sidebar: a thread-list launcher in the header
+   * opens it as a panel sliding in over the chat. Defaults to off. A slot:
+   * `true` for the default `CopilotThreadsDrawer`, a class name or an object
+   * of its props to configure it, or a component to replace it. See
+   * `CopilotSidebarViewProps["threadsDrawer"]`.
+   */
+  threadsDrawer?: CopilotSidebarViewProps["threadsDrawer"];
 };
 
 export function CopilotSidebar({
@@ -39,6 +60,7 @@ export function CopilotSidebar({
   onOpenChange,
   width,
   position,
+  threadsDrawer,
   ...chatProps
 }: CopilotSidebarProps) {
   const { checkFeature } = useLicenseContext();
@@ -60,8 +82,10 @@ export function CopilotSidebar({
         width: viewWidth,
         defaultOpen: viewDefaultOpen,
         position: viewPosition,
+        threadsDrawer: viewThreadsDrawer,
         ...restProps
       } = viewProps as CopilotSidebarViewProps;
+      const contextThreadsDrawer = useContext(SidebarThreadsDrawerContext);
 
       return (
         <CopilotSidebarView
@@ -71,6 +95,7 @@ export function CopilotSidebar({
           width={width ?? viewWidth}
           defaultOpen={defaultOpen ?? viewDefaultOpen}
           position={position ?? viewPosition}
+          threadsDrawer={contextThreadsDrawer ?? viewThreadsDrawer}
         />
       );
     };
@@ -87,14 +112,21 @@ export function CopilotSidebar({
         changing `open` would mint a new component identity on every toggle and
         remount the whole chat subtree.
       */}
-      <ModalOpenControlProvider open={open} onOpenChange={onOpenChange}>
-        <CopilotChat
-          welcomeScreen={CopilotSidebarView.WelcomeScreen}
-          {...chatProps}
-          isModalDefaultOpen={defaultOpen}
-          chatView={SidebarViewOverride}
-        />
-      </ModalOpenControlProvider>
+      <ModalThreadsScope
+        enabled={hasModalThreadsDrawer(threadsDrawer)}
+        threadId={chatProps.threadId}
+      >
+        <ModalOpenControlProvider open={open} onOpenChange={onOpenChange}>
+          <SidebarThreadsDrawerContext.Provider value={threadsDrawer}>
+            <CopilotChat
+              welcomeScreen={CopilotSidebarView.WelcomeScreen}
+              {...chatProps}
+              isModalDefaultOpen={defaultOpen}
+              chatView={SidebarViewOverride}
+            />
+          </SidebarThreadsDrawerContext.Provider>
+        </ModalOpenControlProvider>
+      </ModalThreadsScope>
     </>
   );
 }
