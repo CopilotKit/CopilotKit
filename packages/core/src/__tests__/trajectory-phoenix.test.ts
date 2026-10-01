@@ -83,6 +83,8 @@ beforeEach(() => {
   BrowserSocket.instances = [];
   vi.stubGlobal("WebSocket", BrowserSocket);
   history.replaceState(null, "", "/deals");
+  document.title = "";
+  document.body.replaceChildren();
   let grantIndex = 0;
   fetchMock = vi.fn(async () => {
     const grant = grants[grantIndex++];
@@ -104,6 +106,7 @@ afterEach(() => {
   vi.clearAllTimers();
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 async function start() {
@@ -133,6 +136,47 @@ function acknowledgePage(socket: BrowserSocket, highestSeq: number) {
   });
 }
 
+// jsdom events are untrusted. Substitute only this browser-owned property at
+// the listener boundary; real DOM dispatch, capture modules and cleanup remain
+// in use. Production continues to require native trusted events.
+function trustBrowserInput() {
+  const add = window.addEventListener;
+  const remove = window.removeEventListener;
+  const wrapped = new Map<EventListenerOrEventListenerObject, EventListener>();
+  vi.spyOn(window, "addEventListener").mockImplementation(
+    (type, listener, options) => {
+      if (listener && ["click", "input", "change"].includes(type)) {
+        let proxy = wrapped.get(listener);
+        if (!proxy) {
+          proxy = (event) => {
+            const trusted = new Proxy(event, {
+              get(target, property) {
+                if (property === "isTrusted") return true;
+                const value = Reflect.get(target, property, target);
+                return typeof value === "function" ? value.bind(target) : value;
+              },
+            });
+            if (typeof listener === "function") listener.call(window, trusted);
+            else listener.handleEvent(trusted);
+          };
+          wrapped.set(listener, proxy);
+        }
+        add.call(window, type, proxy, options);
+      } else add.call(window, type, listener, options);
+    },
+  );
+  vi.spyOn(window, "removeEventListener").mockImplementation(
+    (type, listener, options) => {
+      remove.call(
+        window,
+        type,
+        listener ? (wrapped.get(listener) ?? listener) : listener,
+        options,
+      );
+    },
+  );
+}
+
 describe("Trajectory capture with the real Phoenix client", () => {
   it("uses socket join_token authentication, the granted topic, and AG-UI event batches", async () => {
     const socket = await start();
@@ -159,7 +203,13 @@ describe("Trajectory capture with the real Phoenix client", () => {
             type: "CUSTOM",
             name: "page",
             timestamp: expect.any(Number),
-            value: { route: "/deals", seq: 0 },
+            value: {
+              route: "/deals",
+              url: location.href,
+              title: "",
+              referrer: document.referrer,
+              seq: 0,
+            },
           },
         ],
         dropped: 0,
@@ -225,5 +275,210 @@ describe("Trajectory capture with the real Phoenix client", () => {
       "CONNECTION_LOST",
       "CONNECTION_LOST",
     ]);
+  });
+
+  it("preserves full browser capture through REST authentication and Phoenix batches, then cleans up between sessions", async () => {
+    trustBrowserInput();
+    const beforeSend = vi.fn((event) => event);
+    core = new CopilotKitCore({
+      runtimeUrl: "https://runtime.invalid/copilotkit",
+      runtimeTransport: "rest",
+      deferInitialConnection: true,
+      learning: { beforeSend, onError },
+    });
+    document.title = "Customer orders";
+    history.replaceState(null, "", "/users/alice?account=personal#orders");
+    const initialUrl = location.href;
+    const response = new Response('{"saved":"alice@example.com"}', {
+      status: 201,
+      headers: {
+        "content-type": "application/json",
+        "x-result": "visible-value",
+      },
+    });
+    let resolveLate!: (response: Response) => void;
+    const lateResponse = new Promise<Response>((resolve) => {
+      resolveLate = resolve;
+    });
+    let grantIndex = 0;
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      if (String(input).startsWith("https://runtime.invalid/")) {
+        return Promise.resolve(
+          Response.json(grants[grantIndex++] ?? grants[1]),
+        );
+      }
+      if (String(input) === "/late?session=old") return lateResponse;
+      return Promise.resolve(response);
+    });
+
+    const socket = await start();
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `https://runtime.invalid/copilotkit/trajectory/${trajectoryId}/connect`,
+    );
+    history.pushState(null, "", "/users/alice/orders?search=private#invoice");
+    const currentUrl = location.href;
+    document.body.innerHTML =
+      '<button data-order="order-42" aria-label="Save order">Save Alice\'s order</button><input name="email" type="email">';
+    const button = document.querySelector("button")!;
+    const input = document.querySelector("input")!;
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+    input.value = "alice@example.com";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    const requestBody = '{"email":"alice@example.com"}';
+    const appResponse = await fetch("/api/orders/42?token=visible#details", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer visible",
+      },
+      body: requestBody,
+    });
+    expect(appResponse).toBe(response);
+    expect(await appResponse.text()).toBe('{"saved":"alice@example.com"}');
+    await vi.waitFor(() =>
+      expect(beforeSend).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "network" }),
+      ),
+    );
+    // A runtime request made while capture is active must not capture itself.
+    await fetch(
+      `https://runtime.invalid/copilotkit/trajectory/${trajectoryId}/connect`,
+    );
+    await vi.advanceTimersByTimeAsync(2_000);
+
+    const batch = socket.frame("events");
+    expect(batch[4]).toEqual({
+      dropped: 0,
+      events: [
+        expect.objectContaining({
+          type: "CUSTOM",
+          name: "page",
+          value: {
+            route: "/users/alice",
+            url: initialUrl,
+            title: "Customer orders",
+            referrer: document.referrer,
+            seq: 0,
+          },
+        }),
+        expect.objectContaining({
+          name: "navigation",
+          value: {
+            from: initialUrl,
+            to: currentUrl,
+            navigationType: "push",
+            seq: 1,
+          },
+        }),
+        expect.objectContaining({
+          name: "click",
+          value: {
+            route: "/users/alice/orders",
+            url: currentUrl,
+            seq: 2,
+            target: {
+              tag: "button",
+              role: null,
+              action: null,
+              text: "Save Alice's order",
+              input: "pointer",
+              attributes: {
+                "data-order": "order-42",
+                "aria-label": "Save order",
+              },
+            },
+          },
+        }),
+        expect.objectContaining({
+          name: "input",
+          value: {
+            eventType: "input",
+            route: "/users/alice/orders",
+            url: currentUrl,
+            seq: 3,
+            target: {
+              tag: "input",
+              role: null,
+              action: null,
+              text: "",
+              attributes: { name: "email", type: "email" },
+              value: "alice@example.com",
+            },
+          },
+        }),
+        expect.objectContaining({
+          name: "network",
+          value: expect.objectContaining({
+            transport: "fetch",
+            method: "POST",
+            url: `${location.origin}/api/orders/42?token=visible#details`,
+            route: "/api/orders/42",
+            status: 201,
+            seq: 4,
+            completedAt: expect.any(Number),
+            durationMs: expect.any(Number),
+            request: {
+              headers: {
+                "content-type": "application/json",
+                authorization: "Bearer visible",
+              },
+              body: {
+                status: "complete",
+                text: requestBody,
+                encoding: "utf-8",
+              },
+            },
+            response: {
+              headers: {
+                "content-type": "application/json",
+                "x-result": "visible-value",
+              },
+              body: {
+                status: "complete",
+                text: '{"saved":"alice@example.com"}',
+                encoding: "utf-8",
+              },
+            },
+          }),
+        }),
+      ],
+    });
+    socket.reply(batch, { highestSeq: 4, accepted: 5, rejected: 0 });
+    const pending = fetch("/late?session=old");
+    core.stopTrajectory();
+    expect(globalThis.fetch).toBe(fetchMock);
+    expect(History.prototype.pushState).toBe(nativePushState);
+    const capturesAfterStop = beforeSend.mock.calls.length;
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    history.pushState(null, "", "/after-stop?untracked=1#fragment");
+    expect(beforeSend).toHaveBeenCalledTimes(capturesAfterStop);
+
+    const restarted = core.startTrajectory({ trajectoryId });
+    await vi.advanceTimersByTimeAsync(0);
+    const next = getSocket(1);
+    next.open();
+    next.reply(next.frame("phx_join"));
+    await expect(restarted).resolves.toEqual({
+      status: "started",
+      trajectoryId,
+    });
+    resolveLate(new Response("old session response"));
+    expect(await (await pending).text()).toBe("old session response");
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(next.frame("events")[4]).toEqual({
+      events: [
+        expect.objectContaining({
+          name: "page",
+          value: expect.objectContaining({ url: location.href, seq: 5 }),
+        }),
+      ],
+      dropped: 0,
+    });
+    expect(beforeSend).toHaveBeenCalledTimes(capturesAfterStop + 1);
+    acknowledgePage(next, 5);
+    core.stopTrajectory();
+    expect(globalThis.fetch).toBe(fetchMock);
+    expect(onError).not.toHaveBeenCalled();
   });
 });

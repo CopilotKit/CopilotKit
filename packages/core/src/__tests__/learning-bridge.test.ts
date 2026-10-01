@@ -546,6 +546,80 @@ describe("click attribution", () => {
 });
 
 describe("capture subscription lifecycle", () => {
+  it("releases legacy tracking when switching to authenticated capture", async () => {
+    const trajectoryId = "10000000-0000-4000-8000-000000000002";
+    let authenticatedId: string | null = null;
+    const start = vi
+      .spyOn(TrajectoryConnection.prototype, "start")
+      .mockImplementation(async () => {
+        authenticatedId = trajectoryId;
+        return { status: "started", trajectoryId };
+      });
+    vi.spyOn(
+      TrajectoryConnection.prototype,
+      "trajectoryId",
+      "get",
+    ).mockImplementation(() => authenticatedId);
+    const stop = vi
+      .spyOn(TrajectoryConnection.prototype, "stop")
+      .mockImplementation(() => {
+        authenticatedId = null;
+      });
+    const agent = new DealAgent("t-legacy", [ASSISTANT_WITH_TOOL]);
+    const core = new CopilotKitCore({
+      agents__unsafe_dev_only: { default: agent },
+    });
+    const subscribeCore = vi.spyOn(core, "subscribe");
+    const subscribeAgent = vi.spyOn(agent, "subscribe");
+    const bridge = new LearningBridge(core, createConfig());
+    await bridge.start({ trajectoryId: "legacy" });
+    const legacySubscriber = subscribeCore.mock.calls[0]![0];
+    const unsubscribeCore = vi.spyOn(
+      subscribeCore.mock.results[0]!.value,
+      "unsubscribe",
+    );
+    const unsubscribeAgent = vi.spyOn(
+      subscribeAgent.mock.results[0]!.value,
+      "unsubscribe",
+    );
+    expect(
+      bridge.enrich(targetIn({ "data-message-id": "m-assistant" })),
+    ).toMatchObject({ threadId: "t-legacy" });
+    stop.mockClear();
+
+    bridge.setConfig({});
+    await expect(bridge.start({ trajectoryId })).resolves.toEqual({
+      status: "started",
+      trajectoryId,
+    });
+    expect(unsubscribeCore).toHaveBeenCalledOnce();
+    expect(unsubscribeAgent).toHaveBeenCalledOnce();
+    expect(
+      bridge.enrich(targetIn({ "data-message-id": "m-assistant" })),
+    ).toEqual({ threadId: null });
+    batches = [];
+
+    // A Core callback already in flight must not reattach legacy tracking.
+    const clone = new DealAgent("t-authenticated", [ASSISTANT_WITH_TOOL]);
+    const subscribeClone = vi.spyOn(clone, "subscribe");
+    await legacySubscriber.onAgentRunStarted?.({
+      copilotkit: core,
+      agent: clone,
+    });
+    expect(subscribeClone).not.toHaveBeenCalled();
+    await core.runAgent({ agent: clone });
+    bridge.registerOpenThread({
+      agentId: "default",
+      threadId: "t-authenticated",
+    });
+    expect(drain()).toEqual([]);
+    expect(subscribeCore).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledOnce();
+    expect(stop).not.toHaveBeenCalled();
+    expect(bridge.trajectoryId).toBe(trajectoryId);
+    bridge.stop();
+  });
+
   it("subscribes only while active and reattaches current Core agents after stop", () => {
     const agent = new DealAgent("t-1", [ASSISTANT_WITH_TOOL]);
     const core = new CopilotKitCore({
