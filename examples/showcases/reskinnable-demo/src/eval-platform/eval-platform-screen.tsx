@@ -8,6 +8,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import styles from "./eval-platform.module.css";
+import { SEED_IMPORTED } from "@/intelligence-ui/seed/history";
 
 interface SuiteCase {
   readonly id: string;
@@ -25,6 +26,7 @@ interface Suite {
   readonly cases: readonly SuiteCase[];
 }
 interface Imported {
+  readonly runs?: readonly boolean[];
   readonly id: string;
   readonly sourceCandidateId: string;
   readonly query: string;
@@ -36,7 +38,8 @@ const ago = (ms: number): string => {
   const m = Math.round((Date.now() - ms) / 60000);
   if (m < 1) return "just now";
   if (m < 60) return `${m} min ago`;
-  return `${Math.round(m / 60)} h ago`;
+  if (m < 48 * 60) return `${Math.round(m / 60)} h ago`;
+  return `${Math.round(m / 1440)} days ago`;
 };
 
 export function EvalPlatformScreen() {
@@ -55,9 +58,15 @@ export function EvalPlatformScreen() {
         ),
       ]);
       setSuite(s as Suite);
-      setImported(
-        ((i as { imported?: Imported[] }).imported ?? []) as Imported[],
-      );
+      // Live imports first, then the cases exported before today (seeded history).
+      const live = ((i as { imported?: Imported[] }).imported ??
+        []) as Imported[];
+      setImported([
+        ...live,
+        ...SEED_IMPORTED.filter(
+          (x) => !live.some((l) => l.sourceCandidateId === x.sourceCandidateId),
+        ),
+      ]);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -114,9 +123,9 @@ export function EvalPlatformScreen() {
                   <b>{`${suite.cases.length - failing}/${suite.cases.length}`}</b>
                   <span>Passing</span>
                 </div>
-                {imported.length ? (
+                {imported.some((c) => !c.runs) ? (
                   <div className={styles.kpi}>
-                    <b>{imported.length}</b>
+                    <b>{imported.filter((c) => !c.runs).length}</b>
                     <span>Not yet run</span>
                   </div>
                 ) : null}
@@ -144,8 +153,8 @@ export function EvalPlatformScreen() {
                     {imported.map((c) => (
                       <tr
                         key={c.id}
-                        className={styles.imported}
-                        data-imported="true"
+                        className={c.runs ? undefined : styles.imported}
+                        data-imported={c.runs ? "earlier" : "true"}
                       >
                         <td>
                           <div className={styles.q}>{c.query}</div>
@@ -163,11 +172,43 @@ export function EvalPlatformScreen() {
                             ))}
                           </ul>
                         </td>
-                        <td className={styles.note}>No runs yet</td>
-                        <td className={styles.note}>-</td>
-                        <td>
-                          <span className={styles.notRun}>Not yet run</span>
-                        </td>
+                        {c.runs ? (
+                          <>
+                            <td>
+                              <span className={styles.dots}>
+                                {c.runs.map((r, i) => (
+                                  <i
+                                    key={i}
+                                    className={r ? styles.pass : styles.fail}
+                                    title={r ? "pass" : "fail"}
+                                  />
+                                ))}
+                              </span>
+                            </td>
+                            <td
+                              className={styles.pr}
+                            >{`${Math.round((c.runs.filter(Boolean).length / c.runs.length) * 100)}%`}</td>
+                            <td>
+                              <span
+                                className={
+                                  c.runs[c.runs.length - 1]
+                                    ? styles.resPass
+                                    : styles.resFail
+                                }
+                              >
+                                {c.runs[c.runs.length - 1] ? "pass" : "fail"}
+                              </span>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className={styles.note}>No runs yet</td>
+                            <td className={styles.note}>-</td>
+                            <td>
+                              <span className={styles.notRun}>Not yet run</span>
+                            </td>
+                          </>
+                        )}
                       </tr>
                     ))}
                     {suite.cases.map((c) => (

@@ -139,4 +139,11 @@ export interface FineTunePreview {
     readonly system?: string;
     readonly messages: readonly Record<string, unknown>[];
   }[];
+  /** The last dataset export (seeded history). */
+  readonly lastExport?: {
+    readonly at: number;
+    readonly target: FineTuneTarget;
+    readonly examples: number;
+    readonly file: string;
+  };
 }

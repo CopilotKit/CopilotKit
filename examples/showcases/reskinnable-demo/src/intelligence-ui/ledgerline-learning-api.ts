@@ -18,6 +18,12 @@
  */
 import { learningV1 } from "./data/client";
 import { LEDGERLINE_CONTAINER_ID } from "./ids";
+import {
+  SEED_INSIGHTS,
+  SEED_RUNS,
+  SEED_SKILLS,
+  SEED_TRAJECTORIES,
+} from "./seed/history";
 import type {
   DemoInsight,
   DemoSkill,
@@ -162,12 +168,37 @@ async function allRuns(): Promise<LearningRun[]> {
     learningV1.insights(),
     learningV1.skills(),
   ]);
-  const base = baselineRun(insights, skills);
+  // Today's live output only; the seeded analyses are listed separately below.
+  const seededInsight = new Set(SEED_INSIGHTS.map((i) => i.id));
+  const seededSkill = new Set(SEED_SKILLS.map((x) => x.name));
+  const base = baselineRun(
+    insights.filter((i) => !seededInsight.has(i.id)),
+    skills.filter((x) => !seededSkill.has(x.name)),
+  );
   return [
     ...sessionRuns,
     ...(base && !sessionRuns.some((r) => r.status === "succeeded")
       ? [base]
       : []),
+    ...SEED_RUNS.map(
+      (r): LearningRun => ({
+        attemptCount: 1,
+        candidateCount: r.candidates,
+        completedAt: iso(r.at + 95_000),
+        createdAt: iso(r.at),
+        evidenceThreadCount: r.threads,
+        failureCode: null,
+        id: r.id,
+        insightCount: r.insights,
+        kubernetesJobName: null,
+        learningContainerId: LEDGERLINE_CONTAINER_ID,
+        projectId: LEDGERLINE_PROJECT_ID,
+        startedAt: iso(r.at + 2_000),
+        status: "succeeded",
+        triggerSource: "automatic",
+        updatedAt: iso(r.at + 95_000),
+      }),
+    ),
   ];
 }
 
@@ -327,7 +358,11 @@ export const ledgerlineLearningApi: LearningApi = {
         // A captured failure can always be re-learned on stage.
         pendingThreadCount: Math.max(
           pending,
-          trajectories.some((t) => t.outcome === "agent_failed_user_completed")
+          trajectories.some(
+            (t) =>
+              t.outcome === "agent_failed_user_completed" &&
+              !SEED_TRAJECTORIES.some((x) => x.trajectoryId === t.trajectoryId),
+          )
             ? 1
             : 0,
         ),

@@ -186,6 +186,11 @@ export function EvalsScreen() {
                 <div>
                   <span className={styles.badges}>
                     <Badge variant="neutral">Candidate</Badge>
+                    {(c as { exportedAt?: number }).exportedAt ? (
+                      <Badge variant="success">
+                        {`Exported to Benchline Evals ${new Date((c as { exportedAt?: number }).exportedAt as number).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+                      </Badge>
+                    ) : null}
                     <span
                       className={styles.mono}
                     >{`${c.id} · from ${c.sourceTrajectoryIds.length === 1 ? "1 trajectory" : `${c.sourceTrajectoryIds.length} trajectories`}`}</span>

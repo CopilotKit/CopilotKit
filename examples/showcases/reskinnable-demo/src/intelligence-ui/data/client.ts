@@ -11,6 +11,14 @@
  */
 import { useSyncExternalStore } from "react";
 import sampleJson from "./sample-data.json";
+import {
+  SEED_EVAL_CANDIDATES,
+  SEED_FINE_TUNE,
+  SEED_INSIGHTS,
+  SEED_SKILLS,
+  SEED_TRAJECTORIES,
+  seedDetail,
+} from "../seed/history";
 import type {
   DemoInsight,
   DemoSkill,
@@ -191,20 +199,66 @@ export async function probe(): Promise<void> {
   }
 }
 
+/*
+ * Seeded history overlay (seed/history.ts): two weeks of earlier Ledgerline
+ * activity merged under the live data, so no screen starts empty. Writes to a
+ * seeded item stay in this browser; live items go to the API as before.
+ */
+const seeded = {
+  candidates: SEED_EVAL_CANDIDATES.map((c) => ({ ...c })),
+  skills: SEED_SKILLS.map((s) => ({ ...s })),
+};
+const isSeedTrajectory = (id: string) =>
+  SEED_TRAJECTORIES.some((t) => t.trajectoryId === id);
+const byNewest = <T extends { lastEventAt: number }>(rows: T[]) =>
+  rows.sort((x, y) => y.lastEventAt - x.lastEventAt);
+const mergeById = <T>(
+  live: readonly T[],
+  seed: readonly T[],
+  key: (row: T) => string,
+): T[] => {
+  const ids = new Set(live.map(key));
+  return [...live, ...seed.filter((row) => !ids.has(key(row)))];
+};
+
 export const learningV1 = {
-  trajectories: (signal?: AbortSignal) =>
-    get<TrajectorySummary[]>("/trajectories", signal),
-  trajectory: (id: string, signal?: AbortSignal) =>
-    get<TrajectoryDetail>(`/trajectories/${encodeURIComponent(id)}`, signal),
+  trajectories: async (signal?: AbortSignal) =>
+    byNewest(
+      mergeById(
+        await get<TrajectorySummary[]>("/trajectories", signal),
+        SEED_TRAJECTORIES,
+        (t) => t.trajectoryId,
+      ),
+    ),
+  trajectory: async (id: string, signal?: AbortSignal) => {
+    const seed = isSeedTrajectory(id) ? seedDetail(id) : null;
+    return (
+      seed ??
+      get<TrajectoryDetail>(`/trajectories/${encodeURIComponent(id)}`, signal)
+    );
+  },
   exportTrajectory: (id: string) =>
-    get<unknown>(`/trajectories/${encodeURIComponent(id)}/export`),
+    get<unknown>(`/trajectories/${encodeURIComponent(id)}/agui`),
   evals: (signal?: AbortSignal) => get<EvalSuite>("/evals", signal),
-  evalCandidates: (signal?: AbortSignal) =>
-    get<EvalCandidate[]>("/eval-candidates", signal),
-  reviewEvalCandidate: (id: string, decision: "accepted" | "rejected") =>
-    post<unknown>(`/eval-candidates/${encodeURIComponent(id)}/review`, {
+  evalCandidates: async (signal?: AbortSignal) =>
+    mergeById(
+      await get<EvalCandidate[]>("/eval-candidates", signal),
+      seeded.candidates,
+      (c) => c.id,
+    ),
+  reviewEvalCandidate: async (
+    id: string,
+    decision: "accepted" | "rejected",
+  ) => {
+    const seed = seeded.candidates.find((c) => c.id === id);
+    if (seed) {
+      (seed as { status: string }).status = decision;
+      return seed;
+    }
+    return post<unknown>(`/eval-candidates/${encodeURIComponent(id)}/review`, {
       decision,
-    }),
+    });
+  },
   importToEvalPlatform: (
     cases: readonly {
       id: string;
@@ -217,15 +271,53 @@ export const learningV1 = {
       "/evals/import",
       { cases },
     ),
-  insights: (signal?: AbortSignal) => get<DemoInsight[]>("/insights", signal),
-  skills: (signal?: AbortSignal) => get<DemoSkill[]>("/skills", signal),
-  approveSkill: (name: string) =>
-    post<unknown>(`/skills/${encodeURIComponent(name)}/approve`),
-  disableSkill: (name: string) =>
-    post<unknown>(`/skills/${encodeURIComponent(name)}/disable`),
+  insights: async (signal?: AbortSignal) =>
+    mergeById(
+      await get<DemoInsight[]>("/insights", signal),
+      SEED_INSIGHTS,
+      (i) => i.id,
+    ),
+  skills: async (signal?: AbortSignal) =>
+    mergeById(
+      await get<DemoSkill[]>("/skills", signal),
+      seeded.skills,
+      (s) => s.name,
+    ),
+  approveSkill: async (name: string) => {
+    const seed = seeded.skills.find((s) => s.name === name);
+    if (seed) {
+      (seed as { status: string }).status = "published";
+      return seed;
+    }
+    return post<unknown>(`/skills/${encodeURIComponent(name)}/approve`);
+  },
+  disableSkill: async (name: string) => {
+    const seed = seeded.skills.find((s) => s.name === name);
+    if (seed) {
+      (seed as { status: string }).status = "disabled";
+      return seed;
+    }
+    return post<unknown>(`/skills/${encodeURIComponent(name)}/disable`);
+  },
   learn: () => post<LearnResult>("/learn"),
-  fineTunePreview: (target: FineTuneTarget, signal?: AbortSignal) =>
-    get<FineTunePreview>(`/fine-tune/preview?target=${target}`, signal),
+  fineTunePreview: async (
+    target: FineTuneTarget,
+    signal?: AbortSignal,
+  ): Promise<FineTunePreview> => {
+    const live = await get<FineTunePreview>(
+      `/fine-tune/preview?target=${target}`,
+      signal,
+    );
+    return {
+      ...live,
+      examples: live.examples + SEED_FINE_TUNE.examples,
+      sample: [
+        ...live.sample,
+        ...(SEED_FINE_TUNE.sample as unknown as FineTunePreview["sample"]),
+      ],
+      lastExport: SEED_FINE_TUNE.lastExport,
+    };
+  },
   reset: () => post<unknown>("/reset"),
 };
 

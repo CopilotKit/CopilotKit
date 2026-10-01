@@ -161,7 +161,7 @@ export function FineTuneScreen() {
           {preview.status === "ready" ? (
             <p
               className={styles.note}
-            >{`${preview.data.examples} examples · ${preview.data.format.toUpperCase()} · built from captured trajectories`}</p>
+            >{`${preview.data.examples} examples · ${preview.data.format.toUpperCase()} · built from captured trajectories${preview.data.lastExport ? ` · last exported ${new Date(preview.data.lastExport.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} (${preview.data.lastExport.examples} examples, ${preview.data.lastExport.target === "sagemaker" ? "SageMaker" : "Tinker"})` : ""}`}</p>
           ) : null}
           {preview.status === "ready" && sample.length === 0 ? (
             <StatusMessage title="No training examples yet" variant="info">

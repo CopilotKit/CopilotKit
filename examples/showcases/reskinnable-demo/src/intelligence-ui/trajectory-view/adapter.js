@@ -46,9 +46,13 @@
   let source = "live";
   async function load() {
     try {
-      const r = await fetch(`${API}/trajectories/${encodeURIComponent(ID)}`, {
-        cache: "no-store",
-      });
+      // The /agui read adds each Thread's AG-UI event stream (threads[].aguiEvents).
+      const r = await fetch(
+        `${API}/trajectories/${encodeURIComponent(ID)}/agui`,
+        {
+          cache: "no-store",
+        },
+      );
       const body = await r.json();
       if (r.ok) return body;
       if (body && body.message)
@@ -100,12 +104,41 @@
                 },
         });
       }
-      for (const x of th.agentTrace) {
+      // Raw AG-UI events per step; run-level events go on the first and last step.
+      const env = th.aguiEvents || [];
+      const rawFor = (stepId, i, n) => {
+        const own = env.filter((x) => x.stepId === stepId).map((x) => x.event);
+        const runLevel = env
+          .filter((x) => x.stepId === "run")
+          .map((x) => x.event);
+        const text = env
+          .filter((x) => th.messages.some((m) => m.id === x.stepId))
+          .map((x) => x.event);
+        if (i === 0)
+          own.unshift(
+            ...runLevel.filter(
+              (e) => e.type === "RUN_STARTED" || e.type === "STATE_SNAPSHOT",
+            ),
+          );
+        if (i === n - 1)
+          own.push(
+            ...text,
+            ...runLevel.filter(
+              (e) =>
+                e.type === "MESSAGES_SNAPSHOT" ||
+                e.type === "RUN_FINISHED" ||
+                e.type === "RUN_ERROR",
+            ),
+          );
+        return own.length ? own : null;
+      };
+      for (const [stepIndex, x] of th.agentTrace.entries()) {
         const g = `t-${th.threadId}`;
+        const raw = rawFor(x.id, stepIndex, th.agentTrace.length);
         const traceLabel =
           surface === "chatgpt"
-            ? "Agent trace · ChatGPT via MCP"
-            : "Agent trace · in-app agent";
+            ? "Agent trace · ChatGPT via MCP, tool calls mapped to AG-UI"
+            : "Agent trace · in-app agent, AG-UI";
         if (x.kind === "thinking") {
           items.push({
             at: x.at,
@@ -119,6 +152,7 @@
               ms: x.durationMs ?? 0,
               title: "Thinking",
               text: x.text,
+              raw,
             },
           });
           continue;
@@ -155,6 +189,7 @@
             result: x.result ?? null,
             rendered,
             renderedProps: r.props ?? x.args ?? {},
+            raw,
           },
         });
       }
@@ -252,6 +287,15 @@
           detail: { page: "domain event", target: JSON.stringify(v) },
         };
       }
+      // The product event is already an AG-UI CUSTOM event; show it as one.
+      e.raw = [
+        {
+          type: "CUSTOM",
+          name: ev.event.name,
+          value: ev.event.value,
+          timestamp: ev.event.timestamp,
+        },
+      ];
       items.push({ at: ev.event.timestamp, e });
     }
     items.sort((a, b) => a.at - b.at);
@@ -410,7 +454,7 @@
       genericSrc,
       exportTrajectory: async () => {
         const r = await fetch(
-          `${API}/trajectories/${encodeURIComponent(ID)}/export`,
+          `${API}/trajectories/${encodeURIComponent(ID)}/agui`,
           { cache: "no-store" },
         ).catch(() => null);
         const data = r && r.ok ? await r.json() : d;
