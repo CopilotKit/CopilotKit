@@ -40,6 +40,12 @@
  *   V2 docs: https://docs.copilotkit.ai/
  *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
+ * @copilotkit/react-core — CatchAllActionRenderPropsWait:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
  * @copilotkit/react-core — CatchAllFrontendAction:
  *   No 1:1 v2 replacement is available.
  *   Related v2 docs (Tool-based generative UI): https://docs.copilotkit.ai/generative-ui/tool-based

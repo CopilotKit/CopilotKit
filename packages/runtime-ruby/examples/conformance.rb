@@ -14,7 +14,7 @@ runtime = CopilotKit::Runtime.new(
   **(config['omitMemoryPolicy'] == true ? {} : {
     memory_access: ->(_user, _env) { config.key?('memoryGrant') ? config['memoryGrant'] : { 'user' => 'read-write', 'project' => 'read-write' } }
   }),
-  telemetry: CopilotKit::Telemetry.new(url: config['telemetryUrl'], sample_rate: config.fetch('telemetrySampleRate', 0.05),
+  telemetry: CopilotKit::Telemetry.new(url: config['telemetryUrl'], sample_rate: config.fetch('telemetrySampleRate', 1),
     disabled: config.fetch('telemetryDisabled', false), telemetry_id: config['telemetryId'], license_token: config['licenseToken']),
   a2ui: config['a2ui'], mcp_apps: config['mcpApps']
 )

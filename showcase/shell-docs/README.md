@@ -41,6 +41,15 @@ For repo-level CI parity, prefer Nx when a shell-docs target is available in the
 checkout and root dependencies are installed. For normal shell-docs local development, the
 npm commands above are the canonical path.
 
+### Channels package compatibility
+
+After changing the shared Channels install recommendation, run
+`npm run test:channels-sdk` with Node.js 22 or later. This installs the published
+packages in a temporary directory, typechecks the complete Slack and Teams
+runner examples, and loads them with the documented `tsx` command. It needs npm
+registry access but no credentials; it does not start a connection or send a
+Slack message. Verify a real provider reply separately before a release.
+
 ## Authoring Recipes
 
 ### Showcase-Driven Framework Docs
@@ -55,7 +64,11 @@ To update showcase-driven docs:
    registry inputs.
 2. Edit shared/root MDX only when the change applies across generated frameworks.
 3. Add sparse framework overrides only for real framework-specific differences.
-4. Do not hand-edit generated files under `src/data/frameworks/`.
+4. Edit the landing-page record under `src/data/frameworks/` by hand. Despite an
+   older header on some of these files, nothing generates them — the script it
+   named does not exist in this repository. Only `docs_mode: generated` slugs
+   have a record here; an `authored` slug's landing page is its
+   `integrations/<docsFolder>/index.mdx`.
 5. Validate routes, sidebar state, search results, snippets, and framework switching.
 
 ### Authored Framework Docs

@@ -26,17 +26,20 @@ test("guides people and agents to a persistent Intelligence thread", () => {
 
   expect(agentPrompt).toBeGreaterThan(-1);
   expect(manualSteps).toBeGreaterThan(agentPrompt);
-  expect(source).toContain("persist conversations reliably in production");
-  expect(source).toContain("improve your agents over time");
-  expect(source).toContain("AI analytics");
+  expect(source).toContain(
+    "You want AG-UI Streams, User Memory, Automatic Learning, Channels, and Product Analytics",
+  );
+  expect(source).toContain("Intelligence adds that layer");
   expect(source).toContain("npx copilotkit@latest project select");
   expect(source).toContain("new CopilotKitIntelligence");
   expect(source).toContain("identifyUser");
   expect(source).toContain('mode: "single-route"');
-  expect(source).toContain("export const POST = handler");
+  expect(source).toContain("/runtime-server-adapter");
+  expect(source).not.toContain("next.config.ts");
+  expect(source).not.toContain("app/api/copilotkit/route.ts");
   expect(source).toContain("useSingleEndpoint");
   expect(source).toContain("Intelligence connected");
-  expect(source).toContain("Open **Threads** in Inspector");
+  expect(source).toContain("Open **Rich Threads** in Inspector");
   expect(source).toContain("**Messages** contains the message");
   expect(source).toContain('frontend="vue"');
   expect(source).toContain("@copilotkit/vue/v2");
@@ -66,9 +69,7 @@ test("expands the setup prompt for coding agents", () => {
 test("links the Intelligence landing page to the quickstart", () => {
   const overview = renderDoc("intelligence/overview");
 
-  expect(overview).toContain(
-    "[CopilotKit Intelligence quickstart](/intelligence/quickstart)",
-  );
+  expect(overview).toContain("[quickstart](/intelligence/quickstart)");
 });
 
 test("forwards thread mutation methods in linked framework examples", () => {
@@ -88,4 +89,56 @@ test("forwards thread mutation methods in linked framework examples", () => {
   expect(tanstackSection).toContain(
     "DELETE: ({ request }) => handler(request)",
   );
+});
+
+// Coding agents consume flattened Markdown rather than interactive tabs. Keep
+// every native setup available, including imports inside its code fences.
+test("expands all runtime setup snippets for coding agents", () => {
+  const output = renderDoc("intelligence/quickstart");
+
+  expect(output).toContain("from copilotkit_runtime import HttpAgent");
+  expect(output).toContain("copilotkit.HTTPAgent");
+  expect(output).toContain("require 'copilotkit/runtime'");
+  expect(output).toContain("using CopilotKit.Intelligence;");
+  expect(output).toContain("Authorization");
+  expect(output).not.toMatch(/<(Python|Go|Ruby|Dotnet)Runtime\s*\/>/);
+});
+
+// The quickstart, the runtime endpoints page, and the CLI onboarding prompt
+// must show the same multi-route mount (PE-476).
+test("mounts the TypeScript runtime as the multi-route subtree", () => {
+  const source = loadRequiredDoc("intelligence/quickstart").source;
+
+  expect(source).toContain("app/api/copilotkit/[[...slug]]/route.ts");
+  for (const verb of ["GET", "POST", "PATCH", "DELETE"]) {
+    expect(source).toContain(`export const ${verb} = handler;`);
+  }
+  expect(source).toContain("useSingleEndpoint={false}");
+});
+
+// TypeScript is the default runtime tab, so the shared frontend examples must
+// work as copied against a TypeScript runtime. The native runtimes' local token
+// stays a commented opt-in.
+test("frontend examples default to a TypeScript runtime", () => {
+  const source = loadRequiredDoc("intelligence/quickstart").source;
+  const step = source.slice(
+    source.indexOf("### Connect your frontend"),
+    source.indexOf("### Confirm the connection"),
+  );
+  const reactBlock = step.slice(
+    step.indexOf('<FrontendOnly frontend="react">'),
+    step.indexOf('<FrontendOnly frontend="angular">'),
+  );
+
+  expect(reactBlock).toMatch(/^\s*runtimeUrl="\/api\/copilotkit"$/m);
+  for (const line of step.split("\n")) {
+    if (
+      line.includes("Bearer <APP_AUTH_TOKEN>") &&
+      /^\s*(headers|:headers)\b/.test(line)
+    ) {
+      throw new Error(
+        `uncommented native-runtime token in a frontend example: ${line.trim()}`,
+      );
+    }
+  }
 });

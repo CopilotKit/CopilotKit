@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { loadDoc } from "@/lib/docs-render";
+import { docCandidateOrder, loadDoc } from "@/lib/docs-render";
 import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
 import { resolveAngularDoc } from "@/lib/angular-doc-navigation";
 import {
@@ -42,6 +42,13 @@ import matter from "gray-matter";
 //     page renderer.
 //   - Frontmatter is stripped and replaced with an H1 + description
 //     blockquote so the title survives.
+//
+// TELEMETRY LIVES IN `src/middleware.ts`, NOT HERE. Every `<path>.md`
+// fetch is reported as `docs.llm_text_fetched`, with the caller
+// classified from its user agent. Middleware runs before the
+// `next.config.ts` rewrite that maps `.md`/`.mdx` onto this route, so
+// it sees the request under its public path; a second capture here
+// would count the same fetch twice.
 //
 // URL resolution mirrors what `app/[framework]/[[...slug]]/page.tsx` does:
 //   - Frontend-scoped URLs reuse the same `/<frontend>` content
@@ -363,14 +370,12 @@ function resolveFrameworkScopedPage(
   const rootSlugPath = tail;
   const frameworkSlugPath = `integrations/${docsFolder}/${tail}`;
 
-  // `authored` frameworks own their entire IA — try the per-framework
-  // tree first. `generated` is the inverse — root wins, framework
-  // tree is the override, except quickstart where the root file is
-  // only a routing shim and the page route prefers framework content.
-  const candidateOrder =
-    docsMode === "authored" || tail === "quickstart"
-      ? [frameworkSlugPath, rootSlugPath]
-      : [rootSlugPath, frameworkSlugPath];
+  // Shared with the page route (docCandidateOrder) so raw Markdown and the
+  // rendered page never disagree. This previously treated only `quickstart`
+  // as framework-wins; the page route also gives `threads-import` to the
+  // framework, so llms-mdx served root content for a URL the site renders
+  // from the framework tree.
+  const candidateOrder = docCandidateOrder(docsMode, docsFolder, tail);
   if (tail === "index") {
     candidateOrder.push(`integrations/${docsFolder}/quickstart`);
   }

@@ -57,8 +57,8 @@ particular layout), follow their lead — but still in ONE call.
 agent = ConversableAgent(
     name="mcp_apps_assistant",
     system_message=SYSTEM_PROMPT,
-    # gpt-4o-mini for speed, mirroring the langgraph reference.
-    llm_config=LLMConfig({"model": "gpt-4o-mini", "stream": True}),
+    # gpt-5-mini for speed, mirroring the langgraph reference.
+    llm_config=LLMConfig({"model": "gpt-5-mini", "stream": True}),
     human_input_mode="NEVER",
     max_consecutive_auto_reply=6,
     # No bespoke tools — MCP server tools are injected by the runtime

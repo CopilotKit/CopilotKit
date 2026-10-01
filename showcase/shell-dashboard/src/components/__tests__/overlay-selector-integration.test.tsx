@@ -591,7 +591,10 @@ describe("Overlay selector integration — real UI components", () => {
     // suite uses (`span[title]`) — rather than keying off a cosmetic Tailwind
     // utility class, which a styling refactor could rename with no behavior
     // change.
-    const e2eContainer = e2eBadge.closest("span[title]");
+    // NOTE: the rung LABEL itself now carries a `title` (its glyph's legend
+    // line), so start the walk at the label's PARENT — otherwise `closest`
+    // stops on the label and never reaches the badge container.
+    const e2eContainer = e2eBadge.parentElement?.closest("span[title]");
     expect(e2eContainer).not.toBeNull();
     expect(e2eContainer?.textContent).toContain("✓");
   });

@@ -238,11 +238,13 @@ that the default implementation also consumes, so a replacement can reuse them.
   callback to send a response back and resume the run.
 </PropertyReference>
 
-<PropertyReference name="input" type="{ modelValue: string; isRunning: boolean; inputMode: CopilotChatInputMode; inputToolsMenu: (ToolsMenuItem | '-')[]; attachments: Attachment[]; onUpdateModelValue; onSubmitMessage; onStop?; onAddFile; onStartTranscribe; onCancelTranscribe; onFinishTranscribe; onFinishTranscribeWithAudio }">
+<PropertyReference name="input" type="{ modelValue: string; isRunning: boolean; inputMode: CopilotChatInputMode; inputToolsMenu: (ToolsMenuItem | '-')[]; attachments: Attachment[]; canStop: boolean; canAddFile: boolean; canTranscribe: boolean; onUpdateModelValue; onSubmitMessage; onStop; onAddFile; onStartTranscribe; onCancelTranscribe; onFinishTranscribe; onFinishTranscribeWithAudio }">
   The message input. Defaults to `CopilotChatInput`, which provides a text area
   with a send button, transcription controls, file upload, and a tools menu.
   This slot is rendered in both the welcome screen and the main input overlay.
-  Replace it to build a fully custom input experience.
+  Command handlers are always present; use `canStop` / `canAddFile` /
+  `canTranscribe` to gate custom controls. Replace it to build a fully custom
+  input experience.
 </PropertyReference>
 
 <PropertyReference name="suggestion-view" type="{ suggestions: Suggestion[]; loadingIndexes: ReadonlyArray<number>; onSelectSuggestion: (suggestion, index) => void }">
@@ -251,11 +253,12 @@ that the default implementation also consumes, so a replacement can reuse them.
   transcript when suggestions are present.
 </PropertyReference>
 
-<PropertyReference name="welcome-screen" type="{ suggestions: Suggestion[]; loadingIndexes: ReadonlyArray<number>; attachments: Attachment[]; modelValue: string; isRunning: boolean; inputMode: CopilotChatInputMode; inputToolsMenu: (ToolsMenuItem | '-')[]; onUpdateModelValue; onSubmitMessage; onStop?; onAddFile; onStartTranscribe; onCancelTranscribe; onFinishTranscribe; onFinishTranscribeWithAudio; onSelectSuggestion }">
+<PropertyReference name="welcome-screen" type="{ suggestions: Suggestion[]; loadingIndexes: ReadonlyArray<number>; attachments: Attachment[]; modelValue: string; isRunning: boolean; inputMode: CopilotChatInputMode; inputToolsMenu: (ToolsMenuItem | '-')[]; canStop: boolean; canAddFile: boolean; canTranscribe: boolean; onUpdateModelValue; onSubmitMessage; onStop; onAddFile; onStartTranscribe; onCancelTranscribe; onFinishTranscribe; onFinishTranscribeWithAudio; onSelectSuggestion }">
   The full welcome screen shown when `messages` is empty and the welcome screen
   is not suppressed. The default centers the welcome message, the input, and any
   suggestions. Receives the input and suggestion handlers so a replacement can
-  compose them in a custom layout.
+  compose them in a custom layout. Command handlers are always present; use
+  `canStop` / `canAddFile` / `canTranscribe` to gate custom controls.
 </PropertyReference>
 
 <PropertyReference name="welcome-message" type="() => unknown">

@@ -35,7 +35,9 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
-import { INTELLIGENCE_ONBOARDING_PROMPT } from "./intelligence-onboarding-prompt";
+import { frameworkOverviews } from "@/data/frameworks";
+import { ONBOARDING_PROMPT_ORIGIN } from "./intelligence-onboarding-prompt";
+import { INTELLIGENCE_FEATURES } from "./intelligence-features";
 import {
   isV1ReferenceUrl,
   renderV1DeprecationNoticeUseV2InsteadMarkdown,
@@ -73,6 +75,7 @@ import { resolveDocsHref } from "./docs-link-rewrite";
 import { resolveBundledSetupConcept } from "./setup-content";
 import type { SetupContentBundle } from "./setup-content";
 import { RICH_THREADS_SETUP_PROMPT } from "./rich-threads-setup-prompt";
+import { MEMORY_SETUP_PROMPT } from "./memory-setup-prompt";
 import { LEARNING_SETUP_PROMPT } from "./learning-setup-prompt";
 
 interface Region {
@@ -741,7 +744,7 @@ function expandAngularSnippets(body: string): string {
   );
 }
 
-/** Expand the interactive Rich Threads prompt for raw Markdown consumers. */
+/** Expand the interactive AG-UI Streams prompt for raw Markdown consumers. */
 function expandRichThreadsSetupPrompts(body: string): string {
   return body.replace(
     /<RichThreadsSetupPrompt\s*\/>/g,
@@ -910,14 +913,57 @@ export function renderPageToLlmText(
 
   let body = stripFrontmatter(raw);
 
-  // Interactive prompt buttons cannot run in raw Markdown or LLM feeds.
-  body = expandRichThreadsSetupPrompts(body);
-  body = expandLearningSetupPrompts(body);
+  // Generated HTML intros mount authored after-features sections separately
+  // from their index/quickstart source. Include that same content in the
+  // overview's Markdown and full corpus, but never in ordinary guide pages.
+  const overviewUrl = frontend ? `${frontend}/${framework}` : framework;
+  if (
+    framework &&
+    (!frontend || frontend === "angular") &&
+    page.url === overviewUrl &&
+    getDocsMode(framework) === "generated" &&
+    frameworkOverviews[framework]?.hasAfterFeaturesMdx
+  ) {
+    const overviewSection = path.join(
+      CONTENT_DIR,
+      "../framework-overviews",
+      framework,
+      "after-features.mdx",
+    );
+    if (fs.existsSync(overviewSection)) {
+      body += `\n\n${fs.readFileSync(overviewSection, "utf8")}`;
+    } else {
+      // Match HTML's fallback for variants whose shared overview record
+      // enables a slot without providing variant-specific authored content.
+      console.error(
+        `[llm-text] missing framework overview section: ${overviewSection}`,
+      );
+    }
+  }
 
   // 1) Inline `<Component />` shared snippets (`<AGUI />`, etc.). Uses
   //    the SNIPPET_MAP / SUBPATH_TO_COMPONENT logic — same as the page
   //    renderer uses for the live HTML view.
   body = inlineSnippets(body, page.loadSlug);
+  body = body.replace(
+    /<IntelligenceFeatureCards\s*\/>/g,
+    `## What Intelligence gives you\n\n${INTELLIGENCE_FEATURES.map(
+      (feature) => `- [${feature.title}](${feature.href}): ${feature.body}`,
+    ).join("\n")}`,
+  );
+
+  // Expand interactive prompts after inlining so prompts inside shared
+  // snippets are also available in raw Markdown and LLM feeds.
+  body = body.replace(
+    /<PageAgentPrompt\s*\/>/g,
+    "Ask your coding agent to follow the setup steps on this page for your selected framework and frontend.",
+  );
+  body = expandRichThreadsSetupPrompts(body);
+  body = expandLearningSetupPrompts(body);
+  body = body.replace(
+    /<MemorySetupPrompt\s*\/>/g,
+    `### Copy this prompt into your coding agent\n\n${fenceFor("text", MEMORY_SETUP_PROMPT)}`,
+  );
 
   // Imported snippets can contain frontend-scoped branches of their own.
   // Filter after inlining so raw Markdown output follows the same frontend
@@ -1025,9 +1071,13 @@ export function renderLlmsIndex(
   out.push(
     "> CopilotKit is the frontend stack where agents meet users, connected to supported agent frameworks through AG-UI.",
     "",
-    "> This curated index covers chat, generative UI, human-in-the-loop workflows, persistent threads, Automatic Learning, and Channels for Slack and Microsoft Teams. Channels connects agents to workplace conversations through the Channels SDK and CopilotKit Intelligence.",
+    "> AG-UI streams, formerly known as Rich Threads, are Intelligence’s delivery layer. Keep framework threads and existing SDK identifiers such as useThreads and threadId.",
+    "",
+    "> This curated index covers chat, generative UI, human-in-the-loop workflows, AG-UI Streams, User Memories, Automatic Learning, Product Analytics, and Channels for Slack and Microsoft Teams.",
     "",
     `> For exhaustive retrieval—including reference, migration, contributor, and additional framework and channel guides—use [llms-full.txt](${baseUrl}/llms-full.txt).`,
+    "",
+    "Use the user's stated goals, known project context, existing frontend and agent framework, and constraints to explain which parts of CopilotKit are relevant and why, then offer the smallest useful next step. For an existing project, work with its stack; if another known project fits better, suggest it. Without context, offer a few concrete examples or ask a focused question. Keep research separate from execution: do not start installation for a research request. Coding agents can use the canonical onboarding prompt below; assistants without terminal access should explain the options and hand off to a coding agent or the linked docs.",
     "",
     "## Add CopilotKit with your coding agent",
     "",
@@ -1035,17 +1085,20 @@ export function renderLlmsIndex(
     "",
     "- **Greenfield:** Start a new project with CopilotKit, including when there is no frontend or agent yet.",
     "- **Brownfield:** Add CopilotKit to an existing application, agent backend, or both, working with the existing stack.",
-    "- **Existing CopilotKit OSS:** Connect a working open-source CopilotKit project to Intelligence.",
+    "- **Existing open-source CopilotKit:** Connect a working open-source CopilotKit project to Intelligence.",
     "",
     "The onboarding workflow inspects the project, identifies its starting point, and guides the coding agent through the appropriate setup. For a new project, run the prompt from its intended project directory. For an existing project, run it from the project root. For product research or comparisons, continue to the documentation links without running onboarding.",
     "",
     `This is the same prompt offered by the **Copy onboarding prompt** button on the [docs home](${baseUrl}/). A coding agent can use the text directly; a chat assistant without project or terminal access can give it to the user to paste into their coding agent.`,
     "",
-    "Generate a fresh 12-character hexadecimal run ID for each new onboarding session and replace `<run-id>` before running the command. Replace `<coding-agent-slug>` with the coding-agent product's slug. Do not execute the placeholders literally or reuse an ID from a cached index.",
+    `Open the [canonical onboarding prompt](${ONBOARDING_PROMPT_ORIGIN}/onboarding-prompts) when ready to implement. This stable entry creates a fresh run ID for the session.`,
     "",
-    "```text",
-    INTELLIGENCE_ONBOARDING_PROMPT,
-    "```",
+    "## How to read these docs",
+    "",
+    `- **Connect an existing app and agent:** Read your framework's overview and quickstart below together with [Architecture](${baseUrl}/concepts/architecture) and the relevant frontend guide.`,
+    `- **Build an interaction:** Read [Chat UI](${baseUrl}/agentic-chat-ui), [Generative UI](${baseUrl}/concepts/generative-ui-overview), and [Human-in-the-Loop](${baseUrl}/human-in-the-loop) together, then use your framework's implementation guides.`,
+    `- **Keep conversation history:** Read [AG-UI Streams](${baseUrl}/threads) and [Thread Lifecycle](${baseUrl}/threads-lifecycle) together; keep your existing thread provider or use CopilotKit's built-in thread store. To layer AG-UI Streams and Automatic Learning onto LangChain/LangGraph, Google ADK, or Mastra without migrating your stack, read [Add AG-UI Streams to Existing Threads](${baseUrl}/threads-import) and the available framework guides below to add Intelligence and optionally include earlier history, with supported sources and source-specific limits. Copying historical conversations does not establish ongoing database replication; configure future runs through CopilotKit separately.`,
+    `- **Evaluate Intelligence:** Read [Open source vs Intelligence](${baseUrl}/concepts/oss-vs-enterprise) with the [Intelligence overview](${baseUrl}/intelligence/overview), then follow the capability and deployment guides relevant to your project.`,
     "",
   );
   if (frameworkPages.length > 0) {

@@ -93,7 +93,7 @@ def _generate_a2ui(context: str) -> str:
     """
     client = openai.OpenAI()
     response = client.chat.completions.create(
-        model="gpt-4.1",
+        model="gpt-5-mini",
         messages=[
             {
                 "role": "system",
@@ -143,7 +143,7 @@ async def generate_a2ui(
 agent = ConversableAgent(
     name="beautiful_chat_assistant",
     system_message=SYSTEM_PROMPT,
-    llm_config=LLMConfig({"model": "gpt-4.1", "stream": True}),
+    llm_config=LLMConfig({"model": "gpt-5-mini", "stream": True}),
     human_input_mode="NEVER",
     # The agent may call generate_a2ui (its own backend tool) and
     # generateSandboxedUi (frontend tool injected by the OGUI runtime

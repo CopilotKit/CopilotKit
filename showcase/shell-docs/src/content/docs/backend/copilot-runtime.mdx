@@ -4,7 +4,12 @@ description: "The Copilot Runtime is the backend that connects your frontend to 
 icon: "lucide/Server"
 ---
 
+import AgentNameBinding from "@/snippets/agent-name-binding.mdx";
+import RuntimeLanguages from "@/snippets/runtime-languages.mdx";
+
 The Copilot Runtime is the backend layer that connects your frontend application to your AI agents. It's set up during the [quickstart](/quickstart) and is the recommended way to use CopilotKit.
+
+<RuntimeLanguages />
 
 ## Setting up the runtime
 
@@ -31,6 +36,8 @@ const handler = createCopilotRuntimeHandler({
 
 export const GET = handler;
 export const POST = handler;
+export const PATCH = handler;
+export const DELETE = handler;
 ```
 
 Then point your frontend at the endpoint:
@@ -92,6 +99,8 @@ The runtime supports multiple agent types. `BuiltInAgent` is the primary agent c
 - **Simple mode:** pass a model string and let CopilotKit handle the rest. Best for quick setup. See [Quickstart](/quickstart).
 - **Factory mode:** bring your own AI SDK, TanStack AI, or custom LLM backend. Best when you need full control. See [Factory Mode](/backend/custom-agent).
 
+To register agent logic you wrote yourself, extend AG-UI's `AbstractAgent`. See [Write your own AG-UI agent](/backend/custom-ag-ui-agent).
+
 <Callout type="warn" title="Wiring an external agent: what to pass, and which URL">
 Two mistakes account for most failures here.
 
@@ -115,6 +124,8 @@ run its own agent instance — construct it inside the request rather than at mo
 or to serialise turns per user. A single shared instance is fine for local development and
 for a single-user surface.
 </Callout>
+
+<AgentNameBinding />
 
 ## The default agent
 
@@ -151,7 +162,7 @@ When you register multiple agents, the runtime handles discovery and routing aut
 
 [Threads](/threads), the [inspector](/inspector), and other CopilotKit Intelligence capabilities are provided through the runtime. These give you conversation persistence and debugging without extra setup.
 
-The examples below take `intelligence` and `identifyUser` as given. `intelligence` is a `CopilotKitIntelligence` instance — see [Connect your runtime to Intelligence](/intelligence/connect-your-runtime) for the constructor and where the project API key comes from.
+The examples below take `intelligence` and `identifyUser` as given. `intelligence` is a `CopilotKitIntelligence` instance — see [Connect your runtime to Intelligence](/intelligence/quickstart) for the constructor and where the project API key comes from.
 
 #### Assign Threads to Learning Containers
 
@@ -317,6 +328,10 @@ forwardHeaders: { allow: ["authorization", "x-tenant-id"] }
 <Callout type="warn" title="Allowlist mode bypasses the default denylist">
 In allowlist mode the built-in denylist does **not** apply — only your `allow` set (minus your own `deny`) forwards. Don't allow-list protected headers such as `x-copilotcloud-public-api-key` or `x-forwarded-*` unless you truly intend to forward them, since the default protection isn't there to catch them.
 </Callout>
+
+## Keeping quiet streams alive
+
+A run can be silent for a long time while the agent reasons or waits on a slow tool. The runtime writes a `: keep-alive` SSE comment after 15 seconds without output so proxies and browsers with idle timeouts keep the connection open. Comments are transport frames: they never become AG-UI events. Tune or disable this with `sseKeepAliveIntervalSeconds` (`0` disables it).
 
 ## Connecting to an AG-UI agent directly
 

@@ -7,7 +7,12 @@ const TELEMETRY_DOC = path.resolve(
   "../../content/snippets/shared/telemetry/anonymous.mdx",
 );
 
-test("documents Runtime telemetry identity precedence and sampling", () => {
+// Sampling deliberately left this doc in f53bbaa8d1 ("send all anonymous
+// telemetry, keep the 5% gate on Segment only"), which also deleted the
+// "How to adjust the telemetry sample rate" section. This test asserts the
+// identity PRECEDENCE that survived, plus negative assertions so the retired
+// sampling language cannot creep back in.
+test("documents Runtime telemetry identity precedence", () => {
   const normalized = fs
     .readFileSync(TELEMETRY_DOC, "utf8")
     .replace(/\s+/g, " ");
@@ -37,14 +42,12 @@ test("documents Runtime telemetry identity precedence and sampling", () => {
     "does not automatically link Runtime events to a CLI scaffold event",
   );
   expect(normalized).toContain(
-    "Runtime sends identified events without sampling",
+    "With none of these identities, Runtime sends anonymous telemetry.",
   );
-  expect(normalized).toContain(
-    "Runtime samples events identified by an explicit `telemetryId` or `CPK_TELEMETRY_ID` at the configured rate.",
-  );
-  expect(normalized).toContain(
-    "With none of these identities, Runtime sends anonymous sampled telemetry.",
-  );
+  // Retired by f53bbaa8d1 — Runtime no longer samples at this layer.
+  expect(normalized).not.toContain("without sampling");
+  expect(normalized).not.toContain("anonymous sampled telemetry");
+  expect(normalized).not.toContain("at the configured rate");
   expect(normalized).not.toContain(
     "first nonblank telemetry identity in this order",
   );

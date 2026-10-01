@@ -157,6 +157,43 @@ describe("CopilotSidebarView", () => {
     expect(onSelectSuggestion).toHaveBeenCalledTimes(1);
   });
 
+  it("only exposes stop capability when an onStop callback is available", async () => {
+    const withoutStop = mountSidebarView(
+      {},
+      {
+        "welcome-screen": ({ canStop }: { canStop: boolean }) =>
+          h("div", { "data-testid": "sidebar-can-stop" }, String(canStop)),
+      },
+    );
+
+    expect(withoutStop.get("[data-testid='sidebar-can-stop']").text()).toBe(
+      "false",
+    );
+
+    const onStop = vi.fn();
+    const withStop = mountSidebarView(
+      { onStop },
+      {
+        "welcome-screen": ({
+          canStop,
+          onStop: stop,
+        }: {
+          canStop: boolean;
+          onStop: () => void;
+        }) =>
+          h(
+            "button",
+            { "data-testid": "sidebar-stop", onClick: stop },
+            String(canStop),
+          ),
+      },
+    );
+
+    expect(withStop.get("[data-testid='sidebar-stop']").text()).toBe("true");
+    await withStop.get("[data-testid='sidebar-stop']").trigger("click");
+    expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
   it("uses the default chat welcome screen and still forwards welcome sub-slots", () => {
     const wrapper = mountSidebarView(
       {
@@ -210,5 +247,61 @@ describe("CopilotSidebarView", () => {
     expect(wrapper.get("[data-testid='sidebar-welcome-message']").text()).toBe(
       "Hello",
     );
+  });
+
+  it("exposes reactive capability flags from the namespaced WelcomeScreen input slot", async () => {
+    const wrapper = mount(CopilotSidebarView.WelcomeScreen, {
+      props: {
+        suggestions: [],
+        loadingIndexes: [],
+        modelValue: "",
+        isRunning: false,
+        inputMode: "input",
+        inputToolsMenu: [],
+        onUpdateModelValue: vi.fn(),
+        onSubmitMessage: vi.fn(),
+        onSelectSuggestion: vi.fn(),
+      },
+      slots: {
+        input: ({
+          canStop,
+          canAddFile,
+          canTranscribe,
+        }: {
+          canStop: boolean;
+          canAddFile: boolean;
+          canTranscribe: boolean;
+        }) =>
+          h(
+            "div",
+            { "data-testid": "sidebar-welcome-capabilities" },
+            `${canStop}:${canAddFile}:${canTranscribe}`,
+          ),
+      },
+    });
+
+    expect(
+      wrapper.get("[data-testid='sidebar-welcome-capabilities']").text(),
+    ).toBe("false:false:false");
+
+    await wrapper.setProps({
+      onStop: vi.fn(),
+      onAddFile: vi.fn(),
+      onStartTranscribe: vi.fn(),
+    });
+
+    expect(
+      wrapper.get("[data-testid='sidebar-welcome-capabilities']").text(),
+    ).toBe("true:true:true");
+
+    await wrapper.setProps({
+      canStop: false,
+      canAddFile: false,
+      canTranscribe: false,
+    });
+
+    expect(
+      wrapper.get("[data-testid='sidebar-welcome-capabilities']").text(),
+    ).toBe("false:false:false");
   });
 });

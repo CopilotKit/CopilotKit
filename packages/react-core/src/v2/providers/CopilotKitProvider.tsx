@@ -1,7 +1,7 @@
 "use client";
 
 import type { AbstractAgent } from "@ag-ui/client";
-import type { FrontendTool } from "@copilotkit/core";
+import type { CopilotKitMessageFilter, FrontendTool } from "@copilotkit/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import type React from "react";
 import {
@@ -133,6 +133,33 @@ export interface CopilotKitProviderProps {
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
   credentials?: RequestCredentials;
+  /**
+   * Rewrites the message list sent to runtime agents on every run.
+   *
+   * CopilotKit sends the whole thread each time. When your agent already
+   * stores the conversation, most of that payload is waste, and an agent that
+   * merges the inbound list with its own store can show the model every turn
+   * twice. Return the messages to send:
+   *
+   * ```tsx
+   * <CopilotKit
+   *   runtimeUrl="/api/copilotkit"
+   *   messageFilter={(messages) => messages.slice(-1)}
+   * />
+   * ```
+   *
+   * The filter changes the request body only. The transcript the UI renders is
+   * untouched. Broken tool-call pairs are repaired before the request is sent,
+   * so a filter this blunt cannot strand a tool result mid-HITL.
+   *
+   * Agents reached through your CopilotRuntime honor this. An agent your app
+   * passes in directly does not, and neither Intelligence runs nor suggestion
+   * runs are ever filtered.
+   *
+   * Prefer a stable reference (`useCallback`). An inline arrow re-registers the
+   * filter on every render, which is harmless but needless.
+   */
+  messageFilter?: CopilotKitMessageFilter;
   /** Your CopilotKit public license key. */
   publicApiKey?: string;
   /** Your public license key for accessing CopilotKit Intelligence features. */
@@ -303,6 +330,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   runtimeUrl,
   headers: headersProp = EMPTY_HEADERS,
   credentials,
+  messageFilter,
   publicApiKey,
   publicLicenseKey,
   licenseToken,
@@ -569,6 +597,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     humanInTheLoopList.forEach((tool) => {
       // Create a promise-based handler for each human-in-the-loop tool
       const frontendTool: FrontendTool = {
+        type: "human-in-the-loop",
         name: tool.name,
         description: tool.description,
         parameters: tool.parameters,
@@ -731,6 +760,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
             : "auto",
       headers: mergedHeaders,
       credentials,
+      messageFilter,
       properties,
       agents__unsafe_dev_only: mergedAgents,
       tools: allTools,
@@ -885,6 +915,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       subscription.unsubscribe();
     };
   }, [copilotkit]);
+
+  // Declared before the effect that calls `connect()` so React runs it first:
+  // an agent discovered by that connection is then constructed with the filter
+  // already in place, rather than making its first run with the full thread.
+  useEffect(() => {
+    copilotkit.setMessageFilter(messageFilter);
+  }, [copilotkit, messageFilter]);
 
   useEffect(() => {
     copilotkit.setRuntimeUrl(chatApiEndpoint);

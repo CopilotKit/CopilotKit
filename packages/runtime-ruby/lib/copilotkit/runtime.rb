@@ -206,7 +206,7 @@ module CopilotKit
       else
         entitlement['error']['retryable'] ? 'unknown' : 'none'
       end
-      result = { 'version' => '0.1.0', 'mode' => 'intelligence', 'agents' => @agents.to_h { |id, agent| [id, { 'name' => id, 'description' => agent.description, 'className' => agent.class.name }] },
+      result = { 'version' => '0.1.0.rc.1', 'mode' => 'intelligence', 'agents' => @agents.to_h { |id, agent| [id, { 'name' => id, 'description' => agent.description, 'className' => agent.class.name }] },
         'intelligence' => { 'wsUrl' => @client_url }, 'runtimeEntitlements' => entitlement,
         'licenseStatus' => license_status,
         'threadEndpoints' => { 'list' => true, 'inspect' => true, 'mutations' => true, 'realtimeMetadata' => true },
@@ -223,7 +223,7 @@ module CopilotKit
 
     def connect(thread_id, user, agent_id)
       result = @platform.request('POST', "/api/threads/#{escaped(thread_id)}/connect", 'userId' => user['id'], 'agentId' => agent_id)
-      [result ? 200 : 204, result && credentials(result).reject { |key, _| key == 'runId' }]
+      [result ? 200 : 204, result && credentials(result)]
     end
 
     def threads(method, path, query, body, user)

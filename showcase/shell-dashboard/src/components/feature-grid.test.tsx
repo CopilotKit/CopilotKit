@@ -430,13 +430,13 @@ describe("FeatureGrid — Starter row-group", () => {
     expect(cell.textContent).toContain("?");
   });
 
-  it("an unmapped column renders the 🚫 not-supported cell with the framework tooltip", () => {
+  it("an unmapped column renders the ∅ not-supported cell with the framework tooltip", () => {
     expect(unmapped, "registry must have ≥1 unmapped column").toBeDefined();
     const { getByTestId } = renderGrid(new Map());
     const cell = getByTestId(`starter-cell-${unmapped!.slug}-health`);
-    // An integration with NO starter renders the 🚫 unsupported treatment —
+    // An integration with NO starter renders the ∅ unsupported treatment —
     // NOT a grey/no-data `?` and NOT a red smoke-failed `✗`.
-    expect(cell.textContent).toContain("🚫");
+    expect(cell.textContent).toContain("∅");
     expect(cell.textContent).not.toContain("✗");
     const chip = cell.querySelector("[title]");
     expect(chip?.getAttribute("title")).toBe("Not supported by this framework");

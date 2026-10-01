@@ -4,8 +4,16 @@ on:
     branches: [main]
     paths:
       - "showcase/shell-docs/src/content/**"
+      - "scripts/validate-docs-deprecated-imports.mjs"
+      - "scripts/__tests__/validate-docs-deprecated-imports.test.mjs"
+      - "scripts/docs-deprecated-imports-baseline.json"
+      - "scripts/deprecations/**"
       - "showcase/shell-docs/model-allowlist.json"
       - "showcase/shell-docs/src/lib/__tests__/ms-agent-dotnet-provider.test.ts"
+      # The @ag-ui install-pin check compares docs install lines with the
+      # runtime's dependency, so a runtime pin bump must run it too.
+      - "showcase/shell-docs/src/lib/__tests__/ag-ui-install-pin.test.ts"
+      - "packages/runtime/package.json"
       # The setup-concept gate below reads snippets owned by the integration
       # packages and by the docs-only snippet tree, so a new or edited snippet
       # has to trigger this workflow. Before OSS-1036 neither path was listed,
@@ -36,6 +44,7 @@ on:
       - "showcase/shell-docs/package-lock.json"
       - "examples/integrations/ms-agent-framework-dotnet/**"
       - "scripts/validate-doc-model-names.ts"
+      - "scripts/__tests__/validate-doc-model-names.test.ts"
       - "scripts/doc-tests/**"
       - "tools/learned-skill-conformance/workspace-artifacts*.mjs"
       - ".github/workflows/test_integration-docs.yml"
@@ -43,8 +52,16 @@ on:
     branches: [main]
     paths:
       - "showcase/shell-docs/src/content/**"
+      - "scripts/validate-docs-deprecated-imports.mjs"
+      - "scripts/__tests__/validate-docs-deprecated-imports.test.mjs"
+      - "scripts/docs-deprecated-imports-baseline.json"
+      - "scripts/deprecations/**"
       - "showcase/shell-docs/model-allowlist.json"
       - "showcase/shell-docs/src/lib/__tests__/ms-agent-dotnet-provider.test.ts"
+      # The @ag-ui install-pin check compares docs install lines with the
+      # runtime's dependency, so a runtime pin bump must run it too.
+      - "showcase/shell-docs/src/lib/__tests__/ag-ui-install-pin.test.ts"
+      - "packages/runtime/package.json"
       # The setup-concept gate below reads snippets owned by the integration
       # packages and by the docs-only snippet tree, so a new or edited snippet
       # has to trigger this workflow. Before OSS-1036 neither path was listed,
@@ -75,6 +92,7 @@ on:
       - "showcase/shell-docs/package-lock.json"
       - "examples/integrations/ms-agent-framework-dotnet/**"
       - "scripts/validate-doc-model-names.ts"
+      - "scripts/__tests__/validate-doc-model-names.test.ts"
       - "scripts/doc-tests/**"
       - "tools/learned-skill-conformance/workspace-artifacts*.mjs"
       - ".github/workflows/test_integration-docs.yml"
@@ -101,7 +119,14 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The validator's own tests. Until PE-418 nothing in CI ran them.
+      - run: pnpm exec vitest run scripts/__tests__/validate-doc-model-names.test.ts
       - run: pnpm tsx scripts/validate-doc-model-names.ts
+      # Fails when a page teaches a deprecated v1 symbol it did not teach
+      # before. v1 is still supported and documented on purpose, so this is a
+      # ratchet against a baseline rather than a ban — see the validator's
+      # header for why a ban reports 184 findings on a clean tree.
+      - run: pnpm nx run repo-scripts:validate-docs-deprecated-imports
 
   ms-agent-dotnet-guidance:
     name: Microsoft Agent Framework .NET guidance
@@ -125,6 +150,9 @@ jobs:
       - name: Check Microsoft Agent Framework .NET guidance
         working-directory: showcase/shell-docs
         run: npm exec -- vitest run src/lib/__tests__/ms-agent-dotnet-provider.test.ts
+      - name: Check docs @ag-ui installs match the runtime
+        working-directory: showcase/shell-docs
+        run: npm exec -- vitest run src/lib/__tests__/ag-ui-install-pin.test.ts
 
   setup-concept-coverage:
     name: Framework setup-concept coverage

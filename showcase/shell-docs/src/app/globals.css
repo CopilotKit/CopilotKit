@@ -948,9 +948,25 @@ figure.shiki > div:first-child[class*="border-b"] {
  * grid down by the nav height plus a small breathing gap so the first page
  * content does not feel pinned to the chrome. Fumadocs v16 no longer ships
  * this `pt-(--fd-nav-height)` default on the grid root the way v15 did. */
+/* The compact TOC sticks inside the docs scroller, beneath the fixed nav.
+ * The banner already offsets that scroller in normal document flow. */
+@media (max-width: 1279px) {
+  #nd-docs-layout {
+    --fd-docs-height: calc(
+      100dvh - var(--fd-banner-height, 0px) - 1.5rem
+    ) !important;
+    min-height: 0 !important;
+    height: 100%;
+    /* Cancel the outer main margin in the sticky offset. */
+    --fd-docs-row-2: -0.75rem !important;
+  }
+}
+
 @media (max-width: 767px) {
   #nd-docs-layout {
     --fd-docs-row-1: 0px !important;
+    /* Mobile has an 8px outer margin plus 16px of extra top padding. */
+    --fd-docs-row-2: -1.5rem !important;
     padding-top: calc(var(--fd-nav-height) + 1rem) !important;
     grid-template-columns: minmax(0, 1fr) !important;
     width: 100% !important;
@@ -1839,6 +1855,80 @@ samp {
   margin-bottom: 0;
 }
 
+/* Fumadocs sizes the Callout icon (20px) for its own text-sm line (20px). The
+ * unlayered `.reference-content p` rule above gives the callout's first line
+ * 1rem x 1.75 = 28px, so the icon sat 4px above the text. Center it on that
+ * line. The inline --callout-color property is the only stable hook, because
+ * the fumadocs Callout renders no class or data attribute of its own. */
+.reference-content [style*="--callout-color"] > svg {
+  margin-top: calc((1rem * 1.75 - 1.25rem) / 2);
+}
+
+/* Framework landing sections (<FrameworkOverview> and its Intelligence block).
+ *
+ * The same component reaches the page through two routes: the data-record
+ * route mounts it directly, the authored-MDX route mounts it inside
+ * `.reference-content`. Because the prose rules above are unlayered, they beat
+ * the component's Tailwind utilities, so one route rendered each heading with
+ * 48px of section margin plus 48px of prose margin and a different type size
+ * than the other. `not-prose` does not help: it neutralizes the Tailwind
+ * typography plugin, not these rules.
+ *
+ * So the contested element-level typography lives here, once, unlayered, and
+ * applies on both routes — same reasoning as `.prose-no-margin` directly above
+ * and `.fd-steps` earlier in this file. Everything not contested (colour,
+ * layout, card chrome) stays in the component as utilities. The section owns
+ * its vertical rhythm through its own `mt-*`; the elements inside contribute
+ * none of their own.
+ */
+/* Headings: the prose rules set both margins, and the section owns its own
+ * rhythm, so both go. Paragraphs: prose sets only `margin-bottom`, so only
+ * that is removed — leaving the components' `mt-*` utilities free to space
+ * paragraphs, which they can do because nothing unlayered competes for
+ * `margin-top` on a `p`. */
+.shell-docs-landing-section :is(h2, h3) {
+  margin: 0;
+}
+
+.shell-docs-landing-section p {
+  margin-bottom: 0;
+}
+
+/* The heading reset above also zeroes the gap a capability title needs below
+ * its seam line, and no `mt-*` utility can restore it. Restated here for the
+ * one case that has a preceding line. */
+.shell-docs-landing-section .shell-docs-landing-caption + h3 {
+  margin-top: 0.5rem;
+}
+
+.shell-docs-landing-section h2 {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+.shell-docs-landing-section h3 {
+  font-size: 1.125rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.shell-docs-landing-section p {
+  font-size: 0.9375rem;
+  line-height: 1.65;
+}
+
+/* The two deliberately smaller lines: the seam above a capability title, and
+ * the caption beside an action button. They need an explicit class because the
+ * rule above is unlayered and would otherwise flatten their utility sizes back
+ * to body size. */
+.shell-docs-landing-section p.shell-docs-landing-caption {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
 .reference-content ul,
 .reference-content ol {
   font-size: 1rem;
@@ -2125,3 +2215,1097 @@ samp {
  * fires on any <a> that bleeds into a code block (e.g. a link inside
  * a callout that sits above the code), which is fine. We don't touch
  * that here; this is just the documented expectation. */
+
+/* Partner landing pages reuse the home onboarding surface. Scoped rules keep
+   authored MDX prose from changing its hierarchy or interactive controls. */
+.partner-landing {
+  padding-bottom: 3rem;
+  color: var(--text);
+}
+.partner-landing > .partner-hero > h1 {
+  margin: 0;
+  max-width: 22ch;
+  font-size: clamp(2.3rem, 4vw, 3.75rem);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  font-weight: 600;
+  text-wrap: balance;
+}
+.partner-hero h1 > span {
+  color: var(--accent);
+}
+.partner-hero {
+  padding: 0.5rem 0 2.5rem;
+}
+.partner-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+  color: var(--accent);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.partner-logo {
+  display: flex;
+}
+.partner-logo svg {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+.partner-landing .partner-summary {
+  margin: 1.5rem 0 1.75rem;
+  max-width: 54ch;
+  font-size: 1.125rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+.partner-section {
+  margin-top: 3.5rem;
+}
+.partner-landing .partner-section > h2 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+}
+.partner-landing .partner-section-intro {
+  margin: 0.75rem 0 1.75rem;
+  max-width: 65ch;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.partner-showcase-intro {
+  margin: 1rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.partner-capabilities {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+.partner-capability {
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--shell-docs-radius-surface);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-panel);
+}
+.partner-capability h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.partner-capability p {
+  margin: 0.5rem 0 1rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+.partner-capability a,
+.partner-capabilities-footnote a,
+.partner-connect-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--accent);
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+.partner-capability a + a {
+  margin-left: 1rem;
+}
+.partner-capabilities-footnote {
+  margin: 1rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+.partner-connect-snippet {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--shell-docs-radius-surface);
+  background: var(--bg-elevated);
+}
+.partner-connect-snippet pre {
+  margin: 0;
+  padding: 1rem;
+}
+.partner-connect-link {
+  margin-top: 1rem;
+}
+.partner-details {
+  border-top: 1px solid var(--border);
+  margin-top: 1.5rem;
+}
+.partner-details summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.875rem;
+}
+.partner-details summary::-webkit-details-marker {
+  display: none;
+}
+.partner-details[open] > summary > svg {
+  transform: rotate(180deg);
+}
+.partner-details pre {
+  overflow-x: auto;
+}
+.partner-architecture {
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+}
+.partner-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+.partner-landing .partner-footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+.partner-landing .partner-footer a:first-child {
+  color: var(--text-muted);
+}
+.partner-landing :is(.partner-footer a, summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+.partner-video-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0.75rem;
+}
+.partner-video-options button {
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+.partner-video-options button[aria-pressed="true"] {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+.partner-video-frame {
+  position: relative;
+}
+.partner-video-frame video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 12px;
+}
+.partner-video-status {
+  position: absolute;
+  inset: 1px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border-radius: 12px;
+}
+.partner-video-status a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.partner-landing .partner-video-caption {
+  margin: 0.75rem 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+@media (max-width: 639px) {
+  .partner-hero {
+    padding-bottom: 2rem;
+  }
+  .partner-landing .partner-summary {
+    font-size: 1rem;
+  }
+  .partner-section {
+    margin-top: 3rem;
+  }
+  .partner-landing .partner-section > h2 {
+    font-size: 1.75rem;
+  }
+}
+
+/* MDX's unlayered prose rules must not override the shared home wizard. */
+.reference-content .partner-wizard :is(h2, h3, h4, p, ol, ul, li) {
+  font-size: revert-layer;
+  font-weight: revert-layer;
+  color: revert-layer;
+  margin: revert-layer;
+  padding: revert-layer;
+  line-height: revert-layer;
+  letter-spacing: revert-layer;
+  list-style: revert-layer;
+}
+
+/* Partner demos share one stage; each selected showcase runs at 80% scale. */
+.partner-explorer {
+  margin-top: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.partner-explorer-frame {
+  position: relative;
+  height: 560px;
+  overflow: hidden;
+  background: var(--bg-surface);
+}
+.partner-demo-iframe {
+  display: block;
+  border: 0;
+  width: 125%;
+  height: 125%;
+  transform: scale(0.8);
+  transform-origin: top left;
+}
+.partner-recording-iframe {
+  display: block;
+  border: 0;
+  width: 100%;
+  height: 100%;
+}
+.partner-feature-carousel {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+.partner-feature-carousel > .overflow-hidden {
+  flex: 1;
+  min-width: 0;
+}
+.partner-carousel-arrow {
+  position: static;
+  translate: none;
+  transform: none;
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  height: 44px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.partner-feature-track {
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+  margin-left: 0;
+  gap: 0.4rem;
+}
+.partner-feature-item {
+  flex-basis: auto;
+  padding-left: 0;
+}
+.partner-feature-item button {
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0.65rem 1rem;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  border-radius: var(--shell-docs-radius-control);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.partner-feature-item button:hover {
+  background: var(--bg-elevated);
+}
+.partner-feature-item button[aria-pressed="true"] {
+  background: var(--accent-fill);
+  color: var(--primary-foreground);
+  border-color: var(--accent-fill);
+  font-weight: 500;
+}
+.partner-feature-carousel button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+@media (max-width: 640px) {
+  .partner-explorer-frame {
+    height: 460px;
+  }
+}
+
+.partner-demo-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  text-align: center;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+.partner-demo-loading a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--accent);
+}
+
+/* Keep this utility action quiet over both live demos and recordings. */
+.partner-landing .partner-demo-guide {
+  position: absolute;
+  bottom: 0.75rem;
+  right: 0.75rem;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 32px;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: var(--shell-docs-radius-control);
+  background: var(--bg-surface);
+  color: var(--text);
+  -webkit-text-fill-color: var(--text);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+.partner-landing .partner-demo-guide:hover {
+  background: var(--bg-elevated);
+  border-color: var(--text-muted);
+}
+.partner-demo-guide:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Render compact navigation labels in-page; native title tooltips are not
+ * consistently displayed by embedded browsers. Keep labels inside the viewport. */
+[data-tooltip] {
+  position: relative;
+}
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 100;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text);
+  box-shadow: var(--shadow-control);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+.partner-wizard {
+  container-type: inline-size;
+}
+.partner-section > .reference-content {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+}
+
+/* Intelligence overview cards: solid accent icon badge with a white glyph. */
+.intelligence-accent-cards [data-card] > div:first-child {
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: none;
+}
+
+/* The setup wizard keeps one stable sidebar and question stage. */
+.wizard-layout-root {
+  container-type: inline-size;
+}
+.wizard-rail-progress button:focus-visible,
+.wizard-step-choice:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.wizard-step-card {
+  display: flex;
+  width: 100%;
+  max-width: 54rem;
+  min-height: 100%;
+  margin: 0 auto;
+  flex-direction: column;
+}
+.wizard-step-heading {
+  font-size: 1.5rem;
+  line-height: 1.25;
+}
+.wizard-step-description {
+  margin-top: 0.4rem;
+  max-width: 65ch;
+}
+.wizard-step-choices {
+  margin-top: 1.25rem;
+}
+.wizard-step-card [data-testid="wizard-footer"] {
+  margin-top: auto;
+}
+.wizard-step-card [data-testid="wizard-footer"] button {
+  width: auto;
+}
+.wizard-step-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+}
+.wizard-step-choice {
+  display: block;
+  width: 100%;
+  min-height: 5.25rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--shell-docs-radius-control);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 150ms,
+    background-color 150ms,
+    box-shadow 150ms;
+}
+.wizard-step-choice:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  box-shadow: var(--shadow-control);
+}
+.wizard-step-choice-main {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+.wizard-step-choice-copy {
+  min-width: 0;
+}
+.wizard-step-choice-icon {
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--accent);
+}
+.wizard-step-choice-description {
+  margin: 0.3rem 0 0;
+}
+.wizard-step-choice-grid--illustrated {
+  grid-template-columns: minmax(0, 1fr);
+}
+.wizard-step-choice--illustrated {
+  display: grid;
+  min-height: clamp(9rem, 19dvh, 11rem);
+  grid-template-columns: minmax(0, 1.2fr) minmax(9rem, 0.8fr);
+  align-items: center;
+  gap: 1rem;
+  padding: 0.8rem;
+}
+.wizard-step-choice--illustrated:not([aria-pressed="true"]) {
+  border-color: color-mix(in srgb, var(--text) 22%, var(--bg-surface));
+}
+.wizard-step-choice--illustrated:not([aria-pressed="true"]):hover {
+  border-color: var(--accent);
+}
+.wizard-step-choice--illustrated .wizard-step-choice-main {
+  padding: 0 0.4rem 0 0;
+}
+.wizard-project-choice-action {
+  display: inline-flex;
+  min-height: 2.5rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--shell-docs-radius-control);
+  background: var(--accent-fill);
+  color: var(--primary-foreground);
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.wizard-step-choice--illustrated:active {
+  background: var(--accent-dim);
+}
+.wizard-project-preview {
+  display: block;
+  height: clamp(7.5rem, 17dvh, 10rem);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 10%, var(--border));
+  border-radius: calc(var(--shell-docs-radius-control) - 0.25rem);
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg-surface));
+}
+.wizard-project-preview-window {
+  display: block;
+  height: 100%;
+  margin: 0.55rem 0.55rem 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem 0.5rem 0 0;
+  background: var(--bg-surface);
+  box-shadow: 0 0.35rem 1rem -0.55rem
+    color-mix(in srgb, var(--text) 25%, transparent);
+}
+.wizard-project-preview-chrome {
+  display: flex;
+  height: 1.15rem;
+  align-items: center;
+  gap: 0.2rem;
+  padding-left: 0.45rem;
+  border-bottom: 1px solid var(--border);
+}
+.wizard-project-preview-chrome i {
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-muted) 45%, transparent);
+}
+.wizard-project-preview-existing {
+  position: relative;
+  display: flex;
+  height: calc(100% - 1.15rem);
+}
+.wizard-project-preview-sidebar {
+  display: grid;
+  width: 28%;
+  align-content: start;
+  gap: 0.45rem;
+  padding: 0.55rem 0.35rem;
+  background: var(--bg-elevated);
+}
+.wizard-project-preview-sidebar b,
+.wizard-project-preview-sidebar i,
+.wizard-project-preview-content b,
+.wizard-project-preview-content i,
+.wizard-project-preview-assistant i {
+  display: block;
+  height: 0.28rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 23%, transparent);
+}
+.wizard-project-preview-sidebar b {
+  width: 55%;
+  height: 0.45rem;
+  background: var(--accent);
+}
+.wizard-project-preview-sidebar i:nth-child(3) {
+  width: 70%;
+}
+.wizard-project-preview-content {
+  display: grid;
+  width: 72%;
+  align-content: start;
+  gap: 0.6rem;
+  padding: 0.65rem;
+}
+.wizard-project-preview-content b {
+  width: 48%;
+  height: 0.42rem;
+  background: color-mix(in srgb, var(--text) 62%, transparent);
+}
+.wizard-project-preview-content i {
+  width: 82%;
+  height: 1.1rem;
+  border-radius: 0.3rem;
+  background: var(--bg-elevated);
+}
+.wizard-project-preview-assistant {
+  position: absolute;
+  right: 0.4rem;
+  bottom: 0.5rem;
+  display: grid;
+  width: 48%;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border-radius: 0.45rem;
+  background: var(--bg-surface);
+  color: var(--accent);
+  box-shadow: 0 0.35rem 0.9rem -0.4rem
+    color-mix(in srgb, var(--accent) 30%, transparent);
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.wizard-project-preview-assistant-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.wizard-project-preview-assistant-brand span {
+  font-size: 0.5rem;
+  font-weight: 700;
+}
+.wizard-project-preview-assistant svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+.wizard-project-preview-assistant i {
+  width: 90%;
+  background: var(--accent-dim);
+}
+.wizard-project-preview-assistant i:last-child {
+  width: 65%;
+}
+.wizard-project-preview-new {
+  display: grid;
+  height: calc(100% - 1.15rem);
+  align-content: center;
+  justify-items: center;
+  gap: 0.35rem;
+  color: var(--accent);
+}
+.wizard-project-preview-new > span:nth-child(2) {
+  color: var(--text-muted);
+  font-size: 0.55rem;
+  font-weight: 600;
+}
+.wizard-project-preview-starters {
+  display: flex;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+}
+.wizard-project-preview-starters i {
+  width: 1.2rem;
+  height: 0.45rem;
+  border-radius: 0.2rem;
+  background: var(--accent-dim);
+}
+.wizard-step-choice--illustrated:hover .wizard-project-preview-assistant {
+  transform: translateY(-0.35rem);
+}
+.wizard-step-choice--illustrated:hover .wizard-project-preview-new svg {
+  transform: scale(1.12);
+}
+.wizard-project-preview-new svg {
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.wizard-rail-layout {
+  display: grid;
+  grid-template-columns: minmax(11rem, 12.5rem) minmax(0, 1fr);
+  min-height: 29rem;
+  max-height: 47rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--shell-docs-radius-surface);
+  background: var(--bg-surface);
+}
+.wizard-rail-progress {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+  background: var(--bg-elevated);
+  padding: 1.1rem 0.7rem;
+}
+.wizard-rail-progress-heading {
+  margin: 0.15rem 0.65rem 1rem;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.wizard-rail-list-wrap {
+  position: relative;
+  min-height: 0;
+  overflow-y: auto;
+}
+.wizard-rail-active-marker {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3.75rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border-radius: var(--shell-docs-radius-control);
+  background: var(--accent-dim);
+  transition:
+    transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 180ms,
+    background-color 180ms;
+  pointer-events: none;
+}
+.wizard-rail-progress ol {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wizard-rail-progress button {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 3.75rem;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 0.65rem;
+  border: 0;
+  border-radius: var(--shell-docs-radius-control);
+  color: var(--text-muted);
+  text-align: left;
+  cursor: pointer;
+}
+.wizard-rail-progress button:hover:not(:disabled):not([aria-current="step"]) {
+  background: var(--bg-surface);
+}
+.wizard-rail-progress button[data-selected="true"] {
+  color: var(--text-secondary);
+}
+.wizard-rail-progress button[aria-current="step"] {
+  color: var(--accent);
+}
+.wizard-rail-progress button:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+.wizard-rail-number {
+  display: grid;
+  width: 1.6rem;
+  height: 1.6rem;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-surface);
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.wizard-rail-progress [data-selected="true"] .wizard-rail-number,
+.wizard-rail-progress [aria-current="step"] .wizard-rail-number {
+  border-color: var(--accent-fill);
+  background: var(--accent-fill);
+  color: var(--primary-foreground);
+}
+.wizard-rail-step-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.12rem;
+}
+.wizard-rail-step-label {
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+.wizard-rail-step-summary {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wizard-rail-progress-footer {
+  display: grid;
+  gap: 0.55rem;
+  margin: auto 0.65rem 0;
+  padding-top: 1rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+.wizard-rail-progress-title {
+  display: none;
+}
+.wizard-rail-progress-footer--mobile {
+  display: none;
+}
+.wizard-rail-progress-track {
+  height: 0.2rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--border);
+}
+.wizard-rail-progress-track--mobile-edge {
+  display: none;
+}
+.wizard-rail-progress-track span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transform-origin: left;
+  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.wizard-rail-arrows {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+.wizard-rail-progress-footer .wizard-rail-arrows button {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--shell-docs-radius-control);
+  background: var(--bg-surface);
+  color: var(--text);
+  transition:
+    border-color 150ms,
+    background-color 150ms,
+    color 150ms;
+}
+.wizard-rail-progress-footer .wizard-rail-arrows button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+.wizard-rail-progress-footer .wizard-rail-arrows button:disabled {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+.wizard-rail-stage {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-anchor: none;
+  padding: 2rem;
+}
+.wizard-rail-stage[data-wizard-step="3"] .wizard-step-card {
+  max-width: none;
+}
+.wizard-rail-layout .wizard-backend-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+}
+.wizard-rail-layout .wizard-capability-grid {
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+.wizard-rail-layout .wizard-pick-grid {
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+@media (prefers-reduced-motion: reduce) {
+  .wizard-rail-active-marker,
+  .wizard-rail-progress-track span,
+  .wizard-project-preview-assistant,
+  .wizard-project-preview-new svg {
+    transition-duration: 0ms;
+  }
+}
+@container (max-width: 55rem) {
+  .wizard-rail-stage .wizard-review-feature-summary {
+    flex-wrap: wrap;
+    gap: 0.125rem;
+  }
+  .wizard-rail-stage .wizard-review-feature-preview {
+    width: 100%;
+  }
+  .wizard-rail-layout .wizard-backend-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container (max-width: 43rem) {
+  .wizard-rail-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    height: clamp(34rem, 70dvh, 46rem);
+  }
+  .wizard-rail-progress {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 0.7rem;
+  }
+  .wizard-rail-progress-heading,
+  .wizard-rail-active-marker,
+  .wizard-rail-step-summary {
+    display: none;
+  }
+  .wizard-rail-list-wrap {
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    touch-action: pan-x;
+    user-select: none;
+  }
+  .wizard-rail-list-wrap::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  .wizard-rail-progress-footer {
+    margin: 0;
+    padding: 0.45rem 0.85rem 0.6rem;
+  }
+  .wizard-rail-progress-footer--desktop {
+    display: none;
+  }
+  .wizard-rail-progress-footer--mobile {
+    display: grid;
+    grid-row: 3;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    column-gap: 0.75rem;
+    row-gap: 0.3rem;
+    background: var(--bg-elevated);
+  }
+  .wizard-rail-progress-footer--mobile > span:first-child {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: center;
+  }
+  .wizard-rail-progress-footer--mobile .wizard-rail-progress-track {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .wizard-rail-progress-footer--mobile .wizard-rail-arrows {
+    display: contents;
+  }
+  .wizard-rail-progress-footer--mobile .wizard-rail-arrows button:first-child {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .wizard-rail-progress-footer--mobile .wizard-rail-arrows button:last-child {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .wizard-rail-progress ol {
+    display: flex;
+    width: max-content;
+  }
+  .wizard-rail-progress li {
+    scroll-snap-align: center;
+  }
+  .wizard-rail-progress button {
+    width: auto;
+    height: 2.75rem;
+    white-space: nowrap;
+  }
+  .wizard-rail-progress button[aria-current="step"] {
+    background: var(--accent-dim);
+    box-shadow: none;
+  }
+  .wizard-rail-stage {
+    grid-column: 1;
+    grid-row: 2;
+    padding: 1.25rem;
+  }
+}
+@container (max-width: 33rem) {
+  .wizard-rail-layout .wizard-backend-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wizard-step-choice-grid {
+    grid-template-columns: 1fr;
+  }
+  .wizard-step-choice--illustrated {
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.7rem;
+  }
+  .wizard-step-choice--illustrated .wizard-step-choice-main {
+    grid-row: 1;
+  }
+  .wizard-project-preview {
+    grid-row: 2;
+    height: 5rem;
+    min-height: 0;
+  }
+}
+.wizard-rail-progress-footer--top {
+  display: none;
+}
+@media (max-width: 767px) {
+  .wizard-rail-layout {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+  .wizard-rail-progress {
+    display: none;
+  }
+  .wizard-rail-progress-footer--bottom {
+    display: none;
+  }
+  .wizard-rail-progress-footer--top {
+    display: grid;
+    grid-row: 1;
+    grid-template-rows: auto;
+    row-gap: 0;
+  }
+  .wizard-rail-progress-footer--mobile > span:first-child {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .wizard-rail-progress-footer--mobile .wizard-rail-progress-track {
+    display: none;
+  }
+  .wizard-rail-progress-track--mobile-edge {
+    display: block;
+    width: 100%;
+    height: 0.25rem;
+    grid-column: 1;
+    grid-row: 3;
+    border-radius: 0;
+  }
+  .wizard-rail-progress-footer--mobile .wizard-rail-progress-count {
+    display: none;
+  }
+  .wizard-rail-progress-footer--mobile .wizard-rail-progress-title {
+    display: inline;
+    color: var(--text);
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+  .wizard-rail-stage {
+    grid-row: 2;
+    padding-block: 1.25rem 0.75rem;
+  }
+  .wizard-rail-stage[data-wizard-step="1"] .wizard-step-choices {
+    margin-top: 0.75rem;
+  }
+  .wizard-step-choice-grid--illustrated {
+    gap: 0.5rem;
+  }
+}

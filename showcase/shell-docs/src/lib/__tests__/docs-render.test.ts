@@ -20,12 +20,14 @@ import {
   inlineSnippets,
   loadDoc,
   navAncestorBreadcrumbsForSlug,
+  normalizeSidebarNav,
   readIcon,
   readTitle,
   SNIPPET_MAP,
   SNIPPETS_DIR,
 } from "../docs-render";
 import type { NavNode } from "../docs-render";
+import { getAngularDocsNavTree } from "../angular-doc-navigation";
 import { buildCookbookNavTree } from "../cookbook-nav";
 import { navTreeToPageTree } from "../page-tree-bridge";
 import { buildReferencePageTree } from "../reference-items";
@@ -92,6 +94,38 @@ function findPageByTitle(
 }
 
 type NavPageEntry = { title: string; slug: string };
+
+type NavGroupEntry =
+  | NavPageEntry
+  | { title: string; slug: string; children: NavPageEntry[] };
+
+/** Like groupPageEntries, but allows one level of nested group. */
+function groupEntries(navTree: NavNode[], groupTitle: string): NavGroupEntry[] {
+  for (const node of navTree) {
+    if (node.type !== "group") continue;
+    if (node.title === groupTitle) {
+      return node.children.map((child) => {
+        if (child.type === "page")
+          return { title: child.title, slug: child.slug };
+        if (child.type === "group") {
+          return {
+            title: child.title,
+            slug: child.slug,
+            children: child.children.map((grandchild) => {
+              if (grandchild.type !== "page")
+                throw new Error("expected page entry");
+              return { title: grandchild.title, slug: grandchild.slug };
+            }),
+          };
+        }
+        throw new Error(`${groupTitle} contains an unexpected node`);
+      });
+    }
+    const nested = groupEntries(node.children, groupTitle);
+    if (nested.length > 0) return nested;
+  }
+  return [];
+}
 
 function groupPageEntries(
   navTree: NavNode[],
@@ -225,18 +259,21 @@ describe("inlineSnippets", () => {
 
 describe("loadDoc", () => {
   it("resolves clean URLs to files stored under route-group folders", () => {
-    const doc = loadDoc("integrations/aws-strands/telemetry");
+    // llamaindex is an `authored` integration, so this file is served content
+    // rather than a copy the root page shadows. The aws-strands equivalent
+    // this used to assert on was deleted as a never-served duplicate.
+    const doc = loadDoc("integrations/llamaindex/telemetry");
 
     expect(doc?.filePath.split(path.sep).join("/")).toContain(
-      "integrations/aws-strands/(other)/telemetry/index.mdx",
+      "integrations/llamaindex/(other)/telemetry/index.mdx",
     );
   });
 
-  it("keeps the Threads overview and headless implementation on separate routes", () => {
-    expect(loadDoc("threads")?.fm.title).toBe("Rich Threads");
+  it("keeps the AG-UI Streams overview and headless implementation on separate routes", () => {
+    expect(loadDoc("threads")?.fm.title).toBe("AG-UI Streams");
     expect(loadDoc("headless-threads")?.fm.title).toBe("Headless Threads");
     expect(loadDoc("integrations/mastra/threads")?.fm.title).toBe(
-      "Rich Threads",
+      "AG-UI Streams",
     );
     expect(loadDoc("integrations/mastra/headless-threads")?.fm.title).toBe(
       "Headless Threads",
@@ -250,27 +287,36 @@ describe("loadDoc", () => {
     );
 
     const screenshot = overview.indexOf("support-desk-threads.png");
-    const gettingStarted = overview.indexOf("## Get started");
-    const why = overview.indexOf("## Why use CopilotKit Rich Threads?");
+    const agentSetup = overview.indexOf("## Start with your coding agent");
+    const prompt = overview.indexOf("<RichThreadsSetupPrompt />");
+    const gettingStarted = overview.indexOf("## Set up AG-UI Streams manually");
+    const manualSteps = overview.indexOf("<Steps>");
+    const why = overview.indexOf("## Why use CopilotKit AG-UI Streams?");
     const diagram = overview.indexOf("threads-diagram-light.png");
 
     expect(screenshot).toBeGreaterThan(-1);
-    expect(screenshot).toBeLessThan(gettingStarted);
+    expect(screenshot).toBeLessThan(agentSetup);
+    expect(agentSetup).toBeLessThan(prompt);
+    expect(prompt).toBeLessThan(gettingStarted);
+    expect(gettingStarted).toBeLessThan(manualSteps);
+    expect(manualSteps).toBeLessThan(why);
     expect(gettingStarted).toBeLessThan(why);
     expect(why).toBeLessThan(diagram);
     expect(overview).toContain("npx copilotkit@latest init");
-    expect(overview).toContain("Build and verify this with a coding agent");
+    expect(overview).not.toContain("<IntelligenceOnboardingPrompt");
+    expect(overview).not.toContain("docs_threads_agent_prompt");
     expect(overview).toContain("Threads-capable CLI starters already include");
     expect(overview).toContain("Book time with a CopilotKit engineer");
-    expect(overview).toContain("## Sync existing conversations");
+    expect(overview).toContain("## Add AG-UI Streams to existing threads");
+    expect(overview).toContain('<span id="sync-existing-conversations" />');
     expect(overview).toContain("threads-diagram-dark.png");
   });
 
-  it("links locked Inspector users to both Rich Threads Runtime route modes", () => {
+  it("links locked Inspector users to both AG-UI Streams Runtime route modes", () => {
     const runtimeEndpoints = loadDoc("backend/runtime-endpoints")?.source ?? "";
     const inspector = loadDoc("inspector")?.source ?? "";
 
-    expect(runtimeEndpoints).toContain("## Enable Rich Threads routes");
+    expect(runtimeEndpoints).toContain("## Enable AG-UI Streams routes");
     expect(runtimeEndpoints).toContain('mode: "single-route"');
     expect(runtimeEndpoints).toContain(
       'import { CopilotKitProvider } from "@copilotkit/react-core/v2";',
@@ -282,8 +328,28 @@ describe("loadDoc", () => {
     expect(runtimeEndpoints).toContain('"list": true');
     expect(runtimeEndpoints).toContain('"inspect": true');
     expect(inspector).toContain(
-      "[Enable Rich Threads routes](/backend/runtime-endpoints#enable-rich-threads-routes)",
+      "[Enable AG-UI Streams routes](/backend/runtime-endpoints#enable-rich-threads-routes)",
     );
+  });
+
+  // An Intelligence runtime answers GET /threads with 400 unless the request
+  // names an agentId, so a copied list example must carry one.
+  it("documents agentId on the thread list route and its examples", () => {
+    const runtimeEndpoints = loadDoc("backend/runtime-endpoints")?.source ?? "";
+    const listRow = runtimeEndpoints
+      .split("\n")
+      .find((line) => line.startsWith("| `GET /api/copilotkit/threads`"));
+    const listCurls = runtimeEndpoints
+      .split("\n")
+      .filter((line) =>
+        /curl .*\/api\/copilotkit\/threads(?![/\w])/.test(line),
+      );
+
+    expect(listRow).toContain("`agentId`");
+    expect(listCurls.length).toBeGreaterThan(0);
+    for (const curl of listCurls) {
+      expect(curl).toContain("agentId=");
+    }
   });
 });
 
@@ -328,7 +394,7 @@ describe("readTitle", () => {
       filePath,
       [
         "---",
-        'title: "Threads"',
+        'title: "AG-UI Streams"',
         'nav_title: "Overview"',
         "---",
         "",
@@ -337,7 +403,7 @@ describe("readTitle", () => {
     );
 
     expect(readTitle(filePath)).toBe("Overview");
-    expect(loadDoc("threads")?.fm.title).toBe("Rich Threads");
+    expect(loadDoc("threads")?.fm.title).toBe("AG-UI Streams");
   });
 });
 
@@ -383,7 +449,7 @@ describe("migration docs", () => {
     );
 
     expect(referenceIndex).toContain(
-      'import { CopilotKit } from "@copilotkit/react-core/v2";',
+      'import { CopilotKitProvider } from "@copilotkit/react-core/v2";',
     );
     expect(referenceIndex).not.toContain(
       "CopilotKit is imported from the root package",
@@ -440,8 +506,10 @@ describe("cookbook nav", () => {
   it("renders overview and recipes as top-level entries without changing slugs", () => {
     const navTree = buildCookbookNavTree();
 
-    expect(navTree).toHaveLength(7);
+    expect(navTree).toHaveLength(9);
     expect(navTree.map((node) => node.type)).toEqual([
+      "page",
+      "page",
       "page",
       "page",
       "page",
@@ -462,10 +530,14 @@ describe("cookbook nav", () => {
       ["Arcade", "cookbook/arcade"],
       ["Angular + Google ADK", "cookbook/angular-adk-agentic-app"],
       ["OpenBox Governance", "cookbook/openbox-governed-copilotkit"],
+      ["Jev: fast generative UI", "cookbook/jev-generative-ui"],
+      ["Manufact", "cookbook/manufact"],
     ]);
 
     const pageTree = navTreeToPageTree(navTree, "");
     expect(pageTree.children.map((node) => node.type)).toEqual([
+      "page",
+      "page",
       "page",
       "page",
       "page",
@@ -484,6 +556,8 @@ describe("cookbook nav", () => {
       "/cookbook/arcade",
       "/cookbook/angular-adk-agentic-app",
       "/cookbook/openbox-governed-copilotkit",
+      "/cookbook/jev-generative-ui",
+      "/cookbook/manufact",
     ]);
 
     const overview = pageTree.children[0];
@@ -504,8 +578,9 @@ describe("framework nav", () => {
       { label: "Basics", href: null },
     ]);
     expect(navAncestorBreadcrumbsForSlug(navTree, "threads")).toEqual([
-      { label: "Basics", href: null },
-      { label: "Rich Threads", href: null },
+      { label: "Intelligence", href: null },
+      { label: "Features", href: null },
+      { label: "AG-UI Streams", href: null },
     ]);
     expect(
       navAncestorBreadcrumbsForSlug(navTree, "prebuilt-components"),
@@ -540,7 +615,7 @@ describe("framework nav", () => {
       "Learn",
       "Other",
     ]);
-    expect(navTree.slice(0, 3)).toMatchObject([
+    expect(navTree.slice(0, 4)).toMatchObject([
       {
         type: "page",
         title: "Introduction",
@@ -552,6 +627,12 @@ describe("framework nav", () => {
         title: "Quickstart",
         slug: "quickstart",
         icon: "lucide/Play",
+      },
+      {
+        type: "page",
+        title: "Build with agents",
+        slug: "build-with-agents",
+        icon: "lucide/BrainCircuit",
       },
       {
         type: "page",
@@ -591,59 +672,61 @@ describe("framework nav", () => {
     ).toBe(true);
     expect(sectionNodes(navTree, "Basics").map((node) => node.title)).toEqual([
       "Chat",
-      "Rich threads",
+      "Threads",
       "Frontend-tools",
     ]);
     expect(
       sectionNodes(navTree, "Intelligence").map((node) => node.title),
-    ).toEqual([
-      "Overview",
-      "Get started",
-      "Rich Threads",
-      "Automatic Learning",
-      "User Memories",
-      "Hosting",
-    ]);
+    ).toEqual(["Overview", "Get started", "Features", "Hosting"]);
     expect(
       sectionNodes(navTree, "Interactivity").map((node) => node.title),
     ).toEqual(["Shared state", "Human-in-the-loop", "WebMCP"]);
     expect(
       sectionNodes(navTree, "Agent capabilities").map((node) => node.title),
-    ).toEqual([
-      "Built-in Agent",
-      "Automatic Learning",
-      "User Memories",
-      "Sub-agents",
-    ]);
+    ).toEqual(["Built-in Agent", "Sub-agents"]);
     expect(groupPageEntries(navTree, "Get started")).toEqual([
       { title: "Quickstart", slug: "intelligence/quickstart" },
       { title: "Architecture", slug: "intelligence/intelligence-platform" },
-      {
-        title: "Connect your runtime",
-        slug: "intelligence/connect-your-runtime",
-      },
+      { title: "Plans", slug: "intelligence/plans" },
     ]);
     expect(
-      sectionNodes(navTree, "Intelligence").filter(
-        (node) => node.type === "page",
+      navTree.find(
+        (node) => node.type === "group" && node.title === "Features",
       ),
-    ).toMatchObject([
-      { type: "page", title: "Overview", slug: "intelligence/overview" },
-      { type: "page", title: "Rich Threads", slug: "threads" },
+    ).toMatchObject({ defaultOpen: true });
+    expect(groupEntries(navTree, "Features")).toEqual([
       {
-        type: "page",
+        title: "AG-UI Streams",
+        slug: "sidebar#ag-ui-streams",
+        children: [
+          { title: "Overview", slug: "threads" },
+          { title: "Add to Existing Threads", slug: "threads-import" },
+          { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
+          {
+            title: "Streams & Framework Threads",
+            slug: "intelligence/threads-explained",
+          },
+        ],
+      },
+      {
         title: "Automatic Learning",
         slug: "learning",
+        children: [
+          { title: "Automatic Learning", slug: "learning" },
+          { title: "Skill delivery", slug: "intelligence/learned-skills" },
+        ],
       },
-      {
-        type: "page",
-        title: "User Memories",
-        slug: "intelligence/memories",
-      },
+      { title: "User Memories", slug: "intelligence/memories" },
+      { title: "Product Analytics", slug: "intelligence/analytics" },
+      { title: "Channels", slug: "intelligence/channels" },
     ]);
     expect(groupPageEntries(navTree, "Hosting")).toEqual([
-      { title: "Cloud", slug: "intelligence/managed-intelligence-platform" },
+      {
+        title: "Cloud-hosted",
+        slug: "intelligence/managed-intelligence-platform",
+      },
       { title: "Self-hosted", slug: "intelligence/self-hosting" },
+      { title: "AWS ECS/Fargate", slug: "intelligence/self-hosting-ecs" },
     ]);
     expect(findPageByTitle(navTree, "Automatic Learning")).toMatchObject({
       slug: "learning",
@@ -653,9 +736,9 @@ describe("framework nav", () => {
     });
     expect(
       hasSectionPage(navTree, "Agent capabilities", "Automatic Learning"),
-    ).toBe(true);
+    ).toBe(false);
     expect(hasSectionPage(navTree, "Agent capabilities", "User Memories")).toBe(
-      true,
+      false,
     );
     expect(sectionNodes(navTree, "Backend").map((node) => node.title)).toEqual([
       "Runtime",
@@ -764,9 +847,10 @@ describe("framework nav", () => {
     const sharedFolderAuthoredNav = buildFrameworkOnlyNav("langgraph");
 
     for (const nav of [generatedNav, authoredNav, sharedFolderAuthoredNav]) {
-      expect(nav.slice(0, 3)).toMatchObject([
+      expect(nav.slice(0, 4)).toMatchObject([
         { type: "page", title: "Introduction", slug: "" },
         { type: "page", title: "Quickstart", slug: "quickstart" },
+        { type: "page", title: "Build with agents", slug: "build-with-agents" },
         {
           type: "page",
           title: "Intelligence",
@@ -778,7 +862,31 @@ describe("framework nav", () => {
     }
   });
 
-  it("orders the Threads job routes consistently across framework modes", () => {
+  it("preserves new authored Threads pages through sidebar normalization", () => {
+    const nav = structuredClone(buildRootSurfaceNav("built-in-agent"));
+    const threads = nav.find(
+      (node) => node.type === "group" && node.title === "Threads",
+    );
+    if (!threads || threads.type !== "group")
+      throw new Error("Missing Threads group");
+    threads.children.push({
+      type: "page",
+      title: "Custom thread UI",
+      slug: "custom-thread-ui",
+    });
+    const normalized = normalizeSidebarNav(nav);
+    expect(groupPageEntries(normalized, "Threads")).toContainEqual({
+      title: "Custom thread UI",
+      slug: "custom-thread-ui",
+    });
+    expect(
+      navAncestorBreadcrumbsForSlug(normalized, "custom-thread-ui")?.map(
+        ({ label }) => label,
+      ),
+    ).toEqual(["Basics", "Threads"]);
+  });
+
+  it("orders the AG-UI Streams job routes consistently across framework modes", () => {
     const generatedNav = buildFrameworkNav(
       "langgraph",
       "LangGraph (Python)",
@@ -786,28 +894,20 @@ describe("framework nav", () => {
     );
     const expected = [
       { title: "Overview", slug: "threads" },
+      { title: "Add to Existing Threads", slug: "threads-import" },
+      { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
+      {
+        title: "Streams & Framework Threads",
+        slug: "intelligence/threads-explained",
+      },
+    ];
+    const uiPages = [
       {
         title: "Threads Drawer",
         slug: "prebuilt-components/copilot-threads-drawer",
       },
       { title: "Headless Threads", slug: "headless-threads" },
-      { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
-      { title: "Synchronize Thread History", slug: "threads-import" },
-      {
-        title: "Self-Managed Persistence",
-        slug: "threads-self-managed",
-      },
-      {
-        title: "Threads & Persistence Architecture",
-        slug: "intelligence/threads-explained",
-      },
     ];
-    const withoutDrawer = expected.filter(
-      (entry) => entry.title !== "Threads Drawer",
-    );
-
-    expect(groupPageEntries(generatedNav, "Rich threads")).toEqual(expected);
-
     const authoredFolders = [
       ...new Set(
         getIntegrations()
@@ -815,28 +915,88 @@ describe("framework nav", () => {
           .map((integration) => getDocsFolder(integration.slug)),
       ),
     ];
-
-    for (const folder of authoredFolders) {
-      expect(
-        groupPageEntries(buildFrameworkOnlyNav(folder), "Rich threads"),
-      ).toEqual(folder === "deepagents" ? withoutDrawer : expected);
+    const trees = [
+      generatedNav,
+      buildRootSurfaceNav("built-in-agent"),
+      ...authoredFolders.map((folder) => buildFrameworkOnlyNav(folder)),
+    ];
+    for (const nav of trees) {
+      expect(groupPageEntries(nav, "AG-UI Streams")).toEqual(expected);
+      expect(groupPageEntries(nav, "Threads")).toEqual(uiPages);
+      const pages: string[] = [];
+      const collect = (nodes: NavNode[]) => {
+        for (const node of nodes) {
+          if (node.type === "page") pages.push(node.slug);
+          if (node.type === "group") collect(node.children);
+        }
+      };
+      collect(nav);
+      for (const { slug } of [...expected, ...uiPages]) {
+        expect(pages.filter((page) => page === slug)).toHaveLength(1);
+        expect(
+          navAncestorBreadcrumbsForSlug(nav, slug)?.map(({ label }) => label),
+        ).toEqual(
+          uiPages.some((page) => page.slug === slug)
+            ? ["Basics", "Threads"]
+            : ["Intelligence", "Features", "AG-UI Streams"],
+        );
+      }
+      const normalized = normalizeSidebarNav(nav);
+      expect(groupPageEntries(normalized, "AG-UI Streams")).toEqual(expected);
+      expect(groupPageEntries(normalized, "Threads")).toEqual(uiPages);
     }
   });
+
+  it.each([null, "langgraph-python", "google-adk"])(
+    "keeps Angular stream guides under Intelligence after filtering (%s)",
+    (framework) => {
+      const nav = getAngularDocsNavTree(framework);
+      const countPage = (nodes: NavNode[], slug: string): number =>
+        nodes.reduce(
+          (count, node) =>
+            count +
+            (node.type === "page" && node.slug === slug
+              ? 1
+              : node.type === "group"
+                ? countPage(node.children, slug)
+                : 0),
+          0,
+        );
+      expect(countPage(nav, "guides/threads-memory-attachments-headless")).toBe(
+        1,
+      );
+      expect(
+        navAncestorBreadcrumbsForSlug(
+          nav,
+          "intelligence/threads-explained",
+        )?.map(({ label }) => label),
+      ).toEqual(["Intelligence", "Features", "AG-UI Streams"]);
+      expect(groupPageEntries(nav, "AG-UI Streams")).toEqual([
+        {
+          title: "Streams & Framework Threads",
+          slug: "intelligence/threads-explained",
+        },
+      ]);
+      expect(
+        groupPageEntries(normalizeSidebarNav(nav, false), "AG-UI Streams"),
+      ).toEqual(groupPageEntries(nav, "AG-UI Streams"));
+    },
+  );
 
   it("keeps the thread synchronization route while preserving source-specific guides", () => {
     const generic = loadDoc("threads-import");
     const adk = loadDoc("integrations/adk/threads-import");
     const langgraph = loadDoc("integrations/langgraph/threads-import");
 
-    expect(generic?.fm.title).toBe("Import & Synchronize Thread History");
-    expect(adk?.fm.title).toBe("Synchronize ADK Threads");
-    expect(langgraph?.fm.title).toBe("Synchronize LangGraph Threads");
+    expect(generic?.fm.title).toBe("Add AG-UI Streams to Existing Threads");
+    expect(adk?.fm.title).toBe("Add AG-UI Streams to ADK Sessions");
+    expect(langgraph?.fm.title).toBe("Add AG-UI Streams to LangGraph Threads");
     expect(generic && readTitle(generic.filePath)).toBe(
-      "Synchronize Thread History",
+      "Add to Existing Threads",
     );
-    expect(adk && readTitle(adk.filePath)).toBe("Synchronize Thread History");
+    expect(adk && readTitle(adk.filePath)).toBe("Add to Existing Threads");
     expect(langgraph && readTitle(langgraph.filePath)).toBe(
-      "Synchronize Thread History",
+      "Add to Existing Threads",
     );
 
     const generatedNav = buildFrameworkNav(
@@ -844,8 +1004,8 @@ describe("framework nav", () => {
       "LangGraph (Python)",
       "langgraph-python",
     );
-    expect(groupPageEntries(generatedNav, "Rich threads")).toContainEqual({
-      title: "Synchronize Thread History",
+    expect(groupPageEntries(generatedNav, "AG-UI Streams")).toContainEqual({
+      title: "Add to Existing Threads",
       slug: "threads-import",
     });
   });
@@ -891,10 +1051,10 @@ describe("framework nav", () => {
       "If your project was created from a CopilotKit CLI starter",
     );
     expect(drawer).toContain("add it to an existing CopilotKit application");
-    expect(drawer).toContain("Get a free developer account");
+    expect(drawer).toContain("Start cloud-hosted setup");
     expect(drawer).toContain("## Set up the Threads Drawer");
     expect(drawer).not.toContain(
-      "Start with the [Rich Threads overview](/threads)",
+      "Start with the [AG-UI Streams overview](/threads)",
     );
 
     expect(headless).toContain(
@@ -928,13 +1088,13 @@ describe("framework nav", () => {
     expect(architecture).toContain("general replication link");
   });
 
-  it("links the hosted Intelligence guide to the Rich Threads journey", () => {
+  it("links the hosted Intelligence guide to the AG-UI Streams journey", () => {
     const managed =
       loadDoc("intelligence/managed-intelligence-platform")?.source ?? "";
 
-    expect(managed).toContain("[Rich Threads overview](/threads)");
+    expect(managed).toContain("cloud-hosted-thread-detail.png");
     expect(managed).toContain("[CopilotKit CLI](/cli)");
-    expect(managed).toContain("[Headless Threads](/headless-threads)");
+    expect(managed).toContain("[quickstart](/intelligence/quickstart)");
   });
 
   it("uses the generated Intelligence topic for authored framework nav", () => {
@@ -947,49 +1107,48 @@ describe("framework nav", () => {
     expect(hasSectionPage(navTree, "Basics", "Headless Threads")).toBe(true);
     expect(
       sectionNodes(navTree, "Intelligence").map((node) => node.title),
-    ).toEqual([
-      "Overview",
-      "Get started",
-      "Rich Threads",
-      "Automatic Learning",
-      "User Memories",
-      "Hosting",
-    ]);
+    ).toEqual(["Overview", "Get started", "Features", "Hosting"]);
     expect(groupPageEntries(navTree, "Get started")).toEqual([
       { title: "Quickstart", slug: "intelligence/quickstart" },
       {
         title: "Architecture",
         slug: "intelligence/intelligence-platform",
       },
-      {
-        title: "Connect your runtime",
-        slug: "intelligence/connect-your-runtime",
-      },
+      { title: "Plans", slug: "intelligence/plans" },
     ]);
-    expect(
-      sectionNodes(navTree, "Intelligence").filter(
-        (node) => node.type === "page",
-      ),
-    ).toMatchObject([
-      { type: "page", title: "Overview", slug: "intelligence/overview" },
-      { type: "page", title: "Rich Threads", slug: "threads" },
+    expect(groupEntries(navTree, "Features")).toEqual([
       {
-        type: "page",
+        title: "AG-UI Streams",
+        slug: "sidebar#ag-ui-streams",
+        children: [
+          { title: "Overview", slug: "threads" },
+          { title: "Add to Existing Threads", slug: "threads-import" },
+          { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
+          {
+            title: "Streams & Framework Threads",
+            slug: "intelligence/threads-explained",
+          },
+        ],
+      },
+      {
         title: "Automatic Learning",
         slug: "learning",
+        children: [
+          { title: "Automatic Learning", slug: "learning" },
+          { title: "Skill delivery", slug: "intelligence/learned-skills" },
+        ],
       },
-      {
-        type: "page",
-        title: "User Memories",
-        slug: "intelligence/memories",
-      },
+      { title: "User Memories", slug: "intelligence/memories" },
+      { title: "Product Analytics", slug: "intelligence/analytics" },
+      { title: "Channels", slug: "intelligence/channels" },
     ]);
     expect(groupPageEntries(navTree, "Hosting")).toEqual([
       {
-        title: "Cloud",
+        title: "Cloud-hosted",
         slug: "intelligence/managed-intelligence-platform",
       },
       { title: "Self-hosted", slug: "intelligence/self-hosting" },
+      { title: "AWS ECS/Fargate", slug: "intelligence/self-hosting-ecs" },
     ]);
   });
 });

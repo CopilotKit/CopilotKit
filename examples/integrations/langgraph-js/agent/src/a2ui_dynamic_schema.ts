@@ -49,7 +49,7 @@ export const generate_a2ui = tool(
       .filter(Boolean)
       .join("\n\n");
 
-    const model = new ChatOpenAI({ model: "gpt-4.1" });
+    const model = new ChatOpenAI({ model: "gpt-5-mini" });
     const modelWithTool = model.bindTools!([renderA2ui], {
       tool_choice: "render_a2ui",
     });

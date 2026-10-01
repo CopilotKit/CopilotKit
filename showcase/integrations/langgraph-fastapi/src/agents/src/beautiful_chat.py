@@ -217,7 +217,7 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
 
     prompt = context_text
 
-    model = ChatOpenAI(model="gpt-4.1")
+    model = ChatOpenAI(model="gpt-5-mini")
     model_with_tool = model.bind_tools(
         [render_a2ui],
         tool_choice="render_a2ui",

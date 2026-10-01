@@ -1,5 +1,12 @@
+// The published tool-rendering example must be copy-pasteable, so its imports
+// belong in the snippet. Same-name region blocks in ONE file concatenate in
+// source order (bundle-demo-content.ts), so this pairs with the block further
+// down that defines the tool itself. This note sits ABOVE the marker on
+// purpose — anything inside it ships to readers.
+// @region[weather-tool-backend]
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+// @endregion[weather-tool-backend]
 import {
   getWeatherImpl,
   queryDataImpl,

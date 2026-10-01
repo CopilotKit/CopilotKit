@@ -555,3 +555,11 @@ demos:
 managed_platform:
   name: Agent OS
   url: https://ag2.ai/product
+
+# Starter VALIDATION ladder (dashboard). NOT the `starter:` key.
+# A POSITIVE, reviewed declaration that this framework has no starter —
+# absence is never inferred from a missing block.
+starter_validation:
+  supported: false
+  reason: >-
+    AG2 has no starter template in examples/integrations and is not in the starter-smoke matrix; the integration ships as a showcase app only.

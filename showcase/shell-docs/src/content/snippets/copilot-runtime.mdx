@@ -1,4 +1,9 @@
+import AgentNameBinding from "@/snippets/agent-name-binding.mdx";
+import RuntimeLanguages from "@/snippets/runtime-languages.mdx";
+
 The Copilot Runtime is the backend layer that connects your frontend application to your AI agents. It's set up during the [quickstart](/quickstart) and is the recommended way to use CopilotKit.
+
+<RuntimeLanguages />
 
 ## Setting Up the Runtime
 
@@ -9,8 +14,8 @@ npm install @copilotkit/runtime
 ```
 
 Here's a minimal example using Next.js. `createCopilotRuntimeHandler` returns a
-plain fetch handler, so the route is just two exports. It lives at a **catch-all**
-path and exports **both** verbs, so the runtime can serve its sub-routes (`/info`,
+plain fetch handler. It lives at a **catch-all**
+path and exports **GET, POST, PATCH, and DELETE**, so the runtime can serve its sub-routes (`/info`,
 agent runs, threads) rather than a single URL:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
@@ -34,6 +39,8 @@ const handler = createCopilotRuntimeHandler({
 
 export const GET = handler;
 export const POST = handler;
+export const PATCH = handler;
+export const DELETE = handler;
 ```
 
 With the route in place, `GET /api/copilotkit/info` returns a JSON description of the
@@ -77,6 +84,8 @@ provideCopilotKit({
 </FrontendOnly>
 
 For setup with other backend frameworks (Express, NestJS, Node.js HTTP), see the [quickstart](/quickstart).
+
+<AgentNameBinding />
 
 ## The Default Agent
 

@@ -18,7 +18,7 @@ It requires no ASP.NET Core host, agent registration, or Runtime routes.
 2. From your application directory, install the SDK from the local feed:
 
    ```sh
-   dotnet add package CopilotKit.Intelligence --version 0.1.0-preview.1 --source /absolute/path/to/CopilotKit/packages/runtime-dotnet/src/bin/packages
+   dotnet add package CopilotKit.Intelligence --version 0.1.0-rc.1 --source /absolute/path/to/CopilotKit/packages/runtime-dotnet/src/bin/packages
    ```
 
 The feed path must point to your checkout.

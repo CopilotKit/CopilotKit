@@ -10,16 +10,19 @@ module CopilotKit
     ENDPOINT = 'https://telemetry.copilotkit.ai/ingest'
     EVENTS = %w[instance_created copilot_request_created agent_execution_stream_started agent_execution_stream_ended agent_execution_stream_errored].freeze
 
-    def initialize(exporter: nil, disabled: false, sample_rate: 0.05, telemetry_id: nil, license_token: nil,
+    # Unsampled by default: the sink is ours, so a real count beats one
+    # extrapolated from a fraction of the population. +sample_rate+ and
+    # COPILOTKIT_TELEMETRY_SAMPLE_RATE still dial it down.
+    def initialize(exporter: nil, disabled: false, sample_rate: 1.0, telemetry_id: nil, license_token: nil,
                    url: nil, queue_capacity: 256, random: -> { Random.rand }, env: ENV)
       @disabled = disabled || %w[DO_NOT_TRACK COPILOTKIT_TELEMETRY_DISABLED].any? { |key| %w[true 1].include?(env[key].to_s.downcase) }
       configured_rate = env.key?('COPILOTKIT_TELEMETRY_SAMPLE_RATE') ? env['COPILOTKIT_TELEMETRY_SAMPLE_RATE'] : sample_rate
       begin
         @rate = Float(configured_rate)
       rescue ArgumentError, TypeError
-        @rate = 0.05
+        @rate = 1.0
       end
-      @rate = 0.05 unless @rate.finite? && @rate.between?(0, 1)
+      @rate = 1.0 unless @rate.finite? && @rate.between?(0, 1)
       @id = [telemetry_id, env['CPK_TELEMETRY_ID']].filter_map do |value|
         next unless value.is_a?(String)
         normalized = value.gsub(/\A[ \t]+|[ \t]+\z/, '')
@@ -64,10 +67,11 @@ module CopilotKit
                      {}
                    end
       event = { 'event' => name, 'properties' => properties, 'ts' => Time.now.to_i,
-                'package' => { 'name' => 'copilotkit-runtime-ruby', 'version' => '0.1.0' },
+                'package' => { 'name' => 'copilotkit-runtime-ruby', 'version' => '0.1.0.rc.1' },
                 'global_properties' => { 'sampleRate' => @rate, 'sampleRateAdjustmentFactor' => 1 - @rate,
                   'sampleWeight' => 1 / @rate, 'telemetry_identified' => @identified,
-                  'telemetry_emitter' => 'runtime-ruby', 'telemetry_transport' => 'lambda' } }
+                  'telemetry_emitter' => 'runtime-ruby', 'telemetry_surface' => 'v2',
+                  'telemetry_transport' => 'lambda' } }
       @mutex.synchronize do
         return if @closed
         begin

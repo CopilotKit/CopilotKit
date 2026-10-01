@@ -1,5 +1,5 @@
 import { BaseEvent } from "@ag-ui/client";
-import { DebugEventEnvelope } from "@copilotkit/shared";
+import { DebugEventEnvelope, ResolvedDebugConfig } from "@copilotkit/shared";
 
 export type DebugEventListener = (envelope: DebugEventEnvelope) => void;
 
@@ -42,4 +42,28 @@ export class DebugEventBus {
   get listenerCount(): number {
     return this.listeners.size;
   }
+}
+
+/**
+ * Whether the `/cpk-debug-events` feed is served.
+ *
+ * The feed carries every event of every thread, including full message
+ * content, to any subscriber — so serving it is an authorization decision, not
+ * an environment detail. Two things open it:
+ *
+ * - `debug` is enabled on the runtime. An explicit opt-in, so it works
+ *   wherever the operator asks for it.
+ * - `NODE_ENV` is exactly `"development"`. Keeps the zero-configuration VS Code
+ *   Inspector flow working under `next dev` and friends.
+ *
+ * The previous gate asked whether `NODE_ENV !== "production"`, which treats an
+ * *unset* `NODE_ENV` as development. A plain `node server.js` sets nothing, so
+ * a self-hosted deployment served the feed unless it happened to set the
+ * variable. Testing for `"development"` closes that case.
+ */
+export function isDebugEventFeedEnabled(
+  debug: ResolvedDebugConfig | undefined,
+): boolean {
+  if (debug?.enabled) return true;
+  return process.env.NODE_ENV === "development";
 }

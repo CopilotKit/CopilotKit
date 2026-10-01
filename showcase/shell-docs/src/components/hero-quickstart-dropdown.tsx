@@ -1,5 +1,7 @@
 "use client";
 
+import { useHomepageTelemetry } from "@/lib/use-homepage-telemetry";
+
 import React from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
@@ -18,6 +20,7 @@ export function HeroQuickstartDropdown({
 }: {
   options: HeroQuickstartOption[];
 }) {
+  const track = useHomepageTelemetry();
   const [open, setOpen] = React.useState(false);
   const { setStoredFramework } = useFramework();
   const rootRef = React.useRef<HTMLDivElement | null>(null);
@@ -78,6 +81,10 @@ export function HeroQuickstartDropdown({
                 role="menuitem"
                 className="shell-docs-radius-control group flex items-center gap-3 px-2.5 py-2.5 no-underline transition-colors hover:bg-[var(--accent-dim)]"
                 onClick={() => {
+                  track("quickstart_selected", {
+                    backend: option.slug,
+                    destination: option.href,
+                  });
                   setStoredFramework(option.slug);
                   setOpen(false);
                 }}

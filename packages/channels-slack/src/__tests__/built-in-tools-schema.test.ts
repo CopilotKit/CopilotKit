@@ -79,12 +79,22 @@ describe("lookup_slack_user parameter schema", () => {
     expect(r.ok === false && r.error).toContain("query");
   });
 
+  // The message text matters: it is what the agent reads back and retries on.
+  // `typeof` alone reports "object" for null and arrays, so these pin the same
+  // classification `z.object()` produced before this schema was hand-written.
   it.each([
-    ["null", null],
-    ["a string", "atai"],
-    ["an array", ["atai"]],
-  ])("rejects %s in place of an arguments object", async (_label, value) => {
-    const r = await parseToolArgs(lookupSlackUserTool.parameters, value);
-    expect(r.ok).toBe(false);
-  });
+    ["null", null, "null"],
+    ["a string", "atai", "string"],
+    ["an array", ["atai"], "array"],
+    ["a number", 7, "number"],
+  ])(
+    "rejects %s in place of an arguments object, naming its type",
+    async (_label, value, expectedType) => {
+      const r = await parseToolArgs(lookupSlackUserTool.parameters, value);
+      expect(r.ok).toBe(false);
+      expect(r.ok === false && r.error).toBe(
+        `(root): Expected object, received ${expectedType}`,
+      );
+    },
+  );
 });

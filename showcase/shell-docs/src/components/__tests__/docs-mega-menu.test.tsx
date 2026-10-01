@@ -44,12 +44,19 @@ test("opens a five-column docs map with Intelligence featured", () => {
     "currentColor",
   );
   expect(
-    screen.getByRole("link", { name: "Threads" }).getAttribute("href"),
+    screen.getByRole("link", { name: "AG-UI Streams" }).getAttribute("href"),
   ).toBe("/threads");
   expect(
-    screen.getByRole("link", { name: "Learning" }).getAttribute("href"),
-  ).toBe("/backend/copilot-runtime");
+    screen.getByRole("link", { name: "User Memories" }).getAttribute("href"),
+  ).toBe("/intelligence/memories");
   expect(
-    screen.getByRole("link", { name: "Analytics" }).getAttribute("href"),
-  ).toBe("/intelligence/managed-intelligence-platform");
+    screen
+      .getByRole("link", { name: "Automatic Learning" })
+      .getAttribute("href"),
+  ).toBe("/learning");
+  expect(
+    screen
+      .getByRole("link", { name: "Product Analytics" })
+      .getAttribute("href"),
+  ).toBe("/intelligence/analytics");
 });

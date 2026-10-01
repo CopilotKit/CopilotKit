@@ -3,6 +3,7 @@ import type {
   BaseEvent,
   RunAgentInput,
   Message,
+  ContentPart,
   ReasoningEndEvent,
   ReasoningMessageContentEvent,
   ReasoningMessageEndEvent,
@@ -18,8 +19,9 @@ import type {
   RunErrorEvent,
   Interrupt,
   ResumeEntry,
+  ToolMessage,
 } from "@ag-ui/client";
-import { AbstractAgent, EventType } from "@ag-ui/client";
+import { AbstractAgent, EventType, PROTOCOL_VERSION } from "@ag-ui/client";
 import { Validator } from "@cfworker/json-schema";
 import type { AgentCapabilities } from "@ag-ui/core";
 import type {
@@ -46,14 +48,17 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createVertex } from "@ai-sdk/google-vertex";
-import { safeParseToolArgs } from "@copilotkit/shared";
+import { safeParseToolArgs, classifyModelHost } from "@copilotkit/shared";
+import type { ModelHostClass } from "@copilotkit/shared";
 import { z } from "zod";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import { jsonSchema as aiJsonSchema } from "ai";
 import {
   convertAISDKStream,
+  formatToolError,
   getAISDKRunFinishedDetails,
+  resolveStreamPartMessageId,
 } from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
 import {
@@ -66,6 +71,22 @@ import { createStateEventNormalizer } from "./state-delta";
 import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { randomUUID } from "@copilotkit/shared";
+
+import { SkillRegistry } from "../v2/runtime/intelligence-platform/skill-registry";
+import {
+  prepareLearnedSkills,
+  assertNoSkillToolConflicts,
+} from "./learned-skills";
+import type {
+  BuiltInAgentLearnedSkills,
+  BuiltInAgentLearnedSkillsOptions,
+} from "./learned-skills";
+export type {
+  BuiltInAgentLearnedSkills,
+  BuiltInAgentLearnedSkillsOptions,
+} from "./learned-skills";
+import { mergeMCPTools, toToolNamePrefix } from "./mcp-tool-names";
+import type { MCPToolSource } from "./mcp-tool-names";
 
 /**
  * Properties that can be overridden by forwardedProps
@@ -128,6 +149,15 @@ export type ModelSpecifier = string | LanguageModel;
 export interface MCPClientConfigHTTP {
   /** Type of MCP client */
   type: "http";
+  /**
+   * Optional name for this server. When a tool name collides with another
+   * MCP server's tool or with an app tool, the MCP tool is exposed as
+   * `<name>_<tool>`. Without a name, the prefix is `mcp<N>`, where N is the
+   * server's position among `mcpClients` and then `mcpServers`, from 1.
+   * Give each server a different name: if a prefixed name is already in use,
+   * a number is added (`<name>_<tool>_2`).
+   */
+  name?: string;
   /** URL of the MCP server */
   url: string;
   /**
@@ -145,6 +175,15 @@ export interface MCPClientConfigHTTP {
 export interface MCPClientConfigSSE {
   /** Type of MCP client */
   type: "sse";
+  /**
+   * Optional name for this server. When a tool name collides with another
+   * MCP server's tool or with an app tool, the MCP tool is exposed as
+   * `<name>_<tool>`. Without a name, the prefix is `mcp<N>`, where N is the
+   * server's position among `mcpClients` and then `mcpServers`, from 1.
+   * Give each server a different name: if a prefixed name is already in use,
+   * a number is added (`<name>_<tool>_2`).
+   */
+  name?: string;
   /** URL of the MCP server */
   url: string;
   /** Optional HTTP headers (e.g., for authentication) */
@@ -175,6 +214,68 @@ export interface MCPClientProvider {
  * @param apiKey - Optional API key to use instead of environment variables
  * @returns LanguageModel instance
  */
+
+/**
+ * An AG-UI tool result as the AI SDK's tool result output.
+ *
+ * Providers hold one response per tool call, and the Google adapter emits one
+ * functionResponse per text entry of a content list, so all of a result's text
+ * is collected into a single entry: text parts run together, and a
+ * URL-referenced part contributes the URL it carries on a line of its own —
+ * the bytes are not here to hand over, and the reference is the content the
+ * tool actually returned. A result with no inline media is that text alone.
+ * One with inline media is a content list: the text entry first, when there is
+ * any, then each media part with its bytes and media type. A media-only result
+ * is media alone: a placeholder text would be content the tool never returned.
+ * Which adapters can place media inside a tool response is theirs to decide.
+ * A provider file handle (`file` source) is neither bytes nor a URL, and this
+ * path cannot hand it to the provider, so the part is dropped with a warning.
+ * A result whose parts were all dropped is the empty string, as AG-UI 1.0
+ * requires: the call must still be answered.
+ */
+function warnDroppedFileSource(what: string): void {
+  console.warn(
+    `[CopilotKit] Dropping a ${what} that references a provider file handle: it is not a URL or inline data, so it cannot be sent to the model here.`,
+  );
+}
+
+function toolResultOutput(
+  content: ToolMessage["content"],
+): ToolResultPart["output"] {
+  if (typeof content === "string") return { type: "text", value: content };
+  const segments: string[] = [];
+  const media: Array<{ type: "media"; data: string; mediaType: string }> = [];
+  let open = false; // whether the last segment is text still being appended to
+  for (const part of content) {
+    if (part.type === "text") {
+      if (open) segments[segments.length - 1] += part.text;
+      else segments.push(part.text);
+      open = true;
+    } else if (part.source.type === "file") {
+      warnDroppedFileSource(`${part.type} part in a tool result`);
+    } else if (part.source.type === "url") {
+      segments.push(part.source.value);
+      open = false;
+    } else {
+      media.push({
+        type: "media",
+        data: part.source.value,
+        mediaType: part.source.mimeType,
+      });
+      open = false;
+    }
+  }
+  const text = segments.join("\n");
+  if (media.length === 0) return { type: "text", value: text };
+  return {
+    type: "content",
+    value: [
+      ...(text.length > 0 ? [{ type: "text" as const, text }] : []),
+      ...media,
+    ],
+  };
+}
+
 export function resolveModel(
   spec: ModelSpecifier,
   apiKey?: string,
@@ -269,6 +370,58 @@ export function resolveModel(
 }
 
 /**
+ * Which vendor a model specifier will actually reach, as a closed vocabulary.
+ *
+ * `resolveModel` above is the only place this runtime builds a provider, so it
+ * is the only place that knows the endpoint. Once built, the endpoint is gone:
+ * an AI SDK model reports `provider: "openai.responses"` whether it points at
+ * api.openai.com, Azure, OpenRouter or a laptop, and its base URL survives
+ * only inside a closure that the public `LanguageModelV3` type does not
+ * expose. Azure's own migration guide tells customers to use that same OpenAI
+ * client, so the case we are blindest to is the common one.
+ *
+ * A caller who hands us an already-built LanguageModel gets `unknown`. Nobody
+ * can recover the host from it, and saying so is more useful than guessing
+ * `openai` from a provider label that means only "speaks the OpenAI wire".
+ *
+ * The branches below mirror `resolveModel`'s switch and must change with it.
+ * `model-host-class.test.ts` walks every provider that switch accepts and
+ * fails if one lands here as `unknown`.
+ */
+export function classifyModelSpec(spec: ModelSpecifier): ModelHostClass {
+  // A pre-built model: the endpoint was decided before it reached us.
+  if (typeof spec !== "string") return "unknown";
+
+  const provider = spec.replace("/", ":").trim().split(":")[0]?.toLowerCase();
+
+  switch (provider) {
+    case "openai":
+      return classifyModelHost(process.env.OPENAI_BASE_URL, "openai");
+    case "anthropic":
+      return classifyModelHost(process.env.ANTHROPIC_BASE_URL, "anthropic");
+    case "google":
+    case "gemini":
+    case "google-gemini":
+      return classifyModelHost(
+        process.env.GOOGLE_GENERATIVE_AI_BASE_URL,
+        "google",
+      );
+    case "minimax":
+      return classifyModelHost(
+        process.env.MINIMAX_BASE_URL || "https://api.minimax.io/v1",
+        "minimax",
+      );
+    case "vertex":
+      // `createVertex()` takes no base URL — the endpoint comes from ambient
+      // Google credentials, so there is nothing to classify and nothing to leak.
+      return "vertex";
+    default:
+      // `resolveModel` throws on anything else, so the run never starts.
+      return "unknown";
+  }
+}
+
+/**
  * Thrown by `AgentFactoryContext.interrupt()` on a fresh (non-resume) run to
  * pause the factory. Caught in `runFactory` and translated into a RUN_FINISHED
  * event carrying `outcome:{type:"interrupt",interrupts}`. Not a real error.
@@ -298,9 +451,8 @@ export interface ToolDefinition<
    * When true, calling this tool pauses the run and emits a standard AG-UI
    * interrupt (RUN_FINISHED outcome:interrupt) keyed by the tool call's id.
    * The human response (resume payload) is injected as this tool call's result
-   * on the resume run. Interrupt tools must NOT define `execute`, and require
-   * the default `maxSteps: 1` — with `maxSteps > 1` the AI SDK's agentic loop
-   * would try to continue past the unexecuted tool call instead of pausing.
+   * on the resume run. Interrupt tools must NOT define `execute`. The AI SDK
+   * pauses when a tool call has no result, even with a multi-step limit.
    */
   interrupt?: boolean;
   /** Optional categorical reason surfaced on the Interrupt (default: "tool_call"). */
@@ -337,7 +489,12 @@ export function defineTool<TParameters extends StandardSchemaV1>(config: {
   };
 }
 
-type AGUIUserMessage = Extract<Message, { role: "user" }>;
+type LegacyBinaryInputContent = {
+  type: "binary";
+  mimeType?: string;
+  data?: string;
+  url?: string;
+};
 
 /**
  * Converts AG-UI user message content to Vercel AI SDK UserContent format.
@@ -345,7 +502,7 @@ type AGUIUserMessage = Extract<Message, { role: "user" }>;
  * and legacy BinaryInputContent for backward compatibility.
  */
 function convertUserMessageContent(
-  content: AGUIUserMessage["content"],
+  content: string | Array<ContentPart | LegacyBinaryInputContent>,
 ): string | Array<TextPart | ImagePart | FilePart> {
   if (!content) {
     return "";
@@ -380,6 +537,8 @@ function convertUserMessageContent(
             image: source.value,
             mediaType: source.mimeType,
           });
+        } else if (source.type === "file") {
+          warnDroppedFileSource("image part");
         } else if (source.type === "url") {
           try {
             parts.push({
@@ -407,6 +566,8 @@ function convertUserMessageContent(
             data: source.value,
             mediaType: source.mimeType,
           });
+        } else if (source.type === "file") {
+          warnDroppedFileSource(`${part.type} part`);
         } else if (source.type === "url") {
           try {
             parts.push({
@@ -425,11 +586,7 @@ function convertUserMessageContent(
 
       // Legacy BinaryInputContent backward compatibility
       case "binary": {
-        const legacy = part as {
-          mimeType?: string;
-          data?: string;
-          url?: string;
-        };
+        const legacy = part;
         const mimeType = legacy.mimeType ?? "application/octet-stream";
         const isImage = mimeType.startsWith("image/");
 
@@ -553,10 +710,7 @@ export function convertMessagesToVercelAISDKMessages(
         type: "tool-result",
         toolCallId: message.toolCallId,
         toolName: toolName,
-        output: {
-          type: "text",
-          value: message.content,
-        },
+        output: toolResultOutput(message.content),
       };
 
       const toolMsg: ToolModelMessage = {
@@ -788,6 +942,8 @@ export function convertToolDefinitionsToVercelAITools(
  * Context passed to the user-supplied factory function in factory mode.
  */
 export interface AgentFactoryContext {
+  /** Verified catalog and AI SDK tools for this run; empty when disabled or no skills exist. */
+  learnedSkills: BuiltInAgentLearnedSkills;
   input: RunAgentInput;
   /**
    * Prefer `abortSignal` for most use cases (AI SDK, fetch, custom backends).
@@ -807,12 +963,17 @@ export interface AgentFactoryContext {
   interrupt: (interrupts: Interrupt[]) => Promise<ResumeEntry[]>;
 }
 
+/** Public name that avoids the runtime's request-scoped AgentFactoryContext. */
+export type BuiltInAgentFactoryContext = AgentFactoryContext;
+
 /**
  * Factory config for AI SDK backend.
  * The factory must return an object with a `fullStream` async iterable
  * (compatible with the result of `streamText()` — only `fullStream` is consumed).
  */
 export interface BuiltInAgentAISDKFactoryConfig {
+  /** Opt in to automatic snapshot acquisition before each run, including resumes. */
+  learnedSkills?: BuiltInAgentLearnedSkillsOptions;
   type: "aisdk";
   factory: (
     ctx: AgentFactoryContext,
@@ -826,6 +987,8 @@ export interface BuiltInAgentAISDKFactoryConfig {
  * The factory must return an async iterable of TanStack AI stream chunks.
  */
 export interface BuiltInAgentTanStackFactoryConfig {
+  /** Opt in to automatic snapshot acquisition before each run, including resumes. */
+  learnedSkills?: BuiltInAgentLearnedSkillsOptions;
   type: "tanstack";
   factory: (
     ctx: AgentFactoryContext,
@@ -836,6 +999,8 @@ export interface BuiltInAgentTanStackFactoryConfig {
  * Factory config for a custom backend that directly yields AG-UI events.
  */
 export interface BuiltInAgentCustomFactoryConfig {
+  /** Opt in to automatic snapshot acquisition before each run, including resumes. */
+  learnedSkills?: BuiltInAgentLearnedSkillsOptions;
   type: "custom";
   factory: (
     ctx: AgentFactoryContext,
@@ -854,6 +1019,8 @@ export type BuiltInAgentFactoryConfig =
  * Classic config — BuiltInAgent handles streamText, tools, MCP, state tools, prompt building.
  */
 export interface BuiltInAgentClassicConfig {
+  /** Opt in to automatic snapshot acquisition before each run, including resumes. */
+  learnedSkills?: BuiltInAgentLearnedSkillsOptions;
   /**
    * The model to use
    */
@@ -868,7 +1035,7 @@ export interface BuiltInAgentClassicConfig {
    */
   apiKey?: string;
   /**
-   * Maximum number of steps/iterations for tool calling (default: 1)
+   * Maximum number of steps/iterations for tool calling (default: 1, or 10 when learned skills are available)
    */
   maxSteps?: number;
   /**
@@ -987,9 +1154,32 @@ function isFactoryConfig(
 
 export class BuiltInAgent extends AbstractAgent {
   private abortController?: AbortController;
+  private skillRegistry?: SkillRegistry;
+
+  /**
+   * Which vendor this agent's configured model reaches. Read by the SSE layer
+   * onto `agent_execution_stream_*` telemetry.
+   *
+   * Computed once, from the configured model, because that is what holds for
+   * the agent's lifetime. A per-request `forwardedProps.model` override
+   * (handled further down in `run`) can point somewhere else for one run and
+   * is not reflected here — overrides are rare and the field describes the
+   * agent, not the call.
+   *
+   * Factory-mode configs own their own LLM call, so there is no model for us
+   * to classify.
+   */
+  readonly modelHostClass: ModelHostClass;
 
   constructor(private config: BuiltInAgentConfiguration) {
     super();
+    this.skillRegistry =
+      config.learnedSkills === undefined
+        ? undefined
+        : new SkillRegistry(config.learnedSkills);
+    this.modelHostClass = isFactoryConfig(config)
+      ? "unknown"
+      : classifyModelSpec(config.model);
   }
 
   /**
@@ -1056,6 +1246,8 @@ export class BuiltInAgent extends AbstractAgent {
         type: EventType.RUN_STARTED,
         threadId: input.threadId,
         runId: input.runId,
+        // AG-UI 1.0: a producer states its own protocol version.
+        protocolVersion: PROTOCOL_VERSION,
       };
       subscriber.next(startEvent);
 
@@ -1329,6 +1521,20 @@ export class BuiltInAgent extends AbstractAgent {
         };
 
         try {
+          const learnedSkills = await prepareLearnedSkills(
+            this.skillRegistry,
+            abortController.signal,
+          );
+          abortController.signal.throwIfAborted();
+          if (learnedSkills.catalog) {
+            messages.unshift({
+              role: "system",
+              content: learnedSkills.catalog,
+            });
+            // Loading a skill must leave room for a model step that uses it.
+            if (config.maxSteps === undefined)
+              streamTextParams.stopWhen = stepCountIs(10);
+          }
           // Add AG-UI state update tools
           streamTextParams.tools = {
             ...streamTextParams.tools,
@@ -1383,15 +1589,17 @@ export class BuiltInAgent extends AbstractAgent {
             }),
           };
 
-          // Merge tools from user-managed MCP clients (user controls lifecycle)
-          if (config.mcpClients && config.mcpClients.length > 0) {
-            for (const client of config.mcpClients) {
-              const mcpTools = await client.tools();
-              streamTextParams.tools = {
-                ...streamTextParams.tools,
-                ...mcpTools,
-              } as ToolSet;
-            }
+          // MCP tools are collected per source and merged once, so a name
+          // that two sources share keeps both tools instead of the later one
+          // replacing the earlier.
+          const mcpToolSources: MCPToolSource[] = [];
+          const userMcpClients = config.mcpClients ?? [];
+
+          // Tools from user-managed MCP clients (user controls lifecycle)
+          for (const [index, client] of userMcpClients.entries()) {
+            const mcpTools = await client.tools();
+            abortController.signal.throwIfAborted();
+            mcpToolSources.push({ label: `mcp${index + 1}`, tools: mcpTools });
           }
 
           // Initialize MCP clients and get their tools from
@@ -1400,7 +1608,10 @@ export class BuiltInAgent extends AbstractAgent {
             ...(config.mcpServers ?? []),
           ];
           if (allMcpServers.length > 0) {
-            for (const serverConfig of allMcpServers) {
+            for (const [index, serverConfig] of allMcpServers.entries()) {
+              const label = serverConfig.name
+                ? toToolNamePrefix(serverConfig.name)
+                : `mcp${userMcpClients.length + index + 1}`;
               let transport: MCPTransport | undefined;
 
               if (serverConfig.type === "http") {
@@ -1417,6 +1628,7 @@ export class BuiltInAgent extends AbstractAgent {
                 // actually ask for SSE ever load it.
                 const { SSEClientTransport } =
                   await import("@modelcontextprotocol/sdk/client/sse.js");
+                abortController.signal.throwIfAborted();
                 // SSEClientTransport's second arg is SSEClientTransportOptions
                 // (`requestInit.headers`), not a raw header map. Passing
                 // `{ Authorization: ... }` as options is silently ignored.
@@ -1437,22 +1649,26 @@ export class BuiltInAgent extends AbstractAgent {
                 try {
                   mcpClient = await createMCPClient({ transport });
                 } catch (err) {
+                  abortController.signal.throwIfAborted();
                   console.error(
                     `[CopilotKit] MCP server ${serverConfig.url} failed to connect — skipping it for this run:`,
                     err,
                   );
                   continue;
                 }
+                // Unsubscribe may have already cleaned up while connection was pending.
+                if (abortController.signal.aborted) {
+                  await mcpClient.close();
+                  abortController.signal.throwIfAborted();
+                }
                 // Track it so it's closed on cleanup even if tools() fails.
                 mcpClients.push(mcpClient);
                 try {
-                  // Get tools from this MCP server and merge with existing tools
                   const mcpTools = await mcpClient.tools();
-                  streamTextParams.tools = {
-                    ...streamTextParams.tools,
-                    ...mcpTools,
-                  } as ToolSet;
+                  abortController.signal.throwIfAborted();
+                  mcpToolSources.push({ label, tools: mcpTools as ToolSet });
                 } catch (err) {
+                  abortController.signal.throwIfAborted();
                   console.error(
                     `[CopilotKit] MCP server ${serverConfig.url} tools() failed — skipping its tools for this run:`,
                     err,
@@ -1461,6 +1677,22 @@ export class BuiltInAgent extends AbstractAgent {
               }
             }
           }
+
+          if (mcpToolSources.length > 0) {
+            streamTextParams.tools = mergeMCPTools(
+              streamTextParams.tools ?? {},
+              mcpToolSources,
+            );
+          }
+
+          if (this.skillRegistry) {
+            assertNoSkillToolConflicts(streamTextParams.tools ?? {});
+            streamTextParams.tools = {
+              ...streamTextParams.tools,
+              ...learnedSkills.tools,
+            };
+          }
+          abortController.signal.throwIfAborted();
 
           // Call streamText and process the stream
           const response = streamText({
@@ -1507,6 +1739,7 @@ export class BuiltInAgent extends AbstractAgent {
           };
 
           // Process fullStream events
+          const warnedUnknownPartTypes = new Set<string>();
           for await (const part of response.fullStream) {
             // Close any open reasoning lifecycle on every event except
             // reasoning-delta, which arrives mid-block and must not interrupt it.
@@ -1520,6 +1753,12 @@ export class BuiltInAgent extends AbstractAgent {
                   type: EventType.RUN_FINISHED,
                   threadId: input.threadId,
                   runId: input.runId,
+                  // A stopped run is cancelled, not a success. A client that
+                  // declares no protocolVersion predates 1.0 and cannot parse
+                  // the cancelled outcome, so it keeps the plain event.
+                  ...(input.protocolVersion !== undefined
+                    ? { outcome: { type: "cancelled" as const } }
+                    : {}),
                 };
                 subscriber.next(abortEndEvent);
                 terminalEventEmitted = true;
@@ -1529,17 +1768,9 @@ export class BuiltInAgent extends AbstractAgent {
                 break;
               }
               case "reasoning-start": {
-                // Use SDK-provided id, or generate a fresh UUID if the id is falsy,
-                // "0", or matches the non-unique pattern emitted by @ai-sdk/openai-compatible
-                // (e.g. "txt-0", "reasoning-0", "msg-0").
-                const providedId = "id" in part ? part.id : undefined;
-                const isNonUniqueId =
-                  !providedId ||
-                  providedId === "0" ||
-                  /^(txt|reasoning|msg)-0$/.test(providedId);
-                reasoningMessageId = isNonUniqueId
-                  ? randomUUID()
-                  : (providedId as typeof reasoningMessageId);
+                reasoningMessageId = resolveStreamPartMessageId(
+                  "id" in part ? part.id : undefined,
+                );
                 const reasoningStartEvent: ReasoningStartEvent = {
                   type: EventType.REASONING_START,
                   messageId: reasoningMessageId,
@@ -1606,17 +1837,9 @@ export class BuiltInAgent extends AbstractAgent {
               }
 
               case "text-start": {
-                // New text message starting - use the SDK-provided id
-                // Use randomUUID() if part.id is falsy, "0", or matches the non-unique
-                // pattern emitted by @ai-sdk/openai-compatible (e.g. "txt-0", "msg-0").
-                const providedId = "id" in part ? part.id : undefined;
-                const isNonUniqueTextId =
-                  !providedId ||
-                  providedId === "0" ||
-                  /^(txt|reasoning|msg)-0$/.test(providedId);
-                messageId = isNonUniqueTextId
-                  ? randomUUID()
-                  : (providedId as typeof messageId);
+                messageId = resolveStreamPartMessageId(
+                  "id" in part ? part.id : undefined,
+                );
                 break;
               }
 
@@ -1779,6 +2002,34 @@ export class BuiltInAgent extends AbstractAgent {
                 break;
               }
 
+              case "tool-error": {
+                const toolCallId = part.toolCallId;
+                const toolName =
+                  ("toolName" in part && part.toolName) ||
+                  toolCallStates.get(toolCallId)?.toolName ||
+                  "";
+
+                // Interrupt tools do not execute on the server. Their result
+                // is supplied by the human on the resume run.
+                if (toolName && interruptToolNames.has(toolName)) {
+                  toolCallStates.delete(toolCallId);
+                  break;
+                }
+
+                toolCallStates.delete(toolCallId);
+                const resultEvent: ToolCallResultEvent = {
+                  type: EventType.TOOL_CALL_RESULT,
+                  role: "tool",
+                  messageId: randomUUID(),
+                  toolCallId,
+                  // Keep tool exceptions as tool results so the client and the
+                  // next model step both receive the failure.
+                  content: `Error: ${formatToolError(part.error)}`,
+                };
+                subscriber.next(resultEvent);
+                break;
+              }
+
               case "finish": {
                 // Emit run finished event
                 const model = streamTextParams.model as unknown;
@@ -1848,6 +2099,38 @@ export class BuiltInAgent extends AbstractAgent {
                   );
                 break;
               }
+
+              // These AI SDK fullStream parts carry metadata that has no AG-UI
+              // event equivalent. They are known and intentionally ignored.
+              // `tool-approval-request` cannot occur here: the tools built for
+              // this path never set `needsApproval`.
+              case "start":
+              case "start-step":
+              case "finish-step":
+              case "text-end":
+              case "source":
+              case "file":
+              case "tool-output-denied":
+              case "tool-approval-request":
+              case "raw":
+                break;
+
+              default: {
+                // The exhaustiveness check catches parts the pinned `ai`
+                // version adds. At runtime a newer `ai` can still send a part
+                // we do not know; warn and keep the run alive.
+                const _exhaustive: never = part;
+                const unknownType = String(
+                  (_exhaustive as { type?: unknown }).type,
+                );
+                if (!warnedUnknownPartTypes.has(unknownType)) {
+                  warnedUnknownPartTypes.add(unknownType);
+                  console.warn(
+                    `[BuiltInAgent] Ignoring unhandled AI SDK stream part: ${unknownType}`,
+                  );
+                }
+                break;
+              }
             }
           }
 
@@ -1892,13 +2175,17 @@ export class BuiltInAgent extends AbstractAgent {
             subscriber.error(error);
           }
         } finally {
-          this.abortController = undefined;
+          if (this.abortController === abortController)
+            this.abortController = undefined;
           await Promise.all(mcpClients.map((client) => client.close()));
         }
       })();
 
       // Cleanup function
       return () => {
+        abortController.abort();
+        if (this.abortController === abortController)
+          this.abortController = undefined;
         // Cleanup MCP clients if stream is unsubscribed
         Promise.all(mcpClients.map((client) => client.close())).catch(() => {
           // Ignore cleanup errors
@@ -1926,10 +2213,12 @@ export class BuiltInAgent extends AbstractAgent {
         type: EventType.RUN_STARTED,
         threadId: input.threadId,
         runId: input.runId,
+        // AG-UI 1.0: a producer states its own protocol version.
+        protocolVersion: PROTOCOL_VERSION,
       };
       subscriber.next(startEvent);
 
-      const ctx: AgentFactoryContext = {
+      const ctx: Omit<AgentFactoryContext, "learnedSkills"> = {
         input,
         abortController: controller,
         abortSignal: controller.signal,
@@ -1946,49 +2235,99 @@ export class BuiltInAgent extends AbstractAgent {
         },
       };
 
-      // Resume injection (aisdk/tanstack): map each ResumeEntry to a tool-role
-      // message keyed by interruptId (=== the paused tool call's id) and append
-      // it to the messages the factory sees. Both SDK converters
-      // (convertMessagesToVercelAISDKMessages / convertInputToTanStackAI) turn a
-      // tool-role message into that SDK's native tool-result, so the model
-      // continues — no SDK-specific approval-response wiring needed. The `custom`
-      // factory reads input.resume itself via ctx.interrupt(), so leave it alone.
-      // Idempotent: skip entries the client already recorded as a tool-result
-      // message in the thread (useInterrupt persists resolutions so the
-      // conversation stays well-formed across turns). Only synthesize results
-      // for entries that aren't already answered, so we never double-answer a
-      // tool call.
-      const answeredToolCallIds = new Set(
-        input.messages
-          .filter((m) => m.role === "tool")
-          .map((m) => (m as { toolCallId?: string }).toolCallId)
-          .filter((id): id is string => typeof id === "string"),
-      );
-      const resumeToolMessages: Message[] = (input.resume ?? [])
-        .filter(
-          (entry: ResumeEntry) => !answeredToolCallIds.has(entry.interruptId),
-        )
-        .map(
-          (entry: ResumeEntry): Message => ({
-            id: randomUUID(),
-            role: "tool",
-            toolCallId: entry.interruptId,
-            content: JSON.stringify(
-              entry.status === "cancelled"
-                ? { status: "cancelled" }
-                : (entry.payload ?? { status: "resolved" }),
-            ),
-          }),
-        );
-      const factoryInput: RunAgentInput =
-        resumeToolMessages.length > 0 && config.type !== "custom"
-          ? { ...input, messages: [...input.messages, ...resumeToolMessages] }
-          : input;
-      const factoryCtx: AgentFactoryContext = { ...ctx, input: factoryInput };
-
       (async () => {
         const runFinishedDetails: AgentRunFinishedDetails = {};
         try {
+          // Resume injection (aisdk/tanstack): map each ResumeEntry to a tool-role
+          // message keyed by interruptId (=== the paused tool call's id) and append
+          // it to the messages the factory sees. Both SDK converters
+          // (convertMessagesToVercelAISDKMessages / convertInputToTanStackAI) turn a
+          // tool-role message into that SDK's native tool-result, so the model
+          // continues — no SDK-specific approval-response wiring needed. The `custom`
+          // factory reads input.resume itself via ctx.interrupt(), so leave it alone.
+          // Idempotent: skip entries the client already recorded as a tool-result
+          // message in the thread (useInterrupt persists resolutions so the
+          // conversation stays well-formed across turns). Only synthesize results
+          // for entries that aren't already answered, so we never double-answer a
+          // tool call.
+          const toolCallIds = new Set(
+            input.messages.flatMap((message) =>
+              message.role === "assistant"
+                ? (message.toolCalls ?? []).map((call) => call.id)
+                : [],
+            ),
+          );
+          const answeredToolMessages = input.messages.filter(
+            (message): message is ToolMessage => message.role === "tool",
+          );
+          const answeredToolCallIds = new Set(
+            answeredToolMessages.map((message) => message.toolCallId),
+          );
+          const nativeResume =
+            config.type === "custom" ? [] : (input.resume ?? []);
+          const resumeToolMessages: ToolMessage[] = [];
+          const decisionsByCall = new Map<string, string>();
+          for (const entry of nativeResume) {
+            if (!toolCallIds.has(entry.interruptId)) continue;
+            const content = JSON.stringify(
+              entry.status === "cancelled"
+                ? { status: "cancelled" }
+                : (entry.payload ?? { status: "resolved" }),
+            );
+            if (decisionsByCall.has(entry.interruptId)) {
+              if (decisionsByCall.get(entry.interruptId) !== content) {
+                throw new Error(
+                  `Conflicting decisions for resumed tool call ${entry.interruptId}`,
+                );
+              }
+              continue;
+            }
+            decisionsByCall.set(entry.interruptId, content);
+            if (answeredToolCallIds.has(entry.interruptId)) continue;
+            resumeToolMessages.push({
+              id: randomUUID(),
+              role: "tool",
+              toolCallId: entry.interruptId,
+              content,
+            });
+          }
+          const resumedIds = new Set(
+            nativeResume.map((entry) => entry.interruptId),
+          );
+          const resumedResults = new Map(
+            [...answeredToolMessages, ...resumeToolMessages]
+              .filter((message) => resumedIds.has(message.toolCallId))
+              .map((message) => [message.toolCallId, message.content]),
+          );
+          // Save accepted answers before model work, so Stop cannot discard them.
+          for (const message of resumeToolMessages) {
+            const event: ToolCallResultEvent = {
+              type: EventType.TOOL_CALL_RESULT,
+              messageId: message.id,
+              toolCallId: message.toolCallId,
+              role: "tool",
+              content: message.content,
+            };
+            subscriber.next(event);
+          }
+          const factoryInput: RunAgentInput =
+            resumeToolMessages.length > 0 && config.type !== "custom"
+              ? {
+                  ...input,
+                  messages: [...input.messages, ...resumeToolMessages],
+                }
+              : input;
+
+          const learnedSkills = await prepareLearnedSkills(
+            this.skillRegistry,
+            controller.signal,
+          );
+          controller.signal.throwIfAborted();
+          const factoryCtx: AgentFactoryContext = {
+            ...ctx,
+            input: factoryInput,
+            learnedSkills,
+          };
           let events: AsyncIterable<BaseEvent>;
           let customRunFinishedEvent: RunFinishedEvent | undefined;
           // Filled by the converters with one Interrupt per native approval
@@ -2019,7 +2358,7 @@ export class BuiltInAgent extends AbstractAgent {
               break;
             }
             case "custom": {
-              events = await config.factory(ctx);
+              events = await config.factory(factoryCtx);
               break;
             }
             default: {
@@ -2031,6 +2370,20 @@ export class BuiltInAgent extends AbstractAgent {
           }
 
           for await (const event of events) {
+            if (
+              event.type === EventType.TOOL_CALL_RESULT &&
+              "toolCallId" in event &&
+              typeof event.toolCallId === "string" &&
+              "content" in event &&
+              resumedResults.has(event.toolCallId)
+            ) {
+              if (resumedResults.get(event.toolCallId) !== event.content) {
+                throw new Error(
+                  `Conflicting result for resumed tool call ${event.toolCallId}`,
+                );
+              }
+              continue;
+            }
             if (
               config.type === "custom" &&
               event.type === EventType.RUN_FINISHED
@@ -2087,18 +2440,27 @@ export class BuiltInAgent extends AbstractAgent {
             subscriber.error(error);
           }
         } finally {
-          this.abortController = undefined;
+          if (this.abortController === controller)
+            this.abortController = undefined;
         }
       })();
 
       return () => {
         controller.abort();
+        if (this.abortController === controller)
+          this.abortController = undefined;
       };
     });
   }
 
   clone() {
-    const cloned = new BuiltInAgent(this.config);
+    // Reuse resolved delivery configuration; cloning must not re-read environment.
+    const cloned = new BuiltInAgent({
+      ...this.config,
+      learnedSkills: undefined,
+    });
+    cloned.config = this.config;
+    cloned.skillRegistry = this.skillRegistry;
     // AbstractAgent.middlewares is private in @ag-ui/client — no public accessor exists.
     // This coupling is intentional: clone() must preserve middleware chains.
     // @ts-expect-error accessing private AbstractAgent.middlewares

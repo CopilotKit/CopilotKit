@@ -11,6 +11,7 @@ import {
 import { afterEach, expect, it, vi } from "vitest";
 import { IntelligenceOnboardingPrompt } from "../intelligence-onboarding-prompt";
 import { INTELLIGENCE_ONBOARDING_EVENTS } from "@/lib/intelligence-onboarding-prompt";
+import { PROMPT_DESTINATION_HINT } from "@/lib/prompt-guidance";
 
 const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
 
@@ -44,16 +45,39 @@ it("names the copied run id the same way every other onboarding surface does", a
   );
   fireEvent.click(screen.getByRole("button", { name: /copy/i }));
 
-  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+  await waitFor(() =>
+    expect(analytics.capture).toHaveBeenCalledWith(
+      INTELLIGENCE_ONBOARDING_EVENTS.promptCopied,
+      expect.any(Object),
+    ),
+  );
 
-  const [event, properties] = analytics.capture.mock.calls[0] as [
-    string,
-    Record<string, unknown>,
-  ];
+  const [event, properties] = analytics.capture.mock.calls.find(
+    ([eventName]) => eventName === INTELLIGENCE_ONBOARDING_EVENTS.promptCopied,
+  ) as [string, Record<string, unknown>];
   expect(event).toBe(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied);
   expect(properties).not.toHaveProperty("run_id");
   expect(properties.onboarding_run_id).toEqual(expect.any(String));
   // The id must be the one actually pasted into the prompt, or the join is to a
   // run that never existed.
   expect(writeText.mock.calls[0][0]).toContain(properties.onboarding_run_id);
+});
+
+vi.mock("fumadocs-core/framework", () => ({
+  usePathname: () => "/quickstart",
+}));
+
+vi.mock("@/lib/runtime-config.client", () => ({
+  getRuntimeConfig: () => ({ baseUrl: "https://docs.copilotkit.ai" }),
+}));
+
+// In-content prompt rows carry the same line as the docs hero (PE-340).
+it("shows the destination line under the prompt row", () => {
+  render(
+    <IntelligenceOnboardingPrompt
+      feature="threads"
+      surface="docs-quickstart"
+    />,
+  );
+  expect(screen.getByText(PROMPT_DESTINATION_HINT)).toBeTruthy();
 });

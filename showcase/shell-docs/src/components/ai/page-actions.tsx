@@ -1,4 +1,9 @@
 "use client";
+import {
+  ONBOARDING_ARGUMENT_TEXT,
+  ONBOARDING_ARGUMENT_VERSION,
+  pageSourceSentence,
+} from "@/lib/onboarding-argument-templates";
 import { useMemo, useState } from "react";
 import type { ComponentProps } from "react";
 import {
@@ -19,18 +24,17 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { usePathname } from "fumadocs-core/framework";
 import { usePostHog } from "posthog-js/react";
-import {
-  frameworkPromptSuffix,
-  onboardingFrameworkSlug,
-} from "@/lib/intelligence-onboarding-framework";
-import {
-  frontendPromptSuffix,
-  onboardingFrontendSlug,
-} from "@/lib/intelligence-onboarding-frontend";
+import { onboardingFrameworkSlug } from "@/lib/intelligence-onboarding-framework";
+import { onboardingFrontendSlug } from "@/lib/intelligence-onboarding-frontend";
+import { pageTopicSentence } from "@/lib/page-topic-sentence";
 import {
   createIntelligenceOnboardingPrompt,
   createOnboardingRunId,
 } from "@/lib/intelligence-onboarding-prompt";
+import {
+  createChannelsOnboardingPrompt,
+  isChannelOnboardingId,
+} from "@/lib/channels-onboarding-prompt";
 import ClaudeIcon from "@/components/icons/claude";
 import ClaudeCodeIcon from "@/components/icons/claude-code";
 import CodexIcon from "@/components/icons/codex";
@@ -183,17 +187,14 @@ const ONBOARDING_COPY_SURFACE = "docs_page_tools_onboarding_prompt";
  * straight into their coding agent.
  *
  * The copied string is `createIntelligenceOnboardingPrompt(runId)` followed by
- * three sentences of page context: which agent framework the reader is reading
- * about, which frontend they have selected, and which page they copied from.
- * All three are statements of fact for the receiving agent, never instructions
- * — the prompt itself is the only thing that tells the agent what to do, and
- * the sibling copies in the Intelligence repo and the Inspector have to keep
- * matching that part byte for byte.
+ * what the page covers and which page the reader started from. Both are facts
+ * for the receiving agent, never instructions — the prompt itself is the only
+ * thing that tells the agent what to do, and the sibling copies in the
+ * Intelligence repo and the Inspector have to keep matching that part byte for
+ * byte.
  *
- * Framework before frontend because that is the order the CLI's graph works
- * in: it settles the agent framework first, then the frontend. Each sentence
- * leads with its own subject and can be "" independently, so all four
- * combinations read correctly.
+ * The page's framework and frontend describe the page, never the reader's
+ * project: "The page covers …", not "I use …" (PE-309).
  *
  * The run id is minted per click (not per page load), matching
  * `components/intelligence-onboarding-prompt.tsx`: one clipboard write is one
@@ -213,23 +214,20 @@ export function OnboardingPromptCopyButton({
    *
    * Optional, because a docs surface can exist without a registry record to
    * name — `a2a` and `agent-spec` are documented like frameworks but are not
-   * registered as integrations. Such a page still gets the button: the prompt
-   * simply names no framework, and the CLI's graph inspects the repository
-   * and asks, which is what it does anyway. Frameworks the graph has no node
-   * for are handled downstream by `frameworkPromptSuffix`.
+   * registered as integrations. Such a page still gets the button, and its
+   * prompt and events name no framework. Frameworks the graph has no node for
+   * are left out by `pageTopicSentence`.
    */
   framework?: { slug: string; name: string };
   /**
    * The frontend the docs URL selects: `id` is the docs frontend id, `name`
    * its display name. Resolved server-side from the pathname by
    * `onboardingFrontendFor` and passed in — never derived here from
-   * `usePathname()` — so the prompt names what the URL asserts rather than
-   * what this component happens to observe after a navigation.
+   * `usePathname()` — so the prompt and events name what the URL asserts
+   * rather than what this component happens to observe after a navigation.
    *
-   * Optional for the same reason `framework` is: a surface that has no
-   * frontend to name still gets the button, and the prompt simply names none.
-   * Frontends the graph has no node for (`slack`, `teams`) are handled
-   * downstream by `frontendPromptSuffix`.
+   * Optional for the same reason `framework` is. A Slack or Teams frontend
+   * also selects the Channels prompt.
    */
   frontend?: { id: string; name: string };
   /**
@@ -254,14 +252,36 @@ export function OnboardingPromptCopyButton({
         const graphFrontend = frontend
           ? onboardingFrontendSlug(frontend.id)
           : undefined;
+        /**
+         * Channel pages copy the same small prompt as the website CTA. They
+         * do not add a Channel sentence. Slack and Teams are not graph
+         * frontend slugs, so the framework and frontend sentences stay off.
+         * The source sentence stays: the graph uses a Slack or Teams docs
+         * page as the named frontend.
+         */
+        const channel =
+          frontend && isChannelOnboardingId(frontend.id)
+            ? { id: frontend.id, name: frontend.name }
+            : undefined;
         return {
+          /**
+           * The base sentence, what the page covers, and where the reader
+           * started. Nothing about the project: the page is what they were
+           * reading, not their stack, so research and `onboard inspect`
+           * decide the framework and the frontend (PE-309). The topic is a
+           * default for a folder with no project yet.
+           *
+           * Channel pages name no topic, because the Channels route settles
+           * the framework by inspection. They keep the source sentence. Its path is how the
+           * graph sees that a Slack or Teams page chose the surface, and it
+           * is the only attribution left when a run id fails to join.
+           */
           text:
-            createIntelligenceOnboardingPrompt(runId) +
-            (framework
-              ? frameworkPromptSuffix(framework.slug, framework.name)
-              : "") +
-            (frontend ? frontendPromptSuffix(frontend.id, frontend.name) : "") +
-            ` The developer copied this prompt from ${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}.`,
+            (channel
+              ? createChannelsOnboardingPrompt(runId)
+              : createIntelligenceOnboardingPrompt(runId) +
+                pageTopicSentence(framework, frontend)) +
+            pageSourceSentence(markdownUrl),
           onAction: (action) =>
             posthog?.capture(
               "docs.intelligence_onboarding_prompt_action_clicked",
@@ -272,6 +292,9 @@ export function OnboardingPromptCopyButton({
                 surface: ONBOARDING_COPY_SURFACE,
                 agent_framework: graphFramework,
                 frontend: graphFrontend,
+                channel: channel?.id,
+                argument_version: ONBOARDING_ARGUMENT_VERSION,
+                argument_text: ONBOARDING_ARGUMENT_TEXT,
               },
             ),
           onCopied: (action) =>
@@ -282,9 +305,58 @@ export function OnboardingPromptCopyButton({
               surface: ONBOARDING_COPY_SURFACE,
               agent_framework: graphFramework,
               frontend: graphFrontend,
+              channel: channel?.id,
+              // Which revision of the argument prose was appended. The hosted
+              // document versions its own text; this is the other half of what
+              // the developer copied (PE-255).
+              argument_version: ONBOARDING_ARGUMENT_VERSION,
+              argument_text: ONBOARDING_ARGUMENT_TEXT,
             }),
         };
       }}
+    />
+  );
+}
+
+const PAGE_PROMPT_COPY_SURFACE = "docs_page_tools_page_prompt";
+
+/**
+ * Copies a page's own prompt (its `agentPrompt` frontmatter) in place of the
+ * generic onboarding prompt. Recipes like the cookbook's know exactly what the
+ * reader wants built, so they hand the agent that task directly, followed by
+ * the page it came from so the agent can read the full walkthrough.
+ */
+export function PagePromptCopyButton({
+  prompt,
+  markdownUrl,
+  ...props
+}: ComponentProps<"button"> & {
+  /** The page's prompt text. */
+  prompt: string;
+  /** The page's `.mdx` URL, named as the prompt's source. */
+  markdownUrl: string;
+}) {
+  const pathname = usePathname();
+  const posthog = usePostHog();
+  return (
+    <PromptPill
+      {...props}
+      surface={PAGE_PROMPT_COPY_SURFACE}
+      createPrompt={() => ({
+        text: prompt + pageSourceSentence(markdownUrl),
+        onAction: (action) =>
+          posthog?.capture("docs.page_prompt_action_clicked", {
+            action,
+            from_path: pathname,
+            surface: PAGE_PROMPT_COPY_SURFACE,
+          }),
+        onCopied: (action) =>
+          posthog?.capture("docs.page_prompt_copied", {
+            action,
+            from_path: pathname,
+            surface: PAGE_PROMPT_COPY_SURFACE,
+          }),
+      })}
     />
   );
 }

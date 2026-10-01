@@ -77,7 +77,9 @@ describe("DocsPageView table of contents", () => {
 describe("DocsPageView breadcrumbs", () => {
   it.each([
     ["frontend-tools", ["Basics"]],
-    ["threads", ["Basics", "Rich Threads"]],
+    ["threads", ["Intelligence", "Features", "AG-UI Streams"]],
+    ["threads-import", ["Intelligence", "Features", "AG-UI Streams"]],
+    ["headless-threads", ["Basics", "Threads"]],
     ["prebuilt-components", ["Basics", "Chat"]],
   ])("uses the sidebar hierarchy for %s", async (slugPath, labels) => {
     const page = await DocsPageView({

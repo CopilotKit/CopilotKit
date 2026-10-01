@@ -16,6 +16,12 @@ import {
 } from "lucide-react";
 import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
+## Start with your coding agent
+
+Use this prompt to build a working chat with CopilotKit's built-in agent. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
+
+<PageAgentPrompt />
+
 ## Prerequisites
 
 Before you begin, you'll need the following:
@@ -38,7 +44,14 @@ Before you begin, you'll need the following:
         ```
 
         <Callout type="info" title="Already have an app?">
-          Keep your current setup and install CopilotKit there. Use the [React SPA guide](/react-spa) for a client-only Vite app, or [deploy the runtime to your server framework](/runtime-server-adapter) with the React Router or TanStack Start examples. The CopilotKit CLI (`npx copilotkit@latest create`, aliased as `init`) creates a separate project; it does not modify an existing app.
+          Keep your current setup and install CopilotKit there. The CopilotKit CLI (`npx copilotkit@latest create`, aliased as `init`) creates a separate project; it does not modify an existing app.
+
+          <FrontendOnly frontend="react">
+          Use the [React SPA guide](/react-spa) for a client-only Vite app, or [deploy the runtime to your server framework](/runtime-server-adapter) with the React Router or TanStack Start examples.
+          </FrontendOnly>
+          <FrontendOnly frontend="angular">
+          Use the [Angular guide](/angular) for your existing app, or [deploy the runtime to your server framework](/runtime-server-adapter).
+          </FrontendOnly>
         </Callout>
     </Step>
     <Step>
@@ -106,6 +119,8 @@ Before you begin, you'll need the following:
 
         export const GET = handler;
         export const POST = handler;
+        export const PATCH = handler;
+        export const DELETE = handler;
         ```
     </Step>
     <Step>
@@ -113,8 +128,25 @@ Before you begin, you'll need the following:
 
         Wrap your application with the CopilotKit provider:
 
+        ```tsx title="app/providers.tsx"
+        "use client";
+
+        import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+        export function Providers({ children }: { children: React.ReactNode }) {
+          return (
+            <CopilotKitProvider runtimeUrl="/api/copilotkit">
+              {children}
+            </CopilotKitProvider>
+          );
+        }
+        ```
+
+        `app/layout.tsx` is a server component and cannot import the provider
+        directly, so it renders your client file instead:
+
         ```tsx title="app/layout.tsx"
-        import { CopilotKitProvider } from "@copilotkit/react-core/v2"; // [!code highlight]
+        import { Providers } from "./providers"; // [!code highlight]
         import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
         import './globals.css';
 
@@ -125,9 +157,9 @@ Before you begin, you'll need the following:
             <html lang="en">
               <body>
                 {/* [!code highlight:3] */}
-                <CopilotKitProvider runtimeUrl="/api/copilotkit">
+                <Providers>
                   {children}
-                </CopilotKitProvider>
+                </Providers>
               </body>
             </html>
           );
@@ -148,6 +180,8 @@ Before you begin, you'll need the following:
         Add the CopilotSidebar component to your page:
 
         ```tsx title="app/page.tsx"
+        "use client"; // [!code highlight]
+
         import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight]
 
         export default function Page() {

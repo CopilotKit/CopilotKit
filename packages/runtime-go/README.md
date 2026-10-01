@@ -409,7 +409,7 @@ generation retries.
 ## Telemetry
 
 Telemetry excludes prompts, app-user IDs, project keys, and raw upstream errors.
-`TelemetrySampleRate` defaults to `0.05`.
+`TelemetrySampleRate` defaults to `1`, so events are not sampled.
 `COPILOTKIT_TELEMETRY_SAMPLE_RATE` overrides that value.
 
 `TelemetryID`, then `CPK_TELEMETRY_ID`, selects a header-only identity.

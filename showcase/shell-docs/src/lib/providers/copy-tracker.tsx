@@ -12,20 +12,24 @@ export function CopyTracker() {
       return;
     const original = navigator.clipboard.writeText.bind(navigator.clipboard);
     navigator.clipboard.writeText = async function (text: string) {
+      // Capture attribution before the async write can move focus or navigate.
+      const location = window.location.pathname;
+      let conversionSurface: string | undefined;
       try {
         const activeElement = document.activeElement;
-        const conversionSurface =
+        conversionSurface =
           activeElement instanceof Element
             ? activeElement.closest<HTMLElement>("[data-docs-copy-surface]")
                 ?.dataset.docsCopySurface
             : undefined;
-
+      } catch {
+        // Attribution must not prevent copying.
+      }
+      await original(text);
+      try {
         trackCommandCopy(posthog, {
           command: text,
-          location:
-            typeof window !== "undefined"
-              ? window.location.pathname
-              : undefined,
+          location,
         });
         if (conversionSurface) {
           posthog?.capture("docs_conversion_copied", {
@@ -35,7 +39,6 @@ export function CopyTracker() {
       } catch {
         // Never let analytics break the underlying copy.
       }
-      return original(text);
     };
     return () => {
       navigator.clipboard.writeText = original;

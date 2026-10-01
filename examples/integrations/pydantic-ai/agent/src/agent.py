@@ -29,7 +29,7 @@ class ProverbsState(BaseModel):
 # Agent
 # =====
 agent = Agent(
-    model=OpenAIResponsesModel("gpt-4.1-mini"),
+    model=OpenAIResponsesModel("gpt-5-mini"),
     deps_type=StateDeps[ProverbsState],
     system_prompt=dedent("""
     You are a helpful assistant that helps manage and discuss proverbs.

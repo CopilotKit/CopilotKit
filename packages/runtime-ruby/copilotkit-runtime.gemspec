@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 Gem::Specification.new do |spec|
   spec.name = 'copilotkit-runtime'
-  spec.version = '0.1.0'
+  spec.version = '0.1.0.rc.1'
   spec.summary = 'Native Intelligence runtime for Ruby Rack applications'
   spec.authors = ['CopilotKit']
   spec.license = 'MIT'

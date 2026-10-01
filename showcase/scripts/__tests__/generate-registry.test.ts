@@ -20,13 +20,15 @@ import { SCRIPTS_DIR, SHELL_DATA_DIR } from "./paths";
 
 // `generate-registry.ts` multi-emits registry.json + catalog.json into
 // EVERY shell's src/data plus the shell-only constraints.json. Without
-// this, every test run leaks regenerated JSON into the working tree —
-// catalog.json drifts on every run (its metadata carries a generated_at
-// timestamp), so the full write set must be snapshotted, not just the
-// shell registry/constraints pair. Snapshot in beforeAll; restore after
-// each test and at the end of the suite. These paths overlap with the
-// catalog and integration-smoke suites, so each generator mutation window
-// holds the generated-data lock.
+// this, every test run leaks regenerated JSON into the working tree, so
+// the full write set must be snapshotted, not just the shell
+// registry/constraints pair. (catalog.json used to drift on every run too,
+// from a wall-clock `generated_at`; PE-110 pinned that stamp to the source
+// revision and PE-118 removed the field, but the snapshot is still what
+// keeps the rest of the emitted files from leaking.) Snapshot in beforeAll;
+// restore after each test and at the end of the suite. These paths overlap
+// with the catalog and integration-smoke suites, so each generator mutation
+// window holds the generated-data lock.
 const SHOWCASE_ROOT = path.resolve(SCRIPTS_DIR, "..");
 const DATA_FILES = [
   path.join(SHELL_DATA_DIR, "registry.json"),

@@ -83,7 +83,10 @@ func disabledEnvironment() bool {
 	return false
 }
 func newTelemetry(c Config) (*telemetryExporter, error) {
-	rate := 0.05
+	// Unsampled by default: the sink is ours, so a real count beats one
+	// extrapolated from a fraction of the population. TelemetrySampleRate
+	// and COPILOTKIT_TELEMETRY_SAMPLE_RATE still dial it down.
+	rate := 1.0
 	if c.TelemetrySampleRate != nil {
 		rate = *c.TelemetrySampleRate
 	}
@@ -163,7 +166,7 @@ func (e *telemetryExporter) capture(event string, properties map[string]any) {
 	if e.disabled || e.rate == 0 || (e.rate < 1 && rand.Float64() >= e.rate) {
 		return
 	}
-	body, err := json.Marshal(map[string]any{"event": event, "properties": properties, "global_properties": map[string]any{"sampleRate": e.rate, "sampleRateAdjustmentFactor": 1 - e.rate, "sampleWeight": 1 / e.rate, "telemetry_identified": e.identified, "telemetry_emitter": "runtime-go", "telemetry_transport": "lambda"}, "package": map[string]any{"name": "copilotkit-runtime-go", "version": "0.1.0"}, "ts": time.Now().Unix()})
+	body, err := json.Marshal(map[string]any{"event": event, "properties": properties, "global_properties": map[string]any{"sampleRate": e.rate, "sampleRateAdjustmentFactor": 1 - e.rate, "sampleWeight": 1 / e.rate, "telemetry_identified": e.identified, "telemetry_emitter": "runtime-go", "telemetry_surface": "v2", "telemetry_transport": "lambda"}, "package": map[string]any{"name": "copilotkit-runtime-go", "version": "0.1.0"}, "ts": time.Now().Unix()})
 	if err != nil {
 		return
 	}

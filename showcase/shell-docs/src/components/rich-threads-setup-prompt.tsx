@@ -8,6 +8,8 @@ export { RICH_THREADS_SETUP_PROMPT } from "@/lib/rich-threads-setup-prompt";
 export function RichThreadsSetupPrompt(): React.JSX.Element {
   return (
     <CodingAgentSetupPrompt
+      feature="threads"
+      onboardingIntent="add-rich-threads"
       summary="Use this pre-built prompt to finish Intelligence setup faster."
       prompt={RICH_THREADS_SETUP_PROMPT}
       copySurface="docs_rich_threads_setup_agent_prompt"

@@ -44,6 +44,7 @@ export function handleSseConnect({
     // route resolved to — not the literal string "connect".
     agentId,
     telemetry: runtime.telemetry,
+    keepAliveIntervalSeconds: runtime.sseKeepAliveIntervalSeconds,
     observableFactory: () =>
       runtime.runner.connect({
         threadId,

@@ -9,9 +9,19 @@
 #   ------------------------- ------  ----------  ------------------------------
 #   showcase/harness           3646   NO          nowhere
 #   showcase/shell-dashboard   1331   NO          nowhere
+#   showcase/shell-docs         912   NO          nowhere
 #   showcase/shell               ~57   NO          nowhere
 #   showcase/scripts              -    yes        showcase_validate.yml
 #                                                 ("Run build pipeline tests")
+#
+# shell-docs was missing from the table above when this workflow first landed;
+# its 116-file suite was invisible for the same reason as the others, plus a
+# second one — it is outside the pnpm workspace and has no project.json, so nx
+# cannot select it even by name. The `docs` job below closes that gap. Wiring
+# it up found the suite already red with twelve failures in six files. Five
+# were test rot and were fixed outright; the remaining seven, in three files,
+# are real content defects.
+# See showcase/shell-docs/vitest.quarantine.json.
 #
 # `test_unit.yml` — the workflow whose name implies it covers this — carries
 # `paths-ignore: ["showcase/**", ...]` AND scopes its nx selection to
@@ -20,8 +30,8 @@
 # `showcase/scripts`; its two `working-directory: showcase/harness` steps are a
 # CVDIAG perf bench and an ESM boot-smoke, neither of which runs the unit
 # suite. `static_quality.yml`'s `check-types` job runs `nx run-many -t
-# check-types`, and the harness's script is named `typecheck`, so the harness is
-# not typechecked there either.
+# check-types`, which selects none of the showcase packages here, so each job
+# below also carries its package's typecheck (see the `Typecheck *` steps).
 #
 # Net effect: ~5000 showcase unit tests gated nothing. A PR could carry real
 # defects in `showcase/harness/src/**` and still show an all-green check list,
@@ -134,6 +144,20 @@ jobs:
         # generator (`working-directory: showcase/scripts` + tsx).
         run: pnpm exec tsx generate-registry.ts
 
+      - name: Typecheck harness
+        working-directory: showcase/harness
+        # Not reachable from `static_quality.yml`. That job runs
+        # `nx run-many -t check-types`, and the harness's script is named
+        # `typecheck`, so nx never selects it. Aliasing it to `check-types` is
+        # NOT the fix: that job does not run the generator above, and
+        # `src/probes/frontend-matrix.test.ts` statically imports the generated
+        # `shell/src/data/frontend-catalog.json`, so it would fail there with
+        # TS2307 on every PR. So the check lives here, after the generator.
+        #
+        # Measured on the commit that added this: 0 errors with the fixtures
+        # generated, and 4 without them, all from that one missing import.
+        run: pnpm exec tsc --noEmit
+
       - name: Run harness unit suite
         # THE GATE. Runs through nx per the repo's task convention (root
         # CLAUDE.md: prefer `nx run` over the underlying tooling).
@@ -229,6 +253,19 @@ jobs:
           pnpm exec tsx generate-registry.ts
           pnpm exec tsx probe-docs.ts
 
+      - name: Typecheck shell-dashboard
+        working-directory: showcase/shell-dashboard
+        # Not reachable from `static_quality.yml`. The dashboard is outside the
+        # pnpm workspace with no project.json, so nx cannot select it even by
+        # name, the same gap shell-docs had. Its tsconfig is `strict: true`.
+        #
+        # Measured on the commit that added this: 1 error, fixed in that same
+        # commit (a test passed `connection="connected"`, which is not a
+        # `ConnectionStatus`). It is placed after the generators above because
+        # `src/lib/docs-status.ts` statically imports the generated
+        # `@/data/docs-status.json`, exactly as the suite does.
+        run: npm exec -- tsc --noEmit
+
       - name: Run shell-dashboard unit suite
         working-directory: showcase/shell-dashboard
         # Not driven through nx: the dashboard is not an nx project (it is
@@ -256,3 +293,111 @@ jobs:
             --exclude 'tests/visual/**' \
             --exclude 'node_modules/**' \
             --exclude 'tests/**/*.spike.test.ts'
+
+  docs:
+    name: shell-docs unit suite
+    runs-on: depot-ubuntu-24.04-4
+    # Suite is ~135s wall-clock locally (116 files); the budget is install time
+    # plus the five content generators below.
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      # Depot OIDC auth (runs-on: depot-ubuntu-*).
+      id-token: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          # REQUIRED for this job, unlike the two above. `.gitattributes` puts
+          # *.png/jpg/gif/pdf in Git LFS, and four test files read those bytes
+          # directly — `public-assets.test.ts` asserts the PNG magic number.
+          # Without LFS the checkout leaves pointer files, so the assertion sees
+          # `118 101 114 115` ("vers", the start of the pointer's `version`
+          # line) instead of `137 80 78 71`. ~15M under shell-docs/public.
+          lfs: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          # shell-docs is deliberately NOT a pnpm workspace member (it ships its
+          # own package-lock.json and installs @copilotkit/* from npm), so cache
+          # npm against that lockfile.
+          cache: "npm"
+          cache-dependency-path: showcase/shell-docs/package-lock.json
+
+      - name: Install workspace dependencies (for the content generators)
+        # The generators live in `showcase/scripts`, which IS a pnpm workspace
+        # member, so this job needs both package managers. generate-registry.ts
+        # imports yaml/ajv from there.
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Install shell-docs dependencies
+        working-directory: showcase/shell-docs
+        # `npm ci` (not `npm install`) so ranges are not re-resolved. Unlike
+        # shell-dashboard, shell-docs declares no install hooks, so
+        # `--ignore-scripts` here is ordinary hygiene rather than load-bearing.
+        run: npm ci --ignore-scripts
+
+      - name: Generate gitignored content fixtures
+        working-directory: showcase/scripts
+        # HAZARD, handled here. `showcase/.gitignore` ignores
+        # `shell-docs/src/data/*.json`, and modules under `src/lib` statically
+        # import `@/data/registry.json`, `@/data/search-index.json` and the
+        # bundled demo/setup content — without them ~33 test files fail to load
+        # with "Cannot find package '@/data/*.json'".
+        #
+        # These are the five generators behind shell-docs' `pretest` hook. The
+        # run step below invokes vitest directly rather than `npm test` so they
+        # execute once here instead of twice.
+        #
+        # All five resolve their paths from `import.meta.url`, not `cwd`, so
+        # running them from `showcase/scripts` writes to the same place the
+        # package's own `pretest` would.
+        run: |
+          pnpm exec tsx generate-registry.ts
+          pnpm exec tsx bundle-demo-content.ts
+          pnpm exec tsx bundle-angular-source-content.ts
+          pnpm exec tsx bundle-setup-content.ts
+          pnpm exec tsx generate-search-index.ts
+
+      - name: Typecheck shell-docs
+        working-directory: showcase/shell-docs
+        # Not reachable from `static_quality.yml`. That job runs
+        # `nx run-many -t check-types`, and shell-docs is outside the pnpm
+        # workspace with no project.json, so nx cannot select it even by name —
+        # the same reason the unit suite needed this workflow. Its tsconfig is
+        # `strict: true` over `**/*.ts`, so without this step nothing checked a
+        # single file here.
+        #
+        # Measured on the commit that added this: 0 errors. It is placed after
+        # the generators above because `src/lib` statically imports the
+        # generated `@/data/*.json`, exactly as the suite does.
+        run: npm exec -- tsc --noEmit
+
+      - name: Run shell-docs unit suite
+        working-directory: showcase/shell-docs
+        # Not driven through nx: shell-docs is outside the pnpm workspace by
+        # design and has no project.json, so there is no target to run.
+        #
+        # `vitest.ci.config.ts` is `vitest.config.ts` plus the exclusions in
+        # `vitest.quarantine.json`. That manifest names three files that are
+        # already red on `origin/main` — real content defects, each with a
+        # reason and an exit criterion — so this gate is green on arrival and
+        # survives contact with a busy check list.
+        run: npm exec -- vitest run --config vitest.ci.config.ts
+
+      - name: Ratchet the quarantine manifest
+        working-directory: showcase/shell-docs
+        # The exclusion above is only defensible if it cannot rot. This re-runs
+        # exactly the quarantined files and requires each to STILL FAIL: fix one
+        # and this step goes red until its entry is deleted. No
+        # `continue-on-error` — both the gate and the ratchet are hard failures.
+        run: npm run test:quarantine-ratchet

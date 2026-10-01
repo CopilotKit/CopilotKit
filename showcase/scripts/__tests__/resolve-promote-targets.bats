@@ -249,11 +249,16 @@ JSON
   [[ "$output" != *"docs"* ]] || fail "agent-a closure must NOT include the unrelated standalone docs: $output"
 }
 
-@test "all closure_plan marks the standalone member s: and keeps the rest tier-annotated" {
+@test "all omits standalone docs from the leaf set and the closure" {
   _gen_with_standalone
   run_resolve "all"
   [ "$status" -eq 0 ] || fail "expected exit 0, got $status: $output"
+  run grep '^services_csv=' "$GITHUB_OUTPUT"
+  [[ "$output" != *"docs"* ]] || fail "all leaf set must omit standalone docs: $output"
+  [[ "$output" == *"agent-a"* ]] || fail "all leaf set must still include agent-a: $output"
+  run grep '^closure_csv=' "$GITHUB_OUTPUT"
+  [[ "$output" != *"docs"* ]] || fail "all closure must omit standalone docs: $output"
   run grep '^closure_plan=' "$GITHUB_OUTPUT"
-  [[ "$output" == *"s:docs"* ]] || fail "all plan must mark docs standalone (s:docs): $output"
-  [[ "$output" == *"1:harness"* ]] || fail "all plan must keep harness tier-annotated: $output"
+  [[ "$output" != *"s:docs"* ]] || fail "all plan must not mark docs: $output"
+  [[ "$output" == *"1:harness"* ]] || fail "all plan must keep harness: $output"
 }

@@ -34,8 +34,7 @@
     "test-latest": "node test/compatibility.mjs --lane latest"
   },
   "dependencies": {
-    "@copilotkit/runtime": "workspace:*",
-    "yauzl": "2.10.0"
+    "@copilotkit/runtime": "workspace:*"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:*",

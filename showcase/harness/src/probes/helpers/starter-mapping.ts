@@ -3,24 +3,59 @@
  *
  * The starter-smoke matrix (`STARTERS` in
  * `showcase/tests/e2e/starter-smoke.spec.ts`) names each starter template by
- * its own slug. The dashboard, however, has exactly 19 columns — one per
- * `showcase/integrations/<slug>/manifest.yaml` — and the `starter` probe
- * family must write `starter:<dashboard-column-slug>/<level>` rows so the
- * dashboard only ever sees column slugs (mirroring how `CATALOG_TO_D5_KEY`
- * bridges the harness↔dashboard namespaces in `live-status.ts`).
+ * its own slug. The dashboard has one column per
+ * `showcase/integrations/<slug>/manifest.yaml` — **21** of them today (22
+ * directories minus `_shared`) — and the `starter` probe family must write
+ * `starter:<dashboard-column-slug>/<level>` rows so the dashboard only ever
+ * sees column slugs (mirroring how `CATALOG_TO_D5_KEY` bridges the
+ * harness↔dashboard namespaces in `live-status.ts`).
  *
- * This module is the single source of truth for that remap. There are 12
- * starters: 5 whose slug drifts from the column slug, and 7 that map
- * one-to-one (the slug is identical on both sides). The other 7 dashboard
- * columns (ag2, claude-sdk-python, claude-sdk-typescript, langroid,
- * spring-ai, built-in-agent, ms-agent-harness-dotnet) have NO smoke starter
- * — they are intentionally absent from this map, and the UI renders them in
- * the dashboard's existing grey "not supported" ✗ state. 12 mapped + 7
- * unmapped = 19 columns.
+ * This module is the single source of truth for that remap. 12 starters are
+ * mapped: 5 whose slug drifts from the column slug, and 7 that map one-to-one
+ * (the slug is identical on both sides).
  *
- * Slug-drift is guarded by `starter-mapping-drift.test.ts`, which asserts
- * every starter in the smoke matrix is mapped (or explicitly excluded) and
- * every mapped column slug exists as a real manifest directory.
+ * A column absent from this map is NOT automatically "unsupported". The
+ * remaining 9 columns split three ways, and conflating them is exactly the
+ * rot this file grew:
+ *
+ *   - `strands-typescript`, `claude-sdk-python`, `claude-sdk-typescript` —
+ *     a REAL starter exists under `examples/integrations/`; nothing probes it
+ *     yet. Listed in `STARTER_COLUMNS_UNPROBED` (`live-status.ts`) and rendered
+ *     as the gray `?` no-data chip, NOT 🚫.
+ *   - `crewai-conversational-flows` — RESOLVED (2026-09-15): the smoke matrix's
+ *     `crewai-flows` starter IS this column. Three independent surfaces agree
+ *     and none is generated from this file:
+ *       1. `showcase/integrations/crewai-conversational-flows/manifest.yaml`
+ *          advertises `npx copilotkit@latest init --framework flows`.
+ *       2. `showcase/shell-docs/.../docs/integrations/crewai-flows/quickstart.mdx`
+ *          — a docs directory named for the STARTER — advertises the SAME
+ *          `--framework flows`. The column's manifest and the starter's docs
+ *          scaffold one and the same template.
+ *       3. Implementation kind matches: `examples/integrations/crewai-flows`'s
+ *          agent is `crewai.flow.flow.Flow`-based, while
+ *          `examples/integrations/crewai-crews`' agent is a `Crew`
+ *          (`src/latest_ai_development/crew.py`) and its column advertises a
+ *          DIFFERENT flag, `--framework crewai-crews`.
+ *     It is nevertheless NOT probed: `crewai-flows` is the one smoke-matrix
+ *     starter with no root `Dockerfile`, so `showcase_build.yml`'s
+ *     `build-starters` matrix omits it, no `starter-crewai-flows` image is
+ *     published, and no Railway service exists for the fleet to discover. It is
+ *     therefore declared in `UNPROBED_STARTER_TO_COLUMN` below and its column in
+ *     `STARTER_COLUMNS_UNPROBED` (`live-status.ts`) — the gray `?` chip, never
+ *     the 🚫 capability claim.
+ *   - `ag2`, `built-in-agent`, `langroid`, `ms-agent-harness-dotnet`,
+ *     `spring-ai` — genuinely have no starter; these are the only columns that
+ *     may render 🚫 "Not supported by this framework".
+ *
+ * The prior version of this comment claimed "12 mapped + 7 unmapped = 19
+ * columns" and the accompanying test only asserted `size === 12`, so three
+ * real starters were reported as unsupported frameworks for as long as nobody
+ * counted the directories. `starter-mapping-drift.test.ts` now derives its
+ * expectations from the filesystem and the CI matrix instead.
+ *
+ * NOTE (forward direction): `SPEC-starter-ladder.md` replaces this hand-mirrored
+ * map with a per-manifest `starter_validation:` key from which the mapping is
+ * DERIVED. Nothing here should grow a new hand-maintained list.
  *
  * Keying note: the `starter` dimension keys per-level sub-rows as
  * `starter:<column-slug>/<level>` where level ∈ {health,agent,chat,
@@ -56,6 +91,28 @@ export const STARTER_TO_COLUMN: Readonly<Record<string, string>> = {
   llamaindex: "llamaindex",
   mastra: "mastra",
   "pydantic-ai": "pydantic-ai",
+};
+
+/**
+ * Starters that EXIST and own a dashboard column, but that the starter-smoke
+ * fleet does not probe — so no `starter:<column>/<level>` row will ever land.
+ *
+ * Kept SEPARATE from `STARTER_TO_COLUMN` on purpose: that map's value set is
+ * asserted equal to the dashboard's `STARTER_COLUMNS` (the PROBED set) by
+ * `starter-column-equality.test.ts`, so putting an unprobed starter there would
+ * make the dashboard claim a live probe that does not exist. This map records
+ * the identity WITHOUT claiming the probe, which is what lets the column render
+ * the honest gray `?` ("starter exists in-repo; no live starter probe yet")
+ * instead of 🚫 "Not supported by this framework".
+ *
+ * Only name-DRIFTED starters need an entry: a starter whose directory name
+ * already equals its column slug is matched by identity in
+ * `starter-mapping-drift.test.ts`.
+ */
+export const UNPROBED_STARTER_TO_COLUMN: Readonly<Record<string, string>> = {
+  // See the `crewai-conversational-flows` bullet in the module header for the
+  // three-surface evidence, and for why nothing probes it.
+  "crewai-flows": "crewai-conversational-flows",
 };
 
 /** The four smoke levels probed per starter, in dashboard sub-row order. */

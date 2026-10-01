@@ -39,7 +39,7 @@ public sealed class D5ParityAgentFactory
     public AIAgent CreateGenUiToolBasedAgent()
     {
         var inner = new ChatClientAgent(
-            _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient(),
+            _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient(),
             name: "GenUiToolBasedAgent",
             instructions: """
                 You are a data visualization assistant.
@@ -56,7 +56,7 @@ public sealed class D5ParityAgentFactory
     public AIAgent CreateReadonlyStateAgentContext()
     {
         var inner = new ChatClientAgent(
-            _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient(),
+            _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient(),
             name: "ReadonlyStateAgentContext",
             instructions: "You are a helpful concise assistant. Use any frontend-provided context about the user when it is relevant.",
             tools: []);
@@ -88,7 +88,7 @@ public sealed class D5ParityAgentFactory
             });
 
         var inner = new ChatClientAgent(
-            _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient(),
+            _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient(),
             name: "GenUiAgent",
             instructions: """
                 You are an agentic planner. For each user request, plan exactly 3 concrete
@@ -139,7 +139,7 @@ public sealed class D5ParityAgentFactory
             });
 
         var inner = new ChatClientAgent(
-            _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient(),
+            _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient(),
             name: "SharedStateStreamingAgent",
             instructions: "You are a collaborative writing assistant. Whenever the user asks you to write, draft, or revise text, ALWAYS call write_document with the full content as a single string in the `document` argument. Never paste the document into a chat message directly - the document belongs in shared state and the UI renders it live as you type.",
             tools: [writeDocument]);
@@ -172,7 +172,7 @@ public sealed class D5ParityAgentFactory
             """;
 
         var inner = new ChatClientAgent(
-            _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient(),
+            _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient(),
             name: reasoning ? "ToolRenderingReasoningChainAgent" : "ToolRenderingAgent",
             instructions: reasoning ? ReasoningAgentFactory.SystemPrompt + "\n\n" + prompt : prompt,
             tools: tools);
@@ -215,7 +215,7 @@ public sealed class D5ParityAgentFactory
             """;
 
         return new ChatClientAgent(
-            _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient(),
+            _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient(),
             name: "HeadlessCompleteAgent",
             instructions: prompt,
             tools: tools);
@@ -224,7 +224,7 @@ public sealed class D5ParityAgentFactory
     public AIAgent CreateVoiceAgent()
     {
         return new ChatClientAgent(
-            _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient(),
+            _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient(),
             name: "VoiceAgent",
             instructions: "You are a concise voice demo assistant. Answer directly and do not call tools.",
             tools: []);

@@ -18,6 +18,7 @@ export type MegaMenuIconName =
   | "box"
   | "radio"
   | "brain"
+  | "lightbulb"
   | "chart"
   | "kite";
 
@@ -53,7 +54,6 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
         icon: "sparkles",
       },
       { href: "/frontend-tools", label: "Agent behavior", icon: "bot" },
-      { href: "/threads", label: "Rich Threads", icon: "layers" },
     ],
   },
   {
@@ -61,7 +61,11 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
     links: [
       { href: "/backend/copilot-runtime", label: "Runtime", icon: "refresh" },
       { href: "/agentic-protocols/ag-ui", label: "AG-UI", icon: "link" },
-      { href: "/build-with-agents", label: "Integrations", icon: "blocks" },
+      {
+        href: "/build-with-agents",
+        label: "Build with agents",
+        icon: "blocks",
+      },
     ],
   },
   {
@@ -73,22 +77,23 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
         icon: "kite",
         featured: true,
       },
-      { href: "/threads", label: "Threads", icon: "layers" },
+      { href: "/threads", label: "AG-UI Streams", icon: "layers" },
       {
-        href: "/backend/copilot-runtime",
-        label: "Learning",
-        icon: "brain",
+        href: "/learning",
+        label: "Automatic Learning",
+        icon: "lightbulb",
       },
       {
-        href: "/intelligence/managed-intelligence-platform",
-        label: "Analytics",
+        href: "/intelligence/analytics",
+        label: "Product Analytics",
         icon: "chart",
       },
+      { href: "/intelligence/memories", label: "User Memories", icon: "brain" },
       { href: "/inspector", label: "Inspector", icon: "search" },
       { href: "/deploy/agentcore", label: "Deploy", icon: "cloud" },
       {
         href: "/intelligence/self-hosting",
-        label: "Self-hosting",
+        label: "Self-Hosting",
         icon: "server",
       },
     ],

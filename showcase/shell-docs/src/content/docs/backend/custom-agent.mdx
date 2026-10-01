@@ -23,6 +23,9 @@ If simple mode covers your needs, stick with it. Use factory mode when you need
 control that simple mode doesn't offer.
 </Callout>
 
+To write the whole agent yourself instead of a factory, extend AG-UI's
+`AbstractAgent`. See [Write your own AG-UI agent](/backend/custom-ag-ui-agent).
+
 ## Quick Start
 
 You have an existing LLM backend and you want a CopilotKit copilot using it. Pick your backend:
@@ -160,10 +163,11 @@ Factory mode accepts a config with two fields:
 - **`type`:** which backend you're using: `"aisdk"`, `"tanstack"`, or `"custom"`
 - **`factory`:** a function that receives the raw request and returns a backend-native stream
 
-The factory receives an `AgentFactoryContext` (from `@copilotkit/runtime/v2`):
+The factory receives an `BuiltInAgentFactoryContext` (from `@copilotkit/runtime/v2`):
 
 ```typescript
-interface AgentFactoryContext {
+interface BuiltInAgentFactoryContext {
+  learnedSkills: BuiltInAgentLearnedSkills; // catalog and read-only AI SDK tools, empty when disabled
   input: RunAgentInput;        // messages, tools, state, context, threadId, runId, forwardedProps
   abortController: AbortController;  // for TanStack AI (requires AbortController)
   abortSignal: AbortSignal;          // preferred for AI SDK, fetch, and custom backends

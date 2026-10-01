@@ -86,7 +86,8 @@ log_warning() {
 
 # Get human-readable file size
 get_file_size() {
-    local size=$(stat -f%z "$1" 2>/dev/null || stat --printf="%s" "$1" 2>/dev/null)
+    local size
+    size=$(stat -f%z "$1" 2>/dev/null || stat --printf="%s" "$1" 2>/dev/null)
     if [[ $size -lt 1024 ]]; then
         echo "${size}B"
     elif [[ $size -lt 1048576 ]]; then

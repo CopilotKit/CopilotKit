@@ -67,6 +67,15 @@ This is where CopilotKit's shared-state channel earns its keep: the
 supervisor's tool calls mutate `delegations` as they happen, and the
 frontend renders every new entry live.
 
+<Callout type="warn">
+  Give every delegation a stable `id` and merge new entries by that `id`. The
+  client sends its copy of shared state back as run input on every run, so a
+  slot that blindly appends whatever it receives — a LangGraph
+  `Annotated[list, operator.add]` reducer, for example — concatenates the
+  entries the client just echoed onto the ones the agent already has, and the
+  log doubles when a thread is continued.
+</Callout>
+
 ## Rendering a live delegation log
 
 On the frontend, the delegation log is a reactive render of the

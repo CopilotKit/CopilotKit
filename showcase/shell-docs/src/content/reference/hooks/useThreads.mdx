@@ -14,11 +14,13 @@ doc_type: reference
 
 ## Overview
 
+Intelligence’s [AG-UI streams](/threads) provide the event history and delivery behind these conversations. Use `useThreads` to manage the conversation list, then pass the selected `threadId` to your chat. Your framework keeps its own conversation and model-context management.
+
 `useThreads` is a React hook for managing conversation threads in CopilotKit Intelligence. It fetches the thread list for a given agent, keeps it synchronized in realtime via WebSocket, and exposes mutation methods for renaming, archiving, and deleting threads.
 
 Threads are sorted by most recently updated first. The hook supports cursor-based pagination when a `limit` is provided.
 
-`useThreads` only activates when the connected runtime advertises compatible REST thread endpoints. Managed CopilotKit Intelligence provides those endpoints for durable thread metadata and realtime updates. Self-managed runner persistence, such as `AgentRunner`, `SqliteAgentRunner`, or a custom runner, can still persist and replay chat history, but it does not automatically provide the managed `useThreads` list/mutation/realtime contract.
+`useThreads` only activates when the connected runtime advertises compatible REST thread endpoints. Cloud-hosted Intelligence provides those endpoints for thread metadata and realtime updates. Self-managed runner persistence, such as `AgentRunner`, `SqliteAgentRunner`, or a custom runner, can still persist and replay chat history, but it does not automatically provide the managed `useThreads` list/mutation/realtime contract.
 
 ## Signature
 
@@ -143,5 +145,5 @@ function ThreadList() {
 
 ## Next steps
 
-- **Thread architecture:** [Threads & Persistence Architecture](/intelligence/threads-explained) — event replay model and WebSocket sync
+- **Thread architecture:** [AG-UI Streams & Framework Threads](/intelligence/threads-explained) — event replay model and WebSocket sync
 - **Step-by-step guide:** [Headless Threads](/headless-threads) — build a custom thread-management UI

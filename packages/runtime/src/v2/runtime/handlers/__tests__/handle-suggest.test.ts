@@ -203,6 +203,44 @@ describe("handleSuggestAgent", () => {
     expect(runtime.runner.run).not.toHaveBeenCalled();
   });
 
+  it("closes an unfinished tool call and terminates the stream when the provider ends early", async () => {
+    const fakeAgent = createFakeAgent();
+    // The provider drops the connection after the args: no TOOL_CALL_END, no
+    // RUN_FINISHED. The handler must synthesize both so the client never
+    // sees a dangling suggestion stream.
+    const truncated = suggestEvents.filter(
+      (e) => e.type !== "TOOL_CALL_END" && e.type !== "RUN_FINISHED",
+    );
+    fakeAgent.runAgent.mockImplementation(
+      async (_input: RunAgentInput, sub?: RunAgentSubscriber) => {
+        for (const event of truncated) sub?.onEvent?.({ event });
+        return { newMessages: [] };
+      },
+    );
+    cloneAgentForRequest.mockResolvedValue(fakeAgent);
+    stubParsedInput();
+
+    const res = await handleSuggestAgent({
+      runtime: asRuntime({ runner: { run: vi.fn() } }),
+      request: new Request("http://x/agent/default/suggest", {
+        method: "POST",
+        body: JSON.stringify({ threadId: "s1", messages: [] }),
+      }),
+      agentId: "default",
+    });
+
+    const events = await readSseEvents(res);
+    expect(events.map((e) => e.type)).toEqual([
+      "RUN_STARTED",
+      "TOOL_CALL_START",
+      "TOOL_CALL_ARGS",
+      "TOOL_CALL_END",
+      "TOOL_CALL_RESULT",
+      "RUN_ERROR",
+    ]);
+    expect(events.at(-1)).toMatchObject({ code: "INCOMPLETE_STREAM" });
+  });
+
   it("forwards allowlisted request headers onto the agent but attaches no middleware", async () => {
     const fakeAgent = createFakeAgent();
     cloneAgentForRequest.mockResolvedValue(fakeAgent);

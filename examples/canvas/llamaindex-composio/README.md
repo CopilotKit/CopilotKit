@@ -379,7 +379,7 @@ def hello_world(name: str) -> str:
   return f"Hello, {str}" # tool result
 
 agentic_chat_router = get_ag_ui_workflow_router(
-    llm=OpenAI(model="gpt-4.1"),
+    llm=OpenAI(model="gpt-5-mini"),
     backend_tools=[hello_world]
 )
 ```
@@ -422,7 +422,7 @@ def hello_world(name: str) -> str:
   return "called hello_world"
 
 agentic_chat_router = get_ag_ui_workflow_router(
-    llm=OpenAI(model="gpt-4.1"),
+    llm=OpenAI(model="gpt-5-mini"),
     frontend_tools=[hello_world]
 )
 ```

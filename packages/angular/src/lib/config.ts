@@ -1,27 +1,27 @@
-import type { Provider } from "@angular/core";
-import { inject, InjectionToken } from "@angular/core";
-import type { AbstractAgent } from "@ag-ui/client";
-import type {
+import { Provider, Type, inject, InjectionToken } from "@angular/core";
+import { AbstractAgent } from "@ag-ui/client";
+import {
   ClientTool,
   FrontendToolConfig,
   HumanInTheLoopConfig,
   RenderToolCallConfig,
 } from "./tools";
 import { LICENSE_WATERMARK_ENABLED } from "./license-watermark";
-import type { RenderActivityMessageConfig } from "./activity-renderer";
-import type { SuggestionsConfig } from "@copilotkit/core";
-import type { OpenGenerativeUIConfig } from "./open-generative-ui";
-import type {
-  Catalog,
-  LitComponentImplementation,
-  LitRenderable,
-  Theme as A2UITheme,
-} from "@copilotkit/a2ui-renderer/web-components";
+import { RenderActivityMessageConfig } from "./activity-renderer";
+import { CopilotKitMessageFilter, SuggestionsConfig } from "@copilotkit/core";
+import { OpenGenerativeUIConfig } from "./open-generative-ui";
+import { A2UICatalog } from "./components/a2ui/a2ui-types";
 
 export interface A2UIConfig {
-  theme?: A2UITheme;
-  catalog?: Catalog<LitComponentImplementation>;
-  loadingComponent?: () => LitRenderable;
+  theme?: Record<string, unknown>;
+  /**
+   * The catalog surfaces render with: `basicCatalog`, or one from
+   * `createAngularCatalog`, both in `@copilotkit/angular/a2ui`. Without one,
+   * A2UI stays off, even when the runtime enables it.
+   */
+  catalog?: A2UICatalog;
+  /** Shown until the first surface renders. */
+  loadingComponent?: Type<unknown>;
   includeSchema?: boolean;
   recovery?: A2UIRecoveryOptions;
 }
@@ -40,6 +40,30 @@ export interface CopilotKitConfig {
   headers?: Record<string, string>;
   /** Fetch credentials mode used for CopilotKit runtime requests. */
   credentials?: RequestCredentials;
+  /**
+   * Rewrites the message list sent to runtime agents on every run.
+   *
+   * CopilotKit sends the whole thread each time. When your agent already
+   * stores the conversation, most of that payload is waste, and an agent that
+   * merges the inbound list with its own store can show the model every turn
+   * twice. Return the messages to send:
+   *
+   * ```ts
+   * provideCopilotKit({
+   *   runtimeUrl: "/api/copilotkit",
+   *   messageFilter: (messages) => messages.slice(-1),
+   * });
+   * ```
+   *
+   * The filter changes the request body only. The transcript the UI renders is
+   * untouched. Broken tool-call pairs are repaired before the request is sent,
+   * so a filter this blunt cannot strand a tool result mid-HITL.
+   *
+   * Agents reached through your CopilotRuntime honor this. An agent your app
+   * passes in directly does not, and neither Intelligence runs nor suggestion
+   * runs are ever filtered.
+   */
+  messageFilter?: CopilotKitMessageFilter;
   licenseKey?: string;
   properties?: Record<string, unknown>;
   agents?: Record<string, AbstractAgent>;

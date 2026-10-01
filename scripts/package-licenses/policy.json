@@ -1,0 +1,176 @@
+[
+  {
+    "directory": "packages/a2ui-renderer",
+    "names": ["@copilotkit/a2ui-renderer"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/agentcore-runner",
+    "names": ["@copilotkit/agentcore-runner"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/angular",
+    "names": ["@copilotkit/angular"],
+    "license": "MIT",
+    "notice": "packages/angular/LICENSE"
+  },
+  {
+    "directory": "packages/channels",
+    "names": ["@copilotkit/channels"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/channels-core",
+    "names": ["@copilotkit/channels-core"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/channels-discord",
+    "names": ["@copilotkit/channels-discord"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/channels-intelligence",
+    "names": ["@copilotkit/channels-intelligence"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/channels-slack",
+    "names": ["@copilotkit/channels-slack"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/channels-teams",
+    "names": ["@copilotkit/channels-teams"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/channels-telegram",
+    "names": ["@copilotkit/channels-telegram"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/channels-ui",
+    "names": ["@copilotkit/channels-ui"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/channels-whatsapp",
+    "names": ["@copilotkit/channels-whatsapp"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/core",
+    "names": ["@copilotkit/core"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/intelligence-langgraph",
+    "names": ["@copilotkit/intelligence-langgraph"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/intelligence-mastra",
+    "names": ["@copilotkit/intelligence-mastra"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/mcp-apps-renderer",
+    "names": ["@copilotkit/mcp-apps-renderer"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/react-core",
+    "names": ["@copilotkit/react-core"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/react-native",
+    "names": ["@copilotkit/react-native"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/react-textarea",
+    "names": ["@copilotkit/react-textarea"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/react-ui",
+    "names": ["@copilotkit/react-ui"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/runtime",
+    "names": ["@copilotkit/runtime"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/runtime-client-gql",
+    "names": ["@copilotkit/runtime-client-gql"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/sdk-js",
+    "names": ["@copilotkit/sdk-js"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/shared",
+    "names": ["@copilotkit/shared"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/sqlite-runner",
+    "names": ["@copilotkit/sqlite-runner"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/voice",
+    "names": ["@copilotkit/voice"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/vue",
+    "names": ["@copilotkit/vue"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/web-components",
+    "names": ["@copilotkit/web-components"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/web-inspector",
+    "names": ["@copilotkit/web-inspector"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  }
+]
