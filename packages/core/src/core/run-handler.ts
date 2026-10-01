@@ -6,6 +6,7 @@ import type {
   ResumeEntry,
   Tool,
   ToolCall,
+  ContentPart,
 } from "@ag-ui/client";
 import { randomUUID, logger } from "@copilotkit/shared";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
@@ -14,7 +15,10 @@ import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
 import { isAbortError } from "../utils/abort-error";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
-import { isForwardedToClientPlaceholder } from "./tool-result-content";
+import {
+  isForwardedToClientPlaceholder,
+  toToolResultContent,
+} from "./tool-result-content";
 import { createToolSchema } from "./tool-schema";
 import { WebMCPRegistry } from "./webmcp";
 
@@ -102,6 +106,9 @@ export interface CopilotKitCoreRunToolResult {
  * Internal result from the shared tool handler execution logic.
  */
 interface ExecuteToolHandlerResult {
+  /** The tool message content: a string, or content parts from the handler. */
+  content: string | ContentPart[];
+  /** The string form of `content`, for surfaces typed as `result: string`. */
   result: string;
   error?: string;
   isArgumentError: boolean;
@@ -1119,7 +1126,8 @@ export class RunHandler {
     signal?: AbortSignal;
     discardOnAbort?: boolean;
   }): Promise<ExecuteToolHandlerResult> {
-    let toolCallResult = "";
+    let toolCallResult: string | ContentPart[] = "";
+    let toolCallText = "";
     let errorMessage: string | undefined;
     let isArgumentError = false;
 
@@ -1164,13 +1172,8 @@ export class RunHandler {
           agent,
           signal,
         });
-        if (result === undefined || result === null) {
-          toolCallResult = "";
-        } else if (typeof result === "string") {
-          toolCallResult = result;
-        } else {
-          toolCallResult = JSON.stringify(result);
-        }
+        ({ content: toolCallResult, text: toolCallText } =
+          toToolResultContent(result));
       } catch (error) {
         const handlerError =
           error instanceof Error ? error : new Error(String(error));
@@ -1193,7 +1196,7 @@ export class RunHandler {
     }
 
     if (errorMessage) {
-      toolCallResult = `Error: ${errorMessage}`;
+      toolCallResult = toolCallText = `Error: ${errorMessage}`;
     }
 
     await this._internal.notifySubscribers(
@@ -1203,13 +1206,18 @@ export class RunHandler {
           toolCallId: toolCall.id,
           agentId,
           toolName: toolCall.function.name,
-          result: errorMessage ? "" : toolCallResult,
+          result: errorMessage ? "" : toolCallText,
           error: errorMessage,
         }),
       "Subscriber onToolExecutionEnd error:",
     );
 
-    return { result: toolCallResult, error: errorMessage, isArgumentError };
+    return {
+      content: toolCallResult,
+      result: toolCallText,
+      error: errorMessage,
+      isArgumentError,
+    };
   }
 
   /**
@@ -1232,6 +1240,7 @@ export class RunHandler {
     }
 
     let handlerResult: ExecuteToolHandlerResult = {
+      content: "",
       result: "",
       error: undefined,
       isArgumentError: false,
@@ -1283,7 +1292,7 @@ export class RunHandler {
         id: randomUUID(),
         role: "tool" as const,
         toolCallId: toolCall.id,
-        content: handlerResult.result,
+        content: handlerResult.content,
       };
       agent.messages.splice(insertAt, 0, toolMessage);
 
@@ -1317,7 +1326,8 @@ export class RunHandler {
       return false;
     }
 
-    let toolCallResult = "";
+    let toolCallResult: string | ContentPart[] = "";
+    let toolCallText = "";
     let errorMessage: string | undefined;
 
     if (wildcardTool?.handler) {
@@ -1371,13 +1381,8 @@ export class RunHandler {
             // replay-specific signal when restoring a wildcard HITL handler.
             signal,
           });
-          if (result === undefined || result === null) {
-            toolCallResult = "";
-          } else if (typeof result === "string") {
-            toolCallResult = result;
-          } else {
-            toolCallResult = JSON.stringify(result);
-          }
+          ({ content: toolCallResult, text: toolCallText } =
+            toToolResultContent(result));
         } catch (error) {
           const handlerError =
             error instanceof Error ? error : new Error(String(error));
@@ -1400,7 +1405,7 @@ export class RunHandler {
       }
 
       if (errorMessage) {
-        toolCallResult = `Error: ${errorMessage}`;
+        toolCallResult = toolCallText = `Error: ${errorMessage}`;
       }
 
       await this._internal.notifySubscribers(
@@ -1410,7 +1415,7 @@ export class RunHandler {
             toolCallId: toolCall.id,
             agentId: agentId,
             toolName: toolCall.function.name,
-            result: errorMessage ? "" : toolCallResult,
+            result: errorMessage ? "" : toolCallText,
             error: errorMessage,
           }),
         "Subscriber onToolExecutionEnd error:",
@@ -1518,6 +1523,7 @@ export class RunHandler {
 
     // 5. Execute the tool handler (if it has one)
     let handlerResult: ExecuteToolHandlerResult = {
+      content: "",
       result: "",
       error: undefined,
       isArgumentError: false,
@@ -1539,7 +1545,7 @@ export class RunHandler {
       id: randomUUID(),
       role: "tool",
       toolCallId,
-      content: handlerResult.result,
+      content: handlerResult.content,
     };
 
     const assistantIndex = agent.messages.findIndex(
