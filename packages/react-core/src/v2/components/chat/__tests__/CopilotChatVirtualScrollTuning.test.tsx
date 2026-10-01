@@ -7,7 +7,6 @@ import { renderWithCopilotKit } from "../../../__tests__/utils/test-helpers";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
 import { ScrollPinnedContext } from "../scroll-pinned-context";
 import { ScrollElementContext } from "../scroll-element-context";
-import { estimateMessageHeight } from "../virtual-message-layout";
 
 /**
  * Covers the two things CopilotChatMessageView configures on its virtualizer
@@ -141,10 +140,8 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
       // nothing the reader can see. Moving the scroll position for it is the
       // unwanted motion this whole thing is meant to remove.
       expect(shouldAdjust(itemAt(1200), 40, scrolledTo(800))).toBe(false);
-      // Corrections already applied count towards where the viewport is,
-      // but a row crossing its top edge must not move visible content.
-      expect(shouldAdjust(itemAt(800), 40, scrolledTo(800, 150))).toBe(true);
-      expect(shouldAdjust(itemAt(900), 40, scrolledTo(800, 150))).toBe(false);
+      // Corrections already applied count towards where the viewport is.
+      expect(shouldAdjust(itemAt(900), 40, scrolledTo(800, 150))).toBe(true);
     });
   });
 
@@ -194,17 +191,28 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
         const rect = vi
           .spyOn(HTMLElement.prototype, "getBoundingClientRect")
           .mockImplementation(function (this: HTMLElement) {
-            const index = Number(this.dataset.index);
             return {
               width,
               height: this.hasAttribute("data-index")
-                ? estimateMessageHeight(messages[index], width)
+                ? width < 400
+                  ? 600
+                  : 300
                 : 0,
             } as DOMRect;
           });
+        let nextFrame = 0;
+        const frames = new Map<number, FrameRequestCallback>();
         const frame = vi
           .spyOn(window, "requestAnimationFrame")
-          .mockReturnValue(0);
+          .mockImplementation((callback) => {
+            frames.set(++nextFrame, callback);
+            return nextFrame;
+          });
+        const cancelFrame = vi
+          .spyOn(window, "cancelAnimationFrame")
+          .mockImplementation((id) => {
+            frames.delete(id);
+          });
         try {
           renderWithCopilotKit({
             children: (
@@ -256,18 +264,26 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
                 );
               }
             });
+          const flushFrame = () =>
+            act(() => {
+              const pending = [...frames.values()];
+              frames.clear();
+              pending.forEach((callback) => callback(0));
+            });
           resize(300);
-          expect(virtualizer().measurementsCache[0].size).toBe(720);
+          flushFrame();
+          expect(virtualizer().measurementsCache[0].size).toBe(600);
           expect(
             container.scrollTop - virtualizer().measurementsCache[50].start,
           ).toBe(25);
-          expect(virtualizer().options.estimateSize(0)).toBe(720);
+          expect(virtualizer().options.estimateSize(0)).toBe(600);
           const total = virtualizer().getTotalSize();
           resize(300);
           expect(virtualizer().getTotalSize()).toBe(total);
           resize(600);
-          expect(virtualizer().measurementsCache[0].size).toBe(384);
-          expect(virtualizer().options.estimateSize(0)).toBe(384);
+          flushFrame();
+          expect(virtualizer().measurementsCache[0].size).toBe(300);
+          expect(virtualizer().options.estimateSize(0)).toBe(300);
           expect(
             container.scrollTop - virtualizer().measurementsCache[50].start,
           ).toBe(25);
@@ -279,6 +295,7 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
           cleanup();
           rect.mockRestore();
           frame.mockRestore();
+          cancelFrame.mockRestore();
           globalThis.ResizeObserver = originalObserver;
         }
       },

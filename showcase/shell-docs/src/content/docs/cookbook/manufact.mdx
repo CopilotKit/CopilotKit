@@ -5,13 +5,13 @@ icon: "custom/manufact"
 showIcon: true
 doc_type: how-to
 agentPrompt: |
-  Add an MCP App built with Manufact's mcp-use SDK to my CopilotKit app, and render it inline in the chat.
+  Implement the Fizzy Maps recipe described in the walkthrough linked below in my existing CopilotKit app: an MCP App built with Manufact's mcp-use SDK whose `show-map` tool renders a map inline in the chat. Build only what the walkthrough builds. Don't add an order dashboard or table.
 
-  1. Next to my web app, scaffold the MCP App with `npx create-mcp-use-app@latest my-mcp-app --template mcp-apps`. Delete the template's starter view (views/my-view) and replace index.ts with one tool made with `server.tool({ name, description, inputSchema, outputSchema, view: { name: "<view-folder>" } }, handler)`. The handler returns `{ content: [{ type: "text", text }], structuredContent }`.
-  2. Build the view in views/<view-folder>/view.tsx. Read the result with `useToolContext<"<tool-name>">()` from "mcp-use/react", and check `status` ("pending" | "ready" | "error") before reading `toolOutput`. If the view loads anything from another host, list that host in the tool's `view.csp` (`resourceDomains`, `connectDomains`).
+  1. Next to my web app, scaffold the MCP App with `npx create-mcp-use-app@latest fizzy-maps --template mcp-apps`. Delete the template's starter view (views/my-view) and replace index.ts with one tool made with `server.tool({ name: "show-map", description, inputSchema, outputSchema, view: { name: "map-view" } }, handler)`. The handler returns `{ content: [{ type: "text", text }], structuredContent }`.
+  2. Build the view in views/map-view/view.tsx. Read the result with `useToolContext<"show-map">()` from "mcp-use/react", and check `status` ("pending" | "ready" | "error") before reading `toolOutput`. The view loads map tiles from https://tile.openstreetmap.org, so list that host in the tool's `view.csp` (`resourceDomains`, `connectDomains`).
   3. Run it with `npm run dev -- --port 3001` and check that the tool renders in the mcp-use Inspector at http://localhost:3001/mcp/inspector.
-  4. In my CopilotKit runtime route, add `mcpApps: { servers: [{ type: "http", url: process.env.MCP_APP_URL ?? "http://localhost:3001/mcp", serverId: "<stable-id>" }] }` to `new CopilotRuntime(...)`.
-  5. Share the data the tool needs with `useAgentContext({ description, value })` from "@copilotkit/react-core/v2". Don't add a frontend renderer. CopilotKit renders MCP Apps on its own.
+  4. Add `MAP_MCP_URL=http://localhost:3001/mcp` to my web app's .env. In my CopilotKit runtime route, add `mcpApps: { servers: [{ type: "http", url: process.env.MAP_MCP_URL ?? "http://localhost:3001/mcp", serverId: "fizzy-maps" }] }` to `new CopilotRuntime(...)`.
+  5. Share the sample orders and the complete `show-map` arguments with `useAgentContext({ description, value })` from "@copilotkit/react-core/v2". Don't add a frontend renderer. CopilotKit renders MCP Apps on its own.
 
   If I don't have a CopilotKit app yet, start from https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/manufact-mcp-apps. Keep my existing model, provider, and runtime setup unchanged.
 ---
@@ -27,10 +27,10 @@ because the UI ships with the tool. As a bonus at the end, you host the MCP App 
 app at its URL.
 
 <Image
-  src="/images/cookbook/manufact-fizzy-maps.webp"
-  alt="A copilot chat rendering the Fizzy Maps MCP App inline: a Leaflet map of San Francisco with colored markers for each sparkling-water order, next to an order table."
-  width={2000}
-  height={1059}
+  src="/images/cookbook/manufact-try-map-my-orders.webp"
+  alt="What this recipe builds: a CopilotKit chat that answers 'Map my orders' with the Fizzy Maps MCP App inline, a map of San Francisco titled 'Orders · San Francisco' with four colored markers."
+  width={1990}
+  height={1050}
   className="w-full rounded-xl border border-[var(--border)]"
 />
 
@@ -653,3 +653,11 @@ The finished example is in the CopilotKit repo at
 [`examples/showcases/manufact-mcp-apps`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/manufact-mcp-apps).
 For the fuller Fizzy Business demo, with an order desk, a copilot, and a Playwright test suite, see
 [CopilotKit/mcp-apps-demo-night-talk](https://github.com/CopilotKit/mcp-apps-demo-night-talk).
+
+<Image
+  src="/images/cookbook/manufact-fizzy-maps.webp"
+  alt="The fuller Fizzy Business demo: an order dashboard with a sparkling-water order table, and a copilot sidebar rendering the Fizzy Maps MCP App inline."
+  width={2000}
+  height={1059}
+  className="w-full rounded-xl border border-[var(--border)]"
+/>

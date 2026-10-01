@@ -720,6 +720,7 @@ describe("handleRunAgent", () => {
         agentId: "my-agent",
       });
       expect(platform.ɵacquireThreadLock).toHaveBeenCalledWith({
+        supportsBackendThreadId: true,
         threadId: "thread-1",
         runId: "run-1",
         userId: "user-1",
@@ -875,6 +876,7 @@ describe("handleRunAgent", () => {
         agentId: "my-agent",
       });
       expect(platform.ɵacquireThreadLock).toHaveBeenCalledWith({
+        supportsBackendThreadId: true,
         threadId: "thread-1",
         runId: "run-1",
         userId: "resolved-user",
@@ -1390,6 +1392,7 @@ describe("handleRunAgent", () => {
         agentId: "my-agent",
       });
       expect(platform.ɵacquireThreadLock).toHaveBeenCalledWith({
+        supportsBackendThreadId: true,
         threadId: "thread-1",
         runId: "run-1",
         userId: "user-1",

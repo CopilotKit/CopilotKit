@@ -181,8 +181,6 @@ export function useInterrupt<
     useState<InterruptResult<any, TResult>>(null);
 
   const interruptStateRef = useRef(new ɵInterruptState());
-  const interruptRunIdsRef = useRef(new Map<string, string>());
-  const legacyRunIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const interruptState = interruptStateRef.current;
@@ -197,28 +195,21 @@ export function useInterrupt<
       },
       onRunFinishedEvent: (params) => {
         if (params.outcome === "interrupt") {
-          const runId = params.input.runId;
-          for (const interrupt of params.interrupts) {
-            interruptRunIdsRef.current.set(interrupt.id, runId);
-          }
           localStandard = params.interrupts;
         }
       },
       onRunStartedEvent: () => {
         localLegacy = null;
         localStandard = null;
-        interruptRunIdsRef.current.clear();
-        legacyRunIdRef.current = undefined;
         interruptState.clear();
         setPending(null);
       },
-      onRunFinalized: (params) => {
+      onRunFinalized: () => {
         // Standard wins if both somehow appear for one run.
         if (localStandard && localStandard.length > 0) {
           interruptState.setStandard(localStandard);
           setPending(interruptState.pending);
         } else if (localLegacy) {
-          legacyRunIdRef.current = params.input.runId;
           interruptState.setLegacy(localLegacy);
           setPending(interruptState.pending);
         }
@@ -228,8 +219,6 @@ export function useInterrupt<
       onRunFailed: () => {
         localLegacy = null;
         localStandard = null;
-        interruptRunIdsRef.current.clear();
-        legacyRunIdRef.current = undefined;
         interruptState.clear();
         setPending(null);
       },
@@ -257,11 +246,9 @@ export function useInterrupt<
       }
       const decision = interruptStateRef.current.resolve(payload, interruptId);
       if (decision.kind === "legacy-resume") {
-        const runId = legacyRunIdRef.current;
         try {
           return await copilotkit.runAgent({
             agent,
-            ...(runId !== undefined ? { runId } : {}),
             forwardedProps: {
               command: {
                 resume: decision.payload,
@@ -287,9 +274,6 @@ export function useInterrupt<
         return;
       }
       if (decision.kind !== "resume") return;
-      const runId = decision.resume
-        .map((entry) => interruptRunIdsRef.current.get(entry.interruptId))
-        .find((candidate): candidate is string => candidate !== undefined);
       for (const toolResult of decision.toolResults) {
         agent.addMessage({
           id: randomUUID(),
@@ -302,7 +286,6 @@ export function useInterrupt<
         return await copilotkit.runAgent({
           agent,
           resume: decision.resume,
-          ...(runId !== undefined ? { runId } : {}),
         });
       } catch (err) {
         console.error(
@@ -350,9 +333,6 @@ export function useInterrupt<
         return;
       }
       if (decision.kind !== "resume") return;
-      const runId = decision.resume
-        .map((entry) => interruptRunIdsRef.current.get(entry.interruptId))
-        .find((candidate): candidate is string => candidate !== undefined);
       for (const toolResult of decision.toolResults) {
         agent.addMessage({
           id: randomUUID(),
@@ -365,7 +345,6 @@ export function useInterrupt<
         return await copilotkit.runAgent({
           agent,
           resume: decision.resume,
-          ...(runId !== undefined ? { runId } : {}),
         });
       } catch (err) {
         console.error(

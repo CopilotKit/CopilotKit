@@ -82,10 +82,7 @@ it("renders the onboarding button when a framework is passed", () => {
 
   const button = screen.getByRole("button", { name: /copy prompt/i });
   expect(button.textContent).toContain("Copy Prompt");
-  expect(
-    screen.getByRole("button", { name: "Open in Claude Code" }),
-  ).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Open in Codex" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /^Open in / })).toBeNull();
 });
 
 it("names the page the markdown button fetches, without its .mdx suffix", async () => {

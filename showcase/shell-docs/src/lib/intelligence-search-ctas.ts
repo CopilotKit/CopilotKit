@@ -63,7 +63,7 @@ export const INTELLIGENCE_SEARCH_CTAS: readonly IntelligenceSearchCta[] = [
     // free. What Intelligence adds is the durable, resumable storage
     // behind them, so this must not read as "threads are a paid feature".
     body: "Threads are built into CopilotKit. Intelligence stores them for you, so conversations resume across reloads, sessions and devices without you running a database.",
-    primary: { label: "Read the Rich Threads guide", href: "/threads" },
+    primary: { label: "Read the AG-UI Streams guide", href: "/threads" },
     secondary: [
       {
         label: "How thread persistence works",
@@ -104,7 +104,7 @@ export const INTELLIGENCE_SEARCH_CTAS: readonly IntelligenceSearchCta[] = [
     },
     secondary: [
       { label: "Connect Intelligence", href: "/intelligence/quickstart" },
-      { label: "Rich Threads guide", href: "/threads" },
+      { label: "AG-UI Streams guide", href: "/threads" },
     ],
   },
   {
@@ -119,7 +119,7 @@ export const INTELLIGENCE_SEARCH_CTAS: readonly IntelligenceSearchCta[] = [
     },
     secondary: [
       { label: "Connect Intelligence", href: "/intelligence/quickstart" },
-      { label: "Rich Threads guide", href: "/threads" },
+      { label: "AG-UI Streams guide", href: "/threads" },
     ],
   },
   {
@@ -129,14 +129,14 @@ export const INTELLIGENCE_SEARCH_CTAS: readonly IntelligenceSearchCta[] = [
     // why "intelligence threads" resolves to the threads entry.
     specificity: 1,
     title: "CopilotKit Intelligence",
-    body: "Rich Threads, Product Analytics, Automatic Learning, and the rest of Intelligence on top of the runtime you already run.",
+    body: "AG-UI Streams, Product Analytics, Automatic Learning, and the rest of Intelligence on top of the runtime you already run.",
     primary: {
       label: "See what Intelligence adds",
       href: "/intelligence/overview",
     },
     secondary: [
       { label: "Connect in 5 minutes", href: "/intelligence/quickstart" },
-      { label: "Rich Threads guide", href: "/threads" },
+      { label: "AG-UI Streams guide", href: "/threads" },
       { label: "Self-hosting", href: "/intelligence/self-hosting" },
     ],
   },

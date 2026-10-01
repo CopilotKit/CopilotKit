@@ -690,7 +690,7 @@ describe("the roster checks themselves", () => {
       // leave alone — the numeral-free forms this test's own failure message
       // recommends, plus a truthful total.
       "Every registered skin hits every row.",
-      "all eight skins run behind the same `Skin` contract",
+      "all nine skins run behind the same `Skin` contract",
       "`useData` has exactly one implementor",
     ];
     expect(
