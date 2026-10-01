@@ -306,7 +306,8 @@ export interface CopilotKitProviderProps {
   /**
    * Turns on interaction capture (`@copilotkit/learning`). Clicks, page
    * changes, and network metadata become AG-UI `CUSTOM` events that carry the
-   * Thread, message, tool call, and run they belong to. Read once, on mount.
+   * Thread, message, tool call, and run they belong to. Updated settings apply
+   * to the next Trajectory; removing the prop stops capture.
    * Set `trajectoryId` to start capture right away; it stops on unmount.
    *
    * @example
@@ -786,7 +787,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       renderActivityMessages: allActivityRenderers,
       renderCustomMessages: renderCustomMessagesList,
       debug,
-      // Read once: the collector's sink and options are fixed for the provider lifetime.
       learning,
     });
     // Set initial defaultThrottleMs synchronously so child hooks see the
@@ -988,6 +988,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // start/stop/start sequence installs the capture hooks once.
   const trajectoryId = learning?.trajectoryId;
   const learningContainerIdsRef = useRef(learning?.learningContainerIds);
+  useEffect(() => {
+    copilotkit.setLearningConfig(learning);
+    learningContainerIdsRef.current = learning?.learningContainerIds;
+  }, [copilotkit, learning]);
+
   useEffect(() => {
     if (trajectoryId === undefined) return;
     copilotkit.startTrajectory({

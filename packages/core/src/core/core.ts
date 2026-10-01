@@ -92,7 +92,8 @@ export interface CopilotKitCoreConfig {
   /**
    * Turns on interaction capture (`@copilotkit/learning`). Capture starts only
    * when you call {@link CopilotKitCore.startTrajectory}. Events carry the Thread,
-   * message, tool call, and run they belong to. Read once, at construction.
+   * message, tool call, and run they belong to. Update future captures with
+   * {@link CopilotKitCore.setLearningConfig}.
    */
   learning?: LearningConfig;
 }
@@ -160,6 +161,10 @@ export enum CopilotKitCoreErrorCode {
 }
 
 export interface CopilotKitCoreSubscriber {
+  onTrajectoryChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    trajectoryId: string | null;
+  }) => void | Promise<void>;
   onRuntimeConnectionStatusChanged?: (event: {
     copilotkit: CopilotKitCore;
     status: CopilotKitCoreRuntimeConnectionStatus;
@@ -957,6 +962,28 @@ export class CopilotKitCore {
     return this.agentRegistry.getAgent(id);
   }
 
+  /** Updates settings for the next capture. Removing the config stops capture. */
+  setLearningConfig(config: LearningConfig | undefined): void {
+    const previousId = this.trajectoryId;
+    this.learningBridge.setConfig(config);
+    this.notifyTrajectoryChanged(previousId);
+  }
+
+  /** The active capture's Trajectory ID, or null while capture is stopped. */
+  get trajectoryId(): string | null {
+    return this.learningBridge.trajectoryId;
+  }
+
+  private notifyTrajectoryChanged(previousId: string | null): void {
+    const trajectoryId = this.trajectoryId;
+    if (trajectoryId === previousId) return;
+    void this.notifySubscribers(
+      (subscriber) =>
+        subscriber.onTrajectoryChanged?.({ copilotkit: this, trajectoryId }),
+      "Subscriber onTrajectoryChanged error:",
+    );
+  }
+
   /**
    * Starts capturing interactions for one Trajectory. Needs the `learning` config.
    * One Trajectory runs at a time: the same id again is a no-op, and another id
@@ -965,12 +992,16 @@ export class CopilotKitCore {
    * @example copilotkit.startTrajectory({ trajectoryId: crypto.randomUUID() })
    */
   startTrajectory(options: StartOptions) {
+    const previousId = this.trajectoryId;
     this.learningBridge.start(options);
+    this.notifyTrajectoryChanged(previousId);
   }
 
-  /** Stops capture, removes every listener and patch, and drops unsent events. */
+  /** Stops capture, removes listeners and patches, and sends queued events once. */
   stopTrajectory() {
+    const previousId = this.trajectoryId;
     this.learningBridge.stop();
+    this.notifyTrajectoryChanged(previousId);
   }
 
   /**

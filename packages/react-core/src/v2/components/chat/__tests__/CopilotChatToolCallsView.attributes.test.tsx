@@ -1,9 +1,10 @@
 import React from "react";
-import { screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { z } from "zod";
 import type { AssistantMessage } from "@ag-ui/core";
 import { defineToolCallRenderer } from "../../../types";
-import { renderWithCopilotKit } from "../../../__tests__/utils/test-helpers";
+import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
+import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 
 const weatherRenderer = defineToolCallRenderer({
@@ -41,14 +42,25 @@ function renderMessage(
     typeof CopilotChatAssistantMessage
   >["children"],
 ) {
-  renderWithCopilotKit({
-    renderToolCalls: [weatherRenderer],
-    children: (
-      <CopilotChatAssistantMessage message={createAssistantMessage()}>
-        {children}
-      </CopilotChatAssistantMessage>
-    ),
-  });
+  render(
+    <CopilotKitProvider
+      renderToolCalls={[weatherRenderer]}
+      learning={{
+        trajectoryId: "trajectory-1",
+        sink: () => {},
+        capture: { clicks: false, navigation: false, network: false },
+      }}
+    >
+      <CopilotChatConfigurationProvider
+        agentId="default"
+        threadId="test-thread"
+      >
+        <CopilotChatAssistantMessage message={createAssistantMessage()}>
+          {children}
+        </CopilotChatAssistantMessage>
+      </CopilotChatConfigurationProvider>
+    </CopilotKitProvider>,
+  );
 }
 
 function toolCallIdsOf(button: HTMLElement) {

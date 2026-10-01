@@ -114,6 +114,72 @@ afterEach(() => {
 });
 
 describe("Core learning wiring", () => {
+  it("can enable learning after construction and track subsequent agent activity", async () => {
+    const core = new CopilotKitCore({});
+    core.registerOpenThread({ agentId: "default", threadId: "t-late" });
+    core.setLearningConfig(createConfig());
+    core.startTrajectory({ trajectoryId: "traj-late" });
+    await core.runAgent({ agent: new DealAgent("t-late") });
+
+    const events = drain();
+    expect(core.trajectoryId).toBe("traj-late");
+    expect(valuesOf(events, "thread.linked")).toContainEqual(
+      expect.objectContaining({ threadId: "t-late", reason: "start" }),
+    );
+    expect(valuesOf(events, "agent.run")).toContainEqual(
+      expect.objectContaining({ threadId: "t-late", phase: "started" }),
+    );
+    core.stopTrajectory();
+  });
+
+  it("keeps the active config and applies updated settings to the next capture", () => {
+    const nextBatches: LearningBatch[] = [];
+    const core = new CopilotKitCore({ learning: createConfig() });
+    core.startTrajectory({ trajectoryId: "first" });
+    core.setLearningConfig(
+      createConfig({
+        sink: (batch) => {
+          nextBatches.push(batch);
+        },
+        beforeSend: (event) => (event.name === "page" ? null : event),
+      }),
+    );
+
+    core.emitTrajectoryEvent("app.first", {});
+    core.stopTrajectory();
+    expect(
+      batches.flatMap((batch) => batch.events.map((event) => event.name)),
+    ).toEqual(["page", "app.first"]);
+    expect(nextBatches).toEqual([]);
+
+    core.startTrajectory({ trajectoryId: "second" });
+    core.emitTrajectoryEvent("app.second", {});
+    core.stopTrajectory();
+    expect(nextBatches).toHaveLength(1);
+    expect(nextBatches[0]?.trajectoryId).toBe("second");
+    expect(nextBatches[0]?.events.map((event) => event.name)).toEqual([
+      "app.second",
+    ]);
+  });
+
+  it("notifies actual capture changes and stops when learning is removed", () => {
+    const core = new CopilotKitCore({ learning: createConfig() });
+    const changed = vi.fn();
+    core.subscribe({ onTrajectoryChanged: changed });
+    core.startTrajectory({ trajectoryId: "traj-1" });
+    core.startTrajectory({ trajectoryId: "traj-1" });
+    core.setLearningConfig(undefined);
+    core.emitTrajectoryEvent("app.after-stop", {});
+    core.stopTrajectory();
+
+    expect(core.trajectoryId).toBeNull();
+    expect(changed.mock.calls.map(([event]) => event.trajectoryId)).toEqual([
+      "traj-1",
+      null,
+    ]);
+    expect(valuesOf(drain(), "app.after-stop")).toEqual([]);
+  });
+
   it("links a Thread once when StrictMode registers it twice", () => {
     const core = new CopilotKitCore({ learning: createConfig() });
     core.startTrajectory({ trajectoryId: "traj-1" });

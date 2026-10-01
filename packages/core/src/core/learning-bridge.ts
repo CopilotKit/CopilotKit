@@ -65,13 +65,25 @@ export class LearningBridge {
   private readonly executingTools = new Map<string, number>();
   private readonly lastRunIds = new WeakMap<AbstractAgent, string>();
   private lastLinkedThreadId: string | null = null;
+  private subscribed = false;
+  private activeConfig: LearningConfig | undefined;
 
   constructor(
     private readonly core: CopilotKitCore,
-    private readonly config: LearningConfig | undefined,
+    private config: LearningConfig | undefined,
   ) {
-    if (config === undefined) return;
-    core.subscribe({
+    this.setConfig(config);
+  }
+
+  setConfig(config: LearningConfig | undefined) {
+    this.config = config;
+    if (config === undefined) {
+      this.stop();
+      return;
+    }
+    if (this.subscribed) return;
+    this.subscribed = true;
+    this.core.subscribe({
       onAgentsChanged: ({ agents }) => {
         for (const agent of Object.values(agents)) this.track(agent);
       },
@@ -91,7 +103,11 @@ export class LearningBridge {
         });
       },
     });
-    for (const agent of Object.values(core.agents)) this.track(agent);
+    for (const agent of Object.values(this.core.agents)) this.track(agent);
+  }
+
+  get trajectoryId(): string | null {
+    return this.collector?.trajectoryId ?? null;
   }
 
   start(options: StartOptions) {
@@ -103,6 +119,7 @@ export class LearningBridge {
       return;
     }
     if (this.collector === null) {
+      this.activeConfig = config;
       const runtimeUrl = this.core.runtimeUrl;
       this.collector = createCollector({
         ...config,
@@ -124,6 +141,8 @@ export class LearningBridge {
 
   stop() {
     this.collector?.stop();
+    this.collector = null;
+    this.activeConfig = undefined;
   }
 
   /** A developer event, such as an outcome. It carries the open-Thread context unless `value` sets it. */
@@ -243,7 +262,8 @@ export class LearningBridge {
     // `tool.call` events carry the tool name and this `messageId`.
     const content = typeof message.content === "string" ? message.content : "";
     const includeText =
-      this.config?.capture?.agentText === true && message.role === "assistant";
+      this.activeConfig?.capture?.agentText === true &&
+      message.role === "assistant";
     this.collector?.ɵemit("agent.message", {
       messageId: message.id,
       runId: this.runIdForMessage(agent, message.id),

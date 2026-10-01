@@ -18,16 +18,28 @@ const sink: LearningSink = (batch) => {
 function App({
   threadId,
   learning = true,
+  trajectoryId = "traj-1",
+  learningContainerIds,
+  learningConfig,
 }: {
   threadId: string;
   learning?: boolean;
+  trajectoryId?: string;
+  learningContainerIds?: string[];
+  learningConfig?: Partial<LearningConfig>;
 }) {
   return (
     <StrictMode>
       <CopilotKitProvider
         learning={
           learning
-            ? { sink, trajectoryId: "traj-1", capture: { network: false } }
+            ? {
+                sink,
+                trajectoryId,
+                learningContainerIds,
+                capture: { network: false },
+                ...learningConfig,
+              }
             : undefined
         }
       >
@@ -52,7 +64,89 @@ beforeEach(() => {
 });
 
 describe("CopilotKitProvider learning prop", () => {
-  it("starts once under StrictMode and links the open Thread", () => {
+  it("starts capture when learning becomes available after mount", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const view = render(<App threadId="t-1" learning={false} />);
+
+    view.rerender(<App threadId="t-1" />);
+    history.pushState(null, "", "/learning/deals/42");
+    const events = drain();
+    view.unmount();
+
+    expect(events.map((event) => event.name)).toEqual([
+      "page",
+      "thread.linked",
+      "navigation",
+    ]);
+    expect(warn).not.toHaveBeenCalledWith(
+      expect.stringContaining("startTrajectory()"),
+    );
+    warn.mockRestore();
+  });
+
+  it("uses the latest config and container IDs for the next Trajectory", () => {
+    const nextBatches: LearningBatch[] = [];
+    const nextConfig: Partial<LearningConfig> = {
+      sink: (batch) => {
+        nextBatches.push(batch);
+      },
+    };
+    const view = render(<App threadId="t-1" learningContainerIds={["old"]} />);
+    drain();
+    batches = [];
+
+    view.rerender(
+      <App
+        threadId="t-1"
+        learningContainerIds={["new"]}
+        learningConfig={nextConfig}
+      />,
+    );
+    history.pushState(null, "", "/learning/deals/42");
+    expect(drain().map((event) => event.name)).toEqual(["navigation"]);
+    expect(batches[0]?.learningContainerIds).toEqual(["old"]);
+    expect(nextBatches).toEqual([]);
+
+    view.rerender(
+      <App
+        threadId="t-1"
+        trajectoryId="traj-2"
+        learningContainerIds={["new"]}
+        learningConfig={nextConfig}
+      />,
+    );
+    drain();
+    view.unmount();
+
+    expect(nextBatches).toHaveLength(1);
+    expect(nextBatches[0]).toMatchObject({
+      trajectoryId: "traj-2",
+      learningContainerIds: ["new"],
+    });
+    expect(nextBatches[0]?.events.map((event) => event.name)).toEqual([
+      "page",
+      "thread.linked",
+    ]);
+  });
+
+  it("flushes to the previous sink and stops when learning is removed", () => {
+    const view = render(<App threadId="t-1" />);
+    drain();
+    batches = [];
+    history.pushState(null, "", "/learning/deals/42");
+
+    view.rerender(<App threadId="t-1" learning={false} />);
+    expect(
+      batches.flatMap((batch) => batch.events.map((event) => event.name)),
+    ).toEqual(["navigation"]);
+    batches = [];
+    history.pushState(null, "", "/learning/deals/43");
+    expect(drain()).toEqual([]);
+    expect(History.prototype.pushState).toBe(nativePushState);
+    view.unmount();
+  });
+
+  it("keeps one set of capture hooks under StrictMode and links the open Thread", () => {
     const view = render(<App threadId="t-1" />);
 
     history.pushState(null, "", "/learning/deals/42");
