@@ -174,6 +174,22 @@ describe("CopilotEndpointSingleRoute routing", () => {
       expect(response.status).toBe(400);
     });
 
+    it("returns 400 when the JSON body is null", async () => {
+      const runtime = createMockRuntime();
+      const endpoint = createCopilotEndpointSingleRoute({
+        runtime,
+        basePath: "/rpc",
+      });
+      const request = new Request("https://example.com/rpc", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "null",
+      });
+
+      const response = await endpoint.fetch(request);
+      expect(response.status).toBe(400);
+    });
+
     it("returns 404 for unmatched path", async () => {
       const runtime = createMockRuntime();
       const endpoint = createCopilotEndpointSingleRoute({

@@ -81,6 +81,12 @@ export async function parseMethodCall(request: Request): Promise<MethodCall> {
     throw createResponseError("Invalid JSON payload", 400);
   }
 
+  // Valid JSON that is not an object (`null`, a number) has no envelope to
+  // read; reading `.method` off `null` would surface as a 500.
+  if (typeof jsonEnvelope !== "object" || jsonEnvelope === null) {
+    throw createResponseError("Invalid JSON payload", 400);
+  }
+
   const method = validateMethod(jsonEnvelope.method);
 
   return {

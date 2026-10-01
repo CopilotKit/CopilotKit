@@ -134,7 +134,9 @@ async function extractAudioFromJson(
     return { error: createErrorResponse(err) };
   }
 
-  if (!body.audio || typeof body.audio !== "string") {
+  // A `null` body is valid JSON; without this guard reading `.audio` throws and
+  // is reported as a retryable provider error.
+  if (!body || !body.audio || typeof body.audio !== "string") {
     const err = TranscriptionErrors.invalidRequest(
       "Request must include 'audio' field with base64-encoded audio data",
     );
