@@ -20,9 +20,10 @@ use [`HttpAgent`](#remote-agents-use-httpagent) instead.
 npm install @copilotkit/runtime @ag-ui/client@1.0.1 rxjs
 ```
 
-Install the `@ag-ui/client` version that `@copilotkit/runtime` depends on, so
-the app has one copy of it. `npm ls @ag-ui/client` should show a single,
-deduped version.
+Your `@ag-ui/client` must be the version your `@copilotkit/runtime` depends on,
+so the app has one copy of it. Run `npm ls @ag-ui/client`: it should show a
+single, deduped version. If it shows two, reinstall `@ag-ui/client` at the
+version listed under `@copilotkit/runtime`.
 
 ## A minimal agent
 
@@ -64,8 +65,8 @@ the [AG-UI event reference](https://docs.ag-ui.com/concepts/events).
 
 ## Register it in the runtime
 
-Pass an instance in the `agents` map. The key is the agent ID the frontend uses;
-`default` is the agent that `<CopilotChat />` talks to when you do not name one.
+Pass an instance in the `agents` map. The key is the agent ID the frontend uses.
+The chat components use `default` when you do not name an agent.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
@@ -99,10 +100,10 @@ server and no URL to configure. The frontend setup is the same as in the
 
 The runtime does not run the instance you registered. For every request it calls
 `agent.clone()` and runs the copy, so per-request changes never touch the
-instance you registered.
+original.
 
 The base `AbstractAgent.clone()` copies only the fields `AbstractAgent` itself
-defines: the agent ID, description, thread ID, messages, state, subscribers, and
+defines, such as the agent ID, thread ID, messages, state, subscribers, and
 middleware. It does not call your constructor. A field that your subclass sets in
 its constructor, such as an API client, a URL, or a config object, is
 `undefined` on the copy.
@@ -169,8 +170,8 @@ You only need to copy fields that hold configuration. A field that `run` resets
 at the start of every run holds per-run scratch state, and losing it on the copy
 changes nothing.
 
-The function that `run` returns from the `Observable` is its teardown. It runs
-when the run completes or is unsubscribed, which is where to cancel in-flight
+The function returned inside the `Observable` is its teardown. It runs when the
+run completes, fails, or is unsubscribed, so it is the place to cancel in-flight
 work.
 
 ### The symptom when `clone` is missing
@@ -182,9 +183,10 @@ soon as `run` touches the missing field. The server logs:
 Agent execution failed: TypeError: Cannot read properties of undefined (reading 'answer')
 ```
 
-The browser receives `RUN_STARTED` and then a `RUN_ERROR` event with the same
-message and the code `INCOMPLETE_STREAM`. If you see this error name one of your
-own constructor fields, add a `clone` override that copies it.
+With `InMemoryAgentRunner`, the run's event stream ends with a `RUN_ERROR`
+event that carries the same message and the code `INCOMPLETE_STREAM`. If the
+error names one of your own constructor fields, add a `clone` override that
+copies it.
 
 ## Remote agents: use `HttpAgent`
 
