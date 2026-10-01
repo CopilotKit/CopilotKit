@@ -21,7 +21,11 @@ export function TrajectoryFrame(props: {
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
-      const data = event.data as { type?: string; height?: number } | null;
+      const data = event.data as {
+        type?: string;
+        height?: number;
+        top?: number;
+      } | null;
       if (
         data?.type === "intelligence-trajectory-height" &&
         typeof data.height === "number"
