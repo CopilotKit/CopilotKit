@@ -1,3 +1,5 @@
+import type { CaptureOptions } from "./types";
+
 /** JSON values accepted by developer events. */
 export type JsonValue =
   | null
@@ -30,9 +32,11 @@ export interface TrajectoryError {
 }
 
 export interface TrajectoryCaptureOptions {
-  /** Only matching configured templates leave the browser. Other routes are null. */
+  /** @deprecated Capture retains raw URLs; route templates no longer transform events. */
   routes?: string[];
-  capture?: { clicks?: boolean; navigation?: boolean };
+  capture?: CaptureOptions;
+  /** Explicit app exclusions, plus Core transport URLs to prevent self-capture. */
+  ignoreUrls?: (string | RegExp)[];
   /** Runs in the browser before validation and delivery. Return null to discard. */
   beforeSend?: (event: TrajectoryEvent) => TrajectoryEvent | null;
   /** Reports rejected events or delivery failures without interrupting the app. */

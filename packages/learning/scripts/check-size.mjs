@@ -1,4 +1,4 @@
-// Fails when the minified entry grows past the size budget (5 KB gzip).
+// Bounds both collectors, including form values and request/response body capture (6 KiB gzip).
 // Measures what an app ships: the published dist keeps comments, and app bundlers minify.
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 import { build } from "tsdown";
 
-const BUDGET_BYTES = 5120;
+const BUDGET_BYTES = 6 * 1024;
 const root = fileURLToPath(new URL("..", import.meta.url));
 const outDir = mkdtempSync(join(tmpdir(), "learning-size-"));
 

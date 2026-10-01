@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as ClickCapture from "../clicks";
+import type * as InputCapture from "../inputs";
 import {
   createTrajectoryCollector,
   MAX_TRAJECTORY_EVENT_BYTES,
@@ -19,6 +20,16 @@ vi.mock("../clicks", async (importOriginal) => {
     installClickCapture: (
       params: Parameters<typeof actual.installClickCapture>[0],
     ) => actual.installClickCapture({ ...params, isTrusted: () => true }),
+  };
+});
+
+vi.mock("../inputs", async (importOriginal) => {
+  const actual = await importOriginal<typeof InputCapture>();
+  return {
+    ...actual,
+    installInputCapture: (
+      params: Parameters<typeof actual.installInputCapture>[0],
+    ) => actual.installInputCapture({ ...params, isTrusted: () => true }),
   };
 });
 
@@ -61,12 +72,17 @@ describe("Trajectory capture contract", () => {
     document.querySelector("button")!.click();
     history.pushState(null, "", "/deals/42?token=private#secret");
 
-    expect(send.mock.calls.map(([event]) => event)).toEqual([
+    expect(send.mock.calls.map(([event]) => event)).toMatchObject([
       {
         type: "CUSTOM",
         name: "page",
         timestamp: NOW,
-        value: { route: "/deals" },
+        value: {
+          route: "/deals",
+          url: `${location.origin}/deals?email=secret@example.com#private`,
+          title: document.title,
+          referrer: document.referrer,
+        },
       },
       {
         type: "CUSTOM",
@@ -74,41 +90,109 @@ describe("Trajectory capture contract", () => {
         timestamp: NOW,
         value: {
           route: "/deals",
-          target: { tag: "button", role: null, action: "deal.open" },
+          target: {
+            tag: "button",
+            role: null,
+            action: "deal.open",
+            text: "Private deal text",
+            attributes: { "data-copilotkit-action": "deal.open" },
+          },
         },
       },
       {
         type: "CUSTOM",
         name: "navigation",
         timestamp: NOW,
-        value: { from: "/deals", to: "/deals/:id" },
+        value: {
+          from: `${location.origin}/deals?email=secret@example.com#private`,
+          to: `${location.origin}/deals/42?token=private#secret`,
+          navigationType: "push",
+        },
       },
     ]);
     expect(JSON.stringify(send.mock.calls)).not.toMatch(
-      /secret|private|Private|threadId|seq|input|trajectoryId|learningContainerIds/,
+      /threadId|"seq"|trajectoryId|learningContainerIds/,
     );
+    expect(globalThis.fetch).not.toBe(fetchBefore);
+    expect(XMLHttpRequest.prototype.open).not.toBe(xhrBefore);
+    collector.stop();
     expect(globalThis.fetch).toBe(fetchBefore);
     expect(XMLHttpRequest.prototype.open).toBe(xhrBefore);
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("uses null for unconfigured routes instead of sending arbitrary path segments", () => {
-    const { collector, send } = setup();
-    collector.start();
-    history.pushState(null, "", "/users/alice/private-email@example.com");
-    document.querySelector("button")!.click();
-    expect(send.mock.calls[1]?.[0].value).toEqual({ from: "/deals", to: null });
-    expect(send.mock.calls[2]?.[0].value).toEqual({
-      route: null,
-      target: { tag: "button", role: null, action: "deal.open" },
-    });
-    expect(JSON.stringify(send.mock.calls)).not.toMatch(/alice|private-email/);
-  });
-
-  it("captures page context as null when no route templates are configured", () => {
+  it("retains unconfigured paths and user edits without Thread enrichment", () => {
     const { collector, send } = setup({ routes: [] });
     collector.start();
-    expect(send.mock.calls[0]?.[0].value).toEqual({ route: null });
+    history.pushState(
+      null,
+      "",
+      "/users/alice/private-email@example.com?view=full#profile",
+    );
+    document.body.innerHTML =
+      '<input id="email" type="email" data-message-id="message-1">';
+    const input = document.querySelector("input")!;
+    input.value = "synthetic@example.com";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(send.mock.calls[0]?.[0].value).toMatchObject({
+      route: "/deals",
+      url: expect.stringContaining("?email="),
+    });
+    expect(send.mock.calls[1]?.[0].value).toMatchObject({
+      to: `${location.origin}/users/alice/private-email@example.com?view=full#profile`,
+    });
+    expect(send.mock.calls[2]?.[0]).toMatchObject({
+      name: "input",
+      value: {
+        eventType: "input",
+        target: {
+          value: "synthetic@example.com",
+          attributes: { "data-message-id": "message-1" },
+        },
+      },
+    });
+    expect(send.mock.calls[2]?.[0].value).not.toHaveProperty("threadId");
+    expect(send.mock.calls[2]?.[0].value).not.toHaveProperty("messageId");
+  });
+
+  it("sends raw network bodies and excludes its configured transport URL", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async () =>
+      Response.json(
+        { result: "synthetic-response" },
+        { headers: { "x-capture": "full" } },
+      ),
+    );
+    const { collector, send } = setup({ ignoreUrls: ["/capture-ingest"] });
+    try {
+      collector.start();
+      const response = await fetch("/api/deals?key=synthetic#full", {
+        method: "POST",
+        headers: { "x-test": "synthetic-header" },
+        body: "synthetic-request",
+      });
+      expect(await response.json()).toEqual({ result: "synthetic-response" });
+      await fetch("/capture-ingest", { method: "POST", body: "ignore-self" });
+      await vi.advanceTimersByTimeAsync(0);
+      const events = send.mock.calls
+        .map(([event]) => event)
+        .filter((event) => event.name === "network");
+      expect(events).toHaveLength(1);
+      expect(events[0]?.value).toMatchObject({
+        url: `${location.origin}/api/deals?key=synthetic#full`,
+        request: {
+          headers: { "x-test": "synthetic-header" },
+          body: { status: "complete", text: "synthetic-request" },
+        },
+        response: {
+          headers: { "x-capture": "full" },
+          body: { status: "complete", text: '{"result":"synthetic-response"}' },
+        },
+      });
+    } finally {
+      collector.stop();
+      globalThis.fetch = originalFetch;
+    }
   });
 
   it("honors ignored DOM subtrees without reading their content", () => {
@@ -122,7 +206,12 @@ describe("Trajectory capture contract", () => {
 
   it("supports capture switches while retaining initial page context", () => {
     const { collector, send } = setup({
-      capture: { clicks: false, navigation: false },
+      capture: {
+        clicks: false,
+        navigation: false,
+        inputs: false,
+        network: false,
+      },
     });
     collector.start();
     document.querySelector("button")!.click();

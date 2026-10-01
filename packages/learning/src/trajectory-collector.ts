@@ -1,5 +1,7 @@
 import { installClickCapture } from "./clicks";
 import { installNavigationCapture } from "./navigation";
+import { installInputCapture } from "./inputs";
+import { installNetworkCapture } from "./network";
 import { toRoute } from "./routes";
 import { BUILT_IN_EVENT_NAMES } from "./types";
 import type {
@@ -49,7 +51,6 @@ export function createTrajectoryCollector(
     send: (event: TrajectoryEvent) => void;
   },
 ): TrajectoryCollector {
-  const routes = [...(options.routes ?? [])];
   let active = false;
   let uninstalls: (() => void)[] = [];
 
@@ -61,9 +62,7 @@ export function createTrajectoryCollector(
     }
   };
 
-  const configuredRoute = (value: unknown) =>
-    typeof value === "string" && routes.includes(value) ? value : null;
-  const getRoute = () => toRoute(location.pathname, routes);
+  const getRoute = () => toRoute(location.pathname);
 
   const record = (name: string, value: JsonValue) => {
     if (!active) return;
@@ -125,22 +124,8 @@ export function createTrajectoryCollector(
   };
 
   const capture = (name: string, value: Record<string, unknown>) => {
-    if (name === "navigation") {
-      record(name, {
-        from: configuredRoute(value.from),
-        to: configuredRoute(value.to),
-      });
-    } else if (name === "click") {
-      const target = value.target as {
-        tag: string;
-        role: string | null;
-        action: string | null;
-      };
-      record(name, {
-        route: configuredRoute(value.route),
-        target: { tag: target.tag, role: target.role, action: target.action },
-      });
-    }
+    // Shared capture modules produce JSON; record validates and snapshots before sending.
+    record(name, value as JsonValue);
   };
 
   const stop = () => {
@@ -152,16 +137,37 @@ export function createTrajectoryCollector(
 
   return {
     start() {
-      if (active || typeof window === "undefined") return;
+      if (
+        active ||
+        typeof window === "undefined" ||
+        typeof window.addEventListener !== "function"
+      )
+        return;
       active = true;
       try {
         if (options.capture?.clicks !== false) {
           uninstalls.push(installClickCapture({ emit: capture, getRoute }));
         }
         if (options.capture?.navigation !== false) {
-          uninstalls.push(installNavigationCapture({ emit: capture, routes }));
+          uninstalls.push(installNavigationCapture({ emit: capture }));
         }
-        record("page", { route: configuredRoute(getRoute()) });
+        if (options.capture?.inputs !== false) {
+          uninstalls.push(installInputCapture({ emit: capture }));
+        }
+        if (options.capture?.network !== false) {
+          uninstalls.push(
+            installNetworkCapture({
+              emit: capture,
+              ignoreUrls: options.ignoreUrls ?? [],
+            }),
+          );
+        }
+        record("page", {
+          route: getRoute(),
+          url: location.href,
+          title: document.title,
+          referrer: document.referrer,
+        });
       } catch {
         stop();
         report("CAPTURE_FAILED", "Browser capture could not start.");
