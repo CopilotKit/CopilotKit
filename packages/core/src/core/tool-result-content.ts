@@ -90,24 +90,25 @@ export function isContentPart(value: unknown): value is ContentPart {
  * Converts what a frontend tool handler returned into tool message content.
  * A non-empty array of AG-UI content parts passes through unchanged, so an
  * image reaches the model as media. Everything else becomes a string, as before.
+ *
+ * `text` is the string form, for surfaces typed as `result: string`
+ * (`runTool`, `onToolExecutionEnd`). For content parts it is the JSON text they
+ * received before. It is computed here, so a part that cannot be serialized
+ * throws inside the caller's handler error boundary.
  */
-export function toToolResultContent(result: unknown): string | ContentPart[] {
-  if (result === undefined || result === null) return "";
-  if (typeof result === "string") return result;
+export function toToolResultContent(result: unknown): {
+  content: string | ContentPart[];
+  text: string;
+} {
+  if (result === undefined || result === null) return { content: "", text: "" };
+  if (typeof result === "string") return { content: result, text: result };
+  const text = JSON.stringify(result);
   if (
     Array.isArray(result) &&
     result.length > 0 &&
     result.every(isContentPart)
   ) {
-    return result;
+    return { content: result, text };
   }
-  return JSON.stringify(result);
-}
-
-/**
- * The string form of tool message content. Content parts keep the JSON text
- * that string-typed surfaces (`runTool`, `onToolExecutionEnd`) received before.
- */
-export function toolResultString(content: string | ContentPart[]): string {
-  return typeof content === "string" ? content : JSON.stringify(content);
+  return { content: text, text };
 }

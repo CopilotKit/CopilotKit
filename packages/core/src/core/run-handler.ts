@@ -17,7 +17,6 @@ import { isAbortError } from "../utils/abort-error";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import {
   isForwardedToClientPlaceholder,
-  toolResultString,
   toToolResultContent,
 } from "./tool-result-content";
 import { createToolSchema } from "./tool-schema";
@@ -1128,6 +1127,7 @@ export class RunHandler {
     discardOnAbort?: boolean;
   }): Promise<ExecuteToolHandlerResult> {
     let toolCallResult: string | ContentPart[] = "";
+    let toolCallText = "";
     let errorMessage: string | undefined;
     let isArgumentError = false;
 
@@ -1172,7 +1172,8 @@ export class RunHandler {
           agent,
           signal,
         });
-        toolCallResult = toToolResultContent(result);
+        ({ content: toolCallResult, text: toolCallText } =
+          toToolResultContent(result));
       } catch (error) {
         const handlerError =
           error instanceof Error ? error : new Error(String(error));
@@ -1195,7 +1196,7 @@ export class RunHandler {
     }
 
     if (errorMessage) {
-      toolCallResult = `Error: ${errorMessage}`;
+      toolCallResult = toolCallText = `Error: ${errorMessage}`;
     }
 
     await this._internal.notifySubscribers(
@@ -1205,7 +1206,7 @@ export class RunHandler {
           toolCallId: toolCall.id,
           agentId,
           toolName: toolCall.function.name,
-          result: errorMessage ? "" : toolResultString(toolCallResult),
+          result: errorMessage ? "" : toolCallText,
           error: errorMessage,
         }),
       "Subscriber onToolExecutionEnd error:",
@@ -1213,7 +1214,7 @@ export class RunHandler {
 
     return {
       content: toolCallResult,
-      result: toolResultString(toolCallResult),
+      result: toolCallText,
       error: errorMessage,
       isArgumentError,
     };
@@ -1326,6 +1327,7 @@ export class RunHandler {
     }
 
     let toolCallResult: string | ContentPart[] = "";
+    let toolCallText = "";
     let errorMessage: string | undefined;
 
     if (wildcardTool?.handler) {
@@ -1379,7 +1381,8 @@ export class RunHandler {
             // replay-specific signal when restoring a wildcard HITL handler.
             signal,
           });
-          toolCallResult = toToolResultContent(result);
+          ({ content: toolCallResult, text: toolCallText } =
+            toToolResultContent(result));
         } catch (error) {
           const handlerError =
             error instanceof Error ? error : new Error(String(error));
@@ -1402,7 +1405,7 @@ export class RunHandler {
       }
 
       if (errorMessage) {
-        toolCallResult = `Error: ${errorMessage}`;
+        toolCallResult = toolCallText = `Error: ${errorMessage}`;
       }
 
       await this._internal.notifySubscribers(
@@ -1412,7 +1415,7 @@ export class RunHandler {
             toolCallId: toolCall.id,
             agentId: agentId,
             toolName: toolCall.function.name,
-            result: errorMessage ? "" : toolResultString(toolCallResult),
+            result: errorMessage ? "" : toolCallText,
             error: errorMessage,
           }),
         "Subscriber onToolExecutionEnd error:",

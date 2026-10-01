@@ -117,4 +117,24 @@ describe("CopilotKitCore - tool handlers that return content parts", () => {
     const [toolMessage] = toolMessages(agent);
     expect(toolMessage?.content).toEqual(IMAGE_PARTS);
   });
+
+  it("reports a content-part result that cannot be serialized as a tool error", async () => {
+    const metadata: Record<string, unknown> = {};
+    metadata.self = metadata;
+    core.addTool(
+      createTool({
+        name: "circular",
+        handler: vi.fn(async () => [{ type: "text", text: "hi", metadata }]),
+        followUp: false,
+      }),
+    );
+    const agent = new MockAgent({ agentId: "default" });
+    core.addAgent__unsafe_dev_only({ id: "default", agent: agent as any });
+
+    const result = await core.runTool({ name: "circular", parameters: {} });
+
+    expect(result.error).toMatch(/circular/i);
+    const [toolMessage] = toolMessages(agent);
+    expect(toolMessage?.content).toBe(`Error: ${result.error}`);
+  });
 });
