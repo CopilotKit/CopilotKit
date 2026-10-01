@@ -11,3 +11,11 @@
 - [x] CLI: in the Intelligence worktree, extend `apps/cli/src/commands/skills-download.ts`, command parsing, and `services/learning-skills-download.ts`. Add failing command and extraction tests before implementation. Run CLI Nx test, lint, typecheck, build and available e2e checks.
 - [x] Documentation: update `showcase/shell-docs/src/content/docs/intelligence/learned-skills.mdx`, relevant SDK reference, overview, README and CLI docs. Describe pins, mutually exclusive fields, legacy environment precedence, qualified names and all-or-nothing failure behavior. Run existing docs checks.
 - [x] Review and deliver: review specification compliance, then code quality, fix findings, run focused regression tests and builds, inspect diffs, commit logical changes and push draft PRs. Do not merge or publish packages.
+
+# Trajectories SDK integration (#7566)
+
+- [x] Implement browser capture and validation against the Gateway's event limits.
+- [x] Implement Runtime grants through Ben's `/api/trajectories/join` API with server-resolved identity.
+- [x] Implement Core authenticated Phoenix lifecycle, bounded event batches, sequence numbers, dropped counts, and React controls. Keep the public SDK methods.
+- [x] Test production SDK code with mocked services, including cancellation, reconnect, privacy, and errors. Thread linking remains a follow-up.
+- [x] Run package tests and checks, commit and push, update draft PR. Full suites: Learning 67, Core 1,083, Runtime 2,797, React 1,784; React script tests 54. React 18/19 focused checks and real Phoenix tests pass. CI remains separate from local verification.
