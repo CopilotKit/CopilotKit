@@ -23,6 +23,7 @@ The only changes are the data layer and the labels that came from its sample tri
 - People and agent names in chat come from the data (they were "Sam Rivera" / "Travel assistant").
 - Screen context renders the recorded fields (the flight thumbnail stays for its own data shape);
   the field that carries the missing rule is shown in red.
+- An agent trace group is titled with its surface (in-app agent, or ChatGPT via MCP).
 - A failed tool call shows its error code with the page's existing `status bad` pill.
 - Generative UI without a hand-made stand-in gets a generic one from the recorded props; the
   placeholder bar and popover are unchanged.

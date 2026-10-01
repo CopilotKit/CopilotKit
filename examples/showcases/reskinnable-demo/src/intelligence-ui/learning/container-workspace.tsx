@@ -1,39 +1,39 @@
-import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from '../shell/router';
+import type { ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate } from "../shell/router";
 
-import { Button } from '../ui/primitives';
+import { Button } from "../ui/primitives";
 
-import { CandidatesList } from './candidates-list';
-import { InsightsList } from './insights-list';
+import { CandidatesList } from "./candidates-list";
+import { InsightsList } from "./insights-list";
 import {
   canAnalyze,
   containerState,
   isActiveRunStatus,
   learningTimestampWithZone,
-} from './learning-container-state';
-import type { ContainerProgress } from './learning-container-state';
+} from "./learning-container-state";
+import type { ContainerProgress } from "./learning-container-state";
 import {
   AnalyzeThreadsDialog,
   ContainerSettingsDialog,
-} from './learning-dialogs';
-import { InsightDrawer, SkillDrawer } from './learning-drawers';
-import { PlayIcon } from './learning-icons';
+} from "./learning-dialogs";
+import { InsightDrawer, SkillDrawer } from "./learning-drawers";
+import { PlayIcon } from "./learning-icons";
 import type {
   LearningApi,
   LearningContainer,
   LearningInsight,
   LearningInsightEvidence,
   LearningSkill,
-} from './learning-api';
-import { learningContainerRoute } from './learning-routes';
-import type { LearningTabSegment } from './learning-routes';
-import { AnalysisResultsList } from './runs-list';
-import { LatestAnalysis } from './latest-analysis';
-import { SkillsList } from './skills-list';
-import { AutomaticLearning } from './automatic-learning';
-import { useLearningRequest } from './use-learning-request';
-import styles from './learning-page.module.css';
+} from "./learning-api";
+import { learningContainerRoute } from "./learning-routes";
+import type { LearningTabSegment } from "./learning-routes";
+import { AnalysisResultsList } from "./runs-list";
+import { LatestAnalysis } from "./latest-analysis";
+import { SkillsList } from "./skills-list";
+import { AutomaticLearning } from "./automatic-learning";
+import { useLearningRequest } from "./use-learning-request";
+import styles from "./learning-page.module.css";
 
 interface ContainerWorkspaceProps {
   readonly api: LearningApi;
@@ -157,30 +157,30 @@ export function ContainerWorkspace(
   );
 
   const insights =
-    insightsState.status === 'ready' || insightsState.status === 'empty'
+    insightsState.status === "ready" || insightsState.status === "empty"
       ? insightsState.data
       : [];
   const skills =
-    skillsState.status === 'ready' || skillsState.status === 'empty'
+    skillsState.status === "ready" || skillsState.status === "empty"
       ? skillsState.data
       : [];
   const runs =
-    runsState.status === 'ready' || runsState.status === 'empty'
+    runsState.status === "ready" || runsState.status === "empty"
       ? runsState.data
       : [];
   const candidates =
-    candidatesState.status === 'ready' || candidatesState.status === 'empty'
+    candidatesState.status === "ready" || candidatesState.status === "empty"
       ? candidatesState.data
       : [];
   const pendingCandidates = candidates.filter(
-    (candidate) => candidate.status === 'pending_review',
+    (candidate) => candidate.status === "pending_review",
   );
 
   const activeRun = runs.find((run) => isActiveRunStatus(run.status));
   const state = containerState(props.progress);
-  const displayState = activeRun !== undefined ? 'analyzing' : state;
+  const displayState = activeRun !== undefined ? "analyzing" : state;
   const runsResolved =
-    runsState.status === 'ready' || runsState.status === 'empty';
+    runsState.status === "ready" || runsState.status === "empty";
 
   useEffect(() => {
     if (!runsResolved) {
@@ -223,15 +223,15 @@ export function ContainerWorkspace(
   // when no active run was observed, including when returning to the page.
   useEffect(() => {
     const refreshRuns = (): void => {
-      if (document.visibilityState !== 'hidden') {
+      if (document.visibilityState !== "hidden") {
         setRunPollRefresh((current) => current + 1);
       }
     };
     const timer = window.setInterval(refreshRuns, 60_000);
-    window.addEventListener('focus', refreshRuns);
+    window.addEventListener("focus", refreshRuns);
     return () => {
       window.clearInterval(timer);
-      window.removeEventListener('focus', refreshRuns);
+      window.removeEventListener("focus", refreshRuns);
     };
   }, []);
 
@@ -268,7 +268,7 @@ export function ContainerWorkspace(
     // The analysis is the thing worth watching now, and Insights cannot change
     // until it finishes, so the reader is taken to where its progress shows.
     navigate(
-      learningContainerRoute(props.baseRoute, containerId, 'analysis-results'),
+      learningContainerRoute(props.baseRoute, containerId, "analysis-results"),
     );
   }, [api, containerId, navigate, projectId, props]);
 
@@ -288,7 +288,39 @@ export function ContainerWorkspace(
   const proposedSkillFor = (
     insight: LearningInsight,
   ): LearningSkill | undefined =>
-    skills.find((skill) => skill.sourceInsightId === insight.id);
+    skills.find(
+      (skill) =>
+        skill.sourceInsightId === insight.id ||
+        (
+          skill as { sourceInsightIds?: readonly string[] }
+        ).sourceInsightIds?.includes(insight.id),
+    ) ?? candidateSkillFor(insight);
+
+  /**
+   * Demo: before review, the Skill candidate an Insight supports is its proposed
+   * skill too. The adapter carries the candidate's supporting Insight ids and SKILL.md.
+   */
+  function candidateSkillFor(
+    insight: LearningInsight,
+  ): LearningSkill | undefined {
+    const candidate = pendingCandidates.find((c) =>
+      (
+        c as { sourceInsightIds?: readonly string[] }
+      ).sourceInsightIds?.includes(insight.id),
+    );
+    if (candidate === undefined) return undefined;
+    return {
+      createdAt: candidate.createdAt,
+      description: candidate.description,
+      id: candidate.id,
+      name: candidate.title,
+      revision: 1,
+      skillMd: (candidate as { skillMd?: string }).skillMd ?? "",
+      sourceInsightId: insight.id,
+      status: "pending_review",
+      updatedAt: candidate.createdAt,
+    };
+  }
 
   // A failed list read leaves its array empty, and rendering that as "0" would
   // state a count nothing measured -- worse than useless here, because a
@@ -297,13 +329,13 @@ export function ContainerWorkspace(
   const tabCount = (
     state: { readonly status: string },
     rows: readonly unknown[],
-  ): string => (state.status === 'error' ? '—' : String(rows.length));
+  ): string => (state.status === "error" ? "—" : String(rows.length));
 
   const historyResolved =
-    (insightsState.status === 'ready' || insightsState.status === 'empty') &&
-    (skillsState.status === 'ready' || skillsState.status === 'empty') &&
-    (runsState.status === 'ready' || runsState.status === 'empty') &&
-    (candidatesState.status === 'ready' || candidatesState.status === 'empty');
+    (insightsState.status === "ready" || insightsState.status === "empty") &&
+    (skillsState.status === "ready" || skillsState.status === "empty") &&
+    (runsState.status === "ready" || runsState.status === "empty") &&
+    (candidatesState.status === "ready" || candidatesState.status === "empty");
   const hasRetainedHistory =
     insights.length > 0 ||
     skills.length > 0 ||
@@ -315,7 +347,7 @@ export function ContainerWorkspace(
    * Container has no retained Learning data.
    */
   const isSetup =
-    displayState === 'setup' && historyResolved && !hasRetainedHistory;
+    displayState === "setup" && historyResolved && !hasRetainedHistory;
 
   const tabs: readonly {
     readonly count: string;
@@ -324,18 +356,18 @@ export function ContainerWorkspace(
   }[] = [
     {
       count: tabCount(insightsState, insights),
-      label: 'Insights',
-      segment: 'insights',
+      label: "Insights",
+      segment: "insights",
     },
     {
       count: tabCount(skillsState, skills),
-      label: 'Skills',
-      segment: 'skills',
+      label: "Skills",
+      segment: "skills",
     },
     {
       count: tabCount(runsState, runs),
-      label: 'Analysis results',
-      segment: 'analysis-results',
+      label: "Analysis results",
+      segment: "analysis-results",
     },
   ];
 
@@ -349,13 +381,13 @@ export function ContainerWorkspace(
         variant="primary"
       >
         <PlayIcon />
-        {displayState === 'analyzing'
-          ? 'Analysis in progress'
+        {displayState === "analyzing"
+          ? "Analysis in progress"
           : analyzable
-            ? 'Start manual run now'
+            ? "Start manual run now"
             : props.progress === null
-              ? 'Analyze unavailable'
-              : 'No new Threads'}
+              ? "Analyze unavailable"
+              : "No new Threads"}
       </Button>
     </section>
   );
@@ -371,7 +403,7 @@ export function ContainerWorkspace(
           <dt>Threads collected</dt>
           <dd>
             {props.progress === null
-              ? '—'
+              ? "—"
               : props.progress.threadCount.toLocaleString()}
           </dd>
         </div>
@@ -379,7 +411,7 @@ export function ContainerWorkspace(
           <dt>Last analysis</dt>
           <dd>
             {props.progress === null
-              ? '—'
+              ? "—"
               : learningTimestampWithZone(props.progress.lastSucceededAt)}
           </dd>
         </div>
@@ -390,7 +422,7 @@ export function ContainerWorkspace(
         run={activeRun}
         runsResolved={runsResolved}
         load={loadAutomation}
-        active={displayState === 'analyzing'}
+        active={displayState === "analyzing"}
       />
       {!props.scheduleCard ? manualAction : null}
     </div>
@@ -420,38 +452,36 @@ export function ContainerWorkspace(
           </div>
         </div>
 
-
-
-        {!isSetup && props.tab !== 'analysis-results' ? (
+        {!isSetup && props.tab !== "analysis-results" ? (
           <LatestAnalysis
             run={runs[0]}
-            isLoading={runsState.status === 'loading'}
-            error={runsState.status === 'error' ? runsState.message : null}
+            isLoading={runsState.status === "loading"}
+            error={runsState.status === "error" ? runsState.message : null}
             historyRoute={learningContainerRoute(
               props.baseRoute,
               containerId,
-              'analysis-results',
+              "analysis-results",
             )}
             onRetry={onRunDetected}
           />
         ) : null}
 
-          <section
-            className={styles.automationPanel}
-            aria-label="Automatic learning"
-          >
-            <div className={styles.embeddedSchedule}>
-              {props.scheduleCard
-                ? props.scheduleCard(manualAction, renderReadiness)
-                : renderReadiness()}
-            </div>
-          </section>
+        <section
+          className={styles.automationPanel}
+          aria-label="Automatic learning"
+        >
+          <div className={styles.embeddedSchedule}>
+            {props.scheduleCard
+              ? props.scheduleCard(manualAction, renderReadiness)
+              : renderReadiness()}
+          </div>
+        </section>
 
         {isSetup ? null : (
           <nav aria-label="Space views" className={styles.tabs}>
             {tabs.map((tab) => (
               <Link
-                aria-current={props.tab === tab.segment ? 'page' : undefined}
+                aria-current={props.tab === tab.segment ? "page" : undefined}
                 className={
                   props.tab === tab.segment ? styles.activeTab : styles.tab
                 }
@@ -475,19 +505,19 @@ export function ContainerWorkspace(
       {!threadBindingOpen ? (
         <div className={styles.tabPanel}>
           {isSetup ? setupContent : null}
-          {!isSetup && props.tab === 'insights' ? (
+          {!isSetup && props.tab === "insights" ? (
             <InsightsList
               error={
-                insightsState.status === 'error' ? insightsState.message : null
+                insightsState.status === "error" ? insightsState.message : null
               }
               insights={insights}
-              isLoading={insightsState.status === 'loading'}
+              isLoading={insightsState.status === "loading"}
               onOpenInsight={setOpenInsight}
               proposedSkillFor={proposedSkillFor}
               state={state}
             />
           ) : null}
-          {!isSetup && props.tab === 'skills' ? (
+          {!isSetup && props.tab === "skills" ? (
             <SkillsList
               onLoadDelivery={loadDelivery}
               onSetDelivery={(enabled) =>
@@ -506,7 +536,7 @@ export function ContainerWorkspace(
                     props.onChanged();
                   }}
                   review={(candidateId, action) =>
-                    action === 'approve'
+                    action === "approve"
                       ? api.approveCandidate(
                           projectId,
                           containerId,
@@ -517,24 +547,24 @@ export function ContainerWorkspace(
                 />
               }
               candidatesError={
-                candidatesState.status === 'error'
+                candidatesState.status === "error"
                   ? candidatesState.message
                   : null
               }
               containerId={container.id}
               error={
-                skillsState.status === 'error' ? skillsState.message : null
+                skillsState.status === "error" ? skillsState.message : null
               }
-              isLoading={skillsState.status === 'loading'}
+              isLoading={skillsState.status === "loading"}
               onOpenSkill={setOpenSkill}
               pendingCandidateCount={pendingCandidates.length}
               skills={skills}
             />
           ) : null}
-          {!isSetup && props.tab === 'analysis-results' ? (
+          {!isSetup && props.tab === "analysis-results" ? (
             <AnalysisResultsList
-              error={runsState.status === 'error' ? runsState.message : null}
-              isLoading={runsState.status === 'loading'}
+              error={runsState.status === "error" ? runsState.message : null}
+              isLoading={runsState.status === "loading"}
               onRetry={props.onChanged}
               runs={runs}
               state={state}

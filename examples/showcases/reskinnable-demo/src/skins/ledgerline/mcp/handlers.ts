@@ -124,6 +124,19 @@ export const handlers = {
   approveAndReimburse({ reportId }: { reportId: string }): ToolOutput {
     try {
       const r = ledger.getReport(up(reportId));
+      // While a hold is open the card does not open: the call is refused with
+      // the same POLICY_HOLD as approveReport, so the host sees the failure.
+      const open = r.holds.find((h) => h.status === "open");
+      if (open) {
+        return refusal(
+          new LedgerError(
+            "POLICY_HOLD",
+            `${r.id} cannot be approved while policy hold ${open.code} is open.`,
+            { code: open.code },
+          ),
+          r.id,
+        );
+      }
       const view: ApproveCardView = {
         kind: "approve-card",
         report: agentReport(r),

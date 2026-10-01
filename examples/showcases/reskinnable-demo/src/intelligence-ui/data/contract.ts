@@ -135,5 +135,8 @@ export interface FineTunePreview {
   readonly target: FineTuneTarget;
   readonly format: "jsonl";
   readonly examples: number;
-  readonly sample: readonly { readonly messages: readonly Record<string, unknown>[] }[];
+  readonly sample: readonly {
+    readonly system?: string;
+    readonly messages: readonly Record<string, unknown>[];
+  }[];
 }

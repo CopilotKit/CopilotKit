@@ -61,6 +61,11 @@ async function loadAppHtml(): Promise<string> {
 export const REPEAT_WINDOW_MS = 20_000;
 const lastCalls = new Map<string, number>();
 
+/**
+ * True when this exact call already OPENED A CARD within `REPEAT_WINDOW_MS`.
+ * Only a call that drew a card is remembered (`cardShown`): a refusal draws
+ * none, so a retry after a refusal, or after the hold is cleared, runs again.
+ */
 export function isRepeatCall(
   tool: string,
   args: unknown,
@@ -68,10 +73,12 @@ export function isRepeatCall(
 ): boolean {
   for (const [k, at] of lastCalls)
     if (now - at > REPEAT_WINDOW_MS) lastCalls.delete(k);
-  const key = `${tool}:${JSON.stringify(args)}`;
-  const seen = lastCalls.has(key);
-  lastCalls.set(key, now);
-  return seen;
+  return lastCalls.has(`${tool}:${JSON.stringify(args)}`);
+}
+
+/** Remember that this call drew a card, so ChatGPT's duplicate of it collapses. */
+export function cardShown(tool: string, args: unknown, now = Date.now()): void {
+  lastCalls.set(`${tool}:${JSON.stringify(args)}`, now);
 }
 
 export function resetRepeatCalls(): void {
@@ -178,13 +185,11 @@ export function createLedgerlineMcpServer({
         args: Record<string, unknown>,
         extra: { _meta?: Record<string, unknown> },
       ) => {
-        if (
-          config.visibility === "model" &&
-          collapseRepeats &&
-          isRepeatCall(name, args)
-        )
-          return repeatResult(name);
-        return result(runTool(name, args, callerOf(extra)));
+        const collapse = config.visibility === "model" && collapseRepeats;
+        if (collapse && isRepeatCall(name, args)) return repeatResult(name);
+        const out = runTool(name, args, callerOf(extra));
+        if (collapse && !("error" in out)) cardShown(name, args);
+        return result(out);
       },
     );
 
@@ -256,7 +261,7 @@ export function createLedgerlineMcpServer({
   regApp("approveAndReimburse", {
     title: "Approve and reimburse",
     description:
-      "Open Ledgerline's approve-and-reimburse card for a report with no open policy hold. The card shows the cost center and the payment; the report is approved and paid only when the user confirms in the card. Do not ask for confirmation in chat first.",
+      "Open Ledgerline's approve-and-reimburse card. Refused with POLICY_HOLD while the report has an open policy hold. The card shows the cost center and the payment; the report is approved and paid only when the user confirms in the card. Do not ask for confirmation in chat first.",
     inputSchema: { reportId: z.string() },
     readOnly: true,
     visibility: "model",

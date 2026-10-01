@@ -10,7 +10,10 @@ import { downloadFile, learningV1 } from "../data/client";
 import { useLearningRequest } from "../learning/use-learning-request";
 import { StatusMessage } from "../ui/feedback";
 import { Button } from "../ui/primitives";
-import { IntelligenceShell, INTELLIGENCE_BASE } from "../shell/intelligence-shell";
+import {
+  IntelligenceShell,
+  INTELLIGENCE_BASE,
+} from "../shell/intelligence-shell";
 import { WorkspacePageHeader } from "../shell/workspace-page-header";
 import styles from "./intelligence-screens.module.css";
 
@@ -22,21 +25,59 @@ const PROVIDERS: readonly {
   height: number;
   blurb: string;
 }[] = [
-  { id: "thinking-machines", name: "Thinking Machines", product: "Tinker", logo: "/intelligence-ui/logos/thinking-machines.svg", height: 30, blurb: "Fine-tuning API for open-weight models. Takes chat-format JSONL." },
-  { id: "sagemaker", name: "AWS SageMaker", product: "Amazon SageMaker AI", logo: "/intelligence-ui/logos/amazon-sagemaker-ai.svg", height: 44, blurb: "Fine-tune in your own AWS account. Takes chat-format JSONL from S3." },
+  {
+    id: "thinking-machines",
+    name: "Thinking Machines",
+    product: "Tinker",
+    logo: "/intelligence-ui/logos/thinking-machines.svg",
+    height: 30,
+    blurb: "Fine-tuning API for open-weight models. Takes chat-format JSONL.",
+  },
+  {
+    id: "sagemaker",
+    name: "AWS SageMaker",
+    product: "Amazon SageMaker AI",
+    logo: "/intelligence-ui/logos/amazon-sagemaker-ai.svg",
+    height: 44,
+    blurb:
+      "Fine-tune in your own AWS account. Takes chat-format JSONL from S3.",
+  },
 ];
+
+interface ToolCall {
+  readonly name?: string;
+  readonly arguments?: unknown;
+  readonly function?: { readonly name?: string; readonly arguments?: unknown };
+}
+const callName = (c: ToolCall): string => c.function?.name ?? c.name ?? "tool";
+const callArgs = (c: ToolCall): string => {
+  const raw = c.function?.arguments ?? c.arguments ?? {};
+  if (typeof raw !== "string") return JSON.stringify(raw);
+  try {
+    return JSON.stringify(JSON.parse(raw));
+  } catch {
+    return raw;
+  }
+};
+const compact = (text: string, n: number): string =>
+  text.length > n ? `${text.slice(0, n - 1)}…` : text;
 
 export function FineTuneScreen() {
   const [target, setTarget] = useState<FineTuneTarget>("thinking-machines");
   const [notice, setNotice] = useState<string | null>(null);
-  const load = useCallback((signal: AbortSignal) => learningV1.fineTunePreview(target, signal), [target]);
+  const load = useCallback(
+    (signal: AbortSignal) => learningV1.fineTunePreview(target, signal),
+    [target],
+  );
   const preview = useLearningRequest(load);
   const sample = preview.status === "ready" ? preview.data.sample : [];
   const jsonl = `${sample.map((row) => JSON.stringify(row)).join("\n")}\n`;
   const provider = PROVIDERS.find((p) => p.id === target) ?? PROVIDERS[0];
 
   return (
-    <IntelligenceShell section={{ label: "Fine-tune", to: `${INTELLIGENCE_BASE}/fine-tune` }}>
+    <IntelligenceShell
+      section={{ label: "Fine-tune", to: `${INTELLIGENCE_BASE}/fine-tune` }}
+    >
       <section className="shell-page" aria-labelledby="fine-tune-title">
         <WorkspacePageHeader
           headingLevel={1}
@@ -50,7 +91,9 @@ export function FineTuneScreen() {
               onClick={() => {
                 const file = `ledgerline-finetune-${target}.jsonl`;
                 downloadFile(file, jsonl, "application/x-ndjson");
-                setNotice(`Exported ${file} with ${sample.length} examples. No training was started.`);
+                setNotice(
+                  `Exported ${file} with ${sample.length} examples. No training was started.`,
+                );
               }}
             >
               Export JSONL
@@ -64,50 +107,104 @@ export function FineTuneScreen() {
         ) : null}
         <div className={styles.ftGrid}>
           {PROVIDERS.map((p) => (
-            <button key={p.id} type="button" className={styles.ftTarget} aria-pressed={p.id === target} onClick={() => setTarget(p.id)}>
+            <button
+              key={p.id}
+              type="button"
+              className={styles.ftTarget}
+              aria-pressed={p.id === target}
+              onClick={() => setTarget(p.id)}
+            >
               <span className={styles.ftLogo}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- local official logo file */}
-                <img className={styles.brandmark} src={p.logo} alt={p.name} style={{ height: p.height }} />
+                <img
+                  className={styles.brandmark}
+                  src={p.logo}
+                  alt={p.name}
+                  style={{ height: p.height }}
+                />
               </span>
               <span>
                 <b>
-                  {p.name} <span style={{ fontWeight: 400, color: "var(--cpki-color-muted-foreground)" }}>{p.product}</span>
+                  {p.name}{" "}
+                  <span
+                    style={{
+                      fontWeight: 400,
+                      color: "var(--cpki-color-muted-foreground)",
+                    }}
+                  >
+                    {p.product}
+                  </span>
                 </b>
                 <small>{p.blurb}</small>
               </span>
             </button>
           ))}
         </div>
-        <section aria-labelledby="dataset-title" style={{ display: "grid", gap: 12 }}>
-          <h2 id="dataset-title" style={{ margin: 0, fontSize: "var(--cpki-font-size-3)" }}>
+        <section
+          aria-labelledby="dataset-title"
+          style={{ display: "grid", gap: 12 }}
+        >
+          <h2
+            id="dataset-title"
+            style={{ margin: 0, fontSize: "var(--cpki-font-size-3)" }}
+          >
             {`Dataset preview · ${provider.product}`}
           </h2>
           {preview.status === "error" ? (
-            <StatusMessage title="The preview could not be loaded" variant="danger">
+            <StatusMessage
+              title="The preview could not be loaded"
+              variant="danger"
+            >
               {preview.message}
             </StatusMessage>
           ) : null}
           {preview.status === "ready" ? (
-            <p className={styles.note}>{`${preview.data.examples} examples · ${preview.data.format.toUpperCase()} · built from captured trajectories`}</p>
+            <p
+              className={styles.note}
+            >{`${preview.data.examples} examples · ${preview.data.format.toUpperCase()} · built from captured trajectories`}</p>
           ) : null}
           {preview.status === "ready" && sample.length === 0 ? (
             <StatusMessage title="No training examples yet" variant="info">
-              Examples appear once a trajectory has a completed reference path and an analysis has run.
+              Examples appear once a trajectory has a completed reference path
+              and an analysis has run.
             </StatusMessage>
           ) : null}
           {sample.map((row, i) => (
             <div key={i} className={styles.example}>
-              <div className={styles.exampleHead}>{`example ${i + 1} · ${row.messages.length} messages`}</div>
+              <div
+                className={styles.exampleHead}
+              >{`example ${i + 1} · ${row.messages.length} messages`}</div>
               <div className={styles.exampleBody}>
+                {row.system ? (
+                  <div className={styles.msg}>
+                    <span className={styles.role}>system</span>
+                    <span>{String(row.system)}</span>
+                  </div>
+                ) : null}
                 {row.messages.map((m, j) => {
-                  const calls = (m.tool_calls ?? []) as { name?: string; arguments?: unknown }[];
+                  // OpenAI chat format: assistant turns may carry only tool_calls
+                  // ({ type: "function", function: { name, arguments } }) with null content.
+                  const calls = (m.tool_calls ?? []) as ToolCall[];
+                  const content =
+                    m.content == null
+                      ? ""
+                      : typeof m.content === "string"
+                        ? m.content
+                        : JSON.stringify(m.content);
                   return (
                     <div key={j} className={styles.msg}>
                       <span className={styles.role}>{String(m.role)}</span>
                       <span>
-                        {typeof m.content === "string" ? m.content : JSON.stringify(m.content)}
+                        {content
+                          ? m.role === "tool"
+                            ? compact(content, 160)
+                            : content
+                          : null}
                         {calls.map((c, k) => (
-                          <span key={k} className={styles.toolCall}>{`→ ${c.name}(${JSON.stringify(c.arguments)})`}</span>
+                          <span
+                            key={k}
+                            className={styles.toolCall}
+                          >{`→ ${callName(c)}(${compact(callArgs(c), 120)})`}</span>
                         ))}
                       </span>
                     </div>

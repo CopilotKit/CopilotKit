@@ -63,9 +63,9 @@ describe("the MCP app tools", () => {
       kind: "report-card",
       report: { id: "EXP-2291" },
     });
-    expect(
-      runTool("approveAndReimburse", { reportId: "EXP-2291" }, ua),
-    ).toMatchObject({ kind: "approve-card" });
+    const held = runTool("approveAndReimburse", { reportId: "EXP-2291" }, ua);
+    expect(held).toMatchObject({ error: "POLICY_HOLD", code: "POL-114" });
+    expect(held.kind).toBeUndefined();
     const refused = runTool(
       "confirmApproveAndReimburse",
       { reportId: "EXP-2291" },
@@ -83,11 +83,18 @@ describe("the MCP app tools", () => {
       ua,
     );
     expect(
+      runTool("approveAndReimburse", { reportId: "EXP-2291" }, ua),
+    ).toMatchObject({ kind: "approve-card" });
+    expect(
       runTool("confirmApproveAndReimburse", { reportId: "EXP-2291" }, ua),
     ).toMatchObject({ ok: true, status: "reimbursed" });
     const [t] = learning
       .listTrajectories()
       .filter((x) => !x.trajectoryId.startsWith("trj_hist"));
     expect(t?.outcome).toBe("agent_succeeded");
+    const thread = learning.trajectoryDetail(t!.trajectoryId)!.threads[0]!;
+    expect(
+      thread.agentTrace.filter((e) => e.status === "error").length,
+    ).toBeGreaterThanOrEqual(2);
   });
 });

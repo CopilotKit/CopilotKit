@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "@modelcontextprotocol/ext-apps";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { ApproveReimburseCard, ReportCard } from "../genui/cards";
+import { ApproveReimburseCard, HoldCard, ReportCard } from "../genui/cards";
 import type {
   ApproveCardView,
   ApproveOutcome,
@@ -91,6 +91,15 @@ function Root() {
     return <Note bad text={`Could not reach the host: ${bridgeError}`} />;
   if (!result) return <Note text="Loading Ledgerline..." />;
   const view = viewOf(result);
+  const refusal = result.structuredContent as
+    | { error?: string; code?: string; reportId?: string }
+    | undefined;
+  if (!view && refusal?.error === "POLICY_HOLD") {
+    // The same hold card the in-app chat draws: the code and that it is on hold, never the fix.
+    return (
+      <HoldCard reportId={refusal.reportId ?? ""} code={refusal.code ?? ""} />
+    );
+  }
   if (!view) return <Note bad={!!result.isError} text={textOf(result)} />;
   if (view.kind === "report-card") return <ReportCard report={view.report} />;
   return (

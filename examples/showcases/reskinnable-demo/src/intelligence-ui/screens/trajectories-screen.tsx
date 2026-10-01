@@ -11,14 +11,19 @@ import { learningV1 } from "../data/client";
 import { useLearningRequest } from "../learning/use-learning-request";
 import { DataTable } from "../ui/data-display";
 import { Badge, StatusMessage } from "../ui/feedback";
-import { IntelligenceShell, INTELLIGENCE_BASE } from "../shell/intelligence-shell";
+import {
+  IntelligenceShell,
+  INTELLIGENCE_BASE,
+} from "../shell/intelligence-shell";
 import { WorkspacePageHeader } from "../shell/workspace-page-header";
 import { fmtDate, fmtDur, fmtTime, surfaceName } from "./trajectory-format";
 import styles from "./intelligence-screens.module.css";
 
 type Row = TrajectorySummary & Record<string, unknown>;
 
-export function OutcomeBadges(props: { readonly outcome: TrajectorySummary["outcome"] }) {
+export function OutcomeBadges(props: {
+  readonly outcome: TrajectorySummary["outcome"];
+}) {
   if (props.outcome === "agent_failed_user_completed") {
     return (
       <span className={styles.badges}>
@@ -27,18 +32,31 @@ export function OutcomeBadges(props: { readonly outcome: TrajectorySummary["outc
       </span>
     );
   }
-  if (props.outcome === "agent_succeeded") return <Badge variant="success">Agent succeeded</Badge>;
+  if (props.outcome === "agent_succeeded")
+    return <Badge variant="success">Agent succeeded</Badge>;
   return <Badge variant="neutral">In progress</Badge>;
 }
 
 export function TrajectoriesScreen() {
-  const load = useCallback((signal: AbortSignal) => learningV1.trajectories(signal), []);
+  const load = useCallback(
+    (signal: AbortSignal) => learningV1.trajectories(signal),
+    [],
+  );
   const state = useLearningRequest(load);
   const rows: Row[] =
-    state.status === "ready" ? [...state.data].sort((a, b) => b.lastEventAt - a.lastEventAt).map((t) => ({ ...t })) : [];
+    state.status === "ready"
+      ? [...state.data]
+          .sort((a, b) => b.lastEventAt - a.lastEventAt)
+          .map((t) => ({ ...t }))
+      : [];
 
   return (
-    <IntelligenceShell section={{ label: "Trajectories", to: `${INTELLIGENCE_BASE}/trajectories` }}>
+    <IntelligenceShell
+      section={{
+        label: "Trajectories",
+        to: `${INTELLIGENCE_BASE}/trajectories`,
+      }}
+    >
       <section className="shell-page" aria-labelledby="trajectories-title">
         <WorkspacePageHeader
           headingLevel={1}
@@ -47,7 +65,10 @@ export function TrajectoriesScreen() {
           description="Each trajectory joins the Threads a user had with your agent, in the app and in ChatGPT, to what they then did in the product themselves."
         />
         {state.status === "error" ? (
-          <StatusMessage title="Trajectories could not be loaded" variant="danger">
+          <StatusMessage
+            title="Trajectories could not be loaded"
+            variant="danger"
+          >
             {state.message}
           </StatusMessage>
         ) : null}
@@ -57,8 +78,16 @@ export function TrajectoriesScreen() {
             rows={rows}
             rowKey={(row) => row.trajectoryId}
             // The trajectory view is a standalone page (Atai's prototype), so this is a full navigation.
-            onRowClick={(row) => window.location.assign(`${INTELLIGENCE_BASE}/trajectories/${encodeURIComponent(row.trajectoryId)}`)}
-            emptyMessage={state.status === "loading" ? "Loading trajectories…" : "No trajectories captured yet."}
+            onRowClick={(row) =>
+              window.location.assign(
+                `${INTELLIGENCE_BASE}/trajectories/${encodeURIComponent(row.trajectoryId)}`,
+              )
+            }
+            emptyMessage={
+              state.status === "loading"
+                ? "Loading trajectories…"
+                : "No trajectories captured yet."
+            }
             columns={[
               {
                 id: "title",
@@ -70,14 +99,18 @@ export function TrajectoriesScreen() {
                   </span>
                 ),
               },
-              { id: "outcome", header: "Outcome", cell: (row) => <OutcomeBadges outcome={row.outcome} /> },
+              {
+                id: "outcome",
+                header: "Outcome",
+                cell: (row) => <OutcomeBadges outcome={row.outcome} />,
+              },
               {
                 id: "surfaces",
                 header: "Surfaces",
                 cell: (row) => (
                   <span className={styles.badges}>
                     {row.surfaces.map((s) => (
-                      <Badge key={s} variant="neutral">
+                      <Badge key={`${s}-${row.trajectoryId}`} variant="neutral">
                         {surfaceName(s)}
                       </Badge>
                     ))}
@@ -85,12 +118,26 @@ export function TrajectoriesScreen() {
                 ),
               },
               { id: "user", header: "User", cell: (row) => row.user.name },
-              { id: "events", header: "Events", align: "end", cell: (row) => row.eventCount },
-              { id: "duration", header: "Duration", align: "end", cell: (row) => fmtDur(row.lastEventAt - row.firstEventAt) },
+              {
+                id: "events",
+                header: "Events",
+                align: "end",
+                cell: (row) => row.eventCount,
+              },
+              {
+                id: "duration",
+                header: "Duration",
+                align: "end",
+                cell: (row) => fmtDur(row.lastEventAt - row.firstEventAt),
+              },
               {
                 id: "last",
                 header: "Last activity",
-                cell: (row) => <span className={styles.mono}>{`${fmtDate(row.lastEventAt)}, ${fmtTime(row.lastEventAt).slice(0, 5)}`}</span>,
+                cell: (row) => (
+                  <span
+                    className={styles.mono}
+                  >{`${fmtDate(row.lastEventAt)}, ${fmtTime(row.lastEventAt).slice(0, 5)}`}</span>
+                ),
               },
             ]}
           />

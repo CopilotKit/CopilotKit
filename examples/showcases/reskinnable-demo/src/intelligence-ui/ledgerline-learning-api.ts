@@ -18,7 +18,12 @@
  */
 import { learningV1 } from "./data/client";
 import { LEDGERLINE_CONTAINER_ID } from "./ids";
-import type { DemoInsight, DemoSkill, TrajectoryDetail, TrajectoryEvent } from "./data/contract";
+import type {
+  DemoInsight,
+  DemoSkill,
+  TrajectoryDetail,
+  TrajectoryEvent,
+} from "./data/contract";
 import type {
   LearningApi,
   LearningCandidate,
@@ -73,8 +78,18 @@ function toInsight(insight: DemoInsight, runId: string): LearningInsight {
 
 const candidateId = (skill: DemoSkill): string => `candidate:${skill.name}`;
 
-function toCandidate(skill: DemoSkill, runId: string, createdAt: string): LearningCandidate {
+function toCandidate(
+  skill: DemoSkill,
+  runId: string,
+  createdAt: string,
+): LearningCandidate {
+  // Extra fields read by the demo's container-workspace to link a pending candidate to its Insights.
+  const links = {
+    sourceInsightIds: skill.supportingInsightIds,
+    skillMd: skill.skillMd,
+  };
   return {
+    ...links,
     bundleSha256: ZERO_SHA,
     createdAt,
     description: skill.description,
@@ -101,6 +116,7 @@ function toCandidate(skill: DemoSkill, runId: string, createdAt: string): Learni
 
 function toSkill(skill: DemoSkill, createdAt: string): LearningSkill {
   return {
+    sourceInsightIds: skill.supportingInsightIds,
     createdAt,
     description: skill.description,
     id: `skill:${skill.name}`,
@@ -114,7 +130,10 @@ function toSkill(skill: DemoSkill, createdAt: string): LearningSkill {
 }
 
 /** The run the current Insights came from, so the list has one even before this session ran one. */
-function baselineRun(insights: readonly DemoInsight[], skills: readonly DemoSkill[]): LearningRun | null {
+function baselineRun(
+  insights: readonly DemoInsight[],
+  skills: readonly DemoSkill[],
+): LearningRun | null {
   if (insights.length === 0) return null;
   const at = Math.max(...insights.map((i) => i.createdAt));
   return {
@@ -137,14 +156,24 @@ function baselineRun(insights: readonly DemoInsight[], skills: readonly DemoSkil
 }
 
 async function allRuns(): Promise<LearningRun[]> {
-  const [insights, skills] = await Promise.all([learningV1.insights(), learningV1.skills()]);
+  const [insights, skills] = await Promise.all([
+    learningV1.insights(),
+    learningV1.skills(),
+  ]);
   const base = baselineRun(insights, skills);
-  return [...sessionRuns, ...(base && !sessionRuns.some((r) => r.status === "succeeded") ? [base] : [])];
+  return [
+    ...sessionRuns,
+    ...(base && !sessionRuns.some((r) => r.status === "succeeded")
+      ? [base]
+      : []),
+  ];
 }
 
-const latestRunId = async (): Promise<string> => (await allRuns())[0]?.id ?? "00000000-a11c-4d00-9e00-000000000001";
+const latestRunId = async (): Promise<string> =>
+  (await allRuns())[0]?.id ?? "00000000-a11c-4d00-9e00-000000000001";
 
-const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
+const capitalize = (text: string): string =>
+  text.charAt(0).toUpperCase() + text.slice(1);
 
 function eventLabel(event: TrajectoryEvent | undefined): string {
   if (!event) return "Signal";
@@ -159,14 +188,21 @@ function eventLabel(event: TrajectoryEvent | undefined): string {
     case "thread.linked":
       return `${v.surface === "chatgpt" ? "ChatGPT" : "In-app"} Thread linked`;
     default:
-      return capitalize(event.event.name.replace(/^[a-z]+\./, "").replace(/[._]/g, " "));
+      return capitalize(
+        event.event.name.replace(/^[a-z]+\./, "").replace(/[._]/g, " "),
+      );
   }
 }
 
-async function trajectoryDetails(ids: readonly string[]): Promise<Map<string, TrajectoryDetail | null>> {
+async function trajectoryDetails(
+  ids: readonly string[],
+): Promise<Map<string, TrajectoryDetail | null>> {
   const unique = [...new Set(ids)];
   const rows = await Promise.all(
-    unique.map(async (id) => [id, await learningV1.trajectory(id).catch(() => null)] as const),
+    unique.map(
+      async (id) =>
+        [id, await learningV1.trajectory(id).catch(() => null)] as const,
+    ),
   );
   return new Map(rows);
 }
@@ -192,7 +228,11 @@ async function runLearning(): Promise<LearningRun> {
   };
   sessionRuns = [run, ...sessionRuns];
   const settle = (patch: Partial<LearningRun>): void => {
-    sessionRuns = sessionRuns.map((r) => (r.id === run.id ? { ...r, ...patch, updatedAt: new Date().toISOString() } : r));
+    sessionRuns = sessionRuns.map((r) =>
+      r.id === run.id
+        ? { ...r, ...patch, updatedAt: new Date().toISOString() }
+        : r,
+    );
   };
   // Let the stages read on stage, then settle with the API's real outcome.
   const minimum = new Promise((resolve) => window.setTimeout(resolve, 2500));
@@ -206,12 +246,19 @@ async function runLearning(): Promise<LearningRun> {
         completedAt: new Date().toISOString(),
         insightCount: result.insights.length,
         candidateCount: result.skills.length,
-        evidenceThreadCount: Math.max(0, ...result.insights.map((i) => i.threadCount)),
+        evidenceThreadCount: Math.max(
+          0,
+          ...result.insights.map((i) => i.threadCount),
+        ),
       });
     })
     .catch(async (error: unknown) => {
       await minimum;
-      settle({ status: "failed", completedAt: new Date().toISOString(), failureCode: error instanceof Error ? error.message : String(error) });
+      settle({
+        status: "failed",
+        completedAt: new Date().toISOString(),
+        failureCode: error instanceof Error ? error.message : String(error),
+      });
     });
   return run;
 }
@@ -220,49 +267,92 @@ export const ledgerlineLearningApi: LearningApi = {
   approveCandidate: async (_projectId, _containerId, id) => {
     const name = id.replace(/^candidate:/, "");
     await learningV1.approveSkill(name);
-    return { candidateId: id, publishedRegistryRevision: 1, publishedSkillId: `skill:${name}`, status: "approved" };
+    return {
+      candidateId: id,
+      publishedRegistryRevision: 1,
+      publishedSkillId: `skill:${name}`,
+      status: "approved",
+    };
   },
   rejectCandidate: async (_projectId, _containerId, id) => {
     await learningV1.disableSkill(id.replace(/^candidate:/, ""));
-    return { candidateId: id, publishedRegistryRevision: null, publishedSkillId: null, status: "rejected" };
+    return {
+      candidateId: id,
+      publishedRegistryRevision: null,
+      publishedSkillId: null,
+      status: "rejected",
+    };
   },
   createContainer: async () => {
     throw new Error("This demo has one Learning Space.");
   },
   updateContainer: async () => container,
-  getContainer: async (_p, id) => (id === LEDGERLINE_CONTAINER_ID ? container : null),
+  getContainer: async (_p, id) =>
+    id === LEDGERLINE_CONTAINER_ID ? container : null,
   listContainers: async () => ({ containers: [container], nextCursor: null }),
   listContainerStats: async () => {
-    const [trajectories, insights] = await Promise.all([learningV1.trajectories(), learningV1.insights()]);
-    const lastLearned = insights.length ? Math.max(...insights.map((i) => i.createdAt)) : 0;
-    const threadCount = trajectories.reduce((n, t) => n + Math.max(1, t.threadIds.length), 0);
+    const [trajectories, insights] = await Promise.all([
+      learningV1.trajectories(),
+      learningV1.insights(),
+    ]);
+    const lastLearned = insights.length
+      ? Math.max(...insights.map((i) => i.createdAt))
+      : 0;
+    const threadCount = trajectories.reduce(
+      (n, t) => n + Math.max(1, t.threadIds.length),
+      0,
+    );
     const pending = trajectories
-      .filter((t) => t.outcome === "agent_failed_user_completed" && t.lastEventAt > lastLearned)
+      .filter(
+        (t) =>
+          t.outcome === "agent_failed_user_completed" &&
+          t.lastEventAt > lastLearned,
+      )
       .reduce((n, t) => n + Math.max(1, t.threadIds.length), 0);
-    const active = sessionRuns.find((r) => !["succeeded", "failed"].includes(r.status));
+    const active = sessionRuns.find(
+      (r) => !["succeeded", "failed"].includes(r.status),
+    );
     return [
       {
         containerId: LEDGERLINE_CONTAINER_ID,
         hasRuntimeThreads: true,
-        lastRunStatus: active ? active.status : insights.length ? "succeeded" : null,
+        lastRunStatus: active
+          ? active.status
+          : insights.length
+            ? "succeeded"
+            : null,
         lastSucceededAt: insights.length ? iso(lastLearned) : null,
         // A captured failure can always be re-learned on stage.
-        pendingThreadCount: Math.max(pending, trajectories.some((t) => t.outcome === "agent_failed_user_completed") ? 1 : 0),
+        pendingThreadCount: Math.max(
+          pending,
+          trajectories.some((t) => t.outcome === "agent_failed_user_completed")
+            ? 1
+            : 0,
+        ),
         threadCount,
       },
     ];
   },
   listInsights: async () => {
-    const [insights, runId] = await Promise.all([learningV1.insights(), latestRunId()]);
+    const [insights, runId] = await Promise.all([
+      learningV1.insights(),
+      latestRunId(),
+    ]);
     return insights.map((i) => toInsight(i, runId));
   },
   getInsightEvidence: async (_p, _c, insightId) => {
-    const insight = (await learningV1.insights()).find((i) => i.id === insightId);
+    const insight = (await learningV1.insights()).find(
+      (i) => i.id === insightId,
+    );
     if (!insight) return [];
-    const details = await trajectoryDetails(insight.evidence.map((e) => e.trajectoryId));
+    const details = await trajectoryDetails(
+      insight.evidence.map((e) => e.trajectoryId),
+    );
     return insight.evidence.map((e): LearningInsightEvidence => {
       const detail = details.get(e.trajectoryId) ?? null;
-      const events = [...new Set(e.eventIds)].map((id) => detail?.events.find((x) => x.eventId === id));
+      const events = [...new Set(e.eventIds)].map((id) =>
+        detail?.events.find((x) => x.eventId === id),
+      );
       const agentSide = events.some((x) => x?.event.name === "thread.linked");
       return {
         cited: [
@@ -272,44 +362,88 @@ export const ledgerlineLearningApi: LearningApi = {
             role: agentSide ? "tool" : "user",
           },
           ...events
-            .filter((x): x is TrajectoryEvent => Boolean(x) && eventLabel(x) !== e.quote)
-            .map((x) => ({ content: `Signal: ${eventLabel(x)}`, id: x.eventId, role: "user" as const })),
+            .filter(
+              (x): x is TrajectoryEvent =>
+                Boolean(x) && eventLabel(x) !== e.quote,
+            )
+            .map((x) => ({
+              content: `Signal: ${eventLabel(x)}`,
+              id: x.eventId,
+              role: "user" as const,
+            })),
         ],
         messageCount: e.eventIds.length,
         threadId: signalRef(e.trajectoryId, e.eventIds[0] ?? ""),
-        threadName: detail ? `${detail.trajectory.title} (trajectory)` : e.trajectoryId,
+        threadName: detail
+          ? `${detail.trajectory.title} (trajectory)`
+          : e.trajectoryId,
         threadPresent: true,
         unavailable: null,
       };
     });
   },
   listCandidates: async () => {
-    const [skills, runId, insights] = await Promise.all([learningV1.skills(), latestRunId(), learningV1.insights()]);
-    const at = iso(insights.length ? Math.max(...insights.map((i) => i.createdAt)) : Date.now());
+    const [skills, runId, insights] = await Promise.all([
+      learningV1.skills(),
+      latestRunId(),
+      learningV1.insights(),
+    ]);
+    const at = iso(
+      insights.length
+        ? Math.max(...insights.map((i) => i.createdAt))
+        : Date.now(),
+    );
     return skills.map((s) => toCandidate(s, runId, at));
   },
   getCandidate: async (_p, _c, id): Promise<LearningCandidateDetail> => {
-    const [skills, insights, runId] = await Promise.all([learningV1.skills(), learningV1.insights(), latestRunId()]);
+    const [skills, insights, runId] = await Promise.all([
+      learningV1.skills(),
+      learningV1.insights(),
+      latestRunId(),
+    ]);
     const skill = skills.find((s) => candidateId(s) === id);
     if (!skill) throw new Error(`Skill candidate ${id} was not found.`);
-    const at = iso(insights.length ? Math.max(...insights.map((i) => i.createdAt)) : Date.now());
+    const at = iso(
+      insights.length
+        ? Math.max(...insights.map((i) => i.createdAt))
+        : Date.now(),
+    );
     return {
       ...toCandidate(skill, runId, at),
-      bundle: { files: [{ content: skill.skillMd, path: "SKILL.md", sha256: ZERO_SHA }], schemaVersion: 1 },
+      bundle: {
+        files: [{ content: skill.skillMd, path: "SKILL.md", sha256: ZERO_SHA }],
+        schemaVersion: 1,
+      },
       supportingInsights: insights
         .filter((i) => skill.supportingInsightIds.includes(i.id))
-        .map((i) => ({ alias: i.id, id: i.id, impact: i.summary, statement: i.title })),
+        .map((i) => ({
+          alias: i.id,
+          id: i.id,
+          impact: i.summary,
+          statement: i.title,
+        })),
     };
   },
   listSkills: async () => {
-    const [skills, insights] = await Promise.all([learningV1.skills(), learningV1.insights()]);
-    const at = iso(insights.length ? Math.max(...insights.map((i) => i.createdAt)) : Date.now());
-    return skills.filter((s) => s.status === "published").map((s) => toSkill(s, at));
+    const [skills, insights] = await Promise.all([
+      learningV1.skills(),
+      learningV1.insights(),
+    ]);
+    const at = iso(
+      insights.length
+        ? Math.max(...insights.map((i) => i.createdAt))
+        : Date.now(),
+    );
+    return skills
+      .filter((s) => s.status === "published")
+      .map((s) => toSkill(s, at));
   },
   listRuns: async () => allRuns(),
   runLearning: async () => runLearning(),
   getAutomation: async () => {
-    const active = sessionRuns.some((r) => !["succeeded", "failed"].includes(r.status));
+    const active = sessionRuns.some(
+      (r) => !["succeeded", "failed"].includes(r.status),
+    );
     return {
       activeRun: active,
       blocked: false,
