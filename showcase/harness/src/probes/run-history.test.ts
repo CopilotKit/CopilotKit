@@ -544,3 +544,66 @@ describe("run-history", () => {
     });
   });
 });
+
+describe("selected run completion", () => {
+  it("exposes the summary fingerprint and reopens a swept terminal run", async () => {
+    const env = fakePb();
+    const writer = createProbeRunWriter(env.pb);
+    const { id } = await writer.start({
+      probeId: "d6:x",
+      startedAt: 1,
+      triggered: false,
+      jobId: "j",
+    });
+    const summary = {
+      total: 1,
+      passed: 1,
+      failed: 0,
+      selectedObservationFingerprint: "certificate",
+    };
+    await writer.finish({
+      id,
+      finishedAt: 2,
+      state: "completed",
+      summary,
+      required: true,
+    });
+    await expect(writer.findByJobId("j")).resolves.toMatchObject({
+      id,
+      terminal: true,
+      selectedObservationFingerprint: "certificate",
+    });
+    await writer.update({
+      id,
+      summary: { total: 0, passed: 0, failed: 0 },
+      reopen: true,
+    });
+    expect(env.rows.get(id)).toMatchObject({
+      state: "running",
+      finished_at: "",
+      duration_ms: 0,
+    });
+    await expect(writer.findByJobId("j")).resolves.toMatchObject({
+      terminal: false,
+    });
+  });
+  it("rejects a missing selected finish or reopen row", async () => {
+    const writer = createProbeRunWriter(fakePb().pb);
+    await expect(
+      writer.finish({
+        id: "missing",
+        finishedAt: 1,
+        state: "completed",
+        summary: null,
+        required: true,
+      }),
+    ).rejects.toThrow("selected run row missing");
+    await expect(
+      writer.update({
+        id: "missing",
+        summary: { total: 0, passed: 0, failed: 0 },
+        reopen: true,
+      }),
+    ).rejects.toThrow("selected run row missing");
+  });
+});
