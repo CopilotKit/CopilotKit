@@ -110,3 +110,21 @@ describe("frontend showcase matrix", () => {
     ).toThrow(/unmapped.*no deterministic probe mapping/i);
   });
 });
+
+it("binds public probes to the normal shell preview route", () => {
+  const cell = {
+    id: "react/mastra/a2ui-fixed-schema",
+    frontend: "react",
+    integration: "mastra",
+    feature: "a2ui-fixed-schema",
+    featureTypes: ["gen-ui-a2ui-fixed"],
+  } as const;
+  expect(
+    urlForFrontendCell(cell, {
+      angularBaseUrl: "http://localhost:4300",
+      reactBaseUrl: "http://localhost:3104",
+      publicShellBaseUrl: "http://localhost:4011/",
+      executionMode: "public-pill",
+    }),
+  ).toBe("http://localhost:4011/react/mastra/a2ui-fixed-schema/preview");
+});

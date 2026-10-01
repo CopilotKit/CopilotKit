@@ -23,7 +23,10 @@
  * rather than racing on which one wins.
  */
 
-import type { ConversationTurn } from "./conversation-runner.js";
+import type {
+  CanonicalConversation,
+  ConversationTurn,
+} from "./conversation-runner.js";
 
 /**
  * Closed enum of D5 feature types. Wave 2b script authors must use one
@@ -249,6 +252,7 @@ export interface D5RouteContext {
  *     `mcp-apps` → `/demos/subagents`) override here.
  */
 export interface D5Script {
+  canonical?: CanonicalConversation;
   featureTypes: D5FeatureType[];
   fixtureFile?: string;
   buildTurns: (ctx: D5BuildContext) => ConversationTurn[];

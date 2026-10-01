@@ -116,8 +116,17 @@ function baseWithoutTrailingSlash(value: string): string {
 /** Resolve one matrix cell to the exact framework-specific browser route. */
 export function urlForFrontendCell(
   cell: FrontendMatrixCell,
-  bases: { angularBaseUrl: string; reactBaseUrl: string },
+  bases: {
+    angularBaseUrl: string;
+    reactBaseUrl: string;
+    executionMode?: "diagnostic" | "public-pill";
+    publicShellBaseUrl?: string;
+  },
 ): string {
+  if (bases.executionMode === "public-pill") {
+    if (!bases.publicShellBaseUrl) throw new Error("public shell URL missing");
+    return `${baseWithoutTrailingSlash(bases.publicShellBaseUrl)}/${cell.frontend}/${cell.integration}/${cell.feature}/preview`;
+  }
   if (cell.frontend === "angular") {
     return `${baseWithoutTrailingSlash(bases.angularBaseUrl)}/angular/${cell.feature}`;
   }

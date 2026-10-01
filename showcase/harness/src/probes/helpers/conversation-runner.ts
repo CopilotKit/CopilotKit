@@ -27,7 +27,7 @@
  * structural typing makes it transparent.
  */
 
-import type { Page as PlaywrightPage } from "playwright";
+import type { Locator, Page as PlaywrightPage } from "playwright";
 
 import { conversationFailureSummary } from "./privacy-safe-diagnostics.js";
 import {
@@ -257,6 +257,16 @@ function coldStartRetryMinSettleMs(settleMs: number): number {
  * just to call the helper, and the runner only needs four methods.
  */
 export interface Page {
+  getByRole?(
+    role: "button",
+    options: { name: string; exact: true; includeHidden: true },
+  ): Pick<
+    Locator,
+    "count" | "textContent" | "isVisible" | "isEnabled" | "click"
+  >;
+  locator?(
+    selector: string,
+  ): Pick<Locator, "count"> & Partial<Pick<Locator, "isVisible">>;
   waitForSelector(
     selector: string,
     opts?: { timeout?: number; state?: "visible" },
@@ -309,7 +319,48 @@ export interface Page {
   reload?(): Promise<unknown>;
 }
 
+export interface FunctionalAction {
+  id: string;
+  kind: "pill-dispatch";
+  label: string;
+  prompt: string;
+}
+
+export interface CanonicalConversation {
+  id: string;
+  assertionId: string;
+  actions: readonly FunctionalAction[];
+  requiredActionIds: readonly string[];
+  incompleteReason?: string;
+}
+
+export interface PublicObservation {
+  userMessages: readonly { id: string; content: string }[];
+  runsFinished: number;
+  running: CopilotRunningState;
+  error?: string;
+}
+
+export interface FunctionalProof {
+  disposition: "failed" | "unverified";
+  canonicalId?: string;
+  requiredActionIds: string[];
+  attemptedActionIds: string[];
+  successfulActionIds: string[];
+  actions: {
+    actionId: string;
+    dispatch: boolean;
+    terminal: boolean;
+    result: boolean;
+    emittedMessageId?: string;
+  }[];
+  firstFailure?: { actionId?: string; turn: number; error: string };
+  incompleteReason?: string;
+}
+
 export interface ConversationTurn {
+  action?: FunctionalAction;
+  assertionId?: string;
   /** The user message to type into the chat input. */
   input: string;
   /**
@@ -450,6 +501,7 @@ export interface ConversationTurn {
 }
 
 export interface ConversationResult {
+  functional?: FunctionalProof;
   /** Number of turns that completed successfully (0-indexed count). */
   turns_completed: number;
   /** Total turns the runner was asked to execute. */
@@ -469,6 +521,9 @@ export interface ConversationResult {
 }
 
 export interface ConversationRunnerOptions {
+  executionMode?: "diagnostic" | "public-pill";
+  canonical?: CanonicalConversation;
+  observePublic?: () => PublicObservation;
   /**
    * Override the chat-input selector. When set, the 6-selector cascade
    * is skipped and only this selector is tried. Useful for showcases
@@ -484,6 +539,196 @@ export interface ConversationRunnerOptions {
   assistantSettleMs?: number;
 }
 
+/** Normal public actions have one attempt; diagnostic send/recovery is never entered. */
+async function runPublicPills(
+  page: Page,
+  turns: ConversationTurn[],
+  opts: ConversationRunnerOptions,
+): Promise<ConversationResult> {
+  const canonical = opts.canonical;
+  const proof: FunctionalProof = {
+    disposition: "unverified",
+    canonicalId: canonical?.id,
+    requiredActionIds: [...(canonical?.requiredActionIds ?? [])],
+    attemptedActionIds: [],
+    successfulActionIds: [],
+    actions: [],
+    incompleteReason:
+      canonical?.incompleteReason ??
+      "Local proof is not yet qualified for functional credit",
+  };
+  const result: ConversationResult = {
+    turns_completed: 0,
+    total_turns: turns.length,
+    turn_durations_ms: [],
+    functional: proof,
+  };
+  let currentTurn = 1;
+  let actionId: string | undefined;
+  try {
+    if (!turns.length) throw new Error("empty public pill program");
+    if (
+      !canonical?.id ||
+      !canonical.assertionId ||
+      !canonical.actions.length ||
+      !canonical.requiredActionIds.length ||
+      !opts.observePublic ||
+      !page.getByRole
+    )
+      throw new Error(
+        "public pill canonical definition or passive observer missing",
+      );
+    if (
+      new Set(canonical.requiredActionIds).size !==
+        canonical.requiredActionIds.length ||
+      new Set(turns.map((turn) => turn.action?.id)).size !== turns.length
+    )
+      throw new Error("public pill action identities must be unique");
+    for (const [index, turn] of turns.entries()) {
+      currentTurn = index + 1;
+      actionId = turn.action?.id;
+      const action = turn.action;
+      const expected = canonical.actions.find((item) => item.id === actionId);
+      if (
+        !action ||
+        !expected ||
+        !canonical.requiredActionIds.includes(action.id) ||
+        action.kind !== "pill-dispatch" ||
+        action.label !== expected.label ||
+        action.prompt !== expected.prompt ||
+        !action.label ||
+        !action.prompt
+      )
+        throw new Error("public pill action differs from canonical definition");
+      if (
+        !turn.assertions ||
+        turn.assertionId !== canonical.assertionId ||
+        turn.preFill ||
+        turn.skipFill ||
+        turn.skipSend
+      )
+        throw new Error(
+          "public pill requires canonical result assertions and forbids send hooks",
+        );
+      const startedAt = Date.now();
+      const timeoutMs = turn.responseTimeoutMs ?? DEFAULT_RESPONSE_TIMEOUT_MS;
+      const deadline = startedAt + timeoutMs;
+      const baseline = opts.observePublic();
+      if (baseline.error) throw new Error(baseline.error);
+      const baselineIds = new Set(
+        baseline.userMessages.map((message) => message.id),
+      );
+      const baselineCount = await countAssistantMessages(
+        page as unknown as PlaywrightPage,
+      );
+      const baselineSurfaces = turn.completeOnMount
+        ? await readSurfaceCounts(
+            page,
+            surfaceMountEntries(turn.completeOnMount),
+          )
+        : undefined;
+      const pill = page.getByRole("button", {
+        name: action.label,
+        exact: true,
+        includeHidden: true,
+      });
+      if (
+        (await pill.count()) !== 1 ||
+        (await pill.textContent()) !== action.label ||
+        !(await pill.isVisible()) ||
+        !(await pill.isEnabled())
+      )
+        throw new Error(
+          "canonical pill must have exactly one visible enabled exact raw label",
+        );
+      proof.attemptedActionIds.push(action.id);
+      const actionProof = {
+        actionId: action.id,
+        dispatch: false,
+        terminal: false,
+        result: false,
+        emittedMessageId: undefined as string | undefined,
+      };
+      proof.actions.push(actionProof);
+      await pill.click({ timeout: Math.max(1, deadline - Date.now()) });
+      const emitted = () => {
+        const observation = opts.observePublic!();
+        if (observation.error) throw new Error(observation.error);
+        return observation.userMessages.filter(
+          (message) => !baselineIds.has(message.id),
+        );
+      };
+      while (emitted().length === 0 && Date.now() < deadline)
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+      let messages = emitted();
+      if (messages.length !== 1 || messages[0]!.content !== action.prompt)
+        throw new Error(
+          "canonical pill did not emit exactly one canonical user prompt",
+        );
+      actionProof.dispatch = true;
+      actionProof.emittedMessageId = messages[0]!.id;
+      const completion = await waitForTurnComplete({
+        page,
+        turnIndex: currentTurn,
+        settleMs: opts.assistantSettleMs ?? DEFAULT_SETTLE_MS,
+        timeoutMs: Math.max(1, deadline - Date.now()),
+        baselineCount,
+        baselineRunStartCount: baseline.running.runStartCount,
+        baselineRunsFinished: baseline.runsFinished,
+        observeLifecycle: opts.observePublic,
+        surfaceReady: turn.completeOnMount
+          ? buildSurfaceReady(turn.completeOnMount, baselineSurfaces!)
+          : undefined,
+      });
+      messages = emitted();
+      if (
+        messages.length !== 1 ||
+        messages[0]!.content !== action.prompt ||
+        opts.observePublic().runsFinished <= baseline.runsFinished
+      )
+        throw new Error("canonical pill dispatch or terminal evidence changed");
+      const settledObservation = opts.observePublic();
+      actionProof.terminal = true;
+      const banner = await readErrorBanner(page);
+      if (banner.state !== "absent")
+        throw new Error("public pill error banner visible or unreadable");
+      await turn.assertions(page, completion);
+      messages = emitted();
+      const finalObservation = opts.observePublic();
+      if (
+        messages.length !== 1 ||
+        messages[0]!.id !== actionProof.emittedMessageId ||
+        messages[0]!.content !== action.prompt ||
+        finalObservation.running.runningNow !== false ||
+        finalObservation.running.runStartCount !==
+          settledObservation.running.runStartCount ||
+        finalObservation.runsFinished !== settledObservation.runsFinished
+      )
+        throw new Error(
+          "canonical pill evidence changed during result assertions",
+        );
+      actionProof.result = true;
+      proof.successfulActionIds.push(action.id);
+      result.turns_completed++;
+      result.turn_durations_ms.push(Date.now() - startedAt);
+    }
+    if (
+      !canonical.incompleteReason &&
+      canonical.requiredActionIds.some(
+        (id) => !proof.successfulActionIds.includes(id),
+      )
+    )
+      throw new Error("public pill required action program incomplete");
+  } catch (error) {
+    const message = errorMessage(error);
+    result.failure_turn = currentTurn;
+    result.error = message;
+    proof.disposition = "failed";
+    proof.firstFailure = { actionId, turn: currentTurn, error: message };
+  }
+  return result;
+}
+
 /**
  * Run a multi-turn conversation. Returns a `ConversationResult`
  * regardless of success/failure — callers should not throw out of this
@@ -494,6 +739,8 @@ export async function runConversation(
   turns: ConversationTurn[],
   opts: ConversationRunnerOptions = {},
 ): Promise<ConversationResult> {
+  if (opts.executionMode === "public-pill")
+    return runPublicPills(page, turns, opts);
   const total = turns.length;
   const settleMs = opts.assistantSettleMs ?? DEFAULT_SETTLE_MS;
   const durations: number[] = [];
@@ -1691,6 +1938,7 @@ function errorMessage(err: unknown): string {
 
 /** Options accepted by `waitForTurnComplete`. */
 export interface WaitForTurnCompleteOpts {
+  observeLifecycle?: () => PublicObservation;
   page: Page;
   /** 1-based turn ordinal — the Nth user->assistant exchange in the conversation. */
   turnIndex: number;
@@ -2039,8 +2287,11 @@ export async function waitForTurnComplete(
   // backstop. `null` until DOM+TEXT first hold.
   const pwPage = page as unknown as PlaywrightPage;
   while (Date.now() - startedAt < timeoutMs) {
-    const runsFinished = await readRunsFinished(page);
-    const running = await readCopilotRunning(page);
+    const observation = opts.observeLifecycle?.();
+    if (observation?.error) throw new Error(observation.error);
+    const runsFinished =
+      observation?.runsFinished ?? (await readRunsFinished(page));
+    const running = observation?.running ?? (await readCopilotRunning(page));
     // Atomic single-evaluate read: `readCascadeStateLast` returns BOTH the
     // count and the text of the LAST bubble in the matched cascade tier in
     // ONE browser-side round-trip. The "last bubble" semantics is the
@@ -2313,8 +2564,12 @@ export async function waitForTurnComplete(
   // the loop's last-seen snapshot — a race where the world settled
   // exactly between the last poll and the deadline should classify as
   // "we didn't see it in time", which the final read reproduces faithfully.
-  const runsFinishedFinal = await readRunsFinished(page);
-  const runningFinal = await readCopilotRunning(page);
+  const finalObservation = opts.observeLifecycle?.();
+  if (finalObservation?.error) throw new Error(finalObservation.error);
+  const runsFinishedFinal =
+    finalObservation?.runsFinished ?? (await readRunsFinished(page));
+  const runningFinal =
+    finalObservation?.running ?? (await readCopilotRunning(page));
   const countFinal = await countAssistantMessages(pwPage);
   // Recompute the loop's done-signal predicate at the final read so the
   // classifier agrees with the gate: with the DOM signal available the

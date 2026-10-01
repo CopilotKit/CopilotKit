@@ -4258,3 +4258,237 @@ describe("waitForTurnComplete — data-copilot-running done-signal", () => {
     });
   });
 });
+
+describe("public-pill execution policy", () => {
+  const action = {
+    id: "find-flight",
+    kind: "pill-dispatch",
+    label: "Find SFO → JFK",
+    prompt: "canonical prompt",
+  } as const;
+  const publicOptions = {
+    executionMode: "public-pill" as const,
+    canonical: {
+      id: "fixed-flight-v1",
+      assertionId: "flight-values-v1",
+      actions: [action],
+      requiredActionIds: ["find-flight", "book-flight"],
+      incompleteReason: "Book flight outcome is undefined",
+    },
+    observePublic: () => ({
+      userMessages: [],
+      runsFinished: 0,
+      running: {
+        attrPresent: true,
+        runningNow: false,
+        sawRunningTrue: false,
+        runStartCount: 0,
+        lastStoppedAtMs: 0,
+      },
+    }),
+  };
+
+  it("rejects empty public programs rather than treating them as success", async () => {
+    const result = await runConversation(makePage(), [], publicOptions);
+    expect(result.failure_turn).toBe(1);
+    expect(result.error).toMatch(/empty public/i);
+  });
+
+  it.each([
+    ["duplicate", 2, action.label, true, true],
+    ["hidden", 1, action.label, false, true],
+    ["disabled", 1, action.label, true, false],
+    ["raw whitespace", 1, ` ${action.label} `, true, true],
+    ["wrong case", 1, action.label.toLowerCase(), true, true],
+  ])(
+    "rejects %s pills without typing, sending or retrying",
+    async (_name, count, label, visible, enabled) => {
+      const page = makePage({ throwOnFill: new Error("typed fallback") });
+      const click = vi.fn(async () => undefined);
+      const fill = vi.spyOn(page, "fill");
+      const press = vi.spyOn(page, "press");
+      const getByRole = vi.fn(() => ({
+        count: async () => count,
+        textContent: async () => label,
+        isVisible: async () => visible,
+        isEnabled: async () => enabled,
+        click,
+      }));
+      Object.assign(page, { getByRole });
+      const result = await runConversation(
+        page,
+        [
+          {
+            input: action.prompt,
+            action,
+            assertionId: "flight-values-v1",
+            assertions: async () => undefined,
+            responseTimeoutMs: 20,
+          },
+        ],
+        publicOptions,
+      );
+      expect(result.error).toMatch(/pill/i);
+      expect(fill).not.toHaveBeenCalled();
+      expect(press).not.toHaveBeenCalled();
+      expect(click).not.toHaveBeenCalled();
+    },
+  );
+  it.each(["no-op", "wrong prompt", "missing terminal"])(
+    "preserves %s as the first failure without a fallback",
+    async (failure) => {
+      let clicked = false;
+      const page = makePage({
+        evaluateValues: [0, 1, 1, 1],
+        throwOnFill: new Error("typed fallback"),
+      });
+      const click = vi.fn(async () => {
+        clicked = true;
+      });
+      Object.assign(page, {
+        getByRole: () => ({
+          count: async () => 1,
+          textContent: async () => action.label,
+          isVisible: async () => true,
+          isEnabled: async () => true,
+          click,
+        }),
+      });
+      const observePublic = () => ({
+        userMessages:
+          clicked && failure !== "no-op"
+            ? [
+                {
+                  id: "new-user",
+                  content: failure === "wrong prompt" ? "wrong" : action.prompt,
+                },
+              ]
+            : [],
+        runsFinished: clicked && failure !== "missing terminal" ? 1 : 0,
+        running: {
+          attrPresent: true,
+          runningNow: failure === "missing terminal",
+          sawRunningTrue: clicked,
+          runStartCount: clicked ? 1 : 0,
+          lastStoppedAtMs: 1,
+        },
+      });
+      const result = await runConversation(
+        page,
+        [
+          {
+            input: action.prompt,
+            action,
+            assertionId: "flight-values-v1",
+            assertions: async () => undefined,
+            responseTimeoutMs: 20,
+          },
+        ],
+        { ...publicOptions, observePublic, assistantSettleMs: 1 },
+      );
+      expect(result.failure_turn).toBe(1);
+      expect(result.functional?.firstFailure?.actionId).toBe(action.id);
+      expect(result.functional?.successfulActionIds).toEqual([]);
+      expect(click).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("retains a successful first action while the generated-control contract stays unverified", async () => {
+    let clicked = false;
+    const page = makePage({ evaluateValues: [0, 1, 1, 1] });
+    Object.assign(page, {
+      getByRole: () => ({
+        count: async () => 1,
+        textContent: async () => action.label,
+        isVisible: async () => true,
+        isEnabled: async () => true,
+        click: async () => {
+          clicked = true;
+        },
+      }),
+    });
+    const observePublic = () => ({
+      userMessages: clicked ? [{ id: "new-user", content: action.prompt }] : [],
+      runsFinished: clicked ? 1 : 0,
+      running: {
+        attrPresent: true,
+        runningNow: false,
+        sawRunningTrue: clicked,
+        runStartCount: clicked ? 1 : 0,
+        lastStoppedAtMs: 1,
+      },
+    });
+    const result = await runConversation(
+      page,
+      [
+        {
+          input: action.prompt,
+          action,
+          assertionId: "flight-values-v1",
+          assertions: async () => undefined,
+          responseTimeoutMs: 200,
+        },
+      ],
+      { ...publicOptions, observePublic, assistantSettleMs: 1 },
+    );
+    expect(result.failure_turn).toBeUndefined();
+    expect(result.functional?.disposition).toBe("unverified");
+    expect(result.functional?.successfulActionIds).toEqual([action.id]);
+    expect(result.functional?.requiredActionIds).toEqual([
+      action.id,
+      "book-flight",
+    ]);
+  });
+
+  it("honest-proof refuses credit when assertions observe a later user action", async () => {
+    let clicked = false;
+    let extraMessage = false;
+    const page = makePage({ evaluateValues: [0, 1, 1, 1] });
+    Object.assign(page, {
+      getByRole: () => ({
+        count: async () => 1,
+        textContent: async () => action.label,
+        isVisible: async () => true,
+        isEnabled: async () => true,
+        click: async () => {
+          clicked = true;
+        },
+      }),
+    });
+    const observePublic = () => ({
+      userMessages: clicked
+        ? [
+            { id: "user", content: action.prompt },
+            ...(extraMessage
+              ? [{ id: "other-user", content: action.prompt }]
+              : []),
+          ]
+        : [],
+      runsFinished: clicked ? 1 : 0,
+      running: {
+        attrPresent: true,
+        runningNow: false,
+        sawRunningTrue: clicked,
+        runStartCount: clicked ? 1 : 0,
+        lastStoppedAtMs: 1,
+      },
+    });
+    const result = await runConversation(
+      page,
+      [
+        {
+          input: action.prompt,
+          action,
+          assertionId: "flight-values-v1",
+          assertions: async () => {
+            extraMessage = true;
+          },
+          responseTimeoutMs: 200,
+        },
+      ],
+      { ...publicOptions, observePublic, assistantSettleMs: 1 },
+    );
+    expect(result.failure_turn).toBe(1);
+    expect(result.functional?.successfulActionIds).toEqual([]);
+  });
+});

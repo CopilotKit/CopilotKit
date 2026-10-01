@@ -366,3 +366,56 @@ describe("frontend matrix CI runner", () => {
     );
   });
 });
+
+it("retains unverified public evidence without counting a product failure or pass", () => {
+  const artifact = createFrontendMatrixArtifact({
+    sourceCommit: "abc",
+    containerImageRevision: "observed",
+    fixtureRevision: "fixture",
+    featureContractRevision: "contract",
+    shardIndex: 0,
+    shardCount: 1,
+    startedAt: "2026-09-30T00:00:00Z",
+    finishedAt: "2026-09-30T00:00:01Z",
+    results: [
+      {
+        cell: CELLS[1]!,
+        status: "unverified",
+        durationMs: 1,
+        probes: [
+          {
+            featureType: "agentic-chat",
+            status: "unverified",
+            testId: "public",
+            durationMs: 1,
+            functional: {
+              disposition: "unverified",
+              canonicalId: "canonical",
+              requiredActionIds: ["pill", "follow-up"],
+              attemptedActionIds: ["pill"],
+              successfulActionIds: ["pill"],
+              actions: [
+                {
+                  actionId: "pill",
+                  dispatch: true,
+                  terminal: true,
+                  result: true,
+                },
+              ],
+              incompleteReason: "Undefined follow-up",
+            },
+          },
+        ],
+      },
+    ],
+  });
+  expect(artifact.summary).toMatchObject({
+    total: 1,
+    passed: 0,
+    failed: 0,
+    unverified: 1,
+  });
+  expect(artifact.cells[0]?.probes[0]?.functional?.successfulActionIds).toEqual(
+    ["pill"],
+  );
+});
