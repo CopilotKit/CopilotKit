@@ -61,3 +61,26 @@ For inspectable local evidence, create a directory and set
 `PB_TEST_EVIDENCE_DIR` to its absolute path; it receives RED/GREEN receipts and
 server logs. Set `PB_TEST_KEEP_ARTIFACTS=1` to retain stopped test containers and
 volumes; the driver prints their unique names for later inspection and cleanup.
+Evidence collection and cleanup are independent: all owned containers, volumes,
+and temporary migration directories receive a cleanup attempt even if a log read,
+receipt write, or individual removal fails. Failures are reported together with
+the original test error. Ownership is recorded before Docker allocation, so a
+failed startup also cleans up any container created before that failure. When
+preserving artifacts, a failed stop falls back to container removal and remains a
+visible error; preservation only intentionally retains stopped containers.
+
+Run the resource lifecycle fault regressions against the same baseline image:
+
+```sh
+PB_TEST_BASELINE_IMAGE=showcase-pocketbase:capacity-baseline \
+NX_DAEMON=false NX_TUI=false pnpm exec nx exec \
+  --projects=@copilotkit/showcase-scripts -- \
+  node --test "$REPO_ROOT/showcase/pocketbase/tests/result-capacity-cleanup.integration.mjs"
+```
+
+These regressions use real private Docker resources and an intentionally failing
+legacy proof. They check an evidence directory with mode `0500`, log retrieval
+failure, a real Docker port conflict after container creation, failure before
+container creation, a volume allocation receipt failure, removal failure, and
+preservation with evidence or stop failures. The regression runner removes its
+own resources after checking each case, including on RED.

@@ -26,6 +26,7 @@ const keep = process.env.PB_TEST_KEEP_ARTIFACTS === "1";
 const prefix = `pb-capacity-${randomUUID().slice(0, 8)}`;
 const containers = [];
 const volumes = [];
+const failures = [];
 const temporary = mkdtempSync(join(tmpdir(), "pb-capacity-"));
 const migration = "1779990600_probe_jobs_result_capacity.js";
 const docker = (...args) =>
@@ -56,8 +57,8 @@ function save(name, value) {
 }
 function volume(label) {
   const name = `${prefix}-${label}`;
-  docker("volume", "create", name);
   volumes.push(name);
+  docker("volume", "create", name);
   return name;
 }
 function start(image, dataVolume, label, migrations) {
@@ -80,8 +81,8 @@ function start(image, dataVolume, label, migrations) {
     "POCKETBASE_SUPERUSER_PASSWORD=local-proof-password-only",
     image,
   );
-  docker(...args);
   containers.push(name);
+  docker(...args);
   return name;
 }
 async function connect(name) {
@@ -158,6 +159,26 @@ function unchangedSchema(before, after, allowCapacityChange = false) {
     normalize(before),
     "Unrelated schema changed",
   );
+}
+function attempt(label, operation) {
+  try {
+    operation();
+    return true;
+  } catch (error) {
+    failures.push(new Error(label, { cause: error }));
+    return false;
+  }
+}
+// Register names before allocation: a failed Docker run may still create a
+// container. Only an explicitly absent owned resource is harmless at cleanup.
+function ownedDocker(...args) {
+  try {
+    return docker(...args);
+  } catch (error) {
+    if (/No such container:|no such volume/i.test(error.stderr ?? ""))
+      return null;
+    throw error;
+  }
 }
 try {
   const payload = process.env.PB_TEST_RESULT_FILE
@@ -383,19 +404,52 @@ try {
     "PASS fresh candidate volume persists complete result at finite 2000000-byte cap",
   );
   console.log("ALL REAL POCKETBASE RESULT CAPACITY CHECKS PASSED");
+} catch (error) {
+  failures.push(error);
 } finally {
+  const retainedContainers = [];
+  const retainedVolumes = [];
   for (const name of containers.toReversed()) {
     if (evidence)
-      writeFileSync(join(evidence, `${name}.log`), docker("logs", name) + "\n");
-    if (keep) docker("stop", name);
-    else docker("rm", "-f", "-v", name);
+      attempt(`Collect evidence for ${name}`, () => {
+        const logs = ownedDocker("logs", name);
+        if (logs !== null)
+          writeFileSync(join(evidence, `${name}.log`), logs + "\n");
+      });
+    if (keep) {
+      const stopped = attempt(`Stop ${name}`, () => {
+        if (ownedDocker("stop", name) !== null) retainedContainers.push(name);
+      });
+      // Preservation may retain only stopped resources. A failed stop must
+      // still attempt removal so it cannot intentionally leave a live server.
+      if (stopped) continue;
+    }
+    attempt(`Remove ${name}`, () => ownedDocker("rm", "-f", "-v", name));
   }
-  if (!keep) for (const name of volumes) docker("volume", "rm", name);
-  rmSync(temporary, { recursive: true, force: true });
-  console.log(
-    JSON.stringify({
-      retainedVolumes: keep ? volumes : [],
-      containers: keep ? containers : [],
-    }),
+  for (const name of volumes) {
+    if (keep)
+      attempt(`Inspect retained volume ${name}`, () => {
+        if (ownedDocker("volume", "inspect", name) !== null)
+          retainedVolumes.push(name);
+      });
+    else
+      attempt(`Remove volume ${name}`, () => ownedDocker("volume", "rm", name));
+  }
+  attempt("Remove temporary migrations", () =>
+    rmSync(temporary, { recursive: true, force: true }),
+  );
+  attempt("Report retained resources", () =>
+    console.log(
+      JSON.stringify({
+        retainedVolumes,
+        containers: retainedContainers,
+      }),
+    ),
   );
 }
+if (failures.length === 1) throw failures[0];
+if (failures.length > 1)
+  throw new AggregateError(
+    failures,
+    "PocketBase capacity proof and resource finalization failed",
+  );
