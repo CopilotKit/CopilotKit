@@ -43,7 +43,11 @@ function DealView({ deal }: { deal: Deal }) {
     parameters: approveDealArgs,
     render: ({ args, status, respond, result }) => {
       if (status === ToolCallStatus.Complete) {
-        return <p className="text-sm text-gray-600">Decision recorded: {String(result)}</p>;
+        return (
+          <p className="text-sm text-gray-600">
+            Decision recorded: {String(result)}
+          </p>
+        );
       }
       return (
         <div className="my-2 rounded border border-amber-300 bg-amber-50 p-3">
