@@ -1,36 +1,15 @@
 import React, { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react";
-import {
-  CopilotChatInput,
-  CopilotChatConfigurationProvider,
-  type ToolsMenuItem,
-} from "@copilotkit/react-core/v2";
+import { CopilotChatInput } from "@copilotkit/react-core/v2";
+import type { ToolsMenuItem } from "@copilotkit/react-core/v2";
+import { withFakeMicrophone } from "./support/fake-microphone";
+import { withCenteredStage } from "./support/layouts";
 
 const meta = {
   title: "UI/CopilotChatInput",
   component: CopilotChatInput,
   tags: ["autodocs"],
-  decorators: [
-    (Story) => (
-      <div
-        style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          display: "flex",
-          justifyContent: "center",
-          padding: "16px",
-        }}
-      >
-        <div style={{ width: "100%", maxWidth: "640px" }}>
-          <CopilotChatConfigurationProvider threadId="storybook-thread">
-            <Story />
-          </CopilotChatConfigurationProvider>
-        </div>
-      </div>
-    ),
-  ],
+  decorators: [withCenteredStage],
   parameters: {
     layout: "fullscreen",
     docs: {
@@ -187,12 +166,27 @@ export const Default: Story = {
   },
 };
 
+/** While the agent is running, the send button becomes a stop button. */
+export const Running: Story = {
+  args: {
+    isRunning: true,
+    onStop: () => console.log("Stop clicked"),
+  },
+  parameters: {
+    docs: {
+      source: {
+        code: `<CopilotChatInput isRunning onStop={() => agent.abortRun()} />`,
+      },
+    },
+  },
+};
+
 export const WithMenuItems: Story = {
   args: {
     toolsMenu: [
       {
         label: "Insert template",
-        action: () => alert("Template inserted"),
+        action: () => console.log("Template inserted"),
       },
       "-",
       {
@@ -200,11 +194,11 @@ export const WithMenuItems: Story = {
         items: [
           {
             label: "Summarize selection",
-            action: () => alert("Summarize action"),
+            action: () => console.log("Summarize action"),
           },
           {
             label: "Tag teammate",
-            action: () => alert("Tagging teammate"),
+            action: () => console.log("Tagging teammate"),
           },
         ],
       },
@@ -221,7 +215,7 @@ export const WithMenuItems: Story = {
   toolsMenu={[
     {
       label: "Insert template",
-      action: () => alert("Template inserted")
+      action: () => console.log("Template inserted")
     },
     "-",
     {
@@ -229,11 +223,11 @@ export const WithMenuItems: Story = {
       items: [
         {
           label: "Summarize selection",
-          action: () => alert("Summarize action")
+          action: () => console.log("Summarize action")
         },
         {
           label: "Tag teammate",
-          action: () => alert("Tagging teammate")
+          action: () => console.log("Tagging teammate")
         }
       ]
     }
@@ -248,6 +242,8 @@ export const TranscribeMode: Story = {
   args: {
     mode: "transcribe",
   },
+  // A synthetic microphone drives the waveform, so no permission prompt appears.
+  decorators: [withFakeMicrophone],
   parameters: {
     docs: {
       description: {
@@ -324,9 +320,6 @@ export const ExpandedTextarea: Story = {
   args: {
     value:
       "This is a longer message that will cause the textarea to expand to multiple rows.\n\nThe textarea remains beside the add button until a wrap occurs, then moves above the controls.",
-    textArea: {
-      maxRows: 10,
-    },
   },
   parameters: {
     docs: {
@@ -339,9 +332,6 @@ export const ExpandedTextarea: Story = {
   value="This is a longer message that will cause the textarea to expand to multiple rows.
 
 The textarea remains beside the add button until a wrap occurs, then moves above the controls."
-  textArea={{
-    maxRows: 10
-  }}
 />`,
       },
     },
@@ -401,11 +391,11 @@ export const CustomStyling: Story = {
 export const CustomLayout: Story = {
   render: (args) => (
     <CopilotChatInput {...args}>
-      {({ textArea, sendButton, addMenuButton, isMultiline }) => (
-        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      {({ textArea, sendButton, addMenuButton }) => (
+        <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-600">
-              {isMultiline ? "Multiline message" : "Single line message"}
+            <span className="text-sm font-medium text-muted-foreground">
+              New message
             </span>
             {addMenuButton}
           </div>
@@ -425,11 +415,11 @@ export const CustomLayout: Story = {
       },
       source: {
         code: `<CopilotChatInput>
-  {({ textArea, sendButton, addMenuButton, isMultiline }) => (
-    <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+  {({ textArea, sendButton, addMenuButton }) => (
+    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-slate-600">
-          {isMultiline ? "Multiline message" : "Single line message"}
+        <span className="text-sm font-medium text-muted-foreground">
+          New message
         </span>
         {addMenuButton}
       </div>
@@ -455,7 +445,7 @@ export const ControlledInputExample: Story = {
         value={value}
         onChange={setValue}
         onSubmitMessage={(submitted) => {
-          alert(`Submitted: ${submitted}`);
+          console.log(`Submitted: ${submitted}`);
           setValue("");
         }}
       />
@@ -474,11 +464,66 @@ export const ControlledInputExample: Story = {
   value={value}
   onChange={setValue}
   onSubmitMessage={(submitted) => {
-    alert(\`Submitted: \${submitted}\`);
+    console.log(\`Submitted: \${submitted}\`);
     setValue("");
   }}
 />`,
       },
     },
   },
+};
+
+const markdownDraft = `Can you review this plan? It covers three things:
+- migrate the chat to the v2 hooks
+- update the [upgrade guide](https://docs.copilotkit.ai)
+- link the demo at https://copilotkit.ai`;
+
+/**
+ * The composer styles list markers and links as you type, with the syntax
+ * dimmed but still editable. Pass `textArea={{ highlightMarkdown: false }}`
+ * for plain text.
+ */
+export const MarkdownDraft: Story = {
+  render: (args) => {
+    const [value, setValue] = useState(markdownDraft);
+    return <CopilotChatInput {...args} value={value} onChange={setValue} />;
+  },
+};
+
+const CONTAINER_WIDTHS = [280, 340, 400, 520];
+const WIDTH_DRAFT =
+  "Summarize the launch thread and list owners for each open item";
+
+function SizedComposer({ draft = "" }: { draft?: string }) {
+  const [value, setValue] = useState(draft);
+  return (
+    <CopilotChatInput
+      value={value}
+      onChange={setValue}
+      onSubmitMessage={() => {}}
+      onStartTranscribe={() => {}}
+      onAddFile={() => {}}
+    />
+  );
+}
+
+/**
+ * The input sizes itself by its container, not the viewport: a single short
+ * row while the text fits, the text on its own full-width row once it wraps,
+ * and voice input folded into the "+" menu under ~320px.
+ */
+export const ContainerWidths: Story = {
+  decorators: [],
+  parameters: { layout: "fullscreen" },
+  render: () => (
+    <div className="flex flex-wrap items-start gap-6 p-6">
+      {CONTAINER_WIDTHS.map((width) => (
+        <div key={width} className="space-y-2" style={{ width }}>
+          <div className="text-[11px] text-muted-foreground">{width}px</div>
+          <SizedComposer />
+          <SizedComposer draft={WIDTH_DRAFT} />
+        </div>
+      ))}
+    </div>
+  ),
 };

@@ -15,6 +15,8 @@ import type { WithSlots } from "../../lib/slots";
 import { renderSlot, isReactComponentType } from "../../lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import type { CopilotChatFeedbackMessage } from "./CopilotChatAssistantMessage";
+import { getAssistantTurns } from "./assistant-turn";
+import type { AssistantTurn } from "./assistant-turn";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage";
 import type {
@@ -82,6 +84,7 @@ const MemoizedAssistantMessage = React.memo(
     showCursor,
     AssistantMessageComponent,
     slotProps,
+    turn,
   }: {
     message: AssistantMessage;
     messages: Message[];
@@ -92,6 +95,7 @@ const MemoizedAssistantMessage = React.memo(
     slotProps?: Partial<
       React.ComponentProps<typeof CopilotChatAssistantMessage>
     >;
+    turn?: AssistantTurn;
   }) {
     return (
       <AssistantMessageComponent
@@ -100,6 +104,7 @@ const MemoizedAssistantMessage = React.memo(
         isRunning={isRunning}
         isLatest={isLatest}
         showCursor={showCursor}
+        turn={turn}
         {...slotProps}
       />
     );
@@ -153,6 +158,22 @@ const MemoizedAssistantMessage = React.memo(
     if (
       (prevProps.isRunning && prevProps.isLatest) !==
       (nextProps.isRunning && nextProps.isLatest)
+    )
+      return false;
+
+    // The toolbar follows the reply (turn), which other messages can change:
+    // re-render when this message gains or loses it and, on the message that
+    // shows it, when the reply's text changes or the reply finishes.
+    const prevOwnsToolbar =
+      prevProps.turn?.lastMessageId === prevProps.message.id;
+    const nextOwnsToolbar =
+      nextProps.turn?.lastMessageId === nextProps.message.id;
+    if (prevOwnsToolbar !== nextOwnsToolbar) return false;
+    if (
+      nextOwnsToolbar &&
+      (prevProps.turn!.content !== nextProps.turn!.content ||
+        (prevProps.isRunning && prevProps.turn!.isLatest) !==
+          (nextProps.isRunning && nextProps.turn!.isLatest))
     )
       return false;
 
@@ -844,6 +865,14 @@ export function CopilotChatMessageView({
   // ---------------------------------------------------------------------------
   // Per-message rendering helper (shared by flat and virtual paths)
   // ---------------------------------------------------------------------------
+  // Replies (turns) for the turn-scoped toolbar, from the rendered list so a
+  // transform that merges or hides messages moves the toolbar with them.
+  const toolbarPerMessage = assistantSlotProps?.toolbarScope === "message";
+  const assistantTurns = useMemo(
+    () => (toolbarPerMessage ? undefined : getAssistantTurns(renderedMessages)),
+    [renderedMessages, toolbarPerMessage],
+  );
+
   // A streaming reply with text carries the cursor at the end of that text;
   // otherwise (waiting for the reply, running a tool) it sits below the list.
   // Only the default cursor and assistant message draw the inline cursor, so a
@@ -899,6 +928,7 @@ export function CopilotChatMessageView({
           showCursor={message.id === cursorMessageId}
           AssistantMessageComponent={AssistantComponent}
           slotProps={assistantSlotPropsWithFeedback}
+          turn={assistantTurns?.get(message.id)}
         />,
       );
     } else if (message.role === "user") {

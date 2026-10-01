@@ -37,3 +37,24 @@ export const WithArrow: Story = {
     children: "Summarize notes into next steps",
   },
 };
+
+/** The card appearance used on welcome screens: label as header, description as body. */
+export const Card: Story = {
+  args: {
+    appearance: "card",
+    children: "Plan a launch",
+    description: "Turn the Q3 goals into a week-by-week launch checklist",
+  },
+  decorators: [
+    (Story) => (
+      <div className="w-80">
+        <Story />
+      </div>
+    ),
+  ],
+};
+
+export const CardLoading: Story = {
+  ...Card,
+  args: { ...Card.args, isLoading: true },
+};
