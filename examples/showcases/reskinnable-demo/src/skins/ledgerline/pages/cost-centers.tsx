@@ -4,7 +4,8 @@ import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useLedger } from "../data/client";
 import { spendByCostCenter } from "../data/derive";
-import { Chip, Id, Meter, Money, PageHeader, td, th } from "../components/ui";
+import { Chip, Id, Money, PageHeader, td, th } from "../components/ui";
+import { formatMoney } from "../data/format";
 import { emitScreenContext } from "../learning/recorder";
 
 /**
@@ -50,7 +51,7 @@ export function CostCentersPage() {
               <th className={th}>Owner</th>
               <th className={cn(th, "text-right")}>Reports</th>
               <th className={cn(th, "text-right")}>Committed</th>
-              <th className={cn(th, "w-60")}>Quarter budget</th>
+              <th className={cn(th, "w-[15rem]")}>Quarter budget</th>
             </tr>
           </thead>
           <tbody>
@@ -60,7 +61,6 @@ export function CostCentersPage() {
                 pending: 0,
                 reports: 0,
               };
-              const used = s.committed + s.pending;
               return (
                 <tr
                   key={cc.id}
@@ -86,17 +86,11 @@ export function CostCentersPage() {
                     <Money value={s.committed} />
                   </td>
                   <td className={td}>
-                    <Meter value={used} max={cc.quarterBudget} />
-                    <div className="mt-1 text-[11.5px] text-[hsl(var(--ll-faint))]">
-                      <Money value={used} /> of{" "}
-                      <Money value={cc.quarterBudget} />
-                      {s.pending ? (
-                        <span>
-                          {" "}
-                          (incl. <Money value={s.pending} /> pending)
-                        </span>
-                      ) : null}
-                    </div>
+                    <BudgetCell
+                      committed={s.committed}
+                      pending={s.pending}
+                      budget={cc.quarterBudget}
+                    />
                   </td>
                 </tr>
               );
@@ -104,6 +98,65 @@ export function CostCentersPage() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+/** $6.8K, $18K: short enough for one line beside the meter. */
+function compactMoney(n: number): string {
+  if (n < 1000) return `$${Math.round(n)}`;
+  const k = Math.round(n / 100) / 10;
+  return `$${k >= 10 ? Math.round(k) : k}K`;
+}
+
+/**
+ * One line: a meter (committed solid, pending lighter), the share used, and
+ * "used of budget". The exact figures and the pending share are in the tooltip.
+ */
+function BudgetCell({
+  committed,
+  pending,
+  budget,
+}: {
+  committed: number;
+  pending: number;
+  budget: number;
+}) {
+  const used = committed + pending;
+  const pct = budget > 0 ? used / budget : 0;
+  const width = (n: number) =>
+    `${Math.min(100, budget > 0 ? (n / budget) * 100 : 0)}%`;
+  const tone =
+    pct > 1
+      ? "bg-negative"
+      : pct > 0.8
+        ? "bg-[hsl(var(--ll-amber))]"
+        : "bg-ink";
+  const detail = `${formatMoney(used)} of ${formatMoney(budget)} used${
+    pending ? `, including ${formatMoney(pending)} pending approval` : ""
+  }`;
+  return (
+    <div
+      className="flex items-center gap-2.5 whitespace-nowrap"
+      title={detail}
+      aria-label={detail}
+    >
+      <div className="flex h-1.5 w-20 flex-none overflow-hidden rounded-full bg-surface-muted">
+        <div
+          className={cn("h-full", tone)}
+          style={{ width: width(committed) }}
+        />
+        <div
+          className={cn("h-full opacity-35", tone)}
+          style={{ width: width(pending) }}
+        />
+      </div>
+      <span className="ll-num w-9 text-right text-[12px] font-medium">
+        {Math.round(pct * 100)}%
+      </span>
+      <span className="ll-num text-[12px] text-[hsl(var(--ll-faint))]">
+        {compactMoney(used)} of {compactMoney(budget)}
+      </span>
     </div>
   );
 }

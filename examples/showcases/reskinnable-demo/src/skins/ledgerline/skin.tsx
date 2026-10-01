@@ -27,6 +27,7 @@ import { ledgerlineSuggestions } from "./suggestions";
 import { LEDGERLINE_DESIGN_SKILL } from "./design-skill";
 import { LedgerlineProviders } from "./providers";
 import { useLedgerlineRuntimeProperties } from "./runtime-properties";
+import { useThreadsHiddenBefore } from "./thread-list";
 
 const nav: NavRoute[] = [
   { segment: "", label: "Overview", icon: LayoutDashboard },
@@ -114,6 +115,10 @@ const ledgerline: Skin = {
   Providers: LedgerlineProviders,
   useRuntimeProperties: useLedgerlineRuntimeProperties,
   toolLabels: TOOL_LABELS,
+  threadList: {
+    titleFromFirstMessage: true,
+    useHiddenBefore: useThreadsHiddenBefore,
+  },
   layoutDefaults: {
     chatSide: "right",
     inboxSide: "right",

@@ -208,6 +208,20 @@ export interface Skin {
     /** The chat panel's default width in px. Shell default: 600. */
     chatWidthPx?: number;
   };
+  /**
+   * Optional tidying for this skin's thread rail, for a skin that runs without
+   * Intelligence (where the runtime names no threads and cannot delete them).
+   */
+  threadList?: {
+    /** Title an unnamed thread from its first user message instead of "New chat". */
+    titleFromFirstMessage?: boolean;
+    /**
+     * Hide threads last active before this epoch-ms time (e.g. the last demo
+     * reset), so the rail shows only the current run. Called as a hook inside
+     * the rail. Return null to show everything.
+     */
+    useHiddenBefore?: () => number | null;
+  };
 }
 
 // NOTE: A skin's AGENT is intentionally NOT part of this client contract.

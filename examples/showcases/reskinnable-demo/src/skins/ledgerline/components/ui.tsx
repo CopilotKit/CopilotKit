@@ -339,26 +339,6 @@ export function Columns({
   );
 }
 
-/** A budget meter: ink until 80%, amber past it, red past the budget. */
-export function Meter({ value, max }: { value: number; max: number }) {
-  const pct = max > 0 ? value / max : 0;
-  return (
-    <div className="h-1 w-full rounded-full bg-surface-muted">
-      <div
-        className={cn(
-          "h-1 rounded-full",
-          pct > 1
-            ? "bg-negative"
-            : pct > 0.8
-              ? "bg-[hsl(var(--ll-amber))]"
-              : "bg-ink",
-        )}
-        style={{ width: `${Math.min(100, Math.max(2, pct * 100))}%` }}
-      />
-    </div>
-  );
-}
-
 /** Table primitives: 40px rows, hairline between, sticky muted header. */
 export const th =
   "h-8 whitespace-nowrap border-b border-hairline bg-surface-muted px-3 text-left text-[12px] font-medium text-[hsl(var(--ll-faint))] first:pl-4 last:pr-4";

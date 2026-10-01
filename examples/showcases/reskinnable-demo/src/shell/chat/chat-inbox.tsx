@@ -6,6 +6,7 @@ import { useThreads } from "@copilotkit/react-core/v2";
 import { cn } from "@/lib/utils";
 import { useSkin } from "@/shell/skin-provider";
 import { useChatInbox } from "./chat-inbox-context";
+import { useThreadTitles } from "./thread-titles";
 
 const UNTITLED_LABEL = "New chat";
 const BUCKET_ORDER = [
@@ -47,7 +48,7 @@ export function ChatInbox({
   } = useChatInbox();
 
   const {
-    threads,
+    threads: allThreads,
     isLoading,
     archiveThread,
     deleteThread,
@@ -59,6 +60,24 @@ export function ChatInbox({
     includeArchived: showArchived,
     limit: 20,
   });
+
+  // Optional per-skin tidying (see `threadList` in the skin contract): hide
+  // threads from before the skin's last reset, and title unnamed threads from
+  // their first user message.
+  const hiddenBefore = skin.threadList?.useHiddenBefore?.() ?? null;
+  const threads =
+    hiddenBefore === null
+      ? allThreads
+      : allThreads.filter(
+          (t) =>
+            t.id === selectedThreadId ||
+            Date.parse(t.lastRunAt ?? t.updatedAt) >= hiddenBefore,
+        );
+  const derivedTitles = useThreadTitles(
+    threads,
+    skin.id,
+    skin.threadList?.titleFromFirstMessage === true,
+  );
 
   const handleArchive = (id: string) => {
     if (id === selectedThreadId) startNewConversation();
@@ -145,7 +164,8 @@ export function ChatInbox({
                 </p>
                 <div className="flex flex-col gap-0.5">
                   {grouped.get(bucket)!.map((thread) => {
-                    const title = thread.name ?? UNTITLED_LABEL;
+                    const named = thread.name ?? derivedTitles[thread.id];
+                    const title = named ?? UNTITLED_LABEL;
                     const selected = thread.id === selectedThreadId;
                     return (
                       <div
@@ -156,6 +176,7 @@ export function ChatInbox({
                         <button
                           type="button"
                           aria-current={selected ? "true" : undefined}
+                          title={named ? title : undefined}
                           onClick={() => selectConversation(thread.id)}
                           className={cn(
                             // pr-2, not a reserved 3.5rem gutter for the hover
@@ -177,8 +198,7 @@ export function ChatInbox({
                           <span
                             className={cn(
                               "truncate",
-                              !thread.name &&
-                                "text-[#6e6e6e] dark:text-[#9b9b9b]",
+                              !named && "text-[#6e6e6e] dark:text-[#9b9b9b]",
                             )}
                           >
                             {title}

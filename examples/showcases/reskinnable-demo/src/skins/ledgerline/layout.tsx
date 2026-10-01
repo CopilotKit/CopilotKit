@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { useLedger } from "./data/client";
 import { useLedgerlineReset } from "./components/reset-panel";
 import { CommandPalette } from "./components/command-palette";
+import { useInspectorClearOfChat } from "./components/inspector-placement";
 import { Avatar } from "./components/ui";
 import { usePublishedSkills } from "./learned-skills";
 import { ledgerlineIdentity } from "./identity";
@@ -53,6 +54,7 @@ export function LedgerlineLayout({ children }: { children: ReactNode }) {
   const published = usePublishedSkills();
   const Logo = ledgerlineIdentity.logo;
   const [palette, setPalette] = useState(false);
+  useInspectorClearOfChat();
 
   // The agent knows WHICH page is open, not what is drawn on it: the policy
   // text and the cost-center budget types are deliberately not in its context.
@@ -89,7 +91,10 @@ export function LedgerlineLayout({ children }: { children: ReactNode }) {
       className="flex h-full overflow-hidden bg-canvas text-ink"
       data-ledgerline-app=""
     >
-      <aside className="hidden h-full w-[200px] shrink-0 flex-col border-r border-hairline bg-surface-muted md:flex">
+      <aside
+        data-ledgerline-nav
+        className="hidden h-full w-[200px] shrink-0 flex-col border-r border-hairline bg-surface-muted md:flex"
+      >
         <div className="flex h-[52px] items-center gap-2 px-4">
           <Logo className="h-5 w-5" />
           <span className="text-[15px] font-semibold tracking-[-0.015em]">

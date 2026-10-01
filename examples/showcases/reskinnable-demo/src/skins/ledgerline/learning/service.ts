@@ -122,9 +122,22 @@ export function reviewEvalCandidate(
 }
 
 /** POST /reset: seed ledger, seed history, no capture from today, no learned output. */
+const RESET_AT = Symbol.for("ledgerline.learning.resetAt");
+type ResetClock = { [RESET_AT]?: number };
+
 export function resetAll(): void {
   ledger.reset();
   store.reset();
+  (globalThis as ResetClock)[RESET_AT] = Date.now();
+}
+
+/**
+ * When the demo was last fully reset (epoch ms), or null since the server
+ * started. The chat's thread rail hides older conversations, because without
+ * Intelligence the runtime cannot delete them.
+ */
+export function lastResetAt(): number | null {
+  return (globalThis as ResetClock)[RESET_AT] ?? null;
 }
 
 /** The skill as the deterministic path writes it, for an approve that arrives before any capture. */
