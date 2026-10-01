@@ -172,6 +172,52 @@ afterEach(() => {
 });
 
 describe("CopilotKitProvider authenticated Trajectories", () => {
+  it.each([FIRST_ID, undefined])(
+    "warns about provider container options without sending them (automatic ID: %s)",
+    async (trajectoryId) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      render(
+        <App
+          learning={{
+            trajectoryId,
+            learningContainerIds: ["private-container"],
+          }}
+        />,
+      );
+
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "learningContainerIds is supported only with a custom sink",
+        ),
+      );
+      expect(JSON.stringify(warn.mock.calls)).not.toContain(
+        "private-container",
+      );
+      const manualStart =
+        trajectoryId === undefined
+          ? core.startTrajectory({ trajectoryId: FIRST_ID })
+          : undefined;
+      expect(
+        JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body)),
+      ).toEqual({
+        method: "trajectory/connect",
+        params: { trajectoryId: FIRST_ID },
+        body: {},
+      });
+
+      await authorize(0, FIRST_ID);
+      await join();
+      await manualStart;
+      await flushCapture();
+      const sent = JSON.stringify(
+        transport.sockets[0].channels[0].pushes[0].payload,
+      );
+      expect(sent).not.toContain("learningContainerIds");
+      expect(sent).not.toContain("private-container");
+      expect(core.trajectoryId).toBe(FIRST_ID);
+    },
+  );
+
   it("starts without a sink after authentication and channel join, with no chat", async () => {
     const view = render(
       <App learning={{ trajectoryId: FIRST_ID, routes: ["/deals"] }} />,

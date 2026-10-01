@@ -3,7 +3,6 @@ import type {
   CaptureOptions,
   Collector,
   CollectorOptions,
-  StartOptions,
   JsonValue,
   StartResult,
   TrajectoryCaptureOptions,
@@ -24,8 +23,13 @@ export interface LegacyLearningConfig extends Omit<
 export type LearningConfig =
   | LegacyLearningConfig
   | (TrajectoryCaptureOptions & { sink?: undefined });
-export type TrajectoryStartOptions = Omit<StartOptions, "trajectoryId"> & {
+export type TrajectoryStartOptions = {
   trajectoryId?: string;
+  /**
+   * Used only by explicit custom sinks. Authenticated capture warns and ignores
+   * this option; it does not assign Learning Containers.
+   */
+  learningContainerIds?: string[];
 };
 
 /** Returned by {@link CopilotKitCore.registerOpenThread}. */
@@ -133,6 +137,11 @@ export class LearningBridge {
       return Promise.resolve({ status: "error", code: "LEARNING_DISABLED" });
     }
     if (config.sink === undefined) {
+      if (options.learningContainerIds !== undefined) {
+        console.warn(
+          "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture does not assign Learning Containers; remove learningContainerIds from the capture options.",
+        );
+      }
       this.collector?.stop();
       this.collector = null;
       this.activeConfig = undefined;

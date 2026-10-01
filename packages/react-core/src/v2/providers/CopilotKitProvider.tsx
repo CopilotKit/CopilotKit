@@ -316,6 +316,10 @@ export interface CopilotKitProviderProps {
    */
   learning?: LearningConfig & {
     trajectoryId?: string;
+    /**
+     * Used only by explicit custom sinks. Authenticated capture warns and ignores
+     * this option; it does not assign Learning Containers.
+     */
     learningContainerIds?: string[];
   };
 }
@@ -993,6 +997,17 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useEffect(() => {
     copilotkit.setLearningConfig(learning);
     learningContainerIdsRef.current = learning?.learningContainerIds;
+    // Automatic starts report unsupported options in Core. With manual starts,
+    // the provider's container option is not part of startTrajectory() options.
+    if (
+      learning?.sink === undefined &&
+      learning?.trajectoryId === undefined &&
+      learning?.learningContainerIds !== undefined
+    ) {
+      console.warn(
+        "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture does not assign Learning Containers; remove learningContainerIds from the capture options.",
+      );
+    }
   }, [copilotkit, learning]);
 
   useEffect(() => {

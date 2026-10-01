@@ -29,7 +29,7 @@ if (result.status === "started") {
 copilotkit.stopTrajectory();
 ```
 
-An omitted `trajectoryId` generates a UUID. Start succeeds after Runtime authentication and the Phoenix channel join. The Runtime resolves the user on the server and sends only their ID to Intelligence. Browser-supplied identity and container IDs are ignored; container assignment is deferred.
+An omitted `trajectoryId` generates a UUID. Start succeeds after Runtime authentication and the Phoenix channel join. The Runtime resolves the user on the server and sends only their ID to Intelligence. Browser-supplied identity and container IDs are ignored; container assignment is deferred. Setting `learningContainerIds` for authenticated capture produces a warning. That option applies only to custom sinks.
 
 Capture includes page context, navigation, clicks, and developer events. Unmatched routes become `null`. Thread linking, network capture, and agent events are deferred for this connection path.
 
@@ -39,9 +39,9 @@ Developer events accept any JSON value. Core adds `seq` to object values. It wra
 
 Sequence numbers increase for the lifetime of a Core instance, including reconnects and stop/start. **Use a new Trajectory UUID after a page reload or when creating a new Core instance.** The join API does not return a sequence cursor, so resuming an old ID in a new instance can silently discard events as duplicates.
 
-Capture pauses while disconnected. Reconnect requests fresh credentials. Core keeps one batch awaiting a receipt and one bounded queue; it does not resend failed batches. Known client losses are reported through `dropped`. Server rejections are already counted by the Gateway. A missing receipt reports `PERSISTENCE_UNKNOWN` through `onError`, because the server may have saved the batch.
+Capture pauses while disconnected. Reconnect requests fresh credentials. Developer events emitted during recovery count toward `dropped`; their content is not buffered. Core keeps one batch awaiting a receipt and one bounded queue; it does not resend failed batches. Known client losses are reported through `dropped`. Server rejections are already counted by the Gateway. A missing receipt reports `PERSISTENCE_UNKNOWN` through `onError`, because the server may have saved the batch. An `unauthorized` or `trajectory_mismatch` reply stops capture and reconnect attempts.
 
-Stop cancels pending starts and reconnects. It attempts one final queued batch if no receipt is pending, then disconnects without waiting. Stop is not a guarantee that the last batch was saved.
+Stop cancels pending starts and reconnects. It attempts one final queued batch if no receipt is pending, then disconnects without waiting. Stop is not a guarantee that the last batch was saved. A batch still awaiting its receipt reports `PERSISTENCE_UNKNOWN`, including during a normal stop.
 
 In React, pass the same configuration to `CopilotKitProvider`. Set `learning.trajectoryId` to start automatically, or call the Core methods to control capture.
 

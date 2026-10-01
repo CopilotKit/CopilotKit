@@ -10,6 +10,7 @@ import { from } from "rxjs";
 import { CopilotKitCore } from "../core";
 import { LearningBridge } from "../core/learning-bridge";
 import type { LegacyLearningConfig } from "../core/learning-bridge";
+import { TrajectoryConnection } from "../core/trajectory-connection";
 
 const ASSISTANT_WITH_TOOL: Message = {
   id: "m-assistant",
@@ -116,6 +117,52 @@ afterEach(() => {
 });
 
 describe("Core learning wiring", () => {
+  it.each([
+    { learningContainerIds: [] },
+    { learningContainerIds: ["private-container"] },
+  ])(
+    "warns about authenticated container options without forwarding them: $learningContainerIds",
+    async ({ learningContainerIds }) => {
+      const trajectoryId = "10000000-0000-4000-8000-000000000001";
+      const start = vi
+        .spyOn(TrajectoryConnection.prototype, "start")
+        .mockResolvedValue({ status: "started", trajectoryId });
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const config = {};
+      const core = new CopilotKitCore({ learning: config });
+
+      await expect(
+        core.startTrajectory({ trajectoryId, learningContainerIds }),
+      ).resolves.toEqual({ status: "started", trajectoryId });
+
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "learningContainerIds is supported only with a custom sink",
+        ),
+      );
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("does not assign Learning Containers"),
+      );
+      expect(JSON.stringify(warn.mock.calls)).not.toContain(
+        "private-container",
+      );
+      expect(start).toHaveBeenCalledWith(trajectoryId, config);
+    },
+  );
+
+  it("preserves custom-sink container options without warning", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const core = new CopilotKitCore({ learning: createConfig() });
+    await core.startTrajectory({
+      trajectoryId: "legacy-trajectory",
+      learningContainerIds: ["legacy-container"],
+    });
+    core.stopTrajectory();
+
+    expect(batches[0]?.learningContainerIds).toEqual(["legacy-container"]);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it("can enable learning after construction and track subsequent agent activity", async () => {
     const core = new CopilotKitCore({});
     core.registerOpenThread({ agentId: "default", threadId: "t-late" });
