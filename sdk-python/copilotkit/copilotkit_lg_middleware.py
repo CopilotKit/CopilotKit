@@ -242,21 +242,22 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
 
     Args:
         expose_state: Controls how user-defined state keys are surfaced into
-            ``request.system_message`` on every model call. Off by default
+            the model request on every model call. Off by default
             to avoid leaking arbitrary state into prompts; opt in explicitly.
 
             - ``False`` (default) — never surface state.
             - ``True`` — every state key that is not in the reserved
               internal set and does not start with an underscore is
               JSON-serialized into a "Current agent state:" note appended
-              to the system message.
+              according to ``context_placement``.
             - ``list``/``tuple``/``set[str]`` — only surface the named keys.
               Use this when you want explicit control over what the LLM
               sees (e.g. ``["liked", "todos"]``).
         context_placement: Where App Context and exposed-state notes are added
             to the model request. ``"system"`` (default) preserves the current
             behavior. ``"user"`` prepends them to the latest human message,
-            keeping the system message stable for provider prompt caching. If a
+            without modifying stored history or the system message. This can
+            help provider prompt caching; cache hits depend on the provider. If a
             request has no human message, the notes fall back to the system
             message so they are still visible to the model.
         a2ui_params: Optional host overrides for the auto-injected
@@ -504,12 +505,6 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         )
         return request.override(messages=messages)
 
-    def _apply_state_note(self, request: ModelRequest) -> ModelRequest:
-        note = self._build_state_note(request.state or {})
-        if not note:
-            return request
-        return self._apply_context_note(request, note)
-
     def _build_app_context_note(
         self,
         state: dict[str, Any],
@@ -553,11 +548,15 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
 
         return f"App Context:\n{context_content}"
 
-    def _apply_app_context_note(self, request: ModelRequest) -> ModelRequest:
-        note = self._build_app_context_note(
+    def _apply_context_notes(self, request: ModelRequest) -> ModelRequest:
+        state_note = self._build_state_note(request.state or {})
+        app_note = self._build_app_context_note(
             request.state or {},
             getattr(request.runtime, "context", None),
         )
+        # Preserve the existing system-note order and use one background block
+        # when both notes are prepended to the latest human message.
+        note = "\n\n".join(part for part in (state_note, app_note) if part)
         if not note:
             return request
         return self._apply_context_note(request, note)
@@ -736,8 +735,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             request.state.get("copilotkit", {}),
         )
         self._fix_messages_for_bedrock(request.messages)
-        request = self._apply_state_note(request)
-        request = self._apply_app_context_note(request)
+        request = self._apply_context_notes(request)
 
         a2ui_tool = self._maybe_build_a2ui_tool(request)
         frontend_tools = (
@@ -1111,8 +1109,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             request.state.get("copilotkit", {}),
         )
         self._fix_messages_for_bedrock(request.messages)
-        request = self._apply_state_note(request)
-        request = self._apply_app_context_note(request)
+        request = self._apply_context_notes(request)
 
         a2ui_tool = self._maybe_build_a2ui_tool(request)
         frontend_tools = (
