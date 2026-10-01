@@ -118,7 +118,7 @@ It does not import framework transport noise, LangSmith traces, or unsupported s
     - [Add AG-UI streams to LangGraph threads](/langgraph-python/threads-import)
     - [Add AG-UI streams to Mastra conversations](/mastra/threads-import)
 
-    Re-running the same import is safe: already-imported conversations are skipped. Use `--replace` to refresh previously imported threads that have not been continued through Intelligence. Threads that are running or have already been continued cannot be replaced.
+    Already-imported threads are skipped by default. Use `--replace` to refresh them; running or continued threads are left unchanged.
   </Step>
 
   <Step>

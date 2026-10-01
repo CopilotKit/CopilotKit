@@ -147,9 +147,9 @@ Open the Threads Drawer, select an imported Mastra conversation, and confirm tha
 
 ## Re-run or replace
 
-Re-running the same import is idempotent. Conversations already imported from the same source are skipped.
+Already-imported conversations are skipped by default.
 
-Use `--replace` to refresh previously imported conversations that have not been continued through Intelligence. Conversations that are running or have already been continued cannot be replaced:
+Use `--replace` to refresh them; running or continued conversations are left unchanged:
 
 ```bash title="Terminal"
 npx copilotkit@latest import \
