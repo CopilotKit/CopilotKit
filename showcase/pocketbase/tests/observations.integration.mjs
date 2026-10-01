@@ -234,10 +234,115 @@ assert.deepEqual(
 console.log(
   "PASS malformed receipt maps reject without status/history/job effects",
 );
+// Only the selected entry is replay evidence. Reject corrupt durable entries
+// before acknowledgement, using the same route/outcome contract as new plans.
+const completeReceipt = {
+  fingerprint: input.fingerprint,
+  route: "write",
+  outcome,
+};
+const malformedEntries = [
+  ...[null, false, 0, "", true, 1, "not-an-entry", [], {}].map((receipt) => [
+    "shape " + JSON.stringify(receipt),
+    receipt,
+  ]),
+  ["fingerprint only", { fingerprint: input.fingerprint }],
+  ["missing route", { fingerprint: input.fingerprint, outcome }],
+  ["missing outcome", { fingerprint: input.fingerprint, route: "write" }],
+  ["invalid fingerprint", { ...completeReceipt, fingerprint: "invalid" }],
+  ["invalid route", { ...completeReceipt, route: "invalid" }],
+  ...[null, false, 0, "", [], {}, { kind: "write", value: [] }].map(
+    (badOutcome) => [
+      "outcome " + JSON.stringify(badOutcome),
+      { ...completeReceipt, outcome: badOutcome },
+    ],
+  ),
+  ["route/kind mismatch", { ...completeReceipt, route: "overlay" }],
+  [
+    "oversize outcome",
+    {
+      ...completeReceipt,
+      outcome: { kind: "write", value: { padding: "x".repeat(1024) } },
+    },
+  ],
+];
+const entryResults = [];
+for (const [name, receipt] of malformedEntries) {
+  const entryKey = key + "-entry-" + entryResults.length;
+  const entryJob = await ok(collection("probe_jobs"), "POST", {
+    probe_key: entryKey,
+    status: "done",
+    result: { proof: "immutable" },
+    result_observation_receipts: { [entryKey]: receipt },
+  });
+  const before = await snapshot(entryJob.id, entryKey);
+  const failure = await apply({
+    ...input,
+    jobId: entryJob.id,
+    key: entryKey,
+    status: { mode: "upsert", values: { ...values, key: entryKey } },
+    history: { ...history, key: entryKey },
+  });
+  entryResults.push({
+    name,
+    status: failure.status,
+    code: failure.data.data?.code,
+    replay: failure.data.replay === true,
+    unchanged: isDeepStrictEqual(await snapshot(entryJob.id, entryKey), before),
+  });
+}
+console.log(
+  JSON.stringify({ case: "malformed selected receipt entries", entryResults }),
+);
+assert.deepEqual(
+  entryResults,
+  malformedEntries.map(([name]) => ({
+    name,
+    status: 500,
+    code: "persistence_failure",
+    replay: false,
+    unchanged: true,
+  })),
+);
+console.log(
+  "PASS malformed selected receipt entries fail loudly without acknowledgement or effects",
+);
+for (const route of ["write", "overlay", "history"]) {
+  const replayKey = key + "-opaque-" + route;
+  const opaqueOutcome = {
+    kind: route === "overlay" ? "overlay" : "write",
+    value: { opaque: [null, false, { future: "preserved" }] },
+  };
+  const replayJob = await ok(collection("probe_jobs"), "POST", {
+    probe_key: replayKey,
+    status: "done",
+    result_observation_receipts: {
+      [replayKey]: {
+        fingerprint: input.fingerprint,
+        route,
+        outcome: opaqueOutcome,
+      },
+      padding: "irrelevant entry",
+    },
+  });
+  const before = await snapshot(replayJob.id, replayKey);
+  const replay = await apply({
+    jobId: replayJob.id,
+    key: replayKey,
+    fingerprint: input.fingerprint,
+  });
+  assert.equal(replay.status, 200, JSON.stringify(replay));
+  assert.deepEqual(replay.data, { replay: true, outcome: opaqueOutcome });
+  assert.deepEqual(await snapshot(replayJob.id, replayKey), before);
+}
+console.log(
+  "PASS complete receipts replay opaque outcomes for every route without effects",
+);
 assert.equal(job.result_observation_receipts, null);
 const success = await apply(input);
 assert.equal(success.status, 200, JSON.stringify(success));
 assert.deepEqual(success.data, { replay: false, outcome });
+console.log("PASS null receipt map admits a new observation");
 const committed = await snapshot();
 assert.equal(committed.history.length, 1);
 assert.deepEqual(committed.job.result, { proof: "immutable" });

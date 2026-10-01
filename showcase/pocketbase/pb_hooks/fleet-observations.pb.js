@@ -32,6 +32,12 @@ routerAdd(
     ];
     const allowed = (v, names) =>
       object(v) && Object.keys(v).every((k) => names.indexOf(k) !== -1);
+    const validOutcome = (outcome, route) =>
+      object(outcome) &&
+      object(outcome.value) &&
+      JSON.stringify(outcome).length <= 1024 &&
+      ["write", "overlay", "history"].indexOf(route) !== -1 &&
+      outcome.kind === (route === "overlay" ? "overlay" : "write");
     const same = (a, b) => {
       if (a === b) return true;
       if (Array.isArray(a) && Array.isArray(b))
@@ -91,6 +97,13 @@ routerAdd(
           throw new Error("Invalid stored observation receipts");
         if (own(receipts, data.key)) {
           const receipt = receipts[data.key];
+          if (
+            !object(receipt) ||
+            typeof receipt.fingerprint !== "string" ||
+            !/^[a-f0-9]{64}$/.test(receipt.fingerprint) ||
+            !validOutcome(receipt.outcome, receipt.route)
+          )
+            throw new Error("Invalid stored observation receipt");
           if (receipt.fingerprint !== data.fingerprint) {
             rejection = [409, "identity_conflict"];
             return;
@@ -104,13 +117,7 @@ routerAdd(
         if (
           !allowed(data.history, historyFields) ||
           data.history.key !== data.key ||
-          !object(outcome) ||
-          !object(outcome.value) ||
-          JSON.stringify(outcome).length > 1024 ||
-          ["write", "overlay", "history"].indexOf(data.route) === -1 ||
-          (data.route === "overlay"
-            ? outcome.kind !== "overlay"
-            : outcome.kind !== "write") ||
+          !validOutcome(outcome, data.route) ||
           (data.route === "history" ? status !== null : !object(status)) ||
           (status !== null &&
             (!allowed(status.values, fields) ||
