@@ -49,6 +49,7 @@ async function handle(req: Request): Promise<Response> {
   // its calls into one Thread when the request carries no `openai/subject`.
   const server = createLedgerlineMcpServer({
     callerKey: req.headers.get("user-agent") ?? "mcp-client",
+    collapseRepeats: /^openai-mcp\//.test(req.headers.get("user-agent") ?? ""),
   });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,

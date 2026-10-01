@@ -50,3 +50,44 @@ describe("the Ledgerline MCP tools", () => {
     );
   });
 });
+
+describe("the MCP app tools", () => {
+  beforeEach(() => {
+    ledger.reset();
+    learning.reset();
+  });
+
+  it("open the report card and approve card views, and confirm only once the hold is clear", () => {
+    const ua = "openai-mcp/1.0.0";
+    expect(runTool("getReport", { reportId: "EXP-2291" }, ua)).toMatchObject({
+      kind: "report-card",
+      report: { id: "EXP-2291" },
+    });
+    expect(
+      runTool("approveAndReimburse", { reportId: "EXP-2291" }, ua),
+    ).toMatchObject({ kind: "approve-card" });
+    const refused = runTool(
+      "confirmApproveAndReimburse",
+      { reportId: "EXP-2291" },
+      ua,
+    );
+    expect(refused).toMatchObject({
+      ok: false,
+      error: "POLICY_HOLD",
+      code: "POL-114",
+    });
+    expect(JSON.stringify(refused)).not.toMatch(/events cost center|CC-410/);
+    runTool(
+      "allocateCostCenter",
+      { reportId: "EXP-2291", costCenterId: "CC-410" },
+      ua,
+    );
+    expect(
+      runTool("confirmApproveAndReimburse", { reportId: "EXP-2291" }, ua),
+    ).toMatchObject({ ok: true, status: "reimbursed" });
+    const [t] = learning
+      .listTrajectories()
+      .filter((x) => !x.trajectoryId.startsWith("trj_hist"));
+    expect(t?.outcome).toBe("agent_succeeded");
+  });
+});

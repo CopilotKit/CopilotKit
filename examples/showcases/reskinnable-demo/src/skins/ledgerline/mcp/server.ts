@@ -1,7 +1,17 @@
 /**
- * THE LEDGERLINE MCP SERVER. SERVER-ONLY. Served at `/mcp` (Streamable HTTP,
- * stateless; see `src/app/mcp/route.ts`) for ChatGPT developer mode and other
- * MCP hosts, through the presenter's tunnel.
+ * THE LEDGERLINE MCP SERVER. SERVER-ONLY. Served at `/api/ledgerline/mcp`
+ * (Streamable HTTP, stateless) for ChatGPT developer mode and other MCP hosts,
+ * through the presenter's tunnel.
+ *
+ * MCP APPS. `getReport` and `approveAndReimburse` are bound to one UI resource,
+ * `ui://ledgerline/ledgerline-app.html`: the SAME report card and approve card
+ * the in-app chat renders (`genui/cards.tsx`), bundled by
+ * `scripts/build-ledgerline-mcp-app.mjs`. The write is app-only
+ * (`confirmApproveAndReimburse`): the model opens the card, and only a person
+ * clicking in it approves and pays. `registerAppTool` writes both the current
+ * `_meta.ui.resourceUri` and the legacy key, so one registration serves every
+ * host. ChatGPT issues the same widget-bound call twice for one prompt; with
+ * `collapseRepeats` an identical call within 20 seconds gets an empty view.
  *
  * The same tools as the in-app agent, same names, same JSON. `loadLearnedSkill`
  * is always listed (it answers "none published" until a reviewer publishes
@@ -10,7 +20,14 @@
  * host that never sees our system prompt finds it.
  */
 
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+  RESOURCE_MIME_TYPE,
+  registerAppResource,
+  registerAppTool,
+} from "@modelcontextprotocol/ext-apps/server";
 import { z } from "zod";
 import type { HandlerName, ToolOutput } from "./handlers";
 import { runTool } from "./handlers";
@@ -19,6 +36,62 @@ const INSTRUCTIONS =
   "Ledgerline is Halcyon Labs' expense and approvals app. Use these tools to find, approve and reimburse expense reports for Maya Chen (Finance Operations). " +
   "Never change a report's cost center unless the user or a loaded learned skill names the cost center to use. " +
   "When an approval is refused, check loadLearnedSkill for a published learned skill that matches before giving up.";
+
+export const LEDGERLINE_APP_URI = "ui://ledgerline/ledgerline-app.html";
+
+/** Written by `scripts/build-ledgerline-mcp-app.mjs`; read per request. */
+export const LEDGERLINE_APP_HTML_PATH = path.join(
+  process.cwd(),
+  "src/skins/ledgerline/mcp-app/dist/ledgerline-app.html",
+);
+
+async function loadAppHtml(): Promise<string> {
+  try {
+    return await readFile(LEDGERLINE_APP_HTML_PATH, "utf8");
+  } catch (error) {
+    console.error(
+      "[ledgerline/mcp] the MCP app bundle is missing; run `node scripts/build-ledgerline-mcp-app.mjs`",
+      error,
+    );
+    return `<!doctype html><html><body style="font-family:system-ui;padding:16px">The Ledgerline app bundle has not been built. Run <code>node scripts/build-ledgerline-mcp-app.mjs</code>.</body></html>`;
+  }
+}
+
+/** How long an identical widget-bound call counts as a repeat of the last one. */
+export const REPEAT_WINDOW_MS = 20_000;
+const lastCalls = new Map<string, number>();
+
+export function isRepeatCall(
+  tool: string,
+  args: unknown,
+  now = Date.now(),
+): boolean {
+  for (const [k, at] of lastCalls)
+    if (now - at > REPEAT_WINDOW_MS) lastCalls.delete(k);
+  const key = `${tool}:${JSON.stringify(args)}`;
+  const seen = lastCalls.has(key);
+  lastCalls.set(key, now);
+  return seen;
+}
+
+export function resetRepeatCalls(): void {
+  lastCalls.clear();
+}
+
+function repeatResult(tool: string) {
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: `This is a repeat of the ${tool} call just made; its card is already on screen above. Do not call it again; answer from the first result.`,
+      },
+    ],
+    structuredContent: {
+      kind: "repeat",
+      note: `Repeat of ${tool}: the first card is already on screen.`,
+    },
+  };
+}
 
 function result(out: ToolOutput) {
   return {
@@ -30,13 +103,90 @@ function result(out: ToolOutput) {
 
 export function createLedgerlineMcpServer({
   callerKey,
+  collapseRepeats = false,
 }: {
   callerKey: string;
+  /** On for ChatGPT, which repeats widget-bound calls. */
+  collapseRepeats?: boolean;
 }): McpServer {
   const server = new McpServer(
     { name: "ledgerline", version: "1.0.0" },
     { instructions: INSTRUCTIONS },
   );
+
+  registerAppResource(
+    server,
+    "Ledgerline",
+    LEDGERLINE_APP_URI,
+    {
+      description:
+        "Ledgerline's report card and approve-and-reimburse card, the same components the Ledgerline web app renders.",
+    },
+    async () => ({
+      contents: [
+        {
+          uri: LEDGERLINE_APP_URI,
+          mimeType: RESOURCE_MIME_TYPE,
+          text: await loadAppHtml(),
+          _meta: { ui: { prefersBorder: false, csp: {} } },
+        },
+      ],
+    }),
+  );
+
+  const callerOf = (extra: { _meta?: Record<string, unknown> } | undefined) => {
+    const subject = extra?._meta?.["openai/subject"];
+    return typeof subject === "string" ? `openai:${subject}` : callerKey;
+  };
+
+  /** A tool bound to the MCP app: the model's call opens a card, or (app) only the card calls it. */
+  const regApp = (
+    name: HandlerName,
+    config: {
+      title: string;
+      description: string;
+      inputSchema: Record<string, z.ZodTypeAny>;
+      readOnly: boolean;
+      visibility: "model" | "app";
+      invoking?: string;
+    },
+  ) =>
+    registerAppTool(
+      server,
+      name,
+      {
+        title: config.title,
+        description: config.description,
+        inputSchema: config.inputSchema,
+        annotations: {
+          readOnlyHint: config.readOnly,
+          destructiveHint: false,
+          idempotentHint: config.readOnly,
+          openWorldHint: false,
+        },
+        _meta:
+          config.visibility === "model"
+            ? {
+                ui: { resourceUri: LEDGERLINE_APP_URI },
+                "openai/toolInvocation/invoking":
+                  config.invoking ?? config.title,
+                "openai/toolInvocation/invoked": "Ready",
+              }
+            : { ui: { visibility: ["app"] }, "openai/widgetAccessible": true },
+      },
+      async (
+        args: Record<string, unknown>,
+        extra: { _meta?: Record<string, unknown> },
+      ) => {
+        if (
+          config.visibility === "model" &&
+          collapseRepeats &&
+          isRepeatCall(name, args)
+        )
+          return repeatResult(name);
+        return result(runTool(name, args, callerOf(extra)));
+      },
+    );
 
   const reg = (
     name: HandlerName,
@@ -94,12 +244,31 @@ export function createLedgerlineMcpServer({
     },
     readOnly: true,
   });
-  reg("getReport", {
+  regApp("getReport", {
     title: "Get an expense report",
     description:
-      "Read one expense report: line items, total, cost center, notes and any policy holds.",
+      "Read one expense report: line items, total, cost center, notes and any policy holds. Shown to the user as Ledgerline's report card.",
     inputSchema: { reportId: z.string().describe("Report id, e.g. EXP-2291.") },
     readOnly: true,
+    visibility: "model",
+    invoking: "Reading the report",
+  });
+  regApp("approveAndReimburse", {
+    title: "Approve and reimburse",
+    description:
+      "Open Ledgerline's approve-and-reimburse card for a report with no open policy hold. The card shows the cost center and the payment; the report is approved and paid only when the user confirms in the card. Do not ask for confirmation in chat first.",
+    inputSchema: { reportId: z.string() },
+    readOnly: true,
+    visibility: "model",
+    invoking: "Preparing the approval",
+  });
+  regApp("confirmApproveAndReimburse", {
+    title: "Confirm approve and reimburse",
+    description:
+      "Called only by the approve-and-reimburse card when the user confirms: approves the report, then schedules its ACH reimbursement.",
+    inputSchema: { reportId: z.string() },
+    readOnly: false,
+    visibility: "app",
   });
   reg("approveReport", {
     title: "Approve an expense report",

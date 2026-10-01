@@ -16,6 +16,13 @@ import {
 import type { ReportStatus } from "../data/types";
 import * as learning from "../learning/store";
 import { SKILL_NAME } from "../learning/types";
+import { nextPaymentRun } from "../data/derive";
+import { formatDate, formatMoney } from "../data/format";
+import type {
+  ApproveCardView,
+  ApproveOutcome,
+  ReportCardView,
+} from "../genui/views";
 
 export type ToolOutput = Record<string, unknown>;
 
@@ -57,7 +64,9 @@ export const handlers = {
   },
   getReport({ reportId }: { reportId: string }): ToolOutput {
     try {
-      return agentReport(ledger.getReport(up(reportId)));
+      const report = agentReport(ledger.getReport(up(reportId)));
+      const view: ReportCardView = { kind: "report-card", report };
+      return { ...report, ...view };
     } catch (e) {
       return refusal(e, reportId);
     }
@@ -109,6 +118,53 @@ export const handlers = {
       return { id: r.id, status: r.status, reimbursement: r.reimbursement };
     } catch (e) {
       return refusal(e, reportId);
+    }
+  },
+  /** Opens the approve-and-reimburse card; the write is confirmApproveAndReimburse. */
+  approveAndReimburse({ reportId }: { reportId: string }): ToolOutput {
+    try {
+      const r = ledger.getReport(up(reportId));
+      const view: ApproveCardView = {
+        kind: "approve-card",
+        report: agentReport(r),
+        paymentRun: nextPaymentRun(ledger.snapshot().today),
+      };
+      return {
+        ...view,
+        note: "The approve-and-reimburse card is on screen. Nothing is approved or paid until the user confirms in the card; do not ask in chat.",
+      };
+    } catch (e) {
+      return refusal(e, reportId);
+    }
+  },
+  /** App-only: the card's Approve and reimburse button. */
+  confirmApproveAndReimburse({ reportId }: { reportId: string }): ToolOutput {
+    const rid = up(reportId);
+    let outcome: ApproveOutcome;
+    try {
+      const approved = ledger.approveReport(rid, "Maya Chen (via ChatGPT)");
+      const paid = ledger.reimburseReport(rid);
+      const reimb = paid.reimbursement ?? null;
+      outcome = {
+        ok: true,
+        summary: `Approved ${rid} and scheduled ${formatMoney(approved.total)} to ${approved.employeeName} by ACH${reimb ? ` for ${formatDate(reimb.scheduledFor)}, ${reimb.reference}` : ""}.`,
+        reimbursement: reimb
+          ? { scheduledFor: reimb.scheduledFor, reference: reimb.reference }
+          : null,
+      };
+      return { ...outcome, id: rid, status: "reimbursed" };
+    } catch (e) {
+      if (!(e instanceof LedgerError)) throw e;
+      outcome = {
+        ok: false,
+        error: e.code,
+        code: typeof e.detail.code === "string" ? e.detail.code : undefined,
+        summary:
+          e.code === "POLICY_HOLD"
+            ? `Not approved: policy hold ${String(e.detail.code)} is still open on ${rid}.`
+            : `Not done: ${e.message}`,
+      };
+      return { ...outcome };
     }
   },
   loadLearnedSkill({ name }: { name?: string }): ToolOutput {

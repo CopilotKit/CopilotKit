@@ -171,8 +171,8 @@ function fallbackParts(f: Facts) {
     steps: [
       `Call getReport to confirm the category is "${f.category}", the total is over ${money(f.threshold)} and hold ${f.holdCode} is open.`,
       `Call allocateCostCenter with the report id and "${f.costCenterId}" (${f.costCenterName}), the events cost center the policy requires.`,
-      "Call approveReport again. It succeeds once the hold resolves.",
-      "If the user asked for reimbursement, call reimburseReport.",
+      "Approve it: approveAndReimburse when the user also asked for reimbursement (one confirmation card), otherwise approveReport. Approval succeeds once the hold resolves.",
+      "If you used approveReport and the user asked for reimbursement, call reimburseReport.",
       `Confirm in one sentence: the report, the amount, and that it was moved to ${f.costCenterId} ${f.costCenterName} before approval.`,
     ],
     guardrails: [

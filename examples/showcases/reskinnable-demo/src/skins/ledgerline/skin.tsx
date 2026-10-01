@@ -76,6 +76,7 @@ const TOOL_LABELS: Record<string, string> = {
   reimburseReport: "Scheduling reimbursement",
   loadLearnedSkill: "Loading a learned skill",
   openReport: "Opening the report",
+  approveAndReimburse: "Preparing the approval",
 };
 
 // NOTE: no agent here; it is registered server-side in agent-registry.ts.

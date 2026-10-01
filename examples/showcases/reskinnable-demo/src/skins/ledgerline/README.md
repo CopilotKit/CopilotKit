@@ -56,6 +56,21 @@ The MCP server is at `/api/ledgerline/mcp` (Streamable HTTP, stateless). **Reset
 
 The MCP tools have the same names and return the same JSON as the in-app tools: `listReports`, `getReport`, `approveReport`, `allocateCostCenter`, `searchPolicies`, `addNote`, `reimburseReport` and `loadLearnedSkill`. `loadLearnedSkill` is always listed, so ChatGPT never needs a tool refresh. Once a skill is published, a `POLICY_HOLD` refusal also names it.
 
+## Generative UI
+
+The in-app tools keep their one-line status rows, so a run that never converges stays visible as a stack of tool calls. The cards render beneath them:
+
+- **Report table** (`listReports`): a paged list that fits the chat column. Columns that do not fit collapse into each row's expandable detail, so the table never scrolls sideways.
+- **Report card** (`getReport`): the employee, total, line items, cost center and policy status, with the hold badge.
+- **Policy-hold card** (a refused `approveReport`): shows the hold code and that the report is on hold. It never shows the fix.
+- **Approve-and-reimburse card** (`approveAndReimburse`, human in the loop): shows the cost center the report is charged to, with **Approve and reimburse** and **Cancel**.
+
+All four live in one source file, `genui/cards.tsx`, which imports nothing from Next or CopilotKit. ChatGPT renders the same report card and approve card as MCP Apps:
+
+- `scripts/build-ledgerline-mcp-app.mjs` bundles them into `ui://ledgerline/ledgerline-app.html`. `pnpm dev` and `pnpm build` run it first, and the output is gitignored.
+- `getReport` and `approveAndReimburse` are bound to that resource. The card's button calls the app-only `confirmApproveAndReimburse`, so only a person clicking it approves and pays.
+- ChatGPT sends the same widget call twice. An identical call within 20 seconds gets an empty view, and the frame asks the host to tear it down.
+
 ## How capture works
 
 It is a demo-local recorder shaped like the draft product-trajectory contract (CopilotKit draft PR #7556). Every event is an AG-UI `CUSTOM` event.

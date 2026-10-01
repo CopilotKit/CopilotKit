@@ -366,12 +366,13 @@ function sawOpenHold(result: unknown): boolean {
   );
 }
 
-function okCall(rec: ThreadRecord, name: string): boolean {
-  return rec.agentTrace.some((e) => e.name === name && e.status === "ok");
-}
-
 export function threadOutcome(rec: ThreadRecord): ThreadRecord["outcome"] {
-  if (okCall(rec, "reimburseReport")) return "succeeded";
+  const reimbursed = rec.agentTrace.some(
+    (e) =>
+      e.status === "ok" &&
+      (e.result as { status?: unknown } | undefined)?.status === "reimbursed",
+  );
+  if (reimbursed) return "succeeded";
   const approvals = rec.agentTrace.filter(
     (e) => e.name === "approveReport" && e.status !== "pending",
   );

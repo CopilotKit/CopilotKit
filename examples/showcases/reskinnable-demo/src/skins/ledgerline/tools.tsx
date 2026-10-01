@@ -23,6 +23,13 @@ import {
 } from "./data/agent-view";
 import type { ExpenseReport, PolicyDoc } from "./data/types";
 import { LearnedSkillTools } from "./learned-skills";
+import {
+  ApproveReimburseCard,
+  HoldCard,
+  ReportCard,
+  ReportTable,
+} from "./genui/cards";
+import type { ApproveOutcome, ReportRowView, ReportView } from "./genui/views";
 
 /**
  * Ledgerline's frontend tools. Each handler calls the same REST API the pages
@@ -125,6 +132,18 @@ function ToolLine({
   );
 }
 
+/** Settled approve cards, so a re-render before the result lands keeps its answer. */
+const approveOutcomes = new Map<string, ApproveOutcome | "cancelled">();
+
+function parseJson<T>(v: unknown): T | null {
+  if (typeof v !== "string") return null;
+  try {
+    return JSON.parse(v) as T;
+  } catch {
+    return null;
+  }
+}
+
 export function LedgerlineTools() {
   const { data, refresh } = useLedger();
   const router = useRouter();
@@ -173,16 +192,38 @@ export function LedgerlineTools() {
         const rows = (body as unknown as ExpenseReport[]).map(agentReportRow);
         return JSON.stringify({
           count: rows.length,
-          reports: rows.slice(0, 15),
+          shownToUser:
+            "The list is drawn as a table card in the chat. Answer in one or two sentences; never list the rows yourself.",
+          reports: rows.slice(0, 50),
         });
       },
-      render: ({ args, result }) => (
-        <ToolLine
-          label="listReports"
-          detail={[args?.employee, args?.status].filter(Boolean).join(", ")}
-          result={result}
-        />
-      ),
+      render: ({ args, result }) => {
+        const parsed = parseJson<{ reports?: ReportRowView[] }>(result);
+        const title =
+          args?.status === "submitted"
+            ? args?.employee
+              ? `${args.employee}: awaiting approval`
+              : "Awaiting your approval"
+            : args?.employee
+              ? `Reports for ${args.employee}`
+              : "Expense reports";
+        return (
+          <>
+            <ToolLine
+              label="listReports"
+              detail={[args?.employee, args?.status].filter(Boolean).join(", ")}
+              result={result}
+            />
+            {parsed?.reports && parsed.reports.length > 1 ? (
+              <ReportTable
+                title={title}
+                rows={parsed.reports}
+                onOpen={(rid) => router.push(skinHref(`reports/${rid}`))}
+              />
+            ) : null}
+          </>
+        );
+      },
     },
     [],
   );
@@ -203,9 +244,24 @@ export function LedgerlineTools() {
           ? JSON.stringify(agentReport(body as unknown as ExpenseReport))
           : refusal(body, id(reportId));
       },
-      render: ({ args, result }) => (
-        <ToolLine label="getReport" detail={args?.reportId} result={result} />
-      ),
+      render: ({ args, result }) => {
+        const report = parseJson<ReportView>(result);
+        return (
+          <>
+            <ToolLine
+              label="getReport"
+              detail={args?.reportId}
+              result={result}
+            />
+            {report && !("error" in report) && report.lines ? (
+              <ReportCard
+                report={report}
+                onOpen={(rid) => router.push(skinHref(`reports/${rid}`))}
+              />
+            ) : null}
+          </>
+        );
+      },
     },
     [],
   );
@@ -232,13 +288,33 @@ export function LedgerlineTools() {
           total: r.total,
         });
       },
-      render: ({ args, result }) => (
-        <ToolLine
-          label="approveReport"
-          detail={args?.reportId}
-          result={result}
-        />
-      ),
+      render: ({ args, result }) => {
+        const refused = parseJson<{
+          error?: string;
+          code?: string;
+          reportId?: string;
+        }>(result);
+        const r = ledgerRef.current.reports.find(
+          (x) => x.id === id(args?.reportId),
+        );
+        return (
+          <>
+            <ToolLine
+              label="approveReport"
+              detail={args?.reportId}
+              result={result}
+            />
+            {refused?.error === "POLICY_HOLD" ? (
+              <HoldCard
+                reportId={refused.reportId ?? id(args?.reportId)}
+                code={refused.code ?? ""}
+                employee={r?.employeeName}
+                total={r?.total}
+              />
+            ) : null}
+          </>
+        );
+      },
     },
     [],
   );
@@ -352,6 +428,122 @@ export function LedgerlineTools() {
       render: ({ args, result }) => (
         <ToolLine label="openReport" detail={args?.reportId} result={result} />
       ),
+    },
+    [],
+  );
+
+  // Approve-and-reimburse in one confirmation, with the allocation shown.
+  useHumanInTheLoop(
+    {
+      name: "approveAndReimburse",
+      description:
+        "When the user asked to approve AND reimburse a report that has no open policy hold (including after a learned skill cleared it), call this instead of approveReport plus reimburseReport. It opens a confirmation card showing the report, the cost center it is charged to and the payment; nothing is approved or paid until the user confirms there. Do not ask in chat first.",
+      parameters: z.object({ reportId: z.string() }),
+      render: ({ args, respond, result, toolCallId }) => {
+        const rid = id(args?.reportId);
+        const settled =
+          typeof result === "string"
+            ? parseJson<ApproveOutcome & { error?: string }>(result)
+            : null;
+        const outcome = settled
+          ? settled.error === "CANCELLED"
+            ? "cancelled"
+            : {
+                ...settled,
+                ok: !settled.error,
+                summary:
+                  settled.summary ??
+                  (settled as { message?: string }).message ??
+                  "",
+              }
+          : (approveOutcomes.get(toolCallId) ?? null);
+        const r = ledgerRef.current.reports.find((x) => x.id === rid);
+        if (!r)
+          return (
+            <ToolLine
+              label="approveAndReimburse"
+              detail={rid || undefined}
+              result={result}
+            />
+          );
+        return (
+          <ApproveReimburseCard
+            report={agentReport(r)}
+            paymentRun={nextPaymentRun(ledgerRef.current.today)}
+            outcome={outcome}
+            submit={async () => {
+              const a = await post(
+                `/reports/${encodeURIComponent(rid)}/approve`,
+              );
+              if (!a.ok) {
+                await refresh();
+                return {
+                  ok: false,
+                  error: String(a.body.error ?? "REFUSED"),
+                  code:
+                    typeof a.body.code === "string" ? a.body.code : undefined,
+                  summary:
+                    a.body.error === "POLICY_HOLD"
+                      ? `Not approved: policy hold ${a.body.code} is still open on ${rid}.`
+                      : `Not approved: ${String(a.body.message ?? "refused")}`,
+                };
+              }
+              const p = await post(
+                `/reports/${encodeURIComponent(rid)}/reimburse`,
+              );
+              await refresh();
+              const reimb =
+                (p.body as unknown as ExpenseReport).reimbursement ?? null;
+              return p.ok
+                ? {
+                    ok: true,
+                    summary: `Approved ${rid} and scheduled ${formatMoney(r.total)} to ${r.employeeName} by ACH${reimb ? ` for ${formatDate(reimb.scheduledFor)}, ${reimb.reference}` : ""}.`,
+                    reimbursement: reimb
+                      ? {
+                          scheduledFor: reimb.scheduledFor,
+                          reference: reimb.reference,
+                        }
+                      : null,
+                  }
+                : {
+                    ok: false,
+                    error: String(p.body.error ?? "REFUSED"),
+                    summary: `Approved ${rid}, but the reimbursement was refused: ${String(p.body.message ?? "")}`,
+                  };
+            }}
+            onSettle={async (o) => {
+              approveOutcomes.set(toolCallId, o);
+              await respond?.(
+                JSON.stringify(
+                  o.ok
+                    ? {
+                        id: rid,
+                        status: "reimbursed",
+                        approved: true,
+                        reimbursement: o.reimbursement,
+                        summary: o.summary,
+                      }
+                    : {
+                        error: o.error ?? "REFUSED",
+                        code: o.code,
+                        reportId: rid,
+                        message: o.summary,
+                      },
+                ),
+              );
+            }}
+            onCancel={() => {
+              approveOutcomes.set(toolCallId, "cancelled");
+              void respond?.(
+                JSON.stringify({
+                  error: "CANCELLED",
+                  message: "The user cancelled. Nothing was approved or paid.",
+                }),
+              );
+            }}
+          />
+        );
+      },
     },
     [],
   );
