@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
-  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -44,9 +43,8 @@ function scenario(fault, keep = false) {
   mkdirSync(evidence);
   mkdirSync(temporary);
   writeFileSync(commands, "");
-  // Existing receipts remain writable; only creation of new server logs fails.
+  // Receipts remain writable; the Docker wrapper obstructs only server logs.
   writeFileSync(join(evidence, "baseline-red.json"), "");
-  if (fault === "evidence") chmodSync(evidence, 0o500);
   try {
     let port = "";
     if (fault === "port") {
@@ -71,11 +69,16 @@ function scenario(fault, keep = false) {
     writeFileSync(
       wrapper,
       `#!${process.execPath}
-const { appendFileSync } = require("node:fs");
+const { appendFileSync, mkdirSync } = require("node:fs");
 const { spawnSync } = require("node:child_process");
+const { join } = require("node:path");
 const args = process.argv.slice(2);
 appendFileSync(process.env.CLEANUP_COMMANDS, JSON.stringify(args) + "\\n");
 const command = args[0] === "--context" ? args[2] : args[0];
+if (process.env.CLEANUP_FAULT === "evidence" && command === "logs") {
+  // A directory at the log destination makes the real write fail even as root.
+  mkdirSync(join(process.env.PB_TEST_EVIDENCE_DIR, args[args.indexOf("logs") + 1] + ".log"));
+}
 if (process.env.CLEANUP_FAULT === "port" && command === "run") {
   args[args.indexOf("-p") + 1] = "127.0.0.1:" + process.env.CLEANUP_PORT + ":8090";
 }
@@ -187,7 +190,7 @@ process.exit(result.status ?? 1);
       );
       assert.match(output, /validation_json_size_limit/);
     }
-    if (fault === "evidence") assert.match(output, /EACCES/);
+    if (fault === "evidence") assert.match(output, /EISDIR/);
     if (["logs", "remove", "stop"].includes(fault)) {
       assert.match(
         output,
@@ -274,7 +277,6 @@ process.exit(result.status ?? 1);
         );
     }
     try {
-      chmodSync(evidence, 0o700);
       rmSync(root, { recursive: true, force: true });
     } catch (error) {
       failures.push(error);

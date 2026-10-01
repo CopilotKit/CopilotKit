@@ -84,7 +84,8 @@ NX_DAEMON=false NX_TUI=false pnpm exec nx exec \
 ```
 
 These regressions use real private Docker resources and an intentionally failing
-legacy proof. They check an evidence directory with mode `0500`, log retrieval
+legacy proof. They check directories obstructing evidence log destinations
+(a write failure even for root runners), log retrieval
 failure, a real Docker port conflict after container creation, failure before
 container creation, a volume allocation receipt failure, removal failure, and
 preservation with evidence or stop failures. The regression runner removes its
