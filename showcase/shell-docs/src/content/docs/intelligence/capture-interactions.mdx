@@ -1,6 +1,6 @@
 ---
 title: Capture interactions
-description: Record what people do in your app as AG-UI events, linked to the Thread, message, and tool call they belong to.
+description: Use the experimental custom-sink integration to capture browser interactions and CopilotKit context as AG-UI events.
 icon: "lucide/MousePointer"
 frontend:
   kind: frontend-variant
@@ -10,11 +10,11 @@ doc_type: how-to
 
 ## Overview
 
-You want to know what people do around your agent. Which button in a tool's UI do they click? Which page do they open next? Which request fails? Interaction capture records these actions in the browser as AG-UI `CUSTOM` events. Each event links to the Thread, message, and tool call it belongs to.
+This guide covers the experimental self-hosted integration that sends captured events to your own sink. It records browser interactions as AG-UI `CUSTOM` events. Core adds Thread, message, and tool context where available. These chat events and links belong to this custom-sink integration.
 
 When you are done, your app sends batches of events to a route you own. Each click inside the chat carries its `threadId`, `messageId`, and `toolCallId`.
 
-By default, capture never reads page text, input values, headers, bodies, or query strings. See [Captured data](/intelligence/captured-data) for every field.
+Capture retains full URLs, page titles, referrers, element text, attributes, control values, browser-visible headers, and bounded body snapshots by default. It also records form edits and full agent message text. See [Captured data](/intelligence/captured-data) for fields, limits, and explicit exclusions.
 
 ## Turn on capture
 
@@ -61,7 +61,7 @@ By default, capture never reads page text, input values, headers, bodies, or que
       return (
         <CopilotKitProvider
           runtimeUrl="/api/copilotkit"
-          learning={{ sink, trajectoryId, routes: ["/deals/:id"] }}
+          learning={{ sink, trajectoryId }}
         >
           {children}
         </CopilotKitProvider>
@@ -75,7 +75,7 @@ By default, capture never reads page text, input values, headers, bodies, or que
   <Step>
     ### Name the actions that matter
 
-    A click without a name only says which element was clicked. Add `data-copilotkit-action` to the controls you care about:
+    Click events include the element's text, attributes, and control values. Add `data-copilotkit-action` for a stable action name:
 
     ```tsx
     <button data-copilotkit-action="deal.approve" onClick={approve}>
@@ -95,8 +95,16 @@ Click **Approve** inside a tool's UI in the chat. Your route logs a batch with a
   "timestamp": 1790841234567,
   "value": {
     "seq": 7,
-    "target": { "tag": "button", "role": null, "action": "deal.approve", "input": "pointer" },
-    "route": "/deals/:id",
+    "target": {
+      "tag": "button",
+      "role": null,
+      "action": "deal.approve",
+      "text": "Approve",
+      "attributes": { "data-copilotkit-action": "deal.approve" },
+      "input": "pointer"
+    },
+    "route": "/deals/42",
+    "url": "https://app.example.com/deals/42?source=inbox#review",
     "threadId": "5f0c6b1e-0b8f-4f6e-9a57-2f3d1c9a4e21",
     "agentId": "default",
     "messageId": "msg-42",
@@ -157,5 +165,7 @@ function StartCaptureButton({ projectId }: { projectId: string }) {
 ```
 
 One Trajectory runs at a time. Starting the same ID again does nothing. `copilotkit.stopTrajectory()` removes every listener and sends queued events once. It does not wait for delivery or retry a failed send.
+
+Sequence numbers increase for the lifetime of the Core instance, including across stop/start cycles.
 
 Need capture in an app without CopilotKit? Use the [standalone collector](/intelligence/standalone-collector).
