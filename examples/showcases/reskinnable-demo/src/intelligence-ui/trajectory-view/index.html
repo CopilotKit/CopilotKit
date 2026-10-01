@@ -1142,6 +1142,10 @@ function cardHtml(e) {
     side = `<span class="status ${e.status >= 400 ? "bad" : ""}">${e.status}</span><span class="ev-dur">${dur(e.ms)}</span>`;
     detail = `<div class="code-pair"><div><div class="code-lbl">Request</div><pre class="code">${esc(e.detail.request)}</pre></div><div><div class="code-lbl">Response</div><pre class="code">${esc(e.detail.response)}</pre></div></div>`;
   }
+  if (e.raw && e.raw.length) {
+    hasDetail = true;
+    detail += `<details class="raw-agui" style="margin-top:8px;min-width:0;max-width:100%"><summary style="cursor:pointer;font-size:12px;color:var(--link)">Raw AG-UI event${e.raw.length > 1 ? `s (${e.raw.length})` : ""}</summary><pre class="code" style="margin-top:6px;max-height:22rem;overflow:auto;max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere">${json(e.raw.length > 1 ? e.raw : e.raw[0])}</pre></details>`;
+  }
   const inner = `<span class="tile">${ms(SUB_ICON[e.sub])}</span>
       <span class="ev-main"><span class="ev-title">${title}</span>${meta}</span>
       <span class="ev-side">${side}<span class="ev-time">${e.t}</span>${hasDetail ? ms("chevron_right", "chev") : `<span class="chev-gap"></span>`}</span>`;
