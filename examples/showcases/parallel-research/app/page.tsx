@@ -2,6 +2,7 @@
 import { CopilotChat, CopilotKit } from "@copilotkit/react-core/v2";
 import { ToolRenderers } from "./tool-renderers";
 
+/** Render the research chat with source cards and the provider data-sharing disclosure. */
 export default function Page() {
   return <main>
     <header>
