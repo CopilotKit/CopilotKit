@@ -198,7 +198,9 @@ export function LedgerlineLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      {/* A container, so the header adapts to the app card's width (which the
+          threads column narrows), not to the viewport. */}
+      <div className="@container/app flex min-w-0 flex-1 flex-col">
         <header className="flex h-[52px] shrink-0 items-center gap-4 border-b border-hairline bg-canvas px-6">
           <nav
             aria-label="Breadcrumb"
@@ -237,7 +239,7 @@ export function LedgerlineLayout({ children }: { children: ReactNode }) {
             type="button"
             data-action="Open search"
             onClick={() => setPalette(true)}
-            className="ml-auto flex h-8 w-[280px] items-center gap-2 rounded-md border border-hairline bg-surface-muted px-2.5 text-[13px] text-[hsl(var(--ll-faint))] transition-colors hover:border-[hsl(225_10%_82%)]"
+            className="ml-auto flex h-8 w-[180px] shrink-0 items-center @[760px]/app:w-[280px] gap-2 rounded-md border border-hairline bg-surface-muted px-2.5 text-[13px] text-[hsl(var(--ll-faint))] transition-colors hover:border-[hsl(225_10%_82%)]"
           >
             <Search className="h-3.5 w-3.5" />
             <span className="flex-1 text-left">Search</span>
@@ -247,7 +249,7 @@ export function LedgerlineLayout({ children }: { children: ReactNode }) {
           </button>
           <div className="flex items-center gap-2">
             <Avatar name={data.currentUser.name} />
-            <div className="hidden leading-tight xl:block">
+            <div className="hidden whitespace-nowrap leading-tight @[640px]/app:block">
               <div className="text-[12.5px] font-medium">
                 {data.currentUser.name}
               </div>

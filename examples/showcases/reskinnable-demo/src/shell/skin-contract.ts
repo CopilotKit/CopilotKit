@@ -203,6 +203,13 @@ export interface Skin {
     chatSide?: "left" | "right";
     /** Which side of the chat the conversation rail sits on. Shell default: "left". */
     inboxSide?: "left" | "right";
+    /**
+     * Where the conversation rail lives. "inside" (shell default): within the
+     * chat card, beside the conversation. "column": its own column on the
+     * chat's outer edge that slides open and pushes the app narrower, so the
+     * conversation keeps its full width and nothing is overlaid.
+     */
+    inboxPlacement?: "inside" | "column";
     /** Whether the conversation rail starts open. Shell default: true. */
     inboxOpen?: boolean;
     /** The chat panel's default width in px. Shell default: 600. */

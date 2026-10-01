@@ -1,6 +1,12 @@
 "use client";
 
-import { Archive, PanelLeftClose, SquarePen, Trash2 } from "lucide-react";
+import {
+  Archive,
+  PanelLeftClose,
+  PanelRightClose,
+  SquarePen,
+  Trash2,
+} from "lucide-react";
 import { useThreads } from "@copilotkit/react-core/v2";
 
 import { cn } from "@/lib/utils";
@@ -127,7 +133,11 @@ export function ChatInbox({
           onClick={closeInbox}
           className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-lg text-[#5d5d5d] transition-colors hover:bg-[#ececec] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0d0d0d] dark:text-[#b4b4b4] dark:hover:bg-white/10 dark:focus-visible:ring-white"
         >
-          <PanelLeftClose className="h-[17px] w-[17px]" />
+          {skin.layoutDefaults?.inboxSide === "right" ? (
+            <PanelRightClose className="h-[17px] w-[17px]" />
+          ) : (
+            <PanelLeftClose className="h-[17px] w-[17px]" />
+          )}
         </button>
       </div>
       <div className="px-2 pb-1">

@@ -45,16 +45,20 @@ export function ChatPanel({ threadId }: { threadId: string }) {
   const [showArchived, setShowArchived] = useState(false);
   const { isInboxOpen } = useChatInbox();
   const inboxRight = skin.layoutDefaults?.inboxSide === "right";
-  const rail = isInboxOpen ? (
-    <div
-      className={`nw-chat-rail min-h-0 shrink-0 border-hairline ${inboxRight ? "border-l" : "border-r"}`}
-    >
-      <ChatInbox
-        showArchived={showArchived}
-        onShowArchivedChange={setShowArchived}
-      />
-    </div>
-  ) : null;
+  // A skin with inboxPlacement "column" gets its rail from ShellFrame instead
+  // (see ThreadsColumn), as a column of its own outside this card.
+  const inColumn = skin.layoutDefaults?.inboxPlacement === "column";
+  const rail =
+    isInboxOpen && !inColumn ? (
+      <div
+        className={`nw-chat-rail min-h-0 shrink-0 border-hairline ${inboxRight ? "border-l" : "border-r"}`}
+      >
+        <ChatInbox
+          showArchived={showArchived}
+          onShowArchivedChange={setShowArchived}
+        />
+      </div>
+    ) : null;
 
   return (
     <div className="nw-chat nw-chat-cluster flex h-full min-h-0">

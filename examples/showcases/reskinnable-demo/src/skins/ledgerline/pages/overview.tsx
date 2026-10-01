@@ -94,9 +94,9 @@ export function OverviewPage() {
 
       <div className="mb-8 grid gap-6 @[700px]:grid-cols-[1.25fr_1fr_0.8fr]">
         <section className="rounded-[10px] border border-hairline p-4">
-          <div className="mb-3 flex items-baseline justify-between">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
             <h2 className="text-[13px] font-semibold">Submitted spend</h2>
-            <span className="text-[11.5px] text-[hsl(var(--ll-faint))]">
+            <span className="shrink-0 text-[11.5px] text-[hsl(var(--ll-faint))]">
               by week
             </span>
           </div>
@@ -108,9 +108,9 @@ export function OverviewPage() {
           />
         </section>
         <section className="rounded-[10px] border border-hairline p-4">
-          <div className="mb-3 flex items-baseline justify-between">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
             <h2 className="text-[13px] font-semibold">Spend by category</h2>
-            <span className="text-[11.5px] text-[hsl(var(--ll-faint))]">
+            <span className="shrink-0 text-[11.5px] text-[hsl(var(--ll-faint))]">
               this quarter
             </span>
           </div>
@@ -122,9 +122,9 @@ export function OverviewPage() {
           />
         </section>
         <section className="rounded-[10px] border border-hairline p-4">
-          <div className="mb-3 flex items-baseline justify-between">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
             <h2 className="text-[13px] font-semibold">Policy holds raised</h2>
-            <span className="text-[11.5px] text-[hsl(var(--ll-faint))]">
+            <span className="shrink-0 text-[11.5px] text-[hsl(var(--ll-faint))]">
               by week
             </span>
           </div>
@@ -181,7 +181,7 @@ export function OverviewPage() {
                         </Link>
                         <div>
                           <Id className="text-[11.5px]">{r.id}</Id>{" "}
-                          <span className="text-[11.5px] text-[hsl(var(--ll-faint))]">
+                          <span className="shrink-0 text-[11.5px] text-[hsl(var(--ll-faint))]">
                             {r.category}
                           </span>
                         </div>

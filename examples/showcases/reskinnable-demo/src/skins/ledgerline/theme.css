@@ -112,24 +112,3 @@
   > [data-testid="copilot-assistant-toolbar"] {
   display: none;
 }
-
-/* The threads drawer in a narrow chat column: the shell hides its rail under
-   520px; Ledgerline instead opens it as a drawer over the right edge of the
-   chat, next to where the chat is docked. */
-.theme-ledgerline .nw-chat-cluster {
-  position: relative;
-}
-@container (max-width: 520px) {
-  .theme-ledgerline .nw-chat-rail {
-    display: block;
-    position: absolute;
-    top: 52px;
-    bottom: 0;
-    right: 0;
-    width: 248px;
-    z-index: 20;
-    background: hsl(var(--surface));
-    box-shadow: var(--ll-shadow);
-    border-top-left-radius: 10px;
-  }
-}

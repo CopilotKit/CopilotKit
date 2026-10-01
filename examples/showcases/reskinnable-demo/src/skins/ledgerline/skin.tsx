@@ -122,6 +122,7 @@ const ledgerline: Skin = {
   layoutDefaults: {
     chatSide: "right",
     inboxSide: "right",
+    inboxPlacement: "column",
     inboxOpen: false,
     chatWidthPx: 420,
   },

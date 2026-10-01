@@ -34,7 +34,7 @@ Pages:
 - **People**.
 - **⌘K** opens a command palette for reports, people, cost centers and pages.
 
-Chat docks on the right and the threads drawer starts closed (the skin's `layoutDefaults`). The drawer's open state is remembered per skin. Threads are titled from their first message, and the drawer shows only conversations since the last full reset (`threadList`), because without Intelligence the runtime can neither name nor delete threads. The CopilotKit Inspector launcher sits in the sidebar above Reset while this skin is open, so it never covers the chat header (`components/inspector-placement.ts`); a position you drag it to is kept.
+Chat docks on the right and the threads drawer starts closed (the skin's `layoutDefaults`). The drawer is its own column to the right of the chat: opening it slides the chat and the app left and the app reflows narrower, so nothing covers the conversation. The drawer's open state is remembered per skin. Threads are titled from their first message, and the drawer shows only conversations since the last full reset (`threadList`), because without Intelligence the runtime can neither name nor delete threads. The CopilotKit Inspector launcher sits in the sidebar above Reset while this skin is open, so it never covers the chat header (`components/inspector-placement.ts`); a position you drag it to is kept.
 
 Sidebar controls:
 
