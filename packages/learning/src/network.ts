@@ -6,10 +6,22 @@ type Outcome = "ok" | "error" | "aborted";
 interface RequestInfoParts {
   url: string;
   method: string;
+  framework: ReturnType<typeof detectFramework>;
 }
 
 function toAbsolute(url: string) {
   return new URL(url, location.href).href;
+}
+
+/**
+ * Marks requests a framework makes on its own (Next.js RSC payloads, prefetches,
+ * server actions). Reads header names only, never their values.
+ */
+function detectFramework(url: string, headers: Headers) {
+  if (headers.has("next-action")) return "next-action";
+  if (headers.has("next-router-prefetch")) return "next-prefetch";
+  const isRsc = headers.has("rsc") || new URL(url).searchParams.has("_rsc");
+  return isRsc ? "next-rsc" : null;
 }
 
 function readFetchRequest(
@@ -17,11 +29,15 @@ function readFetchRequest(
   init: RequestInit | undefined,
 ) {
   const isRequest = input instanceof Request;
-  const url = isRequest ? input.url : String(input);
+  const url = toAbsolute(isRequest ? input.url : String(input));
   const method = init?.method ?? (isRequest ? input.method : "GET");
+  const headers = new Headers(
+    init?.headers ?? (isRequest ? input.headers : undefined),
+  );
   const parts: RequestInfoParts = {
-    url: toAbsolute(url),
+    url,
     method: method.toUpperCase(),
+    framework: detectFramework(url, headers),
   };
   return parts;
 }
@@ -64,6 +80,7 @@ export function installNetworkCapture(params: {
         status,
         durationMs: Math.round(performance.now() - startedAt),
         outcome,
+        ...(request.framework === null ? {} : { framework: request.framework }),
       });
     } catch {
       // Capture must never break the request.
@@ -143,9 +160,11 @@ function patchXhr(isIgnored: (url: string) => boolean, record: RecordFn) {
     ...rest: unknown[]
   ) {
     try {
+      // ponytail: XHR is not marked; Next.js and other modern routers use fetch.
       requests.set(this, {
         url: toAbsolute(String(url)),
         method: method.toUpperCase(),
+        framework: null,
       });
     } catch {
       requests.delete(this);

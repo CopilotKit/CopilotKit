@@ -974,6 +974,17 @@ export class CopilotKitCore {
   }
 
   /**
+   * Records an outcome that clicks cannot show, such as a saved report or an
+   * approved deal. The event gets the open Thread unless `value` sets `threadId`.
+   * No-op while no Trajectory runs. Built-in names such as `click` are rejected.
+   *
+   * @example copilotkit.emitTrajectoryEvent("deal.approved", { dealId: "deal-1" })
+   */
+  emitTrajectoryEvent(name: string, value: Record<string, unknown> = {}) {
+    this.learningBridge.emit(name, value);
+  }
+
+  /**
    * Tells Core that a view shows this Thread, so captured interactions can link to it.
    * Framework bindings call this; call it yourself only without a CopilotKit provider.
    */

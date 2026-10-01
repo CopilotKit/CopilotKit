@@ -98,6 +98,28 @@ describe("fetch capture", () => {
     expect(events).toEqual([]);
   });
 
+  it("marks Next.js framework requests without reading header values", async () => {
+    const events = setup(respondWith(200));
+
+    await fetch("/learning/deals/1?_rsc=abc");
+    await fetch("/learning", {
+      headers: { RSC: "1", "Next-Router-Prefetch": "1" },
+    });
+    await fetch("/learning", {
+      method: "POST",
+      headers: { "Next-Action": "a1b2" },
+    });
+    await fetch("/api/deals/1");
+    await Promise.resolve();
+
+    expect(events.map((event) => event.value.framework)).toEqual([
+      "next-rsc",
+      "next-prefetch",
+      "next-action",
+      undefined,
+    ]);
+  });
+
   it("reports aborted and failed requests and rethrows the same error", async () => {
     const abort = new DOMException("stopped", "AbortError");
     const offline = new TypeError("Failed to fetch");

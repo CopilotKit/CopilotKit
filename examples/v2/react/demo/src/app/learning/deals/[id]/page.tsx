@@ -6,6 +6,7 @@ import {
   ToolCallStatus,
   useAgentContext,
   useCopilotChatConfiguration,
+  useCopilotKit,
   useHumanInTheLoop,
 } from "@copilotkit/react-core/v2";
 import { useParams } from "next/navigation";
@@ -30,7 +31,18 @@ export default function DealPage() {
 
 function DealView({ deal }: { deal: Deal }) {
   const config = useCopilotChatConfiguration();
+  const { copilotkit } = useCopilotKit();
   const [approvedHere, setApprovedHere] = useState(false);
+
+  // Clicks show what the person did; these events record the outcome itself.
+  const recordDecision = (
+    decision: "approved" | "rejected",
+    via: "agent" | "page",
+  ) =>
+    copilotkit.emitTrajectoryEvent(`deal.${decision}`, {
+      dealId: deal.id,
+      via,
+    });
 
   useAgentContext({
     description: "The deal the user is looking at",
@@ -59,7 +71,10 @@ function DealView({ deal }: { deal: Deal }) {
               type="button"
               data-copilotkit-action="hitl.approve"
               disabled={respond === undefined}
-              onClick={() => respond?.("approved")}
+              onClick={() => {
+                void respond?.("approved");
+                recordDecision("approved", "agent");
+              }}
               className="rounded bg-green-600 px-3 py-1 text-sm text-white disabled:opacity-50"
             >
               Approve
@@ -68,7 +83,10 @@ function DealView({ deal }: { deal: Deal }) {
               type="button"
               data-copilotkit-action="hitl.reject"
               disabled={respond === undefined}
-              onClick={() => respond?.("rejected")}
+              onClick={() => {
+                void respond?.("rejected");
+                recordDecision("rejected", "agent");
+              }}
               className="rounded bg-gray-200 px-3 py-1 text-sm disabled:opacity-50"
             >
               Reject
@@ -90,7 +108,10 @@ function DealView({ deal }: { deal: Deal }) {
           <button
             type="button"
             data-copilotkit-action="deal.approve"
-            onClick={() => setApprovedHere(true)}
+            onClick={() => {
+              setApprovedHere(true);
+              recordDecision("approved", "page");
+            }}
             className="rounded bg-gray-900 px-3 py-1.5 text-sm text-white"
           >
             {approvedHere ? "Approved" : "Approve without the agent"}

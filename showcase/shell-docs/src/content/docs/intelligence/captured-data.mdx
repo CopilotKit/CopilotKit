@@ -29,15 +29,19 @@ Each event is an AG-UI `CUSTOM` event: `{ type: "CUSTOM", name, value, timestamp
 | `page` | `route` | Collector, at start |
 | `navigation` | `from`, `to`, `navigationType` | Collector |
 | `click` | `target` (`tag`, `role`, `action`, `input`), `route` | Collector |
-| `network` | `transport`, `method`, `origin`, `route`, `status`, `durationMs`, `outcome` | Collector |
+| `network` | `transport`, `method`, `origin`, `route`, `status`, `durationMs`, `outcome`, `framework` | Collector |
 | `thread.linked` | `threadId`, `agentId`, `hasMessages`, `reason` | CopilotKit Core |
 | `agent.run` | `phase`, `runId`, `threadId`, `agentId` | CopilotKit Core |
-| `agent.message` | `messageId`, `runId`, `threadId`, `role`, `toolNames`, `textLength`, `text` (opt-in) | CopilotKit Core |
+| `agent.message` | `messageId`, `runId`, `threadId`, `role`, `textLength`, `text` (opt-in) | CopilotKit Core |
 | `tool.call` | `phase`, `toolCallId`, `toolName`, `threadId`, `messageId`, `runId`, `durationMs`, `outcome` | CopilotKit Core |
 
 With CopilotKit, a `click` also carries `threadId`, `agentId`, `messageId`, `runId`, `toolCallId`, `toolName`, and `toolStatus`, or `threadAmbiguity` when two chats show different Threads.
 
 A `network` duration ends when the response headers arrive. Streaming responses are never read.
+
+`framework` marks requests that Next.js makes on its own: `next-rsc`, `next-prefetch`, or `next-action`. The collector checks only whether a header exists. It never reads header values.
+
+Your own events, sent with `emit()` or `emitTrajectoryEvent()`, use your names. With CopilotKit, they also carry the open Thread.
 
 ## Batches
 

@@ -118,6 +118,25 @@ When two chats show different Threads, a click outside both gets `threadId: null
 
 Core also emits `thread.linked` when a chat shows a Thread: once at start, when a new chat opens, and when a chat switches Threads. `hasMessages: false` marks a new Thread that has no messages yet.
 
+## Record outcomes
+
+A click shows what a person did. It does not show whether the work succeeded. Record the outcome when your app knows it:
+
+```tsx
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+
+function ApproveButton({ dealId }: { dealId: string }) {
+  const { copilotkit } = useCopilotKit();
+  return (
+    <button onClick={() => copilotkit.emitTrajectoryEvent("deal.approved", { dealId })}>
+      Approve
+    </button>
+  );
+}
+```
+
+The event carries the open Thread. Built-in names such as `click` are reserved.
+
 ## Start and stop a Trajectory yourself
 
 Leave out `trajectoryId` on the prop, then call Core when your app decides a session starts:

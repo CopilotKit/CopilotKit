@@ -114,6 +114,57 @@ afterEach(() => {
 });
 
 describe("Core learning wiring", () => {
+  it("links a Thread once when StrictMode registers it twice", () => {
+    const core = new CopilotKitCore({ learning: createConfig() });
+    core.startTrajectory({ trajectoryId: "traj-1" });
+
+    core
+      .registerOpenThread({ agentId: "default", threadId: "t-1" })
+      .unregister();
+    core.registerOpenThread({ agentId: "default", threadId: "t-1" });
+
+    expect(
+      valuesOf(drain(), "thread.linked").map((value) => value.reason),
+    ).toEqual(["open"]);
+  });
+
+  it("adds the open Thread to outcome events and rejects built-in names", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const core = new CopilotKitCore({ learning: createConfig() });
+    core.registerOpenThread({ agentId: "default", threadId: "t-1" });
+    core.startTrajectory({ trajectoryId: "traj-1" });
+
+    core.emitTrajectoryEvent("deal.approved", { dealId: "deal-1" });
+    core.emitTrajectoryEvent("click", {});
+
+    expect(valuesOf(drain(), "deal.approved")).toEqual([
+      { threadId: "t-1", dealId: "deal-1", seq: 3 },
+    ]);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not capture CopilotKit's own telemetry requests", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async () => new Response(null, { status: 202 })),
+    );
+    const core = new CopilotKitCore({
+      learning: createConfig({
+        capture: { clicks: false, navigation: false, network: true },
+      }),
+    });
+    core.startTrajectory({ trajectoryId: "traj-1" });
+
+    await fetch("https://telemetry.copilotkit.ai/ingest", { method: "POST" });
+    await fetch("https://api.example.com/deals/7");
+    await Promise.resolve();
+
+    expect(valuesOf(drain(), "network").map((value) => value.origin)).toEqual([
+      "https://api.example.com",
+    ]);
+    core.stopTrajectory();
+  });
+
   it("links the open Thread at start and on a switch", () => {
     const agent = new DealAgent("t-1", [ASSISTANT_WITH_TOOL]);
     const core = new CopilotKitCore({

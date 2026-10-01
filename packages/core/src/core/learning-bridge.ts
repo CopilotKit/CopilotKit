@@ -46,6 +46,12 @@ interface ToolCallOrigin {
 
 const MAX_AGENT_TEXT = 2000;
 
+// CopilotKit's own browser traffic (Inspector telemetry and announcements) is not app activity.
+const COPILOTKIT_OWN_URLS = [
+  "https://telemetry.copilotkit.ai/",
+  "https://cdn.copilotkit.ai/",
+];
+
 /**
  * Wires `@copilotkit/learning` into Core: agent events, the open-Thread registry,
  * and click attribution to messages and tool calls. Internal to Core.
@@ -58,6 +64,7 @@ export class LearningBridge {
   private readonly toolCalls = new Map<string, ToolCallOrigin>();
   private readonly executingTools = new Map<string, number>();
   private readonly lastRunIds = new WeakMap<AbstractAgent, string>();
+  private lastLinkedThreadId: string | null = null;
 
   constructor(
     private readonly core: CopilotKitCore,
@@ -101,6 +108,7 @@ export class LearningBridge {
         ...config,
         ignoreUrls: [
           ...(config.ignoreUrls ?? []),
+          ...COPILOTKIT_OWN_URLS,
           ...(runtimeUrl === undefined ? [] : [runtimeUrl]),
         ],
         enrich: (target) => this.enrich(target),
@@ -109,12 +117,18 @@ export class LearningBridge {
     const wasActive = this.collector.trajectoryId !== null;
     this.collector.start(options);
     if (wasActive) return;
+    this.lastLinkedThreadId = null;
     for (const threadId of this.distinctOpenThreadIds())
       this.emitThreadLinked(threadId, "start");
   }
 
   stop() {
     this.collector?.stop();
+  }
+
+  /** A developer event, such as an outcome. It carries the open-Thread context unless `value` sets it. */
+  emit(name: string, value: Record<string, unknown>) {
+    this.collector?.emit(name, { ...this.openThreadContext(), ...value });
   }
 
   registerOpenThread(params: OpenThread) {
@@ -147,6 +161,11 @@ export class LearningBridge {
     threadId: string,
     reason: "start" | "open" | "switch",
   ) {
+    const isActive =
+      this.collector !== null && this.collector.trajectoryId !== null;
+    // React StrictMode unregisters and registers again in dev; one link per change is enough.
+    if (!isActive || threadId === this.lastLinkedThreadId) return;
+    this.lastLinkedThreadId = threadId;
     const owner = [...this.openThreads].find(
       (open) => open.threadId === threadId,
     );
@@ -220,11 +239,9 @@ export class LearningBridge {
   }
 
   private emitMessage(agent: AbstractAgent, message: Message) {
+    // No tool names here: this fires when the text ends, before tool calls stream in.
+    // `tool.call` events carry the tool name and this `messageId`.
     const content = typeof message.content === "string" ? message.content : "";
-    const toolNames =
-      message.role === "assistant"
-        ? (message.toolCalls ?? []).map((call) => call.function.name)
-        : [];
     const includeText =
       this.config?.capture?.agentText === true && message.role === "assistant";
     this.collector?.ɵemit("agent.message", {
@@ -233,7 +250,6 @@ export class LearningBridge {
       threadId: agent.threadId,
       agentId: agent.agentId,
       role: message.role,
-      toolNames,
       textLength: content.length,
       ...(includeText ? { text: content.slice(0, MAX_AGENT_TEXT) } : {}),
     });
@@ -317,6 +333,11 @@ export class LearningBridge {
             }),
       };
     }
+    return this.openThreadContext();
+  }
+
+  /** The single open Thread, or `null` with the candidates when several are open. */
+  private openThreadContext() {
     const openIds = this.distinctOpenThreadIds();
     if (openIds.length > 1) {
       return {
