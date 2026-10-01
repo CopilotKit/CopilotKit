@@ -48,26 +48,43 @@ export interface ChunkedEditStreamConfig {
 const DEFAULT_LIMIT = Math.floor(TELEGRAM_LIMITS.messageText / 2); // 2048
 const DEFAULT_MIN_INTERVAL_MS = 1000;
 
-/**
- * Info string of the ``` fence left open at the end of `text`, or null when
- * every fence in it is closed.
- */
-function openFenceInfo(text: string): string | null {
-  const parts = text.split("```");
-  if (parts.length % 2 === 1) return null;
-  return (parts.at(-1)!.split("\n", 1)[0] ?? "").trim();
+interface FenceSpan {
+  start: number;
+  end: number;
+  info: string;
 }
 
 /**
- * Balance the code fences of one chunk's slice. `transform` runs per message,
- * so a block split across messages would otherwise render as prose on both
- * sides (and `__init__` would turn bold). Re-open the block at the start of a
- * continuation chunk and close it at the end of the chunk it overflows.
+ * The complete multiline code fences (```info\n…```) in `text`, found with
+ * telegramHtml's own fence pattern. A ``` without a closing fence is not
+ * included, because telegramHtml renders it as prose.
  */
-function balanceFences(before: string, slice: string): string {
-  const info = openFenceInfo(before);
-  let out = info === null ? slice : "```" + info + "\n" + slice;
-  if (openFenceInfo(out) !== null) {
+function findFences(text: string): FenceSpan[] {
+  return [...text.matchAll(/```([^\n`]*)\n[\s\S]*?```/g)].map((m) => ({
+    start: m.index!,
+    end: m.index! + m[0].length,
+    info: m[1]!.trim(),
+  }));
+}
+
+/**
+ * Balance the code fences of the chunk `slice` = `buffer[start, end)`.
+ * `transform` runs per message, so a block split across messages would
+ * otherwise render as prose on both sides (and `__init__` would turn bold).
+ * Re-open the block at the start of a chunk that begins inside it and close it
+ * at the end of a chunk that ends inside it.
+ */
+function balanceFences(
+  slice: string,
+  start: number,
+  end: number,
+  fences: FenceSpan[],
+): string {
+  const spanning = (pos: number) =>
+    fences.find((f) => f.start < pos && pos < f.end);
+  const opened = spanning(start);
+  let out = opened ? "```" + opened.info + "\n" + slice : slice;
+  if (spanning(end)) {
     out += out.endsWith("\n") ? "```" : "\n```";
   }
   return out;
@@ -263,6 +280,7 @@ export class ChunkedEditStream {
       );
     }
     // Dispatch slices to each message's stream.
+    const fences = findFences(this.buffer);
     for (let i = 0; i < chunkCount; i++) {
       const start = i === 0 ? 0 : this.boundaries[i - 1]!;
       const end =
@@ -270,9 +288,7 @@ export class ChunkedEditStream {
       const slice = this.buffer.slice(start, end);
       // Bug 2 fix: never dispatch an empty slice.
       if (slice.length > 0) {
-        this.streams[i]!.append(
-          balanceFences(this.buffer.slice(0, start), slice),
-        );
+        this.streams[i]!.append(balanceFences(slice, start, end, fences));
       }
     }
   }

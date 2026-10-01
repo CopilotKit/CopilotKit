@@ -258,4 +258,30 @@ describe("ChunkedEditStream", () => {
       }
     }
   });
+
+  it("does not turn prose with an unmatched ``` into a code block", async () => {
+    // telegramHtml renders a lone ``` in prose as text, so balancing must not
+    // add a closing fence for it.
+    let id = 0;
+    const edits: Record<number, string> = {};
+    const s = new ChunkedEditStream({
+      limit: 60,
+      minIntervalMs: 0,
+      transform: telegramHtml,
+      postPlaceholder: async () => ++id,
+      editAt: async (mid, text) => {
+        edits[mid] = text;
+      },
+    });
+    s.append(
+      "Type ``` then a language name.\n" +
+        "Plain words follow here and go on for a while, past the limit.",
+    );
+    await s.finish();
+
+    expect(s.chunkCount).toBeGreaterThan(1);
+    for (const text of Object.values(edits)) {
+      expect(text).not.toContain("<pre>");
+    }
+  });
 });
