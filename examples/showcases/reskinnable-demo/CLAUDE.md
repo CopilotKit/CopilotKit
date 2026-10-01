@@ -3,7 +3,8 @@
 One Next.js app whose **entire** experience — brand, theme, layout, pages,
 tools, and agent — is reskinnable at runtime. A skin-agnostic **shell** hosts
 one **skin** per route segment `/[skin]/...`. The registered roster is `banking`,
-`airline`, `logistics`, `keel`, `people`, `commerce`, `bookstore`, `exec` and `myelin` —
+`airline`, `logistics`, `keel`, `people`, `commerce`, `bookstore`, `exec`, `myelin` and
+`ledgerline` —
 switchable from a dropdown at the top of the assistant column, plus a repo-local
 **reskin skill** (`.claude/skills/reskin/`) for authoring new ones.
 
@@ -650,6 +651,20 @@ src/skins/*/skin.tsx`): `useBookstoreData` is a frozen 25-book seed catalog (the
   unlocked by a variance narrative filed under a justifying code. Its beat map
   is written out at the top of `src/skins/exec/suggestions.ts`.
 
+- **`ledgerline`** ("Ledgerline") — **REST-backed**, a fictitious expense and
+  approvals product, and the Automatic Learning demo. Pages `""` (Overview),
+  `reports`, `reports/<id>`, `approvals`, `reimbursements`, `cost-centers`,
+  `people` and `policies`, over `/api/ledgerline/v1/*`. Its gate is a policy
+  hold (409 `POLICY_HOLD POL-114`) whose fix shows only in the report page's
+  Policy panel. On purpose, its pages register NO on-screen readable, so the
+  agent never sees the fix. It adds a product-trajectory recorder
+  (`learning/recorder.tsx`), agent-trace capture on its BuiltInAgent
+  (`learning/agent-trace.ts`), the learning contract API under
+  `/api/learning/v1/*`, a learning step (`learning/learn.ts`), published
+  skills the agent loads (`learned-skills.tsx`), and an MCP server for ChatGPT
+  at `/api/ledgerline/mcp`. Its beat list is its own story, so the shell's
+  beats it does not play are left out. See `src/skins/ledgerline/README.md`.
+
 ### Demo-beat coverage
 
 Ten rows, NOT ten beats. The first nine are the nine beats of
@@ -838,8 +853,8 @@ Run tasks through Nx per the repo convention where applicable.
 ## Reference
 
 - `src/shell/skin-contract.ts` — the contract (source of truth).
-- `src/skins/{banking,airline,logistics,keel,people,commerce,bookstore,exec,myelin}/skin.tsx`
-  — eight implementations. (`ls src/skins/` re-derives that roster; the drift
+- `src/skins/{banking,airline,logistics,keel,people,commerce,bookstore,exec,myelin,ledgerline}/skin.tsx`
+  — ten implementations. (`ls src/skins/` re-derives that roster; the drift
   guard in `src/shell/skin-roster-docs.test.ts` fails if the list above falls
   behind the registry, which is what makes writing it out safe here.)
   Open them for what each is the CLEANEST example of: `banking` the

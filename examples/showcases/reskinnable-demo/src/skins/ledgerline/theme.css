@@ -1,0 +1,36 @@
+/* Ledgerline: a neutral, fictitious expense and approvals product.
+   Deep teal brand on a cool off-white canvas. Light-only (no theme toggle). */
+.theme-ledgerline {
+  --radius: 0.625rem;
+
+  --brand: 184 72% 26%;
+  --brand-indigo: 184 74% 20%;
+  --brand-violet: 38 92% 50%;
+  --brand-foreground: 0 0% 100%;
+  --brand-soft: 180 38% 95%;
+
+  --background: 0 0% 100%;
+  --foreground: 210 24% 12%;
+  --canvas: 210 20% 97%;
+  --surface: 0 0% 100%;
+  --surface-muted: 210 18% 95%;
+  --ink: 210 24% 12%;
+  --ink-muted: 212 12% 38%;
+  --hairline: 212 18% 89%;
+
+  --positive: 152 62% 28%;
+  --positive-soft: 150 45% 94%;
+  --negative: 2 66% 44%;
+  --negative-soft: 4 80% 96%;
+}
+
+/* A tool-only assistant message gets no copy/feedback toolbar: a run that
+   makes six tool calls should read as six tool lines, not six toolbars. */
+.theme-ledgerline
+  .copilotKitAssistantMessage:has(
+    [data-testid="ledgerline-tool-line"],
+    [data-testid="ledgerline-learned-skill-card"]
+  )
+  > [data-testid="copilot-assistant-toolbar"] {
+  display: none;
+}
