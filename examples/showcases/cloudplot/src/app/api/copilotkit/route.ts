@@ -7,6 +7,7 @@ import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+import { getLangGraphDeploymentUrl } from "../../../lib/deployment";
 import {
   FixedWindowLimiter,
   SESSION_COOKIE_NAME,
@@ -18,20 +19,6 @@ import {
 // 1. You can use any service adapter here for multi-agent support. We use
 //    the empty adapter since we're only using one agent.
 const serviceAdapter = new ExperimentalEmptyAdapter();
-
-function getLangGraphDeploymentUrl() {
-  if (process.env.LANGGRAPH_DEPLOYMENT_URL) {
-    return process.env.LANGGRAPH_DEPLOYMENT_URL;
-  }
-
-  if (process.env.NODE_ENV !== "production") {
-    return "http://localhost:8123";
-  }
-
-  throw new Error(
-    "LANGGRAPH_DEPLOYMENT_URL is required for the Cloudplot frontend service.",
-  );
-}
 
 // The self-hosted FastAPI service speaks AG-UI directly.
 const runtime = new CopilotRuntime({

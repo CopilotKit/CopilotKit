@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
 
 export const SESSION_COOKIE_NAME = "cloudplot_session";
@@ -17,17 +17,19 @@ export function getRuntimeSecurityConfiguration(
   if (environment.NODE_ENV !== "production") return { mode: "bypass" };
   const accessCode = environment.CLOUDPLOT_ACCESS_CODE?.trim();
   const sessionSecret = environment.CLOUDPLOT_SESSION_SECRET?.trim();
-  if (!accessCode || !sessionSecret) return { mode: "misconfigured" };
+  const hasTrustedClientAddress =
+    Boolean(environment.RAILWAY_ENVIRONMENT_ID) ||
+    Boolean(environment.CLOUDPLOT_TRUSTED_PROXY_HEADER?.trim());
+  if (!accessCode || !sessionSecret || !hasTrustedClientAddress) {
+    return { mode: "misconfigured" };
+  }
   return { mode: "protected", accessCode, sessionSecret };
 }
 
 function equalStrings(left: string, right: string) {
-  const leftBuffer = Buffer.from(left);
-  const rightBuffer = Buffer.from(right);
-  return (
-    leftBuffer.length === rightBuffer.length &&
-    timingSafeEqual(leftBuffer, rightBuffer)
-  );
+  const leftDigest = createHash("sha256").update(left).digest();
+  const rightDigest = createHash("sha256").update(right).digest();
+  return timingSafeEqual(leftDigest, rightDigest);
 }
 
 export function verifyAccessCode(
@@ -114,7 +116,17 @@ export class FixedWindowLimiter {
 }
 
 export function getClientKey(headers: Headers, railway: boolean) {
-  if (!railway) return "direct:unknown";
-  const candidate = headers.get("x-real-ip")?.trim() ?? "";
-  return isIP(candidate) ? `railway:${candidate}` : "railway:unknown";
+  const headerName = railway
+    ? "x-real-ip"
+    : process.env.CLOUDPLOT_TRUSTED_PROXY_HEADER?.trim();
+  if (!headerName) {
+    throw new Error(
+      "Direct production deployments must configure a trusted client address source.",
+    );
+  }
+  const candidate = headers.get(headerName)?.split(",", 1)[0]?.trim() ?? "";
+  if (!isIP(candidate)) {
+    throw new Error("The trusted client address header is missing or invalid.");
+  }
+  return `${railway ? "railway" : "direct"}:${candidate}`;
 }

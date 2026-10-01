@@ -7,6 +7,7 @@ describe("CloudPlot access exchange", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("CLOUDPLOT_ACCESS_CODE", "correct horse");
     vi.stubEnv("CLOUDPLOT_SESSION_SECRET", "session-secret-for-tests");
+    vi.stubEnv("RAILWAY_ENVIRONMENT_ID", "test");
   });
 
   it("rejects an invalid access code", async () => {

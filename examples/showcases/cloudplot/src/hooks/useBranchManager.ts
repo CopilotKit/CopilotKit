@@ -290,12 +290,16 @@ function loadBranchStorageSnapshot(): Pick<
 
 function persistSnapshot(snapshot: BranchManagerSnapshot): void {
   if (!snapshot.isHydrated) return;
-  localStorage.setItem(BRANCHES_KEY, JSON.stringify(snapshot.branches));
-  localStorage.setItem(
-    BRANCH_STATES_KEY,
-    JSON.stringify(snapshot.branchStates),
-  );
-  localStorage.setItem(CURRENT_BRANCH_KEY, snapshot.currentBranchId);
+  try {
+    localStorage.setItem(BRANCHES_KEY, JSON.stringify(snapshot.branches));
+    localStorage.setItem(
+      BRANCH_STATES_KEY,
+      JSON.stringify(snapshot.branchStates),
+    );
+    localStorage.setItem(CURRENT_BRANCH_KEY, snapshot.currentBranchId);
+  } catch (error) {
+    console.warn("CloudPlot branch persistence failed", error);
+  }
 }
 
 function createBranchStore(): BranchStore {

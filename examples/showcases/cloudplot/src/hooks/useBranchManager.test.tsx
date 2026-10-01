@@ -2,7 +2,7 @@
 
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { BranchState, CloudPlotAgentState } from "@/types";
 import { useBranchManager } from "./useBranchManager";
@@ -53,7 +53,10 @@ const validNestedBranchState: BranchState = {
 };
 
 beforeEach(() => localStorage.clear());
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe("useBranchManager", () => {
   it("keeps storage out of SSR, then recovers it at the client hydration boundary", async () => {
@@ -354,6 +357,22 @@ describe("useBranchManager", () => {
 
     expect(fresh.result.current.branches).toHaveLength(1);
     expect(fresh.result.current.getBranchState("experiment")).toBeNull();
+  });
+
+  it("keeps in-memory state usable when localStorage writes fail", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("Quota exceeded", "QuotaExceededError");
+    });
+
+    const manager = renderHook(() => useBranchManager());
+    await waitFor(() => expect(manager.result.current.isHydrated).toBe(true));
+
+    expect(manager.result.current.currentBranch.id).toBe("main");
+    expect(warning).toHaveBeenCalledWith(
+      "CloudPlot branch persistence failed",
+      expect.any(DOMException),
+    );
   });
 
   it("returns the saved branch state synchronously when switching", async () => {

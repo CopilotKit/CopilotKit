@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getLangGraphDeploymentUrl } from "../../../lib/deployment";
 import { getRuntimeSecurityConfiguration } from "../../../lib/runtimeSecurity";
 
 const AGENT_PROBE_TIMEOUT_MS = 2_000;
@@ -16,12 +17,8 @@ export async function GET() {
       { status: 503 },
     );
   }
-  const deploymentUrl = process.env.LANGGRAPH_DEPLOYMENT_URL;
-  if (!deploymentUrl) {
-    return unhealthyResponse();
-  }
-
   try {
+    const deploymentUrl = getLangGraphDeploymentUrl();
     const response = await fetch(`${deploymentUrl.replace(/\/$/, "")}/health`, {
       cache: "no-store",
       signal: AbortSignal.timeout(AGENT_PROBE_TIMEOUT_MS),

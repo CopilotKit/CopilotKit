@@ -26,6 +26,7 @@ export function Header({
         <div className="flex items-center gap-2">
           {/* Branch dropdown */}
           <select
+            aria-label="Current branch"
             value={currentBranch.id}
             onChange={(e) => onSwitchBranch(e.target.value)}
             className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"

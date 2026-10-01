@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   FixedWindowLimiter,
@@ -11,6 +11,7 @@ import {
 
 const productionEnv = {
   NODE_ENV: "production",
+  RAILWAY_ENVIRONMENT_ID: "test",
   CLOUDPLOT_ACCESS_CODE: "correct horse",
   CLOUDPLOT_SESSION_SECRET: "a-session-secret-long-enough-for-tests",
 };
@@ -55,9 +56,12 @@ describe("runtime security", () => {
     expect(
       getClientKey(new Headers({ "x-real-ip": "198.51.100.7" }), true),
     ).toBe("railway:198.51.100.7");
-    expect(getClientKey(new Headers({ "x-real-ip": "invalid" }), true)).toBe(
-      "railway:unknown",
-    );
-    expect(getClientKey(new Headers(), false)).toBe("direct:unknown");
+    expect(() =>
+      getClientKey(new Headers({ "x-real-ip": "invalid" }), true),
+    ).toThrow("missing or invalid");
+    vi.stubEnv("CLOUDPLOT_TRUSTED_PROXY_HEADER", "cf-connecting-ip");
+    expect(
+      getClientKey(new Headers({ "cf-connecting-ip": "203.0.113.4" }), false),
+    ).toBe("direct:203.0.113.4");
   });
 });

@@ -126,6 +126,11 @@ Set these service variables in Railway (the platform supplies `PORT`):
 
 - Frontend: `LANGGRAPH_DEPLOYMENT_URL`, `CLOUDPLOT_ACCESS_CODE`, and a long,
   random `CLOUDPLOT_SESSION_SECRET`.
+- Non-Railway production deployments must also set
+  `CLOUDPLOT_TRUSTED_PROXY_HEADER` to an IP header that their trusted edge
+  proxy overwrites (for example, `cf-connecting-ip` on Cloudflare). CloudPlot
+  fails readiness instead of sharing one global rate-limit bucket when no
+  trusted client-address source is configured.
 - Agent: `OPENAI_API_KEY`.
 
 The frontend must use the repository root because its `workspace:*`

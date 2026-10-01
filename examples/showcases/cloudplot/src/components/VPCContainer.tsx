@@ -1,8 +1,8 @@
-import type { AWSNodeData } from "@/types";
+import type { AWSNodeData, AWSNodeDataOf } from "@/types";
 import { WorkspaceCard } from "./WorkspaceCard";
 
 interface VPCContainerProps {
-  vpc: AWSNodeData;
+  vpc: AWSNodeDataOf<"vpc">;
   vpcChildren: AWSNodeData[];
 }
 
@@ -38,11 +38,11 @@ export function VPCContainer({ vpc, vpcChildren }: VPCContainerProps) {
       <div className="flex items-center gap-2 mb-4">
         <span className="text-lg">🌐</span>
         <span className="font-semibold text-gray-900">
-          {(vpc.config as { name?: string })?.name || vpc.label || vpc.id}
+          {vpc.label || vpc.id}
         </span>
-        {(vpc.config as { cidr_block?: string })?.cidr_block && (
+        {vpc.config.cidr_block && (
           <span className="text-xs text-gray-500 font-mono">
-            {(vpc.config as { cidr_block?: string }).cidr_block}
+            {vpc.config.cidr_block}
           </span>
         )}
       </div>

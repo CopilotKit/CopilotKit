@@ -45,27 +45,37 @@ export interface ALBConfig {
   target_groups: string[];
 }
 
-export type ResourceConfig =
-  | S3Config
-  | EC2Config
-  | RDSConfig
-  | LambdaConfig
-  | VPCConfig
-  | ALBConfig;
+export interface ResourceConfigByType {
+  s3: S3Config;
+  ec2: EC2Config;
+  rds: RDSConfig;
+  lambda: LambdaConfig;
+  vpc: VPCConfig;
+  alb: ALBConfig;
+}
+
+export type ResourceConfig = ResourceConfigByType[ResourceType];
 
 // ==========================================
 // Node Data
 // ==========================================
 
-export interface AWSNodeData {
+interface AWSNodeDataBase {
   id: string;
-  type: ResourceType;
   label: string;
-  config: ResourceConfig;
   status: NodeStatus;
   position?: { x: number; y: number };
   parentId?: string;
 }
+
+export type AWSNodeDataOf<T extends ResourceType> = AWSNodeDataBase & {
+  type: T;
+  config: ResourceConfigByType[T];
+};
+
+export type AWSNodeData = {
+  [T in ResourceType]: AWSNodeDataOf<T>;
+}[ResourceType];
 
 // ==========================================
 // Thought Log

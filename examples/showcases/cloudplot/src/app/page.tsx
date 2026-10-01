@@ -65,7 +65,8 @@ function CloudPlotWorkspace({
     if (!isReady) return;
     const restoration = restorationRef.current;
     if (
-      restoration?.agent === agent &&
+      restoration &&
+      restoration.agent === agent &&
       restoration.threadId === currentBranch.threadId
     ) {
       return;

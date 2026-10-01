@@ -102,4 +102,17 @@ describe("useCloudPlotAgent", () => {
     );
     expect(mocks.provisionalAgent.addMessage).not.toHaveBeenCalled();
   });
+
+  it("resets a malformed non-empty agent state", () => {
+    mocks.readyAgent.state = {
+      nodes: "invalid",
+    } as unknown as typeof mocks.readyAgent.state;
+
+    const { result } = renderHook(() => useCloudPlotAgent());
+
+    expect(result.current.state).toMatchObject({ nodes: [], edges: [] });
+    expect(mocks.readyAgent.setState).toHaveBeenCalledWith(
+      expect.objectContaining({ nodes: [], edges: [] }),
+    );
+  });
 });

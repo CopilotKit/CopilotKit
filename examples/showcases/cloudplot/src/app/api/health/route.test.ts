@@ -25,14 +25,16 @@ describe("Cloudplot frontend health", () => {
     expect(fetchAgent).not.toHaveBeenCalled();
   });
 
-  it("returns 503 when no agent URL is configured", async () => {
+  it("probes the same local agent fallback used by the runtime", async () => {
+    const fetchAgent = vi.fn(async () => Response.json({ status: "ok" }));
+    vi.stubGlobal("fetch", fetchAgent);
     const response = await GET();
 
-    expect(response.status).toBe(503);
-    expect(await response.json()).toMatchObject({
-      status: "degraded",
-      agent: "unreachable",
-    });
+    expect(response.status).toBe(200);
+    expect(fetchAgent).toHaveBeenCalledWith(
+      "http://localhost:8123/health",
+      expect.any(Object),
+    );
   });
 
   it("reports healthy only after the configured agent responds", async () => {

@@ -23,6 +23,7 @@ describe("CloudPlot metered runtime", () => {
     vi.stubEnv("LANGGRAPH_DEPLOYMENT_URL", "https://agent.example.test");
     vi.stubEnv("CLOUDPLOT_ACCESS_CODE", "correct horse");
     vi.stubEnv("CLOUDPLOT_SESSION_SECRET", "session-secret-for-tests");
+    vi.stubEnv("RAILWAY_ENVIRONMENT_ID", "test");
     mocks.endpointFactory.mockReturnValue({
       handleRequest: mocks.handleRequest,
     });
@@ -51,7 +52,10 @@ describe("CloudPlot metered runtime", () => {
     const response = await POST(
       new NextRequest("https://cloudplot.test/api/copilotkit", {
         method: "POST",
-        headers: { cookie: `cloudplot_session=${session}` },
+        headers: {
+          cookie: `cloudplot_session=${session}`,
+          "x-real-ip": "198.51.100.9",
+        },
       }),
     );
 
@@ -69,7 +73,10 @@ describe("CloudPlot metered runtime", () => {
     const request = () =>
       new NextRequest("https://cloudplot.test/api/copilotkit", {
         method: "POST",
-        headers: { cookie: `cloudplot_session=${session}` },
+        headers: {
+          cookie: `cloudplot_session=${session}`,
+          "x-real-ip": "198.51.100.9",
+        },
       });
 
     for (let index = 0; index < 20; index += 1) {

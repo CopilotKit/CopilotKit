@@ -9,7 +9,7 @@ export default defineConfig({
     },
   },
   test: {
-    environment: "node",
+    environment: "jsdom",
     globals: false,
     // Unit tests only; Playwright owns e2e/.
     include: ["src/**/*.test.{ts,tsx}"],
