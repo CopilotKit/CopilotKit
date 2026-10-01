@@ -80,6 +80,7 @@ import {
   loadInspectorState,
   hasNotificationPulsed,
   saveNotificationPulsedId,
+  saveInspectorDismissedForever,
   saveInspectorDismissedUntil,
   saveInspectorState,
   isValidAnchor,
@@ -424,13 +425,17 @@ const HUD_THREADS_LABEL = "Rich Threads";
 const HUD_LEARNING_LABEL = "Automatic Learning";
 const HUD_LEARN_MORE_LABEL = "Click to learn more";
 
-type InspectorDismissalDuration = "day" | "week";
+type InspectorDismissalDuration = "day" | "week" | "forever";
 const INSPECTOR_DISMISSAL_MS: Readonly<
   Record<InspectorDismissalDuration, number>
 > = {
   day: 24 * 60 * 60 * 1000,
-  week: INSPECTOR_DISMISSAL_MAX_DURATION_MS,
+  week: 7 * 24 * 60 * 60 * 1000,
+  // Renewed to a full window on every load; see saveInspectorDismissedForever.
+  forever: INSPECTOR_DISMISSAL_MAX_DURATION_MS,
 };
+// setTimeout fires immediately for delays above 2^31-1 ms (~24.8 days).
+const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
 
 type HomeFeaturePromptId = HomeServiceId;
 type HomeFeaturePromptTarget = Readonly<{
@@ -11912,7 +11917,10 @@ export class WebInspectorElement extends LitElement {
   private scheduleInspectorDismissalExpiry(): void {
     this.clearInspectorDismissalTimer();
     if (this.inspectorDismissedUntil === null) return;
-    const delay = Math.max(0, this.inspectorDismissedUntil - Date.now() + 25);
+    const delay = Math.min(
+      MAX_TIMER_DELAY_MS,
+      Math.max(0, this.inspectorDismissedUntil - Date.now() + 25),
+    );
     this.inspectorDismissalTimer = setTimeout(() => {
       this.inspectorDismissalTimer = null;
       this.refreshInspectorDismissalState();
@@ -11949,7 +11957,8 @@ export class WebInspectorElement extends LitElement {
   private dismissInspectorFor(duration: InspectorDismissalDuration): void {
     const now = Date.now();
     const until = now + INSPECTOR_DISMISSAL_MS[duration];
-    saveInspectorDismissedUntil(until, now);
+    if (duration === "forever") saveInspectorDismissedForever(now);
+    else saveInspectorDismissedUntil(until, now);
     this.inspectorDismissedUntil = until;
     this.scheduleInspectorDismissalExpiry();
     this.settingsOpen = false;
@@ -17278,7 +17287,7 @@ export class WebInspectorElement extends LitElement {
             </span>
             <div>
               <h2 id="inspector-settings-visibility-title">Visibility</h2>
-              <p>Temporarily hide the Inspector on this domain.</p>
+              <p>Hide the Inspector on this domain.</p>
             </div>
           </div>
 
@@ -17298,6 +17307,27 @@ export class WebInspectorElement extends LitElement {
             >
               <span aria-hidden="true">${this.renderIcon("Clock")}</span>
               Hide Inspector for one week
+            </button>
+          </div>
+
+          <div class="inspector-settings-visibility">
+            <div>
+              <h3>Hide the Inspector indefinitely</h3>
+              <p>
+                Keep the Inspector hidden on this domain until you bring it
+                back. To restore it, delete the
+                <code>cpk_inspector_dismissed_until</code> cookie and the
+                <code>cpk:inspector:dismissed_until</code> localStorage entry.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="inspector-settings-dismiss"
+              data-cpk-dismiss-inspector="forever"
+              @click=${() => this.dismissInspectorFor("forever")}
+            >
+              <span aria-hidden="true">${this.renderIcon("EyeOff")}</span>
+              Always hide Inspector
             </button>
           </div>
         </section>
