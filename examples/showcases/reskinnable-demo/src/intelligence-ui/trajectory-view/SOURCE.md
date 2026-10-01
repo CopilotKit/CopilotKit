@@ -6,7 +6,13 @@
 which includes PR #300: generative UI marked as placeholders, details in a popover).
 `atai-9c9dc16b.original.html` is that file byte for byte, so `diff` shows every change.
 
-It is served unchanged in look and behavior by `src/app/intelligence/trajectories/[id]/route.ts`.
+It is served by `src/app/intelligence/trajectory-view/[id]/route.ts`. The trajectory route
+(`/intelligence/trajectories/[id]`) shows it inside the same Intelligence shell as every other
+`/intelligence` page, in an iframe so its stylesheet stays separate. In that embed (`?embed=1`)
+only the page's own sidebar, breadcrumb bar (with the prototype badge) and background are hidden;
+the content (title, Export / Add to Learning spaces, Show panel, timeline, details, key moments,
+Learning spaces) is unchanged. Links open in the shell window, and the page reports its height
+so the shell does the scrolling.
 The only changes are the data layer and the labels that came from its sample trip:
 
 - The hardcoded `EVENTS` sample is removed; `adapter.js` builds `EVENTS` from
