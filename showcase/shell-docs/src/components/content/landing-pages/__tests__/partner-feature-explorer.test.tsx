@@ -79,7 +79,7 @@ describe("partner feature explorer", () => {
         .map((button) => button.textContent),
     ).toEqual([
       "Chat",
-      "Rich Threads",
+      "AG-UI Streams",
       "Automatic Learning",
       "Generative UI",
       "Declarative UI",
@@ -125,10 +125,10 @@ describe("partner feature explorer", () => {
         .getAllByRole("button")
         .slice(1, 4)
         .map((button) => button.textContent),
-    ).toEqual(["Rich Threads", "Automatic Learning", "Generative UI"]);
-    fireEvent.click(screen.getByRole("button", { name: "Rich Threads" }));
+    ).toEqual(["AG-UI Streams", "Automatic Learning", "Generative UI"]);
+    fireEvent.click(screen.getByRole("button", { name: "AG-UI Streams" }));
     expect(screen.queryByTitle("Mastra: Generative UI live demo")).toBeNull();
-    expect(screen.getByTitle("Rich Threads product walkthrough")).toBeTruthy();
+    expect(screen.getByTitle("AG-UI Streams product walkthrough")).toBeTruthy();
     expect(document.querySelector(".partner-explorer-caption")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Next feature" }));
     expect(

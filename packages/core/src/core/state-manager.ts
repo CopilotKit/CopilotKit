@@ -14,7 +14,9 @@ import { randomUUID, structuredClone_ } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
 import { isForwardedToClientPlaceholder } from "./tool-result-content";
 
-const isContinuation = (input: RunAgentInput): boolean =>
+const isContinuation = (
+  input: Pick<RunAgentInput, "resume" | "forwardedProps">,
+): boolean =>
   input.resume !== undefined ||
   Object.prototype.hasOwnProperty.call(
     (input.forwardedProps as { command?: object } | undefined)?.command ?? {},
@@ -68,6 +70,32 @@ export class StateManager {
     AbstractAgent,
     Set<PendingContinuation>
   >();
+
+  private interruptedRuns = new WeakMap<
+    AbstractAgent,
+    Map<string, { runId: string; interruptIds: string[] | null }>
+  >();
+
+  /** Find the interrupted logical run without consuming its pending answers. */
+  getContinuationRunId(
+    agent: AbstractAgent,
+    input: Pick<RunAgentInput, "threadId" | "resume" | "forwardedProps">,
+  ) {
+    const pending = this.interruptedRuns.get(agent)?.get(input.threadId);
+    if (!pending) return undefined;
+    if (pending.interruptIds === null) {
+      return input.resume === undefined && isContinuation(input)
+        ? pending.runId
+        : undefined;
+    }
+    const submitted = new Set(input.resume?.map((entry) => entry.interruptId));
+    const matches =
+      submitted.size > 0 &&
+      submitted.size === input.resume?.length &&
+      submitted.size === pending.interruptIds.length &&
+      pending.interruptIds.every((id) => submitted.has(id));
+    return matches ? pending.runId : undefined;
+  }
 
   constructor(private core: CopilotKitCore) {}
 
@@ -144,6 +172,7 @@ export class StateManager {
     //    RUN_FINISHED.
     let revoked = false;
     let subRunId: string | undefined; // runId assigned to the current logical run
+    let legacyInterrupted = false;
     let runFinished = false; // true after RUN_FINISHED, reset on next RUN_STARTED
     const pendingResults = new WeakMap<
       RunAgentInput,
@@ -260,12 +289,21 @@ export class StateManager {
           (pending) => pending.expectedInput === input,
         );
         internalContinuation?.cancel();
+        const startedInput = event.input ?? {
+          ...input,
+          threadId: event.threadId,
+        };
+        const resumedRunId = this.getContinuationRunId(agent, startedInput);
+        this.interruptedRuns.get(agent)?.delete(startedInput.threadId);
+        legacyInterrupted = false;
 
         if (internalContinuation) {
           // An internal continuation re-stamps onto the run id it continues, so
           // the follow-up does not have to reuse that id on the wire.
           subRunId =
             internalContinuation.expectedRunId ?? event.runId ?? input.runId;
+        } else if (resumedRunId) {
+          subRunId = resumedRunId;
         } else if (
           runFinished &&
           input.runId === subRunId &&
@@ -286,14 +324,33 @@ export class StateManager {
         runFinished = false;
         this.handleRunStarted(agent, effectiveInput(input), state);
       },
-      onRunFinishedEvent: ({ input, state, messages }) => {
+      onRunFinishedEvent: ({ event, input, state, messages }) => {
         if (revoked) return;
         runFinished = true;
         const effective = effectiveInput(input);
+        let interrupted = this.interruptedRuns.get(agent);
+        if (event.outcome?.type === "interrupt" || legacyInterrupted) {
+          if (!interrupted) {
+            interrupted = new Map();
+            this.interruptedRuns.set(agent, interrupted);
+          }
+          interrupted.set(event.threadId, {
+            runId: effective.runId,
+            interruptIds:
+              event.outcome?.type === "interrupt"
+                ? event.outcome.interrupts.map((interrupt) => interrupt.id)
+                : null,
+          });
+        } else {
+          interrupted?.delete(event.threadId);
+        }
         const mutation = reconcilePendingResults(messages, input);
         clearPendingResults(input);
         this.handleRunFinished(agent, effective, state);
         return mutation;
+      },
+      onCustomEvent: ({ event }) => {
+        if (!revoked && event.name === "on_interrupt") legacyInterrupted = true;
       },
       // A run error terminates the run — treat identically to finished for cleanup
       onRunErrorEvent: ({ input, state, messages }) => {
@@ -369,6 +426,7 @@ export class StateManager {
       unsubscribe: () => {
         revoked = true;
         this.pendingContinuations.delete(agent);
+        this.interruptedRuns.delete(agent);
         unsubscribe();
       },
     });
@@ -683,6 +741,8 @@ export class StateManager {
    * Clear all state for an agent
    */
   clearAgentState(agentId: string): void {
+    const agent = this.agentSubscriptions.get(agentId)?.agent;
+    if (agent) this.interruptedRuns.delete(agent);
     this.stateByRun.delete(agentId);
     this.messageToRun.delete(agentId);
     this.rawEventByMessage.delete(agentId);
@@ -692,6 +752,8 @@ export class StateManager {
    * Clear all state for a thread
    */
   clearThreadState(agentId: string, threadId: string): void {
+    const agent = this.agentSubscriptions.get(agentId)?.agent;
+    if (agent) this.interruptedRuns.get(agent)?.delete(threadId);
     this.stateByRun.get(agentId)?.delete(threadId);
     this.messageToRun.get(agentId)?.delete(threadId);
     this.rawEventByMessage.get(agentId)?.delete(threadId);

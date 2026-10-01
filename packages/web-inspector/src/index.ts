@@ -662,10 +662,21 @@ const DRAG_THRESHOLD = 6;
 const MIN_WINDOW_WIDTH = 880;
 const MIN_WINDOW_WIDTH_DOCKED_LEFT = 640;
 const MIN_WINDOW_HEIGHT = 480;
+/**
+ * A window minimum that gives way on screens smaller than it, so the window
+ * (and its close control) never runs past the viewport edge.
+ */
+const viewportCappedMin = (px: number, unit: "vw" | "vh"): string =>
+  `min(${px}px, calc(100${unit} - ${EDGE_MARGIN * 2}px))`;
+/**
+ * The floating window zooms down with the screen, never below this, once the
+ * viewport can no longer hold the default window at full size.
+ */
+const MIN_WINDOW_SCALE = 0.8;
 const INSPECTOR_STORAGE_KEY = "cpk:inspector:state";
-// The launcher keeps its current touch target on compact screens and grows to
-// an exactly 20% larger desktop cap. `box-sizing` makes these OUTER sizes.
-const LAUNCHER_MIN_SIZE = 51.84;
+// The launcher tracks the viewport width: 34px on phone-width screens, rising
+// linearly to the desktop cap at 1440px. `box-sizing` makes these OUTER sizes.
+const LAUNCHER_MIN_SIZE = 34;
 const LAUNCHER_MAX_SIZE = 62.208;
 const DEFAULT_BUTTON_SIZE: Size = {
   width: LAUNCHER_MIN_SIZE,
@@ -8312,15 +8323,17 @@ export class WebInspectorElement extends LitElement {
     const service = this.getHomeFeaturePromptTarget("memory");
     if (!service || !this.core?.runtimeUrl) return;
     const request = ++this.learningSetupCopyRequest;
+    const runId = this.getOnboardingRunId();
     const copied = await this.copyFeaturePromptToClipboard(
       service,
       event,
-      this.getOnboardingRunId(),
+      runId,
     );
     if (request !== this.learningSetupCopyRequest) return;
     if (!this.core.telemetryDisabled) {
       trackLearningSetupPromptClicked({
         outcome: copied ? "success" : "failure",
+        onboarding_run_id: runId,
       });
     }
     if (!copied) {
@@ -9588,7 +9601,7 @@ export class WebInspectorElement extends LitElement {
            is the button's sibling, can clear the mark by the same length. */
         --cpk-launcher-size: clamp(
           ${LAUNCHER_MIN_SIZE}px,
-          7vw,
+          calc(22px + 2.8vw),
           ${LAUNCHER_MAX_SIZE}px
         );
       }
@@ -12794,7 +12807,9 @@ export class WebInspectorElement extends LitElement {
     const sidebarBounds = sidebar.getBoundingClientRect();
     this.sidebarRailTooltip = {
       label,
-      top: targetBounds.top - sidebarBounds.top + targetBounds.height / 2,
+      top:
+        (targetBounds.top - sidebarBounds.top + targetBounds.height / 2) /
+        this.getWindowScale(),
     };
     this.requestUpdate();
   };
@@ -14268,6 +14283,7 @@ export class WebInspectorElement extends LitElement {
     const isTransitioning = this.hasAttribute("data-transitioning");
     const disableDrag = isDocked || isPoppedOut;
 
+    const scale = this.getWindowScale();
     const windowStyles = isPoppedOut
       ? {
           position: "fixed",
@@ -14282,11 +14298,13 @@ export class WebInspectorElement extends LitElement {
       : isDocked
         ? { ...this.getDockedWindowStyles(), overflowX: "hidden" }
         : {
-            width: `${Math.round(windowState.size.width)}px`,
-            height: `${Math.round(windowState.size.height)}px`,
-            minWidth: `${MIN_WINDOW_WIDTH}px`,
-            minHeight: `${MIN_WINDOW_HEIGHT}px`,
+            // `size` is the on-screen size; zoom scales the layout box up to it.
+            width: `${Math.round(windowState.size.width / scale)}px`,
+            height: `${Math.round(windowState.size.height / scale)}px`,
+            minWidth: viewportCappedMin(MIN_WINDOW_WIDTH, "vw"),
+            minHeight: viewportCappedMin(MIN_WINDOW_HEIGHT, "vh"),
             overflowX: "hidden",
+            ...(scale < 1 ? { zoom: String(scale) } : {}),
           };
 
     const hasContextDropdown = this.contextOptions.some(
@@ -14299,7 +14317,7 @@ export class WebInspectorElement extends LitElement {
         : window.innerWidth;
     const automaticallyCollapsed = shouldUseIconRail({
       dockedLeft: this.dockMode === "docked-left",
-      width: viewportWidth,
+      width: viewportWidth / scale,
     });
     const iconRail = this.sidebarCollapsed || automaticallyCollapsed;
     const contextDropdown = hasContextDropdown
@@ -14942,9 +14960,12 @@ export class WebInspectorElement extends LitElement {
     const inspectorWindow =
       this.shadowRoot?.querySelector<HTMLElement>(".inspector-window");
     if (inspectorWindow) {
-      const width = Math.round(Number.parseFloat(inspectorWindow.style.width));
+      const scale = this.getWindowScale();
+      const width = Math.round(
+        Number.parseFloat(inspectorWindow.style.width) * scale,
+      );
       const height = Math.round(
-        Number.parseFloat(inspectorWindow.style.height),
+        Number.parseFloat(inspectorWindow.style.height) * scale,
       );
       if (Number.isFinite(width) && Number.isFinite(height)) {
         return { width, height };
@@ -15304,6 +15325,28 @@ export class WebInspectorElement extends LitElement {
     }
 
     return { width: window.innerWidth, height: window.innerHeight };
+  }
+
+  /**
+   * Zoom for the floating window: 1 while the viewport holds the default
+   * window, then proportional to the screen down to MIN_WINDOW_SCALE, so a
+   * small screen gets the same layout smaller rather than a cramped one.
+   */
+  private getWindowScale(): number {
+    if (
+      typeof window === "undefined" ||
+      this.isPoppedOut ||
+      this.dockMode !== "floating"
+    ) {
+      return 1;
+    }
+    const fit = Math.min(
+      window.innerWidth / (DEFAULT_WINDOW_SIZE.width + EDGE_MARGIN * 2),
+      window.innerHeight / (DEFAULT_WINDOW_SIZE.height + EDGE_MARGIN * 2),
+    );
+    // Whole 5% steps, so a viewport a few pixels short of the default window
+    // keeps the full-size window rather than a 0.99 zoom.
+    return Math.min(1, Math.max(MIN_WINDOW_SCALE, Math.round(fit * 20) / 20));
   }
 
   private persistState(): void {
@@ -15827,7 +15870,7 @@ export class WebInspectorElement extends LitElement {
         bottom: "0",
         width: `${Math.round(this.contextState.window.size.width)}px`,
         height: "auto",
-        minWidth: `${MIN_WINDOW_WIDTH_DOCKED_LEFT}px`,
+        minWidth: viewportCappedMin(MIN_WINDOW_WIDTH_DOCKED_LEFT, "vw"),
         borderRadius: "0",
       };
     }
@@ -15835,8 +15878,8 @@ export class WebInspectorElement extends LitElement {
     return {
       width: `${Math.round(this.contextState.window.size.width)}px`,
       height: `${Math.round(this.contextState.window.size.height)}px`,
-      minWidth: `${MIN_WINDOW_WIDTH}px`,
-      minHeight: `${MIN_WINDOW_HEIGHT}px`,
+      minWidth: viewportCappedMin(MIN_WINDOW_WIDTH, "vw"),
+      minHeight: viewportCappedMin(MIN_WINDOW_HEIGHT, "vh"),
     };
   }
 
@@ -19042,7 +19085,7 @@ export class WebInspectorElement extends LitElement {
           <div
             style="display:${this.threadListCollapsed ? "none" : "flex"};width:${
               this.threadListWidth
-            }px;flex-shrink:0;overflow:hidden;flex-direction:column;border-right:1px solid #DBDBE5;"
+            }px;max-width:calc(100% - 160px);flex-shrink:0;overflow:hidden;flex-direction:column;border-right:1px solid #DBDBE5;"
           >
         ${
           ephemeral

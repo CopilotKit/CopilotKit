@@ -111,6 +111,43 @@ describe("thread handlers", () => {
     expect(intelligence.listThreads).not.toHaveBeenCalled();
   });
 
+  // backend/runtime-endpoints documents agentId as required with Intelligence.
+  it("returns 400 when the thread list request has no agentId", async () => {
+    const intelligence = {
+      listThreads: vi.fn(),
+    };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleListThreads({
+      runtime,
+      request: new Request("https://example.com/threads"),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Valid agentId query param is required",
+    });
+    expect(intelligence.listThreads).not.toHaveBeenCalled();
+  });
+
+  it("lists every local thread when the request has no agentId", async () => {
+    const runtime = new CopilotRuntime({
+      agents: {},
+      runner: new InMemoryAgentRunner(),
+    });
+
+    const response = await handleListThreads({
+      runtime,
+      request: new Request("https://example.com/threads"),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      threads: [],
+      nextCursor: null,
+    });
+  });
+
   it("returns 400 when identifyUser returns an invalid name for thread list", async () => {
     const intelligence = {
       listThreads: vi.fn(),

@@ -94,12 +94,14 @@ this app pins `packageManager: pnpm@10.10.0`).
 `agent/uv.lock` pins the matching Python canaries for the same reason — see the
 note in `agent/pyproject.toml` for what silently breaks without them.
 
-**`pnpm dev` alone is not enough for `banking`.** Seven of the eight skins run
+**`pnpm dev` alone is not enough for `banking` or `myelin`.** Seven of the nine skins run
 their agent in-process, so `OPENAI_API_KEY` plus an SSE runtime is all they need.
 Banking's agent is a Python LangChain deep agent in `agent/`, reached over AG-UI
 as an ordinary `HttpAgent` on :8124 (`src/skins/banking/agent.ts` explains why the
 whole agent moved out of process). Without it the app still boots and the
 dashboard still renders — only sending a message to the DEFAULT skin fails.
+`myelin`'s agent is out of process the same way: a Google ADK agent in
+`agent-myelin/`, reached over AG-UI on :8125 (see `agent-myelin/README.md`).
 
 For the self-hosted memory path, `./run-demo.sh` starts everything in one command
 (embedder, Intelligence stack, the agent, the dev server) and is safe to re-run;
@@ -126,7 +128,7 @@ under `/<id>` exactly as before.
 `src/lib/locked-skin.ts` validates the value against `skinIds` from
 `src/shell/skins-config.ts`, so the supported set is exactly the registered set —
 currently `banking`, `airline`, `logistics`, `keel`, `people`, `commerce`,
-`bookstore`, `exec`, and automatically any skin added later.
+`bookstore`, `exec`, `myelin`, and automatically any skin added later.
 
 Use it for a URL that goes to one prospect, one booth, or one pilot, so the app
 reads as a product rather than as a multi-tenant demo harness. An unrecognised id
