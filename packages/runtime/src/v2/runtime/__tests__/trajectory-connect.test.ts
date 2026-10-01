@@ -177,7 +177,6 @@ describe.each(["single-route", "multi-route"] as const)(
     });
 
     it.each([
-      [401, "AUTH_UNAUTHENTICATED"],
       [400, "VALIDATION_ERROR"],
       [409, "TRAJECTORY_APP_USER_CONFLICT"],
       [404, "LEARNING_CONTAINER_NOT_FOUND"],
@@ -215,8 +214,36 @@ describe.each(["single-route", "multi-route"] as const)(
     );
 
     it.each([
+      [401, "AUTH_UNAUTHENTICATED", { apiKey }],
+      [404, "API_KEY_NOT_FOUND", apiKey],
+      [404, "ORG_NOT_FOUND", "x".repeat(513)],
+      [404, "PROJECT_NOT_FOUND", "Private Runtime configuration detail"],
+    ])(
+      "redacts upstream Runtime configuration error %s %s",
+      async (status, code, message) => {
+        const { app, upstream } = setup(mode);
+        upstream.mockResolvedValue(
+          Response.json(
+            {
+              error: { code, message },
+              requestId: "private-request-id",
+            },
+            { status: Number(status) },
+          ),
+        );
+        const response = await app.fetch(connectRequest(mode));
+        expect(response.status).toBe(502);
+        expect(response.headers.get("Cache-Control")).toBe("no-store");
+        expect(await response.json()).toEqual({
+          code: "CONNECTION_FAILED",
+          message: "Could not connect to Intelligence",
+        });
+      },
+    );
+
+    it.each([
       { error: `Database failed with ${apiKey}` },
-      { error: { code: "AUTH_UNAUTHENTICATED", message: apiKey } },
+      { error: { code: "VALIDATION_ERROR", message: apiKey } },
       { error: { code: "UNRECOGNIZED", message: "internal error" } },
     ])("does not forward a non-public backend error (%j)", async (error) => {
       const { app, upstream } = setup(mode);

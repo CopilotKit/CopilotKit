@@ -36,16 +36,23 @@ const grantSchema = z.object({
   }),
 });
 
-const contractErrorSchema = z.object({
+const runtimeConfigurationErrorSchema = z.object({
   error: z.object({
     code: z.enum([
       "AUTH_UNAUTHENTICATED",
-      "VALIDATION_ERROR",
-      "TRAJECTORY_APP_USER_CONFLICT",
-      "LEARNING_CONTAINER_NOT_FOUND",
       "API_KEY_NOT_FOUND",
       "ORG_NOT_FOUND",
       "PROJECT_NOT_FOUND",
+    ]),
+  }),
+});
+
+const contractErrorSchema = z.object({
+  error: z.object({
+    code: z.enum([
+      "VALIDATION_ERROR",
+      "TRAJECTORY_APP_USER_CONFLICT",
+      "LEARNING_CONTAINER_NOT_FOUND",
       "RATE_LIMIT_EXCEEDED",
       "INTERNAL_SERVER_ERROR",
       "MARKETPLACE_LICENSE_REQUIRED",
@@ -101,6 +108,15 @@ export function trajectoryResponseError(
   status: number,
   apiKey: string,
 ): TrajectoryConnectionError {
+  // These failures describe the Runtime's server credentials or tenant setup,
+  // not the browser user's identity. Do not expose them as a client auth error.
+  if (runtimeConfigurationErrorSchema.safeParse(value).success) {
+    return new TrajectoryConnectionError(
+      "CONNECTION_FAILED",
+      "Could not connect to Intelligence",
+      502,
+    );
+  }
   const result = contractErrorSchema.safeParse(value);
   if (result.success && !result.data.error.message.includes(apiKey)) {
     return new TrajectoryConnectionError(
