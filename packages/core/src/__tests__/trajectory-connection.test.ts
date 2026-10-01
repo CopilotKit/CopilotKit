@@ -135,7 +135,12 @@ function makeCore(overrides: Partial<CopilotKitCoreConfig> = {}) {
     credentials: "include",
     learning: {
       routes: ["/products/:id"],
-      capture: { clicks: false, navigation: false },
+      capture: {
+        clicks: false,
+        navigation: false,
+        inputs: false,
+        network: false,
+      },
       onError,
     },
     ...overrides,
@@ -191,6 +196,7 @@ beforeEach(() => {
     new URL("https://app.invalid/products/alice?private=secret"),
   );
   vi.stubGlobal("navigator", { onLine: true });
+  vi.stubGlobal("document", { title: "Synthetic app", referrer: "" });
   vi.stubGlobal(
     "fetch",
     vi.fn((url: RequestInfo | URL, init?: RequestInit) => {
@@ -268,7 +274,13 @@ describe("Core trajectory connection", () => {
               type: "CUSTOM",
               name: "page",
               timestamp: expect.any(Number),
-              value: { route: "/products/:id", seq: 0 },
+              value: {
+                route: "/products/alice",
+                url: "https://app.invalid/products/alice?private=secret",
+                title: "Synthetic app",
+                referrer: "",
+                seq: 0,
+              },
             },
             {
               type: "CUSTOM",
@@ -288,13 +300,93 @@ describe("Core trajectory connection", () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
+  it("starts network capture after join and excludes SDK transport and explicit app URLs", async () => {
+    const originalFetch = fetch;
+    const core = makeCore({
+      learning: {
+        capture: { clicks: false, navigation: false, inputs: false },
+        ignoreUrls: ["https://private.invalid/"],
+        onError,
+      },
+    });
+    const pending = core.startTrajectory({ trajectoryId: "trajectory-1" });
+    expect(fetch).toBe(originalFetch);
+    await authorize();
+    expect(fetch).toBe(originalFetch);
+    const channel = join();
+    expect((await pending).status).toBe("started");
+    expect(fetch).not.toBe(originalFetch);
+    await vi.advanceTimersByTimeAsync(2_000);
+    persist(channel);
+
+    const sendRequest = async (url: string) => {
+      const promise = fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/plain",
+          Authorization: "visible-value",
+        },
+        body: "request-body",
+      });
+      const reply = new Response("response-body", {
+        headers: {
+          "Content-Type": "text/plain",
+          "X-App-Header": "visible-response",
+        },
+      });
+      const clone = vi.spyOn(reply, "clone");
+      requests.at(-1)!.response.resolve(reply);
+      expect(await promise).toBe(reply);
+      await flush();
+      return clone;
+    };
+    for (const url of [
+      "/api/copilotkit",
+      "/api/copilotkit/",
+      "https://telemetry.copilotkit.ai/events",
+      "https://cdn.copilotkit.ai/announcements",
+      "https://private.invalid/checkout",
+    ]) {
+      const clone = await sendRequest(url);
+      expect(clone).not.toHaveBeenCalled();
+    }
+
+    const url = "https://app.invalid/api/orders?customer=alice#confirmation";
+    const clone = await sendRequest(url);
+    expect(clone).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(2_000);
+    const events = channel.pushes.flatMap(({ payload }) => payload.events);
+    expect(events.map((event) => event.name)).toEqual(["page", "network"]);
+    expect(events[1]!.value).toMatchObject({
+      url,
+      route: "/api/orders",
+      method: "POST",
+      request: {
+        headers: { authorization: "visible-value" },
+        body: { status: "complete", text: "request-body" },
+      },
+      response: {
+        headers: { "x-app-header": "visible-response" },
+        body: { status: "complete", text: "response-body" },
+      },
+    });
+    expect(onError).not.toHaveBeenCalled();
+    persist(channel);
+    core.stopTrajectory();
+    expect(fetch).toBe(originalFetch);
+  });
+
   it.each([{}, { addEventListener: null, removeEventListener: false }])(
     "supports an RN-like window without browser connectivity listeners",
     async (nativeWindow) => {
       vi.stubGlobal("window", nativeWindow);
       const { core, channel } = await start();
       expect(core.trajectoryId).toBe("trajectory-1");
-      expect(names(channel)).toEqual(["page"]);
+      expect(names(channel)).toEqual([]);
+      core.emitTrajectoryEvent("app.native", { captured: true });
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(names(channel)).toEqual(["app.native"]);
+      persist(channel);
       expect(() => core.stopTrajectory()).not.toThrow();
       expect(core.trajectoryId).toBeNull();
       expect(channel.left).toBe(true);
@@ -605,7 +697,24 @@ describe("Core trajectory connection", () => {
     ["error", { reason: "invalid_batch" }, "INVALID_BATCH", 1],
     ["error", { reason: "batch_too_large" }, "BATCH_TOO_LARGE", 1],
     ["error", { reason: "batch_too_many_events" }, "BATCH_TOO_MANY_EVENTS", 1],
-    ["error", { reason: "storage_unavailable" }, "STORAGE_UNAVAILABLE", 1],
+    [
+      "error",
+      { reason: "trajectory_over_share", retryable: true },
+      "TRAJECTORY_OVER_SHARE",
+      1,
+    ],
+    [
+      "error",
+      { reason: "trajectory_outbox_full", retryable: true },
+      "TRAJECTORY_OUTBOX_FULL",
+      1,
+    ],
+    [
+      "error",
+      { reason: "storage_unavailable", retryable: true },
+      "PERSISTENCE_UNKNOWN",
+      0,
+    ],
     ["error", {}, "PERSISTENCE_UNKNOWN", 0],
     ["error", { reason: "unrecognized" }, "PERSISTENCE_UNKNOWN", 0],
     [
@@ -766,12 +875,15 @@ describe("Core trajectory connection", () => {
     core.emitTrajectoryEvent("app.tooLargeAgain", { text: "x".repeat(17000) });
     await vi.advanceTimersByTimeAsync(2_000);
     expect(channel.pushes[2]!.payload).toEqual({ events: [], dropped: 1 });
-    channel.pushes[2]!.push.reply("error", { reason: "storage_unavailable" });
+    channel.pushes[2]!.push.reply("error", {
+      reason: "storage_unavailable",
+      retryable: true,
+    });
     await vi.advanceTimersByTimeAsync(30_000);
     expect(channel.pushes).toHaveLength(3);
     core.emitTrajectoryEvent("app.next", {});
     await vi.advanceTimersByTimeAsync(2_000);
-    expect(channel.pushes[3]!.payload.dropped).toBe(1);
+    expect(channel.pushes[3]!.payload.dropped).toBe(0);
     persist(channel);
   });
 
@@ -820,22 +932,28 @@ describe("Core trajectory connection", () => {
     persist(channel);
   });
 
-  it("restores known dropped counters only after a confirmed whole-batch rollback", async () => {
-    const { core, channel } = await start();
-    core.emitTrajectoryEvent("app.tooLarge", { text: "x".repeat(17000) });
-    core.emitTrajectoryEvent("app.valid", {});
-    await vi.advanceTimersByTimeAsync(2_000);
-    expect(channel.pushes[1]!.payload.dropped).toBe(1);
-    channel.pushes[1]!.push.reply("error", { reason: "storage_unavailable" });
-    core.emitTrajectoryEvent("app.next", {});
-    await vi.advanceTimersByTimeAsync(2_000);
-    expect(channel.pushes[2]!.payload.dropped).toBe(2);
-    channel.pushes[2]!.push.reply("timeout");
-    core.emitTrajectoryEvent("app.afterUnknown", {});
-    await vi.advanceTimersByTimeAsync(2_000);
-    expect(channel.pushes[3]!.payload.dropped).toBe(0);
-    persist(channel);
-  });
+  it.each(["trajectory_over_share", "trajectory_outbox_full"])(
+    "restores known dropped counters after a confirmed %s rejection",
+    async (reason) => {
+      const { core, channel } = await start();
+      core.emitTrajectoryEvent("app.tooLarge", { text: "x".repeat(17000) });
+      core.emitTrajectoryEvent("app.valid", {});
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(channel.pushes[1]!.payload.dropped).toBe(1);
+      channel.pushes[1]!.push.reply("error", { reason, retryable: true });
+      core.emitTrajectoryEvent("app.next", {});
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(channel.pushes[2]!.payload.dropped).toBe(2);
+      channel.pushes[2]!.push.reply("error", {
+        reason: "storage_unavailable",
+        retryable: true,
+      });
+      core.emitTrajectoryEvent("app.afterUnknown", {});
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(channel.pushes[3]!.payload.dropped).toBe(0);
+      persist(channel);
+    },
+  );
 
   it("continues sequence numbers after stop/start while resetting losses for a new trajectory", async () => {
     const { core, channel } = await start();
@@ -875,7 +993,7 @@ describe("Core trajectory connection", () => {
     const core = makeCore({ learning: { onError } });
     const pending = core.startTrajectory();
     await authorize();
-    // Node fixture deliberately has no document/history for installing DOM hooks.
+    // Node fixture deliberately has no history for installing navigation hooks.
     join();
     expect(await pending).toEqual({ status: "error", code: "CAPTURE_FAILED" });
     expect(core.trajectoryId).toBeNull();

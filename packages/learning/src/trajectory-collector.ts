@@ -137,13 +137,10 @@ export function createTrajectoryCollector(
 
   return {
     start() {
-      if (
-        active ||
-        typeof window === "undefined" ||
-        typeof window.addEventListener !== "function"
-      )
-        return;
+      if (active || typeof window === "undefined") return;
       active = true;
+      // Native callers can emit developer events without browser observers.
+      if (typeof window.addEventListener !== "function") return;
       try {
         if (options.capture?.clicks !== false) {
           uninstalls.push(installClickCapture({ emit: capture, getRoute }));

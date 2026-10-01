@@ -397,6 +397,17 @@ export class TrajectoryConnection {
             session.retries = 0;
             session.collector = createTrajectoryCollector({
               ...session.config,
+              // Exclude SDK transport traffic so capture cannot record its own
+              // authorization calls or CopilotKit telemetry and announcements.
+              ignoreUrls: [
+                ...(session.config.ignoreUrls ?? []),
+                ...(this.core.runtimeUrl ? [this.core.runtimeUrl] : []),
+                ...(this.core.ɵruntimeEndpointUrl
+                  ? [this.core.ɵruntimeEndpointUrl]
+                  : []),
+                "https://telemetry.copilotkit.ai/",
+                "https://cdn.copilotkit.ai/",
+              ],
               onError: (error) => {
                 if (error.code === "CAPTURE_FAILED")
                   this.fail(session, connection, error.code, false);
@@ -552,7 +563,7 @@ export class TrajectoryConnection {
         finished = true;
         clearTimeout(pending.timer);
         connection.pending.delete(pending);
-        // A missing ACK may already have committed. Never count that uncertainty
+        // A missing ACK may already be accepted by Redis. Never count uncertainty
         // as a known drop, and never replay a batch or its dropped counter.
         if (knownRollback)
           this.addDropped(session, batch.events.length + batch.dropped, false);
@@ -598,9 +609,12 @@ export class TrajectoryConnection {
               "invalid_batch",
               "batch_too_large",
               "batch_too_many_events",
-              "storage_unavailable",
+              "trajectory_over_share",
+              "trajectory_outbox_full",
               "unsupported_event",
             ].includes(reason);
+          // storage_unavailable includes Redis timeouts after a possible write.
+          // retryable:true cannot make a repeated dropped counter idempotent.
           pending.finish(
             rollback ? (reason as string).toUpperCase() : "PERSISTENCE_UNKNOWN",
             rollback,
