@@ -240,7 +240,7 @@ routes exist in multi-route mode whichever runner you use:
 
 | Method & path | Purpose |
 |---|---|
-| `GET /api/copilotkit/threads` | List every thread the runtime holds. |
+| `GET /api/copilotkit/threads` | List threads. With Intelligence, the `agentId` query parameter is required. Without Intelligence, it is optional and filters the list. |
 | `GET /api/copilotkit/threads/:threadId/messages` | That thread's full message history. |
 | `GET /api/copilotkit/threads/:threadId/events` | That thread's compacted AG-UI event stream. |
 | `GET /api/copilotkit/threads/:threadId/state` | That thread's last state snapshot. |
@@ -248,6 +248,20 @@ routes exist in multi-route mode whichever runner you use:
 | `PATCH` or `DELETE /api/copilotkit/threads/:threadId` | Rename or delete a thread. Intelligence only. |
 | `POST /api/copilotkit/threads/:threadId/archive` | Archive a thread. Intelligence only. |
 | `POST /api/copilotkit/threads/subscribe` | Subscribe to thread changes. Intelligence only. |
+
+An Intelligence runtime answers `GET /threads` with `400` when the request has
+no `agentId`. Send the agent key you registered in `CopilotRuntime`. The
+request also has to carry the auth that your `identifyUser` reads, because the
+list holds only that user's threads:
+
+```bash
+curl -s "http://localhost:4000/api/copilotkit/threads?agentId=default"
+```
+
+The response is `{ "threads": [...], "nextCursor": ... }`. To page through it,
+pass `limit` and the `cursor` from the previous response. Add
+`includeArchived=true` to include archived threads. Those three parameters
+apply only with Intelligence.
 
 <Callout type="warn" title="Thread routes are not authorized for you">
 On the default `InMemoryAgentRunner` — and on anything extending it, such as
