@@ -180,7 +180,7 @@ function ResetPanel({ run, onDone }: { run: ResetRun; onDone: () => void }) {
         aria-modal="true"
         aria-labelledby="ledgerline-reset-title"
         data-testid="ledgerline-reset-panel"
-        className="w-full max-w-md overflow-hidden rounded-2xl border border-hairline bg-surface text-ink shadow-lift"
+        className="w-full max-w-md overflow-hidden rounded-[10px] border border-hairline bg-surface text-ink shadow-lift"
       >
         <div className="border-b border-hairline px-5 pb-3 pt-4">
           <h2

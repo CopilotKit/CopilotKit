@@ -117,6 +117,21 @@ export async function trackedFetch(
   }
 }
 
+/** A choice made in a control (a select), recorded like a click with its own label. */
+export function emitChoice(
+  action: string,
+  extra: Record<string, unknown> = {},
+): void {
+  emit("click", {
+    action,
+    role: "combobox",
+    tag: "select",
+    route: currentRoute,
+    threadId: linkedThreadId,
+    ...extra,
+  });
+}
+
 export function emitScreenContext(
   label: string,
   fields: Record<string, unknown>,

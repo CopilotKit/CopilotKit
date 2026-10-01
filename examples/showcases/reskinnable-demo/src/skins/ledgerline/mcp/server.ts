@@ -282,13 +282,26 @@ export function createLedgerlineMcpServer({
     inputSchema: { reportId: z.string() },
     readOnly: false,
   });
-  reg("allocateCostCenter", {
-    title: "Allocate a cost center",
+  reg("listCostCenters", {
+    title: "List cost centers",
+    description: "List Ledgerline's cost centers: id, name and owner.",
+    inputSchema: {},
+    readOnly: true,
+  });
+  reg("recodeLines", {
+    title: "Recode report lines",
     description:
-      "Move an expense report onto a different cost center (the budget it is charged to). This changes which team pays, so only do it when the user or a loaded learned skill names the cost center to use.",
+      "Recode expense report lines to other cost centers (the budgets they are charged to). Use the lineIds from getReport. This moves spend onto another team's budget, so only do it when the user or a loaded learned skill names which lines and which cost center.",
     inputSchema: {
       reportId: z.string(),
-      costCenterId: z.string().describe("Cost center id, e.g. CC-200."),
+      lines: z
+        .array(
+          z.object({
+            lineId: z.string(),
+            costCenterId: z.string().describe("Cost center id, e.g. CC-200."),
+          }),
+        )
+        .min(1),
     },
     readOnly: false,
   });

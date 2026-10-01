@@ -19,8 +19,19 @@ export function agentReport(r: ExpenseReport) {
     currency: "USD",
     status: r.status,
     costCenter: { id: r.costCenterId, name: cc?.name ?? r.costCenterId },
-    holds: r.holds.map((h) => ({ code: h.code, status: h.status })),
+    holds: r.holds.map((h) => ({
+      code: h.code,
+      status: h.status,
+      label: "allocation required",
+    })),
     lines: r.lines.map((l) => ({
+      lineId: l.id,
+      costCenter: {
+        id: l.costCenterId,
+        name:
+          COST_CENTERS.find((c) => c.id === l.costCenterId)?.name ??
+          l.costCenterId,
+      },
       date: l.date,
       merchant: l.merchant,
       description: l.description,
@@ -29,6 +40,31 @@ export function agentReport(r: ExpenseReport) {
     })),
     notes: r.notes.map((n) => ({ author: n.author, text: n.text })),
     reimbursement: r.reimbursement ?? null,
+  };
+}
+
+/** Cost centers as the agent sees them: id, name and owner. No budget types. */
+export function agentCostCenters() {
+  return {
+    costCenters: COST_CENTERS.map((c) => ({
+      id: c.id,
+      name: c.name,
+      owner: c.owner,
+    })),
+  };
+}
+
+/** A recode as the agent sees it: the new coding and whether the hold is still open. Never why. */
+export function agentRecode(r: ExpenseReport) {
+  const v = agentReport(r);
+  return {
+    id: v.id,
+    lines: v.lines.map((l) => ({
+      lineId: l.lineId,
+      description: l.description,
+      costCenter: l.costCenter,
+    })),
+    holds: v.holds,
   };
 }
 
@@ -68,6 +104,6 @@ export function holdRefusal(reportId: string, code: string) {
     error: "POLICY_HOLD",
     code,
     reportId,
-    message: `${reportId} cannot be approved while policy hold ${code} is open.`,
+    message: `${reportId} cannot be approved: policy hold ${code} (allocation required) is open.`,
   };
 }

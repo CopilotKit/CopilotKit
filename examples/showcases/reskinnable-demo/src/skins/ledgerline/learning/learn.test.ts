@@ -15,7 +15,7 @@ const ev = (name: string, value: Record<string, unknown>): CustomEvent => ({
 });
 
 const PANEL =
-  "Team events over $2,500 must be allocated to an events cost center before approval";
+  "Team events over $2,500 must be coded to the cost center that owns the events budget.";
 
 function capture(): TrajectoryDetail {
   store.ingest([ev("thread.linked", { threadId: "thr_a", surface: "in_app" })]);
@@ -47,36 +47,93 @@ function capture(): TrajectoryDetail {
     text: "I could not approve it.",
     at: 30,
   });
+  const recode = (to: string, toName: string) =>
+    ev("expense.lines_recoded", {
+      reportId: "EXP-2291",
+      employee: "Priya Raman",
+      changes: [
+        {
+          lineId: "L2291-1",
+          description: "Venue hire, two days",
+          amount: 2400,
+          from: "CC-200",
+          to,
+          toName,
+        },
+        {
+          lineId: "L2291-2",
+          description: "Catering for 18",
+          amount: 1560,
+          from: "CC-200",
+          to,
+          toName,
+        },
+      ],
+      unchanged: [
+        {
+          lineId: "L2291-3",
+          description: "Group transport",
+          costCenter: "CC-200",
+        },
+        {
+          lineId: "L2291-4",
+          description: "Workshop supplies",
+          costCenter: "CC-200",
+        },
+      ],
+    });
   store.ingest([
     ev("screen.context", {
-      label: `Policy panel: ${PANEL}`,
+      label: "Policy: POL-114 · Allocation required",
       fields: {
+        panel: "Policy",
         reportId: "EXP-2291",
         employee: "Priya Raman",
         holdCode: "POL-114",
-        text: PANEL,
+        status: "Allocation required",
         category: "Team event",
         total: 4860,
-        threshold: 2500,
       },
     }),
     ev("click", {
-      action: "Allocate cost center",
-      role: "button",
-      tag: "button",
+      action: "View policy",
+      role: "link",
+      tag: "a",
       route: "/reports/[id]",
+    }),
+    ev("screen.context", {
+      label: `Policy POL-114: ${PANEL}`,
+      fields: { policyId: "POL-114", text: PANEL },
+    }),
+    ev("screen.context", {
+      label: "Cost centers: CC-410 Events & Offsites owns the events budget",
+      fields: {
+        view: "cost-centers",
+        budgetTypes: [
+          { id: "CC-410", budgetType: "events" },
+          { id: "CC-430", budgetType: "marketing" },
+        ],
+      },
     }),
     ev("click", {
-      action: "Cost center: CC-410 Events & Offsites",
-      role: "option",
+      action: "Edit coding",
+      role: "menuitem",
       tag: "button",
       route: "/reports/[id]",
     }),
-    ev("expense.cost_center_allocated", {
+    // The wrong attempt first: the decoy cost center does not clear the hold.
+    recode("CC-430", "Customer Events"),
+    ev("expense.policy_rechecked", {
       reportId: "EXP-2291",
-      employee: "Priya Raman",
-      costCenter: "CC-410",
-      costCenterName: "Events & Offsites",
+      code: "POL-114",
+      status: "open",
+      reason: "a marketing budget",
+    }),
+    recode("CC-410", "Events & Offsites"),
+    ev("expense.policy_rechecked", {
+      reportId: "EXP-2291",
+      code: "POL-114",
+      status: "resolved",
     }),
     ev("expense.report_approved", { reportId: "EXP-2291", by: "user" }),
     ev("expense.reimbursed", { reportId: "EXP-2291", by: "user" }),
@@ -96,7 +153,7 @@ describe("the deterministic learn fallback", () => {
     const real = new Set(d.events.map((e) => e.eventId));
     const [insight] = out.insights;
     expect(insight!.title).toBe(
-      "Team-event reports over $2,500 need an events cost center before approval",
+      "Team-event reports over $2,500 need their event lines on the events-budget cost center",
     );
     expect(insight!.evidence[0]!.eventIds.length).toBeGreaterThanOrEqual(4);
     expect(insight!.evidence[0]!.eventIds.every((id) => real.has(id))).toBe(
@@ -111,7 +168,16 @@ describe("the deterministic learn fallback", () => {
       status: "candidate",
       revision: 1,
     });
-    expect(skill!.skillMd).toMatch(/allocateCostCenter[^\n]*CC-410/);
+    expect(skill!.skillMd).toMatch(
+      /recodeLines[^\n]*venue hire and catering for 18[^\n]*CC-410/,
+    );
+    expect(skill!.skillMd).toMatch(
+      /Leave the other lines \(group transport and workshop supplies\)/,
+    );
+    expect(skill!.skillMd).not.toContain("CC-430");
+    expect(insight!.summary).toMatch(
+      /after 1 recode that did not clear the hold/,
+    );
     expect(skill!.skillMd).toContain("approveReport");
     expect(skill!.skillMd).toContain(d.trajectory.trajectoryId);
 
@@ -150,7 +216,8 @@ describe("the deterministic learn fallback", () => {
       format: "jsonl",
       examples: 3,
     });
-    expect(JSON.stringify(p.sample[0])).toContain("allocateCostCenter");
+    expect(JSON.stringify(p.sample[0])).toContain("recodeLines");
+    expect(JSON.stringify(p.sample[0])).toContain("L2291-1");
   });
 
   it("can publish the skill even when approve arrives before any capture", async () => {

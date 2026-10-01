@@ -14,7 +14,7 @@ import { traceRunInput, traceRunOutput } from "./learning/agent-trace";
  * The prompt is written so the POL-114 failure is honest: the agent works the
  * problem with the tools it has (re-read, search policy, add a note, retry),
  * then says plainly that it could not clear the hold. What clears it (an
- * events cost center, CC-410) appears nowhere in this prompt; it reaches the
+ * recoding the event lines to the events-budget cost center, CC-410) appears nowhere in this prompt; it reaches the
  * agent only through a published learned skill.
  */
 const PROMPT = `
@@ -37,7 +37,7 @@ person and the amount in bold.
 ONE CONFIRMATION FOR APPROVE AND REIMBURSE.
 When the user asked to approve AND reimburse a report that has NO open policy
 hold (including a hold a learned skill just cleared), call approveAndReimburse
-instead of approveReport then reimburseReport: its card shows the cost center
+instead of approveReport then reimburseReport: its card shows the coding
 and the payment, and the user confirms both at once. It counts as a learned
 skill's approve and reimburse steps. When its result comes back, say in one
 sentence what was approved and paid. When the report still has an open hold,
@@ -56,8 +56,9 @@ Your context lists the learned skills published for Ledgerline. When a refusal
 or the report in front of you matches a listed skill's description, call
 loadLearnedSkill with its name and follow the steps it returns exactly, without
 asking permission. Say in one short sentence that you are using the learned
-skill, naming it in bold. A learned skill may tell you which cost center to use;
-when it does, that is your instruction to call allocateCostCenter.
+skill, naming it in bold. A learned skill may tell you which lines to recode
+and to which cost center; when it does, that is your instruction to call
+recodeLines with exactly those lines.
 
 WHEN APPROVAL IS BLOCKED AND NO LEARNED SKILL MATCHES.
 Work the problem the way a careful approver would, one tool call at a time, and
@@ -76,9 +77,9 @@ report in Ledgerline. Do not reimburse a report that is not approved. Never
 claim success you did not get.
 
 COST CENTERS.
-Never change a report's cost center allocation on your own judgement:
-allocation moves spend onto another team's budget. Call allocateCostCenter only
-when the user, or a learned skill you loaded, names the cost center to use.
+Never recode a report's lines on your own judgement: coding moves spend onto
+another team's budget. Call recodeLines only when the user, or a learned skill
+you loaded, names the lines and the cost center to use.
 
 PROSE STYLE.
 Short answers. Bold the report id, the person and the amount. No headings, no

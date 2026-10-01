@@ -8,6 +8,7 @@ const STATUS: Record<string, number> = {
   NOT_SUBMITTED: 409,
   NOT_APPROVED: 409,
   UNKNOWN_COST_CENTER: 422,
+  LOCKED: 409,
   INVALID_NOTE: 422,
   BAD_REQUEST: 400,
 };

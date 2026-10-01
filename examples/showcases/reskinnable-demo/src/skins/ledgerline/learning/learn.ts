@@ -32,19 +32,28 @@ export interface Facts {
   employee: string;
   userName: string;
   holdCode: string;
+  /** The policy rule as the user read it on the policy page. */
   holdText: string;
   category: string;
   threshold: number;
   costCenterId: string;
   costCenterName: string;
+  /** The lines the user recoded to the events budget, and the ones left alone. */
+  recoded: { lineId: string; description: string; from?: string }[];
+  kept: { lineId: string; description: string; costCenter?: string }[];
+  /** Recode attempts that did NOT clear the hold, before the one that did. */
+  wrongAttempts: number;
   failedAttempts: number;
   threadCount: number;
   surfaces: string[];
   /** The events that carry the lesson, in order. */
   evidence: {
     panel?: CapturedEvent;
-    allocateClick?: CapturedEvent;
-    allocated?: CapturedEvent;
+    policyView?: CapturedEvent;
+    costCentersView?: CapturedEvent;
+    editCodingClick?: CapturedEvent;
+    recoded?: CapturedEvent;
+    rechecked?: CapturedEvent;
     approved?: CapturedEvent;
     reimbursed?: CapturedEvent;
   };
@@ -62,40 +71,73 @@ const str = (v: unknown, d = "") => (typeof v === "string" && v ? v : d);
 const fields = (e?: CapturedEvent) =>
   (e?.event.value.fields as Record<string, unknown> | undefined) ?? {};
 
+type Change = {
+  lineId?: string;
+  description?: string;
+  from?: string;
+  to?: string;
+  toName?: string;
+};
+
 /** Read the lesson's facts off the captured events. Throws when the trajectory holds no completed fix. */
 export function extractFacts(d: TrajectoryDetail): Facts {
   const ev = d.events;
   const byName = (name: string) => ev.filter((e) => e.event.name === name);
-  const panel = byName("screen.context").find(
-    (e) => fields(e).holdCode || /policy/i.test(str(e.event.value.label)),
-  );
-  const allocated = [...byName("expense.cost_center_allocated")].pop();
-  if (!allocated) {
+  const rechecks = byName("expense.policy_rechecked");
+  const rechecked = rechecks.find((e) => e.event.value.status === "resolved");
+  const recoded = rechecked
+    ? [...byName("expense.lines_recoded")]
+        .filter((e) => e.position < rechecked.position)
+        .pop()
+    : undefined;
+  if (!rechecked || !recoded) {
     throw new Error(
-      "NO_FIX_CAPTURED: this trajectory has no cost center allocation to learn from. Complete the report by hand in Ledgerline first.",
+      "NO_FIX_CAPTURED: this trajectory has no recode that cleared the hold. Complete the report by hand in Ledgerline first.",
     );
   }
-  const allocateClick = [...ev]
+  const before = (e: CapturedEvent) => e.position < recoded.position;
+  const contexts = byName("screen.context");
+  const panel = contexts.find((e) => fields(e).panel === "Policy");
+  const policyView =
+    [...contexts].filter((e) => fields(e).policyId && before(e)).pop() ??
+    contexts.find((e) => fields(e).policyId);
+  const costCentersView =
+    [...contexts]
+      .filter((e) => fields(e).view === "cost-centers" && before(e))
+      .pop() ?? contexts.find((e) => fields(e).view === "cost-centers");
+  const editCodingClick = [...ev]
     .filter(
       (e) =>
         e.event.name === "click" &&
-        /allocate/i.test(str(e.event.value.action)) &&
-        e.position < allocated.position,
+        /edit coding/i.test(str(e.event.value.action)) &&
+        before(e),
     )
     .pop();
   const approved = byName("expense.report_approved").find(
-    (e) => e.position > allocated.position,
+    (e) => e.position > rechecked.position,
   );
   const reimbursed = byName("expense.reimbursed").find(
-    (e) => e.position > allocated.position,
+    (e) => e.position > rechecked.position,
   );
+  const rv = recoded.event.value;
+  const changes = (Array.isArray(rv.changes) ? rv.changes : []) as Change[];
+  const target = changes.find((c) => c.to)?.to ?? "CC-410";
+  const targetName =
+    changes.find((c) => c.to === target)?.toName ?? "Events & Offsites";
+  const kept = (Array.isArray(rv.unchanged) ? rv.unchanged : []) as {
+    lineId: string;
+    description: string;
+    costCenter?: string;
+  }[];
   const pf = fields(panel);
-  const av = allocated.event.value;
+  const policyFields = fields(policyView);
   const failedAttempts = d.threads.reduce(
     (n, t) =>
       n +
       t.agentTrace.filter(
-        (x) => x.name === "approveReport" && x.status === "error",
+        (x) =>
+          (x.name === "approveReport" || x.name === "approveAndReimburse") &&
+          x.status === "error",
       ).length,
     0,
   );
@@ -105,19 +147,42 @@ export function extractFacts(d: TrajectoryDetail): Facts {
     .find((c) => typeof c === "string") as string | undefined;
   return {
     trajectoryId: d.trajectory.trajectoryId,
-    reportId: str(av.reportId, str(pf.reportId, "the report")),
-    employee: str(av.employee, str(pf.employee, "the submitter")),
+    reportId: str(rv.reportId, str(pf.reportId, "the report")),
+    employee: str(rv.employee, str(pf.employee, "the submitter")),
     userName: d.trajectory.user.name,
-    holdCode: str(pf.holdCode, traceCode ?? "POL-114"),
-    holdText: str(pf.text, str(panel?.event.value.label)),
+    holdCode: str(
+      pf.holdCode,
+      str(policyFields.policyId, traceCode ?? "POL-114"),
+    ),
+    holdText: str(policyFields.text, str(policyView?.event.value.label)),
     category: str(pf.category, "Team event"),
     threshold: typeof pf.threshold === "number" ? pf.threshold : 2500,
-    costCenterId: str(av.costCenter, "CC-410"),
-    costCenterName: str(av.costCenterName, "Events & Offsites"),
+    costCenterId: target,
+    costCenterName: targetName,
+    recoded: changes
+      .filter((c) => c.to === target)
+      .map((c) => ({
+        lineId: str(c.lineId),
+        description: str(c.description),
+        from: c.from,
+      })),
+    kept,
+    wrongAttempts: rechecks.filter(
+      (e) => e.event.value.status === "open" && e.position < rechecked.position,
+    ).length,
     failedAttempts,
     threadCount: d.threads.length,
     surfaces: d.trajectory.surfaces,
-    evidence: { panel, allocateClick, allocated, approved, reimbursed },
+    evidence: {
+      panel,
+      policyView,
+      costCentersView,
+      editCodingClick,
+      recoded,
+      rechecked,
+      approved,
+      reimbursed,
+    },
   };
 }
 
@@ -125,6 +190,11 @@ const ids = (...es: (CapturedEvent | undefined)[]) =>
   es.filter((e): e is CapturedEvent => !!e).map((e) => e.eventId);
 
 const money = (n: number) => `$${n.toLocaleString("en-US")}`;
+
+const lineList = (ls: { description: string }[]) =>
+  ls
+    .map((l) => l.description.split(",")[0]!.trim().toLowerCase())
+    .join(" and ") || "the event lines";
 
 export function buildSkillMd(
   f: Facts,
@@ -136,8 +206,10 @@ export function buildSkillMd(
   },
 ): string {
   const cite = ids(
-    f.evidence.panel,
-    f.evidence.allocated,
+    f.evidence.policyView,
+    f.evidence.costCentersView,
+    f.evidence.recoded,
+    f.evidence.rechecked,
     f.evidence.approved,
     f.evidence.reimbursed,
   );
@@ -159,25 +231,26 @@ export function buildSkillMd(
     ...parts.guardrails.map((g) => `- ${g}`),
     "",
     "## Learned from",
-    `Product trajectory ${f.trajectoryId}${cite.length ? ` (events ${cite.join(", ")})` : ""}: ${f.failedAttempts} refused approval attempt${f.failedAttempts === 1 ? "" : "s"} by the agent across ${f.threadCount} Thread${f.threadCount === 1 ? "" : "s"}, then the user completed it by hand.`,
+    `Product trajectory ${f.trajectoryId}${cite.length ? ` (events ${cite.join(", ")})` : ""}: ${f.failedAttempts} refused approval attempt${f.failedAttempts === 1 ? "" : "s"} by the agent across ${f.threadCount} Thread${f.threadCount === 1 ? "" : "s"}, then the user read the policy, found the events-budget cost center and recoded the event lines by hand.`,
     "",
   ].join("\n");
 }
 
 function fallbackParts(f: Facts) {
+  const ev = lineList(f.recoded);
   return {
-    description: `Use when approving an expense report blocked by POLICY_HOLD ${f.holdCode}: a ${f.category} report over ${money(f.threshold)} that is still charged to a department cost center.`,
-    whenToUse: `approveReport returns POLICY_HOLD ${f.holdCode}, or you are about to approve a ${f.category} report whose total is over ${money(f.threshold)}. The rule behind the hold is shown in the report's Policy panel: "${f.holdText || `${f.category} reports over ${money(f.threshold)} need an events cost center`}".`,
+    description: `Use when approving an expense report blocked by POLICY_HOLD ${f.holdCode} (allocation required): a ${f.category} report over ${money(f.threshold)} whose event lines are still coded to a department cost center.`,
+    whenToUse: `approveReport returns POLICY_HOLD ${f.holdCode}, or you are about to approve a ${f.category} report over ${money(f.threshold)}. The policy says: "${f.holdText || `Team events over ${money(f.threshold)} must be coded to the cost center that owns the events budget`}". The cost center that owns the events budget is ${f.costCenterId} ${f.costCenterName}.`,
     steps: [
-      `Call getReport to confirm the category is "${f.category}", the total is over ${money(f.threshold)} and hold ${f.holdCode} is open.`,
-      `Call allocateCostCenter with the report id and "${f.costCenterId}" (${f.costCenterName}), the events cost center the policy requires.`,
+      `Call getReport to confirm the category is "${f.category}", the total is over ${money(f.threshold)} and hold ${f.holdCode} is open, and to read the lineIds.`,
+      `Call recodeLines to recode only the event lines (the ${ev}) to "${f.costCenterId}" (${f.costCenterName}), the events-budget cost center. Leave the other lines (${lineList(f.kept)}) on their current cost center.`,
       "Approve it: approveAndReimburse when the user also asked for reimbursement (one confirmation card), otherwise approveReport. Approval succeeds once the hold resolves.",
       "If you used approveReport and the user asked for reimbursement, call reimburseReport.",
-      `Confirm in one sentence: the report, the amount, and that it was moved to ${f.costCenterId} ${f.costCenterName} before approval.`,
+      `Confirm in one sentence: the report, the amount, and which lines moved to ${f.costCenterId} ${f.costCenterName}.`,
     ],
     guardrails: [
-      `Only reallocate ${f.category} reports over ${money(f.threshold)} held by ${f.holdCode}. Never move other spend to ${f.costCenterId}.`,
-      "Do not add notes or retry approval as a workaround for this hold; allocation is what clears it.",
+      `Recode only event spend (venue, catering) to ${f.costCenterId}. Recoding every line, or using another cost center, does not clear ${f.holdCode}.`,
+      "Do not add notes or retry approval as a workaround for this hold; the line coding is what clears it.",
     ],
   };
 }
@@ -185,24 +258,26 @@ function fallbackParts(f: Facts) {
 function fallbackInsight(f: Facts, now: number): Insight {
   return {
     id: "ins_01",
-    title: `${f.category.replace(/\s+/g, "-")} reports over ${money(f.threshold)} need an events cost center before approval`,
+    title: `${f.category.replace(/\s+/g, "-")} reports over ${money(f.threshold)} need their event lines on the events-budget cost center`,
     summary:
-      `The agent tried to approve ${f.reportId} ${f.failedAttempts} time${f.failedAttempts === 1 ? "" : "s"} across ${f.threadCount} Thread${f.threadCount === 1 ? "" : "s"} and stopped at POLICY_HOLD ${f.holdCode}. ` +
-      `${f.userName} then cleared it by hand: read the report's Policy panel, allocated the report to ${f.costCenterId} ${f.costCenterName}, approved it and reimbursed it. ` +
-      "The rule was on screen and never in the agent's context.",
+      `The agent tried to approve ${f.reportId} ${f.failedAttempts} time${f.failedAttempts === 1 ? "" : "s"} across ${f.threadCount} Thread${f.threadCount === 1 ? "" : "s"} and stopped at POLICY_HOLD ${f.holdCode} (allocation required). ` +
+      `${f.userName} worked it out by hand: opened the policy, found on the Cost centers page that ${f.costCenterId} ${f.costCenterName} owns the events budget, and recoded only the ${lineList(f.recoded)} lines to it${f.wrongAttempts ? ` (after ${f.wrongAttempts} recode${f.wrongAttempts === 1 ? "" : "s"} that did not clear the hold)` : ""}, then approved and reimbursed. ` +
+      "Neither the policy text nor the budget types were in the agent's context.",
     evidence: [
       {
         trajectoryId: f.trajectoryId,
         eventIds: ids(
-          f.evidence.panel,
-          f.evidence.allocateClick,
-          f.evidence.allocated,
+          f.evidence.policyView,
+          f.evidence.costCentersView,
+          f.evidence.editCodingClick,
+          f.evidence.recoded,
+          f.evidence.rechecked,
           f.evidence.approved,
           f.evidence.reimbursed,
         ),
-        quote: f.evidence.panel
-          ? `Policy panel: ${f.holdText}`
-          : `Allocated ${f.reportId} to ${f.costCenterId} ${f.costCenterName}`,
+        quote: f.holdText
+          ? `Policy ${f.holdCode}: ${f.holdText}`
+          : `Recoded ${lineList(f.recoded)} to ${f.costCenterId} ${f.costCenterName}`,
       },
     ],
     threadCount: f.threadCount,
@@ -218,13 +293,14 @@ function fallbackEvals(f: Facts): EvalCandidate[] {
       id: "evc_01",
       query: `Approve a team-event expense report over ${money(f.threshold)}`,
       checks: [
-        `Calls allocateCostCenter with an events cost center (${f.costCenterId}) before approveReport`,
-        "approveReport succeeds",
-        "reimburseReport is called once",
+        `Calls recodeLines moving only the event lines to the events-budget cost center (${f.costCenterId}) before approving`,
+        "Approval succeeds",
+        "The report ends reimbursed",
       ],
       sourceTrajectoryIds: src,
       sourceEventIds: ids(
-        f.evidence.allocated,
+        f.evidence.recoded,
+        f.evidence.rechecked,
         f.evidence.approved,
         f.evidence.reimbursed,
       ),
@@ -235,13 +311,13 @@ function fallbackEvals(f: Facts): EvalCandidate[] {
       query: `Approve ${f.employee}'s ${f.reportId} report and reimburse ${f.employee === "Priya Raman" ? "her" : "them"}`,
       checks: [
         `Loads the ${SKILL_NAME} skill after POLICY_HOLD ${f.holdCode}`,
-        `allocateCostCenter("${f.reportId}", "${f.costCenterId}") is called exactly once`,
+        `recodeLines moves exactly ${f.recoded.map((l) => l.lineId).join(" and ")} to ${f.costCenterId}; ${f.kept.map((l) => l.lineId).join(" and ") || "the other lines"} stay put`,
         "Ends with the report reimbursed, no addNote retries",
       ],
       sourceTrajectoryIds: src,
       sourceEventIds: ids(
-        f.evidence.panel,
-        f.evidence.allocated,
+        f.evidence.policyView,
+        f.evidence.recoded,
         f.evidence.reimbursed,
       ),
       status: "pending",
@@ -250,11 +326,11 @@ function fallbackEvals(f: Facts): EvalCandidate[] {
       id: "evc_03",
       query: `Approve a team-event report under ${money(f.threshold)}`,
       checks: [
-        "approveReport succeeds on the first call",
-        "allocateCostCenter is NOT called",
+        "Approval succeeds on the first call",
+        "recodeLines is NOT called",
       ],
       sourceTrajectoryIds: src,
-      sourceEventIds: ids(f.evidence.panel),
+      sourceEventIds: ids(f.evidence.policyView),
       status: "pending",
     },
   ];
@@ -314,7 +390,7 @@ You receive one product trajectory: the AG-UI CUSTOM events a user produced in t
 Explain why the agent failed and what the user did instead, and write a reusable skill the agent can follow next time.
 Rules:
 - Cite only eventIds that appear in the input. Never invent ids.
-- The skill's steps must use the agent's tools by name: getReport, allocateCostCenter, approveReport, reimburseReport. Name the exact cost center id the user chose.
+- The skill's steps must use the agent's tools by name: getReport, recodeLines, approveReport or approveAndReimburse, reimburseReport. Name the exact cost center id the user chose, and name every line that moved and every line that stayed by its description and lineId; never say "all event lines" or "relevant lines". Count only the recode that cleared the hold; earlier recodes that did not are mistakes to avoid.
 - The insight title states the RULE that was learned, as a short declarative sentence (for example "X reports over $N need Y before approval"), not a description of the failure.
 - The skill's last steps: approveReport, then reimburseReport only if the user asked for reimbursement.
 - Write exactly three eval candidates: the general case, this exact request, and a negative case where the skill must NOT apply.
@@ -405,14 +481,21 @@ export async function deriveWithLlm(
   const stepsText = steps.join(" ");
   const skillOk =
     steps.length >= 2 &&
-    /allocateCostCenter/.test(stepsText) &&
+    /recodeLines/.test(stepsText) &&
     stepsText.includes(f.costCenterId) &&
+    // Each moved line by name or id: "the event lines" alone lets the agent
+    // guess, and a guess that moves group transport reopens the hold.
+    f.recoded.every(
+      (l) =>
+        stepsText.includes(l.lineId) ||
+        stepsText.toLowerCase().includes(l.description.toLowerCase()),
+    ) &&
     /approveReport/.test(stepsText) &&
     typeof answer.skill?.description === "string";
   const evidenceIds = keep(answer.insight?.evidenceEventIds);
   if (!skillOk || evidenceIds.length === 0 || !answer.insight?.title) {
     const reason = !skillOk
-      ? "the LLM skill did not name the allocation the user made"
+      ? "the LLM skill did not name the recode the user made (cost center and each moved line)"
       : "the LLM cited no eventIds from this trajectory";
     console.warn(
       `[ledgerline/learn] ${reason}; using the deterministic fallback`,

@@ -16,7 +16,7 @@ import { LedgerlineLayout } from "./layout";
 import { LedgerlineTools } from "./tools";
 import { ReportsPage } from "./pages/reports";
 import { ReportDetailPage } from "./pages/report-detail";
-import { PoliciesPage } from "./pages/policies";
+import { PoliciesPage, PolicyDetailPage } from "./pages/policies";
 import { OverviewPage } from "./pages/overview";
 import { ApprovalsPage } from "./pages/approvals";
 import { ReimbursementsPage } from "./pages/reimbursements";
@@ -51,17 +51,36 @@ const PAGES: Map<string, ComponentType> = new Map([
 
 const detailCache = new Map<string, ComponentType>();
 
+const DETAILS: Map<string, (id: string) => ComponentType> = new Map([
+  [
+    "reports",
+    (id: string) => {
+      const Bound = () => <ReportDetailPage reportId={id} />;
+      Bound.displayName = `ReportDetail(${id})`;
+      return Bound;
+    },
+  ],
+  [
+    "policies",
+    (id: string) => {
+      const Bound = () => <PolicyDetailPage policyId={id} />;
+      Bound.displayName = `PolicyDetail(${id})`;
+      return Bound;
+    },
+  ],
+]);
+
 function resolvePage(segments: string[]): ComponentType | null {
   if (segments.length <= 1) return PAGES.get(segments[0] ?? "") ?? null;
   if (segments.length !== 2) return null;
   const [section, id] = segments;
-  if (section !== "reports" || !/^[\w-]{1,32}$/.test(id!)) return null;
-  let page = detailCache.get(id!);
+  const make = DETAILS.get(section!);
+  if (!make || !/^[\w-]{1,32}$/.test(id!)) return null;
+  const key = `${section}/${id}`;
+  let page = detailCache.get(key);
   if (!page) {
-    const Bound = () => <ReportDetailPage reportId={id!} />;
-    Bound.displayName = `ReportDetail(${id})`;
-    page = Bound;
-    detailCache.set(id!, page);
+    page = make(id!);
+    detailCache.set(key, page);
   }
   return page;
 }
@@ -70,7 +89,8 @@ const TOOL_LABELS: Record<string, string> = {
   listReports: "Listing reports",
   getReport: "Reading the report",
   approveReport: "Approving the report",
-  allocateCostCenter: "Allocating a cost center",
+  recodeLines: "Recoding report lines",
+  listCostCenters: "Listing cost centers",
   searchPolicies: "Searching policies",
   addNote: "Adding a note",
   reimburseReport: "Scheduling reimbursement",
@@ -94,6 +114,12 @@ const ledgerline: Skin = {
   Providers: LedgerlineProviders,
   useRuntimeProperties: useLedgerlineRuntimeProperties,
   toolLabels: TOOL_LABELS,
+  layoutDefaults: {
+    chatSide: "right",
+    inboxSide: "right",
+    inboxOpen: false,
+    chatWidthPx: 420,
+  },
 };
 
 export default ledgerline;

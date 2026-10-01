@@ -8,7 +8,8 @@ import type {
   PolicyDoc,
   ReportStatus,
 } from "./types";
-import { EVENTS_THRESHOLD, HOLD_TEAM_EVENT } from "./types";
+import { HOLD_TEAM_EVENT } from "./types";
+import { evaluateTeamEvent } from "./policy";
 
 /**
  * Ledgerline's seed: a fictitious mid-size software company, 40 expense
@@ -32,57 +33,71 @@ export const COST_CENTERS: CostCenter[] = [
   {
     id: "CC-100",
     name: "General & Administrative",
-    owner: "Ruth Alvarez",
-    kind: "department",
+    owner: "Tomás Rivera",
+    budgetType: "ops",
     quarterBudget: 18000,
   },
   {
     id: "CC-200",
     name: "Product",
     owner: "Jonah Weiss",
-    kind: "department",
+    budgetType: "product",
     quarterBudget: 24000,
   },
   {
     id: "CC-210",
     name: "Engineering",
     owner: "Hana Sato",
-    kind: "department",
+    budgetType: "engineering",
     quarterBudget: 32000,
   },
   {
     id: "CC-305",
     name: "Sales",
     owner: "Diego Marín",
-    kind: "department",
+    budgetType: "sales",
     quarterBudget: 40000,
   },
   {
     id: "CC-320",
     name: "Marketing",
     owner: "Ama Owusu",
-    kind: "department",
+    budgetType: "marketing",
     quarterBudget: 28000,
   },
   {
     id: "CC-410",
     name: "Events & Offsites",
-    owner: "Ruth Alvarez",
-    kind: "events",
+    owner: "Ruth Acosta",
+    budgetType: "events",
     quarterBudget: 30000,
+  },
+  {
+    id: "CC-430",
+    name: "Customer Events",
+    owner: "Ama Owusu",
+    budgetType: "marketing",
+    quarterBudget: 22000,
+  },
+  {
+    id: "CC-470",
+    name: "Corporate Travel",
+    owner: "Ines Duarte",
+    budgetType: "travel",
+    quarterBudget: 26000,
   },
   {
     id: "CC-520",
     name: "Customer Success",
     owner: "Leo Brandt",
-    kind: "department",
+    budgetType: "customer",
     quarterBudget: 16000,
   },
   {
     id: "CC-610",
     name: "People Operations",
     owner: "Nadia Haddad",
-    kind: "department",
+    budgetType: "people",
     quarterBudget: 12000,
   },
 ];
@@ -706,18 +721,9 @@ export function addDays(iso: string, days: number): string {
 
 const round = (n: number) => Math.round(n * 100) / 100;
 
-export function needsTeamEventHold(r: {
-  category: Category;
-  total: number;
-  costCenterId: string;
-}): boolean {
-  const cc = COST_CENTERS.find((c) => c.id === r.costCenterId);
-  return (
-    r.category === "Team event" &&
-    r.total > EVENTS_THRESHOLD &&
-    cc?.kind !== "events"
-  );
-}
+/** Which lines of a team event are event spend (the venue, the food). */
+const EVENT_LINE =
+  /venue|catering|dinner|private room|lodging|lunch for|snacks/i;
 
 export function buildSeed(today: string): ExpenseReport[] {
   return SPECS.map((s) => {
@@ -731,6 +737,8 @@ export function buildSeed(today: string): ExpenseReport[] {
         description,
         amount,
         receipt: true,
+        costCenterId: s.costCenterId ?? emp.homeCostCenterId,
+        eventCost: s.category === "Team event" && EVENT_LINE.test(description),
       }),
     );
     const total = round(lines.reduce((a, l) => a + l.amount, 0));
@@ -750,7 +758,10 @@ export function buildSeed(today: string): ExpenseReport[] {
       notes: [],
       holds: [],
     };
-    if (s.status === "submitted" && needsTeamEventHold(report)) {
+    if (
+      s.status === "submitted" &&
+      evaluateTeamEvent(report).status === "open"
+    ) {
       report.holds.push({
         code: HOLD_TEAM_EVENT,
         status: "open",

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Loader2, Wallet } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useSkin } from "@/shell/skin-provider";
 import { useSkinHref } from "@/shell/skin-path";
 import {
@@ -15,12 +16,14 @@ import { nextPaymentRun } from "../data/derive";
 import type { ExpenseReport } from "../data/types";
 import {
   Avatar,
-  Badge,
-  Card,
-  CardHeader,
+  Id,
+  Money,
   PageHeader,
   Stat,
-  primaryButton,
+  StatStrip,
+  ghostButton,
+  td,
+  th,
 } from "../components/ui";
 import { useToast } from "../components/toast";
 
@@ -50,7 +53,7 @@ export function ReimbursementsPage() {
       out.ok
         ? {
             tone: "ok",
-            title: `Reimbursement scheduled`,
+            title: "Reimbursement scheduled",
             body: `${formatMoney(r.total)} to ${r.employeeName} by ACH on ${formatDate(out.report?.reimbursement?.scheduledFor ?? run)}.`,
           }
         : {
@@ -62,117 +65,151 @@ export function ReimbursementsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-[1280px]">
       <PageHeader
         title="Reimbursements"
-        subtitle={`Next ACH payment run: ${formatDate(run)}`}
+        subtitle={`ACH runs every Friday. Next run ${formatDate(run)}.`}
       />
-      <div className="mb-4 grid grid-cols-3 gap-3">
+      <StatStrip>
+        <Stat label="Next run" value={formatDate(run)} hint="ACH, Fridays" />
         <Stat
           label="Ready to pay"
-          value={formatMoney(ready.reduce((a, r) => a + r.total, 0))}
+          value={<Money value={ready.reduce((a, r) => a + r.total, 0)} />}
           tone="brand"
+          hint={`${ready.length} approved reports`}
         />
-        <Stat label="Reports ready" value={ready.length} />
         <Stat
           label="Paid this quarter"
-          value={formatMoney(paid.reduce((a, r) => a + r.total, 0))}
+          value={<Money value={paid.reduce((a, r) => a + r.total, 0)} />}
+          hint={`${paid.length} payments`}
         />
-      </div>
-      <div className="space-y-4">
-        <Card>
-          <CardHeader title={`Ready to reimburse (${ready.length})`} />
-          <ul>
+        <Stat
+          label="Average payout"
+          value={
+            <Money
+              value={
+                paid.length
+                  ? paid.reduce((a, r) => a + r.total, 0) / paid.length
+                  : 0
+              }
+            />
+          }
+          hint="per report"
+        />
+      </StatStrip>
+
+      <h2 className="mb-2 text-[13px] font-semibold">Ready for the next run</h2>
+      <div className="mb-8 overflow-hidden rounded-[10px] border border-hairline">
+        <table className="w-full">
+          <thead>
+            <tr>
+              <th className={th}>Payee</th>
+              <th className={th}>Report</th>
+              <th className={th}>Approved</th>
+              <th className={cn(th, "text-right")}>Amount</th>
+              <th className={cn(th, "w-28")}>
+                <span className="sr-only">Action</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
             {ready.map((r) => (
-              <li
-                key={r.id}
-                className="flex items-center gap-3 border-b border-hairline px-4 py-2.5 last:border-0"
-              >
-                <Avatar name={r.employeeName} />
-                <div className="min-w-0 flex-1">
+              <tr key={r.id} className="hover:bg-brand-soft/50">
+                <td className={td}>
+                  <span className="flex items-center gap-2 whitespace-nowrap">
+                    <Avatar name={r.employeeName} size="sm" /> {r.employeeName}
+                  </span>
+                </td>
+                <td className={td}>
                   <Link
                     href={skinHref(`reports/${r.id}`)}
                     data-action="Open report"
-                    className="text-[0.84rem] font-medium hover:text-brand"
+                    className="font-medium hover:text-brand"
+                  >
+                    {r.title}
+                  </Link>{" "}
+                  <Id className="text-[11.5px]">{r.id}</Id>
+                </td>
+                <td className={cn(td, "whitespace-nowrap text-ink-muted")}>
+                  {r.approvedAt ? formatDate(r.approvedAt) : ""}, {r.approvedBy}
+                </td>
+                <td className={cn(td, "text-right font-medium")}>
+                  <Money value={r.total} />
+                </td>
+                <td className={cn(td, "text-right")}>
+                  <button
+                    type="button"
+                    data-action="Reimburse from list"
+                    className={ghostButton}
+                    disabled={busy !== null}
+                    onClick={() => void reimburse(r)}
+                  >
+                    {busy === r.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Wallet className="h-3.5 w-3.5" />
+                    )}
+                    Reimburse
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {ready.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={5}
+                  className="px-4 py-8 text-center text-[13px] text-ink-muted"
+                >
+                  Nothing approved is waiting for a run.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 className="mb-2 text-[13px] font-semibold">Payment history</h2>
+      <div className="overflow-hidden rounded-[10px] border border-hairline">
+        <table className="w-full">
+          <thead>
+            <tr>
+              <th className={th}>Paid</th>
+              <th className={th}>Payee</th>
+              <th className={th}>Report</th>
+              <th className={th}>Reference</th>
+              <th className={cn(th, "text-right")}>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paid.map((r) => (
+              <tr key={r.id} className="hover:bg-surface-muted/60">
+                <td className={cn(td, "whitespace-nowrap text-ink-muted")}>
+                  {r.reimbursement
+                    ? formatDate(r.reimbursement.scheduledFor)
+                    : ""}
+                </td>
+                <td className={cn(td, "whitespace-nowrap")}>
+                  {r.employeeName}
+                </td>
+                <td className={td}>
+                  <Link
+                    href={skinHref(`reports/${r.id}`)}
+                    data-action="Open report"
+                    className="hover:text-brand"
                   >
                     {r.title}
                   </Link>
-                  <div className="text-[0.72rem] text-ink-muted">
-                    {r.employeeName} · approved{" "}
-                    {r.approvedAt ? formatDate(r.approvedAt) : ""} by{" "}
-                    {r.approvedBy}
-                  </div>
-                </div>
-                <span className="w-24 text-right text-[0.84rem] font-semibold tabular-nums">
-                  {formatMoney(r.total)}
-                </span>
-                <button
-                  type="button"
-                  data-action="Reimburse from list"
-                  className={primaryButton}
-                  disabled={busy !== null}
-                  onClick={() => void reimburse(r)}
-                >
-                  {busy === r.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Wallet className="h-4 w-4" />
-                  )}
-                  Reimburse
-                </button>
-              </li>
-            ))}
-            {ready.length === 0 ? (
-              <li className="px-4 py-6 text-center text-[0.8rem] text-ink-muted">
-                Nothing approved is waiting.
-              </li>
-            ) : null}
-          </ul>
-        </Card>
-        <Card>
-          <CardHeader title="Payment history" />
-          <table className="w-full text-[0.8rem]">
-            <thead className="text-[0.68rem] uppercase tracking-[0.05em] text-ink-muted">
-              <tr className="border-b border-hairline text-left">
-                <th className="px-4 py-2 font-medium">Payee</th>
-                <th className="px-4 py-2 font-medium">Report</th>
-                <th className="px-4 py-2 font-medium">Paid</th>
-                <th className="px-4 py-2 font-medium">Reference</th>
-                <th className="px-4 py-2 text-right font-medium">Amount</th>
+                </td>
+                <td className={td}>
+                  <Id>{r.reimbursement?.reference}</Id>
+                </td>
+                <td className={cn(td, "text-right")}>
+                  <Money value={r.total} />
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {paid.map((r) => (
-                <tr
-                  key={r.id}
-                  className="border-b border-hairline last:border-0"
-                >
-                  <td className="px-4 py-2">{r.employeeName}</td>
-                  <td className="px-4 py-2">
-                    <Link
-                      href={skinHref(`reports/${r.id}`)}
-                      data-action="Open report"
-                      className="hover:text-brand"
-                    >
-                      {r.title}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-2 text-ink-muted">
-                    {r.reimbursement
-                      ? formatDate(r.reimbursement.scheduledFor)
-                      : ""}
-                  </td>
-                  <td className="px-4 py-2">
-                    <Badge>{r.reimbursement?.reference}</Badge>
-                  </td>
-                  <td className="px-4 py-2 text-right tabular-nums">
-                    {formatMoney(r.total)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

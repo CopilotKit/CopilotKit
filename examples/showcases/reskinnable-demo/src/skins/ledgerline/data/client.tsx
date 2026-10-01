@@ -140,31 +140,82 @@ export function useLedgerActions() {
   const { refresh } = useLedger();
   return useMemo(
     () => ({
-      allocate: async (
+      /**
+       * Recode lines, then let the policy engine re-check. Emits
+       * `expense.lines_recoded` (what moved where) and
+       * `expense.policy_rechecked` (the outcome, with the reason when the hold
+       * stays open), so a wrong attempt is part of the trajectory too.
+       */
+      recode: async (
         r: ExpenseReport,
-        costCenterId: string,
-        costCenterName: string,
-      ) => {
-        const out = await post(
-          `/reports/${r.id}/allocate`,
-          `${API}/reports/[id]/allocate`,
-          `Allocate ${r.id} to ${costCenterId}`,
-          { costCenterId },
-        );
-        if (out.ok) {
-          emit("expense.cost_center_allocated", {
-            reportId: r.id,
-            employee: r.employeeName,
-            costCenter: costCenterId,
-            costCenterName,
-            previousCostCenter: r.costCenterId,
-            holdsResolved: (out.report?.holds ?? [])
-              .filter((h) => h.status === "resolved")
-              .map((h) => h.code),
-          });
+        changes: { lineId: string; costCenterId: string }[],
+        centers: { id: string; name: string }[],
+      ): Promise<
+        ActionResult & {
+          check?: {
+            code: string;
+            status: "open" | "resolved";
+            reason?: string;
+          };
         }
+      > => {
+        const res = await trackedFetch(`${API}/reports/${r.id}/recode`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ lines: changes }),
+          template: `${API}/reports/[id]/recode`,
+          summary: `Recode ${changes.length} line${changes.length === 1 ? "" : "s"} on ${r.id}`,
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          report?: ExpenseReport;
+          check?: {
+            code: string;
+            status: "open" | "resolved";
+            reason?: string;
+          };
+          error?: string;
+          message?: string;
+        };
+        if (!res.ok) {
+          await refresh();
+          return {
+            ok: false,
+            error: String(json.error ?? res.status),
+            message: String(json.message ?? "The recode was refused."),
+          };
+        }
+        const name = (id: string) =>
+          centers.find((c) => c.id === id)?.name ?? id;
+        emit("expense.lines_recoded", {
+          reportId: r.id,
+          employee: r.employeeName,
+          changes: changes.map((c) => {
+            const line = r.lines.find((l) => l.id === c.lineId);
+            return {
+              lineId: c.lineId,
+              description: line?.description,
+              amount: line?.amount,
+              from: line?.costCenterId,
+              to: c.costCenterId,
+              toName: name(c.costCenterId),
+            };
+          }),
+          unchanged: r.lines
+            .filter((l) => !changes.some((c) => c.lineId === l.id))
+            .map((l) => ({
+              lineId: l.id,
+              description: l.description,
+              costCenter: l.costCenterId,
+            })),
+        });
+        emit("expense.policy_rechecked", {
+          reportId: r.id,
+          code: json.check?.code,
+          status: json.check?.status,
+          reason: json.check?.reason,
+        });
         await refresh();
-        return out;
+        return { ok: true, report: json.report, check: json.check };
       },
       approve: async (r: ExpenseReport) => {
         const out = await post(

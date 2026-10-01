@@ -1,29 +1,56 @@
 "use client";
 
-import { formatMoney, useLedger } from "../data/client";
+import { useEffect, useRef } from "react";
+import { cn } from "@/lib/utils";
+import { useLedger } from "../data/client";
 import { spendByCostCenter } from "../data/derive";
-import { Badge, Card, Meter, PageHeader } from "../components/ui";
+import { Chip, Id, Meter, Money, PageHeader, td, th } from "../components/ui";
+import { emitScreenContext } from "../learning/recorder";
 
-/** Budgets the reports are charged to. */
+/**
+ * Cost centers: the budgets reports are charged to, with each one's BUDGET
+ * TYPE. This page is the only place that says which cost center owns the
+ * events budget, so reading it is part of the detective path.
+ */
 export function CostCentersPage() {
   const { data } = useLedger();
   const spend = spendByCostCenter(data);
+  const emitted = useRef(false);
+
+  useEffect(() => {
+    if (emitted.current) return;
+    emitted.current = true;
+    const events = data.costCenters.filter((c) => c.budgetType === "events");
+    emitScreenContext(
+      `Cost centers: ${events.map((c) => `${c.id} ${c.name}`).join(", ")} owns the events budget`,
+      {
+        view: "cost-centers",
+        budgetTypes: data.costCenters.map((c) => ({
+          id: c.id,
+          name: c.name,
+          budgetType: c.budgetType,
+          owner: c.owner,
+        })),
+      },
+    );
+  }, [data.costCenters]);
+
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-[1180px]">
       <PageHeader
         title="Cost centers"
-        subtitle="This quarter's expense-report budgets, by owner"
+        subtitle="Who owns each budget, what it is for, and how much of this quarter is used"
       />
-      <Card>
-        <table className="w-full text-[0.82rem]">
-          <thead className="text-[0.68rem] uppercase tracking-[0.05em] text-ink-muted">
-            <tr className="border-b border-hairline text-left">
-              <th className="px-4 py-2 font-medium">Cost center</th>
-              <th className="px-4 py-2 font-medium">Owner</th>
-              <th className="px-4 py-2 font-medium">Reports</th>
-              <th className="px-4 py-2 text-right font-medium">Committed</th>
-              <th className="px-4 py-2 text-right font-medium">Pending</th>
-              <th className="w-56 px-4 py-2 font-medium">Budget used</th>
+      <div className="overflow-hidden rounded-[10px] border border-hairline">
+        <table className="w-full">
+          <thead>
+            <tr>
+              <th className={th}>Cost center</th>
+              <th className={th}>Budget type</th>
+              <th className={th}>Owner</th>
+              <th className={cn(th, "text-right")}>Reports</th>
+              <th className={cn(th, "text-right")}>Committed</th>
+              <th className={cn(th, "w-60")}>Quarter budget</th>
             </tr>
           </thead>
           <tbody>
@@ -37,31 +64,38 @@ export function CostCentersPage() {
               return (
                 <tr
                   key={cc.id}
-                  className="border-b border-hairline last:border-0"
+                  data-testid={`cost-center-${cc.id}`}
+                  className="hover:bg-surface-muted/60"
                 >
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-[0.72rem] text-ink-muted">
-                        {cc.id}
-                      </span>
+                  <td className={td}>
+                    <div className="flex items-center gap-2 whitespace-nowrap">
+                      <Id>{cc.id}</Id>
                       <span className="font-medium">{cc.name}</span>
-                      {cc.kind === "events" ? (
-                        <Badge tone="brand">Events budget</Badge>
-                      ) : null}
                     </div>
                   </td>
-                  <td className="px-4 py-2.5 text-ink-muted">{cc.owner}</td>
-                  <td className="px-4 py-2.5 tabular-nums">{s.reports}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">
-                    {formatMoney(s.committed)}
+                  <td className={td}>
+                    <Chip tone={cc.budgetType === "events" ? "blue" : "gray"}>
+                      {cc.budgetType}
+                    </Chip>
                   </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-ink-muted">
-                    {formatMoney(s.pending)}
+                  <td className={cn(td, "whitespace-nowrap text-ink-muted")}>
+                    {cc.owner}
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className={cn(td, "ll-num text-right")}>{s.reports}</td>
+                  <td className={cn(td, "text-right")}>
+                    <Money value={s.committed} />
+                  </td>
+                  <td className={td}>
                     <Meter value={used} max={cc.quarterBudget} />
-                    <div className="mt-1 text-[0.66rem] text-ink-muted">
-                      {formatMoney(used)} of {formatMoney(cc.quarterBudget)}
+                    <div className="mt-1 text-[11.5px] text-[hsl(var(--ll-faint))]">
+                      <Money value={used} /> of{" "}
+                      <Money value={cc.quarterBudget} />
+                      {s.pending ? (
+                        <span>
+                          {" "}
+                          (incl. <Money value={s.pending} /> pending)
+                        </span>
+                      ) : null}
                     </div>
                   </td>
                 </tr>
@@ -69,7 +103,7 @@ export function CostCentersPage() {
             })}
           </tbody>
         </table>
-      </Card>
+      </div>
     </div>
   );
 }

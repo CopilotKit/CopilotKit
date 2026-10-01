@@ -85,3 +85,29 @@ export function compactMoney(n: number): string {
   if (n >= 1000) return `$${(n / 1000).toFixed(1)}K`;
   return `$${Math.round(n)}`;
 }
+
+/**
+ * Policy holds raised per week, oldest first. The current week is counted
+ * from the ledger; earlier weeks are the seeded history of a team that hits
+ * one or two holds a week (display data, labelled as such in the chart).
+ */
+export function holdTrend(ledger: Ledger): {
+  labels: string[];
+  values: number[];
+} {
+  const current = ledger.reports.filter((r) => r.holds.length > 0).length;
+  return {
+    labels: ["5w", "4w", "3w", "2w", "Last", "This"],
+    values: [1, 3, 2, 1, 2, current],
+  };
+}
+
+/** Category colours: the accent family, then neutrals. Considered, not rainbow. */
+export const CATEGORY_COLORS = [
+  "#2D5BFF",
+  "#5C80FF",
+  "#8DA6FF",
+  "#B9C8FF",
+  "#9EA2AB",
+  "#C9CCD2",
+];

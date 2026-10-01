@@ -16,7 +16,7 @@ function LedgerlineLogo({ className }: { className?: string }) {
       width: 14,
       height: 4,
       rx: 2,
-      fill: "hsl(184 72% 26%)",
+      fill: "#101114",
     }),
     createElement("rect", {
       x: 7,
@@ -24,7 +24,7 @@ function LedgerlineLogo({ className }: { className?: string }) {
       width: 14,
       height: 4,
       rx: 2,
-      fill: "hsl(184 50% 45%)",
+      fill: "#9EA2AB",
     }),
     createElement("rect", {
       x: 3,
@@ -32,7 +32,7 @@ function LedgerlineLogo({ className }: { className?: string }) {
       width: 10,
       height: 2.5,
       rx: 1.25,
-      fill: "hsl(38 92% 50%)",
+      fill: "#2D5BFF",
     }),
   );
 }

@@ -16,7 +16,9 @@ import { API, formatDate, formatMoney, useLedger } from "./data/client";
 import { nextPaymentRun } from "./data/derive";
 import { primaryButton, secondaryButton } from "./components/ui";
 import {
+  agentCostCenters,
   agentPolicies,
+  agentRecode,
   agentReport,
   agentReportRow,
   holdRefusal,
@@ -98,7 +100,7 @@ function ToolLine({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex max-w-full items-center gap-1.5 text-left text-[0.8rem] text-ink-muted hover:text-ink"
+        className="flex max-w-full items-center gap-1.5 text-left text-[13px] text-ink-muted hover:text-ink"
       >
         {pending ? (
           <Loader2 className="h-3.5 w-3.5 flex-none animate-spin" />
@@ -109,10 +111,12 @@ function ToolLine({
         )}
         <span className="font-medium text-ink">{label}</span>
         {detail ? (
-          <span className="truncate font-mono text-[0.72rem]">{detail}</span>
+          <span className="ll-mono truncate text-[12px] text-[hsl(var(--ll-faint))]">
+            {detail}
+          </span>
         ) : null}
         {failed ? (
-          <span className="rounded-full bg-negative-soft px-1.5 py-0.5 font-mono text-[0.66rem] font-semibold text-negative">
+          <span className="ll-mono rounded-[5px] bg-negative-soft px-1.5 py-0.5 text-[11px] font-semibold text-negative">
             {errorLabel}
           </span>
         ) : null}
@@ -321,34 +325,64 @@ export function LedgerlineTools() {
 
   useFrontendTool(
     {
-      name: "allocateCostCenter",
+      name: "listCostCenters",
+      description: "List Ledgerline's cost centers: id, name and owner.",
+      parameters: z.object({}),
+      handler: async () => JSON.stringify(agentCostCenters()),
+      render: ({ result }) => (
+        <ToolLine label="listCostCenters" result={result} />
+      ),
+    },
+    [],
+  );
+
+  useFrontendTool(
+    {
+      name: "recodeLines",
       description:
-        "Move an expense report onto a different cost center (the budget it is charged to). This changes which team pays for the spend, so only do it when the user or a loaded learned skill names the cost center to use.",
+        "Recode report lines to other cost centers (the budgets they are charged to). Use the lineIds from getReport. This moves spend onto another team's budget, so only do it when the user or a loaded learned skill names which lines and which cost center.",
       parameters: z.object({
         reportId: z.string(),
-        costCenterId: z.string().describe("Cost center id, e.g. CC-200."),
+        lines: z
+          .array(
+            z.object({
+              lineId: z.string(),
+              costCenterId: z.string().describe("Cost center id, e.g. CC-200."),
+            }),
+          )
+          .min(1),
       }),
-      handler: async ({ reportId, costCenterId }) => {
+      handler: async ({ reportId, lines }) => {
         const rid = id(reportId);
         const { ok, body } = await post(
-          `/reports/${encodeURIComponent(rid)}/allocate`,
-          { costCenterId: id(costCenterId) },
+          `/reports/${encodeURIComponent(rid)}/recode`,
+          {
+            lines: lines.map((l) => ({
+              lineId: id(l.lineId),
+              costCenterId: id(l.costCenterId),
+            })),
+          },
         );
         await refresh();
         if (!ok) return refusal(body, rid);
-        const r = agentReport(body as unknown as ExpenseReport);
-        return JSON.stringify({
-          id: r.id,
-          costCenter: r.costCenter,
-          holds: r.holds,
-        });
+        // The agent gets the new coding and the hold status, never the engine's reason.
+        return JSON.stringify(
+          agentRecode((body as unknown as { report: ExpenseReport }).report),
+        );
       },
       render: ({ args, result }) => (
         <ToolLine
-          label="allocateCostCenter"
-          detail={[args?.reportId, args?.costCenterId]
+          label="recodeLines"
+          detail={[
+            args?.reportId,
+            Array.isArray(args?.lines)
+              ? args.lines
+                  .map((l) => `${l?.lineId ?? ""} to ${l?.costCenterId ?? ""}`)
+                  .join(", ")
+              : undefined,
+          ]
             .filter(Boolean)
-            .join(" to ")}
+            .join(": ")}
           result={result}
         />
       ),
@@ -643,7 +677,7 @@ function ReimburseCard({
   return (
     <div
       data-testid="ledgerline-reimburse-card"
-      className="my-1.5 rounded-2xl border border-hairline bg-surface px-4 py-3 text-[0.8rem] shadow-sm"
+      className="my-1.5 rounded-[10px] border border-hairline bg-surface px-4 py-3 text-[0.8rem] "
     >
       <div className="flex items-center gap-2 font-semibold">
         <Wallet className="h-4 w-4 text-brand" /> Reimburse {r.employeeName}

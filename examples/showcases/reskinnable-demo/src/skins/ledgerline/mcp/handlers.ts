@@ -12,6 +12,8 @@ import {
   agentReport,
   agentReportRow,
   holdRefusal,
+  agentCostCenters,
+  agentRecode,
 } from "../data/agent-view";
 import type { ReportStatus } from "../data/types";
 import * as learning from "../learning/store";
@@ -85,18 +87,25 @@ export const handlers = {
       return refusal(e, reportId);
     }
   },
-  allocateCostCenter({
+  listCostCenters(): ToolOutput {
+    return agentCostCenters();
+  },
+  recodeLines({
     reportId,
-    costCenterId,
+    lines,
   }: {
     reportId: string;
-    costCenterId: string;
+    lines: { lineId: string; costCenterId: string }[];
   }): ToolOutput {
     try {
-      const r = agentReport(
-        ledger.allocateCostCenter(up(reportId), up(costCenterId)),
+      const { report } = ledger.recodeLines(
+        up(reportId),
+        (lines ?? []).map((l) => ({
+          lineId: up(l.lineId),
+          costCenterId: up(l.costCenterId),
+        })),
       );
-      return { id: r.id, costCenter: r.costCenter, holds: r.holds };
+      return agentRecode(report);
     } catch (e) {
       return refusal(e, reportId);
     }

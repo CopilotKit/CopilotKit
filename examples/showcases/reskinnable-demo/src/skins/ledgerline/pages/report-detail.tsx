@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft,
-  Building2,
+  Check,
   CheckCircle2,
   CircleAlert,
   Loader2,
   MessageSquarePlus,
+  MoreHorizontal,
+  PencilLine,
   ShieldAlert,
   ShieldCheck,
   Wallet,
@@ -25,271 +26,30 @@ import {
 import type { CostCenter, ExpenseReport } from "../data/types";
 import {
   Avatar,
-  Badge,
-  Card,
-  PageHeader,
+  Chip,
+  Id,
+  Money,
   StatusPill,
+  ghostButton,
   primaryButton,
   secondaryButton,
+  td,
+  th,
 } from "../components/ui";
 import { useToast } from "../components/toast";
-import { emitScreenContext } from "../learning/recorder";
+import { emitChoice, emitScreenContext } from "../learning/recorder";
 
 /**
- * The policy engine's explanation of each hold code. It is rendered here, in
- * the report's Policy panel, and NOWHERE else: no API, tool result, policy
- * document or agent context carries it. That is the demo's root cause: the fix
- * is visible on screen and the agent never has it.
+ * One report: lines in the main column, an inspector rail on the right.
+ *
+ * The detective path (beat 3). The rail's Policy section shows only "POL-114 ·
+ * Allocation required" and a "View policy" link: no rule text, no fix button.
+ * The rule is on the policy page, the budget types on the Cost centers page.
+ * Approve stays disabled while the hold is open. "⋯ > Edit coding" recodes
+ * individual lines; saving re-runs the policy check, visibly.
  */
-const POLICY_PANEL_COPY: Record<string, { title: string; text: string }> = {
-  "POL-114": {
-    title: "Team event allocation",
-    text: "Team events over $2,500 must be allocated to an events cost center before approval",
-  },
-};
 
-function PolicyPanel({
-  report,
-  onAllocate,
-}: {
-  report: ExpenseReport;
-  onAllocate: () => void;
-}) {
-  const open = report.holds.filter((h) => h.status === "open");
-  const resolved = report.holds.filter((h) => h.status === "resolved");
-  const emitted = useRef<string | null>(null);
-
-  // What the user can read here is captured as screen.context, once per view.
-  useEffect(() => {
-    const hold = open[0];
-    if (!hold) return;
-    const key = `${report.id}:${hold.code}`;
-    if (emitted.current === key) return;
-    emitted.current = key;
-    const copy = POLICY_PANEL_COPY[hold.code];
-    emitScreenContext(`Policy panel: ${copy?.text ?? hold.code}`, {
-      panel: "Policy",
-      reportId: report.id,
-      employee: report.employeeName,
-      holdCode: hold.code,
-      holdTitle: copy?.title,
-      text: copy?.text,
-      category: report.category,
-      total: report.total,
-      threshold: 2500,
-      costCenter: report.costCenterId,
-    });
-  }, [open, report]);
-
-  return (
-    <Card>
-      <div className="flex items-center gap-2 border-b border-hairline px-4 py-2.5">
-        {open.length ? (
-          <ShieldAlert className="h-4 w-4 text-negative" />
-        ) : (
-          <ShieldCheck className="h-4 w-4 text-positive" />
-        )}
-        <h2 className="text-[0.86rem] font-semibold">Policy</h2>
-        <span className="ml-auto text-[0.7rem] text-ink-muted">
-          Policy engine
-        </span>
-      </div>
-      <div className="space-y-2.5 px-4 py-3 text-[0.8rem]">
-        {open.map((h) => (
-          <div
-            key={h.code}
-            data-testid="policy-hold"
-            className="rounded-lg border border-negative/25 bg-negative-soft px-3 py-2.5"
-          >
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[0.72rem] font-semibold text-negative">
-                {h.code}
-              </span>
-              <span className="font-semibold text-ink">
-                {POLICY_PANEL_COPY[h.code]?.title ?? "Policy hold"}
-              </span>
-              <span className="ml-auto rounded-full bg-surface px-1.5 py-0.5 text-[0.64rem] font-semibold text-negative">
-                On hold
-              </span>
-            </div>
-            <p className="mt-1.5 text-ink">
-              {POLICY_PANEL_COPY[h.code]?.text ??
-                "This report needs attention before approval."}
-              .
-            </p>
-            {report.status !== "reimbursed" ? (
-              <button
-                type="button"
-                data-action="Allocate cost center"
-                onClick={onAllocate}
-                className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-negative/30 bg-surface px-2.5 py-1.5 text-[0.76rem] font-semibold text-ink hover:bg-surface-muted"
-              >
-                <Building2 className="h-3.5 w-3.5" /> Allocate cost center
-              </button>
-            ) : null}
-          </div>
-        ))}
-        {resolved.map((h) => (
-          <div
-            key={h.code}
-            className="flex items-center gap-2 rounded-lg border border-positive/25 bg-positive-soft px-3 py-2"
-          >
-            <CheckCircle2 className="h-4 w-4 text-positive" />
-            <span className="font-mono text-[0.72rem] font-semibold">
-              {h.code}
-            </span>
-            <span className="text-ink">
-              {POLICY_PANEL_COPY[h.code]?.title ?? "Policy hold"}: resolved
-            </span>
-          </div>
-        ))}
-        <ul className="space-y-1 text-[0.76rem] text-ink-muted">
-          <li className="flex items-center gap-1.5">
-            <CheckCircle2 className="h-3.5 w-3.5 text-positive" /> Receipts
-            attached for every line
-          </li>
-          <li className="flex items-center gap-1.5">
-            <CheckCircle2 className="h-3.5 w-3.5 text-positive" /> Submitted
-            within 30 days
-          </li>
-          <li className="flex items-center gap-1.5">
-            <CheckCircle2 className="h-3.5 w-3.5 text-positive" /> No duplicate
-            charges found
-          </li>
-        </ul>
-      </div>
-    </Card>
-  );
-}
-
-function AllocateDialog({
-  report,
-  costCenters,
-  onClose,
-}: {
-  report: ExpenseReport;
-  costCenters: CostCenter[];
-  onClose: () => void;
-}) {
-  const actions = useLedgerActions();
-  const toast = useToast();
-  const [choice, setChoice] = useState(report.costCenterId);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const picked = costCenters.find((c) => c.id === choice);
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[hsl(210_24%_10%/0.35)] p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="allocate-title"
-        className="w-full max-w-md rounded-xl border border-hairline bg-surface shadow-xl"
-      >
-        <div className="border-b border-hairline px-5 py-3.5">
-          <h2 id="allocate-title" className="text-[0.98rem] font-semibold">
-            Allocate cost center
-          </h2>
-          <p className="text-[0.76rem] text-ink-muted">
-            {report.id}, {report.title}, {formatMoney(report.total)}
-          </p>
-        </div>
-        <div
-          role="listbox"
-          aria-label="Cost centers"
-          className="max-h-80 space-y-1 overflow-y-auto px-3 py-3"
-        >
-          {costCenters.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              role="option"
-              aria-selected={choice === c.id}
-              data-action={`Cost center: ${c.id} ${c.name}`}
-              onClick={() => setChoice(c.id)}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-[0.8rem]",
-                choice === c.id
-                  ? "border-brand bg-brand-soft"
-                  : "border-transparent hover:bg-surface-muted",
-              )}
-            >
-              <span className="font-mono text-[0.72rem] font-semibold text-ink-muted">
-                {c.id}
-              </span>
-              <span className="flex-1 font-medium">
-                {c.name}{" "}
-                {c.kind === "events" ? (
-                  <Badge tone="brand">Events budget</Badge>
-                ) : null}
-              </span>
-              <span className="text-[0.7rem] text-ink-muted">{c.owner}</span>
-              {c.id === report.costCenterId ? (
-                <span className="text-[0.66rem] text-ink-muted">current</span>
-              ) : null}
-            </button>
-          ))}
-        </div>
-        {error ? (
-          <p
-            role="alert"
-            className="mx-5 mb-2 flex items-start gap-1.5 text-[0.76rem] text-negative"
-          >
-            <CircleAlert className="mt-0.5 h-3.5 w-3.5" /> {error}
-          </p>
-        ) : null}
-        <div className="flex justify-end gap-2 border-t border-hairline px-5 py-3">
-          <button
-            type="button"
-            className={secondaryButton}
-            data-action="Cancel allocation"
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className={primaryButton}
-            data-action="Save allocation"
-            disabled={saving || !picked || choice === report.costCenterId}
-            onClick={async () => {
-              if (!picked) return;
-              setSaving(true);
-              setError(null);
-              const out = await actions.allocate(
-                report,
-                picked.id,
-                picked.name,
-              );
-              setSaving(false);
-              if (out.ok) {
-                const resolved = (out.report?.holds ?? [])
-                  .filter((h) => h.status === "resolved")
-                  .map((h) => h.code);
-                toast({
-                  tone: "ok",
-                  title: `Moved to ${picked.id} ${picked.name}`,
-                  body: resolved.length
-                    ? `Policy hold ${resolved.join(", ")} resolved. The report can be approved.`
-                    : undefined,
-                });
-                onClose();
-              } else setError(out.message ?? "The allocation was refused.");
-            }}
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Save allocation
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+type Phase = "idle" | "editing" | "checking";
 
 export function ReportDetailPage({ reportId }: { reportId: string }) {
   const { data } = useLedger();
@@ -298,207 +58,268 @@ export function ReportDetailPage({ reportId }: { reportId: string }) {
   const skin = useSkin();
   const skinHref = useSkinHref(skin.id);
   const report = data.reports.find((r) => r.id === reportId.toUpperCase());
-  const [allocating, setAllocating] = useState(false);
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [menu, setMenu] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const [banner, setBanner] = useState<{
-    tone: "ok" | "error";
-    text: string;
+  const [checkResult, setCheckResult] = useState<{
+    status: "open" | "resolved";
+    reason?: string;
   } | null>(null);
   const [note, setNote] = useState("");
+  const emitted = useRef<string | null>(null);
+
+  const hold = report?.holds.find((h) => h.status === "open");
+
+  // What the person can read in the rail is captured as screen.context, once per view.
+  useEffect(() => {
+    if (!report || !hold) return;
+    const key = `${report.id}:${hold.code}`;
+    if (emitted.current === key) return;
+    emitted.current = key;
+    emitScreenContext(`Policy: ${hold.code} · Allocation required`, {
+      panel: "Policy",
+      reportId: report.id,
+      employee: report.employeeName,
+      holdCode: hold.code,
+      status: "Allocation required",
+      // What the agent is also told in its POLICY_HOLD refusal, so this panel
+      // is not counted as context the agent never had.
+      text: `${hold.code} (allocation required)`,
+      category: report.category,
+      total: report.total,
+    });
+  }, [report, hold]);
 
   if (!report) {
     return (
-      <div className="mx-auto max-w-3xl rounded-xl border border-hairline bg-surface p-8 text-center text-ink-muted">
+      <div className="mx-auto max-w-3xl py-16 text-center text-[13px] text-ink-muted">
         There is no expense report {reportId}.
       </div>
     );
   }
-  const cc = data.costCenters.find((c) => c.id === report.costCenterId);
+
   const run = async (
     what: string,
-    fn: () => Promise<{
-      ok: boolean;
-      message?: string;
-      error?: string;
-      code?: string;
-    }>,
+    fn: () => Promise<{ ok: boolean; message?: string }>,
     ok: string,
+    body?: string,
   ) => {
     setBusy(what);
-    setBanner(null);
     const out = await fn();
     setBusy(null);
     toast(
       out.ok
-        ? { tone: "ok", title: ok }
-        : {
-            tone: "error",
-            title: "Not done",
-            body:
-              out.error === "POLICY_HOLD"
-                ? `Policy hold ${out.code} is open. See the Policy panel.`
-                : out.message,
-          },
-    );
-    setBanner(
-      out.ok
-        ? { tone: "ok", text: ok }
-        : {
-            tone: "error",
-            text:
-              out.error === "POLICY_HOLD"
-                ? `Approval blocked: policy hold ${out.code} is open. See the Policy panel.`
-                : (out.message ?? "Refused."),
-          },
+        ? { tone: "ok", title: ok, body }
+        : { tone: "error", title: "Not done", body: out.message },
     );
   };
 
+  const activity = data.activity
+    .filter((a) => a.reportId === report.id)
+    .slice(0, 6);
+
   return (
-    <div className="mx-auto max-w-6xl">
-      <Link
-        href={skinHref("reports")}
-        data-action="Back to expense reports"
-        className="mb-3 inline-flex items-center gap-1 text-[0.78rem] font-medium text-ink-muted hover:text-ink"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" /> Expense reports
-      </Link>
-      <PageHeader
-        title={report.title}
-        subtitle={
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="font-mono">{report.id}</span>
-            <span>{report.employeeName}</span>
-            <span>{report.category}</span>
+    <div className="mx-auto max-w-[1280px]">
+      {/* Title row */}
+      <div className="mb-5 flex flex-wrap items-start gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h1 className="truncate text-[22px] font-semibold tracking-[-0.015em]">
+              {report.title}
+            </h1>
             <StatusPill status={report.status} />
-          </span>
-        }
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {report.status !== "reimbursed" ? (
-              <button
-                type="button"
-                className={secondaryButton}
-                data-action="Allocate cost center"
-                onClick={() => setAllocating(true)}
-              >
-                <Building2 className="h-4 w-4" /> Allocate cost center
-              </button>
+            {hold ? (
+              <Chip tone="red">
+                <ShieldAlert className="h-3 w-3" /> On hold
+              </Chip>
             ) : null}
-            {report.status === "submitted" ? (
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink-muted">
+            <Id>{report.id}</Id>
+            <span className="flex items-center gap-1.5">
+              <Avatar name={report.employeeName} size="sm" />{" "}
+              {report.employeeName}
+            </span>
+            <span>{report.department}</span>
+            <span>{report.category}</span>
+            <span>Submitted {formatDate(report.submittedAt)}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <button
+              type="button"
+              aria-label="More actions"
+              aria-expanded={menu}
+              data-action="More actions"
+              onClick={() => setMenu((v) => !v)}
+              className={cn(secondaryButton, "w-8 px-0")}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+            {menu ? (
+              <div
+                role="menu"
+                className="absolute right-0 top-9 z-40 w-48 overflow-hidden rounded-lg border border-hairline bg-surface py-1"
+                style={{ boxShadow: "var(--ll-shadow)" }}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-action="Edit coding"
+                  disabled={report.status !== "submitted"}
+                  onClick={() => {
+                    setMenu(false);
+                    setCheckResult(null);
+                    setPhase("editing");
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] hover:bg-surface-muted disabled:opacity-40"
+                >
+                  <PencilLine className="h-3.5 w-3.5 text-ink-muted" /> Edit
+                  coding
+                </button>
+                <a
+                  href="#notes"
+                  role="menuitem"
+                  data-action="Add note"
+                  onClick={() => setMenu(false)}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] hover:bg-surface-muted"
+                >
+                  <MessageSquarePlus className="h-3.5 w-3.5 text-ink-muted" />{" "}
+                  Add note
+                </a>
+              </div>
+            ) : null}
+          </div>
+          {report.status === "submitted" ? (
+            <span className="group relative">
               <button
                 type="button"
-                className={primaryButton}
                 data-action="Approve"
-                disabled={busy !== null}
+                disabled={!!hold || busy !== null || phase === "checking"}
+                aria-describedby={hold ? "approve-tip" : undefined}
                 onClick={() =>
                   void run(
                     "approve",
                     () => actions.approve(report),
-                    `Approved ${report.id}.`,
+                    `Approved ${report.id}`,
+                    "Ready to reimburse.",
                   )
                 }
+                className={primaryButton}
               >
                 {busy === "approve" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <CheckCircle2 className="h-4 w-4" />
+                  <Check className="h-3.5 w-3.5" />
                 )}
                 Approve
               </button>
-            ) : null}
-            {report.status === "approved" ? (
-              <button
-                type="button"
-                className={primaryButton}
-                data-action="Reimburse"
-                disabled={busy !== null}
-                onClick={() =>
-                  void run(
-                    "reimburse",
-                    () => actions.reimburse(report),
-                    `Reimbursement of ${formatMoney(report.total)} scheduled.`,
-                  )
-                }
-              >
-                {busy === "reimburse" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Wallet className="h-4 w-4" />
-                )}
-                Reimburse
-              </button>
-            ) : null}
-          </div>
-        }
-      />
-
-      {banner ? (
-        <div
-          role={banner.tone === "error" ? "alert" : "status"}
-          className={cn(
-            "mb-4 flex items-center gap-2 rounded-lg border px-3 py-2 text-[0.8rem]",
-            banner.tone === "ok"
-              ? "border-positive/30 bg-positive-soft"
-              : "border-negative/30 bg-negative-soft text-negative",
-          )}
-        >
-          {banner.tone === "ok" ? (
-            <CheckCircle2 className="h-4 w-4 text-positive" />
-          ) : (
-            <CircleAlert className="h-4 w-4" />
-          )}
-          {banner.text}
+              {hold ? (
+                <span
+                  id="approve-tip"
+                  role="tooltip"
+                  className="pointer-events-none absolute right-0 top-10 z-30 hidden whitespace-nowrap rounded-md bg-ink px-2 py-1 text-[12px] text-white group-hover:block"
+                >
+                  Resolve the policy hold first
+                </span>
+              ) : null}
+            </span>
+          ) : null}
+          {report.status === "approved" ? (
+            <button
+              type="button"
+              data-action="Reimburse"
+              disabled={busy !== null}
+              onClick={() =>
+                void run(
+                  "reimburse",
+                  () => actions.reimburse(report),
+                  "Reimbursement scheduled",
+                  `${formatMoney(report.total)} to ${report.employeeName} by ACH.`,
+                )
+              }
+              className={primaryButton}
+            >
+              {busy === "reimburse" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Wallet className="h-3.5 w-3.5" />
+              )}
+              Reimburse
+            </button>
+          ) : null}
         </div>
-      ) : null}
+      </div>
 
-      <Timeline report={report} />
-
-      <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-        <div className="space-y-4">
-          <Card>
-            <div className="flex items-center justify-between border-b border-hairline px-4 py-2.5">
-              <h2 className="text-[0.86rem] font-semibold">Line items</h2>
-              <span className="text-[0.86rem] font-semibold tabular-nums">
-                {formatMoney(report.total)}
-              </span>
+      <div className="grid gap-6 @[900px]:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="min-w-0 space-y-6">
+          {/* The total and the path it travels */}
+          <div className="flex flex-wrap items-end justify-between gap-6 border-b border-hairline pb-5">
+            <div>
+              <div className="text-[12px] text-ink-muted">Report total</div>
+              <Money
+                value={report.total}
+                className="mt-1 block text-[40px] font-semibold leading-none tracking-[-0.03em]"
+              />
             </div>
-            <table className="w-full text-[0.8rem]">
-              <tbody>
-                {report.lines.map((l) => (
-                  <tr
-                    key={l.id}
-                    className="border-b border-hairline last:border-0"
-                  >
-                    <td className="whitespace-nowrap px-4 py-2 text-ink-muted">
-                      {formatDate(l.date)}
-                    </td>
-                    <td className="px-4 py-2 font-medium">{l.merchant}</td>
-                    <td className="px-4 py-2 text-ink-muted">
-                      {l.description}
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums">
-                      {formatMoney(l.amount)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
+            <Steps report={report} checking={phase === "checking"} />
+          </div>
 
-          <Card>
-            <div className="border-b border-hairline px-4 py-2.5">
-              <h2 className="text-[0.86rem] font-semibold">Notes</h2>
-            </div>
-            <div className="space-y-2 px-4 py-3 text-[0.8rem]">
+          {phase === "editing" || phase === "checking" ? (
+            <CodingEditor
+              report={report}
+              centers={data.costCenters}
+              checking={phase === "checking"}
+              result={checkResult}
+              onCancel={() => {
+                setPhase("idle");
+                setCheckResult(null);
+              }}
+              onSave={async (changes) => {
+                setPhase("checking");
+                setCheckResult(null);
+                const [out] = await Promise.all([
+                  actions.recode(report, changes, data.costCenters),
+                  new Promise((r) => setTimeout(r, 1100)),
+                ]);
+                if (!out.ok) {
+                  setPhase("editing");
+                  setCheckResult({ status: "open", reason: out.message });
+                  return;
+                }
+                if (out.check?.status === "resolved") {
+                  setPhase("idle");
+                  setCheckResult(null);
+                  toast({
+                    tone: "ok",
+                    title: `${out.check.code} resolved`,
+                    body: "The coding passes the policy check. Approve is ready.",
+                  });
+                } else {
+                  setPhase("editing");
+                  setCheckResult({ status: "open", reason: out.check?.reason });
+                }
+              }}
+            />
+          ) : (
+            <LinesTable report={report} centers={data.costCenters} />
+          )}
+
+          <section id="notes">
+            <h2 className="mb-2 text-[13px] font-semibold">Notes</h2>
+            <div className="space-y-2">
               {report.notes.length === 0 ? (
-                <p className="text-ink-muted">No notes yet.</p>
+                <p className="text-[13px] text-[hsl(var(--ll-faint))]">
+                  No notes yet.
+                </p>
               ) : null}
               {report.notes.map((n) => (
                 <div
                   key={n.id}
-                  className="rounded-lg bg-surface-muted px-3 py-2"
+                  className="rounded-lg border border-hairline px-3 py-2 text-[13px]"
                 >
-                  <div className="text-[0.7rem] font-semibold text-ink-muted">
+                  <div className="text-[12px] font-medium text-ink-muted">
                     {n.author}
                   </div>
                   <div>{n.text}</div>
@@ -509,7 +330,8 @@ export function ReportDetailPage({ reportId }: { reportId: string }) {
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Add a note for the submitter"
-                  className="min-w-0 flex-1 rounded-lg border border-hairline px-2.5 py-1.5 text-[0.8rem] outline-none focus:border-brand"
+                  aria-label="Note"
+                  className="h-8 min-w-0 flex-1 rounded-md border border-hairline px-2.5 text-[13px] outline-none placeholder:text-[hsl(var(--ll-faint))] focus:border-brand"
                 />
                 <button
                   type="button"
@@ -521,132 +343,436 @@ export function ReportDetailPage({ reportId }: { reportId: string }) {
                     if (out.ok) setNote("");
                   }}
                 >
-                  <MessageSquarePlus className="h-4 w-4" /> Add note
+                  Add note
                 </button>
               </div>
             </div>
-          </Card>
+          </section>
         </div>
 
-        <div className="space-y-4">
-          <PolicyPanel report={report} onAllocate={() => setAllocating(true)} />
-          <Card>
-            <div className="border-b border-hairline px-4 py-2.5">
-              <h2 className="text-[0.86rem] font-semibold">Details</h2>
-            </div>
-            <dl className="grid grid-cols-[110px_1fr] gap-y-1.5 px-4 py-3 text-[0.8rem]">
-              <dt className="text-ink-muted">Employee</dt>
-              <dd className="flex items-center gap-1.5">
-                <Avatar name={report.employeeName} size="sm" />{" "}
-                {report.employeeName}
-              </dd>
-              <dt className="text-ink-muted">Department</dt>
+        {/* Inspector rail */}
+        <aside className="order-first grid gap-5 rounded-[10px] border border-hairline bg-surface-muted/50 p-4 @[560px]:grid-cols-2 @[900px]:order-none @[900px]:block @[900px]:space-y-5 @[900px]:rounded-none @[900px]:border-0 @[900px]:border-l @[900px]:bg-transparent @[900px]:p-0 @[900px]:pl-6">
+          <PolicySection
+            report={report}
+            checking={phase === "checking"}
+            policyHref={skinHref("policies/POL-114")}
+          />
+          <CodingSummary report={report} centers={data.costCenters} />
+          <section>
+            <h3 className="mb-2 text-[12px] font-medium text-ink-muted">
+              Details
+            </h3>
+            <dl className="grid grid-cols-[96px_1fr] gap-y-1.5 text-[13px]">
+              <dt className="text-[hsl(var(--ll-faint))]">Employee</dt>
+              <dd>{report.employeeName}</dd>
+              <dt className="text-[hsl(var(--ll-faint))]">Department</dt>
               <dd>{report.department}</dd>
-              <dt className="text-ink-muted">Submitted</dt>
+              <dt className="text-[hsl(var(--ll-faint))]">Submitted</dt>
               <dd>{formatDate(report.submittedAt)}</dd>
-              <dt className="text-ink-muted">Cost center</dt>
-              <dd data-testid="report-cost-center">
-                <span className="font-mono text-[0.74rem]">
-                  {report.costCenterId}
-                </span>{" "}
-                {cc?.name}
-              </dd>
               {report.approvedBy ? (
                 <>
-                  <dt className="text-ink-muted">Approved by</dt>
+                  <dt className="text-[hsl(var(--ll-faint))]">Approved by</dt>
                   <dd>{report.approvedBy}</dd>
                 </>
               ) : null}
               {report.reimbursement ? (
                 <>
-                  <dt className="text-ink-muted">Reimbursement</dt>
+                  <dt className="text-[hsl(var(--ll-faint))]">Paid</dt>
                   <dd>
-                    ACH, {formatDate(report.reimbursement.scheduledFor)},{" "}
-                    {report.reimbursement.reference}
+                    ACH {formatDate(report.reimbursement.scheduledFor)}{" "}
+                    <Id>{report.reimbursement.reference}</Id>
                   </dd>
                 </>
               ) : null}
             </dl>
-          </Card>
-        </div>
+          </section>
+          {activity.length ? (
+            <section>
+              <h3 className="mb-2 text-[12px] font-medium text-ink-muted">
+                Activity
+              </h3>
+              <ol className="space-y-2 border-l border-hairline pl-3">
+                {activity.map((a) => (
+                  <li key={a.id} className="text-[12.5px]">
+                    <span className="font-medium">{a.actor}</span>{" "}
+                    <span className="text-ink-muted">{a.text}</span>
+                    <div className="text-[11px] text-[hsl(var(--ll-faint))]">
+                      {formatDate(a.at.slice(0, 10))}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
+        </aside>
       </div>
-
-      {allocating ? (
-        <AllocateDialog
-          report={report}
-          costCenters={data.costCenters}
-          onClose={() => setAllocating(false)}
-        />
-      ) : null}
     </div>
   );
 }
 
-/** Where the report is: submitted, policy check, approved, reimbursed. */
-function Timeline({ report }: { report: ExpenseReport }) {
+function ccName(centers: CostCenter[], id: string) {
+  return centers.find((c) => c.id === id)?.name ?? id;
+}
+
+function LinesTable({
+  report,
+  centers,
+}: {
+  report: ExpenseReport;
+  centers: CostCenter[];
+}) {
+  return (
+    <section>
+      <h2 className="mb-2 text-[13px] font-semibold">Lines</h2>
+      <div className="overflow-hidden rounded-[10px] border border-hairline">
+        <table className="w-full">
+          <thead>
+            <tr>
+              <th className={th}>Date</th>
+              <th className={th}>Merchant</th>
+              <th className={th}>Description</th>
+              <th className={th}>Cost center</th>
+              <th className={cn(th, "text-right")}>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {report.lines.map((l) => (
+              <tr
+                key={l.id}
+                className="last:[&>td]:border-0 hover:bg-surface-muted/60"
+              >
+                <td className={cn(td, "whitespace-nowrap text-ink-muted")}>
+                  {formatDate(l.date)}
+                </td>
+                <td className={cn(td, "font-medium")}>{l.merchant}</td>
+                <td className={cn(td, "text-ink-muted")}>{l.description}</td>
+                <td className={cn(td, "whitespace-nowrap")}>
+                  <Id className="mr-1.5">{l.costCenterId}</Id>
+                  {ccName(centers, l.costCenterId)}
+                </td>
+                <td className={cn(td, "text-right")}>
+                  <Money value={l.amount} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function CodingEditor({
+  report,
+  centers,
+  checking,
+  result,
+  onCancel,
+  onSave,
+}: {
+  report: ExpenseReport;
+  centers: CostCenter[];
+  checking: boolean;
+  result: { status: "open" | "resolved"; reason?: string } | null;
+  onCancel: () => void;
+  onSave: (
+    changes: { lineId: string; costCenterId: string }[],
+  ) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState<Record<string, string>>(() =>
+    Object.fromEntries(report.lines.map((l) => [l.id, l.costCenterId])),
+  );
+  const changes = useMemo(
+    () =>
+      report.lines
+        .filter((l) => draft[l.id] !== l.costCenterId)
+        .map((l) => ({ lineId: l.id, costCenterId: draft[l.id]! })),
+    [draft, report.lines],
+  );
+  return (
+    <section data-testid="coding-editor">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-[13px] font-semibold">Edit coding</h2>
+        <span className="text-[12px] text-[hsl(var(--ll-faint))]">
+          Choose the cost center each line is charged to
+        </span>
+      </div>
+      <div className="overflow-hidden rounded-[10px] border border-brand/40 ring-4 ring-brand-soft">
+        <table className="w-full">
+          <thead>
+            <tr>
+              <th className={th}>Line</th>
+              <th className={th}>Cost center</th>
+              <th className={cn(th, "text-right")}>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {report.lines.map((l) => (
+              <tr key={l.id}>
+                <td className={td}>
+                  <div className="font-medium">{l.description}</div>
+                  <div className="text-[12px] text-[hsl(var(--ll-faint))]">
+                    {l.merchant}
+                  </div>
+                </td>
+                <td className={td}>
+                  <select
+                    aria-label={`Cost center for ${l.description}`}
+                    value={draft[l.id]}
+                    disabled={checking}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setDraft((d) => ({ ...d, [l.id]: id }));
+                      emitChoice(
+                        `Code ${l.description} to ${id} ${ccName(centers, id)}`,
+                        { lineId: l.id, costCenter: id },
+                      );
+                    }}
+                    className={cn(
+                      "h-8 w-full max-w-[260px] rounded-md border bg-surface px-2 text-[13px] outline-none focus:border-brand",
+                      draft[l.id] !== l.costCenterId
+                        ? "border-brand text-ink"
+                        : "border-hairline",
+                    )}
+                  >
+                    {centers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.id} {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className={cn(td, "text-right")}>
+                  <Money value={l.amount} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {result?.status === "open" ? (
+          <div
+            role="alert"
+            data-testid="recode-reason"
+            className="flex items-start gap-2 border-t border-negative/20 bg-negative-soft px-4 py-2.5 text-[13px] text-negative"
+          >
+            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              <span className="font-semibold">POL-114 still open.</span>{" "}
+              {result.reason ?? "The coding does not satisfy the policy."}
+            </span>
+          </div>
+        ) : null}
+        <div className="flex items-center justify-between gap-2 border-t border-hairline bg-surface-muted px-4 py-2.5">
+          <span className="text-[12px] text-ink-muted">
+            {checking ? (
+              <span className="flex items-center gap-1.5 text-brand-indigo">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Re-checking
+                policy...
+              </span>
+            ) : changes.length ? (
+              `${changes.length} line${changes.length === 1 ? "" : "s"} recoded`
+            ) : (
+              "No changes yet"
+            )}
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              data-action="Cancel coding"
+              className={ghostButton}
+              disabled={checking}
+              onClick={onCancel}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              data-action="Save coding"
+              className={primaryButton}
+              disabled={checking || changes.length === 0}
+              onClick={() => void onSave(changes)}
+            >
+              Save coding
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PolicySection({
+  report,
+  checking,
+  policyHref,
+}: {
+  report: ExpenseReport;
+  checking: boolean;
+  policyHref: string;
+}) {
+  const open = report.holds.filter((h) => h.status === "open");
+  const resolved = report.holds.filter((h) => h.status === "resolved");
+  return (
+    <section data-testid="policy-section">
+      <h3 className="mb-2 flex items-center gap-1.5 text-[12px] font-medium text-ink-muted">
+        {open.length ? (
+          <ShieldAlert className="h-3.5 w-3.5 text-negative" />
+        ) : (
+          <ShieldCheck className="h-3.5 w-3.5 text-positive" />
+        )}{" "}
+        Policy
+      </h3>
+      <div className="space-y-2">
+        {open.map((h) => (
+          <div
+            key={h.code}
+            data-testid="policy-hold"
+            className={cn(
+              "rounded-lg border border-negative/25 px-3 py-2.5",
+              checking ? "ll-recheck" : "bg-negative-soft",
+            )}
+          >
+            <div className="flex items-center gap-2 text-[13px]">
+              <span className="ll-mono font-semibold text-negative">
+                {h.code}
+              </span>
+              <span className="text-ink">Allocation required</span>
+            </div>
+            <div className="mt-1 flex items-center justify-between text-[12px]">
+              <span className="text-ink-muted">
+                {checking
+                  ? "Re-checking policy..."
+                  : "Approval is held until this clears."}
+              </span>
+              <Link
+                href={policyHref}
+                data-action="View policy"
+                className="font-medium text-brand hover:underline"
+              >
+                View policy
+              </Link>
+            </div>
+          </div>
+        ))}
+        {resolved.map((h) => (
+          <div
+            key={h.code}
+            data-testid="policy-resolved"
+            className="flex items-center gap-2 rounded-lg border border-positive/25 bg-positive-soft px-3 py-2 text-[13px]"
+          >
+            <CheckCircle2 className="h-4 w-4 text-positive" />
+            <span className="ll-mono font-semibold">{h.code}</span>
+            <span>resolved</span>
+          </div>
+        ))}
+        <ul className="space-y-1 pt-1 text-[12.5px] text-ink-muted">
+          {[
+            "Receipts attached for every line",
+            "Submitted within 30 days",
+            "No duplicate charges",
+          ].map((t) => (
+            <li key={t} className="flex items-center gap-1.5">
+              <Check className="h-3.5 w-3.5 text-positive" /> {t}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function CodingSummary({
+  report,
+  centers,
+}: {
+  report: ExpenseReport;
+  centers: CostCenter[];
+}) {
+  const by = new Map<string, number>();
+  for (const l of report.lines)
+    by.set(l.costCenterId, (by.get(l.costCenterId) ?? 0) + l.amount);
+  return (
+    <section>
+      <h3 className="mb-2 text-[12px] font-medium text-ink-muted">Coding</h3>
+      <ul className="space-y-1.5 text-[13px]">
+        {[...by.entries()].map(([id, amt]) => (
+          <li key={id} className="flex items-center justify-between gap-2">
+            <span className="truncate">
+              <Id className="mr-1.5">{id}</Id>
+              {ccName(centers, id)}
+            </span>
+            <Money value={amt} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** Submitted, policy check, approved, reimbursed: a compact stepper. */
+function Steps({
+  report,
+  checking,
+}: {
+  report: ExpenseReport;
+  checking: boolean;
+}) {
   const held = report.holds.some((h) => h.status === "open");
   const steps = [
-    { label: "Submitted", done: true, detail: formatDate(report.submittedAt) },
+    { label: "Submitted", state: "done" as const },
     {
-      label: "Policy check",
-      done: !held,
-      blocked: held,
-      detail: held
-        ? "On hold"
-        : report.holds.length
-          ? "Hold resolved"
-          : "Passed",
+      label: checking ? "Re-checking" : held ? "Policy hold" : "Policy check",
+      state: checking
+        ? ("live" as const)
+        : held
+          ? ("blocked" as const)
+          : ("done" as const),
     },
     {
       label: "Approved",
-      done: report.status === "approved" || report.status === "reimbursed",
-      detail: report.approvedAt ? formatDate(report.approvedAt) : "",
+      state:
+        report.status === "approved" || report.status === "reimbursed"
+          ? ("done" as const)
+          : ("todo" as const),
     },
     {
       label: "Reimbursed",
-      done: report.status === "reimbursed",
-      detail: report.reimbursement
-        ? `ACH ${formatDate(report.reimbursement.scheduledFor)}`
-        : "",
+      state:
+        report.status === "reimbursed" ? ("done" as const) : ("todo" as const),
     },
   ];
   return (
     <ol
       data-testid="report-timeline"
-      className="mb-4 grid grid-cols-4 gap-2 rounded-xl border border-hairline bg-surface px-4 py-3"
+      className="flex items-center gap-1.5 text-[12px]"
     >
       {steps.map((s, i) => (
-        <li key={s.label} className="flex items-center gap-2">
+        <li key={s.label} className="flex items-center gap-1.5">
+          {i > 0 ? (
+            <span
+              aria-hidden
+              className={cn(
+                "h-px w-6",
+                s.state === "done" ? "bg-ink" : "bg-hairline",
+              )}
+            />
+          ) : null}
           <span
             className={cn(
-              "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[0.68rem] font-bold",
-              s.blocked
-                ? "bg-negative-soft text-negative"
-                : s.done
-                  ? "bg-brand text-brand-foreground"
-                  : "bg-surface-muted text-ink-muted",
+              "flex h-5 items-center gap-1 rounded-[5px] px-1.5 font-medium",
+              s.state === "done" && "bg-surface-muted text-ink",
+              s.state === "blocked" && "bg-negative-soft text-negative",
+              s.state === "live" && "bg-brand-soft text-brand-indigo",
+              s.state === "todo" && "text-[hsl(var(--ll-faint))]",
             )}
           >
-            {s.blocked ? "!" : s.done ? "✓" : i + 1}
+            {s.state === "done" ? (
+              <Check className="h-3 w-3" />
+            ) : s.state === "live" ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : null}
+            {s.label}
           </span>
-          <div className="min-w-0">
-            <div
-              className={cn(
-                "text-[0.78rem] font-semibold",
-                !s.done && !s.blocked && "text-ink-muted",
-              )}
-            >
-              {s.label}
-            </div>
-            <div
-              className={cn(
-                "truncate text-[0.68rem]",
-                s.blocked ? "text-negative" : "text-ink-muted",
-              )}
-            >
-              {s.detail}
-            </div>
-          </div>
         </li>
       ))}
     </ol>

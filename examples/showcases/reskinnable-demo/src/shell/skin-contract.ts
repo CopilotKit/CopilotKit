@@ -192,6 +192,22 @@ export interface Skin {
    * explains when you probably want REST instead.
    */
   useData?: () => unknown;
+  /**
+   * OPTIONAL: this skin's default chat layout. Omit to keep the shell's
+   * defaults (chat docked left, conversation rail left and open). A skin that
+   * sets it gets its own stored layout preference (keyed by skin id), so the
+   * presenter's ⇆ choice on one skin never moves another skin's chat.
+   */
+  layoutDefaults?: {
+    /** Which side the chat panel docks on. Shell default: "left". */
+    chatSide?: "left" | "right";
+    /** Which side of the chat the conversation rail sits on. Shell default: "left". */
+    inboxSide?: "left" | "right";
+    /** Whether the conversation rail starts open. Shell default: true. */
+    inboxOpen?: boolean;
+    /** The chat panel's default width in px. Shell default: 600. */
+    chatWidthPx?: number;
+  };
 }
 
 // NOTE: A skin's AGENT is intentionally NOT part of this client contract.

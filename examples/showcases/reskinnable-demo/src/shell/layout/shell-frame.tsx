@@ -1,5 +1,6 @@
 "use client";
 
+import { useOptionalSkin } from "@/shell/skin-provider";
 import { PanelLeftOpen } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
@@ -43,6 +44,9 @@ export function ShellFrame({
   app: ReactNode;
 }) {
   const { sidebarSide, sidebarOpen, setSidebarOpen } = useLayoutPreferences();
+  const skin = useOptionalSkin();
+  const chatDefaultPx =
+    skin?.layoutDefaults?.chatWidthPx ?? ASSISTANT_DEFAULT_PX;
   const isDesktop = useIsDesktop();
   const hydrated = useHydrated();
 
@@ -50,7 +54,7 @@ export function ShellFrame({
   // means reversing JSX order; keying the layout by side is what stops a
   // left-docked width from being restored as a mirrored right-docked one.
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
-    id: `nw-shell-${sidebarSide === "left" ? "ltr" : "rtl"}`,
+    id: `nw-shell-${sidebarSide === "left" ? "ltr" : "rtl"}${skin?.layoutDefaults ? `-${skin.id}` : ""}`,
     storage: safeLayoutStorage,
   });
 
@@ -114,7 +118,7 @@ export function ShellFrame({
       id="sidebar-panel"
       minSize={ASSISTANT_MIN_PX}
       maxSize={ASSISTANT_MAX}
-      defaultSize={ASSISTANT_DEFAULT_PX}
+      defaultSize={chatDefaultPx}
       className="h-full min-w-0"
     >
       {sidebarColumn}

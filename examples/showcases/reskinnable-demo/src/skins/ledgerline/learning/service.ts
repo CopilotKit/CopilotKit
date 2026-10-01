@@ -129,34 +129,35 @@ export function resetAll(): void {
 
 /** The skill as the deterministic path writes it, for an approve that arrives before any capture. */
 function canonicalSkill(): Skill {
+  const description =
+    "Use when approving an expense report blocked by POLICY_HOLD POL-114 (allocation required): a Team event report over $2,500 whose event lines are still coded to a department cost center.";
   const md = [
     "---",
     `name: ${SKILL_NAME}`,
-    "description: Use when approving an expense report blocked by POLICY_HOLD POL-114: a Team event report over $2,500 that is still charged to a department cost center.",
+    `description: ${description}`,
     "---",
     "",
     "# Approve a team-event expense report",
     "",
     "## When to use",
-    'approveReport returns POLICY_HOLD POL-114, or you are about to approve a Team event report over $2,500. The report\'s Policy panel says: "Team events over $2,500 must be allocated to an events cost center before approval".',
+    'approveReport returns POLICY_HOLD POL-114, or you are about to approve a Team event report over $2,500. Policy POL-114 says: "Team events over $2,500 must be coded to the cost center that owns the events budget." That cost center is CC-410 Events & Offsites.',
     "",
     "## Steps",
-    '1. Call getReport to confirm the category is "Team event", the total is over $2,500 and hold POL-114 is open.',
-    '2. Call allocateCostCenter with the report id and "CC-410" (Events & Offsites), the events cost center the policy requires.',
+    '1. Call getReport to confirm the category is "Team event", the total is over $2,500 and hold POL-114 is open, and to read the lineIds.',
+    '2. Call recodeLines to recode only the event lines (venue hire and catering) to "CC-410" (Events & Offsites), the events-budget cost center. Leave the other lines (transport, supplies) on their current cost center.',
     "3. Approve it: approveAndReimburse when the user also asked for reimbursement (one confirmation card), otherwise approveReport. Approval succeeds once the hold resolves.",
     "4. If you used approveReport and the user asked for reimbursement, call reimburseReport.",
-    "5. Confirm in one sentence: the report, the amount, and that it was moved to CC-410 Events & Offsites before approval.",
+    "5. Confirm in one sentence: the report, the amount, and which lines moved to CC-410 Events & Offsites.",
     "",
     "## Guardrails",
-    "- Only reallocate Team event reports over $2,500 held by POL-114. Never move other spend to CC-410.",
-    "- Do not add notes or retry approval as a workaround for this hold; allocation is what clears it.",
+    "- Recode only event spend (venue, catering) to CC-410. Recoding every line, or using another cost center, does not clear POL-114.",
+    "- Do not add notes or retry approval as a workaround for this hold; the line coding is what clears it.",
     "",
   ].join("\n");
   return {
     name: SKILL_NAME,
     status: "candidate",
-    description:
-      "Use when approving an expense report blocked by POLICY_HOLD POL-114: a Team event report over $2,500 that is still charged to a department cost center.",
+    description,
     skillMd: md,
     supportingInsightIds: [],
     revision: 1,

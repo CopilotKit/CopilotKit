@@ -28,8 +28,14 @@ describe("the Ledgerline MCP tools", () => {
         .instructions,
     ).toContain("CC-410");
     runTool(
-      "allocateCostCenter",
-      { reportId: "EXP-2291", costCenterId: "CC-410" },
+      "recodeLines",
+      {
+        reportId: "EXP-2291",
+        lines: [
+          { lineId: "L2291-1", costCenterId: "CC-410" },
+          { lineId: "L2291-2", costCenterId: "CC-410" },
+        ],
+      },
       ua,
     );
     expect(
@@ -45,9 +51,7 @@ describe("the Ledgerline MCP tools", () => {
     const d = learning.trajectoryDetail(t!.trajectoryId)!;
     const thread = d.threads.find((x) => x.surface === "chatgpt")!;
     expect(thread.linkStrength).toBe("weak");
-    expect(thread.agentTrace.map((e) => e.name)).toContain(
-      "allocateCostCenter",
-    );
+    expect(thread.agentTrace.map((e) => e.name)).toContain("recodeLines");
   });
 });
 
@@ -78,8 +82,14 @@ describe("the MCP app tools", () => {
     });
     expect(JSON.stringify(refused)).not.toMatch(/events cost center|CC-410/);
     runTool(
-      "allocateCostCenter",
-      { reportId: "EXP-2291", costCenterId: "CC-410" },
+      "recodeLines",
+      {
+        reportId: "EXP-2291",
+        lines: [
+          { lineId: "L2291-1", costCenterId: "CC-410" },
+          { lineId: "L2291-2", costCenterId: "CC-410" },
+        ],
+      },
       ua,
     );
     expect(

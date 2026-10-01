@@ -128,7 +128,7 @@ function LearnedSkillCard({
 }) {
   if (typeof result !== "string") {
     return (
-      <div className="my-1 inline-flex items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-1.5 text-[0.76rem] text-ink-muted">
+      <div className="my-1 inline-flex items-center gap-2 rounded-[10px] border border-hairline bg-surface px-3 py-1.5 text-[12.5px] text-ink-muted">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
         {name
           ? `Loading learned skill ${name}...`
@@ -152,7 +152,7 @@ function LearnedSkillCard({
   return (
     <div
       data-testid="ledgerline-learned-skill-card"
-      className="my-1.5 rounded-2xl border border-brand/25 bg-brand-soft px-3.5 py-2.5 text-[0.78rem] text-ink"
+      className="my-1.5 rounded-[10px] border border-brand/25 bg-brand-soft px-3.5 py-2.5 text-[0.78rem] text-ink"
     >
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
         <GraduationCap className="h-4 w-4 text-brand" />

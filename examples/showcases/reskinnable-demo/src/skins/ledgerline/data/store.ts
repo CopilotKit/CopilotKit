@@ -27,6 +27,8 @@ import type {
   ReportStatus,
 } from "./types";
 import { HOLD_TEAM_EVENT } from "./types";
+import { evaluateTeamEvent } from "./policy";
+import type { PolicyCheck } from "./policy";
 
 export class LedgerError extends Error {
   constructor(
@@ -176,7 +178,7 @@ export function approveReport(
   if (open) {
     throw new LedgerError(
       "POLICY_HOLD",
-      `${r.id} cannot be approved while policy hold ${open.code} is open.`,
+      `${r.id} cannot be approved: policy hold ${open.code} (allocation required) is open.`,
       { code: open.code },
     );
   }
@@ -188,46 +190,76 @@ export function approveReport(
   return clone(r);
 }
 
-export function allocateCostCenter(
+export interface LineCoding {
+  lineId: string;
+  costCenterId: string;
+}
+
+/**
+ * Recode report lines to other cost centers. The policy engine re-evaluates
+ * POL-114 on every recode: the hold resolves only when the event lines sit on
+ * the events budget and nothing else does, and it reopens if a later recode
+ * breaks that. Returns the report and the check (whose `reason` is for the
+ * person in the app; the agent's view drops it).
+ */
+export function recodeLines(
   id: string,
-  costCenterId: string,
-): ExpenseReport {
+  changes: LineCoding[],
+): { report: ExpenseReport; check: PolicyCheck } {
   const r = find(id);
-  const cc = COST_CENTERS.find(
-    (c) => c.id.toUpperCase() === costCenterId.trim().toUpperCase(),
-  );
-  if (!cc) {
+  if (r.status === "reimbursed" || r.status === "approved") {
     throw new LedgerError(
-      "UNKNOWN_COST_CENTER",
-      `${costCenterId} is not a cost center.`,
+      "LOCKED",
+      `${r.id} is ${r.status}; its coding is locked.`,
     );
   }
-  if (r.status === "reimbursed") {
-    throw new LedgerError(
-      "ALREADY_REIMBURSED",
-      `${r.id} has already been reimbursed.`,
-    );
+  if (!Array.isArray(changes) || changes.length === 0) {
+    throw new LedgerError("BAD_REQUEST", "Name at least one line to recode.");
   }
-  r.costCenterId = cc.id;
-  // The policy engine re-evaluates on every allocation.
+  const moves: { line: string; from: string; to: string }[] = [];
+  for (const c of changes) {
+    const line = r.lines.find(
+      (l) => l.id.toUpperCase() === String(c.lineId).trim().toUpperCase(),
+    );
+    if (!line)
+      throw new LedgerError("NOT_FOUND", `${r.id} has no line ${c.lineId}.`);
+    const cc = COST_CENTERS.find(
+      (x) => x.id.toUpperCase() === String(c.costCenterId).trim().toUpperCase(),
+    );
+    if (!cc)
+      throw new LedgerError(
+        "UNKNOWN_COST_CENTER",
+        `${c.costCenterId} is not a cost center.`,
+      );
+    if (line.costCenterId !== cc.id)
+      moves.push({
+        line: line.description,
+        from: line.costCenterId,
+        to: cc.id,
+      });
+    line.costCenterId = cc.id;
+  }
+  const check = evaluateTeamEvent(r);
   for (const h of r.holds) {
-    if (
-      h.code === HOLD_TEAM_EVENT &&
-      h.status === "open" &&
-      cc.kind === "events"
-    ) {
+    if (h.code !== HOLD_TEAM_EVENT) continue;
+    if (check.status === "resolved" && h.status === "open") {
       h.status = "resolved";
       h.resolvedAt = today();
+    } else if (check.status === "open" && h.status === "resolved") {
+      h.status = "open";
+      delete h.resolvedAt;
     }
   }
-  log(
-    "allocated",
-    r,
-    CURRENT_USER.name,
-    `moved ${r.title} to ${cc.id} ${cc.name}`,
-  );
+  if (moves.length) {
+    log(
+      "recoded",
+      r,
+      CURRENT_USER.name,
+      `recoded ${moves.map((m) => `${m.line} to ${m.to}`).join(", ")}`,
+    );
+  }
   bump();
-  return clone(r);
+  return { report: clone(r), check };
 }
 
 export function reimburseReport(id: string): ExpenseReport {

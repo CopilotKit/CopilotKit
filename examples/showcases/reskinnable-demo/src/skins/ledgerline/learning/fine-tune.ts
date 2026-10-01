@@ -26,10 +26,13 @@ function call(id: string, name: string, args: Record<string, unknown>) {
   };
 }
 
+type Lines = { recoded: { lineId: string }[]; kept: { lineId: string }[] };
+
 function exampleFor(
   request: string,
   reportId: string,
   costCenterId: string,
+  lines: Lines,
   amount: number | undefined,
   reimburse: boolean,
   meta: Record<string, unknown>,
@@ -49,14 +52,22 @@ function exampleFor(
         id: reportId,
         category: "Team event",
         total: amount,
-        holds: [{ code: "POL-114", status: "open" }],
+        holds: [
+          { code: "POL-114", status: "open", label: "allocation required" },
+        ],
+        lines: [...lines.recoded, ...lines.kept].map((l) => ({
+          lineId: l.lineId,
+        })),
       }),
     },
     {
       role: "assistant",
       content: null,
       tool_calls: [
-        call("c2", "allocateCostCenter", { reportId, costCenterId }),
+        call("c2", "recodeLines", {
+          reportId,
+          lines: lines.recoded.map((l) => ({ lineId: l.lineId, costCenterId })),
+        }),
       ],
     },
     {
@@ -64,7 +75,10 @@ function exampleFor(
       tool_call_id: "c2",
       content: JSON.stringify({
         id: reportId,
-        costCenterId,
+        lines: lines.recoded.map((l) => ({
+          lineId: l.lineId,
+          costCenter: { id: costCenterId },
+        })),
         holds: [{ code: "POL-114", status: "resolved" }],
       }),
     },
@@ -95,7 +109,7 @@ function exampleFor(
   }
   m.push({
     role: "assistant",
-    content: `Moved ${reportId} to ${costCenterId} Events & Offsites to clear hold POL-114, approved it${reimburse ? " and scheduled the reimbursement" : ""}.`,
+    content: `Recoded the event lines of ${reportId} to ${costCenterId} Events & Offsites to clear hold POL-114, approved it${reimburse ? " and scheduled the reimbursement" : ""}.`,
   });
   return { messages: m, metadata: meta };
 }
@@ -119,8 +133,9 @@ export function buildExamples(d: TrajectoryDetail | null): FineTuneExample[] {
   const meta = (variant: string) => ({
     sourceTrajectoryId: f.trajectoryId,
     sourceEventIds: [
-      f.evidence.panel,
-      f.evidence.allocated,
+      f.evidence.policyView,
+      f.evidence.costCentersView,
+      f.evidence.recoded,
       f.evidence.approved,
       f.evidence.reimbursed,
     ]
@@ -133,6 +148,7 @@ export function buildExamples(d: TrajectoryDetail | null): FineTuneExample[] {
       userAsk,
       f.reportId,
       f.costCenterId,
+      f,
       amount,
       true,
       meta("captured request"),
@@ -141,6 +157,7 @@ export function buildExamples(d: TrajectoryDetail | null): FineTuneExample[] {
       `Approve ${f.reportId}.`,
       f.reportId,
       f.costCenterId,
+      f,
       amount,
       false,
       meta("approve only"),
@@ -149,6 +166,7 @@ export function buildExamples(d: TrajectoryDetail | null): FineTuneExample[] {
       `Can you get ${f.employee}'s team event report approved and paid out?`,
       f.reportId,
       f.costCenterId,
+      f,
       amount,
       true,
       meta("paraphrase"),

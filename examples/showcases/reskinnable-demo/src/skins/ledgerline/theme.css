@@ -1,27 +1,105 @@
-/* Ledgerline: a neutral, fictitious expense and approvals product.
-   Deep teal brand on a cool off-white canvas. Light-only (no theme toggle). */
+/* Ledgerline: "crisp ledger". Bright white, monochrome ink, ONE vivid accent
+   (Ledger Blue #2D5BFF) for focus, active and selection, and status colours
+   that only ever mean state. Light-only. Direction note: see the skin README.
+
+   Values for the shell's token vocabulary (HSL triplets), then the skin's
+   own state tokens (--ll-*), used through arbitrary utilities. */
 .theme-ledgerline {
   --radius: 0.625rem;
 
-  --brand: 184 72% 26%;
-  --brand-indigo: 184 74% 20%;
-  --brand-violet: 38 92% 50%;
+  /* accent */
+  --brand: 227 100% 59%; /* #2D5BFF */
+  --brand-indigo: 227 82% 48%;
+  --brand-violet: 227 100% 59%;
   --brand-foreground: 0 0% 100%;
-  --brand-soft: 180 38% 95%;
+  --brand-soft: 228 100% 97%; /* #EEF2FF */
 
+  /* neutrals */
   --background: 0 0% 100%;
-  --foreground: 210 24% 12%;
-  --canvas: 210 20% 97%;
+  --foreground: 225 11% 7%;
+  --canvas: 0 0% 100%;
   --surface: 0 0% 100%;
-  --surface-muted: 210 18% 95%;
-  --ink: 210 24% 12%;
-  --ink-muted: 212 12% 38%;
-  --hairline: 212 18% 89%;
+  --surface-muted: 240 9% 97%; /* #F7F7F8 */
+  --ink: 225 11% 7%; /* #101114 */
+  --ink-muted: 222 7% 38%; /* #5B5F69 */
+  --hairline: 228 9% 91%; /* #E7E8EB */
 
-  --positive: 152 62% 28%;
-  --positive-soft: 150 45% 94%;
-  --negative: 2 66% 44%;
-  --negative-soft: 4 80% 96%;
+  --positive: 154 83% 26%; /* #0B7A4B */
+  --positive-soft: 143 44% 93%;
+  --negative: 6 75% 44%; /* #C42B1C */
+  --negative-soft: 6 82% 96%;
+
+  /* skin state tokens */
+  --ll-faint: 222 5% 57%; /* #8B8F98 */
+  --ll-amber: 37 100% 30%; /* #9A5B00 */
+  --ll-amber-soft: 40 100% 93%; /* #FFF4DE */
+  --ll-gray-soft: 220 12% 95%;
+  --ll-shadow:
+    0 8px 24px hsl(225 20% 10% / 0.08), 0 1px 2px hsl(225 20% 10% / 0.06);
+
+  font-family:
+    var(--font-geist-sans),
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  color: hsl(var(--ink));
+}
+
+.theme-ledgerline .ll-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+.theme-ledgerline .ll-mono {
+  font-family:
+    var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.92em;
+  letter-spacing: -0.01em;
+}
+/* the currency symbol sits lighter than the value */
+.theme-ledgerline .ll-cur {
+  color: hsl(var(--ll-faint));
+  font-size: 0.78em;
+  margin-right: 1px;
+  vertical-align: 0.06em;
+}
+
+/* the one authored moment: the policy re-check shimmer */
+@keyframes ll-recheck {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.theme-ledgerline .ll-recheck {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--brand-soft)) 0%,
+    hsl(var(--surface)) 40%,
+    hsl(var(--brand-soft)) 80%
+  );
+  background-size: 200% 100%;
+  animation: ll-recheck 1.1s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-ledgerline .ll-recheck {
+    animation: none;
+  }
+}
+
+.theme-ledgerline :focus-visible {
+  outline: 2px solid hsl(var(--brand));
+  outline-offset: 1px;
+}
+.theme-ledgerline .ll-noring:focus-visible,
+.theme-ledgerline textarea[data-testid="copilot-chat-textarea"]:focus-visible {
+  /* The composer's own rounded frame already shows focus. */
+  outline: none;
 }
 
 /* A tool-only assistant message gets no copy/feedback toolbar: a run that
@@ -33,4 +111,25 @@
   )
   > [data-testid="copilot-assistant-toolbar"] {
   display: none;
+}
+
+/* The threads drawer in a narrow chat column: the shell hides its rail under
+   520px; Ledgerline instead opens it as a drawer over the right edge of the
+   chat, next to where the chat is docked. */
+.theme-ledgerline .nw-chat-cluster {
+  position: relative;
+}
+@container (max-width: 520px) {
+  .theme-ledgerline .nw-chat-rail {
+    display: block;
+    position: absolute;
+    top: 52px;
+    bottom: 0;
+    right: 0;
+    width: 248px;
+    z-index: 20;
+    background: hsl(var(--surface));
+    box-shadow: var(--ll-shadow);
+    border-top-left-radius: 10px;
+  }
 }

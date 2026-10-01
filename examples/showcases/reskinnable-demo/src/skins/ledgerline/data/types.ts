@@ -24,12 +24,28 @@ export const CATEGORIES = [
 ] as const;
 export type Category = (typeof CATEGORIES)[number];
 
+export const BUDGET_TYPES = [
+  "ops",
+  "product",
+  "engineering",
+  "sales",
+  "marketing",
+  "events",
+  "travel",
+  "customer",
+  "people",
+] as const;
+export type BudgetType = (typeof BUDGET_TYPES)[number];
+
 export interface CostCenter {
   id: string;
   name: string;
   owner: string;
-  /** The kind of spend this budget absorbs. Only "events" lifts POL-114. */
-  kind: "department" | "events";
+  /**
+   * The kind of spend this budget absorbs. Only an "events" budget satisfies
+   * POL-114, and only the Cost centers page shows this.
+   */
+  budgetType: BudgetType;
   /** This quarter's budget for expense reports, USD. */
   quarterBudget: number;
 }
@@ -43,6 +59,7 @@ export interface Activity {
     | "approved"
     | "reimbursed"
     | "allocated"
+    | "recoded"
     | "note"
     | "hold"
     | "rejected";
@@ -57,6 +74,10 @@ export interface LineItem {
   description: string;
   amount: number;
   receipt: boolean;
+  /** The cost center this line is charged to (its "coding"). */
+  costCenterId: string;
+  /** Event spend (venue, catering) as opposed to travel or supplies. */
+  eventCost: boolean;
 }
 
 export interface Note {

@@ -125,14 +125,14 @@ describe("the trajectory store", () => {
     store.ingest([
       ev("screen.context", {
         label:
-          "Policy panel: Team events over $2,500 must be allocated to an events cost center before approval",
+          "Policy POL-114: Team events over $2,500 must be coded to the cost center that owns the events budget.",
         fields: {
           reportId: "EXP-2291",
           holdCode: "POL-114",
-          text: "Team events over $2,500 must be allocated to an events cost center before approval",
+          text: "Team events over $2,500 must be coded to the cost center that owns the events budget.",
         },
       }),
-      ev("expense.cost_center_allocated", {
+      ev("expense.lines_recoded", {
         reportId: "EXP-2291",
         costCenter: "CC-410",
       }),
