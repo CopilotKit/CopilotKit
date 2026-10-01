@@ -697,6 +697,15 @@ describe("framework nav", () => {
         ],
       },
       { title: "User Memories", slug: "intelligence/memories" },
+      {
+        title: "Capture interactions",
+        slug: "intelligence/capture-interactions",
+      },
+      {
+        title: "Standalone collector",
+        slug: "intelligence/standalone-collector",
+      },
+      { title: "Captured data", slug: "intelligence/captured-data" },
       { title: "Product Analytics", slug: "intelligence/analytics" },
       { title: "Channels", slug: "intelligence/channels" },
     ]);
@@ -783,6 +792,38 @@ describe("framework nav", () => {
         (node) => node.type === "group" && node.title === "AG2",
       ),
     ).toBe(true);
+  });
+
+  it("keeps capture guides in Intelligence after sidebar normalization", () => {
+    const pages = [
+      {
+        title: "Capture interactions",
+        slug: "intelligence/capture-interactions",
+      },
+      {
+        title: "Standalone collector",
+        slug: "intelligence/standalone-collector",
+      },
+      { title: "Captured data", slug: "intelligence/captured-data" },
+    ];
+    const navTrees = [
+      buildRootSurfaceNav("built-in-agent"),
+      buildFrameworkNav("langgraph", "LangGraph (Python)", "langgraph-python"),
+      buildFrameworkOnlyNav("ag2"),
+    ];
+
+    for (const navTree of navTrees) {
+      const normalized = normalizeSidebarNav(navTree);
+      expect(groupEntries(normalized, "Features")).toEqual(
+        expect.arrayContaining(pages),
+      );
+      for (const { slug } of pages) {
+        expect(navAncestorBreadcrumbsForSlug(normalized, slug)).toEqual([
+          { label: "Intelligence", href: null },
+          { label: "Features", href: null },
+        ]);
+      }
+    }
   });
 
   it("leaves Slack and Teams platform guides ungated", () => {
@@ -1119,6 +1160,15 @@ describe("framework nav", () => {
         ],
       },
       { title: "User Memories", slug: "intelligence/memories" },
+      {
+        title: "Capture interactions",
+        slug: "intelligence/capture-interactions",
+      },
+      {
+        title: "Standalone collector",
+        slug: "intelligence/standalone-collector",
+      },
+      { title: "Captured data", slug: "intelligence/captured-data" },
       { title: "Product Analytics", slug: "intelligence/analytics" },
       { title: "Channels", slug: "intelligence/channels" },
     ]);

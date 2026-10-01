@@ -1210,6 +1210,18 @@ export function normalizeSidebarNav(
     "intelligence/learned-skills",
     "Skill delivery",
   );
+  const intelligenceCapture = intelligencePage(
+    "intelligence/capture-interactions",
+    "Capture interactions",
+  );
+  const intelligenceStandaloneCollector = intelligencePage(
+    "intelligence/standalone-collector",
+    "Standalone collector",
+  );
+  const intelligenceCapturedData = intelligencePage(
+    "intelligence/captured-data",
+    "Captured data",
+  );
   // Skill delivery is a step inside Automatic Learning, so it nests under
   // that page. The group shares the page's slug, and page-tree-bridge lifts
   // the matching child onto the folder so the folder title links to /learning.
@@ -1329,6 +1341,9 @@ export function normalizeSidebarNav(
           intelligenceStreams,
           intelligenceLearningGroup,
           intelligenceMemory,
+          intelligenceCapture,
+          intelligenceStandaloneCollector,
+          intelligenceCapturedData,
           intelligenceAnalytics,
           intelligenceChannels,
         ].filter((node): node is NavNode => node !== null),
