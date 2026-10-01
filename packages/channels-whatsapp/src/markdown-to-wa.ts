@@ -39,6 +39,7 @@ function splitOnCode(input: string): Segment[] {
   return out;
 }
 
+/** Apply the Markdown → WhatsApp substitutions to a prose (non-code) segment. */
 function transformProse(text: string): string {
   let s = text;
   // Links: [text](url) → text (url)

@@ -64,6 +64,12 @@ export async function detectSingleRouteEnvelope(
   return method as EndpointMethod;
 }
 
+/**
+ * Read the `{ method, params, body }` envelope of a single-route request.
+ *
+ * @throws A 415 Response when the body is not JSON, and a 400 Response when it
+ *   is not a JSON object or names an unsupported method.
+ */
 export async function parseMethodCall(request: Request): Promise<MethodCall> {
   const contentType = request.headers.get("content-type") || "";
 

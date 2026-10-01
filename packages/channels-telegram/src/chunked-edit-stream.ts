@@ -231,6 +231,11 @@ export class ChunkedEditStream {
     }
   }
 
+  /**
+   * Post a placeholder message for every chunk that doesn't have one yet, then
+   * hand each chunk's current slice (with its code fences balanced) to that
+   * message's edit stream.
+   */
   private async ensureStreamsAndDispatch(): Promise<void> {
     if (this.buffer.length === 0) return;
 

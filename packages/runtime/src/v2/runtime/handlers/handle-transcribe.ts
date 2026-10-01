@@ -120,6 +120,11 @@ async function extractAudioFromFormData(
   return { file: audioFile };
 }
 
+/**
+ * Decode `{ audio, mimeType, filename? }` (base64 audio) from a JSON request
+ * into a File, or an invalid-request error Response when the body is not
+ * usable.
+ */
 async function extractAudioFromJson(
   request: Request,
 ): Promise<{ file: File } | { error: Response }> {

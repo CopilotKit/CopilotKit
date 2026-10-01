@@ -40,6 +40,11 @@ function linkPlaceholder(i: number): string {
   return `￾LINK${i}￾`;
 }
 
+/**
+ * Convert agent Markdown into Telegram HTML parse mode (see the mapping at the
+ * top of this file). Code is escaped and never re-parsed; all other text is
+ * escaped before markup is added.
+ */
 export function telegramHtml(input: string): string {
   if (!input) return input;
 
