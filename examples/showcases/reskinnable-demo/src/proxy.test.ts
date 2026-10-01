@@ -121,6 +121,14 @@ describe("proxy matcher", () => {
     expect(matches("/api-keys")).toBe(true);
   });
 
+  it("never matches the separate Intelligence screens", () => {
+    // `/intelligence/*` is its own product UI, not a skin page: a lock must not
+    // rewrite it to `/<locked>/intelligence`. Excluded at a segment boundary.
+    expect(matches("/intelligence")).toBe(false);
+    expect(matches("/intelligence/trajectories/trj_1")).toBe(false);
+    expect(matches("/intelligence-notes")).toBe(true);
+  });
+
   it("matches the pages a lock has to rewrite", () => {
     expect(matches("/")).toBe(true);
     expect(matches("/cards")).toBe(true);

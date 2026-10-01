@@ -1,0 +1,74 @@
+:root {
+  /* Approved checkout palette; shared by Ops status cards and the app notice. */
+  --cpki-billing-foreground: #010507;
+  --cpki-billing-surface: #ffffff;
+  --cpki-billing-border: #dbdbe5;
+  --cpki-billing-muted-foreground: #57575b;
+  --cpki-billing-error: #fa5f67;
+  --cpki-billing-surface-subtle: #f7f7f9;
+  --cpki-billing-surface-footer: #fafafc;
+  --cpki-billing-surface-disabled: #ededf5;
+  --cpki-color-lilac-muted: #bec2ff33;
+  --cpki-color-lilac-subtle: #bec2ff1a;
+  --cpki-font-sans:
+    'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --cpki-font-mono:
+    'Spline Sans Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo,
+    monospace;
+
+  --cpki-font-size-0: 0.75rem;
+  --cpki-font-size-1: 0.875rem;
+  --cpki-font-size-2: 1rem;
+  --cpki-font-size-3: 1.125rem;
+  --cpki-font-size-4: 1.25rem;
+  --cpki-font-size-5: 1.5rem;
+  --cpki-font-size-6: 1.75rem;
+  --cpki-font-size-7: 2rem;
+  --cpki-font-size-8: 2.625rem;
+
+  --cpki-line-height-tight: 1.18;
+  --cpki-line-height-display: 1.08;
+  --cpki-line-height-normal: 1.42;
+  --cpki-line-height-relaxed: 1.56;
+
+  --cpki-space-0: 0;
+  --cpki-space-1: 0.25rem;
+  --cpki-space-2: 0.5rem;
+  --cpki-space-3: 0.75rem;
+  --cpki-space-4: 1rem;
+  --cpki-space-5: 1.25rem;
+  --cpki-space-6: 1.5rem;
+  --cpki-space-8: 2rem;
+  --cpki-space-10: 2.5rem;
+  --cpki-space-12: 3rem;
+
+  --cpki-radius-control: 2px;
+  --cpki-radius-panel: 2px;
+  --cpki-radius-overlay: 4px;
+  --cpki-radius-round: 999px;
+
+  --cpki-border-width: 1px;
+  --cpki-focus-ring-width: 2px;
+  --cpki-focus-ring-offset: 2px;
+
+  --cpki-shadow-overlay: 0 12px 32px rgb(1 5 7 / 10%);
+  --cpki-shadow-focus: 0 0 0 var(--cpki-focus-ring-width)
+    var(--cpki-color-focus-ring);
+
+  --cpki-duration-fast: 120ms;
+  --cpki-duration-normal: 180ms;
+  --cpki-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  --cpki-z-index-dropdown: 1000;
+  --cpki-z-index-popover: 1100;
+  --cpki-z-index-dialog: 1200;
+  --cpki-z-index-toast: 1300;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --cpki-duration-fast: 1ms;
+    --cpki-duration-normal: 1ms;
+  }
+}

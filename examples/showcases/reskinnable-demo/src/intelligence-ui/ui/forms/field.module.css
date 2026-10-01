@@ -1,0 +1,29 @@
+.field {
+  display: grid;
+  gap: 6px;
+  color: var(--cpki-color-foreground, #023047);
+}
+
+.label {
+  color: var(--cpki-color-foreground, #023047);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.requiredMark {
+  color: var(--cpki-color-danger, #b42318);
+}
+
+.description {
+  color: var(--cpki-color-muted-foreground, #57575b);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.error {
+  color: var(--cpki-color-danger, #b42318);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.4;
+}

@@ -1,0 +1,104 @@
+.delivery {
+  padding: var(--cpki-space-5) var(--cpki-space-6);
+  border-bottom: 1px solid var(--cpki-color-border);
+}
+
+.overview {
+  display: flex;
+  align-items: center;
+  gap: var(--cpki-space-3);
+}
+
+.overview {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.status {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-1);
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.footnote {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-0);
+  line-height: 1.6;
+}
+
+.setup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cpki-space-3);
+}
+
+.task summary {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-1);
+  font-weight: 500;
+  cursor: pointer;
+  padding: var(--cpki-space-2) 0;
+}
+
+.task {
+  min-width: 0;
+}
+
+.task pre {
+  background: var(--cpki-color-surface-subtle);
+  border: 1px solid var(--cpki-color-border);
+  border-radius: var(--cpki-radius-control);
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  line-height: 1.7;
+  padding: var(--cpki-space-4);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 320px;
+  overflow: auto;
+}
+
+@media (max-width: 700px) {
+  .setup {
+    grid-template-columns: 1fr;
+  }
+  .delivery {
+    padding: var(--cpki-space-4);
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--cpki-space-2);
+}
+
+.toggle {
+  display: grid;
+  gap: var(--cpki-space-1);
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--cpki-font-size-2);
+  font-weight: 600;
+}
+
+/* An unknown setting must not show an off-position thumb. */
+.toggle[data-unknown] input + span {
+  visibility: hidden;
+}
+
+.failure p {
+  margin: var(--cpki-space-2) 0;
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-0);
+}
+
+/* Pending writes stay focusable; the save handler blocks repeat activation. */
+.toggle input[aria-disabled='true'] + span {
+  opacity: 0.56;
+}

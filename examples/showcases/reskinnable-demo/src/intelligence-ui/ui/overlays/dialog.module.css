@@ -1,0 +1,126 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--cpki-z-overlay, 1000);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(
+    in srgb,
+    var(--cpki-color-foreground, #023047) 34%,
+    transparent
+  );
+  animation: cpkiOverlayFadeIn 160ms ease-out;
+}
+
+.dialog {
+  box-sizing: border-box;
+  display: grid;
+  /* Header and footer size to content; the body takes the remaining height and
+   * scrolls. `minmax(0, 1fr)` (not the default `auto`) is what lets the body
+   * shrink below its content and trigger its own overflow, instead of growing
+   * past the capped dialog height and getting clipped on all sides. */
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 0;
+  width: min(100%, 520px);
+  max-height: min(720px, calc(100vh - 48px));
+  overflow: hidden;
+  border: 1px solid var(--cpki-color-border, #b8c7d1);
+  border-radius: 2px;
+  background: var(--cpki-color-surface, #ffffff);
+  box-shadow: none;
+  color: var(--cpki-color-foreground, #023047);
+  animation: cpkiDialogEnter 180ms ease-out;
+  outline: none;
+}
+
+/* Wide preset for snippet-heavy dialogs (e.g. the runtime handoff): roomy on
+ * large viewports so code lines don't wrap, still capped to the viewport. */
+.dialog[data-size='lg'] {
+  width: min(100%, 880px);
+  max-height: min(860px, calc(100vh - 48px));
+}
+
+.header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  padding: 18px 20px 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.description {
+  margin: 4px 0 0;
+  color: var(--cpki-color-muted-foreground, #526575);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.closeButton {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--cpki-color-foreground, #023047);
+  cursor: pointer;
+  font: inherit;
+}
+
+.closeButton:hover {
+  background: var(--cpki-color-surface-muted, #f2f7f9);
+}
+
+.closeButton:focus-visible {
+  border-color: var(--cpki-color-focus-ring, #219ebc);
+  outline: 2px solid var(--cpki-color-focus-ring, #219ebc);
+  outline-offset: 2px;
+}
+
+.body {
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 20px 20px;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  border-top: 1px solid var(--cpki-color-border, #d6e0e7);
+  padding: 14px 20px;
+}
+
+@keyframes cpkiOverlayFadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes cpkiDialogEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .dialog {
+    animation-duration: 1ms;
+  }
+
+  .dialog {
+    transform: none;
+  }
+}
