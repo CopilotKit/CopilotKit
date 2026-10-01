@@ -220,6 +220,7 @@ async def test_real_native_tool_result_and_serialized_replay(native_schema):
         stream_writer=lambda _: None,
         tool_call_id="native-call",
         store=None,
+        tools=[],
     )
     tool_request = ToolCallRequest(
         tool_call={"name": "generate_a2ui", "id": "native-call", "args": {}},
