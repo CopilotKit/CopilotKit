@@ -678,6 +678,8 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
         }
       });
       const goneInputs: CellGoneInput[] = models.map((m) => ({
+        d3: m.d3,
+        d4: m.d4,
         achievedDepth: m.achievedDepth,
         chipColor: m.chipColor,
         isStaleCell: m.isStaleCell,

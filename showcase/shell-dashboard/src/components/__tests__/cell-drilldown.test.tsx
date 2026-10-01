@@ -516,18 +516,26 @@ function okWorkerRuns(families: WorkerFamilySummary[]): WorkerRunsStatus {
 
 describe("CellDrilldown §7.2 family annotation", () => {
   it("appends 'Family last succeeded <relative> · last attempt <relative> (<outcome>)' for a stale-degraded row whose key prefix maps via payload probeKeyPrefix", () => {
-    // A green d6 row observed 7 h ago: past the 6 h E2E window, so the
+    // A green e2e row observed 7 h ago: past the 6 h E2E window, so the
     // cell's EXISTING stale check downgrades it to amber/degraded with
     // fail_count 0 — the exact shape §7.2 annotates.
     const old = new Date(Date.now() - 7 * 3_600_000).toISOString();
     const live = mapOf([
-      row("d6:lgp/agentic-chat", "d6", "green", {
+      row("e2e:lgp/agentic-chat", "e2e", "green", {
         observed_at: old,
         transitioned_at: old,
       }),
     ]);
     const { getByTestId } = render(
-      <WorkerRunsProvider value={okWorkerRuns([makeFamily()])}>
+      <WorkerRunsProvider
+        value={okWorkerRuns([
+          makeFamily({
+            family: "e2e",
+            label: "D3 readiness",
+            probeKeyPrefix: "e2e",
+          }),
+        ])}
+      >
         <CellDrilldown
           slug="lgp"
           featureId="agentic-chat"

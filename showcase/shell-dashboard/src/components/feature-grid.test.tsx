@@ -349,7 +349,7 @@ describe("computeColumnTally", () => {
     expect(t.unknown).toBe(false);
   });
 
-  it("amber chip when D5=green but D6 absent", () => {
+  it("unverified chip when legacy D5=green but D6 absent", () => {
     // D6-ceiling algorithm: D5=green → amber (awaiting D6 confirmation)
     const mappedFeatures: Feature[] = [
       {
@@ -376,10 +376,10 @@ describe("computeColumnTally", () => {
       row("d5:i1/agentic-chat", "d5", "green"),
     );
     const t = computeColumnTally(mappedInt, mappedFeatures, mappedLive);
-    // D3=green, D4=green, D5=green → amber (D6 not yet green)
+    // Fresh diagnostics plus legacy functional positives remain unverified
     expect(t).toEqual({
       green: 0,
-      amber: 1,
+      amber: 0,
       red: 0,
       unknown: false,
       loading: false,

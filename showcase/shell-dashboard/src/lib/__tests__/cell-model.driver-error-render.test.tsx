@@ -149,25 +149,25 @@ describe("U7 real-surface proof: the infra fold changes the rendered outcome", (
   // the rendered chip (amber, never the danger RED_FILL) AND `d6Effective`,
   // with a genuine counterfactual that pins the discriminator: delete the fold
   // and the infra `d6Effective` would read "red", failing the null assertion.
-  it("a real per-cell d6 driver-error row folds to d6Effective=null while the chip stays amber (not red)", () => {
+  it("a real per-cell d6 driver-error row folds to d6Effective=null while the unverified chip stays gray (not red)", () => {
     const rows = [
       ...greenLadderBelowD6(FIXTURE_OBSERVED_AT),
       fixture.d6DriverErrorRow as StatusRow,
     ];
     const chip = renderChipFor(rows);
-    expect(chip.className).toContain(AMBER_FILL);
+    expect(chip.className).toContain(GRAY_FILL);
     expect(chip.className).not.toContain(RED_FILL);
     // The fold: infra D6 → gray/no-data D6 badge (null), NOT a product red.
     expect(modelFor(rows).d6Effective).toBeNull();
   });
 
-  it("a real abort D6 row folds to d6Effective=null while the chip stays amber (not red)", () => {
+  it("a real abort D6 row folds to d6Effective=null while the unverified chip stays gray (not red)", () => {
     const rows = [
       ...greenLadderBelowD6(FIXTURE_OBSERVED_AT),
       fixture.abortRow as StatusRow,
     ];
     const chip = renderChipFor(rows);
-    expect(chip.className).toContain(AMBER_FILL);
+    expect(chip.className).toContain(GRAY_FILL);
     expect(chip.className).not.toContain(RED_FILL);
     expect(modelFor(rows).d6Effective).toBeNull();
   });
@@ -180,8 +180,8 @@ describe("U7 real-surface proof: the infra fold changes the rendered outcome", (
     // the fold genuine teeth.
     const rows = [...greenLadderBelowD6(FIXTURE_OBSERVED_AT), genuineD6Red(1)];
     const chip = renderChipFor(rows);
-    expect(chip.className).toContain(AMBER_FILL);
-    expect(chip.className).not.toContain(RED_FILL);
+    expect(chip.className).toContain(RED_FILL);
+    expect(chip.className).not.toContain(GRAY_FILL);
     expect(modelFor(rows).d6Effective).toBe("red");
   });
 
@@ -234,7 +234,7 @@ describe("U8 real-surface proof: a fresh D6 failure is amber, stale folds to gra
   const FRESH_NOW = ROW_OBSERVED_MS + 60 * 1000; // 1 min later — fresh
   const STALE_NOW = ROW_OBSERVED_MS + E2E_STALE_AFTER_MS + 60 * 60 * 1000; // past window
 
-  it("the real selector-timeout D6 failure surfaces AMBER while FRESH", () => {
+  it("the real selector-timeout D6 failure surfaces RED while FRESH", () => {
     const chip = renderChipForAt(
       [
         ...greenLadderBelowD6(FIXTURE_OBSERVED_AT),
@@ -242,7 +242,7 @@ describe("U8 real-surface proof: a fresh D6 failure is amber, stale folds to gra
       ],
       FRESH_NOW,
     );
-    expect(chip.className).toContain(AMBER_FILL);
+    expect(chip.className).toContain(RED_FILL);
     expect(chip.className).not.toContain(GRAY_FILL);
   });
 

@@ -282,7 +282,7 @@ describe("deriveDepth", () => {
     expect(result.isRegression).toBe(true);
   });
 
-  it("returns D5 when D0-D4 green plus D5 green (via CATALOG_TO_D5_KEY)", () => {
+  it("caps legacy D5 positive at D4 (via CATALOG_TO_D5_KEY)", () => {
     const c = cell("lgp", "agentic-chat");
     const live = mapOf([
       row("health:lgp", "health", "green"),
@@ -292,7 +292,7 @@ describe("deriveDepth", () => {
       row("d5:lgp/agentic-chat", "d5", "green"),
     ]);
     const result = deriveDepth(c, live);
-    expect(result.achieved).toBe(5);
+    expect(result.achieved).toBe(4);
   });
 
   it("returns D4 when D5 row is red", () => {
@@ -337,7 +337,7 @@ describe("deriveDepth", () => {
       row("d5:lgp/shared-state-write", "d5", "green"),
     ]);
     const result = deriveDepth(c, live);
-    expect(result.achieved).toBe(5);
+    expect(result.achieved).toBe(4);
   });
 
   it("returns D4 when shared-state-read-write's d5 write row is red", () => {
@@ -373,7 +373,7 @@ describe("deriveDepth", () => {
       row("d5:lgp/beautiful-chat-schedule-meeting", "d5", "green"),
     ]);
     const result = deriveDepth(c, live);
-    expect(result.achieved).toBe(5);
+    expect(result.achieved).toBe(4);
   });
 
   it("returns D4 when ONE of beautiful-chat's 5 multi-key D5 rows is red", () => {
@@ -393,7 +393,7 @@ describe("deriveDepth", () => {
     expect(result.achieved).toBe(4);
   });
 
-  it("returns D6 when D0-D5 green plus D6 green (per-cell key)", () => {
+  it("caps legacy D5/D6 positives at D4 (per-cell key)", () => {
     const c = cell("lgp", "agentic-chat");
     const live = mapOf([
       row("health:lgp", "health", "green"),
@@ -404,7 +404,7 @@ describe("deriveDepth", () => {
       row("d6:lgp/agentic-chat", "d6", "green"),
     ]);
     const result = deriveDepth(c, live);
-    expect(result.achieved).toBe(6);
+    expect(result.achieved).toBe(4);
   });
 
   // ── D5/D6 staleness mirrors cell-model.ts (both consumers agree) ──
@@ -427,7 +427,7 @@ describe("deriveDepth", () => {
       expect(result.achieved).toBe(4);
     });
 
-    it("credits D5 when its green row is fresh", () => {
+    it("does not admit a fresh legacy D5 positive", () => {
       const c = cell("lgp", "agentic-chat");
       const live = mapOf([
         row("health:lgp", "health", "green", FRESH_AT),
@@ -437,7 +437,7 @@ describe("deriveDepth", () => {
         row("d5:lgp/agentic-chat", "d5", "green", FRESH_AT),
       ]);
       const result = deriveDepth(c, live, NOW);
-      expect(result.achieved).toBe(5);
+      expect(result.achieved).toBe(4);
     });
 
     it("does not credit D6 when its green row is stale", () => {
@@ -452,10 +452,10 @@ describe("deriveDepth", () => {
       ]);
       const result = deriveDepth(c, live, NOW);
       // Stale green D6 must not advance past D5.
-      expect(result.achieved).toBe(5);
+      expect(result.achieved).toBe(4);
     });
 
-    it("credits D6 when its green row is fresh", () => {
+    it("does not admit a fresh legacy D6 positive", () => {
       const c = cell("lgp", "agentic-chat");
       const live = mapOf([
         row("health:lgp", "health", "green", FRESH_AT),
@@ -466,7 +466,7 @@ describe("deriveDepth", () => {
         row("d6:lgp/agentic-chat", "d6", "green", FRESH_AT),
       ]);
       const result = deriveDepth(c, live, NOW);
-      expect(result.achieved).toBe(6);
+      expect(result.achieved).toBe(4);
     });
   });
 
@@ -591,7 +591,7 @@ describe("deriveDepth", () => {
   // ── maxPossible computation ──
 
   describe("maxPossible", () => {
-    it("(a) D5 green but D6 missing → achieved=5, maxPossible=6, NOT a regression", () => {
+    it("(a) D5 green but D6 missing → achieved=4, maxPossible=6, NOT a regression", () => {
       const c = cell("lgp", "agentic-chat");
       const live = mapOf([
         row("health:lgp", "health", "green"),
@@ -601,7 +601,7 @@ describe("deriveDepth", () => {
         row("d5:lgp/agentic-chat", "d5", "green"),
       ]);
       const result = deriveDepth(c, live);
-      expect(result.achieved).toBe(5);
+      expect(result.achieved).toBe(4);
       expect(result.maxPossible).toBe(6);
       // Unified engine §4d genuine-failure clause: an ABSENT rung above achieved
       // (D6 simply has no row yet) is NOT a regression — only a fresh RED rung
@@ -609,7 +609,7 @@ describe("deriveDepth", () => {
       expect(result.isRegression).toBe(false);
     });
 
-    it("(a-full) D5+D6 green → achieved=6, maxPossible=6, at ceiling", () => {
+    it("(a-full) D5+D6 green → achieved=4, maxPossible=6, unverified", () => {
       const c = cell("lgp", "agentic-chat");
       const live = mapOf([
         row("health:lgp", "health", "green"),
@@ -620,7 +620,7 @@ describe("deriveDepth", () => {
         row("d6:lgp/agentic-chat", "d6", "green"),
       ]);
       const result = deriveDepth(c, live);
-      expect(result.achieved).toBe(6);
+      expect(result.achieved).toBe(4);
       expect(result.maxPossible).toBe(6);
       // achieved === maxPossible → at ceiling, no regression
       expect(result.isRegression).toBe(false);
