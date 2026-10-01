@@ -1,0 +1,140 @@
+---
+title: Capture interactions
+description: Record what people do in your app as AG-UI events, linked to the Thread, message, and tool call they belong to.
+icon: "lucide/MousePointer"
+frontend: universal
+doc_type: how-to
+---
+
+## Overview
+
+You want to know what people do around your agent. Which button in a tool's UI do they click? Which page do they open next? Which request fails? Interaction capture records these actions in the browser as AG-UI `CUSTOM` events. Each event links to the Thread, message, and tool call it belongs to.
+
+When you are done, your app sends batches of events to a route you own. Each click inside the chat carries its `threadId`, `messageId`, and `toolCallId`.
+
+By default, capture never reads page text, input values, headers, bodies, or query strings. See [Captured data](/intelligence/captured-data) for every field.
+
+## Turn on capture
+
+<Steps>
+  <Step>
+    ### Install the package
+
+    ```bash
+    npm install @copilotkit/learning
+    ```
+
+  </Step>
+  <Step>
+    ### Add a route that receives the events
+
+    The sink posts JSON batches to this route. This example only logs them. Store them where you want.
+
+    ```ts title="app/api/learning-events/route.ts"
+    export async function POST(request: Request) {
+      const batch = await request.json();
+      console.log(batch.trajectoryId, batch.events.length, "events");
+      return Response.json({ ok: true });
+    }
+    ```
+
+  </Step>
+  <Step>
+    ### Pass `learning` to the provider
+
+    A Trajectory groups the events of one session. Your app decides where a Trajectory starts. Here, each page load starts one.
+
+    ```tsx title="app/providers.tsx"
+    "use client";
+
+    import { httpSink } from "@copilotkit/learning";
+    import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+    import { useState } from "react";
+
+    const sink = httpSink("/api/learning-events");
+
+    export function Providers({ children }: { children: React.ReactNode }) {
+      const [trajectoryId] = useState(() => crypto.randomUUID());
+
+      return (
+        <CopilotKitProvider
+          runtimeUrl="/api/copilotkit"
+          learning={{ sink, trajectoryId, routes: ["/deals/:id"] }}
+        >
+          {children}
+        </CopilotKitProvider>
+      );
+    }
+    ```
+
+    Capture starts after the provider mounts and stops when it unmounts. CopilotKit's own runtime requests are never captured.
+
+  </Step>
+  <Step>
+    ### Name the actions that matter
+
+    A click without a name only says which element was clicked. Add `data-copilotkit-action` to the controls you care about:
+
+    ```tsx
+    <button data-copilotkit-action="deal.approve" onClick={approve}>
+      Approve
+    </button>
+    ```
+
+  </Step>
+</Steps>
+
+Click **Approve** inside a tool's UI in the chat. Your route logs a batch with a click like this:
+
+```json
+{
+  "type": "CUSTOM",
+  "name": "click",
+  "timestamp": 1790841234567,
+  "value": {
+    "seq": 7,
+    "target": { "tag": "button", "role": null, "action": "deal.approve", "input": "pointer" },
+    "route": "/deals/:id",
+    "threadId": "5f0c6b1e-0b8f-4f6e-9a57-2f3d1c9a4e21",
+    "agentId": "default",
+    "messageId": "msg-42",
+    "runId": "run-9",
+    "toolCallId": "call-3",
+    "toolName": "approveDeal",
+    "toolStatus": "executing"
+  }
+}
+```
+
+## How a click finds its Thread
+
+Core picks the Thread in this order:
+
+1. A click inside a chat message uses the Thread of that message.
+2. Otherwise, the one Thread that a chat on the page shows.
+3. Otherwise, `threadId` is `null`.
+
+When two chats show different Threads, a click outside both gets `threadId: null` and a `threadAmbiguity` object with the candidates. Capture does not guess.
+
+Core also emits `thread.linked` when a chat shows a Thread: once at start, when a new chat opens, and when a chat switches Threads. `hasMessages: false` marks a new Thread that has no messages yet.
+
+## Start and stop a Trajectory yourself
+
+Leave out `trajectoryId` on the prop, then call Core when your app decides a session starts:
+
+```tsx
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+
+function StartCaptureButton({ projectId }: { projectId: string }) {
+  const { copilotkit } = useCopilotKit();
+  return (
+    <button onClick={() => copilotkit.startTrajectory({ trajectoryId: `${projectId}-${Date.now()}` })}>
+      Start capture
+    </button>
+  );
+}
+```
+
+One Trajectory runs at a time. Starting the same ID again does nothing. `copilotkit.stopTrajectory()` removes every listener and drops events that were not sent yet.
+
+Need capture in an app without CopilotKit? Use the [standalone collector](/intelligence/standalone-collector).

@@ -1,0 +1,79 @@
+---
+title: Captured data
+description: Every event and field that interaction capture sends, what it never reads, and how to block or add data.
+icon: "lucide/Shield"
+frontend: universal
+doc_type: reference
+---
+
+## Overview
+
+You need to approve what leaves the browser before capture goes live. This page lists every event, every field, and every control. Filtering runs in the browser, before any data is sent.
+
+## Never read by default
+
+- Page text, including button labels.
+- Input, select, and text area values.
+- Request and response headers and bodies.
+- Query strings and URL hashes.
+- Assistant reply text (CopilotKit adds it only with `capture.agentText`).
+
+Paths are reduced to route templates. A path that matches no template gets ID-like segments replaced with `:id`: numbers, UUIDs, long hex strings, and long tokens that contain digits.
+
+## Events
+
+Each event is an AG-UI `CUSTOM` event: `{ type: "CUSTOM", name, value, timestamp }`. Every `value` has `seq`, the capture order in the Trajectory.
+
+| `name` | Main `value` fields | Source |
+| --- | --- | --- |
+| `page` | `route` | Collector, at start |
+| `navigation` | `from`, `to`, `navigationType` | Collector |
+| `click` | `target` (`tag`, `role`, `action`, `input`), `route` | Collector |
+| `network` | `transport`, `method`, `origin`, `route`, `status`, `durationMs`, `outcome` | Collector |
+| `thread.linked` | `threadId`, `agentId`, `hasMessages`, `reason` | CopilotKit Core |
+| `agent.run` | `phase`, `runId`, `threadId`, `agentId` | CopilotKit Core |
+| `agent.message` | `messageId`, `runId`, `threadId`, `role`, `toolNames`, `textLength`, `text` (opt-in) | CopilotKit Core |
+| `tool.call` | `phase`, `toolCallId`, `toolName`, `threadId`, `messageId`, `runId`, `durationMs`, `outcome` | CopilotKit Core |
+
+With CopilotKit, a `click` also carries `threadId`, `agentId`, `messageId`, `runId`, `toolCallId`, `toolName`, and `toolStatus`, or `threadAmbiguity` when two chats show different Threads.
+
+A `network` duration ends when the response headers arrive. Streaming responses are never read.
+
+## Batches
+
+The sink receives `{ trajectoryId, learningContainerIds, events, dropped }`.
+
+- The collector sends a batch every 2 seconds, or as soon as 50 events wait.
+- When the page closes, it sends the last batch with `navigator.sendBeacon`.
+- A failed send is not retried. `dropped` in the next batch counts the lost events.
+
+## Controls
+
+In code:
+
+| Option | Effect |
+| --- | --- |
+| `routes` | Route templates such as `/deals/:id`. They match before ID masking. |
+| `ignoreUrls` | URL prefixes or patterns that network capture skips. |
+| `capture` | Turn off `clicks`, `navigation`, or `network`. |
+| `beforeSend` | Runs last, in the browser. Return the event, a changed copy, or `null` to drop it. |
+| `capture.agentText` | CopilotKit only. Adds assistant reply text, cut at 2000 characters. |
+
+In markup:
+
+- `data-copilotkit-action="deal.approve"` names a control. The name goes into `target.action`.
+- `data-copilotkit-ignore` drops every click inside that element.
+
+Example: drop all network events for one service.
+
+```ts
+const learning = {
+  sink: httpSink("/api/learning-events"),
+  beforeSend: (event) =>
+    event.name === "network" && event.value.origin === "https://payments.example.com"
+      ? null
+      : event,
+};
+```
+
+To turn capture on, see [Capture interactions](/intelligence/capture-interactions).

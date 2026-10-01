@@ -1,0 +1,106 @@
+---
+title: Standalone collector
+description: Capture clicks, page changes, and network metadata as AG-UI events in any web app, without CopilotKit.
+icon: "lucide/Network"
+frontend: universal
+doc_type: how-to
+---
+
+## Overview
+
+Your app does not use CopilotKit, but you want to record what people do in it. `@copilotkit/learning` works on its own: it captures clicks, page changes, and network metadata as AG-UI `CUSTOM` events and sends them to a sink you provide.
+
+When you are done, your app sends batches of events to your own endpoint. You can also add events for the outcomes that matter to you.
+
+## Capture events
+
+<Steps>
+  <Step>
+    ### Install the package
+
+    ```bash
+    npm install @copilotkit/learning
+    ```
+
+  </Step>
+  <Step>
+    ### Create a collector and start it
+
+    ```ts title="src/capture.ts"
+    import { createCollector, httpSink } from "@copilotkit/learning";
+
+    export const collector = createCollector({
+      sink: httpSink("/api/learning-events"),
+      routes: ["/reports/:reportId"],
+    });
+
+    collector.start({ trajectoryId: crypto.randomUUID() });
+    ```
+
+    Before `start()`, the collector installs nothing. Call `start()` only after the person allows capture.
+
+  </Step>
+  <Step>
+    ### Add events for outcomes
+
+    Clicks show what a person did. They do not show whether it worked. Emit an event when the outcome is known:
+
+    ```ts
+    collector.emit("report.exported", { format: "csv", rows: 120 });
+    ```
+
+    Use your own names. Built-in names such as `click` are reserved.
+
+  </Step>
+  <Step>
+    ### Stop when the session ends
+
+    ```ts
+    collector.stop();
+    ```
+
+    `stop()` removes every listener and patch, and drops events that were not sent yet.
+
+  </Step>
+</Steps>
+
+Your endpoint now receives batches such as `{ "trajectoryId": "...", "events": [...], "dropped": 0 }`.
+
+## Send events somewhere else
+
+A sink is a function that receives each batch. Use it to forward events to your own service:
+
+```ts
+import { createCollector } from "@copilotkit/learning";
+import type { LearningBatch } from "@copilotkit/learning";
+
+const collector = createCollector({
+  sink: async (batch: LearningBatch) => {
+    await fetch("https://events.example.com/ingest", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(batch),
+    });
+  },
+  ignoreUrls: ["https://events.example.com/"],
+});
+```
+
+Add your sink's URL to `ignoreUrls`, so the collector does not record its own requests. `httpSink` does this for you.
+
+## Add context to clicks
+
+`enrich` adds fields to each click from the element that was clicked:
+
+```ts
+const collector = createCollector({
+  sink: httpSink("/api/learning-events"),
+  enrich: (element) => ({
+    section: element.closest("[data-section]")?.getAttribute("data-section") ?? null,
+  }),
+});
+```
+
+Read attributes you control. Do not read text or input values, because they can contain personal data.
+
+For every field and control, see [Captured data](/intelligence/captured-data). With CopilotKit, use the [`learning` prop](/intelligence/capture-interactions) instead.
