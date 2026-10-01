@@ -9,15 +9,15 @@ import type {
   TrajectoryEvent,
 } from "./trajectory-types";
 
-export const MAX_TRAJECTORY_EVENT_BYTES = 64 * 1024;
+export const MAX_TRAJECTORY_EVENT_BYTES = 16 * 1024;
 const RESERVED_NAMES = new Set<string>(BUILT_IN_EVENT_NAMES);
 
 function isJson(
   value: unknown,
   ancestors = new Set<object>(),
 ): value is JsonValue {
-  if (value === null || typeof value === "string" || typeof value === "boolean")
-    return true;
+  if (typeof value === "string") return !value.includes("\0");
+  if (value === null || typeof value === "boolean") return true;
   if (typeof value === "number") return Number.isFinite(value);
   if (typeof value !== "object" || ancestors.has(value)) return false;
   if (
@@ -27,6 +27,11 @@ function isJson(
   )
     return false;
   ancestors.add(value);
+  if (
+    !Array.isArray(value) &&
+    Object.keys(value).some((key) => key.includes("\0"))
+  )
+    return false;
   const values = Array.isArray(value) ? value : Object.values(value);
   for (const item of values) {
     if (!isJson(item, ancestors)) return false;
@@ -77,8 +82,11 @@ export function createTrajectoryCollector(
         kept.type !== "CUSTOM" ||
         typeof kept.name !== "string" ||
         !kept.name.trim() ||
+        kept.name.length > 200 ||
+        kept.name.includes("\0") ||
         !Number.isFinite(kept.timestamp) ||
-        kept.timestamp < 0 ||
+        kept.timestamp <= 0 ||
+        kept.timestamp >= 253_402_300_800_000 ||
         !isJson(kept.value)
       ) {
         report(
@@ -98,7 +106,7 @@ export function createTrajectoryCollector(
         new TextEncoder().encode(serialized).byteLength >
         MAX_TRAJECTORY_EVENT_BYTES
       ) {
-        report("EVENT_TOO_LARGE", "The serialized event exceeds 64 KiB.");
+        report("EVENT_TOO_LARGE", "The serialized event exceeds 16 KiB.");
         return;
       }
       payload = JSON.parse(serialized) as TrajectoryEvent;

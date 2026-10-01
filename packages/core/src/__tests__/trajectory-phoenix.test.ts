@@ -50,12 +50,13 @@ class BrowserSocket {
   }
 
   frame(event: string) {
-    const frame = this.frames.find((frame) => frame[3] === event);
+    const frame = this.frames.find((candidate) => candidate[3] === event);
     if (!frame) throw new Error(`Expected Phoenix frame: ${event}`);
     return frame;
   }
 }
 
+const trajectoryId = "10000000-0000-4000-8000-000000000001";
 const grants = [
   {
     joinToken: "single-use-one",
@@ -106,14 +107,14 @@ afterEach(() => {
 });
 
 async function start() {
-  const result = core.startTrajectory({ trajectoryId: "requested-id" });
+  const result = core.startTrajectory({ trajectoryId });
   await vi.advanceTimersByTimeAsync(0);
   const socket = getSocket(0);
   socket.open();
   socket.reply(socket.frame("phx_join"));
   await expect(result).resolves.toEqual({
     status: "started",
-    trajectoryId: "requested-id",
+    trajectoryId,
   });
   return socket;
 }
@@ -124,15 +125,16 @@ function getSocket(index: number) {
   return socket;
 }
 
-function acknowledgePage(socket: BrowserSocket, eventId: string) {
-  socket.reply(socket.frame("trajectory.event"), {
-    status: "persisted",
-    eventId,
+function acknowledgePage(socket: BrowserSocket, highestSeq: number) {
+  socket.reply(socket.frame("events"), {
+    highestSeq,
+    accepted: 1,
+    rejected: 0,
   });
 }
 
 describe("Trajectory capture with the real Phoenix client", () => {
-  it("uses socket join_token authentication, the granted topic, and plain AG-UI frames", async () => {
+  it("uses socket join_token authentication, the granted topic, and AG-UI event batches", async () => {
     const socket = await start();
     const url = new URL(socket.url);
     expect(url.origin).toBe("wss://intelligence.invalid");
@@ -145,15 +147,22 @@ describe("Trajectory capture with the real Phoenix client", () => {
       {},
     ]);
 
-    const event = socket.frame("trajectory.event");
+    expect(socket.frames.some((frame) => frame[3] === "events")).toBe(false);
+    await vi.advanceTimersByTimeAsync(2_000);
+    const event = socket.frame("events");
     expect(event.slice(2)).toEqual([
       "opaque:scope-7",
-      "trajectory.event",
+      "events",
       {
-        type: "CUSTOM",
-        name: "page",
-        timestamp: expect.any(Number),
-        value: { route: "/deals" },
+        events: [
+          {
+            type: "CUSTOM",
+            name: "page",
+            timestamp: expect.any(Number),
+            value: { route: "/deals", seq: 0 },
+          },
+        ],
+        dropped: 0,
       },
     ]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -161,10 +170,10 @@ describe("Trajectory capture with the real Phoenix client", () => {
     if (!request) throw new Error("Expected a runtime request");
     expect(JSON.parse(request[1].body)).toMatchObject({
       method: "trajectory/connect",
-      params: { trajectoryId: "requested-id" },
+      params: { trajectoryId },
     });
 
-    acknowledgePage(socket, "persisted-1");
+    acknowledgePage(socket, 0);
     await vi.advanceTimersByTimeAsync(10_001);
     core.stopTrajectory();
     expect(onError).not.toHaveBeenCalled();
@@ -173,7 +182,8 @@ describe("Trajectory capture with the real Phoenix client", () => {
 
   it("obtains a fresh grant after loss and prevents old sockets from rejoining after stop", async () => {
     const first = await start();
-    acknowledgePage(first, "persisted-1");
+    await vi.advanceTimersByTimeAsync(2_000);
+    acknowledgePage(first, 0);
     first.close(1006);
     expect(core.trajectoryId).toBeNull();
     expect(History.prototype.pushState).toBe(nativePushState);
@@ -188,8 +198,13 @@ describe("Trajectory capture with the real Phoenix client", () => {
     second.open();
     expect(second.frame("phx_join")[2]).toBe("opaque:scope-8");
     second.reply(second.frame("phx_join"));
-    expect(core.trajectoryId).toBe("requested-id");
-    acknowledgePage(second, "persisted-2");
+    expect(core.trajectoryId).toBe(trajectoryId);
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(second.frame("events")[4]).toMatchObject({
+      events: [{ name: "page", value: { seq: 1 } }],
+      dropped: 0,
+    });
+    acknowledgePage(second, 1);
 
     second.close(1006);
     core.stopTrajectory();

@@ -12,11 +12,23 @@ import type {
 import type { CopilotKitCore } from "./core";
 
 const TIMEOUT_MS = 10_000;
+const BATCH_INTERVAL_MS = 2_000;
+const MAX_BATCH_EVENTS = 50;
+const MAX_BATCH_BYTES = 64 * 1024;
+const MAX_EVENT_BYTES = 16 * 1024;
+
+type WireEvent = TrajectoryEvent<Record<string, JsonValue>>;
+interface EventBatch {
+  events: WireEvent[];
+  dropped: number;
+}
+const byteLength = (value: unknown) =>
+  new TextEncoder().encode(JSON.stringify(value)).byteLength;
 const reconnectDelay = phoenixExponentialBackoff(1_000, 10_000);
 
 interface PendingPush {
   timer: ReturnType<typeof setTimeout>;
-  finish(code?: string): void;
+  finish(code?: string, knownRollback?: boolean): void;
 }
 
 interface Connection {
@@ -38,6 +50,9 @@ interface Session {
   connection?: Connection;
   retry?: ReturnType<typeof setTimeout>;
   retries: number;
+  queue: WireEvent[];
+  flushTimer?: ReturnType<typeof setTimeout>;
+  dropped: number;
   ready: boolean;
   started: boolean;
   offline: boolean;
@@ -70,9 +85,11 @@ function errorCode(value: unknown, fallback: string): string {
     : fallback;
 }
 
-/** Owns a threadless capture connection. Events are never queued or resent. */
+/** Owns bounded, connected-only capture batches. Failed batches are never resent. */
 export class TrajectoryConnection {
   private session: Session | undefined;
+  // Core-scoped high water mark prevents collisions after reconnect or stop/start.
+  private nextSeq = 0;
 
   constructor(
     private readonly core: CopilotKitCore,
@@ -105,6 +122,8 @@ export class TrajectoryConnection {
       promise,
       resolve: resolveStart,
       retries: 0,
+      queue: [],
+      dropped: 0,
       ready: false,
       started: false,
       offline: typeof navigator !== "undefined" && navigator.onLine === false,
@@ -141,8 +160,12 @@ export class TrajectoryConnection {
   }
 
   stop(): void {
-    if (this.session)
-      this.end(this.session, { status: "error", code: "CANCELLED" });
+    const session = this.session;
+    if (!session) return;
+    // Best effort only: stop stays synchronous and never waits for an ACK.
+    if (session.ready && session.connection)
+      this.flush(session, session.connection);
+    this.end(session, { status: "error", code: "CANCELLED" });
   }
 
   emit(name: string, value: JsonValue): void {
@@ -170,10 +193,14 @@ export class TrajectoryConnection {
     clearTimeout(session.retry);
     session.collector?.stop();
     session.ready = false;
+    if (session.queue.length > 0) this.report(session, "EVENTS_DROPPED");
+    this.discardQueue(session);
     if (session.connection) {
       // Stop prevents retry, but cannot prove whether an in-flight event persisted.
-      for (const _pending of session.connection.pending)
+      for (const pending of session.connection.pending) {
+        pending.finish("PERSISTENCE_UNKNOWN");
         this.report(session, "PERSISTENCE_UNKNOWN");
+      }
       this.cleanup(session, session.connection);
     }
     if (typeof window !== "undefined") {
@@ -226,6 +253,7 @@ export class TrajectoryConnection {
       });
     }
     session.ready = false;
+    this.discardQueue(session);
     for (const pending of connection.pending)
       pending.finish("PERSISTENCE_UNKNOWN");
     if (!this.current(session, connection)) return;
@@ -336,12 +364,20 @@ export class TrajectoryConnection {
               onError: (error) => {
                 if (error.code === "CAPTURE_FAILED")
                   this.fail(session, connection, error.code, false);
-                else session.config.onError?.(error);
+                else {
+                  if (
+                    error.code === "INVALID_EVENT" ||
+                    error.code === "EVENT_TOO_LARGE"
+                  )
+                    this.addDropped(session, 1);
+                  session.config.onError?.(error);
+                }
               },
               send: (event) => this.send(session, connection, event),
             });
             session.collector.start();
             if (!this.current(session, connection)) return;
+            if (session.dropped > 0) this.scheduleFlush(session, connection);
             session.started = true;
             session.resolve({
               status: "started",
@@ -363,55 +399,180 @@ export class TrajectoryConnection {
     }
   }
 
+  private addDropped(session: Session, count: number, schedule = true): void {
+    session.dropped = Math.min(
+      Number.MAX_SAFE_INTEGER,
+      session.dropped + count,
+    );
+    if (schedule && count > 0 && session.ready && session.connection)
+      this.scheduleFlush(session, session.connection);
+  }
+
+  private scheduleFlush(session: Session, connection: Connection): void {
+    if (session.flushTimer !== undefined || !this.current(session, connection))
+      return;
+    session.flushTimer = setTimeout(() => {
+      session.flushTimer = undefined;
+      this.flush(session, connection);
+    }, BATCH_INTERVAL_MS);
+  }
+
+  private discardQueue(session: Session): void {
+    clearTimeout(session.flushTimer);
+    session.flushTimer = undefined;
+    this.addDropped(session, session.queue.length, false);
+    session.queue = [];
+  }
+
+  private connected(connection: Connection): boolean {
+    return (
+      connection.socket?.isConnected() === true &&
+      connection.channel?.state === "joined"
+    );
+  }
+
   private send(
     session: Session,
     connection: Connection,
     event: TrajectoryEvent,
   ): void {
     if (!this.current(session, connection) || !session.ready) return;
-    const { socket, channel } = connection;
-    if (!socket?.isConnected() || channel?.state !== "joined") {
+    if (!this.connected(connection)) {
+      this.addDropped(session, 1);
       this.fail(session, connection, "CONNECTION_LOST");
       return;
     }
+    if (!Number.isSafeInteger(this.nextSeq)) {
+      this.addDropped(session, 1);
+      this.report(session, "SEQUENCE_EXHAUSTED");
+      return;
+    }
+    const original = event.value;
+    const fields =
+      isObject(original) &&
+      !Array.isArray(original) &&
+      !Object.hasOwn(original, "seq")
+        ? (original as Record<string, JsonValue>)
+        : { data: original };
+    const wire: WireEvent = {
+      ...event,
+      value: { ...fields, seq: this.nextSeq++ },
+    };
+    if (byteLength(wire) > MAX_EVENT_BYTES) {
+      this.addDropped(session, 1);
+      this.report(session, "EVENT_TOO_LARGE");
+      return;
+    }
+    // Reserve the maximum dropped-counter width so later local losses cannot
+    // grow an already-full payload over the wire limit.
+    const fits = () =>
+      session.queue.length < MAX_BATCH_EVENTS &&
+      byteLength({
+        events: [...session.queue, wire],
+        dropped: Number.MAX_SAFE_INTEGER,
+      }) <= MAX_BATCH_BYTES;
+    if (!fits()) this.flush(session, connection);
+    if (!this.current(session, connection) || !session.ready) return;
+    if (!fits()) {
+      this.addDropped(session, 1);
+      this.report(session, "EVENTS_DROPPED");
+      return;
+    }
+    session.queue.push(wire);
+    if (session.queue.length === MAX_BATCH_EVENTS)
+      this.flush(session, connection);
+    else this.scheduleFlush(session, connection);
+  }
+
+  private flush(session: Session, connection: Connection): void {
+    if (
+      !this.current(session, connection) ||
+      !session.ready ||
+      (session.queue.length === 0 && session.dropped === 0)
+    )
+      return;
+    if (!this.connected(connection)) {
+      this.fail(session, connection, "CONNECTION_LOST");
+      return;
+    }
+    // One in-flight batch and one bounded queue; never let Phoenix buffer offline.
+    if (connection.pending.size > 0) return;
+    clearTimeout(session.flushTimer);
+    session.flushTimer = undefined;
+    const batch: EventBatch = {
+      events: session.queue,
+      dropped: session.dropped,
+    };
+    session.queue = [];
+    session.dropped = 0;
     let finished = false;
     const pending: PendingPush = {
       timer: setTimeout(
         () => pending.finish("PERSISTENCE_UNKNOWN"),
         TIMEOUT_MS,
       ),
-      finish: (code) => {
+      finish: (code, knownRollback = false) => {
         if (finished) return;
         finished = true;
         clearTimeout(pending.timer);
         connection.pending.delete(pending);
+        // A missing ACK may already have committed. Never count that uncertainty
+        // as a known drop, and never replay a batch or its dropped counter.
+        if (knownRollback)
+          this.addDropped(session, batch.events.length + batch.dropped, false);
         if (code && this.current(session, connection))
           this.report(session, code);
+        if (
+          this.current(session, connection) &&
+          session.ready &&
+          (session.queue.length > 0 || (!knownRollback && session.dropped > 0))
+        )
+          this.flush(session, connection);
       },
     };
     connection.pending.add(pending);
     try {
-      channel
-        .push("trajectory.event", event, TIMEOUT_MS)
+      connection
+        .channel!.push("events", batch, TIMEOUT_MS)
         .receive("ok", (payload: unknown) => {
-          const persisted =
+          const valid =
             isObject(payload) &&
-            payload.status === "persisted" &&
-            typeof payload.eventId === "string" &&
-            payload.eventId.length > 0;
-          pending.finish(persisted ? undefined : "PERSISTENCE_UNKNOWN");
+            Number.isSafeInteger(payload.accepted) &&
+            (payload.accepted as number) >= 0 &&
+            Number.isSafeInteger(payload.rejected) &&
+            (payload.rejected as number) >= 0 &&
+            (payload.accepted as number) + (payload.rejected as number) ===
+              batch.events.length &&
+            (payload.highestSeq === null ||
+              (Number.isSafeInteger(payload.highestSeq) &&
+                (payload.highestSeq as number) >= 0)) &&
+            (payload.accepted === 0 || payload.highestSeq !== null);
+          // Rejected rows are already counted by Gateway; don't also mark them
+          // as client drops. The aggregate reply cannot identify rejected rows.
+          pending.finish(
+            !valid
+              ? "PERSISTENCE_UNKNOWN"
+              : (payload.rejected as number) > 0
+                ? "EVENTS_REJECTED"
+                : undefined,
+          );
         })
         .receive("error", (payload: unknown) => {
-          const code = errorCode(payload, "PERSISTENCE_UNKNOWN");
-          pending.finish(
+          const reason = isObject(payload) ? payload.reason : undefined;
+          const rollback =
+            typeof reason === "string" &&
             [
-              "INVALID_EVENT",
-              "EVENT_TOO_LARGE",
-              "PERSISTENCE_FAILED",
-              "PERSISTENCE_UNKNOWN",
-            ].includes(code)
-              ? code
-              : "PERSISTENCE_UNKNOWN",
+              "invalid_batch",
+              "batch_too_large",
+              "batch_too_many_events",
+              "trajectory_mismatch",
+              "storage_unavailable",
+              "unauthorized",
+              "unsupported_event",
+            ].includes(reason);
+          pending.finish(
+            rollback ? (reason as string).toUpperCase() : "PERSISTENCE_UNKNOWN",
+            rollback,
           );
         })
         .receive("timeout", () => pending.finish("PERSISTENCE_UNKNOWN"));

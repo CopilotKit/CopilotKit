@@ -1014,7 +1014,7 @@ export class CopilotKitCore {
     return result;
   }
 
-  /** Cancels pending starts and reconnects and stops capture. Legacy sinks flush once. */
+  /** Cancels pending work and stops capture, attempting one final batch without waiting for its ACK. */
   stopTrajectory() {
     this.learningBridge.stop();
     this.notifyTrajectoryChanged();
@@ -1022,8 +1022,9 @@ export class CopilotKitCore {
 
   /**
    * Records an outcome that clicks cannot show, such as a saved report or an
-   * approved deal. JSON values are preserved in threadless capture. Explicit
-   * legacy sinks retain object-only events with open-Thread enrichment.
+   * approved deal. The wire adds `value.seq`; arrays, primitives, and objects
+   * already containing `seq` are preserved under `value.data`. Explicit legacy
+   * sinks retain object-only events with open-Thread enrichment.
    * No-op while no Trajectory runs. Built-in names such as `click` are rejected.
    *
    * @example copilotkit.emitTrajectoryEvent("deal.approved", { dealId: "deal-1" })

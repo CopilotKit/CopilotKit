@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CopilotKitCore } from "../core";
 import type { CopilotKitCoreConfig } from "../core";
-import type { TrajectoryEvent } from "@copilotkit/learning";
+import type { JsonValue, TrajectoryEvent } from "@copilotkit/learning";
+
+type Batch = {
+  events: TrajectoryEvent<Record<string, JsonValue>>[];
+  dropped: number;
+};
 
 // Exercise real Core and capture. Only the remote services are controlled here.
 const transport = vi.hoisted(() => {
@@ -20,7 +25,7 @@ const transport = vi.hoisted(() => {
     joined = new Push();
     left = false;
     callbacks = new Map<string, () => void>();
-    pushes: Array<{ event: string; payload: TrajectoryEvent; push: Push }> = [];
+    pushes: Array<{ event: string; payload: Batch; push: Push }> = [];
     constructor(
       public topic: string,
       public params: unknown,
@@ -44,7 +49,7 @@ const transport = vi.hoisted(() => {
     off(event: string) {
       this.callbacks.delete(event);
     }
-    push(event: string, payload: TrajectoryEvent) {
+    push(event: string, payload: Batch) {
       const push = new Push();
       this.pushes.push({ event, payload, push });
       return push;
@@ -149,9 +154,18 @@ function join(index = 0) {
   channel.joined.reply("ok");
   return channel;
 }
+function names(channel: ReturnType<typeof join>) {
+  return channel.pushes.flatMap(({ payload }) =>
+    payload.events.map((event) => event.name),
+  );
+}
 function persist(channel: ReturnType<typeof join>) {
-  for (const { push } of channel.pushes)
-    push.reply("ok", { status: "persisted", eventId: "stored-id" });
+  for (const { push, payload } of channel.pushes.slice())
+    push.reply("ok", {
+      highestSeq: payload.events.at(-1)?.value.seq ?? null,
+      accepted: payload.events.length,
+      rejected: 0,
+    });
 }
 async function start(core = makeCore()) {
   const result = core.startTrajectory({ trajectoryId: "trajectory-1" });
@@ -161,6 +175,7 @@ async function start(core = makeCore()) {
     status: "started",
     trajectoryId: "trajectory-1",
   });
+  await vi.advanceTimersByTimeAsync(2_000);
   persist(channel);
   return { core, channel };
 }
@@ -239,25 +254,29 @@ describe("Core trajectory connection", () => {
       "value",
       { nested: [] },
     ]);
+    expect(channel.pushes).toEqual([]);
+    await vi.advanceTimersByTimeAsync(2_000);
     expect(
       channel.pushes.map(({ event, payload }) => ({ event, payload })),
     ).toEqual([
       {
-        event: "trajectory.event",
+        event: "events",
         payload: {
-          type: "CUSTOM",
-          name: "page",
-          timestamp: expect.any(Number),
-          value: { route: "/products/:id" },
-        },
-      },
-      {
-        event: "trajectory.event",
-        payload: {
-          type: "CUSTOM",
-          name: "app.json",
-          timestamp: expect.any(Number),
-          value: [null, true, 7, "value", { nested: [] }],
+          dropped: 0,
+          events: [
+            {
+              type: "CUSTOM",
+              name: "page",
+              timestamp: expect.any(Number),
+              value: { route: "/products/:id", seq: 0 },
+            },
+            {
+              type: "CUSTOM",
+              name: "app.json",
+              timestamp: expect.any(Number),
+              value: { data: [null, true, 7, "value", { nested: [] }], seq: 1 },
+            },
+          ],
         },
       },
     ]);
@@ -400,6 +419,8 @@ describe("Core trajectory connection", () => {
   it("pauses on channel loss, obtains a fresh token, and awaits the new join without replaying events", async () => {
     const { core, channel } = await start();
     core.emitTrajectoryEvent("app.uncertain", { id: 1 });
+    await vi.advanceTimersByTimeAsync(2_000);
+    core.emitTrajectoryEvent("app.queued", {});
     const lost = channel.callbacks.get("phx_error")!;
     lost();
     expect(core.trajectoryId).toBeNull();
@@ -431,11 +452,13 @@ describe("Core trajectory connection", () => {
     });
     lost(); // A delayed callback from the discarded socket cannot kill its successor.
     expect(core.trajectoryId).toBe("trajectory-1");
-    expect(next.pushes.map(({ payload }) => payload.name)).toEqual(["page"]);
-    expect(channel.pushes.map(({ payload }) => payload.name)).toEqual([
-      "page",
-      "app.uncertain",
-    ]);
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(names(next)).toEqual(["page"]);
+    expect(next.pushes[0]!.payload).toMatchObject({
+      dropped: 1,
+      events: [{ value: { seq: 3 } }],
+    });
+    expect(names(channel)).toEqual(["page", "app.uncertain"]);
     persist(next);
   });
 
@@ -493,31 +516,46 @@ describe("Core trajectory connection", () => {
   });
 
   it.each([
-    ["error", { code: "PERSISTENCE_FAILED" }, "PERSISTENCE_FAILED"],
-    ["error", { code: "INVALID_EVENT" }, "INVALID_EVENT"],
-    ["error", { code: "EVENT_TOO_LARGE" }, "EVENT_TOO_LARGE"],
-    ["error", { code: "PERSISTENCE_UNKNOWN" }, "PERSISTENCE_UNKNOWN"],
-    ["error", {}, "PERSISTENCE_UNKNOWN"],
-    ["error", { code: "UNRELATED_ERROR" }, "PERSISTENCE_UNKNOWN"],
+    ["error", { reason: "invalid_batch" }, "INVALID_BATCH", 1],
+    ["error", { reason: "batch_too_large" }, "BATCH_TOO_LARGE", 1],
+    ["error", { reason: "batch_too_many_events" }, "BATCH_TOO_MANY_EVENTS", 1],
+    ["error", { reason: "trajectory_mismatch" }, "TRAJECTORY_MISMATCH", 1],
+    ["error", { reason: "storage_unavailable" }, "STORAGE_UNAVAILABLE", 1],
+    ["error", {}, "PERSISTENCE_UNKNOWN", 0],
+    ["error", { reason: "unrecognized" }, "PERSISTENCE_UNKNOWN", 0],
     [
       "ok",
-      { status: "accepted", eventId: "not-confirmed" },
+      { highestSeq: 1, accepted: 1, rejected: 1 },
       "PERSISTENCE_UNKNOWN",
+      0,
     ],
-    ["ok", { status: "persisted", eventId: "" }, "PERSISTENCE_UNKNOWN"],
-    ["timeout", {}, "PERSISTENCE_UNKNOWN"],
+    [
+      "ok",
+      { highestSeq: null, accepted: 1, rejected: 0 },
+      "PERSISTENCE_UNKNOWN",
+      0,
+    ],
+    [
+      "ok",
+      { highestSeq: 1.5, accepted: 1, rejected: 0 },
+      "PERSISTENCE_UNKNOWN",
+      0,
+    ],
+    ["timeout", {}, "PERSISTENCE_UNKNOWN", 0],
   ])(
-    "reports %s acknowledgements truthfully and never retries the event",
-    async (status, acknowledgement, code) => {
+    "reports %s acknowledgements and carries only known client loss",
+    async (status, acknowledgement, code, dropped) => {
       const { core, channel } = await start();
       core.emitTrajectoryEvent("app.once", 42);
+      await vi.advanceTimersByTimeAsync(2_000);
       channel.pushes[1]!.push.reply(status, acknowledgement);
       await vi.advanceTimersByTimeAsync(30_000);
       expect(onError.mock.calls.map(([error]) => error.code)).toEqual([code]);
-      expect(channel.pushes.map(({ payload }) => payload.name)).toEqual([
-        "page",
-        "app.once",
-      ]);
+      expect(names(channel)).toEqual(["page", "app.once"]);
+      core.emitTrajectoryEvent("app.next", {});
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(channel.pushes[2]!.payload.dropped).toBe(dropped);
+      persist(channel);
       expect(requests).toHaveLength(1);
     },
   );
@@ -525,7 +563,7 @@ describe("Core trajectory connection", () => {
   it("bounds missing acks and reports uncertain in-flight sends on explicit stop", async () => {
     const { core, channel } = await start();
     core.emitTrajectoryEvent("app.noAck", true);
-    await vi.advanceTimersByTimeAsync(10_000);
+    await vi.advanceTimersByTimeAsync(12_000);
     expect(onError).toHaveBeenCalledTimes(1);
     core.emitTrajectoryEvent("app.stopping", null);
     core.stopTrajectory();
@@ -535,8 +573,9 @@ describe("Core trajectory connection", () => {
     ]);
     core.emitTrajectoryEvent("app.stopped", {});
     channel.pushes[2]!.push.reply("ok", {
-      status: "persisted",
-      eventId: "late",
+      highestSeq: 2,
+      accepted: 1,
+      rejected: 0,
     });
     await vi.advanceTimersByTimeAsync(30_000);
     expect(channel.pushes).toHaveLength(3);
@@ -553,7 +592,11 @@ describe("Core trajectory connection", () => {
       },
     });
     core.emitTrajectoryEvent("app.current", "still captured");
-    expect(channel.pushes.at(-1)!.payload.value).toBe("still captured");
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(channel.pushes.at(-1)!.payload.events[0]!.value).toEqual({
+      data: "still captured",
+      seq: 1,
+    });
     persist(channel);
     core.stopTrajectory();
     const pending = core.startTrajectory({ trajectoryId: "next" });
@@ -564,6 +607,183 @@ describe("Core trajectory connection", () => {
     expect(next.pushes).toEqual([]);
     next.callbacks.get("phx_error")!();
     expect(core.trajectoryId).toBeNull();
+  });
+
+  it("flushes at 50 events and bounds memory to one pending batch plus one queue", async () => {
+    const { core, channel } = await start();
+    for (let i = 0; i < 101; i++) core.emitTrajectoryEvent("app.burst", { i });
+    expect(channel.pushes).toHaveLength(2);
+    expect(channel.pushes[1]!.payload.events).toHaveLength(50);
+    expect(onError.mock.calls.map(([error]) => error.code)).toEqual([
+      "EVENTS_DROPPED",
+    ]);
+    persist(channel);
+    expect(channel.pushes).toHaveLength(3);
+    expect(channel.pushes[2]!.payload.events).toHaveLength(50);
+    expect(channel.pushes[2]!.payload.dropped).toBe(1);
+    expect(
+      channel.pushes.flatMap(({ payload }) =>
+        payload.events.map((event) => event.value.seq),
+      ),
+    ).toEqual(Array.from({ length: 101 }, (_, i) => i));
+    persist(channel);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(channel.pushes).toHaveLength(3);
+  });
+
+  it("flushes before the UTF-8 batch limit and checks final events after adding seq", async () => {
+    const { core, channel } = await start();
+    for (let i = 0; i < 5; i++)
+      core.emitTrajectoryEvent("app.large", { text: "é".repeat(7900) });
+    expect(channel.pushes[1]!.payload.events).toHaveLength(4);
+    persist(channel);
+    expect(channel.pushes[2]!.payload.events).toHaveLength(1);
+    for (const { payload } of channel.pushes) {
+      expect(
+        new TextEncoder().encode(JSON.stringify(payload)).byteLength,
+      ).toBeLessThanOrEqual(65536);
+      for (const event of payload.events)
+        expect(
+          new TextEncoder().encode(JSON.stringify(event)).byteLength,
+        ).toBeLessThanOrEqual(16384);
+    }
+    persist(channel);
+    const base = {
+      type: "CUSTOM",
+      name: "app.edge",
+      timestamp: Date.now(),
+      value: { text: "" },
+    };
+    const size = new TextEncoder().encode(JSON.stringify(base)).byteLength;
+    core.emitTrajectoryEvent("app.edge", { text: "x".repeat(16384 - size) });
+    expect(onError.mock.calls.map(([error]) => error.code)).toEqual([
+      "EVENT_TOO_LARGE",
+    ]);
+    core.emitTrajectoryEvent("app.afterSizeDrop", {});
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(channel.pushes.at(-1)!.payload.dropped).toBe(1);
+    expect(names(channel)).not.toContain("app.edge");
+    persist(channel);
+  });
+
+  it("reports local drops without requiring another valid event and never retries a dropped-only batch", async () => {
+    const { core, channel } = await start();
+    core.emitTrajectoryEvent("app.tooLarge", { text: "x".repeat(17000) });
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(channel.pushes[1]!.payload).toEqual({ events: [], dropped: 1 });
+    channel.pushes[1]!.push.reply("ok", {
+      highestSeq: 0,
+      accepted: 0,
+      rejected: 0,
+    });
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(channel.pushes).toHaveLength(2);
+    core.emitTrajectoryEvent("app.tooLargeAgain", { text: "x".repeat(17000) });
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(channel.pushes[2]!.payload).toEqual({ events: [], dropped: 1 });
+    channel.pushes[2]!.push.reply("error", { reason: "storage_unavailable" });
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(channel.pushes).toHaveLength(3);
+    core.emitTrajectoryEvent("app.next", {});
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(channel.pushes[3]!.payload.dropped).toBe(1);
+    persist(channel);
+  });
+
+  it("preserves developer seq fields and keeps outcome fields at the expected wire level", async () => {
+    const { core, channel } = await start();
+    core.emitTrajectoryEvent("app.ownSeq", { seq: 72, nested: [null, true] });
+    core.emitTrajectoryEvent("outcome", {
+      workflow: "checkout",
+      phase: "succeeded",
+    });
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(
+      channel.pushes[1]!.payload.events.map((event) => event.value),
+    ).toEqual([
+      { data: { seq: 72, nested: [null, true] }, seq: 1 },
+      { workflow: "checkout", phase: "succeeded", seq: 2 },
+    ]);
+    persist(channel);
+  });
+
+  it("reports aggregate partial rejection without counting it again as a client drop", async () => {
+    const { core, channel } = await start();
+    core.emitTrajectoryEvent("outcome", {
+      workflow: "checkout",
+      phase: "invalid",
+    });
+    core.emitTrajectoryEvent("app.valid", {});
+    await vi.advanceTimersByTimeAsync(2_000);
+    channel.pushes[1]!.push.reply("ok", {
+      highestSeq: 2,
+      accepted: 1,
+      rejected: 1,
+    });
+    expect(onError.mock.calls.map(([error]) => error.code)).toEqual([
+      "EVENTS_REJECTED",
+    ]);
+    core.emitTrajectoryEvent("app.afterRejection", {});
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(channel.pushes[2]!.payload.dropped).toBe(0);
+    expect(names(channel)).toEqual([
+      "page",
+      "outcome",
+      "app.valid",
+      "app.afterRejection",
+    ]);
+    persist(channel);
+  });
+
+  it("restores known dropped counters only after a confirmed whole-batch rollback", async () => {
+    const { core, channel } = await start();
+    core.emitTrajectoryEvent("app.tooLarge", { text: "x".repeat(17000) });
+    core.emitTrajectoryEvent("app.valid", {});
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(channel.pushes[1]!.payload.dropped).toBe(1);
+    channel.pushes[1]!.push.reply("error", { reason: "storage_unavailable" });
+    core.emitTrajectoryEvent("app.next", {});
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(channel.pushes[2]!.payload.dropped).toBe(2);
+    channel.pushes[2]!.push.reply("timeout");
+    core.emitTrajectoryEvent("app.afterUnknown", {});
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(channel.pushes[3]!.payload.dropped).toBe(0);
+    persist(channel);
+  });
+
+  it("continues sequence numbers after stop/start while resetting losses for a new trajectory", async () => {
+    const { core, channel } = await start();
+    core.emitTrajectoryEvent("app.first", {});
+    core.stopTrajectory();
+    expect(channel.pushes[1]!.payload.events[0]!.value.seq).toBe(1);
+    const pending = core.startTrajectory({
+      trajectoryId: "another-trajectory",
+    });
+    await authorize(1);
+    const next = join(1);
+    expect((await pending).status).toBe("started");
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(next.pushes[0]!.payload).toMatchObject({
+      dropped: 0,
+      events: [{ value: { seq: 2 } }],
+    });
+    persist(next);
+  });
+
+  it("drops a queued final batch when an earlier batch is still awaiting its ACK", async () => {
+    const { core, channel } = await start();
+    core.emitTrajectoryEvent("app.pending", {});
+    await vi.advanceTimersByTimeAsync(2_000);
+    core.emitTrajectoryEvent("app.queued", {});
+    core.stopTrajectory();
+    expect(names(channel)).toEqual(["page", "app.pending"]);
+    expect(onError.mock.calls.map(([error]) => error.code)).toEqual([
+      "EVENTS_DROPPED",
+      "PERSISTENCE_UNKNOWN",
+    ]);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(channel.pushes).toHaveLength(2);
   });
 
   it("fails a browser capture setup error instead of reporting capture as started", async () => {

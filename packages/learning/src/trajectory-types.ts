@@ -7,7 +7,7 @@ export type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
-/** One browser payload. The authorized channel supplies its Trajectory scope. */
+/** One captured event. Core adds sequence metadata when it creates Gateway batches. */
 export interface TrajectoryEvent<V = JsonValue> {
   type: "CUSTOM";
   name: string;

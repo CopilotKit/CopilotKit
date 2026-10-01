@@ -21,7 +21,7 @@ const transport = vi.hoisted(() => {
     joined = new Push();
     state = "joining";
     left = false;
-    pushes: { event: string; payload: unknown }[] = [];
+    pushes: { event: string; payload: unknown; push: Push }[] = [];
     constructor(public topic: string) {}
     join() {
       return this.joined;
@@ -31,8 +31,9 @@ const transport = vi.hoisted(() => {
       return new Push();
     }
     push(event: string, payload: unknown) {
-      this.pushes.push({ event, payload });
-      return new Push();
+      const push = new Push();
+      this.pushes.push({ event, payload, push });
+      return push;
     }
     on() {
       return 0;
@@ -94,6 +95,8 @@ type Learning = NonNullable<
   React.ComponentProps<typeof CopilotKitProvider>["learning"]
 >;
 const pendingAuth: ReturnType<typeof deferred<Response>>[] = [];
+const FIRST_ID = "10000000-0000-4000-8000-000000000001";
+const SECOND_ID = "10000000-0000-4000-8000-000000000002";
 const nativePushState = History.prototype.pushState;
 let core: CopilotKitCoreReact;
 
@@ -135,7 +138,14 @@ async function join(index = 0) {
   });
 }
 
+async function flushCapture() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(2_000);
+  });
+}
+
 beforeEach(() => {
+  vi.useFakeTimers();
   pendingAuth.length = 0;
   transport.sockets.length = 0;
   history.replaceState(null, "", "/deals");
@@ -155,6 +165,8 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.clearAllTimers();
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -162,20 +174,33 @@ afterEach(() => {
 describe("CopilotKitProvider authenticated Trajectories", () => {
   it("starts without a sink after authentication and channel join, with no chat", async () => {
     const view = render(
-      <App learning={{ trajectoryId: "first", routes: ["/deals"] }} />,
+      <App learning={{ trajectoryId: FIRST_ID, routes: ["/deals"] }} />,
     );
 
     expect(pendingAuth).toHaveLength(1);
     expect(History.prototype.pushState).toBe(nativePushState);
-    await authorize(0, "first");
+    await authorize(0, FIRST_ID);
     expect(History.prototype.pushState).toBe(nativePushState);
     await join();
 
-    expect(core.trajectoryId).toBe("first");
+    expect(core.trajectoryId).toBe(FIRST_ID);
+    expect(transport.sockets[0].channels[0].pushes).toEqual([]);
+    await flushCapture();
     expect(transport.sockets[0].channels[0].pushes).toEqual([
       {
-        event: "trajectory.event",
-        payload: expect.objectContaining({ type: "CUSTOM", name: "page" }),
+        event: "events",
+        payload: {
+          events: [
+            {
+              type: "CUSTOM",
+              name: "page",
+              timestamp: expect.any(Number),
+              value: { route: "/deals", seq: 0 },
+            },
+          ],
+          dropped: 0,
+        },
+        push: expect.anything(),
       },
     ]);
     view.unmount();
@@ -184,29 +209,31 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
   });
 
   it("cancels the previous authentication when the supplied ID changes", async () => {
-    const view = render(<App learning={{ trajectoryId: "first" }} />);
-    view.rerender(<App learning={{ trajectoryId: "second" }} />);
+    const view = render(<App learning={{ trajectoryId: FIRST_ID }} />);
+    view.rerender(<App learning={{ trajectoryId: SECOND_ID }} />);
 
-    await authorize(0, "first");
+    await authorize(0, FIRST_ID);
     expect(transport.sockets).toHaveLength(0);
-    await authorize(1, "second");
+    await authorize(1, SECOND_ID);
     await join();
 
-    expect(core.trajectoryId).toBe("second");
+    expect(core.trajectoryId).toBe(SECOND_ID);
     expect(transport.sockets).toHaveLength(1);
-    expect(transport.sockets[0].channels[0].topic).toBe("trajectory:second");
+    expect(transport.sockets[0].channels[0].topic).toBe(
+      `trajectory:${SECOND_ID}`,
+    );
   });
 
   it("cancels pending authentication when disabled and can enable the same ID again", async () => {
-    const view = render(<App learning={{ trajectoryId: "first" }} />);
+    const view = render(<App learning={{ trajectoryId: FIRST_ID }} />);
     view.rerender(<App />);
-    await authorize(0, "first");
+    await authorize(0, FIRST_ID);
     expect(transport.sockets).toHaveLength(0);
 
-    view.rerender(<App learning={{ trajectoryId: "first" }} />);
-    await authorize(1, "first");
+    view.rerender(<App learning={{ trajectoryId: FIRST_ID }} />);
+    await authorize(1, FIRST_ID);
     await join();
-    expect(core.trajectoryId).toBe("first");
+    expect(core.trajectoryId).toBe(FIRST_ID);
 
     view.rerender(<App />);
     expect(transport.sockets[0].channels[0].left).toBe(true);
@@ -224,14 +251,14 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
       status: "error",
       code: "CANCELLED",
     });
-    await authorize(0, "late");
+    await authorize(0, FIRST_ID);
     expect(transport.sockets).toHaveLength(0);
     expect(History.prototype.pushState).toBe(nativePushState);
   });
 
   it("ignores a late join after unmount", async () => {
-    const view = render(<App learning={{ trajectoryId: "first" }} />);
-    await authorize(0, "first");
+    const view = render(<App learning={{ trajectoryId: FIRST_ID }} />);
+    await authorize(0, FIRST_ID);
     view.unmount();
     await join();
 
@@ -241,18 +268,28 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
   });
 
   it("leaves one active capture after root StrictMode replays the effects", async () => {
-    const view = render(<App learning={{ trajectoryId: "first" }} />, {
+    const view = render(<App learning={{ trajectoryId: FIRST_ID }} />, {
       wrapper: StrictMode,
     });
     expect(pendingAuth).toHaveLength(2);
-    await authorize(0, "first");
-    await authorize(1, "first");
+    await authorize(0, FIRST_ID);
+    await authorize(1, FIRST_ID);
     await join();
     expect(transport.sockets).toHaveLength(1);
+    await flushCapture();
     expect(transport.sockets[0].channels[0].pushes).toHaveLength(1);
+    transport.sockets[0].channels[0].pushes[0].push.reply("ok", {
+      highestSeq: 0,
+      accepted: 1,
+      rejected: 0,
+    });
 
     history.pushState(null, "", "/next");
+    await flushCapture();
     expect(transport.sockets[0].channels[0].pushes).toHaveLength(2);
+    expect(transport.sockets[0].channels[0].pushes[1].payload).toMatchObject({
+      events: [{ name: "navigation", value: { seq: 1 } }],
+    });
     view.unmount();
     expect(History.prototype.pushState).toBe(nativePushState);
   });
@@ -263,7 +300,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
       "startTrajectory",
     ).mockRejectedValue(new Error("private token"));
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    render(<App learning={{ trajectoryId: "first" }} />);
+    render(<App learning={{ trajectoryId: FIRST_ID }} />);
     await act(async () => {});
 
     expect(warn).toHaveBeenCalledWith(
@@ -278,11 +315,11 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
     const start = vi
       .spyOn(CopilotKitCoreReact.prototype, "startTrajectory")
       .mockImplementationOnce(() => previous.promise)
-      .mockResolvedValue({ status: "started", trajectoryId: "second" });
+      .mockResolvedValue({ status: "started", trajectoryId: SECOND_ID });
     const stop = vi.spyOn(CopilotKitCoreReact.prototype, "stopTrajectory");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const view = render(<App learning={{ trajectoryId: "first" }} />);
-    view.rerender(<App learning={{ trajectoryId: "second" }} />);
+    const view = render(<App learning={{ trajectoryId: FIRST_ID }} />);
+    view.rerender(<App learning={{ trajectoryId: SECOND_ID }} />);
     expect(start).toHaveBeenCalledTimes(2);
     expect(stop).toHaveBeenCalledTimes(1);
 

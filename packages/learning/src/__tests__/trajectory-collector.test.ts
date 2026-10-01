@@ -209,7 +209,7 @@ describe("Trajectory capture contract", () => {
     ).toBe(true);
   });
 
-  it("enforces the 64 KiB UTF-8 limit, including the event envelope", () => {
+  it("enforces the 16 KiB UTF-8 limit, including the event envelope", () => {
     const { collector, send, onError } = setup();
     collector.start();
     const empty = {
@@ -229,6 +229,20 @@ describe("Trajectory capture contract", () => {
     expect(onError).toHaveBeenCalledWith(
       expect.objectContaining({ code: "EVENT_TOO_LARGE" }),
     );
+  });
+
+  it("rejects NUL characters and event names the Gateway cannot store", () => {
+    const { collector, send, onError } = setup();
+    collector.start();
+    collector.emit("app.value", "null\0character");
+    collector.emit("app.value", { "key\0name": "value" });
+    collector.emit("app\0name", true);
+    collector.emit("a".repeat(201), true);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledTimes(4);
+    expect(
+      onError.mock.calls.every(([error]) => error.code === "INVALID_EVENT"),
+    ).toBe(true);
   });
 
   it("runs filtering before final validation and sending", () => {
