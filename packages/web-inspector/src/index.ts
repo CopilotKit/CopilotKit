@@ -8323,15 +8323,17 @@ export class WebInspectorElement extends LitElement {
     const service = this.getHomeFeaturePromptTarget("memory");
     if (!service || !this.core?.runtimeUrl) return;
     const request = ++this.learningSetupCopyRequest;
+    const runId = this.getOnboardingRunId();
     const copied = await this.copyFeaturePromptToClipboard(
       service,
       event,
-      this.getOnboardingRunId(),
+      runId,
     );
     if (request !== this.learningSetupCopyRequest) return;
     if (!this.core.telemetryDisabled) {
       trackLearningSetupPromptClicked({
         outcome: copied ? "success" : "failure",
+        onboarding_run_id: runId,
       });
     }
     if (!copied) {
