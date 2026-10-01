@@ -172,6 +172,9 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
   function OpenGenerativeUIActivityRendererInner({ content }: InnerProps) {
     const initialHeight = content.initialHeight ?? 200;
     const [autoHeight, setAutoHeight] = useState<number | null>(null);
+    // Bumped each time a sandbox is created so the height measurement also
+    // runs for content that is already complete when the sandbox mounts.
+    const [sandboxGeneration, setSandboxGeneration] = useState(0);
     const sandboxFunctions = useSandboxFunctions();
 
     const localApi = useMemo(() => {
@@ -342,6 +345,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
             allowAdditionalAttributes: "",
           });
           sandboxRef.current = sandbox;
+          setSandboxGeneration((n) => n + 1);
 
           // Style the iframe to fill container
           sandbox.iframe.style.width = "100%";
@@ -473,7 +477,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       return () => {
         window.removeEventListener("message", onMessage);
       };
-    }, [generationDone]);
+    }, [generationDone, sandboxGeneration]);
 
     const height = autoHeight ?? initialHeight;
 
@@ -486,9 +490,13 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
           position: "relative",
           width: "100%",
           height: `${height}px`,
-          borderRadius: "8px",
-          backgroundColor: hasVisibleSandbox ? "transparent" : "#f5f5f5",
-          border: hasVisibleSandbox ? "none" : "1px solid #e0e0e0",
+          borderRadius: "var(--radius, 8px)",
+          backgroundColor: hasVisibleSandbox
+            ? "transparent"
+            : "var(--muted, #f5f5f5)",
+          border: hasVisibleSandbox
+            ? "none"
+            : "1px solid var(--border, #e5e5e5)",
           display: hasVisibleSandbox ? "block" : "flex",
           alignItems: hasVisibleSandbox ? undefined : "center",
           justifyContent: hasVisibleSandbox ? undefined : "center",
@@ -502,7 +510,8 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
               inset: 0,
               zIndex: 10,
               pointerEvents: "all",
-              backgroundColor: "rgba(255, 255, 255, 0.5)",
+              backgroundColor:
+                "color-mix(in oklab, var(--background, #fff) 50%, transparent)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -515,10 +524,16 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
               fill="none"
               style={{ animation: "ck-spin 1s linear infinite" }}
             >
-              <circle cx="12" cy="12" r="10" stroke="#e0e0e0" strokeWidth="3" />
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+                style={{ stroke: "var(--border, #e5e5e5)" }}
+                strokeWidth="3"
+              />
               <path
                 d="M12 2a10 10 0 0 1 10 10"
-                stroke="#999"
+                style={{ stroke: "var(--muted-foreground, #737373)" }}
                 strokeWidth="3"
                 strokeLinecap="round"
               />
@@ -588,7 +603,7 @@ export const OpenGenerativeUIToolRenderer: React.FC<
     <div
       style={{
         padding: "8px 12px",
-        color: "#999",
+        color: "var(--muted-foreground, #737373)",
         fontSize: "14px",
       }}
     >

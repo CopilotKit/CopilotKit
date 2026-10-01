@@ -226,7 +226,7 @@ describe("useDefaultRenderTool", () => {
     expect(screen.getByText("done")).toBeDefined();
   });
 
-  it("default renderer includes dark-theme-aware classes", () => {
+  it("default renderer styles itself with theme tokens so it follows light and dark themes", () => {
     render(
       <DefaultToolCallRenderer
         name="searchDocs"
@@ -240,15 +240,14 @@ describe("useDefaultRenderTool", () => {
     const wrapper = screen.getByTestId("copilot-tool-render");
     const card = wrapper.firstElementChild as HTMLElement | null;
     expect(card).not.toBeNull();
-    expect(card!.className).toContain("cpk:dark:border-zinc-800/60");
-    expect(card!.className).toContain("cpk:dark:bg-zinc-900/50");
+    expect(card!.className).toContain("cpk:border-border");
+    expect(card!.className).toContain("cpk:bg-card");
 
     const name = screen.getByTestId("copilot-tool-render-name");
-    expect(name.className).toContain("cpk:dark:text-zinc-100");
+    expect(name.className).toContain("cpk:text-foreground");
 
     const status = screen.getByTestId("copilot-tool-render-status");
-    expect(status.className).toContain("cpk:dark:bg-emerald-500/15");
-    expect(status.className).toContain("cpk:dark:text-emerald-400");
+    expect(status.className).toContain("cpk:text-muted-foreground");
 
     const headerButton = name.closest("button");
     expect(headerButton).not.toBeNull();
@@ -257,8 +256,8 @@ describe("useDefaultRenderTool", () => {
     const details = wrapper.querySelectorAll("pre");
     expect(details.length).toBeGreaterThan(0);
     for (const detail of details) {
-      expect(detail.className).toContain("cpk:dark:bg-zinc-800/60");
-      expect(detail.className).toContain("cpk:dark:text-zinc-200");
+      expect(detail.className).toContain("cpk:bg-muted");
+      expect(detail.className).toContain("cpk:text-foreground");
     }
   });
 
@@ -307,6 +306,12 @@ describe("useDefaultRenderTool", () => {
     expect(headerButton).not.toBeNull();
     expect(headerButton!.getAttribute("type")).toBe("button");
     expect(headerButton!.getAttribute("aria-expanded")).toBe("false");
+    // Keyboard focus shows an outline, which forced-colors mode keeps too; a
+    // background tint alone is almost invisible on the card.
+    expect(headerButton!.className).toContain("cpk:focus-visible:outline-2");
+    expect(headerButton!.className).not.toContain(
+      "cpk:focus-visible:outline-none",
+    );
 
     // A native <button> activates on Enter/Space (the browser dispatches a
     // synthetic click). Asserting the click semantics directly is enough to
