@@ -912,6 +912,8 @@ describe("useLiveStatus", () => {
       expect(opts.filter).toContain('dimension = "e2e-demos"');
       expect(opts.filter).toContain('dimension = "d5-single-pill-e2e"');
       expect(opts.filter).toContain('key !~ "%/%"');
+      expect(opts.filter).toContain('key ~ "d5:%"');
+      expect(opts.filter).toContain('key ~ "d6:%"');
       // `signal` must come back — that is the whole point of the request. The
       // projection names it explicitly rather than omitting `fields` entirely,
       // which also drops PocketBase's undeclared columns; see

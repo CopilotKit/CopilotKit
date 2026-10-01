@@ -393,8 +393,8 @@ describe("createResultAggregator", () => {
     expect(finish.state).toBe("failed");
     expect(finish.summary).toEqual({
       total: 2,
-      passed: 1,
-      failed: 1,
+      passed: 0,
+      failed: 2,
       // §4.2 counters ride every fleet-aggregated summary (0 when the fake
       // writer reports no green→red / red→green durable transitions).
       redsIntroduced: 0,
@@ -422,8 +422,8 @@ describe("createResultAggregator", () => {
     expect(runFake.calls.finish[0].state).toBe("completed");
     expect(runFake.calls.finish[0].summary).toEqual({
       total: 1,
-      passed: 1,
-      failed: 0,
+      passed: 0,
+      failed: 1,
       redsIntroduced: 0,
       redsCleared: 0,
     });
@@ -3077,6 +3077,25 @@ describe("createResultAggregator", () => {
 
   // ── §4.2: reds counters persisted into probe_runs.summary ────────────────
   describe("reds counters (redsIntroduced/redsCleared into probe_runs.summary)", () => {
+    it("functional admission history-only outcomes never clear a durable red", async () => {
+      const fake = makeCannedTransitionStatusWriter({});
+      const write = fake.writer.write;
+      fake.writer.write = async (result) => ({
+        ...(await write(result)),
+        previousState: "red",
+        newState: "green",
+        persisted: false,
+      });
+      const agg = createResultAggregator({
+        statusWriter: fake.writer,
+        runWriter: runFake.writer,
+        logger: makeLogger(),
+        now: () => now,
+      });
+      await agg.aggregate(makeResult());
+      expect(runFake.calls.finish[0].summary?.redsCleared).toBe(0);
+      expect(runFake.calls.finish[0].summary?.passed).toBe(0);
+    });
     function makeAggregatorWith(
       outcomesByKey: Record<
         string,
@@ -3112,19 +3131,28 @@ describe("createResultAggregator", () => {
       expect(runFake.calls.finish[0].summary?.redsCleared).toBe(0);
     });
 
-    it("aggregate counts red→green transitions into summary.redsCleared", async () => {
+    it("nonfunctional durable red→green transitions still count as cleared", async () => {
       const agg = makeAggregatorWith({
-        "d6:langgraph-python": { previousState: "red", newState: "green" },
-        "d6:langgraph-python/shared-state": {
+        "smoke:langgraph-python": { previousState: "red", newState: "green" },
+        "smoke:langgraph-python/shared-state": {
           previousState: "red",
           newState: "green",
         },
-        "d6:langgraph-python/human-in-the-loop": {
+        "smoke:langgraph-python/human-in-the-loop": {
           previousState: "red",
           newState: "red",
         },
       });
-      await agg.aggregate(makeResult());
+      await agg.aggregate(
+        makeResult({
+          probeKey: "smoke:langgraph-python",
+          aggregateKey: "smoke:langgraph-python",
+          cells: makeResult().cells.map((cell) => ({
+            ...cell,
+            cellKey: cell.cellKey.replace("d6:", "smoke:"),
+          })),
+        }),
+      );
 
       expect(runFake.calls.finish).toHaveLength(1);
       expect(runFake.calls.finish[0].summary?.redsCleared).toBe(2);
@@ -3199,10 +3227,10 @@ describe("createResultAggregator", () => {
       // only pre-P2 rows lack the fields).
       expect(runFake.calls.finish[0].summary).toEqual({
         total: 2,
-        passed: 1,
-        failed: 1,
+        passed: 0,
+        failed: 2,
         redsIntroduced: 1,
-        redsCleared: 1,
+        redsCleared: 0,
       });
     });
   });
@@ -3503,6 +3531,43 @@ describe("[H1] comm-error overlay preserves attribution + counters (real status-
 });
 
 describe("selected observation caller", () => {
+  it("review admission does not credit an old persisted green receipt during required finish", async () => {
+    const statusFake = makeFakeStatusWriter();
+    const runFake = makeFakeRunWriter();
+    runFake.rows.push({ id: "prior", jobId: "job-1", terminal: true });
+    const receipt = {
+      kind: "write" as const,
+      value: {
+        previousState: "red" as const,
+        newState: "green" as const,
+        transition: "red_to_green" as const,
+        firstFailureAt: null,
+        failCount: 0,
+        persisted: true,
+      },
+    };
+    const before = JSON.stringify(receipt);
+    const aggregator = createResultAggregator({
+      statusWriter: {
+        ...statusFake.writer,
+        writeSelected: async () => receipt,
+      },
+      runWriter: runFake.writer,
+      logger: makeLogger(),
+      now: () => 1000,
+      resolveFeatureScope: async () => ["shared-state"],
+    });
+    const outcome = await aggregator.aggregate(makeResult());
+    expect(outcome.statusOutcomes[0]).toBe(receipt.value);
+    expect(JSON.stringify(receipt)).toBe(before);
+    expect(runFake.calls.finish[0]).toMatchObject({
+      required: true,
+      summary: {
+        redsCleared: 0,
+        selectedObservationFingerprint: expect.any(String),
+      },
+    });
+  });
   it("reads selection from persisted payload and rejects unknown scope", async () => {
     const getOne = vi
       .fn()

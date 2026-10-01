@@ -1,5 +1,6 @@
 import { selectedObservationFingerprint } from "../../writers/selected-observation.js";
 import type { PbClient } from "../../storage/pb-client.js";
+import { functionalAdmission } from "../../shared/cell-model/live-status.js";
 /**
  * Control-plane RESULT AGGREGATOR (BLITZ S5).
  *
@@ -762,7 +763,7 @@ export function createResultAggregator(
       // probe_runs row that only `sweepStaleRuns` could clean up. Log the
       // failure on the established error path and keep iterating so the
       // remaining rows + the run-history finish still land.
-      const statusOutcomes: WriteOutcome[] = [];
+      const statusWrites: Array<{ key: string; outcome: WriteOutcome }> = [];
       const overlayOutcomes: OverlayWriteOutcome[] = [];
       const outageSkippedKeys: string[] = [];
       const corruptStateSkippedKeys: string[] = [];
@@ -1000,7 +1001,7 @@ export function createResultAggregator(
         if (selectedCertificate === selectedFingerprint) {
           return {
             runRowId,
-            statusOutcomes,
+            statusOutcomes: statusWrites.map(({ outcome }) => outcome),
             overlayOutcomes,
             skipped: true,
             outageSkippedKeys,
@@ -1036,7 +1037,7 @@ export function createResultAggregator(
               : {}),
           });
           if (selected.kind === "overlay") overlayOutcomes.push(selected.value);
-          else statusOutcomes.push(selected.value);
+          else statusWrites.push({ key: pr.key, outcome: selected.value });
           continue;
         }
         if (result.commError) {
@@ -1111,13 +1112,14 @@ export function createResultAggregator(
                 // HISTORY-ONLY (the error-path write never merges the
                 // overlay into the new live row's signal). Known, accepted
                 // race: the next observation of the key re-converges it.
-                statusOutcomes.push(
-                  await statusWriter.write({
+                statusWrites.push({
+                  key: pr.key,
+                  outcome: await statusWriter.write({
                     ...pr,
                     state: "error",
                     signal: withCommErrorOverlay(pr.signal, result),
                   }),
-                );
+                });
               }
             }
             continue;
@@ -1127,17 +1129,18 @@ export function createResultAggregator(
           // treatment the primary's "write" route gets — so the dashboard can
           // re-surface "unreachable" off every durable row written from this
           // untrusted result, not just the primary.
-          statusOutcomes.push(
-            await statusWriter.write({
+          statusWrites.push({
+            key: pr.key,
+            outcome: await statusWriter.write({
               ...pr,
               signal: withCommErrorOverlay(pr.signal, result),
             }),
-          );
+          });
           continue;
         }
         try {
           const outcome = await statusWriter.write(pr);
-          statusOutcomes.push(outcome);
+          statusWrites.push({ key: pr.key, outcome });
         } catch (err) {
           logger.error("fleet.aggregator.status-write-failed", {
             probeKey: result.aggregateKey,
@@ -1157,12 +1160,16 @@ export function createResultAggregator(
       // writers in tests) likewise contributes nothing.
       let redsIntroduced = 0;
       let redsCleared = 0;
-      for (const o of statusOutcomes) {
-        if (!o || o.newState === "error") continue;
+      for (const { key, outcome: o } of statusWrites) {
+        if (!o || !o.persisted || o.newState === "error") continue;
         if (o.previousState === "green" && o.newState === "red") {
           redsIntroduced += 1;
         }
-        if (o.previousState === "red" && o.newState === "green") {
+        if (
+          o.previousState === "red" &&
+          o.newState === "green" &&
+          functionalAdmission(key, o.newState) !== "unverified"
+        ) {
           redsCleared += 1;
         }
       }
@@ -1211,7 +1218,7 @@ export function createResultAggregator(
 
       return {
         runRowId,
-        statusOutcomes,
+        statusOutcomes: statusWrites.map(({ outcome }) => outcome),
         overlayOutcomes,
         skipped: false,
         outageSkippedKeys,

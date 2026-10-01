@@ -1,4 +1,5 @@
 import type { ProbeConfig } from "./schema.js";
+import { functionalAdmission } from "../../shared/cell-model/live-status.js";
 import type { DiscoveryRegistry, ProbeDriver } from "../types.js";
 import type {
   Logger,
@@ -649,6 +650,11 @@ export function buildProbeInvoker(
             (result.signal as { errorDesc?: string } | undefined)?.errorDesc ??
             "unknown error";
           tracker.fail(key, errDesc);
+          failed++;
+        } else if (
+          functionalAdmission(result.key, result.state) === "unverified"
+        ) {
+          tracker.fail(key, "functional observation unverified");
           failed++;
         } else if (result.state === "green") {
           tracker.complete(key, "green");

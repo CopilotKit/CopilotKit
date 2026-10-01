@@ -5,6 +5,7 @@ import type {
   SelectedOutcome,
 } from "./selected-observation.js";
 import { hostname } from "node:os";
+import { functionalAdmission } from "../shared/cell-model/live-status.js";
 
 import type {
   TypedEventBus,
@@ -1010,14 +1011,24 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
     // real observation of durable state). Round-8 #1: PB-safety is decided
     // by toPbSafeDate (PB shape or normalized ISO), not bare Date.parse.
     const safeObservedAt = toPbSafeDate(result.observedAt);
-    if (safeObservedAt === undefined) {
+    // Unqualified functional positives share the existing audit-only path;
+    // they cannot reset a failure or refresh the retained proof timestamp.
+    if (
+      safeObservedAt === undefined ||
+      functionalAdmission(result.key, result.state) === "unverified"
+    ) {
       // A6(i): deduped — a broken probe feeds garbage every tick.
-      warnDeduped("status-writer.durable-unparseable-observed-at", result.key, {
-        key: result.key,
-        observedAt: result.observedAt,
-        currentObservedAt: existing?.observed_at,
-        hint: "incoming durable-write observedAt is unparseable — landing the history row with a substituted timestamp and skipping the durable upsert (PB would 400 on a non-date value)",
-      });
+      if (safeObservedAt === undefined)
+        warnDeduped(
+          "status-writer.durable-unparseable-observed-at",
+          result.key,
+          {
+            key: result.key,
+            observedAt: result.observedAt,
+            currentObservedAt: existing?.observed_at,
+            hint: "incoming durable-write observedAt is unparseable — landing the history row with a substituted timestamp and skipping the durable upsert (PB would 400 on a non-date value)",
+          },
+        );
       const skippedHistory: StatusHistoryRecord = {
         key: result.key,
         dimension: deriveDimensionWithWarn(result.key),
@@ -1030,7 +1041,8 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
         // established non-persisted posture (F2e — see types/index.ts).
         transition: "error",
         signal: result.signal,
-        observed_at: safeHistoryObservedAt(existing?.observed_at),
+        observed_at:
+          safeObservedAt ?? safeHistoryObservedAt(existing?.observed_at),
       };
       if (atomic) {
         // History and receipt commit together; no status change is proposed.

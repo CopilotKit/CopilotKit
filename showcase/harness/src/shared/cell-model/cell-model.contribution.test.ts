@@ -460,3 +460,27 @@ describe("foldFamily — `redSignalKnown` scope", () => {
     ).toBe(true);
   });
 });
+
+describe("functional admission", () => {
+  it.each(["D5", "D6"] as const)(
+    "keeps %s producer-positive assertions unverified without independent authority",
+    (kind) => {
+      expect(
+        classifyRung(
+          raw(kind, [
+            row("green", {
+              signal: { qualifies: true, expected: { complete: true } },
+            }),
+          ]),
+          NOW,
+        ).contribution,
+      ).toBe("NO_DATA");
+      expect(
+        classifyRung(
+          raw(kind, [row("green"), row("red", { failCount: 4 })]),
+          NOW,
+        ).contribution,
+      ).toBe("FAIL_FRESH");
+    },
+  );
+});

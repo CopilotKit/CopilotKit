@@ -45,6 +45,7 @@
  */
 
 import type { BrowserPoolBudget } from "../probes/helpers/browser-pool.js";
+import { functionalAdmission } from "../shared/cell-model/live-status.js";
 import type { ProbeResult, ProbeState } from "../types/index.js";
 import type { JobStatus, JobView } from "./job-claim.js";
 
@@ -537,6 +538,36 @@ export function runSummaryForServiceJobResult(result: ServiceJobResult): {
   passed: number;
   failed: number;
 } {
+  if (
+    functionalAdmission(result.probeKey, "green") === "unverified" ||
+    functionalAdmission(result.aggregateKey, "green") === "unverified"
+  ) {
+    // These are non-passing observations, not newly observed product failures.
+    return {
+      total: result.rollup.total,
+      passed: 0,
+      failed: result.rollup.total,
+    };
+  }
+  if (
+    result.cells.some(
+      (cell) => functionalAdmission(cell.cellKey, "green") === "unverified",
+    )
+  ) {
+    const passed = Math.min(
+      result.rollup.passed,
+      result.cells.filter(
+        (cell) =>
+          cell.state === "green" &&
+          functionalAdmission(cell.cellKey, cell.state) !== "unverified",
+      ).length,
+    );
+    return {
+      total: result.rollup.total,
+      passed,
+      failed: result.rollup.total - passed,
+    };
+  }
   return {
     total: result.rollup.total,
     passed: result.rollup.passed,
