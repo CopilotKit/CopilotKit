@@ -652,8 +652,8 @@ describe("CopilotChatInput", () => {
     mockLayoutMetrics(container);
 
     const textarea = screen.getByRole("textbox");
-    expect(textarea.className).toContain("pr-5");
-    expect(textarea.className).not.toContain("px-5");
+    expect(textarea.className).toContain("pr-3");
+    expect(textarea.className).not.toContain("px-3");
 
     fireEvent.change(textarea, {
       target: {
@@ -663,8 +663,8 @@ describe("CopilotChatInput", () => {
     });
 
     await waitFor(() => {
-      expect(textarea.className).toContain("px-5");
-      expect(textarea.className).not.toContain("pr-5");
+      expect(textarea.className).toContain("px-3");
+      expect(textarea.className).not.toContain("pr-3");
     });
   });
 
@@ -1187,23 +1187,6 @@ describe("CopilotChatInput", () => {
       }
     });
 
-    const mockMobileViewport = () => {
-      Object.defineProperty(window, "matchMedia", {
-        configurable: true,
-        writable: true,
-        value: vi.fn().mockImplementation((query: string) => ({
-          matches: query === "(max-width: 767px)",
-          media: query,
-          onchange: null,
-          addListener: vi.fn(),
-          removeListener: vi.fn(),
-          addEventListener: vi.fn(),
-          removeEventListener: vi.fn(),
-          dispatchEvent: vi.fn(),
-        })),
-      });
-    };
-
     /**
      * Extends mockLayoutMetrics with getComputedStyle mocks so that
      * updateContainerCache can compute real compactWidth and font values,
@@ -1594,9 +1577,7 @@ describe("CopilotChatInput", () => {
       expect(addRectSpy).toHaveBeenCalled();
     });
 
-    it("does not re-measure textarea value on mobile after measurements are warm", async () => {
-      mockMobileViewport();
-
+    it("does not re-measure textarea value in the stacked layout after measurements are warm", async () => {
       const valueDescriptor = Object.getOwnPropertyDescriptor(
         HTMLTextAreaElement.prototype,
         "value",
@@ -1611,7 +1592,10 @@ describe("CopilotChatInput", () => {
         });
 
       const { container } = renderWithProvider(
-        <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
+        <CopilotChatInput
+          onSubmitMessage={mockOnSubmitMessage}
+          layout="stacked"
+        />,
       );
       setupMocksAndInvalidateCache(container, DEFAULT_LAYOUT_OPTIONS);
 
@@ -1717,5 +1701,170 @@ describe("CopilotChatInput", () => {
       expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
       focusSpy.mockRestore();
     });
+  });
+});
+
+describe("CopilotChatInput layout prop", () => {
+  const layoutOf = (textarea: HTMLElement) =>
+    (textarea.closest("[data-layout]") as HTMLElement).getAttribute(
+      "data-layout",
+    );
+
+  it("keeps a single row in narrow inputs while the text fits", async () => {
+    const { container } = renderWithProvider(
+      <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
+    );
+    mockLayoutMetrics(container, { gridWidth: 360 });
+    const textarea = screen.getByRole("textbox");
+    fireEvent.change(textarea, { target: { value: "hi" } });
+    await waitFor(() => expect(layoutOf(textarea)).toBe("compact"));
+  });
+
+  it('always stacks with layout="stacked"', async () => {
+    const { container } = renderWithProvider(
+      <CopilotChatInput
+        onSubmitMessage={mockOnSubmitMessage}
+        layout="stacked"
+      />,
+    );
+    mockLayoutMetrics(container, { gridWidth: 900 });
+    const textarea = screen.getByRole("textbox");
+    fireEvent.change(textarea, { target: { value: "hi" } });
+    await waitFor(() => expect(layoutOf(textarea)).toBe("expanded"));
+  });
+
+  it("folds voice input into the + menu in very narrow inputs", async () => {
+    const { container } = renderWithProvider(
+      <CopilotChatInput
+        onSubmitMessage={mockOnSubmitMessage}
+        onStartTranscribe={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("copilot-start-transcribe-button")).toBeDefined();
+
+    mockLayoutMetrics(container, { gridWidth: 280 });
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "hi" } });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId("copilot-start-transcribe-button"),
+      ).toBeNull(),
+    );
+    // The + menu now has an item, so it's enabled even without onAddFile.
+    expect(
+      (screen.getByTestId("copilot-add-menu-button") as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+  });
+
+  it("keeps a custom startTranscribeButton in the toolbar in very narrow inputs", async () => {
+    const { container } = renderWithProvider(
+      <CopilotChatInput
+        onSubmitMessage={mockOnSubmitMessage}
+        onStartTranscribe={vi.fn()}
+        startTranscribeButton="custom-mic"
+      />,
+    );
+
+    mockLayoutMetrics(container, { gridWidth: 280 });
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "hi" } });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(
+      screen.getByTestId("copilot-start-transcribe-button").className,
+    ).toContain("custom-mic");
+    // Nothing was folded into the + menu.
+    expect(
+      (screen.getByTestId("copilot-add-menu-button") as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+});
+
+describe("CopilotChatInput.TextArea markdown preview", () => {
+  const renderTextArea = (
+    props: Partial<CopilotChatInput.TextAreaProps> = {},
+  ) => {
+    renderWithProvider(
+      <div className="relative">
+        <CopilotChatInput.TextArea
+          value="- item"
+          onChange={() => {}}
+          {...props}
+        />
+      </div>,
+    );
+    return {
+      textarea: screen.getByTestId("copilot-chat-textarea"),
+      preview: screen.getByTestId("copilot-chat-textarea-preview"),
+    };
+  };
+
+  it("paints a custom text color on the preview, never on the textarea", () => {
+    const { textarea, preview } = renderTextArea({
+      className: "cpk:text-red-500",
+      style: { color: "rgb(0, 0, 255)" },
+    });
+
+    expect(textarea.className).toContain("cpk:text-transparent");
+    expect(textarea.className).not.toContain("cpk:text-red-500");
+    expect(textarea.style.color).toBe("transparent");
+    expect(preview.className).toContain("cpk:text-red-500");
+    expect(preview.style.color).toBe("rgb(0, 0, 255)");
+  });
+
+  it("paints a custom background on the preview, never on the textarea", () => {
+    // The textarea sits on top; an opaque one would hide the preview's text.
+    const { textarea, preview } = renderTextArea({
+      style: { backgroundColor: "rgb(255, 255, 255)" },
+    });
+
+    expect(textarea.style.backgroundColor).toBe("transparent");
+    expect(preview.style.backgroundColor).toBe("rgb(255, 255, 255)");
+  });
+
+  it("shows the plain textarea when its parent cannot position the preview", () => {
+    // A custom layout can put the textarea in a static container, where the
+    // absolutely placed preview would land somewhere else on the page.
+    renderWithProvider(
+      <div style={{ position: "static" }}>
+        <CopilotChatInput.TextArea
+          value="- item"
+          onChange={() => {}}
+          style={{ color: "red" }}
+        />
+      </div>,
+    );
+    expect(screen.queryByTestId("copilot-chat-textarea-preview")).toBeNull();
+    expect(screen.getByTestId("copilot-chat-textarea").style.color).toBe("red");
+  });
+
+  it("mirrors the textarea's text metrics onto the preview", () => {
+    const style = document.createElement("style");
+    style.textContent =
+      "textarea { letter-spacing: 3px; padding-left: 24px; font-size: 18px; }";
+    document.head.append(style);
+    try {
+      const { preview } = renderTextArea({ style: { lineHeight: "30px" } });
+      expect(preview.style.letterSpacing).toBe("3px");
+      expect(preview.style.paddingLeft).toBe("24px");
+      expect(preview.style.fontSize).toBe("18px");
+      expect(preview.style.lineHeight).toBe("30px");
+    } finally {
+      style.remove();
+    }
+  });
+
+  it("leaves plain textareas alone with highlightMarkdown={false}", () => {
+    renderWithProvider(
+      <CopilotChatInput.TextArea
+        value="- item"
+        onChange={() => {}}
+        highlightMarkdown={false}
+        style={{ color: "red" }}
+      />,
+    );
+    expect(screen.queryByTestId("copilot-chat-textarea-preview")).toBeNull();
+    expect(screen.getByTestId("copilot-chat-textarea").style.color).toBe("red");
   });
 });
