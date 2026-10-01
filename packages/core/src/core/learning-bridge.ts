@@ -1,0 +1,329 @@
+import { createCollector } from "@copilotkit/learning";
+import type {
+  CaptureOptions,
+  Collector,
+  CollectorOptions,
+  StartOptions,
+} from "@copilotkit/learning";
+import type { AbstractAgent, AgentSubscriber, Message } from "@ag-ui/client";
+import type { CopilotKitCore } from "./core";
+
+/** Interaction capture settings for {@link CopilotKitCore}. See `@copilotkit/learning`. */
+export interface LearningConfig extends Omit<
+  CollectorOptions,
+  "enrich" | "capture"
+> {
+  /** Capture modules, plus `agentText` to include assistant reply text (off by default). */
+  capture?: CaptureOptions & { agentText?: boolean };
+}
+
+/** Returned by {@link CopilotKitCore.registerOpenThread}. */
+export interface OpenThreadRegistration {
+  /** The view now shows another Thread. */
+  update(threadId: string): void;
+  /** The view that showed this Thread is gone. */
+  unregister(): void;
+}
+
+/** The part of a DOM element the enricher reads. Elements satisfy it. */
+interface ClosestTarget {
+  closest(
+    selector: string,
+  ): { getAttribute(name: string): string | null } | null;
+}
+
+interface OpenThread {
+  agentId: string;
+  threadId: string;
+}
+
+interface ToolCallOrigin {
+  agentId: string;
+  threadId: string;
+  messageId: string | undefined;
+  runId: string | undefined;
+}
+
+const MAX_AGENT_TEXT = 2000;
+
+/**
+ * Wires `@copilotkit/learning` into Core: agent events, the open-Thread registry,
+ * and click attribution to messages and tool calls. Internal to Core.
+ */
+export class LearningBridge {
+  private collector: Collector | null = null;
+  private readonly agents = new Set<AbstractAgent>();
+  private readonly agentSubscriptions = new WeakSet<AbstractAgent>();
+  private readonly openThreads = new Set<OpenThread>();
+  private readonly toolCalls = new Map<string, ToolCallOrigin>();
+  private readonly executingTools = new Map<string, number>();
+  private readonly lastRunIds = new WeakMap<AbstractAgent, string>();
+
+  constructor(
+    private readonly core: CopilotKitCore,
+    private readonly config: LearningConfig | undefined,
+  ) {
+    if (config === undefined) return;
+    core.subscribe({
+      onAgentsChanged: ({ agents }) => {
+        for (const agent of Object.values(agents)) this.track(agent);
+      },
+      // Per-thread clones are not in `core.agents`; track the running instance too.
+      onAgentRunStarted: ({ agent }) => this.track(agent),
+      onToolExecutionStart: ({ toolCallId, agentId, toolName }) => {
+        this.executingTools.set(toolCallId, Date.now());
+        this.emitToolCall("executing", toolCallId, agentId, toolName, {});
+      },
+      onToolExecutionEnd: ({ toolCallId, agentId, toolName, error }) => {
+        const startedAt = this.executingTools.get(toolCallId);
+        this.executingTools.delete(toolCallId);
+        this.emitToolCall("completed", toolCallId, agentId, toolName, {
+          durationMs:
+            startedAt === undefined ? undefined : Date.now() - startedAt,
+          outcome: error === undefined ? "ok" : "error",
+        });
+      },
+    });
+    for (const agent of Object.values(core.agents)) this.track(agent);
+  }
+
+  start(options: StartOptions) {
+    const config = this.config;
+    if (config === undefined) {
+      console.warn(
+        "[CopilotKit] startTrajectory() needs the `learning` option on CopilotKitCore (or the CopilotKitProvider `learning` prop).",
+      );
+      return;
+    }
+    if (this.collector === null) {
+      const runtimeUrl = this.core.runtimeUrl;
+      this.collector = createCollector({
+        ...config,
+        ignoreUrls: [
+          ...(config.ignoreUrls ?? []),
+          ...(runtimeUrl === undefined ? [] : [runtimeUrl]),
+        ],
+        enrich: (target) => this.enrich(target),
+      });
+    }
+    const wasActive = this.collector.trajectoryId !== null;
+    this.collector.start(options);
+    if (wasActive) return;
+    for (const threadId of this.distinctOpenThreadIds())
+      this.emitThreadLinked(threadId, "start");
+  }
+
+  stop() {
+    this.collector?.stop();
+  }
+
+  registerOpenThread(params: OpenThread) {
+    const entry: OpenThread = { ...params };
+    const isNew = !this.distinctOpenThreadIds().includes(entry.threadId);
+    this.openThreads.add(entry);
+    if (isNew) this.emitThreadLinked(entry.threadId, "open");
+    const registration: OpenThreadRegistration = {
+      update: (threadId) => {
+        if (threadId === entry.threadId) return;
+        entry.threadId = threadId;
+        const others = [...this.openThreads].filter((other) => other !== entry);
+        const isOpenElsewhere = others.some(
+          (other) => other.threadId === threadId,
+        );
+        if (!isOpenElsewhere) this.emitThreadLinked(threadId, "switch");
+      },
+      unregister: () => {
+        this.openThreads.delete(entry);
+      },
+    };
+    return registration;
+  }
+
+  private distinctOpenThreadIds() {
+    return [...new Set([...this.openThreads].map((open) => open.threadId))];
+  }
+
+  private emitThreadLinked(
+    threadId: string,
+    reason: "start" | "open" | "switch",
+  ) {
+    const owner = [...this.openThreads].find(
+      (open) => open.threadId === threadId,
+    );
+    const agent = this.findAgentForThread(threadId);
+    this.collector?.ɵemit("thread.linked", {
+      threadId,
+      agentId: owner?.agentId ?? agent?.agentId ?? null,
+      hasMessages: (agent?.messages.length ?? 0) > 0,
+      reason,
+    });
+  }
+
+  private findAgentForThread(threadId: string) {
+    return [...this.agents].find((agent) => agent.threadId === threadId);
+  }
+
+  private track(agent: AbstractAgent) {
+    const agentId = agent.agentId;
+    if (this.agentSubscriptions.has(agent) || agentId === undefined) return;
+    this.agentSubscriptions.add(agent);
+    this.agents.add(agent);
+    agent.subscribe(this.agentSubscriber(agent, agentId));
+  }
+
+  private agentSubscriber(agent: AbstractAgent, agentId: string) {
+    const runIdFor = () => this.lastRunIds.get(agent);
+    const subscriber: AgentSubscriber = {
+      onRunStartedEvent: ({ event }) => {
+        this.lastRunIds.set(agent, event.runId);
+        this.emitRun("started", agent, event.threadId, event.runId);
+      },
+      onRunFinishedEvent: ({ event }) => {
+        this.emitRun("finished", agent, event.threadId, event.runId);
+      },
+      onRunErrorEvent: () => {
+        this.emitRun("error", agent, agent.threadId, runIdFor() ?? null);
+      },
+      onToolCallStartEvent: ({ event }) => {
+        const origin: ToolCallOrigin = {
+          agentId,
+          threadId: agent.threadId,
+          messageId: event.parentMessageId,
+          runId: runIdFor(),
+        };
+        this.toolCalls.set(event.toolCallId, origin);
+        this.emitToolCall(
+          "started",
+          event.toolCallId,
+          origin.agentId,
+          event.toolCallName,
+          {},
+        );
+      },
+      onNewMessage: ({ message }) => this.emitMessage(agent, message),
+    };
+    return subscriber;
+  }
+
+  private emitRun(
+    phase: "started" | "finished" | "error",
+    agent: AbstractAgent,
+    threadId: string,
+    runId: string | null,
+  ) {
+    this.collector?.ɵemit("agent.run", {
+      phase,
+      runId,
+      threadId,
+      agentId: agent.agentId,
+    });
+  }
+
+  private emitMessage(agent: AbstractAgent, message: Message) {
+    const content = typeof message.content === "string" ? message.content : "";
+    const toolNames =
+      message.role === "assistant"
+        ? (message.toolCalls ?? []).map((call) => call.function.name)
+        : [];
+    const includeText =
+      this.config?.capture?.agentText === true && message.role === "assistant";
+    this.collector?.ɵemit("agent.message", {
+      messageId: message.id,
+      runId: this.runIdForMessage(agent, message.id),
+      threadId: agent.threadId,
+      agentId: agent.agentId,
+      role: message.role,
+      toolNames,
+      textLength: content.length,
+      ...(includeText ? { text: content.slice(0, MAX_AGENT_TEXT) } : {}),
+    });
+  }
+
+  private emitToolCall(
+    phase: "started" | "executing" | "completed",
+    toolCallId: string,
+    agentId: string,
+    toolName: string,
+    extra: { durationMs?: number; outcome?: "ok" | "error" },
+  ) {
+    const origin = this.toolCalls.get(toolCallId);
+    this.collector?.ɵemit("tool.call", {
+      phase,
+      toolCallId,
+      toolName,
+      agentId,
+      threadId: origin?.threadId ?? null,
+      messageId: origin?.messageId,
+      runId: origin?.runId,
+      ...extra,
+    });
+  }
+
+  private runIdForMessage(agent: AbstractAgent, messageId: string) {
+    const agentId = agent.agentId;
+    if (agentId === undefined) return null;
+    return (
+      this.core.getRunIdForMessage(agentId, agent.threadId, messageId) ??
+      this.lastRunIds.get(agent) ??
+      null
+    );
+  }
+
+  private findMessage(messageId: string) {
+    for (const agent of this.agents) {
+      const message = agent.messages.find(
+        (candidate) => candidate.id === messageId,
+      );
+      if (message !== undefined) return { agent, message };
+    }
+    return null;
+  }
+
+  private toolStatus(agent: AbstractAgent, toolCallId: string) {
+    if (this.executingTools.has(toolCallId)) return "executing";
+    const hasResult = agent.messages.some(
+      (message) => message.role === "tool" && message.toolCallId === toolCallId,
+    );
+    return hasResult ? "complete" : "inProgress";
+  }
+
+  /** Adds agent context to a click: exact message first, then the single open Thread. */
+  enrich(target: ClosestTarget) {
+    const messageId =
+      target.closest("[data-message-id]")?.getAttribute("data-message-id") ??
+      null;
+    const toolCallId =
+      target
+        .closest("[data-tool-call-id]")
+        ?.getAttribute("data-tool-call-id") ?? null;
+    const found = messageId === null ? null : this.findMessage(messageId);
+    if (found !== null) {
+      const { agent, message } = found;
+      const toolCall =
+        toolCallId !== null && message.role === "assistant"
+          ? message.toolCalls?.find((call) => call.id === toolCallId)
+          : undefined;
+      return {
+        threadId: agent.threadId,
+        agentId: agent.agentId,
+        messageId: message.id,
+        runId: this.runIdForMessage(agent, message.id),
+        ...(toolCall === undefined
+          ? {}
+          : {
+              toolCallId: toolCall.id,
+              toolName: toolCall.function.name,
+              toolStatus: this.toolStatus(agent, toolCall.id),
+            }),
+      };
+    }
+    const openIds = this.distinctOpenThreadIds();
+    if (openIds.length > 1) {
+      return {
+        threadId: null,
+        threadAmbiguity: { reason: "multiple-open", candidates: openIds },
+      };
+    }
+    return { threadId: openIds[0] ?? null };
+  }
+}

@@ -43,6 +43,9 @@ import type {
 import { StateManager } from "./state-manager";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
+import { LearningBridge } from "./learning-bridge";
+import type { LearningConfig } from "./learning-bridge";
+import type { StartOptions } from "@copilotkit/learning";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
 import type { ɵMemoryStore } from "../memory";
@@ -86,9 +89,16 @@ export interface CopilotKitCoreConfig {
   suggestionsConfig?: SuggestionsConfig[];
   /** Enable debug logging for the client-side event pipeline. */
   debug?: DebugConfig;
+  /**
+   * Turns on interaction capture (`@copilotkit/learning`). Capture starts only
+   * when you call {@link CopilotKitCore.startTrajectory}. Events carry the Thread,
+   * message, tool call, and run they belong to. Read once, at construction.
+   */
+  learning?: LearningConfig;
 }
 
 export type { CopilotKitMessageFilter } from "./message-filter";
+export type { LearningConfig, OpenThreadRegistration } from "./learning-bridge";
 
 export type {
   CopilotKitCoreAddAgentParams,
@@ -435,6 +445,7 @@ export class CopilotKitCore {
   private runHandler: RunHandler;
   private stateManager: StateManager;
   private threadStoreRegistry: ThreadStoreRegistry;
+  private learningBridge: LearningBridge;
   /**
    * The single core-owned memory store, created lazily on first
    * `getMemoryStore()` and kept user-scoped for the lifetime of the core.
@@ -462,6 +473,7 @@ export class CopilotKitCore {
     tools = [],
     suggestionsConfig = [],
     debug,
+    learning,
   }: CopilotKitCoreConfig) {
     this._headers = normalizeHeaders(headers);
     this._credentials = credentials;
@@ -482,6 +494,8 @@ export class CopilotKitCore {
     this.runHandler.initialize(tools);
     this.suggestionEngine.initialize(suggestionsConfig);
     this.stateManager.initialize();
+    // After agent initialization: the bridge reads the initial agents.
+    this.learningBridge = new LearningBridge(this, learning);
 
     this.agentRegistry.setRuntimeTransport(runtimeTransport);
     this.agentRegistry.setRuntimeUrl(runtimeUrl, {
@@ -941,6 +955,30 @@ export class CopilotKitCore {
 
   getAgent(id: string): AbstractAgent | undefined {
     return this.agentRegistry.getAgent(id);
+  }
+
+  /**
+   * Starts capturing interactions for one Trajectory. Needs the `learning` config.
+   * One Trajectory runs at a time: the same id again is a no-op, and another id
+   * logs a warning until you call {@link CopilotKitCore.stopTrajectory}.
+   *
+   * @example copilotkit.startTrajectory({ trajectoryId: crypto.randomUUID() })
+   */
+  startTrajectory(options: StartOptions) {
+    this.learningBridge.start(options);
+  }
+
+  /** Stops capture, removes every listener and patch, and drops unsent events. */
+  stopTrajectory() {
+    this.learningBridge.stop();
+  }
+
+  /**
+   * Tells Core that a view shows this Thread, so captured interactions can link to it.
+   * Framework bindings call this; call it yourself only without a CopilotKit provider.
+   */
+  registerOpenThread(params: { agentId: string; threadId: string }) {
+    return this.learningBridge.registerOpenThread(params);
   }
 
   /**
