@@ -47,8 +47,30 @@ You must provide at least one of `runtimeUrl`, `publicApiKey`, or `publicLicense
   The endpoint for the Copilot Runtime instance. When omitted but a public key is set, requests fall back to the Copilot Cloud chat endpoint.
 </PropertyReference>
 
-<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>)">
-  Additional headers to send with each request. Pass a plain object, or a function that returns headers (useful for dynamically resolved values such as auth tokens).
+<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>) | (() => Promise<Record<string, string>>)">
+  Additional headers to send with each request. Pass a plain object for
+  static headers, or a function (sync or async) that returns them. A builder
+  runs when each request is sent, so a refreshed token is always used.
+
+Cache inside the builder. Clerk's and Auth0's `getToken()` already cache. A
+builder that calls the network every time adds one call per request.
+
+If the builder throws or rejects, that request is not sent and `onError`
+gets `header_resolution_failed`.
+
+Re-passing the same builder function is a no-op, and so is passing a new
+function through the `headers` prop: the provider keeps one stable wrapper for
+any builder. On a user switch, remount the provider (for example with a `key`),
+or call `copilotkit.value.setHeaders(...)` with a new function or a record, so
+Inspector metadata and thread lists reload for the new user. This does not
+refetch the runtime's `/info`.
+
+`copilotkit.value.headers` is the last resolved value. Use
+`await copilotkit.value.resolveHeaders()` for your own requests.
+
+Core headers are also sent to any `selfManagedAgents` /
+`agents__unsafe_dev_only` agent, including ones on other origins. Don't put a
+bearer token in core headers if those agents point at a third party.
 
 ```json
 {

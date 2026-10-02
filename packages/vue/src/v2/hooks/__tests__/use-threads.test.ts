@@ -396,6 +396,11 @@ type MockCopilotKit = {
   runtimeUrl: string | undefined;
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   headers: Record<string, string>;
+  /**
+   * Bumped only by a real `setHeaders()` call (a new source). #1937: this —
+   * not header VALUES — is what the composable keys re-dispatch on.
+   */
+  ɵheadersGeneration: number;
   intelligence: { wsUrl?: string } | undefined;
   threadEndpoints: ThreadEndpointRuntimeInfo | undefined;
   registerThreadStore: ReturnType<typeof vi.fn>;
@@ -414,6 +419,7 @@ function setupCopilotKit(
     runtimeUrl,
     runtimeConnectionStatus,
     headers: { Authorization: "Bearer test-token" },
+    ɵheadersGeneration: 0,
     intelligence: {
       wsUrl: "ws://localhost:4000/client",
     },
@@ -834,7 +840,7 @@ describe("useThreads", () => {
       });
     });
 
-    it("reacts to in-place header mutations", async () => {
+    it("ignores an in-place header mutation, but re-dispatches when ɵheadersGeneration changes (#1937)", async () => {
       const copilotkit = setupCopilotKit();
 
       fetchMock
@@ -858,19 +864,34 @@ describe("useThreads", () => {
         expect(getResult().isLoading.value).toBe(false);
       });
 
+      const callsBeforeMutation = fetchMock.mock.calls.length;
+
+      // A raw mutation of the headers object — no `setHeaders()`, no
+      // generation bump — must NOT re-dispatch the context or refetch. A
+      // header builder's returned token can change on every resolution
+      // without ever calling `setHeaders`, so this must never be the trigger.
       copilotkit.value.headers.Authorization = "Bearer mutated";
+      await nextTick();
+      await nextTick();
+      expect(fetchMock.mock.calls.length).toBe(callsBeforeMutation);
+
+      // A real `setHeaders()` bumps `ɵheadersGeneration` — THAT is the
+      // trigger to re-dispatch and refetch.
+      copilotkit.value = {
+        ...copilotkit.value,
+        ɵheadersGeneration: copilotkit.value.ɵheadersGeneration + 1,
+      };
 
       await vi.waitFor(() => {
         expect(fetchMock).toHaveBeenCalledWith(
           expect.stringContaining("/threads?agentId=agent-1"),
-          expect.objectContaining({
-            method: "GET",
-            headers: { Authorization: "Bearer mutated" },
-          }),
+          expect.objectContaining({ method: "GET" }),
         );
       });
 
-      expect(getResult().threads.value[0].id).toBe("t-4");
+      await vi.waitFor(() => {
+        expect(getResult().threads.value[0]?.id).toBe("t-4");
+      });
     });
 
     it("reacts to includeArchived and limit changes", async () => {

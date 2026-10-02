@@ -26,6 +26,7 @@ describe("transcription-client", () => {
         runtimeUrl: "/api/copilotkit",
         runtimeTransport: "rest",
         headers: {},
+        resolveHeaders: async () => ({}),
       } as CopilotKitCoreVue,
       new Blob(["audio"], { type: "audio/webm" }),
     );
@@ -52,6 +53,7 @@ describe("transcription-client", () => {
           runtimeUrl: "/api/copilotkit",
           runtimeTransport: "rest",
           headers: {},
+          resolveHeaders: async () => ({}),
         } as CopilotKitCoreVue,
         new Blob(["audio"], { type: "audio/webm" }),
       ),

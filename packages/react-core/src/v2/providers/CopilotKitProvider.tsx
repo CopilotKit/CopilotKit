@@ -36,7 +36,11 @@ import type {
   RuntimeEntitlementResponse,
   RuntimeLicenseStatus,
 } from "@copilotkit/shared";
-import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
+import type {
+  CopilotKitCoreErrorCode,
+  CopilotKitHeadersSource,
+} from "@copilotkit/core";
+import { ɵwithHeaderDefaults } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
   MCPAppsActivityRenderer,
@@ -128,7 +132,12 @@ const GENERATE_SANDBOXED_UI_DESCRIPTION =
 export interface CopilotKitProviderProps {
   children: ReactNode;
   runtimeUrl?: string;
-  headers?: Record<string, string> | (() => Record<string, string>);
+  /**
+   * Headers sent with every request. A record, or a sync or async builder
+   * that runs when each request is sent. An inline arrow is fine. The builder
+   * should be cheap; cache tokens in it (Clerk's `getToken()` already does).
+   */
+  headers?: CopilotKitHeadersSource;
   /**
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
@@ -535,19 +544,33 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
   }, [hasSelfManagedAgents, resolvedPublicKey]);
 
-  // Resolve headers from function or static object
-  const headers =
-    typeof headersProp === "function" ? headersProp() : headersProp;
-
-  // Merge a provided publicApiKey into headers (without overwriting an explicit header).
-  const mergedHeaders = useMemo(() => {
-    if (!resolvedPublicKey) return headers;
-    if (headers[HEADER_NAME]) return headers;
-    return {
-      ...headers,
-      [HEADER_NAME]: resolvedPublicKey,
-    };
-  }, [headers, resolvedPublicKey]);
+  // The latest builder, read when a request is sent (never during render).
+  // Assigned during render itself (not in a `useEffect`) so a child effect
+  // that fires in the SAME commit as a new builder closure — e.g. a run
+  // kicked off from an effect right after a token changed — reads the new
+  // closure rather than the previous commit's.
+  const headersRef = useRef(headersProp);
+  headersRef.current = headersProp;
+  const isHeadersBuilder = typeof headersProp === "function";
+  // The read below can return a sync record or an async promise depending on
+  // what `headersRef.current` happens to be at call time, which
+  // `CopilotKitHeadersSource`'s shape can't express in one function
+  // signature (sync-only OR async-only) — same rationale as the cast inside
+  // `ɵwithHeaderDefaults`.
+  const stableHeadersBuilder = useCallback(() => {
+    const current = headersRef.current;
+    return typeof current === "function" ? current() : current;
+  }, []) as () => Record<string, string>;
+  // A record keeps today's identity semantics; a builder is stable.
+  const headersInput = isHeadersBuilder ? stableHeadersBuilder : headersProp;
+  const headersSource = useMemo(
+    () =>
+      ɵwithHeaderDefaults(
+        headersInput,
+        resolvedPublicKey ? { [HEADER_NAME]: resolvedPublicKey } : {},
+      ),
+    [headersInput, resolvedPublicKey],
+  );
 
   if (!runtimeUrl && !resolvedPublicKey && !hasLocalAgents) {
     const message =
@@ -758,7 +781,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           : useSingleEndpoint === false
             ? "rest"
             : "auto",
-      headers: mergedHeaders,
+      headers: headersSource,
       credentials,
       messageFilter,
       properties,
@@ -932,7 +955,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           ? "rest"
           : "auto",
     );
-    copilotkit.setHeaders(mergedHeaders);
+    copilotkit.setHeaders(headersSource);
     copilotkit.setCredentials(credentials);
     // Forward a per-run signal when the provider has an A2UI catalog so the
     // runtime can turn A2UI on (and inject the render tool) without a separate
@@ -954,7 +977,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [
     copilotkit,
     chatApiEndpoint,
-    mergedHeaders,
+    headersSource,
     credentials,
     properties,
     a2uiCatalogProvided,

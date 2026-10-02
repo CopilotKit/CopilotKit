@@ -1,6 +1,7 @@
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
   CopilotKitCoreErrorCode,
+  CopilotKitHeadersSource,
   CopilotKitMessageFilter,
 } from "@copilotkit/core";
 import type { DebugConfig } from "@copilotkit/shared";
@@ -17,7 +18,12 @@ import type { Component } from "vue";
 
 export interface CopilotKitProviderProps {
   runtimeUrl?: string;
-  headers?: Record<string, string> | (() => Record<string, string>);
+  /**
+   * Headers sent with every request. A record, or a sync or async builder
+   * that runs when each request is sent. An inline arrow is fine. The builder
+   * should be cheap; cache tokens in it.
+   */
+  headers?: CopilotKitHeadersSource;
   credentials?: RequestCredentials;
   /**
    * Rewrites the message list sent to runtime agents on every run.

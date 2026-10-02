@@ -22,7 +22,6 @@ import {
  *  CopilotKitCore so the types stay in sync automatically. Injected
  *  by the factory so that AgentStore stays decoupled from the concrete class. */
 type SubscribeToAgentFn = CopilotKitCore["subscribeToAgentWithOptions"];
-type AgentWithHeaders = AbstractAgent & { headers?: Record<string, string> };
 type AgentWithCredentials = AbstractAgent & {
   credentials?: RequestCredentials;
 };
@@ -32,10 +31,6 @@ const missingInterruptRunner: InterruptRunner = async () => {
     "AgentStore.interruptController requires a store created by injectAgentStore().",
   );
 };
-
-function hasAgentHeaders(agent: AbstractAgent): agent is AgentWithHeaders {
-  return "headers" in agent;
-}
 
 function hasAgentCredentials(
   agent: AbstractAgent,
@@ -180,13 +175,13 @@ export class CopilotkitAgentFactory {
           runtimeConnectionStatus ===
             CopilotKitCoreRuntimeConnectionStatus.Error)
       ) {
-        const headers = this.#copilotkit.headers();
         const credentials = this.#copilotkit.credentials();
         const cached = this.#provisionalCache.get(resolvedAgentId);
         if (cached) {
-          if (hasAgentHeaders(cached.provisional)) {
-            cached.provisional.headers = { ...headers };
-          }
+          // Void, never invokes the builder: installs `ɵruntimeFetch` on a
+          // `ProxiedCopilotRuntimeAgent`, which resolves headers fresh at
+          // send time (#1937) rather than baking in a snapshot here.
+          this.#copilotkit.core.applyHeadersToAgent(cached.provisional);
           if (hasAgentCredentials(cached.provisional)) {
             cached.provisional.credentials = credentials;
           }
@@ -199,9 +194,7 @@ export class CopilotkitAgentFactory {
           transport: this.#copilotkit.runtimeTransport(),
           credentials,
         });
-        if (hasAgentHeaders(provisional)) {
-          provisional.headers = { ...headers };
-        }
+        this.#copilotkit.core.applyHeadersToAgent(provisional);
         const handoff = new AgentHandoffBridge(provisional);
         this.#provisionalCache.set(resolvedAgentId, handoff);
         return provisional;
@@ -225,7 +218,10 @@ export class CopilotkitAgentFactory {
       this.#copilotkit.runtimeConnectionStatus();
       this.#copilotkit.runtimeUrl();
       this.#copilotkit.runtimeTransport();
-      this.#copilotkit.headers();
+      // Keyed on the generation, not header VALUES: a builder's returned
+      // token can change on every resolution without a new source ever being
+      // set, and this must not re-run `resolveAgent` on that (#1937).
+      this.#copilotkit.ɵheadersGeneration();
       this.#copilotkit.credentials();
 
       const agent = resolveAgent();

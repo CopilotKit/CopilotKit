@@ -579,9 +579,11 @@ export class RunHandler {
         }
       }
 
-      // Re-apply core headers (merged on top of the agent's own headers) so a
-      // late header update is picked up without clobbering per-agent headers.
-      this._internal.applyHeadersToAgent(agent);
+      // Re-apply current headers (merged on top of the agent's own headers)
+      // so the token in effect right now is what this connect carries — not
+      // a value resolved earlier (#1937).
+      const headersApplied = this._internal.prepareAgentHeadersForRun(agent);
+      if (headersApplied) await headersApplied;
 
       // Notify subscribers (e.g. the inspector) about the agent that is about
       // to run. Per-thread clones are not in the agent registry, so
@@ -684,9 +686,17 @@ export class RunHandler {
       void this._internal.suggestionEngine.clearSuggestions(agent.agentId);
     }
 
-    // Re-apply core headers (merged on top of the agent's own headers) so a
-    // late header update is picked up without clobbering per-agent headers.
-    this._internal.applyHeadersToAgent(agent);
+    // Re-apply current headers (merged on top of the agent's own headers) so
+    // the token in effect right now is what this run carries — not a value
+    // resolved earlier (#1937).
+    try {
+      const headersApplied = this._internal.prepareAgentHeadersForRun(agent);
+      if (headersApplied) await headersApplied;
+    } catch {
+      // Already reported as HEADER_RESOLUTION_FAILED by the resolver.
+      continuationHandoff?.cancel();
+      return { result: undefined, newMessages: [] };
+    }
 
     // Detach any active run (e.g. a long-lived connectAgent pipeline) before
     // starting a new run.  We await the detach to ensure the previous pipeline
