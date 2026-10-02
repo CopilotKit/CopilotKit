@@ -985,7 +985,13 @@ export class CopilotKitCore {
     this.learningBridge.setConfig(config);
     this.notifyTrajectoryChanged();
     if (this.ɵlearningConfigured === wasConfigured) return;
-    for (const listener of this.learningConfiguredListeners) listener();
+    for (const listener of this.learningConfiguredListeners) {
+      try {
+        listener();
+      } catch (error) {
+        console.error("Learning configured listener error:", error);
+      }
+    }
   }
 
   /**

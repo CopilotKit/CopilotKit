@@ -497,6 +497,20 @@ describe("Core learning wiring", () => {
     expect(new CopilotKitCore({}).ɵlearningConfigured).toBe(false);
   });
 
+  it("keeps notifying learning listeners when one throws", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const core = new CopilotKitCore({ learning: createConfig() });
+    const later = vi.fn();
+    core.ɵsubscribeToLearningConfigured(() => {
+      throw new Error("listener failed");
+    });
+    core.ɵsubscribeToLearningConfigured(later);
+
+    expect(() => core.setLearningConfig(undefined)).not.toThrow();
+    expect(later).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalledTimes(1);
+  });
+
   it("warns and captures nothing without the learning option", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const core = new CopilotKitCore({});
