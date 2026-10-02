@@ -1,8 +1,24 @@
+import { REDACTED } from "./types";
 import type { ClickTarget, Emit, EnrichFn } from "./types";
 
 const INTERACTIVE =
   'button, a[href], input, select, textarea, label, summary, [role], [data-copilotkit-action], [contenteditable]:not([contenteditable="false"])';
 const RECOVERY_DISTANCE_PX = 5;
+// `[role]` also matches containers such as role="main"; cap their text so one
+// click cannot exceed the 16 KiB event limit and be dropped.
+const MAX_TEXT_LENGTH = 1000;
+
+/** `closest()` that continues through shadow roots to their hosts. */
+function closestAcrossShadow(el: Element, selector: string) {
+  let current: Element | null = el;
+  while (current !== null) {
+    const match = current.closest(selector);
+    if (match !== null) return match;
+    const root = current.getRootNode();
+    current = root instanceof ShadowRoot ? root.host : null;
+  }
+  return null;
+}
 
 interface Described {
   element: Element;
@@ -20,7 +36,7 @@ interface PointerOrigin {
  * The explicit `data-copilotkit-ignore` opt-out still applies.
  */
 export function describeTarget(el: Element) {
-  if (el.closest("[data-copilotkit-ignore]") !== null) return null;
+  if (closestAcrossShadow(el, "[data-copilotkit-ignore]") !== null) return null;
   const element = el.closest(INTERACTIVE) ?? el;
   const described: Described = {
     element,
@@ -28,7 +44,7 @@ export function describeTarget(el: Element) {
       tag: element.localName,
       role: element.getAttribute("role"),
       action: element.getAttribute("data-copilotkit-action"),
-      text: element.textContent ?? "",
+      text: (element.textContent ?? "").slice(0, MAX_TEXT_LENGTH),
       attributes: Object.fromEntries(
         Array.from(element.attributes, ({ name, value }) => [name, value]),
       ),
@@ -42,7 +58,7 @@ export function describeTarget(el: Element) {
 export function readControlValue(element: Element) {
   if (element instanceof HTMLInputElement) {
     return {
-      value: element.value,
+      value: element.type === "password" ? REDACTED : element.value,
       ...(["checkbox", "radio"].includes(element.type)
         ? { checked: element.checked }
         : {}),

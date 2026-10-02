@@ -2,7 +2,7 @@
 
 Capture page context, navigation, clicks, form edits, network requests, and developer events as AG-UI `CUSTOM` events. Use the authenticated Core integration to send events to CopilotKit Intelligence.
 
-Capture retains raw URLs, query strings, hashes, page titles, referrers, element text, attributes, and live control values by default. Network events include browser-visible request and response headers and body snapshots. Each body snapshot has a 4 KiB limit and an explicit status for incomplete or unavailable content. Capture does not redact these fields by default.
+Capture retains raw URLs, query strings, hashes, page titles, referrers, element text, attributes, and live control values by default. Network events include browser-visible request and response headers and body snapshots. Each body snapshot has a 4 KiB limit and an explicit status for incomplete or unavailable content. Only password values and credential headers (`authorization`, `proxy-authorization`, `cookie`, `set-cookie`, `x-api-key`) are replaced with `[redacted]`.
 
 Use `capture`, `beforeSend`, `ignoreUrls`, and `data-copilotkit-ignore` for your app's exclusions. The deprecated `routes` option no longer masks or transforms paths.
 

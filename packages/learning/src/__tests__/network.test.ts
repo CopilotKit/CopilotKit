@@ -106,7 +106,7 @@ describe("fetch capture", () => {
       outcome: "ok",
       request: {
         headers: {
-          authorization: "Bearer visible",
+          authorization: "[redacted]",
           "content-type": "application/json",
         },
         body: { status: "complete", text: init.body, encoding: "utf-8" },
@@ -490,7 +490,7 @@ describe("XMLHttpRequest capture", () => {
       url: `${PAGE_ORIGIN}/api/deals/42?secret=full#hash`,
       route: "/api/deals/42",
       request: {
-        headers: { authorization: "Bearer full-value", "x-multi": "one, two" },
+        headers: { authorization: "[redacted]", "x-multi": "one, two" },
         body: { text: "request body" },
       },
       response: {
@@ -528,6 +528,39 @@ describe("XMLHttpRequest capture", () => {
       }
     },
   );
+
+  it("forgets an in-flight request when the same XHR is opened again", async () => {
+    vi.stubGlobal("XMLHttpRequest", FakeXhr);
+    const events = setup(respondWith());
+    const xhr = new FakeXhr();
+    xhr.open("get", "/first");
+    xhr.send();
+    // A real open() ends /first without firing loadend.
+    xhr.open("get", "/second");
+    xhr.send();
+    xhr.finish();
+    await captured(events);
+    await microtasks();
+
+    expect(events.map((event) => event.value.route)).toEqual(["/second"]);
+  });
+
+  it("redacts credential response headers but keeps the others", async () => {
+    vi.stubGlobal("XMLHttpRequest", FakeXhr);
+    const events = setup(respondWith());
+    const xhr = new FakeXhr();
+    xhr.getAllResponseHeaders = () =>
+      "Set-Cookie: session=abc\r\nX-Full: response-token\r\n";
+    xhr.open("get", "/session");
+    xhr.send();
+    xhr.finish();
+
+    expect(await captured(events)).toMatchObject({
+      response: {
+        headers: { "set-cookie": "[redacted]", "x-full": "response-token" },
+      },
+    });
+  });
 
   it("records aborts, removes old listeners on reuse, and does not leak after stop", async () => {
     vi.stubGlobal("XMLHttpRequest", FakeXhr);

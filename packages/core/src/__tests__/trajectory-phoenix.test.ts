@@ -420,7 +420,7 @@ describe("Trajectory capture with the real Phoenix client", () => {
             request: {
               headers: {
                 "content-type": "application/json",
-                authorization: "Bearer visible",
+                authorization: "[redacted]",
               },
               body: {
                 status: "complete",

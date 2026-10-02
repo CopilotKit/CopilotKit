@@ -1,5 +1,6 @@
 import { createBodyCapture, snapshotText } from "./network-body";
 import type { BodySnapshot } from "./network-body";
+import { REDACTED } from "./types";
 import type { Emit } from "./types";
 
 type Outcome = "ok" | "error" | "aborted";
@@ -17,8 +18,24 @@ const emptyBody = () => Promise.resolve<BodySnapshot>({ status: "empty" });
 const unavailableBody = (reason: string) =>
   Promise.resolve<BodySnapshot>({ status: "unavailable", reason });
 const toAbsolute = (url: string) => new URL(url, location.href).href;
+// Credentials carry no product signal and must never leave the browser, even
+// with full capture. The header name stays, so the event still shows it was sent.
+const CREDENTIAL_HEADERS = new Set([
+  "authorization",
+  "proxy-authorization",
+  "cookie",
+  "set-cookie",
+  "x-api-key",
+]);
+const headerValue = (name: string, value: string) =>
+  CREDENTIAL_HEADERS.has(name.toLowerCase()) ? REDACTED : value;
 const headerValues = (headers: Headers) =>
-  Object.fromEntries(headers.entries());
+  Object.fromEntries(
+    Array.from(headers.entries(), ([name, value]) => [
+      name,
+      headerValue(name, value),
+    ]),
+  );
 
 // Checks the name, not instanceof: errors can come from another realm.
 function isAbortError(error: unknown) {
@@ -204,6 +221,9 @@ function patchXhr(
   const originalSetHeader = proto.setRequestHeader;
   const requests = new WeakMap<XMLHttpRequest, RequestParts>();
   const listeners = new Set<() => void>();
+  // open() on an in-flight XHR ends it without `loadend`; its listeners must not
+  // report the next request with the old request's details.
+  const inFlight = new WeakMap<XMLHttpRequest, () => void>();
   let active = true;
   const wrappedOpen = function (
     this: XMLHttpRequest,
@@ -211,6 +231,7 @@ function patchXhr(
     url: string | URL,
     ...rest: unknown[]
   ) {
+    inFlight.get(this)?.();
     const result = Reflect.apply(originalOpen, this, [method, url, ...rest]);
     try {
       requests.set(this, {
@@ -271,6 +292,7 @@ function patchXhr(
       this.removeEventListener("abort", onAbort);
       this.removeEventListener("loadend", onEnd);
       listeners.delete(cleanup);
+      if (inFlight.get(this) === cleanup) inFlight.delete(this);
     };
     const onEnd = () => {
       cleanup();
@@ -280,10 +302,10 @@ function patchXhr(
       try {
         for (const line of this.getAllResponseHeaders().split(/\r?\n/)) {
           const split = line.indexOf(":");
-          if (split > 0)
-            headers[line.slice(0, split).toLowerCase()] = line
-              .slice(split + 1)
-              .trim();
+          if (split > 0) {
+            const name = line.slice(0, split).toLowerCase();
+            headers[name] = headerValue(name, line.slice(split + 1).trim());
+          }
         }
       } catch {
         /* Cross-origin or failed requests can hide response headers. */
@@ -335,6 +357,7 @@ function patchXhr(
     this.addEventListener("abort", onAbort);
     this.addEventListener("loadend", onEnd);
     listeners.add(cleanup);
+    inFlight.set(this, cleanup);
     try {
       return originalSend.call(this, body);
     } catch (error) {

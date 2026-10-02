@@ -110,6 +110,31 @@ describe("installClickCapture", () => {
     expect(events).toMatchObject([]);
   });
 
+  it("drops clicks inside a shadow root whose host is in an ignored subtree", () => {
+    document.body.innerHTML = `<section data-copilotkit-ignore><div id="host"></div></section>`;
+    const root = byId("host").attachShadow({ mode: "open" });
+    root.innerHTML = `<button id="inner">Secret</button>`;
+    const inner = root.getElementById("inner");
+    if (inner === null) throw new Error("missing #inner");
+    const events = setup();
+
+    // Real clicks are composed, so they reach the window listener from inside a shadow root.
+    click(inner, { detail: 1, clientX: 10, clientY: 10, composed: true });
+
+    expect(events).toEqual([]);
+  });
+
+  it("caps the captured text of a large container", () => {
+    document.body.innerHTML = `<div id="panel" role="region">${"x".repeat(5000)}</div>`;
+    const events = setup();
+
+    click(byId("panel"));
+
+    expect(events[0]?.value).toMatchObject({
+      target: { text: "x".repeat(1000) },
+    });
+  });
+
   it("drops programmatic clicks by default", () => {
     document.body.innerHTML = `<button id="b">Upload</button>`;
     const events = setup({ trustAll: false });
