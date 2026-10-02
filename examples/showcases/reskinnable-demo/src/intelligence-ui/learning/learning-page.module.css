@@ -1,0 +1,1158 @@
+/*
+ * Learning runs edge to edge inside the shell content surface, which gives up
+ * its padding through the `.learning-surface` rule in `styles.css`. The surface
+ * keeps its own scrollbar: the page scrolls as one, so a long evidence list
+ * gets the whole viewport instead of a band beneath a pinned header.
+ */
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  min-width: 0;
+}
+
+.usageSlot {
+  flex: 0 0 auto;
+  padding: var(--cpki-space-5) var(--cpki-space-6) 0;
+}
+
+/*
+ * The first-run surface is the one screen with nothing on it, so it carries the
+ * brand wash instead of reading as an empty white sheet. The container
+ * workspace deliberately stays plain: once there are Insights to read, the
+ * page should not compete with them.
+ *
+ * `color-mix` over the brand tokens rather than literal hexes is what keeps
+ * this correct in the dark theme: the two hues are shared across themes and
+ * only the surface token underneath them changes.
+ */
+.onboardingSlot {
+  background:
+    radial-gradient(
+      24rem 24rem at 24% 15%,
+      color-mix(in srgb, var(--cpki-brand-imperial-blue) 12%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      22rem 22rem at 82% 15%,
+      color-mix(in srgb, var(--cpki-brand-aquamarine-green) 10%, transparent),
+      transparent 70%
+    ),
+    var(--cpki-color-surface-subtle);
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: var(--cpki-space-8) var(--cpki-space-6);
+}
+
+.usageSlot:empty {
+  display: none;
+}
+
+.workspace {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Container header */
+
+.containerHeader {
+  border-bottom: var(--cpki-border-width) solid var(--cpki-color-border);
+  display: grid;
+  flex: 0 0 auto;
+  gap: var(--cpki-space-4);
+  padding: var(--cpki-space-5) var(--cpki-space-6) 0;
+}
+
+/*
+ * That border is the tab strip's baseline, not a divider: `.tabs` pulls itself
+ * onto it with `margin-bottom: -1px` so the active tab's underline lands on the
+ * same line. An unwired Container has no tab strip, which leaves the border as
+ * a bare rule hanging under the readiness strip with nothing below it.
+ *
+ * Keyed on whether the strip is actually there rather than on a modifier class,
+ * so the line and the tabs can never disagree about each other.
+ */
+.containerHeader:not(:has(.tabs)) {
+  border-bottom: 0;
+}
+
+.containerTitleRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cpki-space-4);
+  justify-content: space-between;
+}
+
+.containerHeading {
+  display: grid;
+  min-width: 0;
+}
+
+.containerHeading h1 {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-4);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: var(--cpki-line-height-tight);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.containerId {
+  color: var(--cpki-color-muted-foreground);
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  margin: var(--cpki-space-1) 0 0;
+}
+
+.headerActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cpki-space-2);
+}
+
+.headerActions svg {
+  height: 0.875rem;
+  width: 0.875rem;
+}
+
+/* One panel groups the project schedule and container eligibility. */
+.automationPanel {
+  background: var(--cpki-color-surface-subtle);
+  border: var(--cpki-border-width) solid var(--cpki-color-border);
+  border-radius: var(--cpki-radius-panel);
+  padding: var(--cpki-space-5);
+}
+.embeddedSchedule > section {
+  margin: 0;
+  padding: 0 0 var(--cpki-space-5);
+  border: 0;
+  background: transparent;
+}
+.automationPanel .runStrip {
+  border: 0;
+  border-top: var(--cpki-border-width) solid var(--cpki-color-border);
+  border-radius: 0;
+  padding: var(--cpki-space-5) 0 0;
+}
+/* Readiness strip */
+
+/* Evidence and manual analysis belong to the selected container. */
+.runStrip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'readiness manual' 'facts manual';
+  gap: var(--cpki-space-4) var(--cpki-space-8);
+  background: var(--cpki-color-surface-subtle);
+  border: var(--cpki-border-width) solid var(--cpki-color-border);
+  border-radius: var(--cpki-radius-panel);
+  padding: var(--cpki-space-5);
+}
+
+.runStrip[data-scheduled='true'] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'readiness' 'facts';
+}
+
+.runStrip > section {
+  grid-area: manual;
+  display: grid;
+  align-content: center;
+  justify-items: end;
+  gap: var(--cpki-space-3);
+  min-width: 0;
+}
+
+.runStrip > section > button svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: 0 0 0.875rem;
+}
+
+.runFacts {
+  grid-area: facts;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cpki-space-3) var(--cpki-space-6);
+  margin: 0;
+}
+
+.runFact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cpki-space-2);
+}
+
+.runFact dd {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-0);
+  font-weight: 500;
+  margin: 0;
+}
+
+.runFact dt {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-0);
+}
+
+.runReadiness {
+  grid-area: readiness;
+  display: grid;
+  gap: var(--cpki-space-2);
+  min-width: 0;
+}
+
+@media (max-width: 800px) {
+  .runStrip {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'readiness' 'facts' 'manual';
+  }
+
+  .runStrip > section {
+    justify-items: stretch;
+  }
+
+  .runStrip > section > button {
+    width: 100%;
+  }
+}
+
+.learningState {
+  align-items: center;
+  color: var(--cpki-color-muted-foreground);
+  display: flex;
+  font-size: var(--cpki-font-size-1);
+  gap: var(--cpki-space-2);
+  margin: 0;
+}
+
+.learningState strong {
+  font-weight: 600;
+}
+
+.learningState[data-state='ready'] {
+  color: var(--cpki-color-success);
+}
+
+.learningState[data-state='analyzing'] {
+  color: var(--cpki-color-accent);
+}
+
+.learningState[data-state='collecting'],
+.learningState[data-state='setup'] {
+  color: var(--cpki-color-foreground);
+}
+
+.stateDot {
+  background: var(--cpki-color-accent);
+  border-radius: var(--cpki-radius-round);
+  flex: 0 0 auto;
+  height: 0.4375rem;
+  width: 0.4375rem;
+}
+
+.learningState[data-state='ready'] .stateDot {
+  background: var(--cpki-color-success);
+}
+
+.learningState[data-state='setup'] .stateDot,
+.learningState[data-state='unknown'] .stateDot {
+  background: var(--cpki-color-muted-foreground);
+}
+
+.learningState[data-state='collecting'] .stateDot,
+.learningState[data-state='analyzing'] .stateDot {
+  animation: evidence-pulse 1.8s var(--cpki-ease-standard) infinite;
+}
+
+.learningState[data-state='analyzing'] .stateDot {
+  animation-duration: 1s;
+}
+
+.learningStateMeta {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-0);
+  margin: 0;
+  padding-left: var(--cpki-space-4);
+}
+
+.evidenceMeter {
+  display: grid;
+  gap: var(--cpki-space-1);
+  margin-top: var(--cpki-space-2);
+  padding-left: var(--cpki-space-4);
+}
+
+/* The counts sit on the bar, not in prose, so "how far along" is one glance. */
+.evidenceScale {
+  color: var(--cpki-color-muted-foreground);
+  display: flex;
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  gap: var(--cpki-space-3);
+  justify-content: space-between;
+}
+
+.evidenceScale strong {
+  color: var(--cpki-color-foreground);
+  font-weight: 600;
+}
+
+.evidenceTrack {
+  background: var(--cpki-color-muted);
+  border-radius: var(--cpki-radius-round);
+  height: 0.375rem;
+  overflow: hidden;
+}
+
+/* The fill runs across the two brand hues rather than sitting on one flat
+   accent, so the distance travelled reads at a glance on a 6px bar. */
+.evidenceFill {
+  background: linear-gradient(
+    90deg,
+    var(--cpki-brand-imperial-blue),
+    var(--cpki-brand-aquamarine-green)
+  );
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  transition: width var(--cpki-duration-normal) var(--cpki-ease-standard);
+}
+
+/* An analysis in flight is not measuring progress toward the next one, so the
+ * bar sweeps instead of reporting a fraction that cannot move. */
+.evidenceTrack[data-analyzing='true'] .evidenceFill {
+  animation: evidence-scan 1.6s var(--cpki-ease-standard) infinite;
+  width: 34% !important;
+}
+
+@keyframes evidence-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.88);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes evidence-scan {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+/* View tabs */
+
+.tabs {
+  display: flex;
+  gap: var(--cpki-space-5);
+  margin-bottom: -1px;
+  overflow-x: auto;
+}
+
+.tab,
+.activeTab {
+  align-items: center;
+  border-bottom: 2px solid transparent;
+  color: var(--cpki-color-muted-foreground);
+  display: inline-flex;
+  font-size: var(--cpki-font-size-1);
+  font-weight: 500;
+  gap: var(--cpki-space-2);
+  min-height: 2.75rem;
+  padding: var(--cpki-space-3) var(--cpki-space-1);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: var(--cpki-color-foreground);
+}
+
+.activeTab {
+  border-bottom-color: var(--cpki-color-accent);
+  color: var(--cpki-color-foreground);
+  font-weight: 600;
+}
+
+.countBadge {
+  background: var(--cpki-color-surface-subtle);
+  border: var(--cpki-border-width) solid var(--cpki-color-border);
+  border-radius: var(--cpki-radius-control);
+  color: var(--cpki-color-muted-foreground);
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  line-height: 1;
+  padding: var(--cpki-space-1) var(--cpki-space-2);
+}
+
+.activeTab .countBadge {
+  border-color: var(--cpki-color-border-strong);
+  color: var(--cpki-color-foreground);
+}
+
+.tabPanel {
+  flex: 1;
+}
+
+/* Shared list chrome */
+
+.listToolbar {
+  align-items: center;
+  border-bottom: var(--cpki-border-width) solid var(--cpki-color-border);
+  color: var(--cpki-color-muted-foreground);
+  display: flex;
+  gap: var(--cpki-space-3);
+  justify-content: space-between;
+  min-height: 2.75rem;
+  padding: 0 var(--cpki-space-6);
+}
+
+.toolbarLabel {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-0);
+  margin: 0;
+}
+
+.recordList {
+  display: grid;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Rows run the full width of the surface. A chevron on the right says the row
+   opens something; the divider below it says where the next row starts. */
+.insightRow,
+.skillRow {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-bottom: var(--cpki-border-width) solid var(--cpki-color-border);
+  color: inherit;
+  column-gap: var(--cpki-space-5);
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: var(--cpki-space-4) var(--cpki-space-6);
+  row-gap: var(--cpki-space-2);
+  text-align: left;
+  width: 100%;
+}
+
+.insightRow:hover,
+.skillRow:hover {
+  background: var(--cpki-color-surface-subtle);
+}
+
+.rowBody {
+  display: grid;
+  gap: var(--cpki-space-2);
+  min-width: 0;
+}
+
+.rowChevron {
+  color: var(--cpki-color-muted-foreground);
+  display: inline-flex;
+  grid-row: 1;
+  grid-column: 2;
+}
+
+.insightRow:hover .rowChevron,
+.skillRow:hover .rowChevron {
+  color: var(--cpki-color-foreground);
+}
+
+.rowChevron svg {
+  height: 1.125rem;
+  width: 1.125rem;
+}
+
+.insightStatement,
+.skillName {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-2);
+  font-weight: 600;
+  line-height: var(--cpki-line-height-normal);
+}
+
+.skillName {
+  font-family: var(--cpki-font-mono);
+}
+
+/* A Container keeps every revision of a Skill, so the current one has to win
+   the glance. Retired revisions stay readable but stop competing. */
+.skillRow[data-status='retired'] .skillName {
+  color: var(--cpki-color-muted-foreground);
+  font-weight: 500;
+}
+
+.insightImpact,
+.skillDescription {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-1);
+  line-height: var(--cpki-line-height-normal);
+}
+
+/*
+ * An Insight statement is a paragraph, not a title, and a few long ones turn
+ * the list into a wall nobody scans. The row shows the opening and the drawer
+ * behind it shows all of it, so nothing is lost by keeping rows comparable.
+ */
+.insightStatement,
+.insightImpact,
+.skillDescription {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.insightMeta {
+  align-items: center;
+  color: var(--cpki-color-muted-foreground);
+  display: flex;
+  flex-wrap: wrap;
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  gap: var(--cpki-space-3);
+  justify-content: space-between;
+}
+
+.insightMetaRight {
+  align-items: center;
+  display: flex;
+  gap: var(--cpki-space-3);
+}
+
+.evidenceCount {
+  align-items: center;
+  color: var(--cpki-color-accent);
+  display: inline-flex;
+  gap: var(--cpki-space-2);
+}
+
+.evidenceCount svg {
+  height: 0.875rem;
+  width: 0.875rem;
+}
+
+.tag {
+  border: var(--cpki-border-width) solid var(--cpki-color-border-strong);
+  border-radius: var(--cpki-radius-control);
+  color: var(--cpki-color-muted-foreground);
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  letter-spacing: 0.04em;
+  line-height: 1;
+  padding: var(--cpki-space-1) var(--cpki-space-2);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tag[data-variant='skill'] {
+  background: var(--cpki-color-info-muted);
+  border-color: color-mix(in srgb, var(--cpki-color-accent) 45%, transparent);
+  color: var(--cpki-color-foreground);
+}
+
+/* Skills */
+
+.reviewBar {
+  background: var(--cpki-color-warning-muted);
+  border-bottom: var(--cpki-border-width) solid var(--cpki-color-border);
+  display: grid;
+  gap: var(--cpki-space-3);
+  padding: var(--cpki-space-4) var(--cpki-space-6);
+}
+
+.reviewBar h3 {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-2);
+  margin: 0;
+}
+
+.reviewBar > p {
+  color: var(--cpki-color-warning-foreground);
+  font-size: var(--cpki-font-size-1);
+  margin: 0;
+}
+
+/* Candidates are cards rather than flush rows, so they need the gap the
+   evidence lists deliberately do without. */
+.reviewBar .recordList {
+  gap: var(--cpki-space-3);
+}
+
+/* Skill candidate review, shown above the published Skills while any candidate
+   is waiting. Each candidate is a card so its own actions and its expanded
+   detail stay visibly attached to it. */
+.record {
+  background: var(--cpki-color-surface-raised);
+  border: var(--cpki-border-width) solid var(--cpki-color-border);
+  border-radius: var(--cpki-radius-panel);
+  display: grid;
+  gap: var(--cpki-space-3);
+  padding: var(--cpki-space-4);
+}
+
+.record article {
+  display: grid;
+  gap: var(--cpki-space-3);
+}
+
+.record p {
+  margin: 0;
+}
+
+.recordHeading {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cpki-space-3);
+  justify-content: space-between;
+}
+
+.recordHeading h3 {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-2);
+  margin: 0;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cpki-space-2);
+}
+
+.badge {
+  border: var(--cpki-border-width) solid var(--cpki-color-border-strong);
+  border-radius: var(--cpki-radius-control);
+  color: var(--cpki-color-muted-foreground);
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  line-height: 1;
+  padding: var(--cpki-space-1) var(--cpki-space-2);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.reviewActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cpki-space-2);
+}
+
+.candidateDetail {
+  border-top: var(--cpki-border-width) solid var(--cpki-color-border);
+  color: var(--cpki-color-muted-foreground);
+  display: grid;
+  font-size: var(--cpki-font-size-1);
+  gap: var(--cpki-space-2);
+  padding-top: var(--cpki-space-3);
+}
+
+.candidateDetail h4 {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-1);
+  margin: 0;
+}
+
+.candidateDetail ul {
+  display: grid;
+  gap: var(--cpki-space-1);
+  margin: 0;
+  padding-left: var(--cpki-space-5);
+}
+
+.skillSource summary {
+  color: var(--cpki-color-foreground);
+  cursor: pointer;
+  font-size: var(--cpki-font-size-1);
+}
+
+.skillSource pre {
+  background: var(--cpki-color-surface-subtle);
+  border: var(--cpki-border-width) solid var(--cpki-color-border);
+  border-radius: var(--cpki-radius-control);
+  margin: var(--cpki-space-2) 0 0;
+  max-height: 22rem;
+  overflow: auto;
+  padding: var(--cpki-space-3);
+}
+
+.skillSource code {
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  white-space: pre-wrap;
+}
+
+.applySkills {
+  align-items: center;
+  border-bottom: var(--cpki-border-width) solid var(--cpki-color-border);
+  display: grid;
+  gap: var(--cpki-space-4);
+  grid-template-columns: minmax(11rem, 1fr) minmax(18rem, 2.4fr) auto;
+  padding: var(--cpki-space-4) var(--cpki-space-6);
+}
+
+.applySkills h3 {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-2);
+  margin: 0;
+}
+
+.applySkills p {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-0);
+  line-height: var(--cpki-line-height-normal);
+  margin: var(--cpki-space-1) 0 0;
+}
+
+/* The command is the payload of this row, so it gets terminal treatment
+   instead of looking like another muted panel. */
+.commandBox {
+  background: var(--cpki-color-foreground);
+  border: 0;
+  border-radius: var(--cpki-radius-control);
+  color: var(--cpki-color-primary-foreground);
+  margin: 0;
+  overflow-x: auto;
+  padding: var(--cpki-space-3) var(--cpki-space-4);
+}
+
+.commandBox code {
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  white-space: nowrap;
+}
+
+/* Analysis results */
+
+.runRow {
+  align-items: center;
+  border-bottom: var(--cpki-border-width) solid var(--cpki-color-border);
+  display: grid;
+  gap: var(--cpki-space-4);
+  grid-template-columns: 6rem 12rem minmax(8rem, 1fr) auto;
+  min-height: 3.5rem;
+  padding: var(--cpki-space-2) var(--cpki-space-6);
+}
+
+.runId,
+.runDate,
+.runOutcome {
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+}
+
+.runId {
+  color: var(--cpki-color-foreground);
+}
+
+.runIdentity {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cpki-space-2);
+}
+
+.runDate,
+.runOutcome {
+  color: var(--cpki-color-muted-foreground);
+}
+
+.runEvidence {
+  display: block;
+  margin-top: var(--cpki-space-2);
+}
+
+.runOutcome {
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.runStatus {
+  border: var(--cpki-border-width) solid var(--cpki-color-border-strong);
+  border-radius: var(--cpki-radius-control);
+  color: var(--cpki-color-muted-foreground);
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  line-height: 1;
+  margin: 0;
+  padding: var(--cpki-space-1) var(--cpki-space-2);
+  text-align: center;
+}
+
+.runStatus[data-status='complete'] {
+  background: var(--cpki-color-success-muted);
+  border-color: color-mix(in srgb, var(--cpki-color-success) 40%, transparent);
+  color: var(--cpki-color-success-foreground);
+}
+
+.runStatus[data-status='analyzing'] {
+  background: var(--cpki-color-info-muted);
+  border-color: color-mix(in srgb, var(--cpki-color-accent) 45%, transparent);
+  color: var(--cpki-color-foreground);
+}
+
+.runStatus[data-status='retrying'] {
+  background: var(--cpki-color-warning-muted);
+  border-color: color-mix(in srgb, var(--cpki-color-warning) 55%, transparent);
+  color: var(--cpki-color-warning-foreground);
+}
+
+.runStatus[data-status='failed'] {
+  background: var(--cpki-color-danger-muted);
+  border-color: var(--cpki-color-danger-border);
+  color: var(--cpki-color-foreground);
+}
+
+/* Landing and empty states */
+
+.landing {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  padding: var(--cpki-space-8);
+}
+
+.landingCard {
+  background: var(--cpki-color-surface-raised);
+  border: var(--cpki-border-width) solid var(--cpki-color-border);
+  border-radius: var(--cpki-radius-panel);
+  display: grid;
+  gap: var(--cpki-space-3);
+  justify-items: center;
+  max-width: 30rem;
+  padding: var(--cpki-space-8);
+  text-align: center;
+}
+
+.landingIcon {
+  align-items: center;
+  background: var(--cpki-color-info-muted);
+  border-radius: var(--cpki-radius-round);
+  color: var(--cpki-color-accent);
+  display: inline-flex;
+  height: 3rem;
+  justify-content: center;
+  margin-bottom: var(--cpki-space-1);
+  width: 3rem;
+}
+
+.landingIcon svg {
+  height: 1.5rem;
+  width: 1.5rem;
+}
+
+.landingCard h2 {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-4);
+  line-height: var(--cpki-line-height-tight);
+  margin: 0;
+}
+
+.landingCard p {
+  color: var(--cpki-color-muted-foreground);
+  line-height: var(--cpki-line-height-relaxed);
+  margin: 0;
+}
+
+.landingCard button {
+  margin-top: var(--cpki-space-2);
+}
+
+.emptyState {
+  align-items: center;
+  color: var(--cpki-color-muted-foreground);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cpki-space-2);
+  justify-content: center;
+  min-height: 17rem;
+  padding: var(--cpki-space-8);
+  text-align: center;
+}
+
+.emptyState strong {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-2);
+}
+
+.emptyState span {
+  font-size: var(--cpki-font-size-1);
+  max-width: 34rem;
+}
+
+/* First-run wiring */
+
+.connectGrid {
+  align-items: stretch;
+  display: grid;
+  gap: var(--cpki-space-5);
+  grid-template-columns: repeat(auto-fit, minmax(21rem, 1fr));
+  margin: 0 auto;
+  max-width: 68rem;
+  padding: var(--cpki-space-6);
+}
+
+/* The steps column carries prose and the connect column carries a code block,
+   so they do not want the same width. */
+@media (min-width: 60rem) {
+  .connectGrid {
+    grid-template-columns: minmax(0, 1.05fr) minmax(22rem, 0.95fr);
+  }
+}
+
+.connectCopy,
+.connectCard {
+  border: var(--cpki-border-width) solid var(--cpki-color-border);
+  border-radius: var(--cpki-radius-panel);
+  display: grid;
+  gap: var(--cpki-space-3);
+  padding: var(--cpki-space-6);
+}
+
+.connectCopy {
+  align-content: start;
+  background: var(--cpki-color-surface-raised);
+}
+
+/* The connect card is the whole screen on an empty Container, so it earns a
+   wash of its own rather than reading as a grey box. */
+.connectCard {
+  align-content: start;
+  background:
+    radial-gradient(
+      22rem 14rem at 88% 6%,
+      color-mix(in srgb, var(--cpki-brand-aquamarine-green) 15%, transparent),
+      transparent 70%
+    ),
+    var(--cpki-color-surface-subtle);
+}
+
+.connectEyebrow {
+  color: var(--cpki-color-accent);
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.connectMark {
+  align-items: center;
+  background: var(--cpki-color-info-muted);
+  border-radius: var(--cpki-radius-control);
+  color: var(--cpki-color-accent);
+  display: inline-flex;
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-1);
+  height: 2.25rem;
+  justify-content: center;
+  width: 2.25rem;
+}
+
+.connectCopy h3,
+.connectCard h3 {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-4);
+  line-height: var(--cpki-line-height-tight);
+  margin: 0;
+}
+
+.connectCopy > p,
+.connectCard > p {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-1);
+  line-height: var(--cpki-line-height-normal);
+  margin: 0;
+}
+
+.setupList {
+  counter-reset: setup;
+  display: grid;
+  list-style: none;
+  margin: var(--cpki-space-2) 0 0;
+  padding: 0;
+}
+
+.setupList li {
+  border-top: var(--cpki-border-width) solid var(--cpki-color-border);
+  column-gap: var(--cpki-space-3);
+  counter-increment: setup;
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  padding: var(--cpki-space-4) 0;
+  row-gap: var(--cpki-space-1);
+}
+
+.setupList li::before {
+  align-items: center;
+  background: var(--cpki-color-info-muted);
+  border-radius: var(--cpki-radius-control);
+  color: var(--cpki-color-accent);
+  content: counter(setup);
+  display: inline-flex;
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  grid-row: span 2;
+  height: 1.75rem;
+  justify-content: center;
+  width: 1.75rem;
+}
+
+.setupList strong {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-1);
+  grid-column: 2;
+}
+
+.setupList span {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-0);
+  grid-column: 2;
+  line-height: var(--cpki-line-height-normal);
+}
+
+/* The whole prompt is the point, so it is not capped: clipping it mid-sentence
+   would hide the part that says what to leave unchanged. The tab panel below
+   the header owns the scrolling. */
+/* The prompt is written for a coding agent, so it is prose rather than a snippet
+   and runs long. Capped and scrolled, it reads as one block to copy instead of
+   a wall of text that pushes the copy button off screen. `tabIndex={0}` on the
+   element makes the overflow reachable by keyboard, which a scrollable region
+   needs. */
+.integrationCode {
+  background: var(--cpki-color-foreground);
+  border: 0;
+  border-radius: var(--cpki-radius-control);
+  color: var(--cpki-color-primary-foreground);
+  margin: 0;
+  max-height: 13rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: var(--cpki-space-4);
+}
+
+.integrationCode code {
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  line-height: var(--cpki-line-height-relaxed);
+  white-space: pre-wrap;
+}
+
+.connectAction {
+  justify-content: center;
+  width: 100%;
+}
+
+/* Actions, status, and errors */
+
+.help,
+.secondary,
+.empty {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-1);
+  margin: 0;
+}
+
+.status,
+.error {
+  color: var(--cpki-color-muted-foreground);
+  margin: 0;
+  padding: var(--cpki-space-6);
+}
+
+.error {
+  color: var(--cpki-color-foreground);
+}
+
+.errorState {
+  align-items: start;
+  display: grid;
+  gap: var(--cpki-space-3);
+  justify-items: start;
+  padding: var(--cpki-space-6);
+}
+
+.errorState p {
+  margin: 0;
+}
+
+.insightRow:focus-visible,
+.skillRow:focus-visible,
+.tab:focus-visible,
+.activeTab:focus-visible,
+.integrationCode:focus-visible {
+  outline: var(--cpki-focus-ring-width) solid var(--cpki-color-focus-ring);
+  outline-offset: calc(var(--cpki-focus-ring-offset) * -1);
+}
+
+@media (max-width: 60rem) {
+  .applySkills {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* The status chip stays its own column so a run still reads as one row. */
+  .runRow {
+    grid-template-columns: 6rem minmax(0, 1fr);
+  }
+
+  .runRow .runOutcome {
+    grid-column: 2;
+  }
+
+  .runOutcome {
+    text-align: left;
+  }
+
+  .runFacts {
+    gap: var(--cpki-space-5);
+  }
+
+  .containerHeader {
+    padding-inline: var(--cpki-space-4);
+  }
+
+  .listToolbar,
+  .insightRow,
+  .skillRow,
+  .runRow {
+    padding-inline: var(--cpki-space-4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .learningState[data-state='collecting'] .stateDot,
+  .learningState[data-state='analyzing'] .stateDot,
+  .evidenceTrack[data-analyzing='true'] .evidenceFill {
+    animation: none;
+  }
+}
+
+.readinessTitle {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-1);
+  font-weight: 500;
+  line-height: 1.5;
+  margin: 0 0 var(--cpki-space-2);
+}

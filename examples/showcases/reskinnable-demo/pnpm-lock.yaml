@@ -26,6 +26,12 @@ importers:
       '@copilotkit/shared':
         specifier: 1.71.0
         version: 1.71.0(@ag-ui/core@0.0.59)
+      '@modelcontextprotocol/ext-apps':
+        specifier: 1.7.5
+        version: 1.7.5(@modelcontextprotocol/sdk@1.30.0(@cfworker/json-schema@4.1.1)(zod@3.25.76))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(zod@3.25.76)
+      '@modelcontextprotocol/sdk':
+        specifier: 1.30.0
+        version: 1.30.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
       '@radix-ui/react-avatar':
         specifier: ^1.1.1
         version: 1.2.6(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -132,6 +138,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^4.3.4
         version: 4.7.0(vite@7.3.6(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0))
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
       eslint:
         specifier: ^9
         version: 9.39.5(jiti@2.7.0)
@@ -141,6 +150,9 @@ importers:
       jsdom:
         specifier: ^25.0.1
         version: 25.0.1
+      postcss:
+        specifier: 8.5.26
+        version: 8.5.26
       tailwindcss:
         specifier: ^4
         version: 4.3.3
