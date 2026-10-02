@@ -929,5 +929,34 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
         expect(disclaimer.textContent).toContain("Custom Disclaimer");
       }
     });
+
+    it("should wrap disclaimer in pointer-events-auto so interactive content stays clickable", () => {
+      // Regression guard: the outer CopilotChatInput container is
+      // cpk:pointer-events-none so it doesn't block clicks on chat messages
+      // behind the absolutely-positioned input. The disclaimer slot is a
+      // sibling of the input pill wrapper and must explicitly re-enable
+      // pointer events; otherwise buttons/links rendered into the slot
+      // silently fail to receive clicks. Lock the wrapper class in so a
+      // future JSX refactor can't quietly regress it.
+      const CustomDisclaimer: React.FC<any> = () => (
+        <button data-testid="disclaimer-action">Click me</button>
+      );
+
+      const { container } = render(
+        <TestWrapper>
+          <CopilotChatInput
+            showDisclaimer={true}
+            disclaimer={CustomDisclaimer}
+          />
+        </TestWrapper>,
+      );
+
+      const action = container.querySelector(
+        '[data-testid="disclaimer-action"]',
+      );
+      expect(action).not.toBeNull();
+      const wrapper = action!.closest(".cpk\\:pointer-events-auto");
+      expect(wrapper).not.toBeNull();
+    });
   });
 });
