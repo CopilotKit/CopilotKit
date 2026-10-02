@@ -187,15 +187,26 @@ export function createRedactor() {
      * from "password", and typed values even when input capture is off.
      */
     watch() {
-      for (const input of document.querySelectorAll("input[type=password]"))
-        seen.add(input);
-      const current = new MutationObserver(toggled);
-      current.observe(document, {
-        subtree: true,
-        attributeFilter: ["type"],
-        attributeOldValue: true,
-      });
-      observer = current;
+      // Each part is optional: a partial DOM (tests, embedded webviews, hardened
+      // pages) must not stop capture from starting or break the host app.
+      try {
+        for (const input of document.querySelectorAll("input[type=password]"))
+          seen.add(input);
+      } catch {
+        // Fields are still caught on first sight by isPassword.
+      }
+      let current: MutationObserver | undefined;
+      try {
+        current = new MutationObserver(toggled);
+        current.observe(document, {
+          subtree: true,
+          attributeFilter: ["type"],
+          attributeOldValue: true,
+        });
+        observer = current;
+      } catch {
+        current = undefined;
+      }
       const remember = (event: Event) => {
         try {
           const [target] = event.composedPath();
@@ -207,8 +218,8 @@ export function createRedactor() {
       for (const type of ["input", "change"])
         window.addEventListener(type, remember, true);
       return () => {
-        current.disconnect();
-        if (observer === current) observer = undefined;
+        current?.disconnect();
+        if (current !== undefined && observer === current) observer = undefined;
         for (const type of ["input", "change"])
           window.removeEventListener(type, remember, true);
       };

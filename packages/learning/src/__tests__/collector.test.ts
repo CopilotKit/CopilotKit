@@ -21,6 +21,7 @@ afterEach(() => {
   stopCurrent = undefined;
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   globalThis.fetch = realFetch;
 });
 
@@ -117,6 +118,29 @@ describe("createCollector", () => {
     expect(collector.trajectoryId).toBe("traj-1");
     expect(names(batches)).toEqual(["page"]);
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts without the password watcher when the DOM is partial", () => {
+    vi.spyOn(document, "querySelectorAll").mockImplementation(() => {
+      throw new Error("no query support");
+    });
+    vi.stubGlobal(
+      "MutationObserver",
+      class {
+        observe() {
+          throw new Error("no observer support");
+        }
+        disconnect() {}
+        takeRecords() {
+          return [];
+        }
+      },
+    );
+    const { collector } = setup();
+
+    expect(() => collector.start({ trajectoryId: "traj-1" })).not.toThrow();
+    expect(collector.trajectoryId).toBe("traj-1");
+    expect(() => collector.stop()).not.toThrow();
   });
 
   it("installs hooks once across start, stop, start (StrictMode)", () => {
