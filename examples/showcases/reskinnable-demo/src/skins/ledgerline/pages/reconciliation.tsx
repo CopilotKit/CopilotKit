@@ -910,7 +910,7 @@ function Board({ cardId, onClosed }: { cardId: string; onClosed: () => void }) {
               </span>
               <button
                 type="button"
-                data-action="Validate matches"
+                data-action="Validate"
                 data-testid="recon-validate"
                 className={primaryButton}
                 disabled={busy || !sid}

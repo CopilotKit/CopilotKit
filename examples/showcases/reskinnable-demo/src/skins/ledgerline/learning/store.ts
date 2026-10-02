@@ -524,8 +524,22 @@ function cardTitle(events: CapturedEvent[]): string | undefined {
   return undefined;
 }
 
+/** The card the agent worked on, from its own calls (a card the screen merely showed comes second). */
+function cardFromThreads(threads: ThreadRec[]): string | undefined {
+  const seen = JSON.stringify(
+    threads.flatMap((t) => t.agentTrace.map((e) => e.args ?? {})),
+  );
+  const last4 =
+    /card_(\d{4})|card=(\d{4})|"cardId":\s*"(?:card_)?(\d{4})"/.exec(seen);
+  const digits = last4?.slice(1).find(Boolean);
+  const card = CARDS.find((c) => c.last4 === digits);
+  return card
+    ? `Close out ${card.holder}'s ${card.periodLabel} card`
+    : undefined;
+}
+
 function titleOf(events: CapturedEvent[], threads: ThreadRec[]): string {
-  const card = cardTitle(events);
+  const card = cardFromThreads(threads) ?? cardTitle(events);
   if (card) return card;
   const reportId = reportIdOf(events) ?? reportIdFromThreads(threads);
   if (reportId) {

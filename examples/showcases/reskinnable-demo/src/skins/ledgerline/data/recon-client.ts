@@ -118,12 +118,17 @@ export function useCardSummaries(reloadKey = 0) {
   const [cards, setCards] = useState<CardSummary[] | null>(null);
   useEffect(() => {
     let alive = true;
-    void fetch(`${R}/board`, { cache: "no-store" })
-      .then((r) => r.json() as Promise<{ cards: CardSummary[] }>)
-      .then((b) => alive && setCards(b.cards))
-      .catch(() => alive && setCards([]));
+    const load = () =>
+      fetch(`${R}/board`, { cache: "no-store" })
+        .then((r) => r.json() as Promise<{ cards: CardSummary[] }>)
+        .then((b) => alive && setCards(b.cards))
+        .catch(() => alive && setCards((c) => c ?? []));
+    void load();
+    // A close can also land from the chat's review card: keep the counts current.
+    const timer = window.setInterval(() => void load(), 4000);
     return () => {
       alive = false;
+      window.clearInterval(timer);
     };
   }, [reloadKey]);
   return cards;

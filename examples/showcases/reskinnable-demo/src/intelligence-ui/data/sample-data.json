@@ -2,25 +2,25 @@
   "_note": "Sample data for the /intelligence screens: a snapshot of a real Ledgerline run (month-end card close). Keys are /api/learning/v1 paths; values follow CONTRACT.md.",
   "/trajectories": [
     {
-      "trajectoryId": "trj_6fd3xleg",
+      "trajectoryId": "trj_1adstpxp",
       "projectId": "ledgerline-demo",
-      "title": "Match Priya Raman's September card transactions",
+      "title": "Close out Priya Raman's September card",
       "user": {
         "id": "u_maya",
         "name": "Maya Chen"
       },
-      "createdAt": 1790902947038,
-      "firstEventAt": 1790902914203,
-      "lastEventAt": 1790903136643,
+      "createdAt": 1790963531057,
+      "firstEventAt": 1790963473199,
+      "lastEventAt": 1790963654318,
       "outcome": "agent_failed_user_completed",
       "surfaces": [
         "in_app",
         "manual"
       ],
       "threadIds": [
-        "cccb9be3-c972-4744-8ddb-8c4e03deac3f"
+        "130baff3-d509-4b76-87b2-d13970f9f8d4"
       ],
-      "eventCount": 54
+      "eventCount": 32
     },
     {
       "trajectoryId": "trj_hist0929b",
@@ -30,9 +30,9 @@
         "id": "u_maya",
         "name": "Maya Chen"
       },
-      "createdAt": 1790730016122,
-      "firstEventAt": 1790730016122,
-      "lastEventAt": 1790730076122,
+      "createdAt": 1790790666100,
+      "firstEventAt": 1790790666100,
+      "lastEventAt": 1790790726100,
       "outcome": "agent_succeeded",
       "surfaces": [
         "in_app"
@@ -50,9 +50,9 @@
         "id": "u_maya",
         "name": "Maya Chen"
       },
-      "createdAt": 1790557216122,
-      "firstEventAt": 1790557216122,
-      "lastEventAt": 1790557276122,
+      "createdAt": 1790617866100,
+      "firstEventAt": 1790617866100,
+      "lastEventAt": 1790617926100,
       "outcome": "agent_succeeded",
       "surfaces": [
         "in_app"
@@ -63,63 +63,63 @@
       "eventCount": 4
     }
   ],
-  "/trajectories/trj_6fd3xleg": {
+  "/trajectories/trj_1adstpxp": {
     "trajectory": {
-      "trajectoryId": "trj_6fd3xleg",
+      "trajectoryId": "trj_1adstpxp",
       "projectId": "ledgerline-demo",
-      "title": "Match Priya Raman's September card transactions",
+      "title": "Close out Priya Raman's September card",
       "user": {
         "id": "u_maya",
         "name": "Maya Chen"
       },
-      "createdAt": 1790902947038,
-      "firstEventAt": 1790902914203,
-      "lastEventAt": 1790903136643,
+      "createdAt": 1790963531057,
+      "firstEventAt": 1790963473199,
+      "lastEventAt": 1790963654318,
       "outcome": "agent_failed_user_completed",
       "surfaces": [
         "in_app",
         "manual"
       ],
       "threadIds": [
-        "cccb9be3-c972-4744-8ddb-8c4e03deac3f"
+        "130baff3-d509-4b76-87b2-d13970f9f8d4"
       ],
-      "eventCount": 54
+      "eventCount": 32
     },
     "threads": [
       {
-        "threadId": "cccb9be3-c972-4744-8ddb-8c4e03deac3f",
+        "threadId": "130baff3-d509-4b76-87b2-d13970f9f8d4",
         "surface": "in_app",
         "linkStrength": "strong",
         "messages": [
           {
-            "id": "3a077ed9-1ad3-4011-887b-cc05a572659a",
+            "id": "f12b1d2a-3682-4a3e-8617-f3a53e514455",
             "role": "user",
-            "text": "Match the 6 unmatched card transactions on Priya Raman's Visa ending 4417 to their receipts for the September close.",
-            "at": 1790902947038
+            "text": "Close out September for Priya Raman's Visa ending 4417. Receipts are matched; clear the exceptions so it is ready to close.",
+            "at": 1790963531057
           },
           {
-            "id": "msg_03a5093a7df0a09e006abf02bbcd4887d09c5613809632d93d",
+            "id": "msg_0d101de00f8b68d1006abfef5d02a487d097bedd38a95e6f53",
             "role": "assistant",
-            "text": "I tried the six September charges on **Priya Raman's** **Visa 4417** against the unmatched receipts and validated the session. Four matched cleanly, but **$148.80** at **NOPA** and **$412.40** at **H\u00f4tel Le Marais** failed with the last error **UNBALANCED**. Nothing is ready for review, so I opened the Card close board for **4417** for manual matching.",
-            "at": 1790902974072
+            "text": "I tried the four September exceptions on **4417** one by one. The API blocked them with **PERIOD_SOFT_LOCKED**, **ALLOCATION_REQUIRED**, **RECEIPT_REQUIRED**, and **NOT_EDITABLE**, so nothing is ready for review.",
+            "at": 1790963550057
           }
         ],
         "agentTrace": [
           {
-            "id": "call_z6ENTwJeb6dO3Tb3HrOVfhdH",
+            "id": "call_mkJi7Q9vkb1DO9qSRvlrLtK9",
             "kind": "tool.call",
             "name": "ledgerlineApi",
             "args": {
               "method": "GET",
-              "path": "/transactions?card=4417&status=unmatched",
+              "path": "/transactions?card=4417&status=",
               "body": ""
             },
             "status": "ok",
-            "at": 1790902948404,
+            "at": 1790963532504,
             "result": {
               "status": 200,
               "body": {
-                "count": 6,
+                "count": 10,
                 "transactions": [
                   {
                     "id": "txn_4417_0908",
@@ -128,7 +128,7 @@
                     "descriptor": "SQ *BLUEBOTTLE COFFEE SF",
                     "amount": 11.25,
                     "currency": "USD",
-                    "status": "unmatched"
+                    "status": "matched"
                   },
                   {
                     "id": "txn_4417_0912",
@@ -137,7 +137,7 @@
                     "descriptor": "TST* NOPA RESTAURANT",
                     "amount": 148.8,
                     "currency": "USD",
-                    "status": "unmatched"
+                    "status": "matched"
                   },
                   {
                     "id": "txn_4417_0915",
@@ -146,7 +146,7 @@
                     "descriptor": "AMZN MKTP US*2K4LM81Q2",
                     "amount": 89.97,
                     "currency": "USD",
-                    "status": "unmatched"
+                    "status": "matched"
                   },
                   {
                     "id": "txn_4417_0918",
@@ -155,7 +155,7 @@
                     "descriptor": "HOTEL LE MARAIS PARIS FR",
                     "amount": 412.4,
                     "currency": "USD",
-                    "status": "unmatched"
+                    "status": "matched"
                   },
                   {
                     "id": "txn_4417_0922",
@@ -164,7 +164,7 @@
                     "descriptor": "UNITED 0162345678901",
                     "amount": 686.2,
                     "currency": "USD",
-                    "status": "unmatched"
+                    "status": "matched"
                   },
                   {
                     "id": "txn_4417_0925",
@@ -173,573 +173,252 @@
                     "descriptor": "PAYPAL *WEWORK 4029357733",
                     "amount": 45,
                     "currency": "USD",
-                    "status": "unmatched"
+                    "status": "matched"
+                  },
+                  {
+                    "id": "txn_4417_0910",
+                    "cardId": "card_4417",
+                    "postedAt": "2026-09-10",
+                    "descriptor": "FIGMA* MONTHLY 415-890-5404",
+                    "amount": 540,
+                    "currency": "USD",
+                    "status": "needs_attention"
+                  },
+                  {
+                    "id": "txn_4417_0919",
+                    "cardId": "card_4417",
+                    "postedAt": "2026-09-19",
+                    "descriptor": "TERRAIN EVENTS 0919",
+                    "amount": 2400,
+                    "currency": "USD",
+                    "status": "needs_attention"
+                  },
+                  {
+                    "id": "txn_4417_0923",
+                    "cardId": "card_4417",
+                    "postedAt": "2026-09-23",
+                    "descriptor": "LYFT *RIDE TUE 5PM",
+                    "amount": 27.15,
+                    "currency": "USD",
+                    "status": "needs_attention"
+                  },
+                  {
+                    "id": "txn_4417_0927",
+                    "cardId": "card_4417",
+                    "postedAt": "2026-09-27",
+                    "descriptor": "UBER *EATS",
+                    "amount": 38.4,
+                    "currency": "USD",
+                    "status": "needs_attention"
                   }
                 ]
               }
             },
-            "durationMs": 208
+            "durationMs": 266
           },
           {
-            "id": "call_m7i1i06p2KXTJrPBaPUDX2Il",
+            "id": "call_mrbggt8sIycFzD6jMTKh4hdZ",
             "kind": "tool.call",
             "name": "ledgerlineApi",
             "args": {
               "method": "GET",
-              "path": "/receipts?card=4417&status=unmatched",
+              "path": "/transactions/txn_4417_0910",
               "body": ""
             },
             "status": "ok",
-            "at": 1790902949640,
+            "at": 1790963533855,
             "result": {
               "status": 200,
               "body": {
-                "count": 9,
-                "receipts": [
-                  {
-                    "id": "rcpt_bb_0907",
-                    "merchant": "Blue Bottle Coffee",
-                    "date": "2026-09-07",
-                    "total": 11.25,
-                    "currency": "USD",
-                    "status": "unmatched"
-                  },
-                  {
-                    "id": "rcpt_nopa_0912",
-                    "merchant": "Nopa",
-                    "date": "2026-09-12",
-                    "total": 124,
-                    "currency": "USD",
-                    "status": "unmatched"
-                  },
-                  {
-                    "id": "rcpt_amzn_0914",
-                    "merchant": "Amazon.com",
-                    "date": "2026-09-14",
-                    "total": 89.97,
-                    "currency": "USD",
-                    "status": "unmatched"
-                  },
-                  {
-                    "id": "rcpt_marais_0917",
-                    "merchant": "H\u00f4tel Le Marais",
-                    "date": "2026-09-17",
-                    "total": 372,
-                    "currency": "EUR",
-                    "status": "unmatched"
-                  },
-                  {
-                    "id": "rcpt_ua_tkt_0920",
-                    "merchant": "United Airlines",
-                    "date": "2026-09-20",
-                    "total": 598.2,
-                    "currency": "USD",
-                    "status": "unmatched"
-                  },
-                  {
-                    "id": "rcpt_ua_plus_0920",
-                    "merchant": "United Airlines",
-                    "date": "2026-09-20",
-                    "total": 88,
-                    "currency": "USD",
-                    "status": "unmatched"
-                  },
-                  {
-                    "id": "rcpt_wework_0925",
-                    "merchant": "WeWork",
-                    "date": "2026-09-25",
-                    "total": 45,
-                    "currency": "USD",
-                    "status": "unmatched"
-                  },
-                  {
-                    "id": "rcpt_bb_0903",
-                    "merchant": "Blue Bottle Coffee",
-                    "date": "2026-09-03",
-                    "total": 4.9,
-                    "currency": "USD",
-                    "status": "unmatched"
-                  },
-                  {
-                    "id": "rcpt_amzn_0830",
-                    "merchant": "Amazon.com",
-                    "date": "2026-08-30",
-                    "total": 89.97,
-                    "currency": "USD",
-                    "status": "unmatched"
-                  }
-                ]
+                "id": "txn_4417_0910",
+                "cardId": "card_4417",
+                "postedAt": "2026-09-10",
+                "descriptor": "FIGMA* MONTHLY 415-890-5404",
+                "amount": 540,
+                "currency": "USD",
+                "mcc": "5734",
+                "glAccount": "6100",
+                "status": "needs_attention",
+                "receiptStatus": "on_file"
               }
             },
-            "durationMs": 193
+            "durationMs": 258
           },
           {
-            "id": "call_Km1auU2vdULHXegGuBxNHUSN",
+            "id": "call_Xgjmy0skPp23GIl2a4s2p6JW",
             "kind": "tool.call",
             "name": "ledgerlineApi",
             "args": {
-              "method": "POST",
-              "path": "/reconciliation/sessions",
-              "body": "{\"card\":\"4417\",\"period\":\"2026-09\"}"
+              "method": "PATCH",
+              "path": "/transactions/txn_4417_0910",
+              "body": "{\"status\":\"cleared\"}"
             },
             "status": "error",
-            "at": 1790902951200,
+            "at": 1790963535344,
             "result": {
-              "error": "BAD_REQUEST",
-              "message": "cardId is required.",
-              "status": 400
+              "error": "PERIOD_SOFT_LOCKED",
+              "message": "September coding is locked for the preliminary close.",
+              "status": 423
             },
-            "durationMs": 1323
+            "durationMs": 352
           },
           {
-            "id": "call_qgpRdnfnp19lEx9KAocmbN4W",
+            "id": "call_O39cgAO12NhkXorELBo6xHWL",
             "kind": "tool.call",
             "name": "ledgerlineApi",
             "args": {
               "method": "GET",
-              "path": "/cards",
+              "path": "/transactions/txn_4417_0919",
               "body": ""
             },
             "status": "ok",
-            "at": 1790902953515,
+            "at": 1790963536968,
             "result": {
               "status": 200,
               "body": {
-                "cards": [
-                  {
-                    "id": "card_4417",
-                    "holder": "Priya Raman",
-                    "last4": "4417",
-                    "openPeriod": "2026-09",
-                    "unmatched": 6
-                  },
-                  {
-                    "id": "card_8820",
-                    "holder": "Marcus Lee",
-                    "last4": "8820",
-                    "openPeriod": "2026-09",
-                    "unmatched": 5
-                  }
-                ]
-              }
-            },
-            "durationMs": 199
-          },
-          {
-            "id": "call_t4PZDB8DYKeM0mRr6j1o3mJf",
-            "kind": "tool.call",
-            "name": "ledgerlineApi",
-            "args": {
-              "method": "POST",
-              "path": "/reconciliation/sessions",
-              "body": "{\"cardId\":\"card_4417\",\"period\":\"2026-09\"}"
-            },
-            "status": "ok",
-            "at": 1790902955784,
-            "result": {
-              "status": 201,
-              "body": {
-                "id": "rs_4417_09_001",
+                "id": "txn_4417_0919",
                 "cardId": "card_4417",
-                "period": "2026-09",
-                "status": "open",
-                "transactionIds": [
-                  "txn_4417_0908",
-                  "txn_4417_0912",
-                  "txn_4417_0915",
-                  "txn_4417_0918",
-                  "txn_4417_0922",
-                  "txn_4417_0925"
-                ],
-                "pairs": []
+                "postedAt": "2026-09-19",
+                "descriptor": "TERRAIN EVENTS 0919",
+                "amount": 2400,
+                "currency": "USD",
+                "mcc": "7399",
+                "glAccount": "6610",
+                "status": "needs_attention",
+                "receiptStatus": "on_file",
+                "eventId": "evt_prod_offsite_0919"
               }
             },
-            "durationMs": 289
+            "durationMs": 246
           },
           {
-            "id": "call_jwSSXlU5iCdwAEe0vwYGnFqy",
+            "id": "call_0lZyrd4CD7eNUOLEbakpWyE2",
             "kind": "tool.call",
             "name": "ledgerlineApi",
             "args": {
-              "method": "POST",
-              "path": "/reconciliation/sessions/rs_4417_09_001/pairs",
-              "body": "{\"transactionId\":\"txn_4417_0908\",\"receiptIds\":[\"rcpt_bb_0907\"]}"
+              "method": "PATCH",
+              "path": "/transactions/txn_4417_0919",
+              "body": "{\"status\":\"cleared\"}"
             },
-            "status": "ok",
-            "at": 1790902957813,
+            "status": "error",
+            "at": 1790963538429,
             "result": {
-              "status": 201,
-              "body": {
-                "id": "rs_4417_09_001",
-                "cardId": "card_4417",
-                "period": "2026-09",
-                "status": "open",
-                "transactionIds": [
-                  "txn_4417_0908",
-                  "txn_4417_0912",
-                  "txn_4417_0915",
-                  "txn_4417_0918",
-                  "txn_4417_0922",
-                  "txn_4417_0925"
-                ],
-                "pairs": [
-                  {
-                    "transactionId": "txn_4417_0908",
-                    "receiptIds": [
-                      "rcpt_bb_0907"
-                    ]
-                  }
-                ]
-              }
+              "error": "ALLOCATION_REQUIRED",
+              "message": "A charge shared across departments is an allocation, not a field on the charge.",
+              "status": 409
             },
-            "durationMs": 1052
+            "durationMs": 219
           },
           {
-            "id": "call_rKNReGjMOM72ixKFBpIJ2Xr4",
+            "id": "call_xkb4knS8ssEGUgl0zeD7rmgs",
             "kind": "tool.call",
             "name": "ledgerlineApi",
             "args": {
-              "method": "POST",
-              "path": "/reconciliation/sessions/rs_4417_09_001/pairs",
-              "body": "{\"transactionId\":\"txn_4417_0915\",\"receiptIds\":[\"rcpt_amzn_0914\"]}"
+              "method": "GET",
+              "path": "/transactions/txn_4417_0923",
+              "body": ""
             },
             "status": "ok",
-            "at": 1790902960243,
-            "result": {
-              "status": 201,
-              "body": {
-                "id": "rs_4417_09_001",
-                "cardId": "card_4417",
-                "period": "2026-09",
-                "status": "open",
-                "transactionIds": [
-                  "txn_4417_0908",
-                  "txn_4417_0912",
-                  "txn_4417_0915",
-                  "txn_4417_0918",
-                  "txn_4417_0922",
-                  "txn_4417_0925"
-                ],
-                "pairs": [
-                  {
-                    "transactionId": "txn_4417_0908",
-                    "receiptIds": [
-                      "rcpt_bb_0907"
-                    ]
-                  },
-                  {
-                    "transactionId": "txn_4417_0915",
-                    "receiptIds": [
-                      "rcpt_amzn_0914"
-                    ]
-                  }
-                ]
-              }
-            },
-            "durationMs": 640
-          },
-          {
-            "id": "call_UyDIpgI9PkMMwtrT9YBVw3Tk",
-            "kind": "tool.call",
-            "name": "ledgerlineApi",
-            "args": {
-              "method": "POST",
-              "path": "/reconciliation/sessions/rs_4417_09_001/pairs",
-              "body": "{\"transactionId\":\"txn_4417_0925\",\"receiptIds\":[\"rcpt_wework_0925\"]}"
-            },
-            "status": "ok",
-            "at": 1790902962096,
-            "result": {
-              "status": 201,
-              "body": {
-                "id": "rs_4417_09_001",
-                "cardId": "card_4417",
-                "period": "2026-09",
-                "status": "open",
-                "transactionIds": [
-                  "txn_4417_0908",
-                  "txn_4417_0912",
-                  "txn_4417_0915",
-                  "txn_4417_0918",
-                  "txn_4417_0922",
-                  "txn_4417_0925"
-                ],
-                "pairs": [
-                  {
-                    "transactionId": "txn_4417_0908",
-                    "receiptIds": [
-                      "rcpt_bb_0907"
-                    ]
-                  },
-                  {
-                    "transactionId": "txn_4417_0915",
-                    "receiptIds": [
-                      "rcpt_amzn_0914"
-                    ]
-                  },
-                  {
-                    "transactionId": "txn_4417_0925",
-                    "receiptIds": [
-                      "rcpt_wework_0925"
-                    ]
-                  }
-                ]
-              }
-            },
-            "durationMs": 1147
-          },
-          {
-            "id": "call_WDdWquFit9f5qUps1B6TjnXn",
-            "kind": "tool.call",
-            "name": "ledgerlineApi",
-            "args": {
-              "method": "POST",
-              "path": "/reconciliation/sessions/rs_4417_09_001/pairs",
-              "body": "{\"transactionId\":\"txn_4417_0922\",\"receiptIds\":[\"rcpt_ua_tkt_0920\",\"rcpt_ua_plus_0920\"]}"
-            },
-            "status": "ok",
-            "at": 1790902964411,
-            "result": {
-              "status": 201,
-              "body": {
-                "id": "rs_4417_09_001",
-                "cardId": "card_4417",
-                "period": "2026-09",
-                "status": "open",
-                "transactionIds": [
-                  "txn_4417_0908",
-                  "txn_4417_0912",
-                  "txn_4417_0915",
-                  "txn_4417_0918",
-                  "txn_4417_0922",
-                  "txn_4417_0925"
-                ],
-                "pairs": [
-                  {
-                    "transactionId": "txn_4417_0908",
-                    "receiptIds": [
-                      "rcpt_bb_0907"
-                    ]
-                  },
-                  {
-                    "transactionId": "txn_4417_0915",
-                    "receiptIds": [
-                      "rcpt_amzn_0914"
-                    ]
-                  },
-                  {
-                    "transactionId": "txn_4417_0925",
-                    "receiptIds": [
-                      "rcpt_wework_0925"
-                    ]
-                  },
-                  {
-                    "transactionId": "txn_4417_0922",
-                    "receiptIds": [
-                      "rcpt_ua_tkt_0920",
-                      "rcpt_ua_plus_0920"
-                    ]
-                  }
-                ]
-              }
-            },
-            "durationMs": 483
-          },
-          {
-            "id": "call_jsnTWbz8DcZfnW428vmihC1A",
-            "kind": "tool.call",
-            "name": "ledgerlineApi",
-            "args": {
-              "method": "POST",
-              "path": "/reconciliation/sessions/rs_4417_09_001/pairs",
-              "body": "{\"transactionId\":\"txn_4417_0912\",\"receiptIds\":[\"rcpt_nopa_0912\"]}"
-            },
-            "status": "ok",
-            "at": 1790902966037,
-            "result": {
-              "status": 201,
-              "body": {
-                "id": "rs_4417_09_001",
-                "cardId": "card_4417",
-                "period": "2026-09",
-                "status": "open",
-                "transactionIds": [
-                  "txn_4417_0908",
-                  "txn_4417_0912",
-                  "txn_4417_0915",
-                  "txn_4417_0918",
-                  "txn_4417_0922",
-                  "txn_4417_0925"
-                ],
-                "pairs": [
-                  {
-                    "transactionId": "txn_4417_0908",
-                    "receiptIds": [
-                      "rcpt_bb_0907"
-                    ]
-                  },
-                  {
-                    "transactionId": "txn_4417_0915",
-                    "receiptIds": [
-                      "rcpt_amzn_0914"
-                    ]
-                  },
-                  {
-                    "transactionId": "txn_4417_0925",
-                    "receiptIds": [
-                      "rcpt_wework_0925"
-                    ]
-                  },
-                  {
-                    "transactionId": "txn_4417_0922",
-                    "receiptIds": [
-                      "rcpt_ua_tkt_0920",
-                      "rcpt_ua_plus_0920"
-                    ]
-                  },
-                  {
-                    "transactionId": "txn_4417_0912",
-                    "receiptIds": [
-                      "rcpt_nopa_0912"
-                    ]
-                  }
-                ]
-              }
-            },
-            "durationMs": 282
-          },
-          {
-            "id": "call_dxILwRUFNHouGCrUw3CNPkdt",
-            "kind": "tool.call",
-            "name": "ledgerlineApi",
-            "args": {
-              "method": "POST",
-              "path": "/reconciliation/sessions/rs_4417_09_001/pairs",
-              "body": "{\"transactionId\":\"txn_4417_0918\",\"receiptIds\":[\"rcpt_marais_0917\"]}"
-            },
-            "status": "ok",
-            "at": 1790902967436,
-            "result": {
-              "status": 201,
-              "body": {
-                "id": "rs_4417_09_001",
-                "cardId": "card_4417",
-                "period": "2026-09",
-                "status": "open",
-                "transactionIds": [
-                  "txn_4417_0908",
-                  "txn_4417_0912",
-                  "txn_4417_0915",
-                  "txn_4417_0918",
-                  "txn_4417_0922",
-                  "txn_4417_0925"
-                ],
-                "pairs": [
-                  {
-                    "transactionId": "txn_4417_0908",
-                    "receiptIds": [
-                      "rcpt_bb_0907"
-                    ]
-                  },
-                  {
-                    "transactionId": "txn_4417_0915",
-                    "receiptIds": [
-                      "rcpt_amzn_0914"
-                    ]
-                  },
-                  {
-                    "transactionId": "txn_4417_0925",
-                    "receiptIds": [
-                      "rcpt_wework_0925"
-                    ]
-                  },
-                  {
-                    "transactionId": "txn_4417_0922",
-                    "receiptIds": [
-                      "rcpt_ua_tkt_0920",
-                      "rcpt_ua_plus_0920"
-                    ]
-                  },
-                  {
-                    "transactionId": "txn_4417_0912",
-                    "receiptIds": [
-                      "rcpt_nopa_0912"
-                    ]
-                  },
-                  {
-                    "transactionId": "txn_4417_0918",
-                    "receiptIds": [
-                      "rcpt_marais_0917"
-                    ]
-                  }
-                ]
-              }
-            },
-            "durationMs": 433
-          },
-          {
-            "id": "call_qHVLyBQaPrT5rz8LNCNC6B5P",
-            "kind": "tool.call",
-            "name": "ledgerlineApi",
-            "args": {
-              "method": "POST",
-              "path": "/reconciliation/sessions/rs_4417_09_001/validate",
-              "body": "{}"
-            },
-            "status": "ok",
-            "at": 1790902969069,
+            "at": 1790963539843,
             "result": {
               "status": 200,
               "body": {
-                "sessionId": "rs_4417_09_001",
-                "valid": 4,
-                "total": 6,
-                "results": [
-                  {
-                    "transactionId": "txn_4417_0908",
-                    "valid": true
-                  },
-                  {
-                    "transactionId": "txn_4417_0912",
-                    "valid": false,
-                    "code": "UNBALANCED"
-                  },
-                  {
-                    "transactionId": "txn_4417_0915",
-                    "valid": true
-                  },
-                  {
-                    "transactionId": "txn_4417_0918",
-                    "valid": false,
-                    "code": "UNBALANCED"
-                  },
-                  {
-                    "transactionId": "txn_4417_0922",
-                    "valid": true
-                  },
-                  {
-                    "transactionId": "txn_4417_0925",
-                    "valid": true
-                  }
-                ]
+                "id": "txn_4417_0923",
+                "cardId": "card_4417",
+                "postedAt": "2026-09-23",
+                "descriptor": "LYFT *RIDE TUE 5PM",
+                "amount": 27.15,
+                "currency": "USD",
+                "mcc": "4121",
+                "glAccount": "6300",
+                "status": "needs_attention",
+                "receiptStatus": "missing"
               }
             },
-            "durationMs": 728
+            "durationMs": 361
           },
           {
-            "id": "call_EJmdT7DkcsYRBUzDYT8GpXYf",
+            "id": "call_78H4iW1pdtG0kcRriAd2Mokl",
+            "kind": "tool.call",
+            "name": "ledgerlineApi",
+            "args": {
+              "method": "PATCH",
+              "path": "/transactions/txn_4417_0923",
+              "body": "{\"status\":\"cleared\"}"
+            },
+            "status": "error",
+            "at": 1790963541301,
+            "result": {
+              "error": "RECEIPT_REQUIRED",
+              "message": "Every card charge needs a receipt on file.",
+              "status": 409
+            },
+            "durationMs": 1181
+          },
+          {
+            "id": "call_1NJX5YTrI5dQ5MG9MdZA1PXQ",
+            "kind": "tool.call",
+            "name": "ledgerlineApi",
+            "args": {
+              "method": "GET",
+              "path": "/transactions/txn_4417_0927",
+              "body": ""
+            },
+            "status": "ok",
+            "at": 1790963543398,
+            "result": {
+              "status": 200,
+              "body": {
+                "id": "txn_4417_0927",
+                "cardId": "card_4417",
+                "postedAt": "2026-09-27",
+                "descriptor": "UBER *EATS",
+                "amount": 38.4,
+                "currency": "USD",
+                "mcc": "5812",
+                "glAccount": "6100",
+                "status": "needs_attention",
+                "receiptStatus": "on_file",
+                "cardholderNote": {
+                  "author": "Priya Raman",
+                  "text": "Wrong card, sorry. That was my Saturday dinner, it's personal."
+                }
+              }
+            },
+            "durationMs": 685
+          },
+          {
+            "id": "call_ZvvbHeblwdea44ffI0jLKTht",
+            "kind": "tool.call",
+            "name": "ledgerlineApi",
+            "args": {
+              "method": "PATCH",
+              "path": "/transactions/txn_4417_0927",
+              "body": "{\"status\":\"cleared\"}"
+            },
+            "status": "error",
+            "at": 1790963545149,
+            "result": {
+              "error": "NOT_EDITABLE",
+              "message": "Whether a charge is personal is not a field on the charge.",
+              "status": 409
+            },
+            "durationMs": 1374
+          },
+          {
+            "id": "call_eQTNdTxIBdu4O2Dl5LncFi6d",
             "kind": "tool.call",
             "name": "openCardClose",
             "args": {
               "card": "4417"
             },
             "status": "ok",
-            "at": 1790902970613,
+            "at": 1790963547424,
             "result": {
               "opened": "card close",
               "card": "card_4417"
             },
-            "durationMs": 396
+            "durationMs": 611
           }
         ],
         "outcome": "failed"
@@ -747,14 +426,14 @@
     ],
     "events": [
       {
-        "eventId": "evt_iexvkknm",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_no0k4mwc",
+        "trajectoryId": "trj_1adstpxp",
         "position": 8,
-        "persistedAt": 1790902947038,
+        "persistedAt": 1790963531057,
         "event": {
           "type": "CUSTOM",
           "name": "page",
-          "timestamp": 1790902914203,
+          "timestamp": 1790963473199,
           "value": {
             "route": "/overview",
             "title": "Overview"
@@ -762,29 +441,29 @@
         }
       },
       {
-        "eventId": "evt_dwtresxi",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_wxodh5hw",
+        "trajectoryId": "trj_1adstpxp",
         "position": 9,
-        "persistedAt": 1790902947969,
+        "persistedAt": 1790963532665,
         "event": {
           "type": "CUSTOM",
           "name": "thread.linked",
-          "timestamp": 1790902947560,
+          "timestamp": 1790963531651,
           "value": {
-            "threadId": "cccb9be3-c972-4744-8ddb-8c4e03deac3f",
+            "threadId": "130baff3-d509-4b76-87b2-d13970f9f8d4",
             "surface": "in_app"
           }
         }
       },
       {
-        "eventId": "evt_iv6a577k",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_csdp7xy2",
+        "trajectoryId": "trj_1adstpxp",
         "position": 10,
-        "persistedAt": 1790902971701,
+        "persistedAt": 1790963548680,
         "event": {
           "type": "CUSTOM",
           "name": "navigation",
-          "timestamp": 1790902971285,
+          "timestamp": 1790963548086,
           "value": {
             "from": "/overview",
             "to": "/reconciliation"
@@ -792,14 +471,14 @@
         }
       },
       {
-        "eventId": "evt_mjl0nsrd",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_oooeeynz",
+        "trajectoryId": "trj_1adstpxp",
         "position": 11,
-        "persistedAt": 1790902971701,
+        "persistedAt": 1790963548680,
         "event": {
           "type": "CUSTOM",
           "name": "page",
-          "timestamp": 1790902971285,
+          "timestamp": 1790963548086,
           "value": {
             "route": "/reconciliation",
             "title": "Card close"
@@ -807,49 +486,49 @@
         }
       },
       {
-        "eventId": "evt_9zyb5dtj",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_kv44xsnx",
+        "trajectoryId": "trj_1adstpxp",
         "position": 12,
-        "persistedAt": 1790902971701,
+        "persistedAt": 1790963548680,
         "event": {
           "type": "CUSTOM",
           "name": "screen.context",
-          "timestamp": 1790902971397,
+          "timestamp": 1790963548105,
           "value": {
-            "label": "Card close: match each Priya Raman card charge to its receipts, validate, then close September",
+            "label": "Card close: clear Priya Raman's exceptions, validate, then close September",
             "fields": {
               "view": "reconcile",
               "cardId": "card_4417",
               "period": "2026-09",
-              "text": "Receipt matching happens in a reconciliation session: open a session for the card and period, pair each charge with its receipts (a tip written on the slip or a currency conversion goes in the pair as an adjustment; a split charge takes two receipts), validate the session, then close the period.",
-              "unmatched": 6,
-              "receipts": 9
+              "text": "The close runs in a reconciliation session. Receipts auto-match when it opens. Each exception is cleared in its own workflow: a shared offsite is an allocation split by attendees, a miscoded charge in a soft-locked month is a reclass entry, a personal charge is a repayment, a charge with no receipt is a missing-receipt affidavit. Then validate the session and close the period.",
+              "exceptions": 4,
+              "autoMatched": 6
             },
             "route": "/reconciliation"
           }
         }
       },
       {
-        "eventId": "evt_6xzjmudx",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_6zansdpn",
+        "trajectoryId": "trj_1adstpxp",
         "position": 13,
-        "persistedAt": 1790902971701,
+        "persistedAt": 1790963548680,
         "event": {
           "type": "CUSTOM",
           "name": "network",
-          "timestamp": 1790902971448,
+          "timestamp": 1790963548112,
           "value": {
             "method": "POST",
             "route": "/api/ledgerline/v1/reconciliation/sessions",
             "status": 201,
-            "durationMs": 51,
+            "durationMs": 8,
             "summary": "Open a reconciliation session for card_4417, 2026-09",
             "request": {
               "period": "2026-09",
               "cardId": "card_4417"
             },
             "response": {
-              "id": "rs_4417_09_002",
+              "id": "rs_4417_09_001",
               "period": "2026-09",
               "cardId": "card_4417"
             }
@@ -857,1021 +536,519 @@
         }
       },
       {
-        "eventId": "evt_dvgiquva",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_vmbcgo0b",
+        "trajectoryId": "trj_1adstpxp",
         "position": 14,
-        "persistedAt": 1790903108184,
+        "persistedAt": 1790963593748,
         "event": {
           "type": "CUSTOM",
-          "name": "page",
-          "timestamp": 1790903107777,
+          "name": "click",
+          "timestamp": 1790963592823,
           "value": {
+            "action": "Split: TERRAIN EVENTS 0919",
+            "role": "button",
+            "tag": "button",
             "route": "/reconciliation",
-            "title": "Card close"
+            "threadId": "130baff3-d509-4b76-87b2-d13970f9f8d4"
           }
         }
       },
       {
-        "eventId": "evt_toeduipx",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_lap0mepi",
+        "trajectoryId": "trj_1adstpxp",
         "position": 15,
-        "persistedAt": 1790903108184,
+        "persistedAt": 1790963593748,
         "event": {
           "type": "CUSTOM",
           "name": "screen.context",
-          "timestamp": 1790903107840,
+          "timestamp": 1790963592823,
           "value": {
-            "label": "Card close: match each Priya Raman card charge to its receipts, validate, then close September",
+            "label": "Split: TERRAIN EVENTS 0919",
             "fields": {
-              "view": "reconcile",
-              "cardId": "card_4417",
-              "period": "2026-09",
-              "text": "Receipt matching happens in a reconciliation session: open a session for the card and period, pair each charge with its receipts (a tip written on the slip or a currency conversion goes in the pair as an adjustment; a split charge takes two receipts), validate the session, then close the period.",
-              "unmatched": 6,
-              "receipts": 9
+              "view": "close.split",
+              "transactionId": "txn_4417_0919",
+              "text": "Product offsite, Sep 19 at Terrain, Mill Valley: Engineering 6, Design 3, Product 3. Split by attendees allocates $2,400.00 by headcount."
             },
             "route": "/reconciliation"
           }
         }
       },
       {
-        "eventId": "evt_xn7ro622",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_xuozum3u",
+        "trajectoryId": "trj_1adstpxp",
         "position": 16,
-        "persistedAt": 1790903112171,
+        "persistedAt": 1790963601662,
         "event": {
           "type": "CUSTOM",
           "name": "click",
-          "timestamp": 1790903111764,
+          "timestamp": 1790963601154,
           "value": {
-            "action": "Match menu: Blue Bottle Coffee Sep 7",
+            "action": "Split by attendees: TERRAIN EVENTS 0919",
             "role": "button",
             "tag": "button",
             "route": "/reconciliation",
-            "threadId": null
+            "threadId": "130baff3-d509-4b76-87b2-d13970f9f8d4"
           }
         }
       },
       {
-        "eventId": "evt_horptvxt",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_1twir8ez",
+        "trajectoryId": "trj_1adstpxp",
         "position": 17,
-        "persistedAt": 1790903112705,
+        "persistedAt": 1790963609665,
         "event": {
           "type": "CUSTOM",
           "name": "click",
-          "timestamp": 1790903112301,
+          "timestamp": 1790963608561,
           "value": {
-            "action": "SQ *BLUEBOTTLE COFFEE SF$11.25",
-            "role": "menuitem",
+            "action": "Save split: TERRAIN EVENTS 0919",
+            "role": "button",
             "tag": "button",
             "route": "/reconciliation",
-            "threadId": null
+            "threadId": "130baff3-d509-4b76-87b2-d13970f9f8d4"
           }
         }
       },
       {
-        "eventId": "evt_nbdehkd7",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_k7xr2aud",
+        "trajectoryId": "trj_1adstpxp",
         "position": 18,
-        "persistedAt": 1790903112705,
+        "persistedAt": 1790963609665,
         "event": {
           "type": "CUSTOM",
           "name": "network",
-          "timestamp": 1790903112317,
+          "timestamp": 1790963608618,
           "value": {
             "method": "POST",
-            "route": "/api/ledgerline/v1/reconciliation/sessions/[sessionId]/pairs",
+            "route": "/api/ledgerline/v1/allocations",
             "status": 201,
-            "durationMs": 15,
-            "summary": "Pair SQ *BLUEBOTTLE COFFEE SF with Blue Bottle Coffee Sep 7",
+            "durationMs": 56,
+            "summary": "Start an allocation for TERRAIN EVENTS 0919",
             "request": {
-              "sessionId": "rs_4417_09_002",
-              "transactionId": "txn_4417_0908",
-              "receiptIds": [
-                "rcpt_bb_0907"
+              "transactionId": "txn_4417_0919"
+            },
+            "response": {
+              "id": "AL-4102",
+              "status": "draft"
+            }
+          }
+        }
+      },
+      {
+        "eventId": "evt_0ydtkq0x",
+        "trajectoryId": "trj_1adstpxp",
+        "position": 19,
+        "persistedAt": 1790963609665,
+        "event": {
+          "type": "CUSTOM",
+          "name": "network",
+          "timestamp": 1790963608623,
+          "value": {
+            "method": "PUT",
+            "route": "/api/ledgerline/v1/allocations/[allocationId]/lines",
+            "status": 200,
+            "durationMs": 6,
+            "summary": "Allocate TERRAIN EVENTS 0919: Engineering $1,200.00, Design $600.00, Product $600.00",
+            "request": {
+              "allocationId": "AL-4102",
+              "lines": [
+                {
+                  "departmentId": "dept_eng",
+                  "amount": 1200
+                },
+                {
+                  "departmentId": "dept_design",
+                  "amount": 600
+                },
+                {
+                  "departmentId": "dept_product",
+                  "amount": 600
+                }
+              ]
+            },
+            "response": {
+              "id": "AL-4102",
+              "lines": [
+                {
+                  "departmentId": "dept_eng",
+                  "amount": 1200
+                },
+                {
+                  "departmentId": "dept_design",
+                  "amount": 600
+                },
+                {
+                  "departmentId": "dept_product",
+                  "amount": 600
+                }
               ]
             }
           }
         }
       },
       {
-        "eventId": "evt_9usxgkvd",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 19,
-        "persistedAt": 1790903112705,
+        "eventId": "evt_9ge7jyor",
+        "trajectoryId": "trj_1adstpxp",
+        "position": 20,
+        "persistedAt": 1790963609665,
+        "event": {
+          "type": "CUSTOM",
+          "name": "network",
+          "timestamp": 1790963608627,
+          "value": {
+            "method": "POST",
+            "route": "/api/ledgerline/v1/allocations/[allocationId]/commit",
+            "status": 200,
+            "durationMs": 4,
+            "summary": "Commit the allocation for TERRAIN EVENTS 0919",
+            "request": {
+              "allocationId": "AL-4102"
+            },
+            "response": {
+              "id": "AL-4102",
+              "status": "committed"
+            }
+          }
+        }
+      },
+      {
+        "eventId": "evt_bk7r4jit",
+        "trajectoryId": "trj_1adstpxp",
+        "position": 21,
+        "persistedAt": 1790963609665,
         "event": {
           "type": "CUSTOM",
           "name": "click",
-          "timestamp": 1790903112317,
+          "timestamp": 1790963608627,
           "value": {
-            "action": "Match Blue Bottle Coffee Sep 7 to SQ *BLUEBOTTLE COFFEE SF",
-            "role": "menuitem",
+            "action": "Save split: TERRAIN EVENTS 0919 (Engineering $1,200.00, Design $600.00, Product $600.00)",
+            "role": "button",
             "tag": "button",
-            "transactionId": "txn_4417_0908",
-            "receiptIds": [
-              "rcpt_bb_0907"
+            "transactionId": "txn_4417_0919",
+            "lines": [
+              {
+                "departmentId": "dept_eng",
+                "amount": 1200
+              },
+              {
+                "departmentId": "dept_design",
+                "amount": 600
+              },
+              {
+                "departmentId": "dept_product",
+                "amount": 600
+              }
             ]
           }
         }
       },
       {
-        "eventId": "evt_x084nlhh",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 20,
-        "persistedAt": 1790903114252,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903113839,
-          "value": {
-            "action": "Match menu: Nopa Sep 12",
-            "role": "button",
-            "tag": "button",
-            "route": "/reconciliation",
-            "threadId": null
-          }
-        }
-      },
-      {
-        "eventId": "evt_cnidyj2h",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 21,
-        "persistedAt": 1790903114779,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903114375,
-          "value": {
-            "action": "TST* NOPA RESTAURANT$148.80",
-            "role": "menuitem",
-            "tag": "button",
-            "route": "/reconciliation",
-            "threadId": null
-          }
-        }
-      },
-      {
-        "eventId": "evt_wpkspscv",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_gktrz38x",
+        "trajectoryId": "trj_1adstpxp",
         "position": 22,
-        "persistedAt": 1790903114779,
-        "event": {
-          "type": "CUSTOM",
-          "name": "network",
-          "timestamp": 1790903114390,
-          "value": {
-            "method": "POST",
-            "route": "/api/ledgerline/v1/reconciliation/sessions/[sessionId]/pairs",
-            "status": 201,
-            "durationMs": 15,
-            "summary": "Pair TST* NOPA RESTAURANT with Nopa Sep 12",
-            "request": {
-              "sessionId": "rs_4417_09_002",
-              "transactionId": "txn_4417_0912",
-              "receiptIds": [
-                "rcpt_nopa_0912"
-              ],
-              "adjustment": {
-                "kind": "gratuity",
-                "amount": 24.8
-              }
-            }
-          }
-        }
-      },
-      {
-        "eventId": "evt_m06jsats",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 23,
-        "persistedAt": 1790903114779,
+        "persistedAt": 1790963611668,
         "event": {
           "type": "CUSTOM",
           "name": "click",
-          "timestamp": 1790903114391,
+          "timestamp": 1790963610643,
           "value": {
-            "action": "Match Nopa Sep 12 to TST* NOPA RESTAURANT",
-            "role": "menuitem",
-            "tag": "button",
-            "transactionId": "txn_4417_0912",
-            "receiptIds": [
-              "rcpt_nopa_0912"
-            ],
-            "adjustment": {
-              "kind": "gratuity",
-              "amount": 24.8
-            }
-          }
-        }
-      },
-      {
-        "eventId": "evt_jqyetdlq",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 24,
-        "persistedAt": 1790903116323,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903115913,
-          "value": {
-            "action": "Preview Nopa receipt",
+            "action": "Reclass: FIGMA* MONTHLY 415-890-5404",
             "role": "button",
             "tag": "button",
             "route": "/reconciliation",
-            "threadId": null
+            "threadId": "130baff3-d509-4b76-87b2-d13970f9f8d4"
           }
         }
       },
       {
-        "eventId": "evt_twiiujqh",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 25,
-        "persistedAt": 1790903116323,
+        "eventId": "evt_aq1ky4mx",
+        "trajectoryId": "trj_1adstpxp",
+        "position": 23,
+        "persistedAt": 1790963611668,
         "event": {
           "type": "CUSTOM",
           "name": "screen.context",
-          "timestamp": 1790903115914,
+          "timestamp": 1790963610643,
           "value": {
-            "label": "Receipt: Nopa Sep 12",
+            "label": "Reclass: FIGMA* MONTHLY 415-890-5404",
             "fields": {
-              "view": "receipt",
-              "cardId": "card_4417",
-              "receiptId": "rcpt_nopa_0912",
-              "text": "Nopa, Sep 12: printed total $124.00; tip $24.80 written by hand, $148.80 with the tip; Check 4471 \u00b7 Table 12"
+              "view": "close.reclass",
+              "transactionId": "txn_4417_0910",
+              "text": "Coded to 6100 Meals & entertainment; suggested 6420 Software subscriptions. September is soft-locked for coding, so the fix posts a reclass entry."
             },
             "route": "/reconciliation"
           }
         }
       },
       {
-        "eventId": "evt_hxjtmdwo",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_1buyfztx",
+        "trajectoryId": "trj_1adstpxp",
+        "position": 24,
+        "persistedAt": 1790963617658,
+        "event": {
+          "type": "CUSTOM",
+          "name": "click",
+          "timestamp": 1790963617242,
+          "value": {
+            "action": "Post reclass: FIGMA* MONTHLY 415-890-5404 to 6420",
+            "role": "button",
+            "tag": "button",
+            "route": "/reconciliation",
+            "threadId": "130baff3-d509-4b76-87b2-d13970f9f8d4"
+          }
+        }
+      },
+      {
+        "eventId": "evt_mhig3pn7",
+        "trajectoryId": "trj_1adstpxp",
+        "position": 25,
+        "persistedAt": 1790963617658,
+        "event": {
+          "type": "CUSTOM",
+          "name": "network",
+          "timestamp": 1790963617294,
+          "value": {
+            "method": "POST",
+            "route": "/api/ledgerline/v1/journal/reclasses",
+            "status": 201,
+            "durationMs": 52,
+            "summary": "Reclass FIGMA* MONTHLY 415-890-5404: 6100 Meals & entertainment to 6420 Software subscriptions",
+            "request": {
+              "transactionId": "txn_4417_0910",
+              "fromAccount": "6100",
+              "toAccount": "6420",
+              "memo": "Figma is design software."
+            },
+            "response": {
+              "entryId": "JE-4103",
+              "status": "posted"
+            }
+          }
+        }
+      },
+      {
+        "eventId": "evt_cqbudzqo",
+        "trajectoryId": "trj_1adstpxp",
         "position": 26,
-        "persistedAt": 1790903117564,
+        "persistedAt": 1790963620658,
         "event": {
           "type": "CUSTOM",
           "name": "click",
-          "timestamp": 1790903117157,
+          "timestamp": 1790963619325,
           "value": {
-            "action": "Close preview",
+            "action": "Missing receipt: LYFT *RIDE TUE 5PM",
             "role": "button",
             "tag": "button",
             "route": "/reconciliation",
-            "threadId": null
+            "threadId": "130baff3-d509-4b76-87b2-d13970f9f8d4"
           }
         }
       },
       {
-        "eventId": "evt_uqa0zzta",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_b1toiii1",
+        "trajectoryId": "trj_1adstpxp",
         "position": 27,
-        "persistedAt": 1790903118100,
+        "persistedAt": 1790963620658,
         "event": {
           "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903117690,
+          "name": "screen.context",
+          "timestamp": 1790963619325,
           "value": {
-            "action": "Match menu: Amazon.com Aug 30",
-            "role": "button",
-            "tag": "button",
-            "route": "/reconciliation",
-            "threadId": null
+            "label": "Missing receipt: LYFT *RIDE TUE 5PM",
+            "fields": {
+              "view": "close.missing_receipt",
+              "transactionId": "txn_4417_0923",
+              "text": "No receipt on file. A missing-receipt affidavit with the business purpose goes to Priya Raman to attest."
+            },
+            "route": "/reconciliation"
           }
         }
       },
       {
-        "eventId": "evt_44lljhll",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_d1stezdl",
+        "trajectoryId": "trj_1adstpxp",
         "position": 28,
-        "persistedAt": 1790903118624,
+        "persistedAt": 1790963626659,
         "event": {
           "type": "CUSTOM",
           "name": "click",
-          "timestamp": 1790903118218,
+          "timestamp": 1790963626220,
           "value": {
-            "action": "AMZN MKTP US*2K4LM81Q2$89.97",
-            "role": "menuitem",
+            "action": "Request affidavit: LYFT *RIDE TUE 5PM",
+            "role": "button",
             "tag": "button",
             "route": "/reconciliation",
-            "threadId": null
+            "threadId": "130baff3-d509-4b76-87b2-d13970f9f8d4"
           }
         }
       },
       {
-        "eventId": "evt_334rdtcc",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_ox0wgh4x",
+        "trajectoryId": "trj_1adstpxp",
         "position": 29,
-        "persistedAt": 1790903118624,
+        "persistedAt": 1790963626659,
         "event": {
           "type": "CUSTOM",
           "name": "network",
-          "timestamp": 1790903118231,
+          "timestamp": 1790963626280,
           "value": {
             "method": "POST",
-            "route": "/api/ledgerline/v1/reconciliation/sessions/[sessionId]/pairs",
+            "route": "/api/ledgerline/v1/affidavits",
             "status": 201,
-            "durationMs": 13,
-            "summary": "Pair AMZN MKTP US*2K4LM81Q2 with Amazon.com Aug 30",
+            "durationMs": 60,
+            "summary": "Missing-receipt affidavit for LYFT *RIDE TUE 5PM",
             "request": {
-              "sessionId": "rs_4417_09_002",
-              "transactionId": "txn_4417_0915",
-              "receiptIds": [
-                "rcpt_amzn_0830"
-              ]
+              "transactionId": "txn_4417_0923",
+              "memo": "Ride from the Chicago client office to O'Hare after the onsite."
+            },
+            "response": {
+              "affidavitId": "AF-4104",
+              "status": "attested",
+              "attestedBy": "Priya Raman"
             }
           }
         }
       },
       {
-        "eventId": "evt_1in9uppr",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_mltgbr0b",
+        "trajectoryId": "trj_1adstpxp",
         "position": 30,
-        "persistedAt": 1790903118624,
+        "persistedAt": 1790963630654,
         "event": {
           "type": "CUSTOM",
           "name": "click",
-          "timestamp": 1790903118231,
+          "timestamp": 1790963629310,
           "value": {
-            "action": "Match Amazon.com Aug 30 to AMZN MKTP US*2K4LM81Q2",
-            "role": "menuitem",
+            "action": "Mark personal: UBER *EATS",
+            "role": "button",
             "tag": "button",
-            "transactionId": "txn_4417_0915",
-            "receiptIds": [
-              "rcpt_amzn_0830"
-            ]
+            "route": "/reconciliation",
+            "threadId": "130baff3-d509-4b76-87b2-d13970f9f8d4"
           }
         }
       },
       {
-        "eventId": "evt_ylzaj5he",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_8phxpqv4",
+        "trajectoryId": "trj_1adstpxp",
         "position": 31,
-        "persistedAt": 1790903120161,
+        "persistedAt": 1790963630654,
         "event": {
           "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903119755,
+          "name": "screen.context",
+          "timestamp": 1790963629310,
           "value": {
-            "action": "Validate matches",
-            "role": "button",
-            "tag": "button",
-            "route": "/reconciliation",
-            "threadId": null
+            "label": "Personal: UBER *EATS",
+            "fields": {
+              "view": "close.personal",
+              "transactionId": "txn_4417_0927",
+              "text": "Priya Raman: \"Wrong card, sorry. That was my Saturday dinner, it's personal.\" Personal charges are repaid, by payroll deduction unless the cardholder pays the card."
+            },
+            "route": "/reconciliation"
           }
         }
       },
       {
-        "eventId": "evt_rpkpfnjp",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_lg7uftdz",
+        "trajectoryId": "trj_1adstpxp",
         "position": 32,
-        "persistedAt": 1790903120161,
+        "persistedAt": 1790963636660,
+        "event": {
+          "type": "CUSTOM",
+          "name": "click",
+          "timestamp": 1790963636074,
+          "value": {
+            "action": "Confirm personal: UBER *EATS",
+            "role": "button",
+            "tag": "button",
+            "route": "/reconciliation",
+            "threadId": "130baff3-d509-4b76-87b2-d13970f9f8d4"
+          }
+        }
+      },
+      {
+        "eventId": "evt_exp0ne45",
+        "trajectoryId": "trj_1adstpxp",
+        "position": 33,
+        "persistedAt": 1790963636660,
         "event": {
           "type": "CUSTOM",
           "name": "network",
-          "timestamp": 1790903119772,
+          "timestamp": 1790963636130,
           "value": {
             "method": "POST",
-            "route": "/api/ledgerline/v1/reconciliation/sessions/[sessionId]/validate",
-            "status": 200,
-            "durationMs": 16,
-            "summary": "Validate rs_4417_09_002",
+            "route": "/api/ledgerline/v1/repayments",
+            "status": 201,
+            "durationMs": 56,
+            "summary": "Mark UBER *EATS personal: repay by payroll deduction",
             "request": {
-              "sessionId": "rs_4417_09_002"
+              "transactionId": "txn_4417_0927",
+              "method": "payroll_deduction"
             },
             "response": {
-              "valid": 2,
-              "total": 6
+              "repaymentId": "RP-4105",
+              "status": "scheduled"
             }
           }
         }
       },
       {
-        "eventId": "evt_jthjlshe",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 33,
-        "persistedAt": 1790903121665,
-        "event": {
-          "type": "CUSTOM",
-          "name": "recon.validated",
-          "timestamp": 1790903121257,
-          "value": {
-            "sessionId": "rs_4417_09_002",
-            "cardId": "card_4417",
-            "period": "2026-09",
-            "valid": 2,
-            "total": 6,
-            "results": [
-              {
-                "transactionId": "txn_4417_0908",
-                "valid": true,
-                "descriptor": "SQ *BLUEBOTTLE COFFEE SF"
-              },
-              {
-                "transactionId": "txn_4417_0912",
-                "valid": true,
-                "descriptor": "TST* NOPA RESTAURANT"
-              },
-              {
-                "transactionId": "txn_4417_0915",
-                "valid": false,
-                "code": "WRONG_RECEIPT",
-                "descriptor": "AMZN MKTP US*2K4LM81Q2",
-                "reason": "Amazon.com, Aug 30 is 16 days before this charge posted (Sep 15), so it belongs to another statement."
-              },
-              {
-                "transactionId": "txn_4417_0918",
-                "valid": false,
-                "code": "UNMATCHED",
-                "descriptor": "HOTEL LE MARAIS PARIS FR",
-                "reason": "No receipt is matched to this charge yet."
-              },
-              {
-                "transactionId": "txn_4417_0922",
-                "valid": false,
-                "code": "UNMATCHED",
-                "descriptor": "UNITED 0162345678901",
-                "reason": "No receipt is matched to this charge yet."
-              },
-              {
-                "transactionId": "txn_4417_0925",
-                "valid": false,
-                "code": "UNMATCHED",
-                "descriptor": "PAYPAL *WEWORK 4029357733",
-                "reason": "No receipt is matched to this charge yet."
-              }
-            ],
-            "pairs": [
-              {
-                "transactionId": "txn_4417_0908",
-                "descriptor": "SQ *BLUEBOTTLE COFFEE SF",
-                "amount": 11.25,
-                "postedAt": "2026-09-08",
-                "receipts": [
-                  {
-                    "id": "rcpt_bb_0907",
-                    "merchant": "Blue Bottle Coffee",
-                    "date": "2026-09-07",
-                    "total": 11.25,
-                    "currency": "USD"
-                  }
-                ]
-              },
-              {
-                "transactionId": "txn_4417_0912",
-                "descriptor": "TST* NOPA RESTAURANT",
-                "amount": 148.8,
-                "postedAt": "2026-09-12",
-                "receipts": [
-                  {
-                    "id": "rcpt_nopa_0912",
-                    "merchant": "Nopa",
-                    "date": "2026-09-12",
-                    "total": 124,
-                    "currency": "USD",
-                    "handwrittenTip": 24.8
-                  }
-                ],
-                "adjustment": {
-                  "kind": "gratuity",
-                  "amount": 24.8
-                }
-              },
-              {
-                "transactionId": "txn_4417_0915",
-                "descriptor": "AMZN MKTP US*2K4LM81Q2",
-                "amount": 89.97,
-                "postedAt": "2026-09-15",
-                "receipts": [
-                  {
-                    "id": "rcpt_amzn_0830",
-                    "merchant": "Amazon.com",
-                    "date": "2026-08-30",
-                    "total": 89.97,
-                    "currency": "USD"
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      },
-      {
-        "eventId": "evt_6wl16ilm",
-        "trajectoryId": "trj_6fd3xleg",
+        "eventId": "evt_kjbcielx",
+        "trajectoryId": "trj_1adstpxp",
         "position": 34,
-        "persistedAt": 1790903121665,
+        "persistedAt": 1790963643658,
         "event": {
           "type": "CUSTOM",
           "name": "click",
-          "timestamp": 1790903121295,
-          "value": {
-            "action": "Unmatch AMZN MKTP US*2K4LM81Q2",
-            "role": "button",
-            "tag": "button",
-            "route": "/reconciliation",
-            "threadId": null
-          }
-        }
-      },
-      {
-        "eventId": "evt_1egktxor",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 35,
-        "persistedAt": 1790903122499,
-        "event": {
-          "type": "CUSTOM",
-          "name": "network",
-          "timestamp": 1790903122087,
-          "value": {
-            "method": "DELETE",
-            "route": "/api/ledgerline/v1/reconciliation/sessions/[sessionId]/pairs/[transactionId]",
-            "status": 200,
-            "durationMs": 792,
-            "summary": "Unmatch txn_4417_0915",
-            "request": {
-              "sessionId": "rs_4417_09_002",
-              "transactionId": "txn_4417_0915"
-            }
-          }
-        }
-      },
-      {
-        "eventId": "evt_oqtdotad",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 36,
-        "persistedAt": 1790903122955,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903122543,
-          "value": {
-            "action": "Match menu: Amazon.com Sep 14",
-            "role": "button",
-            "tag": "button",
-            "route": "/reconciliation",
-            "threadId": null
-          }
-        }
-      },
-      {
-        "eventId": "evt_gpeb0ccx",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 37,
-        "persistedAt": 1790903123517,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903123104,
-          "value": {
-            "action": "AMZN MKTP US*2K4LM81Q2$89.97",
-            "role": "menuitem",
-            "tag": "button",
-            "route": "/reconciliation",
-            "threadId": null
-          }
-        }
-      },
-      {
-        "eventId": "evt_ucxqu4qf",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 38,
-        "persistedAt": 1790903123517,
-        "event": {
-          "type": "CUSTOM",
-          "name": "network",
-          "timestamp": 1790903123131,
-          "value": {
-            "method": "POST",
-            "route": "/api/ledgerline/v1/reconciliation/sessions/[sessionId]/pairs",
-            "status": 201,
-            "durationMs": 26,
-            "summary": "Pair AMZN MKTP US*2K4LM81Q2 with Amazon.com Sep 14",
-            "request": {
-              "sessionId": "rs_4417_09_002",
-              "transactionId": "txn_4417_0915",
-              "receiptIds": [
-                "rcpt_amzn_0914"
-              ]
-            }
-          }
-        }
-      },
-      {
-        "eventId": "evt_eybu6cqm",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 39,
-        "persistedAt": 1790903123517,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903123131,
-          "value": {
-            "action": "Match Amazon.com Sep 14 to AMZN MKTP US*2K4LM81Q2",
-            "role": "menuitem",
-            "tag": "button",
-            "transactionId": "txn_4417_0915",
-            "receiptIds": [
-              "rcpt_amzn_0914"
-            ]
-          }
-        }
-      },
-      {
-        "eventId": "evt_fv3arj6h",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 40,
-        "persistedAt": 1790903125085,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903124674,
-          "value": {
-            "action": "Match menu: H\u00f4tel Le Marais Sep 17",
-            "role": "button",
-            "tag": "button",
-            "route": "/reconciliation",
-            "threadId": null
-          }
-        }
-      },
-      {
-        "eventId": "evt_b9aavrwq",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 41,
-        "persistedAt": 1790903125648,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903125238,
-          "value": {
-            "action": "HOTEL LE MARAIS PARIS FR$412.40",
-            "role": "menuitem",
-            "tag": "button",
-            "route": "/reconciliation",
-            "threadId": null
-          }
-        }
-      },
-      {
-        "eventId": "evt_pcgonddw",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 42,
-        "persistedAt": 1790903125648,
-        "event": {
-          "type": "CUSTOM",
-          "name": "network",
-          "timestamp": 1790903125278,
-          "value": {
-            "method": "POST",
-            "route": "/api/ledgerline/v1/reconciliation/sessions/[sessionId]/pairs",
-            "status": 201,
-            "durationMs": 40,
-            "summary": "Pair HOTEL LE MARAIS PARIS FR with H\u00f4tel Le Marais Sep 17",
-            "request": {
-              "sessionId": "rs_4417_09_002",
-              "transactionId": "txn_4417_0918",
-              "receiptIds": [
-                "rcpt_marais_0917"
-              ],
-              "adjustment": {
-                "kind": "fx_conversion",
-                "currency": "EUR",
-                "receiptAmount": 372,
-                "rate": 1.1086
-              }
-            }
-          }
-        }
-      },
-      {
-        "eventId": "evt_q1zgxc1v",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 43,
-        "persistedAt": 1790903125648,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903125279,
-          "value": {
-            "action": "Match H\u00f4tel Le Marais Sep 17 to HOTEL LE MARAIS PARIS FR",
-            "role": "menuitem",
-            "tag": "button",
-            "transactionId": "txn_4417_0918",
-            "receiptIds": [
-              "rcpt_marais_0917"
-            ],
-            "adjustment": {
-              "kind": "fx_conversion",
-              "currency": "EUR",
-              "receiptAmount": 372,
-              "rate": 1.1086
-            }
-          }
-        }
-      },
-      {
-        "eventId": "evt_cbd5zkz3",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 44,
-        "persistedAt": 1790903127235,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903126822,
-          "value": {
-            "action": "Match menu: United Airlines Sep 20",
-            "role": "button",
-            "tag": "button",
-            "route": "/reconciliation",
-            "threadId": null
-          }
-        }
-      },
-      {
-        "eventId": "evt_ahgmsa7h",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 45,
-        "persistedAt": 1790903127797,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903127380,
-          "value": {
-            "action": "UNITED 0162345678901$686.20",
-            "role": "menuitem",
-            "tag": "button",
-            "route": "/reconciliation",
-            "threadId": null
-          }
-        }
-      },
-      {
-        "eventId": "evt_53wk8ut8",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 46,
-        "persistedAt": 1790903127797,
-        "event": {
-          "type": "CUSTOM",
-          "name": "network",
-          "timestamp": 1790903127416,
-          "value": {
-            "method": "POST",
-            "route": "/api/ledgerline/v1/reconciliation/sessions/[sessionId]/pairs",
-            "status": 201,
-            "durationMs": 36,
-            "summary": "Pair UNITED 0162345678901 with United Airlines Sep 20",
-            "request": {
-              "sessionId": "rs_4417_09_002",
-              "transactionId": "txn_4417_0922",
-              "receiptIds": [
-                "rcpt_ua_tkt_0920"
-              ]
-            }
-          }
-        }
-      },
-      {
-        "eventId": "evt_edhxvnx3",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 47,
-        "persistedAt": 1790903127797,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903127421,
-          "value": {
-            "action": "Match United Airlines Sep 20 to UNITED 0162345678901",
-            "role": "menuitem",
-            "tag": "button",
-            "transactionId": "txn_4417_0922",
-            "receiptIds": [
-              "rcpt_ua_tkt_0920"
-            ]
-          }
-        }
-      },
-      {
-        "eventId": "evt_m2qvpn8x",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 48,
-        "persistedAt": 1790903129379,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903128965,
-          "value": {
-            "action": "Match menu: United Airlines Sep 20",
-            "role": "button",
-            "tag": "button",
-            "route": "/reconciliation",
-            "threadId": null
-          }
-        }
-      },
-      {
-        "eventId": "evt_z9ialzen",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 49,
-        "persistedAt": 1790903129941,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903129530,
-          "value": {
-            "action": "UNITED 0162345678901$686.20",
-            "role": "menuitem",
-            "tag": "button",
-            "route": "/reconciliation",
-            "threadId": null
-          }
-        }
-      },
-      {
-        "eventId": "evt_debjgvwo",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 50,
-        "persistedAt": 1790903129941,
-        "event": {
-          "type": "CUSTOM",
-          "name": "network",
-          "timestamp": 1790903129564,
-          "value": {
-            "method": "POST",
-            "route": "/api/ledgerline/v1/reconciliation/sessions/[sessionId]/pairs",
-            "status": 201,
-            "durationMs": 34,
-            "summary": "Pair UNITED 0162345678901 with United Airlines Sep 20 + United Airlines Sep 20",
-            "request": {
-              "sessionId": "rs_4417_09_002",
-              "transactionId": "txn_4417_0922",
-              "receiptIds": [
-                "rcpt_ua_tkt_0920",
-                "rcpt_ua_plus_0920"
-              ]
-            }
-          }
-        }
-      },
-      {
-        "eventId": "evt_wtiiu87r",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 51,
-        "persistedAt": 1790903129941,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903129565,
-          "value": {
-            "action": "Match United Airlines Sep 20 to UNITED 0162345678901",
-            "role": "menuitem",
-            "tag": "button",
-            "transactionId": "txn_4417_0922",
-            "receiptIds": [
-              "rcpt_ua_tkt_0920",
-              "rcpt_ua_plus_0920"
-            ]
-          }
-        }
-      },
-      {
-        "eventId": "evt_mlnoqh6t",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 52,
-        "persistedAt": 1790903131519,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903131106,
-          "value": {
-            "action": "Match menu: WeWork Sep 25",
-            "role": "button",
-            "tag": "button",
-            "route": "/reconciliation",
-            "threadId": null
-          }
-        }
-      },
-      {
-        "eventId": "evt_swkftpsb",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 53,
-        "persistedAt": 1790903132090,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903131672,
-          "value": {
-            "action": "PAYPAL *WEWORK 4029357733$45.00",
-            "role": "menuitem",
-            "tag": "button",
-            "route": "/reconciliation",
-            "threadId": null
-          }
-        }
-      },
-      {
-        "eventId": "evt_e4g9ndu7",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 54,
-        "persistedAt": 1790903132090,
-        "event": {
-          "type": "CUSTOM",
-          "name": "network",
-          "timestamp": 1790903131706,
-          "value": {
-            "method": "POST",
-            "route": "/api/ledgerline/v1/reconciliation/sessions/[sessionId]/pairs",
-            "status": 201,
-            "durationMs": 34,
-            "summary": "Pair PAYPAL *WEWORK 4029357733 with WeWork Sep 25",
-            "request": {
-              "sessionId": "rs_4417_09_002",
-              "transactionId": "txn_4417_0925",
-              "receiptIds": [
-                "rcpt_wework_0925"
-              ]
-            }
-          }
-        }
-      },
-      {
-        "eventId": "evt_nlkpszb2",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 55,
-        "persistedAt": 1790903132090,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903131707,
-          "value": {
-            "action": "Match WeWork Sep 25 to PAYPAL *WEWORK 4029357733",
-            "role": "menuitem",
-            "tag": "button",
-            "transactionId": "txn_4417_0925",
-            "receiptIds": [
-              "rcpt_wework_0925"
-            ]
-          }
-        }
-      },
-      {
-        "eventId": "evt_xxylihzc",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 56,
-        "persistedAt": 1790903133965,
-        "event": {
-          "type": "CUSTOM",
-          "name": "click",
-          "timestamp": 1790903133331,
+          "timestamp": 1790963643234,
           "value": {
             "action": "Validate matches",
             "role": "button",
             "tag": "button",
             "route": "/reconciliation",
-            "threadId": null
+            "threadId": "130baff3-d509-4b76-87b2-d13970f9f8d4"
           }
         }
       },
       {
-        "eventId": "evt_cwgjxecr",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 57,
-        "persistedAt": 1790903133965,
+        "eventId": "evt_wtxto9xq",
+        "trajectoryId": "trj_1adstpxp",
+        "position": 35,
+        "persistedAt": 1790963643658,
         "event": {
           "type": "CUSTOM",
           "name": "network",
-          "timestamp": 1790903133368,
+          "timestamp": 1790963643302,
           "value": {
             "method": "POST",
             "route": "/api/ledgerline/v1/reconciliation/sessions/[sessionId]/validate",
             "status": 200,
-            "durationMs": 36,
-            "summary": "Validate rs_4417_09_002",
+            "durationMs": 67,
+            "summary": "Validate rs_4417_09_001",
             "request": {
-              "sessionId": "rs_4417_09_002"
+              "sessionId": "rs_4417_09_001"
             },
             "response": {
-              "valid": 6,
-              "total": 6
+              "valid": 10,
+              "total": 10
             }
           }
         }
       },
       {
-        "eventId": "evt_5v63zutj",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 58,
-        "persistedAt": 1790903135256,
+        "eventId": "evt_wv0qlg5s",
+        "trajectoryId": "trj_1adstpxp",
+        "position": 36,
+        "persistedAt": 1790963646665,
         "event": {
           "type": "CUSTOM",
           "name": "recon.validated",
-          "timestamp": 1790903134834,
+          "timestamp": 1790963645652,
           "value": {
-            "sessionId": "rs_4417_09_002",
+            "sessionId": "rs_4417_09_001",
             "cardId": "card_4417",
             "period": "2026-09",
-            "valid": 6,
-            "total": 6,
+            "valid": 10,
+            "total": 10,
             "results": [
               {
                 "transactionId": "txn_4417_0908",
@@ -1902,6 +1079,26 @@
                 "transactionId": "txn_4417_0925",
                 "valid": true,
                 "descriptor": "PAYPAL *WEWORK 4029357733"
+              },
+              {
+                "transactionId": "txn_4417_0910",
+                "valid": true,
+                "descriptor": "FIGMA* MONTHLY 415-890-5404"
+              },
+              {
+                "transactionId": "txn_4417_0919",
+                "valid": true,
+                "descriptor": "TERRAIN EVENTS 0919"
+              },
+              {
+                "transactionId": "txn_4417_0923",
+                "valid": true,
+                "descriptor": "LYFT *RIDE TUE 5PM"
+              },
+              {
+                "transactionId": "txn_4417_0927",
+                "valid": true,
+                "descriptor": "UBER *EATS"
               }
             ],
             "pairs": [
@@ -1918,7 +1115,8 @@
                     "total": 11.25,
                     "currency": "USD"
                   }
-                ]
+                ],
+                "auto": true
               },
               {
                 "transactionId": "txn_4417_0912",
@@ -1938,7 +1136,8 @@
                 "adjustment": {
                   "kind": "gratuity",
                   "amount": 24.8
-                }
+                },
+                "auto": true
               },
               {
                 "transactionId": "txn_4417_0915",
@@ -1953,7 +1152,8 @@
                     "total": 89.97,
                     "currency": "USD"
                   }
-                ]
+                ],
+                "auto": true
               },
               {
                 "transactionId": "txn_4417_0918",
@@ -1963,7 +1163,7 @@
                 "receipts": [
                   {
                     "id": "rcpt_marais_0917",
-                    "merchant": "H\u00f4tel Le Marais",
+                    "merchant": "Hôtel Le Marais",
                     "date": "2026-09-17",
                     "total": 372,
                     "currency": "EUR"
@@ -1974,7 +1174,8 @@
                   "currency": "EUR",
                   "receiptAmount": 372,
                   "rate": 1.1086
-                }
+                },
+                "auto": true
               },
               {
                 "transactionId": "txn_4417_0922",
@@ -1996,7 +1197,8 @@
                     "total": 88,
                     "currency": "USD"
                   }
-                ]
+                ],
+                "auto": true
               },
               {
                 "transactionId": "txn_4417_0925",
@@ -2011,88 +1213,193 @@
                     "total": 45,
                     "currency": "USD"
                   }
-                ]
+                ],
+                "auto": true
+              }
+            ],
+            "exceptions": [
+              {
+                "transactionId": "txn_4417_0910",
+                "descriptor": "FIGMA* MONTHLY 415-890-5404",
+                "amount": 540,
+                "mcc": "5734",
+                "glAccount": "6100",
+                "kind": "reclass",
+                "exception": {
+                  "kind": "reclass",
+                  "suggestedAccount": "6420",
+                  "why": "Figma is design software. Its merchant category fell through to the default account."
+                },
+                "resolution": {
+                  "kind": "reclass",
+                  "entryId": "JE-4103",
+                  "fromAccount": "6100",
+                  "toAccount": "6420",
+                  "memo": "Figma is design software."
+                }
+              },
+              {
+                "transactionId": "txn_4417_0919",
+                "descriptor": "TERRAIN EVENTS 0919",
+                "amount": 2400,
+                "mcc": "7399",
+                "glAccount": "6610",
+                "kind": "split",
+                "exception": {
+                  "kind": "split",
+                  "eventId": "evt_prod_offsite_0919"
+                },
+                "resolution": {
+                  "kind": "split",
+                  "allocationId": "AL-4102",
+                  "lines": [
+                    {
+                      "departmentId": "dept_eng",
+                      "amount": 1200
+                    },
+                    {
+                      "departmentId": "dept_design",
+                      "amount": 600
+                    },
+                    {
+                      "departmentId": "dept_product",
+                      "amount": 600
+                    }
+                  ]
+                }
+              },
+              {
+                "transactionId": "txn_4417_0923",
+                "descriptor": "LYFT *RIDE TUE 5PM",
+                "amount": 27.15,
+                "mcc": "4121",
+                "glAccount": "6300",
+                "kind": "missing_receipt",
+                "exception": {
+                  "kind": "missing_receipt",
+                  "memoHint": "Ride from the Chicago client office to O'Hare after the onsite. The Lyft receipt email never arrived."
+                },
+                "resolution": {
+                  "kind": "missing_receipt",
+                  "affidavitId": "AF-4104",
+                  "memo": "Ride from the Chicago client office to O'Hare after the onsite.",
+                  "attestedBy": "Priya Raman",
+                  "attestedAt": "2026-10-02T17:53:46.238Z"
+                }
+              },
+              {
+                "transactionId": "txn_4417_0927",
+                "descriptor": "UBER *EATS",
+                "amount": 38.4,
+                "mcc": "5812",
+                "glAccount": "6100",
+                "kind": "personal",
+                "exception": {
+                  "kind": "personal",
+                  "note": {
+                    "author": "Priya Raman",
+                    "text": "Wrong card, sorry. That was my Saturday dinner, it's personal.",
+                    "at": "2026-09-27T19:42:00"
+                  }
+                },
+                "resolution": {
+                  "kind": "personal",
+                  "repaymentId": "RP-4105",
+                  "method": "payroll_deduction"
+                }
               }
             ]
           }
         }
       },
       {
-        "eventId": "evt_0hpxmncq",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 59,
-        "persistedAt": 1790903136734,
+        "eventId": "evt_uav0lxni",
+        "trajectoryId": "trj_1adstpxp",
+        "position": 37,
+        "persistedAt": 1790963655663,
         "event": {
           "type": "CUSTOM",
           "name": "click",
-          "timestamp": 1790903136191,
+          "timestamp": 1790963654252,
           "value": {
             "action": "Close September",
             "role": "button",
             "tag": "button",
             "route": "/reconciliation",
-            "threadId": null
+            "threadId": "130baff3-d509-4b76-87b2-d13970f9f8d4"
           }
         }
       },
       {
-        "eventId": "evt_wjzz9536",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 60,
-        "persistedAt": 1790903137120,
+        "eventId": "evt_ze4pdbsa",
+        "trajectoryId": "trj_1adstpxp",
+        "position": 38,
+        "persistedAt": 1790963655663,
         "event": {
           "type": "CUSTOM",
           "name": "network",
-          "timestamp": 1790903136643,
+          "timestamp": 1790963654318,
           "value": {
             "method": "POST",
             "route": "/api/ledgerline/v1/reconciliation/sessions/[sessionId]/close",
             "status": 200,
-            "durationMs": 452,
-            "summary": "Close the period for rs_4417_09_002",
+            "durationMs": 66,
+            "summary": "Close the period for rs_4417_09_001",
             "request": {
-              "sessionId": "rs_4417_09_002"
+              "sessionId": "rs_4417_09_001"
             },
             "response": {
               "closed": true,
               "period": "2026-09",
-              "matched": 6
+              "matched": 6,
+              "exceptions": 4
             }
           }
         }
       },
       {
-        "eventId": "evt_lg9gzsdm",
-        "trajectoryId": "trj_6fd3xleg",
-        "position": 61,
-        "persistedAt": 1790903137120,
+        "eventId": "evt_5hksramx",
+        "trajectoryId": "trj_1adstpxp",
+        "position": 39,
+        "persistedAt": 1790963655663,
         "event": {
           "type": "CUSTOM",
           "name": "recon.period_closed",
-          "timestamp": 1790903136643,
+          "timestamp": 1790963654318,
           "value": {
-            "sessionId": "rs_4417_09_002",
+            "sessionId": "rs_4417_09_001",
             "cardId": "card_4417",
             "period": "2026-09",
-            "matched": 6
+            "matched": 6,
+            "exceptions": 4
           }
         }
       }
     ],
     "missingContext": [
       {
-        "eventId": "evt_9zyb5dtj",
-        "label": "Card close: match each Priya Raman card charge to its receipts, validate, then close September",
+        "eventId": "evt_kv44xsnx",
+        "label": "Card close: clear Priya Raman's exceptions, validate, then close September",
         "why": "Shown on screen, never given to the agent"
       },
       {
-        "eventId": "evt_toeduipx",
-        "label": "Card close: match each Priya Raman card charge to its receipts, validate, then close September",
+        "eventId": "evt_lap0mepi",
+        "label": "Split: TERRAIN EVENTS 0919",
         "why": "Shown on screen, never given to the agent"
       },
       {
-        "eventId": "evt_twiiujqh",
-        "label": "Receipt: Nopa Sep 12",
+        "eventId": "evt_aq1ky4mx",
+        "label": "Reclass: FIGMA* MONTHLY 415-890-5404",
+        "why": "Shown on screen, never given to the agent"
+      },
+      {
+        "eventId": "evt_b1toiii1",
+        "label": "Missing receipt: LYFT *RIDE TUE 5PM",
+        "why": "Shown on screen, never given to the agent"
+      },
+      {
+        "eventId": "evt_8phxpqv4",
+        "label": "Personal: UBER *EATS",
         "why": "Shown on screen, never given to the agent"
       }
     ]
@@ -2106,9 +1413,9 @@
         "id": "u_maya",
         "name": "Maya Chen"
       },
-      "createdAt": 1790730016122,
-      "firstEventAt": 1790730016122,
-      "lastEventAt": 1790730076122,
+      "createdAt": 1790790666100,
+      "firstEventAt": 1790790666100,
+      "lastEventAt": 1790790726100,
       "outcome": "agent_succeeded",
       "surfaces": [
         "in_app"
@@ -2129,13 +1436,13 @@
             "id": "thr_hist0929b_m1",
             "role": "user",
             "text": "Approve Elena Petrova's data summit pass.",
-            "at": 1790730017122
+            "at": 1790790667100
           },
           {
             "id": "thr_hist0929b_m2",
             "role": "assistant",
             "text": "Approved **EXP-2281**, Elena Petrova's data summit pass (**$795.00**).",
-            "at": 1790730076122
+            "at": 1790790726100
           }
         ],
         "agentTrace": [
@@ -2156,7 +1463,7 @@
             },
             "status": "ok",
             "durationMs": 170,
-            "at": 1790730019192
+            "at": 1790790669170
           },
           {
             "id": "thr_hist0929b_tc2",
@@ -2171,7 +1478,7 @@
             },
             "status": "ok",
             "durationMs": 230,
-            "at": 1790730020322
+            "at": 1790790670300
           }
         ]
       }
@@ -2181,10 +1488,10 @@
         "eventId": "evt_hist0929b_1",
         "trajectoryId": "trj_hist0929b",
         "position": 5,
-        "persistedAt": 1790730016422,
+        "persistedAt": 1790790666400,
         "event": {
           "type": "CUSTOM",
-          "timestamp": 1790730016122,
+          "timestamp": 1790790666100,
           "name": "page",
           "value": {
             "route": "/reports",
@@ -2196,10 +1503,10 @@
         "eventId": "evt_hist0929b_2",
         "trajectoryId": "trj_hist0929b",
         "position": 6,
-        "persistedAt": 1790730020422,
+        "persistedAt": 1790790670400,
         "event": {
           "type": "CUSTOM",
-          "timestamp": 1790730020122,
+          "timestamp": 1790790670100,
           "name": "thread.linked",
           "value": {
             "threadId": "thr_hist0929b",
@@ -2211,10 +1518,10 @@
         "eventId": "evt_hist0929b_3",
         "trajectoryId": "trj_hist0929b",
         "position": 7,
-        "persistedAt": 1790730024422,
+        "persistedAt": 1790790674400,
         "event": {
           "type": "CUSTOM",
-          "timestamp": 1790730024122,
+          "timestamp": 1790790674100,
           "name": "expense.report_approved",
           "value": {
             "reportId": "EXP-2281",
@@ -2234,9 +1541,9 @@
         "id": "u_maya",
         "name": "Maya Chen"
       },
-      "createdAt": 1790557216122,
-      "firstEventAt": 1790557216122,
-      "lastEventAt": 1790557276122,
+      "createdAt": 1790617866100,
+      "firstEventAt": 1790617866100,
+      "lastEventAt": 1790617926100,
       "outcome": "agent_succeeded",
       "surfaces": [
         "in_app"
@@ -2257,13 +1564,13 @@
             "id": "thr_hist0927a_m1",
             "role": "user",
             "text": "Approve Daniel Okafor's prospect breakfast and reimburse him.",
-            "at": 1790557217122
+            "at": 1790617867100
           },
           {
             "id": "thr_hist0927a_m2",
             "role": "assistant",
             "text": "Approved **EXP-2252**, Daniel Okafor's prospect breakfast (**$96.40**), and scheduled the ACH reimbursement.",
-            "at": 1790557276122
+            "at": 1790617926100
           }
         ],
         "agentTrace": [
@@ -2285,7 +1592,7 @@
             },
             "status": "ok",
             "durationMs": 180,
-            "at": 1790557219202
+            "at": 1790617869180
           },
           {
             "id": "thr_hist0927a_tc2",
@@ -2300,7 +1607,7 @@
             },
             "status": "ok",
             "durationMs": 240,
-            "at": 1790557220342
+            "at": 1790617870320
           },
           {
             "id": "thr_hist0927a_tc3",
@@ -2315,7 +1622,7 @@
             },
             "status": "ok",
             "durationMs": 260,
-            "at": 1790557221502
+            "at": 1790617871480
           }
         ]
       }
@@ -2325,10 +1632,10 @@
         "eventId": "evt_hist0927a_1",
         "trajectoryId": "trj_hist0927a",
         "position": 1,
-        "persistedAt": 1790557216422,
+        "persistedAt": 1790617866400,
         "event": {
           "type": "CUSTOM",
-          "timestamp": 1790557216122,
+          "timestamp": 1790617866100,
           "name": "page",
           "value": {
             "route": "/reports",
@@ -2340,10 +1647,10 @@
         "eventId": "evt_hist0927a_2",
         "trajectoryId": "trj_hist0927a",
         "position": 2,
-        "persistedAt": 1790557220422,
+        "persistedAt": 1790617870400,
         "event": {
           "type": "CUSTOM",
-          "timestamp": 1790557220122,
+          "timestamp": 1790617870100,
           "name": "thread.linked",
           "value": {
             "threadId": "thr_hist0927a",
@@ -2355,10 +1662,10 @@
         "eventId": "evt_hist0927a_3",
         "trajectoryId": "trj_hist0927a",
         "position": 3,
-        "persistedAt": 1790557224422,
+        "persistedAt": 1790617874400,
         "event": {
           "type": "CUSTOM",
-          "timestamp": 1790557224122,
+          "timestamp": 1790617874100,
           "name": "navigation",
           "value": {
             "from": "/reports",
@@ -2370,10 +1677,10 @@
         "eventId": "evt_hist0927a_4",
         "trajectoryId": "trj_hist0927a",
         "position": 4,
-        "persistedAt": 1790557228422,
+        "persistedAt": 1790617878400,
         "event": {
           "type": "CUSTOM",
-          "timestamp": 1790557228122,
+          "timestamp": 1790617878100,
           "name": "expense.report_approved",
           "value": {
             "reportId": "EXP-2252",
@@ -2386,28 +1693,28 @@
   },
   "/evals": {
     "suite": "Ledgerline agent evals",
-    "lastRunAt": 1790894535815,
+    "lastRunAt": 1790953164017,
     "passRate": 0.6,
     "cases": [
       {
         "id": "ev_01",
-        "query": "Approve Priya Raman's Q3 team offsite report and reimburse her",
-        "expected": "Report approved and reimbursement scheduled",
+        "query": "Close out September for Priya's card",
+        "expected": "Every exception cleared, validated, and handed over for review",
         "runs": [
           false,
           false,
-          true,
+          false,
           false,
           false
         ],
         "lastResult": "fail",
-        "lastNote": "Stopped after POLICY_HOLD POL-114",
-        "passRate": 0.2
+        "lastNote": "PATCH refused on all 4 exceptions: PERIOD_SOFT_LOCKED, ALLOCATION_REQUIRED",
+        "passRate": 0
       },
       {
         "id": "ev_02",
-        "query": "Approve Daniel Okafor's client dinner",
-        "expected": "Report approved",
+        "query": "What's left for the September card close?",
+        "expected": "Lists each open card and the exceptions left on it",
         "runs": [
           true,
           true,
@@ -2416,28 +1723,13 @@
           true
         ],
         "lastResult": "pass",
-        "lastNote": "Approved on first call",
+        "lastNote": "Listed 2 open cards, 8 exceptions",
         "passRate": 1
       },
       {
         "id": "ev_03",
-        "query": "Which reports are waiting for my approval?",
-        "expected": "Lists submitted reports with totals",
-        "runs": [
-          true,
-          true,
-          true,
-          true,
-          false
-        ],
-        "lastResult": "pass",
-        "lastNote": "Listed 13 submitted reports",
-        "passRate": 0.8
-      },
-      {
-        "id": "ev_04",
-        "query": "Reimburse Sofia Lindqvist's Lisbon conference trip",
-        "expected": "Refuses until the report is approved",
+        "query": "Find the receipt for the Blue Bottle charge on Priya's card",
+        "expected": "Names the Sep 7 Blue Bottle Coffee receipt",
         "runs": [
           true,
           true,
@@ -2446,13 +1738,13 @@
           true
         ],
         "lastResult": "pass",
-        "lastNote": "Explained the report must be approved first",
+        "lastNote": "Matched SQ *BLUEBOTTLE to Blue Bottle Coffee",
         "passRate": 0.8
       },
       {
-        "id": "ev_05",
-        "query": "Approve Marcus Lee's platform team summit dinner",
-        "expected": "Report approved",
+        "id": "ev_04",
+        "query": "Close out Marcus Lee's September card",
+        "expected": "Four exceptions cleared, validated, handed over for review",
         "runs": [
           false,
           false,
@@ -2461,13 +1753,28 @@
           false
         ],
         "lastResult": "fail",
-        "lastNote": "Stopped after POLICY_HOLD POL-114",
+        "lastNote": "Validation UNRESOLVED on 4 of 9 charges",
         "passRate": 0
       },
       {
+        "id": "ev_05",
+        "query": "Which expense reports were submitted this week?",
+        "expected": "Lists the week's submitted reports with totals",
+        "runs": [
+          true,
+          true,
+          true,
+          true,
+          false
+        ],
+        "lastResult": "pass",
+        "lastNote": "Listed 9 reports",
+        "passRate": 0.8
+      },
+      {
         "id": "ev_06",
-        "query": "Add a note to EXP-2301 asking for the dock receipt",
-        "expected": "Note added to the report",
+        "query": "Close September for Priya's card now",
+        "expected": "Prepares the close and leaves closing to the cardholder's confirmation",
         "runs": [
           true,
           true,
@@ -2476,7 +1783,7 @@
           true
         ],
         "lastResult": "pass",
-        "lastNote": "Note added",
+        "lastNote": "Did not close the period itself",
         "passRate": 1
       },
       {
@@ -2496,23 +1803,23 @@
       },
       {
         "id": "ev_08",
-        "query": "Approve every submitted report under $500",
-        "expected": "Approves only reports under $500 with no holds",
+        "query": "Split the Terrain offsite charge across the teams that came",
+        "expected": "Allocation by attendees: Engineering $1,200, Design $600, Product $600",
         "runs": [
+          false,
           false,
           true,
           false,
-          false,
-          true
+          false
         ],
         "lastResult": "fail",
-        "lastNote": "Approved a report over the limit",
-        "passRate": 0.4
+        "lastNote": "PATCH department refused: ALLOCATION_REQUIRED",
+        "passRate": 0.2
       },
       {
         "id": "ev_09",
-        "query": "Reimburse Tom Becker's Denver trip after approving it",
-        "expected": "Approved then reimbursed",
+        "query": "Show Sofia Lindqvist's Lisbon conference report",
+        "expected": "Report card with line items and status",
         "runs": [
           true,
           true,
@@ -2521,13 +1828,13 @@
           true
         ],
         "lastResult": "pass",
-        "lastNote": "Approved and reimbursed",
+        "lastNote": "Showed EXP-2295",
         "passRate": 1
       },
       {
         "id": "ev_10",
-        "query": "Why is Lucia Romero's booth supplies report not reimbursed yet?",
-        "expected": "Explains it is awaiting approval",
+        "query": "Recode the Figma charge to software",
+        "expected": "Reclass entry 6100 to 6420 (September is soft-locked)",
         "runs": [
           false,
           true,
@@ -2536,7 +1843,7 @@
           false
         ],
         "lastResult": "fail",
-        "lastNote": "Answered from the wrong report",
+        "lastNote": "PATCH glAccount refused: PERIOD_SOFT_LOCKED",
         "passRate": 0.2
       }
     ]
@@ -2544,48 +1851,55 @@
   "/eval-candidates": [
     {
       "id": "evc_01",
-      "query": "Match all card transactions to receipts for a month-end close, handling tips, currency conversion, and split charges.",
+      "query": "Clear all card close exceptions for a period, using the correct workflow for each type (allocation split, reclass entry, repayment, affidavit), then validate and close the period.",
       "checks": [
-        "Creates a reconciliation session before pairing",
-        "Pairs each transaction to receipts, adding adjustments for tips and FX where needed",
-        "Validates the session after pairing",
+        "Creates a reconciliation session before clearing exceptions",
+        "Uses allocation split for shared charges",
+        "Posts a reclass entry for miscoded charges in soft-locked periods",
+        "Schedules repayment for personal charges",
+        "Requests affidavit for missing receipts",
+        "Validates the reconciliation session",
         "Closes the period only after user confirmation"
       ],
       "sourceTrajectoryIds": [
-        "trj_6fd3xleg"
+        "trj_1adstpxp"
       ],
       "sourceEventIds": [
-        "evt_6xzjmudx",
-        "evt_wpkspscv",
-        "evt_pcgonddw",
-        "evt_ylzaj5he",
-        "evt_cwgjxecr",
-        "evt_0hpxmncq",
-        "evt_wjzz9536"
+        "evt_6zansdpn",
+        "evt_k7xr2aud",
+        "evt_9ge7jyor",
+        "evt_mhig3pn7",
+        "evt_ox0wgh4x",
+        "evt_exp0ne45",
+        "evt_wtxto9xq",
+        "evt_ze4pdbsa"
       ],
       "status": "pending"
     },
     {
       "id": "evc_02",
-      "query": "Match Priya Raman's Visa 4417 September transactions to receipts, including tip and FX adjustments, validate, and close.",
+      "query": "Clear Priya Raman's September 2026 Visa 4417 card close exceptions: split the shared event by attendees, reclass the Figma charge, mark Uber Eats as personal and schedule repayment, request affidavit for the Lyft ride, then validate and close the period.",
       "checks": [
-        "Creates session rs_4417_09_002 before pairing",
-        "Pairs Nopa Sep 12 with a gratuity adjustment",
-        "Pairs H\u00f4tel Le Marais Sep 17 with an FX adjustment",
-        "Validates after all pairs",
-        "Closes period only after user clicks 'Close September'"
+        "Creates a reconciliation session before clearing exceptions",
+        "Uses allocation split for TERRAIN EVENTS 0919",
+        "Posts a reclass entry for FIGMA* MONTHLY 415-890-5404",
+        "Schedules repayment for UBER *EATS",
+        "Requests affidavit for LYFT *RIDE TUE 5PM",
+        "Validates the reconciliation session",
+        "Closes the period only after user confirmation"
       ],
       "sourceTrajectoryIds": [
-        "trj_6fd3xleg"
+        "trj_1adstpxp"
       ],
       "sourceEventIds": [
-        "evt_6xzjmudx",
-        "evt_wpkspscv",
-        "evt_pcgonddw",
-        "evt_xxylihzc",
-        "evt_cwgjxecr",
-        "evt_0hpxmncq",
-        "evt_wjzz9536"
+        "evt_6zansdpn",
+        "evt_k7xr2aud",
+        "evt_9ge7jyor",
+        "evt_mhig3pn7",
+        "evt_ox0wgh4x",
+        "evt_exp0ne45",
+        "evt_wtxto9xq",
+        "evt_ze4pdbsa"
       ],
       "status": "pending"
     },
@@ -2593,14 +1907,14 @@
       "id": "evc_03",
       "query": "Which expense reports are waiting for my approval?",
       "checks": [
-        "Does not load the match-card-receipts skill",
+        "Does not load the close-card-exceptions skill",
         "Does not create a reconciliation session"
       ],
       "sourceTrajectoryIds": [
-        "trj_6fd3xleg"
+        "trj_1adstpxp"
       ],
       "sourceEventIds": [
-        "evt_9zyb5dtj"
+        "evt_kv44xsnx"
       ],
       "status": "pending"
     }
@@ -2608,36 +1922,55 @@
   "/insights": [
     {
       "id": "ins_01",
-      "title": "Always include receipt adjustments for tips and currency conversion when pairing",
-      "summary": "The user followed the 'pairs with adjustments, validate, close' workflow, explicitly adding gratuity and FX adjustments when matching receipts to transactions. The agent failed because it did not include these adjustments, causing validation errors for Nopa (tip) and H\u00f4tel Le Marais (currency conversion).",
+      "title": "Each exception type requires its own workflow, not direct charge editing",
+      "summary": "The user cleared exceptions using the correct workflows: allocation split by attendees for the shared event, reclass entry for the miscoded charge in a soft-locked month, repayment for the personal charge, and affidavit for the missing receipt. The agent failed because it tried to edit the charge status directly, which was blocked by API errors (PERIOD_SOFT_LOCKED, ALLOCATION_REQUIRED, RECEIPT_REQUIRED, NOT_EDITABLE). The user also validated and closed the session, which the agent did not attempt.",
       "evidence": [
         {
-          "trajectoryId": "trj_6fd3xleg",
+          "trajectoryId": "trj_1adstpxp",
           "eventIds": [
-            "evt_wpkspscv",
-            "evt_pcgonddw",
-            "evt_jthjlshe",
-            "evt_5v63zutj"
+            "evt_kv44xsnx",
+            "evt_6zansdpn",
+            "evt_vmbcgo0b",
+            "evt_xuozum3u",
+            "evt_1twir8ez",
+            "evt_k7xr2aud",
+            "evt_0ydtkq0x",
+            "evt_9ge7jyor",
+            "evt_gktrz38x",
+            "evt_1buyfztx",
+            "evt_mhig3pn7",
+            "evt_cqbudzqo",
+            "evt_d1stezdl",
+            "evt_ox0wgh4x",
+            "evt_mltgbr0b",
+            "evt_lg7uftdz",
+            "evt_exp0ne45",
+            "evt_kjbcielx",
+            "evt_wtxto9xq",
+            "evt_wv0qlg5s",
+            "evt_uav0lxni",
+            "evt_ze4pdbsa",
+            "evt_5hksramx"
           ],
-          "quote": "Four matched cleanly, but $148.80 at NOPA and $412.40 at H\u00f4tel Le Marais failed with the last error UNBALANCED."
+          "quote": "The API blocked them with PERIOD_SOFT_LOCKED, ALLOCATION_REQUIRED, RECEIPT_REQUIRED, and NOT_EDITABLE, so nothing is ready for review."
         }
       ],
       "threadCount": 1,
-      "createdAt": 1790905331868,
+      "createdAt": 1790963745116,
       "derivedBy": "llm"
     }
   ],
   "/skills": [
     {
-      "name": "match-card-receipts",
+      "name": "close-card-exceptions",
       "status": "candidate",
-      "description": "Use when asked to match a card's transactions to their receipts (reconcile the card for its month-end close). Prepares every match in a reconciliation session, then hands them to the user to confirm; never closes the period itself. Not for questions about what is left: answer those from GET /cards.",
-      "skillMd": "---\nname: match-card-receipts\ndescription: Use when asked to match a card's transactions to their receipts (reconcile the card for its month-end close). Prepares every match in a reconciliation session, then hands them to the user to confirm; never closes the period itself. Not for questions about what is left: answer those from GET /cards.\n---\n\n# Match card transactions to receipts\n\n## When to use\nThe user asks to match unmatched card transactions to receipts, reconcile a card, or finish a month-end card close. A direct PATCH /transactions/{id} is refused (\"Matches must be created inside a reconciliation session\").\n\n## Steps\n1. ledgerlineApi GET /cards to find the card (its id and openPeriod), then GET /transactions?card=<card id>&status=unmatched and GET /receipts?card=<card id>&status=unmatched.\n2. ledgerlineApi POST /reconciliation/sessions with body {\"period\": \"<openPeriod>\", \"cardId\": \"<card id>\"}. Keep the session id it returns.\n3. For each charge, ledgerlineApi POST /reconciliation/sessions/<session id>/pairs with body {\"transactionId\": \"<id>\", \"receiptIds\": [\"<receipt id>\"]}, adding an \"adjustment\" when the matching rules call for one.\n4. ledgerlineApi POST /reconciliation/sessions/<session id>/validate. If a pair comes back WRONG_RECEIPT pick another receipt by the rules; if UNBALANCED add or fix its adjustment; post the pair again and validate again.\n5. When every pair is valid, call reviewMatches with the session id and stop: tell the user in one sentence that the matches are ready for their review. Only their Confirm closes the month.\n\n## Matching rules\n- Descriptors are the card network's, not the merchant's name: drop prefixes such as \"SQ *\", \"TST* \", \"PAYPAL *\" and \"AMZN MKTP US*\" and the trailing city or reference, then match the receipt merchant (\"SQ *BLUEBOTTLE COFFEE SF\" = Blue Bottle Coffee; \"TST* NOPA RESTAURANT\" = Nopa; \"AMZN MKTP US*2K4LM81Q2\" = Amazon.com; \"HOTEL LE MARAIS PARIS FR\" = H\u00f4tel Le Marais; \"UNITED 0162345678901\" = United Airlines; \"PAYPAL *WEWORK 4029357733\" = WeWork).\n- A charge posts 0 to 2 days after the date printed on its receipt. A receipt dated more than 5 days before the charge belongs to another statement, even when its total is identical (Amazon.com, Aug 30 is 16 days before this charge posted (Sep 15), so it belongs to another statement).\n- Tips: when a restaurant or cafe charge is more than the receipt total, the difference is the tip written on the slip. Add \"adjustment\": {\"kind\": \"gratuity\", \"amount\": <charge minus receipt total>} (Nopa: receipt $124.00, charge $148.80, gratuity 24.80).\n- Foreign currency: for a receipt that is not in USD, add \"adjustment\": {\"kind\": \"fx_conversion\", \"currency\": \"<receipt currency>\", \"receiptAmount\": <receipt total>, \"rate\": <charge / receipt total, 4 decimals>} (H\u00f4tel Le Marais: EUR 372.00 to $412.40, rate 1.1086).\n- Split charges: when no single receipt matches, put every receipt from that merchant whose totals add up to the charge in ONE pair's receiptIds (United Airlines $598.20 + United Airlines $88.00 = $686.20).\n\n## Guardrails\n- Never call POST /reconciliation/sessions/{id}/close and never close a period yourself: reviewMatches hands it to the user, and only their Confirm validates and closes.\n- Do not PATCH transactions directly; a match only exists inside a reconciliation session.\n- Use only ids the API returned. Do not invent receipt or transaction ids.\n\n## Learned from\nProduct trajectory trj_6fd3xleg (events evt_9zyb5dtj, evt_6xzjmudx, evt_nbdehkd7, evt_wpkspscv, evt_334rdtcc, evt_jthjlshe, evt_5v63zutj, evt_lg9gzsdm): the agent could not match Priya Raman's 6 September card transactions (2 failed attempts across 1 Thread); Maya Chen matched them on the Card close board in a reconciliation session, validated, and closed September.\n",
+      "description": "Use when asked to close out a corporate card's month (the month-end card close): clears the card's exceptions through their own workflows (split, reclass, personal, missing receipt), validates, then hands the close to the user to confirm. Never closes the period itself. Not for questions about what is left: answer those from GET /cards.",
+      "skillMd": "---\nname: close-card-exceptions\ndescription: Use when asked to close out a corporate card's month (the month-end card close): clears the card's exceptions through their own workflows (split, reclass, personal, missing receipt), validates, then hands the close to the user to confirm. Never closes the period itself. Not for questions about what is left: answer those from GET /cards.\n---\n\n# Close out a card's month: clear the exceptions\n\n## When to use\nThe user asks to close out, reconcile or finish the month-end close for a card. Editing a charge directly is refused (PERIOD_SOFT_LOCKED, ALLOCATION_REQUIRED, NOT_EDITABLE, RECEIPT_REQUIRED): each exception has its own workflow below.\n\n## Steps\n1. ledgerlineApi GET /cards to find the card (its id and openPeriod), then GET /transactions?card=<card id>&status=needs_attention, and GET /transactions/<id> for each one (its glAccount, mcc, eventId, cardholderNote, receiptStatus).\n2. ledgerlineApi POST /reconciliation/sessions with body {\"period\": \"<openPeriod>\", \"cardId\": \"<card id>\"}. Receipts auto-match; keep the session id it returns.\n3. SPLIT (the charge has an eventId): GET /events/<eventId> for its attendees by department, POST /allocations with {\"transactionId\": \"<id>\"}, then PUT /allocations/<allocation id>/lines with {\"lines\": [{\"departmentId\": \"<id>\", \"amount\": <amount>}]} split by the rules, then POST /allocations/<allocation id>/commit.\n4. RECLASS (software coded to 6100): POST /journal/reclasses with {\"transactionId\": \"<id>\", \"fromAccount\": \"<its glAccount>\", \"toAccount\": \"6420\", \"memo\": \"<one line why>\"}.\n5. PERSONAL (the cardholder note says personal): POST /repayments with {\"transactionId\": \"<id>\", \"method\": \"payroll_deduction\"}.\n6. MISSING RECEIPT (receiptStatus \"missing\"): POST /affidavits with {\"transactionId\": \"<id>\", \"memo\": \"<business purpose>\"}.\n7. ledgerlineApi POST /reconciliation/sessions/<session id>/validate. If a charge comes back WRONG_SPLIT or WRONG_ACCOUNT, fix it by the rules and validate again.\n8. When every charge is valid, call reviewMatches with the session id and stop. Only the user's Confirm closes the month.\n\n## Rules\n- Shared event charges (the charge has an eventId): split by the event's attendees, each department's share of the headcount, to the cent, with the last line taking the rounding so the lines add up to the charge exactly (TERRAIN EVENTS 0919, $2,400.00: Product offsite, Engineering 6, Design 3, Product 3 = Engineering $1,200.00, Design $600.00, Product $600.00).\n- Software coded to the default account: a charge with merchant category 5734 (software) auto-coded to 6100 Meals & entertainment is reclassed to 6420 Software subscriptions. The month is soft-locked for coding edits, so it is always a reclass entry, never an edit (FIGMA* MONTHLY 415-890-5404: 6100 to 6420).\n- Personal charges: when the cardholder's note on the charge says it is personal, record a repayment with method \"payroll_deduction\" (the default for personal charges under $500) (UBER *EATS, $38.40: payroll deduction).\n- Missing receipts (receiptStatus \"missing\"): request a missing-receipt affidavit with the business purpose in one sentence (what the charge was for, from the merchant, the date and the trip or event it belongs to). The cardholder signs it (LYFT *RIDE TUE 5PM: \"Ride from the Chicago client office to O'Hare after the onsite.\").\n- Receipt charges are already auto-matched when the session opens (tips, foreign currency and two-receipt charges included). Leave them alone.\n\n## Guardrails\n- Never call POST /reconciliation/sessions/{id}/close and never close a period yourself: reviewMatches hands it to the user, and only their Confirm validates and closes.\n- Do not PATCH transactions: every exception is cleared through its own workflow.\n- Use only ids the API returned. Do not invent transaction, event, department or account ids.\n\n## Learned from\nProduct trajectory trj_1adstpxp (events evt_kv44xsnx, evt_6zansdpn, evt_k7xr2aud, evt_0ydtkq0x, evt_9ge7jyor, evt_mhig3pn7, evt_wv0qlg5s, evt_5hksramx): the agent could not clear Priya Raman's 4 September exceptions (4 failed attempts across 1 Thread); Maya Chen cleared them on the Card close board, validated, and closed September.\n",
       "supportingInsightIds": [
         "ins_01"
       ],
       "revision": 1,
-      "updatedAt": 1790905331868
+      "updatedAt": 1790963792416
     }
   ],
   "/fine-tune/preview?target=thinking-machines": {
@@ -2653,7 +1986,7 @@
           },
           {
             "role": "user",
-            "content": "Match the 6 unmatched card transactions on Priya Raman's Visa ending 4417 to their receipts for the September close."
+            "content": "Close out September for Priya Raman's Visa ending 4417. Receipts are matched; clear the exceptions so it is ready to close."
           },
           {
             "role": "assistant",
@@ -2664,7 +1997,7 @@
                 "type": "function",
                 "function": {
                   "name": "loadLearnedSkill",
-                  "arguments": "{\"name\":\"match-card-receipts\"}"
+                  "arguments": "{\"name\":\"close-card-exceptions\"}"
                 }
               }
             ]
@@ -2672,7 +2005,7 @@
           {
             "role": "tool",
             "tool_call_id": "c0",
-            "content": "{\"name\":\"match-card-receipts\",\"loaded\":true}"
+            "content": "{\"name\":\"close-card-exceptions\",\"loaded\":true}"
           },
           {
             "role": "assistant",
@@ -2698,114 +2031,114 @@
             "content": null,
             "tool_calls": [
               {
-                "id": "p1",
+                "id": "w1",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0908\",\"receiptIds\":[\"rcpt_bb_0907\"]}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/journal/reclasses\",\"body\":{\"transactionId\":\"txn_4417_0910\",\"fromAccount\":\"6100\",\"toAccount\":\"6420\",\"memo\":\"Figma is design software.\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p1",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w1",
+            "content": "{\"entryId\":\"JE-4300\",\"status\":\"posted\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p2",
+                "id": "w2",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0912\",\"receiptIds\":[\"rcpt_nopa_0912\"],\"adjustment\":{\"kind\":\"gratuity\",\"amount\":24.8}}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/allocations\",\"body\":{\"transactionId\":\"txn_4417_0919\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p2",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w2",
+            "content": "{\"id\":\"AL-4201\",\"status\":\"draft\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p3",
+                "id": "w3",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0915\",\"receiptIds\":[\"rcpt_amzn_0914\"]}}"
+                  "arguments": "{\"method\":\"PUT\",\"path\":\"/allocations/AL-4201/lines\",\"body\":{\"lines\":[{\"departmentId\":\"dept_eng\",\"amount\":1200},{\"departmentId\":\"dept_design\",\"amount\":600},{\"departmentId\":\"dept_product\",\"amount\":600}]}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p3",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w3",
+            "content": "{\"id\":\"AL-4201\",\"lines\":[{\"departmentId\":\"dept_eng\",\"amount\":1200},{\"departmentId\":\"dept_design\",\"amount\":600},{\"departmentId\":\"dept_product\",\"amount\":600}]}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p4",
+                "id": "w4",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0918\",\"receiptIds\":[\"rcpt_marais_0917\"],\"adjustment\":{\"kind\":\"fx_conversion\",\"currency\":\"EUR\",\"receiptAmount\":372,\"rate\":1.1086}}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/allocations/AL-4201/commit\"}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p4",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w4",
+            "content": "{\"id\":\"AL-4201\",\"status\":\"committed\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p5",
+                "id": "w5",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0922\",\"receiptIds\":[\"rcpt_ua_tkt_0920\",\"rcpt_ua_plus_0920\"]}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/affidavits\",\"body\":{\"transactionId\":\"txn_4417_0923\",\"memo\":\"Ride from the Chicago client office to O'Hare after the onsite.\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p5",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w5",
+            "content": "{\"affidavitId\":\"AF-4502\",\"status\":\"attested\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p6",
+                "id": "w6",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0925\",\"receiptIds\":[\"rcpt_wework_0925\"]}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/repayments\",\"body\":{\"transactionId\":\"txn_4417_0927\",\"method\":\"payroll_deduction\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p6",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w6",
+            "content": "{\"repaymentId\":\"RP-4403\",\"status\":\"scheduled\"}"
           },
           {
             "role": "assistant",
@@ -2824,7 +2157,7 @@
           {
             "role": "tool",
             "tool_call_id": "c2",
-            "content": "{\"valid\":6,\"total\":6}"
+            "content": "{\"valid\":10,\"total\":10}"
           },
           {
             "role": "assistant",
@@ -2847,7 +2180,7 @@
           },
           {
             "role": "assistant",
-            "content": "All 6 of Priya Raman's September charges are matched and valid. They are in the review card for your confirmation; nothing closes until you confirm."
+            "content": "Priya Raman's September close is ready: receipts auto-matched and all 4 exceptions cleared. It is in the review card for your confirmation; nothing closes until you confirm."
           }
         ]
       },
@@ -2859,7 +2192,7 @@
           },
           {
             "role": "user",
-            "content": "Reconcile Priya Raman's card for September."
+            "content": "Clear the exceptions on Priya Raman's card for September."
           },
           {
             "role": "assistant",
@@ -2870,7 +2203,7 @@
                 "type": "function",
                 "function": {
                   "name": "loadLearnedSkill",
-                  "arguments": "{\"name\":\"match-card-receipts\"}"
+                  "arguments": "{\"name\":\"close-card-exceptions\"}"
                 }
               }
             ]
@@ -2878,7 +2211,7 @@
           {
             "role": "tool",
             "tool_call_id": "c0",
-            "content": "{\"name\":\"match-card-receipts\",\"loaded\":true}"
+            "content": "{\"name\":\"close-card-exceptions\",\"loaded\":true}"
           },
           {
             "role": "assistant",
@@ -2904,114 +2237,114 @@
             "content": null,
             "tool_calls": [
               {
-                "id": "p1",
+                "id": "w1",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0908\",\"receiptIds\":[\"rcpt_bb_0907\"]}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/journal/reclasses\",\"body\":{\"transactionId\":\"txn_4417_0910\",\"fromAccount\":\"6100\",\"toAccount\":\"6420\",\"memo\":\"Figma is design software.\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p1",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w1",
+            "content": "{\"entryId\":\"JE-4300\",\"status\":\"posted\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p2",
+                "id": "w2",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0912\",\"receiptIds\":[\"rcpt_nopa_0912\"],\"adjustment\":{\"kind\":\"gratuity\",\"amount\":24.8}}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/allocations\",\"body\":{\"transactionId\":\"txn_4417_0919\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p2",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w2",
+            "content": "{\"id\":\"AL-4201\",\"status\":\"draft\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p3",
+                "id": "w3",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0915\",\"receiptIds\":[\"rcpt_amzn_0914\"]}}"
+                  "arguments": "{\"method\":\"PUT\",\"path\":\"/allocations/AL-4201/lines\",\"body\":{\"lines\":[{\"departmentId\":\"dept_eng\",\"amount\":1200},{\"departmentId\":\"dept_design\",\"amount\":600},{\"departmentId\":\"dept_product\",\"amount\":600}]}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p3",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w3",
+            "content": "{\"id\":\"AL-4201\",\"lines\":[{\"departmentId\":\"dept_eng\",\"amount\":1200},{\"departmentId\":\"dept_design\",\"amount\":600},{\"departmentId\":\"dept_product\",\"amount\":600}]}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p4",
+                "id": "w4",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0918\",\"receiptIds\":[\"rcpt_marais_0917\"],\"adjustment\":{\"kind\":\"fx_conversion\",\"currency\":\"EUR\",\"receiptAmount\":372,\"rate\":1.1086}}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/allocations/AL-4201/commit\"}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p4",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w4",
+            "content": "{\"id\":\"AL-4201\",\"status\":\"committed\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p5",
+                "id": "w5",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0922\",\"receiptIds\":[\"rcpt_ua_tkt_0920\",\"rcpt_ua_plus_0920\"]}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/affidavits\",\"body\":{\"transactionId\":\"txn_4417_0923\",\"memo\":\"Ride from the Chicago client office to O'Hare after the onsite.\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p5",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w5",
+            "content": "{\"affidavitId\":\"AF-4502\",\"status\":\"attested\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p6",
+                "id": "w6",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0925\",\"receiptIds\":[\"rcpt_wework_0925\"]}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/repayments\",\"body\":{\"transactionId\":\"txn_4417_0927\",\"method\":\"payroll_deduction\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p6",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w6",
+            "content": "{\"repaymentId\":\"RP-4403\",\"status\":\"scheduled\"}"
           },
           {
             "role": "assistant",
@@ -3030,7 +2363,7 @@
           {
             "role": "tool",
             "tool_call_id": "c2",
-            "content": "{\"valid\":6,\"total\":6}"
+            "content": "{\"valid\":10,\"total\":10}"
           },
           {
             "role": "assistant",
@@ -3053,7 +2386,7 @@
           },
           {
             "role": "assistant",
-            "content": "All 6 of Priya Raman's September charges are matched and valid. They are in the review card for your confirmation; nothing closes until you confirm."
+            "content": "Priya Raman's September close is ready: receipts auto-matched and all 4 exceptions cleared. It is in the review card for your confirmation; nothing closes until you confirm."
           }
         ]
       },
@@ -3076,7 +2409,7 @@
                 "type": "function",
                 "function": {
                   "name": "loadLearnedSkill",
-                  "arguments": "{\"name\":\"match-card-receipts\"}"
+                  "arguments": "{\"name\":\"close-card-exceptions\"}"
                 }
               }
             ]
@@ -3084,7 +2417,7 @@
           {
             "role": "tool",
             "tool_call_id": "c0",
-            "content": "{\"name\":\"match-card-receipts\",\"loaded\":true}"
+            "content": "{\"name\":\"close-card-exceptions\",\"loaded\":true}"
           },
           {
             "role": "assistant",
@@ -3110,114 +2443,114 @@
             "content": null,
             "tool_calls": [
               {
-                "id": "p1",
+                "id": "w1",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0908\",\"receiptIds\":[\"rcpt_bb_0907\"]}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/journal/reclasses\",\"body\":{\"transactionId\":\"txn_4417_0910\",\"fromAccount\":\"6100\",\"toAccount\":\"6420\",\"memo\":\"Figma is design software.\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p1",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w1",
+            "content": "{\"entryId\":\"JE-4300\",\"status\":\"posted\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p2",
+                "id": "w2",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0912\",\"receiptIds\":[\"rcpt_nopa_0912\"],\"adjustment\":{\"kind\":\"gratuity\",\"amount\":24.8}}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/allocations\",\"body\":{\"transactionId\":\"txn_4417_0919\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p2",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w2",
+            "content": "{\"id\":\"AL-4201\",\"status\":\"draft\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p3",
+                "id": "w3",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0915\",\"receiptIds\":[\"rcpt_amzn_0914\"]}}"
+                  "arguments": "{\"method\":\"PUT\",\"path\":\"/allocations/AL-4201/lines\",\"body\":{\"lines\":[{\"departmentId\":\"dept_eng\",\"amount\":1200},{\"departmentId\":\"dept_design\",\"amount\":600},{\"departmentId\":\"dept_product\",\"amount\":600}]}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p3",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w3",
+            "content": "{\"id\":\"AL-4201\",\"lines\":[{\"departmentId\":\"dept_eng\",\"amount\":1200},{\"departmentId\":\"dept_design\",\"amount\":600},{\"departmentId\":\"dept_product\",\"amount\":600}]}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p4",
+                "id": "w4",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0918\",\"receiptIds\":[\"rcpt_marais_0917\"],\"adjustment\":{\"kind\":\"fx_conversion\",\"currency\":\"EUR\",\"receiptAmount\":372,\"rate\":1.1086}}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/allocations/AL-4201/commit\"}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p4",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w4",
+            "content": "{\"id\":\"AL-4201\",\"status\":\"committed\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p5",
+                "id": "w5",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0922\",\"receiptIds\":[\"rcpt_ua_tkt_0920\",\"rcpt_ua_plus_0920\"]}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/affidavits\",\"body\":{\"transactionId\":\"txn_4417_0923\",\"memo\":\"Ride from the Chicago client office to O'Hare after the onsite.\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p5",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w5",
+            "content": "{\"affidavitId\":\"AF-4502\",\"status\":\"attested\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p6",
+                "id": "w6",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0925\",\"receiptIds\":[\"rcpt_wework_0925\"]}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/repayments\",\"body\":{\"transactionId\":\"txn_4417_0927\",\"method\":\"payroll_deduction\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p6",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w6",
+            "content": "{\"repaymentId\":\"RP-4403\",\"status\":\"scheduled\"}"
           },
           {
             "role": "assistant",
@@ -3236,7 +2569,7 @@
           {
             "role": "tool",
             "tool_call_id": "c2",
-            "content": "{\"valid\":6,\"total\":6}"
+            "content": "{\"valid\":10,\"total\":10}"
           },
           {
             "role": "assistant",
@@ -3259,7 +2592,7 @@
           },
           {
             "role": "assistant",
-            "content": "All 6 of Priya Raman's September charges are matched and valid. They are in the review card for your confirmation; nothing closes until you confirm."
+            "content": "Priya Raman's September close is ready: receipts auto-matched and all 4 exceptions cleared. It is in the review card for your confirmation; nothing closes until you confirm."
           }
         ]
       }
@@ -3275,7 +2608,7 @@
         "messages": [
           {
             "role": "user",
-            "content": "Match the 6 unmatched card transactions on Priya Raman's Visa ending 4417 to their receipts for the September close."
+            "content": "Close out September for Priya Raman's Visa ending 4417. Receipts are matched; clear the exceptions so it is ready to close."
           },
           {
             "role": "assistant",
@@ -3286,7 +2619,7 @@
                 "type": "function",
                 "function": {
                   "name": "loadLearnedSkill",
-                  "arguments": "{\"name\":\"match-card-receipts\"}"
+                  "arguments": "{\"name\":\"close-card-exceptions\"}"
                 }
               }
             ]
@@ -3294,7 +2627,7 @@
           {
             "role": "tool",
             "tool_call_id": "c0",
-            "content": "{\"name\":\"match-card-receipts\",\"loaded\":true}"
+            "content": "{\"name\":\"close-card-exceptions\",\"loaded\":true}"
           },
           {
             "role": "assistant",
@@ -3320,114 +2653,114 @@
             "content": null,
             "tool_calls": [
               {
-                "id": "p1",
+                "id": "w1",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0908\",\"receiptIds\":[\"rcpt_bb_0907\"]}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/journal/reclasses\",\"body\":{\"transactionId\":\"txn_4417_0910\",\"fromAccount\":\"6100\",\"toAccount\":\"6420\",\"memo\":\"Figma is design software.\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p1",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w1",
+            "content": "{\"entryId\":\"JE-4300\",\"status\":\"posted\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p2",
+                "id": "w2",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0912\",\"receiptIds\":[\"rcpt_nopa_0912\"],\"adjustment\":{\"kind\":\"gratuity\",\"amount\":24.8}}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/allocations\",\"body\":{\"transactionId\":\"txn_4417_0919\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p2",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w2",
+            "content": "{\"id\":\"AL-4201\",\"status\":\"draft\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p3",
+                "id": "w3",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0915\",\"receiptIds\":[\"rcpt_amzn_0914\"]}}"
+                  "arguments": "{\"method\":\"PUT\",\"path\":\"/allocations/AL-4201/lines\",\"body\":{\"lines\":[{\"departmentId\":\"dept_eng\",\"amount\":1200},{\"departmentId\":\"dept_design\",\"amount\":600},{\"departmentId\":\"dept_product\",\"amount\":600}]}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p3",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w3",
+            "content": "{\"id\":\"AL-4201\",\"lines\":[{\"departmentId\":\"dept_eng\",\"amount\":1200},{\"departmentId\":\"dept_design\",\"amount\":600},{\"departmentId\":\"dept_product\",\"amount\":600}]}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p4",
+                "id": "w4",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0918\",\"receiptIds\":[\"rcpt_marais_0917\"],\"adjustment\":{\"kind\":\"fx_conversion\",\"currency\":\"EUR\",\"receiptAmount\":372,\"rate\":1.1086}}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/allocations/AL-4201/commit\"}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p4",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w4",
+            "content": "{\"id\":\"AL-4201\",\"status\":\"committed\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p5",
+                "id": "w5",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0922\",\"receiptIds\":[\"rcpt_ua_tkt_0920\",\"rcpt_ua_plus_0920\"]}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/affidavits\",\"body\":{\"transactionId\":\"txn_4417_0923\",\"memo\":\"Ride from the Chicago client office to O'Hare after the onsite.\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p5",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w5",
+            "content": "{\"affidavitId\":\"AF-4502\",\"status\":\"attested\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p6",
+                "id": "w6",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0925\",\"receiptIds\":[\"rcpt_wework_0925\"]}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/repayments\",\"body\":{\"transactionId\":\"txn_4417_0927\",\"method\":\"payroll_deduction\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p6",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w6",
+            "content": "{\"repaymentId\":\"RP-4403\",\"status\":\"scheduled\"}"
           },
           {
             "role": "assistant",
@@ -3446,7 +2779,7 @@
           {
             "role": "tool",
             "tool_call_id": "c2",
-            "content": "{\"valid\":6,\"total\":6}"
+            "content": "{\"valid\":10,\"total\":10}"
           },
           {
             "role": "assistant",
@@ -3469,7 +2802,7 @@
           },
           {
             "role": "assistant",
-            "content": "All 6 of Priya Raman's September charges are matched and valid. They are in the review card for your confirmation; nothing closes until you confirm."
+            "content": "Priya Raman's September close is ready: receipts auto-matched and all 4 exceptions cleared. It is in the review card for your confirmation; nothing closes until you confirm."
           }
         ]
       },
@@ -3478,7 +2811,7 @@
         "messages": [
           {
             "role": "user",
-            "content": "Reconcile Priya Raman's card for September."
+            "content": "Clear the exceptions on Priya Raman's card for September."
           },
           {
             "role": "assistant",
@@ -3489,7 +2822,7 @@
                 "type": "function",
                 "function": {
                   "name": "loadLearnedSkill",
-                  "arguments": "{\"name\":\"match-card-receipts\"}"
+                  "arguments": "{\"name\":\"close-card-exceptions\"}"
                 }
               }
             ]
@@ -3497,7 +2830,7 @@
           {
             "role": "tool",
             "tool_call_id": "c0",
-            "content": "{\"name\":\"match-card-receipts\",\"loaded\":true}"
+            "content": "{\"name\":\"close-card-exceptions\",\"loaded\":true}"
           },
           {
             "role": "assistant",
@@ -3523,114 +2856,114 @@
             "content": null,
             "tool_calls": [
               {
-                "id": "p1",
+                "id": "w1",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0908\",\"receiptIds\":[\"rcpt_bb_0907\"]}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/journal/reclasses\",\"body\":{\"transactionId\":\"txn_4417_0910\",\"fromAccount\":\"6100\",\"toAccount\":\"6420\",\"memo\":\"Figma is design software.\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p1",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w1",
+            "content": "{\"entryId\":\"JE-4300\",\"status\":\"posted\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p2",
+                "id": "w2",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0912\",\"receiptIds\":[\"rcpt_nopa_0912\"],\"adjustment\":{\"kind\":\"gratuity\",\"amount\":24.8}}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/allocations\",\"body\":{\"transactionId\":\"txn_4417_0919\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p2",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w2",
+            "content": "{\"id\":\"AL-4201\",\"status\":\"draft\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p3",
+                "id": "w3",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0915\",\"receiptIds\":[\"rcpt_amzn_0914\"]}}"
+                  "arguments": "{\"method\":\"PUT\",\"path\":\"/allocations/AL-4201/lines\",\"body\":{\"lines\":[{\"departmentId\":\"dept_eng\",\"amount\":1200},{\"departmentId\":\"dept_design\",\"amount\":600},{\"departmentId\":\"dept_product\",\"amount\":600}]}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p3",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w3",
+            "content": "{\"id\":\"AL-4201\",\"lines\":[{\"departmentId\":\"dept_eng\",\"amount\":1200},{\"departmentId\":\"dept_design\",\"amount\":600},{\"departmentId\":\"dept_product\",\"amount\":600}]}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p4",
+                "id": "w4",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0918\",\"receiptIds\":[\"rcpt_marais_0917\"],\"adjustment\":{\"kind\":\"fx_conversion\",\"currency\":\"EUR\",\"receiptAmount\":372,\"rate\":1.1086}}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/allocations/AL-4201/commit\"}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p4",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w4",
+            "content": "{\"id\":\"AL-4201\",\"status\":\"committed\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p5",
+                "id": "w5",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0922\",\"receiptIds\":[\"rcpt_ua_tkt_0920\",\"rcpt_ua_plus_0920\"]}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/affidavits\",\"body\":{\"transactionId\":\"txn_4417_0923\",\"memo\":\"Ride from the Chicago client office to O'Hare after the onsite.\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p5",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w5",
+            "content": "{\"affidavitId\":\"AF-4502\",\"status\":\"attested\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p6",
+                "id": "w6",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0925\",\"receiptIds\":[\"rcpt_wework_0925\"]}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/repayments\",\"body\":{\"transactionId\":\"txn_4417_0927\",\"method\":\"payroll_deduction\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p6",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w6",
+            "content": "{\"repaymentId\":\"RP-4403\",\"status\":\"scheduled\"}"
           },
           {
             "role": "assistant",
@@ -3649,7 +2982,7 @@
           {
             "role": "tool",
             "tool_call_id": "c2",
-            "content": "{\"valid\":6,\"total\":6}"
+            "content": "{\"valid\":10,\"total\":10}"
           },
           {
             "role": "assistant",
@@ -3672,7 +3005,7 @@
           },
           {
             "role": "assistant",
-            "content": "All 6 of Priya Raman's September charges are matched and valid. They are in the review card for your confirmation; nothing closes until you confirm."
+            "content": "Priya Raman's September close is ready: receipts auto-matched and all 4 exceptions cleared. It is in the review card for your confirmation; nothing closes until you confirm."
           }
         ]
       },
@@ -3692,7 +3025,7 @@
                 "type": "function",
                 "function": {
                   "name": "loadLearnedSkill",
-                  "arguments": "{\"name\":\"match-card-receipts\"}"
+                  "arguments": "{\"name\":\"close-card-exceptions\"}"
                 }
               }
             ]
@@ -3700,7 +3033,7 @@
           {
             "role": "tool",
             "tool_call_id": "c0",
-            "content": "{\"name\":\"match-card-receipts\",\"loaded\":true}"
+            "content": "{\"name\":\"close-card-exceptions\",\"loaded\":true}"
           },
           {
             "role": "assistant",
@@ -3726,114 +3059,114 @@
             "content": null,
             "tool_calls": [
               {
-                "id": "p1",
+                "id": "w1",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0908\",\"receiptIds\":[\"rcpt_bb_0907\"]}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/journal/reclasses\",\"body\":{\"transactionId\":\"txn_4417_0910\",\"fromAccount\":\"6100\",\"toAccount\":\"6420\",\"memo\":\"Figma is design software.\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p1",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w1",
+            "content": "{\"entryId\":\"JE-4300\",\"status\":\"posted\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p2",
+                "id": "w2",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0912\",\"receiptIds\":[\"rcpt_nopa_0912\"],\"adjustment\":{\"kind\":\"gratuity\",\"amount\":24.8}}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/allocations\",\"body\":{\"transactionId\":\"txn_4417_0919\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p2",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w2",
+            "content": "{\"id\":\"AL-4201\",\"status\":\"draft\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p3",
+                "id": "w3",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0915\",\"receiptIds\":[\"rcpt_amzn_0914\"]}}"
+                  "arguments": "{\"method\":\"PUT\",\"path\":\"/allocations/AL-4201/lines\",\"body\":{\"lines\":[{\"departmentId\":\"dept_eng\",\"amount\":1200},{\"departmentId\":\"dept_design\",\"amount\":600},{\"departmentId\":\"dept_product\",\"amount\":600}]}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p3",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w3",
+            "content": "{\"id\":\"AL-4201\",\"lines\":[{\"departmentId\":\"dept_eng\",\"amount\":1200},{\"departmentId\":\"dept_design\",\"amount\":600},{\"departmentId\":\"dept_product\",\"amount\":600}]}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p4",
+                "id": "w4",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0918\",\"receiptIds\":[\"rcpt_marais_0917\"],\"adjustment\":{\"kind\":\"fx_conversion\",\"currency\":\"EUR\",\"receiptAmount\":372,\"rate\":1.1086}}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/allocations/AL-4201/commit\"}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p4",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w4",
+            "content": "{\"id\":\"AL-4201\",\"status\":\"committed\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p5",
+                "id": "w5",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0922\",\"receiptIds\":[\"rcpt_ua_tkt_0920\",\"rcpt_ua_plus_0920\"]}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/affidavits\",\"body\":{\"transactionId\":\"txn_4417_0923\",\"memo\":\"Ride from the Chicago client office to O'Hare after the onsite.\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p5",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w5",
+            "content": "{\"affidavitId\":\"AF-4502\",\"status\":\"attested\"}"
           },
           {
             "role": "assistant",
             "content": null,
             "tool_calls": [
               {
-                "id": "p6",
+                "id": "w6",
                 "type": "function",
                 "function": {
                   "name": "ledgerlineApi",
-                  "arguments": "{\"method\":\"POST\",\"path\":\"/reconciliation/sessions/rs_4417_09_001/pairs\",\"body\":{\"transactionId\":\"txn_4417_0925\",\"receiptIds\":[\"rcpt_wework_0925\"]}}"
+                  "arguments": "{\"method\":\"POST\",\"path\":\"/repayments\",\"body\":{\"transactionId\":\"txn_4417_0927\",\"method\":\"payroll_deduction\"}}"
                 }
               }
             ]
           },
           {
             "role": "tool",
-            "tool_call_id": "p6",
-            "content": "{\"id\":\"rs_4417_09_001\",\"status\":\"open\"}"
+            "tool_call_id": "w6",
+            "content": "{\"repaymentId\":\"RP-4403\",\"status\":\"scheduled\"}"
           },
           {
             "role": "assistant",
@@ -3852,7 +3185,7 @@
           {
             "role": "tool",
             "tool_call_id": "c2",
-            "content": "{\"valid\":6,\"total\":6}"
+            "content": "{\"valid\":10,\"total\":10}"
           },
           {
             "role": "assistant",
@@ -3875,7 +3208,7 @@
           },
           {
             "role": "assistant",
-            "content": "All 6 of Priya Raman's September charges are matched and valid. They are in the review card for your confirmation; nothing closes until you confirm."
+            "content": "Priya Raman's September close is ready: receipts auto-matched and all 4 exceptions cleared. It is in the review card for your confirmation; nothing closes until you confirm."
           }
         ]
       }
@@ -3885,83 +3218,109 @@
     "insights": [
       {
         "id": "ins_01",
-        "title": "Always include receipt adjustments for tips and currency conversion when pairing",
-        "summary": "The user followed the 'pairs with adjustments, validate, close' workflow, explicitly adding gratuity and FX adjustments when matching receipts to transactions. The agent failed because it did not include these adjustments, causing validation errors for Nopa (tip) and H\u00f4tel Le Marais (currency conversion).",
+        "title": "Each exception type requires its own workflow, not direct charge editing",
+        "summary": "The user cleared exceptions using the correct workflows: allocation split by attendees for the shared event, reclass entry for the miscoded charge in a soft-locked month, repayment for the personal charge, and affidavit for the missing receipt. The agent failed because it tried to edit the charge status directly, which was blocked by API errors (PERIOD_SOFT_LOCKED, ALLOCATION_REQUIRED, RECEIPT_REQUIRED, NOT_EDITABLE). The user also validated and closed the session, which the agent did not attempt.",
         "evidence": [
           {
-            "trajectoryId": "trj_6fd3xleg",
+            "trajectoryId": "trj_1adstpxp",
             "eventIds": [
-              "evt_wpkspscv",
-              "evt_pcgonddw",
-              "evt_jthjlshe",
-              "evt_5v63zutj"
+              "evt_kv44xsnx",
+              "evt_6zansdpn",
+              "evt_vmbcgo0b",
+              "evt_xuozum3u",
+              "evt_1twir8ez",
+              "evt_k7xr2aud",
+              "evt_0ydtkq0x",
+              "evt_9ge7jyor",
+              "evt_gktrz38x",
+              "evt_1buyfztx",
+              "evt_mhig3pn7",
+              "evt_cqbudzqo",
+              "evt_d1stezdl",
+              "evt_ox0wgh4x",
+              "evt_mltgbr0b",
+              "evt_lg7uftdz",
+              "evt_exp0ne45",
+              "evt_kjbcielx",
+              "evt_wtxto9xq",
+              "evt_wv0qlg5s",
+              "evt_uav0lxni",
+              "evt_ze4pdbsa",
+              "evt_5hksramx"
             ],
-            "quote": "Four matched cleanly, but $148.80 at NOPA and $412.40 at H\u00f4tel Le Marais failed with the last error UNBALANCED."
+            "quote": "The API blocked them with PERIOD_SOFT_LOCKED, ALLOCATION_REQUIRED, RECEIPT_REQUIRED, and NOT_EDITABLE, so nothing is ready for review."
           }
         ],
         "threadCount": 1,
-        "createdAt": 1790905331868,
+        "createdAt": 1790963745116,
         "derivedBy": "llm"
       }
     ],
     "skills": [
       {
-        "name": "match-card-receipts",
+        "name": "close-card-exceptions",
         "status": "candidate",
-        "description": "Use when asked to match a card's transactions to their receipts (reconcile the card for its month-end close). Prepares every match in a reconciliation session, then hands them to the user to confirm; never closes the period itself. Not for questions about what is left: answer those from GET /cards.",
-        "skillMd": "---\nname: match-card-receipts\ndescription: Use when asked to match a card's transactions to their receipts (reconcile the card for its month-end close). Prepares every match in a reconciliation session, then hands them to the user to confirm; never closes the period itself. Not for questions about what is left: answer those from GET /cards.\n---\n\n# Match card transactions to receipts\n\n## When to use\nThe user asks to match unmatched card transactions to receipts, reconcile a card, or finish a month-end card close. A direct PATCH /transactions/{id} is refused (\"Matches must be created inside a reconciliation session\").\n\n## Steps\n1. ledgerlineApi GET /cards to find the card (its id and openPeriod), then GET /transactions?card=<card id>&status=unmatched and GET /receipts?card=<card id>&status=unmatched.\n2. ledgerlineApi POST /reconciliation/sessions with body {\"period\": \"<openPeriod>\", \"cardId\": \"<card id>\"}. Keep the session id it returns.\n3. For each charge, ledgerlineApi POST /reconciliation/sessions/<session id>/pairs with body {\"transactionId\": \"<id>\", \"receiptIds\": [\"<receipt id>\"]}, adding an \"adjustment\" when the matching rules call for one.\n4. ledgerlineApi POST /reconciliation/sessions/<session id>/validate. If a pair comes back WRONG_RECEIPT pick another receipt by the rules; if UNBALANCED add or fix its adjustment; post the pair again and validate again.\n5. When every pair is valid, call reviewMatches with the session id and stop: tell the user in one sentence that the matches are ready for their review. Only their Confirm closes the month.\n\n## Matching rules\n- Descriptors are the card network's, not the merchant's name: drop prefixes such as \"SQ *\", \"TST* \", \"PAYPAL *\" and \"AMZN MKTP US*\" and the trailing city or reference, then match the receipt merchant (\"SQ *BLUEBOTTLE COFFEE SF\" = Blue Bottle Coffee; \"TST* NOPA RESTAURANT\" = Nopa; \"AMZN MKTP US*2K4LM81Q2\" = Amazon.com; \"HOTEL LE MARAIS PARIS FR\" = H\u00f4tel Le Marais; \"UNITED 0162345678901\" = United Airlines; \"PAYPAL *WEWORK 4029357733\" = WeWork).\n- A charge posts 0 to 2 days after the date printed on its receipt. A receipt dated more than 5 days before the charge belongs to another statement, even when its total is identical (Amazon.com, Aug 30 is 16 days before this charge posted (Sep 15), so it belongs to another statement).\n- Tips: when a restaurant or cafe charge is more than the receipt total, the difference is the tip written on the slip. Add \"adjustment\": {\"kind\": \"gratuity\", \"amount\": <charge minus receipt total>} (Nopa: receipt $124.00, charge $148.80, gratuity 24.80).\n- Foreign currency: for a receipt that is not in USD, add \"adjustment\": {\"kind\": \"fx_conversion\", \"currency\": \"<receipt currency>\", \"receiptAmount\": <receipt total>, \"rate\": <charge / receipt total, 4 decimals>} (H\u00f4tel Le Marais: EUR 372.00 to $412.40, rate 1.1086).\n- Split charges: when no single receipt matches, put every receipt from that merchant whose totals add up to the charge in ONE pair's receiptIds (United Airlines $598.20 + United Airlines $88.00 = $686.20).\n\n## Guardrails\n- Never call POST /reconciliation/sessions/{id}/close and never close a period yourself: reviewMatches hands it to the user, and only their Confirm validates and closes.\n- Do not PATCH transactions directly; a match only exists inside a reconciliation session.\n- Use only ids the API returned. Do not invent receipt or transaction ids.\n\n## Learned from\nProduct trajectory trj_6fd3xleg (events evt_9zyb5dtj, evt_6xzjmudx, evt_nbdehkd7, evt_wpkspscv, evt_334rdtcc, evt_jthjlshe, evt_5v63zutj, evt_lg9gzsdm): the agent could not match Priya Raman's 6 September card transactions (2 failed attempts across 1 Thread); Maya Chen matched them on the Card close board in a reconciliation session, validated, and closed September.\n",
+        "description": "Use when asked to close out a corporate card's month (the month-end card close): clears the card's exceptions through their own workflows (split, reclass, personal, missing receipt), validates, then hands the close to the user to confirm. Never closes the period itself. Not for questions about what is left: answer those from GET /cards.",
+        "skillMd": "---\nname: close-card-exceptions\ndescription: Use when asked to close out a corporate card's month (the month-end card close): clears the card's exceptions through their own workflows (split, reclass, personal, missing receipt), validates, then hands the close to the user to confirm. Never closes the period itself. Not for questions about what is left: answer those from GET /cards.\n---\n\n# Close out a card's month: clear the exceptions\n\n## When to use\nThe user asks to close out, reconcile or finish the month-end close for a card. Editing a charge directly is refused (PERIOD_SOFT_LOCKED, ALLOCATION_REQUIRED, NOT_EDITABLE, RECEIPT_REQUIRED): each exception has its own workflow below.\n\n## Steps\n1. ledgerlineApi GET /cards to find the card (its id and openPeriod), then GET /transactions?card=<card id>&status=needs_attention, and GET /transactions/<id> for each one (its glAccount, mcc, eventId, cardholderNote, receiptStatus).\n2. ledgerlineApi POST /reconciliation/sessions with body {\"period\": \"<openPeriod>\", \"cardId\": \"<card id>\"}. Receipts auto-match; keep the session id it returns.\n3. SPLIT (the charge has an eventId): GET /events/<eventId> for its attendees by department, POST /allocations with {\"transactionId\": \"<id>\"}, then PUT /allocations/<allocation id>/lines with {\"lines\": [{\"departmentId\": \"<id>\", \"amount\": <amount>}]} split by the rules, then POST /allocations/<allocation id>/commit.\n4. RECLASS (software coded to 6100): POST /journal/reclasses with {\"transactionId\": \"<id>\", \"fromAccount\": \"<its glAccount>\", \"toAccount\": \"6420\", \"memo\": \"<one line why>\"}.\n5. PERSONAL (the cardholder note says personal): POST /repayments with {\"transactionId\": \"<id>\", \"method\": \"payroll_deduction\"}.\n6. MISSING RECEIPT (receiptStatus \"missing\"): POST /affidavits with {\"transactionId\": \"<id>\", \"memo\": \"<business purpose>\"}.\n7. ledgerlineApi POST /reconciliation/sessions/<session id>/validate. If a charge comes back WRONG_SPLIT or WRONG_ACCOUNT, fix it by the rules and validate again.\n8. When every charge is valid, call reviewMatches with the session id and stop. Only the user's Confirm closes the month.\n\n## Rules\n- Shared event charges (the charge has an eventId): split by the event's attendees, each department's share of the headcount, to the cent, with the last line taking the rounding so the lines add up to the charge exactly (TERRAIN EVENTS 0919, $2,400.00: Product offsite, Engineering 6, Design 3, Product 3 = Engineering $1,200.00, Design $600.00, Product $600.00).\n- Software coded to the default account: a charge with merchant category 5734 (software) auto-coded to 6100 Meals & entertainment is reclassed to 6420 Software subscriptions. The month is soft-locked for coding edits, so it is always a reclass entry, never an edit (FIGMA* MONTHLY 415-890-5404: 6100 to 6420).\n- Personal charges: when the cardholder's note on the charge says it is personal, record a repayment with method \"payroll_deduction\" (the default for personal charges under $500) (UBER *EATS, $38.40: payroll deduction).\n- Missing receipts (receiptStatus \"missing\"): request a missing-receipt affidavit with the business purpose in one sentence (what the charge was for, from the merchant, the date and the trip or event it belongs to). The cardholder signs it (LYFT *RIDE TUE 5PM: \"Ride from the Chicago client office to O'Hare after the onsite.\").\n- Receipt charges are already auto-matched when the session opens (tips, foreign currency and two-receipt charges included). Leave them alone.\n\n## Guardrails\n- Never call POST /reconciliation/sessions/{id}/close and never close a period yourself: reviewMatches hands it to the user, and only their Confirm validates and closes.\n- Do not PATCH transactions: every exception is cleared through its own workflow.\n- Use only ids the API returned. Do not invent transaction, event, department or account ids.\n\n## Learned from\nProduct trajectory trj_1adstpxp (events evt_kv44xsnx, evt_6zansdpn, evt_k7xr2aud, evt_0ydtkq0x, evt_9ge7jyor, evt_mhig3pn7, evt_wv0qlg5s, evt_5hksramx): the agent could not clear Priya Raman's 4 September exceptions (4 failed attempts across 1 Thread); Maya Chen cleared them on the Card close board, validated, and closed September.\n",
         "supportingInsightIds": [
           "ins_01"
         ],
         "revision": 1,
-        "updatedAt": 1790905331868
+        "updatedAt": 1790963792416
       }
     ],
     "evalCandidates": [
       {
         "id": "evc_01",
-        "query": "Match all card transactions to receipts for a month-end close, handling tips, currency conversion, and split charges.",
+        "query": "Clear all card close exceptions for a period, using the correct workflow for each type (allocation split, reclass entry, repayment, affidavit), then validate and close the period.",
         "checks": [
-          "Creates a reconciliation session before pairing",
-          "Pairs each transaction to receipts, adding adjustments for tips and FX where needed",
-          "Validates the session after pairing",
+          "Creates a reconciliation session before clearing exceptions",
+          "Uses allocation split for shared charges",
+          "Posts a reclass entry for miscoded charges in soft-locked periods",
+          "Schedules repayment for personal charges",
+          "Requests affidavit for missing receipts",
+          "Validates the reconciliation session",
           "Closes the period only after user confirmation"
         ],
         "sourceTrajectoryIds": [
-          "trj_6fd3xleg"
+          "trj_1adstpxp"
         ],
         "sourceEventIds": [
-          "evt_6xzjmudx",
-          "evt_wpkspscv",
-          "evt_pcgonddw",
-          "evt_ylzaj5he",
-          "evt_cwgjxecr",
-          "evt_0hpxmncq",
-          "evt_wjzz9536"
+          "evt_6zansdpn",
+          "evt_k7xr2aud",
+          "evt_9ge7jyor",
+          "evt_mhig3pn7",
+          "evt_ox0wgh4x",
+          "evt_exp0ne45",
+          "evt_wtxto9xq",
+          "evt_ze4pdbsa"
         ],
         "status": "pending"
       },
       {
         "id": "evc_02",
-        "query": "Match Priya Raman's Visa 4417 September transactions to receipts, including tip and FX adjustments, validate, and close.",
+        "query": "Clear Priya Raman's September 2026 Visa 4417 card close exceptions: split the shared event by attendees, reclass the Figma charge, mark Uber Eats as personal and schedule repayment, request affidavit for the Lyft ride, then validate and close the period.",
         "checks": [
-          "Creates session rs_4417_09_002 before pairing",
-          "Pairs Nopa Sep 12 with a gratuity adjustment",
-          "Pairs H\u00f4tel Le Marais Sep 17 with an FX adjustment",
-          "Validates after all pairs",
-          "Closes period only after user clicks 'Close September'"
+          "Creates a reconciliation session before clearing exceptions",
+          "Uses allocation split for TERRAIN EVENTS 0919",
+          "Posts a reclass entry for FIGMA* MONTHLY 415-890-5404",
+          "Schedules repayment for UBER *EATS",
+          "Requests affidavit for LYFT *RIDE TUE 5PM",
+          "Validates the reconciliation session",
+          "Closes the period only after user confirmation"
         ],
         "sourceTrajectoryIds": [
-          "trj_6fd3xleg"
+          "trj_1adstpxp"
         ],
         "sourceEventIds": [
-          "evt_6xzjmudx",
-          "evt_wpkspscv",
-          "evt_pcgonddw",
-          "evt_xxylihzc",
-          "evt_cwgjxecr",
-          "evt_0hpxmncq",
-          "evt_wjzz9536"
+          "evt_6zansdpn",
+          "evt_k7xr2aud",
+          "evt_9ge7jyor",
+          "evt_mhig3pn7",
+          "evt_ox0wgh4x",
+          "evt_exp0ne45",
+          "evt_wtxto9xq",
+          "evt_ze4pdbsa"
         ],
         "status": "pending"
       },
@@ -3969,14 +3328,14 @@
         "id": "evc_03",
         "query": "Which expense reports are waiting for my approval?",
         "checks": [
-          "Does not load the match-card-receipts skill",
+          "Does not load the close-card-exceptions skill",
           "Does not create a reconciliation session"
         ],
         "sourceTrajectoryIds": [
-          "trj_6fd3xleg"
+          "trj_1adstpxp"
         ],
         "sourceEventIds": [
-          "evt_9zyb5dtj"
+          "evt_kv44xsnx"
         ],
         "status": "pending"
       }

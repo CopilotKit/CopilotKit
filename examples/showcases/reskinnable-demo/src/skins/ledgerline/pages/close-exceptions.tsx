@@ -36,7 +36,7 @@ import {
   secondaryButton,
 } from "../components/ui";
 import { useToast } from "../components/toast";
-import { emit, emitChoice, emitScreenContext } from "../learning/recorder";
+import { emitChoice, emitScreenContext } from "../learning/recorder";
 
 /**
  * The exceptions on a month-end close: the charges Ledgerline cannot clear by
@@ -354,13 +354,6 @@ function SplitEditor({
       });
       return;
     }
-    emit("click", {
-      action: `Save split: ${t.descriptor} (${label})`,
-      role: "button",
-      tag: "button",
-      transactionId: t.id,
-      lines,
-    });
     toast({ tone: "ok", title: `${t.descriptor} split ${lines.length} ways` });
     await onDone();
   };
@@ -478,7 +471,7 @@ function SplitEditor({
           </span>
           <button
             type="button"
-            data-action={`Save split: ${t.descriptor}`}
+            data-action={`Save split: ${t.descriptor} (${lines.map((l) => `${dept(refs, l.departmentId)} ${usd(l.amount)}`).join(", ")})`}
             disabled={saving || Math.abs(left) >= 0.005 || lines.length < 2}
             onClick={() => void save()}
             className={cn(primaryButton, "h-7 px-2.5 text-[12px]")}
