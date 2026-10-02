@@ -40,7 +40,7 @@ import {
 } from "@langchain/langgraph";
 import { makeChatOpenAI } from "./openai-headers";
 import { getA2UITools } from "@ag-ui/langgraph";
-import { a2uiContext } from "../../_shared/a2ui/context";
+import { a2uiContext } from "../../_shared/ts/a2ui/context";
 import {
   convertActionsToDynamicStructuredTools,
   copilotkitEmitState,

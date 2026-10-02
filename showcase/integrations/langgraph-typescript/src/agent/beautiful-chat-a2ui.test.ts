@@ -6,8 +6,8 @@ import {
   isToolMessage,
 } from "@langchain/core/messages";
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { a2uiContext } from "../../_shared/a2ui/context";
-import malformed from "../../_shared/a2ui/fixtures/malformed-sales-dashboards.json";
+import { a2uiContext } from "../../_shared/ts/a2ui/context";
+import malformed from "../../_shared/ts/a2ui/fixtures/malformed-sales-dashboards.json";
 
 const fake = vi.hoisted(() => ({
   invoke: vi.fn(),
