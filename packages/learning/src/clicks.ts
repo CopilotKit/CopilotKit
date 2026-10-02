@@ -38,6 +38,9 @@ interface PointerOrigin {
 export function describeTarget(el: Element) {
   if (closestAcrossShadow(el, "[data-copilotkit-ignore]") !== null) return null;
   const element = el.closest(INTERACTIVE) ?? el;
+  // React and server markup can mirror the password into the value attribute.
+  const password =
+    element instanceof HTMLInputElement && element.type === "password";
   const described: Described = {
     element,
     target: {
@@ -46,7 +49,10 @@ export function describeTarget(el: Element) {
       action: element.getAttribute("data-copilotkit-action"),
       text: (element.textContent ?? "").slice(0, MAX_TEXT_LENGTH),
       attributes: Object.fromEntries(
-        Array.from(element.attributes, ({ name, value }) => [name, value]),
+        Array.from(element.attributes, ({ name, value }) => [
+          name,
+          password && name === "value" ? REDACTED : value,
+        ]),
       ),
       ...readControlValue(element),
     },

@@ -135,6 +135,18 @@ describe("installClickCapture", () => {
     });
   });
 
+  it("redacts a password value attribute", () => {
+    document.body.innerHTML = `<input id="pw" type="password" value="secret">`;
+    const events = setup();
+
+    click(byId("pw"));
+
+    expect(events[0]?.value).toMatchObject({
+      target: { value: "[redacted]", attributes: { value: "[redacted]" } },
+    });
+    expect(JSON.stringify(events)).not.toContain("secret");
+  });
+
   it("drops programmatic clicks by default", () => {
     document.body.innerHTML = `<button id="b">Upload</button>`;
     const events = setup({ trustAll: false });
