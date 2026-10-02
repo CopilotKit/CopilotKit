@@ -73,10 +73,12 @@ jobs:
           mkdir -p "$context"
           cp showcase/shared/python/tools/runtime_diagnostics.py "$context/runtime_diagnostics.py"
           cat > "$context/Dockerfile" <<'DIAG_DOCKERFILE'
-          FROM ghcr.io/copilotkit/showcase-google-antigravity@sha256:977dc9d0f5635ab68adef2ff483b7ec0973394e499ba26b5fd21901ab5d2ba53
+          FROM ghcr.io/copilotkit/showcase-google-antigravity@sha256:977dc9d0f5635ab68adef2ff483b7ec0973394e499ba26b5fd21901ab5d2ba53 AS base
+          FROM base
+          COPY --from=base --chmod=0755 /app/entrypoint.sh /app/entrypoint_original.sh
           COPY runtime_diagnostics.py /app/runtime_diagnostics.py
-          COPY --chmod=0755 runtime_diagnostics_entrypoint.sh /app/runtime_diagnostics_entrypoint.sh
-          CMD ["/app/runtime_diagnostics_entrypoint.sh"]
+          COPY --chmod=0755 runtime_diagnostics_entrypoint.sh /app/entrypoint.sh
+          CMD ["./entrypoint.sh"]
           DIAG_DOCKERFILE
           cat > "$context/runtime_diagnostics_entrypoint.sh" <<'DIAG_ENTRYPOINT'
           #!/bin/bash
@@ -91,7 +93,7 @@ jobs:
           }
           # Runs only if exec fails; a successful exec retains the original app lifecycle.
           trap cleanup EXIT
-          exec /app/entrypoint.sh
+          exec /app/entrypoint_original.sh
           DIAG_ENTRYPOINT
 
       - name: Publish the temporary observer image
