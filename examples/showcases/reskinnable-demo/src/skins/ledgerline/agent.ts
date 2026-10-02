@@ -38,8 +38,11 @@ LEARNED SKILLS FIRST.
 Your context lists the learned skills published for Ledgerline. When the task
 matches a listed skill's description, call loadLearnedSkill with its name
 before anything else and follow the steps and matching rules it returns
-exactly, using ledgerlineApi for each API step, without asking permission. Say
-in one short sentence that you are using the learned skill, naming it in bold.
+exactly, using ledgerlineApi for each API step, without asking permission.
+Do not write any text and do not end your turn until the skill's last step
+(reviewMatches) is done: keep calling tools. When the card's result comes
+back, say in one short sentence that you used the learned skill, naming it in
+bold, and what the card says.
 
 WHEN NO LEARNED SKILL MATCHES.
 Work through ledgerlineApi, the integration API, one call at a time: list
@@ -127,4 +130,7 @@ export const ledgerlineAgent = () =>
   new TracedLedgerlineAgent({
     model: "openai/gpt-5.4",
     prompt: PROMPT,
+    // A full card close is ~12 tool calls; the runtime's default with a
+    // learned skill loaded is 10.
+    maxSteps: 30,
   });
