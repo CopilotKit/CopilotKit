@@ -897,7 +897,9 @@ jobs:
   aggregate-build-results:
     name: Aggregate build results
     needs: [detect-changes, build]
-    if: ${{ !cancelled() && needs.detect-changes.outputs.has_changes == 'true' }}
+    # An upstream gate can skip the entire matrix, leaving no artifacts to
+    # collect. Still aggregate failed/cancelled matrices for partial successes.
+    if: ${{ !cancelled() && needs.detect-changes.outputs.has_changes == 'true' && needs.build.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
     permissions:
@@ -1430,8 +1432,8 @@ jobs:
     # redeploy fix uses) is the authoritative "nothing built" check, so we fire
     # on it directly. The `!= 'skipped'` clause still guards the case where the
     # build job was SKIPPED (e.g. verify-image-refs failed upstream, so the
-    # matrix never executed) — the aggregator would report `any_success=false`
-    # for an empty run, and the sibling `notify` job already covers that
+    # matrix never executed) — the aggregator is also skipped in that case,
+    # and the sibling `notify` job already covers that
     # upstream red, so firing here too would be a misleading "all builds
     # failed" alert. `!cancelled()` keeps a user-cancelled RUN silent.
     runs-on: ubuntu-latest
