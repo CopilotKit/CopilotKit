@@ -24,6 +24,11 @@ export { DEFAULT_MCP_APPS_CONFIG, MCP_APPS_CONFIG } from "./mcp-apps-config";
 export function provideMCPApps(
   config: MCPAppsConfig = {},
 ): EnvironmentProviders {
+  const idleTimeoutMs =
+    config.idleTimeoutMs ?? DEFAULT_MCP_APPS_CONFIG.idleTimeoutMs;
+  if (!Number.isFinite(idleTimeoutMs) || idleTimeoutMs <= 0) {
+    throw new RangeError("idleTimeoutMs must be a positive finite number.");
+  }
   return makeEnvironmentProviders([
     {
       provide: MCP_APPS_CONFIG,

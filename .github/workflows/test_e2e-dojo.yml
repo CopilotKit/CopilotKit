@@ -36,6 +36,7 @@ permissions:
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 5 # observed max 0.2m over 17 runs
     permissions:
       contents: read
     outputs:
