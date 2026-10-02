@@ -486,6 +486,58 @@ describe("WebInspectorElement", () => {
     await inspector.updateComplete;
     expect(internals.agentStates.get("counter")).toEqual({ counter: 5 });
   });
+
+  describe("small viewports", () => {
+    const setViewport = (width: number, height: number) => {
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        writable: true,
+        value: width,
+      });
+      Object.defineProperty(window, "innerHeight", {
+        configurable: true,
+        writable: true,
+        value: height,
+      });
+    };
+    const initialViewport = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
+    afterEach(() => setViewport(initialViewport.width, initialViewport.height));
+
+    const openWindow = async () => {
+      const { core } = createMockCore();
+      const inspector = new WebInspectorElement();
+      inspector.core = core as unknown as CopilotKitCore;
+      document.body.appendChild(inspector);
+      await inspector.updateComplete;
+      inspector.openInspector("floating_button");
+      await inspector.updateComplete;
+      return inspector.shadowRoot!.querySelector<HTMLElement>(
+        ".inspector-window",
+      )!;
+    };
+
+    it("zooms the window down so the desktop layout fits the screen", async () => {
+      setViewport(768, 600);
+      const inspectorWindow = await openWindow();
+
+      // On screen: 736x568, the viewport minus its margins, at 0.8 zoom.
+      expect(inspectorWindow.style.zoom).toBe("0.8");
+      expect(inspectorWindow.style.width).toBe("920px");
+      expect(inspectorWindow.style.height).toBe("710px");
+    });
+
+    it("keeps the full-size window when the screen can hold it", async () => {
+      setViewport(1440, 900);
+      const inspectorWindow = await openWindow();
+
+      expect(inspectorWindow.style.zoom).toBe("");
+      expect(inspectorWindow.style.width).toBe("960px");
+      expect(inspectorWindow.style.height).toBe("740px");
+    });
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────

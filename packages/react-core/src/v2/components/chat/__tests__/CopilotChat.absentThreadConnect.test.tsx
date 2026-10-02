@@ -24,6 +24,153 @@ import { CopilotChat } from "../CopilotChat";
 import type { ReactFrontendTool } from "../../../types";
 
 describe("CopilotChat avoids /connect for locally-generated threadIds (ENT-314)", () => {
+  it.each(["clearReplayCursor", "clearReconnectCursor"] as const)(
+    "discards the saved baseline and its %s cursor before reopening",
+    async (method) => {
+      const cursors = new Map<string, string>();
+      const connects: (string | null)[] = [];
+      class ReplayAgent extends MockStepwiseAgent {
+        connect(input: RunAgentInput): Observable<BaseEvent> {
+          connects.push(cursors.get(input.threadId) ?? null);
+          return EMPTY;
+        }
+      }
+      const agent = new ReplayAgent();
+      Object.defineProperty(agent, method, {
+        value: (threadId: string) => cursors.delete(threadId),
+      });
+      const agents = { default: agent };
+      const view = (threadId: string, explicit: boolean) => (
+        <CopilotKitProvider agents__unsafe_dev_only={agents}>
+          <CopilotChatConfigurationProvider
+            threadId={threadId}
+            hasExplicitThreadId={explicit}
+          >
+            <CopilotChat welcomeScreen={false} />
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
+      );
+      const { rerender } = render(view("saved", true));
+      await waitFor(() => expect(connects).toEqual([null]));
+      act(() => {
+        agent.setState({ saved: true });
+        agent.pendingInterrupts = [
+          { id: "approval-A", reason: "confirmation" },
+        ];
+        cursors.set("saved", "last-event");
+        cursors.set("other", "keep-other");
+      });
+      rerender(view("fresh", false));
+      await waitFor(() => {
+        expect(agent.state).toEqual({});
+        expect(agent.pendingInterrupts).toEqual([]);
+        expect(cursors.get("saved")).toBeUndefined();
+      });
+      expect(connects).toEqual([null]);
+      expect(cursors.get("other")).toBe("keep-other");
+      rerender(view("saved", true));
+      await waitFor(() => expect(connects).toEqual([null, null]));
+    },
+  );
+
+  it.each(["fresh", "saved", "other", "via-fresh", "swap"])(
+    "keeps the %s selection safe when old detach finishes late",
+    async (destination) => {
+      let releaseDetach = () => {};
+      let releaseOldConnect = () => {};
+      const oldConnectCompletion = new Promise<void>((resolve) => {
+        releaseOldConnect = resolve;
+      });
+      let pendingDetach: Promise<void> | undefined;
+      const cursors = new Map<string, string>();
+      const connected: string[] = [];
+      const requestedCursors: (string | null)[] = [];
+      class DelayedAgent extends MockStepwiseAgent {
+        completedConnects = 0;
+        async connectAgent(
+          ...args: Parameters<MockStepwiseAgent["connectAgent"]>
+        ) {
+          const result = await super.connectAgent(...args);
+          if (++this.completedConnects === 1) await oldConnectCompletion;
+          return result;
+        }
+        clearReplayCursor(threadId: string) {
+          cursors.delete(threadId);
+        }
+        async detachActiveRun() {
+          await pendingDetach;
+          await super.detachActiveRun();
+        }
+        connect(input: RunAgentInput): Observable<BaseEvent> {
+          connected.push(input.threadId);
+          requestedCursors.push(cursors.get(input.threadId) ?? null);
+          return EMPTY;
+        }
+      }
+      const agent = new DelayedAgent();
+      let currentAgent = agent;
+      let agents = { default: agent };
+      const view = (threadId: string, explicit: boolean) => (
+        <CopilotKitProvider agents__unsafe_dev_only={agents}>
+          <CopilotChatConfigurationProvider
+            threadId={threadId}
+            hasExplicitThreadId={explicit}
+          >
+            <CopilotChat welcomeScreen={false} />
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
+      );
+      const { rerender, unmount } = render(view("saved", true));
+      await waitFor(() => expect(connected).toEqual(["saved"]));
+      pendingDetach = new Promise<void>((resolve) => {
+        releaseDetach = resolve;
+      });
+      cursors.set("saved", "old-event");
+      rerender(view("fresh", false));
+      if (destination === "via-fresh") rerender(view("fresh-again", false));
+      if (destination === "swap") {
+        currentAgent = new DelayedAgent();
+        agents = { default: currentAgent };
+      }
+      const target =
+        destination === "via-fresh" || destination === "swap"
+          ? "saved"
+          : destination;
+      if (target !== "fresh") rerender(view(target, true));
+      expect(connected).toEqual(["saved"]);
+      act(() => {
+        cursors.set("saved", "late-event");
+        agent.setState({ late: true });
+      });
+      await act(async () => {
+        releaseDetach();
+      });
+      if (target === "fresh") {
+        expect(agent.state).toEqual({});
+        expect(cursors.get("saved")).toBeUndefined();
+      } else {
+        await waitFor(() => expect(connected).toEqual(["saved", target]));
+        expect(requestedCursors).toEqual([null, null]);
+      }
+      act(() => {
+        currentAgent.setState({ current: true });
+        currentAgent.pendingInterrupts = [
+          { id: "approval-current", reason: "confirmation" },
+        ];
+        cursors.set(target, "current-event");
+      });
+      await act(async () => {
+        releaseOldConnect();
+      });
+      expect(currentAgent.state).toEqual({ current: true });
+      expect(currentAgent.pendingInterrupts).toEqual([
+        { id: "approval-current", reason: "confirmation" },
+      ]);
+      expect(cursors.get(target)).toBe("current-event");
+      unmount();
+    },
+  );
+
   function buildAgentWithConnectSpy(): {
     agent: MockStepwiseAgent;
     connectSpy: ReturnType<typeof vi.fn>;
@@ -207,9 +354,7 @@ describe("CopilotChat avoids /connect for locally-generated threadIds (ENT-314)"
 
     // Simulate an in-progress conversation on the current (non-explicit) thread.
     act(() => {
-      agent.setMessages([
-        { id: "m1", role: "assistant", content: "hi" } as never,
-      ]);
+      agent.setMessages([{ id: "m1", role: "assistant", content: "hi" }]);
     });
     expect(agent.messages.length).toBe(1);
 

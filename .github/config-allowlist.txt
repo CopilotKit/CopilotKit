@@ -15,6 +15,7 @@ examples/integrations/agentcore/frontend/vite.config.ts
 examples/integrations/agno/next.config.ts
 examples/integrations/claude-sdk-python/next.config.ts
 examples/integrations/claude-sdk-typescript/next.config.ts
+examples/integrations/claude-managed-agents/next.config.mjs
 examples/integrations/crewai-crews/next.config.ts
 examples/integrations/crewai-flows/next.config.ts
 examples/integrations/langgraph-fastapi/next.config.ts

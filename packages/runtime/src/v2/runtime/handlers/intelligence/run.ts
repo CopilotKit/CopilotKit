@@ -158,8 +158,10 @@ export async function handleIntelligenceRun({
   let canonicalThreadId = input.threadId;
   let canonicalRunId = input.runId;
   let joinToken: string | undefined;
+  let backendThreadId: string | undefined;
   try {
     const lockResult = await runtime.intelligence.ɵacquireThreadLock({
+      supportsBackendThreadId: true,
       threadId: input.threadId,
       runId: input.runId,
       userId,
@@ -173,6 +175,7 @@ export async function handleIntelligenceRun({
     canonicalThreadId = lockResult.threadId;
     canonicalRunId = lockResult.runId;
     joinToken = lockResult.joinToken;
+    backendThreadId = lockResult.backendThreadId;
   } catch (error) {
     logger.error("Thread lock denied:", error);
     const platformStatus = getPlatformErrorStatus(error);
@@ -289,6 +292,7 @@ export async function handleIntelligenceRun({
 
   const runRequest: AgentRunnerRunRequest = {
     threadId: canonicalThreadId,
+    ...(backendThreadId === undefined ? {} : { backendThreadId }),
     agent,
     input: canonicalInput,
     ...(persistedInputMessages !== undefined ? { persistedInputMessages } : {}),

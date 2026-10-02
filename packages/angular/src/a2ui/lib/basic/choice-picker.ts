@@ -1,60 +1,55 @@
-import { Component, computed, input, signal } from "@angular/core";
-import type { ChoicePickerApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { uniqueId, type BasicProps } from "./shared";
+import { Component, computed, signal } from "@angular/core";
+import { ChoicePickerApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { CopilotA2UIBasicComponent } from "./basic-component";
+import { uniqueId } from "./shared";
 
 @Component({
   selector: "copilot-a2ui-choice-picker",
   template: `
-    <div class="picker">
-      @if (props().label) {
-        <strong class="label">{{ props().label }}</strong>
-      }
-      @if (props().filterable) {
-        <input
-          #filterInput
-          type="text"
-          class="filter"
-          placeholder="Filter options..."
-          [value]="filter()"
-          (input)="filter.set(filterInput.value)"
-        />
-      }
-      <div class="options" [class.chips]="chips()">
-        @for (option of options(); track option.value) {
-          @if (chips()) {
-            <button
-              type="button"
-              class="chip"
-              [class.selected]="selected().includes(option.value)"
-              (click)="toggle(option.value)"
-            >
-              {{ option.label }}
-            </button>
-          } @else {
-            <label class="option">
-              <input
-                [type]="exclusive() ? 'radio' : 'checkbox'"
-                [name]="exclusive() ? groupName : ''"
-                [checked]="selected().includes(option.value)"
-                (change)="toggle(option.value)"
-              />
-              <span class="option-label">{{ option.label }}</span>
-            </label>
-          }
+    @if (props().label) {
+      <strong class="label">{{ props().label }}</strong>
+    }
+    @if (props().filterable) {
+      <input
+        #filterInput
+        type="text"
+        class="filter"
+        placeholder="Filter options..."
+        [value]="filter()"
+        (input)="filter.set(filterInput.value)"
+      />
+    }
+    <div class="options" [class.chips]="chips()">
+      @for (option of options(); track option.value) {
+        @if (chips()) {
+          <button
+            type="button"
+            class="chip"
+            [class.selected]="selected().includes(option.value)"
+            (click)="toggle(option.value)"
+          >
+            {{ option.label }}
+          </button>
+        } @else {
+          <label class="option">
+            <input
+              [type]="exclusive() ? 'radio' : 'checkbox'"
+              [name]="exclusive() ? groupName : ''"
+              [checked]="selected().includes(option.value)"
+              (change)="toggle(option.value)"
+            />
+            <span class="option-label">{{ option.label }}</span>
+          </label>
         }
-      </div>
+      }
     </div>
   `,
   styles: `
     :host {
-      display: contents;
-    }
-    .picker {
       display: flex;
       flex-direction: column;
       gap: var(--a2ui-spacing-m, 8px);
       width: 100%;
-      margin: var(--a2ui-spacing-m, 8px);
     }
     .label {
       font-size: var(--a2ui-font-size-s, 14px);
@@ -105,8 +100,9 @@ import { uniqueId, type BasicProps } from "./shared";
     }
   `,
 })
-export class CopilotA2UIChoicePicker {
-  readonly props = input.required<BasicProps<typeof ChoicePickerApi>>();
+export class CopilotA2UIChoicePicker extends CopilotA2UIBasicComponent<
+  typeof ChoicePickerApi
+> {
   /** Per instance, so template-spawned pickers never share a radio group. */
   protected readonly groupName = uniqueId("choice");
   protected readonly filter = signal("");

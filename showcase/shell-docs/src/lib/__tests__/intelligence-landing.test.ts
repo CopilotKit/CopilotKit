@@ -21,7 +21,7 @@ test("the Intelligence overview uses landing-page chrome", () => {
   expect(page.data.title).toBe("CopilotKit Intelligence");
   expect(page.data.nav_title).toBe("Overview");
   expect(page.data.description).toBe(
-    "CopilotKit Intelligence adds Rich Threads, User Memories, Automatic Learning, Channels, and Product Analytics to the CopilotKit app you already run.",
+    "CopilotKit Intelligence adds AG-UI Streams, User Memories, Automatic Learning, Channels, and Product Analytics to the CopilotKit app you already run.",
   );
   expect(page.data.hideHeader).toBeUndefined();
   expect(page.data.full).toBe(true);
@@ -64,6 +64,7 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
     'href: "/intelligence/managed-intelligence-platform"',
   );
   expect(snippet).toContain('href: "/intelligence/self-hosting"');
+  expect(snippet).toContain("](/intelligence/self-hosting-local)");
   expect(snippet).not.toContain(
     "https://www.copilotkit.ai/copilotkit-intelligence",
   );
@@ -107,6 +108,11 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
         here,
         "../../content/docs/intelligence/self-hosting-observability.mdx",
       ),
+    ),
+  ).toBe(true);
+  expect(
+    existsSync(
+      resolve(here, "../../content/docs/intelligence/self-hosting-local.mdx"),
     ),
   ).toBe(true);
 });

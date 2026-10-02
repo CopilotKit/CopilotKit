@@ -16,6 +16,61 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.76.0 - 2026-09-30
+
+### Features
+
+- feat: AG-UI 1.0 for CopilotKit (#7270) (7693a04)
+
+### Fixes
+
+- fix(runtime): stop reusing per-response provider ids as message ids (#7522) (5832fff)
+- fix(web-inspector): fit and scale the Inspector on small screens (#7529) (5135c56)
+- fix(runtime): prefix MCP tools whose names collide instead of dropping them (#7495) (c7c4538)
+
+## 1.75.2 - 2026-09-30
+
+### Fixes
+
+- fix(react-core): use new run IDs for standard interrupt resumes (#7001) (081e745)
+- fix(vue): stop cloning run state six times per row for message slots (#7525) (bd39b04)
+
+## 1.75.1 - 2026-09-29
+
+### Features
+
+- feat(angular)!: render A2UI without Lit and support web component cat… (#7504) (b3d1aad)
+
+### Fixes
+
+- fix(core): distinguish Intelligence replay errors from live failures (#7353) (278a78d)
+- fix(mcp-apps-renderer): follow the host page's dark theme (#7467) (2476de1)
+- fix(runtime): forward imported backend thread identity (#7489) (5fd09ab)
+- fix: PE-440 onboarding docs gaps; un-deprecate sdk-js/langgraph (#7518) (7a7a500)
+- fix(react-core): compare purity-scan entry keys with forward slashes (#7445) (a1fbc07)
+
+### Breaking Changes
+
+- feat(angular)!: render A2UI without Lit and support web component cat… (#7504) (b3d1aad)
+
+## 1.75.0 - 2026-09-28
+
+### Features
+
+- feat(react-core): add transformMessages to CopilotChatMessageView (#7488) (eb460b3)
+
+### Fixes
+
+- fix(core): keep the reconnect cursor when a control frame repeats an old checkpoint (#7490) (d3c36bb)
+- fix(runtime): enforce basePath segment boundary in single-route mode (#7341) (15437bb)
+
+### Upgrade notes
+
+- `@copilotkit/react-core` now requires `@tanstack/react-virtual` `^3.14.13` (#7488).
+  A 3.13.x entry already in your lockfile satisfied the old `^3.13.0` range and keeps a
+  one-frame scroll twitch in long chats. If your lockfile has an older version, update it
+  (e.g. `pnpm update @tanstack/react-virtual`).
+
 ## 1.74.0 - 2026-09-25
 
 ### Features

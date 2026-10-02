@@ -1,0 +1,240 @@
+---
+title: Evaluate Intelligence locally
+nav_title: Local evaluation
+description: "Run CopilotKit Intelligence in Docker on your own machine with the CopilotKit CLI. Connect a new or existing app, sign in to the local dashboard, configure Automatic Learning, and manage the local stack."
+icon: "lucide/Monitor"
+doc_type: how-to
+---
+
+## Overview
+
+The CopilotKit CLI can run CopilotKit Intelligence in Docker on your own machine. You connect an app to it, sign in to a local dashboard, and try Intelligence with your own data and model. You do not need Kubernetes experience, a cloud account, or a Team Self-hosted plan.
+
+<Callout type="warn" title="Preview: macOS only">
+  Local evaluation is a preview, available on macOS with Docker Desktop. Use it to try Intelligence on one machine. It is not a production installation. To run Intelligence for your team, use the [Kubernetes guide](/intelligence/self-hosting) or the [AWS ECS guide](/intelligence/self-hosting-ecs).
+</Callout>
+
+## What runs on your machine
+
+The CLI creates one local stack for each app folder. Each stack has its own data, ports, and dashboard sign-in.
+
+| Included | Not included |
+| --- | --- |
+| Intelligence's AG-UI streams (saved threads) | User Memory |
+| Automatic Learning | Product Analytics |
+| Channels (Slack and Microsoft Teams) | A model or model credentials |
+| The Intelligence dashboard and local sign-in | |
+
+After installation, the stack runs without internet access while its license is valid. These tasks still need the internet:
+
+- The first installation and later updates
+- Getting or renewing the evaluation license
+- Calls to an online model provider
+- Slack and Microsoft Teams messages
+
+## Before you start
+
+- **Operating system:** macOS on Apple silicon or Intel, with Docker Desktop. The CLI refuses other Docker engines on macOS, such as Colima, OrbStack, and Rancher Desktop, and it does not run on Windows.
+- **Docker resources:** at least 4 CPUs, 12 GiB RAM, and 40 GiB free storage for each stack. The CLI checks what Docker has left after your other containers, and stops if it is not enough.
+- **Node.js:** version 22 or newer for local sign-in.
+- **A CopilotKit account:** the CLI uses it to get your evaluation license. The Developer plan qualifies.
+- **Model access (optional):** an OpenAI or Anthropic API key, or an OpenAI-compatible endpoint, for Automatic Learning.
+
+You install Docker yourself. The CLI never installs or updates Docker. It downloads its own copies of the tools it needs to manage the stack.
+
+## Set up a local stack
+
+Run these steps in your app's folder. If you don't have an app yet, create one with `npx copilotkit@latest init` first.
+
+<Steps>
+  <Step>
+    ### Sign in
+
+    ```bash title="Terminal"
+    npx copilotkit@latest login
+    ```
+
+    The local stack uses the organization you choose here. Setup does not copy cloud-hosted projects or data.
+  </Step>
+
+  <Step>
+    ### Install the stack
+
+    ```bash title="Terminal"
+    npx copilotkit@latest local setup
+    ```
+
+    The CLI asks for a Learning model, which you can add later, and whether to add sample conversations. It then checks Docker, gets your license, picks the latest release, and installs the stack.
+
+    While it works, the CLI shows each step with its time. The image download shows how many images are done, the size so far, and the speed. When setup finishes, it opens the dashboard and signs you in.
+  </Step>
+
+  <Step>
+    ### Connect your app
+
+    ```bash title="Terminal"
+    npx copilotkit@latest local connect
+    ```
+
+    This shows the connection changes without making them. To apply them, run:
+
+    ```bash title="Terminal"
+    npx copilotkit@latest local connect --approve-connection
+    ```
+
+    The CLI writes these values to the app's `.env`:
+
+    ```bash title=".env"
+    INTELLIGENCE_API_URL=http://localhost:<port>
+    INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:<port>
+    CPK_INTELLIGENCE_API_KEY=cpk-...
+    SL_ENABLED=true
+    ```
+  </Step>
+
+  <Step>
+    ### Run the app
+
+    ```bash title="Terminal"
+    npm run dev
+    ```
+
+    Send a message from your app. The conversation appears in the local dashboard.
+  </Step>
+</Steps>
+
+Before it changes anything, the CLI saves your previous settings. The CLI refuses to write the key if Git tracks your `.env`. The local project starts empty. Your cloud-hosted data stays where it is.
+
+To go back to your previous settings, run:
+
+```bash title="Terminal"
+npx copilotkit@latest local cancel
+```
+
+`local cancel` restores each setting that still matches what setup wrote. It keeps any setting you changed later and names it. The stack and its data stay in place.
+
+For scripts, give every answer as a flag:
+
+```bash title="Terminal"
+npx copilotkit@latest local setup --defer-model --no-samples --json
+npx copilotkit@latest local connect --approve-connection --json
+```
+
+## Sign in to the local dashboard
+
+The local dashboard does not use your CopilotKit account. The CLI runs a small sign-in service in the background, and your terminal approves each sign-in.
+
+```bash title="Terminal"
+npx copilotkit@latest local login
+```
+
+Run it from the app folder. It opens the dashboard and signs you in. You do not need a code or a click. The link it uses works once and expires after two minutes. Outside the app folder, add `--stack <id>`.
+
+If you open the dashboard yourself and select **Sign In**, approve the request from the terminal:
+
+1. Run `npx copilotkit@latest local auth pending --stack <id>`.
+2. Check that the code in the terminal matches the code in the browser.
+3. Approve it. The browser page shows the full approval command with a **Copy command** button. Paste it in your app folder, or run `npx copilotkit@latest local auth approve CODE --stack <id>`. Use `deny CODE` to refuse a request.
+
+<Callout type="warn" title="Approve only your own requests">
+  Any process that can read your CLI files can approve a sign-in, including coding agents. Approve only a request you started.
+</Callout>
+
+`local credentials` prints the dashboard URL and both sign-in commands. It prints no password.
+
+## Configure Automatic Learning
+
+The stack does not include a model. You supply model access for each stack, and every app that shares the stack uses it.
+
+To set it up with prompts, run this from the app folder:
+
+```bash title="Terminal"
+npx copilotkit@latest local setup
+```
+
+Choose OpenAI, Anthropic, or an OpenAI-compatible endpoint. Enter the API key, then pick a model from the list. The CLI sends the key only to that provider's model list. It shows only models that Automatic Learning supports.
+
+For scripts, put the settings in a JSON file outside source control:
+
+```json title="model.json"
+{
+  "model": "openai/your-model",
+  "provider": "openai",
+  "apiKey": "your-model-key"
+}
+```
+
+```bash title="Terminal"
+npx copilotkit@latest local setup --model-config /path/to/model.json
+```
+
+To use a model on your own machine, point `baseUrl` at an OpenAI-compatible server. The API key is optional:
+
+```json title="model.json"
+{
+  "model": "local/your-model",
+  "provider": "compatible",
+  "baseUrl": "http://localhost:11434/v1"
+}
+```
+
+The stack reaches your machine through Docker, so `localhost` here means your machine, not the container. Bind the model server to an address Docker can reach, and allow its port through your firewall. A server that listens only on loopback does not receive these requests.
+
+On a running stack, a new model configuration restarts only the Learning service. Running `local setup` again with the same model choice changes nothing. To remove the model, run `local setup --defer-model`. Saving a configuration does not prove the model works. A real Learning run does.
+
+Until a model is connected, Learning runs are off. Threads, Learning Spaces, and saved results still work. The dashboard shows **No AI model connected** and the command that fixes it.
+
+### Add sample conversations
+
+Setup offers 16 sample conversations with recurring mistakes and corrections for Automatic Learning to find. It asks on every interactive `local setup` until the stack has them. They go into a separate Learning Space named **Sample conversations**, so they never mix with your app's threads. You can also add them with `npx copilotkit@latest local samples`.
+
+## Connect Slack or Microsoft Teams
+
+[Channels](/intelligence/channels) setup works the same way on a local stack. Slack and Microsoft Teams must reach your machine through a public HTTPS address, such as a tunnel your network allows. You arrange that address; the CLI does not install or manage tunnels. Without it, the rest of the stack still works.
+
+## Manage the stack
+
+Run these from the app folder, or add `--stack <id>` elsewhere. `local list` shows every stack and its ID.
+
+| Command | What it does |
+| --- | --- |
+| `local status` | Shows service health, URLs, and any failed setup step. |
+| `local start` | Starts the stack with its saved release, license, and settings. Needs no internet access. |
+| `local stop` | Stops the stack and keeps its data. |
+| `local list` | Lists your stacks, including stacks whose app folder is gone. |
+| `local login` | Opens the dashboard and signs you in. |
+| `local credentials` | Prints the dashboard URL and sign-in commands. |
+| `local setup` | Changes model settings, or resumes an interrupted installation. |
+| `local samples` | Adds the sample conversations. |
+| `local update` | Updates the stack to the latest release and keeps its data. |
+| `local renew` | Gets a new license and applies it. |
+| `local cancel` | Restores the app's previous connection settings. |
+| `local delete` | Asks, then deletes the stack and all its data. |
+
+Prefix each command with `npx copilotkit@latest`. Add `--json` for a versioned result that scripts and coding agents can read. Every command that uses the stack checks Docker first. The CLI does not start Docker for you.
+
+Signing out of the CLI does not remove a stack. If setup fails, it keeps the stack and names the step that stopped. Run `local setup` again to resume with the saved inputs.
+
+A copy of an app folder can share the original stack when you add `--share-stack` to `local setup`. `local delete` lists every app folder that uses the stack and asks before it deletes anything; **No, keep it** is the default. Scripts confirm with `local delete --stack <id> --confirm-delete <id>`. It never deletes your app's source files.
+
+### Update to a new release
+
+```bash title="Terminal"
+npx copilotkit@latest local update
+```
+
+`local update` finds the latest release and moves the stack to it, keeping your threads, Learning results, project, and credentials. It shows its progress like setup does. If the stack already runs the latest release, it says so and changes nothing. If a release cannot update the stack's database in place, the CLI says so and leaves your data unchanged.
+
+## License and renewal
+
+Your evaluation license follows your organization's current plan:
+
+- **Every plan except Enterprise:** the license lasts 30 days. The no-cost Developer plan qualifies.
+- **Enterprise:** the license lasts until your paid term ends, or 30 days when no end date is on record.
+- **Paid plans in bad standing** do not receive a license.
+
+To renew, run `npx copilotkit@latest local renew`. Renewal needs internet access and a CopilotKit sign-in, and it runs the same plan checks. It keeps your data and does not restart Learning jobs already accepted. If the stack is stopped, `local start` applies the saved renewal.
+
+When the license expires, new Learning runs stop. Saved threads and Learning results stay readable, and the dashboard explains how to renew.
+
+The license is tied to the organization you chose at sign-in. Renewal cannot move a stack to a different organization.

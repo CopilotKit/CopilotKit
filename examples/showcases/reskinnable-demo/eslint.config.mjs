@@ -47,6 +47,7 @@ export const LINTED_SKIN_IDS = [
   "commerce",
   "bookstore",
   "exec",
+  "myelin",
 ];
 
 const SKIN_IDS = LINTED_SKIN_IDS.join("|");
@@ -320,6 +321,10 @@ const eslintConfig = [
       // single E2E run leaves generated output that `pnpm lint` then reports
       // tens of thousands of problems in.
       ".next-locked/**",
+      // Python virtualenvs of the out-of-process agents. Banking's lives in
+      // `agent/.venv`; myelin's ADK agent in `agent-myelin/.venv` ships
+      // bundled JS (FastAPI docs, LiteLLM UI) that lint otherwise reports.
+      "**/.venv/**",
       "out/**",
       "build/**",
       "next-env.d.ts",

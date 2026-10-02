@@ -19,7 +19,7 @@
   "packages": [
     {
       "name": "@copilotkit/a2ui-renderer",
-      "version": "1.74.0",
+      "version": "1.76.0",
       "sourceDirectory": "packages/a2ui-renderer",
       "entrypoints": [
         {
@@ -51,46 +51,6 @@
             "kind": "package-json",
             "path": "packages/a2ui-renderer/package.json",
             "selector": "exports[\"./package.json\"]"
-          }
-        },
-        {
-          "importPath": "@copilotkit/a2ui-renderer/web-components",
-          "exportKey": "./web-components",
-          "kind": "code",
-          "conditions": {
-            "import": {
-              "types": "./dist/web-components/index.d.mts",
-              "default": "./dist/web-components/index.mjs"
-            },
-            "require": {
-              "types": "./dist/web-components/index.d.cts",
-              "default": "./dist/web-components/index.cjs"
-            }
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/a2ui-renderer/package.json",
-            "selector": "exports[\"./web-components\"]"
-          }
-        },
-        {
-          "importPath": "@copilotkit/a2ui-renderer/web-components/define",
-          "exportKey": "./web-components/define",
-          "kind": "code",
-          "conditions": {
-            "import": {
-              "types": "./dist/web-components/define.d.mts",
-              "default": "./dist/web-components/define.mjs"
-            },
-            "require": {
-              "types": "./dist/web-components/define.d.cts",
-              "default": "./dist/web-components/define.cjs"
-            }
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/a2ui-renderer/package.json",
-            "selector": "exports[\"./web-components/define\"]"
           }
         }
       ],
@@ -136,7 +96,7 @@
     },
     {
       "name": "@copilotkit/agentcore-runner",
-      "version": "1.74.0",
+      "version": "1.76.0",
       "sourceDirectory": "packages/agentcore-runner",
       "entrypoints": [
         {
@@ -999,7 +959,7 @@
     },
     {
       "name": "@copilotkit/core",
-      "version": "1.74.0",
+      "version": "1.76.0",
       "sourceDirectory": "packages/core",
       "entrypoints": [
         {
@@ -1202,7 +1162,7 @@
     },
     {
       "name": "@copilotkit/mcp-apps-renderer",
-      "version": "1.74.0",
+      "version": "1.76.0",
       "sourceDirectory": "packages/mcp-apps-renderer",
       "entrypoints": [
         {
@@ -1255,7 +1215,7 @@
       ],
       "compatibility": {
         "peerDependencies": {
-          "@ag-ui/client": "0.0.59",
+          "@ag-ui/client": ">=0.0.59",
           "zod": ">=3.25"
         },
         "provenance": [
@@ -1286,7 +1246,7 @@
     },
     {
       "name": "@copilotkit/react-core",
-      "version": "1.74.0",
+      "version": "1.76.0",
       "sourceDirectory": "packages/react-core",
       "entrypoints": [
         {
@@ -1402,7 +1362,7 @@
     },
     {
       "name": "@copilotkit/react-native",
-      "version": "1.74.0",
+      "version": "1.76.0",
       "sourceDirectory": "packages/react-native",
       "entrypoints": [
         {
@@ -1597,7 +1557,7 @@
     },
     {
       "name": "@copilotkit/react-textarea",
-      "version": "1.74.0",
+      "version": "1.76.0",
       "sourceDirectory": "packages/react-textarea",
       "entrypoints": [
         {
@@ -1670,7 +1630,7 @@
     },
     {
       "name": "@copilotkit/react-ui",
-      "version": "1.74.0",
+      "version": "1.76.0",
       "sourceDirectory": "packages/react-ui",
       "entrypoints": [
         {
@@ -1753,7 +1713,7 @@
     },
     {
       "name": "@copilotkit/runtime",
-      "version": "1.74.0",
+      "version": "1.76.0",
       "sourceDirectory": "packages/runtime",
       "entrypoints": [
         {
@@ -1892,8 +1852,7 @@
           "@langchain/openai",
           "express",
           "groq-sdk",
-          "langchain",
-          "openai"
+          "langchain"
         ],
         "provenance": [
           {
@@ -1933,7 +1892,7 @@
     },
     {
       "name": "@copilotkit/runtime-client-gql",
-      "version": "1.74.0",
+      "version": "1.76.0",
       "sourceDirectory": "packages/runtime-client-gql",
       "entrypoints": [
         {
@@ -1994,7 +1953,7 @@
     },
     {
       "name": "@copilotkit/sdk-js",
-      "version": "1.74.0",
+      "version": "1.76.0",
       "sourceDirectory": "packages/sdk-js",
       "entrypoints": [
         {
@@ -2101,7 +2060,7 @@
     },
     {
       "name": "@copilotkit/shared",
-      "version": "1.74.0",
+      "version": "1.76.0",
       "sourceDirectory": "packages/shared",
       "entrypoints": [
         {
@@ -2190,7 +2149,7 @@
     },
     {
       "name": "@copilotkit/sqlite-runner",
-      "version": "1.74.0",
+      "version": "1.76.0",
       "sourceDirectory": "packages/sqlite-runner",
       "entrypoints": [
         {
@@ -2267,7 +2226,7 @@
     },
     {
       "name": "@copilotkit/voice",
-      "version": "1.74.0",
+      "version": "1.76.0",
       "sourceDirectory": "packages/voice",
       "entrypoints": [
         {
@@ -2336,7 +2295,7 @@
     },
     {
       "name": "@copilotkit/vue",
-      "version": "1.74.0",
+      "version": "1.76.0",
       "sourceDirectory": "packages/vue",
       "entrypoints": [
         {
@@ -2442,7 +2401,7 @@
     },
     {
       "name": "@copilotkit/web-components",
-      "version": "1.74.0",
+      "version": "1.76.0",
       "sourceDirectory": "packages/web-components",
       "entrypoints": [
         {
@@ -2537,7 +2496,7 @@
     },
     {
       "name": "@copilotkit/web-inspector",
-      "version": "1.74.0",
+      "version": "1.76.0",
       "sourceDirectory": "packages/web-inspector",
       "entrypoints": [
         {
