@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 64 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
+This directory contains 65 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
 
 Each example is a self-contained project. To get started:
 
@@ -63,7 +63,7 @@ AI-powered canvas applications with visual card interfaces, real-time state sync
 | [gemini](./canvas/gemini/)                           | Open Gemini Canvas — post generator and stack analyzer agents (Gemini + LangGraph)      |
 | [mastra-pm](./canvas/mastra-pm/)                     | CopilotKit v2 + Mastra project manager — shared project state and tool UI               |
 
-## Showcases (33)
+## Showcases (34)
 
 Full-featured demo applications highlighting CopilotKit capabilities in real-world scenarios.
 
@@ -72,6 +72,7 @@ Full-featured demo applications highlighting CopilotKit capabilities in real-wor
 | [a2ui-pdf-analyst](./showcases/a2ui-pdf-analyst/)                       | PDF analyst that builds fixed or dynamic A2UI surfaces from document data                                           |
 | [arcade-tools](./showcases/arcade-tools/)                               | Built-in Agent with authenticated Arcade Gmail and news tools plus inline OAuth UI                                  |
 | [claude-managed-agents](./showcases/claude-managed-agents/)             | Hosted Claude Managed Agent over AG-UI with an interactive growth chart                                             |
+| [cloudplot](./showcases/cloudplot/)                                     | AWS architecture canvas with conversational resource planning, branching, and cost estimation                       |
 | [daytona-runcode](./showcases/daytona-runcode/)                         | Built-in Agent that runs Python, TypeScript, and JavaScript in isolated Daytona sandboxes                           |
 | [reskinnable-demo](./showcases/reskinnable-demo/)                       | Runtime-reskinnable demo — banking and airline skins over one shell, agent and all                                  |
 | [presentation](./showcases/presentation/)                               | PowerPoint-like web app built with CopilotKit                                                                       |
