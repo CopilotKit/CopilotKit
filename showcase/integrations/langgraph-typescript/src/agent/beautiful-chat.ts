@@ -262,7 +262,6 @@ Tool guidance:
 
 async function chatNode(state: BeautifulChatState, config: RunnableConfig) {
   const model = makeChatOpenAI(config, {
-    temperature: 0,
     model: "gpt-5-mini",
     modelKwargs: { parallel_tool_calls: false },
   });
