@@ -1,0 +1,42 @@
+{
+  "name": "voice-status-update",
+  "description": "Voice (Whisper) transcription + agent response. The transcript is the userMessage match.",
+  "fixtures": [
+    {
+      "match": { "endpoint": "/v1/audio/transcriptions" },
+      "response": {
+        "text": "Give me a status update on the urgent issues"
+      }
+    },
+    {
+      "match": { "userMessage": "Give me a status update on the urgent issues" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_issue_list",
+            "arguments": "{\"issue_ids\":[\"ISS-101\",\"ISS-107\",\"ISS-118\"],\"caption\":\"Urgent issues\"}",
+            "id": "call_render_urgent"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "toolCallId": "call_render_urgent" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "issueList",
+            "arguments": "{\"issueIds\":[\"ISS-101\",\"ISS-107\",\"ISS-118\"],\"caption\":\"Urgent issues\"}",
+            "id": "call_render_urgent_ui"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "toolCallId": "call_render_urgent_ui" },
+      "response": {
+        "content": "Three urgent issues — Safari payments (in progress), Postgres pool (in progress), Slack dedupe (in progress). All assigned, all on track for end of week."
+      }
+    }
+  ]
+}
