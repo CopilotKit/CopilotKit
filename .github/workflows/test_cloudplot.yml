@@ -1,0 +1,95 @@
+name: test / cloudplot
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "examples/showcases/cloudplot/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "nx.json"
+      - ".github/workflows/test_cloudplot.yml"
+  push:
+    branches: [main]
+    paths:
+      - "examples/showcases/cloudplot/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "nx.json"
+      - ".github/workflows/test_cloudplot.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  frontend:
+    name: frontend lint, typecheck, test, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm nx run cloudplot:lint
+
+      - name: Typecheck
+        run: pnpm nx run cloudplot:typecheck
+
+      - name: Test
+        run: pnpm nx run cloudplot:test
+
+      - name: Build
+        env:
+          LANGGRAPH_DEPLOYMENT_URL: https://agent.invalid
+          CLOUDPLOT_ACCESS_CODE: ci-access-code
+          CLOUDPLOT_SESSION_SECRET: ci-session-secret
+        run: pnpm nx run cloudplot:build
+
+  agent:
+    name: Python agent tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: examples/showcases/cloudplot/agent
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: examples/showcases/cloudplot/agent/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Test
+        run: uv run pytest
