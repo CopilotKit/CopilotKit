@@ -489,10 +489,9 @@ export function SetupWizard({
     if (!mountedRef.current) return;
     setCopyState("copied");
     capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
-      // The wizard has one copy control and never hands the prompt to an app,
-      // so every write here is a deliberate copy. <PromptPill> emits this same
-      // event for its `open_claude`/`open_codex` deep links; without `action`
-      // the two are indistinguishable downstream. See PE-218.
+      // The wizard has one copy control, so every write here is a deliberate
+      // copy. <PromptPill> emits this same event with its own `action` values
+      // (`copy`, `copy_preview`). See PE-218.
       action: "copy",
       surface: WIZARD_COPY_SURFACE,
       // Read at click time rather than through `usePathname`, matching how the

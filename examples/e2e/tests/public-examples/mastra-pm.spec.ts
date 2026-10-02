@@ -2,14 +2,33 @@ import { test, expect } from "@playwright/test";
 
 const EXAMPLE = process.env.EXAMPLE ?? "form-filling";
 
+// Use domcontentloaded because the team avatars load from ui-avatars.com.
+// When that host stalls from the CI runners, the default "load" waitUntil
+// never fires, even though the board has rendered.
+const GOTO_OPTIONS = { waitUntil: "domcontentloaded" } as const;
+
 test.describe("mastra-pm", () => {
   test.skip(EXAMPLE !== "mastra-pm", `EXAMPLE=${EXAMPLE}`);
+
+  // The team and task cards load avatar images from ui-avatars.com. When that
+  // host is slow or unreachable from a CI runner, the images never finish, so
+  // the page "load" event never fires and `page.goto` hangs until the test
+  // timeout. Serve a local stub so the smoke test does not depend on it.
+  test.beforeEach(async ({ page }) => {
+    await page.route("https://ui-avatars.com/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "image/svg+xml",
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"/>',
+      }),
+    );
+  });
 
   test("loads the project, team, and task board with a v2 runtime", async ({
     page,
     request,
   }) => {
-    await page.goto("/");
+    await page.goto("/", GOTO_OPTIONS);
     await expect(
       page.getByRole("heading", { name: "My Project", exact: true }),
     ).toBeVisible();
@@ -82,7 +101,7 @@ test.describe("mastra-pm", () => {
           .join(""),
       });
     });
-    await page.goto("/");
+    await page.goto("/", GOTO_OPTIONS);
     await expect(
       page.getByRole("heading", { name: "My Project", exact: true }),
     ).toBeVisible();

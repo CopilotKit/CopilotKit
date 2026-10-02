@@ -71,6 +71,8 @@ jobs:
               - 'showcase/integrations/pydantic-ai/**'
             google_adk:
               - 'showcase/integrations/google-adk/**'
+            google_antigravity:
+              - 'showcase/integrations/google-antigravity/**'
             ag2:
               - 'showcase/integrations/ag2/**'
             agno:
@@ -150,6 +152,7 @@ jobs:
             {"dispatch_name":"crewai-conversational-flows","filter_key":"crewai_conversational_flows","context":"showcase/integrations/crewai-conversational-flows","image":"showcase-crewai-conversational-flows","timeout":25,"build_args":"","dockerfile":""},
             {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/integrations/pydantic-ai","image":"showcase-pydantic-ai","timeout":25,"build_args":"","dockerfile":""},
             {"dispatch_name":"google-adk","filter_key":"google_adk","context":"showcase/integrations/google-adk","image":"showcase-google-adk","timeout":25,"build_args":"","dockerfile":""},
+            {"dispatch_name":"google-antigravity","filter_key":"google_antigravity","context":"showcase/integrations/google-antigravity","image":"showcase-google-antigravity","timeout":30,"build_args":"","dockerfile":""},
             {"dispatch_name":"ag2","filter_key":"ag2","context":"showcase/integrations/ag2","image":"showcase-ag2","timeout":25,"build_args":"","dockerfile":""},
             {"dispatch_name":"agno","filter_key":"agno","context":"showcase/integrations/agno","image":"showcase-agno","timeout":25,"build_args":"","dockerfile":""},
             {"dispatch_name":"llamaindex","filter_key":"llamaindex","context":"showcase/integrations/llamaindex","image":"showcase-llamaindex","timeout":25,"build_args":"","dockerfile":""},
@@ -177,17 +180,24 @@ jobs:
           # PR event only — filter to changed services. Use jq --arg for
           # untrusted PR metadata so branch names are encoded as JSON data,
           # not interpolated into shell source.
+          #
+          # A workflow or Angular/package change builds only a representative
+          # sample ($sample), not the whole fleet. Integration images install
+          # PUBLISHED @copilotkit packages and their contexts exclude
+          # packages/, so the only PR input they receive is the Angular
+          # browser artifact, which every integration stages identically.
+          # Building all of them repeated one check ~22 times per push. The
+          # post-merge showcase_build.yml still builds every image.
           MATRIX=$(echo "$ALL_SERVICES" | jq -c --argjson changes "$CHANGES" --arg sha "$PR_HEAD_SHA" --arg ref "$PR_HEAD_REF" '
+            ["shell", "langgraph-python", "mastra"] as $sample |
             [.[] |
               if .build_args_sha == "__GH_SHA__" then .build_args_sha = $sha else . end |
               if .build_args_branch == "__GH_REF_NAME__" then .build_args_branch = $ref else . end |
-              (.filter_key as $fk | select(
-              ($changes | index("workflow_config") != null) or
+              (.filter_key as $fk | .dispatch_name as $name | select(
               ($changes | index($fk) != null) or
-              (($changes | index("angular") != null) and (
-                (.context | startswith("showcase/integrations/")) or
-                .dispatch_name == "shell"
-              ))
+              ((($changes | index("workflow_config") != null) or
+                ($changes | index("angular") != null)) and
+                ($sample | index($name) != null))
             ))]
           ')
 
@@ -244,7 +254,9 @@ jobs:
   build-check:
     needs: [detect-changes, build-angular]
     if: needs.detect-changes.outputs.has_changes == 'true'
-    runs-on: depot-ubuntu-24.04-4
+    # The image builds on Depot's remote builder. This runner only waits for
+    # it, so a free GitHub-hosted runner does the job.
+    runs-on: ubuntu-26.04
     timeout-minutes: ${{ fromJSON(matrix.service.timeout) }}
     permissions:
       id-token: write

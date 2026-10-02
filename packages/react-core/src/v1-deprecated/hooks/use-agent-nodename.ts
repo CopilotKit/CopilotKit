@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { AgentSubscriber } from "@ag-ui/client";
+import type { RunFinishedOutcome } from "@ag-ui/core";
 import { useAgent } from "../../v2";
 import { INTERRUPT_EVENT_NAME } from "../../v2/types/interrupt";
 
@@ -14,7 +15,7 @@ type AgentNodeNameEvent =
   | { type: "runStarted" }
   | { type: "stepStarted"; nodeName: string }
   | { type: "legacyInterruptReceived" }
-  | { type: "runFinished"; outcome: "success" | "interrupt" }
+  | { type: "runFinished"; outcome: RunFinishedOutcome["type"] }
   | { type: "runError" };
 
 type AgentNodeNameTransition = (

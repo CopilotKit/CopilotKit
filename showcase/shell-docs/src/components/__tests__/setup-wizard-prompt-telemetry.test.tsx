@@ -2,9 +2,9 @@
 //
 // The wizard writes the clipboard from a single control, so its copy event
 // must say so. Without `action` the event lands in the same stream as the
-// deep-link opens emitted by <PromptPill>, and a reader counting
-// `docs.intelligence_onboarding_prompt_copied` cannot tell a deliberate copy
-// from an app handoff. See PE-218.
+// copies emitted by <PromptPill>, and a reader counting
+// `docs.intelligence_onboarding_prompt_copied` cannot tell the two surfaces'
+// actions apart. See PE-218.
 import {
   cleanup,
   fireEvent,
