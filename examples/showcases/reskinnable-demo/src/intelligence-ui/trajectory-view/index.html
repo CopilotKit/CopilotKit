@@ -1138,7 +1138,7 @@ function cardHtml(e) {
   } else if (e.sub === "network") {
     hasDetail = true;
     title = `<span class="method">${e.method}</span><span class="mono">${esc(e.path)}</span>`;
-    meta = e.error ? `<div class="ev-meta" style="color:var(--bad)"><span class="mono">${esc(e.error)}</span></div>` : "";
+    meta = e.error ? `<div class="ev-meta" style="color:var(--bad)"><span class="mono">${esc(e.error)}</span></div>` : e.summary ? `<div class="ev-meta">${esc(e.summary)}</div>` : "";
     side = `<span class="status ${e.status >= 400 ? "bad" : ""}">${e.status}</span><span class="ev-dur">${dur(e.ms)}</span>`;
     detail = `<div class="code-pair"><div><div class="code-lbl">Request</div><pre class="code">${esc(e.detail.request)}</pre></div><div><div class="code-lbl">Response</div><pre class="code">${esc(e.detail.response)}</pre></div></div>`;
   }
