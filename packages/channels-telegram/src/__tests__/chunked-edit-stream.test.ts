@@ -259,6 +259,56 @@ describe("ChunkedEditStream", () => {
     }
   });
 
+  it("does not cut inside a closing fence marker", async () => {
+    let id = 0;
+    const edits: Record<number, string> = {};
+    const s = new ChunkedEditStream({
+      limit: 60,
+      minIntervalMs: 0,
+      transform: telegramHtml,
+      postPlaceholder: async () => ++id,
+      editAt: async (mid, text) => {
+        edits[mid] = text;
+      },
+    });
+    // 62 chars: a hard cut at 60 would land inside the closing ```.
+    const code = "x".repeat(53);
+    s.append("```js\n" + code + "```");
+    await s.finish();
+
+    const all = Object.values(edits);
+    expect(all.join("\n")).toContain(
+      `<pre><code class="language-js">${code}</code></pre>`,
+    );
+    for (const text of all) expect(text).not.toContain("`");
+  });
+
+  it("does not cut inside a fence's opening line", async () => {
+    let id = 0;
+    const edits: Record<number, string> = {};
+    const s = new ChunkedEditStream({
+      limit: 60,
+      minIntervalMs: 0,
+      transform: telegramHtml,
+      postPlaceholder: async () => ++id,
+      editAt: async (mid, text) => {
+        edits[mid] = text;
+      },
+    });
+    // A hard cut at 60 would land inside "```python".
+    s.append("A".repeat(55) + "```python\nprint(1)\n```");
+    await s.finish();
+
+    const all = Object.values(edits);
+    expect(all.join("\n")).toContain(
+      '<pre><code class="language-python">print(1)</code></pre>',
+    );
+    for (const text of all) {
+      expect(text).not.toContain("`");
+      expect(text).not.toContain('class="language-py"');
+    }
+  });
+
   it("does not turn prose with an unmatched ``` into a code block", async () => {
     // telegramHtml renders a lone ``` in prose as text, so balancing must not
     // add a closing fence for it.

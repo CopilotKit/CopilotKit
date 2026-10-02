@@ -68,6 +68,31 @@ function findFences(text: string): FenceSpan[] {
 }
 
 /**
+ * Move a chunk cut off a fence delimiter. A cut inside a fence's opening line
+ * (or right after it) moves back to the fence start, so the block opens in the
+ * next message; a cut inside the closing ``` (or right before it) moves to just
+ * past it. Either way each message gets whole delimiters and no empty block.
+ * A cut inside the code itself is left alone: balanceFences handles it.
+ *
+ * Only complete fences are seen, so a delimiter still streaming in when its
+ * boundary freezes can't be protected.
+ */
+function moveCutOffDelimiters(
+  text: string,
+  cut: number,
+  lastFrozen: number,
+): number {
+  for (const f of findFences(text)) {
+    const headerEnd = text.indexOf("\n", f.start) + 1;
+    if (f.start < cut && cut <= headerEnd) {
+      return f.start > lastFrozen ? f.start : cut;
+    }
+    if (f.end - 3 <= cut && cut < f.end) return f.end;
+  }
+  return cut;
+}
+
+/**
  * Balance the code fences of the chunk `slice` = `buffer[start, end)`.
  * `transform` runs per message, so a block split across messages would
  * otherwise render as prose on both sides (and `__init__` would turn bold).
@@ -242,7 +267,11 @@ export class ChunkedEditStream {
       // Bug 1 fix: enforce a minimum advance floor so adversarial input
       // (e.g. leading spaces / early newlines) doesn't produce ~1-char chunks.
       if (breakAt < minAdvance) breakAt = this.limit - 1;
-      const candidate = lastFrozen + breakAt + 1;
+      const candidate = moveCutOffDelimiters(
+        this.buffer,
+        lastFrozen + breakAt + 1,
+        lastFrozen,
+      );
       this.boundaries.push(candidate);
       lastFrozen = candidate;
     }
