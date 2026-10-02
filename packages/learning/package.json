@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/learning",
-  "version": "1.76.0",
+  "version": "0.0.1",
   "description": "Capture clicks, page changes, and network metadata in the browser as AG-UI CUSTOM events",
   "license": "MIT",
   "repository": {
