@@ -62,6 +62,8 @@ export type {
   CopilotRuntimeLearningContext,
   GetLearningContainerId,
   LearningContainerSelectorInput,
+  GetTrajectoryLearningContainerIds,
+  TrajectoryLearningContainerSelectorInput,
 } from "./learning";
 
 export const VERSION = pkg.version;

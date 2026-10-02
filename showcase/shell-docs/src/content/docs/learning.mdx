@@ -47,11 +47,30 @@ The learning loop has two connections. Run ingestion collects evidence in a Lear
 | Connection | Configuration | Result |
 | --- | --- | --- |
 | Runtime to Automatic Learning | `CopilotKitIntelligence.getLearningContainerId` | Assigns selected Threads to a container for analysis. |
+| Browser activity to Automatic Learning | `CopilotKitIntelligence.getTrajectoryLearningContainerIds` | Assigns captured Trajectories to existing Learning Spaces. |
 | Learning to agent | An Intelligence SDK adapter for your framework | Makes published Skills available during agent invocations. |
 
 When an agent must learn from its own workflow, use the same project and container for both connections. The SDK adapters also work with native agents outside a CopilotKit frontend, but they do not collect those agents' runs automatically.
 
 For agent setup, use the [Mastra](/intelligence/learned-skills#mastra), [LangGraph TypeScript](/intelligence/learned-skills#langgraph-typescript), or [LangGraph Python](/intelligence/learned-skills#langgraph-python) example. The delivery guide also covers [Google ADK](/intelligence/learned-skills#google-adk), [BuiltInAgent](/intelligence/learned-skills#builtinagent), and [Microsoft Agent Framework](/intelligence/learned-skills#microsoft-agent-framework).
+
+## Assign browser activity to a Learning Space
+
+For capture connected to Intelligence, select existing Learning Spaces in your Runtime's server configuration:
+
+```ts
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+  getTrajectoryLearningContainerIds: ({ trajectoryId, user }) =>
+    ["expense-review"],
+});
+```
+
+Create the Space before capture starts. The callback receives the Trajectory ID and the application user verified by your Runtime. It does not require a Thread or an agent conversation. Browser-supplied Space IDs are ignored.
+
+Return `[]` to request no new assignments explicitly. Return `null` or `undefined` to omit assignments from the connect request. Each connect adds memberships and never removes existing ones, so keep the selection stable across reconnects. A missing or deleted Space stops the connection with `LEARNING_CONTAINER_NOT_FOUND`.
+
+The callback has a five-second deadline. Its optional second argument is an `AbortSignal` that cancels when the request ends or the deadline expires. If the callback throws, returns invalid IDs, or exceeds its deadline, the Runtime logs the error and returns `LEARNING_CONTAINER_SELECTION_FAILED`. Capture stops without automatic retries. Your Intelligence backend must support Trajectory inputs for Automatic Learning. Assignment alone does not start an analysis or guarantee an insight.
 
 ## Set up Automatic Learning manually
 

@@ -11,10 +11,15 @@ import type {
 } from "@copilotkit/shared";
 import { randomUUID } from "crypto";
 import { z } from "zod";
-import type { GetLearningContainerId } from "../core/learning";
+import { resolveTrajectoryLearningContainerIds } from "../core/learning";
+import type {
+  GetLearningContainerId,
+  GetTrajectoryLearningContainerIds,
+} from "../core/learning";
 import {
   parseTrajectoryConnectionGrant,
   trajectoryResponseError,
+  TrajectoryConnectionError,
 } from "./trajectories";
 import type { TrajectoryConnectionGrant } from "./trajectories";
 
@@ -309,6 +314,13 @@ export interface CopilotKitIntelligenceConfig {
    * Return `null` or `undefined` to leave the Thread unassigned.
    */
   getLearningContainerId?: GetLearningContainerId;
+  /**
+   * Assigns a Trajectory to existing Learning Spaces using server-resolved user
+   * identity. Browser-supplied assignments are ignored. Return null or undefined
+   * to leave activity unassigned. Reconnects call the selector again; keep the
+   * selection stable for a Trajectory because assignments are additive.
+   */
+  getTrajectoryLearningContainerIds?: GetTrajectoryLearningContainerIds;
   /**
    * Enable Enterprise Learning — expose CopilotKit Intelligence's
    * built-in tools (bash + thread/memory tools) to agent runs on an
@@ -700,6 +712,7 @@ export class CopilotKitIntelligence {
   #apiKey: string;
   #enterpriseLearningEnabled: boolean;
   #getLearningContainerId?: GetLearningContainerId;
+  #getTrajectoryLearningContainerIds?: GetTrajectoryLearningContainerIds;
   #runtimeEntitlementsCache?: RuntimeEntitlementCacheEntry;
   #runtimeEntitlementsFailure?: RuntimeEntitlementFailureEntry;
   #runtimeEntitlementsInFlight?: Promise<RuntimeEntitlementResponse>;
@@ -717,6 +730,14 @@ export class CopilotKitIntelligence {
       );
     }
     assertConfiguredApiKey(config.apiKey);
+    if (
+      config.getTrajectoryLearningContainerIds !== undefined &&
+      typeof config.getTrajectoryLearningContainerIds !== "function"
+    ) {
+      throw new Error(
+        "CopilotKitIntelligence `getTrajectoryLearningContainerIds` must be a callback",
+      );
+    }
     const configuredApiUrl = configuredUrl(config.apiUrl);
     const configuredWsUrl = configuredUrl(config.wsUrl);
     warnOnPartialHostOverride(configuredApiUrl, configuredWsUrl);
@@ -735,6 +756,8 @@ export class CopilotKitIntelligence {
     this.#apiKey = config.apiKey;
     this.#enterpriseLearningEnabled = config.enableEnterpriseLearning ?? false;
     this.#getLearningContainerId = config.getLearningContainerId;
+    this.#getTrajectoryLearningContainerIds =
+      config.getTrajectoryLearningContainerIds;
 
     if (config.onThreadCreated) {
       this.onThreadCreated(config.onThreadCreated);
@@ -1371,17 +1394,37 @@ export class CopilotKitIntelligence {
     user: { id: string; name: string };
     signal?: AbortSignal;
   }): Promise<TrajectoryConnectionGrant> {
+    let learningContainerIds: readonly string[] | undefined;
+    try {
+      learningContainerIds = await resolveTrajectoryLearningContainerIds(
+        this.#getTrajectoryLearningContainerIds,
+        { trajectoryId: params.trajectoryId, user: params.user },
+        params.signal,
+      );
+    } catch (error) {
+      if (params.signal?.aborted) throw params.signal.reason;
+      logger.error(
+        { err: error },
+        "Failed to resolve Trajectory Learning Containers",
+      );
+      throw new TrajectoryConnectionError(
+        "LEARNING_CONTAINER_SELECTION_FAILED",
+        "Failed to resolve Trajectory Learning Containers",
+        500,
+      );
+    }
+    params.signal?.throwIfAborted();
     const response = await fetch(`${this.#apiUrl}/api/trajectories/join`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.#apiKey}`,
         "Content-Type": "application/json",
       },
-      // Project scope comes from the API key. Containers remain unassigned
-      // until there is a server-side selector with Trajectory context.
+      // Project scope comes from the API key; Space selection comes from server code.
       body: JSON.stringify({
         trajectoryId: params.trajectoryId,
         appUserId: params.user.id,
+        ...(learningContainerIds === undefined ? {} : { learningContainerIds }),
       }),
       signal: params.signal,
       redirect: "error",
