@@ -1217,7 +1217,7 @@
         "releaseScope": {
           "kind": "release-config",
           "path": "release.config.json",
-          "selector": "scopes.monorepo.packages"
+          "selector": "scopes.learning.packages"
         }
       }
     },

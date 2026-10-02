@@ -53,6 +53,7 @@ on:
         type: choice
         options:
           - monorepo
+          - learning
           - angular
           - channels
           - intelligence-langgraph
@@ -1185,6 +1186,9 @@ jobs:
         run: |
           set -euo pipefail
           case "$SCOPE" in
+            learning)
+              NPM_URL="https://www.npmjs.com/package/@copilotkit/learning"
+              ;;
             angular)
               NPM_URL="https://www.npmjs.com/package/@copilotkit/angular"
               ;;
