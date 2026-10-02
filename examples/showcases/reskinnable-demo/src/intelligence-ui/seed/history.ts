@@ -228,25 +228,19 @@ const SPECS: Spec[] = [
   },
   {
     id: "trj_s8f1q7",
-    title: "Approve Daniel Okafor's client dinner",
+    title: "List Daniel Okafor's open expense reports",
     user: MAYA,
     start: at(12, 9, 41),
     outcome: "agent_succeeded",
     surface: "in_app",
-    ask: "Approve Daniel Okafor's client dinner.",
+    ask: "What does Daniel Okafor still have open?",
     reply:
-      "Approved **EXP-2288**, Daniel Okafor's client dinner (**$350.60**).",
+      "Daniel has one open report, **EXP-2288** (client dinner, **$350.60**), submitted Sep 27.",
     steps: [
       [
         "listReports",
         { employee: "Daniel Okafor", status: "submitted" },
-        { count: 1, reports: [{ id: "EXP-2288" }] },
-        "ok",
-      ],
-      [
-        "approveReport",
-        { reportId: "EXP-2288" },
-        { id: "EXP-2288", status: "approved" },
+        { count: 1, reports: [{ id: "EXP-2288", total: 350.6 }] },
         "ok",
       ],
     ],
@@ -370,25 +364,19 @@ const SPECS: Spec[] = [
   },
   {
     id: "trj_s4w7b3",
-    title: "Reimburse Sofia Lindqvist's Lisbon conference trip",
+    title: "Summarize Sofia Lindqvist's Lisbon conference trip",
     user: JORDAN,
     start: at(6, 14, 30),
     outcome: "agent_succeeded",
     surface: "in_app",
-    ask: "Reimburse Sofia Lindqvist's Lisbon conference trip.",
+    ask: "Give me a one-line summary of Sofia Lindqvist's Lisbon trip report.",
     reply:
-      "Reimbursed **EXP-2295** ($1,731.00) to Sofia Lindqvist on the next ACH run.",
+      "**EXP-2295**: Lisbon design conference, Sep 14 to 17, **$1,731.00** across 6 lines.",
     steps: [
       [
         "getReport",
         { reportId: "EXP-2295" },
-        { id: "EXP-2295", status: "approved", total: 1731 },
-        "ok",
-      ],
-      [
-        "reimburseReport",
-        { reportId: "EXP-2295" },
-        { id: "EXP-2295", status: "reimbursed" },
+        { id: "EXP-2295", lines: 6, total: 1731 },
         "ok",
       ],
     ],
@@ -443,14 +431,14 @@ const SPECS: Spec[] = [
   },
   {
     id: "trj_s2r5k6",
-    title: "Explain why Lucía Romero's booth supplies aren't paid",
+    title: "Explain why Lucía Romero's booth report is still open",
     user: JORDAN,
     start: at(2, 10, 48),
     outcome: "agent_succeeded",
     surface: "in_app",
-    ask: "Why hasn't Lucía Romero's trade show booth report been reimbursed?",
+    ask: "Why is Lucía Romero's trade show booth report still open?",
     reply:
-      "**EXP-2305** is still awaiting approval from her manager, so it can't be reimbursed yet.",
+      "**EXP-2305** is waiting on her manager, R. Alvarez, who has not reviewed it yet.",
     steps: [
       [
         "getReport",

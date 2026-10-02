@@ -371,7 +371,7 @@
           : "";
       const firstMsg = th.messages.find((m) => m.role === "user");
       moments.push(
-        `<li><span class="ms bad">error</span><div><b>${surfaceName(th.surface)} failed</b><p>${calls.length} tool calls, ${errs.length} errors${code ? `: ${esc(code)}` : ""}. It retried instead of resolving the hold.</p>${firstMsg ? `<button class="linkbtn" type="button" data-jump="${esc(firstMsg.id)}">Show message</button>` : ""}</div></li>`,
+        `<li><span class="ms bad">error</span><div><b>${surfaceName(th.surface)} failed</b><p>${calls.length} ${calls.length === 1 ? "tool call" : "tool calls"}, ${errs.length} ${errs.length === 1 ? "error" : "errors"}${code ? `: ${esc(code)}` : ""}. It never got the workflow right and stopped.</p>${firstMsg ? `<button class="linkbtn" type="button" data-jump="${esc(firstMsg.id)}">Show message</button>` : ""}</div></li>`,
       );
     }
     const seen = new Set();
@@ -412,9 +412,21 @@
         `<li><span class="ms fine">sync_alt</span><div><b>The recipe, from the network requests</b><p class="mono" style="font-size:11.5px">${esc(recipe.map((r) => (r.n > 1 ? `${r.label} ×${r.n}` : r.label)).join(" → "))}</p><button class="linkbtn" type="button" data-jump="${esc(calls[0].eventId)}">Show requests</button></div></li>`,
       );
     }
-    const steps = reference
+    // The person's own steps; repeated "Match ..." clicks fold into one count.
+    const clicks = reference
       .filter((ev) => ev.event.name === "click")
-      .map((ev) => String(ev.event.value.action).replace(/^Cost center: /, ""));
+      .map((ev) => String(ev.event.value.action));
+    const matched = clicks.filter(
+      (a) => a.startsWith("Match ") && !a.startsWith("Match menu"),
+    ).length;
+    const steps = [
+      ...(matched ? [`Matched ${matched} receipts`] : []),
+      ...clicks.filter(
+        (a) =>
+          !a.startsWith("Match ") &&
+          !/^Preview |^Close preview|^Unmatch /.test(a),
+      ),
+    ];
     const firstClick = reference.find((ev) => ev.event.name === "click");
     if (t.outcome === "agent_failed_user_completed" && firstClick) {
       const span = reference.length
