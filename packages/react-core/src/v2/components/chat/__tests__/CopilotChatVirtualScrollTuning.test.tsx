@@ -6,6 +6,7 @@ import type * as ReactVirtual from "@tanstack/react-virtual";
 import { renderWithCopilotKit } from "../../../__tests__/utils/test-helpers";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
 import { ScrollPinnedContext } from "../scroll-pinned-context";
+import { ScrollElementContext } from "../scroll-element-context";
 
 /**
  * Covers the two things CopilotChatMessageView configures on its virtualizer
@@ -142,6 +143,185 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
       // Corrections already applied count towards where the viewport is.
       expect(shouldAdjust(itemAt(900), 40, scrolledTo(800, 150))).toBe(true);
     });
+  });
+
+  describe("container width changes", () => {
+    it.each([false, true])(
+      "invalidates offscreen heights and preserves the reading row (rows measured first: %s)",
+      async (rowsFirst) => {
+        const callbacks = new Map<Element, Set<ResizeObserverCallback>>();
+        const originalObserver = globalThis.ResizeObserver;
+        globalThis.ResizeObserver = class {
+          callback: ResizeObserverCallback;
+          targets = new Set<Element>();
+          constructor(callback: ResizeObserverCallback) {
+            this.callback = callback;
+          }
+          observe(target: Element) {
+            this.targets.add(target);
+            const listeners = callbacks.get(target) ?? new Set();
+            listeners.add(this.callback);
+            callbacks.set(target, listeners);
+          }
+          unobserve(target: Element) {
+            callbacks.get(target)?.delete(this.callback);
+          }
+          disconnect() {
+            for (const target of this.targets) this.unobserve(target);
+          }
+        } as typeof ResizeObserver;
+        let width = 600;
+        const createContainer = () => {
+          const element = document.createElement("div");
+          Object.defineProperties(element, {
+            clientWidth: { get: () => width },
+            clientHeight: { value: 600 },
+            scrollHeight: { get: () => virtualizer().getTotalSize() },
+          });
+          element.getBoundingClientRect = () =>
+            ({ width, height: 600 }) as DOMRect;
+          element.scrollTo = vi.fn(({ top }: ScrollToOptions) => {
+            element.scrollTop = top ?? 0;
+            element.dispatchEvent(new Event("scroll"));
+          }) as typeof element.scrollTo;
+          return element;
+        };
+        const container = createContainer();
+        const messages: Message[] = Array.from({ length: 100 }, (_, index) => ({
+          id: String(index),
+          role: "user",
+          content: "word ".repeat(200),
+        }));
+        let replaceContainer: (element: HTMLDivElement) => void;
+        function ScrollContainerHarness() {
+          const [element, setElement] = React.useState(container);
+          replaceContainer = setElement;
+          return (
+            <ScrollElementContext.Provider value={element}>
+              <Harness isPinnedToBottom={false} initialMessages={messages} />
+            </ScrollElementContext.Provider>
+          );
+        }
+        const rect = vi
+          .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+          .mockImplementation(function (this: HTMLElement) {
+            return {
+              width,
+              height: this.hasAttribute("data-index")
+                ? width < 400
+                  ? 600
+                  : 300
+                : 0,
+            } as DOMRect;
+          });
+        let nextFrame = 0;
+        const frames = new Map<number, FrameRequestCallback>();
+        const frame = vi
+          .spyOn(window, "requestAnimationFrame")
+          .mockImplementation((callback) => {
+            frames.set(++nextFrame, callback);
+            return nextFrame;
+          });
+        const cancelFrame = vi
+          .spyOn(window, "cancelAnimationFrame")
+          .mockImplementation((id) => {
+            frames.delete(id);
+          });
+        try {
+          renderWithCopilotKit({
+            children: <ScrollContainerHarness />,
+          });
+          act(() => {
+            // Row 0 is far above the reader; its measurement must also expire.
+            virtualizer().resizeItem(0, 900);
+            virtualizer().options.measureElement(
+              measuredRow(0, 900),
+              undefined,
+              virtualizer(),
+            );
+          });
+          act(() => {
+            const row = virtualizer().measurementsCache[50];
+            container.scrollTop = row.start + 25;
+            container.dispatchEvent(new Event("scroll"));
+          });
+          // Let the rows newly brought into view settle before resizing.
+          act(() => {
+            container.scrollTop =
+              virtualizer().measurementsCache[50].start + 25;
+            container.dispatchEvent(new Event("scroll"));
+          });
+          expect(
+            virtualizer().getVirtualItemForOffset(container.scrollTop)?.index,
+          ).toBe(50);
+          const resize = (nextWidth: number) =>
+            act(() => {
+              width = nextWidth;
+              if (rowsFirst) {
+                for (const row of document.querySelectorAll("[data-index]")) {
+                  virtualizer().measureElement(row);
+                }
+              }
+              for (const callback of callbacks.get(container) ?? []) {
+                callback(
+                  [
+                    {
+                      target: container,
+                      borderBoxSize: [{ inlineSize: width, blockSize: 600 }],
+                    },
+                  ] as unknown as ResizeObserverEntry[],
+                  {} as ResizeObserver,
+                );
+              }
+            });
+          const flushFrame = () =>
+            act(() => {
+              const pending = [...frames.values()];
+              frames.clear();
+              pending.forEach((callback) => callback(0));
+            });
+          resize(300);
+          flushFrame();
+          expect(virtualizer().measurementsCache[0].size).toBe(600);
+          expect(
+            container.scrollTop - virtualizer().measurementsCache[50].start,
+          ).toBe(25);
+          expect(virtualizer().options.estimateSize(0)).toBe(600);
+          const total = virtualizer().getTotalSize();
+          resize(300);
+          expect(virtualizer().getTotalSize()).toBe(total);
+          resize(600);
+          flushFrame();
+          expect(virtualizer().measurementsCache[0].size).toBe(300);
+          expect(virtualizer().options.estimateSize(0)).toBe(300);
+          expect(
+            container.scrollTop - virtualizer().measurementsCache[50].start,
+          ).toBe(25);
+          // Replace the viewport after remeasurement, before the next frame
+          // releases the old reading anchor.
+          const replacement = createContainer();
+          act(() => replaceContainer(replacement));
+          expect(callbacks.get(container)?.size).toBe(0);
+          expect(
+            virtualizer().shouldAdjustScrollPositionOnItemSizeChange!(
+              itemAt(100),
+              40,
+              scrolledTo(800),
+            ),
+          ).toBe(true);
+        } finally {
+          // TanStack's scroll-end debounce can notify after its listener is removed.
+          await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 180));
+          });
+          cleanup();
+          rect.mockRestore();
+          frame.mockRestore();
+          cancelFrame.mockRestore();
+          globalThis.ResizeObserver = originalObserver;
+        }
+      },
+    );
   });
 
   describe("estimateSize", () => {
