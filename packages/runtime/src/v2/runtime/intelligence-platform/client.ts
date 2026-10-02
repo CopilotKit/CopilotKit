@@ -19,6 +19,7 @@ import type {
 import {
   parseTrajectoryConnectionGrant,
   trajectoryResponseError,
+  TrajectoryConnectionError,
 } from "./trajectories";
 import type { TrajectoryConnectionGrant } from "./trajectories";
 
@@ -1393,10 +1394,26 @@ export class CopilotKitIntelligence {
     user: { id: string; name: string };
     signal?: AbortSignal;
   }): Promise<TrajectoryConnectionGrant> {
-    const learningContainerIds = await resolveTrajectoryLearningContainerIds(
-      this.#getTrajectoryLearningContainerIds,
-      { trajectoryId: params.trajectoryId, user: params.user },
-    );
+    let learningContainerIds: readonly string[] | undefined;
+    try {
+      learningContainerIds = await resolveTrajectoryLearningContainerIds(
+        this.#getTrajectoryLearningContainerIds,
+        { trajectoryId: params.trajectoryId, user: params.user },
+        params.signal,
+      );
+    } catch (error) {
+      if (params.signal?.aborted) throw params.signal.reason;
+      logger.error(
+        { err: error },
+        "Failed to resolve Trajectory Learning Containers",
+      );
+      throw new TrajectoryConnectionError(
+        "LEARNING_CONTAINER_SELECTION_FAILED",
+        "Failed to resolve Trajectory Learning Containers",
+        500,
+      );
+    }
+    params.signal?.throwIfAborted();
     const response = await fetch(`${this.#apiUrl}/api/trajectories/join`, {
       method: "POST",
       headers: {

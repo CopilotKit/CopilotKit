@@ -686,6 +686,25 @@ describe("Core trajectory connection", () => {
     expect(core.trajectoryId).toBeNull();
   });
 
+  it("stops recovery for a server Learning Container selector configuration error", async () => {
+    const { core, channel } = await start();
+    channel.callbacks.get("phx_close")!();
+    const recovered = core.startTrajectory();
+    await vi.advanceTimersByTimeAsync(1_000);
+    requests[1]!.response.resolve(
+      response({ code: "LEARNING_CONTAINER_SELECTION_FAILED" }, 500),
+    );
+    const settled = vi.fn();
+    void recovered.then(settled);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(settled).toHaveBeenCalledWith({
+      status: "error",
+      code: "LEARNING_CONTAINER_SELECTION_FAILED",
+    });
+    expect(requests).toHaveLength(2);
+    expect(core.trajectoryId).toBeNull();
+  });
+
   it("waits for browser online before minting a fresh grant and stop prevents resurrection", async () => {
     const { core } = await start();
     window.dispatchEvent(new Event("offline"));

@@ -1,5 +1,5 @@
 import { expect, test, vi } from "vitest";
-import { lambdaClient } from "@copilotkit/shared";
+import { lambdaClient, logger } from "@copilotkit/shared";
 import { CopilotIntelligenceRuntime } from "../core/runtime";
 import { createCopilotHonoHandler } from "../endpoints/hono";
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
@@ -10,6 +10,9 @@ type Mode = "single-route" | "multi-route";
 
 function setup(mode: Mode) {
   const telemetry = vi.spyOn(lambdaClient, "send").mockResolvedValue(undefined);
+  const logError = vi
+    .spyOn(logger, "error")
+    .mockImplementation(() => undefined);
   const upstream = vi
     .spyOn(globalThis, "fetch")
     .mockResolvedValue(
@@ -58,9 +61,11 @@ function setup(mode: Mode) {
     selector,
     identifyUser,
     upstream,
+    logError,
     teardown: () => {
       upstream.mockRestore();
       telemetry.mockRestore();
+      logError.mockRestore();
     },
   };
 }
@@ -76,10 +81,10 @@ test.each(["single-route", "multi-route"] as const)(
       expect(fixture.identifyUser).toHaveBeenCalledExactlyOnceWith(
         fixture.request,
       );
-      expect(fixture.selector).toHaveBeenCalledExactlyOnceWith({
-        trajectoryId,
-        user,
-      });
+      expect(fixture.selector).toHaveBeenCalledExactlyOnceWith(
+        { trajectoryId, user },
+        expect.any(AbortSignal),
+      );
       expect(fixture.upstream).toHaveBeenCalledExactlyOnceWith(
         "https://intelligence.example/api/trajectories/join",
         expect.objectContaining({
@@ -127,11 +132,44 @@ test.each(["single-route", "multi-route"] as const)(
     try {
       const response = await fixture.app.fetch(fixture.request);
 
-      expect(response.status).toBe(502);
+      expect(response.status).toBe(500);
       expect(await response.json()).toEqual({
-        code: "CONNECTION_FAILED",
-        message: "Could not connect to Intelligence",
+        code: "LEARNING_CONTAINER_SELECTION_FAILED",
+        message: "Failed to resolve Trajectory Learning Containers",
       });
+      expect(fixture.logError).toHaveBeenCalledWith(
+        { err: expect.any(Error) },
+        "Failed to resolve Trajectory Learning Containers",
+      );
+      expect(fixture.upstream).not.toHaveBeenCalled();
+    } finally {
+      fixture.teardown();
+    }
+  },
+);
+
+test.each([
+  { label: "invalid ID", ids: [""] },
+  {
+    label: "over 100 IDs",
+    ids: Array.from({ length: 101 }, (_, index) => `space-${index}`),
+  },
+])(
+  "a server selector with $label returns a terminal configuration error",
+  async ({ ids }) => {
+    const fixture = setup("single-route");
+    fixture.selector.mockResolvedValue(ids);
+    try {
+      const response = await fixture.app.fetch(fixture.request);
+      expect(response.status).toBe(500);
+      expect(await response.json()).toEqual({
+        code: "LEARNING_CONTAINER_SELECTION_FAILED",
+        message: "Failed to resolve Trajectory Learning Containers",
+      });
+      expect(fixture.logError).toHaveBeenCalledWith(
+        { err: expect.any(Error) },
+        "Failed to resolve Trajectory Learning Containers",
+      );
       expect(fixture.upstream).not.toHaveBeenCalled();
     } finally {
       fixture.teardown();

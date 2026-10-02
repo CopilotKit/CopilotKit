@@ -44,24 +44,59 @@ export interface TrajectoryLearningContainerSelectorInput {
   readonly user: CopilotRuntimeUser;
 }
 
-/** Selects existing Learning Spaces without requiring an agent run or Thread. */
+/**
+ * Selects existing Learning Spaces without requiring an agent run or Thread.
+ * The optional signal cancels on request abort or the five-second deadline.
+ */
 export type GetTrajectoryLearningContainerIds = (
   input: TrajectoryLearningContainerSelectorInput,
+  signal?: AbortSignal,
 ) => MaybePromise<readonly string[] | null | undefined>;
 
 /** Resolves bounded, validated Space IDs selected by application server code. */
 export async function resolveTrajectoryLearningContainerIds(
   selector: GetTrajectoryLearningContainerIds | undefined,
   input: TrajectoryLearningContainerSelectorInput,
+  signal?: AbortSignal,
 ): Promise<readonly string[] | undefined> {
-  const value = await selector?.(input);
-  if (value == null) return undefined;
-  if (!Array.isArray(value) || value.length > 100) {
-    throw new Error(
-      "Trajectory Learning Container selection must be an array of at most 100 IDs",
+  signal?.throwIfAborted();
+  if (!selector) return undefined;
+  const controller = new AbortController();
+  const onAbort = () => controller.abort(signal?.reason);
+  signal?.addEventListener("abort", onAbort, { once: true });
+  const timeout = setTimeout(
+    () =>
+      controller.abort(
+        new Error("Trajectory Learning Container selection timed out"),
+      ),
+    5_000,
+  );
+  let onCancelled: (() => void) | undefined;
+  try {
+    const cancelled = new Promise<never>((_resolve, reject) => {
+      onCancelled = () => reject(controller.signal.reason);
+      controller.signal.addEventListener("abort", onCancelled, { once: true });
+    });
+    const selection = new Promise<readonly string[] | null | undefined>(
+      (resolve) => {
+        resolve(selector(input, controller.signal));
+      },
     );
+    const value = await Promise.race([selection, cancelled]);
+    controller.signal.throwIfAborted();
+    if (value == null) return undefined;
+    if (!Array.isArray(value) || value.length > 100) {
+      throw new Error(
+        "Trajectory Learning Container selection must be an array of at most 100 IDs",
+      );
+    }
+    return [...new Set(value.map(assertStableLearningContainerId))];
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener("abort", onAbort);
+    if (onCancelled)
+      controller.signal.removeEventListener("abort", onCancelled);
   }
-  return [...new Set(value.map(assertStableLearningContainerId))];
 }
 
 /** Context for choosing one Learning Container for an Intelligence run. */
