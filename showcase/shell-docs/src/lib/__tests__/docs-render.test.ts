@@ -1075,8 +1075,12 @@ describe("framework nav", () => {
 
     expect(generic).toContain("durable LangGraph checkpointer");
     expect(generic).toContain("durable ADK session service");
-    expect(adk).toContain("ADK session storage and analytics");
-    expect(langgraph).toContain("LangGraph or LangSmith storage and analytics");
+    expect(adk).toContain(
+      "Keep your ADK agent and its durable storage connected",
+    );
+    expect(langgraph).toContain(
+      "Keep your LangGraph agent and its durable storage connected",
+    );
   });
 
   it("keeps Drawer and Headless guidance applicable to starters and existing apps", () => {
