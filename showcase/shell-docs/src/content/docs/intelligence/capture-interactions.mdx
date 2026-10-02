@@ -14,7 +14,7 @@ This guide covers the experimental self-hosted integration that sends captured e
 
 When you are done, your app sends batches of events to a route you own. Each click inside the chat carries its `threadId`, `messageId`, and `toolCallId`.
 
-Capture retains full URLs, page titles, referrers, element text, attributes, control values, browser-visible headers, and bounded body snapshots by default. It also records form edits and full agent message text. See [Captured data](/intelligence/captured-data) for fields, limits, and explicit exclusions.
+Capture retains full URLs, page titles, referrers, element text, attributes, control values, browser-visible headers, and bounded body snapshots by default. It also records form edits and full agent message text. Passwords and credentials are replaced with `[redacted]` in the browser. See [Captured data](/intelligence/captured-data) for fields, limits, redaction, and explicit exclusions.
 
 ## Turn on capture
 

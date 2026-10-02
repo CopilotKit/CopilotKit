@@ -2,6 +2,7 @@ import { installClickCapture } from "./clicks";
 import { installNavigationCapture } from "./navigation";
 import { installInputCapture } from "./inputs";
 import { installNetworkCapture } from "./network";
+import { createRedactor } from "./redact";
 import { toRoute } from "./routes";
 import { BUILT_IN_EVENT_NAMES } from "./types";
 import type {
@@ -141,29 +142,35 @@ export function createTrajectoryCollector(
       active = true;
       // Native callers can emit developer events without browser observers.
       if (typeof window.addEventListener !== "function") return;
+      // One per session: fields seen and values typed are forgotten on stop().
+      const redact = createRedactor();
       try {
+        uninstalls.push(redact.watch());
         if (options.capture?.clicks !== false) {
-          uninstalls.push(installClickCapture({ emit: capture, getRoute }));
+          uninstalls.push(
+            installClickCapture({ emit: capture, getRoute, redact }),
+          );
         }
         if (options.capture?.navigation !== false) {
-          uninstalls.push(installNavigationCapture({ emit: capture }));
+          uninstalls.push(installNavigationCapture({ emit: capture, redact }));
         }
         if (options.capture?.inputs !== false) {
-          uninstalls.push(installInputCapture({ emit: capture }));
+          uninstalls.push(installInputCapture({ emit: capture, redact }));
         }
         if (options.capture?.network !== false) {
           uninstalls.push(
             installNetworkCapture({
               emit: capture,
               ignoreUrls: options.ignoreUrls ?? [],
+              redact,
             }),
           );
         }
         record("page", {
           route: getRoute(),
-          url: location.href,
+          url: redact.url(location.href),
           title: document.title,
-          referrer: document.referrer,
+          referrer: redact.url(document.referrer),
         });
       } catch {
         stop();

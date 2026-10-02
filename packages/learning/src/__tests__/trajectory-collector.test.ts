@@ -105,7 +105,7 @@ describe("Trajectory capture contract", () => {
         timestamp: NOW,
         value: {
           from: `${location.origin}/deals?email=secret@example.com#private`,
-          to: `${location.origin}/deals/42?token=private#secret`,
+          to: `${location.origin}/deals/42?token=[redacted]#secret`,
           navigationType: "push",
         },
       },

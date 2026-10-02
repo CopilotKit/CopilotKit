@@ -1,5 +1,7 @@
-import { createBodyCapture, snapshotText } from "./network-body";
+import { createBodyCapture } from "./network-body";
 import type { BodySnapshot } from "./network-body";
+import { createRedactor, isCredentialKey } from "./redact";
+import type { Redactor } from "./redact";
 import { REDACTED } from "./types";
 import type { Emit } from "./types";
 
@@ -20,15 +22,17 @@ const unavailableBody = (reason: string) =>
 const toAbsolute = (url: string) => new URL(url, location.href).href;
 // Credentials carry no product signal and must never leave the browser, even
 // with full capture. The header name stays, so the event still shows it was sent.
+// Names the credential-key matcher misses; it covers `authorization`, `cookie`,
+// `x-api-key`, `x-csrf-token`, and similar.
 const CREDENTIAL_HEADERS = new Set([
-  "authorization",
-  "proxy-authorization",
-  "cookie",
-  "set-cookie",
-  "x-api-key",
+  "x-amz-security-token",
+  "private-token",
+  "x-token",
 ]);
 const headerValue = (name: string, value: string) =>
-  CREDENTIAL_HEADERS.has(name.toLowerCase()) ? REDACTED : value;
+  CREDENTIAL_HEADERS.has(name.toLowerCase()) || isCredentialKey(name)
+    ? REDACTED
+    : value;
 const headerValues = (headers: Headers) =>
   Object.fromEntries(
     Array.from(headers.entries(), ([name, value]) => [
@@ -52,9 +56,11 @@ export function installNetworkCapture(params: {
   emit: Emit;
   routes?: string[];
   ignoreUrls: (string | RegExp)[];
+  redact?: Redactor;
 }) {
   let active = true;
-  const bodies = createBodyCapture();
+  const { redact = createRedactor() } = params;
+  const bodies = createBodyCapture(redact);
   const ignoreUrls = params.ignoreUrls.map((pattern) =>
     typeof pattern === "string"
       ? toAbsolute(pattern)
@@ -84,11 +90,12 @@ export function installNetworkCapture(params: {
     ])
       .then(([sent, received]) => {
         if (!active) return;
-        const url = new URL(request.url);
+        const href = redact.url(request.url);
+        const url = new URL(href);
         params.emit("network", {
           transport,
           method: request.method,
-          url: request.url,
+          url: href,
           origin: url.origin,
           route: url.pathname,
           status,
@@ -97,7 +104,7 @@ export function installNetworkCapture(params: {
           outcome,
           request: { headers: request.headers, body: sent },
           response: {
-            ...(response?.url ? { url: response.url } : {}),
+            ...(response?.url ? { url: redact.url(response.url) } : {}),
             headers: response?.headers ?? {},
             body: received,
           },
@@ -275,7 +282,7 @@ function patchXhr(
       requestBody =
         typeof Document !== "undefined" && body instanceof Document
           ? Promise.resolve(
-              snapshotText(new XMLSerializer().serializeToString(body)),
+              bodies.text(new XMLSerializer().serializeToString(body)),
             )
           : bodies.body(
               body as BodyInit | null | undefined,
@@ -314,7 +321,7 @@ function patchXhr(
       try {
         if (this.responseType === "" || this.responseType === "text") {
           responseBody = Promise.resolve(
-            snapshotText(
+            bodies.text(
               this.responseText,
               outcome === "ok" ? "complete" : "interrupted",
               outcome === "ok" ? undefined : `request-${outcome}`,
@@ -322,12 +329,12 @@ function patchXhr(
           );
         } else if (this.responseType === "json")
           responseBody = Promise.resolve(
-            snapshotText(JSON.stringify(this.response)),
+            bodies.text(JSON.stringify(this.response)),
           );
         else if (this.responseType === "document")
           responseBody = this.responseXML
             ? Promise.resolve(
-                snapshotText(
+                bodies.text(
                   new XMLSerializer().serializeToString(this.responseXML),
                 ),
               )

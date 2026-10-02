@@ -411,7 +411,7 @@ describe("Trajectory capture with the real Phoenix client", () => {
           value: expect.objectContaining({
             transport: "fetch",
             method: "POST",
-            url: `${location.origin}/api/orders/42?token=visible#details`,
+            url: `${location.origin}/api/orders/42?token=[redacted]#details`,
             route: "/api/orders/42",
             status: 201,
             seq: 4,

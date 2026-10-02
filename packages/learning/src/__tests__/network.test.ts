@@ -99,7 +99,7 @@ describe("fetch capture", () => {
     expect(event).toMatchObject({
       transport: "fetch",
       method: "POST",
-      url: `${PAGE_ORIGIN}/api/deals/42?token=secret#fragment`,
+      url: `${PAGE_ORIGIN}/api/deals/42?token=[redacted]#fragment`,
       origin: PAGE_ORIGIN,
       route: "/api/deals/42",
       status: 201,
@@ -151,7 +151,7 @@ describe("fetch capture", () => {
     await captured(events, 2);
     expect(requests).toEqual(["original body", "replacement"]);
     expect(events[0]!.value.request).toMatchObject({
-      headers: { "x-token": "full" },
+      headers: { "x-token": "[redacted]" },
       body: { text: "original body" },
     });
     expect(events[1]!.value).toMatchObject({
@@ -487,7 +487,7 @@ describe("XMLHttpRequest capture", () => {
     xhr.finish();
     const event = await captured(events);
     expect(event).toMatchObject({
-      url: `${PAGE_ORIGIN}/api/deals/42?secret=full#hash`,
+      url: `${PAGE_ORIGIN}/api/deals/42?secret=[redacted]#hash`,
       route: "/api/deals/42",
       request: {
         headers: { authorization: "[redacted]", "x-multi": "one, two" },
@@ -508,6 +508,9 @@ describe("XMLHttpRequest capture", () => {
       const events = setup(respondWith());
       const xhr = new FakeXhr();
       xhr.responseType = responseType;
+      // Declared text is decoded and redacted; only binary types stay base64.
+      xhr.getAllResponseHeaders = () =>
+        "Content-Type: application/octet-stream\r\n";
       xhr.response =
         responseType === "json"
           ? { complete: true }

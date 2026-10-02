@@ -2,6 +2,7 @@ import { installClickCapture } from "./clicks";
 import { installInputCapture } from "./inputs";
 import { installNavigationCapture } from "./navigation";
 import { installNetworkCapture } from "./network";
+import { createRedactor } from "./redact";
 import { toRoute } from "./routes";
 import { BUILT_IN_EVENT_NAMES } from "./types";
 import type {
@@ -121,24 +122,34 @@ export function createCollector(options: CollectorOptions) {
     const recordCurrent: typeof record = (name, value) => {
       if (session === current) record(name, value);
     };
+    // One per session: fields seen and values typed are forgotten on stop().
+    const redact = createRedactor();
+    current.uninstalls.push(redact.watch());
     const ignoreUrls = [
       ...(options.ignoreUrls ?? []),
       ...(sink.url === undefined ? [] : [sink.url]),
     ];
     if (capture.clicks)
       current.uninstalls.push(
-        installClickCapture({ emit: recordCurrent, getRoute, enrich }),
+        installClickCapture({ emit: recordCurrent, getRoute, enrich, redact }),
       );
     if (capture.navigation)
       current.uninstalls.push(
-        installNavigationCapture({ emit: recordCurrent, routes }),
+        installNavigationCapture({ emit: recordCurrent, routes, redact }),
       );
     if (capture.network)
       current.uninstalls.push(
-        installNetworkCapture({ emit: recordCurrent, routes, ignoreUrls }),
+        installNetworkCapture({
+          emit: recordCurrent,
+          routes,
+          ignoreUrls,
+          redact,
+        }),
       );
     if (capture.inputs)
-      current.uninstalls.push(installInputCapture({ emit: recordCurrent }));
+      current.uninstalls.push(
+        installInputCapture({ emit: recordCurrent, redact }),
+      );
     const onPageHide = () => flush({ beacon: true });
     window.addEventListener("pagehide", onPageHide);
     current.uninstalls.push(() =>
@@ -147,9 +158,9 @@ export function createCollector(options: CollectorOptions) {
     current.timer = setInterval(() => flush(), FLUSH_INTERVAL_MS);
     record("page", {
       route: getRoute(),
-      url: location.href,
+      url: redact.url(location.href),
       title: document.title,
-      referrer: document.referrer,
+      referrer: redact.url(document.referrer),
     });
   };
 

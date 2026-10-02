@@ -1,3 +1,5 @@
+import { createRedactor } from "./redact";
+import type { Redactor } from "./redact";
 import type { Emit } from "./types";
 
 type NavigationType = "push" | "replace" | "traverse" | "reload";
@@ -49,15 +51,20 @@ function toNavigationType(value: unknown): NavigationType {
 export function installNavigationCapture(params: {
   emit: Emit;
   routes?: string[];
+  redact?: Redactor;
 }) {
-  const { emit } = params;
+  const { emit, redact = createRedactor() } = params;
   let current = location.href;
 
   const check = (navigationType: NavigationType) => {
     try {
       const next = location.href;
       if (next === current) return;
-      emit("navigation", { from: current, to: next, navigationType });
+      emit("navigation", {
+        from: redact.url(current),
+        to: redact.url(next),
+        navigationType,
+      });
       current = next;
     } catch {
       // Capture must never break navigation.

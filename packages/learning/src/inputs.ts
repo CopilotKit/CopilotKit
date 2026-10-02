@@ -1,25 +1,32 @@
 import { describeTarget, readControlValue } from "./clicks";
+import { createRedactor } from "./redact";
+import type { Redactor } from "./redact";
 import type { Emit } from "./types";
 
 /** Records user edits without changing the control or interfering with its listeners. */
 export function installInputCapture(params: {
   emit: Emit;
   isTrusted?: (event: Event) => boolean;
+  redact?: Redactor;
 }) {
-  const { emit, isTrusted = (event: Event) => event.isTrusted } = params;
+  const {
+    emit,
+    isTrusted = (event: Event) => event.isTrusted,
+    redact = createRedactor(),
+  } = params;
   const onInput = (event: Event) => {
     try {
       if (!isTrusted(event)) return;
       const [element] = event.composedPath();
       if (!(element instanceof Element)) return;
-      const described = describeTarget(element);
+      const described = describeTarget(element, redact);
       if (described === null) return;
-      const value = readControlValue(element);
+      const value = readControlValue(element, redact);
       if (!("value" in value)) return;
       emit("input", {
         eventType: event.type,
         target: { ...described.target, ...value },
-        url: location.href,
+        url: redact.url(location.href),
         route: location.pathname,
       });
     } catch {
