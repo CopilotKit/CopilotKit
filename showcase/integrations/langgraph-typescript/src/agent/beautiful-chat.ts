@@ -33,6 +33,7 @@ import { SystemMessage, ToolMessage } from "@langchain/core/messages";
 import {
   Annotation,
   Command,
+  getCurrentTaskInput,
   MemorySaver,
   START,
   StateGraph,
@@ -165,11 +166,9 @@ const manageTodos = tool(
 );
 
 const getTodos = tool(
-  async () => {
-    // In the Python version, this reads from runtime.state. TS ToolNode doesn't
-    // pass state to tools by default, so return an empty list; the agent can
-    // re-fetch via manage_todos semantics.
-    return JSON.stringify([]);
+  async (_input, config: ToolRunnableConfig) => {
+    const state = getCurrentTaskInput<BeautifulChatState>(config);
+    return JSON.stringify(state.todos ?? []);
   },
   {
     name: "get_todos",
