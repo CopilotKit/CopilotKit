@@ -12,6 +12,7 @@ COPY --chown=node:node scripts ./scripts
 COPY --chown=node:node packages ./packages
 COPY --chown=node:node examples/showcases/generative-ui-playground ./examples/showcases/generative-ui-playground
 
+RUN chown node:node /app
 USER node
 
 RUN pnpm install --frozen-lockfile --ignore-scripts --filter ui-protocols-demo...
