@@ -100,6 +100,10 @@ export class LearningBridge {
     if (config === undefined) this.stop();
   }
 
+  get isConfigured() {
+    return this.config !== undefined;
+  }
+
   private get isLegacyCaptureActive() {
     return this.collector !== null && this.collector.trajectoryId !== null;
   }
