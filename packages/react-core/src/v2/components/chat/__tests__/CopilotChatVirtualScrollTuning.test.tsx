@@ -170,24 +170,38 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
             for (const target of this.targets) this.unobserve(target);
           }
         } as typeof ResizeObserver;
-        const container = document.createElement("div");
         let width = 600;
-        Object.defineProperties(container, {
-          clientWidth: { get: () => width },
-          clientHeight: { value: 600 },
-          scrollHeight: { get: () => virtualizer().getTotalSize() },
-        });
-        container.getBoundingClientRect = () =>
-          ({ width, height: 600 }) as DOMRect;
-        container.scrollTo = vi.fn(({ top }: ScrollToOptions) => {
-          container.scrollTop = top ?? 0;
-          container.dispatchEvent(new Event("scroll"));
-        }) as typeof container.scrollTo;
+        const createContainer = () => {
+          const element = document.createElement("div");
+          Object.defineProperties(element, {
+            clientWidth: { get: () => width },
+            clientHeight: { value: 600 },
+            scrollHeight: { get: () => virtualizer().getTotalSize() },
+          });
+          element.getBoundingClientRect = () =>
+            ({ width, height: 600 }) as DOMRect;
+          element.scrollTo = vi.fn(({ top }: ScrollToOptions) => {
+            element.scrollTop = top ?? 0;
+            element.dispatchEvent(new Event("scroll"));
+          }) as typeof element.scrollTo;
+          return element;
+        };
+        const container = createContainer();
         const messages: Message[] = Array.from({ length: 100 }, (_, index) => ({
           id: String(index),
           role: "user",
           content: "word ".repeat(200),
         }));
+        let replaceContainer: (element: HTMLDivElement) => void;
+        function ScrollContainerHarness() {
+          const [element, setElement] = React.useState(container);
+          replaceContainer = setElement;
+          return (
+            <ScrollElementContext.Provider value={element}>
+              <Harness isPinnedToBottom={false} initialMessages={messages} />
+            </ScrollElementContext.Provider>
+          );
+        }
         const rect = vi
           .spyOn(HTMLElement.prototype, "getBoundingClientRect")
           .mockImplementation(function (this: HTMLElement) {
@@ -215,11 +229,7 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
           });
         try {
           renderWithCopilotKit({
-            children: (
-              <ScrollElementContext.Provider value={container}>
-                <Harness isPinnedToBottom={false} initialMessages={messages} />
-              </ScrollElementContext.Provider>
-            ),
+            children: <ScrollContainerHarness />,
           });
           act(() => {
             // Row 0 is far above the reader; its measurement must also expire.
@@ -287,6 +297,18 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
           expect(
             container.scrollTop - virtualizer().measurementsCache[50].start,
           ).toBe(25);
+          // Replace the viewport after remeasurement, before the next frame
+          // releases the old reading anchor.
+          const replacement = createContainer();
+          act(() => replaceContainer(replacement));
+          expect(callbacks.get(container)?.size).toBe(0);
+          expect(
+            virtualizer().shouldAdjustScrollPositionOnItemSizeChange!(
+              itemAt(100),
+              40,
+              scrolledTo(800),
+            ),
+          ).toBe(true);
         } finally {
           // TanStack's scroll-end debounce can notify after its listener is removed.
           await act(async () => {

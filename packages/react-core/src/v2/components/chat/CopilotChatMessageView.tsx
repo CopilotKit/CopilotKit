@@ -890,8 +890,8 @@ export function CopilotChatMessageView({
         disconnect?.();
         if (frame !== undefined) {
           cancelAnimationFrame(frame);
-          resizeAnchorRef.current = null;
         }
+        resizeAnchorRef.current = null;
       };
     },
     [captureResizeAnchor, measureRowElement],
