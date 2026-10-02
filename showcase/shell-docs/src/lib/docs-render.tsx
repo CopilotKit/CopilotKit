@@ -1198,6 +1198,10 @@ export function normalizeSidebarNav(
     "intelligence/self-hosting-ecs",
     "AWS ECS/Fargate",
   );
+  const intelligenceLocal = intelligencePage(
+    "intelligence/self-hosting-local",
+    "Local evaluation",
+  );
   const intelligenceLearning = intelligencePage(
     "learning",
     "Automatic Learning",
@@ -1337,9 +1341,12 @@ export function normalizeSidebarNav(
       sidebarTopicGroup(
         "Hosting",
         "sidebar#intelligence-hosting",
-        [intelligenceCloud, intelligenceSelfHosted, intelligenceEcs].filter(
-          (node): node is NavNode => node !== null,
-        ),
+        [
+          intelligenceCloud,
+          intelligenceSelfHosted,
+          intelligenceEcs,
+          intelligenceLocal,
+        ].filter((node): node is NavNode => node !== null),
       ),
     ]),
     ...sidebarSection("Backend", [

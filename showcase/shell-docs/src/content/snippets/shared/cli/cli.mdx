@@ -112,6 +112,28 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
   </Step>
 </Steps>
 
+## Evaluate Intelligence locally
+
+To try Intelligence without a cloud-hosted project, run it in Docker on your own machine. Local evaluation is a preview, available on macOS with Docker Desktop. From your app's folder:
+
+```bash title="Terminal"
+npx copilotkit@latest local setup
+npx copilotkit@latest local connect --approve-connection
+```
+
+The CLI checks Docker, gets an evaluation license for your organization, installs the latest release, and connects the app to it. Read [Evaluate Intelligence locally](/intelligence/self-hosting-local) for requirements, dashboard sign-in, and model setup.
+
+| Command | What it does |
+|---|---|
+| `npx copilotkit@latest local status` | Shows service health, URLs, and any failed setup step. |
+| `npx copilotkit@latest local start` | Starts the app's local stack. |
+| `npx copilotkit@latest local stop` | Stops the stack and keeps its data. |
+| `npx copilotkit@latest local login` | Opens the local dashboard and signs you in. |
+| `npx copilotkit@latest local setup` | Installs the stack, configures the Automatic Learning model, or resumes setup. |
+| `npx copilotkit@latest local update` | Updates the stack to the latest release and keeps its data. |
+| `npx copilotkit@latest local renew` | Renews the evaluation license. |
+| `npx copilotkit@latest local delete` | Asks, then deletes the stack and its data. |
+
 ## Import and synchronize historical conversations
 
 Use `import` from a CopilotKit app created with the CLI and CopilotKit Intelligence enabled. The importer targets the CopilotKit Intelligence project already selected for the current directory.
@@ -244,3 +266,4 @@ Re-running `project select` is safe when you need to move a CLI-created app to a
 - **Add threads:** use the [Threads Drawer](/prebuilt-components/copilot-threads-drawer) for a drop-in thread switcher, or [Headless Threads](/headless-threads) to build your own thread UI
 - **Add AG-UI streams to existing threads:** [Add AG-UI Streams to Existing Threads](/threads-import) — connect Intelligence for ongoing delivery, then optionally import supported ADK or LangGraph history
 - **Self-hosting:** [Self-host CopilotKit Intelligence](/intelligence/self-hosting) — run CopilotKit Intelligence in your own Kubernetes cluster
+- **Local evaluation (preview, macOS):** [Evaluate Intelligence locally](/intelligence/self-hosting-local) — run Intelligence in Docker on your own machine to try it with your app

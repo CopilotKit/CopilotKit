@@ -727,6 +727,7 @@ describe("framework nav", () => {
       },
       { title: "Self-hosted", slug: "intelligence/self-hosting" },
       { title: "AWS ECS/Fargate", slug: "intelligence/self-hosting-ecs" },
+      { title: "Local evaluation", slug: "intelligence/self-hosting-local" },
     ]);
     expect(findPageByTitle(navTree, "Automatic Learning")).toMatchObject({
       slug: "learning",
@@ -1149,6 +1150,7 @@ describe("framework nav", () => {
       },
       { title: "Self-hosted", slug: "intelligence/self-hosting" },
       { title: "AWS ECS/Fargate", slug: "intelligence/self-hosting-ecs" },
+      { title: "Local evaluation", slug: "intelligence/self-hosting-local" },
     ]);
   });
 });
