@@ -74,12 +74,16 @@ const grants = [
   },
 ];
 const nativePushState = History.prototype.pushState;
+// Fake time is pinned so the Core's time-based first seq is predictable.
+const NOW = Date.UTC(2026, 0, 1);
+const SEQ_BASE = NOW * 1000;
 let core: CopilotKitCore;
 let fetchMock: ReturnType<typeof vi.fn>;
 let onError: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.useFakeTimers();
+  vi.setSystemTime(NOW);
   BrowserSocket.instances = [];
   vi.stubGlobal("WebSocket", BrowserSocket);
   history.replaceState(null, "", "/deals");
@@ -208,7 +212,7 @@ describe("Trajectory capture with the real Phoenix client", () => {
               url: location.href,
               title: "",
               referrer: document.referrer,
-              seq: 0,
+              seq: SEQ_BASE,
             },
           },
         ],
@@ -223,7 +227,7 @@ describe("Trajectory capture with the real Phoenix client", () => {
       params: { trajectoryId },
     });
 
-    acknowledgePage(socket, 0);
+    acknowledgePage(socket, SEQ_BASE);
     await vi.advanceTimersByTimeAsync(10_001);
     core.stopTrajectory();
     expect(onError).not.toHaveBeenCalled();
@@ -233,7 +237,7 @@ describe("Trajectory capture with the real Phoenix client", () => {
   it("obtains a fresh grant after loss and prevents old sockets from rejoining after stop", async () => {
     const first = await start();
     await vi.advanceTimersByTimeAsync(2_000);
-    acknowledgePage(first, 0);
+    acknowledgePage(first, SEQ_BASE);
     first.close(1006);
     expect(core.trajectoryId).toBeNull();
     expect(History.prototype.pushState).toBe(nativePushState);
@@ -251,10 +255,10 @@ describe("Trajectory capture with the real Phoenix client", () => {
     expect(core.trajectoryId).toBe(trajectoryId);
     await vi.advanceTimersByTimeAsync(2_000);
     expect(second.frame("events")[4]).toMatchObject({
-      events: [{ name: "page", value: { seq: 1 } }],
+      events: [{ name: "page", value: { seq: SEQ_BASE + 1 } }],
       dropped: 0,
     });
-    acknowledgePage(second, 1);
+    acknowledgePage(second, SEQ_BASE + 1);
 
     second.close(1006);
     core.stopTrajectory();
@@ -358,7 +362,7 @@ describe("Trajectory capture with the real Phoenix client", () => {
             url: initialUrl,
             title: "Customer orders",
             referrer: document.referrer,
-            seq: 0,
+            seq: SEQ_BASE,
           },
         }),
         expect.objectContaining({
@@ -367,7 +371,7 @@ describe("Trajectory capture with the real Phoenix client", () => {
             from: initialUrl,
             to: currentUrl,
             navigationType: "push",
-            seq: 1,
+            seq: SEQ_BASE + 1,
           },
         }),
         expect.objectContaining({
@@ -375,7 +379,7 @@ describe("Trajectory capture with the real Phoenix client", () => {
           value: {
             route: "/users/alice/orders",
             url: currentUrl,
-            seq: 2,
+            seq: SEQ_BASE + 2,
             target: {
               tag: "button",
               role: null,
@@ -395,7 +399,7 @@ describe("Trajectory capture with the real Phoenix client", () => {
             eventType: "input",
             route: "/users/alice/orders",
             url: currentUrl,
-            seq: 3,
+            seq: SEQ_BASE + 3,
             target: {
               tag: "input",
               role: null,
@@ -414,7 +418,7 @@ describe("Trajectory capture with the real Phoenix client", () => {
             url: `${location.origin}/api/orders/42?token=visible#details`,
             route: "/api/orders/42",
             status: 201,
-            seq: 4,
+            seq: SEQ_BASE + 4,
             completedAt: expect.any(Number),
             durationMs: expect.any(Number),
             request: {
@@ -443,7 +447,7 @@ describe("Trajectory capture with the real Phoenix client", () => {
         }),
       ],
     });
-    socket.reply(batch, { highestSeq: 4, accepted: 5, rejected: 0 });
+    socket.reply(batch, { highestSeq: SEQ_BASE + 4, accepted: 5, rejected: 0 });
     const pending = fetch("/late?session=old");
     core.stopTrajectory();
     expect(globalThis.fetch).toBe(fetchMock);
@@ -470,13 +474,16 @@ describe("Trajectory capture with the real Phoenix client", () => {
       events: [
         expect.objectContaining({
           name: "page",
-          value: expect.objectContaining({ url: location.href, seq: 5 }),
+          value: expect.objectContaining({
+            url: location.href,
+            seq: SEQ_BASE + 5,
+          }),
         }),
       ],
       dropped: 0,
     });
     expect(beforeSend).toHaveBeenCalledTimes(capturesAfterStop + 1);
-    acknowledgePage(next, 5);
+    acknowledgePage(next, SEQ_BASE + 5);
     core.stopTrajectory();
     expect(globalThis.fetch).toBe(fetchMock);
     expect(onError).not.toHaveBeenCalled();

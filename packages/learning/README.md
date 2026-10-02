@@ -38,7 +38,7 @@ Core sends Phoenix `events` messages with `{ events, dropped }`. It flushes afte
 
 Developer events accept any JSON value. Core adds `seq` to object values. It wraps scalars, arrays, `null`, and objects that already contain `seq` as `{ data: value, seq }`, preserving the developer's data.
 
-Sequence numbers increase for the lifetime of a Core instance, including reconnects and stop/start. **Use a new Trajectory UUID after a page reload or when creating a new Core instance.** The join API does not return a sequence cursor, so resuming an old ID in a new instance can silently discard events as duplicates.
+Sequence numbers increase for the lifetime of a Core instance, including reconnects and stop/start. They start from the Core instance's creation time in microseconds, not 0, so a new Core instance that reuses a Trajectory ID after a page reload continues above the earlier seqs. The Gateway stores each seq once per Trajectory and acknowledges a repeat as accepted, so two Core instances that start the same ID within one millisecond can still lose events as duplicates. Prefer a new Trajectory UUID for each Core instance when you do not need to continue one.
 
 Capture pauses while disconnected. Reconnect requests fresh credentials. Developer events emitted during recovery count toward `dropped`; their content is not buffered. Core keeps one batch awaiting a receipt and one bounded queue; it does not resend failed batches. Known client losses are reported through `dropped`. Server rejections are already counted by the Gateway. A missing receipt reports `PERSISTENCE_UNKNOWN` through `onError`, because the server may have saved the batch. An `unauthorized` or `trajectory_mismatch` reply stops capture and reconnect attempts.
 

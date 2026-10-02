@@ -27,7 +27,7 @@ Clicked element text is cut at 1,000 characters. Paths remain unchanged. The dep
 
 ## Events
 
-Each event is an AG-UI `CUSTOM` event: `{ type: "CUSTOM", name, value, timestamp }`. Every `value` has `seq`, which increases throughout the collector or Core instance's lifetime, including across stop/start cycles.
+Each event is an AG-UI `CUSTOM` event: `{ type: "CUSTOM", name, value, timestamp }`. Every `value` has `seq`, which increases throughout the collector or Core instance's lifetime, including across stop/start cycles. The standalone collector and custom sinks start at 1. Connected Core capture starts from the Core instance's creation time instead of 0, so seqs stay unique when a page reload reuses a Trajectory ID.
 
 | `name` | Main `value` fields | Source |
 | --- | --- | --- |
