@@ -1,7 +1,7 @@
 import { useRenderToolCall } from "../../hooks";
 import { useCopilotKit } from "../../context";
 import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
-import React, { useSyncExternalStore } from "react";
+import React, { useCallback, useSyncExternalStore } from "react";
 
 export type CopilotChatToolCallsViewProps = {
   message: AssistantMessage;
@@ -14,11 +14,19 @@ export function CopilotChatToolCallsView({
 }: CopilotChatToolCallsViewProps) {
   const renderToolCall = useRenderToolCall();
   const { copilotkit } = useCopilotKit();
-  const trajectoryId = useSyncExternalStore(
-    (callback) =>
-      copilotkit.subscribe({ onTrajectoryChanged: callback }).unsubscribe,
-    () => copilotkit.trajectoryId,
-    () => null,
+  const subscribe = useCallback(
+    (onChange: () => void) =>
+      copilotkit.ɵsubscribeToLearningConfigured(onChange),
+    [copilotkit],
+  );
+  const getSnapshot = () => copilotkit.ɵlearningConfigured;
+  // Driven by the learning config, not by the Trajectory: a wrapper that comes
+  // and goes with capture state would remount the tool UI on every reconnect.
+  // Only adding or removing the config itself changes the tree.
+  const learningConfigured = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getSnapshot,
   );
 
   if (!message.toolCalls || message.toolCalls.length === 0) {
@@ -34,9 +42,9 @@ export function CopilotChatToolCallsView({
 
         const rendered = renderToolCall({ toolCall, toolMessage });
         if (rendered === null) return null;
-        if (trajectoryId === null) return rendered;
+        if (!learningConfigured) return rendered;
 
-        // The id lets active interaction capture attribute clicks to this tool call.
+        // The id lets interaction capture attribute clicks to this tool call.
         return (
           <div
             key={toolCall.id}

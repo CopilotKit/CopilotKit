@@ -1,9 +1,19 @@
 import React, { StrictMode } from "react";
-import { act, cleanup, render } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
+import type { AssistantMessage } from "@ag-ui/core";
+import { z } from "zod";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CopilotKitProvider } from "../CopilotKitProvider";
 import { useCopilotKit } from "../../context";
 import { CopilotKitCoreReact } from "../../lib/react-core";
+import { defineToolCallRenderer } from "../../types";
+import { CopilotChatToolCallsView } from "../../components/chat/CopilotChatToolCallsView";
 
 // Keep Core and browser capture real; control only the auth and Phoenix boundary.
 const transport = vi.hoisted(() => {
@@ -390,5 +400,69 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
     });
     expect(warn).not.toHaveBeenCalled();
     expect(stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps tool UI mounted through connection loss and reconnect", async () => {
+    let mounts = 0;
+    function Approval() {
+      const [count, setCount] = React.useState(0);
+      React.useEffect(() => {
+        mounts += 1;
+      }, []);
+      return (
+        <button onClick={() => setCount((value) => value + 1)}>
+          Clicked {count}
+        </button>
+      );
+    }
+    const message: AssistantMessage = {
+      id: "message-1",
+      role: "assistant",
+      toolCalls: [
+        {
+          id: "tool-1",
+          type: "function",
+          function: { name: "approve", arguments: "{}" },
+        },
+      ],
+    };
+    render(
+      <CopilotKitProvider
+        runtimeUrl="/api/copilotkit"
+        useSingleEndpoint
+        learning={{ trajectoryId: FIRST_ID }}
+        renderToolCalls={[
+          defineToolCallRenderer({
+            name: "approve",
+            args: z.object({}),
+            render: () => <Approval />,
+          }),
+        ]}
+      >
+        <CoreProbe />
+        <CopilotChatToolCallsView message={message} />
+      </CopilotKitProvider>,
+    );
+    const button = screen.getByRole("button", { name: "Clicked 0" });
+    fireEvent.click(button);
+
+    await authorize(0, FIRST_ID);
+    await join(0);
+    expect(core.trajectoryId).toBe(FIRST_ID);
+    transport.sockets[0].disconnected = true;
+    act(() => core.emitTrajectoryEvent("app.lost", {}));
+    expect(core.trajectoryId).toBeNull();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    await authorize(1, FIRST_ID);
+    await join(1);
+    expect(core.trajectoryId).toBe(FIRST_ID);
+
+    expect(screen.getByRole("button", { name: "Clicked 1" })).toBe(button);
+    expect(button.parentElement?.getAttribute("data-tool-call-id")).toBe(
+      "tool-1",
+    );
+    expect(mounts).toBe(1);
   });
 });

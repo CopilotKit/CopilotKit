@@ -472,6 +472,45 @@ describe("Core learning wiring", () => {
     expect(drain()).toEqual([]);
   });
 
+  it("reports learning configuration independently of capture state", () => {
+    const core = new CopilotKitCore({ learning: createConfig() });
+    const changed = vi.fn();
+    const unsubscribe = core.ɵsubscribeToLearningConfigured(changed);
+    expect(core.ɵlearningConfigured).toBe(true);
+
+    core.startTrajectory({ trajectoryId: "traj-1" });
+    core.stopTrajectory();
+    core.setLearningConfig(createConfig({ ignoreUrls: ["/other"] }));
+    expect(changed).not.toHaveBeenCalled();
+    expect(core.ɵlearningConfigured).toBe(true);
+
+    core.setLearningConfig(undefined);
+    expect(core.ɵlearningConfigured).toBe(false);
+    core.setLearningConfig(undefined);
+    core.setLearningConfig(createConfig());
+    expect(core.ɵlearningConfigured).toBe(true);
+    expect(changed).toHaveBeenCalledTimes(2);
+
+    unsubscribe();
+    core.setLearningConfig(undefined);
+    expect(changed).toHaveBeenCalledTimes(2);
+    expect(new CopilotKitCore({}).ɵlearningConfigured).toBe(false);
+  });
+
+  it("keeps notifying learning listeners when one throws", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const core = new CopilotKitCore({ learning: createConfig() });
+    const later = vi.fn();
+    core.ɵsubscribeToLearningConfigured(() => {
+      throw new Error("listener failed");
+    });
+    core.ɵsubscribeToLearningConfigured(later);
+
+    expect(() => core.setLearningConfig(undefined)).not.toThrow();
+    expect(later).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalledTimes(1);
+  });
+
   it("warns and captures nothing without the learning option", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const core = new CopilotKitCore({});

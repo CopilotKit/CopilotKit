@@ -460,6 +460,7 @@ export class CopilotKitCore {
   private threadStoreRegistry: ThreadStoreRegistry;
   private learningBridge: LearningBridge;
   private notifiedTrajectoryId: string | null = null;
+  private readonly learningConfiguredListeners = new Set<() => void>();
   /**
    * The single core-owned memory store, created lazily on first
    * `getMemoryStore()` and kept user-scoped for the lifetime of the core.
@@ -980,8 +981,33 @@ export class CopilotKitCore {
 
   /** Updates settings for the next capture. Removing the config stops capture. */
   setLearningConfig(config: LearningConfig | undefined): void {
+    const wasConfigured = this.ɵlearningConfigured;
     this.learningBridge.setConfig(config);
     this.notifyTrajectoryChanged();
+    if (this.ɵlearningConfigured === wasConfigured) return;
+    for (const listener of this.learningConfiguredListeners) {
+      try {
+        listener();
+      } catch (error) {
+        console.error("Learning configured listener error:", error);
+      }
+    }
+  }
+
+  /**
+   * @internal Whether a `learning` config is set. Unlike {@link trajectoryId},
+   * it does not change with capture start, connection failures or reconnects.
+   */
+  get ɵlearningConfigured(): boolean {
+    return this.learningBridge.isConfigured;
+  }
+
+  /** @internal Calls `listener` when {@link ɵlearningConfigured} changes. */
+  ɵsubscribeToLearningConfigured(listener: () => void): () => void {
+    this.learningConfiguredListeners.add(listener);
+    return () => {
+      this.learningConfiguredListeners.delete(listener);
+    };
   }
 
   /** The active capture's Trajectory ID, or null while capture is stopped. */
