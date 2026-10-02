@@ -1,237 +1,46 @@
-import { computed, defineComponent, h, onBeforeUnmount, ref, watch } from "vue";
+import { computed, defineComponent, h, ref, shallowRef, watch } from "vue";
 import type { PropType } from "vue";
-import { z } from "zod";
-import type { AbstractAgent, RunAgentResult } from "@ag-ui/client";
-import { randomUUID } from "@copilotkit/shared";
+import type { AbstractAgent } from "@ag-ui/client";
 import type { VueActivityMessageRendererProps } from "../types";
 import { useCopilotKit } from "../providers/useCopilotKit";
 
-const PROTOCOL_VERSION = "2025-06-18";
+// The app<->host protocol (ext-apps AppBridge, sandbox proxy, request queue,
+// ui/message + open-link handlers, tool input/result) lives in the shared,
+// framework-agnostic package. This file is now a THIN Vue adapter over it: it
+// owns the iframe (create/mount/size/remove) and wires the session's reactive
+// hooks to Vue refs; all protocol logic is `bindMcpApp`.
+//
+// The lightweight activity surface (type + content schema + follow-up runner)
+// is re-exported from the package's bridge-free `/activity` entry, so importing
+// it (for the activity registry) does NOT pull the ext-apps bundle. The bridge
+// itself is loaded lazily via a dynamic `import("@copilotkit/mcp-apps-renderer")`
+// inside the watcher, so a `<CopilotKitProvider>` app only pays for it when it
+// actually renders an MCP App.
+export {
+  MCPAppsActivityType,
+  MCPAppsActivityContentSchema,
+  ɵrunMcpFollowUp,
+} from "@copilotkit/mcp-apps-renderer/activity";
+export type {
+  MCPAppsActivityContent,
+  ɵMcpFollowUpHost,
+} from "@copilotkit/mcp-apps-renderer/activity";
 
-function buildSandboxHTML(extraCspDomains?: string[]): string {
-  const baseScriptSrc =
-    "'self' 'wasm-unsafe-eval' 'unsafe-inline' 'unsafe-eval' blob: data: http://localhost:* https://localhost:*";
-  const baseFrameSrc = "* blob: data: http://localhost:* https://localhost:*";
-  const extra = extraCspDomains?.length ? ` ${extraCspDomains.join(" ")}` : "";
-  const scriptSrc = `${baseScriptSrc}${extra}`;
-  const frameSrc = `${baseFrameSrc}${extra}`;
+import type { MCPAppsActivityContent } from "@copilotkit/mcp-apps-renderer/activity";
+// Type-only imports: erased at build, so they never pull the ext-apps bridge
+// into the bundle. Only the dynamic import() below does, and only lazily.
+import type {
+  McpAppSession,
+  FetchedResource,
+} from "@copilotkit/mcp-apps-renderer";
 
-  return `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src * data: blob: 'unsafe-inline'; media-src * blob: data:; font-src * blob: data:; script-src ${scriptSrc}; style-src * blob: data: 'unsafe-inline'; connect-src *; frame-src ${frameSrc}; base-uri 'self';" />
-<style>html,body{margin:0;padding:0;height:100%;width:100%;overflow:hidden}*{box-sizing:border-box}iframe{background-color:transparent;border:none;padding:0;overflow:hidden;width:100%;height:100%}</style>
-</head>
-<body>
-<script>
-if(window.self===window.top){throw new Error("This file must be used in an iframe.")}
-const inner=document.createElement("iframe");
-inner.style="width:100%;height:100%;border:none;";
-inner.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms");
-document.body.appendChild(inner);
-window.addEventListener("message",async(event)=>{
-if(event.source===window.parent){
-if(event.data&&event.data.method==="ui/notifications/sandbox-resource-ready"){
-const{html,sandbox}=event.data.params;
-if(typeof sandbox==="string")inner.setAttribute("sandbox",sandbox);
-if(typeof html==="string")inner.srcdoc=html;
-}else if(inner&&inner.contentWindow){
-inner.contentWindow.postMessage(event.data,"*");
-}
-}else if(event.source===inner.contentWindow){
-window.parent.postMessage(event.data,"*");
-}
-});
-window.parent.postMessage({jsonrpc:"2.0",method:"ui/notifications/sandbox-proxy-ready",params:{}},"*");
-</script>
-</body>
-</html>`;
-}
-
-class MCPAppsRequestQueue {
-  private queues = new Map<
-    string,
-    Array<{
-      execute: () => Promise<RunAgentResult>;
-      resolve: (result: RunAgentResult) => void;
-      reject: (error: Error) => void;
-    }>
-  >();
-
-  private processing = new Map<string, boolean>();
-
-  async enqueue(
-    agent: AbstractAgent,
-    request: () => Promise<RunAgentResult>,
-  ): Promise<RunAgentResult> {
-    const threadId = agent.threadId || "default";
-
-    return new Promise((resolve, reject) => {
-      let queue = this.queues.get(threadId);
-      if (!queue) {
-        queue = [];
-        this.queues.set(threadId, queue);
-      }
-
-      queue.push({ execute: request, resolve, reject });
-      void this.processQueue(threadId, agent);
-    });
-  }
-
-  private async processQueue(
-    threadId: string,
-    agent: AbstractAgent,
-  ): Promise<void> {
-    if (this.processing.get(threadId)) {
-      return;
-    }
-
-    this.processing.set(threadId, true);
-    try {
-      const queue = this.queues.get(threadId);
-      if (!queue) return;
-
-      while (queue.length > 0) {
-        const item = queue[0]!;
-        try {
-          await this.waitForAgentIdle(agent);
-          const result = await item.execute();
-          item.resolve(result);
-        } catch (error) {
-          item.reject(
-            error instanceof Error ? error : new Error(String(error)),
-          );
-        }
-        queue.shift();
-      }
-    } finally {
-      this.processing.set(threadId, false);
-    }
-  }
-
-  cancel(threadId: string): void {
-    const queue = this.queues.get(threadId);
-    if (queue) {
-      for (const item of queue) {
-        item.reject(new Error("MCPAppsRequestQueue cancelled on unmount"));
-      }
-      queue.length = 0;
-    }
-    this.queues.delete(threadId);
-    this.processing.delete(threadId);
-  }
-
-  private waitForAgentIdle(agent: AbstractAgent): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!agent.isRunning) {
-        resolve();
-        return;
-      }
-
-      let done = false;
-
-      const timeout = setTimeout(() => {
-        if (done) return;
-        done = true;
-        clearInterval(checkInterval);
-        sub.unsubscribe();
-        reject(
-          new Error("[CopilotKit] Timed out waiting for agent to become idle"),
-        );
-      }, 30_000);
-
-      const finish = () => {
-        if (done) return;
-        done = true;
-        clearTimeout(timeout);
-        clearInterval(checkInterval);
-        sub.unsubscribe();
-        resolve();
-      };
-
-      const sub = agent.subscribe({
-        onRunFinalized: finish,
-        onRunFailed: finish,
-      });
-
-      const checkInterval = setInterval(() => {
-        if (!agent.isRunning) {
-          finish();
-        }
-      }, 500);
-    });
-  }
-}
-
-const mcpAppsRequestQueue = new MCPAppsRequestQueue();
-
-export const MCPAppsActivityType = "mcp-apps";
-
-export const MCPAppsActivityContentSchema = z.object({
-  result: z.object({
-    content: z.array(z.any()).optional(),
-    structuredContent: z.any().optional(),
-    isError: z.boolean().optional(),
-  }),
-  resourceUri: z.string(),
-  serverHash: z.string(),
-  serverId: z.string().optional(),
-  toolInput: z.record(z.string(), z.unknown()).optional(),
-});
-
-export type MCPAppsActivityContent = z.infer<
-  typeof MCPAppsActivityContentSchema
->;
-
-interface FetchedResource {
-  uri: string;
-  mimeType?: string;
-  text?: string;
-  blob?: string;
-  _meta?: {
-    ui?: {
-      prefersBorder?: boolean;
-      csp?: {
-        connectDomains?: string[];
-        resourceDomains?: string[];
-      };
-    };
-  };
-}
-
-interface JSONRPCRequest {
-  jsonrpc: "2.0";
-  id: string | number;
-  method: string;
-  params?: Record<string, unknown>;
-}
-
-interface JSONRPCResponse {
-  jsonrpc: "2.0";
-  id: string | number;
-  result?: unknown;
-  error?: { code: number; message: string };
-}
-
-interface JSONRPCNotification {
-  jsonrpc: "2.0";
-  method: string;
-  params?: Record<string, unknown>;
-}
-
-type JSONRPCMessage = JSONRPCRequest | JSONRPCResponse | JSONRPCNotification;
-
-function isRequest(message: JSONRPCMessage): message is JSONRPCRequest {
-  return "id" in message && "method" in message;
-}
-
-function isNotification(
-  message: JSONRPCMessage,
-): message is JSONRPCNotification {
-  return !("id" in message) && "method" in message;
-}
-
+/**
+ * MCP Apps Extension Activity Renderer
+ *
+ * Renders MCP Apps UI in a sandboxed iframe with full protocol support.
+ * Fetches resource content on-demand via proxied MCP requests. The Vue shell
+ * owns the iframe; `bindMcpApp` owns the protocol.
+ */
 export const MCPAppsActivityRenderer = defineComponent({
   name: "MCPAppsActivityRenderer",
   props: {
@@ -258,475 +67,188 @@ export const MCPAppsActivityRenderer = defineComponent({
   setup(props) {
     const { copilotkit } = useCopilotKit();
     const containerRef = ref<HTMLDivElement | null>(null);
-    const iframeRef = ref<HTMLIFrameElement | null>(null);
-    const iframeReady = ref(false);
+    // UI-only state: plain refs are fine (no agent-bound payload crosses here).
     const error = ref<Error | null>(null);
+    // Recoverable: an activity update the content schema rejected, from the
+    // store or from props. Cleared as soon as valid content resumes, unlike
+    // `error`, which is a fatal setup failure.
+    const contentError = ref<Error | null>(null);
     const isLoading = ref(true);
     const iframeSize = ref<{ width?: number; height?: number }>({});
-    const fetchedResource = ref<FetchedResource | null>(null);
+    // shallowRef for externally-owned objects: the session, the iframe element
+    // and the fetched resource must never be wrapped in a reactive proxy (the
+    // resource crosses into the widget, and proxies are not clone-safe).
+    const iframeRef = shallowRef<HTMLIFrameElement | null>(null);
+    const sessionRef = shallowRef<McpAppSession | null>(null);
+    const fetchedResource = shallowRef<FetchedResource | null>(null);
 
-    const fetchStateRef = ref<{
-      inProgress: boolean;
-      promise: Promise<FetchedResource | null> | null;
-      resourceUri: string | null;
-    }>({
-      inProgress: false,
-      promise: null,
-      resourceUri: null,
-    });
+    // The activity message id. Passed to the session so it self-subscribes to
+    // the agent's activity stream and pushes tool input/result itself (this
+    // adapter does not forward store-backed activities).
+    const messageId = computed(() => props.message?.id);
 
-    const sendToIframe = (message: JSONRPCMessage) => {
-      if (iframeRef.value?.contentWindow) {
-        iframeRef.value.contentWindow.postMessage(message, "*");
-      }
-    };
-
-    const sendResponse = (id: string | number, result: unknown) => {
-      sendToIframe({
-        jsonrpc: "2.0",
-        id,
-        result,
-      });
-    };
-
-    const sendErrorResponse = (
-      id: string | number,
-      code: number,
-      message: string,
-    ) => {
-      sendToIframe({
-        jsonrpc: "2.0",
-        id,
-        error: { code, message },
-      });
-    };
-
-    const sendNotification = (
-      method: string,
-      params?: Record<string, unknown>,
-    ) => {
-      sendToIframe({
-        jsonrpc: "2.0",
-        method,
-        params: params || {},
-      });
-    };
-
+    // Create the sandbox iframe and bind the MCP session. Re-binds only when the
+    // widget identity (resourceUri/serverHash/serverId) or the agent/host/message
+    // changes - NOT when tool input/result stream in (those are pushed without
+    // recreating the iframe). `flush: "post"` so the container element is mounted
+    // when the callback runs.
     watch(
-      [() => props.agent, () => props.content],
-      ([agent, content]) => {
-        isLoading.value = true;
-        error.value = null;
-        iframeReady.value = false;
-        iframeSize.value = {};
-        fetchedResource.value = null;
-
-        const { resourceUri, serverHash, serverId } = content;
-
-        if (
-          fetchStateRef.value.inProgress &&
-          fetchStateRef.value.resourceUri === resourceUri
-        ) {
-          void fetchStateRef.value.promise
-            ?.then((resource) => {
-              if (resource) {
-                fetchedResource.value = resource;
-                isLoading.value = false;
-              }
-            })
-            .catch((err: unknown) => {
-              error.value = err instanceof Error ? err : new Error(String(err));
-              isLoading.value = false;
-            });
-          return;
-        }
-
+      [
+        // The container element is a watch source, not just a read: `immediate`
+        // runs the callback synchronously at setup, before the template ref is
+        // populated. Watching it re-runs the bind once the element mounts.
+        containerRef,
+        () => props.agent,
+        () => copilotkit.value,
+        messageId,
+        () => props.content.resourceUri,
+        () => props.content.serverHash,
+        () => props.content.serverId,
+      ],
+      ([container, agent], _old, onCleanup) => {
         if (!agent) {
           error.value = new Error("No agent available to fetch resource");
           isLoading.value = false;
           return;
         }
-
-        fetchStateRef.value.inProgress = true;
-        fetchStateRef.value.resourceUri = resourceUri;
-
-        const fetchPromise = (async (): Promise<FetchedResource | null> => {
-          try {
-            const runResult = await mcpAppsRequestQueue.enqueue(agent, () =>
-              agent.runAgent({
-                forwardedProps: {
-                  __proxiedMCPRequest: {
-                    serverHash,
-                    serverId,
-                    method: "resources/read",
-                    params: { uri: resourceUri },
-                  },
-                },
-              }),
-            );
-
-            const resultData = runResult.result as
-              | { contents?: FetchedResource[] }
-              | undefined;
-            const resource = resultData?.contents?.[0];
-
-            if (!resource) {
-              throw new Error("No resource content in response");
-            }
-
-            return resource;
-          } finally {
-            fetchStateRef.value.inProgress = false;
-          }
-        })();
-
-        fetchStateRef.value.promise = fetchPromise;
-
-        void fetchPromise
-          .then((resource) => {
-            if (resource) {
-              fetchedResource.value = resource;
-              isLoading.value = false;
-            }
-          })
-          .catch((err: unknown) => {
-            error.value = err instanceof Error ? err : new Error(String(err));
-            isLoading.value = false;
-          });
-      },
-      { immediate: true },
-    );
-
-    watch(
-      [isLoading, fetchedResource],
-      ([loading, resource], _old, onCleanup) => {
-        if (loading || !resource) {
-          return;
-        }
-
-        const container = containerRef.value;
         if (!container) {
           return;
         }
 
         let mounted = true;
-        let messageHandler: ((event: MessageEvent) => void) | null = null;
-        let initialListener: ((event: MessageEvent) => void) | null = null;
-        let createdIframe: HTMLIFrameElement | null = null;
+        isLoading.value = true;
+        error.value = null;
+        contentError.value = null;
+        iframeSize.value = {};
+        fetchedResource.value = null;
+
+        // The host owns the iframe: create + mount it here (bindMcpApp only
+        // configures the sandbox contract + talks to it through the bridge).
+        const iframe = document.createElement("iframe");
+        iframe.style.width = "100%";
+        iframe.style.height = "100px";
+        iframe.style.border = "none";
+        iframe.style.backgroundColor = "transparent";
+        iframe.style.display = "block";
+        container.appendChild(iframe);
+        iframeRef.value = iframe;
+
+        // Register cleanup BEFORE the async import: if this watcher is
+        // invalidated (props change / unmount) while the import is in flight,
+        // `mounted` is already false when it resolves, so we never bind.
+        onCleanup(() => {
+          mounted = false;
+          sessionRef.value?.teardown();
+          sessionRef.value = null;
+          iframe.remove();
+          if (iframeRef.value === iframe) {
+            iframeRef.value = null;
+          }
+        });
 
         const setup = async () => {
           try {
-            const iframe = document.createElement("iframe");
-            createdIframe = iframe;
-            iframe.style.width = "100%";
-            iframe.style.height = "100px";
-            iframe.style.border = "none";
-            iframe.style.backgroundColor = "transparent";
-            iframe.style.display = "block";
-            iframe.setAttribute(
-              "sandbox",
-              "allow-scripts allow-same-origin allow-forms",
+            // Load the bridge package lazily. The bridge is heavy (it pulls the
+            // MCP SDK Protocol + zod schemas, ~40-50 kB gzipped); keeping it
+            // behind a dynamic import() means a non-MCP app never pays for it.
+            const mod = await import("@copilotkit/mcp-apps-renderer").catch(
+              (importErr) => {
+                throw new Error(
+                  "MCP Apps require '@copilotkit/mcp-apps-renderer' and its " +
+                    "'@modelcontextprotocol/ext-apps' dependency. Reinstall your " +
+                    "dependencies if this package is missing.",
+                  { cause: importErr },
+                );
+              },
             );
-            // Cross-frontend MCP-apps surface contract — same testid/title pair
-            // as react-core's MCPAppsActivityRenderer and Angular's
-            // copilot-mcp-apps-widget, so the shared harness probe can assert
-            // the surface mounted with one selector on every frontend.
-            iframe.setAttribute("data-testid", "mcp-app-iframe");
-            iframe.setAttribute("title", "Interactive MCP application");
-
-            const sandboxReady = new Promise<void>((resolve) => {
-              initialListener = (event: MessageEvent) => {
-                if (
-                  event.source === iframe.contentWindow &&
-                  event.data?.method === "ui/notifications/sandbox-proxy-ready"
-                ) {
-                  if (initialListener) {
-                    window.removeEventListener("message", initialListener);
-                    initialListener = null;
-                  }
-                  resolve();
-                }
-              };
-              window.addEventListener("message", initialListener);
-            });
-
-            if (!mounted) {
-              if (initialListener) {
-                window.removeEventListener("message", initialListener);
-                initialListener = null;
-              }
-              return;
-            }
-
-            const cspDomains =
-              fetchedResource.value?._meta?.ui?.csp?.resourceDomains;
-            iframe.srcdoc = buildSandboxHTML(cspDomains);
-            iframeRef.value = iframe;
-            container.appendChild(iframe);
-
-            await sandboxReady;
             if (!mounted) return;
 
-            messageHandler = async (event: MessageEvent) => {
-              if (event.source !== iframe.contentWindow) return;
-
-              const msg = event.data as JSONRPCMessage;
-              if (!msg || typeof msg !== "object" || msg.jsonrpc !== "2.0") {
-                return;
-              }
-
-              if (isRequest(msg)) {
-                switch (msg.method) {
-                  case "ui/initialize": {
-                    sendResponse(msg.id, {
-                      protocolVersion: PROTOCOL_VERSION,
-                      hostInfo: {
-                        name: "CopilotKit MCP Apps Host",
-                        version: "1.0.0",
-                      },
-                      hostCapabilities: {
-                        openLinks: {},
-                        logging: {},
-                      },
-                      hostContext: {
-                        theme: "light",
-                        platform: "web",
-                      },
-                    });
-                    break;
-                  }
-
-                  case "ui/message": {
-                    const currentAgent = props.agent;
-                    if (!currentAgent) {
-                      sendResponse(msg.id, { isError: false });
-                      break;
-                    }
-
-                    try {
-                      const params = msg.params as
-                        | {
-                            role?: string;
-                            content?: Array<{ type: string; text?: string }>;
-                            followUp?: boolean;
-                          }
-                        | undefined;
-
-                      const role =
-                        (params?.role as "user" | "assistant") || "user";
-                      const textContent =
-                        params?.content
-                          ?.filter((part) => part.type === "text" && part.text)
-                          .map((part) => part.text)
-                          .join("\n") || "";
-
-                      if (textContent) {
-                        currentAgent.addMessage({
-                          id: randomUUID(),
-                          role,
-                          content: textContent,
-                        });
-                      }
-
-                      sendResponse(msg.id, { isError: false });
-
-                      const shouldFollowUp =
-                        params?.followUp ?? role === "user";
-                      if (shouldFollowUp && textContent) {
-                        void mcpAppsRequestQueue
-                          .enqueue(currentAgent, () =>
-                            copilotkit.value.runAgent({ agent: currentAgent }),
-                          )
-                          .catch((err) => {
-                            console.error(
-                              "[MCPAppsRenderer] ui/message agent run failed:",
-                              err,
-                            );
-                          });
-                      }
-                    } catch (err) {
-                      console.error(
-                        "[CopilotKit] MCPApps ui/message handler error:",
-                        err,
-                      );
-                      sendResponse(msg.id, { isError: true });
-                    }
-                    break;
-                  }
-
-                  case "ui/open-link": {
-                    const url = msg.params?.url as string | undefined;
-                    if (!url) {
-                      sendErrorResponse(
-                        msg.id,
-                        -32602,
-                        "Missing url parameter",
-                      );
-                      break;
-                    }
-                    window.open(url, "_blank", "noopener,noreferrer");
-                    sendResponse(msg.id, { isError: false });
-                    break;
-                  }
-
-                  case "tools/call": {
-                    const { serverHash, serverId } = props.content;
-                    const currentAgent = props.agent;
-
-                    if (!serverHash) {
-                      sendErrorResponse(
-                        msg.id,
-                        -32603,
-                        "No server hash available for proxying",
-                      );
-                      break;
-                    }
-                    if (!currentAgent) {
-                      sendErrorResponse(
-                        msg.id,
-                        -32603,
-                        "No agent available for proxying",
-                      );
-                      break;
-                    }
-
-                    try {
-                      const runResult = await mcpAppsRequestQueue.enqueue(
-                        currentAgent,
-                        () =>
-                          currentAgent.runAgent({
-                            forwardedProps: {
-                              __proxiedMCPRequest: {
-                                serverHash,
-                                serverId,
-                                method: "tools/call",
-                                params: msg.params,
-                              },
-                            },
-                          }),
-                      );
-                      sendResponse(msg.id, runResult.result || {});
-                    } catch (err) {
-                      sendErrorResponse(msg.id, -32603, String(err));
-                    }
-                    break;
-                  }
-
-                  default: {
-                    sendErrorResponse(
-                      msg.id,
-                      -32601,
-                      `Method not found: ${msg.method}`,
-                    );
-                  }
-                }
-              }
-
-              if (isNotification(msg)) {
-                switch (msg.method) {
-                  case "ui/notifications/initialized":
-                    if (mounted) {
-                      iframeReady.value = true;
-                    }
-                    break;
-
-                  case "ui/notifications/size-changed": {
-                    const { width, height } = msg.params || {};
-                    if (mounted) {
-                      iframeSize.value = {
-                        width: typeof width === "number" ? width : undefined,
-                        height: typeof height === "number" ? height : undefined,
-                      };
-                    }
-                    break;
-                  }
-                }
-              }
-            };
-
-            window.addEventListener("message", messageHandler);
-
-            const html = resource.text
-              ? resource.text
-              : resource.blob
-                ? atob(resource.blob)
-                : null;
-
-            if (!html) {
-              throw new Error("Resource has no text or blob content");
-            }
-
-            sendNotification("ui/notifications/sandbox-resource-ready", {
-              html,
+            const session = mod.bindMcpApp({
+              iframe,
+              getContent: () => props.content,
+              getAgent: () => props.agent,
+              host: copilotkit.value,
+              // Self-driving: the session subscribes to the agent's activity
+              // stream (filtered by messageId) and pushes tool input/result to
+              // the widget itself, so this adapter does not forward STORE-backed
+              // activities. It still calls syncContent for activities rendered
+              // from an external messages list (see the seed below).
+              messageId: messageId.value,
+              hooks: {
+                onResource: (resource) => {
+                  if (!mounted) return;
+                  fetchedResource.value = resource;
+                  isLoading.value = false;
+                },
+                onSizeChanged: (size) => {
+                  if (mounted) iframeSize.value = size;
+                },
+                onContentError: (err) => {
+                  if (mounted) contentError.value = err;
+                },
+                onError: (err) => {
+                  if (!mounted) return;
+                  error.value = err;
+                  isLoading.value = false;
+                },
+              },
             });
+            sessionRef.value = session;
+            // Seed the initial content now: the content watcher below does not
+            // re-run for unchanged props, so an activity rendered from an
+            // EXTERNAL messages list (absent from agent.messages) would never
+            // receive its initial tool input/result. Deduped + store precedence
+            // make this a no-op for agent-backed activities.
+            session.syncContent(props.content);
           } catch (err) {
+            console.error("[MCPAppsRenderer] Setup error:", err);
             if (mounted) {
               error.value = err instanceof Error ? err : new Error(String(err));
+              isLoading.value = false;
             }
           }
         };
 
         void setup();
-
-        onCleanup(() => {
-          mounted = false;
-          if (initialListener) {
-            window.removeEventListener("message", initialListener);
-            initialListener = null;
-          }
-          if (messageHandler) {
-            window.removeEventListener("message", messageHandler);
-          }
-          if (createdIframe) {
-            createdIframe.remove();
-            createdIframe = null;
-          }
-          iframeRef.value = null;
-        });
       },
-      { flush: "post" },
+      { immediate: true, flush: "post" },
     );
 
+    // Size the iframe when the widget reports a new content size.
     watch(
       iframeSize,
       (size) => {
-        if (!iframeRef.value) return;
+        const iframe = iframeRef.value;
+        if (!iframe) return;
         if (size.width !== undefined) {
-          iframeRef.value.style.minWidth = `min(${size.width}px, 100%)`;
-          iframeRef.value.style.width = "100%";
+          // Use minWidth with min() to allow expansion but cap at 100%
+          iframe.style.minWidth = `min(${size.width}px, 100%)`;
+          iframe.style.width = "100%";
         }
         if (size.height !== undefined) {
-          iframeRef.value.style.height = `${size.height}px`;
+          iframe.style.height = `${size.height}px`;
         }
       },
       { deep: true },
     );
 
+    // Forward tool input/result from the content prop. The session is
+    // self-driving for activities that live in the agent's message store, but a
+    // host can render an activity from an EXTERNAL messages list that is absent
+    // from `agent.messages`; this keeps such widgets fed. `syncContent` is
+    // deduped and shares the subscription's dedup, so the agent-driven path
+    // never double-sends.
     watch(
-      [iframeReady, () => props.content.toolInput],
-      ([ready, toolInput]) => {
-        if (ready && toolInput) {
-          sendNotification("ui/notifications/tool-input", {
-            arguments: toolInput,
-          });
-        }
+      [() => props.content.toolInput, () => props.content.result],
+      () => {
+        sessionRef.value?.syncContent(props.content);
       },
       { deep: true },
     );
 
-    watch(
-      [iframeReady, () => props.content.result],
-      ([ready, result]) => {
-        if (ready && result) {
-          sendNotification(
-            "ui/notifications/tool-result",
-            result as Record<string, unknown>,
-          );
-        }
-      },
-      { deep: true },
-    );
-
+    // Determine border styling based on prefersBorder metadata from fetched
+    // resource: true = show border/background, false = none, undefined = host
+    // decides (we default to none).
     const borderStyle = computed(() => {
       const prefersBorder = fetchedResource.value?._meta?.ui?.prefersBorder;
       if (prefersBorder !== true) return {};
@@ -735,11 +257,6 @@ export const MCPAppsActivityRenderer = defineComponent({
         backgroundColor: "#f9f9f9",
         border: "1px solid #e0e0e0",
       };
-    });
-
-    onBeforeUnmount(() => {
-      const threadId = props.agent?.threadId || "default";
-      mcpAppsRequestQueue.cancel(threadId);
     });
 
     return () =>
@@ -767,11 +284,11 @@ export const MCPAppsActivityRenderer = defineComponent({
                 "Loading...",
               )
             : null,
-          error.value
+          error.value || contentError.value
             ? h(
                 "div",
                 { style: { color: "red", padding: "1rem" } },
-                `Error: ${error.value.message}`,
+                `Error: ${(error.value ?? contentError.value)!.message}`,
               )
             : null,
         ],
