@@ -1,6 +1,6 @@
 import { createBodyCapture } from "./network-body";
 import type { BodySnapshot } from "./network-body";
-import { createRedactor } from "./redact";
+import { createRedactor, isCredentialKey } from "./redact";
 import type { Redactor } from "./redact";
 import { REDACTED } from "./types";
 import type { Emit } from "./types";
@@ -22,21 +22,21 @@ const unavailableBody = (reason: string) =>
 const toAbsolute = (url: string) => new URL(url, location.href).href;
 // Credentials carry no product signal and must never leave the browser, even
 // with full capture. The header name stays, so the event still shows it was sent.
+// Names the credential-key matcher misses; it covers `x-api-key`, `x-auth-token`, and similar.
 const CREDENTIAL_HEADERS = new Set([
   "authorization",
   "proxy-authorization",
   "cookie",
   "set-cookie",
-  "x-api-key",
-  "x-auth-token",
-  "x-access-token",
   "x-csrf-token",
-  "api-key",
-  "x-goog-api-key",
+  "x-xsrf-token",
   "x-amz-security-token",
+  "private-token",
 ]);
 const headerValue = (name: string, value: string) =>
-  CREDENTIAL_HEADERS.has(name.toLowerCase()) ? REDACTED : value;
+  CREDENTIAL_HEADERS.has(name.toLowerCase()) || isCredentialKey(name)
+    ? REDACTED
+    : value;
 const headerValues = (headers: Headers) =>
   Object.fromEntries(
     Array.from(headers.entries(), ([name, value]) => [

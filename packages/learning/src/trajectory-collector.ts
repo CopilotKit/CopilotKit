@@ -145,6 +145,7 @@ export function createTrajectoryCollector(
       // One per session: fields seen and values typed are forgotten on stop().
       const redact = createRedactor();
       try {
+        uninstalls.push(redact.watch());
         if (options.capture?.clicks !== false) {
           uninstalls.push(
             installClickCapture({ emit: capture, getRoute, redact }),

@@ -52,7 +52,8 @@ export function describeTarget(el: Element, redact: Redactor) {
       attributes: Object.fromEntries(
         Array.from(element.attributes, ({ name, value }) => [
           name,
-          password && name === "value" ? REDACTED : value,
+          // URL-valued attributes (`href`, `action`, …) can carry credentials.
+          password && name === "value" ? REDACTED : redact.url(value),
         ]),
       ),
       ...readControlValue(element, redact),

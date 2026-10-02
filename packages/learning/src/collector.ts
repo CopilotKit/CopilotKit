@@ -124,6 +124,7 @@ export function createCollector(options: CollectorOptions) {
     };
     // One per session: fields seen and values typed are forgotten on stop().
     const redact = createRedactor();
+    current.uninstalls.push(redact.watch());
     const ignoreUrls = [
       ...(options.ignoreUrls ?? []),
       ...(sink.url === undefined ? [] : [sink.url]),

@@ -1,3 +1,4 @@
+import { TEXT_LIMIT } from "./redact";
 import type { Redactor } from "./redact";
 
 /** A bounded observation of a body; never the stream returned to the app. */
@@ -24,24 +25,26 @@ const redactionFailed = (): BodySnapshot => ({
 });
 type RedactText = (text: string) => string | undefined;
 
+/** Redacts up to TEXT_LIMIT bytes of text first, then cuts the result to BODY_BYTES. */
 function snapshot(
   bytes: Uint8Array,
   status: BodySnapshot["status"],
-  binary: boolean,
+  contentType: string,
   redact: RedactText,
   reason?: string,
 ): BodySnapshot {
   let text: string | undefined;
-  if (!binary)
+  if (!isBinary(contentType))
     try {
-      text = new TextDecoder("utf-8", { fatal: true }).decode(bytes, {
+      // Declared text decodes lossily so it is always redacted; untyped bytes
+      // that are not UTF-8 are treated as binary.
+      text = new TextDecoder("utf-8", { fatal: !contentType }).decode(bytes, {
         stream: status !== "complete",
       });
     } catch {
       /* Not UTF-8: keep the bytes as base64. */
     }
   if (text !== undefined) {
-    // Redact the whole read before the size limit can cut a value.
     text = redact(text);
     if (text === undefined) return redactionFailed();
     // PostgreSQL jsonb rejects NUL in strings; base64 retains the redacted bytes.
@@ -50,10 +53,9 @@ function snapshot(
       text = undefined;
     }
   }
-  if (text === undefined) {
-    binary = true;
-    text = btoa(String.fromCharCode(...bytes));
-  }
+  const binary = text === undefined;
+  // Binary bodies are not inspected; only their first bytes are kept.
+  text ??= btoa(String.fromCharCode(...bytes.subarray(0, BODY_BYTES)));
   const result: BodySnapshot = {
     status: status === "complete" && bytes.length === 0 ? "empty" : status,
     text,
@@ -87,22 +89,11 @@ function snapshotText(
   status: BodySnapshot["status"] = "complete",
   reason?: string,
 ): BodySnapshot {
-  // Redact the full text before truncation so a cut cannot expose a value's prefix.
-  const text = redact(value);
-  if (text === undefined) return redactionFailed();
-  let prefix = text.slice(0, BODY_BYTES);
-  if (
-    prefix.length < text.length &&
-    /[\uD800-\uDBFF]/.test(prefix.at(-1) ?? "")
-  )
-    prefix = prefix.slice(0, -1);
-  const bytes = encoder.encode(prefix);
-  const truncated = text.length > prefix.length || bytes.length > BODY_BYTES;
   return snapshot(
-    bytes.subarray(0, BODY_BYTES),
-    truncated && status === "complete" ? "truncated" : status,
-    false,
-    String,
+    encoder.encode(value.slice(0, TEXT_LIMIT)),
+    value.length > TEXT_LIMIT && status === "complete" ? "truncated" : status,
+    "text/plain",
+    redact,
     reason,
   );
 }
@@ -110,7 +101,7 @@ function snapshotText(
 function isBinary(contentType: string) {
   return (
     contentType !== "" &&
-    !/(^text\/|json|xml|javascript|x-www-form-urlencoded|multipart\/form-data)/i.test(
+    !/(^text\/|json|xml|javascript|graphql|x-www-form-urlencoded|multipart\/form-data)/i.test(
       contentType,
     )
   );
@@ -137,7 +128,7 @@ export function createBodyCapture(redact: Redactor) {
       return Promise.resolve({ status: "unavailable", reason: "body-locked" });
     }
     return new Promise((resolve) => {
-      const bytes = new Uint8Array(BODY_BYTES);
+      const bytes = new Uint8Array(TEXT_LIMIT);
       let length = 0;
       let finished = false;
       const finish = (status: BodySnapshot["status"], reason?: string) => {
@@ -149,7 +140,7 @@ export function createBodyCapture(redact: Redactor) {
           snapshot(
             bytes.subarray(0, length),
             status,
-            isBinary(contentType),
+            contentType,
             redact.body,
             reason,
           ),
@@ -172,10 +163,10 @@ export function createBodyCapture(redact: Redactor) {
               finish("complete");
               break;
             }
-            const kept = chunk.value.subarray(0, BODY_BYTES - length);
+            const kept = chunk.value.subarray(0, TEXT_LIMIT - length);
             bytes.set(kept, length);
             length += kept.length;
-            if (length === BODY_BYTES) {
+            if (length === TEXT_LIMIT) {
               finish("truncated");
               break;
             }

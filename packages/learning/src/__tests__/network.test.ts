@@ -508,6 +508,9 @@ describe("XMLHttpRequest capture", () => {
       const events = setup(respondWith());
       const xhr = new FakeXhr();
       xhr.responseType = responseType;
+      // Declared text is decoded and redacted; only binary types stay base64.
+      xhr.getAllResponseHeaders = () =>
+        "Content-Type: application/octet-stream\r\n";
       xhr.response =
         responseType === "json"
           ? { complete: true }

@@ -20,12 +20,21 @@ This page describes the experimental self-hosted collector and its custom-sink i
 
 Passwords and credentials never leave the browser. Their values become `[redacted]`:
 
-- Password field values. A field counts as one when it has `type="password"`, had it earlier in the session (for example before a show-password toggle), has a credential key as its `name`, or has `autocomplete` set to `current-password`, `new-password`, or `one-time-code`.
-- Any value typed into a password field, wherever it appears in a body snapshot or URL. The collector keeps the last 20 such values of 4 or more characters in memory and forgets them on stop.
-- Values of credential keys in JSON, URL-encoded, and multipart bodies, and in URL query strings and hashes. The key stays. Ignoring case, `_`, `-`, `.`, and spaces, a credential key contains `password`, `passwd`, `passphrase`, `passcode`, `secret`, `apikey`, `accesstoken`, `refreshtoken`, `idtoken`, `authtoken`, `sessiontoken`, `privatekey`, or `credential`, or equals `pwd`, `pass`, `token`, or `otp`.
-- The credential headers `authorization`, `proxy-authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-auth-token`, `x-access-token`, `x-csrf-token`, `api-key`, `x-goog-api-key`, and `x-amz-security-token`. The header name stays.
+- Password field values. A field counts as one when it has `type="password"`, had it at any point during the session (for example before a show-password toggle), has a credential key as its `name`, or has `autocomplete` set to `current-password`, `new-password`, or `one-time-code`.
+- Any value typed into a password field, wherever it appears in a body snapshot, URL, or clicked element attribute. The collector keeps the last 20 such values of 4 or more characters in memory, even when `capture.inputs` is off, and forgets them on stop. All-digit values, such as one-time codes, match only as whole numbers.
+- Values of credential keys in JSON, URL-encoded, and `FormData` bodies, `key: value` text such as GraphQL, URL query strings and hashes, and clicked element attributes such as `href`. JSON, forms, and URLs nested inside string values are redacted too. The key stays. Booleans and `null` stay, so `"password": null` still shows that no password was set.
+- Header values whose name is a credential key, plus `authorization`, `proxy-authorization`, `cookie`, `set-cookie`, `x-csrf-token`, `x-xsrf-token`, `x-amz-security-token`, and `private-token`. The header name stays.
 
-The user name and password in a URL (`https://user:pass@host`) are removed. Bodies are redacted before the size limit applies, so a cut cannot expose part of a value. A body that cannot be redacted is reported as `unavailable`. Binary bodies, captured as base64, are not inspected. Everything else is captured raw.
+A credential key, split into words and ignoring case, contains `password`, `passwd`, `passphrase`, `passcode`, `credential`, `apikey`, `apitoken`, `privatekey`, `accesstoken`, `refreshtoken`, `authtoken`, `sessiontoken`, or `clientsecret`, has the word `secret` or `id token`, or is exactly `pwd`, `pass`, `token`, or `otp`. Keys that describe a credential, ending in words such as `id`, `at`, `in`, `expires`, `length`, `count`, `enabled`, `required`, `policy`, `hint`, or `type`, are not credential keys. For example, `accessToken` and `client_secret` are credential keys; `tokenCount`, `secretary`, `invalidToken`, and `passwordExpiresAt` are not.
+
+The user name and password in a URL (`https://user:pass@host`) are removed. Redaction runs on the first 16 KiB of each body, before the 4 KiB snapshot limit applies. Text past 16 KiB is never captured. A body that cannot be redacted is reported as `unavailable`. Text bodies that are not valid UTF-8 are decoded with replacement characters and redacted. Everything else is captured raw.
+
+Redaction has limits:
+
+- Binary bodies, such as images or `application/octet-stream`, are captured as base64 and not inspected. That includes untyped bodies that are not valid UTF-8.
+- Multipart bodies are redacted per field only when sent as a `FormData` object. Multipart text built by hand, XML, and percent-encoded URLs nested in a query value are not parsed.
+- Passwords shorter than 4 characters are not remembered. Only the latest value of each field is remembered, so a shorter prefix sent earlier while typing is not matched later.
+- OAuth authorization codes (`code=`) and tokens in URL paths are not redacted.
 
 Clicked element text is cut at 1,000 characters. Paths remain unchanged. The deprecated `routes` option no longer transforms them. The collector still skips its sink URL to prevent capture of its own sends.
 

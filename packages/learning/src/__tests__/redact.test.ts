@@ -21,6 +21,8 @@ const PAGE_ORIGIN = "http://localhost:3000";
 const realFetch = globalThis.fetch;
 const uninstalls: (() => void)[] = [];
 const isTrusted = () => true;
+// jsdom implements neither navigation nor form submission.
+const prevent = (event: Event) => event.preventDefault();
 
 afterEach(() => {
   uninstalls.splice(0).forEach((uninstall) => uninstall());
@@ -30,9 +32,13 @@ afterEach(() => {
   history.replaceState(null, "", "/");
 });
 
-function setup(fakeFetch: typeof fetch = async () => new Response("ok")) {
+function setup(
+  fakeFetch: typeof fetch = async () => new Response("ok"),
+  { inputs = true } = {},
+) {
   globalThis.fetch = fakeFetch;
   const redact = createRedactor();
+  uninstalls.push(redact.watch());
   const network: NetworkEvent[] = [];
   const other: { name: string; value: Record<string, unknown> }[] = [];
   const emit = (name: string, value: Record<string, unknown>) => {
@@ -41,7 +47,7 @@ function setup(fakeFetch: typeof fetch = async () => new Response("ok")) {
   };
   uninstalls.push(
     installNetworkCapture({ emit, ignoreUrls: [], redact }),
-    installInputCapture({ emit, isTrusted, redact }),
+    inputs ? installInputCapture({ emit, isTrusted, redact }) : () => {},
     installClickCapture({ emit, getRoute: () => "/", isTrusted, redact }),
     installNavigationCapture({ emit, redact }),
   );
@@ -228,6 +234,14 @@ describe("body redaction", () => {
     );
   });
 
+  it("redacts a value cut off by a size limit", () => {
+    const text = createRedactor().body(
+      '{"note":"x","access_token":"cut-off-sec',
+    );
+    expect(text).toContain('"access_token":"[redacted]');
+    expect(text).not.toContain("cut-off");
+  });
+
   it("redacts truncated or invalid JSON with the pair fallback", async () => {
     const { network } = setup(
       streamed(
@@ -242,7 +256,6 @@ describe("body redaction", () => {
     expect(event.request.body.text).toBe(
       '{"email":"a@example.com","password":"[redacted]",',
     );
-    expect(event.response.body.status).toBe("truncated");
     expect(event.response.body.text).not.toContain("cut-off");
     expect(event.response.body.text).toContain('"access_token":"[redacted]"');
   });
@@ -400,5 +413,240 @@ describe("credential headers", () => {
       ...Object.fromEntries(credentials.map((name) => [name, "[redacted]"])),
       "x-request-id": "req-1",
     });
+  });
+});
+
+describe("credentials inside string values", () => {
+  it.each([
+    ["JSON in a string", { payload: JSON.stringify({ password: "LEAK1" }) }],
+    ["GraphQL", { query: 'mutation { login(email: "a", password: "LEAK2") }' }],
+    ["a form in a string", { body: "user=a&password=LEAK3" }],
+    ["a URL in a string", { next: "https://x.test/cb?access_token=LEAK4" }],
+    [
+      "tool-call arguments",
+      {
+        tool_calls: [
+          {
+            function: {
+              name: "login",
+              arguments: JSON.stringify({ user: "a", passwd: "LEAK5" }),
+            },
+          },
+        ],
+      },
+    ],
+  ])("redacts %s and keeps the rest", (_, value) => {
+    const text = createRedactor().body(JSON.stringify(value))!;
+    expect(text).not.toMatch(/LEAK/);
+    expect(text).toContain("[redacted]");
+    expect(JSON.parse(text)).toBeTruthy();
+  });
+
+  it("redacts GraphQL and YAML-style pairs in plain text", () => {
+    const redact = createRedactor();
+    expect(redact.body('mutation { login(user: "a", password:"LEAK") }')).toBe(
+      'mutation { login(user: "a", password:"[redacted]") }',
+    );
+    expect(redact.body("user: a\npassword: LEAK\n")).toBe(
+      "user: a\npassword: [redacted]\n",
+    );
+    expect(redact.body('password=ab"LEAK')).not.toMatch(/LEAK/);
+  });
+
+  it("keeps booleans, null, and number literals exactly", () => {
+    const body =
+      '{"id":12345678901234567890,"hasPassword":true,"password":null,"secret":"s","n":1.50}';
+    expect(createRedactor().body(body)).toBe(
+      '{"id":12345678901234567890,"hasPassword":true,"password":null,"secret":"[redacted]","n":1.50}',
+    );
+  });
+});
+
+describe("credential key boundaries", () => {
+  it.each([
+    "isSecret",
+    "x-hasura-admin-secret",
+    "IDToken",
+    "id_token",
+    "p%61ssword",
+    "user[password]",
+    "x-api-token",
+    "x-refresh-token",
+    "apikey",
+  ])("matches %s", (key) => expect(isCredentialKey(key)).toBe(true));
+
+  it.each([
+    "secretary",
+    "invalidToken",
+    "validToken",
+    "bidToken",
+    "passwordExpiresAt",
+    "accessTokenExpiresIn",
+    "credentialId",
+    "apiKeyId",
+    "passwordPolicy",
+    "token_type",
+    "max_tokens",
+  ])("does not match %s", (key) => expect(isCredentialKey(key)).toBe(false));
+});
+
+describe("redaction before the 4 KiB cut", () => {
+  it("catches a remembered value that straddles the cut in a streamed body", async () => {
+    document.body.innerHTML = '<input type="password">';
+    const { network } = setup(
+      streamed("a".repeat(4090) + "S3cretPassw0rd", "text/plain"),
+    );
+    type(document.querySelector("input")!, "S3cretPassw0rd");
+    await fetch("/x");
+    expect((await captured(network)).response.body.text).not.toMatch(/S3cr/);
+  });
+
+  it("does not pull an unredacted value into the window after a redaction", async () => {
+    document.body.innerHTML = '<input type="password">';
+    const head = `token=${"x".repeat(600)}&note=`;
+    const { network } = setup(
+      streamed(
+        `${head}${"a".repeat(4090 - head.length)}S3cretPassw0rd&z=1`,
+        "application/x-www-form-urlencoded",
+      ),
+    );
+    type(document.querySelector("input")!, "S3cretPassw0rd");
+    await fetch("/x");
+    const text = (await captured(network)).response.body.text!;
+    expect(text).not.toMatch(/S3cr|xxxx/);
+    expect(text).toContain("token=[redacted]");
+  });
+});
+
+describe("text bodies that are not valid UTF-8 or use other text types", () => {
+  it("decodes a declared text body lossily and redacts it instead of sending base64", async () => {
+    const bytes = new Uint8Array([
+      ...new TextEncoder().encode('{"password":"LEAK","n":"'),
+      0xe9,
+      0x22,
+      0x7d,
+    ]);
+    const { network } = setup(
+      async () =>
+        new Response(bytes, {
+          headers: { "content-type": "application/json; charset=iso-8859-1" },
+        }),
+    );
+    await fetch("/x");
+    expect((await captured(network)).response.body).toMatchObject({
+      encoding: "utf-8",
+      text: '{"password":"[redacted]","n":"�"}',
+    });
+  });
+
+  it("treats application/graphql as text", async () => {
+    const { network } = setup();
+    await fetch(
+      new Request("http://localhost:3000/graphql", {
+        method: "POST",
+        body: '{"password":"LEAK"}',
+        headers: { "content-type": "application/graphql" },
+      }),
+    );
+    expect((await captured(network)).request.body).toMatchObject({
+      encoding: "utf-8",
+      text: '{"password":"[redacted]"}',
+    });
+  });
+});
+
+describe("password fields seen before any interaction", () => {
+  it("redacts a field toggled to text before it was first observed", async () => {
+    const { network, other } = setup();
+    const input = document.createElement("input");
+    input.type = "password";
+    document.body.append(input);
+    input.type = "text";
+    type(input, "Hunter2Secret");
+    await fetch("/x", {
+      method: "POST",
+      body: JSON.stringify({ pw: "Hunter2Secret" }),
+    });
+    expect(JSON.stringify(other)).not.toContain("Hunter2Secret");
+    expect(JSON.stringify(await captured(network))).not.toContain(
+      "Hunter2Secret",
+    );
+  });
+
+  it("redacts a password field that existed at start and was toggled later", async () => {
+    document.body.innerHTML = '<input type="password">';
+    const { other } = setup();
+    const input = document.querySelector("input")!;
+    input.type = "text";
+    await Promise.resolve();
+    type(input, "Hunter4Secret");
+    expect(JSON.stringify(other)).not.toContain("Hunter4Secret");
+  });
+
+  it("remembers password values when input capture is off", async () => {
+    document.body.innerHTML = '<input type="password">';
+    const { network, other } = setup(undefined, { inputs: false });
+    type(document.querySelector("input")!, "Hunter3Secret");
+    await fetch("/x", {
+      method: "POST",
+      body: JSON.stringify({ pw: "Hunter3Secret" }),
+    });
+    expect(other).toEqual([]);
+    expect((await captured(network)).request.body.text).toBe(
+      '{"pw":"[redacted]"}',
+    );
+  });
+
+  it("matches remembered one-time codes only as whole numbers", async () => {
+    document.body.innerHTML = '<input autocomplete="one-time-code">';
+    const { network } = setup(
+      streamed('{"id":99123456001,"ts":1727123456789,"code":"123456"}'),
+    );
+    type(document.querySelector("input")!, "123456");
+    await fetch("/x");
+    expect((await captured(network)).response.body.text).toBe(
+      '{"id":99123456001,"ts":1727123456789,"code":"[redacted]"}',
+    );
+  });
+});
+
+describe("click attributes", () => {
+  it("redacts credentials in URL-valued attributes", () => {
+    document.body.innerHTML =
+      '<a href="https://u:p@x.test/reset?token=LEAK&page=2#access_token=LEAK2">reset</a><form action="/login?password=LEAK3"><button formaction="/go?api_key=LEAK4">Go</button></form>';
+    const { other } = setup();
+    document.addEventListener("click", prevent);
+    uninstalls.push(() => document.removeEventListener("click", prevent));
+    document.querySelector("a")!.click();
+    document.querySelector("button")!.click();
+    const attributes = other
+      .filter(({ name }) => name === "click")
+      .map(({ value }) => (value.target as { attributes: object }).attributes);
+    expect(attributes[0]).toMatchObject({
+      href: "https://x.test/reset?token=[redacted]&page=2#access_token=[redacted]",
+    });
+    expect(attributes[1]).toMatchObject({
+      formaction: "/go?api_key=[redacted]",
+    });
+    expect(JSON.stringify(other)).not.toMatch(/LEAK|u:p@/);
+  });
+});
+
+describe("credential header names", () => {
+  it("redacts headers whose name is a credential key", async () => {
+    const { network } = setup();
+    const names = [
+      "x-hasura-admin-secret",
+      "apikey",
+      "x-refresh-token",
+      "private-token",
+      "x-xsrf-token",
+    ];
+    await fetch("/x", {
+      headers: Object.fromEntries(names.map((name) => [name, "LEAK"])),
+    });
+    expect((await captured(network)).request.headers).toEqual(
+      Object.fromEntries(names.map((name) => [name, "[redacted]"])),
+    );
   });
 });

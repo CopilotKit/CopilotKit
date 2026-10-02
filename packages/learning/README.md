@@ -5,12 +5,12 @@ Capture page context, navigation, clicks, form edits, network requests, and deve
 Capture retains raw URLs, query strings, hashes, page titles, referrers, element text, attributes, and live control values by default. Network events include browser-visible request and response headers and body snapshots. Each body snapshot has a 4 KiB limit and an explicit status for incomplete or unavailable content. Only passwords and credentials are replaced with `[redacted]`, in the browser:
 
 - Values of password fields: `type="password"`, fields that had it earlier in the session (show-password toggles), fields with a credential key as `name`, and `autocomplete` `current-password`, `new-password`, or `one-time-code`.
-- Values typed into password fields, wherever they appear in body snapshots or URLs (the last 20 values of 4 or more characters, kept in memory until stop).
-- Values of credential keys such as `password`, `secret`, `api_key`, `access_token`, or `token` in JSON, URL-encoded, and multipart bodies, query strings, and hashes. Bodies are redacted before the 4 KiB limit applies. Binary bodies are not inspected.
-- Credential header values: `authorization`, `proxy-authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-auth-token`, `x-access-token`, `x-csrf-token`, `api-key`, `x-goog-api-key`, and `x-amz-security-token`.
+- Values typed into password fields, wherever they appear in body snapshots, URLs, or element attributes (the last 20 values of 4 or more characters, kept in memory until stop, also when input capture is off).
+- Values of credential keys such as `password`, `secret`, `api_key`, `access_token`, or `token` in JSON, URL-encoded, and `FormData` bodies, `key: value` text, query strings, hashes, and element attributes, including inside nested JSON strings. Booleans and `null` stay.
+- Values of headers whose name is a credential key, plus `authorization`, `proxy-authorization`, `cookie`, `set-cookie`, `x-csrf-token`, `x-xsrf-token`, `x-amz-security-token`, and `private-token`.
 - URL user names and passwords (`https://user:pass@host`), which are removed.
 
-Everything else is captured raw. See [Captured data](https://docs.copilotkit.ai/intelligence/captured-data) for the full list of credential keys.
+Redaction runs on the first 16 KiB of a body, before the 4 KiB limit applies. Everything else is captured raw. Binary bodies, hand-built multipart text, XML, OAuth `code=` values, path tokens, and passwords shorter than 4 characters are not redacted. See [Captured data](https://docs.copilotkit.ai/intelligence/captured-data) for the matching rules and limits.
 
 Use `capture`, `beforeSend`, `ignoreUrls`, and `data-copilotkit-ignore` for your app's exclusions. The deprecated `routes` option no longer masks or transforms paths.
 
