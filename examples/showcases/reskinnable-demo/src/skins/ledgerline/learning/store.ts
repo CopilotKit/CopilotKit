@@ -519,8 +519,7 @@ function cardTitle(events: CapturedEvent[]): string | undefined {
       e.event.value.cardId ??
       (e.event.value.fields as Record<string, unknown> | undefined)?.cardId;
     const card = CARDS.find((c) => c.id === id);
-    if (card)
-      return `Match ${card.holder}'s ${card.periodLabel} card transactions`;
+    if (card) return `Close out ${card.holder}'s ${card.periodLabel} card`;
   }
   return undefined;
 }

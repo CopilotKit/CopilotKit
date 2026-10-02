@@ -137,5 +137,5 @@ export interface EvalSuite {
 }
 
 export const PROJECT_ID = "ledgerline-demo";
-export const SKILL_NAME = "match-card-receipts";
+export const SKILL_NAME = "close-card-exceptions";
 export const DEMO_USER = { id: "u_maya", name: "Maya Chen" };

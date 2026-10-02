@@ -12,7 +12,7 @@ import {
 } from "./learn";
 import type { Facts, Learned } from "./learn";
 import { CARDS } from "../data/recon-seed";
-import { canonicalPairs } from "../data/recon-store";
+import { canonicalExceptions } from "../data/recon-store";
 import type { EvalCandidate, Skill } from "./types";
 import { SKILL_NAME } from "./types";
 
@@ -158,14 +158,33 @@ function canonicalSkill(): Skill {
     last4: card.last4,
     period: card.period,
     periodLabel: card.periodLabel,
-    pairs: canonicalPairs(card.id),
+    autoMatched: 0,
+    exceptions: canonicalExceptions(card.id).map((x) => ({
+      transactionId: x.transactionId,
+      descriptor: x.descriptor,
+      amount: x.amount,
+      kind: x.exception.kind,
+      exception: x.exception,
+      resolution:
+        x.expected.kind === "split"
+          ? { kind: "split", lines: x.expected.lines }
+          : x.expected.kind === "reclass"
+            ? {
+                kind: "reclass",
+                fromAccount: x.expected.fromAccount,
+                toAccount: x.expected.toAccount,
+              }
+            : x.expected.kind === "personal"
+              ? { kind: "personal", method: x.expected.method }
+              : { kind: "missing_receipt" },
+    })),
     wrongAttempts: [],
     failedAttempts: 0,
     threadCount: 0,
     surfaces: [],
     evidence: {
-      receiptViews: [],
-      pairCalls: [],
+      contextViews: [],
+      workflowCalls: [],
       passedValidation: undefined as never,
     },
   };

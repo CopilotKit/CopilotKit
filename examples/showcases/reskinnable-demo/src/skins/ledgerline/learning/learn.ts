@@ -6,13 +6,13 @@
  * candidate and eval candidates, every one citing real eventIds from that
  * trajectory.
  *
- * Today's task is the month-end card close. The lesson is read straight off
- * the product trajectory: the recorded API calls (open a reconciliation
- * session, one pair per charge with its adjustment, validate, close) are the
- * RECIPE, and the pairs the person validated are the MATCHING RULES (card
- * descriptors, posting-date lag, tips written on slips, currency conversion,
- * split charges). Both go into the skill exactly; the skill hands the matches
- * to the user and never closes the period itself.
+ * Today's task is the month-end card close. Receipts auto-match; the lesson
+ * is how a person clears the EXCEPTIONS, read straight off the product
+ * trajectory: the recorded API calls (a reconciliation session, an allocation
+ * split by attendees, a reclass entry in a soft-locked month, a repayment, a
+ * missing-receipt affidavit, validate, close) are the RECIPE, and what the
+ * person chose on each is the RULE. Both go into the skill exactly; the skill
+ * hands the close to the user and never closes the period itself.
  *
  * Two paths that produce the same shapes:
  *  - `deriveWithLlm`: an OpenAI call over the real events (OPENAI_API_KEY)
@@ -26,7 +26,8 @@
  */
 
 import OpenAI from "openai";
-import { CARDS } from "../data/recon-seed";
+import { CARDS, EVENTS, deptName, glName } from "../data/recon-seed";
+import type { ChargeException } from "../data/recon-seed";
 import type {
   CapturedEvent,
   EvalCandidate,
@@ -36,30 +37,40 @@ import type {
 } from "./types";
 import { SKILL_NAME } from "./types";
 
-export interface ReceiptFact {
-  id: string;
-  merchant: string;
-  date: string;
-  total: number;
-  currency: string;
-  handwrittenTip?: number;
-}
+export type Resolution =
+  | {
+      kind: "split";
+      allocationId?: string;
+      lines: { departmentId: string; amount: number }[];
+    }
+  | {
+      kind: "reclass";
+      entryId?: string;
+      fromAccount: string;
+      toAccount: string;
+      memo?: string;
+    }
+  | {
+      kind: "personal";
+      repaymentId?: string;
+      method: "payroll_deduction" | "card_payment";
+    }
+  | {
+      kind: "missing_receipt";
+      affidavitId?: string;
+      memo?: string;
+      attestedBy?: string;
+    };
 
-export interface Adjustment {
-  kind: string;
-  amount?: number;
-  currency?: string;
-  receiptAmount?: number;
-  rate?: number;
-}
-
-export interface PairFact {
+export interface ExceptionFact {
   transactionId: string;
   descriptor: string;
   amount: number;
-  postedAt?: string;
-  receipts: ReceiptFact[];
-  adjustment?: Adjustment;
+  mcc?: string;
+  glAccount?: string;
+  kind: ChargeException["kind"];
+  exception?: ChargeException;
+  resolution?: Resolution;
 }
 
 export interface Facts {
@@ -70,19 +81,21 @@ export interface Facts {
   last4: string;
   period: string;
   periodLabel: string;
-  /** The pairs the person validated: the worked examples behind the rules. */
-  pairs: PairFact[];
-  /** Pairs that failed validation before the passing one, with the on-screen reason. */
-  wrongAttempts: { descriptor: string; code: string; reason?: string }[];
+  /** Receipt charges Ledgerline auto-matched. */
+  autoMatched: number;
+  /** The exceptions the person cleared: the worked examples behind the rules. */
+  exceptions: ExceptionFact[];
+  /** Charges that failed validation before the passing one. */
+  wrongAttempts: { descriptor: string; code: string }[];
   failedAttempts: number;
   threadCount: number;
   surfaces: string[];
   /** The events that carry the lesson, in order. */
   evidence: {
     board?: CapturedEvent;
-    receiptViews: CapturedEvent[];
+    contextViews: CapturedEvent[];
     session?: CapturedEvent;
-    pairCalls: CapturedEvent[];
+    workflowCalls: CapturedEvent[];
     failedValidation?: CapturedEvent;
     passedValidation: CapturedEvent;
     closed?: CapturedEvent;
@@ -102,8 +115,16 @@ const fields = (e?: CapturedEvent) =>
   (e?.event.value.fields as Record<string, unknown> | undefined) ?? {};
 const money = (n: number) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const dayGap = (a: string, b: string) =>
-  Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000);
+
+/** The exception workflows' routes, as the board records them. */
+const WORKFLOW = [
+  "/allocations",
+  "/allocations/[allocationId]/lines",
+  "/allocations/[allocationId]/commit",
+  "/journal/reclasses",
+  "/repayments",
+  "/affidavits",
+];
 
 /** Read the lesson's facts off the captured events. Throws when the trajectory holds no completed close. */
 export function extractFacts(d: TrajectoryDetail): Facts {
@@ -116,41 +137,43 @@ export function extractFacts(d: TrajectoryDetail): Facts {
   });
   if (!passed) {
     throw new Error(
-      "NO_FIX_CAPTURED: this trajectory has no month-end close a person validated. Match the receipts by hand on the Card close board first.",
+      "NO_FIX_CAPTURED: this trajectory has no month-end close a person validated. Clear the exceptions by hand on the Card close board first.",
     );
   }
   const pv = passed.event.value;
   const card = CARDS.find((c) => c.id === pv.cardId);
-  const pairs = (
-    (Array.isArray(pv.pairs) ? pv.pairs : []) as Record<string, unknown>[]
+  const exceptions = (
+    (Array.isArray(pv.exceptions) ? pv.exceptions : []) as Record<
+      string,
+      unknown
+    >[]
   ).map(
-    (p): PairFact => ({
-      transactionId: str(p.transactionId),
-      descriptor: str(p.descriptor),
-      amount: typeof p.amount === "number" ? p.amount : 0,
-      postedAt: str(p.postedAt) || undefined,
-      receipts: (Array.isArray(p.receipts) ? p.receipts : []) as ReceiptFact[],
-      adjustment: (p.adjustment as Adjustment | undefined) ?? undefined,
+    (x): ExceptionFact => ({
+      transactionId: str(x.transactionId),
+      descriptor: str(x.descriptor),
+      amount: typeof x.amount === "number" ? x.amount : 0,
+      mcc: str(x.mcc) || undefined,
+      glAccount: str(x.glAccount) || undefined,
+      kind: str(x.kind) as ChargeException["kind"],
+      exception: (x.exception as ChargeException | undefined) ?? undefined,
+      resolution: (x.resolution as Resolution | null | undefined) ?? undefined,
     }),
   );
   const before = (e: CapturedEvent) => e.position < passed.position;
   const failedValidation = [...validated]
     .filter((e) => before(e) && e !== passed)
     .pop();
-  const wrong = new Map<
-    string,
-    { descriptor: string; code: string; reason?: string }
-  >();
+  const wrong = new Map<string, { descriptor: string; code: string }>();
   for (const e of validated.filter(before)) {
     const results = (
       Array.isArray(e.event.value.results) ? e.event.value.results : []
     ) as Record<string, unknown>[];
     for (const r of results) {
-      if (r.valid || r.code === "UNMATCHED") continue;
+      if (r.valid || r.code === "UNRESOLVED" || r.code === "UNMATCHED")
+        continue;
       wrong.set(str(r.transactionId), {
         descriptor: str(r.descriptor),
         code: str(r.code),
-        reason: str(r.reason) || undefined,
       });
     }
   }
@@ -162,13 +185,13 @@ export function extractFacts(d: TrajectoryDetail): Facts {
       e.event.value.method === "POST" &&
       before(e),
   );
-  const pairCalls = network.filter(
-    (e) => route(e).endsWith("/sessions/[sessionId]/pairs") && before(e),
+  const workflowCalls = network.filter(
+    (e) => WORKFLOW.some((w) => route(e).endsWith(w)) && before(e),
   );
   const contexts = byName("screen.context");
   const board = contexts.find((e) => fields(e).view === "reconcile");
-  const receiptViews = contexts.filter(
-    (e) => fields(e).view === "receipt" && before(e),
+  const contextViews = contexts.filter(
+    (e) => str(fields(e).view).startsWith("close.") && before(e),
   );
   const closed = byName("recon.period_closed").find(
     (e) => e.position > passed.position,
@@ -181,7 +204,7 @@ export function extractFacts(d: TrajectoryDetail): Facts {
         if (x.name !== "ledgerlineApi") return false;
         const body = (
           x.result as
-            | { body?: { valid?: unknown; total?: unknown } }
+            | { status?: number; body?: { valid?: unknown; total?: unknown } }
             | undefined
         )?.body;
         return (
@@ -199,16 +222,17 @@ export function extractFacts(d: TrajectoryDetail): Facts {
     last4: card?.last4 ?? "",
     period: str(pv.period, card?.period ?? ""),
     periodLabel: card?.periodLabel ?? str(pv.period),
-    pairs,
+    autoMatched: Array.isArray(pv.pairs) ? pv.pairs.length : 0,
+    exceptions,
     wrongAttempts: [...wrong.values()],
     failedAttempts,
     threadCount: d.threads.length,
     surfaces: d.trajectory.surfaces,
     evidence: {
       board,
-      receiptViews,
+      contextViews,
       session,
-      pairCalls,
+      workflowCalls,
       failedValidation,
       passedValidation: passed,
       closed,
@@ -219,22 +243,6 @@ export function extractFacts(d: TrajectoryDetail): Facts {
 const ids = (...es: (CapturedEvent | undefined)[]) =>
   es.filter((e): e is CapturedEvent => !!e).map((e) => e.eventId);
 
-/** "SQ *BLUEBOTTLE COFFEE SF" is Blue Bottle Coffee: the descriptors the person resolved. */
-function descriptorExamples(f: Facts): string {
-  return f.pairs
-    .filter((p) => p.receipts[0])
-    .map((p) => `"${p.descriptor}" = ${p.receipts[0]!.merchant}`)
-    .join("; ");
-}
-
-function maxPostingLag(f: Facts): number {
-  let max = 0;
-  for (const p of f.pairs)
-    for (const r of p.receipts)
-      if (p.postedAt) max = Math.max(max, dayGap(r.date, p.postedAt));
-  return Math.max(max, 2);
-}
-
 export interface SkillParts {
   description: string;
   whenToUse: string;
@@ -243,42 +251,71 @@ export interface SkillParts {
   guardrails: string[];
 }
 
-/** The skill: the recipe from the recorded calls, the rules from the validated pairs. */
+const of = (f: Facts, kind: ExceptionFact["kind"]) =>
+  f.exceptions.find((x) => x.kind === kind);
+
+/** The skill: the recipe from the recorded calls, the rules from what the person chose. */
 export function skillParts(f: Facts): SkillParts {
-  const tip = f.pairs.find((p) => p.adjustment?.kind === "gratuity");
-  const fx = f.pairs.find((p) => p.adjustment?.kind === "fx_conversion");
-  const split = f.pairs.find((p) => p.receipts.length > 1);
-  const stale = f.wrongAttempts.find((w) => w.code === "WRONG_RECEIPT");
-  const lag = maxPostingLag(f);
+  const split = of(f, "split");
+  const reclass = of(f, "reclass");
+  const personal = of(f, "personal");
+  const missing = of(f, "missing_receipt");
+  const ev =
+    split?.exception?.kind === "split"
+      ? EVENTS.find(
+          (e) =>
+            e.id ===
+            (split.exception as { kind: "split"; eventId: string }).eventId,
+        )
+      : undefined;
+  const splitLines =
+    split?.resolution?.kind === "split" ? split.resolution.lines : [];
+  const rc =
+    reclass?.resolution?.kind === "reclass" ? reclass.resolution : null;
+  const rp =
+    personal?.resolution?.kind === "personal" ? personal.resolution : null;
+  const af =
+    missing?.resolution?.kind === "missing_receipt" ? missing.resolution : null;
   const rules = [
-    `Descriptors are the card network's, not the merchant's name: drop prefixes such as "SQ *", "TST* ", "PAYPAL *" and "AMZN MKTP US*" and the trailing city or reference, then match the receipt merchant (${descriptorExamples(f)}).`,
-    `A charge posts 0 to ${lag} days after the date printed on its receipt. A receipt dated more than 5 days before the charge belongs to another statement, even when its total is identical${stale ? ` (${(stale.reason ?? `a receipt for ${stale.descriptor} was rejected as WRONG_RECEIPT`).replace(/\.$/, "")})` : ""}.`,
-    tip
-      ? `Tips: when a restaurant or cafe charge is more than the receipt total, the difference is the tip written on the slip. Add "adjustment": {"kind": "gratuity", "amount": <charge minus receipt total>} (${tip.receipts[0]?.merchant}: receipt ${money(tip.receipts[0]?.total ?? 0)}, charge ${money(tip.amount)}, gratuity ${(tip.adjustment?.amount ?? 0).toFixed(2)}).`
-      : `Tips: when a restaurant charge is more than the receipt total, add "adjustment": {"kind": "gratuity", "amount": <charge minus receipt total>}.`,
-    fx
-      ? `Foreign currency: for a receipt that is not in USD, add "adjustment": {"kind": "fx_conversion", "currency": "<receipt currency>", "receiptAmount": <receipt total>, "rate": <charge / receipt total, 4 decimals>} (${fx.receipts[0]?.merchant}: ${fx.adjustment?.currency} ${(fx.adjustment?.receiptAmount ?? 0).toFixed(2)} to ${money(fx.amount)}, rate ${fx.adjustment?.rate}).`
-      : `Foreign currency: for a receipt that is not in USD, add "adjustment": {"kind": "fx_conversion", "currency": "<receipt currency>", "receiptAmount": <receipt total>, "rate": <charge / receipt total, 4 decimals>}.`,
-    split
-      ? `Split charges: when no single receipt matches, put every receipt from that merchant whose totals add up to the charge in ONE pair's receiptIds (${split.receipts.map((r) => `${r.merchant} ${money(r.total)}`).join(" + ")} = ${money(split.amount)}).`
-      : "Split charges: when no single receipt matches, put the receipts that add up to the charge in one pair's receiptIds.",
+    `Shared event charges (the charge has an eventId): split by the event's attendees, each department's share of the headcount, to the cent, with the last line taking the rounding so the lines add up to the charge exactly${
+      split && ev
+        ? ` (${split.descriptor}, ${money(split.amount)}: ${ev.name}, ${ev.attendees.map((a) => `${deptName(a.departmentId)} ${a.count}`).join(", ")} = ${splitLines.map((l) => `${deptName(l.departmentId)} ${money(l.amount)}`).join(", ")})`
+        : ""
+    }.`,
+    `Software coded to the default account: a charge with merchant category 5734 (software) auto-coded to 6100 ${glName("6100")} is reclassed to 6420 ${glName("6420")}. The month is soft-locked for coding edits, so it is always a reclass entry, never an edit${
+      reclass && rc
+        ? ` (${reclass.descriptor}: ${rc.fromAccount} to ${rc.toAccount})`
+        : ""
+    }.`,
+    `Personal charges: when the cardholder's note on the charge says it is personal, record a repayment with method "payroll_deduction" (the default for personal charges under $500)${
+      personal && rp
+        ? ` (${personal.descriptor}, ${money(personal.amount)}: ${rp.method === "payroll_deduction" ? "payroll deduction" : "card payment"})`
+        : ""
+    }.`,
+    `Missing receipts (receiptStatus "missing"): request a missing-receipt affidavit with the business purpose in one sentence (what the charge was for, from the merchant, the date and the trip or event it belongs to). The cardholder signs it${
+      missing && af?.memo ? ` (${missing.descriptor}: "${af.memo}")` : ""
+    }.`,
+    "Receipt charges are already auto-matched when the session opens (tips, foreign currency and two-receipt charges included). Leave them alone.",
   ];
   return {
     description:
-      "Use when asked to match a card's transactions to their receipts (reconcile the card for its month-end close). Prepares every match in a reconciliation session, then hands them to the user to confirm; never closes the period itself. Not for questions about what is left: answer those from GET /cards.",
-    whenToUse: `The user asks to match unmatched card transactions to receipts, reconcile a card, or finish a month-end card close. A direct PATCH /transactions/{id} is refused ("Matches must be created inside a reconciliation session").`,
+      "Use when asked to close out a corporate card's month (the month-end card close): clears the card's exceptions through their own workflows (split, reclass, personal, missing receipt), validates, then hands the close to the user to confirm. Never closes the period itself. Not for questions about what is left: answer those from GET /cards.",
+    whenToUse: `The user asks to close out, reconcile or finish the month-end close for a card. Editing a charge directly is refused (PERIOD_SOFT_LOCKED, ALLOCATION_REQUIRED, NOT_EDITABLE, RECEIPT_REQUIRED): each exception has its own workflow below.`,
     steps: [
-      "ledgerlineApi GET /cards to find the card (its id and openPeriod), then GET /transactions?card=<card id>&status=unmatched and GET /receipts?card=<card id>&status=unmatched.",
-      'ledgerlineApi POST /reconciliation/sessions with body {"period": "<openPeriod>", "cardId": "<card id>"}. Keep the session id it returns.',
-      'For each charge, ledgerlineApi POST /reconciliation/sessions/<session id>/pairs with body {"transactionId": "<id>", "receiptIds": ["<receipt id>"]}, adding an "adjustment" when the matching rules call for one.',
-      "ledgerlineApi POST /reconciliation/sessions/<session id>/validate. If a pair comes back WRONG_RECEIPT pick another receipt by the rules; if UNBALANCED add or fix its adjustment; post the pair again and validate again.",
-      "When every pair is valid, call reviewMatches with the session id and stop: tell the user in one sentence that the matches are ready for their review. Only their Confirm closes the month.",
+      "ledgerlineApi GET /cards to find the card (its id and openPeriod), then GET /transactions?card=<card id>&status=needs_attention, and GET /transactions/<id> for each one (its glAccount, mcc, eventId, cardholderNote, receiptStatus).",
+      'ledgerlineApi POST /reconciliation/sessions with body {"period": "<openPeriod>", "cardId": "<card id>"}. Receipts auto-match; keep the session id it returns.',
+      'SPLIT (the charge has an eventId): GET /events/<eventId> for its attendees by department, POST /allocations with {"transactionId": "<id>"}, then PUT /allocations/<allocation id>/lines with {"lines": [{"departmentId": "<id>", "amount": <amount>}]} split by the rules, then POST /allocations/<allocation id>/commit.',
+      'RECLASS (software coded to 6100): POST /journal/reclasses with {"transactionId": "<id>", "fromAccount": "<its glAccount>", "toAccount": "6420", "memo": "<one line why>"}.',
+      'PERSONAL (the cardholder note says personal): POST /repayments with {"transactionId": "<id>", "method": "payroll_deduction"}.',
+      'MISSING RECEIPT (receiptStatus "missing"): POST /affidavits with {"transactionId": "<id>", "memo": "<business purpose>"}.',
+      "ledgerlineApi POST /reconciliation/sessions/<session id>/validate. If a charge comes back WRONG_SPLIT or WRONG_ACCOUNT, fix it by the rules and validate again.",
+      "When every charge is valid, call reviewMatches with the session id and stop. Only the user's Confirm closes the month.",
     ],
     rules,
     guardrails: [
       "Never call POST /reconciliation/sessions/{id}/close and never close a period yourself: reviewMatches hands it to the user, and only their Confirm validates and closes.",
-      "Do not PATCH transactions directly; a match only exists inside a reconciliation session.",
-      "Use only ids the API returned. Do not invent receipt or transaction ids.",
+      "Do not PATCH transactions: every exception is cleared through its own workflow.",
+      "Use only ids the API returned. Do not invent transaction, event, department or account ids.",
     ],
   };
 }
@@ -287,7 +324,7 @@ export function buildSkillMd(f: Facts, parts: SkillParts): string {
   const cite = ids(
     f.evidence.board,
     f.evidence.session,
-    ...f.evidence.pairCalls.slice(0, 3),
+    ...f.evidence.workflowCalls.slice(0, 4),
     f.evidence.failedValidation,
     f.evidence.passedValidation,
     f.evidence.closed,
@@ -298,7 +335,7 @@ export function buildSkillMd(f: Facts, parts: SkillParts): string {
     `description: ${parts.description}`,
     "---",
     "",
-    "# Match card transactions to receipts",
+    "# Close out a card's month: clear the exceptions",
     "",
     "## When to use",
     parts.whenToUse,
@@ -306,54 +343,53 @@ export function buildSkillMd(f: Facts, parts: SkillParts): string {
     "## Steps",
     ...parts.steps.map((s, i) => `${i + 1}. ${s}`),
     "",
-    "## Matching rules",
+    "## Rules",
     ...parts.rules.map((r) => `- ${r}`),
     "",
     "## Guardrails",
     ...parts.guardrails.map((g) => `- ${g}`),
     "",
     "## Learned from",
-    `Product trajectory ${f.trajectoryId}${cite.length ? ` (events ${cite.join(", ")})` : ""}: the agent could not match ${f.holder}'s ${f.pairs.length} ${f.periodLabel} card transactions (${f.failedAttempts} failed attempt${f.failedAttempts === 1 ? "" : "s"} across ${f.threadCount} Thread${f.threadCount === 1 ? "" : "s"}); ${f.userName} matched them on the Card close board in a reconciliation session, validated, and closed ${f.periodLabel}.`,
+    `Product trajectory ${f.trajectoryId}${cite.length ? ` (events ${cite.join(", ")})` : ""}: the agent could not clear ${f.holder}'s ${f.exceptions.length} ${f.periodLabel} exceptions (${f.failedAttempts} failed attempt${f.failedAttempts === 1 ? "" : "s"} across ${f.threadCount} Thread${f.threadCount === 1 ? "" : "s"}); ${f.userName} cleared them on the Card close board, validated, and closed ${f.periodLabel}.`,
     "",
   ].join("\n");
 }
 
 function fallbackInsight(f: Facts, now: number): Insight {
-  const tip = f.pairs.find((p) => p.adjustment?.kind === "gratuity");
-  const fx = f.pairs.find((p) => p.adjustment?.kind === "fx_conversion");
-  const split = f.pairs.find((p) => p.receipts.length > 1);
-  const how = [
-    tip
-      ? `a ${money(tip.adjustment?.amount ?? 0)} tip on ${tip.receipts[0]?.merchant}`
-      : null,
-    fx ? `a euro conversion on ${fx.receipts[0]?.merchant}` : null,
-    split
-      ? `${split.receipts.length} receipts on one ${split.receipts[0]?.merchant} charge`
-      : null,
-  ].filter(Boolean);
+  const how = f.exceptions
+    .map((x) =>
+      x.kind === "split"
+        ? `split ${x.descriptor} by attendees`
+        : x.kind === "reclass"
+          ? `reclassed ${x.descriptor} to 6420`
+          : x.kind === "personal"
+            ? `marked ${x.descriptor} personal for payroll repayment`
+            : `requested an affidavit for ${x.descriptor}`,
+    )
+    .join(", ");
   return {
     id: "ins_01",
     title:
-      "Card charges are matched to receipts inside a reconciliation session, with tip and currency adjustments",
+      "Month-end exceptions are cleared through their own workflows, never by editing the charge",
     summary:
-      `The agent tried to match ${f.holder}'s ${f.pairs.length} ${f.periodLabel} card transactions through the API and failed ${f.failedAttempts} time${f.failedAttempts === 1 ? "" : "s"} across ${f.threadCount} Thread${f.threadCount === 1 ? "" : "s"}: a direct match is refused outside a reconciliation session, and the receipts it can read carry no tip line and no conversion. ` +
-      `${f.userName} matched them on the Card close board: one session, one pair per charge${how.length ? ` (${how.join(", ")})` : ""}${f.wrongAttempts.length ? `, after ${f.wrongAttempts.length} match${f.wrongAttempts.length === 1 ? "" : "es"} failed validation` : ""}, then validated and closed ${f.periodLabel}. ` +
-      "The session workflow and what goes in a pair exist only on that screen.",
+      `The agent tried to clear ${f.holder}'s ${f.exceptions.length} ${f.periodLabel} exceptions by editing the charges and failed ${f.failedAttempts} time${f.failedAttempts === 1 ? "" : "s"} across ${f.threadCount} Thread${f.threadCount === 1 ? "" : "s"}: coding is soft-locked, a shared charge is an allocation, personal is not a field, and a charge with no receipt needs an affidavit. ` +
+      `${f.userName} cleared them on the Card close board (${how})${f.wrongAttempts.length ? `, after ${f.wrongAttempts.length} failed validation` : ""}, then validated and closed ${f.periodLabel}. ` +
+      "Each workflow, and the headcount the split follows, exist only on that screen.",
     evidence: [
       {
         trajectoryId: f.trajectoryId,
         eventIds: ids(
           f.evidence.board,
-          ...f.evidence.receiptViews.slice(0, 2),
+          ...f.evidence.contextViews.slice(0, 4),
           f.evidence.session,
-          ...f.evidence.pairCalls,
+          ...f.evidence.workflowCalls,
           f.evidence.failedValidation,
           f.evidence.passedValidation,
           f.evidence.closed,
         ),
         quote: str(
           fields(f.evidence.board).text,
-          "Receipt matching happens in a reconciliation session.",
+          "Each exception is cleared in its own workflow.",
         ),
       },
     ],
@@ -365,48 +401,51 @@ function fallbackInsight(f: Facts, now: number): Insight {
 
 function fallbackEvals(f: Facts): EvalCandidate[] {
   const src = [f.trajectoryId];
-  const tip = f.pairs.find((p) => p.adjustment?.kind === "gratuity");
-  const fx = f.pairs.find((p) => p.adjustment?.kind === "fx_conversion");
-  const split = f.pairs.find((p) => p.receipts.length > 1);
+  const split = of(f, "split");
+  const reclass = of(f, "reclass");
+  const personal = of(f, "personal");
+  const missing = of(f, "missing_receipt");
+  const lines =
+    split?.resolution?.kind === "split" ? split.resolution.lines : [];
   return [
     {
       id: "evc_01",
       query:
-        "Match a card's unmatched transactions to their receipts for the month-end close",
+        "Close out a corporate card's month: clear its exceptions and hand the close over for confirmation",
       checks: [
-        "Creates a reconciliation session before pairing",
-        "Adds a gratuity adjustment for a tipped restaurant charge and an fx_conversion adjustment for a foreign-currency receipt",
-        "Pairs both receipts of a split charge in one pair",
-        "Does not close the period without user confirmation: ends with the Review matches card",
+        "Creates a reconciliation session before clearing exceptions",
+        "Splits a shared event charge by attendee headcount through an allocation (draft, lines, commit)",
+        "Reclasses a miscoded software charge with a journal reclass entry, never a coding edit",
+        "Records a personal charge as a payroll-deduction repayment and requests an affidavit for a missing receipt",
+        "Does not close the period without user confirmation: ends with the Review card",
       ],
       sourceTrajectoryIds: src,
       sourceEventIds: ids(
         f.evidence.session,
-        ...f.evidence.pairCalls,
+        ...f.evidence.workflowCalls,
         f.evidence.passedValidation,
       ),
       status: "pending",
     },
     {
       id: "evc_02",
-      query: `Match the ${f.pairs.length} unmatched transactions on ${f.holder}'s card to their receipts`,
+      query: `Close out ${f.holder}'s ${f.periodLabel} card`,
       checks: [
-        ...(tip
-          ? [
-              `Pairs ${tip.descriptor} with ${tip.receipts[0]?.merchant} and a ${tip.adjustment?.amount} gratuity`,
-            ]
-          : []),
-        ...(fx
-          ? [
-              `Pairs ${fx.descriptor} with an fx_conversion of ${fx.adjustment?.currency} ${fx.adjustment?.receiptAmount} at ${fx.adjustment?.rate}`,
-            ]
-          : []),
         ...(split
           ? [
-              `Pairs ${split.descriptor} with both ${split.receipts[0]?.merchant} receipts`,
+              `Allocates ${split.descriptor} as ${lines.map((l) => `${deptName(l.departmentId)} ${money(l.amount)}`).join(", ")}`,
             ]
           : []),
-        "Validation returns every pair valid before reviewMatches",
+        ...(reclass
+          ? [`Reclasses ${reclass.descriptor} from 6100 to 6420`]
+          : []),
+        ...(personal
+          ? [`Records ${personal.descriptor} as a payroll-deduction repayment`]
+          : []),
+        ...(missing
+          ? [`Requests a missing-receipt affidavit for ${missing.descriptor}`]
+          : []),
+        "Validation returns every charge valid before reviewMatches",
         "Never calls /close",
       ],
       sourceTrajectoryIds: src,
@@ -482,12 +521,12 @@ interface LlmAnswer {
 
 const SYSTEM = `You are the learning step of an Automatic Learning system for an in-app AI agent.
 You receive one product trajectory: the AG-UI CUSTOM events a user produced in the Ledgerline expense app (each with an eventId), including the API calls the screen made (network events with route templates and body summaries), plus the agent traces of the Threads where the agent attempted the same task and failed.
-The task is a month-end card close: matching card transactions to receipts. Explain why the agent failed and what the user did instead.
+The task is a month-end card close. Receipts auto-match; the work is clearing the exceptions: a shared event charge split across departments, a miscoded software charge in a soft-locked month, a personal charge, a charge with no receipt. Explain why the agent failed and what the user did instead.
 Rules:
 - Cite only eventIds that appear in the input. Never invent ids.
 - The insight title states the RULE that was learned, as a short declarative sentence, not a description of the failure.
-- The summary names the workflow the user followed (session, pairs with adjustments, validate, close) and the matching details that mattered (tips, currency conversion, split charges, posting dates).
-- Write exactly two eval candidates: the general case, and this exact request. Include checks that the agent creates a reconciliation session before pairing and never closes the period without the user's confirmation.
+- The summary names each workflow the user followed (allocation split by attendees, reclass entry, repayment, affidavit, validate, close) and why editing the charge failed.
+- Write exactly two eval candidates: the general case, and this exact request. Include checks that the agent creates a reconciliation session first and never closes the period without the user's confirmation.
 - Be specific and short. No em dashes.
 Answer with JSON only:
 {"insight":{"title":string,"summary":string,"evidenceEventIds":[string],"quote":string},

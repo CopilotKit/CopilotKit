@@ -1,7 +1,7 @@
 /**
  * A fine-tuning dataset preview built from captured trajectories: each example
- * is the user's request followed by the CORRECTED tool sequence (the one the
- * person performed by hand, expressed as the agent's tool calls), in OpenAI
+ * is the user's request followed by the CORRECTED tool sequence (the exception
+ * workflows the person ran by hand, expressed as the agent's tool calls), in OpenAI
  * chat format with tool calls. Nothing is uploaded; export is the JSONL.
  */
 
@@ -35,6 +35,7 @@ function exampleFor(
   meta: Record<string, unknown>,
 ): FineTuneExample {
   const session = `rs_${f.last4}_${f.period.slice(5)}_001`;
+  const total = f.autoMatched + f.exceptions.length;
   const api = (id: string, method: string, path: string, body?: unknown) =>
     call(
       id,
@@ -70,26 +71,75 @@ function exampleFor(
       content: JSON.stringify({ id: session, status: "open" }),
     },
   ];
-  f.pairs.forEach((p, i) => {
-    const id = `p${i + 1}`;
+  let n = 0;
+  const step = (
+    path: string,
+    method: string,
+    body: unknown,
+    reply: unknown,
+  ) => {
+    const id = `w${++n}`;
     m.push(
       {
         role: "assistant",
         content: null,
-        tool_calls: [
-          api(id, "POST", `/reconciliation/sessions/${session}/pairs`, {
-            transactionId: p.transactionId,
-            receiptIds: p.receipts.map((r) => r.id),
-            ...(p.adjustment ? { adjustment: p.adjustment } : {}),
-          }),
-        ],
+        tool_calls: [api(id, method, path, body)],
       },
-      {
-        role: "tool",
-        tool_call_id: id,
-        content: JSON.stringify({ id: session, status: "open" }),
-      },
+      { role: "tool", tool_call_id: id, content: JSON.stringify(reply) },
     );
+  };
+  f.exceptions.forEach((x, i) => {
+    const r = x.resolution;
+    if (x.kind === "split" && r?.kind === "split") {
+      const al = `AL-${4200 + i}`;
+      step(
+        "/allocations",
+        "POST",
+        { transactionId: x.transactionId },
+        { id: al, status: "draft" },
+      );
+      step(
+        `/allocations/${al}/lines`,
+        "PUT",
+        { lines: r.lines },
+        { id: al, lines: r.lines },
+      );
+      step(`/allocations/${al}/commit`, "POST", undefined, {
+        id: al,
+        status: "committed",
+      });
+    } else if (x.kind === "reclass" && r?.kind === "reclass") {
+      step(
+        "/journal/reclasses",
+        "POST",
+        {
+          transactionId: x.transactionId,
+          fromAccount: r.fromAccount,
+          toAccount: r.toAccount,
+          memo: r.memo ?? "Software subscription, not meals.",
+        },
+        { entryId: `JE-${4300 + i}`, status: "posted" },
+      );
+    } else if (x.kind === "personal") {
+      step(
+        "/repayments",
+        "POST",
+        { transactionId: x.transactionId, method: "payroll_deduction" },
+        { repaymentId: `RP-${4400 + i}`, status: "scheduled" },
+      );
+    } else if (x.kind === "missing_receipt") {
+      step(
+        "/affidavits",
+        "POST",
+        {
+          transactionId: x.transactionId,
+          memo:
+            (r?.kind === "missing_receipt" ? r.memo : undefined) ??
+            "Business travel, receipt not issued.",
+        },
+        { affidavitId: `AF-${4500 + i}`, status: "attested" },
+      );
+    }
   });
   m.push(
     {
@@ -102,7 +152,7 @@ function exampleFor(
     {
       role: "tool",
       tool_call_id: "c2",
-      content: JSON.stringify({ valid: f.pairs.length, total: f.pairs.length }),
+      content: JSON.stringify({ valid: total, total }),
     },
     {
       role: "assistant",
@@ -116,7 +166,7 @@ function exampleFor(
     },
     {
       role: "assistant",
-      content: `All ${f.pairs.length} of ${f.holder}'s ${f.periodLabel} charges are matched and valid. They are in the review card for your confirmation; nothing closes until you confirm.`,
+      content: `${f.holder}'s ${f.periodLabel} close is ready: receipts auto-matched and all ${f.exceptions.length} exceptions cleared. It is in the review card for your confirmation; nothing closes until you confirm.`,
     },
   );
   return { messages: m, metadata: meta };
@@ -132,12 +182,12 @@ export function buildExamples(d: TrajectoryDetail | null): FineTuneExample[] {
   }
   const userAsk =
     d.threads.flatMap((t) => t.messages).find((m) => m.role === "user")?.text ??
-    `Match the unmatched transactions on ${f.holder}'s card to their receipts.`;
+    `Close out ${f.holder}'s ${f.periodLabel} card.`;
   const meta = (variant: string) => ({
     sourceTrajectoryId: f.trajectoryId,
     sourceEventIds: [
       f.evidence.session,
-      ...f.evidence.pairCalls,
+      ...f.evidence.workflowCalls,
       f.evidence.passedValidation,
       f.evidence.closed,
     ]
@@ -148,7 +198,7 @@ export function buildExamples(d: TrajectoryDetail | null): FineTuneExample[] {
   return [
     exampleFor(userAsk, f, meta("captured request")),
     exampleFor(
-      `Reconcile ${f.holder}'s card for ${f.periodLabel}.`,
+      `Clear the exceptions on ${f.holder}'s card for ${f.periodLabel}.`,
       f,
       meta("paraphrase"),
     ),
