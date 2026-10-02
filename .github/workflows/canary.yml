@@ -17,7 +17,8 @@ name: canary / publish
 #   publish-release.yml can only publish a canary when its run's ref already
 #   matches the policy (`canary/*`). Creating a branch inside a run triggered on
 #   `feature/*` does not change that run's ref, so it would still be rejected.
-#   This workflow therefore runs on any non-main branch, mirrors it to a
+#   This workflow therefore runs on non-main branches, or on main for
+#   learning-preview, and mirrors the source commit to a
 #   short-lived `canary/<slug>` ref, dispatches publish-release.yml ON that ref
 #   (clearing the env gate), waits for it, then deletes the ref.
 #
@@ -30,7 +31,7 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: "Package scope to publish a canary for, or 'all' when the change spans scopes (e.g. runtime↔channels). Regenerated from release.config.json — do NOT hand-edit (the release-scope-dropdown-sync CI guard enforces parity)."
+        description: "Package scope, 'learning-preview' for a one-click monorepo + Learning preview from main, or 'all' when the change spans scopes. The release-scope-dropdown-sync CI guard enforces parity with release.config.json."
         required: true
         type: choice
         options:
@@ -40,6 +41,8 @@ on:
           - channels
           - intelligence-langgraph
           - intelligence-mastra
+          # One action, two independent version lines; no other groups publish.
+          - learning-preview
           # Sentinel, not a scope (see ALL_SCOPES in scripts/release/lib/config.ts):
           # publishes every scope from this commit under one shared canary id.
           # Required whenever the change spans scopes, because cross-scope
@@ -89,19 +92,27 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Guard ref
-        # Canary publishes are for non-main BRANCHES only. Block main (use the
-        # stable release flow) and block non-branch refs such as tags (a tag
-        # dispatch would otherwise canary-publish from the tagged commit).
-        if: github.ref == 'refs/heads/main' || !startsWith(github.ref, 'refs/heads/')
+        # Only learning-preview can run from main, so users need no maintained
+        # feature branch. Its source is github.sha from this main dispatch.
+        # Regular canaries remain non-main branches; tags stay forbidden.
         # Pass github.ref via env (matches "Validate suffix" discipline) so the
         # ref name is never interpolated into the shell — tag/branch names may
         # contain shell metacharacters and direct ${{ }} interpolation here
         # would be an expression-injection sink.
         env:
           REF: ${{ github.ref }}
+          SCOPE: ${{ inputs.scope }}
         run: |
-          echo "::error::Canary publishes are for non-main branches only (got '$REF'). To release from main, use the 'release / create-pr' workflow (stable-release.yml) → merge the release PR, or 'release / publish' with mode=stable for retries."
-          exit 1
+          set -euo pipefail
+          if [ "$SCOPE" = "learning-preview" ]; then
+            if [ "$REF" != "refs/heads/main" ]; then
+              echo "::error::learning-preview must use main as its source (got '$REF')."
+              exit 1
+            fi
+          elif [[ "$REF" == "refs/heads/main" || "$REF" != refs/heads/* ]]; then
+            echo "::error::Regular canaries require a non-main branch (got '$REF'). Only learning-preview accepts main."
+            exit 1
+          fi
 
       - name: Validate suffix
         if: inputs.suffix != ''
@@ -134,6 +145,8 @@ jobs:
         id: slug
         env:
           REF_NAME: ${{ github.ref_name }}
+          SCOPE: ${{ inputs.scope }}
+          INPUT_SUFFIX: ${{ inputs.suffix }}
         run: |
           set -euo pipefail
           # Byte-deterministic (LC_ALL=C) transform collapsing the source ref to a
@@ -155,6 +168,18 @@ jobs:
           REF_SUFFIX="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           echo "branch=canary/${SLUG}-${REF_SUFFIX}" >> "$GITHUB_OUTPUT"
           echo "Canary branch: canary/${SLUG}-${REF_SUFFIX}"
+          # Preview identifiers must be fresh even if an operator reuses a label
+          # or re-runs a partially published attempt. Both groups share this id.
+          if [ "$SCOPE" = "learning-preview" ]; then
+            SUFFIX="learning-preview"
+            if [ -n "$INPUT_SUFFIX" ]; then
+              SUFFIX="${SUFFIX}-${INPUT_SUFFIX//[_.]/-}"
+            fi
+            SUFFIX="${SUFFIX}.${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
+          else
+            SUFFIX="$INPUT_SUFFIX"
+          fi
+          echo "suffix=$SUFFIX" >> "$GITHUB_OUTPUT"
 
       - name: Create or update canary ref
         env:
@@ -189,7 +214,7 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           BRANCH: ${{ steps.slug.outputs.branch }}
           SCOPE: ${{ inputs.scope }}
-          SUFFIX: ${{ inputs.suffix }}
+          SUFFIX: ${{ steps.slug.outputs.suffix }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
