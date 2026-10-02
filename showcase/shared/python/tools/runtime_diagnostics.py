@@ -67,8 +67,15 @@ def parse_stat(raw, page_size):
     if pid < 1 or any(value < 0 for value in values):
         raise ValueError("malformed_stat")
     ppid, user, system, threads, starttime, rss = values
-    return {"pid": pid, "ppid": ppid, "state": state, "threads": threads,
-            "starttime": starttime, "ticks": user + system, "rss_bytes": rss * page_size}
+    return {
+        "pid": pid,
+        "ppid": ppid,
+        "state": state,
+        "threads": threads,
+        "starttime": starttime,
+        "ticks": user + system,
+        "rss_bytes": rss * page_size,
+    }
 
 
 def runtime_family(path):
@@ -128,7 +135,9 @@ class ProcessSampler:
         self.previous, self.previous_time = current, now
         # Reserve half the bounded rows for CPU and fill from RSS leaders;
         # duplicate leaders count once. This exposes both compute and memory.
-        cpu_sorted = sorted(rows, key=lambda r: (r["cpu_percent"] or 0, r["rss_bytes"]), reverse=True)
+        cpu_sorted = sorted(
+            rows, key=lambda r: (r["cpu_percent"] or 0, r["rss_bytes"]), reverse=True
+        )
         selected = cpu_sorted[: (top + 1) // 2]
         seen = {r["pid"] for r in selected}
         for row in sorted(rows, key=lambda r: r["rss_bytes"], reverse=True):
@@ -137,8 +146,12 @@ class ProcessSampler:
             if row["pid"] not in seen:
                 selected.append(row)
                 seen.add(row["pid"])
-        return {"processes": selected, "process_count": len(rows), "errors": errors,
-                "cpu_interval_seconds": round(elapsed, 3) if elapsed > 0 else None}
+        return {
+            "processes": selected,
+            "process_count": len(rows),
+            "errors": errors,
+            "cpu_interval_seconds": round(elapsed, 3) if elapsed > 0 else None,
+        }
 
 
 def probe(port, path, timeout):
@@ -148,6 +161,7 @@ def probe(port, path, timeout):
     result, status = "io_error", None
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as conn:
+
             def remaining():
                 left = deadline - time.monotonic()
                 if left <= 0:
@@ -157,7 +171,11 @@ def probe(port, path, timeout):
             remaining()
             conn.connect(("127.0.0.1", port))
             remaining()
-            conn.sendall(f"GET {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n".encode("ascii"))
+            conn.sendall(
+                f"GET {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n".encode(
+                    "ascii"
+                )
+            )
             line = bytearray()
             while len(line) < MAX_STATUS_BYTES:
                 remaining()
@@ -168,10 +186,14 @@ def probe(port, path, timeout):
                 if byte == b"\n":
                     break
             parts = bytes(line).split(b" ", 2)
-            if (line.endswith(b"\r\n") and len(parts) == 3
-                    and parts[0] in (b"HTTP/1.0", b"HTTP/1.1")
-                    and len(parts[1]) == 3 and parts[1].isdigit()
-                    and 100 <= int(parts[1]) <= 599):
+            if (
+                line.endswith(b"\r\n")
+                and len(parts) == 3
+                and parts[0] in (b"HTTP/1.0", b"HTTP/1.1")
+                and len(parts[1]) == 3
+                and parts[1].isdigit()
+                and 100 <= int(parts[1]) <= 599
+            ):
                 status = int(parts[1])
                 result = "ok" if 200 <= status < 300 else "http_error"
             else:
@@ -180,17 +202,25 @@ def probe(port, path, timeout):
         result = "timeout"
     except OSError:
         result = "io_error"
-    return {"result": result, "status": status,
-            "elapsed_ms": round((time.monotonic() - started) * 1000, 1)}
+    return {
+        "result": result,
+        "status": status,
+        "elapsed_ms": round((time.monotonic() - started) * 1000, 1),
+    }
 
 
 def snapshot(config, sampler, backend_port=8000):
-    record = {"schema_version": 1, "kind": "showcase_runtime_diagnostics",
-              "timestamp": datetime.now(timezone.utc).isoformat(),
-              "config_errors": list(config.errors)}
+    record = {
+        "schema_version": 1,
+        "kind": "showcase_runtime_diagnostics",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "config_errors": list(config.errors),
+    }
     record.update(sampler.sample(time.monotonic(), config.top))
-    record["health"] = {"frontend": probe(config.frontend_port, "/api/health", config.timeout),
-                        "backend": probe(backend_port, "/health", config.timeout)}
+    record["health"] = {
+        "frontend": probe(config.frontend_port, "/api/health", config.timeout),
+        "backend": probe(backend_port, "/health", config.timeout),
+    }
     return record
 
 

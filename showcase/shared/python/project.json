@@ -6,9 +6,7 @@
       "options": {
         "command": "python3 -m pytest showcase/shared/python/tests/test_todos.py showcase/shared/python/tests/test_sales_todos.py"
       },
-      "inputs": [
-        "{projectRoot}/**/*"
-      ],
+      "inputs": ["{projectRoot}/**/*"],
       "dependsOn": []
     },
     "test:todos": {
@@ -16,9 +14,7 @@
       "options": {
         "command": "python3 -m pytest showcase/shared/python/tests/test_todos.py showcase/shared/python/tests/test_sales_todos.py"
       },
-      "inputs": [
-        "{projectRoot}/**/*"
-      ],
+      "inputs": ["{projectRoot}/**/*"],
       "dependsOn": []
     },
     "test:todos:browser": {
@@ -34,9 +30,7 @@
       "options": {
         "command": "python3 -m pytest showcase/shared/python/tests"
       },
-      "inputs": [
-        "{projectRoot}/**/*"
-      ],
+      "inputs": ["{projectRoot}/**/*"],
       "dependsOn": []
     },
     "test:runtime-diagnostics": {
