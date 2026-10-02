@@ -10,6 +10,7 @@ import type {
   TrajectoryEvent,
 } from "@copilotkit/learning";
 import type { CopilotKitCore } from "./core";
+import type { CopilotRuntimeTransport } from "../types";
 
 const TIMEOUT_MS = 10_000;
 const BATCH_INTERVAL_MS = 2_000;
@@ -332,7 +333,15 @@ export class TrajectoryConnection {
         this.fail(session, connection, "RUNTIME_REQUIRED", false);
         return;
       }
-      const rest = this.core.runtimeTransport === "rest";
+      // "auto" stays unresolved until `/info` answers, and providers start capture
+      // right after mount. Wait for detection, or a REST runtime gets a
+      // single-endpoint request it cannot route.
+      let transport = this.core.runtimeTransport;
+      if (transport === "auto") {
+        transport = await this.detectedTransport(connection.abort.signal);
+        if (!this.current(session, connection)) return;
+      }
+      const rest = transport === "rest";
       const response = await fetch(
         rest
           ? `${runtimeUrl}/trajectory/${encodeURIComponent(session.trajectoryId)}/connect`
@@ -444,6 +453,23 @@ export class TrajectoryConnection {
     } catch {
       this.fail(session, connection, "CONNECTION_FAILED");
     }
+  }
+
+  /** Resolves once auto-detection picks a transport, or with "auto" when the attempt is aborted. */
+  private detectedTransport(signal: AbortSignal) {
+    return new Promise<CopilotRuntimeTransport>((resolve) => {
+      const finish = () => {
+        subscription.unsubscribe();
+        signal.removeEventListener("abort", finish);
+        resolve(this.core.runtimeTransport);
+      };
+      const subscription = this.core.subscribe({
+        onRuntimeConnectionStatusChanged: () => {
+          if (this.core.runtimeTransport !== "auto") finish();
+        },
+      });
+      signal.addEventListener("abort", finish, { once: true });
+    });
   }
 
   private addDropped(session: Session, count: number, schedule = true): void {

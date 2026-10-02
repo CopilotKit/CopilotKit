@@ -105,9 +105,15 @@ function CoreProbe() {
   return null;
 }
 
+// Runtime discovery is mocked out below, so pin the transport: with "auto",
+// capture waits for discovery before it sends the connect request.
 function App({ learning }: { learning?: Learning }) {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" learning={learning}>
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      useSingleEndpoint
+      learning={learning}
+    >
       <CoreProbe />
     </CopilotKitProvider>
   );
@@ -149,7 +155,7 @@ beforeEach(() => {
   pendingAuth.length = 0;
   transport.sockets.length = 0;
   history.replaceState(null, "", "/deals");
-  // Runtime discovery is unrelated to Trajectory authentication.
+  // Keep runtime discovery out of these tests; App pins the transport instead.
   vi.spyOn(CopilotKitCoreReact.prototype, "connect").mockImplementation(
     () => {},
   );

@@ -362,7 +362,7 @@ describe("Core trajectory connection", () => {
       route: "/api/orders",
       method: "POST",
       request: {
-        headers: { authorization: "visible-value" },
+        headers: { authorization: "[redacted]" },
         body: { status: "complete", text: "request-body" },
       },
       response: {
@@ -474,6 +474,26 @@ describe("Core trajectory connection", () => {
     );
     expect(requests[0]!.init?.body).toBe("{}");
     await authorize();
+    join();
+    expect((await pending).status).toBe("started");
+  });
+
+  it("waits for auto-detection before choosing the connect request", async () => {
+    const core = makeCore({ runtimeTransport: "auto" });
+    const pending = core.startTrajectory({ trajectoryId: "trajectory-1" });
+    await flush();
+    expect(requests).toHaveLength(0);
+
+    // Auto-detection settles on REST once the runtime answers.
+    core.setRuntimeTransport("rest");
+    await flush();
+    const index = requests.findIndex((request) =>
+      String(request.url).endsWith("/trajectory/trajectory-1/connect"),
+    );
+
+    expect(index).toBeGreaterThanOrEqual(0);
+    expect(requests[index]!.init?.body).toBe("{}");
+    await authorize(index);
     join();
     expect((await pending).status).toBe("started");
   });
