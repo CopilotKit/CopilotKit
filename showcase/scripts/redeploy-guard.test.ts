@@ -626,3 +626,30 @@ describe("notify-cancelled-builds guard", () => {
     expect(jobRuns(guard, contextFor([], { hasChanges: false }))).toBe(false);
   });
 });
+
+// A failed preflight skips the entire build matrix, so no result artifacts
+// exist. Aggregation must preserve the original failure without trying to
+// download or collect artifacts from jobs that never ran.
+describe("aggregate-build-results preflight guard", () => {
+  const guard = readJobGuard("aggregate-build-results");
+
+  it("skips collection when preflight blocked a scheduled build", () => {
+    const ctx = contextFor([], { hasChanges: true });
+    ctx.needs.build = { result: "skipped" };
+    expect(jobRuns(guard, ctx)).toBe(false);
+  });
+
+  it.each(["success", "failure", "cancelled"])(
+    "still collects artifacts for a matrix with result %s",
+    (result) => {
+      const ctx = contextFor([result]);
+      expect(jobRuns(guard, ctx)).toBe(true);
+    },
+  );
+
+  it("skips collection when the whole run is cancelled", () => {
+    expect(
+      jobRuns(guard, contextFor(["success"], { runCancelled: true })),
+    ).toBe(false);
+  });
+});
