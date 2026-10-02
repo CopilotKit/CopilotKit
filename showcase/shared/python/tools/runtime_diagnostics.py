@@ -80,7 +80,7 @@ def runtime_family(path):
         return "node"
     if name == "python" or name == "python3" or name.startswith("python3."):
         return "python"
-    if name in ("antigravity", "antigravity-harness"):
+    if name in ("antigravity", "antigravity-harness", "localharness"):
         return "harness"
     return "other"
 

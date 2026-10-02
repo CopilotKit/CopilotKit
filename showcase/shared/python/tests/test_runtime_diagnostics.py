@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import socket
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -192,6 +193,21 @@ class DiagnosticsTests(unittest.TestCase):
             self.assertLessEqual(len(sample["processes"]), 12)
             self.assertEqual(sample["process_count"], 79)
             self.assertNotIn("CUSTOMER", diag.encode_record(sample))
+
+    @unittest.skipUnless(sys.platform == "linux", "requires actual Linux /proc")
+    def test_actual_localharness_executable_family(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            executable = Path(tmp) / "localharness"
+            shutil.copyfile("/bin/sleep", executable)
+            executable.chmod(0o755)
+            child = subprocess.Popen([str(executable), "30"])
+            try:
+                proc = Path("/proc") / str(child.pid)
+                self.assertEqual(Path(os.readlink(proc / "exe")).name, "localharness")
+                self.assertEqual(diag.runtime_family(proc), "harness")
+            finally:
+                child.terminate()
+                child.wait(timeout=2)
 
     @unittest.skipUnless(sys.platform == "linux", "requires actual Linux /proc")
     def test_actual_busy_and_sleeping_processes(self):
