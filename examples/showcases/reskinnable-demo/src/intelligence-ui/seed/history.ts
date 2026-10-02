@@ -4,8 +4,9 @@
  * and two cases already exported to the eval platform. Static, so it is "restored"
  * by every /reset, and dated days before today so today's run is always newest.
  *
- * It never covers today's case: nothing here mentions POL-114, team events, or
- * cost center CC-410, and none of these Skills reach the Ledgerline agent (they
+ * It never covers today's case (month-end card reconciliation): nothing here is
+ * about receipts, card transactions, matching, FX or closing a period, and none
+ * of these Skills reach the Ledgerline agent (they
  * live only in this overlay), so the in-app and ChatGPT attempts still fail.
  */
 import type {
@@ -170,60 +171,58 @@ const net = (method: string, route: string, summary: string, status = 200) =>
 const SPECS: Spec[] = [
   {
     id: "trj_s9k2m4",
-    title: "Chase Tom Becker's missing hotel receipt",
+    title: "Set Maya's approval delegate while she is on leave",
     user: MAYA,
     start: at(13, 10, 12),
     outcome: "agent_failed_user_completed",
     surface: "in_app",
-    ask: "Tom Becker's Denver trip is missing the hotel receipt. Ask him for it and hold the report.",
+    ask: "I'm out Oct 6 to 10. Have Jordan approve my team's reports while I'm away.",
     reply:
-      "I couldn't request the receipt: there is no tool for contacting the submitter. I left a note on EXP-2299 instead.",
+      "I couldn't set a delegate: none of my tools change approval settings. Jordan would need to be added by an admin.",
     steps: [
       [
-        "getReport",
-        { reportId: "EXP-2299" },
-        {
-          id: "EXP-2299",
-          employee: "Tom Becker",
-          lines: 4,
-          receiptsMissing: ["Hotel, 2 nights"],
-        },
+        "getPerson",
+        { name: "Jordan Patel" },
+        { id: "u_jordan", role: "Finance Operations", canApprove: true },
         "ok",
       ],
       [
         "think",
-        "The hotel line has no receipt. I should ask Tom for it, but I don't see a request tool.",
+        "Delegation lives in approval settings, and I don't have a settings tool.",
       ],
       [
-        "addNote",
-        { reportId: "EXP-2299", note: "Please upload the hotel receipt." },
-        { noteAdded: true },
-        "ok",
-      ],
-      [
-        "requestReceipt",
-        { reportId: "EXP-2299", line: 3 },
-        { error: "UNKNOWN_TOOL" },
+        "updatePerson",
+        { id: "u_maya", delegate: "u_jordan" },
+        { error: "FIELD_NOT_WRITABLE", field: "delegate" },
         "error",
       ],
     ],
     manual: [
-      screen("Receipts", {
-        Missing: "Hotel, 2 nights · $612.40",
-        Action: "Request receipt",
-      }),
-      click("Request receipt"),
+      screen(
+        "Approval settings",
+        { Delegate: "None", Dates: "Not set", Action: "Add delegate" },
+        "/settings/approvals",
+      ),
+      click("Add delegate", "/settings/approvals"),
       net(
         "POST",
-        "/api/ledgerline/v1/reports/[id]/receipt-requests",
-        "Receipt requested from Tom Becker",
+        "/api/ledgerline/v1/approvals/delegations",
+        "Jordan Patel delegated Oct 6 to Oct 10",
       ),
-      ["expense.receipt_requested", { reportId: "EXP-2299", line: 3 }],
+      [
+        "approvals.delegate_set",
+        {
+          from: "u_maya",
+          to: "u_jordan",
+          start: "2026-10-06",
+          end: "2026-10-10",
+        },
+      ],
     ],
     missing: {
       label:
-        "Receipts panel: missing receipts are requested from the Receipts panel, not with a note",
-      why: "Shown on screen; the agent has no receipt-request tool",
+        "Approval settings: delegates are set with dates in Settings, not on the person",
+      why: "Shown on screen; the agent has no approval-settings tool",
       at: 0,
     },
   },
@@ -254,109 +253,99 @@ const SPECS: Spec[] = [
   },
   {
     id: "trj_s7m3x2",
-    title: "Split Aisha Khan's mileage across two projects",
+    title: "Onboard Nina Alvarez with a $2,000 card limit",
     user: JORDAN,
     start: at(11, 15, 5),
     outcome: "agent_failed_user_completed",
     surface: "in_app",
-    ask: "Split Aisha Khan's September mileage 60/40 between Northwind and Contoso.",
+    ask: "Nina Alvarez starts Monday in Sales. Add her and give her a $2,000 monthly card limit.",
     reply:
-      "I can't split a mileage line; the expense tools only update a whole report. You may need to do this in Ledgerline.",
+      "I added Nina Alvarez, but I couldn't set a card limit; that isn't something my tools can change.",
     steps: [
       [
-        "getReport",
-        { reportId: "EXP-2301" },
-        {
-          id: "EXP-2301",
-          employee: "Aisha Khan",
-          category: "Mileage",
-          total: 338.99,
-        },
+        "createPerson",
+        { name: "Nina Alvarez", team: "Sales" },
+        { id: "u_nina", status: "invited" },
         "ok",
       ],
       [
         "think",
-        "There is no line-split tool. Updating the whole report would move all of it.",
+        "The person exists now. A card limit is not a field on the person record.",
       ],
       [
-        "updateReport",
-        { reportId: "EXP-2301", project: "Northwind" },
-        { error: "PARTIAL_SPLIT_UNSUPPORTED" },
+        "updatePerson",
+        { id: "u_nina", cardLimit: 2000 },
+        { error: "FIELD_NOT_WRITABLE", field: "cardLimit" },
         "error",
       ],
     ],
     manual: [
-      screen("Mileage line", {
-        Distance: "412 mi",
-        Projects: "Northwind, Contoso",
-        Action: "Split line",
-      }),
-      click("Split line"),
-      click("Save split"),
-      net(
-        "PATCH",
-        "/api/ledgerline/v1/reports/[id]/lines/[line]",
-        "Line split 60/40",
+      screen(
+        "Card controls",
+        {
+          Holder: "Nina Alvarez",
+          Limit: "Team default $500",
+          Action: "Set monthly limit",
+        },
+        "/people/[id]",
       ),
-      [
-        "expense.line_split",
-        { reportId: "EXP-2301", split: { Northwind: 0.6, Contoso: 0.4 } },
-      ],
+      click("Set monthly limit", "/people/[id]"),
+      click("Save limit", "/people/[id]"),
+      net(
+        "PUT",
+        "/api/ledgerline/v1/people/[id]/card-controls",
+        "Monthly limit $2,000",
+      ),
+      ["people.card_limit_set", { personId: "u_nina", monthlyLimit: 2000 }],
     ],
     missing: {
       label:
-        "Line menu: mileage can be split by project from the line's own menu",
+        "Card controls: limits are set on the person's Card controls panel",
       why: "Shown on screen, not available to the agent as a tool",
       at: 0,
     },
   },
   {
     id: "trj_s6d8u1",
-    title: "Flag the duplicate rideshare charge on EXP-2270",
+    title: "Archive draft reports older than 60 days",
     user: MAYA,
     start: at(9, 11, 20),
     outcome: "agent_failed_user_completed",
     surface: "chatgpt",
-    ask: "Two identical rideshare charges on EXP-2270. Flag the duplicate.",
+    ask: "Clean up Ledgerline: archive every draft report older than 60 days.",
     reply:
-      "I see two $42.10 rideshare lines on EXP-2270, but I can only reject the whole report, so I stopped.",
+      "I found 14 old drafts, but I can only delete reports, not archive them, so I left them alone.",
     steps: [
       [
-        "getReport",
-        { reportId: "EXP-2270" },
-        {
-          id: "EXP-2270",
-          lines: [
-            { n: 2, amount: 42.1 },
-            { n: 3, amount: 42.1 },
-          ],
-        },
+        "listReports",
+        { status: "draft", olderThanDays: 60 },
+        { count: 14 },
         "ok",
       ],
       [
-        "rejectReport",
-        { reportId: "EXP-2270", reason: "duplicate" },
-        { error: "WOULD_REJECT_ALL_LINES" },
+        "deleteReport",
+        { reportId: "EXP-2104" },
+        { error: "DELETE_NOT_ALLOWED", hint: "archive instead" },
         "error",
       ],
     ],
     manual: [
-      screen("Duplicate check", {
-        Match: "Lines 2 and 3 · $42.10 · same merchant and time",
-        Action: "Mark line as duplicate",
-      }),
-      click("Mark line as duplicate"),
-      net(
-        "POST",
-        "/api/ledgerline/v1/reports/[id]/lines/[line]/duplicate",
-        "Line 3 marked duplicate",
+      screen(
+        "Drafts",
+        {
+          Selected: "14 drafts older than 60 days",
+          Action: "Archive selected",
+        },
+        "/reports",
       ),
-      ["expense.duplicate_flagged", { reportId: "EXP-2270", line: 3 }],
+      click("Archive selected", "/reports"),
+      net("POST", "/api/ledgerline/v1/reports/archive", "14 drafts archived"),
+      ["reports.archived", { count: 14, olderThanDays: 60 }],
     ],
     missing: {
       label:
-        "Duplicate check: duplicates are flagged per line, which keeps the rest of the report",
-      why: "Shown on screen; ChatGPT's tools only reject whole reports",
+        "Drafts view: old drafts are archived in bulk from the Drafts filter",
+      why: "Shown on screen; ChatGPT's tools can only delete",
       at: 0,
     },
   },
@@ -406,51 +395,49 @@ const SPECS: Spec[] = [
   },
   {
     id: "trj_s3p6n8",
-    title: "Convert Omar Farouk's euro taxi receipts",
+    title: "Raise the Sales per diem for the Austin kickoff",
     user: MAYA,
     start: at(4, 16, 2),
     outcome: "agent_failed_user_completed",
     surface: "in_app",
-    ask: "Omar's kickoff taxis are in euros. Convert them and resubmit.",
+    ask: "Sales is in Austin for kickoff next week. Raise their per diem to $95 for those days.",
     reply:
-      "I couldn't find the exchange rate Ledgerline expects, so I didn't change the amounts.",
+      "I couldn't change the per diem; the policy tools are read-only for me.",
     steps: [
       [
-        "getReport",
-        { reportId: "EXP-2311" },
-        { id: "EXP-2311", currency: "EUR", lines: 3 },
-        "ok",
-      ],
-      [
         "searchPolicies",
-        { query: "currency conversion" },
-        { results: [{ id: "TE-4.1", title: "Foreign currency" }] },
+        { query: "per diem" },
+        { results: [{ id: "TE-2.1", title: "Meals per diem: $75" }] },
         "ok",
       ],
       [
-        "updateReport",
-        { reportId: "EXP-2311", currency: "USD" },
-        { error: "RATE_DATE_REQUIRED" },
+        "updatePolicy",
+        { id: "TE-2.1", amount: 95 },
+        { error: "READ_ONLY" },
         "error",
       ],
     ],
     manual: [
-      screen("Currency", {
-        Rate: "Card statement rate, Sep 22",
-        Action: "Use statement rate",
-      }),
-      click("Use statement rate"),
-      net(
-        "PATCH",
-        "/api/ledgerline/v1/reports/[id]/currency",
-        "Converted at statement rate 1.0874",
+      screen(
+        "Per diem",
+        { Default: "$75", Override: "None", Action: "Add event override" },
+        "/policies",
       ),
-      ["expense.currency_converted", { reportId: "EXP-2311", rate: 1.0874 }],
+      click("Add event override", "/policies"),
+      net(
+        "POST",
+        "/api/ledgerline/v1/policies/per-diem/overrides",
+        "Sales, Oct 13 to 16, $95",
+      ),
+      [
+        "policy.per_diem_override",
+        { team: "Sales", amount: 95, start: "2026-10-13", end: "2026-10-16" },
+      ],
     ],
     missing: {
       label:
-        "Currency panel: use the card statement rate on the transaction date",
-      why: "Shown on screen, not in any policy the agent can search",
+        "Per diem panel: event overrides are added on the Policies page for set dates",
+      why: "Shown on screen, not in any tool the agent can call",
       at: 0,
     },
   },
@@ -490,20 +477,19 @@ const ev = (trajectoryId: string, n: number) =>
 const SEED_INSIGHTS_OLDEST_FIRST: readonly DemoInsight[] = [
   {
     id: "ins_s01",
-    title:
-      "Request a missing receipt from the Receipts panel instead of leaving a note",
+    title: "Set an approval delegate with dates in Approval settings",
     summary:
-      "When a line has no receipt, people use Request receipt on the Receipts panel, which notifies the submitter and holds the line. The agent left notes, which nobody acts on.",
+      "When an approver is away, people add a dated delegate in Settings, so reports keep moving and the delegation ends on its own. The agent tried to write a delegate onto the person record.",
     evidence: [
       {
         trajectoryId: "trj_s9k2m4",
         eventIds: [ev("trj_s9k2m4", 3)],
-        quote: "Receipts panel: Hotel, 2 nights · $612.40 missing",
+        quote: "Approval settings: Delegate none, Add delegate",
       },
       {
         trajectoryId: "trj_s9k2m4",
-        eventIds: [ev("trj_s9k2m4", 4), ev("trj_s9k2m4", 6)],
-        quote: "Clicked Request receipt; receipt requested from Tom Becker",
+        eventIds: [ev("trj_s9k2m4", 5), ev("trj_s9k2m4", 6)],
+        quote: "POST /approvals/delegations: Jordan Patel, Oct 6 to Oct 10",
       },
     ],
     threadCount: 1,
@@ -511,19 +497,19 @@ const SEED_INSIGHTS_OLDEST_FIRST: readonly DemoInsight[] = [
   },
   {
     id: "ins_s02",
-    title: "Split a mileage line by project from the line menu",
+    title: "Set a new hire's card limit on Card controls",
     summary:
-      "Shared mileage is split on the line itself, 60/40 or by distance, so both projects are charged. Updating the whole report moves all of it to one project.",
+      "Card limits are a separate card control, set after the person exists. Creating the person and then writing a limit field fails.",
     evidence: [
       {
         trajectoryId: "trj_s7m3x2",
         eventIds: [ev("trj_s7m3x2", 3)],
-        quote: "Mileage line: Split line",
+        quote: "Card controls: team default $500, Set monthly limit",
       },
       {
         trajectoryId: "trj_s7m3x2",
-        eventIds: [ev("trj_s7m3x2", 7)],
-        quote: "Line split 60/40 between Northwind and Contoso",
+        eventIds: [ev("trj_s7m3x2", 6), ev("trj_s7m3x2", 7)],
+        quote: "PUT /people/[id]/card-controls: monthly limit $2,000",
       },
     ],
     threadCount: 1,
@@ -531,19 +517,19 @@ const SEED_INSIGHTS_OLDEST_FIRST: readonly DemoInsight[] = [
   },
   {
     id: "ins_s03",
-    title: "Flag a duplicate charge on its line, not by rejecting the report",
+    title: "Archive stale drafts in bulk instead of deleting them",
     summary:
-      "Duplicates are marked per line, which keeps the rest of the report moving. Rejecting the report sends every line back to the submitter.",
+      "Old drafts are archived from the Drafts filter in one step, which keeps them searchable. Deleting is not allowed for reports.",
     evidence: [
       {
         trajectoryId: "trj_s6d8u1",
         eventIds: [ev("trj_s6d8u1", 2)],
-        quote: "Duplicate check: lines 2 and 3, same merchant and time",
+        quote: "Drafts: 14 drafts older than 60 days",
       },
       {
         trajectoryId: "trj_s6d8u1",
-        eventIds: [ev("trj_s6d8u1", 5)],
-        quote: "Line 3 marked duplicate",
+        eventIds: [ev("trj_s6d8u1", 4), ev("trj_s6d8u1", 5)],
+        quote: "POST /reports/archive: 14 drafts archived",
       },
     ],
     threadCount: 1,
@@ -551,19 +537,19 @@ const SEED_INSIGHTS_OLDEST_FIRST: readonly DemoInsight[] = [
   },
   {
     id: "ins_s04",
-    title: "Convert foreign-currency receipts at the card statement rate",
+    title: "Raise a per diem for an event with a dated override",
     summary:
-      "Foreign receipts are converted at the card statement rate on the transaction date, from the Currency panel. The policy library does not say this.",
+      "For an offsite or kickoff, people add a per diem override for the team and the dates on the Policies page. The default policy itself is read-only.",
     evidence: [
       {
         trajectoryId: "trj_s3p6n8",
         eventIds: [ev("trj_s3p6n8", 3)],
-        quote: "Currency panel: card statement rate, Sep 22",
+        quote: "Per diem: default $75, Add event override",
       },
       {
         trajectoryId: "trj_s3p6n8",
-        eventIds: [ev("trj_s3p6n8", 6)],
-        quote: "Converted at statement rate 1.0874",
+        eventIds: [ev("trj_s3p6n8", 5), ev("trj_s3p6n8", 6)],
+        quote: "POST /policies/per-diem/overrides: Sales, $95",
       },
     ],
     threadCount: 1,
@@ -592,64 +578,65 @@ const skillMd = (name: string, description: string, steps: string[]) =>
 
 export const SEED_SKILLS: readonly DemoSkill[] = [
   {
-    name: "request-missing-receipt",
+    name: "set-approval-delegate",
     status: "published",
-    description: "Use when a report line has no receipt.",
+    description:
+      "Use when an approver will be away and someone should approve for them.",
     skillMd: skillMd(
-      "request-missing-receipt",
-      "Use when a report line has no receipt.",
+      "set-approval-delegate",
+      "Use when an approver will be away and someone should approve for them.",
       [
-        "Call getReport and find lines without receipts.",
-        "Call requestReceipt for each missing line.",
-        "Tell the user the line is held until the receipt arrives.",
+        "Confirm the delegate can approve (getPerson).",
+        "Call ledgerlineApi POST /approvals/delegations with from, to, start and end.",
+        "Tell the user the dates the delegation covers.",
       ],
     ),
     supportingInsightIds: ["ins_s01"],
     revision: 2,
   },
   {
-    name: "split-mileage-by-project",
+    name: "set-card-limit",
     status: "published",
-    description: "Use when one mileage line is shared between projects.",
+    description: "Use when a person needs a different monthly card limit.",
     skillMd: skillMd(
-      "split-mileage-by-project",
-      "Use when one mileage line is shared between projects.",
+      "set-card-limit",
+      "Use when a person needs a different monthly card limit.",
       [
-        "Call getReport and find the mileage line.",
-        "Call splitLine with the project shares the user gave.",
-        "Confirm both projects and amounts.",
+        "Find the person (create them first if they are new).",
+        "Call ledgerlineApi PUT /people/:id/card-controls with monthlyLimit.",
+        "Confirm the new limit.",
       ],
     ),
     supportingInsightIds: ["ins_s02"],
     revision: 1,
   },
   {
-    name: "flag-duplicate-charge",
+    name: "archive-stale-drafts",
     status: "published",
-    description: "Use when two lines on a report look like the same charge.",
+    description: "Use when old draft reports should be cleaned up.",
     skillMd: skillMd(
-      "flag-duplicate-charge",
-      "Use when two lines on a report look like the same charge.",
+      "archive-stale-drafts",
+      "Use when old draft reports should be cleaned up.",
       [
-        "Compare amount, merchant and time of the two lines.",
-        "Call markDuplicate on the later line.",
-        "Leave the rest of the report as it is.",
+        "List drafts older than the cutoff.",
+        "Call ledgerlineApi POST /reports/archive with the cutoff.",
+        "Never delete reports.",
       ],
     ),
     supportingInsightIds: ["ins_s03"],
     revision: 1,
   },
   {
-    name: "convert-foreign-currency",
+    name: "per-diem-event-override",
     status: "candidate",
-    description: "Use when a receipt is in a foreign currency.",
+    description: "Use when a team needs a higher per diem for an event.",
     skillMd: skillMd(
-      "convert-foreign-currency",
-      "Use when a receipt is in a foreign currency.",
+      "per-diem-event-override",
+      "Use when a team needs a higher per diem for an event.",
       [
-        "Read the transaction date from the line.",
-        "Call convertCurrency with the card statement rate for that date.",
-        "Show the converted amount before resubmitting.",
+        "Read the default per diem (searchPolicies).",
+        "Call ledgerlineApi POST /policies/per-diem/overrides with team, amount and dates.",
+        "Leave the default policy unchanged.",
       ],
     ),
     supportingInsightIds: ["ins_s04"],
@@ -662,34 +649,31 @@ export const SEED_EVAL_CANDIDATES: readonly (EvalCandidate & {
 })[] = [
   {
     id: "evc_s01",
-    query: "A report line has no receipt; get it from the submitter",
+    query: "An approver is away next week; have a colleague approve for them",
     checks: [
-      "Calls requestReceipt for the missing line",
-      "Does not only add a note",
+      "Calls POST /approvals/delegations with start and end dates",
+      "Does not edit the person record",
     ],
     sourceTrajectoryIds: ["trj_s9k2m4"],
-    sourceEventIds: [ev("trj_s9k2m4", 4), ev("trj_s9k2m4", 6)],
+    sourceEventIds: [ev("trj_s9k2m4", 5), ev("trj_s9k2m4", 6)],
     status: "accepted",
     exportedAt: at(9, 11, 0),
   },
   {
     id: "evc_s02",
-    query: "Two identical rideshare lines on one report",
-    checks: [
-      "Calls markDuplicate on one line",
-      "Does not reject the whole report",
-    ],
+    query: "Archive every draft report older than 60 days",
+    checks: ["Calls POST /reports/archive once", "Does not call deleteReport"],
     sourceTrajectoryIds: ["trj_s6d8u1"],
-    sourceEventIds: [ev("trj_s6d8u1", 2), ev("trj_s6d8u1", 5)],
+    sourceEventIds: [ev("trj_s6d8u1", 4), ev("trj_s6d8u1", 5)],
     status: "accepted",
     exportedAt: at(7, 15, 30),
   },
   {
     id: "evc_s03",
-    query: "Split a shared mileage line 60/40 between two projects",
+    query: "Give a new hire a $2,000 monthly card limit",
     checks: [
-      "Calls splitLine with both projects",
-      "Totals still match the original line",
+      "Calls PUT /people/:id/card-controls with monthlyLimit 2000",
+      "Creates the person first if needed",
     ],
     sourceTrajectoryIds: ["trj_s7m3x2"],
     sourceEventIds: [ev("trj_s7m3x2", 4), ev("trj_s7m3x2", 7)],
@@ -773,7 +757,7 @@ export const SEED_FINE_TUNE = {
         {
           role: "user",
           content:
-            "Tom Becker's Denver trip is missing the hotel receipt. Ask him for it.",
+            "I'm out Oct 6 to 10. Have Jordan approve my team's reports while I'm away.",
         },
         {
           role: "assistant",
@@ -783,8 +767,17 @@ export const SEED_FINE_TUNE = {
               id: "c1",
               type: "function",
               function: {
-                name: "requestReceipt",
-                arguments: JSON.stringify({ reportId: "EXP-2299", line: 3 }),
+                name: "ledgerlineApi",
+                arguments: JSON.stringify({
+                  method: "POST",
+                  path: "/approvals/delegations",
+                  body: {
+                    from: "u_maya",
+                    to: "u_jordan",
+                    start: "2026-10-06",
+                    end: "2026-10-10",
+                  },
+                }),
               },
             },
           ],
@@ -792,12 +785,12 @@ export const SEED_FINE_TUNE = {
         {
           role: "tool",
           tool_call_id: "c1",
-          content: JSON.stringify({ requested: true, from: "Tom Becker" }),
+          content: JSON.stringify({ id: "dlg_41", status: "scheduled" }),
         },
         {
           role: "assistant",
           content:
-            "I asked Tom Becker for the hotel receipt and held that line until it arrives.",
+            "Jordan Patel will approve your team's reports from Oct 6 to Oct 10.",
         },
       ],
     },
@@ -805,8 +798,7 @@ export const SEED_FINE_TUNE = {
       messages: [
         {
           role: "user",
-          content:
-            "Two identical rideshare charges on EXP-2270. Flag the duplicate.",
+          content: "Archive every draft report older than 60 days.",
         },
         {
           role: "assistant",
@@ -816,8 +808,12 @@ export const SEED_FINE_TUNE = {
               id: "c1",
               type: "function",
               function: {
-                name: "markDuplicate",
-                arguments: JSON.stringify({ reportId: "EXP-2270", line: 3 }),
+                name: "ledgerlineApi",
+                arguments: JSON.stringify({
+                  method: "POST",
+                  path: "/reports/archive",
+                  body: { status: "draft", olderThanDays: 60 },
+                }),
               },
             },
           ],
@@ -825,12 +821,12 @@ export const SEED_FINE_TUNE = {
         {
           role: "tool",
           tool_call_id: "c1",
-          content: JSON.stringify({ line: 3, status: "duplicate" }),
+          content: JSON.stringify({ archived: 14 }),
         },
         {
           role: "assistant",
           content:
-            "Marked line 3 as a duplicate. The rest of EXP-2270 is unchanged.",
+            "Archived 14 drafts older than 60 days. They stay searchable under Archived.",
         },
       ],
     },

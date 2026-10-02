@@ -271,9 +271,10 @@
           status: Number(v.status),
           ms: Number(v.durationMs || 0),
           error: Number(v.status) >= 400 ? String(v.summary || "") : "",
+          summary: String(v.summary || ""),
           detail: {
-            request: `${v.method} ${v.route}`,
-            response: `${v.status} · ${v.summary || ""}`,
+            request: `${v.method} ${v.route}${v.body !== undefined || v.request !== undefined ? "\n\n" + JSON.stringify(v.body ?? v.request, null, 2) : ""}`,
+            response: `${v.status}${v.summary ? " · " + v.summary : ""}${v.response !== undefined ? "\n\n" + JSON.stringify(v.response, null, 2) : ""}`,
           },
         };
       } else {
@@ -394,6 +395,23 @@
       (ev) =>
         ev.event.name !== "thread.linked" && ev.event.timestamp > lastFailure,
     );
+    // The recipe: the API calls the person's path made, in order, repeats folded (×n).
+    const calls = reference.filter(
+      (ev) =>
+        ev.event.name === "network" && Number(ev.event.value.status) < 400,
+    );
+    const recipe = [];
+    for (const ev of calls) {
+      const label = `${ev.event.value.method} ${String(ev.event.value.route).replace(/^\/api\/[^/]+\/v\d+/, "")}`;
+      const last = recipe[recipe.length - 1];
+      if (last && last.label === label) last.n += 1;
+      else recipe.push({ label, n: 1 });
+    }
+    if (t.outcome === "agent_failed_user_completed" && recipe.length) {
+      moments.push(
+        `<li><span class="ms fine">sync_alt</span><div><b>The recipe, from the network requests</b><p class="mono" style="font-size:11.5px">${esc(recipe.map((r) => (r.n > 1 ? `${r.label} ×${r.n}` : r.label)).join(" → "))}</p><button class="linkbtn" type="button" data-jump="${esc(calls[0].eventId)}">Show requests</button></div></li>`,
+      );
+    }
     const steps = reference
       .filter((ev) => ev.event.name === "click")
       .map((ev) => String(ev.event.value.action).replace(/^Cost center: /, ""));
