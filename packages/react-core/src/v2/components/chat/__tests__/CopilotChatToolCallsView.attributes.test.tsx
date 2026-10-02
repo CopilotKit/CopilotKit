@@ -41,15 +41,20 @@ function renderMessage(
   children?: React.ComponentProps<
     typeof CopilotChatAssistantMessage
   >["children"],
+  learning = true,
 ) {
   render(
     <CopilotKitProvider
       renderToolCalls={[weatherRenderer]}
-      learning={{
-        trajectoryId: "trajectory-1",
-        sink: () => {},
-        capture: { clicks: false, navigation: false, network: false },
-      }}
+      learning={
+        learning
+          ? {
+              trajectoryId: "trajectory-1",
+              sink: () => {},
+              capture: { clicks: false, navigation: false, network: false },
+            }
+          : undefined
+      }
     >
       <CopilotChatConfigurationProvider
         agentId="default"
@@ -73,6 +78,22 @@ function toolCallIdsOf(button: HTMLElement) {
 }
 
 describe("tool call DOM attributes", () => {
+  it("keeps custom message metadata without capture wrappers when learning is disabled", async () => {
+    renderMessage(
+      ({ toolCallsView }) => <section>{toolCallsView}</section>,
+      false,
+    );
+
+    const buttons = await screen.findAllByTestId("tool-ui");
+    expect(buttons.map(toolCallIdsOf)).toEqual([
+      { toolCallId: undefined, messageId: "msg-1" },
+      { toolCallId: undefined, messageId: "msg-1" },
+    ]);
+    expect(
+      buttons.every((button) => button.parentElement?.tagName === "SECTION"),
+    ).toBe(true);
+  });
+
   it("marks each rendered tool call with its id inside the message", async () => {
     renderMessage();
 

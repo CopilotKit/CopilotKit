@@ -228,9 +228,14 @@ describe("CopilotKitProvider learning prop", () => {
     const view = render(<App threadId="t-1" learning={false} />);
 
     history.pushState(null, "", "/learning/deals/8");
+    view.rerender(<App threadId="t-2" learning={false} />);
+    history.pushState(null, "", "/learning/deals/9");
 
     expect(drain()).toEqual([]);
     expect(History.prototype.pushState).toBe(nativePushState);
     view.unmount();
+    history.pushState(null, "", "/learning/deals/10");
+    expect(drain()).toEqual([]);
+    expect(History.prototype.pushState).toBe(nativePushState);
   });
 });
