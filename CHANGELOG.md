@@ -16,6 +16,30 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.77.0 - 2026-10-02
+
+### Features
+
+- feat(react-core): make intelligence indicator auto-mount configurable (#6612) (a161b38)
+- feat(learning): capture raw browser activity as AG-UI events (#7556) (1840e7c)
+- feat(mcp-apps): consolidate the Vue and Angular hosts onto the shared package (#7161) (06f61ae)
+- feat(web-inspector): add an option to hide the Inspector indefinitely (#7542) (20ee84c)
+
+### Fixes
+
+- fix(deps): bump @ag-ui/langgraph to 0.0.44 so a stop cancels the LangGraph run (#7600) (f1a9bb6)
+- fix(a2ui): keep generated controls from submitting host forms (#7392) (214614a)
+- fix(react, vue): preserve popup rounded corners (#6473) (0629f84)
+- fix(a2ui-renderer): contain malformed component values (#7583) (a9b1c26)
+- fix(core): pass ContentPart[] tool handler results through to the tool message (#7544) (579d0f7)
+- fix(web-inspector): send onboarding_run_id on the Learning setup prompt click (#7561) (c69b965)
+- fix: preserve LangGraph catalogs with merged AG-UI properties (#7558) (9c6f1dd)
+
+### Other Changes
+
+- Improve Inspector conversation readability and tool-call presentation (#7374) (632b050)
+- docs(runtime): document the agentId the Intelligence threads list requires (refs PE-476) (#7562) (16dbbdf)
+
 ## 1.76.0 - 2026-09-30
 
 ### Features
