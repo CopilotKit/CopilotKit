@@ -1,0 +1,33 @@
+{
+  "name": "showcase-shared-python",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python3 -m pytest showcase/shared/python/tests"
+      },
+      "inputs": [
+        "{projectRoot}/**/*"
+      ],
+      "dependsOn": []
+    },
+    "test:todos": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python3 -m pytest showcase/shared/python/tests/test_todos.py showcase/shared/python/tests/test_sales_todos.py"
+      },
+      "inputs": [
+        "{projectRoot}/**/*"
+      ],
+      "dependsOn": []
+    },
+    "test:todos:browser": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node showcase/harness/test/browser/beautiful-chat-todos.mjs"
+      },
+      "cache": false,
+      "dependsOn": []
+    }
+  }
+}
