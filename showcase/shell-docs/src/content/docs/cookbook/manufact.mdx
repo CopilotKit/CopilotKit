@@ -16,7 +16,7 @@ agentPrompt: |
   If I don't have a CopilotKit app yet, start from https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/manufact-mcp-apps. Keep my existing model, provider, and runtime setup unchanged.
 ---
 
-[Manufact](https://manufact.com) (formerly mcp-use) builds [mcp-use](https://github.com/mcp-use/mcp-use), the
+[Manufact](https://manufact.com) builds [mcp-use](https://github.com/mcp-use/mcp-use), the
 open-source framework for MCP servers and MCP Apps, and **Manufact Cloud**, which hosts, monitors, and publishes
 them. An MCP App is an MCP tool that ships its own UI: when an agent calls the tool, the host renders that UI
 instead of returning raw JSON.
@@ -630,7 +630,7 @@ That's the only change. Running `mcp-use deploy` again later redeploys the same 
 
 One thing before you share that URL widely: anyone who has it can call your tools. That's fine for a read-only map
 of sample data. If your MCP App touches real user data, add
-[authentication in mcp-use](https://docs.mcp-use.com/typescript/server/authentication/index) and pass the
+[authentication in mcp-use](https://docs.mcp-use.com/v2/typescript/server/authentication/index) and pass the
 credential from your runtime with `headers` on the server entry. The browser never talks to the MCP App directly,
 so the credential stays on your server. Your `/api/copilotkit` route deserves the same care, since every message
 spends model credits. See [authentication](/auth).
@@ -644,7 +644,7 @@ spends model credits. See [authentication](/auth).
   [submission pack](https://docs.manufact.com/dashboard/submission-pack) get it ready for their app directories.
 - **Watch real traffic.** Manufact Cloud shows tool calls, sessions, and logs for your deployed server. See
   [Usage & traffic](https://docs.manufact.com/dashboard/analytics).
-- **Read more.** The [mcp-use MCP Apps docs](https://docs.mcp-use.com/typescript/mcp-apps) cover views in depth,
+- **Read more.** The [mcp-use MCP Apps docs](https://docs.mcp-use.com/v2/typescript/mcp-apps) cover views in depth,
   and [MCP Apps](/generative-ui/mcp-apps) covers CopilotKit's side.
 
 ## Get the code
