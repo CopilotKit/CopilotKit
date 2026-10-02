@@ -1,0 +1,543 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-antigravity / gen-ui-declarative (A2UI Dynamic Schema, declarative-gen-ui demo)",
+    "created": "2026-09-30",
+    "copiedFrom": "langgraph-python",
+    "_note": "Backend-owned A2UI: the outer agent calls the generate_a2ui server tool with {request: <question>}; the tool makes its own forced render_a2ui generateContent call (X-AIMock-Context: google-antigravity, user text = the request), validates it and returns the a2ui_operations container the A2UI middleware paints. Inner legs are listed first and matched by toolName=render_a2ui.",
+    "googleAntigravityStaging": "Staged on turnIndex, not hasToolResult/toolCallId: the Antigravity Go harness never sends role:\"tool\" messages (see PARITY_NOTES.md). turnIndex is the assistant-message count: +2 per tool round trip, +1 per text answer. Every pill carries outer legs at every position a four-pill thread can reach it from (0/2, 3/5, 6/8, 9/11), so the d5 probe (all four pills in one thread) and the e2e spec (one pill per fresh thread) both resolve."
+  },
+  "fixtures": [
+    {
+      "_comment": "pill dash — inner render_a2ui call made by the generate_a2ui server tool (forced toolConfig, fresh one-turn conversation whose user text is the request, so assistant count 0 at any thread position). Surface copied from langgraph-python/gen-ui-declarative.json; components/data re-encoded as JSON strings, the shape render_a2ui declares for Gemini.",
+      "match": {
+        "userMessage": "Show me my sales dashboard for this quarter.",
+        "toolName": "render_a2ui",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_dash_render_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\": \"sales-dashboard\", \"components\": \"[{\\\"id\\\": \\\"root\\\", \\\"component\\\": \\\"Column\\\", \\\"gap\\\": 16, \\\"children\\\": [\\\"kpi-row\\\", \\\"charts-row\\\"]}, {\\\"id\\\": \\\"kpi-row\\\", \\\"component\\\": \\\"Row\\\", \\\"gap\\\": 16, \\\"children\\\": [\\\"metric-revenue\\\", \\\"metric-new-customers\\\", \\\"metric-win-rate\\\", \\\"metric-deal-size\\\"]}, {\\\"id\\\": \\\"metric-revenue\\\", \\\"component\\\": \\\"Metric\\\", \\\"label\\\": \\\"Quarterly Revenue\\\", \\\"value\\\": \\\"$4.2M\\\", \\\"trend\\\": \\\"up\\\", \\\"trendValue\\\": \\\"+12% QoQ\\\"}, {\\\"id\\\": \\\"metric-new-customers\\\", \\\"component\\\": \\\"Metric\\\", \\\"label\\\": \\\"New Customers\\\", \\\"value\\\": \\\"186\\\", \\\"trend\\\": \\\"up\\\", \\\"trendValue\\\": \\\"+8%\\\"}, {\\\"id\\\": \\\"metric-win-rate\\\", \\\"component\\\": \\\"Metric\\\", \\\"label\\\": \\\"Win Rate\\\", \\\"value\\\": \\\"31%\\\", \\\"trend\\\": \\\"down\\\", \\\"trendValue\\\": \\\"-2 pts\\\"}, {\\\"id\\\": \\\"metric-deal-size\\\", \\\"component\\\": \\\"Metric\\\", \\\"label\\\": \\\"Avg Deal Size\\\", \\\"value\\\": \\\"$22.6k\\\", \\\"trend\\\": \\\"up\\\", \\\"trendValue\\\": \\\"+5%\\\"}, {\\\"id\\\": \\\"charts-row\\\", \\\"component\\\": \\\"Row\\\", \\\"gap\\\": 16, \\\"children\\\": [\\\"region-pie\\\", \\\"monthly-bar\\\"]}, {\\\"id\\\": \\\"region-pie\\\", \\\"component\\\": \\\"PieChart\\\", \\\"title\\\": \\\"Revenue by Region\\\", \\\"description\\\": \\\"Quarter revenue split across North America, EMEA, APAC, and LATAM.\\\", \\\"data\\\": [{\\\"label\\\": \\\"North America\\\", \\\"value\\\": 1900000}, {\\\"label\\\": \\\"EMEA\\\", \\\"value\\\": 1300000}, {\\\"label\\\": \\\"APAC\\\", \\\"value\\\": 720000}, {\\\"label\\\": \\\"LATAM\\\", \\\"value\\\": 280000}]}, {\\\"id\\\": \\\"monthly-bar\\\", \\\"component\\\": \\\"BarChart\\\", \\\"title\\\": \\\"Monthly Revenue\\\", \\\"description\\\": \\\"Revenue trend from Jan through Jun.\\\", \\\"data\\\": [{\\\"label\\\": \\\"Jan\\\", \\\"value\\\": 1210000}, {\\\"label\\\": \\\"Feb\\\", \\\"value\\\": 1340000}, {\\\"label\\\": \\\"Mar\\\", \\\"value\\\": 1650000}, {\\\"label\\\": \\\"Apr\\\", \\\"value\\\": 1380000}, {\\\"label\\\": \\\"May\\\", \\\"value\\\": 1420000}, {\\\"label\\\": \\\"Jun\\\", \\\"value\\\": 1400000}]}]\", \"data\": \"{}\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill team — inner render_a2ui call made by the generate_a2ui server tool (forced toolConfig, fresh one-turn conversation whose user text is the request, so assistant count 0 at any thread position). Surface copied from langgraph-python/gen-ui-declarative.json; components/data re-encoded as JSON strings, the shape render_a2ui declares for Gemini.",
+      "match": {
+        "userMessage": "How are our sales reps performing against quota?",
+        "toolName": "render_a2ui",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_team_render_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\": \"rep-quota-performance\", \"components\": \"[{\\\"id\\\": \\\"root\\\", \\\"component\\\": \\\"Column\\\", \\\"gap\\\": 16, \\\"children\\\": [\\\"title\\\", \\\"summary\\\", \\\"content\\\"]}, {\\\"id\\\": \\\"title\\\", \\\"component\\\": \\\"Text\\\", \\\"text\\\": \\\"Sales rep performance vs quota\\\"}, {\\\"id\\\": \\\"summary\\\", \\\"component\\\": \\\"Text\\\", \\\"text\\\": \\\"2 of 5 reps are above quota, 1 is near plan, and 2 are below target in Q2.\\\"}, {\\\"id\\\": \\\"content\\\", \\\"component\\\": \\\"Row\\\", \\\"gap\\\": 16, \\\"children\\\": [\\\"table-card\\\", \\\"attainment-chart\\\"]}, {\\\"id\\\": \\\"table-card\\\", \\\"component\\\": \\\"Card\\\", \\\"title\\\": \\\"Rep attainment table\\\", \\\"child\\\": \\\"rep-table\\\"}, {\\\"id\\\": \\\"rep-table\\\", \\\"component\\\": \\\"DataTable\\\", \\\"columns\\\": [{\\\"key\\\": \\\"rep\\\", \\\"label\\\": \\\"Rep\\\"}, {\\\"key\\\": \\\"attainment\\\", \\\"label\\\": \\\"Attainment\\\"}, {\\\"key\\\": \\\"pipeline\\\", \\\"label\\\": \\\"Pipeline\\\"}], \\\"rows\\\": [{\\\"rep\\\": \\\"Dana Whitfield\\\", \\\"attainment\\\": \\\"124%\\\", \\\"pipeline\\\": \\\"Leading team; biggest account Meridian Apparel Group has 4 open opps worth $210k\\\"}, {\\\"rep\\\": \\\"Marcus Lee\\\", \\\"attainment\\\": \\\"108%\\\", \\\"pipeline\\\": \\\"Above plan\\\"}, {\\\"rep\\\": \\\"Priya Sharma\\\", \\\"attainment\\\": \\\"97%\\\", \\\"pipeline\\\": \\\"Near quota\\\"}, {\\\"rep\\\": \\\"Tom Okafor\\\", \\\"attainment\\\": \\\"88%\\\", \\\"pipeline\\\": \\\"Below plan\\\"}, {\\\"rep\\\": \\\"Elena Vasquez\\\", \\\"attainment\\\": \\\"71%\\\", \\\"pipeline\\\": \\\"Furthest from quota\\\"}]}, {\\\"id\\\": \\\"attainment-chart\\\", \\\"component\\\": \\\"BarChart\\\", \\\"title\\\": \\\"Quota attainment by rep\\\", \\\"description\\\": \\\"Q2 quota attainment percentages for all sales reps.\\\", \\\"data\\\": [{\\\"label\\\": \\\"Dana Whitfield\\\", \\\"value\\\": 124}, {\\\"label\\\": \\\"Marcus Lee\\\", \\\"value\\\": 108}, {\\\"label\\\": \\\"Priya Sharma\\\", \\\"value\\\": 97}, {\\\"label\\\": \\\"Tom Okafor\\\", \\\"value\\\": 88}, {\\\"label\\\": \\\"Elena Vasquez\\\", \\\"value\\\": 71}]}]\", \"data\": \"{}\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill risk — inner render_a2ui call made by the generate_a2ui server tool (forced toolConfig, fresh one-turn conversation whose user text is the request, so assistant count 0 at any thread position). Surface copied from langgraph-python/gen-ui-declarative.json; components/data re-encoded as JSON strings, the shape render_a2ui declares for Gemini.",
+      "match": {
+        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+        "toolName": "render_a2ui",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_risk_render_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\": \"risk-dashboard\", \"components\": \"[{\\\"id\\\": \\\"root\\\", \\\"component\\\": \\\"Column\\\", \\\"gap\\\": 16, \\\"children\\\": [\\\"metrics-row\\\", \\\"accounts-row\\\"]}, {\\\"id\\\": \\\"metrics-row\\\", \\\"component\\\": \\\"Row\\\", \\\"gap\\\": 16, \\\"children\\\": [\\\"metric-arr\\\", \\\"metric-accounts\\\", \\\"metric-biggest\\\"]}, {\\\"id\\\": \\\"metric-arr\\\", \\\"component\\\": \\\"Metric\\\", \\\"label\\\": \\\"ARR at risk\\\", \\\"value\\\": \\\"$615k\\\", \\\"trend\\\": \\\"down\\\", \\\"trendValue\\\": \\\"3 accounts\\\"}, {\\\"id\\\": \\\"metric-accounts\\\", \\\"component\\\": \\\"Metric\\\", \\\"label\\\": \\\"Accounts at risk\\\", \\\"value\\\": \\\"3\\\", \\\"trend\\\": \\\"neutral\\\", \\\"trendValue\\\": \\\"This quarter\\\"}, {\\\"id\\\": \\\"metric-biggest\\\", \\\"component\\\": \\\"Metric\\\", \\\"label\\\": \\\"Biggest exposure\\\", \\\"value\\\": \\\"Northwind Retail\\\", \\\"trend\\\": \\\"down\\\", \\\"trendValue\\\": \\\"$340k renewal\\\"}, {\\\"id\\\": \\\"accounts-row\\\", \\\"component\\\": \\\"Row\\\", \\\"gap\\\": 16, \\\"children\\\": [\\\"card-northwind\\\", \\\"card-cascadia\\\", \\\"card-atlas\\\"]}, {\\\"id\\\": \\\"card-northwind\\\", \\\"component\\\": \\\"Card\\\", \\\"title\\\": \\\"Northwind Retail\\\", \\\"subtitle\\\": \\\"$340k ARR at stake\\\", \\\"child\\\": \\\"northwind-content\\\"}, {\\\"id\\\": \\\"northwind-content\\\", \\\"component\\\": \\\"Column\\\", \\\"gap\\\": 8, \\\"children\\\": [\\\"northwind-badge\\\", \\\"northwind-text\\\"]}, {\\\"id\\\": \\\"northwind-badge\\\", \\\"component\\\": \\\"StatusBadge\\\", \\\"text\\\": \\\"High severity\\\", \\\"variant\\\": \\\"error\\\"}, {\\\"id\\\": \\\"northwind-text\\\", \\\"component\\\": \\\"Text\\\", \\\"text\\\": \\\"No contact in 6 weeks; next action: exec outreach this week to protect the renewal.\\\"}, {\\\"id\\\": \\\"card-cascadia\\\", \\\"component\\\": \\\"Card\\\", \\\"title\\\": \\\"Cascadia Outfitters\\\", \\\"subtitle\\\": \\\"$180k ARR at stake\\\", \\\"child\\\": \\\"cascadia-content\\\"}, {\\\"id\\\": \\\"cascadia-content\\\", \\\"component\\\": \\\"Column\\\", \\\"gap\\\": 8, \\\"children\\\": [\\\"cascadia-badge\\\", \\\"cascadia-text\\\"]}, {\\\"id\\\": \\\"cascadia-badge\\\", \\\"component\\\": \\\"StatusBadge\\\", \\\"text\\\": \\\"Medium severity\\\", \\\"variant\\\": \\\"warning\\\"}, {\\\"id\\\": \\\"cascadia-text\\\", \\\"component\\\": \\\"Text\\\", \\\"text\\\": \\\"Champion left; next action: rebuild stakeholder map and secure a new sponsor.\\\"}, {\\\"id\\\": \\\"card-atlas\\\", \\\"component\\\": \\\"Card\\\", \\\"title\\\": \\\"Atlas Goods\\\", \\\"subtitle\\\": \\\"$95k ARR at stake\\\", \\\"child\\\": \\\"atlas-content\\\"}, {\\\"id\\\": \\\"atlas-content\\\", \\\"component\\\": \\\"Column\\\", \\\"gap\\\": 8, \\\"children\\\": [\\\"atlas-badge\\\", \\\"atlas-text\\\"]}, {\\\"id\\\": \\\"atlas-badge\\\", \\\"component\\\": \\\"StatusBadge\\\", \\\"text\\\": \\\"Medium severity\\\", \\\"variant\\\": \\\"warning\\\"}, {\\\"id\\\": \\\"atlas-text\\\", \\\"component\\\": \\\"Text\\\", \\\"text\\\": \\\"Legal review is stalled; next action: align procurement and legal on open terms.\\\"}]\", \"data\": \"{}\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill acct — inner render_a2ui call made by the generate_a2ui server tool (forced toolConfig, fresh one-turn conversation whose user text is the request, so assistant count 0 at any thread position). Surface copied from langgraph-python/gen-ui-declarative.json; components/data re-encoded as JSON strings, the shape render_a2ui declares for Gemini.",
+      "match": {
+        "userMessage": "Pull up the details on our biggest account.",
+        "toolName": "render_a2ui",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_acct_render_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\": \"biggest-account-details\", \"components\": \"[{\\\"id\\\": \\\"root\\\", \\\"component\\\": \\\"Row\\\", \\\"gap\\\": 16, \\\"children\\\": [\\\"account-card\\\", \\\"revenue-pie\\\"]}, {\\\"id\\\": \\\"account-card\\\", \\\"component\\\": \\\"Card\\\", \\\"title\\\": \\\"Meridian Apparel Group\\\", \\\"subtitle\\\": \\\"Biggest account\\\", \\\"child\\\": \\\"account-facts\\\"}, {\\\"id\\\": \\\"account-facts\\\", \\\"component\\\": \\\"Column\\\", \\\"gap\\\": 8, \\\"children\\\": [\\\"fact1\\\", \\\"fact2\\\", \\\"fact3\\\", \\\"fact4\\\", \\\"fact5\\\", \\\"fact6\\\", \\\"fact7\\\"]}, {\\\"id\\\": \\\"fact1\\\", \\\"component\\\": \\\"InfoRow\\\", \\\"label\\\": \\\"Owner\\\", \\\"value\\\": \\\"Dana Whitfield\\\"}, {\\\"id\\\": \\\"fact2\\\", \\\"component\\\": \\\"InfoRow\\\", \\\"label\\\": \\\"Region\\\", \\\"value\\\": \\\"North America\\\"}, {\\\"id\\\": \\\"fact3\\\", \\\"component\\\": \\\"InfoRow\\\", \\\"label\\\": \\\"ARR\\\", \\\"value\\\": \\\"$612k\\\"}, {\\\"id\\\": \\\"fact4\\\", \\\"component\\\": \\\"InfoRow\\\", \\\"label\\\": \\\"Renewal date\\\", \\\"value\\\": \\\"Sep 30\\\"}, {\\\"id\\\": \\\"fact5\\\", \\\"component\\\": \\\"InfoRow\\\", \\\"label\\\": \\\"Last contact\\\", \\\"value\\\": \\\"3 days ago\\\"}, {\\\"id\\\": \\\"fact6\\\", \\\"component\\\": \\\"InfoRow\\\", \\\"label\\\": \\\"Health\\\", \\\"value\\\": \\\"Green\\\"}, {\\\"id\\\": \\\"fact7\\\", \\\"component\\\": \\\"InfoRow\\\", \\\"label\\\": \\\"Open opportunities\\\", \\\"value\\\": \\\"4 opportunities worth $210k\\\"}, {\\\"id\\\": \\\"revenue-pie\\\", \\\"component\\\": \\\"PieChart\\\", \\\"title\\\": \\\"Revenue by product line\\\", \\\"description\\\": \\\"Meridian Apparel Group revenue mix across product lines.\\\", \\\"data\\\": [{\\\"label\\\": \\\"Outerwear\\\", \\\"value\\\": 260000}, {\\\"label\\\": \\\"Footwear\\\", \\\"value\\\": 180000}, {\\\"label\\\": \\\"Accessories\\\", \\\"value\\\": 112000}, {\\\"label\\\": \\\"Custom\\\", \\\"value\\\": 60000}]}]\", \"data\": \"{}\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill dash — outer agent calls generate_a2ui with the question (thread position 0). toolName keeps this leg off the inner render_a2ui request, which carries the same user text.",
+      "match": {
+        "userMessage": "Show me my sales dashboard for this quarter.",
+        "toolName": "generate_a2ui",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_dash_outer_00",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Show me my sales dashboard for this quarter.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill dash — one-sentence narration after the generate_a2ui round trip (position 0+2). Without it the tool-call leg keeps matching and the run re-issues generate_a2ui.",
+      "match": {
+        "userMessage": "Show me my sales dashboard for this quarter.",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Here's your Q2 sales dashboard."
+      }
+    },
+    {
+      "_comment": "pill dash — outer agent calls generate_a2ui with the question (thread position 3). toolName keeps this leg off the inner render_a2ui request, which carries the same user text.",
+      "match": {
+        "userMessage": "Show me my sales dashboard for this quarter.",
+        "toolName": "generate_a2ui",
+        "turnIndex": 3,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_dash_outer_03",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Show me my sales dashboard for this quarter.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill dash — one-sentence narration after the generate_a2ui round trip (position 3+2). Without it the tool-call leg keeps matching and the run re-issues generate_a2ui.",
+      "match": {
+        "userMessage": "Show me my sales dashboard for this quarter.",
+        "turnIndex": 5,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Here's your Q2 sales dashboard."
+      }
+    },
+    {
+      "_comment": "pill dash — outer agent calls generate_a2ui with the question (thread position 6). toolName keeps this leg off the inner render_a2ui request, which carries the same user text.",
+      "match": {
+        "userMessage": "Show me my sales dashboard for this quarter.",
+        "toolName": "generate_a2ui",
+        "turnIndex": 6,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_dash_outer_06",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Show me my sales dashboard for this quarter.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill dash — one-sentence narration after the generate_a2ui round trip (position 6+2). Without it the tool-call leg keeps matching and the run re-issues generate_a2ui.",
+      "match": {
+        "userMessage": "Show me my sales dashboard for this quarter.",
+        "turnIndex": 8,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Here's your Q2 sales dashboard."
+      }
+    },
+    {
+      "_comment": "pill dash — outer agent calls generate_a2ui with the question (thread position 9). toolName keeps this leg off the inner render_a2ui request, which carries the same user text.",
+      "match": {
+        "userMessage": "Show me my sales dashboard for this quarter.",
+        "toolName": "generate_a2ui",
+        "turnIndex": 9,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_dash_outer_09",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Show me my sales dashboard for this quarter.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill dash — one-sentence narration after the generate_a2ui round trip (position 9+2). Without it the tool-call leg keeps matching and the run re-issues generate_a2ui.",
+      "match": {
+        "userMessage": "Show me my sales dashboard for this quarter.",
+        "turnIndex": 11,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Here's your Q2 sales dashboard."
+      }
+    },
+    {
+      "_comment": "pill team — outer agent calls generate_a2ui with the question (thread position 0). toolName keeps this leg off the inner render_a2ui request, which carries the same user text.",
+      "match": {
+        "userMessage": "How are our sales reps performing against quota?",
+        "toolName": "generate_a2ui",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_team_outer_00",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"How are our sales reps performing against quota?\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill team — one-sentence narration after the generate_a2ui round trip (position 0+2). Without it the tool-call leg keeps matching and the run re-issues generate_a2ui.",
+      "match": {
+        "userMessage": "How are our sales reps performing against quota?",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Here's how the team is tracking against quota."
+      }
+    },
+    {
+      "_comment": "pill team — outer agent calls generate_a2ui with the question (thread position 3). toolName keeps this leg off the inner render_a2ui request, which carries the same user text.",
+      "match": {
+        "userMessage": "How are our sales reps performing against quota?",
+        "toolName": "generate_a2ui",
+        "turnIndex": 3,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_team_outer_03",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"How are our sales reps performing against quota?\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill team — one-sentence narration after the generate_a2ui round trip (position 3+2). Without it the tool-call leg keeps matching and the run re-issues generate_a2ui.",
+      "match": {
+        "userMessage": "How are our sales reps performing against quota?",
+        "turnIndex": 5,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Here's how the team is tracking against quota."
+      }
+    },
+    {
+      "_comment": "pill team — outer agent calls generate_a2ui with the question (thread position 6). toolName keeps this leg off the inner render_a2ui request, which carries the same user text.",
+      "match": {
+        "userMessage": "How are our sales reps performing against quota?",
+        "toolName": "generate_a2ui",
+        "turnIndex": 6,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_team_outer_06",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"How are our sales reps performing against quota?\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill team — one-sentence narration after the generate_a2ui round trip (position 6+2). Without it the tool-call leg keeps matching and the run re-issues generate_a2ui.",
+      "match": {
+        "userMessage": "How are our sales reps performing against quota?",
+        "turnIndex": 8,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Here's how the team is tracking against quota."
+      }
+    },
+    {
+      "_comment": "pill team — outer agent calls generate_a2ui with the question (thread position 9). toolName keeps this leg off the inner render_a2ui request, which carries the same user text.",
+      "match": {
+        "userMessage": "How are our sales reps performing against quota?",
+        "toolName": "generate_a2ui",
+        "turnIndex": 9,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_team_outer_09",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"How are our sales reps performing against quota?\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill team — one-sentence narration after the generate_a2ui round trip (position 9+2). Without it the tool-call leg keeps matching and the run re-issues generate_a2ui.",
+      "match": {
+        "userMessage": "How are our sales reps performing against quota?",
+        "turnIndex": 11,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Here's how the team is tracking against quota."
+      }
+    },
+    {
+      "_comment": "pill risk — outer agent calls generate_a2ui with the question (thread position 0). toolName keeps this leg off the inner render_a2ui request, which carries the same user text.",
+      "match": {
+        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+        "toolName": "generate_a2ui",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_risk_outer_00",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Are any accounts or pipeline deals at risk this quarter?\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill risk — one-sentence narration after the generate_a2ui round trip (position 0+2). Without it the tool-call leg keeps matching and the run re-issues generate_a2ui.",
+      "match": {
+        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Three accounts need attention this quarter."
+      }
+    },
+    {
+      "_comment": "pill risk — outer agent calls generate_a2ui with the question (thread position 3). toolName keeps this leg off the inner render_a2ui request, which carries the same user text.",
+      "match": {
+        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+        "toolName": "generate_a2ui",
+        "turnIndex": 3,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_risk_outer_03",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Are any accounts or pipeline deals at risk this quarter?\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill risk — one-sentence narration after the generate_a2ui round trip (position 3+2). Without it the tool-call leg keeps matching and the run re-issues generate_a2ui.",
+      "match": {
+        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+        "turnIndex": 5,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Three accounts need attention this quarter."
+      }
+    },
+    {
+      "_comment": "pill risk — outer agent calls generate_a2ui with the question (thread position 6). toolName keeps this leg off the inner render_a2ui request, which carries the same user text.",
+      "match": {
+        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+        "toolName": "generate_a2ui",
+        "turnIndex": 6,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_risk_outer_06",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Are any accounts or pipeline deals at risk this quarter?\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill risk — one-sentence narration after the generate_a2ui round trip (position 6+2). Without it the tool-call leg keeps matching and the run re-issues generate_a2ui.",
+      "match": {
+        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+        "turnIndex": 8,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Three accounts need attention this quarter."
+      }
+    },
+    {
+      "_comment": "pill risk — outer agent calls generate_a2ui with the question (thread position 9). toolName keeps this leg off the inner render_a2ui request, which carries the same user text.",
+      "match": {
+        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+        "toolName": "generate_a2ui",
+        "turnIndex": 9,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_risk_outer_09",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Are any accounts or pipeline deals at risk this quarter?\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill risk — one-sentence narration after the generate_a2ui round trip (position 9+2). Without it the tool-call leg keeps matching and the run re-issues generate_a2ui.",
+      "match": {
+        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+        "turnIndex": 11,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Three accounts need attention this quarter."
+      }
+    },
+    {
+      "_comment": "pill acct — outer agent calls generate_a2ui with the question (thread position 0). toolName keeps this leg off the inner render_a2ui request, which carries the same user text.",
+      "match": {
+        "userMessage": "Pull up the details on our biggest account.",
+        "toolName": "generate_a2ui",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_acct_outer_00",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Pull up the details on our biggest account.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill acct — one-sentence narration after the generate_a2ui round trip (position 0+2). Without it the tool-call leg keeps matching and the run re-issues generate_a2ui.",
+      "match": {
+        "userMessage": "Pull up the details on our biggest account.",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Here's the rundown on Meridian Apparel Group."
+      }
+    },
+    {
+      "_comment": "pill acct — outer agent calls generate_a2ui with the question (thread position 3). toolName keeps this leg off the inner render_a2ui request, which carries the same user text.",
+      "match": {
+        "userMessage": "Pull up the details on our biggest account.",
+        "toolName": "generate_a2ui",
+        "turnIndex": 3,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_acct_outer_03",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Pull up the details on our biggest account.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill acct — one-sentence narration after the generate_a2ui round trip (position 3+2). Without it the tool-call leg keeps matching and the run re-issues generate_a2ui.",
+      "match": {
+        "userMessage": "Pull up the details on our biggest account.",
+        "turnIndex": 5,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Here's the rundown on Meridian Apparel Group."
+      }
+    },
+    {
+      "_comment": "pill acct — outer agent calls generate_a2ui with the question (thread position 6). toolName keeps this leg off the inner render_a2ui request, which carries the same user text.",
+      "match": {
+        "userMessage": "Pull up the details on our biggest account.",
+        "toolName": "generate_a2ui",
+        "turnIndex": 6,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_acct_outer_06",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Pull up the details on our biggest account.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill acct — one-sentence narration after the generate_a2ui round trip (position 6+2). Without it the tool-call leg keeps matching and the run re-issues generate_a2ui.",
+      "match": {
+        "userMessage": "Pull up the details on our biggest account.",
+        "turnIndex": 8,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Here's the rundown on Meridian Apparel Group."
+      }
+    },
+    {
+      "_comment": "pill acct — outer agent calls generate_a2ui with the question (thread position 9). toolName keeps this leg off the inner render_a2ui request, which carries the same user text.",
+      "match": {
+        "userMessage": "Pull up the details on our biggest account.",
+        "toolName": "generate_a2ui",
+        "turnIndex": 9,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_decl_acct_outer_09",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Pull up the details on our biggest account.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pill acct — one-sentence narration after the generate_a2ui round trip (position 9+2). Without it the tool-call leg keeps matching and the run re-issues generate_a2ui.",
+      "match": {
+        "userMessage": "Pull up the details on our biggest account.",
+        "turnIndex": 11,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Here's the rundown on Meridian Apparel Group."
+      }
+    }
+  ]
+}
