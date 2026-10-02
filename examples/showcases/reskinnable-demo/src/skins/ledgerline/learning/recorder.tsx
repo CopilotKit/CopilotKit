@@ -81,6 +81,7 @@ export function routeTemplate(segments: string[]): string {
 /** Page titles by route template, keyed without the leading slash. */
 const TITLES: Record<string, string> = {
   overview: "Overview",
+  reconciliation: "Card close",
   reports: "Expense reports",
   "reports/[id]": "Expense report",
   approvals: "Approvals",
@@ -97,14 +98,33 @@ const TITLES: Record<string, string> = {
  */
 export async function trackedFetch(
   url: string,
-  init: RequestInit & { template: string; summary: string },
+  init: RequestInit & {
+    template: string;
+    summary: string;
+    /** A small summary of the request body (ids, not payloads). */
+    request?: Record<string, unknown>;
+    /** Response fields to keep in the event, e.g. ["id", "resolved"]. */
+    responseFields?: string[];
+  },
 ): Promise<Response> {
-  const { template, summary, ...rest } = init;
+  const { template, summary, request, responseFields, ...rest } = init;
   const started = performance.now();
   let status = 0;
+  let response: Record<string, unknown> | undefined;
   try {
     const res = await fetch(url, rest);
     status = res.status;
+    if (responseFields?.length) {
+      const json = (await res
+        .clone()
+        .json()
+        .catch(() => ({}))) as Record<string, unknown>;
+      response = Object.fromEntries(
+        [...responseFields, "error"]
+          .filter((k) => json[k] !== undefined)
+          .map((k) => [k, json[k]]),
+      );
+    }
     return res;
   } finally {
     emit("network", {
@@ -113,6 +133,8 @@ export async function trackedFetch(
       status,
       durationMs: Math.round(performance.now() - started),
       summary,
+      ...(request ? { request } : {}),
+      ...(response ? { response } : {}),
     });
   }
 }

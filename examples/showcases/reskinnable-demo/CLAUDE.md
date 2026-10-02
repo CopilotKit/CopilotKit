@@ -654,15 +654,19 @@ src/skins/*/skin.tsx`): `useBookstoreData` is a frozen 25-book seed catalog (the
   is written out at the top of `src/skins/exec/suggestions.ts`.
 
 - **`ledgerline`** ("Ledgerline") — **REST-backed**, a fictitious expense and
-  approvals product, and the Automatic Learning demo. Pages `""` (Overview),
-  `reports`, `reports/<id>`, `approvals`, `reimbursements`, `cost-centers`,
-  `people`, `policies` and `policies/<id>`, over `/api/ledgerline/v1/*`. Its gate is a policy
-  hold (409 `POLICY_HOLD POL-114`) whose fix the user has to find on screen:
-  the policy text on `policies/POL-114` and the events budget on
-  `cost-centers`, then **Edit coding** recodes the event lines (`recodeLines`).
-  On purpose, its pages register NO on-screen readable, so the agent never sees
-  the fix. It is the one skin with `layoutDefaults` (chat right, thread rail
-  right and closed). It adds a product-trajectory recorder
+  corporate-card product, and the Automatic Learning demo. Pages `""`
+  (Overview), `reconciliation` (Card close), `reports`, `reports/<id>`,
+  `approvals`, `reimbursements`, `cost-centers`, `people`, `policies` and
+  `policies/<id>`, over `/api/ledgerline/v1/*`. Its demo task is the
+  month-end card close: matching card charges to receipts. The agent gets only
+  a generic `ledgerlineApi` tool with a terse endpoint index; the
+  reconciliation-session workflow and the receipt details that decide a match
+  exist only on the Card close board, so the agent fails until a learned skill
+  (derived from the board's recorded API calls) teaches it. It never closes a
+  period: `reviewMatches` hands a human-in-the-loop card over and only the
+  user's Confirm closes. On purpose, its pages register NO on-screen readable.
+  It is the one skin with `layoutDefaults` (chat right, thread rail in its own
+  column, closed) and `threadList`. It adds a product-trajectory recorder
   (`learning/recorder.tsx`), agent-trace capture on its BuiltInAgent
   (`learning/agent-trace.ts`), the learning contract API under
   `/api/learning/v1/*`, a learning step (`learning/learn.ts`), published

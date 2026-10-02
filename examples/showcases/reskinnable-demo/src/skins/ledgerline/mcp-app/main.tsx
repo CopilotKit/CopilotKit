@@ -4,8 +4,8 @@
  * Bundled by `scripts/build-ledgerline-mcp-app.mjs` into one self-contained
  * HTML file (React, the cards and their compiled Tailwind CSS inlined) and
  * served by `../mcp/server.ts`. A thin host adapter: the UI is the in-app
- * chat's own cards from `../genui/cards.tsx`, and the approve card submits
- * through the app-only `confirmApproveAndReimburse` tool. It talks to its host
+ * chat's own cards from `../genui/`, and the Review matches card confirms
+ * through the app-only `confirmMatches` tool. It talks to its host
  * only through the MCP Apps bridge, so it needs no network.
  */
 
@@ -13,12 +13,9 @@ import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "@modelcontextprotocol/ext-apps";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { ApproveReimburseCard, HoldCard, ReportCard } from "../genui/cards";
-import type {
-  ApproveCardView,
-  ApproveOutcome,
-  ReportCardView,
-} from "../genui/views";
+import { ReportCard } from "../genui/cards";
+import { ReviewMatchesCard } from "../genui/review-card";
+import type { ReportCardView, ReviewOutcome, ReviewView } from "../genui/views";
 
 const app = new App(
   { name: "Ledgerline", version: "1.0.0" },
@@ -26,7 +23,7 @@ const app = new App(
   { autoResize: true },
 );
 
-type View = ReportCardView | ApproveCardView;
+type View = ReportCardView | ReviewView;
 
 function textOf(result: CallToolResult): string {
   return (
@@ -39,7 +36,7 @@ function textOf(result: CallToolResult): string {
 
 function viewOf(result: CallToolResult | null): View | null {
   const s = result?.structuredContent as { kind?: string } | undefined;
-  return s?.kind === "report-card" || s?.kind === "approve-card"
+  return s?.kind === "report-card" || s?.kind === "review-card"
     ? (s as unknown as View)
     : null;
 }
@@ -64,9 +61,7 @@ function Note({ text, bad }: { text: string; bad?: boolean }) {
 
 function Root() {
   const [result, setResult] = useState<CallToolResult | null>(null);
-  const [outcome, setOutcome] = useState<ApproveOutcome | "cancelled" | null>(
-    null,
-  );
+  const [outcome, setOutcome] = useState<ReviewOutcome | "edit" | null>(null);
   const [bridgeError, setBridgeError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -91,28 +86,18 @@ function Root() {
     return <Note bad text={`Could not reach the host: ${bridgeError}`} />;
   if (!result) return <Note text="Loading Ledgerline..." />;
   const view = viewOf(result);
-  const refusal = result.structuredContent as
-    | { error?: string; code?: string; reportId?: string }
-    | undefined;
-  if (!view && refusal?.error === "POLICY_HOLD") {
-    // The same hold card the in-app chat draws: the code and that it is on hold, never the fix.
-    return (
-      <HoldCard reportId={refusal.reportId ?? ""} code={refusal.code ?? ""} />
-    );
-  }
   if (!view) return <Note bad={!!result.isError} text={textOf(result)} />;
   if (view.kind === "report-card") return <ReportCard report={view.report} />;
   return (
-    <ApproveReimburseCard
-      report={view.report}
-      paymentRun={view.paymentRun}
+    <ReviewMatchesCard
+      view={view}
       outcome={outcome}
-      submit={async () => {
+      confirm={async () => {
         const r = (await app.callServerTool({
-          name: "confirmApproveAndReimburse",
-          arguments: { reportId: view.report.id },
+          name: "confirmMatches",
+          arguments: { sessionId: view.sessionId },
         })) as CallToolResult;
-        const o = r.structuredContent as ApproveOutcome | undefined;
+        const o = r.structuredContent as ReviewOutcome | undefined;
         if (o && typeof o.ok === "boolean") return o;
         return {
           ok: false,
@@ -123,14 +108,14 @@ function Root() {
         setOutcome(o);
         await tellHost(
           o.ok
-            ? `I confirmed it in the Ledgerline card. ${o.summary}`
+            ? `I confirmed the matches in the Ledgerline card. ${o.summary}`
             : `The Ledgerline card reported a problem. ${o.summary}`,
         );
       }}
-      onCancel={() => {
-        setOutcome("cancelled");
+      onEdit={() => {
+        setOutcome("edit");
         void tellHost(
-          "I cancelled in the Ledgerline card. Nothing was approved or paid.",
+          "I want to edit the matches myself on Ledgerline's Card close board. Nothing was closed.",
         );
       }}
     />

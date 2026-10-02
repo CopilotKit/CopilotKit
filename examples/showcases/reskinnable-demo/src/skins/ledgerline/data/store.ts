@@ -28,6 +28,7 @@ import type {
 } from "./types";
 import { HOLD_TEAM_EVENT } from "./types";
 import { evaluateTeamEvent } from "./policy";
+import { reset as resetRecon } from "./recon-store";
 import type { PolicyCheck } from "./policy";
 
 export class LedgerError extends Error {
@@ -71,6 +72,9 @@ function state(): State {
 
 export function reset(): void {
   (globalThis as Pinned)[KEY] = materialize();
+  // The month-end card close resets with the ledger. (recon-store imports
+  // LedgerError from here; both sides only use the other inside functions.)
+  resetRecon();
 }
 
 const clone = <T>(v: T): T => structuredClone(v);

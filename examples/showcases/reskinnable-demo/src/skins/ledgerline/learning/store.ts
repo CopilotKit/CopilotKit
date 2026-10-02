@@ -21,6 +21,7 @@
 
 import { randomBytes } from "node:crypto";
 import * as ledger from "../data/store";
+import { CARDS } from "../data/recon-seed";
 import type {
   CapturedEvent,
   CustomEvent,
@@ -153,8 +154,16 @@ const OPENING = new Set([
 ]);
 
 function opensTrajectory(e: CustomEvent): boolean {
-  return OPENING.has(e.name) || e.name.startsWith("expense.");
+  return (
+    OPENING.has(e.name) ||
+    e.name.startsWith("expense.") ||
+    e.name.startsWith("recon.")
+  );
 }
+
+/** A person finishing the task by hand: a reimbursement, or closing a card's month. */
+const isManualCompletion = (name: string) =>
+  name === "expense.reimbursed" || name === "recon.period_closed";
 
 export function isCustomEvent(v: unknown): v is CustomEvent {
   if (!v || typeof v !== "object") return false;
@@ -191,7 +200,7 @@ export function ingest(
     if (e.name === "thread.linked" && typeof e.value.threadId === "string") {
       threadFor(e.value.threadId, "in_app", now);
     }
-    if (e.name === "expense.reimbursed") {
+    if (isManualCompletion(e.name)) {
       t.closedAt = now;
       t.closedBy = "user";
     }
@@ -366,7 +375,60 @@ function sawOpenHold(result: unknown): boolean {
   );
 }
 
+/** A validate result that did not pass every pair. */
+function validationFailed(result: unknown): boolean {
+  const body = (
+    result as { body?: { valid?: unknown; total?: unknown } } | undefined
+  )?.body;
+  return (
+    !!body &&
+    typeof body.valid === "number" &&
+    typeof body.total === "number" &&
+    body.valid < body.total
+  );
+}
+
+/**
+ * Month-end close: the cardholder confirming the agent's review card is a
+ * success; a run whose integration-API calls failed and that ended without a
+ * review card is a failure once the agent has replied (ChatGPT's reply never
+ * reaches us, so its failed calls are enough).
+ */
+function reconOutcome(rec: ThreadRecord): ThreadRecord["outcome"] | null {
+  const confirmed = rec.agentTrace.some(
+    (e) =>
+      e.status === "ok" &&
+      (e.result as { closed?: unknown } | undefined)?.closed === true,
+  );
+  if (confirmed) return "succeeded";
+  const api = rec.agentTrace.filter(
+    (e) => e.name === "ledgerlineApi" && e.status !== "pending",
+  );
+  const handedOver = rec.agentTrace.some(
+    (e) => e.name === "reviewMatches" && e.status === "ok",
+  );
+  const refusedReview = rec.agentTrace.some(
+    (e) => e.name === "reviewMatches" && e.status === "error",
+  );
+  if (!api.length || handedOver) return null;
+  if (
+    !refusedReview &&
+    !api.some((e) => e.status === "error" || validationFailed(e.result))
+  )
+    return null;
+  if (rec.surface === "chatgpt") return "failed";
+  const last = api[api.length - 1]!;
+  const lastAssistant = [...rec.messages]
+    .toReversed()
+    .find((m) => m.role === "assistant");
+  return lastAssistant && lastAssistant.at >= last.at
+    ? "failed"
+    : "in_progress";
+}
+
 export function threadOutcome(rec: ThreadRecord): ThreadRecord["outcome"] {
+  const recon = reconOutcome(rec);
+  if (recon) return recon;
   const reimbursed = rec.agentTrace.some(
     (e) =>
       e.status === "ok" &&
@@ -451,7 +513,21 @@ function reportIdOf(events: CapturedEvent[]): string | undefined {
   return undefined;
 }
 
+function cardTitle(events: CapturedEvent[]): string | undefined {
+  for (const e of events) {
+    const id =
+      e.event.value.cardId ??
+      (e.event.value.fields as Record<string, unknown> | undefined)?.cardId;
+    const card = CARDS.find((c) => c.id === id);
+    if (card)
+      return `Match ${card.holder}'s ${card.periodLabel} card transactions`;
+  }
+  return undefined;
+}
+
 function titleOf(events: CapturedEvent[], threads: ThreadRec[]): string {
+  const card = cardTitle(events);
+  if (card) return card;
   const reportId = reportIdOf(events) ?? reportIdFromThreads(threads);
   if (reportId) {
     try {
@@ -489,9 +565,7 @@ export function outcomeOf(
   events: CapturedEvent[],
   threads: ThreadRec[],
 ): TrajectoryOutcome {
-  const userCompleted = events.some(
-    (e) => e.event.name === "expense.reimbursed",
-  );
+  const userCompleted = events.some((e) => isManualCompletion(e.event.name));
   const agentFailed = threads.some((r) => r.outcome === "failed");
   const agentSucceeded = threads.some((r) => r.outcome === "succeeded");
   if (userCompleted && agentFailed) return "agent_failed_user_completed";
@@ -514,7 +588,9 @@ export function summarize(t: TrajectoryRec): TrajectorySummary {
   if (threads.some((r) => r.surface === "chatgpt")) surfaces.push("chatgpt");
   const byHand = (e: CapturedEvent) =>
     e.event.name === "click" ||
-    (e.event.name.startsWith("expense.") && e.event.value.by !== "agent");
+    ((e.event.name.startsWith("expense.") ||
+      e.event.name.startsWith("recon.")) &&
+      e.event.value.by !== "agent");
   if (events.some(byHand)) surfaces.push("manual");
   return {
     trajectoryId: t.trajectoryId,

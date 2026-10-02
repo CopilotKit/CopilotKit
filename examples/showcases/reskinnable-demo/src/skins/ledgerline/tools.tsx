@@ -9,29 +9,27 @@ import {
 import { useRouter } from "next/navigation";
 import { useSkin } from "@/shell/skin-provider";
 import { useSkinHref } from "@/shell/skin-path";
-import { Check, ChevronRight, Loader2, Wallet, X } from "lucide-react";
+import { Check, ChevronRight, Loader2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { API, formatDate, formatMoney, useLedger } from "./data/client";
-import { nextPaymentRun } from "./data/derive";
-import { primaryButton, secondaryButton } from "./components/ui";
+import { API, useLedger } from "./data/client";
 import {
-  agentCostCenters,
   agentPolicies,
-  agentRecode,
   agentReport,
   agentReportRow,
   holdRefusal,
 } from "./data/agent-view";
+import { LEDGERLINE_API_DESCRIPTION } from "./data/agent-api-index";
 import type { ExpenseReport, PolicyDoc } from "./data/types";
 import { LearnedSkillTools } from "./learned-skills";
-import {
-  ApproveReimburseCard,
-  HoldCard,
-  ReportCard,
-  ReportTable,
-} from "./genui/cards";
-import type { ApproveOutcome, ReportRowView, ReportView } from "./genui/views";
+import { ReportCard, ReportTable } from "./genui/cards";
+import type {
+  ReportRowView,
+  ReportView,
+  ReviewOutcome,
+  ReviewView,
+} from "./genui/views";
+import { ReviewMatchesCard } from "./genui/review-card";
 
 /**
  * Ledgerline's frontend tools. Each handler calls the same REST API the pages
@@ -135,9 +133,6 @@ function ToolLine({
     </div>
   );
 }
-
-/** Settled approve cards, so a re-render before the result lands keeps its answer. */
-const approveOutcomes = new Map<string, ApproveOutcome | "cancelled">();
 
 function parseJson<T>(v: unknown): T | null {
   if (typeof v !== "string") return null;
@@ -272,117 +267,35 @@ export function LedgerlineTools() {
 
   useFrontendTool(
     {
-      name: "approveReport",
-      description:
-        "Approve a submitted expense report. Refused while a policy hold is open.",
-      parameters: z.object({ reportId: z.string() }),
-      handler: async ({ reportId }) => {
-        const rid = id(reportId);
-        const { ok, body } = await post(
-          `/reports/${encodeURIComponent(rid)}/approve`,
-        );
-        await refresh();
-        if (!ok) return refusal(body, rid);
-        const r = body as unknown as ExpenseReport;
-        return JSON.stringify({
-          id: r.id,
-          status: r.status,
-          approvedAt: r.approvedAt,
-          employee: r.employeeName,
-          total: r.total,
-        });
-      },
-      render: ({ args, result }) => {
-        const refused = parseJson<{
-          error?: string;
-          code?: string;
-          reportId?: string;
-        }>(result);
-        const r = ledgerRef.current.reports.find(
-          (x) => x.id === id(args?.reportId),
-        );
-        return (
-          <>
-            <ToolLine
-              label="approveReport"
-              detail={args?.reportId}
-              result={result}
-            />
-            {refused?.error === "POLICY_HOLD" ? (
-              <HoldCard
-                reportId={refused.reportId ?? id(args?.reportId)}
-                code={refused.code ?? ""}
-                employee={r?.employeeName}
-                total={r?.total}
-              />
-            ) : null}
-          </>
-        );
-      },
-    },
-    [],
-  );
-
-  useFrontendTool(
-    {
-      name: "listCostCenters",
-      description: "List Ledgerline's cost centers: id, name and owner.",
-      parameters: z.object({}),
-      handler: async () => JSON.stringify(agentCostCenters()),
-      render: ({ result }) => (
-        <ToolLine label="listCostCenters" result={result} />
-      ),
-    },
-    [],
-  );
-
-  useFrontendTool(
-    {
-      name: "recodeLines",
-      description:
-        "Recode report lines to other cost centers (the budgets they are charged to). Use the lineIds from getReport. This moves spend onto another team's budget, so only do it when the user or a loaded learned skill names which lines and which cost center.",
+      name: "ledgerlineApi",
+      description: LEDGERLINE_API_DESCRIPTION,
       parameters: z.object({
-        reportId: z.string(),
-        lines: z
-          .array(
-            z.object({
-              lineId: z.string(),
-              costCenterId: z.string().describe("Cost center id, e.g. CC-200."),
-            }),
-          )
-          .min(1),
+        method: z.enum(["GET", "POST", "PATCH", "PUT", "DELETE"]),
+        path: z.string().describe("e.g. /reports/EXP-2291"),
+        // A JSON string: a free-form object schema reaches the model as an
+        // empty object, and every body would arrive as {}.
+        body: z
+          .string()
+          .optional()
+          .describe(
+            'JSON body as a string, for endpoints that take one, e.g. {"name": "value"}.',
+          ),
       }),
-      handler: async ({ reportId, lines }) => {
-        const rid = id(reportId);
-        const { ok, body } = await post(
-          `/reports/${encodeURIComponent(rid)}/recode`,
-          {
-            lines: lines.map((l) => ({
-              lineId: id(l.lineId),
-              costCenterId: id(l.costCenterId),
-            })),
-          },
-        );
+      handler: async ({ method, path, body }) => {
+        const { body: out } = await post("/agent/api", { method, path, body });
         await refresh();
-        if (!ok) return refusal(body, rid);
-        // The agent gets the new coding and the hold status, never the engine's reason.
+        // Keep a refusal's { error } at the top level so the tool line shows it.
+        const res = out as { status?: number; body?: Record<string, unknown> };
         return JSON.stringify(
-          agentRecode((body as unknown as { report: ExpenseReport }).report),
+          res.body && "error" in res.body
+            ? { ...res.body, status: res.status }
+            : res,
         );
       },
       render: ({ args, result }) => (
         <ToolLine
-          label="recodeLines"
-          detail={[
-            args?.reportId,
-            Array.isArray(args?.lines)
-              ? args.lines
-                  .map((l) => `${l?.lineId ?? ""} to ${l?.costCenterId ?? ""}`)
-                  .join(", ")
-              : undefined,
-          ]
-            .filter(Boolean)
-            .join(": ")}
+          label="ledgerlineApi"
+          detail={[args?.method, args?.path].filter(Boolean).join(" ")}
           result={result}
         />
       ),
@@ -421,30 +334,6 @@ export function LedgerlineTools() {
 
   useFrontendTool(
     {
-      name: "addNote",
-      description:
-        "Add a note to an expense report, visible to the submitter and approvers.",
-      parameters: z.object({ reportId: z.string(), text: z.string() }),
-      handler: async ({ reportId, text }) => {
-        const rid = id(reportId);
-        const { ok, body } = await post(
-          `/reports/${encodeURIComponent(rid)}/notes`,
-          { text },
-        );
-        await refresh();
-        return ok
-          ? JSON.stringify({ id: rid, noteAdded: true })
-          : refusal(body, rid);
-      },
-      render: ({ args, result }) => (
-        <ToolLine label="addNote" detail={args?.reportId} result={result} />
-      ),
-    },
-    [],
-  );
-
-  useFrontendTool(
-    {
       name: "openReport",
       description: "Take the user to one expense report's page in Ledgerline.",
       parameters: z.object({ reportId: z.string() }),
@@ -466,157 +355,43 @@ export function LedgerlineTools() {
     [],
   );
 
-  // Approve-and-reimburse in one confirmation, with the allocation shown.
-  useHumanInTheLoop(
+  useFrontendTool(
     {
-      name: "approveAndReimburse",
+      name: "openCardClose",
       description:
-        "When the user asked to approve AND reimburse a report that has no open policy hold (including after a learned skill cleared it), call this instead of approveReport plus reimburseReport. It opens a confirmation card showing the report, the cost center it is charged to and the payment; nothing is approved or paid until the user confirms there. Do not ask in chat first.",
-      parameters: z.object({ reportId: z.string() }),
-      render: ({ args, respond, result, toolCallId }) => {
-        const rid = id(args?.reportId);
-        const settled =
-          typeof result === "string"
-            ? parseJson<ApproveOutcome & { error?: string }>(result)
-            : null;
-        const outcome = settled
-          ? settled.error === "CANCELLED"
-            ? "cancelled"
-            : {
-                ...settled,
-                ok: !settled.error,
-                summary:
-                  settled.summary ??
-                  (settled as { message?: string }).message ??
-                  "",
-              }
-          : (approveOutcomes.get(toolCallId) ?? null);
-        const r = ledgerRef.current.reports.find((x) => x.id === rid);
-        if (!r)
-          return (
-            <ToolLine
-              label="approveAndReimburse"
-              detail={rid || undefined}
-              result={result}
-            />
-          );
-        return (
-          <ApproveReimburseCard
-            report={agentReport(r)}
-            paymentRun={nextPaymentRun(ledgerRef.current.today)}
-            outcome={outcome}
-            submit={async () => {
-              const a = await post(
-                `/reports/${encodeURIComponent(rid)}/approve`,
-              );
-              if (!a.ok) {
-                await refresh();
-                return {
-                  ok: false,
-                  error: String(a.body.error ?? "REFUSED"),
-                  code:
-                    typeof a.body.code === "string" ? a.body.code : undefined,
-                  summary:
-                    a.body.error === "POLICY_HOLD"
-                      ? `Not approved: policy hold ${a.body.code} is still open on ${rid}.`
-                      : `Not approved: ${String(a.body.message ?? "refused")}`,
-                };
-              }
-              const p = await post(
-                `/reports/${encodeURIComponent(rid)}/reimburse`,
-              );
-              await refresh();
-              const reimb =
-                (p.body as unknown as ExpenseReport).reimbursement ?? null;
-              return p.ok
-                ? {
-                    ok: true,
-                    summary: `Approved ${rid} and scheduled ${formatMoney(r.total)} to ${r.employeeName} by ACH${reimb ? ` for ${formatDate(reimb.scheduledFor)}, ${reimb.reference}` : ""}.`,
-                    reimbursement: reimb
-                      ? {
-                          scheduledFor: reimb.scheduledFor,
-                          reference: reimb.reference,
-                        }
-                      : null,
-                  }
-                : {
-                    ok: false,
-                    error: String(p.body.error ?? "REFUSED"),
-                    summary: `Approved ${rid}, but the reimbursement was refused: ${String(p.body.message ?? "")}`,
-                  };
-            }}
-            onSettle={async (o) => {
-              approveOutcomes.set(toolCallId, o);
-              await respond?.(
-                JSON.stringify(
-                  o.ok
-                    ? {
-                        id: rid,
-                        status: "reimbursed",
-                        approved: true,
-                        reimbursement: o.reimbursement,
-                        summary: o.summary,
-                      }
-                    : {
-                        error: o.error ?? "REFUSED",
-                        code: o.code,
-                        reportId: rid,
-                        message: o.summary,
-                      },
-                ),
-              );
-            }}
-            onCancel={() => {
-              approveOutcomes.set(toolCallId, "cancelled");
-              void respond?.(
-                JSON.stringify({
-                  error: "CANCELLED",
-                  message: "The user cancelled. Nothing was approved or paid.",
-                }),
-              );
-            }}
-          />
-        );
+        "Take the user to the Card close board for a card (Visa last four digits, e.g. 4417), where receipts are matched by hand.",
+      parameters: z.object({ card: z.string().optional() }),
+      handler: async ({ card }) => {
+        const c = card
+          ? `card_${String(card).replace(/\D/g, "").slice(-4)}`
+          : "";
+        router.push(`${skinHref("reconciliation")}${c ? `?card=${c}` : ""}`);
+        return JSON.stringify({ opened: "card close", card: c || undefined });
       },
+      render: ({ args, result }) => (
+        <ToolLine label="openCardClose" detail={args?.card} result={result} />
+      ),
     },
     [],
   );
 
-  // Paying someone is the one write a person confirms: the card is the confirmation.
+  // Handing a month-end close to the person: only their Confirm validates and closes.
   useHumanInTheLoop(
     {
-      name: "reimburseReport",
+      name: "reviewMatches",
       description:
-        "Schedule ACH reimbursement for an approved expense report. Opens a confirmation card in the chat; the payment is scheduled only when the user confirms there. Do not ask in chat first.",
-      parameters: z.object({ reportId: z.string() }),
-      render: ({ args, respond, result }) => (
-        <ReimburseCard
-          reportId={id(args?.reportId)}
-          ledger={ledgerRef.current}
+        "Hand the matches you prepared in a reconciliation session to the user: opens the Review matches card in the chat. You never close a period yourself; only the user's Confirm in the card validates and closes it. Do not ask in chat first.",
+      parameters: z.object({ sessionId: z.string() }),
+      render: ({ args, respond, result, status }) => (
+        <ReviewTool
+          // Args stream in: only a call that is executing has the whole id.
+          sessionId={
+            status === "inProgress" ? "" : String(args?.sessionId ?? "")
+          }
           result={result}
-          onConfirm={async () => {
-            const rid = id(args?.reportId);
-            const { ok, body } = await post(
-              `/reports/${encodeURIComponent(rid)}/reimburse`,
-            );
-            await refresh();
-            const out = ok
-              ? JSON.stringify({
-                  id: rid,
-                  status: "reimbursed",
-                  reimbursement: (body as unknown as ExpenseReport)
-                    .reimbursement,
-                })
-              : refusal(body, rid);
-            await respond?.(out);
-          }}
-          onCancel={() =>
-            void respond?.(
-              JSON.stringify({
-                error: "CANCELLED",
-                message: "The user cancelled. Nothing was paid.",
-              }),
-            )
+          respond={respond}
+          onEdit={(card) =>
+            router.push(`${skinHref("reconciliation")}?card=${card}`)
           }
         />
       ),
@@ -627,95 +402,127 @@ export function LedgerlineTools() {
   return <LearnedSkillTools />;
 }
 
-function ReimburseCard({
-  reportId,
-  ledger,
+/** The in-app half of `reviewMatches`: load the session, draw the card, answer once. */
+function ReviewTool({
+  sessionId,
   result,
-  onConfirm,
-  onCancel,
+  respond,
+  onEdit,
 }: {
-  reportId: string;
-  ledger: { reports: ExpenseReport[]; today: string };
+  sessionId: string;
   result: unknown;
-  onConfirm: () => Promise<void>;
-  onCancel: () => void;
+  respond?: (out: string) => Promise<unknown> | void;
+  onEdit: (cardId: string) => void;
 }) {
-  const [sending, setSending] = useState(false);
-  const r = ledger.reports.find((x) => x.id === reportId);
-  if (typeof result === "string") {
-    let parsed: {
-      error?: string;
-      reimbursement?: { scheduledFor?: string; reference?: string };
-    } = {};
-    try {
-      parsed = JSON.parse(result) as typeof parsed;
-    } catch {
-      parsed = {};
-    }
-    return (
-      <div className="my-1.5 flex items-center gap-2 rounded-xl border border-hairline bg-surface px-3 py-2 text-[0.78rem]">
-        {parsed.error ? (
-          <X className="h-4 w-4 text-negative" />
-        ) : (
-          <Check className="h-4 w-4 text-positive" />
-        )}
-        {parsed.error
-          ? parsed.error === "CANCELLED"
-            ? "Cancelled. Nothing was paid."
-            : `Reimbursement of ${reportId} was refused.`
-          : `Reimbursement of ${reportId} scheduled by ACH${parsed.reimbursement?.scheduledFor ? ` for ${formatDate(parsed.reimbursement.scheduledFor)}` : ""}${parsed.reimbursement?.reference ? `, ${parsed.reimbursement.reference}` : ""}.`}
-      </div>
+  const [view, setView] = useState<ReviewView | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [errorBody, setErrorBody] = useState<Record<string, unknown> | null>(
+    null,
+  );
+  const answered = typeof result === "string";
+  const settled = answered
+    ? parseJson<ReviewOutcome & { error?: string }>(result)
+    : null;
+  useEffect(() => {
+    if (!sessionId) return;
+    let alive = true;
+    void fetch(
+      `${API}/reconciliation/sessions/${encodeURIComponent(sessionId)}/review`,
+      {
+        cache: "no-store",
+      },
+    )
+      .then(async (r) => {
+        const body = (await r.json()) as ReviewView & {
+          message?: string;
+          error?: string;
+          valid?: number;
+          total?: number;
+        };
+        if (!alive) return;
+        if (r.ok) setView(body);
+        else {
+          setError(body.message ?? "That session could not be loaded.");
+          setErrorBody({
+            error: body.error ?? "SESSION_NOT_FOUND",
+            message: body.message,
+            valid: body.valid,
+            total: body.total,
+          });
+        }
+      })
+      .catch(() => alive && setError("That session could not be loaded."));
+    return () => {
+      alive = false;
+    };
+  }, [sessionId]);
+  // A bad session id answers the agent at once rather than leaving it waiting.
+  const sentError = useRef(false);
+  useEffect(() => {
+    if (!error || answered || sentError.current || !respond) return;
+    sentError.current = true;
+    void respond(
+      JSON.stringify(
+        errorBody ?? { error: "SESSION_NOT_FOUND", message: error },
+      ),
     );
-  }
-  if (!r) {
+  }, [error, errorBody, answered, respond]);
+  if (error)
     return (
-      <div className="my-1.5 rounded-xl border border-hairline bg-surface px-3 py-2 text-[0.78rem] text-ink-muted">
-        Preparing the reimbursement...
-      </div>
+      <ToolLine
+        label="reviewMatches"
+        detail={sessionId}
+        result={JSON.stringify(errorBody ?? { error: "SESSION_NOT_FOUND" })}
+      />
     );
-  }
+  if (!view)
+    return (
+      <ToolLine label="reviewMatches" detail={sessionId} result={undefined} />
+    );
   return (
-    <div
-      data-testid="ledgerline-reimburse-card"
-      className="my-1.5 rounded-[10px] border border-hairline bg-surface px-4 py-3 text-[0.8rem] "
-    >
-      <div className="flex items-center gap-2 font-semibold">
-        <Wallet className="h-4 w-4 text-brand" /> Reimburse {r.employeeName}
-      </div>
-      <dl className="mt-2 grid grid-cols-[92px_1fr] gap-y-1 text-[0.78rem]">
-        <dt className="text-ink-muted">Report</dt>
-        <dd>
-          {r.title}{" "}
-          <span className="font-mono text-[0.7rem] text-ink-muted">{r.id}</span>
-        </dd>
-        <dt className="text-ink-muted">Amount</dt>
-        <dd className="font-semibold tabular-nums">{formatMoney(r.total)}</dd>
-        <dt className="text-ink-muted">Method</dt>
-        <dd>ACH, payment run {formatDate(nextPaymentRun(ledger.today))}</dd>
-      </dl>
-      <div className="mt-3 flex gap-2">
-        <button
-          type="button"
-          data-testid="ledgerline-reimburse-confirm"
-          disabled={sending}
-          className={primaryButton}
-          onClick={async () => {
-            setSending(true);
-            await onConfirm();
-          }}
-        >
-          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          Confirm reimbursement
-        </button>
-        <button
-          type="button"
-          disabled={sending}
-          className={secondaryButton}
-          onClick={onCancel}
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
+    <ReviewMatchesCard
+      view={view}
+      outcome={
+        settled
+          ? settled.error === "NOT_CONFIRMED"
+            ? "edit"
+            : { ok: !settled.error, summary: settled.summary ?? "" }
+          : null
+      }
+      confirm={async () => {
+        const r = await fetch(
+          `${API}/reconciliation/sessions/${encodeURIComponent(sessionId)}/confirm`,
+          { method: "POST" },
+        );
+        const o = (await r.json().catch(() => ({}))) as ReviewOutcome & {
+          message?: string;
+        };
+        return r.ok
+          ? o
+          : {
+              ok: false,
+              summary: o.message ?? "The matches could not be confirmed.",
+            };
+      }}
+      onSettle={async (o) => {
+        await respond?.(
+          JSON.stringify(
+            o.ok
+              ? { closed: true, summary: o.summary }
+              : { error: "VALIDATION_FAILED", message: o.summary },
+          ),
+        );
+      }}
+      onEdit={() => {
+        void respond?.(
+          JSON.stringify({
+            error: "NOT_CONFIRMED",
+            message:
+              "The user chose to edit the matches on the Card close board. Nothing was closed.",
+          }),
+        );
+        onEdit(view.card.id);
+      }}
+    />
   );
 }

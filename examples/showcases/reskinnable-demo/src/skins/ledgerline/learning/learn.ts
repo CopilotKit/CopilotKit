@@ -6,17 +6,27 @@
  * candidate and eval candidates, every one citing real eventIds from that
  * trajectory.
  *
+ * Today's task is the month-end card close. The lesson is read straight off
+ * the product trajectory: the recorded API calls (open a reconciliation
+ * session, one pair per charge with its adjustment, validate, close) are the
+ * RECIPE, and the pairs the person validated are the MATCHING RULES (card
+ * descriptors, posting-date lag, tips written on slips, currency conversion,
+ * split charges). Both go into the skill exactly; the skill hands the matches
+ * to the user and never closes the period itself.
+ *
  * Two paths that produce the same shapes:
- *  - `deriveWithLlm`: an OpenAI call over the real events (OPENAI_API_KEY),
- *    whose citations are checked against the trajectory; anything it invents is
- *    dropped, and a skill that does not name the action the user took is
- *    rejected.
- *  - `deriveFallback`: deterministic, read straight off the events. Used when
- *    there is no key, the call fails or times out, or the LLM answer does not
- *    survive the checks. The result says which path made it (`derivedBy`).
+ *  - `deriveWithLlm`: an OpenAI call over the real events (OPENAI_API_KEY)
+ *    writes the insight and the eval candidates; its citations are checked
+ *    against the trajectory and anything invented is dropped. The skill's
+ *    recipe and rules are always the deterministic ones: an API recipe must
+ *    be exact.
+ *  - `deriveFallback`: deterministic throughout. Used when there is no key,
+ *    the call fails, or the answer does not survive the checks. The result
+ *    says which path made it (`derivedBy`).
  */
 
 import OpenAI from "openai";
+import { CARDS } from "../data/recon-seed";
 import type {
   CapturedEvent,
   EvalCandidate,
@@ -26,36 +36,56 @@ import type {
 } from "./types";
 import { SKILL_NAME } from "./types";
 
+export interface ReceiptFact {
+  id: string;
+  merchant: string;
+  date: string;
+  total: number;
+  currency: string;
+  handwrittenTip?: number;
+}
+
+export interface Adjustment {
+  kind: string;
+  amount?: number;
+  currency?: string;
+  receiptAmount?: number;
+  rate?: number;
+}
+
+export interface PairFact {
+  transactionId: string;
+  descriptor: string;
+  amount: number;
+  postedAt?: string;
+  receipts: ReceiptFact[];
+  adjustment?: Adjustment;
+}
+
 export interface Facts {
   trajectoryId: string;
-  reportId: string;
-  employee: string;
   userName: string;
-  holdCode: string;
-  /** The policy rule as the user read it on the policy page. */
-  holdText: string;
-  category: string;
-  threshold: number;
-  costCenterId: string;
-  costCenterName: string;
-  /** The lines the user recoded to the events budget, and the ones left alone. */
-  recoded: { lineId: string; description: string; from?: string }[];
-  kept: { lineId: string; description: string; costCenter?: string }[];
-  /** Recode attempts that did NOT clear the hold, before the one that did. */
-  wrongAttempts: number;
+  cardId: string;
+  holder: string;
+  last4: string;
+  period: string;
+  periodLabel: string;
+  /** The pairs the person validated: the worked examples behind the rules. */
+  pairs: PairFact[];
+  /** Pairs that failed validation before the passing one, with the on-screen reason. */
+  wrongAttempts: { descriptor: string; code: string; reason?: string }[];
   failedAttempts: number;
   threadCount: number;
   surfaces: string[];
   /** The events that carry the lesson, in order. */
   evidence: {
-    panel?: CapturedEvent;
-    policyView?: CapturedEvent;
-    costCentersView?: CapturedEvent;
-    editCodingClick?: CapturedEvent;
-    recoded?: CapturedEvent;
-    rechecked?: CapturedEvent;
-    approved?: CapturedEvent;
-    reimbursed?: CapturedEvent;
+    board?: CapturedEvent;
+    receiptViews: CapturedEvent[];
+    session?: CapturedEvent;
+    pairCalls: CapturedEvent[];
+    failedValidation?: CapturedEvent;
+    passedValidation: CapturedEvent;
+    closed?: CapturedEvent;
   };
 }
 
@@ -70,118 +100,118 @@ export interface Learned {
 const str = (v: unknown, d = "") => (typeof v === "string" && v ? v : d);
 const fields = (e?: CapturedEvent) =>
   (e?.event.value.fields as Record<string, unknown> | undefined) ?? {};
+const money = (n: number) =>
+  `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const dayGap = (a: string, b: string) =>
+  Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000);
 
-type Change = {
-  lineId?: string;
-  description?: string;
-  from?: string;
-  to?: string;
-  toName?: string;
-};
-
-/** Read the lesson's facts off the captured events. Throws when the trajectory holds no completed fix. */
+/** Read the lesson's facts off the captured events. Throws when the trajectory holds no completed close. */
 export function extractFacts(d: TrajectoryDetail): Facts {
   const ev = d.events;
   const byName = (name: string) => ev.filter((e) => e.event.name === name);
-  const rechecks = byName("expense.policy_rechecked");
-  const rechecked = rechecks.find((e) => e.event.value.status === "resolved");
-  const recoded = rechecked
-    ? [...byName("expense.lines_recoded")]
-        .filter((e) => e.position < rechecked.position)
-        .pop()
-    : undefined;
-  if (!rechecked || !recoded) {
+  const validated = byName("recon.validated");
+  const passed = validated.find((e) => {
+    const v = e.event.value;
+    return typeof v.total === "number" && v.total > 0 && v.valid === v.total;
+  });
+  if (!passed) {
     throw new Error(
-      "NO_FIX_CAPTURED: this trajectory has no recode that cleared the hold. Complete the report by hand in Ledgerline first.",
+      "NO_FIX_CAPTURED: this trajectory has no month-end close a person validated. Match the receipts by hand on the Card close board first.",
     );
   }
-  const before = (e: CapturedEvent) => e.position < recoded.position;
-  const contexts = byName("screen.context");
-  const panel = contexts.find((e) => fields(e).panel === "Policy");
-  const policyView =
-    [...contexts].filter((e) => fields(e).policyId && before(e)).pop() ??
-    contexts.find((e) => fields(e).policyId);
-  const costCentersView =
-    [...contexts]
-      .filter((e) => fields(e).view === "cost-centers" && before(e))
-      .pop() ?? contexts.find((e) => fields(e).view === "cost-centers");
-  const editCodingClick = [...ev]
-    .filter(
-      (e) =>
-        e.event.name === "click" &&
-        /edit coding/i.test(str(e.event.value.action)) &&
-        before(e),
-    )
+  const pv = passed.event.value;
+  const card = CARDS.find((c) => c.id === pv.cardId);
+  const pairs = (
+    (Array.isArray(pv.pairs) ? pv.pairs : []) as Record<string, unknown>[]
+  ).map(
+    (p): PairFact => ({
+      transactionId: str(p.transactionId),
+      descriptor: str(p.descriptor),
+      amount: typeof p.amount === "number" ? p.amount : 0,
+      postedAt: str(p.postedAt) || undefined,
+      receipts: (Array.isArray(p.receipts) ? p.receipts : []) as ReceiptFact[],
+      adjustment: (p.adjustment as Adjustment | undefined) ?? undefined,
+    }),
+  );
+  const before = (e: CapturedEvent) => e.position < passed.position;
+  const failedValidation = [...validated]
+    .filter((e) => before(e) && e !== passed)
     .pop();
-  const approved = byName("expense.report_approved").find(
-    (e) => e.position > rechecked.position,
+  const wrong = new Map<
+    string,
+    { descriptor: string; code: string; reason?: string }
+  >();
+  for (const e of validated.filter(before)) {
+    const results = (
+      Array.isArray(e.event.value.results) ? e.event.value.results : []
+    ) as Record<string, unknown>[];
+    for (const r of results) {
+      if (r.valid || r.code === "UNMATCHED") continue;
+      wrong.set(str(r.transactionId), {
+        descriptor: str(r.descriptor),
+        code: str(r.code),
+        reason: str(r.reason) || undefined,
+      });
+    }
+  }
+  const network = byName("network");
+  const route = (e: CapturedEvent) => str(e.event.value.route);
+  const session = network.find(
+    (e) =>
+      route(e).endsWith("/reconciliation/sessions") &&
+      e.event.value.method === "POST" &&
+      before(e),
   );
-  const reimbursed = byName("expense.reimbursed").find(
-    (e) => e.position > rechecked.position,
+  const pairCalls = network.filter(
+    (e) => route(e).endsWith("/sessions/[sessionId]/pairs") && before(e),
   );
-  const rv = recoded.event.value;
-  const changes = (Array.isArray(rv.changes) ? rv.changes : []) as Change[];
-  const target = changes.find((c) => c.to)?.to ?? "CC-410";
-  const targetName =
-    changes.find((c) => c.to === target)?.toName ?? "Events & Offsites";
-  const kept = (Array.isArray(rv.unchanged) ? rv.unchanged : []) as {
-    lineId: string;
-    description: string;
-    costCenter?: string;
-  }[];
-  const pf = fields(panel);
-  const policyFields = fields(policyView);
+  const contexts = byName("screen.context");
+  const board = contexts.find((e) => fields(e).view === "reconcile");
+  const receiptViews = contexts.filter(
+    (e) => fields(e).view === "receipt" && before(e),
+  );
+  const closed = byName("recon.period_closed").find(
+    (e) => e.position > passed.position,
+  );
   const failedAttempts = d.threads.reduce(
     (n, t) =>
       n +
-      t.agentTrace.filter(
-        (x) =>
-          (x.name === "approveReport" || x.name === "approveAndReimburse") &&
-          x.status === "error",
-      ).length,
+      t.agentTrace.filter((x) => {
+        if (x.name === "reviewMatches") return x.status === "error";
+        if (x.name !== "ledgerlineApi") return false;
+        const body = (
+          x.result as
+            | { body?: { valid?: unknown; total?: unknown } }
+            | undefined
+        )?.body;
+        return (
+          x.status === "error" ||
+          (typeof body?.valid === "number" && body.valid !== body.total)
+        );
+      }).length,
     0,
   );
-  const traceCode = d.threads
-    .flatMap((t) => t.agentTrace)
-    .map((x) => (x.result as Record<string, unknown> | undefined)?.code)
-    .find((c) => typeof c === "string") as string | undefined;
   return {
     trajectoryId: d.trajectory.trajectoryId,
-    reportId: str(rv.reportId, str(pf.reportId, "the report")),
-    employee: str(rv.employee, str(pf.employee, "the submitter")),
     userName: d.trajectory.user.name,
-    holdCode: str(
-      pf.holdCode,
-      str(policyFields.policyId, traceCode ?? "POL-114"),
-    ),
-    holdText: str(policyFields.text, str(policyView?.event.value.label)),
-    category: str(pf.category, "Team event"),
-    threshold: typeof pf.threshold === "number" ? pf.threshold : 2500,
-    costCenterId: target,
-    costCenterName: targetName,
-    recoded: changes
-      .filter((c) => c.to === target)
-      .map((c) => ({
-        lineId: str(c.lineId),
-        description: str(c.description),
-        from: c.from,
-      })),
-    kept,
-    wrongAttempts: rechecks.filter(
-      (e) => e.event.value.status === "open" && e.position < rechecked.position,
-    ).length,
+    cardId: str(pv.cardId),
+    holder: card?.holder ?? "the cardholder",
+    last4: card?.last4 ?? "",
+    period: str(pv.period, card?.period ?? ""),
+    periodLabel: card?.periodLabel ?? str(pv.period),
+    pairs,
+    wrongAttempts: [...wrong.values()],
     failedAttempts,
     threadCount: d.threads.length,
     surfaces: d.trajectory.surfaces,
     evidence: {
-      panel,
-      policyView,
-      costCentersView,
-      editCodingClick,
-      recoded,
-      rechecked,
-      approved,
-      reimbursed,
+      board,
+      receiptViews,
+      session,
+      pairCalls,
+      failedValidation,
+      passedValidation: passed,
+      closed,
     },
   };
 }
@@ -189,29 +219,78 @@ export function extractFacts(d: TrajectoryDetail): Facts {
 const ids = (...es: (CapturedEvent | undefined)[]) =>
   es.filter((e): e is CapturedEvent => !!e).map((e) => e.eventId);
 
-const money = (n: number) => `$${n.toLocaleString("en-US")}`;
+/** "SQ *BLUEBOTTLE COFFEE SF" is Blue Bottle Coffee: the descriptors the person resolved. */
+function descriptorExamples(f: Facts): string {
+  return f.pairs
+    .filter((p) => p.receipts[0])
+    .map((p) => `"${p.descriptor}" = ${p.receipts[0]!.merchant}`)
+    .join("; ");
+}
 
-const lineList = (ls: { description: string }[]) =>
-  ls
-    .map((l) => l.description.split(",")[0]!.trim().toLowerCase())
-    .join(" and ") || "the event lines";
+function maxPostingLag(f: Facts): number {
+  let max = 0;
+  for (const p of f.pairs)
+    for (const r of p.receipts)
+      if (p.postedAt) max = Math.max(max, dayGap(r.date, p.postedAt));
+  return Math.max(max, 2);
+}
 
-export function buildSkillMd(
-  f: Facts,
-  parts: {
-    description: string;
-    whenToUse: string;
-    steps: string[];
-    guardrails: string[];
-  },
-): string {
+export interface SkillParts {
+  description: string;
+  whenToUse: string;
+  steps: string[];
+  rules: string[];
+  guardrails: string[];
+}
+
+/** The skill: the recipe from the recorded calls, the rules from the validated pairs. */
+export function skillParts(f: Facts): SkillParts {
+  const tip = f.pairs.find((p) => p.adjustment?.kind === "gratuity");
+  const fx = f.pairs.find((p) => p.adjustment?.kind === "fx_conversion");
+  const split = f.pairs.find((p) => p.receipts.length > 1);
+  const stale = f.wrongAttempts.find((w) => w.code === "WRONG_RECEIPT");
+  const lag = maxPostingLag(f);
+  const rules = [
+    `Descriptors are the card network's, not the merchant's name: drop prefixes such as "SQ *", "TST* ", "PAYPAL *" and "AMZN MKTP US*" and the trailing city or reference, then match the receipt merchant (${descriptorExamples(f)}).`,
+    `A charge posts 0 to ${lag} days after the date printed on its receipt. A receipt dated more than 5 days before the charge belongs to another statement, even when its total is identical${stale ? ` (${(stale.reason ?? `a receipt for ${stale.descriptor} was rejected as WRONG_RECEIPT`).replace(/\.$/, "")})` : ""}.`,
+    tip
+      ? `Tips: when a restaurant or cafe charge is more than the receipt total, the difference is the tip written on the slip. Add "adjustment": {"kind": "gratuity", "amount": <charge minus receipt total>} (${tip.receipts[0]?.merchant}: receipt ${money(tip.receipts[0]?.total ?? 0)}, charge ${money(tip.amount)}, gratuity ${(tip.adjustment?.amount ?? 0).toFixed(2)}).`
+      : `Tips: when a restaurant charge is more than the receipt total, add "adjustment": {"kind": "gratuity", "amount": <charge minus receipt total>}.`,
+    fx
+      ? `Foreign currency: for a receipt that is not in USD, add "adjustment": {"kind": "fx_conversion", "currency": "<receipt currency>", "receiptAmount": <receipt total>, "rate": <charge / receipt total, 4 decimals>} (${fx.receipts[0]?.merchant}: ${fx.adjustment?.currency} ${(fx.adjustment?.receiptAmount ?? 0).toFixed(2)} to ${money(fx.amount)}, rate ${fx.adjustment?.rate}).`
+      : `Foreign currency: for a receipt that is not in USD, add "adjustment": {"kind": "fx_conversion", "currency": "<receipt currency>", "receiptAmount": <receipt total>, "rate": <charge / receipt total, 4 decimals>}.`,
+    split
+      ? `Split charges: when no single receipt matches, put every receipt from that merchant whose totals add up to the charge in ONE pair's receiptIds (${split.receipts.map((r) => `${r.merchant} ${money(r.total)}`).join(" + ")} = ${money(split.amount)}).`
+      : "Split charges: when no single receipt matches, put the receipts that add up to the charge in one pair's receiptIds.",
+  ];
+  return {
+    description:
+      "Use when asked to match a card's transactions to their receipts (reconcile the card for its month-end close). Prepares every match in a reconciliation session, then hands them to the user to confirm; never closes the period itself. Not for questions about what is left: answer those from GET /cards.",
+    whenToUse: `The user asks to match unmatched card transactions to receipts, reconcile a card, or finish a month-end card close. A direct PATCH /transactions/{id} is refused ("Matches must be created inside a reconciliation session").`,
+    steps: [
+      "ledgerlineApi GET /cards to find the card (its id and openPeriod), then GET /transactions?card=<card id>&status=unmatched and GET /receipts?card=<card id>&status=unmatched.",
+      'ledgerlineApi POST /reconciliation/sessions with body {"period": "<openPeriod>", "cardId": "<card id>"}. Keep the session id it returns.',
+      'For each charge, ledgerlineApi POST /reconciliation/sessions/<session id>/pairs with body {"transactionId": "<id>", "receiptIds": ["<receipt id>"]}, adding an "adjustment" when the matching rules call for one.',
+      "ledgerlineApi POST /reconciliation/sessions/<session id>/validate. If a pair comes back WRONG_RECEIPT pick another receipt by the rules; if UNBALANCED add or fix its adjustment; post the pair again and validate again.",
+      "When every pair is valid, call reviewMatches with the session id and stop: tell the user in one sentence that the matches are ready for their review. Only their Confirm closes the month.",
+    ],
+    rules,
+    guardrails: [
+      "Never call POST /reconciliation/sessions/{id}/close and never close a period yourself: reviewMatches hands it to the user, and only their Confirm validates and closes.",
+      "Do not PATCH transactions directly; a match only exists inside a reconciliation session.",
+      "Use only ids the API returned. Do not invent receipt or transaction ids.",
+    ],
+  };
+}
+
+export function buildSkillMd(f: Facts, parts: SkillParts): string {
   const cite = ids(
-    f.evidence.policyView,
-    f.evidence.costCentersView,
-    f.evidence.recoded,
-    f.evidence.rechecked,
-    f.evidence.approved,
-    f.evidence.reimbursed,
+    f.evidence.board,
+    f.evidence.session,
+    ...f.evidence.pairCalls.slice(0, 3),
+    f.evidence.failedValidation,
+    f.evidence.passedValidation,
+    f.evidence.closed,
   );
   return [
     "---",
@@ -219,7 +298,7 @@ export function buildSkillMd(
     `description: ${parts.description}`,
     "---",
     "",
-    "# Approve a team-event expense report",
+    "# Match card transactions to receipts",
     "",
     "## When to use",
     parts.whenToUse,
@@ -227,57 +306,55 @@ export function buildSkillMd(
     "## Steps",
     ...parts.steps.map((s, i) => `${i + 1}. ${s}`),
     "",
+    "## Matching rules",
+    ...parts.rules.map((r) => `- ${r}`),
+    "",
     "## Guardrails",
     ...parts.guardrails.map((g) => `- ${g}`),
     "",
     "## Learned from",
-    `Product trajectory ${f.trajectoryId}${cite.length ? ` (events ${cite.join(", ")})` : ""}: ${f.failedAttempts} refused approval attempt${f.failedAttempts === 1 ? "" : "s"} by the agent across ${f.threadCount} Thread${f.threadCount === 1 ? "" : "s"}, then the user read the policy, found the events-budget cost center and recoded the event lines by hand.`,
+    `Product trajectory ${f.trajectoryId}${cite.length ? ` (events ${cite.join(", ")})` : ""}: the agent could not match ${f.holder}'s ${f.pairs.length} ${f.periodLabel} card transactions (${f.failedAttempts} failed attempt${f.failedAttempts === 1 ? "" : "s"} across ${f.threadCount} Thread${f.threadCount === 1 ? "" : "s"}); ${f.userName} matched them on the Card close board in a reconciliation session, validated, and closed ${f.periodLabel}.`,
     "",
   ].join("\n");
 }
 
-function fallbackParts(f: Facts) {
-  const ev = lineList(f.recoded);
-  return {
-    description: `Use when approving an expense report blocked by POLICY_HOLD ${f.holdCode} (allocation required): a ${f.category} report over ${money(f.threshold)} whose event lines are still coded to a department cost center.`,
-    whenToUse: `approveReport returns POLICY_HOLD ${f.holdCode}, or you are about to approve a ${f.category} report over ${money(f.threshold)}. The policy says: "${f.holdText || `Team events over ${money(f.threshold)} must be coded to the cost center that owns the events budget`}". The cost center that owns the events budget is ${f.costCenterId} ${f.costCenterName}.`,
-    steps: [
-      `Call getReport to confirm the category is "${f.category}", the total is over ${money(f.threshold)} and hold ${f.holdCode} is open, and to read the lineIds.`,
-      `Call recodeLines to recode only the event lines (the ${ev}) to "${f.costCenterId}" (${f.costCenterName}), the events-budget cost center. Leave the other lines (${lineList(f.kept)}) on their current cost center.`,
-      "Approve it: approveAndReimburse when the user also asked for reimbursement (one confirmation card), otherwise approveReport. Approval succeeds once the hold resolves.",
-      "If you used approveReport and the user asked for reimbursement, call reimburseReport.",
-      `Confirm in one sentence: the report, the amount, and which lines moved to ${f.costCenterId} ${f.costCenterName}.`,
-    ],
-    guardrails: [
-      `Recode only event spend (venue, catering) to ${f.costCenterId}. Recoding every line, or using another cost center, does not clear ${f.holdCode}.`,
-      "Do not add notes or retry approval as a workaround for this hold; the line coding is what clears it.",
-    ],
-  };
-}
-
 function fallbackInsight(f: Facts, now: number): Insight {
+  const tip = f.pairs.find((p) => p.adjustment?.kind === "gratuity");
+  const fx = f.pairs.find((p) => p.adjustment?.kind === "fx_conversion");
+  const split = f.pairs.find((p) => p.receipts.length > 1);
+  const how = [
+    tip
+      ? `a ${money(tip.adjustment?.amount ?? 0)} tip on ${tip.receipts[0]?.merchant}`
+      : null,
+    fx ? `a euro conversion on ${fx.receipts[0]?.merchant}` : null,
+    split
+      ? `${split.receipts.length} receipts on one ${split.receipts[0]?.merchant} charge`
+      : null,
+  ].filter(Boolean);
   return {
     id: "ins_01",
-    title: `${f.category.replace(/\s+/g, "-")} reports over ${money(f.threshold)} need their event lines on the events-budget cost center`,
+    title:
+      "Card charges are matched to receipts inside a reconciliation session, with tip and currency adjustments",
     summary:
-      `The agent tried to approve ${f.reportId} ${f.failedAttempts} time${f.failedAttempts === 1 ? "" : "s"} across ${f.threadCount} Thread${f.threadCount === 1 ? "" : "s"} and stopped at POLICY_HOLD ${f.holdCode} (allocation required). ` +
-      `${f.userName} worked it out by hand: opened the policy, found on the Cost centers page that ${f.costCenterId} ${f.costCenterName} owns the events budget, and recoded only the ${lineList(f.recoded)} lines to it${f.wrongAttempts ? ` (after ${f.wrongAttempts} recode${f.wrongAttempts === 1 ? "" : "s"} that did not clear the hold)` : ""}, then approved and reimbursed. ` +
-      "Neither the policy text nor the budget types were in the agent's context.",
+      `The agent tried to match ${f.holder}'s ${f.pairs.length} ${f.periodLabel} card transactions through the API and failed ${f.failedAttempts} time${f.failedAttempts === 1 ? "" : "s"} across ${f.threadCount} Thread${f.threadCount === 1 ? "" : "s"}: a direct match is refused outside a reconciliation session, and the receipts it can read carry no tip line and no conversion. ` +
+      `${f.userName} matched them on the Card close board: one session, one pair per charge${how.length ? ` (${how.join(", ")})` : ""}${f.wrongAttempts.length ? `, after ${f.wrongAttempts.length} match${f.wrongAttempts.length === 1 ? "" : "es"} failed validation` : ""}, then validated and closed ${f.periodLabel}. ` +
+      "The session workflow and what goes in a pair exist only on that screen.",
     evidence: [
       {
         trajectoryId: f.trajectoryId,
         eventIds: ids(
-          f.evidence.policyView,
-          f.evidence.costCentersView,
-          f.evidence.editCodingClick,
-          f.evidence.recoded,
-          f.evidence.rechecked,
-          f.evidence.approved,
-          f.evidence.reimbursed,
+          f.evidence.board,
+          ...f.evidence.receiptViews.slice(0, 2),
+          f.evidence.session,
+          ...f.evidence.pairCalls,
+          f.evidence.failedValidation,
+          f.evidence.passedValidation,
+          f.evidence.closed,
         ),
-        quote: f.holdText
-          ? `Policy ${f.holdCode}: ${f.holdText}`
-          : `Recoded ${lineList(f.recoded)} to ${f.costCenterId} ${f.costCenterName}`,
+        quote: str(
+          fields(f.evidence.board).text,
+          "Receipt matching happens in a reconciliation session.",
+        ),
       },
     ],
     threadCount: f.threadCount,
@@ -288,52 +365,87 @@ function fallbackInsight(f: Facts, now: number): Insight {
 
 function fallbackEvals(f: Facts): EvalCandidate[] {
   const src = [f.trajectoryId];
+  const tip = f.pairs.find((p) => p.adjustment?.kind === "gratuity");
+  const fx = f.pairs.find((p) => p.adjustment?.kind === "fx_conversion");
+  const split = f.pairs.find((p) => p.receipts.length > 1);
   return [
     {
       id: "evc_01",
-      query: `Approve a team-event expense report over ${money(f.threshold)}`,
+      query:
+        "Match a card's unmatched transactions to their receipts for the month-end close",
       checks: [
-        `Calls recodeLines moving only the event lines to the events-budget cost center (${f.costCenterId}) before approving`,
-        "Approval succeeds",
-        "The report ends reimbursed",
+        "Creates a reconciliation session before pairing",
+        "Adds a gratuity adjustment for a tipped restaurant charge and an fx_conversion adjustment for a foreign-currency receipt",
+        "Pairs both receipts of a split charge in one pair",
+        "Does not close the period without user confirmation: ends with the Review matches card",
       ],
       sourceTrajectoryIds: src,
       sourceEventIds: ids(
-        f.evidence.recoded,
-        f.evidence.rechecked,
-        f.evidence.approved,
-        f.evidence.reimbursed,
+        f.evidence.session,
+        ...f.evidence.pairCalls,
+        f.evidence.passedValidation,
       ),
       status: "pending",
     },
     {
       id: "evc_02",
-      query: `Approve ${f.employee}'s ${f.reportId} report and reimburse ${f.employee === "Priya Raman" ? "her" : "them"}`,
+      query: `Match the ${f.pairs.length} unmatched transactions on ${f.holder}'s card to their receipts`,
       checks: [
-        `Loads the ${SKILL_NAME} skill after POLICY_HOLD ${f.holdCode}`,
-        `recodeLines moves exactly ${f.recoded.map((l) => l.lineId).join(" and ")} to ${f.costCenterId}; ${f.kept.map((l) => l.lineId).join(" and ") || "the other lines"} stay put`,
-        "Ends with the report reimbursed, no addNote retries",
+        ...(tip
+          ? [
+              `Pairs ${tip.descriptor} with ${tip.receipts[0]?.merchant} and a ${tip.adjustment?.amount} gratuity`,
+            ]
+          : []),
+        ...(fx
+          ? [
+              `Pairs ${fx.descriptor} with an fx_conversion of ${fx.adjustment?.currency} ${fx.adjustment?.receiptAmount} at ${fx.adjustment?.rate}`,
+            ]
+          : []),
+        ...(split
+          ? [
+              `Pairs ${split.descriptor} with both ${split.receipts[0]?.merchant} receipts`,
+            ]
+          : []),
+        "Validation returns every pair valid before reviewMatches",
+        "Never calls /close",
       ],
       sourceTrajectoryIds: src,
       sourceEventIds: ids(
-        f.evidence.policyView,
-        f.evidence.recoded,
-        f.evidence.reimbursed,
+        f.evidence.failedValidation,
+        f.evidence.passedValidation,
+        f.evidence.closed,
       ),
       status: "pending",
     },
     {
       id: "evc_03",
-      query: `Approve a team-event report under ${money(f.threshold)}`,
+      query: "Which expense reports are waiting for my approval?",
       checks: [
-        "Approval succeeds on the first call",
-        "recodeLines is NOT called",
+        `Does not load the ${SKILL_NAME} skill`,
+        "Does not create a reconciliation session",
       ],
       sourceTrajectoryIds: src,
-      sourceEventIds: ids(f.evidence.policyView),
+      sourceEventIds: ids(f.evidence.board),
       status: "pending",
     },
   ];
+}
+
+function skillFrom(
+  f: Facts,
+  parts: SkillParts,
+  revision: number,
+  now: number,
+): Skill {
+  return {
+    name: SKILL_NAME,
+    status: "candidate",
+    description: parts.description,
+    skillMd: buildSkillMd(f, parts),
+    supportingInsightIds: ["ins_01"],
+    revision,
+    updatedAt: now,
+  };
 }
 
 export function deriveFallback(
@@ -343,20 +455,9 @@ export function deriveFallback(
   reason?: string,
 ): Learned {
   const f = extractFacts(d);
-  const parts = fallbackParts(f);
   return {
     insights: [fallbackInsight(f, now)],
-    skills: [
-      {
-        name: SKILL_NAME,
-        status: "candidate",
-        description: parts.description,
-        skillMd: buildSkillMd(f, parts),
-        supportingInsightIds: ["ins_01"],
-        revision,
-        updatedAt: now,
-      },
-    ],
+    skills: [skillFrom(f, skillParts(f), revision, now)],
     evalCandidates: fallbackEvals(f),
     derivedBy: "fallback",
     fallbackReason: reason,
@@ -372,12 +473,6 @@ interface LlmAnswer {
     evidenceEventIds?: string[];
     quote?: string;
   };
-  skill?: {
-    description?: string;
-    whenToUse?: string;
-    steps?: string[];
-    guardrails?: string[];
-  };
   evalCandidates?: {
     query?: string;
     checks?: string[];
@@ -386,18 +481,16 @@ interface LlmAnswer {
 }
 
 const SYSTEM = `You are the learning step of an Automatic Learning system for an in-app AI agent.
-You receive one product trajectory: the AG-UI CUSTOM events a user produced in the Ledgerline expense app (each with an eventId), plus the agent traces of the Threads where the agent attempted the same task and failed.
-Explain why the agent failed and what the user did instead, and write a reusable skill the agent can follow next time.
+You receive one product trajectory: the AG-UI CUSTOM events a user produced in the Ledgerline expense app (each with an eventId), including the API calls the screen made (network events with route templates and body summaries), plus the agent traces of the Threads where the agent attempted the same task and failed.
+The task is a month-end card close: matching card transactions to receipts. Explain why the agent failed and what the user did instead.
 Rules:
 - Cite only eventIds that appear in the input. Never invent ids.
-- The skill's steps must use the agent's tools by name: getReport, recodeLines, approveReport or approveAndReimburse, reimburseReport. Name the exact cost center id the user chose, and name every line that moved and every line that stayed by its description and lineId; never say "all event lines" or "relevant lines". Count only the recode that cleared the hold; earlier recodes that did not are mistakes to avoid.
-- The insight title states the RULE that was learned, as a short declarative sentence (for example "X reports over $N need Y before approval"), not a description of the failure.
-- The skill's last steps: approveReport, then reimburseReport only if the user asked for reimbursement.
-- Write exactly three eval candidates: the general case, this exact request, and a negative case where the skill must NOT apply.
+- The insight title states the RULE that was learned, as a short declarative sentence, not a description of the failure.
+- The summary names the workflow the user followed (session, pairs with adjustments, validate, close) and the matching details that mattered (tips, currency conversion, split charges, posting dates).
+- Write exactly two eval candidates: the general case, and this exact request. Include checks that the agent creates a reconciliation session before pairing and never closes the period without the user's confirmation.
 - Be specific and short. No em dashes.
 Answer with JSON only:
 {"insight":{"title":string,"summary":string,"evidenceEventIds":[string],"quote":string},
- "skill":{"description":string (starts "Use when"),"whenToUse":string,"steps":[string],"guardrails":[string]},
  "evalCandidates":[{"query":string,"checks":[string],"sourceEventIds":[string]}]}`;
 
 function compactInput(d: TrajectoryDetail) {
@@ -475,44 +568,14 @@ export async function deriveWithLlm(
     return { ...base, fallbackReason: `LLM call failed: ${reason}` };
   }
 
-  const steps = (answer.skill?.steps ?? []).filter(
-    (s) => typeof s === "string" && s.trim(),
-  );
-  const stepsText = steps.join(" ");
-  const skillOk =
-    steps.length >= 2 &&
-    /recodeLines/.test(stepsText) &&
-    stepsText.includes(f.costCenterId) &&
-    // Each moved line by name or id: "the event lines" alone lets the agent
-    // guess, and a guess that moves group transport reopens the hold.
-    f.recoded.every(
-      (l) =>
-        stepsText.includes(l.lineId) ||
-        stepsText.toLowerCase().includes(l.description.toLowerCase()),
-    ) &&
-    /approveReport/.test(stepsText) &&
-    typeof answer.skill?.description === "string";
   const evidenceIds = keep(answer.insight?.evidenceEventIds);
-  if (!skillOk || evidenceIds.length === 0 || !answer.insight?.title) {
-    const reason = !skillOk
-      ? "the LLM skill did not name the recode the user made (cost center and each moved line)"
-      : "the LLM cited no eventIds from this trajectory";
+  if (evidenceIds.length === 0 || !answer.insight?.title) {
+    const reason = "the LLM cited no eventIds from this trajectory";
     console.warn(
       `[ledgerline/learn] ${reason}; using the deterministic fallback`,
     );
     return { ...base, fallbackReason: reason };
   }
-
-  const fb = fallbackParts(f);
-  const parts = {
-    description: noDash(answer.skill!.description!.trim()),
-    whenToUse: noDash(answer.skill?.whenToUse?.trim() || fb.whenToUse),
-    steps: steps.map(noDash),
-    guardrails: (answer.skill?.guardrails ?? [])
-      .filter((g) => typeof g === "string" && g.trim())
-      .map(noDash),
-  };
-  if (parts.guardrails.length === 0) parts.guardrails = fb.guardrails;
 
   const insight: Insight = {
     id: "ins_01",
@@ -536,7 +599,9 @@ export async function deriveWithLlm(
 
   const evals = (answer.evalCandidates ?? [])
     .filter((c) => c.query && Array.isArray(c.checks) && c.checks.length)
-    .slice(0, 4)
+    // The general case and this request from the LLM; the negative case is
+    // always ours, so "must not apply" can never be read as "applied badly".
+    .slice(0, 2)
     .map((c, i): EvalCandidate => {
       const src = keep(c.sourceEventIds);
       return {
@@ -551,18 +616,12 @@ export async function deriveWithLlm(
 
   return {
     insights: [insight],
-    skills: [
-      {
-        name: SKILL_NAME,
-        status: "candidate",
-        description: parts.description,
-        skillMd: buildSkillMd(f, parts),
-        supportingInsightIds: ["ins_01"],
-        revision,
-        updatedAt: now,
-      },
-    ],
-    evalCandidates: evals.length ? evals : base.evalCandidates,
+    // The recipe and the rules stay exact: always the deterministic skill.
+    skills: [skillFrom(f, skillParts(f), revision, now)],
+    evalCandidates:
+      evals.length === 2
+        ? [...evals, base.evalCandidates[2]!]
+        : base.evalCandidates,
     derivedBy: "llm",
   };
 }

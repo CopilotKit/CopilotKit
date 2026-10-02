@@ -21,6 +21,7 @@ interface Item {
 
 const PAGES: [string, string][] = [
   ["Overview", ""],
+  ["Card close", "reconciliation"],
   ["Expense reports", "reports"],
   ["Approvals", "approvals"],
   ["Reimbursements", "reimbursements"],

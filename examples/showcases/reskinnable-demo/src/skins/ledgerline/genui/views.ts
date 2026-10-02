@@ -35,3 +35,42 @@ export interface ApproveOutcome {
   code?: string;
   reimbursement?: { scheduledFor: string; reference: string } | null;
 }
+
+/** The month-end close review card: what `reviewMatches` returns. */
+export interface ReviewView {
+  kind: "review-card";
+  sessionId: string;
+  card: {
+    id: string;
+    holder: string;
+    last4: string;
+    period: string;
+    periodLabel: string;
+  };
+  status: "open" | "closed";
+  pairs: {
+    transaction: {
+      id: string;
+      postedAt: string;
+      descriptor: string;
+      amount: number;
+    };
+    receipts: import("../data/recon-seed").Receipt[];
+    adjustment: {
+      kind: string;
+      amount?: number;
+      currency?: string;
+      receiptAmount?: number;
+      rate?: number;
+    } | null;
+  }[];
+}
+
+/** What the review card's Confirm came back as. */
+export interface ReviewOutcome {
+  ok: boolean;
+  summary: string;
+  closed?: boolean;
+  valid?: number;
+  total?: number;
+}

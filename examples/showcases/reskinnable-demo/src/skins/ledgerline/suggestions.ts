@@ -1,22 +1,23 @@
 import type { Suggestion } from "@/shell/skin-contract";
 
 /**
- * In demo order. 1 fails (no skill yet); after a reviewer publishes the
- * learned skill, 1 succeeds and 2 shows it generalizes to another report.
+ * In demo order. 1 fails (no skill yet) and Maya matches the receipts by hand
+ * on the Card close board; after a reviewer publishes the learned skill, 2
+ * shows it on a different card (Marcus's five) and hands over the review card.
  */
 export const ledgerlineSuggestions: Suggestion[] = [
   {
-    title: "Approve Priya's offsite report",
+    title: "Match my 6 unmatched card transactions",
     message:
-      "Approve Priya Raman's Q3 team offsite expense report and reimburse her.",
+      "Match the 6 unmatched card transactions on Priya Raman's Visa ending 4417 to their receipts for the September close.",
   },
   {
-    title: "Approve Marcus's summit dinner",
+    title: "Match Marcus's unmatched transactions",
     message:
-      "Approve Marcus Lee's platform team summit dinner report and reimburse him.",
+      "Match the unmatched card transactions on Marcus Lee's Visa ending 8820 to their receipts for the September close.",
   },
   {
-    title: "What's waiting on me?",
-    message: "Which expense reports are waiting for my approval?",
+    title: "What's left for September close?",
+    message: "What's left for the September card close?",
   },
 ];

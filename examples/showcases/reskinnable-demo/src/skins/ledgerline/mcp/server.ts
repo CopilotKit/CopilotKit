@@ -3,12 +3,12 @@
  * (Streamable HTTP, stateless) for ChatGPT developer mode and other MCP hosts,
  * through the presenter's tunnel.
  *
- * MCP APPS. `getReport` and `approveAndReimburse` are bound to one UI resource,
- * `ui://ledgerline/ledgerline-app.html`: the SAME report card and approve card
+ * MCP APPS. `getReport` and `reviewMatches` are bound to one UI resource,
+ * `ui://ledgerline/ledgerline-app.html`: the SAME report card and review card
  * the in-app chat renders (`genui/cards.tsx`), bundled by
  * `scripts/build-ledgerline-mcp-app.mjs`. The write is app-only
- * (`confirmApproveAndReimburse`): the model opens the card, and only a person
- * clicking in it approves and pays. `registerAppTool` writes both the current
+ * (`confirmMatches`): the model opens the card, and only a person
+ * clicking Confirm in it closes the month. `registerAppTool` writes both the current
  * `_meta.ui.resourceUri` and the legacy key, so one registration serves every
  * host. ChatGPT issues the same widget-bound call twice for one prompt; with
  * `collapseRepeats` an identical call within 20 seconds gets an empty view.
@@ -31,11 +31,12 @@ import {
 import { z } from "zod";
 import type { HandlerName, ToolOutput } from "./handlers";
 import { runTool } from "./handlers";
+import { LEDGERLINE_API_DESCRIPTION } from "../data/agent-api-index";
 
 const INSTRUCTIONS =
-  "Ledgerline is Halcyon Labs' expense and approvals app. Use these tools to find, approve and reimburse expense reports for Maya Chen (Finance Operations). " +
-  "Never change a report's cost center unless the user or a loaded learned skill names the cost center to use. " +
-  "When an approval is refused, check loadLearnedSkill for a published learned skill that matches before giving up.";
+  "Ledgerline is Halcyon Labs' expense and card app. Help Maya Chen (Finance Operations) with expense reports and the month-end card close. " +
+  "Before a task, check loadLearnedSkill for a published learned skill that matches it and follow it. Otherwise use ledgerlineApi; if you cannot finish after about six attempts, say plainly what failed. " +
+  "You never close a period yourself: reviewMatches hands the matches to the user, and only their Confirm in the card closes it.";
 
 export const LEDGERLINE_APP_URI = "ui://ledgerline/ledgerline-app.html";
 
@@ -127,7 +128,7 @@ export function createLedgerlineMcpServer({
     LEDGERLINE_APP_URI,
     {
       description:
-        "Ledgerline's report card and approve-and-reimburse card, the same components the Ledgerline web app renders.",
+        "Ledgerline's report card and Review matches card, the same components the Ledgerline web app renders.",
     },
     async () => ({
       contents: [
@@ -258,50 +259,35 @@ export function createLedgerlineMcpServer({
     visibility: "model",
     invoking: "Reading the report",
   });
-  regApp("approveAndReimburse", {
-    title: "Approve and reimburse",
+  regApp("reviewMatches", {
+    title: "Review matches",
     description:
-      "Open Ledgerline's approve-and-reimburse card. Refused with POLICY_HOLD while the report has an open policy hold. The card shows the cost center and the payment; the report is approved and paid only when the user confirms in the card. Do not ask for confirmation in chat first.",
-    inputSchema: { reportId: z.string() },
+      "Hand the matches you prepared in a reconciliation session to the user: opens Ledgerline's Review matches card. You never close a period; only the user's Confirm in the card validates and closes it. Do not ask for confirmation in chat first.",
+    inputSchema: { sessionId: z.string() },
     readOnly: true,
     visibility: "model",
-    invoking: "Preparing the approval",
+    invoking: "Preparing the review",
   });
-  regApp("confirmApproveAndReimburse", {
-    title: "Confirm approve and reimburse",
+  regApp("confirmMatches", {
+    title: "Confirm matches",
     description:
-      "Called only by the approve-and-reimburse card when the user confirms: approves the report, then schedules its ACH reimbursement.",
-    inputSchema: { reportId: z.string() },
+      "Called only by the Review matches card when the user confirms: validates the session, then closes the period.",
+    inputSchema: { sessionId: z.string() },
     readOnly: false,
     visibility: "app",
   });
-  reg("approveReport", {
-    title: "Approve an expense report",
-    description:
-      "Approve a submitted expense report. Refused while a policy hold is open.",
-    inputSchema: { reportId: z.string() },
-    readOnly: false,
-  });
-  reg("listCostCenters", {
-    title: "List cost centers",
-    description: "List Ledgerline's cost centers: id, name and owner.",
-    inputSchema: {},
-    readOnly: true,
-  });
-  reg("recodeLines", {
-    title: "Recode report lines",
-    description:
-      "Recode expense report lines to other cost centers (the budgets they are charged to). Use the lineIds from getReport. This moves spend onto another team's budget, so only do it when the user or a loaded learned skill names which lines and which cost center.",
+  reg("ledgerlineApi", {
+    title: "Call the Ledgerline API",
+    description: LEDGERLINE_API_DESCRIPTION,
     inputSchema: {
-      reportId: z.string(),
-      lines: z
-        .array(
-          z.object({
-            lineId: z.string(),
-            costCenterId: z.string().describe("Cost center id, e.g. CC-200."),
-          }),
-        )
-        .min(1),
+      method: z.enum(["GET", "POST", "PATCH", "PUT", "DELETE"]),
+      path: z.string().describe("e.g. /reports/EXP-2291"),
+      body: z
+        .union([z.record(z.string(), z.unknown()), z.string()])
+        .optional()
+        .describe(
+          "JSON body (an object, or a JSON string), for endpoints that take one.",
+        ),
     },
     readOnly: false,
   });
@@ -317,12 +303,6 @@ export function createLedgerlineMcpServer({
     description:
       "Add a note to an expense report, visible to the submitter and approvers.",
     inputSchema: { reportId: z.string(), text: z.string() },
-    readOnly: false,
-  });
-  reg("reimburseReport", {
-    title: "Reimburse an expense report",
-    description: "Schedule ACH reimbursement for an approved expense report.",
-    inputSchema: { reportId: z.string() },
     readOnly: false,
   });
   reg("loadLearnedSkill", {

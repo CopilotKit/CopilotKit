@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ShieldAlert } from "lucide-react";
+import { ArrowRight, CreditCard, ShieldAlert } from "lucide-react";
+import { useCardSummaries } from "../data/recon-client";
 import { cn } from "@/lib/utils";
 import { useSkin } from "@/shell/skin-provider";
 import { useSkinHref } from "@/shell/skin-path";
@@ -67,6 +68,8 @@ export function OverviewPage() {
           {formatDate(run)}.
         </p>
       </div>
+
+      <CloseCard href={skinHref("reconciliation")} />
 
       <StatStrip>
         <Stat
@@ -234,5 +237,55 @@ export function OverviewPage() {
         </section>
       </div>
     </div>
+  );
+}
+
+/** The month-end close, first on the page: how many card charges still need a receipt. */
+function CloseCard({ href }: { href: string }) {
+  const cards = useCardSummaries();
+  if (!cards)
+    return <div className="mb-6 h-[76px] rounded-[10px] bg-surface-muted" />;
+  const open = cards.filter((c) => !c.closed && c.unmatched > 0);
+  const total = open.reduce((n, c) => n + c.unmatched, 0);
+  const first = open[0];
+  if (!first)
+    return (
+      <div className="mb-6 flex items-center gap-3 rounded-[10px] border border-positive/25 bg-positive-soft px-4 py-3 text-[13px]">
+        <CreditCard className="h-4 w-4 text-positive" />
+        <span className="font-semibold">Month-end close</span>
+        <span className="text-ink-muted">
+          Every card is closed for {cards[0]?.periodLabel}.
+        </span>
+      </div>
+    );
+  return (
+    <Link
+      href={`${href}?card=${first.id}`}
+      data-action="Open month-end close"
+      data-testid="overview-close-card"
+      className="group mb-6 flex items-center gap-4 rounded-[10px] border border-hairline bg-surface px-4 py-3.5 transition-[border-color,box-shadow] hover:border-brand/40 hover:shadow-[0_2px_10px_-4px_hsl(225_40%_30%/0.18)]"
+    >
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[9px] bg-brand-soft text-brand">
+        <CreditCard className="h-[18px] w-[18px]" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[14px] font-semibold">Month-end close</span>
+          <span className="ll-num rounded-full bg-[hsl(var(--ll-amber)/0.16)] px-2 py-0.5 text-[11.5px] font-medium text-[hsl(32_80%_30%)]">
+            {total} unmatched
+          </span>
+        </div>
+        <div className="mt-0.5 truncate text-[12.5px] text-ink-muted">
+          {first.periodLabel} card charges waiting for receipts:{" "}
+          {open
+            .map((c) => `${c.holder} •• ${c.last4} (${c.unmatched})`)
+            .join(", ")}
+        </div>
+      </div>
+      <span className="flex items-center gap-1 text-[13px] font-medium text-brand">
+        Reconcile{" "}
+        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+      </span>
+    </Link>
   );
 }

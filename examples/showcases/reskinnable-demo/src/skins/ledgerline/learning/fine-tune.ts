@@ -7,6 +7,8 @@
 
 import type { TrajectoryDetail } from "./types";
 import { extractFacts } from "./learn";
+import type { Facts } from "./learn";
+import { SKILL_NAME } from "./types";
 
 export type FineTuneTarget = "thinking-machines" | "sagemaker";
 
@@ -16,7 +18,7 @@ export interface FineTuneExample {
 }
 
 const SYSTEM =
-  "You are the Ledgerline expense assistant. Use the tools to read, approve and reimburse expense reports.";
+  "You are the Ledgerline assistant. Use the tools to prepare month-end card closes; the user confirms every close.";
 
 function call(id: string, name: string, args: Record<string, unknown>) {
   return {
@@ -26,97 +28,103 @@ function call(id: string, name: string, args: Record<string, unknown>) {
   };
 }
 
-type Lines = { recoded: { lineId: string }[]; kept: { lineId: string }[] };
-
+/** The corrected run: the recipe the person followed, as the agent's tool calls. */
 function exampleFor(
   request: string,
-  reportId: string,
-  costCenterId: string,
-  lines: Lines,
-  amount: number | undefined,
-  reimburse: boolean,
+  f: Facts,
   meta: Record<string, unknown>,
 ): FineTuneExample {
+  const session = `rs_${f.last4}_${f.period.slice(5)}_001`;
+  const api = (id: string, method: string, path: string, body?: unknown) =>
+    call(
+      id,
+      "ledgerlineApi",
+      body === undefined ? { method, path } : { method, path, body },
+    );
   const m: Record<string, unknown>[] = [
     { role: "system", content: SYSTEM },
     { role: "user", content: request },
     {
       role: "assistant",
       content: null,
-      tool_calls: [call("c1", "getReport", { reportId })],
+      tool_calls: [call("c0", "loadLearnedSkill", { name: SKILL_NAME })],
     },
     {
       role: "tool",
-      tool_call_id: "c1",
-      content: JSON.stringify({
-        id: reportId,
-        category: "Team event",
-        total: amount,
-        holds: [
-          { code: "POL-114", status: "open", label: "allocation required" },
-        ],
-        lines: [...lines.recoded, ...lines.kept].map((l) => ({
-          lineId: l.lineId,
-        })),
-      }),
+      tool_call_id: "c0",
+      content: JSON.stringify({ name: SKILL_NAME, loaded: true }),
     },
     {
       role: "assistant",
       content: null,
       tool_calls: [
-        call("c2", "recodeLines", {
-          reportId,
-          lines: lines.recoded.map((l) => ({ lineId: l.lineId, costCenterId })),
+        api("c1", "POST", "/reconciliation/sessions", {
+          period: f.period,
+          cardId: f.cardId,
         }),
       ],
     },
     {
       role: "tool",
-      tool_call_id: "c2",
-      content: JSON.stringify({
-        id: reportId,
-        lines: lines.recoded.map((l) => ({
-          lineId: l.lineId,
-          costCenter: { id: costCenterId },
-        })),
-        holds: [{ code: "POL-114", status: "resolved" }],
-      }),
-    },
-    {
-      role: "assistant",
-      content: null,
-      tool_calls: [call("c3", "approveReport", { reportId })],
-    },
-    {
-      role: "tool",
-      tool_call_id: "c3",
-      content: JSON.stringify({ id: reportId, status: "approved" }),
+      tool_call_id: "c1",
+      content: JSON.stringify({ id: session, status: "open" }),
     },
   ];
-  if (reimburse) {
+  f.pairs.forEach((p, i) => {
+    const id = `p${i + 1}`;
     m.push(
       {
         role: "assistant",
         content: null,
-        tool_calls: [call("c4", "reimburseReport", { reportId })],
+        tool_calls: [
+          api(id, "POST", `/reconciliation/sessions/${session}/pairs`, {
+            transactionId: p.transactionId,
+            receiptIds: p.receipts.map((r) => r.id),
+            ...(p.adjustment ? { adjustment: p.adjustment } : {}),
+          }),
+        ],
       },
       {
         role: "tool",
-        tool_call_id: "c4",
-        content: JSON.stringify({ id: reportId, status: "reimbursed" }),
+        tool_call_id: id,
+        content: JSON.stringify({ id: session, status: "open" }),
       },
     );
-  }
-  m.push({
-    role: "assistant",
-    content: `Recoded the event lines of ${reportId} to ${costCenterId} Events & Offsites to clear hold POL-114, approved it${reimburse ? " and scheduled the reimbursement" : ""}.`,
   });
+  m.push(
+    {
+      role: "assistant",
+      content: null,
+      tool_calls: [
+        api("c2", "POST", `/reconciliation/sessions/${session}/validate`),
+      ],
+    },
+    {
+      role: "tool",
+      tool_call_id: "c2",
+      content: JSON.stringify({ valid: f.pairs.length, total: f.pairs.length }),
+    },
+    {
+      role: "assistant",
+      content: null,
+      tool_calls: [call("c3", "reviewMatches", { sessionId: session })],
+    },
+    {
+      role: "tool",
+      tool_call_id: "c3",
+      content: JSON.stringify({ closed: true }),
+    },
+    {
+      role: "assistant",
+      content: `All ${f.pairs.length} of ${f.holder}'s ${f.periodLabel} charges are matched and valid. They are in the review card for your confirmation; nothing closes until you confirm.`,
+    },
+  );
   return { messages: m, metadata: meta };
 }
 
 export function buildExamples(d: TrajectoryDetail | null): FineTuneExample[] {
   if (!d) return [];
-  let f;
+  let f: Facts;
   try {
     f = extractFacts(d);
   } catch {
@@ -124,52 +132,30 @@ export function buildExamples(d: TrajectoryDetail | null): FineTuneExample[] {
   }
   const userAsk =
     d.threads.flatMap((t) => t.messages).find((m) => m.role === "user")?.text ??
-    `Approve ${f.employee}'s ${f.reportId} report and reimburse them.`;
-  const total = (
-    d.events.find((e) => e.event.name === "screen.context")?.event.value
-      .fields as Record<string, unknown> | undefined
-  )?.total;
-  const amount = typeof total === "number" ? total : undefined;
+    `Match the unmatched transactions on ${f.holder}'s card to their receipts.`;
   const meta = (variant: string) => ({
     sourceTrajectoryId: f.trajectoryId,
     sourceEventIds: [
-      f.evidence.policyView,
-      f.evidence.costCentersView,
-      f.evidence.recoded,
-      f.evidence.approved,
-      f.evidence.reimbursed,
+      f.evidence.session,
+      ...f.evidence.pairCalls,
+      f.evidence.passedValidation,
+      f.evidence.closed,
     ]
       .filter(Boolean)
       .map((e) => e!.eventId),
     variant,
   });
   return [
+    exampleFor(userAsk, f, meta("captured request")),
     exampleFor(
-      userAsk,
-      f.reportId,
-      f.costCenterId,
+      `Reconcile ${f.holder}'s card for ${f.periodLabel}.`,
       f,
-      amount,
-      true,
-      meta("captured request"),
-    ),
-    exampleFor(
-      `Approve ${f.reportId}.`,
-      f.reportId,
-      f.costCenterId,
-      f,
-      amount,
-      false,
-      meta("approve only"),
-    ),
-    exampleFor(
-      `Can you get ${f.employee}'s team event report approved and paid out?`,
-      f.reportId,
-      f.costCenterId,
-      f,
-      amount,
-      true,
       meta("paraphrase"),
+    ),
+    exampleFor(
+      `Can you get the ${f.periodLabel} close done for Visa ${f.last4}?`,
+      f,
+      meta("card number"),
     ),
   ];
 }

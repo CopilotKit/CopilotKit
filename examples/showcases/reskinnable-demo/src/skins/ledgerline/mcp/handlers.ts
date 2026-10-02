@@ -12,19 +12,12 @@ import {
   agentReport,
   agentReportRow,
   holdRefusal,
-  agentCostCenters,
-  agentRecode,
 } from "../data/agent-view";
+import { agentApi, confirmMatches, reviewView } from "../data/agent-api";
 import type { ReportStatus } from "../data/types";
 import * as learning from "../learning/store";
 import { SKILL_NAME } from "../learning/types";
-import { nextPaymentRun } from "../data/derive";
-import { formatDate, formatMoney } from "../data/format";
-import type {
-  ApproveCardView,
-  ApproveOutcome,
-  ReportCardView,
-} from "../genui/views";
+import type { ReportCardView } from "../genui/views";
 
 export type ToolOutput = Record<string, unknown>;
 
@@ -47,7 +40,7 @@ function refusal(error: unknown, reportId?: string): ToolOutput {
       }
       return out;
     }
-    return { error: error.code, message: error.message };
+    return { error: error.code, message: error.message, ...error.detail };
   }
   throw error;
 }
@@ -73,42 +66,31 @@ export const handlers = {
       return refusal(e, reportId);
     }
   },
-  approveReport({ reportId }: { reportId: string }): ToolOutput {
-    try {
-      const r = ledger.approveReport(up(reportId), "Maya Chen (via ChatGPT)");
-      return {
-        id: r.id,
-        status: r.status,
-        approvedAt: r.approvedAt,
-        employee: r.employeeName,
-        total: r.total,
-      };
-    } catch (e) {
-      return refusal(e, reportId);
-    }
-  },
-  listCostCenters(): ToolOutput {
-    return agentCostCenters();
-  },
-  recodeLines({
-    reportId,
-    lines,
+  /** The generic integration-API tool: the same dispatcher as in-app. */
+  ledgerlineApi({
+    method,
+    path,
+    body,
   }: {
-    reportId: string;
-    lines: { lineId: string; costCenterId: string }[];
+    method: string;
+    path: string;
+    body?: unknown;
   }): ToolOutput {
-    try {
-      const { report } = ledger.recodeLines(
-        up(reportId),
-        (lines ?? []).map((l) => ({
-          lineId: up(l.lineId),
-          costCenterId: up(l.costCenterId),
-        })),
-      );
-      return agentRecode(report);
-    } catch (e) {
-      return refusal(e, reportId);
-    }
+    const res = agentApi(method ?? "", path ?? "", body);
+    const out: ToolOutput =
+      "error" in res.body ? { ...res.body, status: res.status } : { ...res };
+    // A host that never sees our prompt finds the published skill from the refusal.
+    const failed =
+      "error" in res.body ||
+      (typeof res.body.valid === "number" && res.body.valid !== res.body.total);
+    const skill = learning.publishedSkills().find((s) => s.name === SKILL_NAME);
+    if (failed && skill)
+      out.learnedSkill = {
+        name: skill.name,
+        description: skill.description,
+        hint: `A published learned skill covers this. Call loadLearnedSkill with name "${skill.name}" and follow it.`,
+      };
+    return out;
   },
   searchPolicies({ query }: { query: string }): ToolOutput {
     return agentPolicies(ledger.searchPolicies(query));
@@ -121,72 +103,23 @@ export const handlers = {
       return refusal(e, reportId);
     }
   },
-  reimburseReport({ reportId }: { reportId: string }): ToolOutput {
+  /** Opens the Review matches card; nothing closes until the user confirms in it. */
+  reviewMatches({ sessionId }: { sessionId: string }): ToolOutput {
     try {
-      const r = ledger.reimburseReport(up(reportId));
-      return { id: r.id, status: r.status, reimbursement: r.reimbursement };
-    } catch (e) {
-      return refusal(e, reportId);
-    }
-  },
-  /** Opens the approve-and-reimburse card; the write is confirmApproveAndReimburse. */
-  approveAndReimburse({ reportId }: { reportId: string }): ToolOutput {
-    try {
-      const r = ledger.getReport(up(reportId));
-      // While a hold is open the card does not open: the call is refused with
-      // the same POLICY_HOLD as approveReport, so the host sees the failure.
-      const open = r.holds.find((h) => h.status === "open");
-      if (open) {
-        return refusal(
-          new LedgerError(
-            "POLICY_HOLD",
-            `${r.id} cannot be approved while policy hold ${open.code} is open.`,
-            { code: open.code },
-          ),
-          r.id,
-        );
-      }
-      const view: ApproveCardView = {
-        kind: "approve-card",
-        report: agentReport(r),
-        paymentRun: nextPaymentRun(ledger.snapshot().today),
-      };
       return {
-        ...view,
-        note: "The approve-and-reimburse card is on screen. Nothing is approved or paid until the user confirms in the card; do not ask in chat.",
+        ...reviewView(String(sessionId ?? "")),
+        note: "The Review matches card is on screen. You have not closed anything; only the user's Confirm in the card validates and closes the month. Tell the user the matches are ready for their review and stop.",
       };
     } catch (e) {
-      return refusal(e, reportId);
+      return refusal(e);
     }
   },
-  /** App-only: the card's Approve and reimburse button. */
-  confirmApproveAndReimburse({ reportId }: { reportId: string }): ToolOutput {
-    const rid = up(reportId);
-    let outcome: ApproveOutcome;
+  /** App-only: the review card's Confirm button. Validates, then closes. */
+  confirmMatches({ sessionId }: { sessionId: string }): ToolOutput {
     try {
-      const approved = ledger.approveReport(rid, "Maya Chen (via ChatGPT)");
-      const paid = ledger.reimburseReport(rid);
-      const reimb = paid.reimbursement ?? null;
-      outcome = {
-        ok: true,
-        summary: `Approved ${rid} and scheduled ${formatMoney(approved.total)} to ${approved.employeeName} by ACH${reimb ? ` for ${formatDate(reimb.scheduledFor)}, ${reimb.reference}` : ""}.`,
-        reimbursement: reimb
-          ? { scheduledFor: reimb.scheduledFor, reference: reimb.reference }
-          : null,
-      };
-      return { ...outcome, id: rid, status: "reimbursed" };
+      return confirmMatches(String(sessionId ?? ""));
     } catch (e) {
-      if (!(e instanceof LedgerError)) throw e;
-      outcome = {
-        ok: false,
-        error: e.code,
-        code: typeof e.detail.code === "string" ? e.detail.code : undefined,
-        summary:
-          e.code === "POLICY_HOLD"
-            ? `Not approved: policy hold ${String(e.detail.code)} is still open on ${rid}.`
-            : `Not done: ${e.message}`,
-      };
-      return { ...outcome };
+      return refusal(e);
     }
   },
   loadLearnedSkill({ name }: { name?: string }): ToolOutput {

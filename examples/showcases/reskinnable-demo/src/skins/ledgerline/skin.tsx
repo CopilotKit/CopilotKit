@@ -5,6 +5,7 @@ import {
   BadgeCheck,
   BookOpen,
   Building2,
+  CreditCard,
   LayoutDashboard,
   Receipt,
   Users,
@@ -22,6 +23,7 @@ import { ApprovalsPage } from "./pages/approvals";
 import { ReimbursementsPage } from "./pages/reimbursements";
 import { CostCentersPage } from "./pages/cost-centers";
 import { PeoplePage } from "./pages/people";
+import { ReconciliationPage } from "./pages/reconciliation";
 import { ledgerlineCatalog } from "./catalog";
 import { ledgerlineSuggestions } from "./suggestions";
 import { LEDGERLINE_DESIGN_SKILL } from "./design-skill";
@@ -31,6 +33,7 @@ import { useThreadsHiddenBefore } from "./thread-list";
 
 const nav: NavRoute[] = [
   { segment: "", label: "Overview", icon: LayoutDashboard },
+  { segment: "reconciliation", label: "Card close", icon: CreditCard },
   { segment: "reports", label: "Expense reports", icon: Receipt },
   { segment: "approvals", label: "Approvals", icon: BadgeCheck },
   { segment: "reimbursements", label: "Reimbursements", icon: Wallet },
@@ -42,6 +45,7 @@ const nav: NavRoute[] = [
 /** A `Map`, never a plain object: `segments` is untrusted URL input. */
 const PAGES: Map<string, ComponentType> = new Map([
   ["", OverviewPage],
+  ["reconciliation", ReconciliationPage],
   ["reports", ReportsPage],
   ["approvals", ApprovalsPage],
   ["reimbursements", ReimbursementsPage],
@@ -89,15 +93,12 @@ function resolvePage(segments: string[]): ComponentType | null {
 const TOOL_LABELS: Record<string, string> = {
   listReports: "Listing reports",
   getReport: "Reading the report",
-  approveReport: "Approving the report",
-  recodeLines: "Recoding report lines",
-  listCostCenters: "Listing cost centers",
+  ledgerlineApi: "Calling the Ledgerline API",
   searchPolicies: "Searching policies",
-  addNote: "Adding a note",
-  reimburseReport: "Scheduling reimbursement",
   loadLearnedSkill: "Loading a learned skill",
   openReport: "Opening the report",
-  approveAndReimburse: "Preparing the approval",
+  openCardClose: "Opening Card close",
+  reviewMatches: "Handing the matches over for review",
 };
 
 // NOTE: no agent here; it is registered server-side in agent-registry.ts.

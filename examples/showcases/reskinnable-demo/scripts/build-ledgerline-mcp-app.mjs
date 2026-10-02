@@ -57,6 +57,7 @@ ${themeBlock}
 @source "./main.tsx";
 @source "../genui";
 @source "../components/ui.tsx";
+@source "../components/receipt.tsx";
 html { font-size: 15px; }
 html, body {
   margin: 0;

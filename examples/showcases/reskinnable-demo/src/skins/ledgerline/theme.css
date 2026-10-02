@@ -112,3 +112,54 @@
   > [data-testid="copilot-assistant-toolbar"] {
   display: none;
 }
+
+/* Reconcile board: a match landing, a sheet arriving, a result popping in. */
+@keyframes ll-landed {
+  0% {
+    box-shadow: 0 0 0 0 hsl(var(--brand) / 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 10px hsl(var(--brand) / 0);
+  }
+}
+.theme-ledgerline .ll-landed {
+  animation: ll-landed 650ms ease-out;
+}
+@keyframes ll-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.theme-ledgerline .ll-pop-in {
+  animation: ll-pop-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes ll-check-sweep {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.theme-ledgerline .ll-checking {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(var(--brand) / 0.1) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: ll-check-sweep 1.1s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-ledgerline .ll-landed,
+  .theme-ledgerline .ll-pop-in,
+  .theme-ledgerline .ll-checking {
+    animation: none;
+  }
+}

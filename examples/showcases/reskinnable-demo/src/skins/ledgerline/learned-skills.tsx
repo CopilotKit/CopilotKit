@@ -58,7 +58,7 @@ function catalogText(skills: Skill[] | null): string {
   return JSON.stringify({
     source: "Automatic Learning, published skills for Ledgerline",
     howToUse:
-      "When a refusal or the report in front of you matches a skill's description, call loadLearnedSkill with its name before acting, then follow what it returns.",
+      "When the task in front of you matches a skill's description, call loadLearnedSkill with its name before acting, then follow what it returns.",
     skills: skills.map((s) => ({
       name: s.name,
       description: s.description,
