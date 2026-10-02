@@ -213,6 +213,8 @@ const bot = createChannel({
   // keys its lifecycle (and, for managed Channels, its activation config) by it.
   name: "teams-assistant",
   adapters: [teams({ port })],
+  // Cards use local data and inline images; reject remote renderer fetches.
+  render: { allowImageUrl: () => false },
   agent: (threadId: string) => {
     const agent = new HttpAgent({ url: runtimeAgentUrl });
     agent.threadId = threadId;

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createChannel } from "@copilotkit/channels";
 
 const fakes = vi.hoisted(() => {
   const stop = vi.fn(async () => {
@@ -12,7 +13,6 @@ const fakes = vi.hoisted(() => {
     ready,
     stop,
     listener,
-    closeBrowser: vi.fn(async () => {}),
     createCopilotNodeListener: vi.fn(() => listener),
     // Captures the options `new CopilotRuntime(...)` was constructed with so
     // the test can assert the runtime carries `channels`.
@@ -29,6 +29,7 @@ const fakes = vi.hoisted(() => {
     })),
     bot: {
       onMention: vi.fn(),
+      onMessage: vi.fn(),
       onModalSubmit: vi.fn(),
       onThreadStarted: vi.fn(),
     },
@@ -52,6 +53,10 @@ vi.mock("@copilotkit/runtime/v2/node", () => ({
   createCopilotNodeListener: fakes.createCopilotNodeListener,
 }));
 vi.mock("./tools/index.js", () => ({ appTools: [] }));
+vi.mock("./tools/render-carousel.js", () => ({
+  isCarouselRequest: () => false,
+  renderCatalogCarousel: vi.fn(),
+}));
 vi.mock("./context/app-context.js", () => ({ appContext: [] }));
 vi.mock("./commands/index.js", () => ({ appCommands: [] }));
 vi.mock("./sender-context.js", () => ({ senderContext: vi.fn() }));
@@ -59,7 +64,6 @@ vi.mock("./modals/file-issue.js", () => ({
   fileIssueSubmit: vi.fn(),
   FILE_ISSUE_CALLBACK: "file-issue",
 }));
-vi.mock("./render/browser.js", () => ({ closeBrowser: fakes.closeBrowser }));
 
 const envKeys = [
   "AGENT_URL",
@@ -67,6 +71,9 @@ const envKeys = [
   "COPILOTKIT_INTELLIGENCE_WS_URL",
   "COPILOTKIT_API_KEY",
   "CPK_INTELLIGENCE_API_KEY",
+  "INTELLIGENCE_API_URL",
+  "INTELLIGENCE_GATEWAY_WS_URL",
+  "INTELLIGENCE_CHANNEL_NAME",
 ] as const;
 
 describe("managed channel entrypoint", () => {
@@ -106,6 +113,14 @@ describe("managed channel entrypoint", () => {
     await import("./managed.js");
     await vi.waitFor(() => expect(sigterm).toBeTypeOf("function"));
 
+    // The default managed entrypoint must use the same deny-all renderer URL
+    // policy as the optional direct entrypoint; cards use bundled assets.
+    const render = vi.mocked(createChannel).mock.lastCall?.[0].render;
+    expect(render?.allowImageUrl?.("https://cdn.example.com/image.png")).toBe(
+      false,
+    );
+    expect(render?.allowImageUrl?.("http://127.0.0.1/image.png")).toBe(false);
+
     // The canonical name reaches the client. A key that is merely present in
     // the environment proves nothing; this proves it was consumed.
     expect(fakes.CopilotKitIntelligence).toHaveBeenCalledWith(
@@ -133,7 +148,6 @@ describe("managed channel entrypoint", () => {
     sigterm!();
     await vi.waitFor(() => expect(exit).toHaveBeenCalled());
     expect(fakes.stop).toHaveBeenCalledOnce();
-    expect(fakes.closeBrowser).toHaveBeenCalledOnce();
     // stop() threw, so shutdown exits nonzero.
     expect(exit).toHaveBeenCalledWith(1);
   });
@@ -163,5 +177,79 @@ describe("managed channel entrypoint", () => {
         expect.objectContaining({ apiKey: "cpk-legacy" }),
       ),
     );
+  });
+
+  it("accepts the OpenTag Intelligence URL aliases", async () => {
+    for (const key of envKeys) previousEnv.set(key, process.env[key]);
+    delete process.env.CPK_INTELLIGENCE_API_KEY;
+    delete process.env.COPILOTKIT_API_KEY;
+    delete process.env.COPILOTKIT_INTELLIGENCE_URL;
+    delete process.env.COPILOTKIT_INTELLIGENCE_WS_URL;
+    process.env.AGENT_URL = "http://agent.test/run";
+    process.env.CPK_INTELLIGENCE_API_KEY = "cpk-opentag";
+    process.env.INTELLIGENCE_API_URL = "http://localhost:4201";
+    process.env.INTELLIGENCE_GATEWAY_WS_URL = "ws://localhost:4401";
+    process.env.INTELLIGENCE_CHANNEL_NAME = "open-tag";
+
+    vi.spyOn(process, "on").mockImplementation(
+      (() => process) as typeof process.on,
+    );
+    vi.spyOn(process, "exit").mockImplementation(
+      (() => undefined as never) as typeof process.exit,
+    );
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    fakes.ready.mockClear();
+    fakes.CopilotKitIntelligence.mockClear();
+    vi.resetModules();
+    await import("./managed.js");
+
+    await vi.waitFor(() =>
+      expect(fakes.CopilotKitIntelligence).toHaveBeenCalledWith({
+        apiUrl: "http://localhost:4201",
+        wsUrl: "ws://localhost:4401",
+        apiKey: "cpk-opentag",
+      }),
+    );
+    expect(fakes.ready).toHaveBeenCalledOnce();
+  });
+
+  it("runs the agent when the user asks for a carousel in plain text", async () => {
+    for (const key of envKeys) previousEnv.set(key, process.env[key]);
+    process.env.AGENT_URL = "http://agent.test/run";
+    process.env.CPK_INTELLIGENCE_API_KEY = "cpk-test";
+    fakes.bot.onMention.mockClear();
+    vi.spyOn(process, "on").mockImplementation(
+      (() => process) as typeof process.on,
+    );
+    vi.spyOn(process, "exit").mockImplementation(
+      (() => undefined as never) as typeof process.exit,
+    );
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    vi.resetModules();
+    await import("./managed.js");
+    await vi.waitFor(() => expect(fakes.bot.onMention).toHaveBeenCalledOnce());
+
+    const onTurn = fakes.bot.onMention.mock.calls[0]?.[0] as (args: {
+      thread: {
+        runAgent: ReturnType<typeof vi.fn>;
+        post: ReturnType<typeof vi.fn>;
+      };
+      message: { text: string };
+    }) => Promise<void>;
+    const runAgent = vi.fn().mockResolvedValue(undefined);
+    const post = vi.fn();
+    await onTurn({
+      thread: { runAgent, post },
+      message: { text: "show me a product carousel" },
+    });
+
+    expect(runAgent).toHaveBeenCalledOnce();
+    expect(post).not.toHaveBeenCalled();
   });
 });

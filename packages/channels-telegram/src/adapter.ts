@@ -12,12 +12,15 @@ import type {
   ProviderActor,
   UserQuery,
   CommandSpec,
+  StageFileArgs,
+  StagedFile,
 } from "@copilotkit/channels-core";
 import type {
   ChannelNode,
   ThreadMessage,
   EmojiValue,
   EphemeralResult,
+  PostFileResult,
 } from "@copilotkit/channels-ui";
 import { toPlatformEmoji } from "@copilotkit/channels-ui";
 import { TelegramConversationStore } from "./conversation-store.js";
@@ -36,6 +39,7 @@ import type {
   TelegramInlineButton,
   TelegramMessageRef,
   TelegramPayload,
+  TelegramPhoto,
 } from "./types.js";
 
 /**
@@ -284,43 +288,20 @@ export class TelegramAdapter implements PlatformAdapter {
           }),
         p.text,
       );
-      // Photos ride along as separate messages.
-      for (const photo of photos) {
-        await this.bot.api.sendPhoto(t.chatId, photo.url, {
-          ...(photo.caption ? { caption: photo.caption } : {}),
-          ...(t.messageThreadId !== undefined
-            ? { message_thread_id: t.messageThreadId }
-            : {}),
-        });
-      }
+      await this.sendPhotos(t, photos, {});
       chatId = sent.chat.id;
       messageId = sent.message_id;
     } else if (photos.length > 0) {
       // Image-only render: skip the empty sendMessage (Telegram rejects an
       // empty text body with a "message text is empty" error that the format
       // fallback does NOT catch) and post the photo(s) instead. The first
-      // photo carries the inline keyboard and reply-to; the ref references it.
-      const [first, ...rest] = photos;
-      const sent = await this.bot.api.sendPhoto(t.chatId, first!.url, {
-        ...(first!.caption ? { caption: first!.caption } : {}),
-        ...(t.messageThreadId !== undefined
-          ? { message_thread_id: t.messageThreadId }
-          : {}),
-        ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-        ...(t.replyToMessageId !== undefined
-          ? { reply_parameters: { message_id: t.replyToMessageId } }
-          : {}),
+      // sendable photo carries the message-level keyboard and reply-to.
+      const first = await this.sendPhotos(t, photos, {
+        replyMarkup,
+        replyTo: true,
       });
-      for (const photo of rest) {
-        await this.bot.api.sendPhoto(t.chatId, photo.url, {
-          ...(photo.caption ? { caption: photo.caption } : {}),
-          ...(t.messageThreadId !== undefined
-            ? { message_thread_id: t.messageThreadId }
-            : {}),
-        });
-      }
-      chatId = sent.chat.id;
-      messageId = sent.message_id;
+      chatId = first!.chatId;
+      messageId = first!.messageId;
     } else {
       // Nothing to post (no text, no photos). Return a harmless empty ref —
       // update()/delete() guard against a 0 messageId, so nothing is edited.
@@ -539,6 +520,16 @@ export class TelegramAdapter implements PlatformAdapter {
     return this.store.getMessages(this.conversationKeyForTarget(t));
   }
 
+  /**
+   * Keep PNG bytes for a later `sendPhoto` / `sendMediaGroup`. No network.
+   */
+  async stageFile(
+    _target: BotReplyTarget,
+    { bytes }: StageFileArgs,
+  ): Promise<StagedFile> {
+    return { bytes };
+  }
+
   async postFile(
     target: BotReplyTarget,
     {
@@ -550,7 +541,7 @@ export class TelegramAdapter implements PlatformAdapter {
       title?: string;
       altText?: string;
     },
-  ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
+  ): Promise<PostFileResult> {
     const t = target as ReplyTarget;
     try {
       const result = await this.bot.api.sendDocument(
@@ -560,7 +551,13 @@ export class TelegramAdapter implements PlatformAdapter {
           ? { message_thread_id: t.messageThreadId }
           : {},
       );
-      return { ok: true, fileId: result.document?.file_id };
+      // `document.file_id` is Telegram's media handle (reusable in a later send),
+      // NOT a message id — deleteMessage/setMessageReaction need `message_id`.
+      return {
+        ok: true,
+        messageId: String(result.message_id),
+        fileId: result.document?.file_id,
+      };
     } catch (e) {
       return { ok: false, error: String(e) };
     }
@@ -717,6 +714,91 @@ export class TelegramAdapter implements PlatformAdapter {
     return conversationKeyOf(key);
   }
 
+  /**
+   * Send photos as albums (2+ slides, no buttons) or one `sendPhoto` each.
+   * A slide with its own keyboard is never put in an album. Message-level
+   * markup attaches to the first `sendPhoto` that has no per-slide keyboard.
+   */
+  private async sendPhotos(
+    t: ReplyTarget,
+    photos: TelegramPhoto[],
+    opts: {
+      replyMarkup?: { inline_keyboard: InlineKeyboardButton[][] };
+      replyTo?: boolean;
+    },
+  ): Promise<{ chatId: number | string; messageId: number } | undefined> {
+    let first: { chatId: number | string; messageId: number } | undefined;
+    let markup = opts.replyMarkup;
+    let applyReply = opts.replyTo === true;
+
+    const threadOpts =
+      t.messageThreadId !== undefined
+        ? { message_thread_id: t.messageThreadId }
+        : {};
+    const replyOpts =
+      applyReply && t.replyToMessageId !== undefined
+        ? { reply_parameters: { message_id: t.replyToMessageId } }
+        : {};
+
+    const takeReply = () => {
+      if (!applyReply) return {};
+      applyReply = false;
+      return replyOpts;
+    };
+
+    const sendOne = async (
+      photo: TelegramPhoto,
+      extraMarkup?: { inline_keyboard: InlineKeyboardButton[][] },
+    ) => {
+      const keyboard = photoHasKeyboard(photo)
+        ? this.toReplyMarkup(photo.keyboard)
+        : extraMarkup;
+      const sent = await this.bot.api.sendPhoto(t.chatId, photoInput(photo), {
+        ...(photo.caption ? { caption: photo.caption } : {}),
+        ...threadOpts,
+        ...(keyboard ? { reply_markup: keyboard } : {}),
+        ...takeReply(),
+      });
+      if (!first) first = { chatId: sent.chat.id, messageId: sent.message_id };
+    };
+
+    const sendAlbum = async (batch: TelegramPhoto[]) => {
+      const sent = await this.bot.api.sendMediaGroup(
+        t.chatId,
+        batch.map((photo) => ({
+          type: "photo" as const,
+          media: photoInput(photo),
+          ...(photo.caption ? { caption: photo.caption } : {}),
+        })),
+        { ...threadOpts, ...takeReply() },
+      );
+      const msg = sent[0];
+      if (!first && msg) {
+        first = { chatId: msg.chat.id, messageId: msg.message_id };
+      }
+    };
+
+    for (const run of photoRuns(photos)) {
+      const keyed = run.length === 1 && photoHasKeyboard(run[0]!);
+      if (run.length >= 2) {
+        if (markup) {
+          await sendOne(run[0]!, markup);
+          markup = undefined;
+          const rest = run.slice(1);
+          if (rest.length >= 2) await sendAlbum(rest);
+          else if (rest[0]) await sendOne(rest[0]);
+        } else {
+          await sendAlbum(run);
+        }
+      } else if (run[0]) {
+        await sendOne(run[0], keyed ? undefined : markup);
+        if (!keyed) markup = undefined;
+      }
+    }
+
+    return first;
+  }
+
   /** Map the renderer's inline keyboard to grammY's `reply_markup` shape. */
   private toReplyMarkup(
     keyboard: TelegramInlineButton[][] | undefined,
@@ -734,6 +816,38 @@ export class TelegramAdapter implements PlatformAdapter {
       ),
     };
   }
+}
+
+/** URL or staged bytes as a grammY photo input. */
+function photoInput(photo: TelegramPhoto): string | InputFile {
+  if (photo.bytes) {
+    return new InputFile(Buffer.from(photo.bytes), "image.png");
+  }
+  return photo.url ?? "";
+}
+
+function photoHasKeyboard(photo: TelegramPhoto): boolean {
+  return (photo.keyboard?.length ?? 0) > 0;
+}
+
+/** Group consecutive button-less photos so they can go out as one album. */
+function photoRuns(photos: TelegramPhoto[]): TelegramPhoto[][] {
+  const runs: TelegramPhoto[][] = [];
+  let current: TelegramPhoto[] = [];
+  const flush = () => {
+    if (current.length > 0) runs.push(current);
+    current = [];
+  };
+  for (const photo of photos) {
+    if (photoHasKeyboard(photo)) {
+      flush();
+      runs.push([photo]);
+    } else {
+      current.push(photo);
+    }
+  }
+  flush();
+  return runs;
 }
 
 /** Construct a Telegram `PlatformAdapter`. */
