@@ -39,7 +39,21 @@ if (result.status === "started") {
 copilotkit.stopTrajectory();
 ```
 
-An omitted `trajectoryId` generates a UUID. Start succeeds after Runtime authentication and the Phoenix channel join. The Runtime resolves the user on the server and sends only their ID to Intelligence. Browser-supplied identity and container IDs are ignored; container assignment is deferred. Setting `learningContainerIds` for authenticated capture produces a warning. That option applies only to custom sinks.
+An omitted `trajectoryId` generates a UUID. Start succeeds after Runtime authentication and the Phoenix channel join. The Runtime resolves the user on the server. Browser-supplied identity and container IDs are ignored. Setting `learningContainerIds` in browser capture configuration produces a warning; that option applies only to custom sinks.
+
+To assign authenticated capture to an existing Learning Space, configure the Runtime on the server:
+
+```ts
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+  getTrajectoryLearningContainerIds: ({ trajectoryId, user }) => {
+    // Use the verified application user and session to choose existing Spaces.
+    return ["expense-review"];
+  },
+});
+```
+
+The selector accepts synchronous or asynchronous results. Return `null` or `undefined` to leave a Trajectory unassigned. Keep the result stable across reconnects: the backend adds memberships and does not remove earlier assignments. The selector needs no agent run or Thread. Intelligence validates that the selected Spaces belong to the API key's project. Processing those events requires an Intelligence backend with Trajectory inputs enabled for Automatic Learning.
 
 Capture includes page context, navigation, clicks, form edits, network requests, and developer events. Paths remain unchanged. Thread linking and agent events are deferred for this connection path.
 

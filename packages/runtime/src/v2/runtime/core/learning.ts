@@ -38,6 +38,32 @@ export type GetLearningContainerId = (
   input: LearningContainerSelectorInput,
 ) => MaybePromise<string | null | undefined>;
 
+/** Trusted server context for assigning browser activity to Learning Spaces. */
+export interface TrajectoryLearningContainerSelectorInput {
+  readonly trajectoryId: string;
+  readonly user: CopilotRuntimeUser;
+}
+
+/** Selects existing Learning Spaces without requiring an agent run or Thread. */
+export type GetTrajectoryLearningContainerIds = (
+  input: TrajectoryLearningContainerSelectorInput,
+) => MaybePromise<readonly string[] | null | undefined>;
+
+/** Resolves bounded, validated Space IDs selected by application server code. */
+export async function resolveTrajectoryLearningContainerIds(
+  selector: GetTrajectoryLearningContainerIds | undefined,
+  input: TrajectoryLearningContainerSelectorInput,
+): Promise<readonly string[] | undefined> {
+  const value = await selector?.(input);
+  if (value == null) return undefined;
+  if (!Array.isArray(value) || value.length > 100) {
+    throw new Error(
+      "Trajectory Learning Container selection must be an array of at most 100 IDs",
+    );
+  }
+  return [...new Set(value.map(assertStableLearningContainerId))];
+}
+
 /** Context for choosing one Learning Container for an Intelligence run. */
 export type CopilotRuntimeLearningContext =
   | {
