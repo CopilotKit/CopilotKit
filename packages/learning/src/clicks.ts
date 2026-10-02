@@ -1,4 +1,4 @@
-import { createRedactor } from "./redact";
+import { createRedactor, isCredentialKey } from "./redact";
 import type { Redactor } from "./redact";
 import { REDACTED } from "./types";
 import type { ClickTarget, Emit, EnrichFn } from "./types";
@@ -52,8 +52,12 @@ export function describeTarget(el: Element, redact: Redactor) {
       attributes: Object.fromEntries(
         Array.from(element.attributes, ({ name, value }) => [
           name,
-          // URL-valued attributes (`href`, `action`, …) can carry credentials.
-          password && name === "value" ? REDACTED : redact.url(value),
+          // Credential-named attributes (`data-api-key`) are redacted whole;
+          // URL-valued ones (`href`, `action`, …) can carry credentials too.
+          (password && name === "value") ||
+          isCredentialKey(name.replace(/^data-/, ""))
+            ? REDACTED
+            : redact.url(value),
         ]),
       ),
       ...readControlValue(element, redact),

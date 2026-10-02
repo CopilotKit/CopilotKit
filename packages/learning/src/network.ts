@@ -22,16 +22,12 @@ const unavailableBody = (reason: string) =>
 const toAbsolute = (url: string) => new URL(url, location.href).href;
 // Credentials carry no product signal and must never leave the browser, even
 // with full capture. The header name stays, so the event still shows it was sent.
-// Names the credential-key matcher misses; it covers `x-api-key`, `x-auth-token`, and similar.
+// Names the credential-key matcher misses; it covers `authorization`, `cookie`,
+// `x-api-key`, `x-csrf-token`, and similar.
 const CREDENTIAL_HEADERS = new Set([
-  "authorization",
-  "proxy-authorization",
-  "cookie",
-  "set-cookie",
-  "x-csrf-token",
-  "x-xsrf-token",
   "x-amz-security-token",
   "private-token",
+  "x-token",
 ]);
 const headerValue = (name: string, value: string) =>
   CREDENTIAL_HEADERS.has(name.toLowerCase()) || isCredentialKey(name)

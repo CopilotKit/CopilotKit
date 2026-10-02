@@ -151,7 +151,7 @@ describe("fetch capture", () => {
     await captured(events, 2);
     expect(requests).toEqual(["original body", "replacement"]);
     expect(events[0]!.value.request).toMatchObject({
-      headers: { "x-token": "full" },
+      headers: { "x-token": "[redacted]" },
       body: { text: "original body" },
     });
     expect(events[1]!.value).toMatchObject({

@@ -650,3 +650,83 @@ describe("credential header names", () => {
     );
   });
 });
+
+describe("review follow-ups", () => {
+  it.each([
+    ['{"url":"https://u:LEAK@x.test/"}', '{"url":"https://x.test/"}'],
+    ['{"db":"postgres://u:pw@LEAK@h/db"}', '{"db":"postgres://h/db"}'],
+    ["see https://u:LEAK@x.test/a", "see https://x.test/a"],
+  ])("strips URL userinfo anywhere in %s", (body, expected) => {
+    expect(createRedactor().body(body)).toBe(expected);
+  });
+
+  it("redacts authorization, cookie, bearer, JWT, and CSRF keys", () => {
+    const text = createRedactor().body(
+      JSON.stringify({
+        headers: { Authorization: "Bearer LEAK", Cookie: "sid=LEAK" },
+        bearerToken: "LEAK",
+        jwt: "LEAK",
+        csrfToken: "LEAK",
+        authorizationUrl: "https://x.test/auth",
+        cookieConsent: "yes",
+      }),
+    )!;
+    expect(text).not.toMatch(/LEAK/);
+    expect(JSON.parse(text)).toMatchObject({
+      authorizationUrl: "https://x.test/auth",
+      cookieConsent: "yes",
+    });
+    expect(
+      createRedactor().url("https://x.test/p?a=1&authorization=LEAK&jwt=LEAK2"),
+    ).toBe("https://x.test/p?a=1&authorization=[redacted]&jwt=[redacted]");
+  });
+
+  it("redacts attributes named like credentials", () => {
+    document.body.innerHTML =
+      '<button data-api-key="sk-LEAK" data-token="LEAK2" data-id="7">Go</button>';
+    const { other } = setup();
+    document.querySelector("button")!.click();
+    expect(other[0]!.value.target).toMatchObject({
+      attributes: {
+        "data-api-key": "[redacted]",
+        "data-token": "[redacted]",
+        "data-id": "7",
+      },
+    });
+  });
+
+  it("normalizes header names and redacts subscription keys and x-token", async () => {
+    const { network } = setup();
+    const names = ["x-csrftoken", "ocp-apim-subscription-key", "x-token"];
+    await fetch("/x", {
+      headers: {
+        ...Object.fromEntries(names.map((name) => [name, "LEAK"])),
+        "x-request-id": "rid",
+      },
+    });
+    expect((await captured(network)).request.headers).toEqual({
+      ...Object.fromEntries(names.map((name) => [name, "[redacted]"])),
+      "x-request-id": "rid",
+    });
+  });
+
+  it("redacts JSON nested four levels deep in strings", () => {
+    let value: unknown = { password: "LEAK" };
+    for (let level = 0; level < 4; level++)
+      value = { inner: JSON.stringify(value) };
+    const text = createRedactor().body(JSON.stringify(value))!;
+    expect(text).not.toMatch(/LEAK/);
+  });
+
+  it("redacts an auth scheme together with its credential", () => {
+    expect(
+      createRedactor().body("Authorization: Bearer LEAK\nAccept: */*"),
+    ).toBe("Authorization: [redacted]\nAccept: */*");
+  });
+
+  it("leaves no stray backslash when a value is cut mid-escape", () => {
+    expect(createRedactor().body('{"password":"a\\')).toBe(
+      '{"password":"[redacted]"',
+    );
+  });
+});

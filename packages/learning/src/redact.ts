@@ -4,22 +4,29 @@ import { REDACTED } from "./types";
 // capture. Keys are split into lowercase words (`accessToken`, `access_token`,
 // `Access-Token` all become "access token"). These match anywhere in the joined words:
 const CREDENTIAL =
-  /password|passwd|passphrase|passcode|credential|api(key|token)|privatekey|(access|refresh|auth|session)token|clientsecret/;
+  /password|passwd|passphrase|passcode|credential|api(key|token)|privatekey|subscriptionkey|(access|refresh|auth|session)token|clientsecret/;
 // These match only as whole words (`secret` but not `secretary`, `id token` but
-// not `invalid token`), or as the entire key.
-const CREDENTIAL_WORD = / (secret|id ?token)s? |^ (pwd|pass|token|otp) $/;
+// not `invalid token`), as the last word (`Set-Cookie` but not `cookieConsent`),
+// or as the entire key.
+const CREDENTIAL_WORD =
+  / (secret|id ?token)s? | (authorization|cookies?|jwt|bearer ?token|[cx]srf ?token) $|^ (pwd|pass|token|otp) $/;
 // Metadata about a credential is not the credential: `passwordExpiresAt`, `credentialId`.
 const METADATA =
   / (ids?|at|in|expires?|expiry|length|count|enabled|required|policy|hint|type) $/;
 const PASSWORD_AUTOCOMPLETE = /(current|new)-password|one-time-code/;
 // A JSON string, possibly cut off, with the `:` that makes it a key.
 const TOKEN = /"((?:\\[\s\S]|[^"\\])*)("?)(\s*:\s*)?/g;
-const STRING = /"(?:\\[\s\S]|[^"\\])*"?/y;
+// A lone trailing backslash belongs to a cut-off string.
+const STRING = /"(?:\\[\s\S]?|[^"\\])*"?/y;
 // `key=value` and `key: value` outside JSON strings: forms, query strings,
 // GraphQL, YAML. A `:` needs a space or end after it, so `host:port` is no pair.
 // The key length bound keeps scanning long unbroken text linear.
-const PAIR = /([\w$.%+[\]-]{1,64})(\s*(?:=|:(?=\s|$))\s*)([^\s&,;)}\]]*)/g;
-const USERINFO = /^([a-z][\w+.-]*:\/\/)[^/?#]*@/i;
+// An auth scheme (`Bearer x`) belongs to the value.
+const PAIR =
+  /([\w$.%+[\]-]{1,64})(\s*(?:=|:(?=\s|$))\s*)((?:(?:basic|bearer|digest|token) +)?[^\s&,;)}\]]*)/gi;
+// `scheme://user:pass@` anywhere in text; up to the last `@` before the host.
+// The scheme length bound keeps scanning long words linear.
+const USERINFO = /([a-z][\w+.-]{0,31}:\/\/)[^\s/?#"]*@/gi;
 /** Text beyond this is neither redacted nor kept; snapshots keep 4 KiB of the result. */
 export const TEXT_LIMIT = 16 * 1024;
 const REMEMBERED_VALUES = 20;
@@ -79,8 +86,9 @@ const endOfValue = (text: string, start: number) => {
 const redactText = (text: string, depth = 0): string => {
   const token = new RegExp(TOKEN);
   let pending = false;
-  const pairs = (segment: string) =>
-    segment.replace(
+  const pairs = (part: string) => {
+    const segment = part.replace(USERINFO, "$1");
+    return segment.replace(
       PAIR,
       (pair, key: string, separator: string, value: string, offset: number) => {
         if (!isCredentialKey(key)) return pair;
@@ -92,6 +100,7 @@ const redactText = (text: string, depth = 0): string => {
         return key + separator + REDACTED;
       },
     );
+  };
   let out = "";
   let last = 0;
   let match: RegExpExecArray | null;
@@ -112,7 +121,7 @@ const redactText = (text: string, depth = 0): string => {
         }
       }
     } else if (pending) replacement = `"${REDACTED}"`;
-    else if (depth < 2 && /[=:"]/.test(value)) {
+    else if (depth < 4 && /[=:"]/.test(value)) {
       const redacted = redactText(value, depth + 1);
       if (redacted !== value)
         replacement = JSON.stringify(redacted).slice(
@@ -237,11 +246,7 @@ export function createRedactor() {
     /** Drops userinfo and redacts credential values; also applied to element attributes. */
     url(value: string) {
       try {
-        return scrub(
-          value
-            .replace(USERINFO, "$1")
-            .replace(/[^#]+/g, (part) => redactText(part)),
-        );
+        return scrub(value.replace(/[^#]+/g, (part) => redactText(part)));
       } catch {
         return REDACTED;
       }
