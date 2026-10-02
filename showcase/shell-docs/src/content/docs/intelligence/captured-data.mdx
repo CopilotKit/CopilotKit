@@ -1,0 +1,108 @@
+---
+title: Captured data
+description: Interaction capture fields, body limits, and explicit controls for excluding or changing data.
+icon: "lucide/Shield"
+frontend: universal
+doc_type: reference
+---
+
+## Overview
+
+This page describes the experimental self-hosted collector and its custom-sink integration with CopilotKit. Capture retains browser-visible data by default. Your app can exclude or change events before the sink receives them.
+
+## Captured by default
+
+- Full URLs, including query strings and hashes, plus the page title and referrer.
+- Clicked element text and all attributes, plus live control values.
+- Input, select, text area, and editable element values on input and change events.
+- Browser-visible request and response headers and bounded body snapshots.
+- Full agent message text in CopilotKit's custom-sink integration, unless `capture.agentText` is `false`.
+
+Passwords and credentials never leave the browser. Their values become `[redacted]`:
+
+- Password field values. A field counts as one when it has `type="password"`, had it at any point during the session (for example before a show-password toggle), has a credential key as its `name`, or has `autocomplete` set to `current-password`, `new-password`, or `one-time-code`.
+- Any value typed into a password field, wherever it appears in a body snapshot, URL, or clicked element attribute. The collector keeps the last 20 such values of 4 or more characters in memory, even when `capture.inputs` is off, and forgets them on stop. All-digit values, such as one-time codes, match only as whole numbers.
+- Values of credential keys in JSON, URL-encoded, and `FormData` bodies, `key: value` text such as GraphQL or `Authorization: Bearer …`, URL query strings and hashes, and clicked element attributes such as `href`. JSON, forms, and URLs nested inside string values are redacted too, up to four levels deep. The key stays. Booleans and `null` stay, so `"password": null` still shows that no password was set.
+- Clicked element attributes whose name, without a `data-` prefix, is a credential key, such as `data-api-key` or `data-token`.
+- Header values whose name is a credential key, plus `x-amz-security-token`, `private-token`, and `x-token`. The header name stays.
+
+A credential key, split into words and ignoring case, contains `password`, `passwd`, `passphrase`, `passcode`, `credential`, `apikey`, `apitoken`, `privatekey`, `subscriptionkey`, `accesstoken`, `refreshtoken`, `authtoken`, `sessiontoken`, or `clientsecret`, has the word `secret` or `id token`, ends with the word `authorization`, `cookie` or `cookies`, `jwt`, `bearer token`, `csrf token`, or `xsrf token`, or is exactly `pwd`, `pass`, `token`, or `otp`. Header names follow the same rules, so `x-api-key`, `x-csrftoken`, `set-cookie`, and `ocp-apim-subscription-key` are redacted. Keys that describe a credential, ending in words such as `id`, `at`, `in`, `expires`, `length`, `count`, `enabled`, `required`, `policy`, `hint`, or `type`, are not credential keys. For example, `accessToken` and `client_secret` are credential keys; `tokenCount`, `secretary`, `invalidToken`, and `passwordExpiresAt` are not.
+
+The user name and password in a URL (`https://user:pass@host`, any scheme) are removed, also inside body text and attributes. Redaction runs on the first 16 KiB of each body, before the 4 KiB snapshot limit applies. Text past 16 KiB is never captured. A body that cannot be redacted is reported as `unavailable`. Text bodies that are not valid UTF-8 are decoded with replacement characters and redacted. Everything else is captured raw.
+
+Redaction has limits:
+
+- Binary bodies, such as images or `application/octet-stream`, are captured as base64 and not inspected. That includes untyped bodies that are not valid UTF-8.
+- Multipart bodies are redacted per field only when sent as a `FormData` object. Multipart text built by hand, XML or HTML, single-quoted JavaScript objects, and JSON or URLs percent-encoded inside a query or form value are not parsed.
+- Values of credential keys end at whitespace, `&`, `,`, `;`, `)`, `}`, or `]` outside JSON strings, so in free text only the first word after `password:` is redacted.
+- Passwords shorter than 4 characters are not remembered. Only the latest value of each field is remembered, so a shorter prefix sent earlier while typing is not matched later.
+- OAuth authorization codes (`code=`) and tokens in URL paths are not redacted.
+
+Clicked element text is cut at 1,000 characters. Paths remain unchanged. The deprecated `routes` option no longer transforms them. The collector still skips its sink URL to prevent capture of its own sends.
+
+## Events
+
+Each event is an AG-UI `CUSTOM` event: `{ type: "CUSTOM", name, value, timestamp }`. Every `value` has `seq`, which increases throughout the collector or Core instance's lifetime, including across stop/start cycles. The standalone collector and custom sinks start at 1. Connected Core capture starts from the Core instance's creation time instead of 0, so seqs stay unique when a page reload reuses a Trajectory ID.
+
+| `name` | Main `value` fields | Source |
+| --- | --- | --- |
+| `page` | `route`, `url`, `title`, `referrer` | Collector, at start |
+| `navigation` | `from`, `to`, `navigationType` | Collector |
+| `click` | `target` (`tag`, `role`, `action`, `text`, `attributes`, control values, `input`), `route`, `url` | Collector |
+| `input` | `eventType`, `target` (element details and control values), `route`, `url` | Collector |
+| `network` | `transport`, `method`, `url`, `origin`, `route`, `status`, `durationMs`, `outcome`, `request`, `response` | Collector |
+| `thread.linked` | `threadId`, `agentId`, `hasMessages`, `reason` | Core custom-sink integration |
+| `agent.run` | `phase`, `runId`, `threadId`, `agentId` | Core custom-sink integration |
+| `agent.message` | `messageId`, `runId`, `threadId`, `role`, `textLength`, `text` | Core custom-sink integration |
+| `tool.call` | `phase`, `toolCallId`, `toolName`, `threadId`, `messageId`, `runId`, `durationMs`, `outcome` | Core custom-sink integration |
+
+In the custom-sink integration, a `click` also carries `threadId`, `agentId`, `messageId`, `runId`, `toolCallId`, `toolName`, and `toolStatus`. When two chats show different Threads, `threadAmbiguity` describes the candidates. Standalone browser capture does not add these fields or emit chat events.
+
+Control values include `value`, `checked` for checkboxes and radio buttons, `selectedValues` for select elements, and file metadata for file inputs.
+
+Network `request` and `response` fields contain `headers` and a `body` snapshot. Each serialized body snapshot is limited to 4 KiB. A snapshot reports `status`: `complete`, `empty`, `truncated`, `unavailable`, `interrupted`, or `timeout`. It can also include `text`, `encoding` (`utf-8` or `base64`), `truncated`, and `reason`.
+
+Fetch body capture reads a cloned stream and leaves the app's response unchanged. It stops at the size limit or after one second. Browser restrictions and unreadable bodies produce an explicit status.
+
+Fetch duration ends when headers arrive. XHR duration ends at `loadend`. Network events no longer include a `framework` classification.
+
+Your own events, sent with `emit()` or `emitTrajectoryEvent()`, use your names. The custom-sink integration also adds the open Thread.
+
+## Batches
+
+The sink receives `{ trajectoryId, learningContainerIds, events, dropped }`.
+
+- The collector sends a batch every 2 seconds, or as soon as 50 events wait.
+- On `pagehide`, the collector requests a final send. `httpSink` uses `navigator.sendBeacon` for that request.
+- A failed send is not retried. `dropped` in the next batch counts the lost events.
+
+## Controls
+
+In code:
+
+| Option | Effect |
+| --- | --- |
+| `routes` | Deprecated and ignored. Paths and URLs remain unchanged. |
+| `ignoreUrls` | URL prefixes or patterns that network capture skips. |
+| `capture` | Turn off `clicks`, `inputs`, `navigation`, or `network`. All four default to on. |
+| `beforeSend` | Runs last, in the browser. Return the event, a changed copy, or `null` to drop it. |
+| `capture.agentText` | Custom-sink integration only. Set to `false` to omit agent message text. Text is included in full by default. |
+
+In markup:
+
+- `data-copilotkit-action="deal.approve"` names a control. The name goes into `target.action`.
+- `data-copilotkit-ignore` excludes clicks and input events inside that element.
+
+Example: drop all network events for one service.
+
+```ts
+const learning = {
+  sink: httpSink("/api/learning-events"),
+  beforeSend: (event) =>
+    event.name === "network" && event.value.origin === "https://payments.example.com"
+      ? null
+      : event,
+};
+```
+
+To turn capture on, see [Capture interactions](/intelligence/capture-interactions).

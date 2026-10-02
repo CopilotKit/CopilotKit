@@ -62,6 +62,7 @@ vi.mock("../../lib/react-core", () => {
     setRenderCustomMessages() {}
     setAgents__unsafe_dev_only() {}
     setDebug() {}
+    setLearningConfig() {}
     addContext() {}
     removeContext() {}
   }
