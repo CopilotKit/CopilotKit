@@ -10,6 +10,7 @@ import os
 
 import click
 import uvicorn
+from a2a.server.agent_execution import AgentExecutor
 from a2a.server.apps import A2AStarletteApplication
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.tasks import InMemoryTaskStore
@@ -109,6 +110,34 @@ def create_agent_card(base_url: str) -> AgentCard:
     )
 
 
+def build_app(base_url: str, executor: AgentExecutor | None = None):
+    """Build the production ASGI application for serving and contract tests."""
+    agent_card = create_agent_card(base_url)
+    request_handler = DefaultRequestHandler(
+        agent_executor=executor or UIGeneratorExecutor(base_url=base_url),
+        task_store=InMemoryTaskStore(),
+    )
+    server = A2AStarletteApplication(
+        agent_card=agent_card,
+        http_handler=request_handler,
+    )
+    app = server.build()
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    static_dir = os.path.join(os.path.dirname(__file__), "static")
+    if os.path.exists(static_dir):
+        app.mount("/static", StaticFiles(directory=static_dir), name="static")
+        logger.info(f"Serving static files from {static_dir}")
+
+    return app
+
+
 @click.command()
 @click.option("--host", default="0.0.0.0", help="Host to bind to")
 @click.option("--port", default=10002, envvar="PORT", help="Port to listen on")
@@ -118,37 +147,7 @@ def main(host: str, port: int):
     base_url = os.getenv("A2A_BASE_URL", f"http://localhost:{port}")
     logger.info(f"Starting UI Generator agent at {base_url}")
 
-    # Create agent card and executor
-    agent_card = create_agent_card(base_url)
-    executor = UIGeneratorExecutor(base_url=base_url)
-
-    # Create request handler with task store
-    request_handler = DefaultRequestHandler(
-        agent_executor=executor,
-        task_store=InMemoryTaskStore(),
-    )
-
-    # Create Starlette application and build it
-    server = A2AStarletteApplication(
-        agent_card=agent_card,
-        http_handler=request_handler,
-    )
-    app = server.build()
-
-    # Add CORS middleware for cross-origin requests
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
-    # Mount static files directory if it exists
-    static_dir = os.path.join(os.path.dirname(__file__), "static")
-    if os.path.exists(static_dir):
-        app.mount("/static", StaticFiles(directory=static_dir), name="static")
-        logger.info(f"Serving static files from {static_dir}")
+    app = build_app(base_url)
 
     logger.info(f"Agent card available at {base_url}/.well-known/agent.json")
     logger.info(f"A2UI extension enabled: {get_a2ui_agent_extension().uri}")

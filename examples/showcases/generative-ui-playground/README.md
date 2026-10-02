@@ -23,37 +23,42 @@ This demo demonstrates how different types of generative UI can be used to creat
 - **A2UIRenderer** - Renders A2UI declarative JSON from agent responses
 - **MCPAppsMiddleware** - Bridges MCP server tools with UI resources
 - **BasicAgent** - TypeScript agent for Static GenUI + MCP Apps
-- **HttpAgent** - Connects to Python A2A backend for A2UI
+- **A2AAgent** - Connects to the Python A2A backend for A2UI
 
 ## Setup
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 22 (the repository `.nvmrc` version)
+- Corepack (included with Node.js)
 - Python 3.11+
 - OpenAI API key
 
 ### Installation
 
 ```bash
-# Clone and install dependencies
-cd ui-protocols-demo
-npm install
+# From the CopilotKit repository root, install the pnpm workspace.
+# Corepack reads the repository's packageManager field (pnpm 10.33.4).
+corepack enable
+pnpm install --frozen-lockfile
 
-# Install MCP server dependencies
-cd mcp-server
-npm install
-cd ..
+# The MCP server is a standalone npm project with its own package-lock.json.
+cd examples/showcases/generative-ui-playground/mcp-server
+npm ci
+cd ../../../..
 
-# Install Python A2A agent
-cd a2a-agent
-pip install -e .
-cd ..
+# The A2A agent is a standalone Python project.
+cd examples/showcases/generative-ui-playground/a2a-agent
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+cd ../../../..
 ```
 
 ### Environment Variables
 
-Create a `.env` file:
+Create `examples/showcases/generative-ui-playground/.env.local` for the
+workspace frontend:
 
 ```bash
 OPENAI_API_KEY=sk-your-key-here
@@ -61,19 +66,33 @@ MCP_SERVER_URL=http://localhost:3001/mcp
 A2A_AGENT_URL=http://localhost:10002
 ```
 
+Create `examples/showcases/generative-ui-playground/a2a-agent/.env` for the
+standalone Python agent:
+
+```bash
+OPENAI_API_KEY=sk-your-key-here
+# Optional; defaults to openai/gpt-5.2
+LITELLM_MODEL=openai/gpt-5.2
+```
+
+The MCP server does not require an API key.
+
 ### Running the Demo
 
 Start all three services:
 
 ```bash
 # Terminal 1: MCP Server (port 3001)
-cd mcp-server && npm run dev
+cd examples/showcases/generative-ui-playground/mcp-server
+npm run dev
 
 # Terminal 2: Python A2A Agent (port 10002)
-cd a2a-agent && python -m agent
+cd examples/showcases/generative-ui-playground/a2a-agent
+source .venv/bin/activate
+python -m agent --port 10002
 
-# Terminal 3: Next.js Frontend (port 3000)
-npm run dev
+# Terminal 3: Next.js frontend (port 3000), from the repository root
+pnpm exec nx run ui-protocols-demo:dev
 ```
 
 Open http://localhost:3000 to see the demo.
@@ -109,9 +128,132 @@ Frontend (Next.js) ────────────────────�
           ┌─────────┴─────────┐
           ▼                   ▼
    "default" Agent      "a2ui" Agent
-   BasicAgent + MCP     HttpAgent → Python
+   BasicAgent + MCP     A2AAgent → Python
    Port 3001            Port 10002
 ```
+
+## Railway Infrastructure as Code
+
+Railway's legacy `railway.toml` Config as Code feature is deprecated and cannot
+be enabled on new services. This demo instead defines its complete three-service
+project in [`.railway/railway.ts`](./.railway/railway.ts), using Railway's
+project-level [Infrastructure as Code](https://docs.railway.com/infrastructure-as-code).
+Use Railway CLI 5.45.2 or newer.
+
+The IaC definition creates services named exactly `frontend`, `a2a-agent`, and
+`mcp-server`. Their names are case-sensitive because the frontend variables
+reference the two sidecars by service name.
+
+| Service      | Source Root Directory                                    | Dockerfile                                               | Healthcheck               |
+| ------------ | -------------------------------------------------------- | -------------------------------------------------------- | ------------------------- |
+| `frontend`   | repository root (`/`)                                    | `examples/showcases/generative-ui-playground/Dockerfile` | `/`                       |
+| `a2a-agent`  | `examples/showcases/generative-ui-playground/a2a-agent`  | `Dockerfile`                                             | `/.well-known/agent.json` |
+| `mcp-server` | `examples/showcases/generative-ui-playground/mcp-server` | `Dockerfile`                                             | `/health`                 |
+
+The frontend keeps the repository root as its build context because its
+Dockerfile copies the pnpm workspace and local `packages/`. Each sidecar uses
+its isolated source root and the `Dockerfile` inside that directory.
+
+Before applying the IaC definition, store the OpenAI key as a sealed/shared
+Railway variable named `OPENAI_API_KEY`; do not commit it or put it in a Docker
+build argument. The IaC definition then configures these service variables:
+
+```text
+# frontend
+OPENAI_API_KEY=${{shared.OPENAI_API_KEY}}
+MCP_SERVER_URL=http://${{mcp-server.RAILWAY_PRIVATE_DOMAIN}}:${{mcp-server.PORT}}/mcp
+A2A_AGENT_URL=http://${{a2a-agent.RAILWAY_PRIVATE_DOMAIN}}:${{a2a-agent.PORT}}
+
+# a2a-agent
+OPENAI_API_KEY=${{shared.OPENAI_API_KEY}}
+A2A_BASE_URL=http://${{RAILWAY_PRIVATE_DOMAIN}}:${{PORT}}
+
+# mcp-server
+# No secrets or cross-service URLs are required.
+```
+
+The frontend's `OPENAI_API_KEY` powers its `BasicAgent`. The A2A agent needs
+the same key because its default LiteLLM model is `openai/gpt-5.2`.
+`A2A_BASE_URL` is required so the Agent Card advertises the agent's reachable
+private Railway endpoint instead of `localhost`. Do not substitute public
+backend URLs: both sidecars are called by the frontend's server-side runtime
+and should stay on Railway private networking. Only `frontend` needs a public
+domain for browser traffic.
+
+Railway injects `PORT` into every service. The Next.js start command, MCP
+server, and Python A2A entry point all listen on it; their local fallbacks are
+3000, 3001, and 10002 respectively. Do not hard-code those local ports into
+the Railway variables. Generate the frontend public domain after deployment
+and target the detected frontend `PORT`.
+
+An existing Railway project whose services still have a legacy Railway Config
+File setting needs a one-time handoff before IaC can manage those services. Use
+one of Railway's documented [Config as Code migration](https://docs.railway.com/infrastructure-as-code#migrating-from-config-as-code)
+paths:
+
+- Before checking out this revision, migrate each service from the directory
+  that still contains its legacy `railway.toml`. Pass the service name
+  explicitly because the frontend directory name does not match its Railway
+  service name:
+
+  ```bash
+  # From examples/showcases/generative-ui-playground
+  railway config migrate --service frontend
+  railway config migrate --service frontend --apply
+
+  cd a2a-agent
+  railway config migrate --service a2a-agent
+  railway config migrate --service a2a-agent --apply
+
+  cd ../mcp-server
+  railway config migrate --service mcp-server
+  railway config migrate --service mcp-server --apply
+  ```
+
+  Review each preview before applying it. After all three applies have cleared
+  the services' Railway Config File settings, move or remove the three generated
+  partial `.railway/railway.ts` files before checking out this revision; the
+  root partial would otherwise conflict with the combined project definition
+  committed here. Then update the checkout and use the committed definition.
+
+- If this revision is already checked out and the old TOML files are gone,
+  clear the Railway Config File field for `frontend`, `a2a-agent`, and
+  `mcp-server` in each service's Settings. Do not pass `--force` to migration,
+  because that would overwrite the combined `.railway/railway.ts` in this repo.
+
+This migration is not needed for a new project. Once no service is still
+managed by Config as Code, create or link the target Railway project, then
+preview and apply from the demo directory:
+
+```bash
+cd examples/showcases/generative-ui-playground
+railway link
+railway config plan
+railway config apply
+```
+
+The Node A2A runtime contract and Python A2A SDK compatibility smoke run in the
+`test / unit / generative-ui` workflow. Container builds remain a manual verification;
+from the repository root run:
+
+```bash
+pnpm install --frozen-lockfile --ignore-scripts
+COPILOTKIT_TELEMETRY_DISABLED=true pnpm exec nx run ui-protocols-demo:test --skip-nx-cache
+pnpm exec nx run ui-protocols-demo:build --skip-nx-cache
+docker build \
+  -f examples/showcases/generative-ui-playground/Dockerfile \
+  -t ui-protocols-demo:local .
+docker build \
+  -t ui-protocols-a2a-agent:local \
+  examples/showcases/generative-ui-playground/a2a-agent
+docker build \
+  -t ui-protocols-mcp-server:local \
+  examples/showcases/generative-ui-playground/mcp-server
+```
+
+The Nx A2A test target builds its exact `@copilotkit/runtime` workspace
+dependency before running the behavior test, so the sequence also works from a
+fresh checkout without prebuilt package output.
 
 ## Project Structure
 
