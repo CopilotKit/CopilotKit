@@ -181,28 +181,25 @@ jobs:
           # untrusted PR metadata so branch names are encoded as JSON data,
           # not interpolated into shell source.
           #
-          # A workflow or Angular/package change builds only a representative
-          # sample ($sample), not the whole fleet. Integration images install
-          # PUBLISHED @copilotkit packages and their contexts exclude
-          # packages/, so the only PR input they receive is the Angular
-          # browser artifact, which every integration stages identically.
-          # Building all of them repeated one check ~22 times per push. The
-          # post-merge showcase_build.yml still builds every image.
+          # A workflow change builds every image, because the edit can break
+          # any build step. An Angular/package change builds NO image by
+          # itself: integration images install PUBLISHED @copilotkit packages
+          # and their contexts exclude packages/, so the image builds do not
+          # test the PR's package code. The build-angular job still compiles
+          # the Angular host against the PR's packages (needs_angular below).
+          # The post-merge showcase_build.yml still builds every image.
           MATRIX=$(echo "$ALL_SERVICES" | jq -c --argjson changes "$CHANGES" --arg sha "$PR_HEAD_SHA" --arg ref "$PR_HEAD_REF" '
-            ["shell", "langgraph-python", "mastra"] as $sample |
             [.[] |
               if .build_args_sha == "__GH_SHA__" then .build_args_sha = $sha else . end |
               if .build_args_branch == "__GH_REF_NAME__" then .build_args_branch = $ref else . end |
-              (.filter_key as $fk | .dispatch_name as $name | select(
-              ($changes | index($fk) != null) or
-              ((($changes | index("workflow_config") != null) or
-                ($changes | index("angular") != null)) and
-                ($sample | index($name) != null))
+              (.filter_key as $fk | select(
+              ($changes | index("workflow_config") != null) or
+              ($changes | index($fk) != null)
             ))]
           ')
 
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
-          echo "needs_angular=$(echo "$MATRIX" | jq -r 'any(.[]; (.context | startswith("showcase/integrations/")))')" >> $GITHUB_OUTPUT
+          echo "needs_angular=$(echo "$MATRIX" | jq -r --argjson changes "$CHANGES" 'any(.[]; (.context | startswith("showcase/integrations/"))) or ($changes | index("angular") != null)')" >> $GITHUB_OUTPUT
           if [ "$MATRIX" = "[]" ]; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
           else
@@ -212,7 +209,9 @@ jobs:
   build-angular:
     name: Build canonical Angular browser artifact
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.has_changes == 'true'
+    # Runs for an Angular/package change even when no image builds, so the
+    # Angular host still compiles against the PR's packages.
+    if: needs.detect-changes.outputs.has_changes == 'true' || needs.detect-changes.outputs.needs_angular == 'true'
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
