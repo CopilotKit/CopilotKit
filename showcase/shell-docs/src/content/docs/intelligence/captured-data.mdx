@@ -18,10 +18,14 @@ This page describes the experimental self-hosted collector and its custom-sink i
 - Browser-visible request and response headers and bounded body snapshots.
 - Full agent message text in CopilotKit's custom-sink integration, unless `capture.agentText` is `false`.
 
-Two kinds of values never leave the browser. They become `[redacted]`:
+Passwords and credentials never leave the browser. Their values become `[redacted]`:
 
-- Password input values.
-- The credential headers `authorization`, `proxy-authorization`, `cookie`, `set-cookie`, and `x-api-key`. The header name stays.
+- Password field values. A field counts as one when it has `type="password"`, had it earlier in the session (for example before a show-password toggle), has a credential key as its `name`, or has `autocomplete` set to `current-password`, `new-password`, or `one-time-code`.
+- Any value typed into a password field, wherever it appears in a body snapshot or URL. The collector keeps the last 20 such values of 4 or more characters in memory and forgets them on stop.
+- Values of credential keys in JSON, URL-encoded, and multipart bodies, and in URL query strings and hashes. The key stays. Ignoring case, `_`, `-`, `.`, and spaces, a credential key contains `password`, `passwd`, `passphrase`, `passcode`, `secret`, `apikey`, `accesstoken`, `refreshtoken`, `idtoken`, `authtoken`, `sessiontoken`, `privatekey`, or `credential`, or equals `pwd`, `pass`, `token`, or `otp`.
+- The credential headers `authorization`, `proxy-authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-auth-token`, `x-access-token`, `x-csrf-token`, `api-key`, `x-goog-api-key`, and `x-amz-security-token`. The header name stays.
+
+The user name and password in a URL (`https://user:pass@host`) are removed. Bodies are redacted before the size limit applies, so a cut cannot expose part of a value. A body that cannot be redacted is reported as `unavailable`. Binary bodies, captured as base64, are not inspected. Everything else is captured raw.
 
 Clicked element text is cut at 1,000 characters. Paths remain unchanged. The deprecated `routes` option no longer transforms them. The collector still skips its sink URL to prevent capture of its own sends.
 

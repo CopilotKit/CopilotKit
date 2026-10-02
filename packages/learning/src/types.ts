@@ -13,7 +13,7 @@ export const BUILT_IN_EVENT_NAMES = [
 
 export type BuiltInEventName = (typeof BUILT_IN_EVENT_NAMES)[number];
 
-/** Replaces values that never leave the browser, even with full capture: passwords and credential headers. */
+/** Replaces values that never leave the browser, even with full capture: passwords and credentials. */
 export const REDACTED = "[redacted]";
 
 /** One captured interaction, shaped as an AG-UI `CUSTOM` event. */

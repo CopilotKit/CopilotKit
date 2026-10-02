@@ -1,3 +1,5 @@
+import { createRedactor } from "./redact";
+import type { Redactor } from "./redact";
 import { REDACTED } from "./types";
 import type { ClickTarget, Emit, EnrichFn } from "./types";
 
@@ -35,12 +37,11 @@ interface PointerOrigin {
  * Finds the nearest interactive element and retains its text, attributes, and value.
  * The explicit `data-copilotkit-ignore` opt-out still applies.
  */
-export function describeTarget(el: Element) {
+export function describeTarget(el: Element, redact: Redactor) {
   if (closestAcrossShadow(el, "[data-copilotkit-ignore]") !== null) return null;
   const element = el.closest(INTERACTIVE) ?? el;
   // React and server markup can mirror the password into the value attribute.
-  const password =
-    element instanceof HTMLInputElement && element.type === "password";
+  const password = redact.isPassword(element);
   const described: Described = {
     element,
     target: {
@@ -54,17 +55,17 @@ export function describeTarget(el: Element) {
           password && name === "value" ? REDACTED : value,
         ]),
       ),
-      ...readControlValue(element),
+      ...readControlValue(element, redact),
     },
   };
   return described;
 }
 
 /** Snapshot live control properties; HTML attributes do not reflect edited values. */
-export function readControlValue(element: Element) {
+export function readControlValue(element: Element, redact: Redactor) {
   if (element instanceof HTMLInputElement) {
     return {
-      value: element.type === "password" ? REDACTED : element.value,
+      value: redact.isPassword(element) ? REDACTED : element.value,
       ...(["checkbox", "radio"].includes(element.type)
         ? { checked: element.checked }
         : {}),
@@ -123,12 +124,14 @@ export function installClickCapture(params: {
   enrich?: EnrichFn;
   // ponytail: test seam only. jsdom cannot create trusted events; the collector never passes this.
   isTrusted?: (event: Event) => boolean;
+  redact?: Redactor;
 }) {
   const {
     emit,
     getRoute,
     enrich,
     isTrusted = (event) => event.isTrusted,
+    redact = createRedactor(),
   } = params;
   let origin: PointerOrigin | null = null;
 
@@ -137,7 +140,7 @@ export function installClickCapture(params: {
       if (event.isPrimary === false) return;
       const el = eventElement(event);
       origin = {
-        described: el === null ? null : describeTarget(el),
+        described: el === null ? null : describeTarget(el, redact),
         x: event.clientX,
         y: event.clientY,
       };
@@ -159,13 +162,13 @@ export function installClickCapture(params: {
         isNear(pointerOrigin, event);
       const described = canRecover
         ? pointerOrigin.described
-        : describeTarget(el);
+        : describeTarget(el, redact);
       if (described === null) return;
       const input = event.detail === 0 ? "keyboard" : "pointer";
       emit("click", {
         target: { ...described.target, input },
         route: getRoute(),
-        url: location.href,
+        url: redact.url(location.href),
         ...enrich?.(described.element),
       });
     } catch {

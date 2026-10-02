@@ -99,7 +99,7 @@ describe("fetch capture", () => {
     expect(event).toMatchObject({
       transport: "fetch",
       method: "POST",
-      url: `${PAGE_ORIGIN}/api/deals/42?token=secret#fragment`,
+      url: `${PAGE_ORIGIN}/api/deals/42?token=[redacted]#fragment`,
       origin: PAGE_ORIGIN,
       route: "/api/deals/42",
       status: 201,
@@ -487,7 +487,7 @@ describe("XMLHttpRequest capture", () => {
     xhr.finish();
     const event = await captured(events);
     expect(event).toMatchObject({
-      url: `${PAGE_ORIGIN}/api/deals/42?secret=full#hash`,
+      url: `${PAGE_ORIGIN}/api/deals/42?secret=[redacted]#hash`,
       route: "/api/deals/42",
       request: {
         headers: { authorization: "[redacted]", "x-multi": "one, two" },

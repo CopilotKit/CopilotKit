@@ -1,3 +1,5 @@
+import type { Redactor } from "./redact";
+
 /** A bounded observation of a body; never the stream returned to the app. */
 export interface BodySnapshot {
   status:
@@ -16,22 +18,39 @@ export interface BodySnapshot {
 const BODY_BYTES = 4096;
 const READ_TIMEOUT_MS = 1000;
 const encoder = new TextEncoder();
+const redactionFailed = (): BodySnapshot => ({
+  status: "unavailable",
+  reason: "redaction-failed",
+});
+type RedactText = (text: string) => string | undefined;
 
 function snapshot(
   bytes: Uint8Array,
   status: BodySnapshot["status"],
   binary: boolean,
+  redact: RedactText,
   reason?: string,
 ): BodySnapshot {
-  let text: string;
-  try {
-    if (binary) throw new Error("binary");
-    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes, {
-      stream: status !== "complete",
-    });
-    // PostgreSQL jsonb rejects NUL in strings; base64 retains the original bytes.
-    if (text.includes("\0")) throw new Error("nul-byte");
-  } catch {
+  let text: string | undefined;
+  if (!binary)
+    try {
+      text = new TextDecoder("utf-8", { fatal: true }).decode(bytes, {
+        stream: status !== "complete",
+      });
+    } catch {
+      /* Not UTF-8: keep the bytes as base64. */
+    }
+  if (text !== undefined) {
+    // Redact the whole read before the size limit can cut a value.
+    text = redact(text);
+    if (text === undefined) return redactionFailed();
+    // PostgreSQL jsonb rejects NUL in strings; base64 retains the redacted bytes.
+    if (text.includes("\0")) {
+      bytes = encoder.encode(text);
+      text = undefined;
+    }
+  }
+  if (text === undefined) {
     binary = true;
     text = btoa(String.fromCharCode(...bytes));
   }
@@ -62,11 +81,15 @@ function snapshot(
   return result;
 }
 
-export function snapshotText(
-  text: string,
+function snapshotText(
+  value: string,
+  redact: RedactText,
   status: BodySnapshot["status"] = "complete",
   reason?: string,
 ): BodySnapshot {
+  // Redact the full text before truncation so a cut cannot expose a value's prefix.
+  const text = redact(value);
+  if (text === undefined) return redactionFailed();
   let prefix = text.slice(0, BODY_BYTES);
   if (
     prefix.length < text.length &&
@@ -79,6 +102,7 @@ export function snapshotText(
     bytes.subarray(0, BODY_BYTES),
     truncated && status === "complete" ? "truncated" : status,
     false,
+    String,
     reason,
   );
 }
@@ -93,7 +117,7 @@ function isBinary(contentType: string) {
 }
 
 /** Cancel only cloned/synthetic bodies. Cancelling a tee may wait for the app's branch. */
-export function createBodyCapture() {
+export function createBodyCapture(redact: Redactor) {
   const cancellations = new Set<() => void>();
   let active = true;
   const read = (
@@ -126,6 +150,7 @@ export function createBodyCapture() {
             bytes.subarray(0, length),
             status,
             isBinary(contentType),
+            redact.body,
             reason,
           ),
         );
@@ -173,8 +198,9 @@ export function createBodyCapture() {
   ): Promise<BodySnapshot> => {
     try {
       if (value == null) return Promise.resolve({ status: "empty" });
+      if (value instanceof URLSearchParams) value = value.toString();
       if (typeof value === "string")
-        return Promise.resolve(snapshotText(value));
+        return Promise.resolve(snapshotText(value, redact.body));
       if (
         typeof ReadableStream !== "undefined" &&
         value instanceof ReadableStream
@@ -184,6 +210,16 @@ export function createBodyCapture() {
           status: "unavailable",
           reason: "caller-owned-stream",
         });
+      }
+      if (value instanceof FormData) {
+        const form = new FormData();
+        value.forEach((field, key) =>
+          form.append(
+            key,
+            typeof field === "string" ? redact.field(key, field) : field,
+          ),
+        );
+        value = form;
       }
       const response = new Response(value);
       return read(
@@ -200,6 +236,8 @@ export function createBodyCapture() {
   return {
     read,
     body,
+    text: (value: string, status?: BodySnapshot["status"], reason?: string) =>
+      snapshotText(value, redact.body, status, reason),
     stop() {
       active = false;
       for (const cancel of cancellations) cancel();
