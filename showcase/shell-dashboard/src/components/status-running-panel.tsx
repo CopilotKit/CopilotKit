@@ -45,6 +45,7 @@ const RESULT_ICON: Record<ServiceResult, string> = {
   green: "✅",
   yellow: "⚠️",
   red: "❌",
+  unverified: "?",
 };
 
 function serviceIcon(state: ServiceState, result?: ServiceResult): string {

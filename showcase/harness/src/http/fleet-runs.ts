@@ -44,6 +44,7 @@ import {
   buildErrorSummary,
   fetchFamilyJobRows,
   groupBatches,
+  jobResultView,
   projectRunBatch,
 } from "../fleet/control-plane/run-view.js";
 import type {
@@ -149,7 +150,7 @@ export interface RunJobView {
   durationMs: number | null;
   /** The §4.2 hook counter, surfaced directly. */
   reclaimCount: number;
-  cells: { total: number; passed: number; failed: number } | null;
+  cells: RunBatch["cells"];
   errorSummary: string | null;
   commError: { kind: string; observedAt: string | null } | null;
 }
@@ -256,29 +257,15 @@ function payloadView(row: ProbeJobRecord): {
 }
 
 function resultView(row: ProbeJobRecord): {
-  cells: { total: number; passed: number; failed: number } | null;
+  cells: RunBatch["cells"];
   commError: { kind: string; observedAt: string | null } | null;
 } {
   const result = row.result;
   if (result === null || typeof result !== "object") {
     return { cells: null, commError: null };
   }
-  const candidate = result as { rollup?: unknown; commError?: unknown };
-  let cells: { total: number; passed: number; failed: number } | null = null;
-  if (candidate.rollup !== null && typeof candidate.rollup === "object") {
-    const r = candidate.rollup as {
-      total?: unknown;
-      passed?: unknown;
-      failed?: unknown;
-    };
-    if (
-      typeof r.total === "number" &&
-      typeof r.passed === "number" &&
-      typeof r.failed === "number"
-    ) {
-      cells = { total: r.total, passed: r.passed, failed: r.failed };
-    }
-  }
+  const candidate = result as { commError?: unknown };
+  const cells = jobResultView(row).rollup;
   let commError: { kind: string; observedAt: string | null } | null = null;
   if (candidate.commError !== null && typeof candidate.commError === "object") {
     const ce = candidate.commError as { kind?: unknown; observedAt?: unknown };

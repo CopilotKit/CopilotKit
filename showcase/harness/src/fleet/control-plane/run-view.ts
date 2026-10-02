@@ -29,12 +29,14 @@ import type { JobStatus } from "../job-claim.js";
 import type {
   ServiceJobMeta,
   ServiceJobRollup,
+  ServiceCellResult,
   WorkerHealthState,
 } from "../contracts.js";
 import {
   WORKERS_COLLECTION,
   deriveHealth,
   isPoolCommErrorKind,
+  runSummaryForServiceJobResult,
 } from "../contracts.js";
 import { PROBE_JOBS_COLLECTION } from "../queue-client.js";
 import { PROBE_RUNS_COLLECTION } from "../../probes/run-history.js";
@@ -182,7 +184,7 @@ export interface RunBatch {
   outcome: RunOutcome;
   jobs: { total: number; done: number; failed: number; reclaimed: number };
   /** Summed job rollups; null when no job carries a result. */
-  cells: { total: number; passed: number; failed: number } | null;
+  cells: ProbeRunSummary | null;
   redsIntroduced: number | null;
   redsCleared: number | null;
   /** Closed-vocabulary only (§5.2.1 redaction) — never commError.message. */
@@ -334,8 +336,8 @@ function payloadMeta(row: ProbeJobRecord): Partial<ServiceJobMeta> | null {
 }
 
 /** Minimal defensive view of a row's `result` JSON (untrusted column). */
-function resultView(row: ProbeJobRecord): {
-  rollup: ServiceJobRollup | null;
+export function jobResultView(row: ProbeJobRecord): {
+  rollup: ProbeRunSummary | null;
   commErrorKind: string | undefined;
 } {
   const result = row.result;
@@ -345,8 +347,10 @@ function resultView(row: ProbeJobRecord): {
   const candidate = result as {
     rollup?: unknown;
     commError?: unknown;
+    aggregateKey?: unknown;
+    cells?: unknown;
   };
-  let rollup: ServiceJobRollup | null = null;
+  let rollup: ProbeRunSummary | null = null;
   if (candidate.rollup !== null && typeof candidate.rollup === "object") {
     const r = candidate.rollup as Partial<ServiceJobRollup>;
     if (
@@ -354,7 +358,25 @@ function resultView(row: ProbeJobRecord): {
       typeof r.passed === "number" &&
       typeof r.failed === "number"
     ) {
-      rollup = { total: r.total, passed: r.passed, failed: r.failed };
+      // Use the same admission and counts as persisted probe_runs. Older
+      // results without cell evidence cannot supply qualified functional passes.
+      const cells: ServiceCellResult[] = Array.isArray(candidate.cells)
+        ? candidate.cells.filter(
+            (cell) =>
+              cell &&
+              typeof cell.cellKey === "string" &&
+              typeof cell.state === "string",
+          )
+        : [];
+      rollup = runSummaryForServiceJobResult({
+        probeKey: row.probe_key,
+        aggregateKey:
+          typeof candidate.aggregateKey === "string"
+            ? candidate.aggregateKey
+            : row.probe_key,
+        cells,
+        rollup: { total: r.total, passed: r.passed, failed: r.failed },
+      });
     }
   }
   let commErrorKind: string | undefined;
@@ -537,7 +559,7 @@ export function buildErrorSummary(batch: RunBatchRows): string | null {
   const parts: string[] = [];
   for (const row of batch.rows) {
     if (row.status !== "failed") continue;
-    const { rollup, commErrorKind } = resultView(row);
+    const { rollup, commErrorKind } = jobResultView(row);
     if (commErrorKind !== undefined) {
       const kind = isPoolCommErrorKind(commErrorKind)
         ? commErrorKind
@@ -562,7 +584,7 @@ export function buildErrorSummary(batch: RunBatchRows): string | null {
 function collectCommErrorKinds(batch: RunBatchRows): string[] {
   const kinds: string[] = [];
   for (const row of batch.rows) {
-    const { commErrorKind } = resultView(row);
+    const { commErrorKind } = jobResultView(row);
     if (commErrorKind === undefined) continue;
     const kind = isPoolCommErrorKind(commErrorKind) ? commErrorKind : "unknown";
     if (!kinds.includes(kind)) kinds.push(kind);
@@ -581,7 +603,7 @@ export function projectRunBatch(
 ): RunBatch {
   const rows = batch.rows;
   const jobs = { total: rows.length, done: 0, failed: 0, reclaimed: 0 };
-  let cells: { total: number; passed: number; failed: number } | null = null;
+  let cells: ProbeRunSummary | null = null;
   let allTerminal = true;
   let maxFinishedMs = Number.NEGATIVE_INFINITY;
   let triggered = false;
@@ -596,12 +618,15 @@ export function projectRunBatch(
     }
     const meta = payloadMeta(row);
     if (meta?.triggered === true) triggered = true;
-    const { rollup } = resultView(row);
+    const { rollup } = jobResultView(row);
     if (rollup) {
       cells ??= { total: 0, passed: 0, failed: 0 };
       cells.total += rollup.total;
       cells.passed += rollup.passed;
       cells.failed += rollup.failed;
+      if (rollup.unverified) {
+        cells.unverified = (cells.unverified ?? 0) + rollup.unverified;
+      }
     }
   }
   const minEnqueued = minEnqueuedAtMs(rows);
@@ -835,7 +860,7 @@ function isTerminalCompletionBatch(batch: RunBatchRows): boolean {
   // lease-expired). resultView().commErrorKind === undefined means there is
   // either no result object or a result with no commError (cells-red only).
   for (const row of batch.rows) {
-    if (resultView(row).commErrorKind !== undefined) return false;
+    if (jobResultView(row).commErrorKind !== undefined) return false;
   }
   return true;
 }

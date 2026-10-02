@@ -533,10 +533,16 @@ export function probeResultsForServiceJobResult(
  * `ProbeRunSummary` ({ total, passed, failed }) so the aggregator passes the
  * return value straight to `runWriter.finish`/`update`. Pure; unit-tested.
  */
-export function runSummaryForServiceJobResult(result: ServiceJobResult): {
+export function runSummaryForServiceJobResult(
+  result: Pick<
+    ServiceJobResult,
+    "probeKey" | "aggregateKey" | "cells" | "rollup"
+  >,
+): {
   total: number;
   passed: number;
   failed: number;
+  unverified?: number;
 } {
   if (
     functionalAdmission(result.probeKey, "green") === "unverified" ||
@@ -567,7 +573,10 @@ export function runSummaryForServiceJobResult(result: ServiceJobResult): {
     return {
       total: result.rollup.total,
       passed,
-      failed: result.rollup.total - passed,
+      failed: result.rollup.failed,
+      ...(result.rollup.passed > passed
+        ? { unverified: result.rollup.passed - passed }
+        : {}),
     };
   }
   return {

@@ -22,7 +22,7 @@ export interface ProbeServiceProgress {
   state: ProbeServiceState;
   startedAt?: number;
   finishedAt?: number;
-  result?: "green" | "yellow" | "red";
+  result?: "green" | "yellow" | "red" | "unverified";
   error?: string;
 }
 
@@ -94,7 +94,10 @@ export class ProbeRunTracker {
    *  Tolerated even if the service wasn't enqueued / started — overwrites
    *  prior state without throwing. The probe-invoker is the only writer,
    *  so any out-of-order call is a defensive case, not a real bug. */
-  complete(slug: string, result: "green" | "yellow" | "red"): void {
+  complete(
+    slug: string,
+    result: NonNullable<ProbeServiceProgress["result"]>,
+  ): void {
     const existing = this.services.get(slug);
     const finishedAt = this.nowFn();
     this.services.set(slug, {
