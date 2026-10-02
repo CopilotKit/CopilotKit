@@ -29,32 +29,32 @@ BASE = (
 
 MARKER = "grantAllowsMemory"
 
-HELPER = '''const NO_MEMORY = {
+HELPER = """const NO_MEMORY = {
 \tuser: "none",
 \tproject: "none"
 };
 function grantAllowsMemory(grant) {
 \treturn grant.user !== "none" || grant.project !== "none";
 }
-'''
+"""
 
 ACCESS_SET = 'const ACCESS = new Set([\n\t"none",\n\t"read",\n\t"read-write"\n]);'
 
 OLD_POLICY_BODY = (
     '\t\tif (grant === null || grant.user === "none" && grant.project === "none") '
     'return errorResponse("Memory access denied", 403);\n'
-    '\t\tif (!ACCESS.has(grant.user) || !ACCESS.has(grant.project)) '
+    "\t\tif (!ACCESS.has(grant.user) || !ACCESS.has(grant.project)) "
     'return errorResponse("Memory policy returned an invalid grant", 500);\n'
-    '\t\treturn {\n\t\t\tuser,\n\t\t\tgrant: {\n\t\t\t\tuser: grant.user,'
-    '\n\t\t\t\tproject: grant.project\n\t\t\t}\n\t\t};'
+    "\t\treturn {\n\t\t\tuser,\n\t\t\tgrant: {\n\t\t\t\tuser: grant.user,"
+    "\n\t\t\t\tproject: grant.project\n\t\t\t}\n\t\t};"
 )
 
 NEW_POLICY_BODY = (
-    '\t\tconst resolved = grant ?? NO_MEMORY;\n'
-    '\t\tif (!ACCESS.has(resolved.user) || !ACCESS.has(resolved.project)) '
+    "\t\tconst resolved = grant ?? NO_MEMORY;\n"
+    "\t\tif (!ACCESS.has(resolved.user) || !ACCESS.has(resolved.project)) "
     'return errorResponse("Memory policy returned an invalid grant", 500);\n'
-    '\t\treturn {\n\t\t\tuser,\n\t\t\tgrant: {\n\t\t\t\tuser: resolved.user,'
-    '\n\t\t\t\tproject: resolved.project\n\t\t\t}\n\t\t};'
+    "\t\treturn {\n\t\t\tuser,\n\t\t\tgrant: {\n\t\t\t\tuser: resolved.user,"
+    "\n\t\t\t\tproject: resolved.project\n\t\t\t}\n\t\t};"
 )
 
 
@@ -67,14 +67,21 @@ def policy_edits(ext):
     if ext == "mjs":
         # The CJS body references errorResponse through its namespace alias.
         edits.append(
-            ("export { resolveWebMemory };", "export { grantAllowsMemory, resolveWebMemory };")
+            (
+                "export { resolveWebMemory };",
+                "export { grantAllowsMemory, resolveWebMemory };",
+            )
         )
     else:
         edits = [
             (ACCESS_SET, ACCESS_SET + "\n" + HELPER),
             (
-                OLD_POLICY_BODY.replace("errorResponse(", "require_json_response.errorResponse("),
-                NEW_POLICY_BODY.replace("errorResponse(", "require_json_response.errorResponse("),
+                OLD_POLICY_BODY.replace(
+                    "errorResponse(", "require_json_response.errorResponse("
+                ),
+                NEW_POLICY_BODY.replace(
+                    "errorResponse(", "require_json_response.errorResponse("
+                ),
             ),
             (
                 "exports.resolveWebMemory = resolveWebMemory;",
@@ -86,8 +93,14 @@ def policy_edits(ext):
 
 def agent_edits(ext):
     """agent-utils: a grant of nothing skips the tools, it does not fail the run."""
-    call = "resolveWebMemory" if ext == "mjs" else "require_memory_policy.resolveWebMemory"
-    pred = "grantAllowsMemory" if ext == "mjs" else "require_memory_policy.grantAllowsMemory"
+    call = (
+        "resolveWebMemory" if ext == "mjs" else "require_memory_policy.resolveWebMemory"
+    )
+    pred = (
+        "grantAllowsMemory"
+        if ext == "mjs"
+        else "require_memory_policy.grantAllowsMemory"
+    )
     old = (
         f'\tconst access = await {call}(runtime, request, userResult, "agent");\n'
         "\tif (access instanceof Response) return access;\n"
@@ -112,9 +125,19 @@ def agent_edits(ext):
 
 def memories_edits(ext):
     """memories: these routes exist to serve memories, so they keep refusing."""
-    call = "resolveWebMemory" if ext == "mjs" else "require_memory_policy.resolveWebMemory"
-    pred = "grantAllowsMemory" if ext == "mjs" else "require_memory_policy.grantAllowsMemory"
-    guard = "isHandlerResponse" if ext == "mjs" else "require_json_response.isHandlerResponse"
+    call = (
+        "resolveWebMemory" if ext == "mjs" else "require_memory_policy.resolveWebMemory"
+    )
+    pred = (
+        "grantAllowsMemory"
+        if ext == "mjs"
+        else "require_memory_policy.grantAllowsMemory"
+    )
+    guard = (
+        "isHandlerResponse"
+        if ext == "mjs"
+        else "require_json_response.isHandlerResponse"
+    )
     err = "errorResponse" if ext == "mjs" else "require_json_response.errorResponse"
     old = f'\treturn {call}(runtime, request, user, "client");'
     new = (

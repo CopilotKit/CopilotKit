@@ -72,6 +72,7 @@ on:
         options:
           - crewai-crews
           - langgraph-python
+          - google-antigravity
 
 # Default to read-only at the job level. The only step that needs write access
 # is "Post result to PR" at the end — we grant it write perms inline there.
@@ -401,6 +402,17 @@ jobs:
               exit 1
             fi
             export PYTHONPATH="$PWD/src:${PYTHONPATH:-}"
+            if [ "$SLUG" = "google-antigravity" ]; then
+              # Antigravity talks the native Gemini API, not OpenAI, so point it
+              # at aimock with GOOGLE_GEMINI_BASE_URL. Its Go harness refuses
+              # to start a conversation without a key, even against aimock.
+              # The workspace and save_dir default to /data, which exists only
+              # in the Docker image.
+              export GOOGLE_GEMINI_BASE_URL=http://localhost:4010
+              export GEMINI_API_KEY=fake-gemini-key
+              export ANTIGRAVITY_WORKSPACE="$RUNNER_TEMP/ag-ws"
+              export ANTIGRAVITY_SAVE_DIR="$RUNNER_TEMP/ag-sessions"
+            fi
             AIMOCK_URL=http://localhost:4010/v1 \
             python -m uvicorn "agent_server:app" --host 127.0.0.1 --port "$AGENT_PORT" &
           fi

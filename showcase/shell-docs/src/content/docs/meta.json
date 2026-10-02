@@ -70,6 +70,7 @@
     "intelligence/managed-intelligence-platform",
     "intelligence/plans",
     "intelligence/self-hosting",
+    "intelligence/self-hosting-local",
     "intelligence/self-hosting-ecs",
     "intelligence/self-hosting-observability",
     "---Deploy---",
