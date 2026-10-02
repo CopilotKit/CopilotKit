@@ -1240,6 +1240,9 @@ importers:
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../../../../packages/core
+      '@copilotkit/mcp-apps-renderer':
+        specifier: workspace:*
+        version: link:../../../../packages/mcp-apps-renderer
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../../../../packages/shared
@@ -1331,6 +1334,9 @@ importers:
       '@ag-ui/langgraph':
         specifier: ^0.0.11
         version: 0.0.11(@opentelemetry/api@1.9.0)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.29)(undici@7.30.0)(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.21.3)
+      '@ag-ui/mcp-apps-middleware':
+        specifier: 0.0.2
+        version: 0.0.2(@ag-ui/client@1.0.1)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
       '@ai-sdk/openai':
         specifier: 3.0.36
         version: 3.0.36(zod@3.25.76)
@@ -2275,6 +2281,9 @@ importers:
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
+      '@copilotkit/mcp-apps-renderer':
+        specifier: workspace:*
+        version: link:../mcp-apps-renderer
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
@@ -3911,6 +3920,9 @@ importers:
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
+      '@copilotkit/mcp-apps-renderer':
+        specifier: workspace:*
+        version: link:../mcp-apps-renderer
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
