@@ -767,7 +767,12 @@ describe("GET /api/runs/:family/:runId", () => {
     expect(agno?.queueLatencyMs).toBe(4_100);
     expect(agno?.durationMs).toBe(196_444 - 4_100);
     expect(agno?.reclaimCount).toBe(1);
-    expect(agno?.cells).toEqual({ total: 8, passed: 6, failed: 2 });
+    expect(agno?.cells).toEqual({
+      total: 8,
+      passed: 0,
+      failed: 2,
+      unverified: 6,
+    });
     expect(agno?.commError?.kind).toBe("worker-crashed-mid-job");
     // Unrecognized kinds map to "unknown" (closed vocabulary).
     const llama = body.jobs.find((j) => j.serviceSlug === "llamaindex");

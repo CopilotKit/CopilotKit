@@ -317,11 +317,11 @@ describe("result ↔ storage mappers (preserve dashboard row shape)", () => {
     });
   });
 
-  it("counts unqualified functional observations as non-passing in ProbeRunSummary", () => {
+  it("counts unqualified functional observations separately from failures", () => {
     const summary = runSummaryForServiceJobResult(
       makeResult({ rollup: { total: 3, passed: 2, failed: 1 } }),
     );
-    expect(summary).toEqual({ total: 3, passed: 0, failed: 3 });
+    expect(summary).toEqual({ total: 3, passed: 0, failed: 1, unverified: 2 });
     // structurally assignable to the storage contract
     const asSummary: ProbeRunSummary = summary;
     expect(asSummary.total).toBe(3);
@@ -531,7 +531,8 @@ it("functional admission denies the recorded selected D5 namespace positive", ()
   expect(runSummaryForServiceJobResult(result)).toEqual({
     total: 1,
     passed: 0,
-    failed: 1,
+    failed: 0,
+    unverified: 1,
   });
 });
 
@@ -543,7 +544,7 @@ it("functional admission denies the configured D6 producer namespace positive", 
         aggregateKey: "d6-all-pills-e2e:showcase-mastra",
       }),
     ),
-  ).toEqual({ total: 1, passed: 0, failed: 1 });
+  ).toEqual({ total: 1, passed: 0, failed: 0, unverified: 1 });
 });
 
 it("review admission denies functional cells behind a nonfunctional wrapper and retains unrelated credit", () => {
@@ -579,7 +580,8 @@ it("review admission denies functional cells behind a nonfunctional wrapper and 
   expect(runSummaryForServiceJobResult(result)).toEqual({
     total: 3,
     passed: 1,
-    failed: 2,
+    failed: 1,
+    unverified: 1,
   });
   expect(JSON.stringify(result)).toBe(before);
 });

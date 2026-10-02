@@ -100,14 +100,19 @@ describe("buildProbeInvoker", () => {
         },
       },
     })();
-    expect(summary).toMatchObject({ total: 1, passed: 0, failed: 1 });
+    expect(summary).toMatchObject({
+      total: 1,
+      passed: 0,
+      failed: 0,
+      unverified: 1,
+    });
     expect(writes[0]).toMatchObject({
       state: "green",
       signal: { qualifies: true },
     });
     expect(tracker!.snapshot().services[0]).toMatchObject({
-      state: "failed",
-      error: "functional observation unverified",
+      state: "completed",
+      result: "unverified",
     });
   });
   it("fans out static targets and emits one writer.write per target", async () => {

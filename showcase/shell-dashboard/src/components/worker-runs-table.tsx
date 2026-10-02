@@ -385,6 +385,7 @@ function FamilyRow({
             ? `${cells.passed}/${cells.total} (${cells.failed} fail)`
             : `${cells.passed}/${cells.total}`
           : "—"}
+        {cells?.unverified ? `; ${cells.unverified} not verified` : null}
       </td>
       <td
         className="py-2 text-xs tabular-nums"

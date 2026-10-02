@@ -40,6 +40,29 @@ function entry(
 }
 
 describe("StatusTable", () => {
+  it.each([false, true])(
+    "labels unverified observations while inflight=%s",
+    (inflight) => {
+      const e = entry();
+      e.lastRun!.summary = { total: 1, passed: 0, failed: 0, unverified: 1 };
+      if (inflight)
+        e.inflight = {
+          startedAt: new Date(NOW - 1000).toISOString(),
+          elapsedMs: 1000,
+          services: [
+            { slug: "mastra", state: "completed", result: "unverified" },
+          ],
+        };
+      const { getByTestId } = render(
+        <StatusTable entries={[e]} onTrigger={async () => {}} />,
+      );
+      const result = getByTestId("status-row-smoke-result");
+      expect(result.getAttribute("data-tone")).toBe("gray");
+      expect(result.textContent).toContain("1 not verified");
+      expect(result.textContent).not.toContain("skipped");
+    },
+  );
+
   it("renders a row per entry with probe id", () => {
     const entries = [entry({ id: "smoke" }), entry({ id: "deep" })];
     const { getByTestId } = render(

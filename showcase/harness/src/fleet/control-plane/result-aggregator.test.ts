@@ -394,7 +394,8 @@ describe("createResultAggregator", () => {
     expect(finish.summary).toEqual({
       total: 2,
       passed: 0,
-      failed: 2,
+      failed: 1,
+      unverified: 1,
       // §4.2 counters ride every fleet-aggregated summary (0 when the fake
       // writer reports no green→red / red→green durable transitions).
       redsIntroduced: 0,
@@ -423,7 +424,8 @@ describe("createResultAggregator", () => {
     expect(runFake.calls.finish[0].summary).toEqual({
       total: 1,
       passed: 0,
-      failed: 1,
+      failed: 0,
+      unverified: 1,
       redsIntroduced: 0,
       redsCleared: 0,
     });
@@ -3228,7 +3230,8 @@ describe("createResultAggregator", () => {
       expect(runFake.calls.finish[0].summary).toEqual({
         total: 2,
         passed: 0,
-        failed: 2,
+        failed: 1,
+        unverified: 1,
         redsIntroduced: 1,
         redsCleared: 0,
       });
