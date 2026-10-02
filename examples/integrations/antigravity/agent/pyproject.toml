@@ -1,0 +1,22 @@
+[project]
+name = "antigravity-starter-agent"
+version = "0.1.0"
+description = "Google Antigravity agent server for AG-UI / CopilotKit"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+  # `google-antigravity` ships platform wheels (~32 MB) that bundle the Go
+  # `localharness` binary, so there is no separate download step.
+  "google-antigravity==0.1.9",
+  "ag-ui-protocol==1.0.0",
+  "fastapi==0.141.0",
+  "uvicorn[standard]==0.52.0",
+  "sse-starlette==3.4.6",
+  "httpx==0.28.1",
+  "python-dotenv==1.0.1",
+  "ag-ui-antigravity==0.1.0",
+]
+
+# This project is a plain script tree (main.py + src/), not an installable
+# package — `package = false` stops uv from trying to build it as one.
+[tool.uv]
+package = false
