@@ -113,6 +113,10 @@ const requests: Array<{
   response: ReturnType<typeof deferred<Response>>;
 }> = [];
 const cores: CopilotKitCore[] = [];
+// Fake time is pinned so each Core's time-based first seq is predictable.
+const NOW = Date.UTC(2026, 0, 1);
+const SEQ_BASE = NOW * 1000;
+const MAX_GATEWAY_SEQ = 9_007_199_254_740_991;
 const onError = vi.fn();
 const grant = (token = "single-use-1") => ({
   joinToken: token,
@@ -187,6 +191,7 @@ async function start(core = makeCore()) {
 
 beforeEach(() => {
   vi.useFakeTimers();
+  vi.setSystemTime(NOW);
   requests.length = 0;
   transport.sockets.length = 0;
   onError.mockReset();
@@ -279,14 +284,17 @@ describe("Core trajectory connection", () => {
                 url: "https://app.invalid/products/alice?private=secret",
                 title: "Synthetic app",
                 referrer: "",
-                seq: 0,
+                seq: SEQ_BASE,
               },
             },
             {
               type: "CUSTOM",
               name: "app.json",
               timestamp: expect.any(Number),
-              value: { data: [null, true, 7, "value", { nested: [] }], seq: 1 },
+              value: {
+                data: [null, true, 7, "value", { nested: [] }],
+                seq: SEQ_BASE + 1,
+              },
             },
           ],
         },
@@ -654,7 +662,7 @@ describe("Core trajectory connection", () => {
     expect(names(next)).toEqual(["page"]);
     expect(next.pushes[0]!.payload).toMatchObject({
       dropped: 2,
-      events: [{ value: { seq: 3 } }],
+      events: [{ value: { seq: SEQ_BASE + 3 } }],
     });
     expect(names(channel)).toEqual(["page", "app.uncertain"]);
     persist(next);
@@ -739,7 +747,7 @@ describe("Core trajectory connection", () => {
     ["error", { reason: "unrecognized" }, "PERSISTENCE_UNKNOWN", 0],
     [
       "ok",
-      { highestSeq: 1, accepted: 1, rejected: 1 },
+      { highestSeq: SEQ_BASE + 1, accepted: 1, rejected: 1 },
       "PERSISTENCE_UNKNOWN",
       0,
     ],
@@ -787,7 +795,7 @@ describe("Core trajectory connection", () => {
     ]);
     core.emitTrajectoryEvent("app.stopped", {});
     channel.pushes[2]!.push.reply("ok", {
-      highestSeq: 2,
+      highestSeq: SEQ_BASE + 2,
       accepted: 1,
       rejected: 0,
     });
@@ -809,7 +817,7 @@ describe("Core trajectory connection", () => {
     await vi.advanceTimersByTimeAsync(2_000);
     expect(channel.pushes.at(-1)!.payload.events[0]!.value).toEqual({
       data: "still captured",
-      seq: 1,
+      seq: SEQ_BASE + 1,
     });
     persist(channel);
     core.stopTrajectory();
@@ -839,7 +847,7 @@ describe("Core trajectory connection", () => {
       channel.pushes.flatMap(({ payload }) =>
         payload.events.map((event) => event.value.seq),
       ),
-    ).toEqual(Array.from({ length: 101 }, (_, i) => i));
+    ).toEqual(Array.from({ length: 101 }, (_, i) => SEQ_BASE + i));
     persist(channel);
     await vi.advanceTimersByTimeAsync(30_000);
     expect(channel.pushes).toHaveLength(3);
@@ -918,8 +926,8 @@ describe("Core trajectory connection", () => {
     expect(
       channel.pushes[1]!.payload.events.map((event) => event.value),
     ).toEqual([
-      { data: { seq: 72, nested: [null, true] }, seq: 1 },
-      { workflow: "checkout", phase: "succeeded", seq: 2 },
+      { data: { seq: 72, nested: [null, true] }, seq: SEQ_BASE + 1 },
+      { workflow: "checkout", phase: "succeeded", seq: SEQ_BASE + 2 },
     ]);
     persist(channel);
   });
@@ -933,7 +941,7 @@ describe("Core trajectory connection", () => {
     core.emitTrajectoryEvent("app.valid", {});
     await vi.advanceTimersByTimeAsync(2_000);
     channel.pushes[1]!.push.reply("ok", {
-      highestSeq: 2,
+      highestSeq: SEQ_BASE + 2,
       accepted: 1,
       rejected: 1,
     });
@@ -979,7 +987,7 @@ describe("Core trajectory connection", () => {
     const { core, channel } = await start();
     core.emitTrajectoryEvent("app.first", {});
     core.stopTrajectory();
-    expect(channel.pushes[1]!.payload.events[0]!.value.seq).toBe(1);
+    expect(channel.pushes[1]!.payload.events[0]!.value.seq).toBe(SEQ_BASE + 1);
     const pending = core.startTrajectory({
       trajectoryId: "another-trajectory",
     });
@@ -989,9 +997,55 @@ describe("Core trajectory connection", () => {
     await vi.advanceTimersByTimeAsync(2_000);
     expect(next.pushes[0]!.payload).toMatchObject({
       dropped: 0,
-      events: [{ value: { seq: 2 } }],
+      events: [{ value: { seq: SEQ_BASE + 2 } }],
     });
     persist(next);
+  });
+
+  it("keeps seqs unique when a new Core reuses the trajectory id after a reload", async () => {
+    const { core, channel } = await start();
+    core.emitTrajectoryEvent("app.beforeReload", {});
+    core.stopTrajectory();
+    const firstLoad = channel.pushes.flatMap(({ payload }) =>
+      payload.events.map((event) => event.value.seq as number),
+    );
+    // A reload builds a new Core later and keeps the id from sessionStorage.
+    vi.advanceTimersByTime(1);
+    const reloaded = makeCore();
+    const pending = reloaded.startTrajectory({ trajectoryId: "trajectory-1" });
+    await authorize(1, "single-use-2");
+    const next = join(1);
+    expect((await pending).status).toBe("started");
+    reloaded.emitTrajectoryEvent("app.afterReload", {});
+    await vi.advanceTimersByTimeAsync(2_000);
+    const secondLoad = next.pushes[0]!.payload.events.map(
+      (event) => event.value.seq as number,
+    );
+    persist(next);
+    expect(firstLoad).toEqual([SEQ_BASE, SEQ_BASE + 1]);
+    expect(secondLoad).toHaveLength(2);
+    expect(secondLoad[1]).toBe(secondLoad[0]! + 1);
+    expect(secondLoad[0]).toBeGreaterThan(firstLoad.at(-1)!);
+    for (const seq of [...firstLoad, ...secondLoad]) {
+      expect(Number.isSafeInteger(seq)).toBe(true);
+      expect(seq).toBeLessThanOrEqual(MAX_GATEWAY_SEQ);
+    }
+  });
+
+  it("drops events instead of sending a seq past the Gateway maximum", async () => {
+    // Date.now() * 1000 passes 2^53 - 1 shortly before the year 2256.
+    vi.setSystemTime(Date.UTC(2256, 0, 1));
+    const core = makeCore();
+    const pending = core.startTrajectory({ trajectoryId: "trajectory-1" });
+    await authorize();
+    const channel = join();
+    expect((await pending).status).toBe("started");
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(onError.mock.calls.map(([error]) => error.code)).toEqual([
+      "SEQUENCE_EXHAUSTED",
+    ]);
+    expect(channel.pushes[0]!.payload).toEqual({ events: [], dropped: 1 });
+    persist(channel);
   });
 
   it("drops a queued final batch when an earlier batch is still awaiting its ACK", async () => {

@@ -166,6 +166,6 @@ function StartCaptureButton({ projectId }: { projectId: string }) {
 
 One Trajectory runs at a time. Starting the same ID again does nothing. `copilotkit.stopTrajectory()` removes every listener and sends queued events once. It does not wait for delivery or retry a failed send.
 
-Sequence numbers increase for the lifetime of the Core instance, including across stop/start cycles.
+Sequence numbers (`seq`) increase for the lifetime of the Core instance, including across stop/start cycles. They do not start at 0: each Core instance starts from its creation time, so a page reload or second tab that reuses a Trajectory ID continues above the earlier numbers.
 
 Need capture in an app without CopilotKit? Use the [standalone collector](/intelligence/standalone-collector).

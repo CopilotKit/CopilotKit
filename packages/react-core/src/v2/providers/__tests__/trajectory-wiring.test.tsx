@@ -98,6 +98,9 @@ const pendingAuth: ReturnType<typeof deferred<Response>>[] = [];
 const FIRST_ID = "10000000-0000-4000-8000-000000000001";
 const SECOND_ID = "10000000-0000-4000-8000-000000000002";
 const nativePushState = History.prototype.pushState;
+// Fake time is pinned so the Core's time-based first seq is predictable.
+const NOW = Date.UTC(2026, 0, 1);
+const SEQ_BASE = NOW * 1000;
 let core: CopilotKitCoreReact;
 
 function CoreProbe() {
@@ -152,6 +155,7 @@ async function flushCapture() {
 
 beforeEach(() => {
   vi.useFakeTimers();
+  vi.setSystemTime(NOW);
   pendingAuth.length = 0;
   transport.sockets.length = 0;
   history.replaceState(null, "", "/deals");
@@ -252,7 +256,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
                 url: location.href,
                 title: document.title,
                 referrer: document.referrer,
-                seq: 0,
+                seq: SEQ_BASE,
               },
             },
           ],
@@ -337,7 +341,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
     await flushCapture();
     expect(transport.sockets[0].channels[0].pushes).toHaveLength(1);
     transport.sockets[0].channels[0].pushes[0].push.reply("ok", {
-      highestSeq: 0,
+      highestSeq: SEQ_BASE,
       accepted: 1,
       rejected: 0,
     });
@@ -346,7 +350,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
     await flushCapture();
     expect(transport.sockets[0].channels[0].pushes).toHaveLength(2);
     expect(transport.sockets[0].channels[0].pushes[1].payload).toMatchObject({
-      events: [{ name: "navigation", value: { seq: 1 } }],
+      events: [{ name: "navigation", value: { seq: SEQ_BASE + 1 } }],
     });
     view.unmount();
     expect(History.prototype.pushState).toBe(nativePushState);
