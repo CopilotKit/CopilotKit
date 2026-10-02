@@ -35,6 +35,7 @@ on:
         type: choice
         options:
           - monorepo
+          - learning
           - angular
           - channels
           - intelligence-langgraph
