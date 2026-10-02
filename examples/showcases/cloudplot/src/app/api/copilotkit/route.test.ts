@@ -63,6 +63,20 @@ describe("CloudPlot metered runtime", () => {
     expect(mocks.handleRequest).toHaveBeenCalledOnce();
   });
 
+  it("bypasses client identification outside production", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("RAILWAY_ENVIRONMENT_ID", "");
+    const { POST } = await import("./route");
+    const response = await POST(
+      new NextRequest("https://cloudplot.test/api/copilotkit", {
+        method: "POST",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.handleRequest).toHaveBeenCalledOnce();
+  });
+
   it("rate limits authenticated requests before invoking the runtime", async () => {
     const { createSessionValue, getRuntimeSecurityConfiguration } =
       await import("../../../lib/runtimeSecurity");

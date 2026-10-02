@@ -72,11 +72,13 @@ export const POST = async (req: NextRequest) => {
     );
   }
 
-  const clientLimit = clientLimiter.consume(
-    getClientKey(req.headers, Boolean(process.env.RAILWAY_ENVIRONMENT_ID)),
-  );
-  if (!clientLimit.allowed) {
-    return rateLimitedResponse(clientLimit.retryAfterSeconds);
+  if (configuration.mode === "protected") {
+    const clientLimit = clientLimiter.consume(
+      getClientKey(req.headers, Boolean(process.env.RAILWAY_ENVIRONMENT_ID)),
+    );
+    if (!clientLimit.allowed) {
+      return rateLimitedResponse(clientLimit.retryAfterSeconds);
+    }
   }
   const globalLimit = globalLimiter.consume("all-runtime-requests");
   if (!globalLimit.allowed) {
