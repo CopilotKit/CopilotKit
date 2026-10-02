@@ -6,7 +6,9 @@
       "options": {
         "command": "python3 -m pytest showcase/shared/python/tests/test_todos.py showcase/shared/python/tests/test_sales_todos.py"
       },
-      "inputs": ["{projectRoot}/**/*"],
+      "inputs": [
+        "{projectRoot}/**/*"
+      ],
       "dependsOn": []
     },
     "test:todos": {
@@ -14,7 +16,9 @@
       "options": {
         "command": "python3 -m pytest showcase/shared/python/tests/test_todos.py showcase/shared/python/tests/test_sales_todos.py"
       },
-      "inputs": ["{projectRoot}/**/*"],
+      "inputs": [
+        "{projectRoot}/**/*"
+      ],
       "dependsOn": []
     },
     "test:todos:browser": {
@@ -30,7 +34,48 @@
       "options": {
         "command": "python3 -m pytest showcase/shared/python/tests"
       },
-      "inputs": ["{projectRoot}/**/*"],
+      "inputs": [
+        "{projectRoot}/**/*"
+      ],
+      "dependsOn": []
+    },
+    "test:runtime-diagnostics": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "python3 -B -m unittest discover -s showcase/shared/python/tests -p test_runtime_diagnostics.py -v"
+      },
+      "inputs": [
+        "{projectRoot}/tools/runtime_diagnostics.py",
+        "{projectRoot}/tests/test_runtime_diagnostics.py",
+        "{workspaceRoot}/showcase/integrations/google-antigravity/entrypoint.sh"
+      ],
+      "dependsOn": []
+    },
+    "test:runtime-diagnostics:linux": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "docker run --rm -v \"$PWD:/workspace:ro\" -w /workspace python:3.12.13-slim python3 -B -m unittest discover -s showcase/shared/python/tests -p test_runtime_diagnostics.py -v"
+      },
+      "inputs": [
+        "{projectRoot}/tools/runtime_diagnostics.py",
+        "{projectRoot}/tests/test_runtime_diagnostics.py",
+        "{workspaceRoot}/showcase/integrations/google-antigravity/entrypoint.sh"
+      ],
+      "dependsOn": []
+    },
+    "build:runtime-diagnostics": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "python3 -c \"from pathlib import Path; p=Path('showcase/shared/python/tools/runtime_diagnostics.py'); compile(p.read_text(), str(p), 'exec'); assert Path('showcase/integrations/google-antigravity/tools').is_symlink()\" && bash -n showcase/integrations/google-antigravity/entrypoint.sh"
+      },
+      "inputs": [
+        "{projectRoot}/tools/runtime_diagnostics.py",
+        "{projectRoot}/tests/test_runtime_diagnostics.py",
+        "{workspaceRoot}/showcase/integrations/google-antigravity/entrypoint.sh"
+      ],
       "dependsOn": []
     }
   }

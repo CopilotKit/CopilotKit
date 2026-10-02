@@ -3,6 +3,11 @@ set -e
 
 cleanup() {
   kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true
+  if [ -n "${DIAGNOSTICS_PID:-}" ]; then
+    # Do not let diagnostics stdout backpressure delay container shutdown.
+    kill -9 "$DIAGNOSTICS_PID" 2>/dev/null || true
+    wait "$DIAGNOSTICS_PID" 2>/dev/null || true
+  fi
 }
 trap cleanup EXIT
 
@@ -73,6 +78,14 @@ env NODE_ENV=production npx next start --port $PORT &> >(awk '{print "[nextjs] "
 NEXTJS_PID=$!
 
 echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
+
+# Independent observer: opt-in only, direct stdout bypasses application awk
+# pipes. Its exit is excluded from wait -n so diagnostics never govern uptime.
+if [ "${SHOWCASE_RUNTIME_DIAGNOSTICS:-}" = "1" ]; then
+  # Isolated mode also prevents tools/types.py shadowing stdlib types.
+  python -I -u "$(dirname "$0")/tools/runtime_diagnostics.py" --frontend-port "$PORT" &
+  DIAGNOSTICS_PID=$!
+fi
 
 # Watchdog: Railway deploys of showcase packages have been observed to hit a
 # silent agent hang — the Python process stays alive (so `wait -n` never
