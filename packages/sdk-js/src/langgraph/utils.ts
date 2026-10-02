@@ -63,9 +63,9 @@ export function copilotkitCustomizeConfig(
    * - `emitMessages: boolean?`
    *   Configure how messages are emitted. By default, all messages are emitted. Pass false to
    *   disable emitting messages.
-   * - `emitToolCalls: boolean | string | string[]?`
+   * - `emitToolCalls: boolean?`
    *   Configure how tool calls are emitted. By default, all tool calls are emitted. Pass false to
-   *   disable emitting tool calls. Pass a string or list of strings to emit only specific tool calls.
+   *   disable emitting tool calls. For selective filtering, use AG-UI's FilterToolCallsMiddleware.
    * - `emitIntermediateState: IntermediateStateConfig[]?`
    *   Lets you emit tool calls as streaming LangGraph state.
    */
@@ -81,6 +81,16 @@ export function copilotkitCustomizeConfig(
     throw new CopilotKitMisuseError({
       message: "options must be an object when provided",
     });
+  }
+
+  let emitToolCalls = options?.emitToolCalls as unknown;
+  if (emitToolCalls !== undefined && typeof emitToolCalls !== "boolean") {
+    console.warn(
+      "`emitToolCalls` only accepts booleans. Use AG-UI's " +
+        "FilterToolCallsMiddleware for selective tool-call filtering; " +
+        "treating the provided value as true.",
+    );
+    emitToolCalls = true;
   }
 
   // Validate emitIntermediateState structure
@@ -125,8 +135,8 @@ export function copilotkitCustomizeConfig(
       metadata["copilotkit:emit-tool-calls"] = true;
       metadata["copilotkit:emit-messages"] = true;
     } else {
-      if (options?.emitToolCalls !== undefined) {
-        metadata["copilotkit:emit-tool-calls"] = options.emitToolCalls;
+      if (emitToolCalls !== undefined) {
+        metadata["copilotkit:emit-tool-calls"] = emitToolCalls;
       }
       if (options?.emitMessages !== undefined) {
         metadata["copilotkit:emit-messages"] = options.emitMessages;
