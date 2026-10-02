@@ -2,14 +2,22 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { API } from "./client";
-import type { CardAccount, CardTransaction, Receipt } from "./recon-seed";
+import type {
+  CardAccount,
+  CardTransaction,
+  CompanyEvent,
+  Department,
+  GlAccount,
+  Receipt,
+} from "./recon-seed";
 import { trackedFetch } from "../learning/recorder";
 
 /**
- * The Reconcile board's client: its view of one card, and the person's writes.
- * Every write is a recorded `network` event with the route TEMPLATE and a
- * small request/response summary. In order (open a session, one pair per
- * charge, validate, close) they are the recipe a learned skill replays.
+ * The Card close board's client: its view of one card, and the person's
+ * writes. Every write is a recorded `network` event with the route TEMPLATE
+ * and a small request/response summary. In order (open a session, clear each
+ * exception through its workflow, validate, close) they are the recipe a
+ * learned skill replays.
  */
 
 export interface Adjustment {
@@ -25,7 +33,34 @@ export interface PairView {
   receiptIds: string[];
   adjustment?: Adjustment;
   note?: string;
+  auto?: boolean;
 }
+
+export type ResolutionView =
+  | {
+      kind: "split";
+      allocationId: string;
+      lines: { departmentId: string; amount: number }[];
+    }
+  | {
+      kind: "reclass";
+      entryId: string;
+      fromAccount: string;
+      toAccount: string;
+      memo: string;
+    }
+  | {
+      kind: "personal";
+      repaymentId: string;
+      method: "payroll_deduction" | "card_payment";
+    }
+  | {
+      kind: "missing_receipt";
+      affidavitId: string;
+      memo: string;
+      attestedBy: string;
+      attestedAt: string;
+    };
 
 export interface SessionView {
   id: string;
@@ -39,19 +74,32 @@ export interface SessionView {
 export interface BoardView {
   card: CardAccount;
   closedAt: string | null;
-  transactions: (CardTransaction & { match: PairView | null })[];
+  transactions: (CardTransaction & {
+    match: PairView | null;
+    resolution: ResolutionView | null;
+  })[];
   receipts: (Receipt & { matched: boolean })[];
   session: SessionView | null;
+  events: CompanyEvent[];
+  departments: Department[];
+  glAccounts: GlAccount[];
 }
 
 export interface PairResult {
   transactionId: string;
   valid: boolean;
-  code?: "WRONG_RECEIPT" | "UNBALANCED" | "UNMATCHED";
+  code?:
+    | "WRONG_RECEIPT"
+    | "UNBALANCED"
+    | "UNMATCHED"
+    | "UNRESOLVED"
+    | "WRONG_ACCOUNT"
+    | "WRONG_SPLIT";
 }
 
 export interface CardSummary extends CardAccount {
-  unmatched: number;
+  attention: number;
+  open: number;
   closed: boolean;
 }
 
@@ -166,6 +214,116 @@ export const reconActions = {
     );
     return json<{ valid: number; total: number; results: PairResult[] }>(res);
   },
+  /** SPLIT: a draft allocation, its lines, then commit. Three recorded calls. */
+  split: async (
+    t: CardTransaction,
+    lines: { departmentId: string; amount: number }[],
+    label: string,
+  ) => {
+    const draft = await trackedFetch(`${API}/allocations`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ transactionId: t.id }),
+      template: `${API}/allocations`,
+      summary: `Start an allocation for ${t.descriptor}`,
+      request: { transactionId: t.id },
+      responseFields: ["id", "status"],
+    });
+    const a = await json<{ id: string }>(draft);
+    if (!draft.ok) return { ok: false as const, message: a.message };
+    const put = await trackedFetch(
+      `${API}/allocations/${encodeURIComponent(a.id)}/lines`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ lines }),
+        template: `${API}/allocations/[allocationId]/lines`,
+        summary: `Allocate ${t.descriptor}: ${label}`,
+        request: { allocationId: a.id, lines },
+        responseFields: ["id", "lines"],
+      },
+    );
+    const pb = await json<object>(put);
+    if (!put.ok) return { ok: false as const, message: pb.message };
+    const commit = await trackedFetch(
+      `${API}/allocations/${encodeURIComponent(a.id)}/commit`,
+      {
+        method: "POST",
+        template: `${API}/allocations/[allocationId]/commit`,
+        summary: `Commit the allocation for ${t.descriptor}`,
+        request: { allocationId: a.id },
+        responseFields: ["id", "status"],
+      },
+    );
+    const cb = await json<object>(commit);
+    return commit.ok
+      ? { ok: true as const }
+      : { ok: false as const, message: cb.message };
+  },
+  /** RECLASS: September coding is soft-locked, so a reclass entry is posted. */
+  reclass: async (
+    t: CardTransaction,
+    toAccount: string,
+    memo: string,
+    label: string,
+  ) => {
+    const req = {
+      transactionId: t.id,
+      fromAccount: t.glAccount,
+      toAccount,
+      memo,
+    };
+    const res = await trackedFetch(`${API}/journal/reclasses`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(req),
+      template: `${API}/journal/reclasses`,
+      summary: `Reclass ${t.descriptor}: ${label}`,
+      request: req,
+      responseFields: ["entryId", "status"],
+    });
+    const b = await json<object>(res);
+    return res.ok
+      ? { ok: true as const }
+      : { ok: false as const, message: b.message };
+  },
+  /** PERSONAL: a repayment, never an edit to the charge. */
+  personal: async (
+    t: CardTransaction,
+    method: "payroll_deduction" | "card_payment",
+  ) => {
+    const req = { transactionId: t.id, method };
+    const res = await trackedFetch(`${API}/repayments`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(req),
+      template: `${API}/repayments`,
+      summary: `Mark ${t.descriptor} personal: repay by ${method === "payroll_deduction" ? "payroll deduction" : "card payment"}`,
+      request: req,
+      responseFields: ["repaymentId", "status"],
+    });
+    const b = await json<object>(res);
+    return res.ok
+      ? { ok: true as const }
+      : { ok: false as const, message: b.message };
+  },
+  /** MISSING RECEIPT: the cardholder's affidavit with the business purpose. */
+  affidavit: async (t: CardTransaction, memo: string) => {
+    const req = { transactionId: t.id, memo };
+    const res = await trackedFetch(`${API}/affidavits`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(req),
+      template: `${API}/affidavits`,
+      summary: `Missing-receipt affidavit for ${t.descriptor}`,
+      request: req,
+      responseFields: ["affidavitId", "status", "attestedBy"],
+    });
+    const b = await json<{ attestedBy?: string }>(res);
+    return res.ok
+      ? { ok: true as const, attestedBy: b.attestedBy }
+      : { ok: false as const, message: b.message };
+  },
   close: async (sessionId: string) => {
     const res = await trackedFetch(
       `${R}/sessions/${encodeURIComponent(sessionId)}/close`,
@@ -174,7 +332,7 @@ export const reconActions = {
         template: `${R}/sessions/[sessionId]/close`,
         summary: `Close the period for ${sessionId}`,
         request: { sessionId },
-        responseFields: ["closed", "period", "matched"],
+        responseFields: ["closed", "period", "matched", "exceptions"],
       },
     );
     const body = await json<{ closed?: boolean }>(res);

@@ -103,12 +103,12 @@ export const handlers = {
       return refusal(e, reportId);
     }
   },
-  /** Opens the Review matches card; nothing closes until the user confirms in it. */
+  /** Opens the review card; nothing closes until the user confirms in it. */
   reviewMatches({ sessionId }: { sessionId: string }): ToolOutput {
     try {
       return {
         ...reviewView(String(sessionId ?? "")),
-        note: "The Review matches card is on screen. You have not closed anything; only the user's Confirm in the card validates and closes the month. Tell the user the matches are ready for their review and stop.",
+        note: "The review card is on screen. You have not closed anything; only the user's Confirm in the card validates and closes the month. Tell the user the matches are ready for their review and stop.",
       };
     } catch (e) {
       return refusal(e);

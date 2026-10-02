@@ -2,83 +2,155 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import * as ledger from "./store";
 import * as recon from "./recon-store";
+import { agentApi } from "./agent-api";
 
-describe("reconciliation sessions", () => {
+/** Clear Priya's four exceptions the way the board does. */
+function clearPriya(origin: recon.Origin) {
+  const al = recon.createAllocation({ transactionId: "txn_4417_0919" }, origin);
+  recon.setAllocationLines(
+    al.id,
+    {
+      lines: [
+        { departmentId: "dept_eng", amount: 1200 },
+        { departmentId: "dept_design", amount: 600 },
+        { departmentId: "dept_product", amount: 600 },
+      ],
+    },
+    origin,
+  );
+  recon.commitAllocation(al.id, origin);
+  recon.createReclass(
+    {
+      transactionId: "txn_4417_0910",
+      fromAccount: "6100",
+      toAccount: "6420",
+      memo: "Figma is design software.",
+    },
+    origin,
+  );
+  recon.createRepayment(
+    { transactionId: "txn_4417_0927", method: "payroll_deduction" },
+    origin,
+  );
+  recon.createAffidavit(
+    {
+      transactionId: "txn_4417_0923",
+      memo: "Ride to O'Hare after the onsite.",
+    },
+    origin,
+  );
+}
+
+describe("the month-end close", () => {
   beforeEach(() => ledger.reset());
 
-  it("refuses a match outside a session", () => {
-    expect(() => recon.patchTransaction("txn_4417_0908")).toThrow(
-      /inside a reconciliation session/,
+  it("refuses edits to a charge with the rule for its exception, never the workflow", () => {
+    const code = (id: string, body: Record<string, unknown> = {}) => {
+      try {
+        recon.patchTransaction(id, body);
+      } catch (e) {
+        return (e as ledger.LedgerError).code;
+      }
+    };
+    expect(code("txn_4417_0910", { status: "cleared" })).toBe(
+      "PERIOD_SOFT_LOCKED",
+    );
+    expect(code("txn_4417_0919", { status: "cleared" })).toBe(
+      "ALLOCATION_REQUIRED",
+    );
+    expect(code("txn_4417_0927", { status: "cleared" })).toBe("NOT_EDITABLE");
+    expect(code("txn_4417_0923", { status: "cleared" })).toBe(
+      "RECEIPT_REQUIRED",
+    );
+    expect(code("txn_4417_0919", { glAccount: "6420" })).toBe(
+      "PERIOD_SOFT_LOCKED",
+    );
+    expect(agentApi("PATCH", "/transactions/txn_4417_0910", {}).status).toBe(
+      423,
     );
   });
 
-  it("validates per pair with a code only, and closes only a fully valid, current session", () => {
+  it("auto-matches receipts, validates exceptions per charge, and closes only a fully valid, current session", () => {
     const s = recon.createSession({ period: "2026-09", cardId: "card_4417" });
-    recon.putPair(s.id, {
-      transactionId: "txn_4417_0912",
-      receiptIds: ["rcpt_nopa_0912"],
-    });
-    recon.putPair(s.id, {
-      transactionId: "txn_4417_0915",
-      receiptIds: ["rcpt_amzn_0830"],
-    });
+    expect(Object.values(s.pairs).every((p) => p.auto)).toBe(true);
+    expect(Object.keys(s.pairs)).toHaveLength(6);
     const v = recon.validate(s.id);
-    const code = (id: string) =>
-      v.results.find((r) => r.transactionId === id)?.code;
-    expect(code("txn_4417_0912")).toBe("UNBALANCED"); // the tip is missing
-    expect(code("txn_4417_0915")).toBe("WRONG_RECEIPT"); // the August order
-    expect(code("txn_4417_0908")).toBe("UNMATCHED");
+    expect(v).toMatchObject({ valid: 6, total: 10 });
+    expect(
+      v.results.filter((r) => !r.valid).every((r) => r.code === "UNRESOLVED"),
+    ).toBe(true);
     expect(() => recon.close(s.id)).toThrow(/pass validation/);
 
-    for (const [t, r, adjustment] of [
-      ["txn_4417_0908", ["rcpt_bb_0907"]],
-      ["txn_4417_0912", ["rcpt_nopa_0912"], { kind: "gratuity", amount: 24.8 }],
-      ["txn_4417_0915", ["rcpt_amzn_0914"]],
-      [
-        "txn_4417_0918",
-        ["rcpt_marais_0917"],
-        {
-          kind: "fx_conversion",
-          currency: "EUR",
-          receiptAmount: 372,
-          rate: 1.1086,
-        },
-      ],
-      ["txn_4417_0922", ["rcpt_ua_tkt_0920", "rcpt_ua_plus_0920"]],
-      ["txn_4417_0925", ["rcpt_wework_0925"]],
-    ] as const)
-      recon.putPair(s.id, { transactionId: t, receiptIds: [...r], adjustment });
-    expect(recon.validate(s.id)).toMatchObject({ valid: 6, total: 6 });
-    // A change after validation needs a fresh one.
-    recon.putPair(s.id, {
-      transactionId: "txn_4417_0908",
-      receiptIds: ["rcpt_bb_0907"],
-      note: "re-checked",
+    // A wrong reclass is caught by validation.
+    recon.createReclass(
+      {
+        transactionId: "txn_4417_0910",
+        fromAccount: "6100",
+        toAccount: "6500",
+        memo: "Office supplies?",
+      },
+      "board",
+    );
+    clearPriya("board");
+    expect(recon.validate(s.id)).toMatchObject({ valid: 10, total: 10 });
+    expect(recon.close(s.id)).toMatchObject({
+      closed: true,
+      matched: 6,
+      exceptions: 4,
     });
-    expect(() => recon.close(s.id)).toThrow(/pass validation/);
-    recon.validate(s.id);
-    expect(recon.close(s.id)).toMatchObject({ closed: true, matched: 6 });
     expect(recon.cards().find((c) => c.id === "card_4417")).toMatchObject({
       closed: true,
-      unmatched: 0,
+      attention: 0,
     });
   });
 
-  it("keeps an agent's session off the person's board", () => {
+  it("rejects an allocation that does not add up, and a split that ignores the attendees", () => {
+    const s = recon.createSession({ period: "2026-09", cardId: "card_4417" });
+    const al = recon.createAllocation(
+      { transactionId: "txn_4417_0919" },
+      "board",
+    );
+    expect(() =>
+      recon.setAllocationLines(
+        al.id,
+        { lines: [{ departmentId: "dept_eng", amount: 100 }] },
+        "board",
+      ),
+    ).toThrow(/do not add up/);
+    recon.setAllocationLines(
+      al.id,
+      {
+        lines: [
+          { departmentId: "dept_eng", amount: 800 },
+          { departmentId: "dept_design", amount: 800 },
+          { departmentId: "dept_product", amount: 800 },
+        ],
+      },
+      "board",
+    );
+    recon.commitAllocation(al.id, "board");
+    const r = recon
+      .validate(s.id)
+      .results.find((x) => x.transactionId === "txn_4417_0919");
+    expect(r).toMatchObject({ valid: false, code: "WRONG_SPLIT" });
+  });
+
+  it("keeps an agent's session and resolutions off the person's board", () => {
     const api = recon.createSession(
       { period: "2026-09", cardId: "card_4417" },
       "api",
     );
-    recon.putPair(api.id, {
-      transactionId: "txn_4417_0908",
-      receiptIds: ["rcpt_bb_0907"],
-    });
+    clearPriya("api");
+    expect(recon.validate(api.id)).toMatchObject({ valid: 10, total: 10 });
     expect(recon.board("card_4417").session).toBeNull();
+    expect(
+      recon.board("card_4417").transactions.filter((t) => t.resolution),
+    ).toHaveLength(0);
     const board = recon.createSession({
       period: "2026-09",
       cardId: "card_4417",
     });
     expect(board.id).not.toBe(api.id);
-    expect(recon.board("card_4417").session?.id).toBe(board.id);
+    expect(recon.validate(board.id)).toMatchObject({ valid: 6, total: 10 });
   });
 });

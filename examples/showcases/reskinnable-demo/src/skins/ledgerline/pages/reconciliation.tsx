@@ -5,6 +5,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeftRight,
+  Sparkles,
   CalendarClock,
   Check,
   CheckCircle2,
@@ -36,20 +37,20 @@ import { ReceiptPaper, ReceiptThumb } from "../components/receipt";
 import { Avatar, Money, PageHeader, primaryButton } from "../components/ui";
 import { useToast } from "../components/toast";
 import { emit, emitScreenContext } from "../learning/recorder";
+import { ExceptionCard } from "./close-exceptions";
 
 /**
- * CARD CLOSE: month-end receipt matching (beat 3).
+ * CARD CLOSE: the month-end close for one corporate card (beat 3).
  *
- * Left, the card charges still waiting for a receipt; right, the cardholder's
- * receipts inbox. Drag a receipt onto a charge (or use its Match menu); a
- * second receipt dropped on the same charge makes a split. The board reads the
- * receipt the way a person does, adding the tip written on a slip and the
- * conversion for a receipt in euros as the pair's adjustment. Then Validate
- * matches, and Close the month.
+ * Receipts match themselves when the close opens (a tip on the slip, a hotel
+ * in euros, two receipts for one airline charge). What is left are the
+ * EXCEPTIONS, each cleared in its own small workflow on its row: split an
+ * offsite by attendees, reclass a miscoded charge, mark a personal charge for
+ * repayment, request a missing-receipt affidavit. Then Validate, and Close.
  *
- * Under the hood: a reconciliation SESSION, one PAIR per charge, VALIDATE,
- * CLOSE, each a recorded call. Nothing outside this screen describes that
- * workflow or what goes in a pair.
+ * Under the hood: a reconciliation SESSION, the exception workflows
+ * (allocations, reclass entries, repayments, affidavits), VALIDATE, CLOSE,
+ * each a recorded call. Nothing outside this screen describes them.
  */
 
 type Phase = "idle" | "validating" | "valid" | "invalid" | "closing" | "closed";
@@ -88,7 +89,7 @@ export function ReconciliationPage() {
     <div className="mx-auto max-w-[1280px]">
       <PageHeader
         title="Card close"
-        subtitle="Match each card charge to its receipt, validate the matches, then close the month."
+        subtitle="Receipts match themselves. Clear what needs you, validate, then close the month."
         actions={
           cards && cards.length > 1 ? (
             <div
@@ -120,10 +121,12 @@ export function ReconciliationPage() {
                   </span>
                   {c.closed ? (
                     <Lock className="h-3 w-3 text-positive" />
-                  ) : (
+                  ) : c.attention ? (
                     <span className="ll-num rounded-full bg-[hsl(var(--ll-amber)/0.16)] px-1.5 text-[11px] font-medium text-[hsl(32_80%_32%)]">
-                      {c.unmatched}
+                      {c.attention}
                     </span>
+                  ) : (
+                    <Check className="h-3 w-3 text-brand" />
                   )}
                 </button>
               ))}
@@ -174,29 +177,32 @@ function Board({ cardId, onClosed }: { cardId: string; onClosed: () => void }) {
     if (!board || opened.current) return;
     opened.current = true;
     emitScreenContext(
-      `Card close: match each ${board.card.holder} card charge to its receipts, validate, then close ${board.card.periodLabel}`,
+      `Card close: clear ${board.card.holder}'s exceptions, validate, then close ${board.card.periodLabel}`,
       {
         view: "reconcile",
         cardId: board.card.id,
         period: board.card.period,
-        text: "Receipt matching happens in a reconciliation session: open a session for the card and period, pair each charge with its receipts (a tip written on the slip or a currency conversion goes in the pair as an adjustment; a split charge takes two receipts), validate the session, then close the period.",
-        unmatched: board.transactions.filter((t) => !t.match).length,
-        receipts: board.receipts.length,
+        text: "The close runs in a reconciliation session. Receipts auto-match when it opens. Each exception is cleared in its own workflow: a shared offsite is an allocation split by attendees, a miscoded charge in a soft-locked month is a reclass entry, a personal charge is a repayment, a charge with no receipt is a missing-receipt affidavit. Then validate the session and close the period.",
+        exceptions: board.transactions.filter((t) => t.exception).length,
+        autoMatched: board.transactions.filter((t) => !t.exception).length,
       },
     );
     if (board.closedAt || board.session) return;
     void reconActions
       .openSession(board.card.id, board.card.period)
       .then((out) => {
-        if (out.ok) setSessionId(out.session.id);
-        else
+        // The session opens with its receipts auto-matched: pull them in.
+        if (out.ok) {
+          setSessionId(out.session.id);
+          void refresh();
+        } else
           toast({
             tone: "error",
             title: "The reconciliation session did not open",
             body: out.message,
           });
       });
-  }, [board, toast]);
+  }, [board, refresh, toast]);
 
   const receipts = useMemo(() => board?.receipts ?? [], [board]);
   const receipt = (id: string) => receipts.find((r) => r.id === id);
@@ -228,8 +234,20 @@ function Board({ cardId, onClosed }: { cardId: string; onClosed: () => void }) {
   }
 
   const inbox = receipts.filter((r) => !usedBy.has(r.id) && !r.matched);
-  const matchedCount = txns.filter((t) => pairs[t.id]).length;
+  const receiptTxns = txns.filter((t) => !t.exception);
+  const exceptionTxns = txns.filter((t) => t.exception);
+  const resolutionOf = (id: string) =>
+    board.transactions.find((x) => x.id === id)?.resolution ?? null;
+  const matchedCount = receiptTxns.filter((t) => pairs[t.id]).length;
+  const clearedCount = exceptionTxns.filter((t) => resolutionOf(t.id)).length;
+  const readyCount = matchedCount + clearedCount;
   const busy = phase === "validating" || phase === "closing";
+  const refs = {
+    card,
+    events: board.events,
+    departments: board.departments,
+    glAccounts: board.glAccounts,
+  };
 
   const setPair = async (
     t: CardTransaction,
@@ -365,6 +383,17 @@ function Board({ cardId, onClosed }: { cardId: string; onClosed: () => void }) {
           };
         }),
         adjustment: p.adjustment,
+        auto: p.auto,
+      })),
+      exceptions: exceptionTxns.map((t) => ({
+        transactionId: t.id,
+        descriptor: t.descriptor,
+        amount: t.amount,
+        mcc: t.mcc,
+        glAccount: t.glAccount,
+        kind: t.exception!.kind,
+        exception: t.exception,
+        resolution: resolutionOf(t.id),
       })),
     });
   };
@@ -387,6 +416,7 @@ function Board({ cardId, onClosed }: { cardId: string; onClosed: () => void }) {
       cardId: card.id,
       period: card.period,
       matched: matchedCount,
+      exceptions: clearedCount,
     });
     setPhase("closed");
     await refresh();
@@ -469,8 +499,8 @@ function Board({ cardId, onClosed }: { cardId: string; onClosed: () => void }) {
           <div className="text-[13px]">
             <span className="font-semibold">{card.periodLabel} closed</span>{" "}
             <span className="text-ink-muted">
-              for {card.holder}&apos;s Visa •• {card.last4}. Every charge has
-              its receipt.
+              for {card.holder}&apos;s Visa •• {card.last4}. Every receipt is
+              matched and every exception cleared.
             </span>
           </div>
         </div>
@@ -484,16 +514,23 @@ function Board({ cardId, onClosed }: { cardId: string; onClosed: () => void }) {
         <span className="flex items-center gap-1.5">
           <CalendarClock className="h-3.5 w-3.5" /> {card.periodLabel} statement
         </span>
+        <span className="flex items-center gap-1.5">
+          <Sparkles className="h-3.5 w-3.5 text-brand" />
+          <span className="ll-num font-medium text-ink">
+            {matchedCount}
+          </span>{" "}
+          auto-matched
+        </span>
         <span className="flex items-center gap-2">
           <span className="ll-num font-medium text-ink">
-            {matchedCount} of {txns.length}
+            {readyCount} of {txns.length}
           </span>{" "}
-          matched
+          ready to close
           <span className="h-1.5 w-28 overflow-hidden rounded-full bg-surface-muted">
             <span
               className="block h-full rounded-full bg-brand transition-[width] duration-300"
               style={{
-                width: `${txns.length ? (matchedCount / txns.length) * 100 : 0}%`,
+                width: `${txns.length ? (readyCount / txns.length) * 100 : 0}%`,
               }}
             />
           </span>
@@ -503,14 +540,46 @@ function Board({ cardId, onClosed }: { cardId: string; onClosed: () => void }) {
       <div className="grid gap-5 @[680px]:grid-cols-[minmax(0,1.12fr)_minmax(0,1fr)]">
         {/* Card charges */}
         <section aria-label="Card charges" className="pb-16">
+          {exceptionTxns.length ? (
+            <>
+              <h2 className="mb-2 flex items-center justify-between text-[12px] font-medium text-ink-muted">
+                <span>{closed ? "Exceptions" : "Needs you"}</span>
+                <span className="ll-num">
+                  {closed
+                    ? exceptionTxns.length
+                    : `${exceptionTxns.length - clearedCount} of ${exceptionTxns.length}`}
+                </span>
+              </h2>
+              <ul className="mb-6 space-y-2">
+                {exceptionTxns.map((t) => (
+                  <ExceptionCard
+                    key={t.id}
+                    t={t}
+                    refs={refs}
+                    resolution={resolutionOf(t.id)}
+                    result={results?.[t.id]}
+                    closed={closed}
+                    busy={busy}
+                    onResolved={async () => {
+                      setResults(null);
+                      if (phase !== "idle") setPhase("idle");
+                      await refresh();
+                      onClosed();
+                    }}
+                  />
+                ))}
+              </ul>
+            </>
+          ) : null}
           <h2 className="mb-2 flex items-center justify-between text-[12px] font-medium text-ink-muted">
-            <span>
-              {closed ? "Card charges" : "Card charges waiting for a receipt"}
+            <span className="flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-brand" />
+              Auto-matched receipts
             </span>
-            <span className="ll-num">{txns.length}</span>
+            <span className="ll-num">{receiptTxns.length}</span>
           </h2>
           <ul className="space-y-2">
-            {txns.map((t) => {
+            {receiptTxns.map((t) => {
               const p = pairs[t.id];
               const rs = (p?.receiptIds ?? [])
                 .map(receipt)
@@ -645,10 +714,8 @@ function Board({ cardId, onClosed }: { cardId: string; onClosed: () => void }) {
           className="@[680px]:sticky @[680px]:top-0 @[680px]:max-h-[calc(100dvh-120px)] @[680px]:self-start @[680px]:overflow-y-auto @[680px]:pb-20"
         >
           <h2 className="mb-2 flex items-center justify-between text-[12px] font-medium text-ink-muted">
-            <span>{closed ? "Not on this statement" : "Receipts inbox"}</span>
-            <span className="ll-num">
-              {inbox.length} {closed ? "left in the inbox" : "unmatched"}
-            </span>
+            <span>Receipts not on a charge</span>
+            <span className="ll-num">{inbox.length}</span>
           </h2>
           {inbox.length === 0 ? (
             <div className="flex h-40 flex-col items-center justify-center gap-1 rounded-[10px] border border-dashed border-hairline text-[12.5px] text-ink-muted">
@@ -697,7 +764,7 @@ function Board({ cardId, onClosed }: { cardId: string; onClosed: () => void }) {
                             if (menuFor === r.id) return setMenu(null);
                             // Fixed, so the inbox's own scroll box never clips it.
                             const b = e.currentTarget.getBoundingClientRect();
-                            const h = 40 + txns.length * 32;
+                            const h = 40 + receiptTxns.length * 32;
                             setMenu({
                               id: r.id,
                               left: Math.max(8, b.right - 288),
@@ -752,7 +819,7 @@ function Board({ cardId, onClosed }: { cardId: string; onClosed: () => void }) {
                       <div className="px-3 pb-1 pt-1.5 text-[11px] font-medium text-[hsl(var(--ll-faint))]">
                         Match to
                       </div>
-                      {txns.map((t) => (
+                      {receiptTxns.map((t) => (
                         <button
                           key={t.id}
                           type="button"
@@ -805,7 +872,7 @@ function Board({ cardId, onClosed }: { cardId: string; onClosed: () => void }) {
               >
                 <CircleAlert className="h-4 w-4" /> {txns.length - invalidCount}{" "}
                 of {txns.length} valid. Fix the{" "}
-                {invalidCount === 1 ? "match" : "matches"} marked in red.
+                {invalidCount === 1 ? "charge" : "charges"} marked in red.
               </span>
             ) : phase === "closed" ? (
               <span className="flex items-center gap-1.5 font-medium text-positive">
@@ -813,9 +880,9 @@ function Board({ cardId, onClosed }: { cardId: string; onClosed: () => void }) {
               </span>
             ) : (
               <span className="text-ink-muted">
-                {matchedCount === txns.length
-                  ? "Every charge has a receipt. Validate before closing."
-                  : `${txns.length - matchedCount} charge${txns.length - matchedCount === 1 ? "" : "s"} still need a receipt.`}
+                {readyCount === txns.length
+                  ? "Every charge is matched or cleared. Validate before closing."
+                  : `${txns.length - readyCount} exception${txns.length - readyCount === 1 ? "" : "s"} still need${txns.length - readyCount === 1 ? "s" : ""} you.`}
               </span>
             )}
           </div>
@@ -839,14 +906,14 @@ function Board({ cardId, onClosed }: { cardId: string; onClosed: () => void }) {
           ) : (
             <div className="flex items-center gap-2">
               <span className="hidden text-[11.5px] text-[hsl(var(--ll-faint))] @[700px]:inline">
-                Drag a receipt onto a charge, or use Match
+                Validate checks every charge before the month closes
               </span>
               <button
                 type="button"
                 data-action="Validate matches"
                 data-testid="recon-validate"
                 className={primaryButton}
-                disabled={busy || matchedCount === 0}
+                disabled={busy || !sid}
                 onClick={() => void validate()}
               >
                 {phase === "validating" ? (
@@ -854,7 +921,7 @@ function Board({ cardId, onClosed }: { cardId: string; onClosed: () => void }) {
                 ) : (
                   <ShieldCheck className="h-3.5 w-3.5" />
                 )}
-                Validate matches
+                Validate
               </button>
             </div>
           )}

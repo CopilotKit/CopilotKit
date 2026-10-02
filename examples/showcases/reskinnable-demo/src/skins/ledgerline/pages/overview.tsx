@@ -240,13 +240,13 @@ export function OverviewPage() {
   );
 }
 
-/** The month-end close, first on the page: how many card charges still need a receipt. */
+/** The month-end close, first on the page: how many exceptions still need a person. */
 function CloseCard({ href }: { href: string }) {
   const cards = useCardSummaries();
   if (!cards)
     return <div className="mb-6 h-[76px] rounded-[10px] bg-surface-muted" />;
-  const open = cards.filter((c) => !c.closed && c.unmatched > 0);
-  const total = open.reduce((n, c) => n + c.unmatched, 0);
+  const open = cards.filter((c) => !c.closed);
+  const total = open.reduce((n, c) => n + c.attention, 0);
   const first = open[0];
   if (!first)
     return (
@@ -272,18 +272,18 @@ function CloseCard({ href }: { href: string }) {
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[14px] font-semibold">Month-end close</span>
           <span className="ll-num rounded-full bg-[hsl(var(--ll-amber)/0.16)] px-2 py-0.5 text-[11.5px] font-medium text-[hsl(32_80%_30%)]">
-            {total} unmatched
+            {total} need you
           </span>
         </div>
         <div className="mt-0.5 truncate text-[12.5px] text-ink-muted">
-          {first.periodLabel} card charges waiting for receipts:{" "}
+          {first.periodLabel} receipts are auto-matched. Exceptions left:{" "}
           {open
-            .map((c) => `${c.holder} •• ${c.last4} (${c.unmatched})`)
+            .map((c) => `${c.holder} •• ${c.last4} (${c.attention})`)
             .join(", ")}
         </div>
       </div>
       <span className="flex items-center gap-1 text-[13px] font-medium text-brand">
-        Reconcile{" "}
+        Open close{" "}
         <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
       </span>
     </Link>

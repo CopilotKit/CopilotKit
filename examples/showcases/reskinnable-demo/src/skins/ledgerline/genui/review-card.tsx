@@ -1,18 +1,24 @@
 "use client";
 
 /**
- * REVIEW N MATCHES: how the agent hands a month-end close to a person. One
+ * REVIEW THE CLOSE: how the agent hands a month-end close to a person. One
  * source for the in-app chat (`tools.tsx`, the `reviewMatches` tool) and the
- * MCP app ChatGPT renders (`mcp-app/main.tsx`). The agent prepares the pairs;
- * only the person's Confirm validates the session and closes the month.
+ * MCP app ChatGPT renders (`mcp-app/main.tsx`). The agent clears the
+ * exceptions (receipts auto-matched); only the person's Confirm validates the
+ * session and closes the month.
  *
  * No Next, CopilotKit or recorder imports: data and callbacks in.
  */
 
 import { useState } from "react";
 import {
+  BadgeCheck,
   CalendarClock,
   CheckCircle2,
+  FileSignature,
+  Sparkles,
+  Tags,
+  UserRound,
   CircleAlert,
   Euro,
   ListChecks,
@@ -22,7 +28,8 @@ import {
   Split,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDate, formatMoney } from "../data/format";
+import { formatMoney } from "../data/format";
+import { deptName, glName } from "../data/recon-seed";
 import { ReceiptThumb } from "../components/receipt";
 import { Money, primaryButton, secondaryButton } from "../components/ui";
 import type { ReviewOutcome, ReviewView } from "./views";
@@ -64,6 +71,46 @@ function chipsFor(pair: ReviewView["pairs"][number]) {
   return out;
 }
 
+type Row = ReviewView["pairs"][number];
+
+/** One line per cleared exception: what was done, in the ledger's words. */
+function resolutionLine(p: Row): {
+  icon: typeof Split;
+  title: string;
+  chips: string[];
+} {
+  const r = p.resolution;
+  if (r?.kind === "split")
+    return {
+      icon: Split,
+      title: `Split ${r.lines.length} ways by attendees`,
+      chips: r.lines.map(
+        (l) => `${deptName(l.departmentId)} ${formatMoney(l.amount)}`,
+      ),
+    };
+  if (r?.kind === "reclass")
+    return {
+      icon: Tags,
+      title: "Reclass entry",
+      chips: [`${r.fromAccount} to ${r.toAccount} ${glName(r.toAccount)}`],
+    };
+  if (r?.kind === "personal")
+    return {
+      icon: UserRound,
+      title: "Personal, repaid",
+      chips: [
+        r.method === "payroll_deduction" ? "Payroll deduction" : "Card payment",
+      ],
+    };
+  if (r?.kind === "missing_receipt")
+    return {
+      icon: FileSignature,
+      title: "Missing-receipt affidavit",
+      chips: [`Signed by ${r.attestedBy}`],
+    };
+  return { icon: CircleAlert, title: "Not cleared", chips: [] };
+}
+
 export function ReviewMatchesCard({
   view,
   outcome,
@@ -81,7 +128,9 @@ export function ReviewMatchesCard({
   const [busy, setBusy] = useState(false);
   const [local, setLocal] = useState<ReviewOutcome | null>(null);
   const settled = local ?? (outcome && outcome !== "edit" ? outcome : null);
-  const paired = view.pairs.filter((p) => p.receipts.length > 0).length;
+  const exceptions = view.pairs.filter((p) => p.exception);
+  const auto = view.pairs.filter((p) => !p.exception);
+  const autoTotal = auto.reduce((n, p) => n + p.transaction.amount, 0);
   const total = view.pairs.reduce((n, p) => n + p.transaction.amount, 0);
 
   return (
@@ -97,12 +146,12 @@ export function ReviewMatchesCard({
       <div className="flex items-start justify-between gap-2 px-3.5 pb-2 pt-3">
         <div>
           <div className="flex items-center gap-2 font-semibold">
-            <ListChecks className="h-4 w-4 text-brand" /> Review{" "}
-            {view.pairs.length} matches
+            <ListChecks className="h-4 w-4 text-brand" /> Review the{" "}
+            {view.card.periodLabel} close
           </div>
           <div className="mt-0.5 text-[12px] text-ink-muted">
-            {view.card.holder} · Visa •• {view.card.last4} ·{" "}
-            {view.card.periodLabel}
+            {view.card.holder} · Visa •• {view.card.last4} · {view.pairs.length}{" "}
+            charges
           </div>
         </div>
         <Money
@@ -110,66 +159,95 @@ export function ReviewMatchesCard({
           className="text-[16px] font-semibold tracking-[-0.02em]"
         />
       </div>
-      <ul className="divide-y divide-hairline border-t border-hairline">
-        {view.pairs.map((p) => (
-          <li
-            key={p.transaction.id}
-            className="flex items-center gap-2.5 px-3.5 py-2"
-          >
-            <div className="flex shrink-0 -space-x-3">
-              {p.receipts.length ? (
-                p.receipts.map((r) => (
+      {exceptions.length ? (
+        <>
+          <div className="border-t border-hairline px-3.5 pb-1 pt-2 text-[11px] font-medium text-[hsl(var(--ll-faint))]">
+            {exceptions.length} exceptions cleared
+          </div>
+          <ul className="divide-y divide-hairline">
+            {exceptions.map((p) => {
+              const line = resolutionLine(p);
+              return (
+                <li
+                  key={p.transaction.id}
+                  className="flex items-center gap-2.5 px-3.5 py-2"
+                >
                   <span
-                    key={r.id}
-                    className="rounded-[4px] ring-2 ring-surface"
+                    className={cn(
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
+                      p.resolution
+                        ? "bg-positive-soft text-positive"
+                        : "bg-negative-soft text-negative",
+                    )}
                   >
-                    <ReceiptThumb receipt={r} width={30} height={38} />
+                    <line.icon className="h-3.5 w-3.5" />
                   </span>
-                ))
-              ) : (
-                <span className="flex h-[38px] w-[30px] items-center justify-center rounded-[4px] border border-dashed border-negative/40">
-                  <CircleAlert className="h-3.5 w-3.5 text-negative" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="ll-mono truncate text-[11.5px] font-medium">
+                        {p.transaction.descriptor}
+                      </span>
+                      <Money
+                        value={p.transaction.amount}
+                        className="text-[12.5px] font-medium"
+                      />
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                      <span className="text-[12px] text-ink-muted">
+                        {line.title}
+                      </span>
+                      {line.chips.map((c) => (
+                        <span
+                          key={c}
+                          className="inline-flex items-center rounded-[4px] bg-positive-soft px-1 py-px text-[10.5px] font-medium text-positive"
+                        >
+                          {c}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      ) : null}
+      {auto.length ? (
+        <div className="flex items-center gap-2.5 border-t border-hairline px-3.5 py-2">
+          <div className="flex shrink-0 -space-x-3">
+            {auto
+              .flatMap((p) => p.receipts)
+              .slice(0, 4)
+              .map((r) => (
+                <span key={r.id} className="rounded-[4px] ring-2 ring-surface">
+                  <ReceiptThumb receipt={r} width={24} height={30} />
                 </span>
-              )}
+              ))}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="flex items-center gap-1 text-[12px] font-medium">
+                <Sparkles className="h-3 w-3 text-brand" /> {auto.length}{" "}
+                receipts auto-matched
+              </span>
+              <Money value={autoTotal} className="text-[12.5px] font-medium" />
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="ll-mono truncate text-[11.5px] font-medium">
-                  {p.transaction.descriptor}
-                </span>
-                <Money
-                  value={p.transaction.amount}
-                  className="text-[12.5px] font-medium"
-                />
-              </div>
-              <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                <span className="truncate text-[12px] text-ink-muted">
-                  {p.receipts.length
-                    ? p.receipts
-                        .map((r) => r.merchant)
-                        .filter((m, i, a) => a.indexOf(m) === i)
-                        .join(" + ")
-                    : "No receipt"}
-                  {p.receipts[0] ? ` · ${formatDate(p.receipts[0].date)}` : ""}
-                </span>
-                {chipsFor(p).map((c) => (
+            <div className="mt-0.5 flex flex-wrap gap-1">
+              {auto
+                .flatMap((p) => chipsFor(p).filter((c) => c.brand))
+                .slice(0, 3)
+                .map((c) => (
                   <span
                     key={c.text}
-                    className={cn(
-                      "inline-flex items-center gap-0.5 rounded-[4px] px-1 py-px text-[10.5px] font-medium",
-                      c.brand
-                        ? "bg-brand-soft text-brand-indigo"
-                        : "bg-surface-muted text-ink-muted",
-                    )}
+                    className="inline-flex items-center gap-0.5 rounded-[4px] bg-brand-soft px-1 py-px text-[10.5px] font-medium text-brand-indigo"
                   >
                     <c.icon className="h-2.5 w-2.5" /> {c.text}
                   </span>
                 ))}
-              </div>
             </div>
-          </li>
-        ))}
-      </ul>
+          </div>
+        </div>
+      ) : null}
       {settled ? (
         <div
           role="status"
@@ -194,8 +272,9 @@ export function ReviewMatchesCard({
       ) : (
         <div className="border-t border-hairline bg-surface-muted px-3.5 py-2.5">
           <p className="mb-2 text-[12px] text-ink-muted">
-            {paired} of {view.pairs.length} charges matched and ready. Nothing
-            is closed until you confirm.
+            <BadgeCheck className="mr-1 inline h-3.5 w-3.5 text-positive" />
+            All {view.pairs.length} charges are valid. Nothing is closed until
+            you confirm.
           </p>
           <div className="flex flex-wrap gap-2">
             <button

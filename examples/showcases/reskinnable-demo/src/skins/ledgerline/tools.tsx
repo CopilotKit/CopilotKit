@@ -359,7 +359,7 @@ export function LedgerlineTools() {
     {
       name: "openCardClose",
       description:
-        "Take the user to the Card close board for a card (Visa last four digits, e.g. 4417), where receipts are matched by hand.",
+        "Take the user to the Card close board for a card (Visa last four digits, e.g. 4417), where its exceptions are cleared by hand.",
       parameters: z.object({ card: z.string().optional() }),
       handler: async ({ card }) => {
         const c = card
@@ -380,7 +380,7 @@ export function LedgerlineTools() {
     {
       name: "reviewMatches",
       description:
-        "Hand the matches you prepared in a reconciliation session to the user: opens the Review matches card in the chat. You never close a period yourself; only the user's Confirm in the card validates and closes it. Do not ask in chat first.",
+        "Hand the close you prepared in a reconciliation session to the user: opens the review card in the chat, every auto-matched receipt and cleared exception. You never close a period yourself; only the user's Confirm in the card validates and closes it. Do not ask in chat first.",
       parameters: z.object({ sessionId: z.string() }),
       render: ({ args, respond, result, status }) => (
         <ReviewTool

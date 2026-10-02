@@ -3,6 +3,8 @@
  * agent's tools return (`data/agent-view.ts`), so one shape feeds the in-app
  * render, the agent and the MCP app's `structuredContent`.
  */
+
+import type { ResolutionView } from "../data/recon-client";
 import type { agentReport, agentReportRow } from "../data/agent-view";
 
 export type ReportView = ReturnType<typeof agentReport>;
@@ -54,7 +56,11 @@ export interface ReviewView {
       postedAt: string;
       descriptor: string;
       amount: number;
+      glAccount?: string;
     };
+    /** Set on an exception charge: which workflow cleared it, and how. */
+    exception?: "split" | "reclass" | "personal" | "missing_receipt" | null;
+    resolution?: ResolutionView | null;
     receipts: import("../data/recon-seed").Receipt[];
     adjustment: {
       kind: string;

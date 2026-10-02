@@ -128,7 +128,7 @@ export function createLedgerlineMcpServer({
     LEDGERLINE_APP_URI,
     {
       description:
-        "Ledgerline's report card and Review matches card, the same components the Ledgerline web app renders.",
+        "Ledgerline's report card and month-end review card, the same components the Ledgerline web app renders.",
     },
     async () => ({
       contents: [
@@ -260,9 +260,9 @@ export function createLedgerlineMcpServer({
     invoking: "Reading the report",
   });
   regApp("reviewMatches", {
-    title: "Review matches",
+    title: "Review the close",
     description:
-      "Hand the matches you prepared in a reconciliation session to the user: opens Ledgerline's Review matches card. You never close a period; only the user's Confirm in the card validates and closes it. Do not ask for confirmation in chat first.",
+      "Hand the close you prepared in a reconciliation session to the user: opens Ledgerline's review card. You never close a period; only the user's Confirm in the card validates and closes it. Do not ask for confirmation in chat first.",
     inputSchema: { sessionId: z.string() },
     readOnly: true,
     visibility: "model",
@@ -271,7 +271,7 @@ export function createLedgerlineMcpServer({
   regApp("confirmMatches", {
     title: "Confirm matches",
     description:
-      "Called only by the Review matches card when the user confirms: validates the session, then closes the period.",
+      "Called only by the review card when the user confirms: validates the session, then closes the period.",
     inputSchema: { sessionId: z.string() },
     readOnly: false,
     visibility: "app",

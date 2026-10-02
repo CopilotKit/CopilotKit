@@ -1,15 +1,21 @@
 /**
- * Month-end card close: the corporate-card transactions still waiting for a
- * receipt, and each cardholder's receipts inbox. Client-safe (the Reconcile
- * board renders all of it); which receipt belongs to which charge is NOT here,
- * it lives server-side in `recon-truth.ts`.
+ * Month-end card close: each cardholder's September charges, their receipts
+ * inbox, and the exceptions a person still has to clear. Client-safe (the Card
+ * close board renders all of it); which receipt settles which charge is NOT
+ * here, it lives server-side in `recon-store.ts`.
  *
- * The matches are easy for a person looking at the receipts and hard from the
- * API alone: card-network descriptors ("SQ *BLUEBOTTLE") that do not read like
- * the merchant's name, a tip written on the slip that the printed total
- * leaves out, a hotel billed in euros, one airline charge covered by two
- * receipts, an Amazon order whose total repeats an older order, and posting
- * dates a day or two after the purchase.
+ * Receipts match themselves, the way modern spend platforms do it: a tip
+ * written on the slip, a hotel billed in euros and one airline charge covered
+ * by two receipts all auto-match. What is left are the four exceptions every
+ * month-end close still puts in front of a person, each its own workflow in
+ * the product:
+ *
+ * - SPLIT: a team offsite charge allocated across the departments that came.
+ * - RECLASS: a software charge auto-coded to the wrong GL account, in a period
+ *   that is soft-locked for coding edits.
+ * - PERSONAL: a personal charge the cardholder flagged, repaid by payroll.
+ * - MISSING RECEIPT: a ride with no receipt, cleared by the cardholder's
+ *   missing-receipt affidavit.
  */
 
 export type ReceiptCurrency = "USD" | "EUR";
@@ -24,6 +30,103 @@ export interface CardAccount {
   periodLabel: string; // "September"
 }
 
+export interface Department {
+  id: string;
+  name: string;
+}
+
+export interface GlAccount {
+  code: string;
+  name: string;
+}
+
+export const DEPARTMENTS: Department[] = [
+  { id: "dept_eng", name: "Engineering" },
+  { id: "dept_design", name: "Design" },
+  { id: "dept_product", name: "Product" },
+  { id: "dept_sales", name: "Sales" },
+  { id: "dept_cs", name: "Customer Success" },
+  { id: "dept_marketing", name: "Marketing" },
+  { id: "dept_finance", name: "Finance" },
+];
+
+export const GL_ACCOUNTS: GlAccount[] = [
+  { code: "6100", name: "Meals & entertainment" },
+  { code: "6200", name: "Travel" },
+  { code: "6250", name: "Lodging" },
+  { code: "6300", name: "Rideshare & parking" },
+  { code: "6420", name: "Software subscriptions" },
+  { code: "6500", name: "Office supplies" },
+  { code: "6610", name: "Events & offsites" },
+  { code: "6700", name: "Coworking" },
+];
+
+export const glName = (code: string) =>
+  GL_ACCOUNTS.find((a) => a.code === code)?.name ?? code;
+export const deptName = (id: string) =>
+  DEPARTMENTS.find((d) => d.id === id)?.name ?? id;
+
+/** An event a charge paid for, as the product knows it (the Events calendar). */
+export interface CompanyEvent {
+  id: string;
+  name: string;
+  date: string;
+  location: string;
+  attendees: { departmentId: string; count: number }[];
+}
+
+export const EVENTS: CompanyEvent[] = [
+  {
+    id: "evt_prod_offsite_0919",
+    name: "Product offsite",
+    date: "2026-09-19",
+    location: "Terrain, Mill Valley",
+    attendees: [
+      { departmentId: "dept_eng", count: 6 },
+      { departmentId: "dept_design", count: 3 },
+      { departmentId: "dept_product", count: 3 },
+    ],
+  },
+  {
+    id: "evt_sales_kickoff_0918",
+    name: "Q4 sales kickoff lunch",
+    date: "2026-09-18",
+    location: "Market St office",
+    attendees: [
+      { departmentId: "dept_sales", count: 7 },
+      { departmentId: "dept_cs", count: 4 },
+    ],
+  },
+];
+
+/** The split a person gets from "Split by attendees": headcount share, to the cent. */
+export function attendeeSplit(
+  amount: number,
+  event: CompanyEvent,
+): { departmentId: string; amount: number }[] {
+  const total = event.attendees.reduce((n, a) => n + a.count, 0);
+  const cents = Math.round(amount * 100);
+  let left = cents;
+  return event.attendees.map((a, i) => {
+    const share =
+      i === event.attendees.length - 1
+        ? left
+        : Math.round((cents * a.count) / total);
+    left -= share;
+    return { departmentId: a.departmentId, amount: share / 100 };
+  });
+}
+
+/** What still needs a person on a charge. Receipt charges have none. */
+export type ChargeException =
+  | { kind: "split"; eventId: string }
+  | { kind: "reclass"; suggestedAccount: string; why: string }
+  | {
+      kind: "personal";
+      note: { author: string; text: string; at: string };
+    }
+  | { kind: "missing_receipt"; memoHint: string };
+
 export interface CardTransaction {
   id: string;
   cardId: string;
@@ -31,6 +134,9 @@ export interface CardTransaction {
   descriptor: string; // as the card network shows it
   amount: number; // USD, what the card was charged
   mcc: string;
+  /** The GL account the charge is coded to today. */
+  glAccount: string;
+  exception?: ChargeException;
 }
 
 export interface ReceiptLine {
@@ -81,7 +187,7 @@ export const CARDS: CardAccount[] = [
 ];
 
 export const TRANSACTIONS: CardTransaction[] = [
-  // Priya Raman, Visa 4417: six unmatched.
+  // Priya Raman, Visa 4417: six receipt charges, all auto-matched.
   {
     id: "txn_4417_0908",
     cardId: "card_4417",
@@ -89,6 +195,7 @@ export const TRANSACTIONS: CardTransaction[] = [
     descriptor: "SQ *BLUEBOTTLE COFFEE SF",
     amount: 11.25,
     mcc: "5814",
+    glAccount: "6100",
   },
   {
     id: "txn_4417_0912",
@@ -97,6 +204,7 @@ export const TRANSACTIONS: CardTransaction[] = [
     descriptor: "TST* NOPA RESTAURANT",
     amount: 148.8,
     mcc: "5812",
+    glAccount: "6100",
   },
   {
     id: "txn_4417_0915",
@@ -105,6 +213,7 @@ export const TRANSACTIONS: CardTransaction[] = [
     descriptor: "AMZN MKTP US*2K4LM81Q2",
     amount: 89.97,
     mcc: "5942",
+    glAccount: "6500",
   },
   {
     id: "txn_4417_0918",
@@ -113,6 +222,7 @@ export const TRANSACTIONS: CardTransaction[] = [
     descriptor: "HOTEL LE MARAIS PARIS FR",
     amount: 412.4,
     mcc: "7011",
+    glAccount: "6250",
   },
   {
     id: "txn_4417_0922",
@@ -121,6 +231,7 @@ export const TRANSACTIONS: CardTransaction[] = [
     descriptor: "UNITED 0162345678901",
     amount: 686.2,
     mcc: "3000",
+    glAccount: "6200",
   },
   {
     id: "txn_4417_0925",
@@ -129,8 +240,65 @@ export const TRANSACTIONS: CardTransaction[] = [
     descriptor: "PAYPAL *WEWORK 4029357733",
     amount: 45,
     mcc: "6513",
+    glAccount: "6700",
   },
-  // Marcus Lee, Visa 8820: five unmatched (the learned skill's second card).
+  // Priya's exceptions: what a person clears on the Card close board.
+  {
+    id: "txn_4417_0910",
+    cardId: "card_4417",
+    postedAt: "2026-09-10",
+    descriptor: "FIGMA* MONTHLY 415-890-5404",
+    amount: 540,
+    mcc: "5734",
+    glAccount: "6100",
+    exception: {
+      kind: "reclass",
+      suggestedAccount: "6420",
+      why: "Figma is design software. Its merchant category fell through to the default account.",
+    },
+  },
+  {
+    id: "txn_4417_0919",
+    cardId: "card_4417",
+    postedAt: "2026-09-19",
+    descriptor: "TERRAIN EVENTS 0919",
+    amount: 2400,
+    mcc: "7399",
+    glAccount: "6610",
+    exception: { kind: "split", eventId: "evt_prod_offsite_0919" },
+  },
+  {
+    id: "txn_4417_0923",
+    cardId: "card_4417",
+    postedAt: "2026-09-23",
+    descriptor: "LYFT *RIDE TUE 5PM",
+    amount: 27.15,
+    mcc: "4121",
+    glAccount: "6300",
+    exception: {
+      kind: "missing_receipt",
+      memoHint:
+        "Ride from the Chicago client office to O'Hare after the onsite. The Lyft receipt email never arrived.",
+    },
+  },
+  {
+    id: "txn_4417_0927",
+    cardId: "card_4417",
+    postedAt: "2026-09-27",
+    descriptor: "UBER *EATS",
+    amount: 38.4,
+    mcc: "5812",
+    glAccount: "6100",
+    exception: {
+      kind: "personal",
+      note: {
+        author: "Priya Raman",
+        text: "Wrong card, sorry. That was my Saturday dinner, it's personal.",
+        at: "2026-09-27T19:42:00",
+      },
+    },
+  },
+  // Marcus Lee, Visa 8820 (the learned skill's second card).
   {
     id: "txn_8820_0904",
     cardId: "card_8820",
@@ -138,6 +306,7 @@ export const TRANSACTIONS: CardTransaction[] = [
     descriptor: "SQ *SIGHTGLASS COFFEE",
     amount: 8.75,
     mcc: "5814",
+    glAccount: "6100",
   },
   {
     id: "txn_8820_0910",
@@ -146,6 +315,7 @@ export const TRANSACTIONS: CardTransaction[] = [
     descriptor: "TST* ZUNI CAFE SAN FRAN",
     amount: 96,
     mcc: "5812",
+    glAccount: "6100",
   },
   {
     id: "txn_8820_0916",
@@ -154,6 +324,7 @@ export const TRANSACTIONS: CardTransaction[] = [
     descriptor: "AMZN MKTP US*7Q1PZ09T3",
     amount: 54.98,
     mcc: "5942",
+    glAccount: "6500",
   },
   {
     id: "txn_8820_0921",
@@ -162,6 +333,7 @@ export const TRANSACTIONS: CardTransaction[] = [
     descriptor: "IBERIA 0752394871022",
     amount: 318.6,
     mcc: "3075",
+    glAccount: "6200",
   },
   {
     id: "txn_8820_0927",
@@ -170,6 +342,62 @@ export const TRANSACTIONS: CardTransaction[] = [
     descriptor: "WWW COSTCO COM 800-955-2292",
     amount: 230.45,
     mcc: "5300",
+    glAccount: "6500",
+  },
+  {
+    id: "txn_8820_0908",
+    cardId: "card_8820",
+    postedAt: "2026-09-08",
+    descriptor: "NOTION LABS INC",
+    amount: 96,
+    mcc: "5734",
+    glAccount: "6100",
+    exception: {
+      kind: "reclass",
+      suggestedAccount: "6420",
+      why: "Notion is a software subscription. Its merchant category fell through to the default account.",
+    },
+  },
+  {
+    id: "txn_8820_0918",
+    cardId: "card_8820",
+    postedAt: "2026-09-18",
+    descriptor: "OFF THE GRID CATERING SF",
+    amount: 1650,
+    mcc: "5811",
+    glAccount: "6610",
+    exception: { kind: "split", eventId: "evt_sales_kickoff_0918" },
+  },
+  {
+    id: "txn_8820_0924",
+    cardId: "card_8820",
+    postedAt: "2026-09-24",
+    descriptor: "SFMTA PARKING METER",
+    amount: 18,
+    mcc: "7523",
+    glAccount: "6300",
+    exception: {
+      kind: "missing_receipt",
+      memoHint:
+        "Meter parking on Market St for the client lunch at Zuni. Meters do not print receipts.",
+    },
+  },
+  {
+    id: "txn_8820_0926",
+    cardId: "card_8820",
+    postedAt: "2026-09-26",
+    descriptor: "NETFLIX.COM",
+    amount: 15.49,
+    mcc: "4899",
+    glAccount: "6420",
+    exception: {
+      kind: "personal",
+      note: {
+        author: "Marcus Lee",
+        text: "My personal Netflix landed on the corporate card. Please take it back out of my pay.",
+        at: "2026-09-26T08:15:00",
+      },
+    },
   },
 ];
 

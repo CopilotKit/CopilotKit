@@ -2,13 +2,13 @@
  * `ledgerlineApi`: the agent's generic tool over Ledgerline's integration API,
  * the same for the in-app agent and for ChatGPT over MCP. SERVER-ONLY.
  *
- * The agent gets a terse endpoint index and nothing else. Receipts come back
- * as merchant, date, total and currency only: the tip written on a slip, the
- * line items and the folio are on the receipt IMAGE, which a person sees on
- * the Card close board. How a match is made (a reconciliation session, one
- * pair per charge, what goes in a pair's adjustment) is described nowhere the
- * agent can read. That is what it cannot work out and a product trajectory
- * can teach.
+ * The agent gets a terse endpoint index and nothing else. Receipt charges
+ * auto-match when a session opens; what is left are the card's exceptions,
+ * and each is cleared through its own workflow (allocations, reclass entries,
+ * repayments, affidavits). Those endpoints are NOT in the index, and editing
+ * the charge is refused with the rule, never the workflow. That is what the
+ * agent cannot work out and a product trajectory can teach. The Card close
+ * board calls the same endpoints (origin "board").
  *
  * Closing a period is deliberately NOT reachable here: the agent hands the
  * matches over with `reviewMatches`, and only the person's Confirm closes.
@@ -19,6 +19,8 @@ import { LedgerError } from "./store";
 import * as recon from "./recon-store";
 import { agentPolicies, agentReport, agentReportRow } from "./agent-view";
 import type { ReportStatus } from "./types";
+import { DEPARTMENTS, GL_ACCOUNTS } from "./recon-seed";
+import type { CardTransaction } from "./recon-seed";
 
 export { AGENT_API_INDEX, LEDGERLINE_API_DESCRIPTION } from "./agent-api-index";
 
@@ -38,7 +40,20 @@ const STATUS: Record<string, number> = {
   VALIDATION_REQUIRED: 409,
   INVALID_TRANSACTION: 422,
   INVALID_RECEIPT: 422,
+  PERIOD_SOFT_LOCKED: 423,
+  ALLOCATION_REQUIRED: 409,
+  NOT_EDITABLE: 409,
+  RECEIPT_REQUIRED: 409,
+  EXCEPTION_OPEN: 409,
+  NOT_APPLICABLE: 422,
+  ACCOUNT_MISMATCH: 422,
+  ALLOCATION_UNBALANCED: 422,
+  ALLOCATION_COMMITTED: 409,
+  ALLOCATION_EMPTY: 409,
+  VALIDATION_FAILED: 409,
 };
+
+export const STATUS_FOR = (code: string) => STATUS[code] ?? 400;
 
 const ok = (body: Record<string, unknown>, status = 200): AgentApiResult => ({
   status,
@@ -86,10 +101,19 @@ const sessionView = (s: recon.ReconSession) => ({
 const cardOf = (v: string | null) =>
   v ? recon.cards().find((c) => c.id === v || c.last4 === v) : undefined;
 
+/** A charge as the list returns it: auto-matched, or needing attention. */
+function chargeStatus(t: CardTransaction, origin: recon.Origin) {
+  if (!t.exception) return "matched";
+  return recon.resolutionsFor(origin, t.cardId)[t.id]
+    ? "resolved"
+    : "needs_attention";
+}
+
 export function agentApi(
   methodIn: string,
   pathIn: string,
   bodyIn?: unknown,
+  origin: recon.Origin = "api",
 ): AgentApiResult {
   const method = methodIn.trim().toUpperCase();
   const url = new URL(
@@ -113,29 +137,73 @@ export function agentApi(
           holder: c.holder,
           last4: c.last4,
           openPeriod: c.closed ? null : c.period,
-          unmatched: c.unmatched,
+          openCharges: c.open,
+          needsAttention: c.attention,
         })),
       });
     if (is("GET", /^\/transactions$/)) {
       const card = cardOf(q.get("card"));
       if (q.get("card") && !card)
         return fail(404, "NOT_FOUND", `There is no card ${q.get("card")}.`);
-      const rows = recon.unmatchedTransactions(card?.id).map((t) => ({
+      const want = q.get("status");
+      const rows = recon
+        .openTransactions(card?.id)
+        .map((t) => ({
+          id: t.id,
+          cardId: t.cardId,
+          postedAt: t.postedAt,
+          descriptor: t.descriptor,
+          amount: t.amount,
+          currency: "USD",
+          status: chargeStatus(t, origin),
+        }))
+        .filter(
+          (r) =>
+            !want ||
+            r.status === want ||
+            (["unmatched", "open", "exception", "exceptions"].includes(want) &&
+              r.status === "needs_attention"),
+        );
+      return ok({ count: rows.length, transactions: rows });
+    }
+    if (is("GET", /^\/transactions\/[^/]+$/)) {
+      const t = recon.transaction(seg[1]!);
+      const x = t.exception;
+      return ok({
         id: t.id,
         cardId: t.cardId,
         postedAt: t.postedAt,
         descriptor: t.descriptor,
         amount: t.amount,
         currency: "USD",
-        status: "unmatched",
-      }));
-      return ok({ count: rows.length, transactions: rows });
+        mcc: t.mcc,
+        glAccount: t.glAccount,
+        status: chargeStatus(t, origin),
+        receiptStatus: x?.kind === "missing_receipt" ? "missing" : "on_file",
+        ...(x?.kind === "split" ? { eventId: x.eventId } : {}),
+        ...(x?.kind === "personal"
+          ? { cardholderNote: { author: x.note.author, text: x.note.text } }
+          : {}),
+      });
     }
-    if (is("GET", /^\/transactions\/[^/]+$/)) {
-      const t = recon.transaction(seg[1]!);
-      return ok({ ...t, currency: "USD" });
-    }
-    if (is("PATCH", /^\/transactions\/[^/]+$/)) recon.patchTransaction(seg[1]!);
+    if (is("PATCH", /^\/transactions\/[^/]+$/))
+      recon.patchTransaction(seg[1]!, body);
+    // Unlisted: the exception workflows the Card close board uses.
+    if (is("GET", /^\/events\/[^/]+$/)) return ok({ ...recon.event(seg[1]!) });
+    if (is("GET", /^\/gl-accounts$/)) return ok({ accounts: GL_ACCOUNTS });
+    if (is("GET", /^\/departments$/)) return ok({ departments: DEPARTMENTS });
+    if (is("POST", /^\/allocations$/))
+      return ok({ ...recon.createAllocation(body, origin) }, 201);
+    if (is("PUT", /^\/allocations\/[^/]+\/lines$/))
+      return ok({ ...recon.setAllocationLines(seg[1]!, body, origin) });
+    if (is("POST", /^\/allocations\/[^/]+\/commit$/))
+      return ok({ ...recon.commitAllocation(seg[1]!, origin) });
+    if (is("POST", /^\/journal\/reclasses$/))
+      return ok(recon.createReclass(body, origin), 201);
+    if (is("POST", /^\/repayments$/))
+      return ok(recon.createRepayment(body, origin), 201);
+    if (is("POST", /^\/affidavits$/))
+      return ok(recon.createAffidavit(body, origin), 201);
     if (is("GET", /^\/receipts$/)) {
       const card = cardOf(q.get("card"));
       const status = q.get("status");
@@ -151,7 +219,7 @@ export function agentApi(
       return ok({ ...receiptView(r), image: `${r.id}.jpg` });
     }
     if (is("POST", /^\/reconciliation\/sessions$/))
-      return ok(sessionView(recon.createSession(body, "api")), 201);
+      return ok(sessionView(recon.createSession(body, origin)), 201);
     if (is("GET", /^\/reconciliation\/sessions\/[^/]+$/))
       return ok(sessionView(recon.getSession(seg[2])));
     if (is("POST", /^\/reconciliation\/sessions\/[^/]+\/pairs$/))
@@ -211,12 +279,13 @@ export function reviewView(sessionId: string) {
   if (v.valid !== v.total)
     throw new LedgerError(
       "VALIDATION_FAILED",
-      `Only ${v.valid} of ${v.total} matches are valid, so there is nothing to review yet.`,
+      `Only ${v.valid} of ${v.total} charges are valid, so there is nothing to review yet.`,
       { valid: v.valid, total: v.total, results: v.results },
     );
   const s = recon.getSession(sessionId);
   const card = recon.cards().find((c) => c.id === s.cardId)!;
   const receipts = recon.receipts(s.cardId);
+  const resolutions = recon.resolutionsFor(s.origin, s.cardId);
   return {
     kind: "review-card" as const,
     sessionId: s.id,
@@ -237,7 +306,10 @@ export function reviewView(sessionId: string) {
           postedAt: t.postedAt,
           descriptor: t.descriptor,
           amount: t.amount,
+          glAccount: t.glAccount,
         },
+        exception: t.exception?.kind ?? null,
+        resolution: resolutions[id] ?? null,
         receipts: (p?.receiptIds ?? [])
           .map((rid) => receipts.find((r) => r.id === rid))
           .filter((r) => !!r),
@@ -257,7 +329,7 @@ export function confirmMatches(sessionId: string) {
       valid: v.valid,
       total: v.total,
       results: v.results,
-      summary: `${v.valid} of ${v.total} matches are valid; nothing was closed.`,
+      summary: `${v.valid} of ${v.total} charges are valid; nothing was closed.`,
     };
   const c = recon.close(sessionId);
   const card = recon.cards().find((x) => x.id === c.cardId)!;
@@ -268,6 +340,7 @@ export function confirmMatches(sessionId: string) {
     cardId: c.cardId,
     period: c.period,
     matched: c.matched,
-    summary: `${card.periodLabel} closed for ${card.holder}'s Visa •• ${card.last4}: ${c.matched} charges matched.`,
+    exceptions: c.exceptions,
+    summary: `${card.periodLabel} closed for ${card.holder}'s Visa •• ${card.last4}: ${c.matched} receipts matched, ${c.exceptions} exceptions cleared.`,
   };
 }
