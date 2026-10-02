@@ -120,7 +120,7 @@ export class TrajectoryConnection {
   // stays a safe integer until about 2255. Seqs can still collide only if two
   // Cores start the same Trajectory in one millisecond, or if a Core averages
   // more than 1000 events per millisecond, or if the clock goes back.
-  private nextSeq = Date.now() * 1000;
+  private nextSeq = Math.floor(Date.now()) * 1000;
 
   constructor(
     private readonly core: CopilotKitCore,
