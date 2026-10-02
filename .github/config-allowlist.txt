@@ -13,6 +13,7 @@ examples/integrations/agent-spec/next.config.ts
 examples/integrations/agentcore/frontend/src/vite-env.d.ts
 examples/integrations/agentcore/frontend/vite.config.ts
 examples/integrations/agno/next.config.ts
+examples/integrations/antigravity/next.config.ts
 examples/integrations/claude-sdk-python/next.config.ts
 examples/integrations/claude-sdk-typescript/next.config.ts
 examples/integrations/claude-managed-agents/next.config.mjs
