@@ -8,7 +8,11 @@ import { parse } from "yaml";
 type Workflow = {
   jobs: Record<
     string,
-    { "runs-on"?: string; steps?: Array<{ id?: string; run?: string }> }
+    {
+      if?: string;
+      "runs-on"?: string;
+      steps?: Array<{ id?: string; run?: string }>;
+    }
   >;
 };
 
@@ -27,6 +31,9 @@ const script =
 const allServices = script.match(/ALL_SERVICES='(\[[\s\S]*?\])'/)?.[1];
 const selector = script.match(
   /MATRIX=\$\(echo "\$ALL_SERVICES" \| jq -c [^']*'([\s\S]*?)'\)/,
+)?.[1];
+const needsAngularExpr = script.match(
+  /needs_angular=\$\(echo "\$MATRIX" \| jq -r [^']*'([^']*)'\)/,
 )?.[1];
 
 // Runs the workflow's own jq selector, so the test follows the YAML.
@@ -53,31 +60,77 @@ function selected(changes: string[]): string[] {
   );
 }
 
-const SAMPLE = ["shell", "langgraph-python", "mastra"];
+// Runs the workflow's own needs_angular expression on the selected matrix.
+function needsAngular(changes: string[]): boolean {
+  const matrix = execFileSync(
+    "jq",
+    [
+      "-c",
+      "--argjson",
+      "changes",
+      JSON.stringify(changes),
+      "--arg",
+      "sha",
+      "abc123",
+      "--arg",
+      "ref",
+      "some-branch",
+      selector!,
+    ],
+    { input: allServices!, encoding: "utf8" },
+  );
+  const out = execFileSync(
+    "jq",
+    ["-r", "--argjson", "changes", JSON.stringify(changes), needsAngularExpr!],
+    { input: matrix, encoding: "utf8" },
+  );
+  return out.trim() === "true";
+}
+
+const ALL = (
+  JSON.parse(allServices ?? "[]") as Array<{ dispatch_name: string }>
+).map((service) => service.dispatch_name);
 
 describe("Showcase: Build Check (PR) matrix selection", () => {
-  it("finds the service list and the jq selector", () => {
+  it("finds the service list and the jq expressions", () => {
     expect(allServices).toBeTruthy();
     expect(selector).toBeTruthy();
+    expect(needsAngularExpr).toBeTruthy();
+    expect(ALL.length).toBeGreaterThan(20);
   });
 
-  it("builds only the sample for a package (angular) change", () => {
-    expect(selected(["angular"]).sort()).toEqual([...SAMPLE].sort());
+  it("builds no image for a package (angular) change", () => {
+    expect(selected(["angular"])).toEqual([]);
   });
 
-  it("builds only the sample for a workflow change", () => {
-    expect(selected(["workflow_config"]).sort()).toEqual([...SAMPLE].sort());
+  it("still compiles the Angular host for a package (angular) change", () => {
+    expect(needsAngular(["angular"])).toBe(true);
+  });
+
+  it("runs build-angular when no image builds but packages changed", () => {
+    expect(workflow.jobs["build-angular"].if).toContain(
+      "needs.detect-changes.outputs.needs_angular == 'true'",
+    );
+  });
+
+  it("builds every image for a workflow change", () => {
+    expect(selected(["workflow_config"]).sort()).toEqual([...ALL].sort());
   });
 
   it("still builds an integration whose own files changed", () => {
-    expect(selected(["angular", "agno"]).sort()).toEqual(
-      [...SAMPLE, "agno"].sort(),
-    );
+    expect(selected(["angular", "agno"])).toEqual(["agno"]);
     expect(selected(["spring_ai"])).toEqual(["spring-ai"]);
+    expect(needsAngular(["spring_ai"])).toBe(true);
+  });
+
+  it("does not compile the Angular host for a shell-only change", () => {
+    expect(selected(["shell"])).toEqual(["shell"]);
+    expect(needsAngular(["shell"])).toBe(false);
   });
 
   it("builds nothing when no filter matched", () => {
     expect(selected([])).toEqual([]);
+    expect(needsAngular([])).toBe(false);
   });
 
   it("substitutes the PR head sha and branch into build args", () => {
