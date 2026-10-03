@@ -311,7 +311,15 @@ describe("CopilotChatMessageView transformMessages", () => {
     function Harness() {
       const [messages, update] = React.useState<Message[]>([first]);
       setMessages = update;
-      return <CopilotChatMessageView messages={messages} isRunning />;
+      // Per-message toolbars: in the default turn scope both messages are one
+      // reply, which keeps its toolbar hidden until the run ends.
+      return (
+        <CopilotChatMessageView
+          messages={messages}
+          isRunning
+          assistantMessage={{ toolbarScope: "message" }}
+        />
+      );
     }
 
     renderWithCopilotKit({ children: <Harness /> });
