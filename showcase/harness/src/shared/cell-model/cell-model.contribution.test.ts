@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { StatusRow, State } from "./live-status.js";
+import { functionalAdmission } from "./live-status.js";
 import {
   CHIP_SEVERITY,
   worseOf,
@@ -483,4 +484,175 @@ describe("functional admission", () => {
       ).toBe("FAIL_FRESH");
     },
   );
+});
+
+describe("frontend-tools evidence admission", () => {
+  const key = "d6:langgraph-python/frontend-tools";
+  const actions = [
+    ["sunset", "Sunset theme", "Make the background a sunset gradient."],
+    ["forest", "Forest theme", "Switch to a deep green forest gradient."],
+    ["cosmic", "Cosmic theme", "Make it a navy → magenta cosmic gradient."],
+  ];
+  const functional = {
+    disposition: "completed",
+    canonicalId: "frontend-tools-v1",
+    assertionId: "frontend-tools-gradients-v1",
+    attempts: 1,
+    requiredActionIds: actions.map((a) => a[0]),
+    attemptedActionIds: actions.map((a) => a[0]),
+    successfulActionIds: actions.map((a) => a[0]),
+    binding: {
+      key,
+      observedAt: FRESH,
+      runId: "job-run",
+      frontend: "react",
+      targetRevision: `sha256:${"a".repeat(64)}`,
+      canonicalRevision: "frontend-tools-v1",
+      outerUrl:
+        "https://showcase.staging.copilotkit.ai/react/langgraph-python/frontend-tools/preview",
+      iframeUrl: "https://langgraph.example.test/demos/frontend-tools",
+    },
+    actions: actions.map(([actionId, label, prompt], i) => ({
+      actionId,
+      label,
+      prompt,
+      dispatch: true,
+      terminal: true,
+      result: true,
+      emittedMessageId: `message-${i}`,
+      terminalMessageId: `message-${i}`,
+      runId: `agent-run-${i}`,
+      threadId: "thread",
+      startedAt: new Date(Date.parse(FRESH) - 6000 + i * 2000).toISOString(),
+      completedAt: new Date(Date.parse(FRESH) - 4001 + i * 2000).toISOString(),
+    })),
+  };
+  it("admits one complete public receipt and makes the canonical rung green", () => {
+    expect(functionalAdmission(key, "green", { functional }, FRESH)).toBe(
+      "unchanged",
+    );
+    expect(
+      functionalAdmission(
+        key,
+        "green",
+        { functional },
+        FRESH.replace("T", " "),
+      ),
+    ).toBe("unchanged");
+    expect(
+      functionalAdmission(key, "green", { functional }, FRESH, {
+        runId: "different-job",
+      }),
+    ).toBe("unverified");
+    const r = { ...row("green", { signal: { functional } }), key };
+    expect(classifyRung(raw("D6", [r]), NOW).contribution).toBe("GREEN_FRESH");
+  });
+  it.each(["d5", "d6"])(
+    "admits the same %s program on Angular only with matching routes",
+    (depth) => {
+      const angularKey = key.replace("d6:", `${depth}:`);
+      const proof = {
+        ...functional,
+        binding: {
+          ...functional.binding,
+          key: angularKey,
+          frontend: "angular",
+          outerUrl: functional.binding.outerUrl.replace("/react/", "/angular/"),
+          iframeUrl: functional.binding.iframeUrl.replace(
+            "/demos/",
+            "/angular/",
+          ),
+        },
+      };
+      expect(
+        functionalAdmission(angularKey, "green", { functional: proof }, FRESH),
+      ).toBe("unverified");
+      expect(
+        functionalAdmission(angularKey, "green", { functional: proof }, FRESH, {
+          frontend: "angular",
+        }),
+      ).toBe("unchanged");
+      proof.binding.iframeUrl = functional.binding.iframeUrl;
+      expect(
+        functionalAdmission(angularKey, "green", { functional: proof }, FRESH, {
+          frontend: "angular",
+        }),
+      ).toBe("unverified");
+      expect(
+        functionalAdmission(
+          angularKey.replace("frontend-tools", "agentic-chat"),
+          "green",
+          { functional },
+          FRESH,
+        ),
+      ).toBe("unverified");
+    },
+  );
+  it.each([
+    [
+      "partial self-defined program",
+      {
+        ...functional,
+        requiredActionIds: ["sunset"],
+        attemptedActionIds: ["sunset"],
+        successfulActionIds: ["sunset"],
+        actions: functional.actions.slice(0, 1),
+      },
+    ],
+    ["retry", { ...functional, attempts: 2 }],
+    [
+      "prior failure",
+      {
+        ...functional,
+        firstFailure: { turn: 1, error: "first attempt failed" },
+      },
+    ],
+    [
+      "wrong prompt",
+      {
+        ...functional,
+        actions: functional.actions.map((a, i) =>
+          i === 0 ? { ...a, prompt: "wrong" } : a,
+        ),
+      },
+    ],
+    [
+      "stale observation",
+      { ...functional, binding: { ...functional.binding, observedAt: STALE } },
+    ],
+    [
+      "wrong cell",
+      {
+        ...functional,
+        binding: { ...functional.binding, key: "d6:mastra/frontend-tools" },
+      },
+    ],
+    [
+      "missing target metadata",
+      { ...functional, binding: { ...functional.binding, targetRevision: "" } },
+    ],
+    [
+      "canonical mismatch",
+      {
+        ...functional,
+        binding: { ...functional.binding, canonicalRevision: "old-contract" },
+      },
+    ],
+    [
+      "unmatched terminal",
+      {
+        ...functional,
+        actions: functional.actions.map((a, i) =>
+          i === 0 ? { ...a, terminalMessageId: "old-message" } : a,
+        ),
+      },
+    ],
+  ])("does not grant functional credit to %s", (_name, proof) => {
+    expect(
+      functionalAdmission(key, "green", { functional: proof }, FRESH),
+    ).toBe("unverified");
+    expect(functionalAdmission(key, "red", { functional: proof }, FRESH)).toBe(
+      "unchanged",
+    );
+  });
 });

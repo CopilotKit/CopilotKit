@@ -164,6 +164,7 @@ function resolveNonNegative(
  *  `X-AIMock-Strict` default header here; callers add their per-probe
  *  headers (X-AIMock-Context, X-Test-Id) via `extraHTTPHeaders`. */
 export interface ContextOptions {
+  publicMode?: boolean;
   extraHTTPHeaders?: Record<string, string>;
 }
 
@@ -1162,7 +1163,9 @@ export class BrowserPool {
     try {
       context = await browserBefore.newContext({
         extraHTTPHeaders: {
-          ...(this.aimockStrict ? { "X-AIMock-Strict": "true" } : {}),
+          ...(this.aimockStrict && !options?.publicMode
+            ? { "X-AIMock-Strict": "true" }
+            : {}),
           ...options?.extraHTTPHeaders,
         },
       });

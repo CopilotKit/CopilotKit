@@ -801,6 +801,38 @@ export async function isRunning(slug: string): Promise<boolean> {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+/** Bind local evidence to the image actually running, not a mutable image tag. */
+export function runningImageRevision(slug: string): string | undefined {
+  try {
+    const containers = compose(
+      "--profile",
+      "all",
+      "ps",
+      "--status",
+      "running",
+      "-q",
+      slug,
+    )
+      .split("\n")
+      .filter(Boolean);
+    if (containers.length !== 1) return undefined;
+    const revision = execFileSync(
+      "docker",
+      ["inspect", "--format", "{{.Image}}", containers[0]!],
+      {
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    ).trim();
+    return /^sha256:[0-9a-f]{64}$/.test(revision) ? revision : undefined;
+  } catch {
+    log.warn("running image identity unavailable; functional credit withheld", {
+      slug,
+    });
+    return undefined;
+  }
+}
+
 function listRunningServices(): string[] {
   try {
     const output = compose(

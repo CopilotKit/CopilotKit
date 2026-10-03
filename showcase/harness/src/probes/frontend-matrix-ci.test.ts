@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { FRONTEND_TOOLS_CANONICAL } from "../shared/cell-model/live-status.js";
+import { testIdForFrontendProbe } from "./frontend-matrix-playwright.js";
 
 import type { FrontendMatrixCell } from "./frontend-matrix.js";
 import type {
@@ -92,6 +94,81 @@ function artifact(index: number): FrontendMatrixArtifact {
 }
 
 describe("frontend matrix CI contracts", () => {
+  it.each(["react", "angular"] as const)(
+    "preserves a qualified %s receipt and rejects a different image or run",
+    (frontend) => {
+      const planned = {
+        ...CELLS[1]!,
+        frontend,
+        id: `${frontend}/mastra/frontend-tools`,
+      };
+      const saved = artifact(1);
+      saved.shard = { index: 0, count: 1 };
+      saved.startedAt = "2026-07-21T00:00:00.000Z";
+      saved.finishedAt = "2026-07-21T00:00:08.000Z";
+      saved.containerImageRevision = `sha256:${"a".repeat(64)}`;
+      const cell = saved.cells[0]!;
+      Object.assign(cell, {
+        cellId: planned.id,
+        frontend,
+        containerImageRevision: saved.containerImageRevision,
+      });
+      const probe = cell.probes[0]!;
+      const canonical = FRONTEND_TOOLS_CANONICAL;
+      probe.testId = testIdForFrontendProbe(planned, "frontend-tools", "run-1");
+      cell.testIds = [probe.testId];
+      probe.functional = {
+        disposition: "completed",
+        attempts: 1,
+        canonicalId: canonical.id,
+        assertionId: canonical.assertionId,
+        requiredActionIds: [...canonical.requiredActionIds],
+        attemptedActionIds: [...canonical.requiredActionIds],
+        successfulActionIds: [...canonical.requiredActionIds],
+        binding: {
+          key: "d6:mastra/frontend-tools",
+          observedAt: saved.finishedAt,
+          runId: "run-1",
+          frontend,
+          targetRevision: saved.containerImageRevision,
+          canonicalRevision: canonical.id,
+          outerUrl: `https://shell.test/${frontend}/mastra/frontend-tools/preview`,
+          iframeUrl: `https://mastra.test/${frontend === "react" ? "demos" : "angular"}/frontend-tools`,
+        },
+        actions: canonical.actions.map((action, i) => ({
+          actionId: action.id,
+          label: action.label,
+          prompt: action.prompt,
+          dispatch: true,
+          terminal: true,
+          result: true,
+          emittedMessageId: `message-${i}`,
+          terminalMessageId: `message-${i}`,
+          runId: `turn-${i}`,
+          threadId: "thread",
+          startedAt: new Date(
+            Date.parse(saved.startedAt) + i * 2000,
+          ).toISOString(),
+          completedAt: new Date(
+            Date.parse(saved.startedAt) + i * 2000 + 1000,
+          ).toISOString(),
+        })),
+      };
+      expect(
+        aggregateFrontendMatrixArtifacts([planned], [saved]).summary,
+      ).toMatchObject({ passed: 1, failed: 0, unverified: 0 });
+      probe.functional.binding!.targetRevision = `sha256:${"b".repeat(64)}`;
+      expect(
+        aggregateFrontendMatrixArtifacts([planned], [saved]).summary.unverified,
+      ).toBe(1);
+      probe.functional.binding!.targetRevision = saved.containerImageRevision;
+      probe.functional.binding!.runId = "different-run";
+      expect(
+        aggregateFrontendMatrixArtifacts([planned], [saved]).summary.unverified,
+      ).toBe(1);
+      expect(probe.status).toBe("passed");
+    },
+  );
   it("selects an exact shard only after validating complete plan coverage", () => {
     expect(selectFrontendMatrixShard(CELLS, PLAN, 1)).toEqual([CELLS[1]]);
     expect(() =>

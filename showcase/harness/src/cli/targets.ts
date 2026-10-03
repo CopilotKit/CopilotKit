@@ -3,6 +3,7 @@ import fs from "node:fs";
 import yaml from "js-yaml";
 import type { LocalConfig } from "./config.js";
 import { getPackageUrl } from "./config.js";
+import { FUNCTIONAL_CANONICAL_REVISIONS } from "../shared/cell-model/live-status.js";
 
 export type TestLevel = "smoke" | "d4" | "d5" | "d6" | "all";
 
@@ -83,6 +84,8 @@ export interface ChatToolsInput {
  * array (registry IDs the driver maps via `demosToFeatureTypes()`).
  */
 export interface DeepInput {
+  targetRevision?: string;
+  canonicalRevisions?: Readonly<Record<string, string>>;
   key: string;
   backendUrl: string;
   name: string;
@@ -106,6 +109,8 @@ export interface DeepInput {
  * field) and runs ALL features (no sampling).
  */
 export interface FullInput {
+  targetRevision?: string;
+  canonicalRevisions?: Readonly<Record<string, string>>;
   key: string;
   backendUrl: string;
   name: string;
@@ -343,6 +348,8 @@ export function buildDeepInputs(
 
       return {
         key: `d5-single-pill-e2e:${slug}`,
+        targetRevision: config.targetRevisions?.[slug],
+        canonicalRevisions: FUNCTIONAL_CANONICAL_REVISIONS,
         backendUrl: getPackageUrl(slug, config),
         name: manifest.name,
         demos: features,
@@ -386,6 +393,8 @@ export function buildFullInputs(
 
       return {
         key: `d6:${slug}`,
+        targetRevision: config.targetRevisions?.[slug],
+        canonicalRevisions: FUNCTIONAL_CANONICAL_REVISIONS,
         backendUrl: getPackageUrl(slug, config),
         name: manifest.name,
         demos: features,

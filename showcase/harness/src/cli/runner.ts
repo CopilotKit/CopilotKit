@@ -28,7 +28,14 @@ import {
   buildFullInputs,
 } from "./targets.js";
 
-import { up, down, rebuild, isRunning, healthCheck } from "./lifecycle.js";
+import {
+  up,
+  down,
+  rebuild,
+  isRunning,
+  healthCheck,
+  runningImageRevision,
+} from "./lifecycle.js";
 
 import {
   printResult,
@@ -93,6 +100,7 @@ export interface RunResult {
   degraded: number;
   /** red + error results only — excludes degraded (A5 round 7). */
   failed: number;
+  unverified?: number;
   durationMs: number;
 }
 
@@ -105,16 +113,24 @@ export function countTerminalStates(results: TerminalResult[]): {
   passed: number;
   degraded: number;
   failed: number;
+  unverified?: number;
 } {
   let passed = 0;
   let degraded = 0;
   let failed = 0;
+  let unverified = 0;
   for (const r of results) {
     if (r.state === "green") passed += 1;
     else if (r.state === "degraded") degraded += 1;
+    else if (r.state === "unverified") unverified += 1;
     else failed += 1;
   }
-  return { passed, degraded, failed };
+  return {
+    passed,
+    degraded,
+    failed,
+    ...(unverified > 0 ? { unverified } : {}),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -266,6 +282,14 @@ export async function run(
   }
 
   // -- 7. Build ProbeContext ------------------------------------------------
+  if (["d5", "d6", "all"].includes(options.level)) {
+    config = {
+      ...config,
+      targetRevisions: Object.fromEntries(
+        slugs.map((slug) => [slug, runningImageRevision(slug)]),
+      ),
+    };
+  }
   const pbConfig = options.live ? resolvePbConfig(config) : null;
   const pbWriter = pbConfig ? createPbWriter(pbConfig, logger) : null;
 
@@ -326,6 +350,7 @@ export async function run(
           return {
             async newContext(contextOpts?: {
               extraHTTPHeaders?: Record<string, string>;
+              publicMode?: boolean;
             }) {
               // GUARD: same shared-browser disconnect guard as defaultLauncher
               // — refuse to open on a dead browser and convert a mid-open
@@ -335,11 +360,17 @@ export async function run(
                 Awaited<ReturnType<typeof browser.newContext>>
               >(browser, {
                 extraHTTPHeaders: {
-                  "X-AIMock-Strict": "true",
+                  ...(contextOpts?.publicMode
+                    ? {}
+                    : { "X-AIMock-Strict": "true" }),
                   ...contextOpts?.extraHTTPHeaders,
                 },
               });
               return {
+                publicContext: {
+                  newPage: () => bCtx.newPage(),
+                  close: () => bCtx.close(),
+                },
                 async newPage() {
                   const page = await bCtx.newPage();
                   const consoleLogs: string[] = [];
@@ -479,14 +510,10 @@ export async function run(
       : undefined,
   );
 
-  const { passed, degraded, failed } = countTerminalStates(allResults);
-
   return {
     target,
     results: allResults,
-    passed,
-    degraded,
-    failed,
+    ...countTerminalStates(allResults),
     durationMs: Date.now() - runStart,
   };
 }

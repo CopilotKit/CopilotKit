@@ -51,6 +51,14 @@ describe("countTerminalStates (A5(i) round 7)", () => {
       ]),
     ).toEqual({ passed: 0, degraded: 1, failed: 0 });
   });
+  it("keeps unverified evidence out of both passed and failed counts", () => {
+    expect(
+      countTerminalStates([
+        { key: "d6:mastra/frontend-tools", state: "unverified", durationMs: 1 },
+        { key: "d6:mastra/agentic-chat", state: "red", durationMs: 1 },
+      ]),
+    ).toEqual({ passed: 0, failed: 1, degraded: 0, unverified: 1 });
+  });
 });
 
 // ---------------------------------------------------------------------------

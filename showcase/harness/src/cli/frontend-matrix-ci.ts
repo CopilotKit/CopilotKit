@@ -269,6 +269,10 @@ function createProgram(): Command {
     .option("--catalog <file>", "generated frontend catalog", DEFAULT_CATALOG)
     .option("--frontend <id>", "limit execution to one frontend", frontend)
     .option(
+      "--public-shell-base-url <url>",
+      "exercise public controls through this shell",
+    )
+    .option(
       "--features <slugs>",
       "limit execution to comma-separated feature slugs",
       commaSeparatedValues,
@@ -304,9 +308,19 @@ function createProgram(): Command {
           angularBaseUrl: integrationBaseUrl,
           backendUrls,
           invocationId,
+          targetRevisions: {
+            [options.integration]: options.containerImageRevision,
+          },
+          executionMode: options.publicShellBaseUrl
+            ? "public-pill"
+            : "diagnostic",
+          publicShellBaseUrl: options.publicShellBaseUrl,
           runProbe: createPlaywrightProbeExecutor({
             browser,
             scripts: D5_REGISTRY,
+            executionMode: options.publicShellBaseUrl
+              ? "public-pill"
+              : "diagnostic",
           }),
         });
         const results = await executeFrontendMatrixShard(cells, {

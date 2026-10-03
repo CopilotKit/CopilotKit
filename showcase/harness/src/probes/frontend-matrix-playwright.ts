@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import type { Browser, Frame, Page, Request } from "playwright";
+import type { Browser, BrowserContext, Frame, Page, Request } from "playwright";
 
 import { runConversation } from "./helpers/conversation-runner.js";
 import type { PublicObservation } from "./helpers/conversation-runner.js";
@@ -25,6 +25,11 @@ import type {
   FrontendProbeResult,
 } from "./frontend-matrix-runner.js";
 
+import {
+  functionalAdmission,
+  FUNCTIONAL_CANONICAL_REVISIONS,
+} from "../shared/cell-model/live-status.js";
+
 const DEFAULT_PROBE_TIMEOUT_MS = 90_000;
 const DEFAULT_HYDRATION_TIMEOUT_MS = 15_000;
 const TEST_ID_MAX_LENGTH = 160;
@@ -36,6 +41,10 @@ export interface FrontendProbeInput {
   url: string;
   backendUrl: string;
   testId: string;
+  key?: string;
+  runId?: string;
+  targetRevision?: string;
+  canonicalRevision?: string;
 }
 
 export type FrontendProbeExecutor = (
@@ -46,6 +55,7 @@ export interface FrontendCellExecutorOptions {
   angularBaseUrl: string;
   backendUrls: Readonly<Record<string, string>>;
   invocationId: string;
+  targetRevisions?: Readonly<Record<string, string>>;
   runProbe: FrontendProbeExecutor;
   executionMode?: "diagnostic" | "public-pill";
   publicShellBaseUrl?: string;
@@ -122,6 +132,10 @@ export function createFrontendCellExecutor(
             url,
             backendUrl,
             testId,
+            key: `d6:${cell.integration}/${featureType}`,
+            runId: options.invocationId,
+            targetRevision: options.targetRevisions?.[cell.integration],
+            canonicalRevision: FUNCTIONAL_CANONICAL_REVISIONS[featureType],
           }),
         );
       } catch {
@@ -216,7 +230,11 @@ function sseDiagnostics(
 }
 
 export interface PlaywrightProbeExecutorOptions {
-  browser: Browser;
+  browser: {
+    newContext: (
+      options?: Parameters<Browser["newContext"]>[0],
+    ) => Promise<Pick<BrowserContext, "newPage" | "close">>;
+  };
   scripts: ReadonlyMap<D5FeatureType, D5Script>;
   probeTimeoutMs?: number;
   hydrationTimeoutMs?: number;
@@ -229,7 +247,11 @@ export function observePublicTransport(
   targetFrame: () => Frame | undefined,
 ): () => PublicObservation {
   const messages = new Map<string, string>();
-  const requests = new Map<Request, { runId: string; threadId: string }>();
+  const requests = new Map<
+    Request,
+    { runId: string; threadId: string; messageId: string }
+  >();
+  let terminalIdentity: PublicObservation["terminal"];
   let active = 0;
   let starts = 0;
   let finished = 0;
@@ -273,7 +295,18 @@ export function observePublicTransport(
         }
         messages.set(message.id, message.content);
       }
-      requests.set(request, { runId: body.runId, threadId: body.threadId });
+      const user = body.messages
+        .filter((message: { role: string }) => message.role === "user")
+        .at(-1);
+      if (!user?.id) {
+        fail();
+        return;
+      }
+      requests.set(request, {
+        runId: body.runId,
+        threadId: body.threadId,
+        messageId: user.id,
+      });
       active++;
       starts++;
     } catch {
@@ -325,6 +358,7 @@ export function observePublicTransport(
           terminal.payload.threadId !== identity.threadId
         )
           throw new Error("terminal identity mismatch");
+        terminalIdentity = identity;
         finished++;
         active--;
       } catch {
@@ -335,6 +369,7 @@ export function observePublicTransport(
   return () => ({
     userMessages: [...messages].map(([id, content]) => ({ id, content })),
     runsFinished: finished,
+    terminal: terminalIdentity,
     running: {
       attrPresent: true,
       runningNow: active > 0,
@@ -437,10 +472,12 @@ export function createPlaywrightProbeExecutor(
           if (!targetFrame) throw new Error("public shell iframe missing");
           await targetFrame.waitForLoadState("load");
           const expected = new URL(
-            `/demos/${input.cell.feature}`,
+            `/${input.cell.frontend === "angular" ? "angular" : "demos"}/${input.cell.feature}`,
             input.backendUrl,
           );
           const actual = new URL(targetFrame.url());
+          if (page.url() !== input.url || actual.search || actual.hash)
+            throw new Error("public shell navigation target changed");
           if (
             actual.origin !== expected.origin ||
             actual.pathname !== expected.pathname
@@ -470,6 +507,19 @@ export function createPlaywrightProbeExecutor(
               }
             : {},
         );
+        const observedAt = new Date().toISOString();
+        if (conversation.functional)
+          conversation.functional.binding = {
+            key:
+              input.key ?? `d6:${input.cell.integration}/${input.featureType}`,
+            observedAt,
+            runId: input.runId,
+            frontend: input.cell.frontend,
+            targetRevision: input.targetRevision,
+            canonicalRevision: input.canonicalRevision,
+            outerUrl: page.url(),
+            iframeUrl: targetFrame?.url() ?? "",
+          };
         if (conversation.failure_turn !== undefined) {
           const failureSummary = conversationFailureSummary(conversation.error);
           return {
@@ -501,7 +551,22 @@ export function createPlaywrightProbeExecutor(
         if (sseHandle) capture = await sseHandle.stop();
         return {
           featureType: input.featureType,
-          status: publicMode ? "unverified" : "passed",
+          status:
+            !publicMode ||
+            functionalAdmission(
+              conversation.functional?.binding?.key ?? "",
+              "green",
+              { functional: conversation.functional },
+              observedAt,
+              {
+                runId: input.runId,
+                targetRevision: input.targetRevision,
+                canonicalRevision: input.canonicalRevision,
+                frontend: input.cell.frontend,
+              },
+            ) === "unchanged"
+              ? "passed"
+              : "unverified",
           durationMs: Date.now() - startedAt,
           testId: input.testId,
           ...(conversation.functional

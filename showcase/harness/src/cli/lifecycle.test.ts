@@ -59,7 +59,13 @@ vi.mock("node:fs", () => {
   return { default: api, ...api };
 });
 
-import { down, rebuild, stageSharedModules, up } from "./lifecycle.js";
+import {
+  down,
+  rebuild,
+  runningImageRevision,
+  stageSharedModules,
+  up,
+} from "./lifecycle.js";
 
 /** Pull out the compose argv (after the `-f <file>` prefix) for each call. */
 function composeCalls(): string[][] {
@@ -86,6 +92,29 @@ beforeEach(() => {
   readdirSyncMock.mockReturnValue([]);
   // Default: compose returns empty string.
   execFileSyncMock.mockReturnValue("");
+});
+
+describe("runningImageRevision", () => {
+  it("reads the running container's immutable image rather than its tag", () => {
+    const revision = `sha256:${"a".repeat(64)}`;
+    execFileSyncMock
+      .mockReturnValueOnce("container-id")
+      .mockReturnValueOnce(revision);
+    expect(runningImageRevision("mastra")).toBe(revision);
+    expect(execFileSyncMock).toHaveBeenLastCalledWith(
+      "docker",
+      ["inspect", "--format", "{{.Image}}", "container-id"],
+      expect.any(Object),
+    );
+  });
+  it.each(["", "first\nsecond"])(
+    "withholds identity when no single container is running (%s)",
+    (ids) => {
+      execFileSyncMock.mockReturnValueOnce(ids);
+      expect(runningImageRevision("mastra")).toBeUndefined();
+      expect(execFileSyncMock).toHaveBeenCalledTimes(1);
+    },
+  );
 });
 
 describe("stageSharedModules() — Angular browser artifact", () => {

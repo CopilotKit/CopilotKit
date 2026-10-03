@@ -1015,7 +1015,12 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
     // they cannot reset a failure or refresh the retained proof timestamp.
     if (
       safeObservedAt === undefined ||
-      functionalAdmission(result.key, result.state) === "unverified"
+      functionalAdmission(
+        result.key,
+        result.state,
+        result.signal,
+        result.observedAt,
+      ) === "unverified"
     ) {
       // A6(i): deduped — a broken probe feeds garbage every tick.
       if (safeObservedAt === undefined)
