@@ -380,16 +380,17 @@ export function useCoAgent<T = any>(
       running: agent.isRunning,
       state: agent.state,
       setState: handleStateUpdate,
+      // Wrapped, not passed through: runAgent and abortRun are prototype
+      // methods that read `this`, so a caller who destructures them gets a
+      // TypeError (#3132).
       // TODO: start and run both have same thing. need to figure out
-      start: agent.runAgent,
-      stop: agent.abortRun,
-      run: agent.runAgent,
+      start: (...args) => agent.runAgent(...args),
+      stop: () => agent.abortRun(),
+      run: (...args) => agent.runAgent(...args),
     };
   }, [
+    agent,
     agent?.state,
-    agent?.runAgent,
-    agent?.abortRun,
-    agent?.runAgent,
     agent?.threadId,
     agent?.isRunning,
     agent?.agentId,
