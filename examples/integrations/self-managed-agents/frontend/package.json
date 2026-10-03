@@ -1,0 +1,24 @@
+{
+  "name": "self-managed-agents-example",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -b && vite build",
+    "test:integration": "node verify-agent.mjs",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@ag-ui/client": "0.0.59",
+    "@copilotkit/react-core": "1.74.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.0"
+  }
+}
