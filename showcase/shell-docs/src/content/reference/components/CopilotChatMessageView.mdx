@@ -5,7 +5,7 @@ description: "Component for rendering a list of chat messages"
 
 ## Overview
 
-`CopilotChatMessageView` renders a list of chat messages and, optionally, a typing cursor while the agent is running. It delegates rendering of individual messages to slot components (`assistantMessage` and `userMessage`) and supports a render-prop `children` function for full control over layout.
+`CopilotChatMessageView` renders a list of chat messages and a streaming cursor while the agent is running. It delegates rendering of individual messages to slot components (`assistantMessage` and `userMessage`) and supports a render-prop `children` function for full control over layout.
 
 ## Import
 
@@ -17,8 +17,18 @@ import "@copilotkit/react-core/v2/styles.css";
 ## Props
 
 <PropertyReference name="isRunning" type="boolean" default="false">
-  Whether the agent is currently executing. When `true`, the cursor slot is
-  rendered after the last message to indicate ongoing activity.
+  Whether the agent is currently executing. When `true`, a streaming cursor
+  indicates ongoing activity (see `inlineCursor`).
+</PropertyReference>
+
+<PropertyReference name="inlineCursor" type="boolean" default="true">
+  While a reply streams, show the cursor at the end of its text, as if it were
+  being typed (the assistant message's `showCursor`). Before the reply has any
+  text, for example while a tool runs, the `cursor` slot shows below the
+  messages instead. Set `false` to always use the `cursor` slot below the
+  messages. The cursor also stays below the messages when you pass a custom
+  `cursor` slot, a custom `assistantMessage` component, an `assistantMessage`
+  with `children`, or a `children` layout.
 </PropertyReference>
 
 <PropertyReference name="messages" type="Message[]" default="[]">
@@ -96,7 +106,7 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 </PropertyReference>
 
 <PropertyReference name="cursor" type="SlotProp<typeof CopilotChatMessageView.Cursor>">
-  Slot for the typing indicator displayed while `isRunning` is `true`. Defaults to `CopilotChatMessageView.Cursor`, which renders a pulsing dot animation.
+  Slot for the typing indicator displayed below the messages while `isRunning` is `true` and there is no streaming text to carry the inline cursor (or always, with `inlineCursor={false}`). Defaults to `CopilotChatMessageView.Cursor`, which renders a pulsing dot animation.
 
 **As a replacement component:**
 
@@ -199,9 +209,9 @@ function MinimalChat() {
 ## Behavior
 
 - **Message Rendering**: Each message in the `messages` array is rendered using the corresponding slot component based on its `role`. Assistant messages use the `assistantMessage` slot; user messages use the `userMessage` slot.
-- **Cursor Display**: The `cursor` slot is only rendered when `isRunning` is `true`. It appears after the last message in the list, and is hidden when the last rendered message is a reasoning message, which shows its own indicator.
+- **Cursor Display**: With `inlineCursor` on (the default) and the default cursor and assistant message, while `isRunning` is `true` and the last rendered message is an assistant reply with text, the cursor rides at the end of that text. Otherwise the `cursor` slot appears after the last message in the list. It is hidden when the last rendered message is a reasoning message, which shows its own indicator.
 - **Virtualization**: Inside a chat scroll container, once more than 50 messages render, only the rows on screen are mounted. The count uses the list `transformMessages` returns. Providing `children` turns virtualization off; in development the component warns once when that is what keeps a long thread mounted in full.
-- **Latest Message**: The last rendered message is passed to its slot as `isLatest`. While `isRunning` is `true`, the latest assistant message hides its toolbar and a latest reasoning message shows as streaming.
+- **Latest Message**: The last rendered message is passed to its slot as `isLatest`, and each assistant message gets its reply as `turn`, both from the rendered list. While `isRunning` is `true`, the latest reply hides its toolbar and a latest reasoning message shows as streaming.
 - **Render-Prop Override**: When `children` is provided as a function, the component delegates all layout to that function. The `messageElements` array is pre-built from the slot components, so custom layouts still benefit from slot customization.
 - **Slot System**: Each slot prop accepts three forms -- a replacement component, a className string merged into the default, or a partial props object that extends the default component's props.
 
