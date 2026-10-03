@@ -1,0 +1,27 @@
+---
+title: Community frameworks
+icon: "lucide/Users"
+description: Frontend packages for CopilotKit that the community builds and maintains. They are lightly supported.
+frontend: universal
+---
+
+CopilotKit maintains official packages for React, React Native, Vue and Angular. Community frameworks add other frontends. People outside the core team build and maintain them, and CopilotKit supports them lightly.
+
+## What "lightly supported" means
+
+- **Tested with one version.** Each package lists the `@copilotkit/core` version it is tested with. Use that version.
+- **Updates are best effort.** A community package can fall behind CopilotKit releases. Report problems on GitHub. We read every report, but we do not promise a response time.
+- **Separate releases.** A community package releases on its own schedule. It does not block CopilotKit releases.
+- **The package README is the guide.** These docs do not include setup guides or API reference for community packages.
+
+## Frameworks
+
+| Framework | Status      | Tested with | Details                                                          |
+| --------- | ----------- | ----------- | ---------------------------------------------------------------- |
+| Svelte    | In progress | —           | [Pull request #5905](https://github.com/CopilotKit/CopilotKit/pull/5905) |
+
+## Request or contribute a framework
+
+To ask for a framework, [open an issue](https://github.com/CopilotKit/CopilotKit/issues/new/choose). Each request tells us which frontends people need.
+
+To build one, start from `@copilotkit/core`. It is the framework-neutral layer that the official packages use for agents, tools, context and threads. A community package adds the bindings and the chat UI for its framework.
