@@ -156,7 +156,16 @@ function workerView(registeredAtMs: number): WorkerView {
     lastHeartbeatAt: iso(registeredAtMs),
     registeredAt: iso(registeredAtMs),
     currentJobId: null,
-    capacity: { inUse: 0, available: 24, max: 24 },
+    // Unknown cgroup PID gauges: these fixtures exercise silence detection,
+    // not PID saturation.
+    capacity: {
+      inUse: 0,
+      available: 24,
+      max: 24,
+      pidsCurrent: null,
+      pidsMax: null,
+      pidsSaturated: false,
+    },
   };
 }
 
