@@ -257,6 +257,22 @@ describe("fetch-handler validation — single-route missing params", () => {
     // Route matched — not a param validation error
     expect(response.status).not.toBe(400);
   });
+
+  it("dispatches a multipart/form-data transcribe POST instead of 415ing", async () => {
+    const formData = new FormData();
+    formData.append("audio", new File([new Uint8Array(4)], "a.webm"));
+    const request = new Request("http://localhost/api", {
+      method: "POST",
+      body: formData,
+    });
+    const response = await handler(request);
+    // No transcriptionService configured on this runtime, so the request
+    // must reach the handler (503) rather than being rejected before
+    // routing (415, the bug being fixed here).
+    expect(response.status).toBe(503);
+    const body = await response.json();
+    expect(body.error).toBe("service_not_configured");
+  });
 });
 
 /* ------------------------------------------------------------------------------------------------
