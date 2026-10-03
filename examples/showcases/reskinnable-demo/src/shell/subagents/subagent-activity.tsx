@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
+import { findLatestDelegationToolCallId } from "./subagent-anchor";
 import {
   useAgent,
   UseAgentUpdate,
@@ -115,47 +116,35 @@ export const useSubagentActivity = (): SubagentActivity =>
   useContext(SubagentActivityContext);
 
 /**
- * The tool-call id of the run's FIRST delegation — a stable place to anchor a
- * single surface (a console, a progress panel) for the whole of a subagent run.
+ * The tool-call id used to anchor one surface (console/progress panel) for the
+ * most recent delegated run.
  *
- * Derived from MESSAGE ORDER, deliberately, not from the live event stream.
- * Anchoring on "a `task` call the events have not tagged as a subagent's" looks
- * equivalent and is not: the tag arrives asynchronously and, on a RESTORED
- * thread, never — `agent.subscribe` only sees a live run. The set is then empty,
- * every nested `task` call looks like the parent's, and the anchored surface
- * renders once per delegation. Measured: six consoles in one transcript.
- *
- * Message order has neither problem. The parent's delegation is always the
- * first `task` in the thread, before any subagent could have made one, and the
- * ordering is persisted rather than observed.
+ * Message order is durable across restore. Within each user-turn segment, the
+ * parent's delegation is the first `task` before any nested subagent can emit
+ * another one. Selecting the latest such first call keeps repeated runs near
+ * the turn that started them instead of pinning every future run to the first
+ * delegation in the entire thread.
  */
-export const useFirstDelegationToolCallId = (
+
+/**
+ * The parent delegation that anchors the most recent delegated run.
+ *
+ * Message order is used deliberately: it survives restore, and the first
+ * `task` after a user turn must belong to the parent before any nested
+ * subagent can emit another `task`.
+ */
+export const useLatestDelegationToolCallId = (
   toolName = "task",
 ): string | undefined => {
   const { agent } = useAgent({
     updates: [UseAgentUpdate.OnMessagesChanged],
     throttleMs: 200,
   });
-  const messages = agent?.messages;
-  return useMemo(() => {
-    for (const message of messages ?? []) {
-      const m = message as {
-        role?: string;
-        toolCalls?: {
-          id: string;
-          function?: { name?: string };
-          name?: string;
-        }[];
-      };
-      if (m.role !== "assistant") continue;
-      for (const call of m.toolCalls ?? []) {
-        if ((call.function?.name ?? call.name) === toolName) return call.id;
-      }
-    }
-    return undefined;
-  }, [messages, toolName]);
+  return useMemo(
+    () => findLatestDelegationToolCallId(agent?.messages ?? [], toolName),
+    [agent?.messages, toolName],
+  );
 };
-
 // ── event shaping ───────────────────────────────────────────────────────────
 
 const str = (v: unknown): string =>
