@@ -9,14 +9,16 @@ and what state updates the middleware emits):
   tools the request reaches the model unchanged.
 * App context from ``state["copilotkit"]["context"]`` (or namespaced
   ``runtime.context["copilotkit"]["context"]``) is appended to
-  ``ModelRequest.system_message`` as ``"App Context:\\n<json>"``. Raw,
-  unstructured ``runtime.context`` is never rendered (see #7077).
-  Empty context is a no-op. ``before_agent`` does not mutate message history.
+  ``ModelRequest.system_message`` by default. With
+  ``context_placement="user"``, it and exposed-state notes are prepended to
+  the latest human message in the model request without mutating history. Raw,
+  unstructured ``runtime.context`` is never rendered (see #7077). Empty
+  context is a no-op. ``before_agent`` does not mutate message history.
 * ``after_model`` peels frontend tool calls off the last AIMessage so the
   ToolNode does not try to execute them; later model calls re-attach them with
   synthetic ToolMessages, while ``after_agent`` persists them as orphans for
   the real frontend result.
-* The ``expose_state`` opt-in surfaces user state into ``request.system_message``
+* The ``expose_state`` opt-in surfaces user state according to ``context_placement``
   as a ``"Current agent state:"`` note. Default is off; reserved internal
   keys, underscore-prefixed keys, and empty values are filtered out; an
   allowlist forces an explicit subset; any existing system message is kept
@@ -53,6 +55,7 @@ from langgraph.graph import StateGraph
 
 from copilotkit.copilotkit_lg_middleware import (
     CopilotKitMiddleware,
+    StateSchema,
     _extract_forwarded_headers_from_config,
 )
 from copilotkit.header_propagation import get_forwarded_headers, set_forwarded_headers
@@ -631,7 +634,7 @@ def test_expose_state_allowlist_never_surfaces_forwarded_headers():
 
 
 # ---------------------------------------------------------------------------
-# App Context system prompt injection
+# App Context placement
 # ---------------------------------------------------------------------------
 
 
@@ -661,6 +664,219 @@ def test_wrap_model_call_appends_app_context_to_existing_system_message():
         "App Context:" not in (m.content if isinstance(m.content, str) else "")
         for m in seen.messages
     )
+
+
+@pytest.mark.parametrize("use_async", [False, True])
+def test_user_context_placement_prepends_state_and_app_context(use_async):
+    middleware = CopilotKitMiddleware(
+        context_placement="user",
+        expose_state=True,
+    )
+    messages = [
+        HumanMessage("previous question"),
+        AIMessage("previous answer"),
+        HumanMessage("Where am I?"),
+    ]
+    system_message = SystemMessage(content="Keep answers concise.")
+    request = _make_request(
+        state={
+            "messages": messages,
+            "copilotkit": {"context": {"page": "/dashboard"}},
+            "active_tab": "overview",
+        },
+        messages=messages,
+        system_message=system_message,
+    )
+
+    if use_async:
+        received: dict[str, ModelRequest] = {}
+
+        async def handler(req: ModelRequest):
+            received["req"] = req
+            return "ok"
+
+        asyncio.run(middleware.awrap_model_call(request, handler))
+        seen = received["req"]
+    else:
+        seen, _ = _run_wrap(middleware, request)
+
+    assert seen.system_message == system_message
+    assert isinstance(seen.messages[-1], HumanMessage)
+    assert seen.messages[-1].content.count(
+        "[Background application context; not user-authored]"
+    ) == 1
+    assert seen.messages[-1].content.count("[User message]") == 1
+    assert "App Context:" in seen.messages[-1].content
+    assert "Current agent state:" in seen.messages[-1].content
+    assert "/dashboard" in seen.messages[-1].content
+    assert "overview" in seen.messages[-1].content
+    assert seen.messages[-1].content.endswith("Where am I?")
+    assert messages[-1].content == "Where am I?"
+    assert request.state["messages"] == messages
+
+
+def test_user_context_placement_preserves_multimodal_human_content():
+    middleware = CopilotKitMiddleware(context_placement="user")
+    original_content = [
+        {"type": "text", "text": "What is in this picture?"},
+        {
+            "type": "image_url",
+            "image_url": {"url": "https://example.test/image.png"},
+        },
+    ]
+    human_message = HumanMessage(
+        content=original_content, id="image-question", name="viewer",
+        additional_kwargs={"source": "gallery"},
+    )
+    request = _make_request(
+        state={
+            "messages": [human_message],
+            "copilotkit": {"context": {"page": "/gallery"}},
+        },
+        messages=[human_message],
+    )
+
+    seen, _ = _run_wrap(middleware, request)
+
+    content = seen.messages[0].content
+    assert isinstance(content, list)
+    assert content[0]["type"] == "text"
+    assert "App Context:" in content[0]["text"]
+    assert content[1:] == original_content
+    assert human_message.content == original_content
+    assert seen.messages[0].id == human_message.id
+    assert seen.messages[0].name == human_message.name
+    assert seen.messages[0].additional_kwargs == human_message.additional_kwargs
+    assert seen.system_message is None
+
+
+def test_user_context_placement_falls_back_to_system_without_human_message():
+    middleware = CopilotKitMiddleware(context_placement="user", expose_state=True)
+    messages = [AIMessage("starting from saved state")]
+    request = _make_request(
+        state={
+            "messages": messages,
+            "copilotkit": {"context": {"page": "/dashboard"}},
+            "active_tab": "overview",
+        },
+        messages=messages,
+        system_message=SystemMessage(content="Stable instructions."),
+    )
+
+    seen, _ = _run_wrap(middleware, request)
+
+    assert seen.system_message is not None
+    assert "Stable instructions." in seen.system_message.content
+    assert "App Context:" in seen.system_message.content
+    assert "Current agent state:" in seen.system_message.content
+    assert seen.messages == messages
+    assert request.state["messages"] == messages
+
+
+@pytest.mark.parametrize("use_async", [False, True])
+def test_user_context_placement_preserves_checkpoints_and_tool_loop(use_async):
+    class ConversationState(StateSchema):
+        active_tab: str
+
+    class ToolLoopModel(_RecordingToolAwareChatModel):
+        calls: list[list[BaseMessage]] = Field(default_factory=list)
+
+        def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+            self.calls.append(list(messages))
+            if isinstance(messages[-1], HumanMessage):
+                response = AIMessage(
+                    content="",
+                    tool_calls=[
+                        {
+                            "name": "lookup_status",
+                            "args": {},
+                            "id": f"lookup-{len(self.calls)}",
+                        }
+                    ],
+                )
+            else:
+                response = AIMessage(content="Done.")
+            return ChatResult(generations=[ChatGeneration(message=response)])
+
+    def lookup_status() -> str:
+        """Look up the application status without changing its state."""
+        return "ready"
+
+    model = ToolLoopModel()
+    agent = create_agent(
+        model=model,
+        tools=[lookup_status],
+        system_prompt="Stable instructions.",
+        state_schema=ConversationState,
+        middleware=[
+            CopilotKitMiddleware(
+                context_placement="user", expose_state=["active_tab"]
+            )
+        ],
+        checkpointer=MemorySaver(),
+    )
+    config = {"configurable": {"thread_id": "context-placement"}}
+    questions = ["Open the dashboard", "Open settings"]
+
+    async def run_turns():
+        for index, (page, tab) in enumerate(
+            [("/dashboard", "overview"), ("/settings", "preferences")]
+        ):
+            inputs = {
+                "messages": [HumanMessage(content=questions[index], id=f"user-{index}")],
+                "copilotkit": {"context": {"page": page}},
+                "active_tab": tab,
+            }
+            if use_async:
+                await agent.ainvoke(inputs, config)
+                snapshot = await agent.aget_state(config)
+            else:
+                agent.invoke(inputs, config)
+                snapshot = agent.get_state(config)
+
+            stored_humans = [
+                message
+                for message in snapshot.values["messages"]
+                if isinstance(message, HumanMessage)
+            ]
+            assert [message.content for message in stored_humans] == questions[
+                :index + 1
+            ]
+            assert [message.id for message in stored_humans] == [
+                f"user-{i}" for i in range(index + 1)
+            ]
+
+            # A real backend tool runs between these two model calls. With
+            # unchanged context/state, the complete human message stays stable.
+            assert len(model.calls) == (index + 1) * 2
+            first_call, second_call = model.calls[-2:]
+            assert any(isinstance(message, ToolMessage) for message in second_call)
+            first_human = next(
+                m for m in reversed(first_call) if isinstance(m, HumanMessage)
+            )
+            second_human = next(
+                m for m in reversed(second_call) if isinstance(m, HumanMessage)
+            )
+            assert first_human.model_dump_json() == second_human.model_dump_json()
+            assert first_human.content.count("Background application context") == 1
+            assert page in first_human.content
+            assert tab in first_human.content
+            assert first_human.content.endswith(questions[index])
+            for call in (first_call, second_call):
+                assert (
+                    call[0].model_dump_json() == model.calls[0][0].model_dump_json()
+                )
+                assert call[0].content == "Stable instructions."
+                if index == 1:
+                    assert call[1].content == questions[0]
+                    assert "/dashboard" not in first_human.content
+
+    asyncio.run(run_turns())
+
+
+def test_user_context_placement_rejects_unknown_value():
+    with pytest.raises(ValueError, match="context_placement"):
+        CopilotKitMiddleware(context_placement="message")
 
 
 def test_before_agent_does_not_inject_app_context_into_message_state():
