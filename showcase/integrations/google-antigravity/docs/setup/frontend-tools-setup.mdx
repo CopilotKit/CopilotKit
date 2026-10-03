@@ -1,0 +1,23 @@
+<Steps>
+  <Step>
+    ### Nothing to wire on the agent
+
+    The Antigravity AG-UI adapter turns every tool the frontend registers into
+    a custom Antigravity tool on each run, so the agent declares no tools of
+    its own for this. A component registered with `useComponent` reaches the
+    model through the AG-UI request payload; when the model calls it, the
+    adapter parks the call until the browser answers and hands the result back
+    to the model as the tool's return value.
+
+  </Step>
+  <Step>
+    ### Tell the model when to call it
+
+    This is the part that is easy to miss. The tool arrives on every run, but a
+    model with no instruction about it will answer in prose and never call it.
+    Name the tool in the system instructions and say what it is for.
+
+    <DemoCode file="src/agents/gen_ui_tool_based.py" region="frontend-tools-agent" />
+
+  </Step>
+</Steps>
