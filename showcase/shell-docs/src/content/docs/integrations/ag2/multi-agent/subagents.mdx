@@ -39,7 +39,7 @@ from pydantic import Field
 
 from ag2 import Agent, tool
 from ag2.ag_ui import AGUIStream, RunAgentInput
-from ag2.config import OpenAIConfig
+from ag2.config import OpenAIResponsesConfig
 
 @tool
 def search_docs(
@@ -51,14 +51,14 @@ def search_docs(
 researcher = Agent(
     name="researcher",
     prompt="You research topics using the documentation tool and report findings plainly.",
-    config=OpenAIConfig(model="gpt-5.4-mini"),
+    config=OpenAIResponsesConfig(model="gpt-6-luna"),
     tools=[search_docs],
 )
 
 writer = Agent(
     name="writer",
     prompt="You turn research notes into a single tight paragraph.",
-    config=OpenAIConfig(model="gpt-5.4-mini"),
+    config=OpenAIResponsesConfig(model="gpt-6-luna"),
 )
 
 coordinator = Agent(
@@ -67,7 +67,7 @@ coordinator = Agent(
         "You coordinate specialists. Delegate research to `task_researcher`, "
         "then hand the findings to `task_writer`. Do not answer from memory."
     ),
-    config=OpenAIConfig(model="gpt-5.4-mini"),
+    config=OpenAIResponsesConfig(model="gpt-6-luna"),
     tools=[
         researcher.as_tool(description="Research a topic in the product docs."),
         writer.as_tool(description="Turn research notes into one paragraph."),

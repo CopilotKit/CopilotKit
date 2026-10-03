@@ -28,7 +28,7 @@ import uvicorn
 from ag2 import Agent
 from ag2.a2ui import A2UIServer, a2ui_action
 from ag2.a2ui.transports import AgUiTransport
-from ag2.config import OpenAIConfig
+from ag2.config import OpenAIResponsesConfig
 
 @a2ui_action(description="Book the selected dinner reservation")
 def book_table(time: str, party_size: int) -> str:
@@ -40,7 +40,7 @@ agent = Agent(
         "Answer with an A2UI surface whenever a list, a choice, or a "
         "confirmation would help the user."
     ),
-    config=OpenAIConfig(model="gpt-5.4-mini"),
+    config=OpenAIResponsesConfig(model="gpt-6-luna"),
 )
 
 app = A2UIServer(

@@ -38,7 +38,7 @@ is a situation where a user and an agent are working together to solve a problem
 
     from ag2 import Agent, Context, tool
     from ag2.ag_ui import AGUIEvent, AGUIStream, RunAgentInput
-    from ag2.config import OpenAIConfig
+    from ag2.config import OpenAIResponsesConfig
 
     class Search(BaseModel):
         query: str
@@ -83,7 +83,7 @@ is a situation where a user and an agent are working together to solve a problem
             "You are a helpful assistant for storing searches. "
             "Use `add_search` once per query, then call `run_searches`."
         ),
-        config=OpenAIConfig(model="gpt-5.4-mini"),
+        config=OpenAIResponsesConfig(model="gpt-6-luna"),
         tools=[add_search, run_searches],
     )
 

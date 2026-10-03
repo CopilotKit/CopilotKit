@@ -68,12 +68,12 @@ from fastapi.responses import StreamingResponse
 
 from ag2 import Agent
 from ag2.ag_ui import AGUIStream, RunAgentInput
-from ag2.config import OpenAIConfig
+from ag2.config import OpenAIResponsesConfig
 
 agent = Agent(
     name="assistant",
     prompt="You are a helpful assistant.",
-    config=OpenAIConfig(model="gpt-5.4-mini"),
+    config=OpenAIResponsesConfig(model="gpt-6-luna"),
 )
 
 stream = AGUIStream(agent)
@@ -140,7 +140,7 @@ The `Inject("auth_user")` annotation pulls the dependency you passed to `stream.
 agent = Agent(
     name="assistant",
     prompt="You are a helpful assistant.",
-    config=OpenAIConfig(model="gpt-5.4-mini"),
+    config=OpenAIResponsesConfig(model="gpt-6-luna"),
     tools=[get_account_data], # [!code highlight]
 )
 ```
@@ -157,12 +157,12 @@ from fastapi.responses import StreamingResponse
 
 from ag2 import Agent
 from ag2.ag_ui import AGUIStream, RunAgentInput
-from ag2.config import OpenAIConfig
+from ag2.config import OpenAIResponsesConfig
 
 agent = Agent(
     name="assistant",
     prompt="You are a helpful assistant.",
-    config=OpenAIConfig(model="gpt-5.4-mini"),
+    config=OpenAIResponsesConfig(model="gpt-6-luna"),
     tools=[get_account_data], # [!code highlight]
 )
 

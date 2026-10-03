@@ -86,12 +86,12 @@ This context can then be shared with your AG2 backend. With AG2 1.0, `AGUIStream
 
                 from ag2 import Agent
                 from ag2.ag_ui import AGUIStream, RunAgentInput
-                from ag2.config import OpenAIConfig
+                from ag2.config import OpenAIResponsesConfig
 
                 agent = Agent(
                     name="assistant",
                     prompt="You are a helpful assistant that can help emailing colleagues.",
-                    config=OpenAIConfig(model="gpt-5.4-mini"),
+                    config=OpenAIResponsesConfig(model="gpt-6-luna"),
                 )
 
                 stream = AGUIStream(agent)
@@ -155,7 +155,7 @@ This context can then be shared with your AG2 backend. With AG2 1.0, `AGUIStream
 
                 from ag2 import Agent, Variable, tool
                 from ag2.ag_ui import AGUIStream, RunAgentInput
-                from ag2.config import OpenAIConfig
+                from ag2.config import OpenAIResponsesConfig
 
                 def get_readable(message: RunAgentInput, description: str):
                     raw = next(
@@ -181,7 +181,7 @@ This context can then be shared with your AG2 backend. With AG2 1.0, `AGUIStream
                 agent = Agent(
                     name="assistant",
                     prompt="You are a helpful assistant that can help emailing colleagues.",
-                    config=OpenAIConfig(model="gpt-5.4-mini"),
+                    config=OpenAIResponsesConfig(model="gpt-6-luna"),
                     tools=[get_colleagues],
                 )
 

@@ -40,7 +40,7 @@ Start your AG2 backend with a `/chat` endpoint and connect CopilotKit to that en
 
         from ag2 import Agent, tool
         from ag2.ag_ui import AGUIStream, RunAgentInput
-        from ag2.config import OpenAIConfig
+        from ag2.config import OpenAIResponsesConfig
 
         @tool
         def get_weather(
@@ -52,7 +52,7 @@ Start your AG2 backend with a `/chat` endpoint and connect CopilotKit to that en
         agent = Agent(
             name="assistant",
             prompt="You are a helpful assistant.",
-            config=OpenAIConfig(model="gpt-5.4-mini"),
+            config=OpenAIResponsesConfig(model="gpt-6-luna"),
             tools=[get_weather],
         )
 

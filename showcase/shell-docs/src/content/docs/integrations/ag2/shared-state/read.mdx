@@ -50,7 +50,7 @@ state updates, you can reflect these updates natively in your application.
 
     from ag2 import Agent, Context, tool
     from ag2.ag_ui import AGUIStream, RunAgentInput
-    from ag2.config import OpenAIConfig
+    from ag2.config import OpenAIResponsesConfig
 
     @tool
     def set_language(
@@ -67,7 +67,7 @@ state updates, you can reflect these updates natively in your application.
             "You are a helpful assistant for tracking language. "
             "Always respond in the current language."
         ),
-        config=OpenAIConfig(model="gpt-5.4-mini"),
+        config=OpenAIResponsesConfig(model="gpt-6-luna"),
         tools=[set_language],
     )
 
