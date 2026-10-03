@@ -121,6 +121,26 @@ describe("handleTranscribe", () => {
     });
   });
 
+  it("should return 400, not a retryable provider error, when the JSON body is null", async () => {
+    const mockService = new MockTranscriptionService();
+    const runtime = createMockRuntime(mockService);
+    const request = new Request("https://example.com/transcribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "null",
+    });
+
+    const response = await handleTranscribe({ runtime, request });
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body).toMatchObject({
+      error: "invalid_request",
+      retryable: false,
+    });
+    expect(mockService.lastOptions).toBeUndefined();
+  });
+
   it("should return 400 when no audio file is provided", async () => {
     const mockService = new MockTranscriptionService();
     const runtime = createMockRuntime(mockService);

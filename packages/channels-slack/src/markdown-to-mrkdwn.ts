@@ -63,8 +63,12 @@ export function markdownToMrkdwn(input: string): string {
   body = body.replace(/(^|[^*\w])\*(\S(?:[^*\n]*\S)?)\*(?!\w)/g, "$1_$2_");
   // Italic _text_ stays _text_ (no-op transform, but ensures the form is canonical).
 
-  // Markdown links [text](url) → <url|text>
-  body = body.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, "<$2|$1>");
+  // Markdown links [text](url) → <url|text>. The URL may hold one level of
+  // balanced parentheses (…/wiki/Foo_(bar)), so it isn't cut at the first ")".
+  body = body.replace(
+    /\[([^\]\n]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/g,
+    "<$2|$1>",
+  );
 
   // Bullet list markers: `- ` / `* ` / `+ ` at the start of a line → "•  "
   body = body.replace(/^(\s*)[-*+]\s+/gm, "$1•  ");

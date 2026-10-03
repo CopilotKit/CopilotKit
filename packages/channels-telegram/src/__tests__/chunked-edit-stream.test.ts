@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { ChunkedEditStream } from "../chunked-edit-stream.js";
+import { telegramHtml } from "../telegram-html.js";
 
 describe("ChunkedEditStream", () => {
   it("posts a placeholder then edits it with accumulated text", async () => {
@@ -221,6 +222,116 @@ describe("ChunkedEditStream", () => {
     await s.finish();
     for (const p of placeholders) {
       expect(p).not.toContain("_");
+    }
+  });
+
+  it("keeps a code block that spans a chunk boundary rendered as code", async () => {
+    let id = 0;
+    const edits: Record<number, string> = {};
+    const s = new ChunkedEditStream({
+      limit: 120,
+      minIntervalMs: 0,
+      transform: telegramHtml,
+      postPlaceholder: async () => ++id,
+      editAt: async (mid, text) => {
+        edits[mid] = text;
+      },
+    });
+    s.append(
+      "Here is the class you asked for, with the constructor fixed as discussed.\n\n" +
+        "```python\nclass Repo:\n    def __init__(self, *args, **kwargs):\n" +
+        "        self.items = []\n\n    def add(self, item):\n" +
+        "        self.items.append(item)\n```\n\nThat's it.",
+    );
+    await s.finish();
+
+    expect(s.chunkCount).toBeGreaterThan(1);
+    const all = Object.values(edits).join("\n");
+    // Each message holding part of the block wraps that part in <pre>, so
+    // `__init__` stays literal instead of turning into bold "init".
+    expect(all).toContain("def __init__(self, *args, **kwargs):");
+    expect(all).not.toContain("<b>init</b>");
+    for (const text of Object.values(edits)) {
+      if (text.includes("self.items")) {
+        expect(text).toContain('<pre><code class="language-python">');
+        expect(text).toContain("</code></pre>");
+      }
+    }
+  });
+
+  it("does not cut inside a closing fence marker", async () => {
+    let id = 0;
+    const edits: Record<number, string> = {};
+    const s = new ChunkedEditStream({
+      limit: 60,
+      minIntervalMs: 0,
+      transform: telegramHtml,
+      postPlaceholder: async () => ++id,
+      editAt: async (mid, text) => {
+        edits[mid] = text;
+      },
+    });
+    // 62 chars: a hard cut at 60 would land inside the closing ```.
+    const code = "x".repeat(53);
+    s.append("```js\n" + code + "```");
+    await s.finish();
+
+    const all = Object.values(edits);
+    expect(all.join("\n")).toContain(
+      `<pre><code class="language-js">${code}</code></pre>`,
+    );
+    for (const text of all) expect(text).not.toContain("`");
+  });
+
+  it("does not cut inside a fence's opening line", async () => {
+    let id = 0;
+    const edits: Record<number, string> = {};
+    const s = new ChunkedEditStream({
+      limit: 60,
+      minIntervalMs: 0,
+      transform: telegramHtml,
+      postPlaceholder: async () => ++id,
+      editAt: async (mid, text) => {
+        edits[mid] = text;
+      },
+    });
+    // A hard cut at 60 would land inside "```python".
+    s.append("A".repeat(55) + "```python\nprint(1)\n```");
+    await s.finish();
+
+    const all = Object.values(edits);
+    expect(all.join("\n")).toContain(
+      '<pre><code class="language-python">print(1)</code></pre>',
+    );
+    for (const text of all) {
+      expect(text).not.toContain("`");
+      expect(text).not.toContain('class="language-py"');
+    }
+  });
+
+  it("does not turn prose with an unmatched ``` into a code block", async () => {
+    // telegramHtml renders a lone ``` in prose as text, so balancing must not
+    // add a closing fence for it.
+    let id = 0;
+    const edits: Record<number, string> = {};
+    const s = new ChunkedEditStream({
+      limit: 60,
+      minIntervalMs: 0,
+      transform: telegramHtml,
+      postPlaceholder: async () => ++id,
+      editAt: async (mid, text) => {
+        edits[mid] = text;
+      },
+    });
+    s.append(
+      "Type ``` then a language name.\n" +
+        "Plain words follow here and go on for a while, past the limit.",
+    );
+    await s.finish();
+
+    expect(s.chunkCount).toBeGreaterThan(1);
+    for (const text of Object.values(edits)) {
+      expect(text).not.toContain("<pre>");
     }
   });
 });

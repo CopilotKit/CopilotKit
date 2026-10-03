@@ -39,14 +39,16 @@ function splitOnCode(input: string): Segment[] {
   return out;
 }
 
+/** Apply the Markdown → WhatsApp substitutions to a prose (non-code) segment. */
 function transformProse(text: string): string {
   let s = text;
   // Links: [text](url) → text (url)
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, "$1 ($2)");
   // Single *italic* → _italic_ — run BEFORE bold so **x** double-stars guard
   // against this regex (the leading [^*] or ^ followed immediately by ** won't
-  // match a lone * that is part of **bold**).
-  s = s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1_$2_");
+  // match a lone * that is part of **bold**). The text must not start or end
+  // with a space, so arithmetic like `2 * 3 * 4` is left alone.
+  s = s.replace(/(^|[^*])\*([^\s*](?:[^*\n]*[^\s*])?)\*(?!\*)/g, "$1_$2_");
   // Single _italic_ (underscore form) — if not already handled as bold __x__.
   // Run before __bold__ so double-underscore guards similarly.
   s = s.replace(/(^|[^_])_([^_\n]+)_(?!_)/g, "$1_$2_");
