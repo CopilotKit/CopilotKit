@@ -48,3 +48,12 @@ class TestCustomizeConfigDoesNotMutateCallerMetadata:
 
         assert customized["metadata"]["copilotkit:emit-messages"] is False
         assert customized["metadata"] is not None
+
+    def test_non_bool_emit_tool_calls_warns_and_is_treated_as_true(self, caplog):
+        customized = copilotkit_customize_config(
+            {},
+            emit_tool_calls=["SearchTool"],  # type: ignore[arg-type]
+        )
+
+        assert customized["metadata"]["copilotkit:emit-tool-calls"] is True
+        assert "FilterToolCallsMiddleware" in caplog.text

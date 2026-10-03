@@ -39,23 +39,28 @@ describe("copilotkitCustomizeConfig", () => {
     expect(result.metadata!["copilotkit:emit-tool-calls"]).toBe(false);
   });
 
-  it("sets emit-tool-calls to a specific tool name string", () => {
-    const result = copilotkitCustomizeConfig(
-      {},
-      { emitToolCalls: "SearchTool" },
-    );
-    expect(result.metadata!["copilotkit:emit-tool-calls"]).toBe("SearchTool");
-  });
+  it("warns and treats non-boolean emit-tool-calls values as true", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
-  it("sets emit-tool-calls to an array of tool names", () => {
-    const result = copilotkitCustomizeConfig(
-      {},
-      { emitToolCalls: ["SearchTool", "FetchTool"] },
-    );
-    expect(result.metadata!["copilotkit:emit-tool-calls"]).toEqual([
-      "SearchTool",
-      "FetchTool",
-    ]);
+    try {
+      const stringResult = copilotkitCustomizeConfig(
+        {},
+        { emitToolCalls: "SearchTool" } as any,
+      );
+      const listResult = copilotkitCustomizeConfig(
+        {},
+        { emitToolCalls: ["SearchTool", "FetchTool"] } as any,
+      );
+
+      expect(stringResult.metadata!["copilotkit:emit-tool-calls"]).toBe(true);
+      expect(listResult.metadata!["copilotkit:emit-tool-calls"]).toBe(true);
+      expect(warn).toHaveBeenCalledTimes(2);
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("FilterToolCallsMiddleware"),
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("sets both emit flags together", () => {

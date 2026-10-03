@@ -32,7 +32,6 @@ If you have already done that, you can check the following:
             the tool calls will be streamed progressively.
 
             ```python
-            config = copilotkit_customize_config(config, emit_tool_calls=["say_hello_to"])
             response = await llm_with_tools.ainvoke(
                 [ SystemMessage(content=system_message), *state["messages"] ],
                 config=config
