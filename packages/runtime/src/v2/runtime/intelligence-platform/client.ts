@@ -172,6 +172,48 @@ function normalizeRuntimeEntitlementTransport(
 export const INTELLIGENCE_USER_ID_HEADER = "x-cpki-user-id";
 /** Immutable user/project Memory grant forwarded to Intelligence. */
 export const INTELLIGENCE_MEMORY_GRANT_HEADER = "x-cpki-memory-grant";
+/**
+ * Immutable Intelligence data grant (`IntelligenceAccessGrant`, JSON) resolved
+ * by the runtime's `access` policy for one request. Absent means the runtime
+ * has no policy, and Intelligence denies grant-gated reads.
+ */
+export const INTELLIGENCE_GRANT_HEADER = "x-cpki-grant";
+
+/**
+ * JSON for an HTTP header value. Header values must be ByteStrings, so a raw
+ * non-Latin-1 character (an agent ID such as "支援") makes `fetch` throw, and
+ * a raw Latin-1 one would be misread as UTF-8. Every non-ASCII code unit is
+ * written as a `\uXXXX` escape instead; the result is still valid JSON that
+ * parses back to the same value.
+ */
+function encodeJsonHeader(value: unknown): string {
+  return JSON.stringify(value).replace(
+    /[^\x20-\x7e]/g,
+    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`,
+  );
+}
+
+/**
+ * The `x-cpki-user-id` value for an app-user ID. A printable-ASCII ID that
+ * does not start with `"` is sent as it is, so Intelligence versions that
+ * predate this encoding read ASCII IDs unchanged. Any other ID is sent as a
+ * JSON string with `\uXXXX` escapes (the same encoding as
+ * `x-cpki-grant`), which Intelligence decodes; a raw non-Latin-1 character
+ * would make `fetch` throw.
+ *
+ * @internal
+ */
+export function encodeIntelligenceUserIdHeader(userId: string): string {
+  return /^[\x20-\x7e]*$/.test(userId) && !userId.startsWith('"')
+    ? userId
+    : encodeJsonHeader(userId);
+}
+
+interface RuntimeIntelligenceGrant {
+  readonly permissions: Readonly<
+    Record<string, { readonly agents: "*" | readonly string[] }>
+  >;
+}
 
 interface RuntimeMemoryGrant {
   readonly user: "none" | "read" | "read-write";
@@ -182,7 +224,7 @@ const memoryRequestHeaders = (
   userId: string,
   grant?: RuntimeMemoryGrant,
 ): Record<string, string> => ({
-  [INTELLIGENCE_USER_ID_HEADER]: userId,
+  [INTELLIGENCE_USER_ID_HEADER]: encodeIntelligenceUserIdHeader(userId),
   ...(grant
     ? { [INTELLIGENCE_MEMORY_GRANT_HEADER]: JSON.stringify(grant) }
     : {}),
@@ -231,10 +273,35 @@ export class PlatformRequestError extends Error {
     public readonly status: number,
     /** Whether retrying may succeed without changing client configuration. */
     public readonly retryable?: boolean,
+    /** The platform's stable error code (e.g. `GOVERNANCE_PERMISSION_DENIED`), when it sent one. */
+    public readonly code?: string,
   ) {
     super(message);
     this.name = "PlatformRequestError";
   }
+}
+
+const PLATFORM_ERROR_CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
+
+/**
+ * Read the stable `error.code` from a platform error body, if present.
+ * Only an upper-snake identifier is returned, so the code is safe to echo.
+ */
+async function readPlatformErrorCode(
+  response: Response,
+): Promise<string | undefined> {
+  const body: unknown = await response.json().catch(() => undefined);
+  if (typeof body !== "object" || body === null || !("error" in body)) {
+    return undefined;
+  }
+  const error: unknown = body.error;
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return undefined;
+  }
+  const code: unknown = error.code;
+  return typeof code === "string" && PLATFORM_ERROR_CODE.test(code)
+    ? code
+    : undefined;
 }
 
 /** Copy a public Runtime entitlement so callers cannot mutate cached authority. */
@@ -1178,6 +1245,10 @@ export class CopilotKitIntelligence {
   async getInspectorLearning(
     request: InspectorLearningRequestV1 & {
       readonly runtimeContainerId?: string;
+      /** Runtime-resolved request user, sent as `x-cpki-user-id`. */
+      readonly userId?: string;
+      /** Runtime-resolved access grant, sent as `x-cpki-grant`. */
+      readonly grant?: RuntimeIntelligenceGrant;
     },
   ): Promise<InspectorLearningSnapshotV1> {
     const path = "/api/inspector/learning";
@@ -1202,7 +1273,19 @@ export class CopilotKitIntelligence {
     try {
       const response = await fetch(url, {
         method: "GET",
-        headers: { Authorization: `Bearer ${this.#apiKey}` },
+        headers: {
+          Authorization: `Bearer ${this.#apiKey}`,
+          ...(request.userId !== undefined
+            ? {
+                [INTELLIGENCE_USER_ID_HEADER]: encodeIntelligenceUserIdHeader(
+                  request.userId,
+                ),
+              }
+            : {}),
+          ...(request.grant !== undefined
+            ? { [INTELLIGENCE_GRANT_HEADER]: encodeJsonHeader(request.grant) }
+            : {}),
+        },
         signal: controller.signal,
       });
       if (!response.ok) {
@@ -1210,6 +1293,7 @@ export class CopilotKitIntelligence {
           `Intelligence platform error ${response.status}`,
           response.status,
           response.status === 429 || response.status >= 500,
+          await readPlatformErrorCode(response),
         );
       }
       const snapshot = parseInspectorLearningSnapshotV1(await response.json());

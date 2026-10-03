@@ -15,6 +15,7 @@ import {
 import {
   INTELLIGENCE_MEMORY_GRANT_HEADER,
   INTELLIGENCE_USER_ID_HEADER,
+  encodeIntelligenceUserIdHeader,
 } from "../../intelligence-platform/client";
 import {
   mergeForwardableHeaders,
@@ -279,7 +280,9 @@ export async function attachIntelligenceEnterpriseLearning(params: {
         serverId: "intelligence",
         headers: {
           Authorization: `Bearer ${runtime.intelligence.ɵgetApiKey()}`,
-          [INTELLIGENCE_USER_ID_HEADER]: userResult.id,
+          [INTELLIGENCE_USER_ID_HEADER]: encodeIntelligenceUserIdHeader(
+            userResult.id,
+          ),
           ...(runtime.memory
             ? {
                 [INTELLIGENCE_MEMORY_GRANT_HEADER]: JSON.stringify(

@@ -149,6 +149,19 @@ const MAX_FOLLOW_UP_DEPTH = 100;
 const WILDCARD_TOOL_NAME = "*";
 
 /**
+ * AG-UI tool metadata for one frontend tool. Human-in-the-loop tools carry
+ * `copilotkit.interaction` so the runtime can recognize the user's answer to
+ * them. `FrontendTool` declares no `metadata`, so nothing else an app left on
+ * the tool object is forwarded to the agent.
+ */
+function buildToolMetadata(
+  tool: FrontendTool<any>,
+): Record<string, unknown> | undefined {
+  if (tool.type !== "human-in-the-loop") return undefined;
+  return { copilotkit: { interaction: "human-in-the-loop" } };
+}
+
+/**
  * Handles agent execution, tool calling, and agent connectivity for CopilotKitCore.
  * Manages the complete lifecycle of agent runs including tool execution and follow-ups.
  */
@@ -1627,11 +1640,15 @@ export class RunHandler {
           (!tool.agentId || tool.agentId === agentId) &&
           this.isToolEnabled(tool.name, tool.agentId),
       )
-      .map((tool) => ({
-        name: tool.name,
-        description: tool.description ?? "",
-        parameters: createToolSchema(tool),
-      }));
+      .map((tool) => {
+        const metadata = buildToolMetadata(tool);
+        return {
+          name: tool.name,
+          description: tool.description ?? "",
+          parameters: createToolSchema(tool),
+          ...(metadata ? { metadata } : {}),
+        };
+      });
   }
 
   /**

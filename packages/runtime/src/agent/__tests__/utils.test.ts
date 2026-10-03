@@ -435,6 +435,21 @@ describe("convertToolsToVercelAITools", () => {
     expect(result.testTool).toBeDefined();
   });
 
+  it("accepts AG-UI tool metadata without sending it to the model", () => {
+    const result = convertToolsToVercelAITools([
+      {
+        name: "approve",
+        description: "Ask the user to approve",
+        parameters: { type: "object" as const, properties: {} },
+        metadata: { copilotkit: { interaction: "human-in-the-loop" } },
+      },
+    ]);
+
+    expect(result.approve).toBeDefined();
+    expect(result.approve).not.toHaveProperty("metadata");
+    expect(result.approve.description).toBe("Ask the user to approve");
+  });
+
   it("should throw error for invalid JSON schema", () => {
     const tools = [
       {

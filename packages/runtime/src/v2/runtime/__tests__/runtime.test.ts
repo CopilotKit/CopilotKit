@@ -67,6 +67,59 @@ describe("runtime construction", () => {
     expect(sdk.ɵgetRunnerAuthToken).toHaveBeenCalledTimes(1);
   });
 
+  it("stores the Intelligence access policy and exposes it through the shim", () => {
+    const access = vi.fn().mockResolvedValue(null);
+    const runtime = new CopilotIntelligenceRuntime({
+      agents,
+      intelligence: createMockIntelligence(),
+      identifyUser,
+      access,
+    });
+    expect(runtime.access).toBe(access);
+
+    const shim = new CopilotRuntime({
+      agents,
+      intelligence: createMockIntelligence(),
+      identifyUser,
+      access,
+    });
+    expect(shim.access).toBe(access);
+    expect(new CopilotRuntime({ agents }).access).toBeUndefined();
+  });
+
+  it("leaves the Intelligence access policy unset by default", () => {
+    const runtime = new CopilotIntelligenceRuntime({
+      agents,
+      intelligence: createMockIntelligence(),
+      identifyUser,
+    });
+    expect(runtime.access).toBeUndefined();
+  });
+
+  it("rejects a non-callback Intelligence access policy", () => {
+    expect(
+      () =>
+        new CopilotIntelligenceRuntime({
+          agents,
+          intelligence: createMockIntelligence(),
+          identifyUser,
+          access: { permissions: {} },
+        } as never),
+    ).toThrow("Intelligence Runtime `access` must be a callback");
+  });
+
+  it("rejects an Intelligence access policy without web identity", () => {
+    expect(
+      () =>
+        new CopilotIntelligenceRuntime({
+          agents,
+          intelligence: createMockIntelligence(),
+          channels: [{ name: "support" }],
+          access: vi.fn(),
+        } as never),
+    ).toThrow("Intelligence Runtime `access` requires `identifyUser`");
+  });
+
   it("stores one Learning Container resolver for web and Channels", () => {
     const sdk = createMockIntelligence();
     const containerId = vi.fn().mockResolvedValue("support-quality");

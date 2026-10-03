@@ -144,8 +144,17 @@ describe("InterruptController", () => {
     ]);
     expect(run).toHaveBeenCalledWith(agent, {
       resume: [
-        { interruptId: "one", status: "resolved", payload: { approved: true } },
-        { interruptId: "two", status: "cancelled" },
+        {
+          interruptId: "one",
+          status: "resolved",
+          payload: { approved: true },
+          metadata: { toolCallId: "tool-one" },
+        },
+        {
+          interruptId: "two",
+          status: "cancelled",
+          metadata: { toolCallId: "tool-two" },
+        },
       ],
     });
 

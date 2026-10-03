@@ -1067,6 +1067,7 @@ describe("useInterrupt", () => {
             interruptId: "int-1",
             status: "resolved",
             payload: { approved: true },
+            metadata: { toolCallId: "tc-1" },
           },
         ],
       });
@@ -1146,6 +1147,7 @@ describe("useInterrupt", () => {
             interruptId: "int-run-id",
             status: "resolved",
             payload: { approved: true },
+            metadata: { toolCallId: "tc-run-id" },
           },
         ],
       });

@@ -56,6 +56,20 @@ test("Channel Memory attaches an immutable personal and project grant", () => {
   ]);
 });
 
+test("Channel Memory sends a non-ASCII user as an ASCII-only JSON string", () => {
+  const agent = { use: vi.fn() } as unknown as AbstractAgent;
+
+  attachChannelMemory(agent, intelligence, {
+    grant: { user: "read", project: "none" },
+    user: { id: "josé", name: "José" },
+  });
+
+  const [[servers]] = middlewareCalls as [
+    [Array<{ headers: Record<string, string> }>],
+  ];
+  expect(servers[0]?.headers[INTELLIGENCE_USER_ID_HEADER]).toBe('"jos\\u00e9"');
+});
+
 test("project-only Channel Memory sends no fabricated user", () => {
   const agent = { use: vi.fn() } as unknown as AbstractAgent;
 

@@ -14,11 +14,33 @@ export interface SnapshotSkill {
   readonly name: string;
   readonly description: string;
   readonly files: readonly SnapshotFile[];
+  /** Learning container this skill was published from, when known. */
+  readonly containerId?: string;
+  /** Real published revision of that container's snapshot, when known. */
+  readonly revision?: string;
 }
 export interface VerifiedSnapshot {
   readonly revision: string;
   readonly etag: string;
   readonly skills: readonly SnapshotSkill[];
+  /** Learning container of a single-container snapshot, when known. */
+  readonly containerId?: string;
+}
+
+/** Record which container and revision each skill of a snapshot came from. */
+export function withSnapshotSource(
+  snapshot: VerifiedSnapshot,
+  containerId: string,
+): VerifiedSnapshot {
+  return Object.freeze({
+    ...snapshot,
+    containerId,
+    skills: Object.freeze(
+      snapshot.skills.map((skill) =>
+        Object.freeze({ ...skill, containerId, revision: snapshot.revision }),
+      ),
+    ),
+  });
 }
 
 function object(value: unknown): value is Record<string, unknown> {

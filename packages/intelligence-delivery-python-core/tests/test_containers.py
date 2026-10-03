@@ -153,3 +153,36 @@ async def test_invalid_injected_batch_value_never_uses_legacy_transport():
     with pytest.raises(LearnedSkillsError):
         await registry.acquire_snapshot()
     client.get_learned_skills_snapshot.assert_not_awaited()
+
+
+async def test_skills_record_their_source_container_and_published_revision():
+    client = AsyncMock(spec=Intelligence)
+    client.get_learned_skills_snapshot.return_value = response()
+    single = Registry(client=client, container_id="support", freshness_window=0)
+    snapshot = await single.acquire_snapshot()
+    assert snapshot.container_id == "support"
+    assert [(skill.container_id, skill.revision) for skill in snapshot.skills] == [
+        ("support", "r1")
+    ]
+    client.get_learned_skills_snapshot.return_value = {
+        "status": "unchanged",
+        "revision": snapshot.revision,
+        "etag": snapshot.etag,
+    }
+    unchanged = await single.acquire_snapshot()
+    assert unchanged.skills[0].container_id == "support"
+    await single.aclose()
+
+    client.get_learned_skills_snapshots.return_value = {
+        "support": response(),
+        "company": response(),
+    }
+    multi = Registry(client=client, containers=[{"id": "support"}, {"id": "company"}])
+    composite = await multi.acquire_snapshot()
+    assert composite.revision.startswith("composite:")
+    assert composite.container_id is None
+    assert [(skill.name, skill.container_id, skill.revision) for skill in composite.skills] == [
+        ("company/refund-policy", "company", "r1"),
+        ("support/refund-policy", "support", "r1"),
+    ]
+    await multi.aclose()

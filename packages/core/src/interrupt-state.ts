@@ -42,6 +42,13 @@ export type ɵInterruptDecision =
       toolResults: ɵInterruptToolResult[];
     };
 
+/** True when core also answers this interrupt with a tool message. */
+function answersToolCall(
+  interrupt: Interrupt,
+): interrupt is Interrupt & { toolCallId: string } {
+  return !!interrupt.toolCallId && interrupt.reason === "tool_call";
+}
+
 function toolResultContent(response: ResumeResponse): string {
   if (response.status === "cancelled") {
     return JSON.stringify({ status: "cancelled" });
@@ -143,9 +150,25 @@ export class ɵInterruptState<TValue = unknown> {
     }
 
     const mutableInterrupts = [...interrupts];
-    const resume = buildResumeArray(mutableInterrupts, this.#responses);
+    const resume = buildResumeArray(
+      mutableInterrupts,
+      Object.fromEntries(
+        mutableInterrupts.map((interrupt) => {
+          const response = this.#responses[interrupt.id]!;
+          // A tool-call interrupt is also answered by a tool message for the
+          // same call. Naming the call on the resume entry lets the runtime
+          // record the answer once.
+          return [
+            interrupt.id,
+            answersToolCall(interrupt)
+              ? { ...response, metadata: { toolCallId: interrupt.toolCallId } }
+              : response,
+          ];
+        }),
+      ),
+    );
     const toolResults = mutableInterrupts.flatMap((interrupt) => {
-      if (!interrupt.toolCallId || interrupt.reason !== "tool_call") return [];
+      if (!answersToolCall(interrupt)) return [];
       return [
         {
           toolCallId: interrupt.toolCallId,

@@ -19,6 +19,9 @@ test("forwards Intelligence options through the package-root runtime", () => {
       project: "read" as const,
     }),
   };
+  const access = vi.fn().mockResolvedValue({
+    permissions: { "analytics.numbers": { agents: "*" as const } },
+  });
   const learning = { containerId: "support-quality" };
   const channels = [
     createChannel({ name: "support", identifyUser: "platform" }),
@@ -29,6 +32,7 @@ test("forwards Intelligence options through the package-root runtime", () => {
     intelligence,
     identifyUser,
     memory,
+    access,
     channels,
     ɵlearning: learning,
     generateThreadNames: false,
@@ -44,6 +48,7 @@ test("forwards Intelligence options through the package-root runtime", () => {
   expect(runtime.intelligence).toBe(intelligence);
   expect(runtime.identifyUser).toBe(identifyUser);
   expect(runtime.memory).toBe(memory);
+  expect(runtime.access).toBe(access);
   expect(runtime.channels).toEqual(channels);
   expect(runtime.learning).toBe(learning);
   expect(runtime.generateThreadNames).toBe(false);

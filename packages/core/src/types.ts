@@ -74,7 +74,8 @@ export type FrontendTool<
   /**
    * @internal Classifies local execution. Omitted means an ordinary frontend
    * tool. Only human-in-the-loop handlers may be restored from history replay.
-   * This field is not sent to the agent as part of the tool schema.
+   * This field is not part of the tool schema; human-in-the-loop tools are
+   * advertised with `metadata.copilotkit.interaction: "human-in-the-loop"`.
    */
   type?: "frontend" | "human-in-the-loop";
   name: string;

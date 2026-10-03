@@ -21,7 +21,12 @@ from copilotkit_intelligence import (
 )
 
 from .config import Config, resolve_config
-from .snapshot import SnapshotSkill, VerifiedSnapshot, invalid_snapshot, validate_snapshot
+from .snapshot import (
+    VerifiedSnapshot,
+    invalid_snapshot,
+    validate_snapshot,
+    with_snapshot_source,
+)
 
 logger = logging.getLogger(__name__)
 _TRANSIENT = frozenset({"NETWORK_ERROR", "TIMEOUT", "INVALID_SNAPSHOT", "UNSUPPORTED_SERVER"})
@@ -158,7 +163,7 @@ class _SingleRegistry:
             snapshot = await asyncio.to_thread(validate_snapshot, captured)
         if self._config.revision is not None and snapshot.revision != self._config.revision:
             raise invalid_snapshot()
-        return snapshot
+        return with_snapshot_source(snapshot, self._config.container_id)
 
     async def _refresh(
         self,
@@ -444,11 +449,7 @@ class Registry:
             skills = tuple(
                 sorted(
                     (
-                        SnapshotSkill(
-                            quote(identifier, safe="~!*'()-") + "/" + skill.name,
-                            skill.description,
-                            skill.files,
-                        )
+                        replace(skill, name=quote(identifier, safe="~!*'()-") + "/" + skill.name)
                         for (identifier, _), snapshot in zip(self._children, snapshots, strict=True)
                         for skill in snapshot.skills
                     ),

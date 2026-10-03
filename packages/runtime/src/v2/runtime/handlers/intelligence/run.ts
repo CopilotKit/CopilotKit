@@ -12,6 +12,7 @@ import { telemetry } from "../../telemetry";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
 import type { AgentRunnerRunRequest } from "../../runner/agent-runner";
+import type { ThreadMessage } from "../../intelligence-platform/client";
 import type { Observable } from "rxjs";
 import { getRuntimeErrorReporter } from "../../core/runtime-error-reporter";
 import type { RuntimeErrorPhase } from "../../core/runtime-error-reporter";
@@ -221,12 +222,14 @@ export async function handleIntelligenceRun({
   };
 
   let persistedInputMessages: Message[] | undefined;
+  let historyMessages: ThreadMessage[] | undefined;
   if (Array.isArray(input.messages)) {
     try {
       const history = await runtime.intelligence.getThreadMessages({
         threadId: canonicalThreadId,
         userId,
       });
+      historyMessages = history.messages;
       const historicMessageIds = new Set(
         history.messages.map((message) => message.id),
       );
@@ -296,6 +299,8 @@ export async function handleIntelligenceRun({
     agent,
     input: canonicalInput,
     ...(persistedInputMessages !== undefined ? { persistedInputMessages } : {}),
+    ...(historyMessages !== undefined ? { historyMessages } : {}),
+    userId,
   };
 
   const runtimeErrorReporter = getRuntimeErrorReporter(runtime);

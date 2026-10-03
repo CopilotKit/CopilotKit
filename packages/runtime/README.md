@@ -125,6 +125,48 @@ routes and does not attach Memory tools.
 `CopilotKitIntelligence({ enableEnterpriseLearning: true })` remain for one
 compatibility window. New code should use `memory.access`.
 
+## Intelligence data access
+
+`access` decides which Intelligence data one authenticated web request may
+read. The grant names permissions for analytics, learning insights and skills,
+governance records, and conversation text. Today the runtime sends it only
+with Inspector Learning requests (`surface: "inspector"`); other routes do
+not call `access` yet. It requires `identifyUser` and runs at most once per
+request and surface.
+
+```ts
+const runtime = new CopilotRuntime({
+  agents,
+  intelligence,
+  identifyUser: authenticateApplicationUser,
+  access: async ({ request, user }) => {
+    const role = await roleFor(request, user);
+    if (role === "admin") {
+      return {
+        permissions: {
+          "analytics.numbers": { agents: "*" },
+          "analytics.topics": { agents: "*" },
+          "learning.insights_skills": { agents: "*" },
+          "governance.record": { agents: "*" },
+          "conversations.text": { agents: "*" },
+        },
+      };
+    }
+    if (role === "support-lead") {
+      return {
+        permissions: { "analytics.numbers": { agents: ["support"] } },
+      };
+    }
+    return null;
+  },
+});
+```
+
+Access is closed by default. Without `access`, the runtime sends no grant and
+Intelligence denies these reads. A permission you leave out is denied, and
+`null` denies everything. A malformed grant or a policy that throws fails the
+request with a 500.
+
 ## Analytics & Privacy
 
 CopilotKit uses [Scarf](https://scarf.sh) for anonymous usage analytics to help improve the product. Scarf handles all privacy compliance and does not store raw IP addresses. This helps us understand how CopilotKit is being used and prioritize improvements.
