@@ -82,6 +82,7 @@ NODE_PID=$!
 # showcase/integrations/crewai-crews/entrypoint.sh (PRs #4114 + #4115).
 (
     FAILS=0
+    PUBLIC_FAILS=0
     while sleep 30; do
         if ! kill -0 "$JAVA_PID" 2>/dev/null; then
             break
@@ -94,6 +95,35 @@ NODE_PID=$!
             if [ $FAILS -ge 3 ]; then
                 echo "[watchdog] Agent unresponsive for ~90s — killing PID $JAVA_PID to trigger container restart"
                 kill -9 "$JAVA_PID" 2>/dev/null || true
+                break
+            fi
+        fi
+
+        # Public front door guard. The same silent-hang class that wedges the
+        # agent can wedge the PUBLIC Next.js listener on $PORT — the surface real
+        # users and the Railway healthcheck actually hit (`/api/health`). The Node
+        # event loop parks in a blocking write(2) and stops serving, but the
+        # process stays alive: `wait -n` never fires AND the agent probe above is
+        # satisfied (agent idle-alive), so nothing restarts the container. Poll the
+        # public surface on its own counter, same tick, and page #oss-alerts BEFORE
+        # killing $NODE_PID so the restart is never silent. Ported from
+        # showcase/integrations/claude-sdk-python/entrypoint.sh.
+        if curl -fsS --max-time 5 "http://127.0.0.1:${PORT:-10000}/api/health" > /dev/null 2>&1; then
+            PUBLIC_FAILS=0
+        else
+            PUBLIC_FAILS=$((PUBLIC_FAILS + 1))
+            echo "[watchdog] Public /api/health probe failed on port ${PORT:-10000} (count=$PUBLIC_FAILS)"
+            if [ $PUBLIC_FAILS -ge 3 ]; then
+                WEDGE_ENV="${RAILWAY_ENVIRONMENT_NAME:-$(hostname)}"
+                echo "[watchdog] Public port ${PORT:-10000} unresponsive for ~90s — killing PID $NODE_PID to trigger container restart"
+                # LOUD alert before we kill. Never let a failed or absent webhook
+                # crash the watchdog — only attempt if the var is set, swallow errors.
+                if [ -n "$SLACK_WEBHOOK_OSS_ALERTS" ]; then
+                    curl -fsS -m 10 -X POST -H 'Content-type: application/json' \
+                      --data "{\"text\":\"[spring-ai] env=${WEDGE_ENV} public \$PORT (${PORT:-10000}) /api/health unresponsive ~90s — restarting (Next.js PID $NODE_PID)\"}" \
+                      "$SLACK_WEBHOOK_OSS_ALERTS" > /dev/null 2>&1 || true
+                fi
+                kill -9 "$NODE_PID" 2>/dev/null || true
                 break
             fi
         fi

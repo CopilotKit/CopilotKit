@@ -578,6 +578,7 @@ _require_int HEALTH_STRIKE_LIMIT      3 "LangGraph health strike limit"
   fi
 
   FAILS=0
+  PUBLIC_FAILS=0
   while sleep "$HEALTH_CHECK_INTERVAL"; do
     if ! kill -0 $AGENT_PID 2>/dev/null; then
       break
@@ -593,6 +594,39 @@ _require_int HEALTH_STRIKE_LIMIT      3 "LangGraph health strike limit"
         # process-sub subshell; a single-PID kill would orphan npm→node and
         # leave :8123 bound to a hung agent that `wait -n` never observes dying.
         _kill_agent_tree "$AGENT_PID"
+        break
+      fi
+    fi
+
+    # Public front door guard. The same silent-hang class that wedges the
+    # agent can wedge the PUBLIC Next.js listener on $PORT — the surface real
+    # users and the Railway healthcheck actually hit (`/api/health`). The Node
+    # event loop parks in a blocking write(2) and stops serving, but the
+    # process stays alive: `wait -n` never fires AND the agent probe above is
+    # satisfied (agent idle-alive), so nothing restarts the container. Poll the
+    # public surface on its own counter, same tick, and page #oss-alerts BEFORE
+    # killing $NEXTJS_PID so the restart is never silent. Ported from
+    # showcase/integrations/claude-sdk-python/entrypoint.sh.
+    if curl -fsS --max-time 5 "http://127.0.0.1:${PORT}/api/health" > /dev/null 2>&1; then
+      PUBLIC_FAILS=0
+    else
+      PUBLIC_FAILS=$((PUBLIC_FAILS + 1))
+      echo "[watchdog] Public /api/health probe failed on port ${PORT} (count=$PUBLIC_FAILS)"
+      if [ $PUBLIC_FAILS -ge "$HEALTH_STRIKE_LIMIT" ]; then
+        WEDGE_ENV="${RAILWAY_ENVIRONMENT_NAME:-$(hostname)}"
+        echo "[watchdog] Public port ${PORT} unresponsive for ~$((HEALTH_CHECK_INTERVAL * HEALTH_STRIKE_LIMIT))s — killing PID $NEXTJS_PID to trigger container restart"
+        # LOUD alert before we kill. Never let a failed or absent webhook
+        # crash the watchdog — only attempt if the var is set, swallow errors.
+        if [ -n "$SLACK_WEBHOOK_OSS_ALERTS" ]; then
+          curl -fsS -m 10 -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"[langgraph-typescript] env=${WEDGE_ENV} public \$PORT (${PORT}) /api/health unresponsive ~$((HEALTH_CHECK_INTERVAL * HEALTH_STRIKE_LIMIT))s — restarting (Next.js PID $NEXTJS_PID)\"}" \
+            "$SLACK_WEBHOOK_OSS_ALERTS" > /dev/null 2>&1 || true
+        fi
+        # Tree-kill (not a bare `kill -9`): NEXTJS_PID is the process-sub
+        # subshell wrapping `npx next start` (which forks npm→node), so a
+        # single-PID kill reaps only the wrapper and ORPHANS the real
+        # Next.js node server — reparented to PID 1, still holding $PORT.
+        _kill_agent_tree "$NEXTJS_PID"
         break
       fi
     fi
