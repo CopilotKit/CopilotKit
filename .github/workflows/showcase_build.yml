@@ -77,12 +77,15 @@ jobs:
           FROM base
           COPY --from=base --chmod=0755 /app/entrypoint.sh /app/entrypoint_original.sh
           COPY runtime_diagnostics.py /app/runtime_diagnostics.py
+          COPY node_diagnostics.cjs node_diagnostics_worker.cjs /app/
           COPY --chmod=0755 runtime_diagnostics_entrypoint.sh /app/entrypoint.sh
           CMD ["./entrypoint.sh"]
           DIAG_DOCKERFILE
           cat > "$context/runtime_diagnostics_entrypoint.sh" <<'DIAG_ENTRYPOINT'
           #!/bin/bash
           set -e
+
+          export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--require=/app/node_diagnostics.cjs"
 
           # This temporary image emits diagnostics directly alongside the unmodified app.
           python -I -u /app/runtime_diagnostics.py --frontend-port "${PORT:-10000}" &
@@ -95,6 +98,184 @@ jobs:
           trap cleanup EXIT
           exec /app/entrypoint_original.sh
           DIAG_ENTRYPOINT
+
+          cat > "$context/node_diagnostics.cjs" <<'DIAG_NODE_PRELOAD'
+          "use strict";
+          const {isMainThread,Worker}=require('node:worker_threads');
+          if(isMainThread){
+            const net=require('node:net');
+            const path=require('node:path');
+            const marker=Symbol.for('showcase.temporary.node.diagnostics');
+            const port=Number(process.env.PORT||10000);
+            if(Number.isInteger(port)&&port>0&&port<=65535&&!net.Server.prototype[marker]){
+              const original=net.Server.prototype.listen;
+              let armed=false;
+              Object.defineProperty(net.Server.prototype,marker,{value:true});
+              net.Server.prototype.listen=function(...args){
+                const server=this;
+                function listening(){
+                  try{
+                    const address=server.address();
+                    if(armed||!address||typeof address!=='object'||address.port!==port)return;
+                    armed=true;
+                    const env={...process.env};delete env.NODE_OPTIONS;
+                    const worker=new Worker(path.join(__dirname,'node_diagnostics_worker.cjs'),{execArgv:[],env,workerData:{runtimeDiagnostics:true,port}});
+                    worker.on('error',()=>{});worker.unref();
+                  }catch{}
+                }
+                server.once('listening',listening);
+                try{return original.apply(server,args);}catch(error){server.removeListener('listening',listening);throw error;}
+              };
+            }
+          }
+          DIAG_NODE_PRELOAD
+          cat > "$context/node_diagnostics_worker.cjs" <<'DIAG_NODE_WORKER'
+          "use strict";
+          const fs=require('node:fs'), path=require('node:path'), net=require('node:net');
+          const zlib=require('node:zlib'), crypto=require('node:crypto');
+          const {isMainThread,workerData}=require('node:worker_threads');
+          const PROFILE_CAP=256*1024, TRANSPORT_CAP=256*1024;
+          const DEFAULTS={interval:30000,timeout:2000,duration:5000,commandTimeout:3000,cooldown:600000};
+          function sanitizeFrame(frame){
+            let raw=typeof frame?.url==='string'?frame.url.split(/[?#]/,1)[0]:'';
+            if(raw.startsWith('file:///app/'))raw=raw.slice(7);
+            if(raw.split('/').includes('..'))raw='';
+            let url='[redacted]';
+            if(['/app/.next/','/app/node_modules/','/app/src/'].some(prefix=>raw.startsWith(prefix))||['/app/server.js','/app/node_diagnostics.cjs','/app/node_diagnostics_worker.cjs'].includes(raw))url=raw.slice(5);
+            else if(raw.startsWith('node:internal/')||/^node:(assert|async_hooks|buffer|child_process|cluster|console|crypto|dns|events|fs|http|https|inspector|module|net|os|path|perf_hooks|process|stream|string_decoder|timers|tls|tty|url|util|v8|vm|worker_threads|zlib)(\/promises)?$/.test(raw))url=raw;
+            else if(raw.startsWith('internal/'))url='node:'+raw;
+            if(url.length>180||!/^[-\w.@/+:\[\]]+$/.test(url))url='[redacted]';
+            const builtin=['(root)','(program)','(idle)','(garbage collector)'].includes(frame?.functionName);
+            let name=builtin?frame.functionName:'[redacted]';
+            if(url!=='[redacted]'&&typeof frame?.functionName==='string'&&/^[-\w$ .:<>()[\]]{0,80}$/.test(frame.functionName))name=frame.functionName;
+            return {functionName:name,scriptId:'0',url:builtin&&raw===''?'':url,lineNumber:Number.isInteger(frame?.lineNumber)&&frame.lineNumber>=-1&&frame.lineNumber<10000000?frame.lineNumber:-1,columnNumber:Number.isInteger(frame?.columnNumber)&&frame.columnNumber>=-1&&frame.columnNumber<10000000?frame.columnNumber:-1};
+          }
+          function sanitizeProfile(raw){
+            const fail=()=>{throw new Error('invalid_profile');};
+            if(!raw||!Array.isArray(raw.nodes)||raw.nodes.length>20000||!Array.isArray(raw.samples)||raw.samples.length>100000||!Array.isArray(raw.timeDeltas)||raw.timeDeltas.length!==raw.samples.length||!Number.isFinite(raw.startTime)||!Number.isFinite(raw.endTime)||raw.endTime<raw.startTime)fail();
+            const ids=new Set(),parents=new Map();
+            const nodes=raw.nodes.map(n=>{
+              if(!Number.isSafeInteger(n.id)||n.id<1||ids.has(n.id)||!Array.isArray(n.children||[]))fail();
+              ids.add(n.id);
+              return {id:n.id,callFrame:sanitizeFrame(n.callFrame),children:n.children||[]};
+            });
+            for(const node of nodes)for(const child of node.children){if(!ids.has(child)||parents.has(child))fail();parents.set(child,node.id);}
+            for(const node of nodes){let current=node.id,depth=0;while(parents.has(current)){current=parents.get(current);if(++depth>128)fail();}}
+            if(raw.samples.some(id=>!ids.has(id))||raw.timeDeltas.some(t=>!Number.isFinite(t)||t<0||t>100000000))fail();
+            return {nodes,samples:[...raw.samples],timeDeltas:[...raw.timeDeltas],startTime:raw.startTime,endTime:raw.endTime};
+          }
+          function summarize(profile){
+            const nodes=new Map(profile.nodes.map(n=>[n.id,n])),parents=new Map(),self=new Map(),inclusive=new Map();
+            for(const n of profile.nodes)for(const c of n.children)parents.set(c,n.id);
+            for(const id of profile.samples){self.set(id,(self.get(id)||0)+1);let current=id,depth=0;while(current&&depth++<128){inclusive.set(current,(inclusive.get(current)||0)+1);current=parents.get(current);}}
+            const top=counts=>[...counts].sort((a,b)=>b[1]-a[1]).slice(0,20).map(([id,samples])=>({frame:nodes.get(id).callFrame,samples}));
+            const paths=[...self].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([id,samples])=>{const frames=[];let current=id;while(current&&frames.length<24){frames.push(nodes.get(current).callFrame);current=parents.get(current);}return {frames:frames.reverse(),samples,truncated:Boolean(current)};});
+            const summary={self:top(self),inclusive:top(inclusive),paths,summary_clipped:false};
+            while(Buffer.byteLength(JSON.stringify(summary))>10000){
+              summary.summary_clipped=true;
+              const longest=summary.paths.find(p=>p.frames.length>6);
+              if(longest){longest.frames.splice(1,1);longest.truncated=true;}
+              else if(summary.paths.length>1)summary.paths.pop();
+              else if(summary.inclusive.length>1)summary.inclusive.pop();
+              else if(summary.self.length>1)summary.self.pop();
+              else break;
+            }
+            return summary;
+          }
+          function chunks(profile,captureId){
+            const raw=Buffer.from(JSON.stringify(profile));if(raw.length>PROFILE_CAP)return [];
+            const compressed=zlib.gzipSync(raw);const data=compressed.toString('base64');
+            const count=Math.ceil(data.length/2400),sha256=crypto.createHash('sha256').update(compressed).digest('hex');
+            const records=Array.from({length:count},(_,index)=>({schema_version:1,kind:'showcase_node_profile_chunk',capture_id:captureId,index,count,compressed_bytes:compressed.length,profile_bytes:raw.length,sha256,data:data.slice(index*2400,(index+1)*2400)}));
+            if(records.reduce((sum,r)=>sum+Buffer.byteLength(JSON.stringify(r))+201,0)>TRANSPORT_CAP||records.some(r=>Buffer.byteLength(JSON.stringify(r))>=4096))return [];
+            return records;
+          }
+          class Budget{
+            constructor(dir='/tmp/showcase-node-diagnostics',cooldown=DEFAULTS.cooldown){this.dir=dir;this.cooldown=cooldown;}
+            claim(reason,now){
+              fs.mkdirSync(this.dir,{recursive:true,mode:0o700});
+              if(fs.statSync(this.dir).uid!==process.getuid())throw new Error('budget_owner');
+              fs.chmodSync(this.dir,0o700);
+              const lock=path.join(this.dir,'budget.lock');
+              try{fs.mkdirSync(lock,{mode:0o700});}catch{return false;}
+              try{
+                const file=path.join(this.dir,'budget.json');
+                let state={count:0,stallCount:0,baselineUsed:false,lastStallMs:0};
+                if(fs.existsSync(file))state=JSON.parse(fs.readFileSync(file,'utf8'));
+                if(!Number.isInteger(state.count)||state.count<0||state.count>3||!Number.isInteger(state.stallCount)||state.stallCount<0||state.stallCount>2||typeof state.baselineUsed!=='boolean'||!Number.isFinite(state.lastStallMs))throw new Error('budget_invalid');
+                if(state.count>=3||(reason==='baseline'&&state.baselineUsed)||(reason==='stall'&&(state.stallCount>=2||(state.stallCount>0&&now-state.lastStallMs<this.cooldown))))return false;
+                state.count++;if(reason==='baseline')state.baselineUsed=true;else{state.stallCount++;state.lastStallMs=now;}
+                const temp=file+'.'+process.pid;fs.writeFileSync(temp,JSON.stringify(state),{mode:0o600,flag:'wx'});fs.renameSync(temp,file);
+                return {attempt:state.count};
+              }finally{fs.rmdirSync(lock);}
+            }
+          }
+          function probe(port,timeout){
+            return new Promise(resolve=>{
+              const started=Date.now();let done=false,size=0,line='';
+              const socket=net.createConnection({host:'127.0.0.1',port});
+              const timer=setTimeout(()=>finish('timeout'),timeout);
+              function finish(result,status=null){if(done)return;done=true;clearTimeout(timer);socket.destroy();resolve({result,status,elapsed_ms:Date.now()-started});}
+              socket.on('connect',()=>socket.write('GET /api/health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n'));
+              socket.on('error',()=>finish('io_error'));socket.on('end',()=>finish('invalid_status'));
+              socket.on('data',data=>{
+                for(const byte of data){if(++size>256){finish('invalid_status');return;}line+=String.fromCharCode(byte);if(byte===10){const match=/^HTTP\/1\.[01] ([0-9]{3}) [^\r\n]*\r\n$/.exec(line);if(!match){finish('invalid_status');return;}const status=Number(match[1]);finish(status>=200&&status<300?'ok':'http_error',status);return;}}
+              });
+            });
+          }
+          function transport(){
+            try{return {fd:fs.openSync('/proc/1/fd/1',fs.constants.O_WRONLY),name:'pid1_stdout'};}catch{return {fd:1,name:'stdout_limited'};}
+          }
+          async function run(){
+            const timing={...DEFAULTS,...workerData.testTiming};
+            const output=transport();let outputFailed=false;
+            const emit=record=>{
+              if(outputFailed)return;
+              const data=JSON.stringify({schema_version:1,timestamp:new Date().toISOString(),pid:process.pid,transport:output.name,...record})+'\n';
+              if(Buffer.byteLength(data)>16384)return;
+              try{fs.writeSync(output.fd,data);}catch{outputFailed=true;}
+            };
+            const budget=new Budget(workerData.testDir||undefined,timing.cooldown);
+            let capturing=false,healthy=false,timeouts=0,lastHealth=null;
+            async function capture(reason){
+              if(capturing)return;let claim;
+              try{claim=budget.claim(reason,Date.now());}catch{emit({kind:'showcase_node_profile_error',error:'budget_unavailable'});return;}
+              if(!claim)return;capturing=true;
+              const captureId=`node-${process.pid}-${claim.attempt}-${Date.now()}`;
+              const session=new(require('node:inspector').Session)();let enabled=false;
+              const post=(method,params={})=>new Promise((resolve,reject)=>{
+                let settled=false;const timer=setTimeout(()=>{settled=true;reject(new Error('command_deadline'));},timing.commandTimeout);
+                try{session.post(method,params,(error,result)=>{if(settled)return;settled=true;clearTimeout(timer);error?reject(new Error('inspector_command')):resolve(result);});}catch{clearTimeout(timer);reject(new Error('inspector_command'));}
+              });
+              try{
+                session.connectToMainThread();await post('Profiler.enable');enabled=true;
+                await post('Profiler.setSamplingInterval',{interval:2000});await post('Profiler.start');
+                await new Promise(resolve=>setTimeout(resolve,timing.duration));
+                const {profile:raw}=await post('Profiler.stop');
+                const profile=sanitizeProfile(raw);const summary=summarize(profile);const records=chunks(profile,captureId);
+                const rawBytes=Buffer.from(JSON.stringify(profile));
+                let saved=false;
+                if(records.length){try{fs.writeFileSync(path.join(budget.dir,captureId+'.cpuprofile'),rawBytes,{mode:0o600,flag:'wx'});saved=true;}catch{}}
+                emit({kind:'showcase_node_profile',capture_id:captureId,reason,health:lastHealth,sampling_interval_us:2000,duration_ms:(profile.endTime-profile.startTime)/1000,sample_count:profile.samples.length,...summary,complete:records.length>0,profile_file_saved:saved,profile_bytes:rawBytes.length,clipped:records.length===0});
+                for(const record of records)emit(record);
+              }catch{emit({kind:'showcase_node_profile_error',capture_id:captureId,reason,error:'capture_failed'});}
+              finally{if(enabled){try{await post('Profiler.disable');}catch{}}try{session.disconnect();}catch{}capturing=false;}
+            }
+            emit({kind:'showcase_node_diagnostics',phase:'armed'});
+            async function tick(){
+              if(outputFailed)return;
+              lastHealth=await probe(workerData.port,timing.timeout);
+              emit({kind:'showcase_node_diagnostics',phase:'health',health:lastHealth});
+              if(lastHealth.result==='ok'){healthy=true;timeouts=0;if(!capturing)void capture('baseline');}
+              else if(lastHealth.result==='timeout'){timeouts++;if(healthy&&timeouts>=2&&!capturing)void capture('stall');}
+              else timeouts=0;
+              setTimeout(tick,timing.interval);
+            }
+            await tick();
+          }
+          module.exports={sanitizeFrame,sanitizeProfile,summarize,chunks,Budget,probe};
+          if(!isMainThread&&workerData?.runtimeDiagnostics===true)run().catch(()=>{});
+          DIAG_NODE_WORKER
 
       - name: Publish the temporary observer image
         if: inputs.mode == 'deploy'
