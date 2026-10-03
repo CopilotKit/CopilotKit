@@ -82,7 +82,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("computeDepthDistribution — D6 (Finding #1)", () => {
-  it("counts a D6-achieved cell in the d6 bucket (not dropped to NaN)", () => {
+  it("legacy D6 positive stays in d4 with no false depth credit or NaN", () => {
     const cell = wiredCell({ integration: "agno", feature: "agentic-chat" });
     const live = mapOf(fullDepth6Rows("agno", "agentic-chat"));
     const now = Date.parse(FRESH);
@@ -90,9 +90,9 @@ describe("computeDepthDistribution — D6 (Finding #1)", () => {
     const dist = computeDepthDistribution([cell], live, now);
 
     // The cell reaches achievedDepth 6 → must land in d6, not vanish.
-    expect(dist.d6).toBe(1);
+    expect(dist.d6).toBe(0);
+    expect(dist.d4).toBe(1);
     expect(dist.d5).toBe(0);
-    expect(dist.d4).toBe(0);
     expect(dist.d3).toBe(0);
     expect(dist.d0).toBe(0);
     // No bucket may be NaN (the old `as keyof` cast produced dist["d6"]++ = NaN).
@@ -111,7 +111,8 @@ describe("computeDepthDistribution — D6 (Finding #1)", () => {
 
     const dist = computeDepthDistribution([d6Cell, d0Cell], live, now);
 
-    expect(dist.d6).toBe(1);
+    expect(dist.d6).toBe(0);
+    expect(dist.d4).toBe(1);
     expect(dist.d0).toBe(1);
   });
 
@@ -141,7 +142,8 @@ describe("computeDepthDistribution — D6 (Finding #1)", () => {
 
     // The three no-data cells (two wired, one stub) land in d0.
     expect(dist.d0).toBe(3);
-    expect(dist.d6).toBe(1);
+    expect(dist.d6).toBe(0);
+    expect(dist.d4).toBe(1);
 
     // The distribution exposes EXACTLY the reachable buckets — no dead d1/d2
     // keys that buildCellModel().achievedDepth (0|3|4|5|6) can never populate.
@@ -216,7 +218,7 @@ describe("starter routing via the shared catalogCellToInput mapping (Finding A9)
 // ---------------------------------------------------------------------------
 
 describe("computeD6Stats — degraded (Finding #2)", () => {
-  it("counts a stale-green D6 cell (intact ladder) as degraded, not gray", () => {
+  it("counts stale legacy D6 positive above unverified D5 as gray", () => {
     const cell = wiredCell({ integration: "agno", feature: "agentic-chat" });
     // Full ladder through D5 intact; the D6 row is green but observed long ago
     // → resolveD6 downgrades to amber → ladder-gated d6Effective = amber.
@@ -234,8 +236,8 @@ describe("computeD6Stats — degraded (Finding #2)", () => {
 
     const stats = computeD6Stats([cell], live, now);
 
-    expect(stats.degraded).toBe(1);
-    expect(stats.gray).toBe(0);
+    expect(stats.degraded).toBe(0);
+    expect(stats.gray).toBe(1);
     expect(stats.green).toBe(0);
     expect(stats.red).toBe(0);
   });
@@ -270,9 +272,9 @@ describe("computeD6Stats — degraded (Finding #2)", () => {
 
     const stats = computeD6Stats([greenCell, redCell, grayCell], live, now);
 
-    expect(stats.green).toBe(1);
+    expect(stats.green).toBe(0);
     expect(stats.red).toBe(1);
-    expect(stats.gray).toBe(1);
+    expect(stats.gray).toBe(2);
     expect(stats.degraded).toBe(0);
   });
 
@@ -298,15 +300,15 @@ describe("computeD6Stats — degraded (Finding #2)", () => {
     expect(stats.degraded).toBe(0);
   });
 
-  it("counts a fully-green ladder as D6-green", () => {
+  it("counts legacy D5/D6 positives as unverified D6", () => {
     const cell = wiredCell({ integration: "agno", feature: "agentic-chat" });
     const live = mapOf(fullDepth6Rows("agno", "agentic-chat"));
     const now = Date.parse(FRESH);
 
     const stats = computeD6Stats([cell], live, now);
 
-    expect(stats.green).toBe(1);
-    expect(stats.gray).toBe(0);
+    expect(stats.green).toBe(0);
+    expect(stats.gray).toBe(1);
     expect(stats.red).toBe(0);
     expect(stats.degraded).toBe(0);
   });
@@ -331,15 +333,15 @@ describe("computeHealthStats — gray is no-data, not green (Finding #3)", () =>
     expect(stats.red).toBe(0);
   });
 
-  it("counts a genuinely green cell as green", () => {
+  it("counts legacy functional positives as noData", () => {
     const cell = wiredCell({ integration: "agno", feature: "agentic-chat" });
     const live = mapOf(fullDepth6Rows("agno", "agentic-chat"));
     const now = Date.parse(FRESH);
 
     const stats = computeHealthStats([cell], live, now);
 
-    expect(stats.green).toBe(1);
-    expect(stats.noData).toBe(0);
+    expect(stats.green).toBe(0);
+    expect(stats.noData).toBe(1);
   });
 
   it("ignores unshipped/unsupported cells (but NOT stub — Finding A10)", () => {

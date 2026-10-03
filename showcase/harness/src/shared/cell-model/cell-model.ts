@@ -102,6 +102,8 @@ export interface RungView {
 
 export interface CellModel {
   supported: boolean;
+  /** Shared integration check preventing feature credit, not a feature failure. */
+  blockedBy?: "health" | "agent";
   d3: TestLevel | null;
   d4: TestLevel | null;
   d5: TestLevel | null;
@@ -933,18 +935,33 @@ function foldLadderCell(args: {
   levels: Pick<CellModel, "d3" | "d4" | "d5" | "d6">;
   commError?: PoolCommError | null;
   ladderRungs?: readonly RungView[];
+  blockedBy?: CellModel["blockedBy"];
 }): CellModel {
   const { contribs, axis, ceiling, now, freshness, levels } = args;
   const c = combine(contribs, ceiling, now, axis);
 
   let chipColor = c.chipColor;
+  let isRegression = c.isRegression;
+  let d6Effective = c.d6Effective;
+  if (args.blockedBy) {
+    const featureFailed = contribs.some(
+      (r) =>
+        ["D3", "D5", "D6"].includes(r.kind) && r.contribution === "FAIL_FRESH",
+    );
+    chipColor = featureFailed ? "red" : "gray";
+    isRegression = featureFailed;
+    if (
+      contribs.some((r) => r.kind === "D6" && r.contribution === "FAIL_FRESH")
+    )
+      d6Effective = "red";
+  }
   const isStaleCell = freshness.isStale;
   if (isStaleCell && chipColor !== "gray") chipColor = "gray";
 
   const commError = args.commError ?? undefined;
   const surfaceState: FleetSurfaceState = commError
     ? commError.kind === "worker-reclaimed-pending"
-      ? chipColor === "red" || chipColor === "amber" || c.isRegression
+      ? chipColor === "red" || chipColor === "amber" || isRegression
         ? chipColorToSurface(chipColor)
         : "pending"
       : "unreachable"
@@ -962,15 +979,16 @@ function foldLadderCell(args: {
 
   return {
     supported: true,
+    ...(args.blockedBy ? { blockedBy: args.blockedBy } : {}),
     d3: levels.d3,
     d4: levels.d4,
     d5: levels.d5,
     d6: levels.d6,
-    d6Effective: c.d6Effective,
+    d6Effective,
     achievedDepth: c.achievedDepth,
     ceilingDepth: c.ceilingDepth,
     chipColor,
-    isRegression: c.isRegression,
+    isRegression,
     ...(commError ? { commError } : {}),
     surfaceState,
     isStaleCell,
@@ -1110,10 +1128,16 @@ export function buildCellModel(
   // ── Agent-axis feature cell ────────────────────────────────────────
   const collected = collectAgentLadder(live, slug, featureId, now);
   const contribs = collected.rungs.map((r) => classifyRung(r, now));
+  const failedGate = contribs.find(
+    (r) =>
+      (r.kind === "D1" || r.kind === "D2") && r.contribution === "FAIL_FRESH",
+  );
 
   return foldLadderCell({
     contribs,
     axis: AGENT_AXIS,
+    blockedBy:
+      failedGate?.kind === "D1" ? "health" : failedGate ? "agent" : undefined,
     ceiling,
     now,
     // U8: matrix all-stale fold (§4e) — future-skew clamped (§E).

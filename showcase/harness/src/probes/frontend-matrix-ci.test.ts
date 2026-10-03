@@ -138,8 +138,9 @@ describe("frontend matrix CI contracts", () => {
 
     expect(report.summary).toMatchObject({
       total: 2,
-      passed: 2,
+      passed: 0,
       failed: 0,
+      unverified: 2,
       p95ShardWallTimeMs: 1000,
     });
     expect(report.cells.map((cell) => cell.cellId)).toEqual(
@@ -179,4 +180,27 @@ describe("frontend matrix CI contracts", () => {
       aggregateFrontendMatrixArtifacts(CELLS, [wrong, artifact(1)]),
     ).toThrow(/identity.*angular\/langgraph-python\/agentic-chat/i);
   });
+});
+
+it("functional admission projects diagnostic positives as unverified without mutating artifacts", () => {
+  const originals = [artifact(0), artifact(1)];
+  const result = aggregateFrontendMatrixArtifacts(CELLS, originals);
+  expect(result.cells.every((cell) => cell.status === "unverified")).toBe(true);
+  expect(
+    originals.every((source) => source.cells[0]?.status === "passed"),
+  ).toBe(true);
+});
+
+it("functional admission denies an empty program while retaining a genuine failed cell", () => {
+  const empty = artifact(0);
+  empty.cells[0]!.probes = [];
+  const failed = artifact(1);
+  failed.cells[0]!.status = "failed";
+  failed.cells[0]!.probes[0]!.status = "failed";
+  expect(() =>
+    aggregateFrontendMatrixArtifacts(CELLS, [empty, failed]),
+  ).toThrow(/probe identity mismatch/);
+  expect(
+    aggregateFrontendMatrixArtifacts(CELLS, [artifact(0), failed]).summary,
+  ).toMatchObject({ total: 2, passed: 0, failed: 1, unverified: 1 });
 });

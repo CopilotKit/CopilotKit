@@ -239,16 +239,15 @@ describe("computeColumnTally", () => {
     });
   });
 
-  it("a red health (D1) row gates every cell in the column red (§F liveness gate)", () => {
+  it("a shared health failure does not count every feature as failed", () => {
     const live: LiveStatusMap = new Map();
     live.set("health:i1", row("health:i1", "health", "red"));
     const t = computeColumnTally(integration, features, live);
-    // §F: a present fresh-red D1 (slug-scoped health) gates the cell → red.
-    // The service is down, so every feature cell in the column reds.
+    // The integration is unavailable; no individual feature failure was observed.
     expect(t).toEqual({
       green: 0,
       amber: 0,
-      red: 2,
+      red: 0,
       unknown: false,
       loading: false,
     });
@@ -349,7 +348,7 @@ describe("computeColumnTally", () => {
     expect(t.unknown).toBe(false);
   });
 
-  it("amber chip when D5=green but D6 absent", () => {
+  it("unverified chip when legacy D5=green but D6 absent", () => {
     // D6-ceiling algorithm: D5=green → amber (awaiting D6 confirmation)
     const mappedFeatures: Feature[] = [
       {
@@ -376,10 +375,10 @@ describe("computeColumnTally", () => {
       row("d5:i1/agentic-chat", "d5", "green"),
     );
     const t = computeColumnTally(mappedInt, mappedFeatures, mappedLive);
-    // D3=green, D4=green, D5=green → amber (D6 not yet green)
+    // Fresh diagnostics plus legacy functional positives remain unverified
     expect(t).toEqual({
       green: 0,
-      amber: 1,
+      amber: 0,
       red: 0,
       unknown: false,
       loading: false,

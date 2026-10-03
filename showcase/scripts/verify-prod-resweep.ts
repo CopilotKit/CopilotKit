@@ -1066,9 +1066,7 @@ async function main(): Promise<void> {
   console.log(result.summary);
 
   if (!result.gate.passed) {
-    console.error(
-      `::error::Equivalence gate FAILED — ${result.gate.mismatches.length} prod regression(s).`,
-    );
+    console.error(`::error::${result.gate.summary}`);
     process.exit(1);
   }
 }

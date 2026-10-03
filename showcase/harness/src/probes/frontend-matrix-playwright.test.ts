@@ -6,6 +6,7 @@ import {
   createFrontendCellExecutor,
   testIdForFrontendProbe,
   waitForFrameworkHydration,
+  observePublicTransport,
 } from "./frontend-matrix-playwright.js";
 import type { FrontendProbeExecutor } from "./frontend-matrix-playwright.js";
 
@@ -141,4 +142,44 @@ describe("frontend matrix Playwright execution", () => {
     );
     expect(testId.length).toBeLessThanOrEqual(160);
   });
+});
+
+it.each([
+  [
+    "truncated terminal frame",
+    'data: {"type":"RUN_FINISHED","runId":"run","threadId":"thread"}',
+  ],
+  [
+    "later run start",
+    'data: {"type":"RUN_FINISHED","runId":"run","threadId":"thread"}\n\ndata: {"type":"RUN_STARTED","runId":"run","threadId":"thread"}\n\n',
+  ],
+])("honest-proof rejects passive %s", async (_name, body) => {
+  const listeners = new Map<string, (...args: unknown[]) => void>();
+  const frame = {};
+  const page = {
+    on: (name: string, callback: (...args: unknown[]) => void) =>
+      listeners.set(name, callback),
+  };
+  const observe = observePublicTransport(page as never, () => frame as never);
+  const request = {
+    method: () => "POST",
+    frame: () => frame,
+    postDataJSON: () => ({
+      method: "agent/run",
+      body: {
+        runId: "run",
+        threadId: "thread",
+        messages: [{ id: "user", role: "user", content: "prompt" }],
+      },
+    }),
+  };
+  listeners.get("request")!(request);
+  listeners.get("response")!({
+    request: () => request,
+    ok: () => true,
+    body: async () => Buffer.from(body),
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(observe().error).toBeDefined();
+  expect(observe().runsFinished).toBe(0);
 });

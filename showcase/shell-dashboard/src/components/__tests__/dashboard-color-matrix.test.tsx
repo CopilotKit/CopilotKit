@@ -273,7 +273,7 @@ describe("(1) per-depth badge rendering — UI/BE/1P/D6", () => {
         row(keyFor("d5", SLUG, FEATURE), "d5", "green"),
         row(keyFor("d6", SLUG, FEATURE), "d6", "green"),
       ],
-      expectStatus: "green",
+      expectStatus: null,
     },
     {
       badge: "D6",
@@ -363,24 +363,24 @@ describe("(2) D6 / D5 enum fan-out rollup → chip color", () => {
   const fanCases: FanCase[] = [
     // D5 all-green + D6 all-green → green
     {
-      name: "D5 all-pass + D6 all-pass",
+      name: "Legacy D5/D6 positives stay unverified",
       d5: "green",
       d6: "green",
-      expectChip: "green",
+      expectChip: "gray",
     },
     // D5 all-green + D6 any-fail → amber (D5 green, D6 red)
     {
       name: "D5 all-pass + D6 all-fail",
       d5: "green",
       d6: "red",
-      expectChip: "amber",
+      expectChip: "red",
     },
     // D5 all-green + D6 absent (unemitted) → amber (D5 green, D6 missing)
     {
       name: "D5 all-pass + D6 absent",
       d5: "green",
       d6: "absent",
-      expectChip: "amber",
+      expectChip: "gray",
     },
     // D5 all-missing (none emitted) + D6 absent → D5 null → gray
     {
@@ -474,7 +474,7 @@ describe("(2) D6 / D5 enum fan-out rollup → chip color", () => {
   ];
 
   for (const rc of renameCases) {
-    it(`${rc.featureId} maps to enum key '${rc.enumKey}' and greens when that key passes`, () => {
+    it(`${rc.featureId} maps to enum key '${rc.enumKey}' and preserves its raw observation without admission`, () => {
       expect(CATALOG_TO_D5_KEY[rc.featureId]).toEqual([rc.enumKey]);
       // Drive D5+D6 via the RENAMED enum key — proves the fan-out reads the
       // enum key, not the raw catalog featureId.
@@ -486,7 +486,7 @@ describe("(2) D6 / D5 enum fan-out rollup → chip color", () => {
       const model = wiredModel(live, rc.featureId);
       expect(model.d5?.status).toBe("green");
       expect(model.d6?.status).toBe("green");
-      expect(model.chipColor).toBe("green");
+      expect(model.chipColor).toBe("gray");
 
       // Negative control: a row keyed by the RAW featureId (when it differs
       // from the enum key) must NOT be consulted.
@@ -515,7 +515,7 @@ describe("(2) D6 / D5 enum fan-out rollup → chip color", () => {
 describe("(3) per-cell D6 vs aggregate precedence (c64aebc42)", () => {
   const FEATURE = "agentic-chat";
 
-  it("green per-cell row wins over a RED aggregate → chip green", () => {
+  it("legacy per-cell positive stays unverified despite a RED aggregate", () => {
     const live = mapOf([
       ...gateGreen(FEATURE),
       row(keyFor("d5", SLUG, FEATURE), "d5", "green"),
@@ -525,7 +525,7 @@ describe("(3) per-cell D6 vs aggregate precedence (c64aebc42)", () => {
     const model = wiredModel(live, FEATURE);
     expect(model.d6?.status).toBe("green");
     expect(model.d6?.row?.key).toBe("d6:agno/agentic-chat");
-    expect(model.chipColor).toBe("green");
+    expect(model.chipColor).toBe("gray");
   });
 
   it("aggregate-only (no per-cell row) → D6 no-data → chip gray for enum-mapped feature", () => {
@@ -557,8 +557,8 @@ describe("(3) per-cell D6 vs aggregate precedence (c64aebc42)", () => {
     ]);
     const a = wiredModel(live, "agentic-chat");
     const b = wiredModel(live, "voice");
-    expect(a.chipColor).toBe("green");
-    expect(b.chipColor).toBe("amber"); // D5 green + D6 red → amber
+    expect(a.chipColor).toBe("gray");
+    expect(b.chipColor).toBe("red"); // Genuine D6 failure above unverified D5
     expect(a.d6?.row?.key).toBe("d6:agno/agentic-chat");
     expect(b.d6?.row?.key).toBe("d6:agno/voice");
   });
@@ -566,11 +566,11 @@ describe("(3) per-cell D6 vs aggregate precedence (c64aebc42)", () => {
   it("resolveCell D6 badge tone also reads per-cell, not aggregate", () => {
     const live = mapOf([
       ...gateGreen(FEATURE),
-      row(keyFor("d6", SLUG), "d6", "red"), // aggregate red
-      row(keyFor("d6", SLUG, FEATURE), "d6", "green"), // per-cell green
+      row(keyFor("d6", SLUG), "d6", "green"), // aggregate positive
+      row(keyFor("d6", SLUG, FEATURE), "d6", "red"), // genuine per-cell failure
     ]);
     const cell = resolveCell(live, SLUG, FEATURE);
-    expect(cell.d6.tone).toBe("green");
+    expect(cell.d6.tone).toBe("red");
     expect(cell.d6.row?.key).toBe("d6:agno/agentic-chat");
   });
 });
@@ -825,7 +825,7 @@ describe("(6) edges + rollup precedence", () => {
     ]);
     const tally = computeColumnTally(integration, features, live, "live");
     expect(tally).toEqual({
-      green: 1,
+      green: 0,
       amber: 0,
       red: 1,
       unknown: false,
@@ -876,9 +876,9 @@ describe("code-vs-doc divergence — D6 per-cell (spec §3 open question)", () =
     ]);
     const model = wiredModel(live, FEATURE);
     // Spec §4 (origin/main) would predict the aggregate red → cell amber/red.
-    // FIXED code: per-cell green → chip green.
+    // Per-cell positive stays unverified; aggregate red is not its failure.
     expect(model.d6?.row?.key).toBe(keyFor("d6", SLUG, FEATURE));
     expect(model.d6?.row?.key).not.toBe(keyFor("d6", SLUG));
-    expect(model.chipColor).toBe("green");
+    expect(model.chipColor).toBe("gray");
   });
 });

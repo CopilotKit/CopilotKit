@@ -34,6 +34,27 @@ function run(overrides: Partial<ProbeRun> = {}): ProbeRun {
 }
 
 describe("StatusRunsList", () => {
+  it.each([0, 1])(
+    "shows unverified results separately with %i failures",
+    (failed) => {
+      const { getByTestId } = render(
+        <StatusRunsList
+          runs={[
+            run({
+              summary: { total: 3, passed: 2 - failed, failed, unverified: 1 },
+            }),
+          ]}
+        />,
+      );
+      const badge = getByTestId("status-run-row-run-1-state");
+      expect(badge.getAttribute("data-tone")).toBe(failed ? "red" : "gray");
+      expect(badge.textContent).toBe(failed ? "failed" : "Not verified");
+      expect(getByTestId("status-run-row-run-1-summary").textContent).toBe(
+        `${2 - failed}/3 pass${failed ? "; 1 failed" : ""}; 1 not verified`,
+      );
+    },
+  );
+
   it("renders empty-state message when runs is empty", () => {
     const { getByTestId } = render(<StatusRunsList runs={[]} />);
     expect(getByTestId("status-runs-empty")).toBeDefined();

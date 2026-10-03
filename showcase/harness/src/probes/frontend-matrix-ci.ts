@@ -1,4 +1,5 @@
 import type { FrontendMatrixCell } from "./frontend-matrix.js";
+import { functionalAdmission } from "../shared/cell-model/live-status.js";
 import type {
   FrontendMatrixArtifact,
   FrontendMatrixArtifactCell,
@@ -98,6 +99,7 @@ export interface FrontendMatrixAggregateReport {
     total: number;
     passed: number;
     failed: number;
+    unverified: number;
     shardCount: number;
     p95CellDurationMs: number;
     p95ShardWallTimeMs: number;
@@ -237,9 +239,23 @@ export function aggregateFrontendMatrixArtifacts(
     );
   }
 
-  const sortedCells = [...cells.values()].sort((left, right) =>
-    left.cellId.localeCompare(right.cellId),
-  );
+  const sortedCells = [...cells.values()]
+    .map((cell) =>
+      cell.status === "passed" &&
+      functionalAdmission(`d5:${cell.integration}/${cell.feature}`, "green") ===
+        "unverified"
+        ? {
+            ...cell,
+            status: "unverified" as const,
+            probes: cell.probes.map((probe) =>
+              probe.status === "passed"
+                ? { ...probe, status: "unverified" as const }
+                : probe,
+            ),
+          }
+        : cell,
+    )
+    .sort((left, right) => left.cellId.localeCompare(right.cellId));
   const failed = sortedCells.filter((cell) => cell.status === "failed").length;
   const p95ShardWallTimeMs = percentile(shardWallTimes, 0.95);
   return {
@@ -249,8 +265,10 @@ export function aggregateFrontendMatrixArtifacts(
     featureContractRevision,
     summary: {
       total: sortedCells.length,
-      passed: sortedCells.length - failed,
+      passed: sortedCells.filter((cell) => cell.status === "passed").length,
       failed,
+      unverified: sortedCells.filter((cell) => cell.status === "unverified")
+        .length,
       shardCount: artifacts.length,
       p95CellDurationMs: percentile(
         sortedCells.map((cell) => cell.durationMs),

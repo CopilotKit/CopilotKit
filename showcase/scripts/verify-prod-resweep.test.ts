@@ -70,13 +70,6 @@ function greenCellMap(slug: string, observedAtMs: number): LiveStatusMap {
   return m;
 }
 
-function redCellMap(slug: string, observedAtMs: number): LiveStatusMap {
-  const m: LiveStatusMap = new Map();
-  m.set(...row("e2e", slug, MAPPED_FEATURE, "red", observedAtMs));
-  m.set(...row("chat", slug, undefined, "green", observedAtMs));
-  return m;
-}
-
 function mergeMaps(...maps: LiveStatusMap[]): LiveStatusMap {
   const out: LiveStatusMap = new Map();
   for (const m of maps) for (const [k, v] of m) out.set(k, v);
@@ -377,14 +370,27 @@ describe("runVerifyProdResweep", () => {
     let tick = 0;
     const deps: ProdResweepDeps = {
       controlPlane: fake,
-      cells: [CELL("a")],
-      readStagingStatus: async () => greenCellMap("a", NOW0),
+      cells: [STARTER_CELL("a")],
+      readStagingStatus: async () =>
+        new Map([
+          row("starter", "a", "shell", "green", NOW0),
+          row("starter", "a", "runtime", "green", NOW0),
+          row("starter", "a", "agentrun", "green", NOW0),
+        ]),
       now: () => clock.t,
       sleep: async (ms) => {
         clock.t += ms;
         tick += 1;
         if (tick === 1) {
-          fake.runWorkers(clock.t, () => greenCellMap("a", NOW0 + 5_000));
+          fake.runWorkers(
+            clock.t,
+            () =>
+              new Map([
+                row("starter", "a", "shell", "green", NOW0 + 5_000),
+                row("starter", "a", "runtime", "green", NOW0 + 5_000),
+                row("starter", "a", "agentrun", "green", NOW0 + 5_000),
+              ]),
+          );
         }
       },
     };
@@ -401,15 +407,28 @@ describe("runVerifyProdResweep", () => {
     let tick = 0;
     const deps: ProdResweepDeps = {
       controlPlane: fake,
-      cells: [CELL("a")],
-      readStagingStatus: async () => greenCellMap("a", NOW0),
+      cells: [STARTER_CELL("a")],
+      readStagingStatus: async () =>
+        new Map([
+          row("starter", "a", "shell", "green", NOW0),
+          row("starter", "a", "runtime", "green", NOW0),
+          row("starter", "a", "agentrun", "green", NOW0),
+        ]),
       now: () => clock.t,
       sleep: async (ms) => {
         clock.t += ms;
         tick += 1;
         if (tick === 1) {
           // Fresh post-trigger prod row, but RED → genuine regression.
-          fake.runWorkers(clock.t, () => redCellMap("a", NOW0 + 5_000));
+          fake.runWorkers(
+            clock.t,
+            () =>
+              new Map([
+                row("starter", "a", "shell", "green", NOW0 + 5_000),
+                row("starter", "a", "runtime", "green", NOW0 + 5_000),
+                row("starter", "a", "agentrun", "red", NOW0 + 5_000),
+              ]),
+          );
         }
       },
     };

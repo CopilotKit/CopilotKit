@@ -54,6 +54,24 @@ function batch(overrides: Partial<WorkerRunBatch> = {}): WorkerRunBatch {
   };
 }
 
+it("keeps unverified worker cells separate from the actual failure count", () => {
+  const data = runsResponse({
+    families: [
+      family({
+        lastRun: batch({
+          cells: { total: 3, passed: 1, failed: 1, unverified: 1 },
+        }),
+      }),
+    ],
+  });
+  const { getByTestId } = render(
+    <WorkerRunsTable data={data} probeEntries={null} />,
+  );
+  expect(getByTestId("worker-runs-row-d5").textContent).toContain(
+    "1/3 (1 fail); 1 not verified",
+  );
+});
+
 function family(
   overrides: Partial<WorkerFamilySummary> = {},
 ): WorkerFamilySummary {

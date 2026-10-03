@@ -1,15 +1,19 @@
 import { createHash } from "node:crypto";
 
-import type { Browser } from "playwright";
+import type { Browser, Frame, Page, Request } from "playwright";
 
 import { runConversation } from "./helpers/conversation-runner.js";
+import type { PublicObservation } from "./helpers/conversation-runner.js";
 import { conversationFailureSummary } from "./helpers/privacy-safe-diagnostics.js";
 import type { D5FeatureType, D5Script } from "./helpers/d5-registry.js";
 import {
   installBrowserContextShims,
   installPrePaintFromEnv,
 } from "./helpers/init-scripts.js";
-import { attachSseInterceptor } from "./helpers/sse-interceptor.js";
+import {
+  parseSseEvents,
+  attachSseInterceptor,
+} from "./helpers/sse-interceptor.js";
 import type { SseCapture } from "./helpers/sse-interceptor.js";
 import type {
   FrontendMatrixCell,
@@ -43,6 +47,8 @@ export interface FrontendCellExecutorOptions {
   backendUrls: Readonly<Record<string, string>>;
   invocationId: string;
   runProbe: FrontendProbeExecutor;
+  executionMode?: "diagnostic" | "public-pill";
+  publicShellBaseUrl?: string;
 }
 
 function safeIdentifierPart(value: string): string {
@@ -98,6 +104,8 @@ export function createFrontendCellExecutor(
     const url = urlForFrontendCell(cell, {
       angularBaseUrl: options.angularBaseUrl,
       reactBaseUrl: backendUrl,
+      executionMode: options.executionMode,
+      publicShellBaseUrl: options.publicShellBaseUrl,
     });
     const probes: FrontendProbeResult[] = [];
     for (const featureType of cell.featureTypes) {
@@ -129,7 +137,13 @@ export function createFrontendCellExecutor(
     }
     const failed = probes.filter((probe) => probe.status === "failed");
     return {
-      status: failed.length === 0 ? "passed" : "failed",
+      status:
+        failed.length > 0
+          ? "failed"
+          : probes.length === 0 ||
+              probes.some((probe) => probe.status === "unverified")
+            ? "unverified"
+            : "passed",
       durationMs: Date.now() - startedAt,
       probes,
       url,
@@ -206,6 +220,130 @@ export interface PlaywrightProbeExecutorOptions {
   scripts: ReadonlyMap<D5FeatureType, D5Script>;
   probeTimeoutMs?: number;
   hydrationTimeoutMs?: number;
+  executionMode?: "diagnostic" | "public-pill";
+}
+
+/** Observe the normal transport; no route handler, fetch wrapper or browser mutation. */
+export function observePublicTransport(
+  page: Page,
+  targetFrame: () => Frame | undefined,
+): () => PublicObservation {
+  const messages = new Map<string, string>();
+  const requests = new Map<Request, { runId: string; threadId: string }>();
+  let active = 0;
+  let starts = 0;
+  let finished = 0;
+  let error: string | undefined;
+  const fail = () => {
+    error ??= "public pill transport or page error";
+  };
+  page.on("pageerror", fail);
+  page.on("request", (request) => {
+    if (request.method() !== "POST" || request.frame() !== targetFrame())
+      return;
+    try {
+      const input = request.postDataJSON();
+      if (input?.method !== "agent/run") return;
+      const body = input.body;
+      if (
+        !body ||
+        !Array.isArray(body.messages) ||
+        typeof body.runId !== "string" ||
+        typeof body.threadId !== "string"
+      ) {
+        fail();
+        return;
+      }
+      for (const message of body.messages) {
+        if (message.role !== "user") continue;
+        if (
+          typeof message.id !== "string" ||
+          !message.id ||
+          typeof message.content !== "string"
+        ) {
+          fail();
+          return;
+        }
+        if (
+          messages.has(message.id) &&
+          messages.get(message.id) !== message.content
+        ) {
+          fail();
+          return;
+        }
+        messages.set(message.id, message.content);
+      }
+      requests.set(request, { runId: body.runId, threadId: body.threadId });
+      active++;
+      starts++;
+    } catch {
+      fail();
+    }
+  });
+  page.on("requestfailed", (request) => {
+    if (requests.has(request)) fail();
+  });
+  page.on("response", (response) => {
+    const request = response.request();
+    const identity = requests.get(request);
+    if (!identity) return;
+    // Playwright does not await event listeners. The pending request keeps
+    // completion closed until this body finishes; every error is latched for
+    // the runner to reject, so a late or failed read cannot grant action credit.
+    void (async () => {
+      try {
+        if (!response.ok()) throw new Error("HTTP error");
+        const body = (await response.body()).toString("utf8");
+        if (!body.replace(/\r\n/g, "\n").endsWith("\n\n"))
+          throw new Error("incomplete SSE frame");
+        const events = parseSseEvents(body);
+        const terminals = events.filter(
+          (event) =>
+            event.kind === "json" && event.payload.type === "RUN_FINISHED",
+        );
+        if (
+          events.some(
+            (event) =>
+              event.kind === "non-json" || event.payload.type === "RUN_ERROR",
+          ) ||
+          terminals.length !== 1
+        )
+          throw new Error("missing or errored terminal");
+        const lifecycle = events.filter(
+          (event) =>
+            event.kind === "json" &&
+            ["RUN_STARTED", "RUN_FINISHED", "RUN_ERROR"].includes(
+              String(event.payload.type),
+            ),
+        );
+        if (lifecycle.at(-1) !== terminals[0])
+          throw new Error("run lifecycle did not end at terminal");
+        const terminal = terminals[0]!;
+        if (
+          terminal.kind !== "json" ||
+          terminal.payload.runId !== identity.runId ||
+          terminal.payload.threadId !== identity.threadId
+        )
+          throw new Error("terminal identity mismatch");
+        finished++;
+        active--;
+      } catch {
+        fail();
+      }
+    })();
+  });
+  return () => ({
+    userMessages: [...messages].map(([id, content]) => ({ id, content })),
+    runsFinished: finished,
+    running: {
+      attrPresent: true,
+      runningNow: active > 0,
+      sawRunningTrue: starts > 0,
+      runStartCount: starts,
+      lastStoppedAtMs: 0,
+    },
+    ...(error ? { error } : {}),
+  });
 }
 
 /**
@@ -229,15 +367,20 @@ export function createPlaywrightProbeExecutor(
       };
     }
 
-    const context = await options.browser.newContext({
-      extraHTTPHeaders: {
-        "X-AIMock-Strict": "true",
-        "X-AIMock-Context": input.cell.integration,
-        "X-Test-Id": input.testId,
-        "X-Diag-Run-Id": input.testId,
-        "X-Diag-Hops": "frontend-matrix",
-      },
-    });
+    const publicMode = options.executionMode === "public-pill";
+    const context = await options.browser.newContext(
+      publicMode
+        ? {}
+        : {
+            extraHTTPHeaders: {
+              "X-AIMock-Strict": "true",
+              "X-AIMock-Context": input.cell.integration,
+              "X-Test-Id": input.testId,
+              "X-Diag-Run-Id": input.testId,
+              "X-Diag-Hops": "frontend-matrix",
+            },
+          },
+    );
     const page = await context.newPage();
     const requestFailures: string[] = [];
     let pageErrorCount = 0;
@@ -248,6 +391,10 @@ export function createPlaywrightProbeExecutor(
       requestFailures.push(safeFailedRequest(request.url()));
     });
 
+    let targetFrame: Frame | undefined;
+    const observePublic = publicMode
+      ? observePublicTransport(page, () => targetFrame)
+      : undefined;
     let stage = "initialization";
     let capture: SseCapture | undefined;
     let sseHandle: Awaited<ReturnType<typeof attachSseInterceptor>> | undefined;
@@ -261,9 +408,11 @@ export function createPlaywrightProbeExecutor(
         }, options.probeTimeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS);
       });
       const run = async (): Promise<FrontendProbeResult> => {
-        await installBrowserContextShims(page);
-        await installPrePaintFromEnv(page);
-        sseHandle = await attachSseInterceptor(page);
+        if (!publicMode) {
+          await installBrowserContextShims(page);
+          await installPrePaintFromEnv(page);
+          sseHandle = await attachSseInterceptor(page);
+        }
 
         stage = "navigation";
         const response = await page.goto(input.url, {
@@ -275,20 +424,51 @@ export function createPlaywrightProbeExecutor(
         }
 
         stage = "hydration";
+        if (publicMode) {
+          const iframe = page.locator("iframe");
+          await iframe.waitFor({
+            state: "visible",
+            timeout: options.hydrationTimeoutMs ?? DEFAULT_HYDRATION_TIMEOUT_MS,
+          });
+          if ((await iframe.count()) !== 1)
+            throw new Error("public shell must resolve exactly one iframe");
+          targetFrame =
+            (await (await iframe.elementHandle())?.contentFrame()) ?? undefined;
+          if (!targetFrame) throw new Error("public shell iframe missing");
+          await targetFrame.waitForLoadState("load");
+          const expected = new URL(
+            `/demos/${input.cell.feature}`,
+            input.backendUrl,
+          );
+          const actual = new URL(targetFrame.url());
+          if (
+            actual.origin !== expected.origin ||
+            actual.pathname !== expected.pathname
+          )
+            throw new Error("public shell iframe target mismatch");
+        }
+        const surface = targetFrame ?? page;
         await waitForFrameworkHydration(
-          page,
+          surface,
           input.cell.frontend,
           options.hydrationTimeoutMs,
         );
 
         stage = "conversation";
         const conversation = await runConversation(
-          page,
+          surface,
           script.buildTurns({
             integrationSlug: input.cell.integration,
             featureType: input.featureType,
             baseUrl: input.backendUrl,
           }),
+          publicMode
+            ? {
+                executionMode: "public-pill",
+                canonical: script.canonical,
+                observePublic,
+              }
+            : {},
         );
         if (conversation.failure_turn !== undefined) {
           const failureSummary = conversationFailureSummary(conversation.error);
@@ -307,18 +487,30 @@ export function createPlaywrightProbeExecutor(
               pageErrorCount,
               requestFailureCount: requestFailures.length,
               failedRequests: requestFailures.slice(-10),
+              ...(publicMode
+                ? { outerUrl: page.url(), iframeUrl: targetFrame?.url() }
+                : {}),
             },
+            ...(conversation.functional
+              ? { functional: conversation.functional }
+              : {}),
           };
         }
 
         stage = "capture";
-        capture = await sseHandle.stop();
+        if (sseHandle) capture = await sseHandle.stop();
         return {
           featureType: input.featureType,
-          status: "passed",
+          status: publicMode ? "unverified" : "passed",
           durationMs: Date.now() - startedAt,
           testId: input.testId,
+          ...(conversation.functional
+            ? { functional: conversation.functional }
+            : {}),
           diagnostics: {
+            ...(publicMode
+              ? { outerUrl: page.url(), iframeUrl: targetFrame?.url() }
+              : {}),
             frontend: input.cell.frontend,
             turnsCompleted: conversation.turns_completed,
             totalTurns: conversation.total_turns,

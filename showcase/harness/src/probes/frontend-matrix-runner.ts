@@ -1,12 +1,14 @@
+import type { FunctionalProof } from "./helpers/conversation-runner.js";
 import type { D5FeatureType } from "./helpers/d5-registry.js";
 import type {
   FrontendMatrixCell,
   RunnableFrontend,
 } from "./frontend-matrix.js";
 
-export type FrontendProbeStatus = "passed" | "failed";
+export type FrontendProbeStatus = "passed" | "failed" | "unverified";
 
 export interface FrontendProbeResult {
+  functional?: FunctionalProof;
   featureType: D5FeatureType;
   status: FrontendProbeStatus;
   durationMs: number;
@@ -300,6 +302,7 @@ export interface FrontendMatrixArtifactInput {
 }
 
 export interface FrontendMatrixArtifactProbe {
+  functional?: FunctionalProof;
   featureType: D5FeatureType;
   status: FrontendProbeStatus;
   durationMs: number;
@@ -337,6 +340,7 @@ export interface FrontendMatrixArtifact {
     total: number;
     passed: number;
     failed: number;
+    unverified?: number;
     p95CellDurationMs: number;
   };
   cells: FrontendMatrixArtifactCell[];
@@ -402,6 +406,7 @@ export function mergeFrontendMatrixShardArtifacts(
       total: cells.length,
       passed: cells.filter((cell) => cell.status === "passed").length,
       failed: cells.filter((cell) => cell.status === "failed").length,
+      unverified: cells.filter((cell) => cell.status === "unverified").length,
       p95CellDurationMs: percentile(
         cells.map((cell) => cell.durationMs),
         0.95,
@@ -420,6 +425,7 @@ export function createFrontendMatrixArtifact(
       const probes = result.probes.map(
         (probe): FrontendMatrixArtifactProbe => ({
           featureType: probe.featureType,
+          ...(probe.functional ? { functional: probe.functional } : {}),
           status: probe.status,
           durationMs: probe.durationMs,
           testId: probe.testId,
@@ -463,6 +469,7 @@ export function createFrontendMatrixArtifact(
       total: cells.length,
       passed: cells.filter((cell) => cell.status === "passed").length,
       failed: cells.filter((cell) => cell.status === "failed").length,
+      unverified: cells.filter((cell) => cell.status === "unverified").length,
       p95CellDurationMs: percentile(
         cells.map((cell) => cell.durationMs),
         0.95,

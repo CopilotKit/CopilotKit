@@ -15,13 +15,13 @@ import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import type { ListOpts, ListResult, PbClient } from "../storage/pb-client.js";
 import type { Logger } from "../types/index.js";
-import {
-  type ClaimResult,
-  type JobClaimClient,
-  type JobStatus,
-  type JobView,
-  type ReleaseResult,
-  type RenewResult,
+import type {
+  ClaimResult,
+  JobClaimClient,
+  JobStatus,
+  JobView,
+  ReleaseResult,
+  RenewResult,
 } from "./job-claim.js";
 import type { ServiceJobPayload, ServiceJobResult } from "./contracts.js";
 import { createFleetQueueClient } from "./queue-client.js";
@@ -30,18 +30,16 @@ import {
   FLEET_PRODUCER_DEMOS_SCHEDULE_ID,
   FLEET_PRODUCER_SCHEDULE_ID,
   FLEET_PRODUCER_SMOKE_SCHEDULE_ID,
-  type ProducerSchedule,
 } from "./control-plane/control-plane.js";
-import {
-  createMemoizedFamilySummary,
-  type FamilySummaryResponse,
-  type RunViewDeps,
+import type { ProducerSchedule } from "./control-plane/control-plane.js";
+import { createMemoizedFamilySummary } from "./control-plane/run-view.js";
+import type {
+  FamilySummaryResponse,
+  RunViewDeps,
 } from "./control-plane/run-view.js";
 import type { JobProducer } from "./control-plane/job-producer.js";
-import {
-  registerFleetRunsRoutes,
-  type RunDetailResponse,
-} from "../http/fleet-runs.js";
+import { registerFleetRunsRoutes } from "../http/fleet-runs.js";
+import type { RunDetailResponse } from "../http/fleet-runs.js";
 
 // ───────────────────────────────────────────────────────────────────────
 // Clock + fixtures
@@ -578,7 +576,7 @@ describe("run-visibility integration: enqueue→claim→release→/api/runs", ()
       enqueuedAt: iso(0),
       finishedAt: iso(55_000),
       durationMs: 55_000,
-      cells: { total: 3, passed: 3, failed: 0 },
+      cells: { total: 3, passed: 0, failed: 0, unverified: 3 },
       redsIntroduced: null,
       redsCleared: null,
       errorSummary: null,

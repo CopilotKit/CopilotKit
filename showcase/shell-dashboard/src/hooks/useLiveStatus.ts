@@ -623,7 +623,7 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
         : matchedCommDim !== undefined
           ? `dimension = "${matchedCommDim}" && key !~ "%/%"`
           : null;
-    const nonGreenClause = `state != "green"`;
+    const nonGreenClause = `state != "green" || key ~ "d5:%" || key ~ "d6:%"`;
     const supplementalUnion =
       commAggregateClause === null
         ? nonGreenClause

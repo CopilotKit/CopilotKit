@@ -82,15 +82,8 @@ function goneRows(slug: string, atMs: number): StatusRow[] {
   ];
 }
 
-/**
- * All rows to make a slug's cell a GENUINE GREEN LADDER (chipColor green,
- * achievedDepth 6) — a POSITIVE-green recovery signal. B-F1: the D5/D6 per-cell
- * rows (`d5:<slug>/agentic-chat`, `d6:<slug>/agentic-chat`) are MANDATORY —
- * without them `buildCellModel` collapses to gray/no-data (achievedDepth 4,
- * chipColor gray), which is UNKNOWN, not healthy, and must NOT count as
- * recovery. `agentic-chat` maps to the single D5/D6 featureType `agentic-chat`
- * (CATALOG_TO_D5_KEY), so one d5 + one d6 green row completes the ladder.
- */
+/** Fresh diagnostic D3/D4 readiness confirms backend recovery independently
+ * of the unqualified D5/D6 observations retained in the same fixture. */
 function healthyRows(slug: string, atMs: number): StatusRow[] {
   return [
     row(slug, keyFor("e2e", slug, "agentic-chat"), "green", atMs),
@@ -429,13 +422,9 @@ describe("D0-gone monitor — hourly dedup (§10.3)", () => {
 });
 
 describe("D0-gone monitor — B-flap: an open outage keeps re-posting despite an inconclusive confirm", () => {
-  /** e2e/chat/tools green but NO d5/d6 → gray no-data (inconclusive). */
+  /** D3 readiness without D4 chat remains inconclusive. */
   function noDataRows(slug: string, atMs: number): StatusRow[] {
-    return [
-      row(slug, keyFor("e2e", slug, "agentic-chat"), "green", atMs),
-      row(slug, keyFor("chat", slug), "green", atMs),
-      row(slug, keyFor("tools", slug), "green", atMs),
-    ];
+    return [row(slug, keyFor("e2e", slug, "agentic-chat"), "green", atMs)];
   }
 
   it("re-post is due but the confirm scan flaps to inconclusive → STILL re-posts (held open)", async () => {
@@ -497,13 +486,9 @@ describe("D0-gone monitor — recovery/clear (§10.4)", () => {
 });
 
 describe("D0-gone monitor — B-F1 gone→no-data must NOT auto-recover", () => {
-  /** e2e/chat/tools green but NO d5/d6 → chipColor gray (no-data), NOT green. */
+  /** D3 readiness without D4 chat is insufficient recovery evidence. */
   function noDataRows(slug: string, atMs: number): StatusRow[] {
-    return [
-      row(slug, keyFor("e2e", slug, "agentic-chat"), "green", atMs),
-      row(slug, keyFor("chat", slug), "green", atMs),
-      row(slug, keyFor("tools", slug), "green", atMs),
-    ];
+    return [row(slug, keyFor("e2e", slug, "agentic-chat"), "green", atMs)];
   }
 
   it("open outage → column decays to NO-DATA (gray) → NO recovery, held open", async () => {
@@ -515,8 +500,7 @@ describe("D0-gone monitor — B-F1 gone→no-data must NOT auto-recover", () => 
     expect(f.posted).toHaveLength(1);
 
     // The producer is LIVE, but alpha's ladder decays to no-data (gray) — e.g.
-    // the d5/d6 rows stopped being written while the earlier green ones aged
-    // out, or a partial re-sweep. Under the OLD `columnFreshHealthy`
+    // the chat observation is missing during a partial re-sweep. Under the OLD `columnFreshHealthy`
     // (!some cellGone), a gray/no-data column read as fresh-healthy → a FALSE
     // recovery. With the positive-green classifier it is UNKNOWN → HOLD.
     for (const mins of [20, 40, 60]) {
@@ -1180,10 +1164,8 @@ describe("D0-gone monitor — degraded/stale ≠ gone (unified ladder amber, §7
   it("a GENUINE liveness-down (fresh-red health) is still detected as gone (§F)", async () => {
     const f = makeFakes();
     f.setSummary(f.liveProducer());
-    // A fresh-red liveness (D1 health) signal gates the whole ladder → chipColor
-    // red, achievedDepth 0 → cellGone. This is the real "backend gone" class the
-    // unified ladder must STILL page (distinct from a degraded/amber cell). Proves
-    // the amber change did not hide the genuine-outage class.
+    // Fresh-red health marks the integration unavailable without claiming its
+    // features failed. The explicit blocker must still open the backend outage.
     f.setStatusRows([row("alpha", keyFor("health", "alpha"), "red", T0)]);
     const m = createD0GoneMonitor(f.deps);
     await m.tick();

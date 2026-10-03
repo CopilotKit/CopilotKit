@@ -159,16 +159,21 @@ const STARTER_CELL: GateCell = {
  */
 function starterCellMap(
   columnSlug: string,
-  color: "green" | "red",
+  color: "green" | "red" | "amber",
   opts: { observedAt?: string } = {},
 ): LiveStatusMap {
   const observed = opts.observedAt ?? FRESH_AT;
   const m: LiveStatusMap = new Map();
   STARTER_LEVELS.forEach((level, i) => {
     const state =
-      color === "red" && i === STARTER_LEVELS.length - 1 ? "red" : "green";
+      color !== "green" && i === STARTER_LEVELS.length - 1 ? "red" : "green";
     m.set(
-      ...row("starter", columnSlug, level, state, { observedAt: observed }),
+      ...row("starter", columnSlug, level, state, {
+        observedAt: observed,
+        ...(color === "amber"
+          ? { signal: { errorClass: "transport-error" } }
+          : {}),
+      }),
     );
   });
   return m;
@@ -181,13 +186,17 @@ function starterCellMap(
 describe("runEquivalenceGate", () => {
   it("FAILS on staging-green / prod-red(genuine)", () => {
     const result = runEquivalenceGate(
-      gateInput([CELL], cellMap("demo", "green"), cellMap("demo", "red")),
+      gateInput(
+        [{ ...STARTER_CELL, slug: "demo" }],
+        starterCellMap("demo", "green"),
+        starterCellMap("demo", "red"),
+      ),
     );
     expect(result.passed).toBe(false);
     expect(result.mismatches).toHaveLength(1);
     expect(result.mismatches[0]).toMatchObject({
       slug: "demo",
-      featureId: MAPPED_FEATURE,
+      featureId: "starter",
       stagingChip: "green",
       prodChip: "red",
     });
@@ -227,7 +236,7 @@ describe("runEquivalenceGate", () => {
         starterCellMap("google-adk", "red", { observedAt: PRE_TRIGGER_AT }),
       ),
     );
-    expect(result.passed).toBe(true);
+    expect(result.passed).toBe(false);
     const cmp = result.comparisons.find((c) => c.slug === "google-adk");
     expect(cmp?.excluded).toBe(true);
     expect(cmp?.excludedReason).toBe("stale-prod");
@@ -239,13 +248,17 @@ describe("runEquivalenceGate", () => {
     // exercises the `prodChip !== "green"` mismatch branch via amber (NOT red),
     // so a refactor to "only red is a regression" would be caught here.
     const result = runEquivalenceGate(
-      gateInput([CELL], cellMap("demo", "green"), cellMap("demo", "amber")),
+      gateInput(
+        [{ ...STARTER_CELL, slug: "demo" }],
+        starterCellMap("demo", "green"),
+        starterCellMap("demo", "amber"),
+      ),
     );
     expect(result.passed).toBe(false);
     expect(result.mismatches).toHaveLength(1);
     expect(result.mismatches[0]).toMatchObject({
       slug: "demo",
-      featureId: MAPPED_FEATURE,
+      featureId: "starter",
       stagingChip: "green",
       prodChip: "amber",
       mismatch: true,
@@ -258,7 +271,7 @@ describe("runEquivalenceGate", () => {
     expect(result.summary).toContain("demo");
   });
 
-  it("PASSES on staging-green / prod-gray(driver-error) — excluded", () => {
+  it("legacy staging positive and prod infra failure stay unverified — excluded", () => {
     const result = runEquivalenceGate(
       gateInput(
         [CELL],
@@ -266,7 +279,7 @@ describe("runEquivalenceGate", () => {
         cellMap("demo", "driver-error"),
       ),
     );
-    expect(result.passed).toBe(true);
+    expect(result.passed).toBe(false);
     expect(result.mismatches).toHaveLength(0);
     // prod folded to gray via U7 → excluded from the gate.
     const cmp = result.comparisons.find((c) => c.slug === "demo");
@@ -274,12 +287,12 @@ describe("runEquivalenceGate", () => {
     expect(cmp?.excluded).toBe(true);
   });
 
-  it("PASSES when prod is GREENER than staging (one-directional)", () => {
+  it("non-green staging cannot grant equivalence acceptance (one-directional)", () => {
     // staging red, prod green → prod is greener → not a regression → PASS.
     const result = runEquivalenceGate(
       gateInput([CELL], cellMap("demo", "red"), cellMap("demo", "green")),
     );
-    expect(result.passed).toBe(true);
+    expect(result.passed).toBe(false);
     expect(result.mismatches).toHaveLength(0);
   });
 
@@ -288,24 +301,25 @@ describe("runEquivalenceGate", () => {
     // §6.4 freshness folds it to gray/excluded → PASS.
     const result = runEquivalenceGate(
       gateInput(
-        [CELL],
-        cellMap("demo", "green"),
-        cellMap("demo", "red", { observedAt: PRE_TRIGGER_AT }),
+        [{ ...STARTER_CELL, slug: "demo" }],
+        starterCellMap("demo", "green"),
+        starterCellMap("demo", "red", { observedAt: PRE_TRIGGER_AT }),
       ),
     );
-    expect(result.passed).toBe(true);
+    expect(result.passed).toBe(false);
     expect(result.mismatches).toHaveLength(0);
     const cmp = result.comparisons.find((c) => c.slug === "demo");
     expect(cmp?.excluded).toBe(true);
     expect(cmp?.excludedReason).toBe("stale-prod");
   });
 
-  it("PASSES when both sides are green (equivalent)", () => {
+  it("legacy agent positives on both sides are UNVERIFIED", () => {
     const result = runEquivalenceGate(
       gateInput([CELL], cellMap("demo", "green"), cellMap("demo", "green")),
     );
-    expect(result.passed).toBe(true);
+    expect(result.passed).toBe(false);
     expect(result.mismatches).toHaveLength(0);
+    expect(result.summary).toContain("UNVERIFIED");
   });
 
   it("EXCLUDES a cell that is gray on STAGING (no staging-green claim to honor)", () => {
@@ -318,22 +332,22 @@ describe("runEquivalenceGate", () => {
         cellMap("demo", "red"),
       ),
     );
-    expect(result.passed).toBe(true);
+    expect(result.passed).toBe(false);
     expect(result.mismatches).toHaveLength(0);
     const cmp = result.comparisons.find((c) => c.slug === "demo");
     expect(cmp?.excluded).toBe(true);
   });
 
   it("reports every cell in comparisons and aggregates multiple mismatches", () => {
-    const cellA: GateCell = { ...CELL, slug: "a" };
-    const cellB: GateCell = { ...CELL, slug: "b" };
+    const cellA: GateCell = { ...STARTER_CELL, slug: "a" };
+    const cellB: GateCell = { ...STARTER_CELL, slug: "b" };
     const staging: LiveStatusMap = new Map([
-      ...cellMap("a", "green"),
-      ...cellMap("b", "green"),
+      ...starterCellMap("a", "green"),
+      ...starterCellMap("b", "green"),
     ]);
     const prod: LiveStatusMap = new Map([
-      ...cellMap("a", "red"),
-      ...cellMap("b", "green"),
+      ...starterCellMap("a", "red"),
+      ...starterCellMap("b", "green"),
     ]);
     const result = runEquivalenceGate(gateInput([cellA, cellB], staging, prod));
     expect(result.passed).toBe(false);

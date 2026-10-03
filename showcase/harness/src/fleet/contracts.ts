@@ -45,6 +45,7 @@
  */
 
 import type { BrowserPoolBudget } from "../probes/helpers/browser-pool.js";
+import { functionalAdmission } from "../shared/cell-model/live-status.js";
 import type { ProbeResult, ProbeState } from "../types/index.js";
 import type { JobStatus, JobView } from "./job-claim.js";
 
@@ -532,11 +533,51 @@ export function probeResultsForServiceJobResult(
  * `ProbeRunSummary` ({ total, passed, failed }) so the aggregator passes the
  * return value straight to `runWriter.finish`/`update`. Pure; unit-tested.
  */
-export function runSummaryForServiceJobResult(result: ServiceJobResult): {
+export function runSummaryForServiceJobResult(
+  result: Pick<
+    ServiceJobResult,
+    "probeKey" | "aggregateKey" | "cells" | "rollup"
+  >,
+): {
   total: number;
   passed: number;
   failed: number;
+  unverified?: number;
 } {
+  if (
+    functionalAdmission(result.probeKey, "green") === "unverified" ||
+    functionalAdmission(result.aggregateKey, "green") === "unverified"
+  ) {
+    // These are non-passing observations, not newly observed product failures.
+    return {
+      total: result.rollup.total,
+      passed: 0,
+      failed: result.rollup.failed,
+      ...(result.rollup.passed > 0 ? { unverified: result.rollup.passed } : {}),
+    };
+  }
+  if (
+    result.cells.some(
+      (cell) => functionalAdmission(cell.cellKey, "green") === "unverified",
+    )
+  ) {
+    const passed = Math.min(
+      result.rollup.passed,
+      result.cells.filter(
+        (cell) =>
+          cell.state === "green" &&
+          functionalAdmission(cell.cellKey, cell.state) !== "unverified",
+      ).length,
+    );
+    return {
+      total: result.rollup.total,
+      passed,
+      failed: result.rollup.failed,
+      ...(result.rollup.passed > passed
+        ? { unverified: result.rollup.passed - passed }
+        : {}),
+    };
+  }
   return {
     total: result.rollup.total,
     passed: result.rollup.passed,

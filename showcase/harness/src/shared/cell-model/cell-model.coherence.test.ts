@@ -129,12 +129,16 @@ function assertCoherent(label: string, m: Coherable): void {
     expect(chipColor, `${label}: INV3 d6Eff green⟹chip green`).toBe("green");
   }
 
-  // INV4 — a non-green D6 badge is the soft-parity amber top over a green D5 ladder.
-  if (d6Effective === "red" || d6Effective === "amber") {
-    expect(chipColor, `${label}: INV4 d6Eff∈{red,amber}⟹chip amber`).toBe(
-      "amber",
-    );
-    expect(achievedDepth, `${label}: INV4 d6Eff∈{red,amber}⟹ach==5`).toBe(5);
+  // INV4 — fresh D6 failure above unverified D5 stays red at depth4;
+  // other effective D6 outcomes require an intact depth5 ladder.
+  if (d6Effective === "red" && achievedDepth === 4) {
+    expect(
+      chipColor,
+      `${label}: INV4 fresh D6 failure above unverified D5`,
+    ).toBe("red");
+  } else if (d6Effective === "red" || d6Effective === "amber") {
+    expect(chipColor, `${label}: INV4 intact D5 ladder soft top`).toBe("amber");
+    expect(achievedDepth, `${label}: INV4 intact D5 ladder depth`).toBe(5);
   }
 
   // INV5 — a RED D6 badge is a GENUINE regression (never an infra/soft red).
@@ -145,8 +149,8 @@ function assertCoherent(label: string, m: Coherable): void {
   // INV6 — d6Effective is only meaningful on a ladder green through D5.
   if (d6Effective !== null) {
     expect(
-      achievedDepth >= 5,
-      `${label}: INV6 d6Eff!=null⟹ach>=5 (got ${achievedDepth})`,
+      achievedDepth >= 5 || (achievedDepth === 4 && d6Effective === "red"),
+      `${label}: INV6 effective D6 requires depth5 or fresh failure at depth4 (got ${achievedDepth})`,
     ).toBe(true);
   }
 }

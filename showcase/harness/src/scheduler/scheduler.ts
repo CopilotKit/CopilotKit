@@ -20,6 +20,7 @@ export interface RunSummary {
   total: number;
   passed: number;
   failed: number;
+  unverified?: number;
   /**
    * CR-A1.5: set when the probe handler's discovery enumeration itself
    * failed (vs. per-target failures, which roll up into `failed`). Surfaced
@@ -248,7 +249,9 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       opts.logger.error("scheduler.invalid-cron", { id, cron, err: msg });
-      throw new Error(`invalid cron for ${id}: ${cron} (${msg})`);
+      throw new Error(`invalid cron for ${id}: ${cron} (${msg})`, {
+        cause: err,
+      });
     }
   }
 
@@ -416,9 +419,7 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
         const old = entries.get(entry.id)!;
         old.job?.stop();
         if (old.inflight.size > 0) {
-          const drain = Promise.allSettled([...old.inflight]).then(
-            () => undefined,
-          );
+          const drain = Promise.allSettled(old.inflight).then(() => undefined);
           pendingDrain.set(entry.id, drain);
         }
       }
@@ -442,7 +443,7 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
       e.job?.stop();
       const drain =
         e.inflight.size > 0
-          ? Promise.allSettled([...e.inflight]).then(() => undefined)
+          ? Promise.allSettled(e.inflight).then(() => undefined)
           : Promise.resolve();
       // Record the drain BEFORE deleting the entry so a concurrent
       // `register(id, ...)` from the orchestrator diff loop can pick it

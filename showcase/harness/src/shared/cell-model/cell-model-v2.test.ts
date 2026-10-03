@@ -80,7 +80,7 @@ describe("§7 I1: single-absent lower rung → gray", () => {
 });
 
 describe("§7 I2: stale-degraded rung → amber (not red)", () => {
-  it("stale-green D5 → amber", () => {
+  it("stale legacy D5 green remains unverified", () => {
     const live = mergeRowsToMap(
       greenBase(F).map((r) =>
         r.key.startsWith("d5:")
@@ -88,7 +88,7 @@ describe("§7 I2: stale-degraded rung → amber (not red)", () => {
           : r,
       ),
     );
-    expect(buildCellModel(live, wired(F), NOW).chipColor).toBe("amber");
+    expect(buildCellModel(live, wired(F), NOW).chipColor).toBe("gray");
   });
 });
 
@@ -132,27 +132,43 @@ describe("§7 I5: cold-load stripped signal → red (pending attribution)", () =
 });
 
 describe("§7 §F: D1/D2 liveness gate", () => {
-  it("present fresh-red D1 gates → red, achieved 0, regression", () => {
+  it("a shared health failure blocks feature credit without inventing a feature failure", () => {
     const live = mergeRowsToMap(
       greenBase(F).map((r) =>
         r.key.startsWith("health:") ? row(r.key, "red") : r,
       ),
     );
     const m = buildCellModel(live, wired(F), NOW);
-    expect(m.chipColor).toBe("red");
+    expect(m.chipColor).toBe("gray");
     expect(m.achievedDepth).toBe(0);
-    expect(m.isRegression).toBe(true);
+    expect(m.isRegression).toBe(false);
+    expect(m.blockedBy).toBe("health");
   });
 
-  it("absent liveness over green ladder → green (non-gating, item 7)", () => {
+  it("retains a real feature failure alongside an unavailable integration", () => {
+    const live = mergeRowsToMap(
+      greenBase(F).map((r) =>
+        r.key.startsWith("agent:") || r.key.startsWith("d6:")
+          ? row(r.key, "red", { failCount: 4 })
+          : r,
+      ),
+    );
+    const m = buildCellModel(live, wired(F), NOW);
+    expect(m.blockedBy).toBe("agent");
+    expect(m.chipColor).toBe("red");
+    expect(m.isRegression).toBe(true);
+    expect(m.d6Effective).toBe("red");
+  });
+
+  it("absent liveness remains non-gating through D4; functional positives are unverified", () => {
     const live = mergeRowsToMap(
       greenBase(F).filter(
         (r) => !r.key.startsWith("health:") && !r.key.startsWith("agent:"),
       ),
     );
     const m = buildCellModel(live, wired(F), NOW);
-    expect(m.chipColor).toBe("green");
-    expect(m.achievedDepth).toBe(6);
+    expect(m.chipColor).toBe("gray");
+    expect(m.achievedDepth).toBe(4);
     expect(m.isRegression).toBe(false);
   });
 });

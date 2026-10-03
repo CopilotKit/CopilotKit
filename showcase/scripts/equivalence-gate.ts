@@ -249,6 +249,9 @@ function buildSummary(
   const total = comparisons.length;
   const excluded = comparisons.filter((c) => c.excluded).length;
   const compared = total - excluded;
+  if (!comparisons.some((c) => !c.excluded && c.stagingChip === "green")) {
+    return `Equivalence gate UNVERIFIED — no eligible admitted staging-green baseline; ${compared} compared, ${excluded} excluded (gray/stale/unsupported) across ${total} cells.`;
+  }
   if (mismatches.length === 0) {
     return (
       `Equivalence gate PASSED — ${compared} compared, ${excluded} excluded ` +
@@ -280,7 +283,9 @@ export function runEquivalenceGate(
   const comparisons = input.cells.map((cell) => compareCell(input, cell, now));
   const mismatches = comparisons.filter((c) => c.mismatch);
   return {
-    passed: mismatches.length === 0,
+    passed:
+      mismatches.length === 0 &&
+      comparisons.some((c) => !c.excluded && c.stagingChip === "green"),
     comparisons,
     mismatches,
     summary: buildSummary(comparisons, mismatches),

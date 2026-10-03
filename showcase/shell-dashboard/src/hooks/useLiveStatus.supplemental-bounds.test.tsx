@@ -294,7 +294,19 @@ const GREEN_FILLER_ROW: Record<string, unknown> = {
   first_failure_at: null,
 };
 
-const HONEST_ROWS = [RED_ROW, OVERLAY_AGGREGATE_ROW, GREEN_FILLER_ROW];
+const FUNCTIONAL_GREEN_ROWS = ["d5", "d6"].map((dimension) => ({
+  ...GREEN_FILLER_ROW,
+  id: `${dimension}-green`,
+  key: `${dimension}:gamma/agentic-chat`,
+  dimension,
+  signal: { qualifies: true },
+}));
+const HONEST_ROWS = [
+  RED_ROW,
+  OVERLAY_AGGREGATE_ROW,
+  GREEN_FILLER_ROW,
+  ...FUNCTIONAL_GREEN_ROWS,
+];
 
 interface HonestServerState {
   /** HTTP status to answer the SUPPLEMENTAL request with (200 = serve normally). */
@@ -745,7 +757,11 @@ describe("useLiveStatus supplemental fetch — cold-load correctness + projectio
       // (non-green clause) and the green d6 aggregate (comm-error clause). The
       // green PER-CELL row matches neither and must not be re-fetched.
       expect(new Set(honest.supplementalServedKeys)).toEqual(
-        new Set([keyFor("e2e", RED_SLUG, FEATURE), `d6:${OVERLAY_SLUG}`]),
+        new Set([
+          keyFor("e2e", RED_SLUG, FEATURE),
+          `d6:${OVERLAY_SLUG}`,
+          ...FUNCTIONAL_GREEN_ROWS.map((row) => row.key),
+        ]),
       );
 
       // The bulk pages still project `signal` away.
@@ -799,6 +815,9 @@ describe("useLiveStatus supplemental fetch — cold-load correctness + projectio
 
       // And the green per-cell row is still signal-less (bulk projection intact).
       expect(live.get(keyFor("e2e", "gamma", FEATURE))?.signal).toBeUndefined();
+      for (const row of FUNCTIONAL_GREEN_ROWS) {
+        expect(live.get(row.key)?.signal).toEqual({ qualifies: true });
+      }
     } finally {
       unmount();
     }

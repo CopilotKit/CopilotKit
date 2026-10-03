@@ -26,6 +26,17 @@ import {
 
 export type State = "green" | "red" | "degraded";
 
+/** Current callers have no independent expected contract. Producer flags cannot admit D5/D6 green. */
+export function functionalAdmission(
+  key: string,
+  state: string,
+): "unverified" | "unchanged" {
+  return /^(?:d5|d6|d5-single-pill-e2e|d6-all-pills-e2e):/.test(key.trim()) &&
+    state === "green"
+    ? "unverified"
+    : "unchanged";
+}
+
 /* ------------------------------------------------------------------ */
 /*  Pool comm-error surface (REQ-B)                                     */
 /* ------------------------------------------------------------------ */
@@ -636,7 +647,10 @@ export function resolveD5Row(
   let anyMissing = false;
   for (const d5Key of d5Keys) {
     const row = live.get(keyFor("d5", slug, d5Key)) ?? null;
-    if (!row) {
+    if (
+      !row ||
+      functionalAdmission(keyFor("d5", slug, d5Key), row.state) === "unverified"
+    ) {
       anyMissing = true;
       continue;
     }
@@ -704,7 +718,10 @@ export function resolveD6Row(
   let anyMissing = false;
   for (const d6Key of d6Keys) {
     const row = live.get(keyFor("d6", slug, d6Key)) ?? null;
-    if (!row) {
+    if (
+      !row ||
+      functionalAdmission(keyFor("d6", slug, d6Key), row.state) === "unverified"
+    ) {
       anyMissing = true;
       continue;
     }

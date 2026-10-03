@@ -681,10 +681,8 @@ describe("GET /api/matrix — §E per-cell fault isolation", () => {
     // cell still renders.
     const good = integratedCell("acme", "agentic-chat", "wired");
     const bad = integratedCell("acme", "a/b", "wired"); // `/` → keyFor throws
-    // A FULL green ladder (incl. the d5/d6 per-cell rows agentic-chat maps to)
-    // so the good cell is genuinely GREEN — distinguishable from the degraded
-    // BAD cell's gray, proving the good cell is the real computed model and not
-    // itself a swallowed error.
+    // Legacy functional positives stay unverified. Diagnostic depth4 proves
+    // the sibling computed normally rather than taking the error fallback.
     const rows = [
       ...greenLadder("acme", "agentic-chat", FRESH),
       row(keyFor("d5", "acme", "agentic-chat"), "green"),
@@ -696,7 +694,8 @@ describe("GET /api/matrix — §E per-cell fault isolation", () => {
     expect(body.error).toBeUndefined();
     expect(body.cells).toHaveLength(2);
     const goodCell = cellOf(body, "acme", "agentic-chat")!;
-    expect(goodCell.chipColor).toBe("green");
+    expect(goodCell.chipColor).toBe("gray");
+    expect(goodCell.achievedDepth).toBe(4);
     const badCell = cellOf(body, "acme", "a/b")!;
     expect(badCell.chipColor).toBe("gray");
     expect(badCell.achievedDepth).toBe(0);
@@ -722,7 +721,8 @@ describe("computeMatrix — per-cell fault isolation", () => {
     expect(out).toHaveLength(2);
 
     const g = out.find((c) => c.featureId === "agentic-chat")!;
-    expect(g.chipColor).toBe("green");
+    expect(g.chipColor).toBe("gray");
+    expect(g.achievedDepth).toBe(4);
 
     const b = out.find((c) => c.featureId === "a/b")!;
     expect(b.slug).toBe("acme");

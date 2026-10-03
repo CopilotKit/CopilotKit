@@ -75,7 +75,12 @@ interface ProbeScheduleEntryDto {
     finishedAt: string;
     durationMs: number;
     state: "completed";
-    summary: { total: number; passed: number; failed: number } | null;
+    summary: {
+      total: number;
+      passed: number;
+      failed: number;
+      unverified?: number;
+    } | null;
   } | null;
   inflight: {
     startedAt: string;

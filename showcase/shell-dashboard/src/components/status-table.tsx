@@ -126,6 +126,7 @@ function lastRunTone(lastRun: ProbeScheduleEntry["lastRun"]): Tone {
   // can't claim green — match the runs-list "unknown" semantics.
   if (!lastRun.summary) return "gray";
   if (lastRun.summary.failed > 0) return "red";
+  if (lastRun.summary.unverified) return "gray";
   // R3-B.1: mirror status-runs-list (R2-D.4). failed=0 alone is not
   // enough for green — if some services were skipped (passed < total)
   // render amber so the schedule view doesn't misread a partial run as
@@ -196,13 +197,18 @@ export function StatusTable({
                   (s.state === "completed" &&
                     (s.result === "red" || s.result === "yellow")),
               ).length;
+              const unverified = inflight.services.filter(
+                (s) => s.state === "completed" && s.result === "unverified",
+              ).length;
 
               if (failed > 0) tone = "red";
               else if (completed < total) tone = "amber";
+              else if (unverified > 0) tone = "gray";
               else tone = "green";
 
               result = `${passed}/${total} pass`;
               if (failed > 0) result += ` (${failed} fail)`;
+              if (unverified > 0) result += `; ${unverified} not verified`;
               if (completed < total) result += ` — running`;
 
               lastStartMs = Date.parse(inflight.startedAt);
@@ -218,11 +224,15 @@ export function StatusTable({
                 ? summary
                   ? summary.failed > 0
                     ? `${summary.passed}/${summary.total} pass (${summary.failed} fail)`
-                    : summary.passed < summary.total
-                      ? `${summary.passed}/${summary.total} (${summary.total - summary.passed} skipped)`
-                      : `${summary.total}/${summary.total} pass`
+                    : summary.unverified
+                      ? `${summary.passed}/${summary.total} pass`
+                      : summary.passed < summary.total
+                        ? `${summary.passed}/${summary.total} (${summary.total - summary.passed} skipped)`
+                        : `${summary.total}/${summary.total} pass`
                   : "—"
                 : "never run";
+              if (summary?.unverified)
+                result += `; ${summary.unverified} not verified`;
             }
 
             const nextRunMs = e.nextRunAt ? Date.parse(e.nextRunAt) : null;

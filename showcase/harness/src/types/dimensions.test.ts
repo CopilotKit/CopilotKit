@@ -202,7 +202,7 @@ describe("persisted dimension derivation (real status-writer over fake PB)", () 
 
   it("persists the emit-prefix dimension for representative emitted keys (d6 side row, starter row)", async () => {
     const h = makeWriterHarness();
-    await h.write("d6:langgraph-python/shared-state");
+    await h.write("d6:langgraph-python/shared-state", "red");
     await h.write("starter:langgraph-python/agent");
     expect(h.rows.get("d6:langgraph-python/shared-state")?.dimension).toBe(
       "d6",
