@@ -1164,10 +1164,8 @@ describe("D0-gone monitor — degraded/stale ≠ gone (unified ladder amber, §7
   it("a GENUINE liveness-down (fresh-red health) is still detected as gone (§F)", async () => {
     const f = makeFakes();
     f.setSummary(f.liveProducer());
-    // A fresh-red liveness (D1 health) signal gates the whole ladder → chipColor
-    // red, achievedDepth 0 → cellGone. This is the real "backend gone" class the
-    // unified ladder must STILL page (distinct from a degraded/amber cell). Proves
-    // the amber change did not hide the genuine-outage class.
+    // Fresh-red health marks the integration unavailable without claiming its
+    // features failed. The explicit blocker must still open the backend outage.
     f.setStatusRows([row("alpha", keyFor("health", "alpha"), "red", T0)]);
     const m = createD0GoneMonitor(f.deps);
     await m.tick();
