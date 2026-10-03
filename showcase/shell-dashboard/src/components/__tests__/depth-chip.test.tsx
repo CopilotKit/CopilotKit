@@ -7,6 +7,30 @@ import { render } from "@testing-library/react";
 import { DepthChip, depthColorClass, chipColorToClass } from "../depth-chip";
 
 describe("DepthChip", () => {
+  it("explains a shared health blocker without rendering a failed feature", () => {
+    const { getByTestId, rerender } = render(
+      <DepthChip
+        depth={0}
+        status="wired"
+        chipColor="gray"
+        blockedBy="health"
+      />,
+    );
+    expect(getByTestId("depth-chip").getAttribute("data-status")).toBe(
+      "unavailable",
+    );
+    expect(getByTestId("depth-chip").getAttribute("title")).toBe(
+      "Integration unavailable: health check failed",
+    );
+    expect(getByTestId("depth-chip").className).toContain("text-muted");
+    rerender(
+      <DepthChip depth={0} status="wired" chipColor="red" blockedBy="health" />,
+    );
+    expect(getByTestId("depth-chip").getAttribute("data-status")).not.toBe(
+      "unavailable",
+    );
+    expect(getByTestId("depth-chip").className).toContain("danger");
+  });
   it.each([0, 1, 2, 3, 4, 5, 6])(
     "renders D%i for depth=%i with wired status",
     (depth) => {

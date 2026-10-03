@@ -396,9 +396,8 @@ describe("CellMatrix", () => {
     );
   });
 
-  it("gaps filter includes rows where a cell has red probes (functional gap)", () => {
-    // lgp/agentic-chat is wired with health=red → functional gap
-    // lgp/auth is wired with health=green → not a gap
+  it("gaps filter includes failed and unavailable feature rows", () => {
+    // agentic-chat has a real feature failure; auth has only a health blocker.
     const gapCells: CatalogCell[] = [
       {
         id: "lgp/agentic-chat",
@@ -446,9 +445,9 @@ describe("CellMatrix", () => {
         referenceSlug="lgp"
       />,
     );
-    // agentic-chat has red rollup → visible as functional gap
+    // The actual feature failure remains a gap.
     expect(queryByText("Agentic Chat")).not.toBeNull();
-    // auth also visible because health:lgp is red → rollup is red for it too
+    // The unavailable auth feature remains a gap without becoming a failure.
     expect(queryByText("Authentication")).not.toBeNull();
   });
 

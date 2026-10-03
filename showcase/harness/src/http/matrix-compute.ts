@@ -15,14 +15,10 @@
  * equals the rendered chip by construction — there is no second derivation to
  * drift (§11.4).
  */
-import {
-  buildCellModel,
-  type CellModel,
-} from "../shared/cell-model/cell-model.js";
-import {
-  catalogCellToInput,
-  type CellStructuralInput,
-} from "../shared/cell-model/catalog-input.js";
+import { buildCellModel } from "../shared/cell-model/cell-model.js";
+import type { CellModel } from "../shared/cell-model/cell-model.js";
+import { catalogCellToInput } from "../shared/cell-model/catalog-input.js";
+import type { CellStructuralInput } from "../shared/cell-model/catalog-input.js";
 import type { LiveStatusMap } from "../shared/cell-model/live-status.js";
 
 /**
@@ -44,6 +40,7 @@ export interface MatrixCell {
   surfaceState: CellModel["surfaceState"];
   isStaleCell: boolean;
   supported: boolean;
+  blockedBy?: CellModel["blockedBy"];
 }
 
 /**
@@ -68,6 +65,7 @@ export function computeMatrixCell(
     surfaceState: m.surfaceState,
     isStaleCell: m.isStaleCell,
     supported: m.supported,
+    ...(m.blockedBy ? { blockedBy: m.blockedBy } : {}),
   };
 }
 

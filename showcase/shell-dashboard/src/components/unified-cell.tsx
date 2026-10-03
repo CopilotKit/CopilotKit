@@ -202,6 +202,7 @@ function DepthLayer({ ctx, model }: { ctx: CellContext; model: CellModel }) {
           status="wired"
           unreachable={model.surfaceState === "unreachable"}
           pending={model.surfaceState === "pending"}
+          blockedBy={model.blockedBy}
           commTooltip={
             model.commError ? commErrorTooltip(model.commError) : undefined
           }
@@ -396,6 +397,7 @@ function modelsEqual(a: CellModel, b: CellModel): boolean {
     a.ceilingDepth === b.ceilingDepth &&
     a.chipColor === b.chipColor &&
     a.surfaceState === b.surfaceState &&
+    a.blockedBy === b.blockedBy &&
     a.commError?.kind === b.commError?.kind &&
     a.commError?.workerId === b.commError?.workerId &&
     a.commError?.message === b.commError?.message &&

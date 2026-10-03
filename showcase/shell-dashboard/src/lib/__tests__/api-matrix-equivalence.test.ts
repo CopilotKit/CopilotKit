@@ -131,6 +131,7 @@ describe("api == render == adapter over the golden fixture matrix (§11.4)", () 
       expect(apiCell.d6Effective).toBe(model.d6Effective);
       expect(apiCell.surfaceState).toBe(model.surfaceState);
       expect(apiCell.isStaleCell).toBe(model.isStaleCell);
+      expect(apiCell.blockedBy).toBe(model.blockedBy);
     });
   }
 });
@@ -323,13 +324,8 @@ describe("fail-safe polarity — a stripped `signal` never grays a real red (§1
     }
   });
 
-  // The D1/D2 leg of the same flip, and the WIDEST case it has: `health:<slug>`
-  // and `agent:<slug>` are INTEGRATION-scoped, so one stripped-`signal` red
-  // there re-verdicts EVERY feature cell of the column at once. Under the
-  // pre-flip polarity the rung classified NO_DATA, §F treated it as NON-GATING,
-  // and the browser painted a confident GREEN at achieved 6 over a dead service
-  // while `/api/matrix` (always full `signal`) reported RED — a whole-column
-  // false green, which is the worst failure direction a health dashboard has.
+  // A failed integration health/API check must block green feature credit on
+  // both surfaces without claiming each feature was individually tested and failed.
   it("D1/D2: a stripped-`signal` liveness red does not drift api-vs-browser (whole-column case)", () => {
     const serverRows = [
       row(e2eKey, "green", null),
@@ -347,19 +343,18 @@ describe("fail-safe polarity — a stripped `signal` never grays a real red (§1
 
     const serverModel = buildCellModel(fullSignal, input, NOW);
     const coldLoadModel = buildCellModel(stripped, input, NOW);
-    const apiChip = computeMatrix(fullSignal, [cell], NOW)[0]!.chipColor;
+    const apiCell = computeMatrix(fullSignal, [cell], NOW)[0]!;
 
-    expect(serverModel.chipColor).toBe("red");
-    expect(coldLoadModel.chipColor).toBe("red");
+    expect(serverModel.chipColor).toBe("gray");
+    expect(coldLoadModel.chipColor).toBe("gray");
     expect(coldLoadModel.chipColor).toBe(serverModel.chipColor);
-    expect(apiChip).toBe(serverModel.chipColor);
+    expect(apiCell.chipColor).toBe(serverModel.chipColor);
+    expect(apiCell.blockedBy).toBe("health");
 
-    // The §F gate collapses the ladder on BOTH surfaces — not just the chip.
-    // Pre-flip the cold-load read was `achieved 6 / isRegression false`, i.e. a
-    // green depth-6 cell over a dead integration.
     for (const m of [serverModel, coldLoadModel]) {
       expect(m.achievedDepth).toBe(0);
-      expect(m.isRegression).toBe(true);
+      expect(m.blockedBy).toBe("health");
+      expect(m.isRegression).toBe(false);
     }
   });
 

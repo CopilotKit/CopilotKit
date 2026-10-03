@@ -81,7 +81,7 @@ describe("CellDrilldown", () => {
     expect(queryByText("Smoke")).toBeNull();
   });
 
-  it("renders a red BE (Agent) row for a red D4 fold while the service line stays green (headline drilldown-parity bug)", () => {
+  it("renders the red BE (Agent) row and the shared first-strike amber status", () => {
     // The dimension that turns the pill red (D4: red tools round-trip) must
     // be VISIBLE in the popup. Pre-fix the popup had no D4 row at all, so a
     // pill-red cell showed nothing non-green to explain itself.
@@ -110,8 +110,8 @@ describe("CellDrilldown", () => {
     const rtBadge = getByTestId("drilldown-badge-be--agent-");
     expect(rtBadge.textContent).toContain("BE (Agent)");
     expect(rtBadge.textContent).toContain("✗");
-    // The service-scoped line (health + e2e) is still green — honest scope.
-    expect(getByText("green")).toBeDefined();
+    // The header agrees with the shared model's first-strike amber status.
+    expect(getByText("amber")).toBeDefined();
     // Cross-resolver pin: the SAME map drives the chip non-green via the D4
     // fold — so a non-green D4 cause always has a visible non-green row in the
     // drilldown. §C item 6 de-amplifies this first tools strike (fail_count 1
@@ -182,7 +182,7 @@ describe("CellDrilldown", () => {
     expect(rtBadge.querySelector(".line-through")).not.toBeNull();
   });
 
-  it("labels the rollup line with its honest scope — Service (health + e2e), not Rollup", () => {
+  it("labels the shared model verdict as Feature status", () => {
     const { getByText, queryByText } = render(
       <CellDrilldown
         slug="lgp"
@@ -193,7 +193,7 @@ describe("CellDrilldown", () => {
         onClose={() => {}}
       />,
     );
-    expect(getByText("Service (health + e2e)")).toBeDefined();
+    expect(getByText("Feature status")).toBeDefined();
     expect(queryByText("Rollup")).toBeNull();
   });
 
@@ -261,9 +261,10 @@ describe("CellDrilldown", () => {
     expect(getByText("Agentic Chat")).toBeDefined();
   });
 
-  it("shows rollup tone", () => {
+  it("shows integration unavailability without claiming the feature failed", () => {
     const live = mapOf([
       row("health:lgp", "health", "red", {
+        ...FRESH,
         fail_count: 5,
         first_failure_at: "2026-04-19T10:00:00Z",
         signal: { error: "connection timeout" },
@@ -279,8 +280,7 @@ describe("CellDrilldown", () => {
         onClose={() => {}}
       />,
     );
-    // Rollup should display "red"
-    expect(getByText("red")).toBeDefined();
+    expect(getByText("Integration unavailable")).toBeDefined();
   });
 
   it("shows fail_count and first_failure_at for red badges", () => {

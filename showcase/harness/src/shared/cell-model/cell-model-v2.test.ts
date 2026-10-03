@@ -132,16 +132,32 @@ describe("§7 I5: cold-load stripped signal → red (pending attribution)", () =
 });
 
 describe("§7 §F: D1/D2 liveness gate", () => {
-  it("present fresh-red D1 gates → red, achieved 0, regression", () => {
+  it("a shared health failure blocks feature credit without inventing a feature failure", () => {
     const live = mergeRowsToMap(
       greenBase(F).map((r) =>
         r.key.startsWith("health:") ? row(r.key, "red") : r,
       ),
     );
     const m = buildCellModel(live, wired(F), NOW);
-    expect(m.chipColor).toBe("red");
+    expect(m.chipColor).toBe("gray");
     expect(m.achievedDepth).toBe(0);
+    expect(m.isRegression).toBe(false);
+    expect(m.blockedBy).toBe("health");
+  });
+
+  it("retains a real feature failure alongside an unavailable integration", () => {
+    const live = mergeRowsToMap(
+      greenBase(F).map((r) =>
+        r.key.startsWith("agent:") || r.key.startsWith("d6:")
+          ? row(r.key, "red", { failCount: 4 })
+          : r,
+      ),
+    );
+    const m = buildCellModel(live, wired(F), NOW);
+    expect(m.blockedBy).toBe("agent");
+    expect(m.chipColor).toBe("red");
     expect(m.isRegression).toBe(true);
+    expect(m.d6Effective).toBe("red");
   });
 
   it("absent liveness remains non-gating through D4; functional positives are unverified", () => {
