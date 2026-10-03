@@ -11,8 +11,9 @@ tool that, when the coordinator's model calls it, runs the other agent on its ow
 stream with its own history. The coordinator's context stays small, and the decision to
 delegate stays with the model.
 
-CopilotKit sees each delegation as a tool call plus an AG-UI **step**, so you can render
-"researching…" / "writing…" progress without any extra wiring on the backend.
+CopilotKit sees each delegation twice: as an ordinary tool call, and as an AG-UI 1.0
+**subagent invocation** (`SUBAGENT_STARTED`, `SUBAGENT_FINISHED`, `SUBAGENT_ERROR`), so you can
+render "researching…" / "writing…" progress without any extra wiring on the backend.
 
 <Callout type="info">
   CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a> and the upstream <a href="https://docs.ag2.ai/docs/user-guide/subagents/" target="_blank">AG2 subagents guide</a>.
@@ -93,26 +94,31 @@ only thing the coordinator's model reads when deciding whether to delegate.
 
 ## What reaches the frontend
 
-A single delegation turn produces this AG-UI sequence — one tool call per delegation, each
-bracketed by a step named `task:<agent name>`:
+Each delegation produces one tool call and one subagent invocation with its own
+`subagentRunId`, so two parallel delegations to the same agent can be told apart:
 
 ```text
 RUN_STARTED
-TOOL_CALL_START   toolCallName: "task_researcher"
+TOOL_CALL_START      toolCallName: "task_researcher"
 TOOL_CALL_ARGS
-STEP_STARTED      stepName: "task:researcher"
-STEP_FINISHED     stepName: "task:researcher"
+SUBAGENT_STARTED     subagentRunId: "4f1c…", name: "researcher", description: "<the objective>"
+SUBAGENT_FINISHED    subagentRunId: "4f1c…", result: "<what it returned>"
 TOOL_CALL_RESULT
 TOOL_CALL_END
-TOOL_CALL_START   toolCallName: "task_writer"
-TOOL_CALL_ARGS
-STEP_STARTED      stepName: "task:writer"
-STEP_FINISHED     stepName: "task:writer"
-TOOL_CALL_RESULT
-TOOL_CALL_END
+…
 TEXT_MESSAGE_CHUNK
 RUN_FINISHED
 ```
+
+- A failed delegation ends with `SUBAGENT_ERROR` carrying the message, and the run carries on:
+  the coordinator's model is told the delegation failed and may recover. A cancelled or
+  timed-out one also ends with `SUBAGENT_ERROR` (`cancelled` or `expired`).
+- The events carry no usage; the run's own usage already includes what the delegation spent.
+- Delegations are no longer reported as `STEP_STARTED` / `STEP_FINISHED`. If you filtered on
+  `task:<agent name>` steps, subscribe to the `SUBAGENT_*` events instead.
+- If a specialist asks the human a question, it reaches the client like any other
+  [interrupt](/ag2/human-in-the-loop#approve-a-tool-call-with-interrupts), tagged with the
+  invocation's `subagentRunId`.
 
 Two consequences worth knowing before you build UI on top of it:
 
@@ -129,6 +135,56 @@ Two consequences worth knowing before you build UI on top of it:
   A specialist that writes state changes nothing the UI sees, and nothing fails. Return the
   value from the delegation and have the coordinator write it instead. Dependencies are copied
   in the same way, so `Inject(...)` keeps working inside a specialist.
+
+## Track delegations with `agent.subscribe`
+
+For a side panel or a progress list, subscribe to the invocation events on the agent from
+`useAgent`. A run is still running until a finished or error event with its `subagentRunId`
+arrives, so no separate run record is needed:
+
+```tsx title="components/agent-panel.tsx"
+import type {
+  SubagentErrorEvent,
+  SubagentFinishedEvent,
+  SubagentStartedEvent,
+} from "@ag-ui/client";
+import { useAgent } from "@copilotkit/react-core/v2";
+import { useEffect, useState } from "react";
+
+export function SubagentPanel() {
+  const { agent } = useAgent({ agentId: "my_agent" });
+  const [started, setStarted] = useState<SubagentStartedEvent[]>([]);
+  const [finished, setFinished] = useState<Record<string, SubagentFinishedEvent>>({});
+  const [failed, setFailed] = useState<Record<string, SubagentErrorEvent>>({});
+
+  useEffect(() => {
+    const subscription = agent.subscribe({
+      onRunStartedEvent: () => {
+        setStarted([]);
+        setFinished({});
+        setFailed({});
+      },
+      onSubagentStartedEvent: ({ event }) => setStarted((all) => [...all, event]),
+      onSubagentFinishedEvent: ({ event }) =>
+        setFinished((all) => ({ ...all, [event.subagentRunId]: event })),
+      onSubagentErrorEvent: ({ event }) =>
+        setFailed((all) => ({ ...all, [event.subagentRunId]: event })),
+    });
+    return () => subscription.unsubscribe();
+  }, [agent]);
+
+  return (
+    <ul>
+      {started.map((run) => (
+        <li key={run.subagentRunId}>
+          {run.name}:{" "}
+          {failed[run.subagentRunId] ? "failed" : finished[run.subagentRunId] ? "done" : "running…"}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
 
 ## Render the delegation in the chat
 

@@ -211,6 +211,7 @@ Then:
 - Validate token before `stream.dispatch(...)`
 - Attach the user as a dependency (`dependencies={"auth_user": ...}`) for tool authorization
 - Deny unauthorized or out-of-scope access
+- Apply the same check to the capabilities `GET` route if you expose one (`stream.capabilities()`), so it does not describe your agent to anonymous callers
 
 ## Security Notes
 

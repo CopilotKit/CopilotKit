@@ -171,7 +171,7 @@ function YourMainContent() {
 
 ## Intermediately Stream and Render Agent State
 
-By default, `AGUIStream` emits a `STATE_SNAPSHOT` at the start of the run (only when the agent or `dispatch()` defines initial variables) and at the end of the run (if `context.variables` changed during the run).
+By default, `AGUIStream` emits a `STATE_SNAPSHOT` at the start of the run (only when the merged variables differ from the state the client sent) and at the end of the run (if `context.variables` changed since the last snapshot). A snapshot replaces the client's state wholesale, so each one carries the client's keys and the server's variables together.
 For smoother long-running workflows, emit intermediate snapshots from an async tool with `context.send`:
 
 ```python title="agent.py"
