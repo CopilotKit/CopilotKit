@@ -32,14 +32,16 @@ export interface CellGoneInput {
   chipColor: CellModel["chipColor"];
   isStaleCell: CellModel["isStaleCell"];
   surfaceState: CellModel["surfaceState"];
+  blockedBy?: CellModel["blockedBy"];
 }
 
 /**
  * §2.4 per-cell "gone" verdict — the backend-gone signature a human reads as a
- * red-D0 cell:
+ * unavailable integration or red-D0 cell:
  *
  *   achievedDepth === 0   — the ladder collapsed to the floor (no rung passed)
- *   chipColor === "red"   — ran-and-failed (backend gone), NOT gray no-data/stale
+ *   blockedBy or red      — a shared availability check or feature failed,
+ *                           NOT ordinary gray no-data/stale
  *   !isStaleCell          — fresh, not stale-by-age (a stale column is
  *                           inconclusive, handled by the producer-liveness gate)
  *   surfaceState ∉ { "unreachable", "pending" }
@@ -52,7 +54,7 @@ export interface CellGoneInput {
 export function cellGone(model: CellGoneInput): boolean {
   return (
     model.achievedDepth === 0 &&
-    model.chipColor === "red" &&
+    (model.blockedBy !== undefined || model.chipColor === "red") &&
     !model.isStaleCell &&
     model.surfaceState !== "unreachable" &&
     model.surfaceState !== "pending"

@@ -684,6 +684,7 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
         chipColor: m.chipColor,
         isStaleCell: m.isStaleCell,
         surfaceState: m.surfaceState,
+        blockedBy: m.blockedBy,
       }));
       if (columnGone(goneInputs)) {
         gone.add(slug);
