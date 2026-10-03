@@ -202,7 +202,8 @@ describe("CopilotChat tool-call rendering", () => {
       </TestCopilotKit>,
     );
     expect(screen.getByTestId("places")).toBeTruthy();
-    expect(screen.queryByText("Called: showPlaces")).toBeNull();
+    // ...and not the placeholder card, which would show the tool's name.
+    expect(screen.queryByText("showPlaces")).toBeNull();
   });
 
   it("reports executing status when the call id is in executingToolCallIds and has no result", () => {
@@ -248,7 +249,22 @@ describe("CopilotChat tool-call rendering", () => {
         <CopilotChat />
       </TestCopilotKit>,
     );
-    expect(screen.getByText("Called: notRegistered")).toBeTruthy();
+    expect(screen.getByText("notRegistered")).toBeTruthy();
+  });
+
+  it("keeps the placeholder running while a frontend tool executes after the run", () => {
+    // Frontend tool handlers run after the agent run has ended (isRunning is
+    // false), so only executingToolCallIds shows that the call is not done.
+    render(
+      <TestCopilotKit
+        messages={[assistantToolCall("notRegistered", "{}", "tc9")]}
+        executingToolCallIds={new Set(["tc9"])}
+      >
+        <CopilotChat />
+      </TestCopilotKit>,
+    );
+    expect(screen.getByText("Running")).toBeTruthy();
+    expect(screen.queryByText("Done")).toBeNull();
   });
 });
 

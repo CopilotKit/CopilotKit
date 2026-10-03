@@ -22,6 +22,12 @@ import {
 } from "react-native";
 import type { ViewStyle } from "react-native";
 import { CopilotChat } from "./CopilotChat";
+import {
+  CopilotColorSchemeProvider,
+  radius,
+  useCopilotTheme,
+} from "./components/theme";
+import type { CopilotColorScheme } from "./components/theme";
 import type { NativeAttachmentsConfig } from "./hooks/use-attachments";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 
@@ -110,6 +116,12 @@ export interface CopilotPopupProps {
    * Custom styles applied to the popup card container.
    */
   style?: ViewStyle;
+
+  /**
+   * `"light"` (the default), `"dark"`, or `"system"` to follow the device's
+   * setting. Applies to the popup and to CopilotKit components inside it.
+   */
+  colorScheme?: CopilotColorScheme;
 }
 
 /**
@@ -159,11 +171,13 @@ export const CopilotPopup = forwardRef<CopilotPopupHandle, CopilotPopupProps>(
       dismissOnBackdropPress = true,
       showToggleButton = true,
       style,
+      colorScheme,
     }: CopilotPopupProps,
     ref: React.Ref<CopilotPopupHandle>,
   ) {
     const [visible, setVisible] = useState(defaultOpen);
     const { height: screenHeight } = useWindowDimensions();
+    const theme = useCopilotTheme(colorScheme);
 
     // Stable refs for callbacks to avoid effect churn
     const onOpenRef = useRef(onOpen);
@@ -226,12 +240,12 @@ export const CopilotPopup = forwardRef<CopilotPopupHandle, CopilotPopupProps>(
       : undefined;
 
     return (
-      <>
+      <CopilotColorSchemeProvider colorScheme={colorScheme}>
         {/* Floating Action Button */}
         {showToggleButton && !visible && (
           <TouchableOpacity
             testID="copilot-popup-fab"
-            style={styles.fab}
+            style={[styles.fab, { backgroundColor: theme.primary }]}
             onPress={handleToggle}
             activeOpacity={0.8}
             accessibilityLabel="Open chat"
@@ -258,22 +272,39 @@ export const CopilotPopup = forwardRef<CopilotPopupHandle, CopilotPopupProps>(
             {/* Card — stop propagation so tapping the card doesn't dismiss */}
             <Pressable
               testID="copilot-popup-card"
-              style={[styles.card, { height: resolvedHeight }, style]}
+              style={[
+                styles.card,
+                { height: resolvedHeight, backgroundColor: theme.background },
+                style,
+              ]}
               onPress={() => {
                 // Prevent backdrop press from firing
               }}
             >
-              {/* Header */}
-              <View style={styles.header}>
-                <Text style={styles.headerTitle}>{headerTitle}</Text>
+              {/* Header: title centered between a spacer and the close button */}
+              <View
+                style={[styles.header, { borderBottomColor: theme.border }]}
+              >
+                <View style={styles.headerSide} />
+                <Text
+                  numberOfLines={1}
+                  style={[styles.headerTitle, { color: theme.foreground }]}
+                >
+                  {headerTitle}
+                </Text>
                 <TouchableOpacity
                   testID="copilot-popup-close"
+                  style={styles.closeButton}
                   onPress={handleClose}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   accessibilityLabel="Close chat"
                   accessibilityRole="button"
                 >
-                  <Text style={styles.closeButton}>✕</Text>
+                  <Text
+                    style={[styles.closeIcon, { color: theme.mutedForeground }]}
+                  >
+                    ✕
+                  </Text>
                 </TouchableOpacity>
               </View>
 
@@ -293,7 +324,7 @@ export const CopilotPopup = forwardRef<CopilotPopupHandle, CopilotPopupProps>(
             </Pressable>
           </Pressable>
         </Modal>
-      </>
+      </CopilotColorSchemeProvider>
     );
   },
 );
@@ -306,14 +337,13 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#6366f1",
     alignItems: "center",
     justifyContent: "center",
     elevation: 6,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.27,
-    shadowRadius: 4.65,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
   },
   fabIcon: {
     fontSize: 24,
@@ -324,34 +354,40 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   card: {
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: radius["2xl"],
+    borderTopRightRadius: radius["2xl"],
     overflow: "hidden",
-    elevation: 10,
+    elevation: 8,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
   },
   header: {
+    height: 56,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#e5e7eb",
+  },
+  headerSide: {
+    width: 32,
   },
   headerTitle: {
-    fontSize: 17,
+    flex: 1,
+    textAlign: "center",
+    fontSize: 15,
     fontWeight: "600",
-    color: "#111827",
   },
   closeButton: {
-    fontSize: 18,
-    color: "#6b7280",
-    fontWeight: "500",
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeIcon: {
+    fontSize: 16,
   },
   chatContainer: {
     flex: 1,

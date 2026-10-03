@@ -36,6 +36,46 @@ export const Platform = {
     obj.ios ?? obj.default,
 };
 
+export const Appearance = {
+  getColorScheme: (): "light" | "dark" | null => "light",
+  addChangeListener: () => ({ remove: () => {} }),
+};
+
+export const AccessibilityInfo = {
+  isReduceMotionEnabled: () => Promise.resolve(false),
+  addEventListener: () => ({ remove: () => {} }),
+};
+
+// Animations don't run in tests: values hold what they're set to, and
+// animations are inert handles.
+class AnimatedValue {
+  constructor(public value: number) {}
+  setValue(value: number) {
+    this.value = value;
+  }
+  interpolate(config: { outputRange: unknown[] }) {
+    return config.outputRange[0];
+  }
+}
+
+const inertAnimation = () => ({ start: () => {}, stop: () => {} });
+
+export const Animated = {
+  Value: AnimatedValue,
+  View: createMockComponent("AnimatedView"),
+  Text: createMockComponent("AnimatedText"),
+  timing: inertAnimation,
+  sequence: inertAnimation,
+  parallel: inertAnimation,
+  loop: inertAnimation,
+  delay: inertAnimation,
+};
+
+export const Easing = {
+  bezier: () => (t: number) => t,
+  linear: (t: number) => t,
+};
+
 export default {
   StyleSheet,
   View,
@@ -49,4 +89,8 @@ export default {
   ActivityIndicator,
   Image,
   Platform,
+  Appearance,
+  AccessibilityInfo,
+  Animated,
+  Easing,
 };
