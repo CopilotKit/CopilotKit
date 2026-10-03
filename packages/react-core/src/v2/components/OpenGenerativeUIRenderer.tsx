@@ -59,6 +59,16 @@ interface OpenGenerativeUIActivityRendererProps {
 }
 
 const THROTTLE_MS = 1000;
+// Allow long generated documents while bounding iframe-controlled layout size.
+const MAX_FRAME_HEIGHT = 100_000;
+function isFrameHeight(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value > 0 &&
+    value <= MAX_FRAME_HEIGHT
+  );
+}
 
 /**
  * Returns true when the inner component should re-render immediately
@@ -151,6 +161,47 @@ interface InnerProps {
   content: OpenGenerativeUIContent;
 }
 
+/* Runs inside the sandbox once it is ready. Reports the content height to the
+   host whenever it changes (late fonts, charts, reflow when the host narrows).
+   A single measurement when generation ends could not follow those changes, and
+   it was skipped when the HTML and `generating: false` arrived in one render,
+   because the sandbox did not exist yet.
+   The body height override exists only for the duration of one measurement, so
+   generated full-height layouts (`html, body { height: 100% }`) keep working
+   between measurements. Uses body.scrollHeight because documentElement's is
+   clamped to the iframe viewport and can never shrink below it. */
+const CK_MEASURE_AND_WATCH = `
+(function() {
+  if (window.__ckResizeWatch) return;
+  var last = -1;
+  var raf = 0;
+  function measure() {
+    var s = document.createElement('style');
+    s.textContent = 'body { height: auto !important; min-height: 0 !important; }';
+    document.head.appendChild(s);
+    var h = document.body.scrollHeight;
+    var cs = getComputedStyle(document.body);
+    h += parseFloat(cs.marginTop) || 0;
+    h += parseFloat(cs.marginBottom) || 0;
+    s.remove();
+    return Math.ceil(h);
+  }
+  function report() {
+    raf = 0;
+    var h = measure();
+    if (h < 1 || Math.abs(h - last) < 2) return;
+    last = h;
+    parent.postMessage({ type: "__ck_resize", height: h }, "*");
+  }
+  function schedule() { if (!raf) raf = requestAnimationFrame(report); }
+  window.__ckResizeWatch = new ResizeObserver(schedule);
+  window.__ckResizeWatch.observe(document.documentElement);
+  window.__ckResizeWatch.observe(document.body);
+  window.addEventListener('load', schedule);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);
+  report();
+})();
+`;
 function ensureHead(html: string): string {
   if (/<head[\s>]/i.test(html)) return html;
   return `<head></head>${html}`;
@@ -170,7 +221,9 @@ function injectCssIntoHtml(html: string, css: string): string {
 
 const OpenGenerativeUIActivityRendererInner = React.memo(
   function OpenGenerativeUIActivityRendererInner({ content }: InnerProps) {
-    const initialHeight = content.initialHeight ?? 200;
+    const initialHeight = isFrameHeight(content.initialHeight)
+      ? content.initialHeight
+      : 200;
     const [autoHeight, setAutoHeight] = useState<number | null>(null);
     const sandboxFunctions = useSandboxFunctions();
 
@@ -366,6 +419,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
             for (const code of queue) {
               sandbox.run(code);
             }
+            sandbox.run(CK_MEASURE_AND_WATCH);
           });
         })
         .catch((err: unknown) => {
@@ -428,52 +482,44 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       }
     }, [content.jsExpressions?.length]);
 
-    // Effect 4 — One-shot height measurement (fires once when generation completes)
-    // Uses body.scrollHeight (not documentElement.scrollHeight) because the latter
-    // is clamped to the iframe viewport and can never shrink below the current size.
-    const generationDone = content.generating === false;
+    // Listen before the asynchronous sandbox creation. The observer starts after
+    // sandbox readiness and follows late content and host-width changes.
     useEffect(() => {
-      const sandbox = sandboxRef.current;
-      if (!generationDone || !sandbox) return;
-
-      let handled = false;
+      let frame: number | null = null;
+      let pending: {
+        source: MessageEventSource | null;
+        height: number;
+      } | null = null;
       const onMessage = (e: MessageEvent) => {
-        if (handled) return;
+        const sandbox = sandboxRef.current;
         if (
-          e.source === sandbox.iframe.contentWindow &&
-          e.data?.type === "__ck_resize"
-        ) {
-          handled = true;
-          setAutoHeight(e.data.height);
-          window.removeEventListener("message", onMessage);
-        }
+          !sandbox ||
+          e.source !== sandbox.iframe.contentWindow ||
+          e.data?.type !== "__ck_resize" ||
+          !isFrameHeight(e.data.height)
+        )
+          return;
+        pending = { source: e.source, height: e.data.height };
+        if (frame !== null) return;
+        frame = requestAnimationFrame(() => {
+          frame = null;
+          const resize = pending;
+          pending = null;
+          if (
+            resize &&
+            sandboxRef.current?.iframe.contentWindow === resize.source
+          ) {
+            setAutoHeight(resize.height);
+          }
+        });
       };
       window.addEventListener("message", onMessage);
-
-      const measureOnce = `
-        (function() {
-          var s = document.createElement('style');
-          s.textContent = 'body { height: auto !important; min-height: 0 !important; }';
-          document.head.appendChild(s);
-          var h = document.body.scrollHeight;
-          var cs = getComputedStyle(document.body);
-          h += parseFloat(cs.marginTop) || 0;
-          h += parseFloat(cs.marginBottom) || 0;
-          s.remove();
-          parent.postMessage({ type: "__ck_resize", height: Math.ceil(h) }, "*");
-        })();
-      `;
-
-      if (sandboxReadyRef.current) {
-        sandbox.run(measureOnce);
-      } else {
-        pendingQueueRef.current.push(measureOnce);
-      }
-
       return () => {
         window.removeEventListener("message", onMessage);
+        if (frame !== null) cancelAnimationFrame(frame);
+        pending = null;
       };
-    }, [generationDone]);
+    }, [fullHtml, css, localApi]);
 
     const height = autoHeight ?? initialHeight;
 
