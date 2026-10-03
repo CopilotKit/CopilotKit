@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextFetchEvent, NextRequest } from "next/server";
+import type { middleware as middlewareHandler } from "./middleware";
 
 // The raw Markdown surface (`/llms.txt`, `/llms-full.txt`, `<path>.md`) is
 // fetched by agents that never load a page, so the client PostHog snippet never
@@ -15,14 +16,16 @@ type CapturedEvent = {
   properties: Record<string, unknown>;
 };
 
-const captured: CapturedEvent[] = [];
-const pending: Promise<unknown>[] = [];
+let captured: CapturedEvent[] = [];
+let pending: Promise<unknown>[] = [];
+let NextRequestConstructor: typeof NextRequest;
+let middleware: typeof middlewareHandler;
 
 /** A `NextFetchEvent` stub that records the work middleware defers. */
-function fetchEvent(): NextFetchEvent {
+function fetchEvent(deferred: Promise<unknown>[]): NextFetchEvent {
   return {
     waitUntil: (promise: Promise<unknown>) => {
-      pending.push(promise);
+      deferred.push(promise);
     },
   } as unknown as NextFetchEvent;
 }
@@ -36,46 +39,56 @@ async function runMiddleware(
     headers?: Record<string, string>;
   } = {},
 ): Promise<{ response: Response; events: CapturedEvent[] }> {
-  const { NextRequest } = await import("next/server");
-  const { middleware } = await import("./middleware");
-
+  const events = captured;
+  const deferred = pending;
   const headers = new Headers(init.headers ?? {});
   if (init.userAgent) headers.set("user-agent", init.userAgent);
   if (init.ip) headers.set("x-forwarded-for", init.ip);
 
-  const request = new NextRequest(
+  const request = new NextRequestConstructor(
     new URL(pathname, "https://docs.copilotkit.ai"),
-    { method: init.method ?? "GET", headers },
+    {
+      method: init.method ?? "GET",
+      headers,
+    },
   );
 
-  const before = captured.length;
-  const response = middleware(request as NextRequest, fetchEvent());
-  await Promise.all(pending.splice(0));
-  return { response, events: captured.slice(before) };
+  const before = events.length;
+  const response = middleware(request as NextRequest, fetchEvent(deferred));
+  await Promise.all(deferred);
+  return { response, events: events.slice(before) };
 }
 
 const CLAUDE_CODE = "claude-code/1.2.0";
 const CHROME =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-beforeEach(() => {
-  captured.length = 0;
-  pending.length = 0;
+beforeEach(async () => {
+  const events: CapturedEvent[] = [];
+  captured = events;
+  pending = [];
   vi.resetModules();
   vi.stubEnv("POSTHOG_KEY", "phc_test_key");
   vi.stubEnv("NEXT_PUBLIC_POSTHOG_HOST", "https://eu.i.posthog.com");
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_url: string, init?: RequestInit) => {
-      captured.push(JSON.parse(String(init?.body)) as CapturedEvent);
+      events.push(JSON.parse(String(init?.body)) as CapturedEvent);
       return new Response(JSON.stringify({ status: 1 }), { status: 200 });
     }),
   );
+  // Load the request fixture before the request test starts its timer.
+  ({ NextRequest: NextRequestConstructor } = await import("next/server"));
+  ({ middleware } = await import("./middleware"));
 });
 
-afterEach(() => {
-  vi.unstubAllEnvs();
-  vi.unstubAllGlobals();
+afterEach(async () => {
+  try {
+    await Promise.allSettled(pending);
+  } finally {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  }
 });
 
 describe("the agent-facing raw text surface", () => {
@@ -242,13 +255,20 @@ describe("telemetry must not be able to break a fetch", () => {
     warn.mockRestore();
   });
 
-  it("stays silent when no PostHog key is configured", async () => {
-    vi.stubEnv("POSTHOG_KEY", "");
-    const { events } = await runMiddleware("/llms.txt", {
-      userAgent: CLAUDE_CODE,
+  describe("without a PostHog key", () => {
+    beforeEach(async () => {
+      vi.resetModules();
+      vi.stubEnv("POSTHOG_KEY", "");
+      ({ middleware } = await import("./middleware"));
     });
 
-    expect(events).toEqual([]);
+    it("stays silent when no PostHog key is configured", async () => {
+      const { events } = await runMiddleware("/llms.txt", {
+        userAgent: CLAUDE_CODE,
+      });
+
+      expect(events).toEqual([]);
+    });
   });
 });
 
@@ -295,5 +315,25 @@ describe("what is deliberately not counted", () => {
     });
 
     expect(events).toEqual([]);
+  });
+});
+
+describe("a retired page's raw Markdown URL", () => {
+  // Agents fetch `<path>.md`, not the HTML path. An exact redirect matches only
+  // the path it names, so a retired page that redirects only its HTML path
+  // leaves the `.md` URL an agent was told to read answering 404.
+  it.each([
+    ["/intelligence/connect-your-runtime", "/intelligence/quickstart"],
+    ["/intelligence/connect-your-runtime.md", "/intelligence/quickstart.md"],
+    ["/intelligence/connect-your-runtime.mdx", "/intelligence/quickstart.mdx"],
+  ])("redirects %s to %s", async (source, destination) => {
+    const { response } = await runMiddleware(source, {
+      userAgent: CLAUDE_CODE,
+    });
+
+    expect(response.status).toBe(301);
+    expect(new URL(response.headers.get("location") ?? "").pathname).toBe(
+      destination,
+    );
   });
 });

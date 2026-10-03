@@ -85,6 +85,11 @@ export function createFeatureSetupPrompt(
   intent: FeatureOnboardingIntent,
   runId?: string,
 ): string {
+  const featureContext =
+    intent === "add-rich-threads"
+      ? "Set up AG-UI streams, formerly known as Rich Threads, while keeping my framework threads and existing SDK APIs. "
+      : "";
+
   // Two shapes, decided by whether there is a run to point at.
   //
   // With a run id -- every interactive control -- the link is the prompt, and
@@ -99,6 +104,7 @@ export function createFeatureSetupPrompt(
   // that surface is read at all today (PE-224).
   if (runId === undefined) {
     return (
+      featureContext +
       "Help me set this up in my CopilotKit app. Run this command and follow " +
       "the instructions:\n\nnpx --yes copilotkit@latest onboard start " +
       `--intent ${intent}` +
@@ -106,5 +112,5 @@ export function createFeatureSetupPrompt(
       "to run it. Never reveal credentials."
     );
   }
-  return `Read ${ONBOARDING_PROMPT_ORIGIN}/onboarding-prompts/${runId}?intent=${intent} and help me set this up.`;
+  return `${featureContext}Read ${ONBOARDING_PROMPT_ORIGIN}/onboarding-prompts/${runId}?intent=${intent} and help me set this up.`;
 }

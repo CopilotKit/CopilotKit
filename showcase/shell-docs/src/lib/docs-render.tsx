@@ -995,6 +995,9 @@ export function normalizeSidebarNav(
     findPageBySlug(gettingStarted, "") ?? findPageBySlug(allCanonicalNodes, "");
   const quickstart =
     findPageBySlug(gettingStarted, "quickstart") ?? findPage("quickstart");
+  const buildWithAgents =
+    findPageBySlug(gettingStarted, "build-with-agents") ??
+    findPage("build-with-agents");
   const intelligenceOverviewLink = findPage("intelligence/overview");
   const startLinks: NavNode[] = [
     ...(introduction?.type === "page"
@@ -1008,6 +1011,15 @@ export function normalizeSidebarNav(
       : []),
     ...(quickstart?.type === "page"
       ? [{ ...quickstart, title: "Quickstart", icon: "lucide/Play" }]
+      : []),
+    ...(buildWithAgents?.type === "page"
+      ? [
+          {
+            ...buildWithAgents,
+            title: "Build with agents",
+            icon: "lucide/BrainCircuit",
+          },
+        ]
       : []),
     ...(intelligenceOverviewLink?.type === "page"
       ? [
@@ -1032,19 +1044,33 @@ export function normalizeSidebarNav(
   const inputBasics = sidebarSectionChildren(input, "Basics");
   const canonicalBasics = sidebarSectionChildren(canonical, "Basics");
   const existingChat = findGroup(inputBasics, "Chat");
-  const richThreads =
-    findGroup(allInputNodes, "Rich Threads") ??
-    findGroup(canonicalBasics, "Rich Threads");
+  const authoredThreads =
+    findGroup(inputBasics, "Threads") ?? findGroup(canonicalBasics, "Threads");
+  const threadUiChildren =
+    authoredThreads?.type === "group" ? authoredThreads.children : [];
+  const threadDeliverySlugs = [
+    "threads",
+    "threads-import",
+    "threads-lifecycle",
+    "intelligence/threads-explained",
+  ];
   const filterChatNodes = (nodes: NavNode[]) =>
     nodes.filter(
       (node) =>
-        node !== richThreads &&
-        !(node.type === "page" && node.slug === "inspector"),
+        !(
+          node.type === "group" &&
+          ["Threads", "AG-UI Streams"].includes(node.title)
+        ) &&
+        !(
+          node.type === "page" &&
+          (["inspector", ...threadDeliverySlugs].includes(node.slug) ||
+            Boolean(findPageBySlug(threadUiChildren, node.slug)))
+        ),
     );
   const inputChatNodes = filterChatNodes(inputBasics);
   const chatSource = existingChat
     ? existingChat.type === "group"
-      ? existingChat.children
+      ? filterChatNodes(existingChat.children)
       : []
     : inputChatNodes.length > 0
       ? inputChatNodes
@@ -1054,10 +1080,10 @@ export function normalizeSidebarNav(
     "sidebar#chat",
     uniqueSidebarNodes(chatSource),
   );
-  const richThreadsTopic = sidebarTopicGroup(
-    "Rich Threads",
-    "sidebar#rich-threads",
-    richThreads,
+  const threadUiTopic = sidebarTopicGroup(
+    "Threads",
+    "sidebar#threads-ui",
+    threadUiChildren,
   );
   const frontendTools = findPage("frontend-tools");
 
@@ -1146,7 +1172,19 @@ export function normalizeSidebarNav(
     "Architecture",
   );
 
-  const intelligenceThreads = intelligencePage("threads", "Rich Threads");
+  const intelligenceStreams = sidebarTopicGroup(
+    "AG-UI Streams",
+    "sidebar#ag-ui-streams",
+    [
+      intelligencePage("threads", "Overview"),
+      intelligencePage("threads-import", "Add to Existing Threads"),
+      intelligencePage("threads-lifecycle", "Thread & History Lifecycle"),
+      intelligencePage(
+        "intelligence/threads-explained",
+        "Streams & Framework Threads",
+      ),
+    ].filter((node): node is NavNode => node !== null),
+  );
   const intelligenceCloud = intelligencePage(
     "intelligence/managed-intelligence-platform",
     "Cloud-hosted",
@@ -1160,6 +1198,10 @@ export function normalizeSidebarNav(
     "intelligence/self-hosting-ecs",
     "AWS ECS/Fargate",
   );
+  const intelligenceLocal = intelligencePage(
+    "intelligence/self-hosting-local",
+    "Local evaluation",
+  );
   const intelligenceLearning = intelligencePage(
     "learning",
     "Automatic Learning",
@@ -1171,6 +1213,18 @@ export function normalizeSidebarNav(
   const intelligenceSkillDelivery = intelligencePage(
     "intelligence/learned-skills",
     "Skill delivery",
+  );
+  const intelligenceCapture = intelligencePage(
+    "intelligence/capture-interactions",
+    "Capture interactions",
+  );
+  const intelligenceStandaloneCollector = intelligencePage(
+    "intelligence/standalone-collector",
+    "Standalone collector",
+  );
+  const intelligenceCapturedData = intelligencePage(
+    "intelligence/captured-data",
+    "Captured data",
   );
   // Skill delivery is a step inside Automatic Learning, so it nests under
   // that page. The group shares the page's slug, and page-tree-bridge lifts
@@ -1246,7 +1300,7 @@ export function normalizeSidebarNav(
     ...startLinks,
     ...sidebarSection("Basics", [
       chat,
-      richThreadsTopic,
+      threadUiTopic,
       frontendTools?.type === "page"
         ? { ...frontendTools, title: "Frontend-tools", icon: undefined }
         : null,
@@ -1288,9 +1342,12 @@ export function normalizeSidebarNav(
         "Features",
         "sidebar#intelligence-features",
         [
-          intelligenceThreads,
+          intelligenceStreams,
           intelligenceLearningGroup,
           intelligenceMemory,
+          intelligenceCapture,
+          intelligenceStandaloneCollector,
+          intelligenceCapturedData,
           intelligenceAnalytics,
           intelligenceChannels,
         ].filter((node): node is NavNode => node !== null),
@@ -1299,9 +1356,12 @@ export function normalizeSidebarNav(
       sidebarTopicGroup(
         "Hosting",
         "sidebar#intelligence-hosting",
-        [intelligenceCloud, intelligenceSelfHosted, intelligenceEcs].filter(
-          (node): node is NavNode => node !== null,
-        ),
+        [
+          intelligenceCloud,
+          intelligenceSelfHosted,
+          intelligenceEcs,
+          intelligenceLocal,
+        ].filter((node): node is NavNode => node !== null),
       ),
     ]),
     ...sidebarSection("Backend", [
@@ -1375,7 +1435,7 @@ function isRichThreadsGroup(
   return (
     node.type === "group" &&
     hasPageSlug(node.children, "threads") &&
-    hasPageSlug(node.children, "headless-threads")
+    node.title === "AG-UI Streams"
   );
 }
 
@@ -2302,6 +2362,11 @@ export interface DocFrontmatter {
   hideTOC?: boolean;
   hideHeader?: boolean;
   hidePageActions?: boolean;
+  /**
+   * Page-specific prompt for the page-tools "Copy prompt" action. When set,
+   * the action copies this text instead of the generic onboarding prompt.
+   */
+  agentPrompt?: string;
   frontend?: unknown;
   /**
    * Early-access gate id (see `src/lib/early-access.ts`). When set,
@@ -2501,6 +2566,10 @@ export function loadDoc(
   const hideTOC = data.hideTOC === true;
   const hideHeader = data.hideHeader === true;
   const hidePageActions = data.hidePageActions === true;
+  const agentPrompt =
+    typeof data.agentPrompt === "string" && data.agentPrompt.trim()
+      ? data.agentPrompt.trim()
+      : undefined;
   const frontend = data.frontend;
   const earlyAccess =
     typeof data.earlyAccess === "string" ? data.earlyAccess : undefined;
@@ -2518,6 +2587,7 @@ export function loadDoc(
       hideTOC,
       hideHeader,
       hidePageActions,
+      agentPrompt,
       frontend,
       earlyAccess,
     },

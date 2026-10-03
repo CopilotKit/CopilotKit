@@ -9,12 +9,17 @@
     "intelligence-platform",
     "memories",
     "learned-skills",
+    "capture-interactions",
+    "standalone-collector",
+    "captured-data",
     "analytics",
     "channels",
     "managed-intelligence-platform",
     "plans",
     "self-hosting",
+    "self-hosting-local",
     "self-hosting-ecs",
+    "self-hosting-observability",
     "threads-explained"
   ]
 }

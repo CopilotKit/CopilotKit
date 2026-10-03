@@ -1,29 +1,27 @@
-# Travel Planner
+# Travel Planner Agent
 
-Travel Planner is responsible for managing trips stored in its internal state with the capability of reaching out to the internet using Google Maps.
+This Python LangGraph agent manages trips in shared state and searches for
+places with Places API (New). `main.py` serves it as an AG-UI endpoint for the
+CopilotKit v2 frontend in `examples/v1/travel`.
 
-## Usage
+## Run the agent
 
-This Agent is constructed using LangGraph and Python that is managed by Poetry. To get started you need to install its dependencies and start its server.
+From `examples/v1/travel`, create `agent/.env`:
 
-**These instructions assume you are in the `coagents-travel/agent/` directory**
-
-To start you'll need to create a `.env` file with the following:
-
-```
+```text
 OPENAI_API_KEY=...
 GOOGLE_MAPS_API_KEY=...
 ```
 
-From there you can install the dependencies and start the server:
+Install the locked Python dependencies and start the server:
 
 ```sh
-poetry install
-poetry run demo
+pnpm install:agent
+pnpm dev:agent
 ```
 
-The server is configured to run on port 8000. If you have any trouble, make sure you're using the same version of Python as specified in the `pyproject.toml` file.
+The server listens on `http://localhost:8000/copilotkit` by default.
 
-## Agent Diagram
+## Agent diagram
 
-![Agent Diagram](./static/agent-diagram.png)
+![Agent diagram](./static/agent-diagram.png)

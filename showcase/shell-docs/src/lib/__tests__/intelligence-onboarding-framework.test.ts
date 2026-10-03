@@ -12,6 +12,10 @@ import {
  */
 const DELIBERATELY_UNMAPPED = [
   "crewai-conversational-flows",
+  // The onboarding graph has no Antigravity entry yet; the docs promise
+  // nothing until `ONBOARDING_AGENT_FRAMEWORKS` in the Intelligence repo
+  // gains one. Its CLI framework id will be `antigravity` when it does.
+  "google-antigravity",
   "langroid",
   "spring-ai",
 ];
@@ -59,7 +63,7 @@ describe("onboardingFrameworkSlug", () => {
 describe("frameworkPromptSuffix", () => {
   it("appends the exact sentence the CLI graph reads", () => {
     expect(frameworkPromptSuffix("mastra", "Mastra")).toBe(
-      " I use the Mastra agent framework (`mastra`).",
+      " I use the Mastra agent framework.",
     );
   });
 
@@ -70,7 +74,7 @@ describe("frameworkPromptSuffix", () => {
     // whole sentence so a regression in either half is caught here. The name
     // stops at "Built-in" because the template already supplies "agent".
     expect(frameworkPromptSuffix("built-in-agent", "Built-in")).toBe(
-      " I use the Built-in agent framework (`built-in`).",
+      " I use the Built-in agent framework.",
     );
   });
 });

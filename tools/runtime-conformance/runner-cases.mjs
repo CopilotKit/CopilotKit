@@ -41,6 +41,192 @@ function idleAgent(platform) {
 
 export const runnerCases = [
   {
+    id: "runner.approval-resume-uses-fresh-run",
+    async run(context) {
+      const { platform, request } = context;
+      const resume = [
+        {
+          interruptId: "approve-flight",
+          status: "resolved",
+          payload: { approved: true },
+        },
+        { interruptId: "approve-hotel", status: "cancelled" },
+      ];
+      platform.faults.agentEvents = (body) => {
+        const lifecycle = { threadId: body.threadId, runId: body.runId };
+        if (body.resume) {
+          return [
+            { type: "RUN_STARTED", ...lifecycle },
+            {
+              type: "TOOL_CALL_RESULT",
+              messageId: "flight-answer",
+              toolCallId: "approve-flight",
+              role: "tool",
+              content: '{"approved":true}',
+            },
+            {
+              type: "TOOL_CALL_RESULT",
+              messageId: "hotel-answer",
+              toolCallId: "approve-hotel",
+              role: "tool",
+              content: '{"status":"cancelled"}',
+            },
+            {
+              type: "RUN_FINISHED",
+              ...lifecycle,
+              outcome: { type: "success" },
+            },
+          ];
+        }
+        return [
+          { type: "RUN_STARTED", ...lifecycle },
+          ...["approve-flight", "approve-hotel"].flatMap((toolCallId) => [
+            {
+              type: "TOOL_CALL_START",
+              toolCallId,
+              toolCallName: "book",
+              parentMessageId: "approval-message",
+            },
+            { type: "TOOL_CALL_ARGS", toolCallId, delta: "{}" },
+            { type: "TOOL_CALL_END", toolCallId },
+          ]),
+          {
+            type: "RUN_FINISHED",
+            ...lifecycle,
+            outcome: {
+              type: "interrupt",
+              interrupts: [
+                {
+                  id: "approve-flight",
+                  reason: "tool_approval",
+                  toolCallId: "approve-flight",
+                },
+                {
+                  id: "approve-hotel",
+                  reason: "tool_approval",
+                  toolCallId: "approve-hotel",
+                },
+              ],
+            },
+          },
+        ];
+      };
+      const original = await start(context);
+      await platform.waitFor(
+        () =>
+          platform.events.some(
+            (event) =>
+              event.runId === original.runId && event.type === "RUN_FINISHED",
+          ) && !platform.locks.has(original.threadId),
+      );
+      const successor = {
+        ...original,
+        runId: randomUUID(),
+        resume,
+        messages: [
+          ...original.messages,
+          {
+            id: "approval-message",
+            role: "assistant",
+            content: "",
+            toolCalls: ["approve-flight", "approve-hotel"].map((id) => ({
+              id,
+              type: "function",
+              function: { name: "book", arguments: "{}" },
+            })),
+          },
+        ],
+      };
+      assert.equal(
+        (await request("POST", "/agent/default/run", successor)).status,
+        200,
+      );
+      await platform.waitFor(
+        () =>
+          platform.events.some(
+            (event) =>
+              event.runId === successor.runId && event.type === "RUN_FINISHED",
+          ) && !platform.locks.has(original.threadId),
+      );
+      assert.deepEqual(
+        platform.agentInputs.map((body) => body.runId),
+        [original.runId, successor.runId],
+      );
+      assert.deepEqual(platform.agentInputs[1].resume, resume);
+      assert.equal(platform.agentInputs[1].threadId, original.threadId);
+      assert.ok(
+        platform.events.every((event) => event.threadId === original.threadId),
+      );
+      const originalEvents = platform.events.filter(
+        (event) => event.runId === original.runId,
+      );
+      const successorEvents = platform.events.filter(
+        (event) => event.runId === successor.runId,
+      );
+      assert.deepEqual(
+        originalEvents.map((event) => event.type),
+        [
+          "RUN_STARTED",
+          "TOOL_CALL_START",
+          "TOOL_CALL_ARGS",
+          "TOOL_CALL_END",
+          "TOOL_CALL_START",
+          "TOOL_CALL_ARGS",
+          "TOOL_CALL_END",
+          "RUN_FINISHED",
+        ],
+      );
+      assert.deepEqual(
+        successorEvents.map((event) => event.type),
+        ["RUN_STARTED", "TOOL_CALL_RESULT", "TOOL_CALL_RESULT", "RUN_FINISHED"],
+      );
+      assert.deepEqual(
+        successorEvents.map((event) => event.metadata.cpki_event_seq),
+        [1, 2, 3, 4],
+      );
+      const results = platform.events.filter(
+        (event) => event.type === "TOOL_CALL_RESULT",
+      );
+      assert.deepEqual(
+        results.map((event) => ({
+          runId: event.runId,
+          toolCallId: event.toolCallId,
+          content: event.content,
+        })),
+        [
+          {
+            runId: successor.runId,
+            toolCallId: "approve-flight",
+            content: '{"approved":true}',
+          },
+          {
+            runId: successor.runId,
+            toolCallId: "approve-hotel",
+            content: '{"status":"cancelled"}',
+          },
+        ],
+      );
+      assert.deepEqual(
+        platform.events
+          .filter((event) => event.type === "RUN_FINISHED")
+          .map((event) => [event.runId, event.outcome.type]),
+        [
+          [original.runId, "interrupt"],
+          [successor.runId, "success"],
+        ],
+      );
+      assert.equal(
+        new Set(platform.events.map((event) => event.metadata.cpki_event_id))
+          .size,
+        platform.events.length,
+      );
+      assert.equal(
+        platform.events.some((event) => event.type === "RUN_ERROR"),
+        false,
+      );
+    },
+  },
+  {
     id: "runner.idle-heartbeat-reconnect",
     async run(context) {
       const { platform, request } = context;

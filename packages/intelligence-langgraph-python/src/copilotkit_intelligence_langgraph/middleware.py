@@ -19,7 +19,7 @@ from langgraph.prebuilt.tool_node import ToolCallRequest
 from langgraph.runtime import Runtime
 from langgraph.types import Command
 
-from ._delivery.registry import Registry, Status
+from ._delivery.registry import ContainerSource, Registry, Status
 from ._delivery.snapshot import SnapshotSkill, VerifiedSnapshot
 
 
@@ -209,6 +209,7 @@ def create_skill_registry_middleware(
     api_url: str | None = None,
     container_id: str | None = None,
     revision: str | None = None,
+    containers: Sequence[ContainerSource] | None = None,
     freshness_window: float = 5,
     request_timeout: float = 5,
     debug: bool = False,
@@ -226,6 +227,7 @@ def create_skill_registry_middleware(
             api_url=api_url,
             container_id=container_id,
             revision=revision,
+            containers=containers,
             freshness_window=freshness_window,
             request_timeout=request_timeout,
             debug=debug,

@@ -16,7 +16,11 @@ You have a chat surface or a hook driving an agent and you want every agent run 
 - **Audit and billing** where every run needs an identity to attribute it to.
 - **Session-aware UX** where the agent's behaviour depends on the user's role or permissions.
 
-If you don't need any of those, skip auth entirely. The agent runs anonymously and the frontend never has to care about tokens.
+If you run the TypeScript runtime without Intelligence and do not need any of those, your agent can run anonymously. Intelligence runtimes require a trusted application-user identity for protected web requests.
+
+<Callout type="info" title="Runtime authentication APIs">
+The runtime hooks on this page use the TypeScript API. Python, Go, Ruby, and C#/.NET use their host's request and authentication APIs; follow their [Intelligence setup examples](/intelligence/quickstart#connect-your-runtime). In every language, resolve the user from a verified session or token and keep the Intelligence API key on the server.
+</Callout>
 
 <WhenFrameworkHas flag="auth_pattern" equals="runtime-onrequest">
 
@@ -574,7 +578,7 @@ For everything in the Yes rows there is no ownership table to build. What you ow
   thread scope.
 </Callout>
 
-See [Scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user) for the full runtime contract.
+See [Scope AG-UI Streams to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user) for the full runtime contract.
 
 ### Scope threads yourself
 

@@ -6,6 +6,7 @@ import React, {
   useSyncExternalStore,
 } from "react";
 import type { ToolCall, ToolMessage } from "@ag-ui/core";
+import { contentToText } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
@@ -56,7 +57,10 @@ const ToolCallRenderer = React.memo(
           toolCallId={toolCall.id}
           args={args}
           status={ToolCallStatus.Complete}
-          result={toolMessage.content}
+          // AG-UI 1.0 lets a tool result carry content parts; the renderer
+          // contract is `result: string`, so it gets the text parts (media is
+          // not something a string can hold — the message itself keeps it).
+          result={contentToText(toolMessage.content)}
         />
       );
     } else if (isExecuting) {

@@ -66,6 +66,7 @@ type Config struct {
 type activeRun struct {
 	cancel context.CancelFunc
 	runID  string
+	done   chan struct{}
 }
 
 // Runtime implements http.Handler. Close drains its background work.
@@ -524,7 +525,11 @@ func (r *Runtime) connect(w http.ResponseWriter, req *http.Request, u User, id s
 		return
 	}
 	m := object(v)
-	reply(w, 200, map[string]any{"threadId": m["threadId"], "joinToken": m["joinToken"], "realtime": r.realtime(str(m["threadId"]))})
+	response := map[string]any{"threadId": m["threadId"], "joinToken": m["joinToken"], "realtime": r.realtime(str(m["threadId"]))}
+	if runID, ok := m["runId"]; ok {
+		response["runId"] = runID
+	}
+	reply(w, 200, response)
 }
 func (r *Runtime) realtime(thread string) map[string]any {
 	return map[string]any{"clientUrl": r.config.ClientURL, "topic": "thread:" + thread}

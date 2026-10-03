@@ -40,6 +40,7 @@ export {
   type FinalizeRunOptions,
   type RunEventFinalizer,
 } from "./finalize-events";
+export { stripIntelligenceRoutingFields } from "./intelligence-routing-fields";
 
 export {
   TranscriptionErrorCode,

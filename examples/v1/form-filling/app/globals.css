@@ -10,7 +10,6 @@
 }
 
 :root {
-  --copilot-kit-primary-color: black;
   --background: oklch(1 0 0);
   --foreground: oklch(0.147 0.004 49.25);
   --card: oklch(1 0 0);
