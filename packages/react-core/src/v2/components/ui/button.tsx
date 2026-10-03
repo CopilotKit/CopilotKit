@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
-import { cva, type VariantProps } from "class-variance-authority";
+import { cva } from "class-variance-authority";
+import type { VariantProps } from "class-variance-authority";
 
 import { cn } from "../../lib/utils";
 
@@ -22,42 +23,37 @@ const buttonVariants = cva(
         link: "cpk:text-primary cpk:underline-offset-4 cpk:hover:underline",
         assistantMessageToolbarButton: [
           "cpk:cursor-pointer",
-          // Background and text
-          "cpk:p-0 cpk:text-[rgb(93,93,93)] cpk:hover:bg-[#E8E8E8]",
-          // Dark mode - lighter gray for better contrast
-          "cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]",
+          // Background and text. Defaults are unchanged; the CSS variables
+          // below resolve to the original colors until a theme overrides them.
+          "cpk:p-0 cpk:text-[var(--cpk-message-toolbar-button-foreground)] cpk:hover:bg-[var(--cpk-message-toolbar-button-hover-background)]",
           // Shape and sizing
           "cpk:h-8 cpk:w-8",
           // Interactions
           "cpk:transition-colors",
           // Hover states
-          "cpk:hover:text-[rgb(93,93,93)]",
-          "cpk:dark:hover:text-[rgb(243,243,243)]",
+          "cpk:hover:text-[var(--cpk-message-toolbar-button-foreground)]",
         ],
         chatInputToolbarPrimary: [
           "cpk:cursor-pointer",
-          // Background and text
-          "cpk:bg-black cpk:text-white",
-          // Dark mode
-          "cpk:dark:bg-white cpk:dark:text-black cpk:dark:focus-visible:outline-white",
+          // Background and text. The CSS variables default to the original
+          // colors and flip in dark mode, so the default look is unchanged.
+          "cpk:bg-[var(--cpk-send-button-background)] cpk:text-[var(--cpk-send-button-foreground)]",
           // Shape and sizing
           "cpk:rounded-full",
           // Interactions
           "cpk:transition-colors",
           // Focus states
-          "cpk:focus:outline-none",
+          "cpk:focus:outline-none cpk:dark:focus-visible:outline-white",
           // Hover states
           "cpk:hover:opacity-70 cpk:disabled:hover:opacity-100",
           // Disabled states
-          "cpk:disabled:cursor-not-allowed cpk:disabled:bg-[#00000014] cpk:disabled:text-[rgb(13,13,13)]",
-          "cpk:dark:disabled:bg-[#454545] cpk:dark:disabled:text-white ",
+          "cpk:disabled:cursor-not-allowed cpk:disabled:bg-[var(--cpk-send-button-disabled-background)] cpk:disabled:text-[var(--cpk-send-button-disabled-foreground)]",
         ],
         chatInputToolbarSecondary: [
           "cpk:cursor-pointer",
-          // Background and text
-          "cpk:bg-transparent cpk:text-[#444444]",
-          // Dark mode
-          "cpk:dark:text-white cpk:dark:border-[#404040]",
+          // Background and text. The CSS variables default to the original
+          // colors and flip in dark mode, so the default look is unchanged.
+          "cpk:bg-transparent cpk:text-[var(--cpk-toolbar-button-foreground)] cpk:dark:border-[#404040]",
           // Shape and sizing
           "cpk:rounded-full",
           // Interactions
@@ -65,9 +61,8 @@ const buttonVariants = cva(
           // Focus states
           "cpk:focus:outline-none",
           // Hover states
-          "cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333]",
-          "cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF]",
-          // Disabled states
+          "cpk:hover:bg-[var(--cpk-toolbar-button-hover-background)] cpk:hover:text-[var(--cpk-toolbar-button-hover-foreground)]",
+          // Disabled states (kept literal so the disabled look is unchanged)
           "cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50",
           "cpk:disabled:hover:bg-transparent cpk:disabled:hover:text-[#444444]",
           "cpk:dark:disabled:hover:bg-transparent cpk:dark:disabled:hover:text-[#CCCCCC]",

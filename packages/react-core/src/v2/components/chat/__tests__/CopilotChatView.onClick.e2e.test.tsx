@@ -453,7 +453,9 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
         );
 
         // Find toolbar container (usually contains the buttons)
-        const toolbars = container.querySelectorAll('[class*="toolbar"]');
+        const toolbars = container.querySelectorAll(
+          '[data-testid="copilot-assistant-toolbar"]',
+        );
         const firstToolbar = toolbars[0];
         if (firstToolbar) {
           fireEvent.click(firstToolbar);
