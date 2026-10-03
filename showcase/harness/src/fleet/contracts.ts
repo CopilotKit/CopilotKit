@@ -552,7 +552,8 @@ export function runSummaryForServiceJobResult(
     return {
       total: result.rollup.total,
       passed: 0,
-      failed: result.rollup.total,
+      failed: result.rollup.failed,
+      ...(result.rollup.passed > 0 ? { unverified: result.rollup.passed } : {}),
     };
   }
   if (
