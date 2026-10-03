@@ -70,6 +70,7 @@ export type WebMCPToolConfig = {
 
 export type FrontendTool<
   T extends Record<string, unknown> = Record<string, unknown>,
+  A extends string = string,
 > = {
   /**
    * @internal Classifies local execution. Omitted means an ordinary frontend
@@ -86,7 +87,7 @@ export type FrontendTool<
    * Optional agent ID to constrain this tool to a specific agent.
    * If specified, this tool will only be available to the specified agent.
    */
-  agentId?: string;
+  agentId?: A;
   /**
    * Whether this tool is available to the agent.
    * Set to false to hide the tool from the agent without unregistering it.

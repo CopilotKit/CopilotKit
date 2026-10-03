@@ -3,6 +3,7 @@ import type { ReactFrontendTool } from "../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../types/human-in-the-loop";
 import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
 import { ToolCallStatus } from "@copilotkit/core";
+import type { AgentId } from "../types/copilotkit-types";
 import { useCallback, useLayoutEffect, useRef } from "react";
 import React from "react";
 import { useFrontendTool } from "./use-frontend-tool";
@@ -12,7 +13,8 @@ const WILDCARD_TOOL_NAME = "*";
 
 export function useHumanInTheLoop<
   T extends Record<string, unknown> = Record<string, unknown>,
->(tool: ReactHumanInTheLoop<T>, deps?: ReadonlyArray<unknown>) {
+  A extends AgentId = AgentId,
+>(tool: ReactHumanInTheLoop<T, A>, deps?: ReadonlyArray<unknown>) {
   const { copilotkit } = useCopilotKit();
   const resolvePromiseRef = useRef<((result: unknown) => void) | null>(null);
   // Cleanup that detaches the pending abort listener; cleared whenever the
@@ -114,7 +116,7 @@ export function useHumanInTheLoop<
     [tool.render, tool.name, tool.description, tool.agentId, respond],
   );
 
-  const frontendTool: ReactFrontendTool<T> = {
+  const frontendTool: ReactFrontendTool<T, A> = {
     ...tool,
     type: "human-in-the-loop",
     handler,

@@ -25,6 +25,7 @@ import {
   ɵisHttpAgent,
 } from "@copilotkit/core";
 import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
+import type { AgentId } from "../../types/copilotkit-types";
 import React, {
   useCallback,
   useEffect,
@@ -69,7 +70,7 @@ export type CopilotChatProps = Omit<
   | "onDragLeave"
   | "onDrop"
 > & {
-  agentId?: string;
+  agentId?: AgentId;
   threadId?: string;
   labels?: Partial<CopilotChatLabels>;
   /**
