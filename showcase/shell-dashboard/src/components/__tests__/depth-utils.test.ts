@@ -198,10 +198,8 @@ describe("deriveDepth", () => {
   });
 
   it("D2 red (agent red) gates the whole cell to D0 (corrected liveness gate)", () => {
-    // Unified engine §F: a PRESENT fresh-red D1/D2 liveness rung gates the cell
-    // to achieved 0 (chip red) — a red liveness rung is a genuine failure that
-    // pins the cell down, regardless of green D3+ above it. (Old deriveDepth
-    // stopped at D1 = achieved 1; the engine treats the red agent as a gate.)
+    // A failed shared API check blocks feature credit even with green D3+.
+    // It does not establish an individual feature failure.
     const c = cell("lgp", "agentic-chat");
     const live = mapOf([
       row("health:lgp", "health", "green"),
@@ -272,14 +270,14 @@ describe("deriveDepth", () => {
     expect(result.isRegression).toBe(false);
   });
 
-  it("isRegression is true when health drops (maxPossible > 0)", () => {
+  it("a shared health failure does not count as a feature regression", () => {
     // "agentic-chat" has D5 mapping → maxPossible=6, health red → achieved=0
     const c = cell("lgp", "agentic-chat", "wired", 1);
     const live = mapOf([row("health:lgp", "health", "red")]);
     const result = deriveDepth(c, live);
     expect(result.achieved).toBe(0);
     expect(result.maxPossible).toBe(6);
-    expect(result.isRegression).toBe(true);
+    expect(result.isRegression).toBe(false);
   });
 
   it("caps legacy D5 positive at D4 (via CATALOG_TO_D5_KEY)", () => {

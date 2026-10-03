@@ -1774,8 +1774,8 @@ describe("buildCellModel", () => {
 
   // ── §F: buildCellModel reads health:/agent: rows as the D1/D2 liveness gate ──
   // The unified engine now consumes the health:/agent: rows: a PRESENT
-  // fresh-red D1/D2 gates the cell (achieved 0, red), while an ABSENT or STALE
-  // liveness row is NON-GATING (skipped — preserving the common cold-load /
+  // fresh-red D1/D2 blocks feature credit (achieved 0, unavailable), while an
+  // ABSENT or STALE liveness row is NON-GATING (skipped — preserving the common cold-load /
   // undiscovered-service case). This absorbs the former producer-side "D1/D2
   // gate" invariant into the derivation (spec §F).
   describe("D1/D2 liveness gate (§F)", () => {
@@ -1789,8 +1789,11 @@ describe("buildCellModel", () => {
       const model = buildCellModel(live, wiredInput("agno", "no-d5-feature"));
       // The D3 rung itself still reads green from its e2e row…
       expect(model.d3!.status).toBe("green");
-      // …but the present fresh-red D1 gates the ladder → achieved 0 (§F).
+      // The health failure blocks credit without inventing a feature failure.
       expect(model.achievedDepth).toBe(0);
+      expect(model.blockedBy).toBe("health");
+      expect(model.chipColor).toBe("gray");
+      expect(model.isRegression).toBe(false);
     });
 
     it("ABSENT health/agent is non-gating — a fresh-green e2e still credits D3", () => {

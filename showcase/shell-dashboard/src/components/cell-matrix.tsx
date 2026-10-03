@@ -19,7 +19,6 @@ import { buildCellModel } from "@/lib/cell-model";
 import type { CatalogCell } from "./depth-utils";
 import type { ParityTier } from "./parity-badge";
 import type { FilterMode } from "./filter-chips";
-import { resolveCell } from "@/lib/live-status";
 import type { LiveStatusMap, ConnectionStatus } from "@/lib/live-status";
 import type { FeatureCategory } from "@/lib/registry";
 
@@ -322,12 +321,19 @@ export function CellMatrix({
         // we expect to do.
         if (!cell || cell.status === "unshipped") return true;
         if (cell.status === "unsupported") return false;
-        // Red probes = functional gap (cell exists but failing)
+        // Observed feature failures and unavailable integrations are gaps.
         if (cell.feature !== null) {
-          const cellState = resolveCell(liveStatus, int.slug, cell.feature, {
+          const model = buildCellModel(
+            liveStatus,
+            {
+              slug: int.slug,
+              featureId: cell.feature,
+              isSupported: true,
+              isWired: cell.status === "wired" || cell.status === "stub",
+            },
             now,
-          });
-          if (cellState.rollup === "red") return true;
+          );
+          if (model.chipColor === "red" || model.blockedBy) return true;
         }
         return false;
       });

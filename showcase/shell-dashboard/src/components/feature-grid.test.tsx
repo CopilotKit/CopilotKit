@@ -239,16 +239,15 @@ describe("computeColumnTally", () => {
     });
   });
 
-  it("a red health (D1) row gates every cell in the column red (§F liveness gate)", () => {
+  it("a shared health failure does not count every feature as failed", () => {
     const live: LiveStatusMap = new Map();
     live.set("health:i1", row("health:i1", "health", "red"));
     const t = computeColumnTally(integration, features, live);
-    // §F: a present fresh-red D1 (slug-scoped health) gates the cell → red.
-    // The service is down, so every feature cell in the column reds.
+    // The integration is unavailable; no individual feature failure was observed.
     expect(t).toEqual({
       green: 0,
       amber: 0,
-      red: 2,
+      red: 0,
       unknown: false,
       loading: false,
     });
