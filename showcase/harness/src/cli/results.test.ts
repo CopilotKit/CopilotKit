@@ -214,6 +214,26 @@ describe("bestEffortWriter", () => {
 // with red/error under the red "Failed:" banner.
 // ---------------------------------------------------------------------------
 describe("printSummary", () => {
+  it("labels a diagnostic D6 positive unverified while preserving failures", () => {
+    const green = probeResultToTerminal({
+      key: "d6:mastra/frontend-tools",
+      state: "green",
+      signal: {},
+      observedAt: new Date().toISOString(),
+    });
+    const red = probeResultToTerminal({
+      key: "d6:mastra/agentic-chat",
+      state: "red",
+      signal: {},
+      observedAt: new Date().toISOString(),
+    });
+    expect(green.state).toBe("unverified");
+    expect(red.state).toBe("red");
+    const output = captureSummary([green, red]);
+    expect(output).toContain("0 passed");
+    expect(output).toContain("1 unverified");
+    expect(output).toContain("1 failed");
+  });
   afterEach(() => {
     vi.restoreAllMocks();
   });

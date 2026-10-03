@@ -45,10 +45,11 @@ import { createPbClient } from "../storage/pb-client.js";
 import { createJobClaimClient } from "../fleet/job-claim.js";
 import { railwayServicesSource } from "../probes/discovery/railway-services.js";
 
-import type { Logger } from "../types/index.js";
+import type { Logger, ProbeState } from "../types/index.js";
 import type { LocalConfig } from "./config.js";
 import type { TestTarget } from "./targets.js";
 import type { TerminalResult } from "./results.js";
+import { probeResultToTerminal } from "./results.js";
 import { demosForSlug, loadManifest } from "./targets.js";
 import { demosToFeatureTypes } from "../probes/helpers/d5-feature-mapping.js";
 
@@ -180,6 +181,7 @@ export function buildLocalServicesJson(
   const records = scopes.map(({ slug, demo }) => ({
     name: `showcase-${slug}`,
     publicUrl: `http://${slug}:10000`,
+    deployedDigest: config.targetRevisions?.[slug],
     demos: demo
       ? [demo]
       : level === "d5"
@@ -288,8 +290,10 @@ export function expectedKeys(
 
 interface StatusRow {
   key: string;
-  state: string;
+  state: ProbeState;
   updated: string;
+  observed_at?: string;
+  signal?: unknown;
 }
 
 /**
@@ -387,7 +391,7 @@ async function pbFetchStatus(
     throw new Error(`PocketBase status read failed: ${res.status}`);
   }
   const body = (await res.json()) as {
-    items: Array<{ key: string; state: string; updated: string }>;
+    items: StatusRow[];
   };
   const out = new Map<string, StatusRow>();
   for (const item of body.items) {
@@ -396,6 +400,8 @@ async function pbFetchStatus(
         key: item.key,
         state: item.state,
         updated: item.updated,
+        observed_at: item.observed_at,
+        signal: item.signal,
       });
     }
   }
@@ -556,12 +562,14 @@ export async function runViaControlPlane(
   const results: TerminalResult[] = [];
   for (const key of allKeys) {
     const row = terminalRows.get(key);
-    results.push({
-      key,
-      state: (row?.state ?? "error") as TerminalResult["state"],
-      durationMs: 0,
-      error: row && row.state !== "green" ? `state=${row.state}` : undefined,
-    });
+    results.push(
+      probeResultToTerminal({
+        key,
+        state: row?.state ?? "error",
+        signal: row?.signal,
+        observedAt: row?.observed_at ?? "",
+      }),
+    );
   }
   return results;
 }

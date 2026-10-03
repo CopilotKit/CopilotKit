@@ -1,11 +1,15 @@
 import type { FrontendMatrixCell } from "./frontend-matrix.js";
-import { functionalAdmission } from "../shared/cell-model/live-status.js";
+import {
+  functionalAdmission,
+  FUNCTIONAL_CANONICAL_REVISIONS,
+} from "../shared/cell-model/live-status.js";
 import type {
   FrontendMatrixArtifact,
   FrontendMatrixArtifactCell,
   MeasuredShardPlan,
 } from "./frontend-matrix-runner.js";
 import { percentile } from "./frontend-matrix-runner.js";
+import { testIdForFrontendProbe } from "./frontend-matrix-playwright.js";
 
 interface ShowcaseRegistryInput {
   integrations: Array<{ slug: string; backend_url: string }>;
@@ -216,7 +220,41 @@ export function aggregateFrontendMatrixArtifacts(
       ) {
         throw new Error(`artifact revision mismatch for ${expected.id}`);
       }
-      cells.set(cell.cellId, cell);
+      const probes = cell.probes.map((probe) =>
+        probe.status === "passed" &&
+        (!probe.functional?.binding?.runId ||
+          probe.testId !==
+            testIdForFrontendProbe(
+              expected,
+              probe.featureType,
+              probe.functional.binding.runId,
+            ) ||
+          Date.parse(probe.functional.binding.observedAt) < startedAt ||
+          Date.parse(probe.functional.binding.observedAt) > finishedAt ||
+          functionalAdmission(
+            `d6:${cell.integration}/${probe.featureType}`,
+            "green",
+            { functional: probe.functional },
+            probe.functional?.binding?.observedAt,
+            {
+              frontend: cell.frontend,
+              targetRevision: cell.containerImageRevision,
+              canonicalRevision:
+                FUNCTIONAL_CANONICAL_REVISIONS[probe.featureType],
+            },
+          ) === "unverified")
+          ? { ...probe, status: "unverified" as const }
+          : probe,
+      );
+      cells.set(cell.cellId, {
+        ...cell,
+        probes,
+        status:
+          cell.status === "passed" &&
+          (probes.length === 0 || probes.some((p) => p.status !== "passed"))
+            ? ("unverified" as const)
+            : cell.status,
+      });
     }
   }
 
@@ -239,23 +277,9 @@ export function aggregateFrontendMatrixArtifacts(
     );
   }
 
-  const sortedCells = [...cells.values()]
-    .map((cell) =>
-      cell.status === "passed" &&
-      functionalAdmission(`d5:${cell.integration}/${cell.feature}`, "green") ===
-        "unverified"
-        ? {
-            ...cell,
-            status: "unverified" as const,
-            probes: cell.probes.map((probe) =>
-              probe.status === "passed"
-                ? { ...probe, status: "unverified" as const }
-                : probe,
-            ),
-          }
-        : cell,
-    )
-    .sort((left, right) => left.cellId.localeCompare(right.cellId));
+  const sortedCells = [...cells.values()].sort((left, right) =>
+    left.cellId.localeCompare(right.cellId),
+  );
   const failed = sortedCells.filter((cell) => cell.status === "failed").length;
   const p95ShardWallTimeMs = percentile(shardWallTimes, 0.95);
   return {

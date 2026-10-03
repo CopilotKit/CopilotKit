@@ -190,6 +190,17 @@ afterEach(() => {
 // buildLocalServicesJson
 // ---------------------------------------------------------------------------
 describe("buildLocalServicesJson", () => {
+  it("carries the running image identity into local fleet discovery", () => {
+    const digest = `sha256:${"a".repeat(64)}`;
+    expect(
+      JSON.parse(
+        buildLocalServicesJson([{ slug: "mastra" }], "d6", {
+          ...STUB_CONFIG,
+          targetRevisions: { mastra: digest },
+        }),
+      )[0].deployedDigest,
+    ).toBe(digest);
+  });
   it("d5 no demo → demos:[agentic-chat] regardless of manifest", () => {
     const scopes: SlugScope[] = [{ slug: "langgraph-python" }];
     const out = JSON.parse(

@@ -49,6 +49,7 @@ import type { ProbeDriver } from "../types.js";
 import type { Logger, ProbeContext, ProbeResult } from "../../types/index.js";
 import type { BrowserPool } from "../helpers/browser-pool.js";
 import { createPlaywrightProbeExecutor } from "../frontend-matrix-playwright.js";
+import { FUNCTIONAL_CANONICALS } from "../../shared/cell-model/live-status.js";
 import { clearRemoteThreads } from "../helpers/clear-remote-threads.js";
 import type playwright from "playwright";
 
@@ -114,6 +115,7 @@ const inputSchema = z
     deployedAt: z.string().optional(),
     targetRevision: z.string().optional(),
     canonicalRevision: z.string().optional(),
+    canonicalRevisions: z.record(z.string()).optional(),
     /**
      * D5-take-one scoping. When true, the computed `requestedFeatures`
      * are filtered to ONLY the featureTypes present in the representatives
@@ -1346,7 +1348,8 @@ export function createE2eFullDriver(
                 cvComponent,
                 key: sideKey,
                 targetRevision: input.targetRevision,
-                canonicalRevision: input.canonicalRevision,
+                canonicalRevision:
+                  input.canonicalRevisions?.[ft] ?? input.canonicalRevision,
                 featureTimeoutMs,
                 publicShellBaseUrl:
                   ctx.env.SHOWCASE_PUBLIC_URL ??
@@ -1396,7 +1399,7 @@ export function createE2eFullDriver(
               const attempt1Duration = Date.now() - attempt1Start;
 
               if (
-                ft !== "frontend-tools" &&
+                !FUNCTIONAL_CANONICALS[ft] &&
                 !featureResult.ok &&
                 !abort.signal.aborted &&
                 !featureAbort.signal.aborted &&
@@ -1734,7 +1737,8 @@ async function runFeature(opts: {
     cvdiagBufferDir,
   } = opts;
 
-  if (featureType === "frontend-tools" && script.canonical) {
+  if (script.canonical && FUNCTIONAL_CANONICALS[featureType]) {
+    const feature = new URL(url).pathname.split("/").filter(Boolean).at(-1)!;
     const run = createPlaywrightProbeExecutor({
       browser: {
         newContext: async () => {
@@ -1752,14 +1756,14 @@ async function runFeature(opts: {
     });
     const result = await run({
       cell: {
-        id: `react/${slug}/frontend-tools`,
+        id: `react/${slug}/${feature}`,
         frontend: "react",
         integration: slug,
-        feature: "frontend-tools",
+        feature,
         featureTypes: [featureType],
       },
       featureType,
-      url: `${opts.publicShellBaseUrl.replace(/\/$/, "")}/react/${slug}/frontend-tools/preview`,
+      url: `${opts.publicShellBaseUrl.replace(/\/$/, "")}/react/${slug}/${feature}/preview`,
       backendUrl: buildCtx.baseUrl,
       testId: buildE2eTestId(slug, runId),
       key: opts.key,

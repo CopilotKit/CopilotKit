@@ -1,4 +1,4 @@
-export type FrontendParityStatus = "passed" | "failed";
+export type FrontendParityStatus = "passed" | "failed" | "unverified";
 export type FrontendFailureCategory =
   | "product"
   | "integration"
@@ -29,6 +29,7 @@ export interface AcceptedBaselineFailure {
 
 export type FrontendParityOutcome =
   | "passed"
+  | "unverified"
   | "angular-regression"
   | "react-regression"
   | "accepted-baseline-failure"
@@ -61,6 +62,7 @@ export interface FrontendParityReport {
 
 export type CurrentFrontendParityOutcome =
   | "passed"
+  | "unverified"
   | "angular-regression"
   | "shared-failure"
   | "angular-improvement"
@@ -97,6 +99,7 @@ export interface FrontendParityInput {
 
 const OUTCOMES: readonly FrontendParityOutcome[] = [
   "passed",
+  "unverified",
   "angular-regression",
   "react-regression",
   "accepted-baseline-failure",
@@ -109,6 +112,7 @@ const OUTCOMES: readonly FrontendParityOutcome[] = [
 
 const CURRENT_OUTCOMES: readonly CurrentFrontendParityOutcome[] = [
   "passed",
+  "unverified",
   "angular-regression",
   "shared-failure",
   "angular-improvement",
@@ -258,6 +262,12 @@ function comparisonFor(
     return result("identity-mismatch", identityReasons);
   }
 
+  if ([base, react, angular].some((cell) => cell?.status === "unverified")) {
+    return result("unverified", [
+      "functional evidence is incomplete; parity is unverified",
+    ]);
+  }
+
   if (base.status === "failed" && !accepted) {
     return result("unowned-baseline-failure", [
       "baseline failure requires category, owner, and issue",
@@ -386,7 +396,10 @@ export function evaluateCurrentFrontendParity(input: {
           "Angular cell has no React counterpart",
         ]);
       }
-      if (!angular) return result("react-only");
+      if (!angular)
+        return react.status === "unverified"
+          ? result("unverified", ["React functional evidence is incomplete"])
+          : result("react-only");
 
       const identityReasons = pairIdentityReasons(
         react,
@@ -395,6 +408,11 @@ export function evaluateCurrentFrontendParity(input: {
       );
       if (identityReasons.length > 0) {
         return result("identity-mismatch", identityReasons);
+      }
+      if (react.status === "unverified" || angular.status === "unverified") {
+        return result("unverified", [
+          "functional evidence is incomplete; parity is unverified",
+        ]);
       }
       if (react.status === "passed" && angular.status === "failed") {
         return result("angular-regression", [
@@ -453,7 +471,11 @@ export function frontendParityCellsFromAggregate(
     if (cell.frontend !== "react" && cell.frontend !== "angular") {
       throw new Error(`unsupported aggregate frontend ${cell.frontend}`);
     }
-    if (cell.status !== "passed" && cell.status !== "failed") {
+    if (
+      cell.status !== "passed" &&
+      cell.status !== "failed" &&
+      cell.status !== "unverified"
+    ) {
       throw new Error(`unsupported aggregate status ${cell.status}`);
     }
     return {

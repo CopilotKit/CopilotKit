@@ -1,4 +1,4 @@
-import { FRONTEND_TOOLS_CANONICAL } from "../../shared/cell-model/live-status.js";
+import { FUNCTIONAL_CANONICAL_REVISIONS } from "../../shared/cell-model/live-status.js";
 /**
  * Control-plane CATALOG ENUMERATOR — the real `ServiceEnumerator` the job
  * producer (S4) runs each tick (BLITZ S10, the discovery seam in
@@ -496,7 +496,7 @@ function toDriverInputs(
     name: svc.name,
     backendUrl: svc.publicUrl,
     targetRevision: svc.deployedDigest,
-    canonicalRevision: FRONTEND_TOOLS_CANONICAL.id,
+    canonicalRevisions: FUNCTIONAL_CANONICAL_REVISIONS,
     demos: [...svc.demos],
     notSupportedFeatures: [...svc.notSupportedFeatures],
     shape: svc.shape,

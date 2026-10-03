@@ -25,7 +25,10 @@ import type {
   FrontendProbeResult,
 } from "./frontend-matrix-runner.js";
 
-import { functionalAdmission } from "../shared/cell-model/live-status.js";
+import {
+  functionalAdmission,
+  FUNCTIONAL_CANONICAL_REVISIONS,
+} from "../shared/cell-model/live-status.js";
 
 const DEFAULT_PROBE_TIMEOUT_MS = 90_000;
 const DEFAULT_HYDRATION_TIMEOUT_MS = 15_000;
@@ -52,6 +55,7 @@ export interface FrontendCellExecutorOptions {
   angularBaseUrl: string;
   backendUrls: Readonly<Record<string, string>>;
   invocationId: string;
+  targetRevisions?: Readonly<Record<string, string>>;
   runProbe: FrontendProbeExecutor;
   executionMode?: "diagnostic" | "public-pill";
   publicShellBaseUrl?: string;
@@ -128,6 +132,10 @@ export function createFrontendCellExecutor(
             url,
             backendUrl,
             testId,
+            key: `d6:${cell.integration}/${featureType}`,
+            runId: options.invocationId,
+            targetRevision: options.targetRevisions?.[cell.integration],
+            canonicalRevision: FUNCTIONAL_CANONICAL_REVISIONS[featureType],
           }),
         );
       } catch {
@@ -464,7 +472,7 @@ export function createPlaywrightProbeExecutor(
           if (!targetFrame) throw new Error("public shell iframe missing");
           await targetFrame.waitForLoadState("load");
           const expected = new URL(
-            `/demos/${input.cell.feature}`,
+            `/${input.cell.frontend === "angular" ? "angular" : "demos"}/${input.cell.feature}`,
             input.backendUrl,
           );
           const actual = new URL(targetFrame.url());

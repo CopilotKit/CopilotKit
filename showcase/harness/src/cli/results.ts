@@ -30,6 +30,7 @@ import {
   serializeErr,
 } from "../writers/status-writer.js";
 import type { TypedEventBus } from "../events/event-bus.js";
+import { functionalAdmission } from "../shared/cell-model/live-status.js";
 
 // ---------------------------------------------------------------------------
 // Terminal result types
@@ -37,7 +38,7 @@ import type { TypedEventBus } from "../events/event-bus.js";
 
 export interface TerminalResult {
   key: string;
-  state: ProbeState;
+  state: ProbeState | "unverified";
   durationMs: number;
   signal?: Record<string, unknown>;
   error?: string;
@@ -53,13 +54,15 @@ const RED = "\x1b[31m";
 const YELLOW = "\x1b[33m";
 const DIM = "\x1b[2m";
 
-function stateColor(state: ProbeState): string {
+function stateColor(state: TerminalResult["state"]): string {
+  if (state === "unverified") return DIM;
   if (state === "green") return GREEN;
   if (state === "red" || state === "error") return RED;
   return YELLOW; // degraded
 }
 
-function stateIcon(state: ProbeState): string {
+function stateIcon(state: TerminalResult["state"]): string {
+  if (state === "unverified") return "?";
   if (state === "green") return "\u2713"; // checkmark
   if (state === "red" || state === "error") return "\u2717"; // x-mark
   return "~"; // degraded
@@ -124,13 +127,15 @@ export function printSummary(
 ): void {
   const passed = results.filter((r) => r.state === "green").length;
   const degraded = results.filter((r) => r.state === "degraded");
+  const unverified = results.filter((r) => r.state === "unverified").length;
   const failed = results.filter(
-    (r) => r.state !== "green" && r.state !== "degraded",
+    (r) => r.state === "red" || r.state === "error",
   );
   const totalMs = results.reduce((sum, r) => sum + r.durationMs, 0);
 
   console.log("");
   const counts = [`${GREEN}${passed} passed${RESET}`];
+  if (unverified > 0) counts.push(`${DIM}${unverified} unverified${RESET}`);
   if (degraded.length > 0) {
     counts.push(`${YELLOW}${degraded.length} degraded${RESET}`);
   }
@@ -248,7 +253,15 @@ export function probeResultToTerminal(
 
   return {
     key: result.key,
-    state: result.state,
+    state:
+      functionalAdmission(
+        result.key,
+        result.state,
+        result.signal,
+        result.observedAt,
+      ) === "unverified"
+        ? "unverified"
+        : result.state,
     durationMs,
     signal: signal ?? undefined,
     error,

@@ -9,6 +9,7 @@ export interface LocalConfig {
   showcaseDir: string;
   composeFile: string;
   localPorts: Record<string, number>;
+  targetRevisions?: Record<string, string | undefined>;
   pocketbase: {
     url: string;
     email: string;

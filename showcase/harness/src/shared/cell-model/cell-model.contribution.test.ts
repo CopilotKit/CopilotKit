@@ -547,6 +547,47 @@ describe("frontend-tools evidence admission", () => {
     const r = { ...row("green", { signal: { functional } }), key };
     expect(classifyRung(raw("D6", [r]), NOW).contribution).toBe("GREEN_FRESH");
   });
+  it.each(["d5", "d6"])(
+    "admits the same %s program on Angular only with matching routes",
+    (depth) => {
+      const angularKey = key.replace("d6:", `${depth}:`);
+      const proof = {
+        ...functional,
+        binding: {
+          ...functional.binding,
+          key: angularKey,
+          frontend: "angular",
+          outerUrl: functional.binding.outerUrl.replace("/react/", "/angular/"),
+          iframeUrl: functional.binding.iframeUrl.replace(
+            "/demos/",
+            "/angular/",
+          ),
+        },
+      };
+      expect(
+        functionalAdmission(angularKey, "green", { functional: proof }, FRESH),
+      ).toBe("unverified");
+      expect(
+        functionalAdmission(angularKey, "green", { functional: proof }, FRESH, {
+          frontend: "angular",
+        }),
+      ).toBe("unchanged");
+      proof.binding.iframeUrl = functional.binding.iframeUrl;
+      expect(
+        functionalAdmission(angularKey, "green", { functional: proof }, FRESH, {
+          frontend: "angular",
+        }),
+      ).toBe("unverified");
+      expect(
+        functionalAdmission(
+          angularKey.replace("frontend-tools", "agentic-chat"),
+          "green",
+          { functional },
+          FRESH,
+        ),
+      ).toBe("unverified");
+    },
+  );
   it.each([
     [
       "partial self-defined program",

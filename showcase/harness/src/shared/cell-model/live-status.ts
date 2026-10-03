@@ -15,6 +15,7 @@
  */
 
 import { formatTs } from "./format-ts.js";
+import type { CanonicalConversation } from "../../probes/helpers/conversation-runner.js";
 import { GLYPHS } from "./glyphs.js";
 import {
   D4_STALE_AFTER_MS,
@@ -59,6 +60,27 @@ export const FRONTEND_TOOLS_CANONICAL = {
   ],
 } as const;
 
+/** Only complete, reviewed public programs can grant functional credit. */
+export const FUNCTIONAL_CANONICALS: Readonly<
+  Record<
+    string,
+    CanonicalConversation & { feature: string; frontends: readonly string[] }
+  >
+> = {
+  "frontend-tools": {
+    ...FRONTEND_TOOLS_CANONICAL,
+    feature: "frontend-tools",
+    frontends: ["react", "angular"],
+  },
+};
+
+export const FUNCTIONAL_CANONICAL_REVISIONS = Object.fromEntries(
+  Object.entries(FUNCTIONAL_CANONICALS).map(([featureType, definition]) => [
+    featureType,
+    definition.id,
+  ]),
+);
+
 /** Missing/legacy evidence cannot grant functional credit or clear a failure. */
 export function functionalAdmission(
   key: string,
@@ -83,16 +105,22 @@ export function functionalAdmission(
       : undefined;
   const proof = object(object(signal)?.functional);
   const binding = object(proof?.binding);
-  const match = /^(?:d5|d6):([^/]+)\/frontend-tools$/.exec(key);
-  const canonical = FRONTEND_TOOLS_CANONICAL;
+  const match = /^(?:d5|d6):([^/]+)\/([^/]+)$/.exec(key);
+  const canonical =
+    match && Object.hasOwn(FUNCTIONAL_CANONICALS, match[2]!)
+      ? FUNCTIONAL_CANONICALS[match[2]!]
+      : undefined;
   if (
     !match ||
+    !canonical ||
+    canonical.incompleteReason ||
     !proof ||
     !binding ||
     !observedAt ||
     binding.key !== key ||
     Date.parse(String(binding.observedAt)) !== Date.parse(observedAt) ||
-    binding.frontend !== "react" ||
+    !canonical.frontends.includes(String(binding.frontend)) ||
+    binding.frontend !== (expected?.frontend ?? "react") ||
     typeof binding.runId !== "string" ||
     !binding.runId ||
     typeof binding.targetRevision !== "string" ||
@@ -125,8 +153,10 @@ export function functionalAdmission(
           !url.search &&
           !url.hash,
       ) ||
-      outer.pathname !== `/react/${match[1]}/frontend-tools/preview` ||
-      frame.pathname !== "/demos/frontend-tools"
+      outer.pathname !==
+        `/${binding.frontend}/${match[1]}/${canonical.feature}/preview` ||
+      frame.pathname !==
+        `/${binding.frontend === "angular" ? "angular" : "demos"}/${canonical.feature}`
     )
       return "unverified";
   } catch {

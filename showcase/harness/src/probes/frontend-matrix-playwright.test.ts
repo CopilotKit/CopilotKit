@@ -73,6 +73,7 @@ describe("frontend matrix Playwright execution", () => {
           "https://showcase-langgraph-python-production.up.railway.app",
       },
       invocationId: "run-42",
+      targetRevisions: { "langgraph-python": `sha256:${"a".repeat(64)}` },
       runProbe,
     });
 
@@ -89,6 +90,11 @@ describe("frontend matrix Playwright execution", () => {
       ),
     ).toBe(true);
     expect(result.status).toBe("failed");
+    expect(runProbe.mock.calls[0]![0]).toMatchObject({
+      key: `d6:langgraph-python/${ANGULAR_CELL.featureTypes[0]}`,
+      runId: "run-42",
+      targetRevision: `sha256:${"a".repeat(64)}`,
+    });
     expect(result.probes).toHaveLength(2);
   });
 

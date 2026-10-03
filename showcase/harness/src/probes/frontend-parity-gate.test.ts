@@ -19,7 +19,7 @@ const CONTRACT = "4444444444444444444444444444444444444444";
 
 function cell(
   frontend: "react" | "angular",
-  status: "passed" | "failed",
+  status: FrontendParityCell["status"],
   sourceCommit: string,
   overrides: Partial<FrontendParityCell> = {},
 ): FrontendParityCell {
@@ -47,9 +47,9 @@ const acceptedFailure: AcceptedBaselineFailure = {
 };
 
 function evaluate(
-  baseStatus: "passed" | "failed",
-  reactStatus: "passed" | "failed",
-  angularStatus: "passed" | "failed",
+  baseStatus: FrontendParityCell["status"],
+  reactStatus: FrontendParityCell["status"],
+  angularStatus: FrontendParityCell["status"],
   acceptedBaselineFailures: AcceptedBaselineFailure[] = baseStatus === "failed"
     ? [acceptedFailure]
     : [],
@@ -77,6 +77,9 @@ describe("evaluateFrontendParity", () => {
     ["failed", "passed", "failed", false, "angular-regression"],
     ["passed", "failed", "failed", false, "react-regression"],
     ["passed", "failed", "passed", false, "react-regression"],
+    ["unverified", "passed", "passed", false, "unverified"],
+    ["passed", "unverified", "passed", false, "unverified"],
+    ["passed", "passed", "unverified", false, "unverified"],
   ] as const)(
     "base %s, React %s, Angular %s yields %s / %s",
     (base, react, angular, passed, outcome) => {
@@ -151,39 +154,42 @@ describe("evaluateFrontendParity", () => {
     });
   });
 
-  it("converts aggregate cells without losing revisions or probe identity", () => {
-    expect(
-      frontendParityCellsFromAggregate({
-        cells: [
-          {
-            frontend: "react",
-            integration: "mastra",
-            feature: "agentic-chat",
-            status: "failed",
-            sourceCommit: BASE_COMMIT,
-            containerImageRevision: IMAGE,
-            fixtureRevision: FIXTURE,
-            featureContractRevision: CONTRACT,
-            testIds: ["fm-react-1"],
-            probes: [{ featureType: "agentic-chat" }],
-          },
-        ],
-      }),
-    ).toEqual([
-      {
-        frontend: "react",
-        integration: "mastra",
-        feature: "agentic-chat",
-        status: "failed",
-        sourceCommit: BASE_COMMIT,
-        containerImageRevision: IMAGE,
-        fixtureRevision: FIXTURE,
-        featureContractRevision: CONTRACT,
-        testIds: ["fm-react-1"],
-        probeIds: ["agentic-chat"],
-      },
-    ]);
-  });
+  it.each(["failed", "unverified"])(
+    "converts %s aggregate cells without losing revisions or probe identity",
+    (status) => {
+      expect(
+        frontendParityCellsFromAggregate({
+          cells: [
+            {
+              frontend: "react",
+              integration: "mastra",
+              feature: "agentic-chat",
+              status,
+              sourceCommit: BASE_COMMIT,
+              containerImageRevision: IMAGE,
+              fixtureRevision: FIXTURE,
+              featureContractRevision: CONTRACT,
+              testIds: ["fm-react-1"],
+              probes: [{ featureType: "agentic-chat" }],
+            },
+          ],
+        }),
+      ).toEqual([
+        {
+          frontend: "react",
+          integration: "mastra",
+          feature: "agentic-chat",
+          status,
+          sourceCommit: BASE_COMMIT,
+          containerImageRevision: IMAGE,
+          fixtureRevision: FIXTURE,
+          featureContractRevision: CONTRACT,
+          testIds: ["fm-react-1"],
+          probeIds: ["agentic-chat"],
+        },
+      ]);
+    },
+  );
 
   it("fails closed when a base, React, or Angular cell is missing", () => {
     const report = evaluateFrontendParity({
@@ -206,6 +212,9 @@ describe("evaluateCurrentFrontendParity", () => {
     ["passed", "failed", false, "angular-regression"],
     ["failed", "failed", true, "shared-failure"],
     ["failed", "passed", true, "angular-improvement"],
+    ["unverified", "passed", false, "unverified"],
+    ["passed", "unverified", false, "unverified"],
+    ["unverified", "unverified", false, "unverified"],
   ] as const)(
     "React %s and Angular %s yields %s / %s",
     (react, angular, passed, outcome) => {
@@ -232,6 +241,12 @@ describe("evaluateCurrentFrontendParity", () => {
       passed: true,
       summary: { "react-only": 1 },
     });
+    expect(
+      evaluateCurrentFrontendParity({
+        sourceCommit: PR_COMMIT,
+        cells: [cell("react", "unverified", PR_COMMIT)],
+      }),
+    ).toMatchObject({ passed: false, summary: { unverified: 1 } });
   });
 
   it("blocks an Angular cell without a React counterpart", () => {

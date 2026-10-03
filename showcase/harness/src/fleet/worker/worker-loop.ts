@@ -747,6 +747,11 @@ export function buildServiceJobResult(args: {
       const proof = signal.functional;
       if (!proof || typeof proof !== "object" || Array.isArray(proof))
         return cell;
+      const revisions = payload.driverInputs?.canonicalRevisions;
+      const canonicalRevision =
+        revisions && typeof revisions === "object"
+          ? (revisions as Record<string, unknown>)[cell.cellId]
+          : payload.driverInputs?.canonicalRevision;
       const expected = {
         runId: payload.meta.runId,
         frontend: "react",
@@ -755,9 +760,7 @@ export function buildServiceJobResult(args: {
             ? payload.driverInputs.targetRevision
             : undefined,
         canonicalRevision:
-          typeof payload.driverInputs?.canonicalRevision === "string"
-            ? payload.driverInputs.canonicalRevision
-            : undefined,
+          typeof canonicalRevision === "string" ? canonicalRevision : undefined,
       };
       return functionalAdmission(
         cell.cellKey,
