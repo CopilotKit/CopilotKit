@@ -167,6 +167,8 @@ describe("CopilotKitCore.connectAgent selective replay", () => {
     const first = core.connectAgent({ agent });
     await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
     await core.connectAgent({ agent });
+    // Let the second restore pass run before asserting it started nothing.
+    await setImmediate();
     expect(handler).toHaveBeenCalledTimes(1);
     answer.resolve("yes");
     await first;
@@ -809,6 +811,9 @@ describe('CopilotKitCore.connectAgent with reconnectBehavior "resume-pending"', 
     const first = core.connectAgent({ agent });
     await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
     await core.connectAgent({ agent });
+    // The second restore pass reaches the handler only after connectAgent
+    // resolves; let it run before asserting that it did not start the call.
+    await setImmediate();
 
     expect(handler).toHaveBeenCalledTimes(1);
     result.resolve("done");
