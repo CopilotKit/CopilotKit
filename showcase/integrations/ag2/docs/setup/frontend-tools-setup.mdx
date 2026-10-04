@@ -11,12 +11,12 @@
     ```python title="src/agents/chart_agent.py"
     from ag2 import Agent
     from ag2.ag_ui import AGUIStream
-    from ag2.config import OpenAIConfig
+    from ag2.config import OpenAIResponsesConfig
 
     chart_agent = Agent(
         name="chart_agent",
         prompt=SYSTEM_PROMPT,
-        config=OpenAIConfig(model="gpt-5.4-mini"),
+        config=OpenAIResponsesConfig(model="gpt-6-luna"),
         tools=[],
     )
 
