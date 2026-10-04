@@ -1,19 +1,52 @@
 import { vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { AbstractAgent, type BaseEvent } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  EventType,
+  type BaseEvent,
+  type RunAgentInput,
+} from "@ag-ui/client";
+import { CopilotKitCore } from "@copilotkit/core";
 import { Observable } from "rxjs";
 import { useCoAgent } from "../use-coagent";
 
-// A real agent, not a mock: the bug is that `start`, `run` and `stop` were
-// returned as unbound prototype methods, which only shows up when the methods
-// actually read `this`. vi.fn() mocks do not, so they cannot catch it (#3132).
+// A real agent and a real core, not mocks. Two bugs hid behind mocks (#3132):
+// start/run/stop were returned as unbound prototype methods, which only fails
+// when the method reads `this`, and they called the agent directly, which
+// skipped everything the core adds to a run.
 class RecordingAgent extends AbstractAgent {
-  runs = 0;
+  inputs: RunAgentInput[] = [];
   aborts = 0;
+  /** When set, the first run calls this frontend tool. */
+  toolCall: { name: string; args: string } | undefined;
 
-  run(): Observable<BaseEvent> {
-    this.runs += 1;
-    return new Observable<BaseEvent>((subscriber) => subscriber.complete());
+  run(input: RunAgentInput): Observable<BaseEvent> {
+    this.inputs.push(input);
+    const toolCall = this.inputs.length === 1 ? this.toolCall : undefined;
+    return new Observable<BaseEvent>((subscriber) => {
+      const { threadId, runId } = input;
+      subscriber.next({ type: EventType.RUN_STARTED, threadId, runId });
+      if (toolCall) {
+        const toolCallId = "call-1";
+        subscriber.next({
+          type: EventType.TOOL_CALL_START,
+          toolCallId,
+          toolCallName: toolCall.name,
+          parentMessageId: "msg-1",
+        } as BaseEvent);
+        subscriber.next({
+          type: EventType.TOOL_CALL_ARGS,
+          toolCallId,
+          delta: toolCall.args,
+        } as BaseEvent);
+        subscriber.next({
+          type: EventType.TOOL_CALL_END,
+          toolCallId,
+        } as BaseEvent);
+      }
+      subscriber.next({ type: EventType.RUN_FINISHED, threadId, runId });
+      subscriber.complete();
+    });
   }
 
   abortRun(): void {
@@ -22,13 +55,12 @@ class RecordingAgent extends AbstractAgent {
   }
 }
 
-const agent = new RecordingAgent({ agentId: "test-agent" });
+let agent: RecordingAgent;
+let core: CopilotKitCore;
 
 vi.mock("../../../v2", () => ({
   useAgent: vi.fn(() => ({ agent })),
-  useCopilotKit: vi.fn(() => ({
-    copilotkit: { setProperties: vi.fn() },
-  })),
+  useCopilotKit: vi.fn(() => ({ copilotkit: core })),
 }));
 
 vi.mock("../use-copilot-chat_internal", () => ({
@@ -60,8 +92,8 @@ vi.mock("../../components/error-boundary/error-utils", () => ({
 
 describe("useCoAgent returned agent methods", () => {
   beforeEach(() => {
-    agent.runs = 0;
-    agent.aborts = 0;
+    agent = new RecordingAgent({ agentId: "test-agent" });
+    core = new CopilotKitCore({});
   });
 
   it("runs the agent when start is called detached from the result", async () => {
@@ -72,7 +104,7 @@ describe("useCoAgent returned agent methods", () => {
       await start();
     });
 
-    expect(agent.runs).toBe(1);
+    expect(agent.inputs).toHaveLength(1);
   });
 
   it("runs the agent when run is called detached from the result", async () => {
@@ -83,22 +115,7 @@ describe("useCoAgent returned agent methods", () => {
       await run();
     });
 
-    expect(agent.runs).toBe(1);
-  });
-
-  it("forwards run's arguments to runAgent and returns its result", async () => {
-    const runAgent = vi.spyOn(agent, "runAgent");
-    const { result } = renderHook(() => useCoAgent({ name: "test-agent" }));
-    const parameters = { forwardedProps: { source: "test" } };
-
-    let returned: unknown;
-    await act(async () => {
-      returned = await result.current.run(parameters);
-    });
-
-    expect(runAgent).toHaveBeenCalledWith(parameters);
-    expect(returned).toBe(await runAgent.mock.results[0].value);
-    runAgent.mockRestore();
+    expect(agent.inputs).toHaveLength(1);
   });
 
   it("runs the agent when start is called as a method of the result", async () => {
@@ -110,7 +127,70 @@ describe("useCoAgent returned agent methods", () => {
       await result.current.start();
     });
 
-    expect(agent.runs).toBe(1);
+    expect(agent.inputs).toHaveLength(1);
+  });
+
+  it("sends the configured properties, frontend tools and context with the run", async () => {
+    core.addTool({
+      name: "greet",
+      description: "Greets the user",
+      handler: async () => "hi",
+    });
+    core.addContext({ description: "The user's plan", value: "pro" });
+
+    const { result } = renderHook(() =>
+      useCoAgent({
+        name: "test-agent",
+        config: { configurable: { model: "gpt-4o" } },
+      }),
+    );
+
+    await act(async () => {
+      await result.current.run({ forwardedProps: { source: "test" } });
+    });
+
+    const [input] = agent.inputs;
+    expect(input.tools.map((tool) => tool.name)).toContain("greet");
+    expect(input.context).toContainEqual({
+      description: "The user's plan",
+      value: "pro",
+    });
+    expect(input.forwardedProps).toMatchObject({
+      configurable: { model: "gpt-4o" },
+      source: "test",
+    });
+  });
+
+  it("executes a frontend tool call the agent makes", async () => {
+    const handler = vi.fn(async (_args: { name: string }) => "done");
+    core.addTool({
+      name: "greet",
+      description: "Greets the user",
+      handler,
+      followUp: false,
+    });
+    agent.toolCall = { name: "greet", args: '{"name":"Ada"}' };
+
+    const { result } = renderHook(() => useCoAgent({ name: "test-agent" }));
+
+    await act(async () => {
+      await result.current.run();
+    });
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0][0]).toEqual({ name: "Ada" });
+  });
+
+  it("forwards runId and returns the run's result", async () => {
+    const { result } = renderHook(() => useCoAgent({ name: "test-agent" }));
+
+    let returned: unknown;
+    await act(async () => {
+      returned = await result.current.run({ runId: "run-42" });
+    });
+
+    expect(agent.inputs[0].runId).toBe("run-42");
+    expect(returned).toEqual(expect.objectContaining({ newMessages: [] }));
   });
 
   it("keeps start, run and stop stable when the agent state changes", () => {
@@ -133,7 +213,10 @@ describe("useCoAgent returned agent methods", () => {
     expect(result.current.stop).toBe(first.stop);
   });
 
-  it("aborts the agent when stop is called detached from the result", () => {
+  it("stops through the core when stop is called detached from the result", () => {
+    // The core's stopAgent also cancels in-flight tool handlers and the
+    // follow-up run, which a bare agent.abortRun() does not.
+    const stopAgent = vi.spyOn(core, "stopAgent");
     const { result } = renderHook(() => useCoAgent({ name: "test-agent" }));
     const { stop } = result.current;
 
@@ -141,6 +224,7 @@ describe("useCoAgent returned agent methods", () => {
       stop();
     });
 
+    expect(stopAgent).toHaveBeenCalledWith({ agent });
     expect(agent.aborts).toBe(1);
   });
 });
