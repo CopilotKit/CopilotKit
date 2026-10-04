@@ -288,11 +288,11 @@ interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOption
   maxReconnectMs?: number;
   /** Max delay (ms) for channel rejoin backoff. @default 30_000 */
   maxRejoinMs?: number;
-  /** Lock TTL in seconds. Clamped to a maximum of 3600 (1 hour). @default 20 */
+  /** Lock TTL in seconds. Must be finite and greater than 0; clamped to a maximum of 3600 (1 hour). @default 20 */
   lockTtlSeconds?: number;
   /** Custom Redis key prefix for the thread lock. */
   lockKeyPrefix?: string;
-  /** Interval in seconds at which the runtime renews the thread lock. Clamped to a maximum of 3000 (50 minutes). @default 15 */
+  /** Interval in seconds at which the runtime renews the thread lock. Must be finite and greater than 0; clamped to a maximum of 3000 (50 minutes). @default 15 */
   lockHeartbeatIntervalSeconds?: number;
   /**
    * Intelligence Channels declared by this runtime. Each is a
@@ -667,13 +667,41 @@ export class CopilotIntelligenceRuntime
     // here we only need the token for feature gating. Reuse the base-resolved
     // value so gating and attribution can never disagree.
     this.licenseChecker = createLicenseChecker(this.resolvedLicenseToken ?? "");
+    // Both lock durations are rejected rather than clamped when they are
+    // non-finite or non-positive: `0` and negatives reach
+    // `setInterval(fn, seconds * 1_000)`, which Node coerces to ~1 ms, so the
+    // thread-lock renewal would flood the Intelligence platform for the whole
+    // run, and a non-finite `lockTtlSeconds` would be forwarded to the lock API
+    // as `ttlSeconds`, holding the lock for no time at all. Neither option has
+    // a "disabled" meaning — the heartbeat always runs — so there is no
+    // sensible value to coerce `0` into. Mirrors the throw-don't-clamp guard on
+    // the sibling `sseKeepAliveIntervalSeconds` option, which shares the unit
+    // and default.
+    const lockTtlSeconds = options.lockTtlSeconds ?? 20;
+    if (!Number.isFinite(lockTtlSeconds) || lockTtlSeconds <= 0) {
+      throw new Error(
+        "Intelligence Runtime `lockTtlSeconds` must be a finite number greater than 0, got " +
+          String(options.lockTtlSeconds),
+      );
+    }
     this.lockTtlSeconds = Math.min(
-      options.lockTtlSeconds ?? 20,
+      lockTtlSeconds,
       CopilotIntelligenceRuntime.MAX_LOCK_TTL_SECONDS,
     );
     this.lockKeyPrefix = options.lockKeyPrefix;
+    const lockHeartbeatIntervalSeconds =
+      options.lockHeartbeatIntervalSeconds ?? 15;
+    if (
+      !Number.isFinite(lockHeartbeatIntervalSeconds) ||
+      lockHeartbeatIntervalSeconds <= 0
+    ) {
+      throw new Error(
+        "Intelligence Runtime `lockHeartbeatIntervalSeconds` must be a finite number greater than 0, got " +
+          String(options.lockHeartbeatIntervalSeconds),
+      );
+    }
     this.lockHeartbeatIntervalSeconds = Math.min(
-      options.lockHeartbeatIntervalSeconds ?? 15,
+      lockHeartbeatIntervalSeconds,
       CopilotIntelligenceRuntime.MAX_HEARTBEAT_INTERVAL_SECONDS,
     );
     // Declared Intelligence Channels. Lowercase kebab-case name-shape validation

@@ -209,6 +209,35 @@ describe("runtime construction", () => {
     expect(runtime.lockHeartbeatIntervalSeconds).toBe(3000);
   });
 
+  it.each([
+    { option: "lockHeartbeatIntervalSeconds", value: 0 },
+    { option: "lockHeartbeatIntervalSeconds", value: -1 },
+    { option: "lockHeartbeatIntervalSeconds", value: Number.NaN },
+    { option: "lockHeartbeatIntervalSeconds", value: Number.POSITIVE_INFINITY },
+    { option: "lockTtlSeconds", value: 0 },
+    { option: "lockTtlSeconds", value: -1 },
+    { option: "lockTtlSeconds", value: Number.NaN },
+    { option: "lockTtlSeconds", value: Number.POSITIVE_INFINITY },
+  ])(
+    "rejects a non-positive or non-finite $option of $value",
+    ({ option, value }) => {
+      const sdk = createMockIntelligence();
+
+      // `0` and negatives reach `setInterval(fn, seconds * 1_000)` as ~1 ms, so
+      // the thread-lock renewal would flood the Intelligence platform; `NaN` /
+      // `Infinity` would be forwarded to the lock API as `ttlSeconds`.
+      expect(
+        () =>
+          new CopilotIntelligenceRuntime({
+            agents,
+            intelligence: sdk,
+            identifyUser,
+            [option]: value,
+          } as CopilotIntelligenceRuntimeOptions),
+      ).toThrow(option);
+    },
+  );
+
   it("uses provided values when they are within allowed range", () => {
     const sdk = createMockIntelligence();
 
