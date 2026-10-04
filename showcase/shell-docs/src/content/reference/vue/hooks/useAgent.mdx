@@ -100,18 +100,25 @@ All reactive inputs accept `MaybeRefOrGetter`, so you can pass a plain value, a 
     ### Methods
 
     <PropertyReference name="runAgent" type="(parameters?: RunAgentParameters, subscriber?: AgentSubscriber) => Promise<RunAgentResult>">
-      Manually triggers agent execution. Resolves with a `RunAgentResult` (`{ result, newMessages }`) once the run finalizes. `result` is the final value of the run and `newMessages` are the messages produced during it.
+      Low-level: sends a run to the agent and resolves with a `RunAgentResult` (`{ result, newMessages }`) once the run finalizes. `result` is the final value of the run and `newMessages` are the messages produced during it.
+
+      It does not send your registered frontend tools or context, does not execute frontend tool calls, and does not chain follow-up runs. For a normal run, call `copilotkit.value.runAgent({ agent: agent.value })` from [`useCopilotKit`](/reference/vue/hooks/useCopilotKit) instead. It takes the same `forwardedProps` and resolves with the same `RunAgentResult`.
 
       **Parameters:**
       - `parameters.forwardedProps?: any` - data to pass to the agent execution context
 
       **Example:**
       ```ts
-      const { result, newMessages } = await agent.value.runAgent({
-        forwardedProps: {
-          command: { resume: "user response" },
-        },
-      });
+      const { copilotkit } = useCopilotKit();
+
+      if (agent.value) {
+        const { result, newMessages } = await copilotkit.value.runAgent({
+          agent: agent.value,
+          forwardedProps: {
+            command: { resume: "user response" },
+          },
+        });
+      }
       ```
     </PropertyReference>
 
