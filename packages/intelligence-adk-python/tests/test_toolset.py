@@ -117,6 +117,19 @@ async def test_native_model_tool_loop_pins_then_next_run_refreshes():
     assert fetch.await_count == 1
     assert any("# Refund policy" in event.model_dump_json() for event in first)
     assert any("30 days" in event.model_dump_json() for event in first)
+    loaded = next(
+        response.response
+        for event in first
+        for response in event.get_function_responses()
+        if response.name == "copilotkit_load_skill"
+    )
+    assert loaded == {
+        "skill_name": "refund-policy",
+        "content": loaded["content"],
+        "files": ["reference.txt"],
+        "revision": "r1",
+        "container_id": "c",
+    }
     assert "Host instructions outrank skills." in model._seen[0][0]
     assert "Use when handling refunds." in model._seen[0][0]
     assert "# Refund policy" not in model._seen[0][0]
@@ -444,6 +457,16 @@ async def test_multiple_containers_pin_qualified_tools_and_deny_before_model():
     events = await run(runner)
     assert any("# Refund policy" in event.model_dump_json() for event in events)
     assert any("30 days" in event.model_dump_json() for event in events)
+    loaded = next(
+        response.response
+        for event in events
+        for response in event.get_function_responses()
+        if response.name == "copilotkit_load_skill"
+    )
+    assert loaded["skill_name"] == "support/refund-policy"
+    # The source container's published revision, not the composite identity.
+    assert loaded["revision"] == "r1"
+    assert loaded["container_id"] == "support"
     assert "support/refund-policy" in model._seen[0][0]
     assert "company/refund-policy" in model._seen[0][0]
     assert client.get_learned_skills_snapshots.await_count == 1

@@ -932,6 +932,7 @@ test.each(["multi-route", "single-route"] as const)(
     expect(getInspectorLearning).toHaveBeenCalledWith({
       agentId: "checkout",
       skillsPage: 1,
+      userId: "user-1",
     });
 
     const rejectedInfo = await handler(request("info"));

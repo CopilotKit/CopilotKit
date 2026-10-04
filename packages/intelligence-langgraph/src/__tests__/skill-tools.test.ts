@@ -82,6 +82,23 @@ describe("native skill tools", () => {
     ).toBe(false);
   });
 
+  it("reports the source container and revision of a loaded skill", async () => {
+    const source = await snapshot();
+    const current: VerifiedSnapshot = {
+      ...source,
+      containerId: "support",
+      skills: [{ ...source.skills[0], revision: "rev-support-7" }],
+    };
+    const [load] = createSkillTools(() => current);
+    expect(
+      JSON.parse(await load.invoke({ skill_name: "refund-policy" })),
+    ).toMatchObject({
+      skill_name: "refund-policy",
+      revision: "rev-support-7",
+      container_id: "support",
+    });
+  });
+
   it("loads the exact body and sorted supporting text names only", async () => {
     const source = await snapshot();
     const skill = source.skills[0];
@@ -106,6 +123,7 @@ describe("native skill tools", () => {
       skill_name: "refund-policy",
       content: "# Refund policy\nUse the published refund policy.\n",
       files: ["a-empty.txt", "z-last.txt"],
+      revision: source.revision,
     });
     expect(result).not.toContain("Refunds are available");
   });

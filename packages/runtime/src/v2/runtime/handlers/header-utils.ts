@@ -45,6 +45,9 @@ export const DEFAULT_DENY_HEADER_PREFIXES: readonly string[] = [
   "x-vercel-", // Vercel
   "x-middleware-", // Next.js
   "x-copilotcloud-", // CopilotKit platform-internal
+  // Intelligence identity and grants (`x-cpki-user-id`, `x-cpki-grant`,
+  // `x-cpki-memory-grant`) are resolved by the runtime, never by the browser.
+  "x-cpki-",
 ];
 
 /**

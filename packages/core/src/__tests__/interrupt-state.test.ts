@@ -33,6 +33,9 @@ describe("ɵInterruptState", () => {
           interruptId: "one",
           status: "resolved",
           payload: { approved: true },
+          // Links the answer to the tool result below, so the runtime
+          // records one answer for the call rather than two.
+          metadata: { toolCallId: "call-one" },
         },
         { interruptId: "two", status: "cancelled" },
       ],

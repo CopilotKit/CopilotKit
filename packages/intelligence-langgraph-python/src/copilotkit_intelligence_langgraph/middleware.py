@@ -20,7 +20,7 @@ from langgraph.runtime import Runtime
 from langgraph.types import Command
 
 from ._delivery.registry import ContainerSource, Registry, Status
-from ._delivery.snapshot import SnapshotSkill, VerifiedSnapshot
+from ._delivery.snapshot import SnapshotSkill, VerifiedSnapshot, load_skill_result
 
 
 class _PinHolder:
@@ -105,24 +105,15 @@ class SkillRegistryMiddleware(AgentMiddleware[_State, Any]):
         @tool
         async def copilotkit_load_skill(skill_name: str, runtime: ToolRuntime) -> dict[str, Any]:
             """Load a learned skill's SKILL.md and list its supporting UTF-8 text files."""
-            skill = await self._skill(runtime.state, skill_name)
-            content = next(file.text for file in skill.files if file.path == "SKILL.md")
-            return {
-                "skill_name": skill.name,
-                "content": content,
-                "files": [
-                    file.path
-                    for file in skill.files
-                    if file.path != "SKILL.md" and file.text is not None
-                ],
-            }
+            snapshot, skill = await self._skill(runtime.state, skill_name)
+            return load_skill_result(snapshot, skill)
 
         @tool
         async def copilotkit_read_skill_file(
             skill_name: str, path: str, runtime: ToolRuntime
         ) -> str:
             """Read one listed supporting UTF-8 text file from the invocation's learned skill."""
-            skill = await self._skill(runtime.state, skill_name)
+            _, skill = await self._skill(runtime.state, skill_name)
             for file in skill.files:
                 if file.path == path and path != "SKILL.md" and file.text is not None:
                     return file.text
@@ -149,11 +140,13 @@ class SkillRegistryMiddleware(AgentMiddleware[_State, Any]):
             raise LearnedSkillsError("INVALID_CONFIG", False)
         return await holder.resolve(self._registry)
 
-    async def _skill(self, state: Mapping[str, Any], name: str) -> SnapshotSkill:
+    async def _skill(
+        self, state: Mapping[str, Any], name: str
+    ) -> tuple[VerifiedSnapshot, SnapshotSkill]:
         snapshot = await self._pin(state)
         for skill in snapshot.skills:
             if skill.name == name:
-                return skill
+                return snapshot, skill
         raise ToolException("The skill is not in this invocation's snapshot.")
 
     async def abefore_agent(self, state: _State, runtime: Runtime[Any]) -> None:

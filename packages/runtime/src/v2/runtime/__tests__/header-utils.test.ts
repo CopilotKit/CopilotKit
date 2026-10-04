@@ -109,6 +109,15 @@ describe("header-utils", () => {
       ).toBe(false);
     });
 
+    it("strips Intelligence identity and grant headers a browser could forge", () => {
+      expect(shouldForwardHeader("x-cpki-user-id", defaultPolicy)).toBe(false);
+      expect(shouldForwardHeader("x-cpki-grant", defaultPolicy)).toBe(false);
+      expect(shouldForwardHeader("x-cpki-memory-grant", defaultPolicy)).toBe(
+        false,
+      );
+      expect(shouldForwardHeader("X-Cpki-Grant", defaultPolicy)).toBe(false);
+    });
+
     it("strips denylisted headers case-insensitively", () => {
       expect(shouldForwardHeader("X-Forwarded-For", defaultPolicy)).toBe(false);
       expect(

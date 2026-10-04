@@ -1,4 +1,5 @@
 import {
+  logger,
   parseInspectorLearningRequestV1,
   parseInspectorLearningSnapshotV1,
 } from "@copilotkit/shared";
@@ -7,14 +8,37 @@ import { hasLearningContainerConfiguration } from "../core/learning";
 import { isIntelligenceRuntime } from "../core/runtime";
 import { PlatformRequestError } from "../intelligence-platform/client";
 import { resolveIntelligenceUser } from "./shared/resolve-intelligence-user";
+import { resolveIntelligenceGrant } from "./shared/resolve-intelligence-grant";
 
 const headers = {
   "Cache-Control": "no-store, private",
   "Content-Type": "application/json",
 } as const;
 
-const errorResponse = (status: number, message: string) =>
-  new Response(JSON.stringify({ error: message }), { status, headers });
+const errorResponse = (status: number, message: string, code?: string) =>
+  new Response(
+    JSON.stringify(
+      code === undefined ? { error: message } : { error: message, code },
+    ),
+    { status, headers },
+  );
+
+/**
+ * Intelligence access denials the runtime passes through unchanged in status
+ * and code, so the Inspector can tell "not allowed" apart from an outage.
+ */
+const GOVERNANCE_DENIALS: Readonly<
+  Record<string, { readonly status: number; readonly message: string }>
+> = {
+  GOVERNANCE_PERMISSION_DENIED: {
+    status: 403,
+    message: "You do not have permission to view Inspector Learning",
+  },
+  GOVERNANCE_GRANT_INVALID: {
+    status: 400,
+    message: "The Inspector Learning access grant is invalid",
+  },
+};
 
 const queryPage = (value: string | null): number | undefined =>
   value === null ? undefined : Number(value);
@@ -50,6 +74,13 @@ export async function handleInspectorLearning({
   });
   if (!parsedRequest)
     return errorResponse(400, "Invalid Inspector Learning request");
+  const grant = await resolveIntelligenceGrant({
+    runtime,
+    request,
+    user,
+    surface: "inspector",
+  });
+  if (grant instanceof Response) return grant;
 
   try {
     const snapshot = parseInspectorLearningSnapshotV1(
@@ -58,6 +89,8 @@ export async function handleInspectorLearning({
         ...(typeof runtime.learning?.containerId === "string"
           ? { runtimeContainerId: runtime.learning.containerId }
           : {}),
+        userId: user.id,
+        ...(grant !== undefined ? { grant } : {}),
       }),
     );
     if (!snapshot)
@@ -67,6 +100,18 @@ export async function handleInspectorLearning({
     if (error instanceof PlatformRequestError && error.status === 404) {
       return errorResponse(404, "Not found");
     }
+    if (error instanceof PlatformRequestError && error.code !== undefined) {
+      const denial = Object.hasOwn(GOVERNANCE_DENIALS, error.code)
+        ? GOVERNANCE_DENIALS[error.code]
+        : undefined;
+      if (denial?.status === error.status) {
+        return errorResponse(denial.status, denial.message, error.code);
+      }
+    }
+    logger.error(
+      { err: error },
+      "Inspector Learning request to Intelligence failed",
+    );
     return errorResponse(503, "Inspector Learning is temporarily unavailable");
   }
 }

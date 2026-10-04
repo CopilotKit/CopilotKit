@@ -103,6 +103,14 @@ async def test_native_loop_catalog_tools_pin_and_host_instructions():
         "copilotkit_read_skill_file",
     }
     assert middleware.status.revision == "r1"
+    loaded = json.loads(next(item for item in tools if item.tool_call_id == "load").content)
+    assert loaded == {
+        "skill_name": "refund-policy",
+        "content": loaded["content"],
+        "files": ["reference.txt"],
+        "revision": "r1",
+        "container_id": "c",
+    }
 
 
 async def test_tool_first_resume_captures_fresh_pin_without_checkpointing_snapshot():
@@ -408,6 +416,11 @@ async def test_multiple_containers_pin_qualified_tools_before_model_work():
     messages = [message for message in result["messages"] if isinstance(message, ToolMessage)]
     assert any("# Refund policy" in message.content for message in messages)
     assert any("30 days" in message.content for message in messages)
+    loaded = json.loads(next(item for item in messages if item.tool_call_id == "a").content)
+    assert loaded["skill_name"] == "support/refund-policy"
+    # The source container's published revision, not the composite identity.
+    assert loaded["revision"] == "r1"
+    assert loaded["container_id"] == "support"
     assert client.get_learned_skills_snapshots.await_count == 1
     assert "support/refund-policy" in model._calls[0][0].content
     assert "company/refund-policy" in model._calls[0][0].content

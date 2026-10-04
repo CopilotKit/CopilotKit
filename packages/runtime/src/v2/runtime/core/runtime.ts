@@ -265,6 +265,42 @@ export interface CopilotRuntimeMemoryConfig {
   }): MaybePromise<MemoryGrant | null>;
 }
 
+/** One Intelligence permission a request can be granted. */
+export type IntelligenceAccessPermission =
+  | "analytics.numbers"
+  | "analytics.topics"
+  | "learning.insights_skills"
+  | "governance.record"
+  | "conversations.text";
+
+/** The agents one permission covers: every agent, or the listed agent IDs. */
+export interface IntelligenceAccessScope {
+  readonly agents: "*" | readonly string[];
+}
+
+/**
+ * The Intelligence data one authenticated request may read. A permission that
+ * is absent is denied; an empty `permissions` object denies everything.
+ */
+export interface IntelligenceAccessGrant {
+  readonly permissions: Partial<
+    Record<IntelligenceAccessPermission, IntelligenceAccessScope>
+  >;
+}
+
+/** Where a request for Intelligence data comes from. */
+export type IntelligenceAccessSurface = "inspector";
+
+/**
+ * Resolves the Intelligence access grant for one authenticated web request.
+ * Return `null` to grant nothing.
+ */
+export type IntelligenceAccessCallback = (input: {
+  readonly request: Request;
+  readonly user: CopilotRuntimeUser;
+  readonly surface: IntelligenceAccessSurface;
+}) => MaybePromise<IntelligenceAccessGrant | null>;
+
 export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
   /** The runner to use for running agents in SSE mode. */
   runner?: AgentRunner;
@@ -314,12 +350,19 @@ export type CopilotIntelligenceRuntimeOptions =
           identifyUser: IdentifyUserCallback;
           /** Enables agent and browser Memory under one request policy. */
           memory?: CopilotRuntimeMemoryConfig;
+          /**
+           * Grants Intelligence data (analytics, learning, governance,
+           * conversations) to one authenticated web request. Closed by
+           * default: without it, Intelligence denies every such read.
+           */
+          access?: IntelligenceAccessCallback;
           channels?: readonly Channel[];
         }
       | {
           /** Channels-only runtimes expose no functional web surface. */
           identifyUser?: undefined;
           memory?: undefined;
+          access?: undefined;
           channels: NonEmptyChannels;
         }
     );
@@ -384,6 +427,8 @@ export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
 export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   intelligence: CopilotKitIntelligence;
   identifyUser?: IdentifyUserCallback;
+  /** Intelligence data grant policy; absent means no grant is sent. */
+  access?: IntelligenceAccessCallback;
   generateThreadNames: boolean;
   lockTtlSeconds: number;
   lockKeyPrefix?: string;
@@ -544,6 +589,7 @@ export class CopilotIntelligenceRuntime
 {
   readonly intelligence: CopilotKitIntelligence;
   readonly identifyUser?: IdentifyUserCallback;
+  readonly access?: IntelligenceAccessCallback;
   readonly generateThreadNames: boolean;
   readonly lockTtlSeconds: number;
   readonly lockKeyPrefix?: string;
@@ -562,6 +608,7 @@ export class CopilotIntelligenceRuntime
       identifyUser?: unknown;
       channels?: unknown;
       memory?: unknown;
+      access?: unknown;
       runner?: unknown;
       ɵlearning?: unknown;
     };
@@ -618,6 +665,15 @@ export class CopilotIntelligenceRuntime
       );
     }
     if (
+      rawOptions.access !== undefined &&
+      typeof rawOptions.access !== "function"
+    ) {
+      throw new Error("Intelligence Runtime `access` must be a callback");
+    }
+    if (rawOptions.access !== undefined && !hasWebIdentity) {
+      throw new Error("Intelligence Runtime `access` requires `identifyUser`");
+    }
+    if (
       rawOptions.ɵlearning !== undefined &&
       (typeof rawOptions.ɵlearning !== "object" ||
         rawOptions.ɵlearning === null ||
@@ -662,6 +718,10 @@ export class CopilotIntelligenceRuntime
     this.identifyUser = hasWebIdentity
       ? (rawOptions.identifyUser as IdentifyUserCallback)
       : undefined;
+    this.access =
+      typeof rawOptions.access === "function"
+        ? (rawOptions.access as IntelligenceAccessCallback)
+        : undefined;
     this.generateThreadNames = options.generateThreadNames ?? true;
     // Telemetry attribution is handled by the base constructor for all modes;
     // here we only need the token for feature gating. Reuse the base-resolved
@@ -761,6 +821,8 @@ export interface CopilotRuntime extends CopilotRuntimeLike {
   channels?: Channel[];
   /** Learning Container selector; `undefined` in SSE mode. */
   learning?: CopilotRuntimeLearningConfig;
+  /** Intelligence data grant policy; `undefined` in SSE mode or when unset. */
+  access?: IntelligenceAccessCallback;
 }
 
 /**
@@ -784,11 +846,13 @@ export interface CopilotRuntimeConstructor {
         | {
             identifyUser: IdentifyUserCallback;
             memory?: CopilotRuntimeMemoryConfig;
+            access?: IntelligenceAccessCallback;
             channels: NonEmptyChannels;
           }
         | {
             identifyUser?: undefined;
             memory?: undefined;
+            access?: undefined;
             channels: NonEmptyChannels;
           }
       ),
@@ -863,6 +927,12 @@ class CopilotRuntimeShim implements CopilotRuntime {
   get identifyUser(): IdentifyUserCallback | undefined {
     return isIntelligenceRuntime(this.delegate)
       ? this.delegate.identifyUser
+      : undefined;
+  }
+
+  get access(): IntelligenceAccessCallback | undefined {
+    return isIntelligenceRuntime(this.delegate)
+      ? this.delegate.access
       : undefined;
   }
 

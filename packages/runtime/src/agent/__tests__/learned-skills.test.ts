@@ -128,13 +128,18 @@ describe("BuiltInAgent learned skills", () => {
     const original = structuredClone(input);
     await collectEvents(agent.run(input));
     const { tools } = contexts[0].learnedSkills;
+    // The tool returns the object; the agent encodes it once for the model.
     expect(
-      JSON.parse(
-        (await execute(tools, "copilotkit_load_skill", {
-          skill_name: "refund-policy",
-        })) as string,
-      ),
-    ).toMatchObject({ skill_name: "refund-policy", files: ["reference.txt"] });
+      await execute(tools, "copilotkit_load_skill", {
+        skill_name: "refund-policy",
+      }),
+    ).toEqual({
+      skill_name: "refund-policy",
+      content: expect.stringContaining("refund"),
+      files: ["reference.txt"],
+      revision: response().revision,
+      container_id: "learning",
+    });
     expect(
       await execute(tools, "copilotkit_read_skill_file", {
         skill_name: "refund-policy",
@@ -160,11 +165,13 @@ describe("BuiltInAgent learned skills", () => {
       factory: async function* (context) {
         contexts.push(context);
         const delta = context.learnedSkills.catalog
-          ? ((await execute(
-              context.learnedSkills.tools,
-              "copilotkit_load_skill",
-              { skill_name: "refund-policy" },
-            )) as string)
+          ? JSON.stringify(
+              await execute(
+                context.learnedSkills.tools,
+                "copilotkit_load_skill",
+                { skill_name: "refund-policy" },
+              ),
+            )
           : "No skills";
         yield { type: "TEXT_MESSAGE_CONTENT", delta };
       },
@@ -416,10 +423,15 @@ it("provides both container catalogs and executable tools to BuiltInAgent factor
   const skills = contexts[0].learnedSkills;
   expect(skills.catalog).toContain("support/refund-policy");
   expect(skills.catalog).toContain("company/refund-policy");
-  expect(
-    await execute(skills.tools, "copilotkit_load_skill", {
-      skill_name: "company/refund-policy",
-    }),
-  ).toContain("published refund policy");
+  const loaded = (await execute(skills.tools, "copilotkit_load_skill", {
+    skill_name: "company/refund-policy",
+  })) as { content: string };
+  expect(loaded.content).toContain("published refund policy");
+  // Each container reports its own real revision, never the aggregate.
+  expect(loaded).toMatchObject({
+    skill_name: "company/refund-policy",
+    revision: response().revision,
+    container_id: "company",
+  });
   expect(fetch).toHaveBeenCalledTimes(2);
 });

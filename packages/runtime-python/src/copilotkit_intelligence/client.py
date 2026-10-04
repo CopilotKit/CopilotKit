@@ -82,6 +82,19 @@ class MemoryGrant:
             raise ValueError("Invalid memory grant")
 
 
+def encode_user_id_header(user_id: str) -> str:
+    """Return the ``x-cpki-user-id`` value for an app-user ID.
+
+    A printable-ASCII ID that does not start with ``"`` is sent as it is, so
+    Intelligence versions that predate this encoding read ASCII IDs
+    unchanged. Any other ID is sent as a JSON string with ``\\uXXXX`` escapes,
+    which Intelligence decodes; HTTP clients refuse non-ASCII header values.
+    """
+    if user_id.isascii() and user_id.isprintable() and not user_id.startswith('"'):
+        return user_id
+    return json.dumps(user_id, ensure_ascii=True)
+
+
 def segment(value: str) -> str:
     """Encode a nonempty opaque identifier as one URL path segment."""
     if not isinstance(value, str) or not value.strip():
@@ -308,7 +321,7 @@ class Intelligence:
     def _memory_headers(user_id: str, grant: MemoryGrant | None) -> dict[str, str]:
         """Attribute memory operations to a bare customer user, not an API-key creator."""
         segment(user_id)
-        headers = {"x-cpki-user-id": user_id}
+        headers = {"x-cpki-user-id": encode_user_id_header(user_id)}
         if grant is not None:
             if not isinstance(grant, MemoryGrant):
                 raise ValueError("memory_grant must be a MemoryGrant")

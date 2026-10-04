@@ -24,19 +24,50 @@ function findSkill(snapshot: VerifiedSnapshot, name: string) {
   return skill;
 }
 
+/**
+ * The `copilotkit_load_skill` result of the TypeScript adapters (BuiltInAgent,
+ * Mastra, LangGraph) and the Python adapters (LangGraph, ADK). The .NET Agent
+ * Framework adapter still returns SKILL.md as plain text.
+ */
+export interface LoadedSkill {
+  skill_name: string;
+  content: string;
+  files: string[];
+  revision: string;
+  container_id?: string;
+}
+
 /** Load SKILL.md and list supporting text files from a verified snapshot. */
-export function loadSkill(snapshot: VerifiedSnapshot, name: string): string {
+export function loadSkillResult(
+  snapshot: VerifiedSnapshot,
+  name: string,
+): LoadedSkill {
   const skill = findSkill(snapshot, name);
   const content = skill.files.find((file) => file.path === "SKILL.md")?.text;
   if (content === undefined) throw new Error("Skill is unavailable.");
-  return JSON.stringify({
+  const containerId = skill.containerId ?? snapshot.containerId;
+  return {
     skill_name: skill.name,
     content,
     files: skill.files
       .filter((file) => file.path !== "SKILL.md" && file.text !== undefined)
       .map((file) => file.path)
       .sort(compare),
-  });
+    // The revision and container identify exactly which published skill was
+    // used, so a run's tool call can be attributed to it.
+    revision: skill.revision ?? snapshot.revision,
+    ...(containerId !== undefined ? { container_id: containerId } : {}),
+  };
+}
+
+/**
+ * {@link loadSkillResult} as JSON text, for adapters whose tool results must
+ * be strings. Adapters that serialize tool results themselves (the
+ * BuiltInAgent, Mastra through @ag-ui/mastra) take the object instead, so the
+ * result is encoded once.
+ */
+export function loadSkill(snapshot: VerifiedSnapshot, name: string): string {
+  return JSON.stringify(loadSkillResult(snapshot, name));
 }
 
 /** Read an exact text-file path without filesystem access or execution. */

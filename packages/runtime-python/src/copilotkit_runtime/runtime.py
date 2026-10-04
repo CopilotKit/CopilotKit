@@ -24,6 +24,7 @@ from copilotkit_intelligence import (
     RuntimeEntitlementError,
     RuntimeEntitlementResponse,
 )
+from copilotkit_intelligence.client import encode_user_id_header
 from copilotkit_intelligence.inspector import parse_inspector_metadata
 
 from .a2ui import A2UIConfig, A2UIMiddleware
@@ -812,7 +813,7 @@ class IntelligenceRuntime:
         self, request: Request, path: list[str], body: Json, user: User
     ) -> Response:
         """Apply trusted memory grants and validate writes before forwarding."""
-        headers = {"x-cpki-user-id": user.id}
+        headers = {"x-cpki-user-id": encode_user_id_header(user.id)}
         if self.memory_policy:
             selected = self.memory_policy(user, request)
             grant = await selected if inspect.isawaitable(selected) else selected

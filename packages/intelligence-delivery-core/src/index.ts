@@ -12,9 +12,11 @@ export {
   validateSnapshot,
   formatSkillCatalog,
   loadSkill,
+  loadSkillResult,
   readSkillFile,
 } from "@copilotkit/runtime/internal/learned-skills";
 export type {
+  LoadedSkill,
   SkillRegistryOptions,
   SkillRegistryContainer,
   RegistryConfig,

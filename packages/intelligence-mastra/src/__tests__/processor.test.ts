@@ -484,3 +484,28 @@ it("uses a multi-container registry through a native Mastra agent", async () => 
   expect(test.prompts.at(-1)).toContain("published refund policy");
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("returns the copilotkit_load_skill result as an object so AG-UI bridges encode it once", async () => {
+  const test = setup();
+  const agent = test.skills.wrapAgent(test.native);
+  const output = await agent.stream("Help with a refund.");
+  const results: unknown[] = [];
+  for await (const chunk of output.fullStream) {
+    if (
+      chunk.type === "tool-result" &&
+      chunk.payload.toolName === "copilotkit_load_skill"
+    ) {
+      results.push(chunk.payload.result);
+    }
+  }
+  // @ag-ui/mastra emits TOOL_CALL_RESULT.content as JSON.stringify(result),
+  // so a string result here would reach AG-UI clients encoded twice.
+  expect(results).toEqual([
+    {
+      skill_name: "refund",
+      content: "Skill body A",
+      files: ["reference.txt"],
+      revision: "A",
+    },
+  ]);
+});

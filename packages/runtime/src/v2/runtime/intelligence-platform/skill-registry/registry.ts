@@ -8,7 +8,7 @@ import { resolveRegistryConfig } from "./config";
 import type { SingleContainerConfig, SkillRegistryOptions } from "./config";
 import { SkillDeliveryError, invalidSnapshot } from "./errors";
 import type { SkillDeliveryErrorCode } from "./errors";
-import { validateSnapshot } from "./snapshot";
+import { validateSnapshot, withSnapshotSource } from "./snapshot";
 import type { VerifiedSnapshot } from "./snapshot";
 
 export interface SkillRegistryStatus {
@@ -152,7 +152,10 @@ class SingleContainerRegistry {
         response.revision !== this.#config.revision
       )
         throw invalidSnapshot();
-      return validateSnapshot(response, controller.signal);
+      return withSnapshotSource(
+        await validateSnapshot(response, controller.signal),
+        this.#config.containerId,
+      );
     };
     try {
       const snapshot = await Promise.race([replacement(), deadline]);

@@ -3,7 +3,7 @@ import { createTool } from "@mastra/core/tools";
 import { z } from "zod/v4";
 import {
   formatSkillCatalog,
-  loadSkill,
+  loadSkillResult,
   readSkillFile,
 } from "@copilotkit/intelligence-delivery-core";
 import type { SkillRegistry } from "@copilotkit/intelligence-delivery-core";
@@ -26,8 +26,9 @@ export function createSkillRegistryProcessor({
       inputSchema: z.object({
         skill_name: z.string().describe("Exact skill name from the catalog."),
       }),
+      // Return the object: @ag-ui/mastra JSON-encodes tool results itself.
       execute: async ({ skill_name }) =>
-        loadSkill(scope.snapshot(), skill_name),
+        loadSkillResult(scope.snapshot(), skill_name),
     }),
     copilotkit_read_skill_file: createTool({
       id: "copilotkit_read_skill_file",
