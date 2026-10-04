@@ -86,6 +86,26 @@ describe("useCoAgent returned agent methods", () => {
     expect(agent.runs).toBe(1);
   });
 
+  it("keeps start, run and stop stable when the agent state changes", () => {
+    const { result, rerender } = renderHook(() =>
+      useCoAgent({ name: "test-agent" }),
+    );
+    const first = result.current;
+
+    act(() => {
+      agent.setState({ count: 1 });
+    });
+    rerender();
+
+    // The result object is rebuilt, so the memo did recompute ...
+    expect(result.current).not.toBe(first);
+    // ... but the methods are the same functions, as the bare prototype
+    // methods were before they were wrapped.
+    expect(result.current.start).toBe(first.start);
+    expect(result.current.run).toBe(first.run);
+    expect(result.current.stop).toBe(first.stop);
+  });
+
   it("aborts the agent when stop is called detached from the result", () => {
     const { result } = renderHook(() => useCoAgent({ name: "test-agent" }));
     const { stop } = result.current;

@@ -349,6 +349,17 @@ export function useCoAgent<T = any>(
     };
   }, [agent, handleStateUpdate, hasStateValues]);
 
+  // runAgent and abortRun are prototype methods that read `this`, so they are
+  // wrapped rather than passed through: a caller who destructures them would
+  // otherwise get a TypeError (#3132). useCallback keeps each wrapper's
+  // identity tied to the agent, as the bare methods were, so a state change
+  // does not hand callers a new function.
+  const runAgent = useCallback(
+    (...args: any[]) => agent?.runAgent(...args),
+    [agent],
+  );
+  const abortRun = useCallback(() => agent?.abortRun(), [agent]);
+
   // Return a consistent shape whether or not the agent is available
   return useMemo<UseCoagentReturnType<T>>(() => {
     if (!agent) {
@@ -380,17 +391,15 @@ export function useCoAgent<T = any>(
       running: agent.isRunning,
       state: agent.state,
       setState: handleStateUpdate,
-      // Wrapped, not passed through: runAgent and abortRun are prototype
-      // methods that read `this`, so a caller who destructures them gets a
-      // TypeError (#3132).
       // TODO: start and run both have same thing. need to figure out
-      start: (...args) => agent.runAgent(...args),
-      stop: () => agent.abortRun(),
-      run: (...args) => agent.runAgent(...args),
+      start: runAgent,
+      stop: abortRun,
+      run: runAgent,
     };
   }, [
-    agent,
     agent?.state,
+    runAgent,
+    abortRun,
     agent?.threadId,
     agent?.isRunning,
     agent?.agentId,
