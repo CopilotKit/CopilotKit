@@ -57,9 +57,15 @@ export type FrontendToolHandlerContext = {
  *   with `isReplay: true` in its context, then continue the run as usual
  *   (follow-up included, unless `followUp` is false).
  *
- * Use `"resume-pending"` only for a handler that is safe to run again. Each
- * pending call runs at most once per CopilotKit instance, but two tabs or
- * devices that restore the same thread can each run it.
+ * Use `"resume-pending"` only for a handler that is safe to run more than
+ * once. A call does not start twice at the same time in one CopilotKit
+ * instance, but it can run again after a stop or a thread switch if its result
+ * never reached the agent, and two tabs or devices that restore the same
+ * thread can each run it.
+ *
+ * If one assistant message also calls a tool that stays passive, the follow-up
+ * run sends that call without a result, which some model providers reject.
+ * Opt in every tool the agent calls together, or set `followUp: false`.
  */
 export type FrontendToolReconnectBehavior = "passive" | "resume-pending";
 
