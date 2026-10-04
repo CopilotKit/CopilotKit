@@ -39,7 +39,29 @@ export type FrontendToolHandlerContext = {
   /** Aborted when `stopAgent()` is called. Handlers can check `signal.aborted`
    *  or pass the signal to fetch/setTimeout to cooperatively cancel. */
   signal?: AbortSignal;
+  /**
+   * True when CopilotKit runs this call while restoring a thread's history on
+   * connect, for a call that a previous page or client left without a result.
+   * Absent for a call made by a live run. See `reconnectBehavior`.
+   */
+  isReplay?: boolean;
 };
+
+/**
+ * What a frontend tool does with its own calls that are still unanswered when
+ * a thread's history is restored (a reload, a remount, or a thread switch).
+ *
+ * - `"passive"` (default) — show the call, but do not run the handler. Nothing
+ *   the handler did runs twice.
+ * - `"resume-pending"` — run the handler for each call that has no result,
+ *   with `isReplay: true` in its context, then continue the run as usual
+ *   (follow-up included, unless `followUp` is false).
+ *
+ * Use `"resume-pending"` only for a handler that is safe to run again. Each
+ * pending call runs at most once per CopilotKit instance, but two tabs or
+ * devices that restore the same thread can each run it.
+ */
+export type FrontendToolReconnectBehavior = "passive" | "resume-pending";
 
 /**
  * Annotations for a WebMCP tool, passed through to
@@ -73,7 +95,8 @@ export type FrontendTool<
 > = {
   /**
    * @internal Classifies local execution. Omitted means an ordinary frontend
-   * tool. Only human-in-the-loop handlers may be restored from history replay.
+   * tool. Human-in-the-loop handlers are always restored from history replay;
+   * other tools only with `reconnectBehavior: "resume-pending"`.
    * This field is not sent to the agent as part of the tool schema.
    */
   type?: "frontend" | "human-in-the-loop";
@@ -82,6 +105,12 @@ export type FrontendTool<
   parameters?: StandardSchemaV1<any, T>;
   handler?: (args: T, context: FrontendToolHandlerContext) => Promise<unknown>;
   followUp?: boolean;
+  /**
+   * Whether to run the handler again for a call that is still unanswered when
+   * the thread's history is restored. Defaults to `"passive"`. See
+   * {@link FrontendToolReconnectBehavior}.
+   */
+  reconnectBehavior?: FrontendToolReconnectBehavior;
   /**
    * Optional agent ID to constrain this tool to a specific agent.
    * If specified, this tool will only be available to the specified agent.
