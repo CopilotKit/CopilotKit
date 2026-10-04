@@ -86,6 +86,33 @@ describe("useCoAgent returned agent methods", () => {
     expect(agent.runs).toBe(1);
   });
 
+  it("forwards run's arguments to runAgent and returns its result", async () => {
+    const runAgent = vi.spyOn(agent, "runAgent");
+    const { result } = renderHook(() => useCoAgent({ name: "test-agent" }));
+    const parameters = { forwardedProps: { source: "test" } };
+
+    let returned: unknown;
+    await act(async () => {
+      returned = await result.current.run(parameters);
+    });
+
+    expect(runAgent).toHaveBeenCalledWith(parameters);
+    expect(returned).toBe(await runAgent.mock.results[0].value);
+    runAgent.mockRestore();
+  });
+
+  it("runs the agent when start is called as a method of the result", async () => {
+    // Called this way, `this` is the result object, not the agent, so the
+    // bare prototype method failed here too.
+    const { result } = renderHook(() => useCoAgent({ name: "test-agent" }));
+
+    await act(async () => {
+      await result.current.start();
+    });
+
+    expect(agent.runs).toBe(1);
+  });
+
   it("keeps start, run and stop stable when the agent state changes", () => {
     const { result, rerender } = renderHook(() =>
       useCoAgent({ name: "test-agent" }),
