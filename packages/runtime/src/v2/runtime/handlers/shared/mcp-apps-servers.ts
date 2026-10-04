@@ -2,7 +2,6 @@ import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
 import type { McpAppsServerConfig } from "../../core/runtime";
 
 const UNSUPPORTED_POLICY_KEYS = ["includeTools", "excludeTools"] as const;
-const MCP_APPS_MIDDLEWARE_VERSION = "@ag-ui/mcp-apps-middleware@0.0.3";
 const MCP_APPS_POLICY_ISSUE =
   "https://github.com/CopilotKit/CopilotKit/issues/5930";
 
@@ -33,8 +32,9 @@ export function resolveMcpAppsServers(
   if (violations.length > 0) {
     throw new Error(
       `Unsupported MCP Apps tool policy: ${violations.join(", ")}. ` +
-        `${MCP_APPS_MIDDLEWARE_VERSION} owns per-server tool policy and ` +
-        `does not support these keys; see ${MCP_APPS_POLICY_ISSUE}.`,
+        `@ag-ui/mcp-apps-middleware owns per-server tool policy, and the ` +
+        `release the runtime depends on does not support these keys; see ` +
+        `${MCP_APPS_POLICY_ISSUE}.`,
     );
   }
 

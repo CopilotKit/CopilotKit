@@ -71,7 +71,7 @@ interface BaseCopilotRuntimeMiddlewareOptions {
   agents?: string[];
 }
 
-/** Per-server tool policy belongs to the external middleware and is unsupported at its pinned 0.0.3 release. */
+/** Per-server tool policy belongs to the external middleware, and the release the runtime depends on does not support it. */
 export type McpAppsServerConfig = MCPClientConfig & {
   /** Intelligence-only HTTP/SSE credentials from trusted server config, never iframe input. */
   headers?: Record<string, string>;
