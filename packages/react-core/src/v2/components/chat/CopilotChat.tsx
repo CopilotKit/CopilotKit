@@ -287,6 +287,20 @@ export function CopilotChat({
   const isConnecting =
     hasExplicitThreadId && lastConnectedThreadId !== resolvedThreadId;
   const activeConnectCountRef = useRef(0);
+  const pendingConnectionsRef = useRef(new Map<AbstractAgent, Promise<void>>());
+  const failedConnectionsRef = useRef(new WeakSet<AbstractAgent>());
+  const trackConnection = useCallback(
+    (connectingAgent: AbstractAgent, connection: Promise<void>) => {
+      failedConnectionsRef.current.delete(connectingAgent);
+      const pending = connection.finally(() => {
+        if (pendingConnectionsRef.current.get(connectingAgent) === pending) {
+          pendingConnectionsRef.current.delete(connectingAgent);
+        }
+      });
+      pendingConnectionsRef.current.set(connectingAgent, pending);
+    },
+    [],
+  );
   const pendingRunActivityReconnectRef = useRef(false);
   const runActivityReconnectGenerationRef = useRef(0);
   const activeLocalRunIdsRef = useRef<Set<string>>(new Set());
@@ -324,6 +338,7 @@ export function CopilotChat({
     inspectorRequestId: string | null;
     agent: AbstractAgent;
     clearDiscardedBaseline?: () => void;
+    active: boolean;
   } | null>(null);
   const detachPromisesRef = useRef(new WeakMap<AbstractAgent, Promise<void>>());
   // Agent clones can share cursors. Finish every old reset before connecting again.
@@ -409,8 +424,10 @@ export function CopilotChat({
       threadId: resolvedThreadId,
       inspectorRequestId,
       agent,
+      active: true,
     };
     previousThreadRef.current = selection;
+    failedConnectionsRef.current.delete(agent);
     const discardedThreadId =
       previousThread?.agent === agent
         ? previousThread.threadId
@@ -499,6 +516,7 @@ export function CopilotChat({
       }
       return () => {
         active = false;
+        selection.active = false;
       };
     }
 
@@ -567,8 +585,9 @@ export function CopilotChat({
         }
       }
     };
-    connect(agent);
+    trackConnection(agent, connect(agent));
     return () => {
+      selection.active = false;
       // Abort the HTTP request and detach the active run.
       // This is critical for React StrictMode which unmounts+remounts in dev,
       // preventing duplicate /connect requests from reaching the server.
@@ -685,7 +704,7 @@ export function CopilotChat({
           pendingRunActivityReconnectRef.current
         ) {
           pendingRunActivityReconnectRef.current = false;
-          connect();
+          trackConnection(agent, connect());
         }
       }
     };
@@ -710,7 +729,7 @@ export function CopilotChat({
         return;
       }
       pendingRunActivityReconnectRef.current = false;
-      connect();
+      trackConnection(agent, connect());
     };
 
     const subscription = threadStore.subscribeToRunActivity((notification) => {
@@ -788,6 +807,46 @@ export function CopilotChat({
   // so it is reached through a type guard, not a cast. Agents that don't
   // implement the contract degrade safely (the await is skipped).
   const waitForActiveRunToSettle = useCallback(async () => {
+    const selection = previousThreadRef.current;
+    const isCurrentSelection = () =>
+      selection?.active && previousThreadRef.current === selection;
+    // Intelligence proxies hydrate through a delegate, whose completion promise
+    // is not exposed on the proxy. Await the chat's connection before adding a
+    // message; otherwise runAgent detaches replay at an older state snapshot.
+    let connection = pendingConnectionsRef.current.get(agent);
+    if (connection) {
+      let replayFailed = false;
+      const subscription = copilotkit.subscribe({
+        onError: (event) => {
+          if (
+            event.context?.agentId === resolvedAgentId &&
+            (!event.context.threadId ||
+              event.context.threadId === agent.threadId) &&
+            (event.code === CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED ||
+              event.code === CopilotKitCoreErrorCode.AGENT_RUN_FAILED_EVENT)
+          ) {
+            replayFailed = true;
+          }
+        },
+      });
+      try {
+        while (connection && isCurrentSelection()) {
+          await connection;
+          connection = pendingConnectionsRef.current.get(agent);
+        }
+      } finally {
+        subscription.unsubscribe();
+      }
+      if (!isCurrentSelection()) return false;
+      if (replayFailed) failedConnectionsRef.current.add(agent);
+    }
+    if (!isCurrentSelection()) return false;
+    if (failedConnectionsRef.current.has(agent)) {
+      setTranscriptionError(
+        "Could not load saved conversation. Reopen the thread and try again.",
+      );
+      return "failed";
+    }
     // Widen to `unknown` before the guard: narrowing `AbstractAgent` directly
     // would intersect with its PRIVATE `activeRunCompletionPromise` declaration
     // and collapse the narrowed type to `never`.
@@ -807,7 +866,8 @@ export function CopilotChat({
         );
       }
     }
-  }, [agent]);
+    return isCurrentSelection();
+  }, [agent, copilotkit, resolvedAgentId]);
 
   const onSubmitInput = useCallback(
     async (value: string) => {
@@ -833,7 +893,11 @@ export function CopilotChat({
 
       // If a run is already in flight, let it finish before sending the new
       // message instead of pre-empting it (see waitForActiveRunToSettle).
-      await waitForActiveRunToSettle();
+      const ready = await waitForActiveRunToSettle();
+      if (ready !== true) {
+        if (ready === "failed") setInputValue(value);
+        return;
+      }
 
       // Re-check the uploading guard against LIVE attachment state: an upload
       // can start (or stay in flight) during the await above, so a snapshot
@@ -925,7 +989,7 @@ export function CopilotChat({
       // for it to settle before dispatching, so selecting a suggestion mid-run
       // does NOT pre-empt/abort the active run (the same #5195 fix the
       // typed-Enter path got — here for the suggestion path).
-      await waitForActiveRunToSettle();
+      if ((await waitForActiveRunToSettle()) !== true) return;
 
       agent.addMessage({
         id: randomUUID(),
