@@ -118,3 +118,72 @@ describe("CopilotRuntimeClient abort suppression", () => {
     });
   });
 });
+
+// Resolves to `sentinel` when the stream never settles, so a hang surfaces as a
+// fast, readable assertion failure instead of a vitest timeout.
+const withTimeout = async <T>(
+  promise: Promise<T>,
+  ms: number,
+  sentinel: T,
+): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(sentinel), ms);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
+
+const structuredError = () =>
+  Object.assign(new Error("boom"), {
+    extensions: { visibility: "banner" },
+  });
+
+describe("CopilotRuntimeClient structured stream errors", () => {
+  it("terminates the stream when a structured error arrives with no handler", async () => {
+    const streamError = structuredError();
+
+    const stream = new CopilotRuntimeClient({
+      url: "https://example.com/runtime",
+    }).asStream({
+      subscribe: (next) => {
+        next({
+          data: undefined,
+          hasNext: false,
+          error: streamError,
+        });
+      },
+    } as any);
+
+    expect(
+      await withTimeout(readStream(stream), 250, { status: "hang" } as any),
+    ).toEqual({ status: "error", error: streamError });
+  });
+
+  it("terminates the stream when a structured error arrives with a handler", async () => {
+    const handleGQLErrors = vi.fn();
+    const streamError = structuredError();
+
+    const stream = new CopilotRuntimeClient({
+      url: "https://example.com/runtime",
+      handleGQLErrors,
+    }).asStream({
+      subscribe: (next) => {
+        next({
+          data: undefined,
+          hasNext: false,
+          error: streamError,
+        });
+      },
+    } as any);
+
+    expect(
+      await withTimeout(readStream(stream), 250, { status: "hang" } as any),
+    ).toEqual({ status: "done", chunks: [] });
+    expect(handleGQLErrors).toHaveBeenCalledTimes(1);
+  });
+});
