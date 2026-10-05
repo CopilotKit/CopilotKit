@@ -281,6 +281,7 @@ jobs:
           pnpm exec vitest run
           scripts/__tests__/validate-dts-imports.test.ts
           scripts/__tests__/validate-optional-peer-entries.test.ts
+          scripts/__tests__/validate-module-scope-create-require.test.ts
 
       - name: Test the reference-docs generator
         run: pnpm exec vitest run scripts/__tests__/docs-reference-generator.test.ts

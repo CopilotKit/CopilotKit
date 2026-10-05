@@ -122,6 +122,7 @@ export type {
   EmptyActionConfig,
   FrontendTool,
   FrontendToolHandlerContext,
+  FrontendToolReconnectBehavior,
   InspectorActiveThreadPayload,
   InspectorMetadataV1,
   InspectorStopViewingPayload,

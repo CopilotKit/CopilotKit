@@ -629,7 +629,7 @@ export class RunHandler {
       void this.processAgentResult({
         runAgentResult,
         agent,
-        toolExecutionMode: "human-in-the-loop",
+        toolExecutionMode: "restore",
         signal: controller.signal,
       })
         .catch(async (error: unknown) => {
@@ -860,7 +860,7 @@ export class RunHandler {
     runAgentResult: RunAgentResult;
     agent: AbstractAgent;
     runId?: string;
-    toolExecutionMode?: "all" | "human-in-the-loop";
+    toolExecutionMode?: "all" | "restore";
     signal?: AbortSignal;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
@@ -877,7 +877,7 @@ export class RunHandler {
     // executing call would start later calls concurrently and replace a HITL
     // hook's response resolver. A saved remote answer releases this barrier.
     if (
-      toolExecutionMode === "human-in-the-loop" &&
+      toolExecutionMode === "restore" &&
       agent.messages.some(
         (message) =>
           message.role === "assistant" &&
@@ -900,9 +900,7 @@ export class RunHandler {
     // Reconcile the current history so a remote answer can unblock a pending
     // call that was already present. Snapshot it because handlers insert results.
     const messagesToProcess =
-      toolExecutionMode === "human-in-the-loop"
-        ? [...agent.messages]
-        : newMessages;
+      toolExecutionMode === "restore" ? [...agent.messages] : newMessages;
     for (const message of messagesToProcess) {
       if (message.role === "assistant") {
         for (const toolCall of message.toolCalls || []) {
@@ -924,10 +922,15 @@ export class RunHandler {
           };
 
           const executableTool = tool ?? getWildcardTool();
+          // Restoring history runs only handlers that are safe to run again:
+          // human-in-the-loop prompts, and tools that opt in with
+          // reconnectBehavior "resume-pending" (#6101). Every other tool stays
+          // passive, so a reload never repeats its side effects.
           if (
-            toolExecutionMode === "human-in-the-loop" &&
-            (executableTool?.type !== "human-in-the-loop" ||
-              !executableTool.handler)
+            toolExecutionMode === "restore" &&
+            (!executableTool?.handler ||
+              (executableTool.type !== "human-in-the-loop" &&
+                executableTool.reconnectBehavior !== "resume-pending"))
           ) {
             continue;
           }
@@ -1004,8 +1007,7 @@ export class RunHandler {
             }
             const executionSignal = interactionController?.signal ?? signal;
             const discardOnAbort =
-              toolExecutionMode === "human-in-the-loop" ||
-              !!interactionController;
+              toolExecutionMode === "restore" || !!interactionController;
             try {
               if (tool) {
                 const followUp = await this.executeSpecificTool(
@@ -1016,6 +1018,7 @@ export class RunHandler {
                   agentId,
                   executionSignal,
                   discardOnAbort,
+                  toolExecutionMode === "restore",
                 );
                 if (followUp) {
                   needsFollowUp = true;
@@ -1031,6 +1034,7 @@ export class RunHandler {
                     agentId,
                     executionSignal,
                     discardOnAbort,
+                    toolExecutionMode === "restore",
                   );
                   if (followUp) {
                     needsFollowUp = true;
@@ -1115,6 +1119,7 @@ export class RunHandler {
     messageId,
     signal = this._runAbortController?.signal,
     discardOnAbort = false,
+    isReplay = false,
   }: {
     tool: FrontendTool<any>;
     toolCall: { id: string; function: { name: string; arguments: string } };
@@ -1125,6 +1130,7 @@ export class RunHandler {
     messageId?: string;
     signal?: AbortSignal;
     discardOnAbort?: boolean;
+    isReplay?: boolean;
   }): Promise<ExecuteToolHandlerResult> {
     let toolCallResult: string | ContentPart[] = "";
     let toolCallText = "";
@@ -1171,6 +1177,7 @@ export class RunHandler {
           toolCall: toolCall as any,
           agent,
           signal,
+          ...(isReplay ? { isReplay } : {}),
         });
         ({ content: toolCallResult, text: toolCallText } =
           toToolResultContent(result));
@@ -1231,6 +1238,7 @@ export class RunHandler {
     agentId: string,
     signal?: AbortSignal,
     discardOnAbort = false,
+    isReplay = false,
   ): Promise<boolean> {
     const threadId = agent.threadId;
     // Check if tool is constrained to a specific agent
@@ -1257,6 +1265,7 @@ export class RunHandler {
         messageId: message.id,
         signal,
         discardOnAbort,
+        isReplay,
       });
     }
 
@@ -1318,6 +1327,7 @@ export class RunHandler {
     agentId: string,
     signal?: AbortSignal,
     discardOnAbort = false,
+    isReplay = false,
   ): Promise<boolean> {
     const threadId = agent.threadId;
     // Check if wildcard tool is constrained to a specific agent
@@ -1380,6 +1390,7 @@ export class RunHandler {
             // Use the same execution signal as named tools, including the
             // replay-specific signal when restoring a wildcard HITL handler.
             signal,
+            ...(isReplay ? { isReplay } : {}),
           });
           ({ content: toolCallResult, text: toolCallText } =
             toToolResultContent(result));
