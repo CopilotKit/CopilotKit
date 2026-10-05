@@ -22,6 +22,7 @@ type FrontendTool<T extends Record<string, unknown> = Record<string, unknown>> =
   parameters?: StandardSchemaV1<any, T>;
   handler?: (args: T, context: FrontendToolHandlerContext) => Promise<unknown>;
   followUp?: boolean;
+  reconnectBehavior?: "passive" | "resume-pending";
   agentId?: string;
   available?: boolean;
 };
@@ -30,6 +31,7 @@ type FrontendToolHandlerContext = {
   toolCall: ToolCall;
   agent: AbstractAgent;
   signal?: AbortSignal;
+  isReplay?: boolean;
 };
 ```
 
@@ -63,10 +65,18 @@ type FrontendToolHandlerContext = {
   <PropertyReference name="context.signal" type="AbortSignal">
     Aborted when `stopAgent()` is called. Handlers can check `signal.aborted` or pass the signal to `fetch`/`setTimeout` to cooperatively cancel.
   </PropertyReference>
+
+  <PropertyReference name="context.isReplay" type="boolean">
+    `true` when the call is run while the thread's history is restored (see `reconnectBehavior`). Absent for a call from a live run.
+  </PropertyReference>
 </PropertyReference>
 
 <PropertyReference name="followUp" type="boolean">
   Whether the agent should run again after the tool result is returned.
+</PropertyReference>
+
+<PropertyReference name="reconnectBehavior" type='"passive" | "resume-pending"' default='"passive"'>
+  What happens to a call of this tool that is still unanswered when the thread's history is restored, for example after a page reload. With `"passive"`, the call is shown but the handler does not run. With `"resume-pending"`, the handler runs for that call with `isReplay: true` in its context, and the run then continues as usual. Opt in only for a handler that is safe to run more than once. A call does not start twice at the same time on one page, but it can run again after a stop or a thread switch if its result never reached the agent, and two tabs that restore the same thread can each run it. If the agent calls this tool together with a tool that stays passive, the follow-up run sends the passive call without a result, which some model providers reject.
 </PropertyReference>
 
 <PropertyReference name="agentId" type="string">

@@ -258,6 +258,15 @@ jobs:
       - name: Build packages
         run: pnpm run build
 
+      # Community packages (community/<name>/) are not pnpm workspace members,
+      # so the nx build above never reaches them and `pnpm pack` would publish
+      # them without a dist. Install and build the ones in this scope inside
+      # their own folders. A no-op for a scope without community packages.
+      - name: Build community packages
+        env:
+          SCOPE: ${{ steps.meta.outputs.scope }}
+        run: pnpm tsx scripts/release/build-community-packages.ts --scope "$SCOPE"
+
       # Strip caches and pack the workspace into a single tarball before
       # upload. upload-artifact's path filters are post-walk: it still
       # descends into every node_modules and stats every file (~6.4M for
