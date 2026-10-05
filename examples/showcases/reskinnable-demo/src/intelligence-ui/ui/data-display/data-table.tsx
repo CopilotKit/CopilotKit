@@ -1,5 +1,6 @@
-import type { KeyboardEvent, ReactNode } from 'react';
+import { useRef, type KeyboardEvent, type ReactNode } from 'react';
 
+import { useScrollEdges } from '../layout/scroll-area';
 import styles from './data-display.module.css';
 
 export interface DataTableColumn<Row extends Record<string, unknown>> {
@@ -27,6 +28,15 @@ export interface DataTableProps<Row extends Record<string, unknown>> {
   readonly rowKey?: (row: Row, index: number) => string;
   readonly rowClassName?: (row: Row, index: number) => string | undefined;
   readonly onRowClick?: (row: Row, index: number) => void;
+  /** Names a keyboard-focusable viewport when a table can scroll on small screens. */
+  readonly scrollRegionLabel?: string;
+  /**
+   * `comfortable` gives resource lists with row actions (API keys, projects)
+   * a fixed 40px header, 52px minimum rows, and a 36rem minimum width.
+   */
+  readonly density?: 'comfortable' | 'default';
+  /** Layout hook for the scrolling frame; do not restyle cells from a page. */
+  readonly className?: string;
 }
 
 /** Resolves the CSS class for a table cell alignment. */
@@ -102,12 +112,25 @@ export function DataTable<Row extends Record<string, unknown>>({
   rowKey,
   rowClassName,
   onRowClick,
+  scrollRegionLabel,
+  density = 'default',
+  className,
 }: DataTableProps<Row>): ReactNode {
   const tableLabel =
     caption === undefined && ariaLabel !== undefined ? ariaLabel : undefined;
+  const viewportRef = useRef<HTMLDivElement>(null);
+  useScrollEdges(viewportRef);
 
   return (
-    <div className={styles.tableViewport}>
+    <div
+      aria-label={scrollRegionLabel}
+      className={[styles.tableViewport, className].filter(Boolean).join(' ')}
+      data-density={density}
+      data-slot="table-viewport"
+      ref={viewportRef}
+      role={scrollRegionLabel ? 'region' : undefined}
+      tabIndex={scrollRegionLabel ? 0 : undefined}
+    >
       <table className={styles.table} aria-label={tableLabel}>
         {caption !== undefined ? (
           <caption

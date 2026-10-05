@@ -64,6 +64,7 @@
   --cpki-z-index-popover: 1100;
   --cpki-z-index-dialog: 1200;
   --cpki-z-index-toast: 1300;
+  --cpki-z-index-tooltip: 1400;
 }
 
 @media (prefers-reduced-motion: reduce) {

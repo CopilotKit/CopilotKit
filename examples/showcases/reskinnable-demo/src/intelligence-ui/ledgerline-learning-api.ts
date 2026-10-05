@@ -421,9 +421,8 @@ export const ledgerlineLearningApi: LearningApi = {
         ],
         messageCount: e.eventIds.length,
         threadId: signalRef(e.trajectoryId, e.eventIds[0] ?? ""),
-        threadName: detail
-          ? `${detail.trajectory.title} (trajectory)`
-          : e.trajectoryId,
+        // The drawer labels it "Source trajectory" already.
+        threadName: detail ? detail.trajectory.title : e.trajectoryId,
         threadPresent: true,
         unavailable: null,
       };

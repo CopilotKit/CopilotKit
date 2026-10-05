@@ -3,11 +3,22 @@ import { cx } from '../primitives/class-name';
 import styles from './feedback.module.css';
 
 export type FeedbackVariant = 'danger' | 'info' | 'success' | 'warning';
-export type BadgeVariant = 'danger' | 'neutral' | 'success' | 'warning';
+export type BadgeVariant =
+  | 'accent'
+  | 'danger'
+  | 'neutral'
+  | 'outline'
+  | 'sidebar'
+  | 'success'
+  | 'warning';
 
 export interface BadgeProps {
   readonly children: ReactNode;
   readonly className?: string;
+  /** Leading status dot for lifecycle/health states; omit for categories. */
+  readonly dot?: boolean;
+  /** `sm` is the compact tag for dense rows such as the account trigger. */
+  readonly size?: 'md' | 'sm';
   readonly variant?: BadgeVariant;
 }
 
@@ -47,7 +58,11 @@ export interface EmptyStateProps {
   readonly className?: string;
   readonly description?: ReactNode;
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
+  /** Decorative mark; the title and description carry the meaning. */
+  readonly icon?: ReactNode;
   readonly title: ReactNode;
+  /** Workspace-only layouts. The default keeps legacy consumers unchanged. */
+  readonly variant?: 'embedded' | 'collection';
 }
 
 /**
@@ -56,10 +71,18 @@ export interface EmptyStateProps {
 export function Badge({
   children,
   className,
+  dot = false,
+  size = 'md',
   variant = 'neutral',
 }: BadgeProps): ReactNode {
   return (
-    <span className={cx(styles.badge, className)} data-variant={variant}>
+    <span
+      className={cx(styles.badge, className)}
+      data-size={size}
+      data-slot="badge"
+      data-variant={variant}
+    >
+      {dot ? <span aria-hidden="true" className={styles.badgeDot} /> : null}
       {children}
     </span>
   );
@@ -182,7 +205,6 @@ export function Skeleton({
       <span
         aria-busy="true"
         aria-label={label}
-        aria-live="polite"
         className={cx(styles.skeleton, className)}
         role="status"
         style={style}
@@ -207,17 +229,34 @@ export function EmptyState({
   className,
   description,
   headingLevel = 2,
+  icon,
   title,
+  variant,
 }: EmptyStateProps): ReactNode {
   const Heading = `h${headingLevel}` as const;
+  const titleId = useId();
 
   return (
-    <section className={cx(styles.emptyState, className)}>
-      <Heading className={styles.emptyTitle}>{title}</Heading>
-      {description ? (
-        <p className={styles.emptyDescription}>{description}</p>
+    <section
+      aria-labelledby={titleId}
+      className={cx(styles.emptyState, className)}
+      data-has-icon={icon ? 'true' : undefined}
+      data-variant={variant}
+    >
+      {icon ? (
+        <span aria-hidden="true" className={styles.emptyIcon}>
+          {icon}
+        </span>
       ) : null}
-      {action ? <div className={styles.emptyAction}>{action}</div> : null}
+      <div className={styles.emptyContent}>
+        <Heading className={styles.emptyTitle} id={titleId}>
+          {title}
+        </Heading>
+        {description ? (
+          <p className={styles.emptyDescription}>{description}</p>
+        ) : null}
+        {action ? <div className={styles.emptyAction}>{action}</div> : null}
+      </div>
     </section>
   );
 }

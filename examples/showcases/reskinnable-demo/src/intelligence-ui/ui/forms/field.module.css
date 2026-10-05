@@ -27,3 +27,16 @@
   font-weight: 500;
   line-height: 1.4;
 }
+
+/* Workspace field type (preview parity): 12px labels, 11px hints and errors. */
+:global(:root[data-cpki-design='workspace']) .field {
+  gap: 0.5rem;
+}
+:global(:root[data-cpki-design='workspace']) .label {
+  font-size: var(--text-control);
+  line-height: 1.2;
+}
+:global(:root[data-cpki-design='workspace']) :is(.description, .error) {
+  font-size: var(--text-caption);
+  line-height: 1.6;
+}

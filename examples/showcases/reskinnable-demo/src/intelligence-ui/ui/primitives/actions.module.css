@@ -3,7 +3,7 @@
 .iconButton {
   align-items: center;
   border: 1px solid transparent;
-  border-radius: 2px;
+  border-radius: var(--cpki-radius-control, 2px);
   box-sizing: border-box;
   display: inline-flex;
   font-family: var(--cpki-font-sans, inherit);
@@ -19,6 +19,84 @@
     border-color 140ms ease,
     color 140ms ease;
   white-space: nowrap;
+}
+
+/* Button, LinkButton, and `buttonVariants()` elements share every variant and
+ * size through the data attributes. */
+:is(.button, .linkButton)[data-variant='outline'] {
+  border-color: var(--cpki-color-control-border, var(--cpki-color-border));
+  background: var(
+    --cpki-color-control-background,
+    var(--cpki-color-background)
+  );
+  color: var(--cpki-color-foreground);
+}
+
+.button[data-variant='outline']:not(:disabled):hover,
+.linkButton[data-variant='outline']:not([aria-disabled='true']):hover {
+  background: var(--cpki-color-control-hover, var(--cpki-color-surface-hover));
+}
+
+/* Quiet: hairline border and muted label on the card surface, for persistent
+ * chrome actions such as the header's engineering help link. */
+:is(.button, .linkButton)[data-variant='quiet'] {
+  border-color: var(--cpki-color-border, #b8c7d1);
+  background: var(--cpki-color-surface, #ffffff);
+  color: var(--cpki-color-muted-foreground, #4f6b7a);
+}
+
+/* Accent: the learning-tinted discovery action, such as Upgrade to Pro. */
+:is(.button, .linkButton)[data-variant='accent'] {
+  border-color: var(--learning-accent, var(--cpki-color-border, #b8c7d1));
+  background: var(--learning, var(--cpki-color-info-muted, #eef0ff));
+  color: var(--learning-foreground, var(--cpki-color-accent, #4d59b3));
+}
+
+/* Quiet hovers like an outline control and lifts its label to full strength;
+ * accent deepens to the stronger learning tint. */
+.button[data-variant='quiet']:not(:disabled):hover,
+.linkButton[data-variant='quiet']:not([aria-disabled='true']):hover {
+  background: var(--cpki-color-control-hover, var(--cpki-color-surface-hover));
+  color: var(--cpki-color-foreground, #023047);
+}
+
+.button[data-variant='accent']:not(:disabled):hover,
+.linkButton[data-variant='accent']:not([aria-disabled='true']):hover {
+  background: var(--learning-accent, var(--cpki-color-lilac-muted, #e0e5ff));
+}
+
+:is(.button, .linkButton)[data-variant='link'] {
+  background: transparent;
+  color: var(--primary-text, var(--cpki-color-accent));
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+:is(.button, .linkButton)[data-size='xs'] {
+  min-height: 1.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+:is(.button, .linkButton):is(
+  [data-size='icon'],
+  [data-size='icon-sm'],
+  [data-size='icon-lg']
+) {
+  padding: 0;
+}
+
+:is(.button, .linkButton)[data-size='icon'] {
+  width: 2.25rem;
+}
+:is(.button, .linkButton)[data-size='icon-sm'] {
+  min-height: 2rem;
+  min-width: 2rem;
+  width: 2rem;
+}
+:is(.button, .linkButton)[data-size='icon-lg'] {
+  min-height: 2.5rem;
+  width: 2.5rem;
 }
 
 .button,
@@ -76,7 +154,9 @@
 }
 
 .button[data-variant='primary'],
+.button[data-variant='default'],
 .linkButton[data-variant='primary'],
+.linkButton[data-variant='default'],
 .iconButton[data-variant='primary'] {
   background: var(--cpki-color-primary, #023047);
   color: var(--cpki-color-primary-foreground, #ffffff);
@@ -90,7 +170,9 @@
 }
 
 .button[data-variant='danger'],
+.button[data-variant='destructive'],
 .linkButton[data-variant='danger'],
+.linkButton[data-variant='destructive'],
 .iconButton[data-variant='danger'] {
   background: var(--cpki-color-danger, #a53b2a);
   color: var(--cpki-color-danger-foreground, #ffffff);
@@ -104,7 +186,9 @@
 }
 
 .button[data-variant='primary']:not(:disabled):hover,
+.button[data-variant='default']:not(:disabled):hover,
 .linkButton[data-variant='primary']:not([aria-disabled='true']):hover,
+.linkButton[data-variant='default']:not([aria-disabled='true']):hover,
 .iconButton[data-variant='primary']:not(:disabled):hover {
   background: var(--cpki-color-primary-hover, #2c3136);
   color: var(--cpki-color-primary-foreground, #ffffff);
@@ -121,7 +205,9 @@
 }
 
 .button[data-variant='danger']:not(:disabled):hover,
+.button[data-variant='destructive']:not(:disabled):hover,
 .linkButton[data-variant='danger']:not([aria-disabled='true']):hover,
+.linkButton[data-variant='destructive']:not([aria-disabled='true']):hover,
 .iconButton[data-variant='danger']:not(:disabled):hover {
   background: var(--cpki-color-danger-hover, #ff7474);
   color: var(--cpki-color-danger-foreground, #181c1f);
@@ -153,4 +239,30 @@
   .iconButton {
     transition-duration: 1ms;
   }
+}
+
+/* Workspace type scale: controls sit one step below body copy (preview parity).
+ * Icon sizes take the type of their text size, for labels such as page numbers. */
+:global(:root[data-cpki-design='workspace'])
+  :is(.button, .linkButton):is(
+    [data-size='md'],
+    [data-size='icon'],
+    :not([data-size])
+  ) {
+  font-size: var(--text-control);
+}
+
+:global(:root[data-cpki-design='workspace'])
+  :is(.button, .linkButton):is([data-size='sm'], [data-size='icon-sm']) {
+  font-size: var(--text-control-sm);
+}
+
+:global(:root[data-cpki-design='workspace'])
+  :is(.button, .linkButton):is([data-size='lg'], [data-size='icon-lg']) {
+  font-size: var(--text-body);
+}
+
+:global(:root[data-cpki-design='workspace'])
+  :is(.button, .linkButton)[data-variant='outline'] {
+  box-shadow: var(--shadow-xs);
 }

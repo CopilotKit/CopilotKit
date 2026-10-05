@@ -4,22 +4,78 @@ import type {
   ReactNode,
 } from 'react';
 import { forwardRef } from 'react';
+import { Slot } from '@radix-ui/react-slot';
 import styles from './actions.module.css';
 import { cx } from './class-name';
 
-export type ActionVariant = 'danger' | 'ghost' | 'primary' | 'secondary';
-export type ActionSize = 'lg' | 'md' | 'sm';
+export type ActionVariant =
+  | 'accent'
+  | 'danger'
+  | 'default'
+  | 'destructive'
+  | 'ghost'
+  | 'link'
+  | 'outline'
+  | 'primary'
+  | 'quiet'
+  | 'secondary';
+export type ActionSize =
+  | 'icon'
+  | 'icon-lg'
+  | 'icon-sm'
+  | 'lg'
+  | 'md'
+  | 'sm'
+  | 'xs';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  readonly asChild?: boolean;
   readonly size?: ActionSize;
   readonly variant?: ActionVariant;
 }
 
+/** The Button look for an element that is not a Button, such as a pager link. */
+export interface ButtonVariantProps {
+  readonly className: string;
+  readonly 'data-size': ActionSize;
+  readonly 'data-variant': ActionVariant;
+}
+
+/**
+ * Returns the class and data attributes that give an element the shared Button
+ * look, including its hover and workspace states. Spread them onto the
+ * element and merge any layout class into `className`.
+ *
+ * @param options - The Button variant and size; default `secondary` / `md`.
+ * @returns Props for the element.
+ */
+export function buttonVariants({
+  size = 'md',
+  variant = 'secondary',
+}: {
+  readonly size?: ActionSize;
+  readonly variant?: ActionVariant;
+} = {}): ButtonVariantProps {
+  return {
+    className: styles.button,
+    'data-size': size,
+    'data-variant': variant,
+  };
+}
+
+/** Variants the icon-only button draws. */
+export type IconButtonVariant = Extract<
+  ActionVariant,
+  'danger' | 'ghost' | 'primary' | 'secondary'
+>;
+/** Sizes the icon-only button draws. */
+export type IconButtonSize = Extract<ActionSize, 'lg' | 'md' | 'sm'>;
+
 export interface IconButtonProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-label'> {
   readonly label: string;
-  readonly size?: ActionSize;
-  readonly variant?: ActionVariant;
+  readonly size?: IconButtonSize;
+  readonly variant?: IconButtonVariant;
 }
 
 export interface LinkButtonProps
@@ -46,6 +102,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   function Button(
     {
       className,
+      asChild = false,
       size = 'md',
       type = 'button',
       variant = 'secondary',
@@ -53,13 +110,16 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref,
   ): ReactNode {
+    const Comp = asChild ? Slot : 'button';
+    const look = buttonVariants({ size, variant });
+
     return (
-      <button
-        className={cx(styles.button, className)}
-        data-size={size}
-        data-variant={variant}
+      <Comp
+        {...look}
+        className={cx(look.className, className)}
+        data-slot="button"
         ref={ref}
-        type={type}
+        {...(asChild ? {} : { type })}
         {...props}
       />
     );
@@ -90,7 +150,7 @@ export function IconButton({
 }
 
 /**
- * Renders link navigation with button-like visual treatment.
+ * Renders link navigation with the same variants and sizes as Button.
  */
 export function LinkButton({
   children,

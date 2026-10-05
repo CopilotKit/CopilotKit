@@ -1,10 +1,20 @@
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
-import { useEffect } from 'react';
-import { useNavigate } from '../shell/router';
+/* eslint-disable react-hooks/set-state-in-effect -- copied verbatim from the Intelligence web app, whose lint config does not enable the React Compiler rules. */
+import { WorkspaceLoading } from '../shell/workspace-loading';
+import { WorkspacePageHeader } from '../shell/workspace-page-header';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { useNavigate, useSearchParams } from '../shell/router';
 
 import { Button } from '../ui/primitives';
 
 import { ContainerWorkspace } from './container-workspace';
+import { LearningDirectory } from './learning-directory';
 import { isLegacyUnsupportedContainerStats } from './learning-api';
 import type {
   CreateLearningContainerInput,
@@ -14,29 +24,38 @@ import type {
 import type { ContainerProgress } from './learning-container-state';
 import { CreateContainerDialog } from './learning-dialogs';
 import { LearningMarkIcon } from './learning-icons';
+import { LearningOnboardingEmptyState } from './learning-onboarding-empty-state';
 import {
   useLearningRefresh,
   useLearningRefreshSignal,
 } from './learning-refresh-context';
-import { learningContainerRoute } from './learning-routes';
+import { learningContainerRoute, learningRoute } from './learning-routes';
 import type { LearningTabSegment } from './learning-routes';
 import { useLearningRequest } from './use-learning-request';
 import styles from './learning-page.module.css';
+import {
+  LocalEvaluationNotice,
+  type LocalEvaluationStatus,
+} from './local-evaluation-notice';
 
 interface LearningPageProps {
   readonly api: LearningApi;
   readonly baseRoute: string;
   /** Stable Container id from the route, or `null` on the landing view. */
   readonly containerId: string | null;
+  /** Reports the resolved space name to the shell's detail breadcrumb. */
+  readonly onBreadcrumbLabelChange?: (label: string | null) => void;
   /** Checks for project data outside Learning containers before onboarding. */
   readonly loadHasExistingData?: (signal: AbortSignal) => Promise<boolean>;
   readonly onRunQueued?: () => void;
   readonly projectId: number;
   readonly tab: LearningTabSegment;
   readonly usageCard?: ReactNode;
+  readonly localEvaluation?: LocalEvaluationStatus;
   readonly scheduleCard?: (
     manualAction?: ReactNode,
     renderReadiness?: (nextScheduledRun: ReactNode) => ReactNode,
+    presentation?: 'summary' | 'trigger' | 'embedded' | 'readiness',
   ) => ReactNode;
 }
 
@@ -48,8 +67,43 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
   const refreshSignal = useLearningRefreshSignal();
   const [localRefresh, setLocalRefresh] = useState(0);
   const [existingDataRefresh, setExistingDataRefresh] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
+  const [createLoadedIds, setCreateLoadedIds] = useState<readonly string[]>([]);
+  const createReturnFocusRef = useRef<HTMLElement | null>(null);
+  /**
+   * Opens the create dialog.
+   *
+   * @param loadedIds - Space IDs loaded beyond this page's list, such as the
+   *   directory's later pages, refused as duplicates.
+   * @param opener - Where focus returns; the focused control when omitted.
+   */
+  const openCreate = useCallback(
+    (
+      loadedIds: readonly string[] = [],
+      opener: HTMLElement | null = null,
+    ): void => {
+      createReturnFocusRef.current = opener;
+      setCreateLoadedIds(loadedIds);
+      setCreateOpen(true);
+    },
+    [],
+  );
+  useEffect(() => {
+    if (searchParams.get('create') !== '1') return;
+    openCreate();
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        next.delete('create');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [openCreate, searchParams, setSearchParams]);
   const readSignal = refreshSignal + localRefresh;
+  // Retrying evidence alone keeps the directory's loaded pages.
+  const [statsRefresh, setStatsRefresh] = useState(0);
 
   const loadContainers = useMemo(
     () => (signal: AbortSignal) => api.listContainers(projectId, { signal }),
@@ -79,7 +133,7 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
   );
   // Same-project refreshes retain the workspace and any open thread selection.
   const containersState = useLearningRequest(loadContainers, readSignal);
-  const statsState = useLearningRequest(loadStats, readSignal);
+  const statsState = useLearningRequest(loadStats, readSignal + statsRefresh);
 
   const containerPage =
     containersState.status === 'ready' || containersState.status === 'empty'
@@ -118,6 +172,12 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
     containerId === null
       ? undefined
       : containers.find((container) => container.id === containerId);
+  const { onBreadcrumbLabelChange } = props;
+  const selectedName = selectedContainer?.name ?? null;
+  useEffect(() => {
+    onBreadcrumbLabelChange?.(selectedName);
+    return () => onBreadcrumbLabelChange?.(null);
+  }, [onBreadcrumbLabelChange, selectedName]);
   const isRequestedLookupPending =
     loadRequestedContainer !== null &&
     (requestedState.status === 'idle' || requestedState.status === 'loading');
@@ -163,16 +223,6 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
         existingDataState.status === 'empty') &&
         !(existingDataState.status === 'ready' && existingDataState.data)));
 
-  /*
-   * Entering Learning with no Container in the URL opens the first one rather
-   * than asking which. The rail is right there showing every Container, so the
-   * choice card was a step between the click and the thing the reader came
-   * for. Replaced rather than pushed, so Back leaves Learning instead of
-   * bouncing off the redirect.
-   */
-  const firstContainer =
-    containerId === null && containersResolved ? containers[0] : undefined;
-
   const markChanged = useCallback((): void => {
     refresh();
     setLocalRefresh((current) => current + 1);
@@ -188,34 +238,24 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
     },
     [api, markChanged, navigate, projectId, props.baseRoute],
   );
-
-  // Demo: react-router's <Navigate replace> as an effect on the App Router.
-  const firstContainerId = firstContainer?.id;
-  useEffect(() => {
-    if (firstContainerId !== undefined) {
-      navigate(learningContainerRoute(props.baseRoute, firstContainerId), { replace: true });
-    }
-  }, [firstContainerId, navigate, props.baseRoute]);
-  if (firstContainer !== undefined) return <></>;
+  // The project schedule applies with or without a space, so every state
+  // without one keeps it in the header.
+  const scheduleTrigger = props.scheduleCard?.(undefined, undefined, 'trigger');
 
   return (
     <section
       aria-label="Automatic Learning workspace"
       className={`learning-surface ${styles.page}`}
     >
+      <LocalEvaluationNotice status={props.localEvaluation} />
       {/* Empty on plans that do not meter Learning runs, so the slot collapses
           rather than reserving padding above the Container header. */}
       <div className={styles.usageSlot}>{props.usageCard}</div>
-      {selectedContainer === undefined ? props.scheduleCard?.() : null}
 
       <p
         aria-atomic="true"
         aria-live="polite"
-        className={
-          containersState.status === 'loading' || isExistingDataLoading
-            ? styles.status
-            : 'cpki-visually-hidden'
-        }
+        className="cpki-visually-hidden"
         role="status"
       >
         {containersState.status === 'loading'
@@ -227,10 +267,19 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
               : ''}
       </p>
 
+      {containersState.status === 'loading' || isExistingDataLoading ? (
+        <div className={styles.onboardingSlot}>
+          <WorkspaceLoading />
+        </div>
+      ) : null}
       {containersState.status === 'error' ? (
         <div className={styles.errorState}>
           <p role="alert">{containersState.message}</p>
-          <Button onClick={() => setLocalRefresh((current) => current + 1)}>
+          <Button
+            onClick={() => setLocalRefresh((current) => current + 1)}
+            size="sm"
+            variant="outline"
+          >
             Retry
           </Button>
         </div>
@@ -241,6 +290,8 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
           <p role="alert">{existingDataState.message}</p>
           <Button
             onClick={() => setExistingDataRefresh((current) => current + 1)}
+            size="sm"
+            variant="outline"
           >
             Retry
           </Button>
@@ -249,13 +300,45 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
 
       {/* The surface gives up its padding for the Container workspace, so the
           pre-first-container onboarding brings its own. */}
-      {/* Demo: the first-space onboarding card is not carried over. */}
+      {hasNoContainers && showOnboarding ? (
+        <div className={styles.onboardingSlot}>
+          <WorkspacePageHeader
+            actions={scheduleTrigger}
+            headingLevel={1}
+            title="Automatic Learning"
+            titleId="learning-empty-title"
+            description="Find patterns in your conversations. Inspect the skills they produce."
+          />
+          <LearningOnboardingEmptyState
+            onCreateRequested={() => openCreate()}
+            projectId={projectId}
+          />
+        </div>
+      ) : null}
 
-      {containersResolved && !showOnboarding ? (
+      {containersResolved &&
+      !showOnboarding &&
+      !isExistingDataLoading &&
+      existingDataState.status !== 'error' ? (
         isRequestedLookupPending ? (
           <p className={styles.status} role="status">
             Loading the selected Learning Space…
           </p>
+        ) : containerId === null && containers.length > 0 ? (
+          <LearningDirectory
+            api={api}
+            baseRoute={props.baseRoute}
+            initialPage={containerPage}
+            onCreate={(loadedIds) => openCreate(loadedIds)}
+            onRefresh={() => setLocalRefresh((current) => current + 1)}
+            onRetryStats={() => setStatsRefresh((current) => current + 1)}
+            projectId={projectId}
+            schedule={scheduleTrigger}
+            stats={stats}
+            statsError={
+              statsState.status === 'error' ? statsState.message : null
+            }
+          />
         ) : selectedContainer !== undefined ? (
           // Keyed by Container so switching Containers cannot carry over a
           // failed-analysis message or an open Insight drawer belonging to the
@@ -269,53 +352,75 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
             key={selectedContainer.id}
             legacyStatsUnsupported={legacyStatsUnsupported}
             onChanged={markChanged}
+            onCreate={(opener) => openCreate([], opener)}
             progress={progressFor(selectedContainer.id)}
             progressUnavailable={progressUnavailableFor(selectedContainer.id)}
             projectId={projectId}
             tab={props.tab}
+            localEvaluation={props.localEvaluation}
           />
-        ) : requestedState.status === 'error' ? (
-          // The lookup failed, so we do not know whether this Container
-          // exists. Saying it "was not found" would report a server or network
-          // fault as a deletion, and the offer to create a new one would then
-          // be actively wrong advice.
-          <div className={styles.landing}>
-            <div className={styles.landingCard}>
-              <span className={styles.landingIcon}>
-                <LearningMarkIcon />
-              </span>
-              <h2>Could not load that Learning Space</h2>
-              <p role="alert">{requestedState.message}</p>
-              <p>
-                The lookup failed, so we cannot tell whether it still exists.
-                Retry, or choose another space from the Automatic Learning
-                navigation.
-              </p>
-              <Button onClick={() => setLocalRefresh((current) => current + 1)}>
-                Retry
-              </Button>
-            </div>
-          </div>
         ) : (
-          <div className={styles.landing}>
-            <div className={styles.landingCard}>
-              <span className={styles.landingIcon}>
-                <LearningMarkIcon />
-              </span>
-              <h2>
-                {containerId === null
-                  ? 'Choose a Learning Space'
-                  : 'That Learning Space was not found'}
-              </h2>
-              <p>
-                {containerId === null
-                  ? 'Select a space from the Automatic Learning navigation to review its evidence, analyze new Threads, and manage its Skills.'
-                  : 'It may have been removed, or it belongs to another project. Choose one from the Automatic Learning navigation.'}
-              </p>
-              <Button onClick={() => setCreateOpen(true)}>
-                Create a new space
-              </Button>
-            </div>
+          <div className={styles.onboardingSlot}>
+            {/* The directory is this route, so only a named space links back. */}
+            <WorkspacePageHeader
+              actions={scheduleTrigger}
+              backLink={
+                containerId === null
+                  ? undefined
+                  : {
+                      label: 'Learning spaces',
+                      to: learningRoute(props.baseRoute),
+                    }
+              }
+              description="Find patterns in your conversations. Inspect the skills they produce."
+              title="Automatic Learning"
+              titleId="learning-landing-title"
+            />
+            {requestedState.status === 'error' ? (
+              // The lookup failed, so we do not know whether this Container
+              // exists. Saying it "was not found" would report a server or
+              // network fault as a deletion, and the offer to create a new
+              // one would then be actively wrong advice.
+              <div className={styles.landing}>
+                <div className={styles.landingCard}>
+                  <span className={styles.landingIcon}>
+                    <LearningMarkIcon />
+                  </span>
+                  <h2>Could not load that Learning Space</h2>
+                  <p role="alert">{requestedState.message}</p>
+                  <p>
+                    The lookup failed, so we cannot tell whether it still
+                    exists. Retry, or choose another from Learning spaces.
+                  </p>
+                  <Button
+                    onClick={() => setLocalRefresh((current) => current + 1)}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className={styles.landing}>
+                <div className={styles.landingCard}>
+                  <span className={styles.landingIcon}>
+                    <LearningMarkIcon />
+                  </span>
+                  <h2>
+                    {containerId === null
+                      ? 'Choose a Learning Space'
+                      : 'That Learning Space was not found'}
+                  </h2>
+                  <p>
+                    {containerId === null
+                      ? 'Create a space to review its evidence, analyze new Threads, and manage its Skills.'
+                      : 'It may have been removed, or it belongs to another project. Choose another from Learning spaces.'}
+                  </p>
+                  <Button onClick={() => openCreate()}>
+                    Create a new space
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )
       ) : null}
@@ -324,9 +429,12 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
         onClose={() => setCreateOpen(false)}
         onCreate={createContainer}
         open={createOpen}
-        reservedIds={containers.map((container) => container.id)}
+        reservedIds={[
+          ...containers.map((container) => container.id),
+          ...createLoadedIds,
+        ]}
+        returnFocusRef={createReturnFocusRef}
       />
     </section>
   );
 }
-

@@ -1,5 +1,6 @@
 export {
   Button,
+  buttonVariants,
   ButtonGroup,
   IconButton,
   LinkButton,
@@ -10,7 +11,10 @@ export type {
   ActionVariant,
   ButtonGroupProps,
   ButtonProps,
+  ButtonVariantProps,
   IconButtonProps,
+  IconButtonSize,
+  IconButtonVariant,
   LinkButtonProps,
   VisuallyHiddenProps,
 } from './actions';

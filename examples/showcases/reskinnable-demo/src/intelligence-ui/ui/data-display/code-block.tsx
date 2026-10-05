@@ -31,7 +31,7 @@ export function CodeBlock({
           <CopyButton label={copyLabel} value={code} writeText={writeText} />
         </div>
       ) : null}
-      <pre className={styles.pre}>
+      <pre className={styles.pre} tabIndex={0}>
         <code
           className={
             language === undefined ? undefined : `language-${language}`

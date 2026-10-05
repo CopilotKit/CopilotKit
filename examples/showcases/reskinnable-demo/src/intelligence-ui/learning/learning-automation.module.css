@@ -143,34 +143,58 @@
   border-radius: var(--cpki-radius-panel);
   background: var(--cpki-color-background);
 }
+.projectSchedule[data-presentation='embedded'] {
+  background: transparent;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+/* Settings summary: clock plate, schedule copy, source badge; action below. */
 .scheduleSummary {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--cpki-space-4);
+  gap: 12px;
+}
+.scheduleMark {
+  align-items: center;
+  background: var(--learning);
+  border: 1px solid var(--learning-accent);
+  border-radius: 7px;
+  color: var(--learning-foreground);
+  display: flex;
+  flex: 0 0 32px;
+  height: 32px;
+  justify-content: center;
+}
+.scheduleMark svg {
+  height: 16px;
+  width: 16px;
 }
 .scheduleDetails {
   display: grid;
-  gap: var(--cpki-space-2);
+  gap: 3px;
   min-width: 0;
-  flex: 1 1 22rem;
+  flex: 1 1 auto;
 }
 .nextCheck {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--cpki-space-2);
+  gap: 6px;
 }
 .nextCheck strong {
-  font-size: var(--cpki-font-size-3);
-  line-height: 1.25;
+  color: var(--foreground);
+  font-size: var(--text-body);
+  line-height: 1.45;
   font-weight: 600;
 }
-.scheduleLabel,
+.scheduleLabel {
+  color: var(--muted-foreground);
+  font-size: var(--text-control);
+}
 .scheduleSource {
-  font-size: var(--cpki-font-size-0);
-  color: var(--cpki-color-muted-foreground);
+  font-size: var(--text-caption);
+  color: var(--muted-foreground);
 }
 .scheduleSource,
 .scheduleTimes,
@@ -179,13 +203,15 @@
   line-height: 1.5;
 }
 .scheduleTimes {
-  font-size: var(--cpki-font-size-0);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
 }
 .scheduleControls {
   display: flex;
-  align-items: start;
+  align-items: center;
   flex-wrap: wrap;
-  gap: var(--cpki-space-2);
+  gap: 8px;
+  margin-top: 16px;
 }
 .scheduleControls > button {
   flex-shrink: 0;
@@ -246,11 +272,15 @@
   gap: var(--cpki-space-2);
   min-width: 0;
 }
+/* A bounded list: the ScrollArea viewport scrolls with shared edge shadows. */
+.zoneScroll {
+  border: var(--cpki-border-width) solid var(--cpki-color-border);
+  border-radius: var(--radius-control);
+  max-height: 12rem;
+  overflow: hidden;
+}
 .zoneResults {
   display: grid;
-  max-height: 12rem;
-  overflow-y: auto;
-  border: var(--cpki-border-width) solid var(--cpki-color-border);
 }
 .zonePicker button {
   justify-content: flex-start;
@@ -275,14 +305,39 @@
   flex: 0 0 0.875rem;
 }
 
+.recurrenceLine {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+/* Paused schedule: the instance has automatic analysis off. */
+.pausedNotice {
+  align-items: flex-start;
+  background: var(--warning-subtle);
+  border: 1px solid color-mix(in oklch, var(--warning) 24%, var(--border));
+  border-radius: var(--radius-control);
+  color: var(--foreground);
+  display: flex;
+  font-size: var(--text-control);
+  gap: 10px;
+  line-height: 1.6;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+}
+.pausedNotice > [data-slot='badge'] {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
 .scheduleRecurrence {
-  font-size: var(--cpki-font-size-1);
+  color: var(--foreground);
+  font-size: var(--text-body);
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 .nextRun {
   display: grid;
-  gap: var(--cpki-space-2);
-  margin-bottom: var(--cpki-space-2);
+  gap: 2px;
 }
 .scheduleTimes {
   color: var(--cpki-color-muted-foreground);

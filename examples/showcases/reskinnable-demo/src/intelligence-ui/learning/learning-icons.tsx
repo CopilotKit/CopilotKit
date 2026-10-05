@@ -1,5 +1,5 @@
 /*
- * Learning draws four small marks that the shared Material Symbols set does not
+ * Learning draws two small marks that the shared Material Symbols set does not
  * cover at this weight. They are inline so they inherit `currentColor` and the
  * surrounding font size instead of loading a second icon font.
  */
@@ -31,36 +31,11 @@ export function PlayIcon(): React.JSX.Element {
   );
 }
 
-/**
- * Sits on the create-Container action.
- *
- * Drawn rather than typed: a text "+" is centred on the font's math axis, not
- * on its box, so it rides high inside a square button however the box is
- * centred. Two strokes on the viewBox centre cannot.
- */
-export function PlusIcon(): React.JSX.Element {
-  return (
-    <svg aria-hidden="true" strokeWidth={2} {...strokeProps}>
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
-
 /** Says a list row opens something rather than toggling in place. */
 export function ChevronRightIcon(): React.JSX.Element {
   return (
     <svg aria-hidden="true" strokeWidth={1.8} {...strokeProps}>
       <path d="m9 6 6 6-6 6" />
-    </svg>
-  );
-}
-
-/** Prefixes an evidence count: cited messages inside source Threads. */
-export function EvidenceIcon(): React.JSX.Element {
-  return (
-    <svg aria-hidden="true" strokeWidth={1.7} {...strokeProps}>
-      <rect height="16" rx="2" width="16" x="4" y="4" />
-      <path d="M8 9h8M8 13h6M8 17h4" />
     </svg>
   );
 }

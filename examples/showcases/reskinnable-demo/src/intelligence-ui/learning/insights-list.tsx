@@ -1,9 +1,19 @@
 import type { LearningInsight, LearningSkill } from './learning-api';
+import { Button } from '../ui/primitives';
+import { Badge, EmptyState } from '../ui/feedback';
+import { Lightbulb } from 'lucide-react';
 import {
   learningTimestamp,
   type LearningContainerState,
 } from './learning-container-state';
-import { ChevronRightIcon, EvidenceIcon } from './learning-icons';
+import {
+  citedThreadsLabel,
+  FindingDate,
+  FindingEvidence,
+  FindingList,
+  FindingRow,
+  referencesLabel,
+} from './finding-list';
 import styles from './learning-page.module.css';
 
 /**
@@ -34,7 +44,12 @@ interface InsightsListProps {
   readonly error: string | null;
   readonly insights: readonly LearningInsight[];
   readonly isLoading: boolean;
-  readonly onOpenInsight: (insight: LearningInsight) => void;
+  readonly lastSucceededAt?: string | null;
+  readonly onOpenInsight: (
+    insight: LearningInsight,
+    opener: HTMLButtonElement,
+  ) => void;
+  readonly onRetry: () => void;
   readonly proposedSkillFor: (
     insight: LearningInsight,
   ) => LearningSkill | undefined;
@@ -43,6 +58,10 @@ interface InsightsListProps {
 
 /**
  * Renders the evidence-backed Insights one analysis produced.
+ *
+ * Rows share the Product Insights row: the status badge sits in the chip line
+ * where Product Insights shows its Learning Space, then the title, description,
+ * and a caption line with the cited Threads, references, and date.
  *
  * @param props - Insights, load state, and the row action.
  * @returns The Insight list, or the reason it is empty.
@@ -57,93 +76,75 @@ export function InsightsList(props: InsightsListProps): React.JSX.Element {
   }
   if (props.error !== null) {
     return (
-      <p className={styles.error} role="alert">
-        {props.error}
-      </p>
+      <div className={styles.errorState}>
+        <p className={styles.error} role="alert">
+          {props.error}
+        </p>
+        <Button onClick={props.onRetry} size="sm" variant="outline">
+          Retry Insights
+        </Button>
+      </div>
     );
   }
   if (props.insights.length === 0) {
     return (
-      <div className={styles.emptyState}>
-        <strong>No Insights yet</strong>
-        <span>
-          {props.state === 'setup'
+      <EmptyState
+        description={
+          props.state === 'setup'
             ? 'Assign this space ID in your Runtime, then analyze the Threads it collects.'
             : props.state === 'analyzing'
               ? 'The analysis in progress will add any repeated patterns it finds.'
-              : 'Analyze the collected Threads to find repeated patterns.'}
-        </span>
-      </div>
+              : 'Analyze the collected Threads to find repeated patterns.'
+        }
+        headingLevel={2}
+        icon={<Lightbulb />}
+        title="No Insights yet"
+        variant="collection"
+      />
     );
   }
 
-  const withSkills = props.insights.filter(
-    (insight) => props.proposedSkillFor(insight) !== undefined,
-  ).length;
-
   return (
-    <>
-      <div className={styles.listToolbar}>
-        <p className={styles.toolbarLabel}>
+    <section className={styles.insightsSection} aria-label="Insights">
+      <div className={styles.sectionCaption}>
+        <p>
+          Last analysis · {learningTimestamp(props.lastSucceededAt ?? null)}
+        </p>
+        <p>
           {props.insights.length === 1
             ? '1 Insight'
             : `${props.insights.length} Insights`}
-          {' · '}
-          {withSkills === 1
-            ? '1 with a proposed skill'
-            : `${withSkills} with proposed skills`}
         </p>
-        <p className={styles.toolbarLabel}>Newest first</p>
       </div>
-      <ul className={styles.recordList}>
+      <FindingList aria-label="Learning Space Insights" bordered>
         {props.insights.map((insight) => {
           const totals = evidenceTotals(insight);
           const skill = props.proposedSkillFor(insight);
 
           return (
-            <li key={insight.id}>
-              <button
-                className={styles.insightRow}
-                onClick={() => props.onOpenInsight(insight)}
-                type="button"
-              >
-                <span className={styles.rowBody}>
-                  <span className={styles.insightStatement}>
-                    {insight.statement}
-                  </span>
-                  <span className={styles.insightImpact}>{insight.impact}</span>
-                  <span className={styles.insightMeta}>
-                    <span className={styles.evidenceCount}>
-                      <EvidenceIcon />
-                      {totals.references === 1
-                        ? '1 reference'
-                        : `${totals.references} references`}
-                      {' in '}
-                      {totals.threads === 1
-                        ? '1 Thread'
-                        : `${totals.threads} Threads`}
-                    </span>
-                    <span className={styles.insightMetaRight}>
-                      <span
-                        className={styles.tag}
-                        data-variant={skill ? 'skill' : 'insight'}
-                      >
-                        {skill ? 'Proposed skill' : 'Insight only'}
-                      </span>
-                      <time dateTime={insight.createdAt}>
-                        {learningTimestamp(insight.createdAt)}
-                      </time>
-                    </span>
-                  </span>
-                </span>
-                <span aria-hidden="true" className={styles.rowChevron}>
-                  <ChevronRightIcon />
-                </span>
-              </button>
-            </li>
+            <FindingRow
+              description={insight.impact}
+              key={insight.id}
+              meta={
+                <>
+                  <FindingEvidence label={citedThreadsLabel(totals.threads)} />
+                  <span>{referencesLabel(totals.references)}</span>
+                  <FindingDate value={insight.createdAt} />
+                </>
+              }
+              onOpen={(opener) => props.onOpenInsight(insight, opener)}
+              status={
+                skill ? (
+                  <Badge variant="accent">Proposed skill</Badge>
+                ) : (
+                  <Badge variant="neutral">Insight only</Badge>
+                )
+              }
+              title={insight.statement}
+            />
           );
         })}
-      </ul>
-    </>
+      </FindingList>
+    </section>
   );
 }

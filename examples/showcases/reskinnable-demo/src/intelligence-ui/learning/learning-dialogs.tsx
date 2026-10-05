@@ -1,14 +1,14 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import type { FormEvent, KeyboardEvent, ReactNode, RefObject } from 'react';
-import { createPortal } from 'react-dom';
-import { cycleFocus, useModalInertness } from '../ui/overlays';
-import { Button, IconButton } from '../ui/primitives';
+import { ApiClientError } from '../api-client';
+import { useId, useRef, useState } from 'react';
+import type { FormEvent, ReactNode, RefObject } from 'react';
+import { Dialog } from '../ui/overlays';
+import { Input, Textarea } from '../ui/forms';
+import { Button } from '../ui/primitives';
+import { TriangleAlert } from 'lucide-react';
 
 import type {
   CreateLearningContainerInput,
-  LearningContainer,
   LearningContainerStats,
-  UpdateLearningContainerInput,
 } from './learning-api';
 import {
   containerState,
@@ -58,20 +58,21 @@ function submissionMessage(error: unknown, fallback: string): string {
     : fallback;
 }
 
-/** Renders the close glyph for a dialog header button. */
-function CloseGlyph(): React.JSX.Element {
-  return (
-    <svg
-      aria-hidden="true"
-      className={styles.closeIcon}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      viewBox="0 0 24 24"
-    >
-      <path d="m6 6 12 12M18 6 6 18" />
-    </svg>
-  );
+/** Copy for app-api's refusal to start a run on a local stack with no model. */
+export const LEARNING_MODEL_NOT_CONFIGURED_MESSAGE =
+  'No Learning model is configured for this installation. Run `copilotkit local setup` to add one.';
+
+/**
+ * Reads a failed analysis start as reader-facing copy.
+ *
+ * @param error - Rejection value from starting the run.
+ * @returns The setup instruction for a missing model, otherwise the error's own copy.
+ */
+function analysisStartMessage(error: unknown): string {
+  return error instanceof ApiClientError &&
+    error.code === 'LEARNING_MODEL_NOT_CONFIGURED'
+    ? LEARNING_MODEL_NOT_CONFIGURED_MESSAGE
+    : submissionMessage(error, 'Could not start the analysis.');
 }
 
 /**
@@ -94,31 +95,18 @@ function lastAnalysisValue(progress: LearningContainerStats | null): string {
   return learningTimestamp(progress.lastSucceededAt);
 }
 
-/** Renders the warning glyph beside limited-evidence copy. */
-function WarningGlyph(): React.JSX.Element {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      viewBox="0 0 24 24"
-    >
-      <path d="M12 3 2.7 20h18.6L12 3Z" />
-      <path d="M12 9v5M12 17.5h.01" />
-    </svg>
-  );
-}
-
 interface LearningDialogFrameProps {
   readonly children: ReactNode;
-  readonly footer: ReactNode;
+  /** Footer actions; the submit button joins the form through `formId`. */
+  readonly footer: (formId: string) => ReactNode;
   readonly heading: string;
   readonly headingId: string;
   /** Control that receives focus as soon as the dialog appears. */
   readonly initialFocusRef: RefObject<HTMLElement | null>;
   readonly onClose: () => void;
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  /** Stable trigger to focus after a menu launches the dialog. */
+  readonly returnFocusRef?: RefObject<HTMLElement | null>;
   /** Widens the card for the three-cell analysis summary. */
   readonly wide?: boolean;
 }
@@ -126,11 +114,8 @@ interface LearningDialogFrameProps {
 /**
  * Renders the shared modal chrome for the Learning dialogs.
  *
- * The element carries the `open` attribute instead of being opened through
- * `showModal()`: jsdom implements neither `showModal()` nor `close()`, and a
- * dialog whose visibility depended on them would behave differently under test
- * than in the product. Escape, focus containment, and background isolation are
- * therefore handled here.
+ * Radix owns focus containment, Escape, and background isolation. The form
+ * retains the existing submit, validation, and return-focus behavior.
  *
  * @param props - Heading, body, footer, and dismissal callbacks.
  * @returns The dialog chrome wrapped around a form.
@@ -138,81 +123,24 @@ interface LearningDialogFrameProps {
 function LearningDialogFrame(
   props: LearningDialogFrameProps,
 ): React.JSX.Element {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const { initialFocusRef, onClose } = props;
-
-  useModalInertness(true, dialogRef);
-
-  useEffect(() => {
-    const opener =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-
-    initialFocusRef.current?.focus();
-
-    /*
-     * Bound on the document as well as on the dialog. These render with the
-     * `open` attribute rather than through `showModal()`, so there is no top
-     * layer and no browser-owned Escape. Submitting a form moves focus to
-     * `<body>`, and from there a key event never reaches the dialog's own
-     * handler, which left the only way out being the close button.
-     */
-    const closeOnEscape = (event: globalThis.KeyboardEvent): void => {
-      if (event.key !== 'Escape' || event.defaultPrevented) return;
-      event.preventDefault();
-      onClose();
-    };
-    document.addEventListener('keydown', closeOnEscape);
-
-    return () => {
-      document.removeEventListener('keydown', closeOnEscape);
-
-      // Only restore focus to an opener the page still owns; a create that
-      // succeeded may have replaced the control that started this dialog.
-      if (opener !== null && opener.isConnected) {
-        opener.focus();
-      }
-    };
-  }, [initialFocusRef, onClose]);
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLDialogElement>): void => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      onClose();
-      return;
-    }
-
-    if (dialogRef.current !== null) {
-      cycleFocus(event, dialogRef.current);
-    }
-  };
-
-  return createPortal(
-    <dialog
-      aria-labelledby={props.headingId}
-      aria-modal="true"
-      className={styles.dialog}
-      onKeyDown={handleKeyDown}
+  const formId = useId();
+  return (
+    <Dialog
       open
-      ref={dialogRef}
+      title={props.heading}
+      closeLabel="Close"
+      onOpenChange={(open) => {
+        if (!open) props.onClose();
+      }}
+      footer={props.footer(formId)}
+      initialFocusRef={props.initialFocusRef}
+      returnFocusRef={props.returnFocusRef}
+      size={props.wide ? 'lg' : 'md'}
     >
-      <form
-        className={`${styles.dialogCard} ${props.wide === true ? styles.wideCard : ''}`}
-        onSubmit={props.onSubmit}
-      >
-        <header className={styles.dialogHead}>
-          <h2 id={props.headingId}>{props.heading}</h2>
-          <IconButton label="Close" onClick={onClose} variant="ghost">
-            <CloseGlyph />
-          </IconButton>
-        </header>
-        <div className={styles.dialogBody}>{props.children}</div>
-        <footer className={styles.dialogFoot}>{props.footer}</footer>
+      <form className={styles.dialogForm} id={formId} onSubmit={props.onSubmit}>
+        {props.children}
       </form>
-    </dialog>,
-    document.body,
+    </Dialog>
   );
 }
 
@@ -222,6 +150,8 @@ interface CreateContainerDialogProps {
   readonly open: boolean;
   /** Container ids already in use, refused before the request is sent. */
   readonly reservedIds?: readonly string[];
+  /** Stable trigger to focus after a menu launches the dialog. */
+  readonly returnFocusRef?: RefObject<HTMLElement | null>;
 }
 
 /**
@@ -245,6 +175,7 @@ export function CreateContainerDialog(
       onClose={props.onClose}
       onCreate={props.onCreate}
       reservedIds={props.reservedIds ?? []}
+      returnFocusRef={props.returnFocusRef}
     />
   );
 }
@@ -253,6 +184,7 @@ interface CreateContainerFormProps {
   readonly onClose: () => void;
   readonly onCreate: (input: CreateLearningContainerInput) => Promise<void>;
   readonly reservedIds: readonly string[];
+  readonly returnFocusRef?: RefObject<HTMLElement | null>;
 }
 
 /**
@@ -338,25 +270,31 @@ function CreateContainerForm(
 
   return (
     <LearningDialogFrame
-      footer={
+      footer={(formId) => (
         <>
-          <Button onClick={props.onClose} variant="secondary">
+          <Button onClick={props.onClose} variant="outline">
             Cancel
           </Button>
-          <Button disabled={isPending} type="submit" variant="primary">
+          <Button
+            disabled={isPending}
+            form={formId}
+            type="submit"
+            variant="primary"
+          >
             {isPending ? 'Creating space…' : 'Create space'}
           </Button>
         </>
-      }
+      )}
       heading="New Learning Space"
       headingId={headingId}
       initialFocusRef={nameRef}
       onClose={props.onClose}
       onSubmit={submit}
+      returnFocusRef={props.returnFocusRef}
     >
       <div className={styles.formField}>
         <label htmlFor={nameId}>Name</label>
-        <input
+        <Input
           id={nameId}
           maxLength={255}
           onChange={(event) => changeName(event.currentTarget.value)}
@@ -368,7 +306,7 @@ function CreateContainerForm(
       </div>
       <div className={styles.formField}>
         <label htmlFor={containerIdId}>Space ID</label>
-        <input
+        <Input
           aria-describedby={containerIdHintId}
           id={containerIdId}
           maxLength={64}
@@ -384,164 +322,7 @@ function CreateContainerForm(
       </div>
       <div className={styles.formField}>
         <label htmlFor={focusId}>Automatic Learning focus</label>
-        <textarea
-          aria-describedby={focusHintId}
-          id={focusId}
-          maxLength={4000}
-          onChange={(event) => setPromptContext(event.currentTarget.value)}
-          placeholder="Focus on access rules, exceptions, and successful resolutions."
-          rows={3}
-          value={promptContext}
-        />
-        <span className={styles.fieldHint} id={focusHintId}>
-          Optional. This guides what the analysis looks for across these
-          Threads.
-        </span>
-      </div>
-      {submission.status === 'error' ? (
-        <p className={styles.dialogError} role="alert">
-          {submission.message}
-        </p>
-      ) : null}
-    </LearningDialogFrame>
-  );
-}
-
-interface ContainerSettingsDialogProps {
-  readonly container: LearningContainer;
-  readonly onClose: () => void;
-  readonly onSave: (input: UpdateLearningContainerInput) => Promise<void>;
-  readonly open: boolean;
-}
-
-/**
- * Renders the Learning container settings dialog.
- *
- * The form is keyed by container id, so pointing the dialog at a different
- * Container re-reads the fields from that Container instead of showing the
- * previous one's values.
- *
- * @param props - Container to edit, dismissal callback, and save callback.
- * @returns The settings dialog while open, otherwise nothing.
- */
-export function ContainerSettingsDialog(
-  props: ContainerSettingsDialogProps,
-): React.JSX.Element | null {
-  if (!props.open) {
-    return null;
-  }
-
-  return (
-    <ContainerSettingsForm
-      container={props.container}
-      key={props.container.id}
-      onClose={props.onClose}
-      onSave={props.onSave}
-    />
-  );
-}
-
-interface ContainerSettingsFormProps {
-  readonly container: LearningContainer;
-  readonly onClose: () => void;
-  readonly onSave: (input: UpdateLearningContainerInput) => Promise<void>;
-}
-
-/**
- * Renders the editable Container settings fields.
- *
- * @param props - Container to edit, dismissal callback, and save callback.
- * @returns The settings dialog body.
- */
-function ContainerSettingsForm(
-  props: ContainerSettingsFormProps,
-): React.JSX.Element {
-  const fieldId = useId();
-  const headingId = `${fieldId}-heading`;
-  const nameId = `${fieldId}-name`;
-  const containerIdId = `${fieldId}-id`;
-  const containerIdHintId = `${containerIdId}-hint`;
-  const focusId = `${fieldId}-focus`;
-  const focusHintId = `${focusId}-hint`;
-  const nameRef = useRef<HTMLInputElement>(null);
-  const [name, setName] = useState(props.container.name);
-  const [promptContext, setPromptContext] = useState(
-    props.container.promptContext ?? '',
-  );
-  const [submission, setSubmission] = useState<DialogSubmission>({
-    status: 'idle',
-  });
-  const isPending = submission.status === 'pending';
-
-  const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault();
-    const trimmedName = name.trim();
-    if (trimmedName.length === 0) {
-      return;
-    }
-
-    setSubmission({ status: 'pending' });
-    try {
-      await props.onSave({
-        name: trimmedName,
-        promptContext: promptContext.trim() || null,
-      });
-    } catch (error: unknown) {
-      setSubmission({
-        message: submissionMessage(
-          error,
-          'Could not save the Learning Space settings.',
-        ),
-        status: 'error',
-      });
-    }
-  };
-
-  return (
-    <LearningDialogFrame
-      footer={
-        <>
-          <Button onClick={props.onClose} variant="secondary">
-            Cancel
-          </Button>
-          <Button disabled={isPending} type="submit" variant="primary">
-            {isPending ? 'Saving changes…' : 'Save changes'}
-          </Button>
-        </>
-      }
-      heading="Learning Space settings"
-      headingId={headingId}
-      initialFocusRef={nameRef}
-      onClose={props.onClose}
-      onSubmit={submit}
-    >
-      <div className={styles.formField}>
-        <label htmlFor={nameId}>Name</label>
-        <input
-          id={nameId}
-          maxLength={255}
-          onChange={(event) => setName(event.currentTarget.value)}
-          ref={nameRef}
-          required
-          value={name}
-        />
-      </div>
-      <div className={styles.formField}>
-        <label htmlFor={containerIdId}>Space ID</label>
-        <input
-          aria-describedby={containerIdHintId}
-          id={containerIdId}
-          readOnly
-          value={props.container.id}
-        />
-        <span className={styles.fieldHint} id={containerIdHintId}>
-          Space IDs cannot change after creation. Threads can belong to multiple
-          spaces.
-        </span>
-      </div>
-      <div className={styles.formField}>
-        <label htmlFor={focusId}>Automatic Learning focus</label>
-        <textarea
+        <Textarea
           aria-describedby={focusHintId}
           id={focusId}
           maxLength={4000}
@@ -569,6 +350,7 @@ interface AnalyzeThreadsDialogProps {
   readonly onConfirm: () => Promise<void>;
   readonly open: boolean;
   readonly progress: LearningContainerStats | null;
+  readonly returnFocusRef?: RefObject<HTMLElement | null>;
 }
 
 /**
@@ -589,6 +371,7 @@ export function AnalyzeThreadsDialog(
       onClose={props.onClose}
       onConfirm={props.onConfirm}
       progress={props.progress}
+      returnFocusRef={props.returnFocusRef}
     />
   );
 }
@@ -597,6 +380,7 @@ interface AnalyzeThreadsFormProps {
   readonly onClose: () => void;
   readonly onConfirm: () => Promise<void>;
   readonly progress: LearningContainerStats | null;
+  readonly returnFocusRef?: RefObject<HTMLElement | null>;
 }
 
 /**
@@ -625,7 +409,7 @@ function AnalyzeThreadsForm(props: AnalyzeThreadsFormProps): React.JSX.Element {
       await props.onConfirm();
     } catch (error: unknown) {
       setSubmission({
-        message: submissionMessage(error, 'Could not start the analysis.'),
+        message: analysisStartMessage(error),
         status: 'error',
       });
     }
@@ -637,13 +421,14 @@ function AnalyzeThreadsForm(props: AnalyzeThreadsFormProps): React.JSX.Element {
 
   return (
     <LearningDialogFrame
-      footer={
+      footer={(formId) => (
         <>
-          <Button onClick={props.onClose} variant="secondary">
+          <Button onClick={props.onClose} variant="outline">
             Cancel
           </Button>
           <Button
             disabled={isPending}
+            form={formId}
             ref={confirmRef}
             type="submit"
             variant="primary"
@@ -651,28 +436,29 @@ function AnalyzeThreadsForm(props: AnalyzeThreadsFormProps): React.JSX.Element {
             {isPending ? 'Starting analysis…' : confirmLabel}
           </Button>
         </>
-      }
+      )}
       heading="Analyze these Threads?"
       headingId={headingId}
       initialFocusRef={confirmRef}
       onClose={props.onClose}
       onSubmit={submit}
+      returnFocusRef={props.returnFocusRef}
       wide
     >
-      <div className={styles.runSummary}>
+      <dl className={styles.runSummary}>
         <div>
-          <strong>{pendingThreadCount?.toLocaleString() ?? '—'}</strong>
-          <span>new {pendingThreadWord}</span>
+          <dt>New {pendingThreadWord}</dt>
+          <dd>{pendingThreadCount?.toLocaleString() ?? '—'}</dd>
         </div>
         <div>
-          <strong>{props.progress?.threadCount.toLocaleString() ?? '—'}</strong>
-          <span>in space</span>
+          <dt>Threads in space</dt>
+          <dd>{props.progress?.threadCount.toLocaleString() ?? '—'}</dd>
         </div>
         <div>
-          <strong>{lastAnalysisValue(props.progress)}</strong>
-          <span>last analysis</span>
+          <dt>Last analysis</dt>
+          <dd>{lastAnalysisValue(props.progress)}</dd>
         </div>
-      </div>
+      </dl>
       {props.progress === null ? (
         <p className={styles.fieldHint}>
           Thread counts are unavailable. The analysis will use any new Threads
@@ -680,7 +466,7 @@ function AnalyzeThreadsForm(props: AnalyzeThreadsFormProps): React.JSX.Element {
         </p>
       ) : hasLimitedEvidence ? (
         <div className={styles.runWarning}>
-          <WarningGlyph />
+          <TriangleAlert aria-hidden="true" />
           <div className={styles.runWarningCopy}>
             <strong>Limited evidence</strong>
             <span>

@@ -1,4 +1,6 @@
 @import './fonts.css';
 @import './tokens.css';
 @import './theme-copilotkit.css';
+@import './workspace-theme.css';
+@import './workspace-components.css';
 @import './reset.css';

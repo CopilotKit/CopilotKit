@@ -13,3 +13,9 @@ export {
   formatTimeBucket,
   parseIsoInstant,
 } from './date-time';
+export type {
+  CalendarDateRange,
+  CalendarDisabledDays,
+  CalendarProps,
+} from './calendar';
+export { Calendar, selectCalendarRange } from './calendar';

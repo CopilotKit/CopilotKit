@@ -37,7 +37,8 @@
   box-shadow: inset 0 -2px 0 var(--cpki-color-primary, #219ebc);
 }
 
-.tab[aria-disabled='true'] {
+.tab[aria-disabled='true'],
+.tab:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -61,4 +62,10 @@
   .tab {
     transition-duration: 1ms;
   }
+}
+
+/* Workspace tab visuals live in styles/workspace-components.css (data-slot). */
+
+:global(:root[data-cpki-design='workspace']) .root {
+  gap: 1.5rem;
 }

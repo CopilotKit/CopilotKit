@@ -5,7 +5,7 @@
 
 .tooltip {
   position: absolute;
-  z-index: var(--cpki-z-tooltip, 950);
+  z-index: var(--cpki-z-index-tooltip, 1400);
   bottom: calc(100% + 6px);
   left: 50%;
   width: max-content;
@@ -28,7 +28,78 @@
 .root:hover .tooltip,
 .root:focus-within .tooltip {
   opacity: 1;
+  /* Hoverable while shown, so the pointer can move onto longer text. */
+  pointer-events: auto;
   transform: translateX(-50%) translateY(-2px);
+}
+
+/* Transparent bridge over the gap to the trigger keeps hover continuous. */
+.tooltip::before {
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  block-size: 8px;
+  content: '';
+}
+
+.tooltip[data-side='bottom'] {
+  top: calc(100% + 6px);
+  bottom: auto;
+}
+
+.tooltip[data-side='bottom']::before {
+  top: auto;
+  bottom: 100%;
+}
+
+.root:hover .tooltip[data-side='bottom'],
+.root:focus-within .tooltip[data-side='bottom'] {
+  transform: translateX(-50%) translateY(2px);
+}
+
+/* Right tooltips are fixed so a clipping scroller such as a rail cannot hide
+ * them; the component pins them beside the trigger on hover and focus. */
+.tooltip[data-side='right'] {
+  position: fixed;
+  top: var(--cpki-tooltip-top, 0);
+  bottom: auto;
+  left: var(--cpki-tooltip-left, 0);
+  transform: translateY(-50%);
+}
+
+.tooltip[data-side='right']::before {
+  inset-block: 0;
+  inset-inline: auto 100%;
+  block-size: auto;
+  inline-size: 8px;
+}
+
+.root:hover .tooltip[data-side='right'],
+.root:focus-within .tooltip[data-side='right'] {
+  transform: translateY(-50%) translateX(2px);
+}
+
+/* Escape hides the text until the pointer leaves or focus moves away. */
+.root[data-dismissed='true'] .tooltip {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* An open menu or popover replaces the tooltip of the trigger that opened it. */
+.root:has(> [aria-expanded='true']) .tooltip {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Workspace tooltips use the neutral tooltip roles in both themes. */
+:global(:root[data-cpki-design='workspace']) .tooltip {
+  border-color: var(--tooltip-border);
+  border-radius: 6px;
+  background: var(--tooltip);
+  color: var(--tooltip-foreground);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -40,5 +111,10 @@
   .root:hover .tooltip,
   .root:focus-within .tooltip {
     transform: translateX(-50%);
+  }
+
+  .root:hover .tooltip[data-side='right'],
+  .root:focus-within .tooltip[data-side='right'] {
+    transform: translateY(-50%);
   }
 }

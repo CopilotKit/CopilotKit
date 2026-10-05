@@ -7,6 +7,8 @@ import {
   useId,
 } from 'react';
 
+import { Search } from 'lucide-react';
+
 import { classNames } from '../class-names';
 import fieldStyles from './field.module.css';
 import styles from './controls.module.css';
@@ -16,7 +18,28 @@ type InvalidControlProps = {
 };
 
 export type InputProps = InputHTMLAttributes<HTMLInputElement> &
-  InvalidControlProps;
+  InvalidControlProps & {
+    /**
+     * Drop the field's own border, fill, and focus ring because an enclosing
+     * frame draws them with `:focus-within` (SearchField, a key reveal panel).
+     * Never use it without such a frame: the input would lose visible focus.
+     */
+    readonly embedded?: boolean;
+  };
+
+export type SearchFieldProps = Omit<InputProps, 'embedded' | 'type'> & {
+  /** Native type; `text` keeps a textbox role where callers depend on it. */
+  readonly type?: 'search' | 'text';
+  /** Visible shortcut hint such as `/`; the caller owns the key handler. */
+  readonly shortcut?: string;
+  /** `inset` sits flush atop a popover with a divider and an underline. */
+  readonly variant?: 'default' | 'inset';
+  /**
+   * Set false only while the field holds focus it received on open (a picker
+   * showing its caret); restore it once the user navigates by keyboard.
+   */
+  readonly focusIndicator?: boolean;
+};
 
 export type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> &
   InvalidControlProps;
@@ -35,7 +58,13 @@ type ChoiceProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> &
  * Renders a token-aware native text input.
  */
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { className, invalid, 'aria-invalid': ariaInvalid, ...props },
+  {
+    className,
+    embedded = false,
+    invalid,
+    'aria-invalid': ariaInvalid,
+    ...props
+  },
   ref,
 ) {
   const isInvalid = invalid || ariaInvalid === true || ariaInvalid === 'true';
@@ -46,10 +75,50 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       ref={ref}
       aria-invalid={isInvalid ? true : undefined}
       className={classNames(styles.control, styles.input, className)}
+      data-embedded={embedded ? 'true' : undefined}
+      data-slot="input"
       data-invalid={isInvalid ? 'true' : undefined}
     />
   );
 });
+
+/**
+ * Renders a search input inside a field frame with a leading icon and an
+ * optional shortcut hint; the frame owns the border and the focus ring.
+ *
+ * @param props Input props plus the shortcut hint, variant, and focus mode.
+ * @returns The framed search field; the ref points at the input.
+ */
+export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(
+  function SearchField(
+    {
+      className,
+      focusIndicator = true,
+      shortcut,
+      type = 'search',
+      variant = 'default',
+      ...props
+    },
+    ref,
+  ) {
+    return (
+      <div
+        className={classNames(styles.searchField, className)}
+        data-focus-indicator={focusIndicator ? undefined : 'false'}
+        data-slot="search-field"
+        data-variant={variant}
+      >
+        <Search aria-hidden="true" size={variant === 'inset' ? 16 : 15} />
+        <Input {...props} embedded ref={ref} type={type} />
+        {shortcut ? (
+          <kbd aria-hidden="true" data-slot="kbd">
+            {shortcut}
+          </kbd>
+        ) : null}
+      </div>
+    );
+  },
+);
 
 /**
  * Renders a token-aware native textarea.

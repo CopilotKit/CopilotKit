@@ -1,0 +1,365 @@
+/* Semantic workspace theme from the selected shadcn registry reference.
+ * Scoped to Intelligence so existing Ops and public UI styles keep their contract.
+ * Source: .context/intelligence-design-proposals/workspace/shadcn/tokens.json
+ */
+:root[data-cpki-design='workspace'] {
+  --cpki-color-overlay-scrim: rgb(0 0 0 / 48%);
+  --radius: 0.5rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.255 0.014 285);
+  --card: var(--background);
+  --card-foreground: var(--foreground);
+  --popover: var(--background);
+  --popover-foreground: var(--foreground);
+  --primary: #5966c8;
+  --primary-foreground: #fff;
+  --secondary: oklch(0.96 0.008 295);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.975 0.004 295);
+  --muted-foreground: oklch(0.505 0.015 290);
+  --accent: #eef0ff;
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.5 0.16 17);
+  --border: #dedfe9;
+  --input: #c9cbdc;
+  --ring: #5966c8;
+  --chart-1: var(--brand-lilac);
+  --chart-2: var(--brand-mint);
+  --chart-3: #a3acee;
+  --chart-4: #b06b24;
+  --chart-5: oklch(0.68 0.095 77);
+  --sidebar: #ededf5;
+  --sidebar-foreground: #434456;
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: #fff;
+  --sidebar-accent-foreground: #4b58b5;
+  --sidebar-border: #d7d8e8;
+  --sidebar-ring: var(--ring);
+  --learning: #f1f3ff;
+  --learning-foreground: #4d59b3;
+  --learning-accent: #e0e5ff;
+  --success: #087858;
+  --success-subtle: #e8fbf4;
+  --warning: oklch(0.43 0.075 70);
+  --warning-subtle: oklch(0.966 0.033 80);
+  --danger-subtle: oklch(0.965 0.021 20);
+  --font-sans: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'Spline Sans Mono', monospace;
+  --radius-control: 8px;
+  --radius-surface: 12px;
+  /* Type scale from the approved preview: controls are one step below body. */
+  --text-body: 0.8125rem;
+  --text-control: 0.75rem;
+  --text-control-sm: 0.6875rem;
+  --text-caption: 0.6875rem;
+  --text-section: 0.875rem;
+  --control-height: 2.25rem;
+  --control-height-sm: 2rem;
+  --destructive-foreground: oklch(0.99 0 0);
+  --motion-fast: 140ms;
+  --motion-panel: 180ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --skeleton-base: var(--secondary);
+  --skeleton-highlight: var(--border);
+  --platform-background: oklch(0.985 0.001 285);
+  --syntax-keyword: oklch(0.44 0.14 295);
+  --syntax-string: oklch(0.4 0.07 170);
+  --syntax-number: oklch(0.43 0.095 50);
+  --overlay-shadow: 0 18px 60px oklch(0 0 0 / 0.16);
+  /* Hairline lift under fields and outline controls. */
+  --shadow-xs: 0 1px 2px oklch(0 0 0 / 0.04);
+  /* Soft lift under the inset page surface. */
+  --shadow-page: 0 2px 8px oklch(0 0 0 / 0.025);
+  --platform-icon-filter: none;
+  --brand-lilac: #7480f1;
+  --brand-mint: #23d5a2;
+  --brand-gradient: linear-gradient(
+    90deg,
+    var(--brand-lilac) 6.801%,
+    var(--brand-mint) 95.877%
+  );
+  --primary-text: var(--primary);
+  --chart-1-stroke: #7480f1;
+  --chart-2-stroke: #099975;
+  --chart-3-stroke: #747dbb;
+  --chart-4-stroke: #b06b24;
+  --project-tile: var(--learning-accent);
+  --project-ink: var(--learning-foreground);
+  --insight-surface: #ecfcf6;
+  --insight-border: #c8ecdf;
+  --insight-foreground: #087858;
+  --tooltip: var(--foreground);
+  --tooltip-foreground: var(--background);
+  --tooltip-border: var(--foreground);
+  --lilac-subtle: #ebe8fb;
+  --lilac-foreground: #645190;
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --learning-prompt: #f1f0fd;
+  --learning-prompt-border: #dedaf4;
+  --cpki-color-control-background: var(--background);
+  --cpki-color-field-background: transparent;
+  --cpki-color-control-border: var(--border);
+  --cpki-color-control-hover: var(--accent);
+  --cpki-color-background: var(--background);
+  --cpki-color-foreground: var(--foreground);
+  --cpki-color-surface: var(--card);
+  --cpki-color-surface-raised: var(--popover);
+  --cpki-color-surface-subtle: var(--secondary);
+  --cpki-color-surface-muted: var(--muted);
+  --cpki-color-border: var(--border);
+  --cpki-color-border-subtle: var(--border);
+  --cpki-color-border-strong: var(--input);
+  --cpki-color-success: var(--success);
+  --cpki-color-success-foreground: var(--background);
+  --cpki-color-success-muted: var(--success-subtle);
+  --cpki-color-info-muted: var(--learning);
+  --cpki-color-lilac-subtle: var(--lilac-subtle);
+  --cpki-color-lilac-muted: var(--learning-accent);
+  --cpki-color-danger-muted: var(--danger-subtle);
+  --cpki-color-danger-border: color-mix(
+    in srgb,
+    var(--destructive) 30%,
+    var(--border)
+  );
+  --cpki-color-danger-hover: color-mix(
+    in srgb,
+    var(--destructive) 90%,
+    var(--foreground)
+  );
+  --cpki-color-primary: var(--primary);
+  --cpki-color-primary-foreground: var(--primary-foreground);
+  --cpki-color-primary-hover: var(--primary);
+  --cpki-color-accent: var(--primary-text);
+  --cpki-color-accent-foreground: var(--accent-foreground);
+  --cpki-color-danger: var(--destructive);
+  --cpki-color-danger-foreground: var(--destructive-foreground);
+  --cpki-color-warning: var(--warning);
+  --cpki-color-warning-muted: var(--warning-subtle);
+  --cpki-color-warning-foreground: var(--warning);
+  --cpki-color-muted: var(--muted);
+  --cpki-color-muted-foreground: var(--muted-foreground);
+  --cpki-color-surface-hover: var(--accent);
+  --cpki-color-focus-ring: var(--ring);
+  /* Field and composite-field focus: a 3px ring at 32% of the ring colour. */
+  --cpki-shadow-focus: 0 0 0 3px
+    color-mix(in oklch, var(--cpki-color-focus-ring) 32%, transparent);
+  --cpki-radius-control: var(--radius-control);
+  --cpki-radius-panel: var(--radius-surface);
+  --cpki-radius-overlay: var(--radius-surface);
+  --cpki-shadow-overlay: var(--overlay-shadow);
+  --cpki-font-sans: Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif;
+  --cpki-font-mono: Spline Sans Mono, ui-monospace, monospace;
+  --cpki-chart-series-1: var(--chart-1);
+  --cpki-chart-series-2: var(--chart-2);
+  --cpki-chart-series-3: var(--chart-3);
+  --cpki-chart-series-4: var(--chart-4);
+  --cpki-chart-series-5: var(--chart-5);
+  --cpki-chart-series-6: var(--muted-foreground);
+}
+
+:root[data-cpki-design='workspace'][data-cpki-theme='dark'] {
+  --radius: 0.5rem;
+  --background: oklch(0.185 0.012 285);
+  --foreground: oklch(0.91 0.007 285);
+  --card: oklch(0.205 0.014 285);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.235 0.017 285);
+  --popover-foreground: var(--foreground);
+  --primary: #626daf;
+  --primary-foreground: #fff;
+  --secondary: oklch(0.265 0.019 285);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.23 0.014 285);
+  --muted-foreground: oklch(0.74 0.02 285);
+  --accent: #30374b;
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.76 0.13 20);
+  --border: #343947;
+  --input: #4b5367;
+  --cpki-color-control-background: color-mix(
+    in srgb,
+    var(--input) 30%,
+    transparent
+  );
+  --cpki-color-field-background: color-mix(
+    in srgb,
+    var(--input) 30%,
+    transparent
+  );
+  --cpki-color-control-border: var(--input);
+  --cpki-color-control-hover: color-mix(in srgb, var(--input) 50%, transparent);
+  --ring: #a9b6ff;
+  --chart-1: #9ba8ff;
+  --chart-2: #39d9ae;
+  --chart-3: #818db9;
+  --chart-4: #d4a164;
+  --chart-5: oklch(0.79 0.11 77);
+  --sidebar: #191a25;
+  --sidebar-foreground: #c1c3d9;
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: #30344b;
+  --sidebar-accent-foreground: #dadfff;
+  --sidebar-border: #3b3f53;
+  --sidebar-ring: var(--ring);
+  --learning: #222127;
+  --learning-foreground: #c2bfe0;
+  --learning-accent: #39373f;
+  --success: #76e6c5;
+  --success-subtle: #183c31;
+  --warning: oklch(0.85 0.09 80);
+  --warning-subtle: oklch(0.28 0.04 80);
+  --danger-subtle: oklch(0.29 0.04 20);
+  --font-sans: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'Spline Sans Mono', monospace;
+  --radius-control: 8px;
+  --radius-surface: 12px;
+  --destructive-foreground: oklch(0.19 0.025 20);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --skeleton-base: var(--secondary);
+  --skeleton-highlight: oklch(0.38 0.025 285);
+  --platform-background: oklch(0.29 0.025 285);
+  --syntax-keyword: oklch(0.8 0.1 295);
+  --syntax-string: oklch(0.8 0.07 170);
+  --syntax-number: oklch(0.82 0.09 75);
+  --overlay-shadow: 0 18px 60px oklch(0 0 0 / 0.48);
+  --platform-icon-filter: none;
+  --brand-lilac: #7480f1;
+  --brand-mint: #23d5a2;
+  --brand-gradient: linear-gradient(
+    90deg,
+    var(--brand-lilac) 6.801%,
+    var(--brand-mint) 95.877%
+  );
+  --primary-text: #b9c1ed;
+  --chart-1-stroke: #9ba8ff;
+  --chart-2-stroke: #39d9ae;
+  --chart-3-stroke: #818db9;
+  --chart-4-stroke: #d4a164;
+  --project-tile: var(--learning-accent);
+  --project-ink: var(--learning-foreground);
+  --insight-surface: #19352d;
+  --insight-border: #305247;
+  --insight-foreground: #94e7ca;
+  --tooltip: #292929;
+  --tooltip-foreground: #eee;
+  --tooltip-border: #454545;
+  --lilac-subtle: #302a40;
+  --lilac-foreground: #c6b8ed;
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --learning-prompt: #27273d;
+  --learning-prompt-border: #3c3b57;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-cpki-design='workspace'][data-cpki-theme='system'] {
+    --radius: 0.5rem;
+    --background: oklch(0.185 0.012 285);
+    --foreground: oklch(0.91 0.007 285);
+    --card: oklch(0.205 0.014 285);
+    --card-foreground: var(--foreground);
+    --popover: oklch(0.235 0.017 285);
+    --popover-foreground: var(--foreground);
+    --primary: #626daf;
+    --primary-foreground: #fff;
+    --secondary: oklch(0.265 0.019 285);
+    --secondary-foreground: var(--foreground);
+    --muted: oklch(0.23 0.014 285);
+    --muted-foreground: oklch(0.74 0.02 285);
+    --accent: #30374b;
+    --accent-foreground: var(--foreground);
+    --destructive: oklch(0.76 0.13 20);
+    --border: #343947;
+    --input: #4b5367;
+    --cpki-color-control-background: color-mix(
+      in srgb,
+      var(--input) 30%,
+      transparent
+    );
+    --cpki-color-field-background: color-mix(
+      in srgb,
+      var(--input) 30%,
+      transparent
+    );
+    --cpki-color-control-border: var(--input);
+    --cpki-color-control-hover: color-mix(
+      in srgb,
+      var(--input) 50%,
+      transparent
+    );
+    --ring: #a9b6ff;
+    --chart-1: #9ba8ff;
+    --chart-2: #39d9ae;
+    --chart-3: #818db9;
+    --chart-4: #d4a164;
+    --chart-5: oklch(0.79 0.11 77);
+    --sidebar: #191a25;
+    --sidebar-foreground: #c1c3d9;
+    --sidebar-primary: var(--primary);
+    --sidebar-primary-foreground: var(--primary-foreground);
+    --sidebar-accent: #30344b;
+    --sidebar-accent-foreground: #dadfff;
+    --sidebar-border: #3b3f53;
+    --sidebar-ring: var(--ring);
+    --learning: #222127;
+    --learning-foreground: #c2bfe0;
+    --learning-accent: #39373f;
+    --success: #76e6c5;
+    --success-subtle: #183c31;
+    --warning: oklch(0.85 0.09 80);
+    --warning-subtle: oklch(0.28 0.04 80);
+    --danger-subtle: oklch(0.29 0.04 20);
+    --font-sans: 'Plus Jakarta Sans', sans-serif;
+    --font-mono: 'Spline Sans Mono', monospace;
+    --radius-control: 8px;
+    --radius-surface: 12px;
+    --destructive-foreground: oklch(0.19 0.025 20);
+    --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --skeleton-base: var(--secondary);
+    --skeleton-highlight: oklch(0.38 0.025 285);
+    --platform-background: oklch(0.29 0.025 285);
+    --syntax-keyword: oklch(0.8 0.1 295);
+    --syntax-string: oklch(0.8 0.07 170);
+    --syntax-number: oklch(0.82 0.09 75);
+    --overlay-shadow: 0 18px 60px oklch(0 0 0 / 0.48);
+    --platform-icon-filter: none;
+    --brand-lilac: #7480f1;
+    --brand-mint: #23d5a2;
+    --brand-gradient: linear-gradient(
+      90deg,
+      var(--brand-lilac) 6.801%,
+      var(--brand-mint) 95.877%
+    );
+    --primary-text: #b9c1ed;
+    --chart-1-stroke: #9ba8ff;
+    --chart-2-stroke: #39d9ae;
+    --chart-3-stroke: #818db9;
+    --chart-4-stroke: #d4a164;
+    --project-tile: var(--learning-accent);
+    --project-ink: var(--learning-foreground);
+    --insight-surface: #19352d;
+    --insight-border: #305247;
+    --insight-foreground: #94e7ca;
+    --tooltip: #292929;
+    --tooltip-foreground: #eee;
+    --tooltip-border: #454545;
+    --lilac-subtle: #302a40;
+    --lilac-foreground: #c6b8ed;
+    --focus-ring-width: 2px;
+    --focus-ring-offset: 2px;
+    --learning-prompt: #27273d;
+    --learning-prompt-border: #3c3b57;
+  }
+}
+
+/* The dark blocks do not redeclare the motion tokens, so this override reaches
+ * every theme. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-cpki-design='workspace'] {
+    --motion-fast: 1ms;
+    --motion-panel: 1ms;
+  }
+}

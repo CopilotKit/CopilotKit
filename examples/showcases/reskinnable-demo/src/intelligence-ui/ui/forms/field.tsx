@@ -65,7 +65,7 @@ export function Field({
         </div>
       ) : null}
       {error ? (
-        <div className={styles.error} id={errorId}>
+        <div className={styles.error} id={errorId} role="alert">
           {error}
         </div>
       ) : null}

@@ -9,6 +9,7 @@ export const learningTabSegments = [
   'insights',
   'skills',
   'analysis-results',
+  'settings',
 ] as const;
 
 export type LearningTabSegment = (typeof learningTabSegments)[number];

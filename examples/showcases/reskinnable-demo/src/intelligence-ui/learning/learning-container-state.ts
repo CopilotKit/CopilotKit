@@ -75,34 +75,6 @@ export function containerState(
     : 'collecting';
 }
 
-const stateLabels: Record<LearningContainerState, string> = {
-  analyzing: 'Analysis in progress',
-  collecting: 'Collecting evidence',
-  ready: 'Ready to analyze',
-  setup: 'Needs setup',
-};
-
-/**
- * Returns the reader-facing name for a Container state.
- *
- * A `null` state means the stats read has not answered. `unavailable` splits
- * the two reasons apart: still in flight reads as progress, but a failed read
- * must not keep saying "Checking" forever, because nothing is still checking.
- *
- * @param state - Derived state, or `null` when stats are unresolved.
- * @param options - Set `unavailable` when the stats read failed outright.
- * @returns The label to render.
- */
-export function containerStateLabel(
-  state: LearningContainerState | null,
-  options?: { readonly unavailable?: boolean },
-): string {
-  if (state !== null) return stateLabels[state];
-  return options?.unavailable === true
-    ? 'Evidence unknown'
-    : 'Checking evidence';
-}
-
 /**
  * Explains what the Container is waiting for, in its own terms.
  *

@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
-import { LEDGERLINE_CONTAINER_ID } from "@/intelligence-ui/ids";
+import { LearningScreen } from "@/intelligence-ui/screens/learning-screen";
 
+/** The Learning Space directory, as the Intelligence web app's /learning shows it. */
 export default function LearningIndex() {
-  redirect(`/intelligence/learning/${LEDGERLINE_CONTAINER_ID}`);
+  return <LearningScreen containerId={null} tab={null} />;
 }
