@@ -4,6 +4,7 @@
 // exposes frontend and agent backend as separate, simple dropdowns.
 
 import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
@@ -172,6 +173,18 @@ export function FrameworkSelector({
         // Swallow - analytics is fire-and-forget.
       }
       router.replace(destinationPath);
+    }
+    setOpenMenu(null);
+  }
+
+  function openCommunityFrameworks() {
+    try {
+      posthog?.capture("docs.frontend_picker.community_frameworks_clicked", {
+        from_frontend: effectiveFrontendId,
+        from_path: pathname,
+      });
+    } catch {
+      // Swallow - analytics is fire-and-forget.
     }
     setOpenMenu(null);
   }
@@ -410,6 +423,17 @@ export function FrameworkSelector({
                   option={option}
                 />
               ))}
+              <div
+                role="separator"
+                className="mx-2 mb-1 mt-2 border-t border-[var(--border)]"
+              />
+              <Link
+                href="/community-frameworks"
+                onClick={openCommunityFrameworks}
+                className="shell-docs-radius-control flex w-full items-center px-2 py-1.5 text-[13px] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              >
+                Community frameworks →
+              </Link>
             </div>
           )}
 
