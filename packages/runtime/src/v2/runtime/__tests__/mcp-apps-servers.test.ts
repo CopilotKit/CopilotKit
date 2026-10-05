@@ -44,7 +44,7 @@ describe("resolveMcpAppsServers", () => {
       ),
     ).toThrow(
       new RegExp(
-        `${key}.*server\\[0\\].*weather.*@ag-ui/mcp-apps-middleware@0\\.0\\.3.*https://github\\.com/CopilotKit/CopilotKit/issues/5930`,
+        `${key}.*server\\[0\\].*weather.*@ag-ui/mcp-apps-middleware owns.*https://github\\.com/CopilotKit/CopilotKit/issues/5930`,
       ),
     );
   });
