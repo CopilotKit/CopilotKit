@@ -208,6 +208,13 @@ test("getRuntimeEntitlements aborts a bounded request with a typed timeout error
     await vi.advanceTimersToNextTimerAsync();
 
     expect(signal.aborted).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const retrySignal = fetchMock.mock.calls[1][1].signal;
+    expect(retrySignal.aborted).toBe(false);
+
+    await vi.advanceTimersToNextTimerAsync();
+
+    expect(retrySignal.aborted).toBe(true);
     const error = await capturedError;
     expect(error).toBeInstanceOf(PlatformRequestError);
     if (!(error instanceof PlatformRequestError)) {
@@ -325,7 +332,7 @@ test.each([300, 401, 403, 408, 425, 429, 503, 599])(
     );
     expect(error.message).not.toContain(privateUpstreamDetail);
     expect(upstreamResponse.bodyUsed).toBe(true);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(error.retryable ? 2 : 1);
     expect(JSON.stringify(consoleErrorSpy.mock.calls)).not.toContain(
       privateUpstreamDetail,
     );
@@ -337,45 +344,56 @@ test("getRuntimeEntitlements bounds stalled non-OK response disposal without lea
   try {
     consoleErrorSpy.mockClear();
     const privateUpstreamDetail = "private-stalled-error-body-detail";
-    let requestSignal: AbortSignal | null | undefined;
-    let disposalStarted = false;
-    const upstreamResponse = new Response(
-      new ReadableStream<Uint8Array>({
-        cancel() {
-          disposalStarted = true;
-          return new Promise<void>((_resolve, reject) => {
-            /** Reject stalled disposal when the request deadline aborts. */
-            const rejectOnAbort = () => {
-              reject(new DOMException(privateUpstreamDetail, "AbortError"));
-            };
-            if (requestSignal?.aborted === true) {
-              rejectOnAbort();
-            } else {
-              requestSignal?.addEventListener("abort", rejectOnAbort, {
-                once: true,
+    const attempts: {
+      signal: AbortSignal;
+      response: Response;
+      disposalStarted: boolean;
+    }[] = [];
+    /** Answer 503 with a body whose disposal stalls until the request aborts. */
+    const stalledErrorResponse = (signal: AbortSignal) => {
+      const attempt = {
+        signal,
+        disposalStarted: false,
+        response: new Response(
+          new ReadableStream<Uint8Array>({
+            cancel() {
+              attempt.disposalStarted = true;
+              return new Promise<void>((_resolve, reject) => {
+                /** Reject stalled disposal when the request deadline aborts. */
+                const rejectOnAbort = () => {
+                  reject(new DOMException(privateUpstreamDetail, "AbortError"));
+                };
+                if (signal.aborted) {
+                  rejectOnAbort();
+                } else {
+                  signal.addEventListener("abort", rejectOnAbort, {
+                    once: true,
+                  });
+                }
               });
-            }
-          });
-        },
-      }),
-      { status: 503 },
-    );
+            },
+          }),
+          { status: 503 },
+        ),
+      };
+      attempts.push(attempt);
+      return attempt.response;
+    };
     const client = runtimeEntitlementsClient();
     fetchMock.mockImplementation(
-      (_input: RequestInfo | URL, init?: RequestInit) => {
-        requestSignal = init?.signal;
-        return Promise.resolve(upstreamResponse);
-      },
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        Promise.resolve(stalledErrorResponse(init?.signal as AbortSignal)),
     );
 
     const request = client.getRuntimeEntitlements();
     const capturedError = request.catch((error: unknown) => error);
     await vi.advanceTimersByTimeAsync(0);
 
-    expect(disposalStarted).toBe(true);
-    expect(requestSignal?.aborted).toBe(false);
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0].disposalStarted).toBe(true);
+    expect(attempts[0].signal.aborted).toBe(false);
 
-    await vi.advanceTimersToNextTimerAsync();
+    await vi.advanceTimersByTimeAsync(4_000);
 
     const error = await capturedError;
     expect(error).toBeInstanceOf(PlatformRequestError);
@@ -386,9 +404,11 @@ test("getRuntimeEntitlements bounds stalled non-OK response disposal without lea
     expect(error.retryable).toBe(true);
     expect(error.message).toBe("Runtime entitlement request timed out");
     expect(error.message).not.toContain(privateUpstreamDetail);
-    expect(upstreamResponse.bodyUsed).toBe(true);
-    expect(requestSignal?.aborted).toBe(true);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(attempts).toHaveLength(2);
+    for (const attempt of attempts) {
+      expect(attempt.response.bodyUsed).toBe(true);
+      expect(attempt.signal.aborted).toBe(true);
+    }
     expect(JSON.stringify(consoleErrorSpy.mock.calls)).not.toContain(
       privateUpstreamDetail,
     );

@@ -146,6 +146,7 @@ test("backs off repeated failed Runtime entitlement lookups", async () => {
   const { client, fetchMock, teardown } = setup();
   fetchMock
     .mockRejectedValueOnce(new Error("temporary dependency failure"))
+    .mockRejectedValueOnce(new Error("temporary dependency failure"))
     .mockImplementation(() =>
       Promise.resolve(Response.json(ACTIVE_ENTITLEMENTS_TRANSPORT)),
     );
@@ -159,20 +160,20 @@ test("backs off repeated failed Runtime entitlement lookups", async () => {
       message: "Runtime entitlement request failed",
       status: 502,
     });
-    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
 
     await vi.advanceTimersByTimeAsync(4_999);
     await expect(client.getRuntimeEntitlements()).rejects.toMatchObject({
       status: 502,
     });
-    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
 
     await vi.advanceTimersByTimeAsync(1);
 
     await expect(client.getRuntimeEntitlements()).resolves.toEqual(
       ACTIVE_ENTITLEMENTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   } finally {
     teardown();
     vi.useRealTimers();
@@ -202,7 +203,7 @@ test("bounds a stalled Runtime entitlement lookup below the Core info timeout", 
   );
 
   try {
-    await vi.advanceTimersByTimeAsync(1_500);
+    await vi.advanceTimersByTimeAsync(4_000);
 
     expect(outcome).toMatchObject({
       message: "Runtime entitlement request timed out",
@@ -219,7 +220,9 @@ test("bounds a stalled Runtime entitlement lookup below the Core info timeout", 
 
 test("isolates cached Runtime entitlement errors from caller mutation", async () => {
   const { client, fetchMock, teardown } = setup();
-  fetchMock.mockRejectedValueOnce(new Error("temporary dependency failure"));
+  fetchMock
+    .mockRejectedValueOnce(new Error("temporary dependency failure"))
+    .mockRejectedValueOnce(new Error("temporary dependency failure"));
 
   try {
     const first = await client
@@ -246,7 +249,7 @@ test("isolates cached Runtime entitlement errors from caller mutation", async ()
       retryable: true,
     });
     expect(second).not.toBe(first);
-    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   } finally {
     teardown();
   }
@@ -260,6 +263,7 @@ test("backs off a failed refresh of an expired inactive entitlement", async () =
     .mockImplementationOnce(() =>
       Promise.resolve(Response.json(INACTIVE_ENTITLEMENTS_TRANSPORT)),
     )
+    .mockRejectedValueOnce(new Error("temporary dependency failure"))
     .mockRejectedValueOnce(new Error("temporary dependency failure"));
 
   try {
@@ -271,20 +275,20 @@ test("backs off a failed refresh of an expired inactive entitlement", async () =
       status: 502,
       retryable: true,
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
 
     await expect(client.getRuntimeEntitlements()).rejects.toMatchObject({
       message: "Runtime entitlement request failed",
       status: 502,
       retryable: true,
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
 
     await vi.advanceTimersByTimeAsync(5_000);
     await expect(client.getRuntimeEntitlements()).resolves.toEqual(
       ACTIVE_ENTITLEMENTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   } finally {
     teardown();
     vi.useRealTimers();
@@ -298,25 +302,27 @@ test("never serves an expired access grant when its refresh fails", async () => 
 
   try {
     await client.getRuntimeEntitlements();
-    fetchMock.mockRejectedValueOnce(new Error("temporary dependency failure"));
+    fetchMock
+      .mockRejectedValueOnce(new Error("temporary dependency failure"))
+      .mockRejectedValueOnce(new Error("temporary dependency failure"));
     await vi.advanceTimersByTimeAsync(30_000);
 
     await expect(client.getRuntimeEntitlements()).rejects.toMatchObject({
       message: "Runtime entitlement request failed",
       status: 502,
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
 
     await expect(client.getRuntimeEntitlements()).rejects.toMatchObject({
       status: 502,
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
 
     await vi.advanceTimersByTimeAsync(5_000);
     await expect(client.getRuntimeEntitlements()).resolves.toEqual(
       ACTIVE_ENTITLEMENTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   } finally {
     teardown();
     vi.useRealTimers();

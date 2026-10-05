@@ -49,7 +49,10 @@ async function learnedSkillsErrorBody(
   }
 }
 
-const RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS = 1_500;
+// `/info` awaits this lookup, and Core abandons `/info` after 5 seconds
+// (`ɵRUNTIME_PROBE_TIMEOUT_MS`). The total budget stays below that.
+const RUNTIME_ENTITLEMENTS_FIRST_ATTEMPT_TIMEOUT_MS = 2_500;
+const RUNTIME_ENTITLEMENTS_TOTAL_BUDGET_MS = 4_000;
 const RUNTIME_ENTITLEMENTS_SUCCESS_TTL_MS = 30_000;
 const RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS = 5_000;
 
@@ -1286,14 +1289,39 @@ export class CopilotKitIntelligence {
     }
   }
 
-  /** Perform one bounded Runtime entitlement request without caching. */
+  /**
+   * Resolve Runtime entitlements without caching, retrying once.
+   *
+   * A slow link or a cold connection can miss the first attempt's deadline.
+   * One retry of a retryable failure recovers that case. Both attempts share
+   * one budget, so `/info` still answers inside Core's probe timeout.
+   */
   async #fetchRuntimeEntitlements(): Promise<RuntimeEntitlementResponse> {
+    const deadline = Date.now() + RUNTIME_ENTITLEMENTS_TOTAL_BUDGET_MS;
+    try {
+      return await this.#fetchRuntimeEntitlementsOnce(
+        RUNTIME_ENTITLEMENTS_FIRST_ATTEMPT_TIMEOUT_MS,
+      );
+    } catch (error) {
+      const remainingMs = deadline - Date.now();
+      if (
+        !(error instanceof PlatformRequestError) ||
+        error.retryable !== true ||
+        remainingMs <= 0
+      ) {
+        throw error;
+      }
+      return await this.#fetchRuntimeEntitlementsOnce(remainingMs);
+    }
+  }
+
+  /** Perform one bounded Runtime entitlement request without caching. */
+  async #fetchRuntimeEntitlementsOnce(
+    timeoutMs: number,
+  ): Promise<RuntimeEntitlementResponse> {
     const path = "/api/entitlements/runtime";
     const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS,
-    );
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       const response = await fetch(`${this.#apiUrl}${path}`, {

@@ -44,7 +44,7 @@ test("a stalled entitlement body returns a retryable timeout, including cached f
       .getRuntimeEntitlements()
       .catch((error: unknown) => error);
 
-    await vi.advanceTimersByTimeAsync(1500);
+    await vi.advanceTimersByTimeAsync(4_000);
     const error = await request;
 
     expect(error).toBeInstanceOf(PlatformRequestError);
@@ -59,7 +59,7 @@ test("a stalled entitlement body returns a retryable timeout, including cached f
       .catch((failure: unknown) => failure);
     expect(cached).not.toBe(error);
     expect(cached).toMatchObject({ status: 504, retryable: true });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   } finally {
     dispose();
   }
