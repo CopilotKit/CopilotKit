@@ -81,7 +81,6 @@ export async function handleListThreads({
       const agentId = url.searchParams.get("agentId");
       const includeArchived =
         url.searchParams.get("includeArchived") === "true";
-      const limitParam = url.searchParams.get("limit");
       const cursor = url.searchParams.get("cursor");
       const user = await resolveIntelligenceUser({ runtime, request });
       if (isHandlerResponse(user)) return user;
@@ -90,11 +89,29 @@ export async function handleListThreads({
         return errorResponse("Valid agentId query param is required", 400);
       }
 
+      // `limit` arrives as a raw query string, so `Number(rawLimit)` yields NaN for
+      // input like `?limit=abc`. NaN JSON-serializes to `null`, so the corrupted
+      // value would silently reach the platform instead of failing here. The
+      // digits are validated before conversion and the result must be a safe
+      // integer: `Number("1.0000000000000001")` rounds to 1 and
+      // `Number("9007199254740993")` loses precision, so a fractional or unsafe
+      // value would otherwise be forwarded as a different limit than the caller
+      // asked for. An absent or empty param still means "no limit", and the
+      // accepted shape still matches `parseRecallBody` in the memories handler.
+      const rawLimit = url.searchParams.get("limit") ?? "";
+      const limit = rawLimit === "" ? undefined : Number(rawLimit);
+      if (
+        limit !== undefined &&
+        !(/^\d+$/.test(rawLimit) && Number.isSafeInteger(limit) && limit > 0)
+      ) {
+        return errorResponse("Valid limit query param is required", 400);
+      }
+
       const data = await runtime.intelligence.listThreads({
         userId: user.id,
         agentId,
         ...(includeArchived ? { includeArchived: true } : {}),
-        ...(limitParam ? { limit: Number(limitParam) } : {}),
+        ...(limit !== undefined ? { limit } : {}),
         ...(cursor ? { cursor } : {}),
       });
 
