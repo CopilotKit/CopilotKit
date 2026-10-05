@@ -94,7 +94,7 @@ export const Messages = ({
           const isCurrentMessage = index === messages.length - 1;
           return (
             <MessageRenderer
-              key={index}
+              key={message.id}
               message={message}
               messages={messages}
               inProgress={inProgress}
