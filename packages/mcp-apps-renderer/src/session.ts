@@ -324,6 +324,10 @@ export const denyDangerousSchemes: McpAppOpenLinkPolicy = (url) => {
       return undefined;
     }
   }
+  // A relative URL that resolves to a different origin is a protocol confusion
+  // (e.g. "/\\evil.com" where some browsers normalise /\\ to //), not a path on
+  // the host. Reject it before it can be used for an open redirect.
+  if (!absolute && parsed.origin !== window.location.origin) return undefined;
   if (MCP_OPEN_LINK_BLOCKED_SCHEMES.has(parsed.protocol)) return undefined;
   if (parsed.username || parsed.password) return undefined;
   // An absolute URL is handed back exactly as the widget wrote it: `href`
