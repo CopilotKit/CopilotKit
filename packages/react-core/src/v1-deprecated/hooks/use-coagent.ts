@@ -211,7 +211,9 @@ export interface UseCoagentReturnType<T> {
    * (`copilotkit.runAgent`), so the run carries the configured properties,
    * the registered frontend tools and the readable context. It honors
    * `forwardedProps` and `runId` from its first argument; the core builds the
-   * tools and context itself.
+   * tools and context itself. A failed run does not reject: the core reports
+   * the error to its error subscribers (code `AGENT_RUN_FAILED`) and resolves
+   * with an empty result.
    */
   run: (...args: any[]) => Promise<any>;
 }
