@@ -1,48 +1,47 @@
 # use-trips.tsx
 
-This hook is where most of the magic happens for CopilotKit (if you're looking for the rest, check out [app/page.tsx](../../app/page.tsx) and [api/copilotkit/route.ts](../../app/api/copilotkit/route.ts)). It handles interacting with the CoAgent's state and provides helper functions for the UI to interact with and update the CoAgent's state. It also provides intermediate streaming for human-in-the-loop components as well as progress tracking.
+This hook is where most of the CopilotKit integration happens. For the rest, see [app/page.tsx](../../app/page.tsx) and the [v2 runtime route](../../app/api/copilotkit/[[...slug]]/route.ts). It reads and updates agent state, registers the human-in-the-loop tools, configures chat suggestions, and renders place-search progress.
+
+This example uses CopilotKit v2. See the [v2 migration guide](https://docs.copilotkit.ai/migrate/v2) for the API changes from v1.
 
 ## Key Concepts
 
-### useCoAgent
+### useAgent
 
-This allows us to read and interact with the CoAgent's state. Since this is a two-way interaction, we have a `state` and `setState` function. When the CoAgent's state changes, the `state` will automatically trigger re-renders to create reactive experiences.
+`useAgent` returns the v2 agent instance. The UI reads `agent.state` and writes changes with `agent.setState`. Agent state updates trigger the hook to render again.
 
-For more information on how to use `useCoAgent`, check out the [reading](https://docs.copilotkit.ai/coagents/shared-state/in-app-agent-read) and [writing](https://docs.copilotkit.ai/coagents/shared-state/in-app-agent-write) state docs.
+The provider waits for `isReady` before it seeds the default trips, so it does not write to the temporary agent used while the runtime connects.
 
-### useCoAgentStateRender
+### useRenderTool
 
-This hook allows us to render state from the CoAgent in a custom way. In this example, we're rendering `search_progress` which is emitted to us from the CoAgent as it conducts a search for places.
+`useRenderTool` renders the existing `search_for_places` backend tool. Its card reads `search_progress` from agent state while the agent searches for places.
 
-In order for this to work, we need to have the CoAgent emit the `search_progress` state, which you can see being done in [agent/travel/search.py](../../agent/src/search.py).
+The agent emits that progress in [agent/src/search.py](../../agent/src/search.py):
 
 ```python
-    # ...
-    config = copilotkit_customize_config(
-        config,
-        emit_intermediate_state=[{
-            "state_key": "search_progress",
-            "tool": "search_for_places",
-            "tool_argument": "search_progress",
-        }],
-    )
-    # ...
-    await copilotkit_emit_state(config, state)
-    # ...
+# ...
+config = copilotkit_customize_config(
+    config,
+    emit_intermediate_state=[{
+        "state_key": "search_progress",
+        "tool": "search_for_places",
+        "tool_argument": "search_progress",
+    }],
+)
+# ...
+await copilotkit_emit_state(config, state)
+# ...
 ```
 
-With those lines of code, the `useCoAgentStateRender` hook will be able to detect the `copilotkit_emit_state` calls and trigger our rendering logic in the chat `search_progress` state.
+Those calls update `agent.state`, which refreshes the progress card in the chat.
 
-For more information on agentic generative UI, checkout the [docs](/coagents/shared-state/in-app-agent-read).
+### useHumanInTheLoop
 
-### useCopilotAction
+`useHumanInTheLoop` registers the add, edit, and delete trip tools with Zod schemas. Each tool pauses for approval and sends the user's response back to the LangGraph agent.
 
-This hook is used to add front-end functions as tool calls to an agent or LLM. This is particularly useful for human in the loop components. If you're completely new to the concept of human in the loop, checkout LangGraph's [docs](https://docs.langchain.com/oss/python/langgraph/interrupts) where they talk about the concept in more detail with some examples.
+This uses two parts:
 
-For our needs, we can keep it simple and think of it as a way to force the LLM for user approval before performing some action. This is accomplished two ways.
+1. The agent sets a breakpoint with `interrupt_after` when it compiles the graph.
+2. The UI sends the approval or rejection through the `respond` callback from `useHumanInTheLoop`.
 
-1. Setting a "breakpoint" in the agent code via the `interrupt_after` option when compiling an agent.
-2. Emitting tool calls via the CopilotKit SDK.
-3. Sending approval/rejection response back to the agent via our `useCopilotAction` hook.
-
-This is gone into in more detail in our documentation on implementing [human in the loop](https://docs.copilotkit.ai/coagents/human-in-the-loop/node-flow).
+See the [v2 human-in-the-loop reference](https://docs.copilotkit.ai/reference/v2/hooks/useHumanInTheLoop) for the hook contract.

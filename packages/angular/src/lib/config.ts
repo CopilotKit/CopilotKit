@@ -1,33 +1,27 @@
-import type { Provider, Type } from "@angular/core";
-import { inject, InjectionToken } from "@angular/core";
-import type { AbstractAgent } from "@ag-ui/client";
-import type {
+import { Provider, Type, inject, InjectionToken } from "@angular/core";
+import { AbstractAgent } from "@ag-ui/client";
+import {
   ClientTool,
   FrontendToolConfig,
   HumanInTheLoopConfig,
   RenderToolCallConfig,
 } from "./tools";
 import { LICENSE_WATERMARK_ENABLED } from "./license-watermark";
-import type { RenderActivityMessageConfig } from "./activity-renderer";
-import type {
-  CopilotKitMessageFilter,
-  SuggestionsConfig,
-} from "@copilotkit/core";
-import type { OpenGenerativeUIConfig } from "./open-generative-ui";
-import type {
-  Catalog,
-  LitComponentImplementation,
-  LitRenderable,
-  Theme as A2UITheme,
-} from "@copilotkit/a2ui-renderer/web-components";
-import type { NativeA2UICatalog } from "./components/a2ui/native-catalog";
+import { RenderActivityMessageConfig } from "./activity-renderer";
+import { CopilotKitMessageFilter, SuggestionsConfig } from "@copilotkit/core";
+import { OpenGenerativeUIConfig } from "./open-generative-ui";
+import { A2UICatalog } from "./components/a2ui/a2ui-types";
 
 export interface A2UIConfig {
-  theme?: A2UITheme;
-  /** A Lit catalog, or one from `createAngularCatalog` in `@copilotkit/angular/a2ui`. */
-  catalog?: Catalog<LitComponentImplementation> | NativeA2UICatalog;
-  /** Shown until the first surface renders: a Lit template factory, or an Angular component for Angular catalogs. */
-  loadingComponent?: (() => LitRenderable) | Type<unknown>;
+  theme?: Record<string, unknown>;
+  /**
+   * The catalog surfaces render with: `basicCatalog`, or one from
+   * `createAngularCatalog`, both in `@copilotkit/angular/a2ui`. Without one,
+   * A2UI stays off, even when the runtime enables it.
+   */
+  catalog?: A2UICatalog;
+  /** Shown until the first surface renders. */
+  loadingComponent?: Type<unknown>;
   includeSchema?: boolean;
   recovery?: A2UIRecoveryOptions;
 }

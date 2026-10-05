@@ -12,6 +12,11 @@ import type {
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import type { GetLearningContainerId } from "../core/learning";
+import {
+  parseTrajectoryConnectionGrant,
+  trajectoryResponseError,
+} from "./trajectories";
+import type { TrajectoryConnectionGrant } from "./trajectories";
 
 import {
   LearnedSkillsError,
@@ -495,6 +500,8 @@ export interface SubscribeToMemoriesResponse {
 export type ConnectThreadResponse = ThreadConnectionResponse | null;
 
 export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
+  /** Server-owned native ID for backend execution; public identity remains threadId. */
+  backendThreadId?: string;
   /** Canonical platform run identifier for the acquired lock. */
   runId: string;
 }
@@ -607,6 +614,8 @@ export type ThreadStateResponse =
   | { kind: "snapshot"; state: unknown; skippedDeltas: number };
 
 export interface AcquireThreadLockRequest {
+  /** Caller can forward a server-owned native ID while retaining public ownership. */
+  supportsBackendThreadId?: boolean;
   threadId: string;
   runId: string;
   userId: string;
@@ -1356,6 +1365,38 @@ export class CopilotKitIntelligence {
     }
   }
 
+  /** Mint a browser capture grant using only the Runtime's project and user. */
+  async ɵconnectTrajectory(params: {
+    trajectoryId: string;
+    user: { id: string; name: string };
+    signal?: AbortSignal;
+  }): Promise<TrajectoryConnectionGrant> {
+    const response = await fetch(`${this.#apiUrl}/api/trajectories/join`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.#apiKey}`,
+        "Content-Type": "application/json",
+      },
+      // Project scope comes from the API key. Containers remain unassigned
+      // until there is a server-side selector with Trajectory context.
+      body: JSON.stringify({
+        trajectoryId: params.trajectoryId,
+        appUserId: params.user.id,
+      }),
+      signal: params.signal,
+      redirect: "error",
+    });
+    const payload: unknown = await response.json().catch(() => undefined);
+    if (!response.ok) {
+      throw trajectoryResponseError(payload, response.status, this.#apiKey);
+    }
+    return parseTrajectoryConnectionGrant(
+      payload,
+      params.trajectoryId,
+      this.ɵgetClientWsUrl(),
+    );
+  }
+
   async #request<T>(
     method: string,
     path: string,
@@ -1932,6 +1973,9 @@ export class CopilotKitIntelligence {
         runId: params.runId,
         userId: params.userId,
         agentId: params.agentId,
+        ...(params.supportsBackendThreadId === undefined
+          ? {}
+          : { supportsBackendThreadId: params.supportsBackendThreadId }),
         ...(params.learningContainerId !== undefined
           ? { learningContainerId: params.learningContainerId }
           : {}),

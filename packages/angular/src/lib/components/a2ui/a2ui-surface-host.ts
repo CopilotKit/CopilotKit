@@ -1,5 +1,5 @@
-import type { AbstractAgent } from "@ag-ui/client";
-import type { A2UISurfaceError } from "./native-catalog";
+import { AbstractAgent } from "@ag-ui/client";
+import { A2UIClientEventMessage, A2UISurfaceError } from "./a2ui-types";
 
 export const A2UI_OPERATIONS_KEY = "a2ui_operations";
 
@@ -53,14 +53,14 @@ export function logA2UIRenderError(error: A2UISurfaceError): void {
 export async function bridgeA2UIAction(
   copilotKit: CopilotKitActionBridge | null | undefined,
   agent: AbstractAgent | undefined,
-  detail: unknown,
+  message: A2UIClientEventMessage,
 ): Promise<void> {
   if (!copilotKit || !agent) return;
 
   try {
     copilotKit.core.setProperties({
       ...copilotKit.core.properties,
-      a2uiAction: detail,
+      a2uiAction: message,
     });
     await copilotKit.core.runAgent({ agent });
   } finally {

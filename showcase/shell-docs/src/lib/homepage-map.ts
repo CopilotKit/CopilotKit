@@ -81,7 +81,7 @@ export const COPILOTKIT_CAPABILITIES: readonly MapCapability[] = [
   },
   {
     id: "threads",
-    title: "Rich Threads",
+    title: "AG-UI Streams",
     body: "Keep conversations organized and resume them later.",
     icon: "MessagesSquare",
   },

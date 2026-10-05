@@ -148,7 +148,7 @@ registerRenderToolCall({
 | --- | --- | --- |
 | Your components, display only | The agent should show a component and nothing else runs | `registerComponent` |
 | Your components | Known data shapes and application actions | `registerFrontendTool` or `registerRenderToolCall` with a component |
-| A2UI | A server emits A2UI operations or snapshots | Runtime capability turns on the built-in renderer; an optional `a2ui` config supplies a catalog or theme |
+| A2UI | A server emits A2UI operations or snapshots | Set `a2ui.catalog` in `provideCopilotKit` to turn on the built-in renderer; without a catalog A2UI stays off |
 | Open Generative UI | The agent produces streamed HTML, CSS, and script expressions | Set `openGenerativeUI` in `provideCopilotKit` |
 | MCP Apps | An MCP server returns an interactive app resource | Add `provideMCPApps()` from `@copilotkit/angular/mcp-apps` |
 

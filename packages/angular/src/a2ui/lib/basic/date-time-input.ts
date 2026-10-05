@@ -1,35 +1,30 @@
-import { Component, computed, input } from "@angular/core";
-import type { DateTimeInputApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { uniqueId, type BasicProps } from "./shared";
+import { Component, computed } from "@angular/core";
+import { DateTimeInputApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { CopilotA2UIBasicComponent } from "./basic-component";
+import { uniqueId } from "./shared";
 
 @Component({
   selector: "copilot-a2ui-date-time-input",
   template: `
-    <div class="field">
-      @if (props().label) {
-        <label class="label" [for]="inputId">{{ props().label }}</label>
-      }
-      <input
-        class="input"
-        [id]="inputId"
-        [type]="type()"
-        [value]="props().value ?? ''"
-        [min]="bound(props().min)"
-        [max]="bound(props().max)"
-        (input)="update($event)"
-      />
-    </div>
+    @if (props().label) {
+      <label class="label" [for]="inputId">{{ props().label }}</label>
+    }
+    <input
+      class="input"
+      [id]="inputId"
+      [type]="type()"
+      [value]="props().value ?? ''"
+      [min]="bound(props().min)"
+      [max]="bound(props().max)"
+      (input)="update($event)"
+    />
   `,
   styles: `
     :host {
-      display: contents;
-    }
-    .field {
       display: flex;
       flex-direction: column;
       gap: calc(var(--a2ui-spacing-m, 8px) / 2);
       width: 100%;
-      margin: var(--a2ui-spacing-m, 8px);
     }
     .label {
       font-size: var(--a2ui-font-size-s, 14px);
@@ -46,8 +41,9 @@ import { uniqueId, type BasicProps } from "./shared";
     }
   `,
 })
-export class CopilotA2UIDateTimeInput {
-  readonly props = input.required<BasicProps<typeof DateTimeInputApi>>();
+export class CopilotA2UIDateTimeInput extends CopilotA2UIBasicComponent<
+  typeof DateTimeInputApi
+> {
   protected readonly inputId = uniqueId("datetime");
   protected readonly type = computed(() => {
     const { enableDate, enableTime } = this.props();

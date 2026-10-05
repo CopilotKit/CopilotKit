@@ -110,6 +110,23 @@ export function toolResult(
 }
 
 /**
+ * Helper to create a tool error event emitted when a tool's execute function
+ * throws.
+ */
+export function toolError(
+  toolCallId: string,
+  toolName: string,
+  toolErrorValue: unknown,
+): MockStreamEvent {
+  return {
+    type: "tool-error",
+    toolCallId,
+    toolName,
+    error: toolErrorValue,
+  };
+}
+
+/**
  * Helper to create a reasoning-start event
  */
 export function reasoningStart(id?: string): MockStreamEvent {

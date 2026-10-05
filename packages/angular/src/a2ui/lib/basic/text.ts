@@ -1,6 +1,6 @@
-import { Component, input } from "@angular/core";
-import type { TextApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import type { BasicProps } from "./shared";
+import { Component } from "@angular/core";
+import { TextApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { CopilotA2UIBasicComponent } from "./basic-component";
 
 @Component({
   selector: "copilot-a2ui-text",
@@ -31,11 +31,10 @@ import type { BasicProps } from "./shared";
   `,
   styles: `
     :host {
-      display: contents;
+      display: inline-block;
     }
     .text {
-      display: inline-block;
-      margin: var(--a2ui-spacing-m, 8px);
+      display: block;
       box-sizing: border-box;
     }
     .caption {
@@ -44,6 +43,6 @@ import type { BasicProps } from "./shared";
     }
   `,
 })
-export class CopilotA2UIText {
-  readonly props = input.required<BasicProps<typeof TextApi>>();
-}
+export class CopilotA2UIText extends CopilotA2UIBasicComponent<
+  typeof TextApi
+> {}
