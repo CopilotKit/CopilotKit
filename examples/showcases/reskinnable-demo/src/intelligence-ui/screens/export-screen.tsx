@@ -52,7 +52,7 @@ import {
 import { WorkspacePageHeader } from "../shell/workspace-page-header";
 import { OutcomeBadges } from "./trajectories-screen";
 import { fmtDate, fmtTime, surfaceName } from "./trajectory-format";
-import { ApiConnect, McpConnect } from "./export-connect";
+import { ConnectSummary } from "./export-connect";
 import s from "./export-screen.module.css";
 
 const API = "/api/learning/v1/exports";
@@ -630,32 +630,6 @@ export function ExportScreen() {
               </div>
             </section>
 
-            {connect ? (
-              <section
-                id="export-connect"
-                className={s.card}
-                aria-labelledby="connect-title"
-              >
-                <header className={s.cardHead}>
-                  <h2 id="connect-title">
-                    {dest === "api"
-                      ? "This slice, over the API"
-                      : "This slice, over MCP"}
-                  </h2>
-                  <span className={s.muted}>
-                    {dest === "api"
-                      ? "Same data as the export, from your own code."
-                      : "Any agent can query your trajectories."}
-                  </span>
-                </header>
-                {dest === "api" ? (
-                  <ApiConnect scope={scope} filters={filters} format={format} />
-                ) : (
-                  <McpConnect scope={scope} filters={filters} />
-                )}
-              </section>
-            ) : null}
-
             {/* ── Matching trajectories ─────────────────────────── */}
             <section className={s.card} aria-labelledby="match-title">
               <header className={s.cardHead}>
@@ -884,15 +858,6 @@ export function ExportScreen() {
                     onClick={() => {
                       setDest(d.id);
                       setUri(d.uri);
-                      if (d.id === "api" || d.id === "mcp")
-                        requestAnimationFrame(() =>
-                          document
-                            .getElementById("export-connect")
-                            ?.scrollIntoView({
-                              behavior: "smooth",
-                              block: "start",
-                            }),
-                        );
                     }}
                   >
                     {d.logo ? (
@@ -906,11 +871,12 @@ export function ExportScreen() {
                 ))}
               </div>
               {connect ? (
-                <p className={s.connectPointer}>
-                  {dest === "api"
-                    ? "Nothing to write: the code for this slice is under the slice, on the left."
-                    : "Nothing to write: connect your agent with the server under the slice, on the left."}
-                </p>
+                <ConnectSummary
+                  kind={dest === "api" ? "api" : "mcp"}
+                  scope={scope}
+                  filters={filters}
+                  format={format}
+                />
               ) : null}
               {dest !== "download" && !connect ? (
                 <div className={s.uri}>

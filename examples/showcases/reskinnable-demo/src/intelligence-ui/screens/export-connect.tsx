@@ -6,7 +6,9 @@
  * or as an MCP server any agent can connect to. Everything Intelligence
  * captured is reachable from your own tools.
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { Button } from "../ui/primitives";
+import { Sheet } from "../ui/overlays";
 import { CopyButton } from "../ui/data-display/copy-button";
 import type { ExportFilter, ExportFormat, ExportScope } from "../export/model";
 import s from "./export-screen.module.css";
@@ -62,7 +64,8 @@ const ext = (format: ExportFormat) =>
 
 function curl(pairs: [string, string][], format: ExportFormat): string {
   const lines = [
-    `curl -G ${HOST}/api/v1/projects/${PROJECT}/trajectories/export \\`,
+    `curl -G \\`,
+    `  ${HOST}/api/v1/projects/${PROJECT}/trajectories/export \\`,
     `  -H "Authorization: Bearer $${KEY_ENV}" \\`,
     ...pairs.map(([k, v]) => `  --data-urlencode '${k}=${v}' \\`),
     `  -o trajectories.${ext(format)}`,
@@ -244,9 +247,6 @@ export function McpConnect(props: {
   const ask = describe(props.scope, props.filters);
   return (
     <div className={s.connect}>
-      <p className={s.connectLead}>
-        Claude, ChatGPT, Cursor or your own agent: add the server and ask.
-      </p>
       <div className={s.mcpGrid}>
         <div className={s.connect}>
           <div className={s.code}>
@@ -282,6 +282,80 @@ export function McpConnect(props: {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The API or MCP destination in the export sidebar: the one thing to copy, and
+ * the full code or agent setup in a drawer, so export stays a side surface.
+ */
+export function ConnectSummary(props: {
+  readonly kind: "api" | "mcp";
+  readonly scope: ExportScope;
+  readonly filters: readonly ExportFilter[];
+  readonly format: ExportFormat;
+}) {
+  const [open, setOpen] = useState(false);
+  const opener = useRef<HTMLButtonElement | null>(null);
+  const api = props.kind === "api";
+  const copy = api
+    ? curl(slicePairs(props.scope, props.filters, props.format), props.format)
+    : MCP_CONFIG;
+  return (
+    <div className={s.connectSide}>
+      <p className={s.connectNote}>
+        {api
+          ? "Nothing to write: pull this slice from your own code with a project API key."
+          : "Nothing to write: let any agent (Claude, ChatGPT, Cursor, your own) query your trajectories."}
+      </p>
+      <div className={s.code}>
+        <div className={s.codeHead}>
+          <span>{api ? "Endpoint" : "Server URL"}</span>
+          <CopyButton label={api ? "Copy curl" : "Copy config"} value={copy} />
+        </div>
+        <pre className={s.oneLine}>
+          {api
+            ? `GET /api/v1/projects/${PROJECT}/trajectories/export`
+            : MCP_URL}
+        </pre>
+      </div>
+      <Button
+        ref={opener}
+        variant="secondary"
+        className={s.go}
+        onClick={() => setOpen(true)}
+      >
+        {api ? "View code" : "Set up an agent"}
+      </Button>
+      <Sheet
+        open={open}
+        onOpenChange={setOpen}
+        side="right"
+        title={api ? "This slice, over the API" : "This slice, over MCP"}
+        closeLabel="Close"
+        returnFocusRef={opener}
+      >
+        <header className={s.sheetHead}>
+          <h2>{api ? "This slice, over the API" : "This slice, over MCP"}</h2>
+          <span>
+            {api
+              ? "Same data as the export, streamed, from your own code."
+              : "Add the server to any agent and ask."}
+          </span>
+        </header>
+        <div className={s.sheetBody}>
+          {api ? (
+            <ApiConnect
+              scope={props.scope}
+              filters={props.filters}
+              format={props.format}
+            />
+          ) : (
+            <McpConnect scope={props.scope} filters={props.filters} />
+          )}
+        </div>
+      </Sheet>
     </div>
   );
 }

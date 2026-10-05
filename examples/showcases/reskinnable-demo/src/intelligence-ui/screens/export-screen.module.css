@@ -597,11 +597,53 @@ td.mono {
 }
 .mcpGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
 }
-@media (max-width: 900px) {
-  .mcpGrid {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.connectSide {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.connectSide .code {
+  overflow: hidden;
+}
+.code pre.oneLine {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sheetHead {
+  display: grid;
+  gap: 2px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--cpki-color-border);
+}
+.sheetHead h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--cpki-color-foreground);
+}
+.sheetHead span {
+  font-size: var(--cpki-font-size-1);
+  color: var(--cpki-color-muted-foreground);
+}
+.sheetBody {
+  padding: 16px 20px 24px;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+}
+.connect > *,
+.mcpGrid > * {
+  min-width: 0;
+}
+.sheetBody .code {
+  overflow: hidden;
+}
+.codeHead > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
