@@ -631,6 +631,8 @@ export function missingContextOf(
   events: CapturedEvent[],
   threads: ThreadRecord[],
 ): MissingContext[] {
+  // Only a failed attempt was missing anything; a run the agent finished was not.
+  if (!threads.some((t) => t.outcome === "failed")) return [];
   const agentSaw = JSON.stringify(
     threads.map((t) => [
       t.messages.map((m) => m.text),
