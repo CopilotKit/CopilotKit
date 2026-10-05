@@ -202,7 +202,9 @@ export type DestinationKind =
   | "gcs"
   | "snowflake"
   | "databricks"
-  | "webhook";
+  | "webhook"
+  | "api"
+  | "mcp";
 
 /** The wire form of a slice, as query params. */
 export function sliceParams(

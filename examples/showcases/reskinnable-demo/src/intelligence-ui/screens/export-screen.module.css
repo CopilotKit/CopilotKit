@@ -529,3 +529,79 @@ td.mono {
     display: none;
   }
 }
+
+/* API and MCP destinations */
+.connect {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.connectLead,
+.connectNote {
+  margin: 0;
+  font-size: var(--cpki-font-size-1);
+  color: var(--cpki-color-muted-foreground);
+}
+.connectNote {
+  font-size: var(--cpki-font-size-0);
+}
+.connect .code pre {
+  max-height: 18rem;
+}
+.langs {
+  display: flex;
+  gap: 4px;
+}
+.lang {
+  padding: 4px 10px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--cpki-color-border);
+  background: var(--cpki-color-surface);
+  font: inherit;
+  font-size: var(--cpki-font-size-0);
+  color: var(--cpki-color-muted-foreground);
+  cursor: pointer;
+}
+.lang[aria-selected="true"] {
+  border-color: var(--cpki-color-foreground);
+  color: var(--cpki-color-foreground);
+}
+.tools {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+.tools li {
+  display: grid;
+  gap: 1px;
+}
+.tools code {
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  color: var(--cpki-color-foreground);
+}
+.tools small {
+  font-size: var(--cpki-font-size-0);
+  color: var(--cpki-color-muted-foreground);
+}
+.connect .ask {
+  white-space: pre-wrap;
+  font-family: inherit;
+}
+.connectPointer {
+  margin: 0;
+  font-size: var(--cpki-font-size-0);
+  color: var(--cpki-color-muted-foreground);
+}
+.mcpGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+@media (max-width: 900px) {
+  .mcpGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -7,10 +7,12 @@
  * warehouse or webhook. Backed by `/api/learning/v1/exports`.
  */
 import {
+  Braces,
   CircleCheck,
   Cloud,
   Download,
   Network,
+  Plug,
   Plus,
   User,
   Users,
@@ -50,6 +52,7 @@ import {
 import { WorkspacePageHeader } from "../shell/workspace-page-header";
 import { OutcomeBadges } from "./trajectories-screen";
 import { fmtDate, fmtTime, surfaceName } from "./trajectory-format";
+import { ApiConnect, McpConnect } from "./export-connect";
 import s from "./export-screen.module.css";
 
 const API = "/api/learning/v1/exports";
@@ -180,6 +183,8 @@ const DESTINATIONS: readonly {
     uri: "https://data.halcyonlabs.com/hooks/trajectories",
     uriLabel: "Endpoint",
   },
+  { id: "api", name: "API", icon: "api", uri: "", uriLabel: "" },
+  { id: "mcp", name: "MCP", icon: "mcp", uri: "", uriLabel: "" },
 ];
 
 const PRESETS: readonly { label: string; filters: ExportFilter[] }[] = [
@@ -243,6 +248,8 @@ function sampleText(rec: ExportRecordView, keep: number): string {
 /** The screen's icons, by their former Material Symbols names, as the workspace's lucide set. */
 const ICONS: Record<string, LucideIcon> = {
   add: Plus,
+  api: Braces,
+  mcp: Plug,
   check_circle: CircleCheck,
   close: X,
   cloud: Cloud,
@@ -319,6 +326,7 @@ export function ExportScreen() {
   const done = result?.key === key ? result : null;
 
   const parquetDownload = dest === "download" && format === "parquet";
+  const connect = dest === "api" || dest === "mcp";
   const count = shown?.trajectories ?? 0;
 
   const setFilter = (i: number, patch: Partial<ExportFilter>) =>
@@ -622,6 +630,32 @@ export function ExportScreen() {
               </div>
             </section>
 
+            {connect ? (
+              <section
+                id="export-connect"
+                className={s.card}
+                aria-labelledby="connect-title"
+              >
+                <header className={s.cardHead}>
+                  <h2 id="connect-title">
+                    {dest === "api"
+                      ? "This slice, over the API"
+                      : "This slice, over MCP"}
+                  </h2>
+                  <span className={s.muted}>
+                    {dest === "api"
+                      ? "Same data as the export, from your own code."
+                      : "Any agent can query your trajectories."}
+                  </span>
+                </header>
+                {dest === "api" ? (
+                  <ApiConnect scope={scope} filters={filters} format={format} />
+                ) : (
+                  <McpConnect scope={scope} filters={filters} />
+                )}
+              </section>
+            ) : null}
+
             {/* ── Matching trajectories ─────────────────────────── */}
             <section className={s.card} aria-labelledby="match-title">
               <header className={s.cardHead}>
@@ -850,6 +884,15 @@ export function ExportScreen() {
                     onClick={() => {
                       setDest(d.id);
                       setUri(d.uri);
+                      if (d.id === "api" || d.id === "mcp")
+                        requestAnimationFrame(() =>
+                          document
+                            .getElementById("export-connect")
+                            ?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            }),
+                        );
                     }}
                   >
                     {d.logo ? (
@@ -862,7 +905,14 @@ export function ExportScreen() {
                   </button>
                 ))}
               </div>
-              {dest !== "download" ? (
+              {connect ? (
+                <p className={s.connectPointer}>
+                  {dest === "api"
+                    ? "Nothing to write: the code for this slice is under the slice, on the left."
+                    : "Nothing to write: connect your agent with the server under the slice, on the left."}
+                </p>
+              ) : null}
+              {dest !== "download" && !connect ? (
                 <div className={s.uri}>
                   <label className={s.fieldLabel} htmlFor="export-uri">
                     {destination.uriLabel}
@@ -882,29 +932,33 @@ export function ExportScreen() {
                 </div>
               ) : null}
 
-              <div className={s.sizeRow}>
-                <span>Estimated size</span>
-                <b>{kb(shown?.bytes[format] ?? 0)}</b>
-              </div>
-              {parquetDownload ? (
-                <p className={s.hint}>
-                  Parquet is written to a bucket or a warehouse. Pick a
-                  destination, or download JSONL or CSV.
-                </p>
-              ) : null}
-              <Button
-                variant="primary"
-                className={s.go}
-                disabled={
-                  count === 0 ||
-                  phase === "working" ||
-                  parquetDownload ||
-                  (dest !== "download" && !uri.trim())
-                }
-                onClick={() => void runExport()}
-              >
-                {exportLabel}
-              </Button>
+              {connect ? null : (
+                <>
+                  <div className={s.sizeRow}>
+                    <span>Estimated size</span>
+                    <b>{kb(shown?.bytes[format] ?? 0)}</b>
+                  </div>
+                  {parquetDownload ? (
+                    <p className={s.hint}>
+                      Parquet is written to a bucket or a warehouse. Pick a
+                      destination, or download JSONL or CSV.
+                    </p>
+                  ) : null}
+                  <Button
+                    variant="primary"
+                    className={s.go}
+                    disabled={
+                      count === 0 ||
+                      phase === "working" ||
+                      parquetDownload ||
+                      (dest !== "download" && !uri.trim())
+                    }
+                    onClick={() => void runExport()}
+                  >
+                    {exportLabel}
+                  </Button>
+                </>
+              )}
 
               {error ? (
                 <StatusMessage
