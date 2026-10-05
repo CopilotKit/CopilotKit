@@ -165,15 +165,16 @@ hook gets its own instance instead of a shared one.
       **Parameters:**
       - `parameters.forwardedProps?: any` - Data to pass to the agent execution context
 
+      To answer an interrupt, use [`useInterrupt`](/reference/hooks/useInterrupt). It resumes the run for you. To resume by hand, pass the standard `resume` array with the id of the interrupt that the paused run reported: `copilotkit.runAgent({ agent, resume: [{ interruptId: interrupt.id, status: "resolved", payload }] })`. The older `forwardedProps: { command: { resume } }` form is the legacy path for `on_interrupt` custom events.
+
       **Example:**
       ```tsx
       const { copilotkit } = useCopilotKit();
 
       const { result, newMessages } = await copilotkit.runAgent({
         agent,
-        forwardedProps: {
-          command: { resume: "user response" }
-        }
+        // Any data your agent reads from the run input.
+        forwardedProps: { source: "refresh-button" },
       });
       ```
     </PropertyReference>
