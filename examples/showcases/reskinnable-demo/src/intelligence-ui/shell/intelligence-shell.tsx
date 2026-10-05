@@ -8,10 +8,11 @@
  * styles are that app's own `styles.css` (./intelligence-shell.css).
  *
  * Demo changes: the account trigger is static (no session), the nav carries
- * the demo's routes (Trajectories, Evals and Fine-tune are new screens), and
+ * the demo's routes (Trajectories, Evals, Fine-tune and Data export are new screens), and
  * the sidebar footer shows whether the data is live or sample.
  */
-import { useEffect, type ReactNode } from "react";
+import { useEffect } from "react";
+import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { Badge } from "../ui/feedback";
 import { probe, useDataSource } from "../data/client";
@@ -30,29 +31,72 @@ interface NavItem {
 }
 
 const PRIMARY: readonly NavItem[] = [
-  { icon: "home", label: "Overview", to: `${INTELLIGENCE_BASE}/overview`, match: `${INTELLIGENCE_BASE}/overview` },
-  { icon: "model_training", label: "Automatic Learning", to: `${INTELLIGENCE_BASE}/learning`, match: `${INTELLIGENCE_BASE}/learning` },
-  { icon: "fact_check", label: "Eval candidates", to: `${INTELLIGENCE_BASE}/evals`, match: `${INTELLIGENCE_BASE}/evals`, badge: "New" },
-  { icon: "neurology", label: "Fine-tune", to: `${INTELLIGENCE_BASE}/fine-tune`, match: `${INTELLIGENCE_BASE}/fine-tune`, badge: "New" },
+  {
+    icon: "home",
+    label: "Overview",
+    to: `${INTELLIGENCE_BASE}/overview`,
+    match: `${INTELLIGENCE_BASE}/overview`,
+  },
+  {
+    icon: "model_training",
+    label: "Automatic Learning",
+    to: `${INTELLIGENCE_BASE}/learning`,
+    match: `${INTELLIGENCE_BASE}/learning`,
+  },
+  {
+    icon: "fact_check",
+    label: "Eval candidates",
+    to: `${INTELLIGENCE_BASE}/evals`,
+    match: `${INTELLIGENCE_BASE}/evals`,
+    badge: "New",
+  },
+  {
+    icon: "neurology",
+    label: "Fine-tune",
+    to: `${INTELLIGENCE_BASE}/fine-tune`,
+    match: `${INTELLIGENCE_BASE}/fine-tune`,
+    badge: "New",
+  },
+  {
+    icon: "file_export",
+    label: "Data export",
+    to: `${INTELLIGENCE_BASE}/export`,
+    match: `${INTELLIGENCE_BASE}/export`,
+    badge: "New",
+  },
   { icon: "lightbulb", label: "Product Insights" },
   { icon: "monitoring", label: "Product Analytics" },
 ];
 const RESOURCES: readonly NavItem[] = [
-  { icon: "route", label: "Trajectories", to: `${INTELLIGENCE_BASE}/trajectories`, match: `${INTELLIGENCE_BASE}/trajectories`, badge: "New" },
+  {
+    icon: "route",
+    label: "Trajectories",
+    to: `${INTELLIGENCE_BASE}/trajectories`,
+    match: `${INTELLIGENCE_BASE}/trajectories`,
+    badge: "New",
+  },
   { icon: "gesture", label: "Threads" },
   { icon: "psychology", label: "User Memories" },
   { icon: "key_vertical", label: "API Keys" },
 ];
 
-function NavGroup(props: { readonly items: readonly NavItem[]; readonly label?: string }) {
+function NavGroup(props: {
+  readonly items: readonly NavItem[];
+  readonly label?: string;
+}) {
   const pathname = usePathname() ?? "";
   return (
     <div className="cpki-nav-group">
-      {props.label ? <p className="shell-nav-group-label">{props.label}</p> : null}
+      {props.label ? (
+        <p className="shell-nav-group-label">{props.label}</p>
+      ) : null}
       {props.items.map((item) => {
         const content = (
           <>
-            <span aria-hidden="true" className="material-symbols-rounded cpki-nav-item__icon">
+            <span
+              aria-hidden="true"
+              className="material-symbols-rounded cpki-nav-item__icon"
+            >
               {item.icon}
             </span>
             <span className="cpki-nav-item__label">{item.label}</span>
@@ -65,7 +109,11 @@ function NavGroup(props: { readonly items: readonly NavItem[]; readonly label?: 
         );
         if (item.to === undefined) {
           return (
-            <span aria-disabled="true" className="cpki-nav-item cpki-nav-item--disabled" key={item.label}>
+            <span
+              aria-disabled="true"
+              className="cpki-nav-item cpki-nav-item--disabled"
+              key={item.label}
+            >
               {content}
             </span>
           );
@@ -78,7 +126,9 @@ function NavGroup(props: { readonly items: readonly NavItem[]; readonly label?: 
         return (
           <Link
             aria-current={active ? "page" : undefined}
-            className={active ? "cpki-nav-item cpki-nav-item--active" : "cpki-nav-item"}
+            className={
+              active ? "cpki-nav-item cpki-nav-item--active" : "cpki-nav-item"
+            }
             key={item.label}
             to={item.to}
           >
@@ -100,8 +150,16 @@ function SourceFooter() {
   }, []);
   return (
     <div className="shell-sidebar__footer">
-      <div className="shell-version" data-source={source} title="Where these screens read their data">
-        {source === "live" ? "live data · /api/learning/v1" : source === "sample" ? "sample data" : "connecting"}
+      <div
+        className="shell-version"
+        data-source={source}
+        title="Where these screens read their data"
+      >
+        {source === "live"
+          ? "live data · /api/learning/v1"
+          : source === "sample"
+            ? "sample data"
+            : "connecting"}
       </div>
     </div>
   );
@@ -117,27 +175,46 @@ export function ProjectSidebar() {
   );
 }
 
-function WorkspaceHeader(props: { readonly section?: { label: string; to: string }; readonly detail?: string }) {
+function WorkspaceHeader(props: {
+  readonly section?: { label: string; to: string };
+  readonly detail?: string;
+}) {
   return (
     <header className="shell-topbar">
       <div className="shell-topbar__brand">
-        <Link aria-label="Go to Home" className="shell-topbar__mark-link" to={`${INTELLIGENCE_BASE}/overview`}>
+        <Link
+          aria-label="Go to Home"
+          className="shell-topbar__mark-link"
+          to={`${INTELLIGENCE_BASE}/overview`}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element -- the shell's own static mark */}
-          <img className="shell-topbar__mark" src="/intelligence-ui/mark.svg" alt="CopilotKit" />
+          <img
+            className="shell-topbar__mark"
+            src="/intelligence-ui/mark.svg"
+            alt="CopilotKit"
+          />
         </Link>
         <div className="shell-scope" aria-label="Current workspace">
           <span className="shell-scope__selector shell-scope__selector--static">
             <span className="shell-scope__label">Intelligence</span>
           </span>
           <span className="shell-scope__divider">/</span>
-          <Link className="shell-scope__selector shell-scope__selector--link" to={`${INTELLIGENCE_BASE}/overview`}>
+          <Link
+            className="shell-scope__selector shell-scope__selector--link"
+            to={`${INTELLIGENCE_BASE}/overview`}
+          >
             <span className="shell-scope__label">{PROJECT_LABEL}</span>
           </Link>
           {props.section ? (
             <>
               <span className="shell-scope__divider">/</span>
-              <Link className="shell-scope__selector shell-scope__selector--link" to={props.section.to}>
-                <span className="shell-scope__label">{props.section.label}</span>
+              <Link
+                className="shell-scope__selector shell-scope__selector--link"
+                to={props.section.to}
+              >
+                <span className="shell-scope__label">
+                  {props.section.label}
+                </span>
               </Link>
             </>
           ) : null}
@@ -157,7 +234,11 @@ function WorkspaceHeader(props: { readonly section?: { label: string; to: string
             <span className="account-menu__avatar" aria-hidden="true">
               <span className="account-menu__avatar-fallback">MC</span>
             </span>
-            <span aria-hidden="true" className="account-menu__trigger-name" title={ACCOUNT_LABEL}>
+            <span
+              aria-hidden="true"
+              className="account-menu__trigger-name"
+              title={ACCOUNT_LABEL}
+            >
               {ACCOUNT_LABEL}
             </span>
           </span>
