@@ -433,7 +433,7 @@ all five pass; `headless-complete` is probed as `gen-ui-headless-complete`,
 | hitl-in-app                     | GREEN         | Frontend `request_user_approval` + in-app approval dialog. Escalate pill carries a second ladder at 3/5 for the spec's two-pill test.                                                                  |
 | gen-ui-tool-based               | GREEN         | Needed a `gen-ui-custom.json` fixture (missing from this package). The stray `gen-ui-tool-based.json` — open-gen-UI content emitting `generateSandboxedUi`, which nothing here declares — was deleted. |
 | tool-rendering                  | GREEN         | Owns all five pill prompts for the whole tool-rendering family; see the staging section below.                                                                                                         |
-| tool-rendering-default-catchall | GREEN         |                                                                                                                                                                                                        |
+| tool-rendering-default-catchall | GREEN         | Legs at turnIndex 0 (tool) and 1/2 (narration); green under the strict rule deployed aimock uses (see below).                                                                                          |
 | tool-rendering-custom-catchall  | GREEN         | Two probe turns at 0/2 and 3/5. Its four duplicate pill groups were removed — this file loads first alphabetically and was shadowing `tool-rendering.json`.                                            |
 | auth                            | GREEN         |                                                                                                                                                                                                        |
 | subagents                       | GREEN         | Supervisor chain restaged at turnIndex 0/2/4/6 (research → write → critique → answer).                                                                                                                 |
@@ -505,16 +505,29 @@ never answers. Three consequences this package is built around:
   `tool-rendering.json`, since a `turnIndex` tie is broken by registration
   order.
 
+**Deployed aimock uses the strict rule.** Everything above describes the
+relaxed selection a local stack gets. Staging and production run aimock with
+`--proxy-only`, and a proxying aimock always applies the strict gate
+(`recordMatchOptions`): a fixture whose `turnIndex` is not exactly the
+assistant count is rejected, and an untagged fixture matches at every
+position. A leg must therefore sit on the exact positions the flow reaches,
+and an untagged tool leg loops forever on staging even when it terminates
+locally. That is how `tool-rendering-default-catchall` ran away on staging
+(PNI-570/PNI-571: three concurrent streams, +211 bytes per cycle, never
+ending). Reproduce staging's rule locally by setting
+`AIMOCK_STRICT_TURN_INDEX=1` on the stack's aimock container.
+
 What is _not_ staged on `turnIndex`: a handful of legs mirrored in from
 langgraph-python for tools no agent or page on this integration declares —
 `display_flight`, `write_document`, and Mastra's hyphenated `get-weather`.
 They are gated on `toolName`, which keeps them out of every candidate set
 here (the tool is never in `RunAgentInput.tools`), so they are inert rather
-than wrong. `tool-rendering-default-catchall.json` also still pairs a
-`toolCallId` narration with a `toolName` leg 1; it happens to terminate
-because its third entry — a `turnIndex: 0` text fallback — is the only
-at-or-behind candidate on the second iteration. Both are mirror residue worth
-cleaning up the next time that file is touched.
+than wrong. `tool-rendering-default-catchall.json` used to pair a
+`toolCallId` narration with an untagged `toolName` leg 1. It terminated
+locally only because its `turnIndex: 0` text fallback won the second
+iteration under the relaxed rule; under the strict rule the fallback was
+rejected and the untagged leg 1 answered every turn. It is now staged on
+`turnIndex` like the rest: leg 1 at 0, narration at 1 and 2.
 
 ### Backend tools the reference declares and this package needed too
 
