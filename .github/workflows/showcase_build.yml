@@ -78,6 +78,7 @@ jobs:
           COPY --from=base --chmod=0755 /app/entrypoint.sh /app/entrypoint_original.sh
           COPY runtime_diagnostics.py /app/runtime_diagnostics.py
           COPY node_diagnostics.cjs node_diagnostics_worker.cjs /app/
+          COPY event_observer.py sitecustomize.py /app/event_diagnostics/
           COPY --chmod=0755 runtime_diagnostics_entrypoint.sh /app/entrypoint.sh
           CMD ["./entrypoint.sh"]
           DIAG_DOCKERFILE
@@ -85,6 +86,7 @@ jobs:
           #!/bin/bash
           set -e
 
+          export PYTHONPATH="/app/event_diagnostics${PYTHONPATH:+:$PYTHONPATH}"
           export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--require=/app/node_diagnostics.cjs"
 
           # This temporary image emits diagnostics directly alongside the unmodified app.
@@ -276,6 +278,224 @@ jobs:
           module.exports={sanitizeFrame,sanitizeProfile,summarize,chunks,Budget,probe};
           if(!isMainThread&&workerData?.runtimeDiagnostics===true)run().catch(()=>{});
           DIAG_NODE_WORKER
+
+          cat > "$context/event_observer.py" <<'DIAG_EVENT_OBSERVER'
+          """Temporary aggregate-only observer of encoded Antigravity SSE yields."""
+          import asyncio
+          import functools
+          import json
+          import os
+          import threading
+          import time
+          from collections import deque
+
+          KINDS=frozenset('RUN_STARTED RUN_FINISHED RUN_ERROR TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT TEXT_MESSAGE_END REASONING_START REASONING_END REASONING_MESSAGE_START REASONING_MESSAGE_CONTENT REASONING_MESSAGE_END REASONING_ENCRYPTED_VALUE TOOL_CALL_START TOOL_CALL_ARGS TOOL_CALL_END TOOL_CALL_RESULT STATE_SNAPSHOT STATE_DELTA MESSAGES_SNAPSHOT CUSTOM RAW STEP_STARTED STEP_FINISHED SUBAGENT_STARTED SUBAGENT_FINISHED SUBAGENT_ERROR'.split())
+          PARSE_BYTES=256*1024
+          SCAN_CHARS=4*1024*1024
+          ID_CAP=512
+
+
+          def utf8_size(value):
+              return sum(len(value[i:i+16384].encode('utf-8',errors='replace')) for i in range(0,len(value),16384))
+
+
+          class Observer:
+              def __init__(self,start_reporter=True):
+                  self.lock=threading.Lock()
+                  self.active={}
+                  self.completed=deque(maxlen=64)
+                  self.seq=0
+                  self.untracked=0
+                  self.lost_terminal=0
+                  self.dropped_output=0
+                  self.fd=None
+                  self.transport='unavailable'
+                  if start_reporter:
+                      # Open a NEW file description; never alter inherited stdout flags.
+                      for path,transport in [('/proc/1/fd/1','pid1_stdout'),('/proc/self/fd/1','stdout_limited')]:
+                          try:
+                              self.fd=os.open(path,os.O_WRONLY|os.O_NONBLOCK)
+                              self.transport=transport
+                              break
+                          except OSError:pass
+                      self.thread=threading.Thread(target=self._report,name='agui-counts',daemon=True)
+                      self.thread.start()
+
+              def begin(self):
+                  with self.lock:
+                      self.seq+=1
+                      if len(self.active)>=16:
+                          self.untracked+=1
+                          return None
+                      now=time.monotonic()
+                      row={'seq':self.seq,'events':0,'types':{},'json_bytes_sum':0,'json_bytes_max':0,'json_chars_sum':0,'json_chars_max':0,'text_delta_bytes_sum':0,'text_delta_bytes_max':0,'text_delta_chars_sum':0,'text_delta_chars_max':0,'reasoning_delta_bytes_sum':0,'reasoning_delta_bytes_max':0,'reasoning_delta_chars_sum':0,'reasoning_delta_chars_max':0,'args_delta_bytes_sum':0,'args_delta_bytes_max':0,'args_delta_chars_sum':0,'args_delta_chars_max':0,'result_bytes_sum':0,'result_bytes_max':0,'result_chars_sum':0,'result_chars_max':0,'message_cardinality':0,'tool_cardinality':0,'message_id_saturated':0,'tool_id_saturated':0,'snapshot_items_max':0,'started':False,'terminal':'none','exit':'active','oversize':0,'invalid':0,'unsupported':0,'observer_errors':0,'byte_coverage_lost':0,'parse_budget_skips':0,'diagnostic_seconds':0.0,'first_event_seconds':None,'active_peak':len(self.active)+1,'_start':now,'_messages':set(),'_tools':set(),'_budget_start':now,'_parsed_bytes':0,'_scanned_chars':0}
+                      self.active[row['seq']]=row
+                      return row
+
+              def observe(self,row,event):
+                  if row is None:return
+                  before=time.monotonic()
+                  data=getattr(event,'data',None)
+                  metrics={'events':1}
+                  payload=None
+                  if isinstance(data,str):
+                      chars=len(data)
+                      with self.lock:
+                          if before-row['_budget_start']>=5:
+                              row['_budget_start']=before;row['_parsed_bytes']=0;row['_scanned_chars']=0
+                          scan_chars=min(chars,SCAN_CHARS,max(0,8*1024*1024-row['_scanned_chars']))
+                          row['_scanned_chars']+=scan_chars
+                      measured=data[:scan_chars]
+                      size=utf8_size(measured)
+                      metrics.update(json_chars_sum=chars,json_chars_max=chars,json_bytes_sum=size,json_bytes_max=size)
+                      if scan_chars<chars:metrics['byte_coverage_lost']=1
+                      if scan_chars<chars:metrics['parse_budget_skips']=1
+                      elif size>PARSE_BYTES:metrics['oversize']=1
+                      else:
+                          # Hard per-run-per-5s JSON work bound. Strings are discarded.
+                          with self.lock:
+                              if before-row['_budget_start']>=5:
+                                  row['_budget_start']=before;row['_parsed_bytes']=0;row['_scanned_chars']=0
+                              allowed=row['_parsed_bytes']+size<=2*1024*1024
+                              if allowed:row['_parsed_bytes']+=size
+                          if not allowed:metrics['parse_budget_skips']=1
+                          else:
+                              try:
+                                  candidate=json.loads(data)
+                                  if isinstance(candidate,dict):payload=candidate
+                                  else:metrics['invalid']=1
+                              except (ValueError,TypeError,RecursionError):metrics['invalid']=1
+                  else:metrics['unsupported']=1
+                  kind='unknown'
+                  if payload is not None:
+                      raw_kind=payload.get('type')
+                      if isinstance(raw_kind,str) and raw_kind in KINDS:kind=raw_kind
+                      field={'TEXT_MESSAGE_CONTENT':('delta','text_delta'),'REASONING_MESSAGE_CONTENT':('delta','reasoning_delta'),'TOOL_CALL_ARGS':('delta','args_delta'),'TOOL_CALL_RESULT':('content','result')}.get(kind)
+                      if field and isinstance(payload.get(field[0]),str):
+                          value=payload[field[0]];prefix=field[1];size=utf8_size(value)
+                          metrics.update({prefix+'_bytes_sum':size,prefix+'_bytes_max':size,prefix+'_chars_sum':len(value),prefix+'_chars_max':len(value)})
+                      snap=payload.get('messages') if kind=='MESSAGES_SNAPSHOT' else payload.get('snapshot') if kind=='STATE_SNAPSHOT' else None
+                      if isinstance(snap,list):metrics['snapshot_items_max']=len(snap)
+                  with self.lock:
+                      if not row['events']:row['first_event_seconds']=before-row['_start']
+                      for key,value in metrics.items():
+                          if key.endswith('_max'):row[key]=max(row[key],value)
+                          else:row[key]+=value
+                      row['types'][kind]=row['types'].get(kind,0)+1
+                      if payload is not None:
+                          if kind=='RUN_STARTED':row['started']=True
+                          elif kind=='RUN_FINISHED':row['terminal']='finished'
+                          elif kind=='RUN_ERROR':row['terminal']='error'
+                          for field,private,count,saturated in [('messageId','_messages','message_cardinality','message_id_saturated'),('toolCallId','_tools','tool_cardinality','tool_id_saturated')]:
+                              ident=payload.get(field)
+                              if isinstance(ident,str):
+                                  if len(ident)>256:row[saturated]+=1
+                                  elif ident not in row[private]:
+                                      if len(row['_messages'])+len(row['_tools'])<ID_CAP:row[private].add(ident);row[count]+=1
+                                      else:row[saturated]+=1
+                      row['diagnostic_seconds']+=time.monotonic()-before
+
+              def finish(self,row,exit_kind):
+                  if row is None:return
+                  with self.lock:
+                      row['exit']=exit_kind
+                      row['_end']=time.monotonic()
+                      row['_messages'].clear();row['_tools'].clear()
+                      self.active.pop(row['seq'],None)
+                      if len(self.completed)==self.completed.maxlen:self.lost_terminal+=1
+                      self.completed.append(row)
+
+              def wrap(self,original):
+                  @functools.wraps(original)
+                  async def stream(*args,**kwargs):
+                      # Async generator body starts only on the consumer's first pull.
+                      try:row=self.begin()
+                      except Exception:row=None
+                      delegated=original(*args,**kwargs)
+                      exit_kind='exhausted'
+                      try:
+                          async for event in delegated:
+                              try:self.observe(row,event)
+                              except Exception:
+                                  if row is not None:
+                                      with self.lock:row['observer_errors']+=1
+                              yield event
+                      except asyncio.CancelledError:
+                          exit_kind='cancelled';raise
+                      except GeneratorExit:
+                          exit_kind='closed';raise
+                      except BaseException:
+                          exit_kind='error';raise
+                      finally:
+                          try:await delegated.aclose()
+                          finally:
+                              try:self.finish(row,exit_kind)
+                              except Exception:pass
+                  return stream
+
+              def _snapshot(self,row):
+                  result={key:value for key,value in row.items() if not key.startswith('_')}
+                  result['types']=dict(row['types'])
+                  result.update(kind='showcase_agui_event_counts',schema_version=1,boundary='backend_generator_yield',pid=os.getpid(),utc=time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),age_seconds=round(row.get('_end',time.monotonic())-row['_start'],3),active_runs=len(self.active),untracked_runs=self.untracked,lost_terminal_records=self.lost_terminal,dropped_output_records=self.dropped_output,transport=self.transport)
+                  return result
+
+              def records(self):
+                  with self.lock:return [self._snapshot(row) for row in self.completed]
+
+              def _emit(self,record):
+                  data=(json.dumps(record,separators=(',',':'))+'\n').encode()
+                  if len(data)>4096 or self.fd is None:return False
+                  try:return os.write(self.fd,data)==len(data)
+                  except (OSError,ValueError):return False
+
+              def _report(self):
+                  self._emit({'kind':'showcase_agui_event_counts_ready','schema_version':1,'boundary':'backend_generator_yield','pid':os.getpid(),'installed':True,'transport':self.transport})
+                  while True:
+                      time.sleep(5)
+                      try:
+                          with self.lock:
+                              rows=[self._snapshot(row) for row in self.active.values()]
+                              while self.completed and len(rows)<32:rows.append(self._snapshot(self.completed.popleft()))
+                          for row in rows:
+                              if not self._emit(row):
+                                  with self.lock:self.dropped_output+=1
+                      except Exception:
+                          with self.lock:self.dropped_output+=1
+
+
+          def install():
+              from ag_ui_antigravity import endpoint
+              if getattr(endpoint._stream,'_agui_counts',False):return
+              observer=Observer()
+              endpoint._stream=observer.wrap(endpoint._stream)
+              endpoint._stream._agui_counts=True
+              endpoint._stream._agui_observer=observer
+          DIAG_EVENT_OBSERVER
+          cat > "$context/sitecustomize.py" <<'DIAG_EVENT_SITECUSTOMIZE'
+          """Enable temporary counters only in the showcase backend uvicorn command."""
+          import sys
+          try:
+              args=sys.orig_argv
+              module=next((args[i+1] for i,v in enumerate(args[:-1]) if v=='-m'),None)
+              port=next((args[i+1] for i,v in enumerate(args[:-1]) if v=='--port'),None)
+              if module=='uvicorn' and 'agent_server:app' in args and port=='8000':
+                  from event_observer import install
+                  install()
+          except Exception:
+              # Diagnostics never prevent the application from importing or starting.
+              pass
+          DIAG_EVENT_SITECUSTOMIZE
+
+          cat > "$context/.dockerignore" <<'DIAG_DOCKERIGNORE'
+          *
+          !Dockerfile
+          !runtime_diagnostics.py
+          !runtime_diagnostics_entrypoint.sh
+          !node_diagnostics.cjs
+          !node_diagnostics_worker.cjs
+          !event_observer.py
+          !sitecustomize.py
+          DIAG_DOCKERIGNORE
 
       - name: Publish the temporary observer image
         if: inputs.mode == 'deploy'
