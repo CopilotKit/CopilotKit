@@ -463,7 +463,7 @@ export function CopilotChatMessageView({
   const isPinnedToBottom = useContext(ScrollPinnedContext);
   const renderCustomMessage = useRenderCustomMessages();
   const { renderActivityMessage } = useRenderActivityMessage();
-  const { copilotkit } = useCopilotKit();
+  const { copilotkit, showIntelligenceIndicator = true } = useCopilotKit();
   const config = useCopilotChatConfiguration();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -916,7 +916,9 @@ export function CopilotChatMessageView({
     // the stable turn id. Keying by turn (not message) means the indicator
     // moves with the anchor across a hand-off without remounting, and past
     // turns keep their own indicator.
-    const intelligenceTurnId = intelligenceTurnAnchors.get(message.id);
+    const intelligenceTurnId = showIntelligenceIndicator
+      ? intelligenceTurnAnchors.get(message.id)
+      : undefined;
     if (intelligenceTurnId !== undefined) {
       elements.push(
         <IntelligenceIndicator

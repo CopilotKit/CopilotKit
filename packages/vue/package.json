@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/vue",
-  "version": "1.76.0",
+  "version": "1.77.0",
   "private": false,
   "description": "Vue 3 components and composables for CopilotKit",
   "keywords": [
@@ -81,6 +81,7 @@
     "@ag-ui/client": "1.0.1",
     "@ag-ui/core": "1.0.1",
     "@copilotkit/core": "workspace:*",
+    "@copilotkit/mcp-apps-renderer": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@copilotkit/web-components": "workspace:*",
     "@copilotkit/web-inspector": "workspace:*",
