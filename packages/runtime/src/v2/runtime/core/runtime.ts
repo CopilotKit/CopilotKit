@@ -20,7 +20,7 @@ import type {
 import type { AbstractAgent } from "@ag-ui/client";
 import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
 import type { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
-import pkg from "../../../../package.json";
+import { RUNTIME_PACKAGE_VERSION } from "./package-info";
 import type {
   BeforeRequestMiddleware,
   AfterRequestMiddleware,
@@ -64,7 +64,7 @@ export type {
   LearningContainerSelectorInput,
 } from "./learning";
 
-export const VERSION = pkg.version;
+export const VERSION = RUNTIME_PACKAGE_VERSION;
 
 interface BaseCopilotRuntimeMiddlewareOptions {
   /** If set, middleware only applies to these named agents. Applies to all agents if omitted. */
