@@ -31,7 +31,7 @@ describe("Channels activation documentation options", () => {
       .sort();
 
     expect(actual).toEqual(expected);
-    expect(actual).toHaveLength(19);
+    expect(actual).toHaveLength(20);
   });
 
   it("maps every documented channel and backend to its canonical connect guide", () => {
