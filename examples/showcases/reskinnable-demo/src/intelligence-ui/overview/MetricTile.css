@@ -1,14 +1,12 @@
 /*
- * Metric tile (bento KPI card).
+ * Metric tile (KPI card).
  *
- * A compact stat card: a small mono label with a quiet glyph, a large value, a
- * direction-colored trend pill with its caption. Color is spent deliberately:
- * the trend pill carries a semantic hue (good / bad / neutral) paired with a
- * direction arrow so the signal survives a monochrome or color-blind reading.
- * Every color resolves through a `--cpki-*` token.
- *
- * The tile is not an interactive control, so it carries no hover or focus
- * affordance; its entrance is animated by the bento grid in analytics.css.
+ * A compact stat card: a sentence-case sans label with a quiet glyph, a large
+ * tabular value, and a trend Badge with its caption. The trend Badge carries
+ * a semantic hue (good / bad / neutral) paired with a direction arrow so the
+ * signal survives a monochrome or color-blind reading. A value that is a
+ * status ("Loading…", "Unavailable") renders as quiet muted text instead of
+ * the figure style. Every color resolves through a token.
  *
  * WARN-TOKEN DECISION: the `warn` state maps to `--cpki-color-warning` (amber),
  * not `--cpki-color-danger` (red). This surface uses a three-tier signal:
@@ -24,9 +22,9 @@
   align-content: start;
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--cpki-color-border);
-  border-radius: var(--analytics-radius-card, 14px);
-  background: var(--cpki-color-surface-raised);
+  border: 1px solid var(--border, var(--cpki-color-border));
+  border-radius: var(--analytics-radius-card, 12px);
+  background: var(--card, var(--cpki-color-surface-raised));
   min-width: 0;
   padding: 1rem 1.05rem;
 }
@@ -54,26 +52,32 @@
 }
 
 .metric-tile__label {
-  color: var(--cpki-color-muted-foreground);
-  font-family: var(
-    --cpki-font-mono,
-    'Spline Sans Mono',
-    ui-monospace,
-    monospace
-  );
-  font-size: 0.6875rem;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  color: var(--muted-foreground, var(--cpki-color-muted-foreground));
+  font-family: var(--font-sans, var(--cpki-font-sans));
+  font-size: var(--text-control, 0.75rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.4;
+  text-transform: none;
 }
 
 .metric-tile__value {
   color: var(--cpki-color-foreground);
   font-size: clamp(1.5rem, 1.6vw, 1.85rem);
-  font-weight: 660;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.05;
   overflow-wrap: anywhere;
+}
+
+/* A status in the value slot reads as text, not as a figure. */
+.metric-tile__value[data-compact='true'] {
+  color: var(--muted-foreground, var(--cpki-color-muted-foreground));
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.5;
 }
 
 .metric-tile__foot {
@@ -84,47 +88,15 @@
   min-width: 0;
 }
 
-/*
- * Trend pill: a direction arrow plus the percentage change, tinted by tone.
- * Text sits on the muted tint of the same hue for a legible, quiet chip.
- */
+/* Trend change: the shared Badge with an arrow and tabular figures. */
 .metric-tile__pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.15rem;
   flex: 0 0 auto;
-  border-radius: 999px;
-  padding: 0.12rem 0.45rem 0.12rem 0.35rem;
-  font-family: var(
-    --cpki-font-mono,
-    'Spline Sans Mono',
-    ui-monospace,
-    monospace
-  );
-  font-size: 0.75rem;
-  font-weight: 640;
-  letter-spacing: -0.01em;
-  line-height: 1.3;
-}
-
-.metric-tile__pill--positive {
-  background: var(--cpki-color-success-muted);
-  color: var(--cpki-color-success-foreground);
-}
-
-.metric-tile__pill--negative {
-  background: var(--cpki-color-danger-muted);
-  color: var(--cpki-color-danger);
-}
-
-.metric-tile__pill--neutral {
-  background: var(--cpki-color-surface-muted);
-  color: var(--cpki-color-muted-foreground);
+  font-variant-numeric: tabular-nums;
 }
 
 .metric-tile__delta {
-  color: var(--cpki-color-muted-foreground);
-  font-size: 0.8125rem;
+  color: var(--muted-foreground, var(--cpki-color-muted-foreground));
+  font-size: var(--text-caption, 0.6875rem);
   line-height: 1.35;
   min-width: 0;
   overflow-wrap: anywhere;

@@ -6,6 +6,18 @@
  * filter rows, see the raw record, then download it or deliver it to a bucket,
  * warehouse or webhook. Backed by `/api/learning/v1/exports`.
  */
+import {
+  CircleCheck,
+  Cloud,
+  Download,
+  Network,
+  Plus,
+  User,
+  Users,
+  Webhook,
+  X,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import type { TrajectorySummary } from "../data/contract";
 import { downloadFile } from "../data/client";
@@ -228,14 +240,28 @@ function sampleText(rec: ExportRecordView, keep: number): string {
   return JSON.stringify(cut, null, 2);
 }
 
+/** The screen's icons, by their former Material Symbols names, as the workspace's lucide set. */
+const ICONS: Record<string, LucideIcon> = {
+  add: Plus,
+  check_circle: CircleCheck,
+  close: X,
+  cloud: Cloud,
+  download: Download,
+  groups: Users,
+  hub: Network,
+  person: User,
+  webhook: Webhook,
+};
+
 function Icon(props: { readonly name: string; readonly className?: string }) {
+  const Glyph = ICONS[props.name] ?? Cloud;
+  // 1em, so each slot's font-size keeps sizing it as before.
   return (
-    <span
+    <Glyph
       aria-hidden="true"
-      className={`material-symbols-rounded ${props.className ?? s.icon}`}
-    >
-      {props.name}
-    </span>
+      size="1em"
+      className={props.className ?? s.icon}
+    />
   );
 }
 

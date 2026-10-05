@@ -17,6 +17,7 @@
 }
 
 .card {
+  border-radius: var(--cpki-radius-panel);
   display: grid;
   gap: 16px;
   padding: 20px;
@@ -41,6 +42,7 @@
   font-size: var(--cpki-font-size-1);
 }
 .count {
+  border-radius: var(--radius-control);
   display: inline-block;
   margin-left: 4px;
   padding: 0 8px;
@@ -92,6 +94,7 @@ td.mono {
   gap: 10px;
 }
 .scope {
+  border-radius: var(--radius-control);
   display: grid;
   gap: 10px;
   align-content: start;
@@ -150,6 +153,7 @@ td.mono {
 }
 .chip,
 .addFilter {
+  border-radius: var(--radius-control);
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -185,6 +189,7 @@ td.mono {
   display: none;
 }
 .filterRow {
+  border-radius: var(--radius-control);
   display: grid;
   grid-template-columns: 3rem minmax(9rem, 1fr) 6rem minmax(12rem, 2fr) 2rem;
   gap: 8px;
@@ -197,6 +202,7 @@ td.mono {
   text-align: right;
 }
 .remove {
+  border-radius: var(--radius-control);
   display: grid;
   place-items: center;
   width: 2rem;
@@ -216,6 +222,7 @@ td.mono {
 
 .query,
 .code {
+  border-radius: var(--cpki-radius-panel);
   border: 1px solid var(--cpki-color-border);
   background: var(--cpki-color-surface-subtle, var(--cpki-color-surface-muted));
   min-width: 0;
@@ -319,6 +326,7 @@ td.mono {
   font-size: var(--cpki-font-size-1);
 }
 .stats {
+  border-radius: var(--cpki-radius-panel);
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1px;
@@ -355,6 +363,7 @@ td.mono {
   gap: 6px;
 }
 .format {
+  border-radius: var(--radius-control);
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 10px;
@@ -403,6 +412,7 @@ td.mono {
   gap: 6px;
 }
 .dest {
+  border-radius: var(--radius-control);
   display: grid;
   justify-items: center;
   gap: 6px;
@@ -466,6 +476,7 @@ td.mono {
   justify-content: center;
 }
 .done {
+  border-radius: var(--cpki-radius-panel);
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 10px;

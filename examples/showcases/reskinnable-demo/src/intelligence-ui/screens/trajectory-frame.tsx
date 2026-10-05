@@ -4,13 +4,15 @@
  * Trajectory detail inside the Intelligence shell. The content is Atai's
  * trajectory view, unchanged, embedded from /intelligence/trajectory-view/[id]
  * (an iframe keeps its stylesheet from colliding with the shell's). The frame
- * grows to the page's height so the shell surface does the scrolling.
+ * grows to the page's height so the shell surface does the scrolling, and
+ * follows the workspace theme through the view's own `data-theme` switch.
  */
 import { useEffect, useRef, useState } from "react";
 import {
   IntelligenceShell,
   INTELLIGENCE_BASE,
 } from "../shell/intelligence-shell";
+import { useWorkspaceTheme } from "../shell/workspace-theme";
 
 export function TrajectoryFrame(props: {
   readonly trajectoryId: string;
@@ -18,6 +20,13 @@ export function TrajectoryFrame(props: {
 }) {
   const [height, setHeight] = useState(900);
   const frame = useRef<HTMLIFrameElement>(null);
+  const { resolvedTheme } = useWorkspaceTheme();
+  const applyTheme = () =>
+    frame.current?.contentDocument?.documentElement.setAttribute(
+      "data-theme",
+      resolvedTheme,
+    );
+  useEffect(applyTheme);
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
@@ -54,13 +63,14 @@ export function TrajectoryFrame(props: {
   return (
     <IntelligenceShell
       section={{
-        label: "Trajectories",
+        label: "User Trajectories",
         to: `${INTELLIGENCE_BASE}/trajectories`,
       }}
       detail={props.trajectoryId}
     >
       <iframe
         ref={frame}
+        onLoad={applyTheme}
         title={`Trajectory ${props.trajectoryId}`}
         src={`${INTELLIGENCE_BASE}/trajectory-view/${encodeURIComponent(props.trajectoryId)}?${query.toString()}`}
         style={{

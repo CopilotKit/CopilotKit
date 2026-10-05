@@ -7,6 +7,7 @@
  * candidates into the /eval-platform stand-in; LangSmith and Braintrust are
  * file downloads in their dataset formats.
  */
+import { Check, Download, FileUp, Upload, X } from "lucide-react";
 import { useCallback, useState } from "react";
 import type { ReactNode } from "react";
 import type { EvalCandidate } from "../data/contract";
@@ -238,12 +239,7 @@ export function EvalsScreen() {
                       }
                       onClick={() => void review(c.id, "accepted")}
                     >
-                      <span
-                        aria-hidden="true"
-                        className="material-symbols-rounded"
-                      >
-                        check
-                      </span>
+                      <Check aria-hidden="true" size={15} />
                     </IconButton>
                     <IconButton
                       label={`Reject candidate ${c.id}`}
@@ -252,12 +248,7 @@ export function EvalsScreen() {
                       variant={c.status === "rejected" ? "danger" : "secondary"}
                       onClick={() => void review(c.id, "rejected")}
                     >
-                      <span
-                        aria-hidden="true"
-                        className="material-symbols-rounded"
-                      >
-                        close
-                      </span>
+                      <X aria-hidden="true" size={15} />
                     </IconButton>
                   </div>
                 </div>
@@ -280,29 +271,28 @@ export function EvalsScreen() {
               >
                 <span>
                   {target.logo ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- local official logo file
-                    <img
-                      className={styles.brandmark}
-                      src={target.logo}
-                      alt={target.name}
-                      style={{ height: target.h }}
-                    />
+                    <span className={styles.logoPlate}>
+                      {/* eslint-disable-next-line @next/next/no-img-element -- local official logo file */}
+                      <img
+                        className={styles.brandmark}
+                        src={target.logo}
+                        alt={target.name}
+                        style={{ height: target.h }}
+                      />
+                    </span>
                   ) : (
                     <span className={styles.generic}>
-                      <span
-                        aria-hidden="true"
-                        className="material-symbols-rounded"
-                      >
-                        upload_file
-                      </span>
+                      <FileUp aria-hidden="true" size={18} />
                       Your eval platform
                     </span>
                   )}
                   <small>{target.note}</small>
                 </span>
-                <span aria-hidden="true" className="material-symbols-rounded">
-                  {target.id === "generic" ? "upload" : "download"}
-                </span>
+                {target.id === "generic" ? (
+                  <Upload aria-hidden="true" size={16} />
+                ) : (
+                  <Download aria-hidden="true" size={16} />
+                )}
               </button>
             ))}
           </aside>
