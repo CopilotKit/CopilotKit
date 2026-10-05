@@ -153,4 +153,58 @@ describe("the month-end close", () => {
     expect(board.id).not.toBe(api.id);
     expect(recon.validate(board.id)).toMatchObject({ valid: 6, total: 10 });
   });
+  it("closes Sofia's card through the same four workflows, and reports the close status per origin", () => {
+    const s = recon.createSession(
+      { period: "2026-09", cardId: "card_3391" },
+      "api",
+    );
+    expect(recon.validate(s.id)).toMatchObject({ valid: 5, total: 9 });
+    expect(recon.closeStatus("card_3391", "api")).toMatchObject({
+      total: 9,
+      ready: 5,
+      autoMatched: { count: 5 },
+    });
+    const al = recon.createAllocation(
+      { transactionId: "txn_3391_0917" },
+      "api",
+    );
+    recon.setAllocationLines(
+      al.id,
+      {
+        lines: [
+          { departmentId: "dept_design", amount: 600 },
+          { departmentId: "dept_marketing", amount: 720 },
+        ],
+      },
+      "api",
+    );
+    recon.commitAllocation(al.id, "api");
+    recon.createReclass(
+      {
+        transactionId: "txn_3391_0909",
+        fromAccount: "6100",
+        toAccount: "6420",
+        memo: "Canva is design software.",
+      },
+      "api",
+    );
+    recon.createRepayment(
+      { transactionId: "txn_3391_0928", method: "payroll_deduction" },
+      "api",
+    );
+    recon.createAffidavit(
+      { transactionId: "txn_3391_0922", memo: "Ride from SFO after Lisbon." },
+      "api",
+    );
+    expect(recon.validate(s.id)).toMatchObject({ valid: 9, total: 9 });
+    const st = recon.closeStatus("card_3391", "api");
+    expect(st.ready).toBe(9);
+    expect(st.exceptions.every((x) => x.status === "cleared")).toBe(true);
+    // The agent's work never shows as the person's.
+    expect(
+      recon
+        .closeStatus("card_3391", "board")
+        .exceptions.every((x) => x.status === "needs_you"),
+    ).toBe(true);
+  });
 });

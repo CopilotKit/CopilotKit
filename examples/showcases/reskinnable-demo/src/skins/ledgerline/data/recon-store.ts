@@ -78,6 +78,22 @@ const TRUTH: Record<
     },
   },
   txn_8820_0927: { receiptIds: ["rcpt_costco_0926a", "rcpt_costco_0926b"] },
+  txn_3391_0905: { receiptIds: ["rcpt_ritual_0904"] },
+  txn_3391_0911: {
+    receiptIds: ["rcpt_flour_0911"],
+    adjustment: { kind: "gratuity", amount: 22 },
+  },
+  txn_3391_0914: { receiptIds: ["rcpt_amzn_0913"] },
+  txn_3391_0920: {
+    receiptIds: ["rcpt_tap_0919"],
+    adjustment: {
+      kind: "fx_conversion",
+      currency: "EUR",
+      receiptAmount: 440,
+      rate: 1.1085,
+    },
+  },
+  txn_3391_0925: { receiptIds: ["rcpt_staples_0924a", "rcpt_staples_0924b"] },
 };
 
 export interface Adjustment {
@@ -337,6 +353,68 @@ export function resolutionsFor(origin: Origin, cardId: string) {
       clone(r[t.id]!),
     ]),
   ) as Record<string, Resolution>;
+}
+
+/**
+ * A card's close at a glance, as one origin sees it: the agent's status card
+ * (`showCloseStatus`) draws this. Receipt charges are auto-matched; each
+ * exception is waiting for a person, or cleared (by this origin, or by the
+ * close itself).
+ */
+export function closeStatus(cardId: string, origin: Origin | "all") {
+  const c = card(cardId);
+  const s = state();
+  const closedAt = s.closed[`${c.id}:${c.period}`] ?? null;
+  const own =
+    origin === "all"
+      ? { ...s.resolutions.board, ...s.resolutions.api }
+      : s.resolutions[origin];
+  const txns = TRANSACTIONS.filter((t) => t.cardId === c.id);
+  const auto = txns.filter((t) => !t.exception);
+  const notes: string[] = [];
+  for (const t of auto) {
+    const truth = TRUTH[t.id];
+    const a = truth?.adjustment;
+    if (a?.kind === "gratuity") notes.push(`Tip $${a.amount.toFixed(2)}`);
+    if (a?.kind === "fx_conversion")
+      notes.push(`€${a.receiptAmount.toFixed(2)} at ${a.rate.toFixed(4)}`);
+    if (truth && truth.receiptIds.length > 1)
+      notes.push(`Split · ${truth.receiptIds.length} receipts`);
+  }
+  const exceptions = txns
+    .filter((t) => t.exception)
+    .map((t) => {
+      const r = s.cleared[t.id] ?? own[t.id] ?? null;
+      return {
+        transactionId: t.id,
+        descriptor: t.descriptor,
+        amount: t.amount,
+        kind: t.exception!.kind,
+        status: r ? ("cleared" as const) : ("needs_you" as const),
+        resolution: r ? clone(r) : null,
+      };
+    });
+  return {
+    card: {
+      id: c.id,
+      holder: c.holder,
+      last4: c.last4,
+      period: c.period,
+      periodLabel: c.periodLabel,
+    },
+    closed: !!closedAt,
+    closedAt,
+    total: txns.length,
+    totalAmount: Math.round(txns.reduce((n, t) => n + t.amount, 0) * 100) / 100,
+    autoMatched: {
+      count: auto.length,
+      amount: Math.round(auto.reduce((n, t) => n + t.amount, 0) * 100) / 100,
+      notes,
+    },
+    exceptions,
+    ready:
+      auto.length + exceptions.filter((x) => x.status === "cleared").length,
+  };
 }
 
 /** The board's view for one card: its open session if any, and what is settled. */

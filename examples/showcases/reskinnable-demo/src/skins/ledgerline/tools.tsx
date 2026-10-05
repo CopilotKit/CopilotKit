@@ -30,6 +30,8 @@ import type {
   ReviewView,
 } from "./genui/views";
 import { ReviewMatchesCard } from "./genui/review-card";
+import { CloseStatusCard } from "./genui/close-status-card";
+import type { CloseStatusView } from "./genui/views";
 
 /**
  * Ledgerline's frontend tools. Each handler calls the same REST API the pages
@@ -375,6 +377,55 @@ export function LedgerlineTools() {
     [],
   );
 
+  // Generative UI: the close at a glance, drawn when the agent starts a card close.
+  useFrontendTool(
+    {
+      name: "showCloseStatus",
+      description:
+        "Draw the month-end close status card for one card in the chat: its charges, the receipts Ledgerline auto-matched, and each exception with whether it still needs a person. Call it first, before any other step, whenever you start closing out a card's month. The card follows the close live, so never repeat its contents in text.",
+      parameters: z.object({
+        card: z
+          .string()
+          .describe("The card's id or Visa last four digits, e.g. 4417."),
+      }),
+      handler: async ({ card }) => {
+        const last4 = String(card ?? "")
+          .replace(/\D/g, "")
+          .slice(-4);
+        const { ok, body } = await call(
+          `/reconciliation/status?card=${encodeURIComponent(last4 || String(card))}`,
+        );
+        if (!ok)
+          return JSON.stringify({
+            error: body.error ?? "NOT_FOUND",
+            message: body.message ?? `There is no card ${card}.`,
+          });
+        return JSON.stringify({
+          component: "CloseStatusCard",
+          props: body,
+          shownToUser:
+            "The close status card is on screen and updates as the close moves. Do not repeat it; go on with the close.",
+        });
+      },
+      render: ({ args, result }) => {
+        const parsed = parseJson<{
+          props?: CloseStatusView;
+          error?: string;
+        }>(result);
+        if (!parsed?.props)
+          return (
+            <ToolLine
+              label="showCloseStatus"
+              detail={args?.card}
+              result={result}
+            />
+          );
+        return <LiveCloseStatus initial={parsed.props} />;
+      },
+    },
+    [],
+  );
+
   // Handing a month-end close to the person: only their Confirm validates and closes.
   useHumanInTheLoop(
     {
@@ -508,7 +559,13 @@ function ReviewTool({
         await respond?.(
           JSON.stringify(
             o.ok
-              ? { closed: true, summary: o.summary }
+              ? {
+                  closed: true,
+                  summary: o.summary,
+                  // What the person saw and confirmed, so the trajectory can redraw the card.
+                  component: "ReviewMatchesCard",
+                  props: reviewSnapshot(view, o),
+                }
               : { error: "VALIDATION_FAILED", message: o.summary },
           ),
         );
@@ -525,4 +582,59 @@ function ReviewTool({
       }}
     />
   );
+}
+
+/** The status card, following the close while the chat is open (up to five minutes). */
+function LiveCloseStatus({ initial }: { initial: CloseStatusView }) {
+  const [view, setView] = useState(initial);
+  useEffect(() => {
+    if (initial.closed) return;
+    let alive = true;
+    const started = Date.now();
+    const tick = async () => {
+      const r = await fetch(
+        `${API}/reconciliation/status?card=${encodeURIComponent(initial.card.id)}`,
+        { cache: "no-store" },
+      ).catch(() => null);
+      if (!alive || !r?.ok) return;
+      const next = (await r.json()) as CloseStatusView;
+      if (alive) setView(next);
+      if (next.closed) alive = false;
+    };
+    const timer = setInterval(() => {
+      if (!alive || Date.now() - started > 300_000) {
+        clearInterval(timer);
+        return;
+      }
+      void tick();
+    }, 2000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [initial]);
+  return <CloseStatusCard view={view} />;
+}
+
+/** The review card as recorded for the trajectory: no receipt images or line items. */
+function reviewSnapshot(view: ReviewView, outcome: ReviewOutcome) {
+  return {
+    kind: view.kind,
+    sessionId: view.sessionId,
+    card: view.card,
+    pairs: view.pairs.map((p) => ({
+      transaction: p.transaction,
+      exception: p.exception ?? null,
+      resolution: p.resolution ?? null,
+      receipts: p.receipts.map((r) => ({
+        id: r.id,
+        merchant: r.merchant,
+        date: r.date,
+        total: r.total,
+        currency: r.currency,
+      })),
+      adjustment: p.adjustment,
+    })),
+    outcome: { ok: outcome.ok, summary: outcome.summary },
+  };
 }

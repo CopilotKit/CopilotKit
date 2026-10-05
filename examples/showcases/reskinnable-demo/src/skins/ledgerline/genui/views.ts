@@ -80,3 +80,28 @@ export interface ReviewOutcome {
   valid?: number;
   total?: number;
 }
+
+/** A card's close at a glance: what `showCloseStatus` draws (recon-store `closeStatus`). */
+export interface CloseStatusView {
+  card: {
+    id: string;
+    holder: string;
+    last4: string;
+    period: string;
+    periodLabel: string;
+  };
+  closed: boolean;
+  closedAt: string | null;
+  total: number;
+  totalAmount: number;
+  autoMatched: { count: number; amount: number; notes: string[] };
+  exceptions: {
+    transactionId: string;
+    descriptor: string;
+    amount: number;
+    kind: "split" | "reclass" | "personal" | "missing_receipt";
+    status: "needs_you" | "cleared";
+    resolution: ResolutionView | null;
+  }[];
+  ready: number;
+}

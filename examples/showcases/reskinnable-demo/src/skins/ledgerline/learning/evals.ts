@@ -21,7 +21,7 @@ const CASES: Omit<EvalCase, "passRate">[] = [
     expected: "Lists each open card and the exceptions left on it",
     runs: [true, true, true, true, true],
     lastResult: "pass",
-    lastNote: "Listed 2 open cards, 8 exceptions",
+    lastNote: "Listed 3 open cards, 12 exceptions",
   },
   {
     id: "ev_03",
