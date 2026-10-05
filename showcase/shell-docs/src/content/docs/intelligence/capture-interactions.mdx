@@ -128,6 +128,8 @@ When two chats show different Threads, a click outside both gets `threadId: null
 
 Core also emits `thread.linked` when a chat shows a Thread: once at start, when a new chat opens, and when a chat switches Threads. `hasMessages: false` marks a new Thread that has no messages yet.
 
+With connected Core capture, Core emits `thread.linked` with only `threadId` when Runtime starts an agent run, once for each Thread. Runtime creates the Thread before the run starts, so Intelligence can link it.
+
 ## Record outcomes
 
 A click shows what a person did. It does not show whether the work succeeded. Record the outcome when your app knows it:
