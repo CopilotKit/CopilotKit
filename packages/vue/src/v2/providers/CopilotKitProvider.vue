@@ -743,10 +743,12 @@ const runtimeEntitlementRetryInProgress = computed(
     runtimeEntitlementRetryPending.value &&
     !hasLegacyRuntimeEntitlementFallback.value,
 );
-const runtimeEntitlementFailureSettled = computed(
+// Only a terminal failure denies features. A retryable failure (a timeout,
+// a network error, a 5xx) says nothing about what the project may use.
+const terminalRuntimeEntitlementFailure = computed(
   () =>
     hasNonReadyRuntimeEntitlement.value &&
-    !runtimeEntitlementRetryInProgress.value &&
+    !retryableRuntimeEntitlementFailure.value &&
     !hasLegacyRuntimeEntitlementFallback.value,
 );
 const licenseContextValue = computed<LicenseContextValue>(() => {
@@ -756,7 +758,7 @@ const licenseContextValue = computed<LicenseContextValue>(() => {
       : runtimeLicenseStatus.value,
     runtimeEntitlements.value,
   );
-  if (!runtimeEntitlementFailureSettled.value) {
+  if (!terminalRuntimeEntitlementFailure.value) {
     return runtimeLicenseContext;
   }
 

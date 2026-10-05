@@ -1148,20 +1148,22 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     retryableRuntimeEntitlementFailure &&
     runtimeEntitlementRetryPending &&
     !hasLegacyRuntimeEntitlementFallback;
-  const runtimeEntitlementFailureSettled =
+  // Only a terminal failure denies features. A retryable failure (a timeout,
+  // a network error, a 5xx) says nothing about what the project may use.
+  const terminalRuntimeEntitlementFailure =
     hasNonReadyRuntimeEntitlement &&
-    !runtimeEntitlementRetryInProgress &&
+    !retryableRuntimeEntitlementFailure &&
     !hasLegacyRuntimeEntitlementFallback;
   const licenseContextValue = useMemo<LicenseContextValue>(() => {
     const runtimeLicenseContext = createLicenseContextValue(
       runtimeEntitlementRetryInProgress ? undefined : runtimeLicenseStatus,
       runtimeEntitlements,
     );
-    if (!runtimeEntitlementFailureSettled) {
+    if (!terminalRuntimeEntitlementFailure) {
       return runtimeLicenseContext;
     }
 
-    // The Runtime has neither managed authority nor a usable legacy fallback.
+    // The Runtime reported a terminal failure and has no usable legacy fallback.
     // Keep its truthful status, but deny feature-only consumers.
     return {
       ...runtimeLicenseContext,
@@ -1169,7 +1171,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       getLimit: () => null,
     };
   }, [
-    runtimeEntitlementFailureSettled,
+    terminalRuntimeEntitlementFailure,
     runtimeEntitlementRetryInProgress,
     runtimeEntitlements,
     runtimeLicenseStatus,
