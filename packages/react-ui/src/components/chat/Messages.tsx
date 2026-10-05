@@ -133,9 +133,11 @@ function makeInitialMessages(
   if (!initial) return [];
 
   if (Array.isArray(initial)) {
-    return initial.map((message) => {
+    // Suffix the index so duplicate initial texts still get unique,
+    // stable ids (used as React keys by the Messages list).
+    return initial.map((message, index) => {
       return {
-        id: message,
+        id: `${message}-${index}`,
         role: "assistant",
         content: message,
       };
