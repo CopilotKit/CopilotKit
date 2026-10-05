@@ -31,3 +31,12 @@ The only changes are the data layer and the labels that came from its sample tri
   placeholder bar and popover are unchanged.
 - Sidebar, breadcrumb and Learning-space labels point at Ledgerline and the /intelligence routes;
   Export downloads the trajectory from the export endpoint.
+- Ledgerline's generative UI is drawn faithfully from the recorded props, in Ledgerline's look,
+  with a "Generative UI · <Component> · drawn by <tool>" caption: the close status card
+  (`showCloseStatus`) and the review card (`reviewMatches`, in the app and as ChatGPT's MCP app
+  widget). These renderers live in `adapter.js` (`genericGen` dispatches to them); `index.html`
+  only gains the icons they use in its Material Symbols `icon_names` list, and the placeholder
+  popover's "See recorded props" reads the props of components without a hand-made stand-in.
+- A component attaches to the agent's next message unless another component comes first or no
+  message follows (ChatGPT); then it gets its own agent row right after the tool call that drew
+  it, and the rest of that trace becomes its own group.

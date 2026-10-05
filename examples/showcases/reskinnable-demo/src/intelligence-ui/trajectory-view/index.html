@@ -5,7 +5,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=add,ads_click,arrow_forward,auto_awesome,build,check,check_circle,chevron_right,close,code,content_copy,download,error,event,expand_less,expand_more,flight,forum,gesture,home,info,key_vertical,lightbulb,menu_book,model_training,monitoring,neurology,psychology,route,screenshot_monitor,smart_toy,sync_alt,touch_app,unfold_less,unfold_more,upload,visibility,widgets&display=block">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=add,ads_click,arrow_forward,auto_awesome,build,call_split,check,check_circle,checklist,chevron_right,close,code,content_copy,download,error,event,expand_less,expand_more,flight,forum,gesture,home,info,key_vertical,lightbulb,lock,menu_book,model_training,monitoring,neurology,pending,person,psychology,receipt_long,route,screenshot_monitor,sell,smart_toy,sync_alt,touch_app,unfold_less,unfold_more,upload,visibility,widgets&display=block">
 <style>
 /* Layout: copilotkit.ai language. Lavender canvas with unfiltered radial washes; glass sidebar;
    page heading sits on the canvas; one glass frame (2px translucent-white edge, r20) holds three
@@ -1401,7 +1401,7 @@ function popHtml({ id, gen }) {
         <button type="button" class="ph-act" data-reset-src="${gen}" data-key="reset-src">Reset to generated</button>
       </div>
     </div>`}
-    ${showProps ? `<pre class="code ph-props">${json(GEN[gen].props)}</pre>` : ""}
+    ${showProps ? `<pre class="code ph-props">${json((GEN[gen] ?? DATA.genericGen(gen, (DATA.events.find((x) => x.id === id) || {}).genProps)).props)}</pre>` : ""}
     <div class="ph-foot"><span class="ph-status" aria-live="polite"></span><button class="linkbtn" type="button" data-pop-props data-key="pop-props" aria-expanded="${showProps}">${showProps ? "Hide recorded props" : "See recorded props"}</button></div>`;
 }
 // Beside the bar when there is room (pointer aimed at the bar), otherwise below the component.

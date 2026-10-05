@@ -165,7 +165,9 @@
         const rendered =
           x.status !== "error" && typeof r.component === "string"
             ? r.component
-            : null;
+            : x.status !== "error" && r.kind === "review-card"
+              ? "ReviewMatchesCard"
+              : null;
         items.push({
           at: x.at,
           e: {
@@ -188,7 +190,8 @@
             args: x.args || {},
             result: x.result ?? null,
             rendered,
-            renderedProps: r.props ?? x.args ?? {},
+            renderedProps:
+              r.props ?? (r.kind === "review-card" ? r : (x.args ?? {})),
             raw,
           },
         });
@@ -312,18 +315,48 @@
       prev = e.kind;
       events.push(e);
     }
-    // Generative UI rendered by a tool call attaches to the agent's next message.
+    // Generative UI rendered by a tool call attaches to the agent's next message,
+    // unless another component comes first (a run that draws a status card,
+    // then a review card) or no message follows (ChatGPT's replies never reach
+    // the MCP server). Then the component gets its own agent row right after
+    // the tool call that drew it, and the rest of that trace becomes its own group.
+    let split = 0;
     for (let i = 0; i < events.length; i += 1) {
       const e = events[i];
-      if (e.kind === "trace" && e.rendered) {
-        const reply = events
-          .slice(i + 1)
-          .find((x) => x.kind === "chat" && x.role === "agent");
-        if (reply && !reply.gen) {
-          reply.gen = e.rendered;
-          reply.genProps = e.renderedProps;
-        }
+      if (e.kind !== "trace" || !e.rendered) continue;
+      const r = events.findIndex(
+        (x, k) => k > i && x.kind === "chat" && x.role === "agent",
+      );
+      const between =
+        r > i &&
+        events.slice(i + 1, r).some((x) => x.kind === "trace" && x.rendered);
+      if (r > i && !events[r].gen && !between) {
+        events[r].gen = e.rendered;
+        events[r].genProps = e.renderedProps;
+        continue;
       }
+      const viaChatGpt = /ChatGPT/.test(e.traceLabel || "");
+      events.splice(i + 1, 0, {
+        id: `${e.id}:ui`,
+        kind: "chat",
+        role: "agent",
+        t: e.t,
+        text: [],
+        who: viaChatGpt
+          ? "Ledgerline agent · ChatGPT via MCP"
+          : "Ledgerline agent · in app",
+        icon: viaChatGpt ? "forum" : "smart_toy",
+        gen: e.rendered,
+        genProps: e.renderedProps,
+      });
+      split += 1;
+      for (
+        let k = i + 2;
+        k < events.length && events[k].kind === "trace" && events[k].g === e.g;
+        k += 1
+      )
+        events[k].g = `${e.g}~${split}`;
+      i += 1;
     }
     return events;
   }
@@ -441,15 +474,195 @@
     return { first };
   }
 
-  const genericGen = (name, props) => ({
-    html: () =>
-      `<div class="k-card"><div class="k-head"><b>&lt;${esc(name)}&gt;</b></div><div style="padding:10px 16px 14px"><dl class="kv">${Object.entries(
-        props || {},
-      )
-        .slice(0, 6)
-        .map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(short(v, 60))}</dd>`)
-        .join("")}</dl></div></div>`,
-  });
+  /*
+   * Ledgerline's generative UI, drawn from the props the tool call recorded:
+   * the close status card (showCloseStatus) and the review card (reviewMatches,
+   * in the app and as ChatGPT's MCP app widget). Same data and layout as the
+   * app's components, in Ledgerline's own look.
+   */
+  const DEPT = {
+    dept_eng: "Engineering",
+    dept_design: "Design",
+    dept_product: "Product",
+    dept_sales: "Sales",
+    dept_cs: "Customer Success",
+    dept_marketing: "Marketing",
+    dept_finance: "Finance",
+  };
+  const GL = {
+    6100: "Meals & entertainment",
+    6200: "Travel",
+    6250: "Lodging",
+    6300: "Rideshare & parking",
+    6420: "Software subscriptions",
+    6500: "Office supplies",
+    6610: "Events & offsites",
+    6700: "Coworking",
+  };
+  const KIND = {
+    split: ["call_split", "Split across departments"],
+    reclass: ["sell", "Coded to the wrong account"],
+    personal: ["person", "Personal charge"],
+    missing_receipt: ["receipt_long", "No receipt on file"],
+  };
+  const usd = (n) =>
+    `$${Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const icon = (n) => `<span class="ms" aria-hidden="true">${n}</span>`;
+  if (!document.getElementById("ll-gen-style")) {
+    const st = document.createElement("style");
+    st.id = "ll-gen-style";
+    st.textContent = `
+.ll-gen { --k-brand: #3157e6; --k-sel: #edf1fe; --k-sel-line: #c6d2fb; --k-ink: #0d1324; --k-muted: #5f6880; --k-line: #e4e7ee; --k-soft: #f7f8fb; font-size: 13px; }
+.ll-gen .ll-cap { display: flex; align-items: center; gap: 6px; padding: 7px 14px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.04em; color: var(--k-brand); background: var(--k-sel); border-bottom: 1px solid var(--k-sel-line); }
+.ll-gen .ll-cap .ms { font-size: 14px; }
+.ll-gen .ll-head { display: flex; justify-content: space-between; gap: 10px; padding: 12px 14px 8px; }
+.ll-gen .ll-title { font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.ll-gen .ll-title .ms { font-size: 17px; color: var(--k-brand); }
+.ll-gen .ll-sub { font-size: 12px; color: var(--k-muted); margin-top: 2px; }
+.ll-gen .ll-amt { font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ll-gen .ll-prog { padding: 0 14px 10px; font-size: 11.5px; color: var(--k-muted); }
+.ll-gen .ll-prog .row { display: flex; justify-content: space-between; }
+.ll-gen .ll-bar { height: 6px; border-radius: 99px; background: #eceef3; margin-top: 5px; overflow: hidden; }
+.ll-gen .ll-bar i { display: block; height: 100%; border-radius: 99px; background: var(--k-brand); }
+.ll-gen .ll-bar i.full { background: #16a06a; }
+.ll-gen .ll-row { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: center; padding: 8px 14px; border-top: 1px solid var(--k-line); }
+.ll-gen .ll-ic { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; }
+.ll-gen .ll-ic .ms { font-size: 16px; }
+.ll-gen .ll-ic.auto { background: var(--k-sel); color: var(--k-brand); }
+.ll-gen .ll-ic.need { background: #fdf3e2; color: #b26a00; }
+.ll-gen .ll-ic.done { background: #e5f6ee; color: #16a06a; }
+.ll-gen .ll-line { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.ll-gen .ll-desc { font-family: var(--mono); font-size: 11.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ll-gen .ll-num { font-size: 12.5px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.ll-gen .ll-what { font-size: 12px; color: var(--k-muted); }
+.ll-gen .ll-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.ll-gen .ll-chip { font-size: 10.5px; font-weight: 600; border-radius: 4px; padding: 1px 5px; background: var(--k-sel); color: var(--k-brand); }
+.ll-gen .ll-chip.ok { background: #e5f6ee; color: #16a06a; }
+.ll-gen .ll-chip.need { background: #fdf3e2; color: #b26a00; }
+.ll-gen .ll-foot { padding: 9px 14px; border-top: 1px solid var(--k-line); background: var(--k-soft); font-size: 12px; color: var(--k-muted); display: flex; gap: 6px; align-items: center; }
+.ll-gen .ll-foot.ok { background: #e5f6ee; color: #16a06a; }
+.ll-gen .ll-foot .ms { font-size: 16px; }
+.ll-gen .ll-btn { margin-left: auto; font-weight: 600; font-size: 12px; padding: 5px 10px; border-radius: 7px; background: var(--k-brand); color: #fff; display: inline-flex; gap: 4px; align-items: center; }
+`;
+    document.head.append(st);
+  }
+  const cap = (name, via) =>
+    `<div class="ll-cap">${icon("widgets")}Generative UI · &lt;${esc(name)}&gt; · drawn by ${esc(via)}</div>`;
+  const resolutionText = (r) => {
+    if (!r) return ["Not cleared", []];
+    if (r.kind === "split")
+      return [
+        `Split ${r.lines.length} ways by attendees`,
+        r.lines.map(
+          (l) => `${DEPT[l.departmentId] || l.departmentId} ${usd(l.amount)}`,
+        ),
+      ];
+    if (r.kind === "reclass")
+      return [
+        "Reclass entry",
+        [`${r.fromAccount} to ${r.toAccount} ${GL[r.toAccount] || ""}`.trim()],
+      ];
+    if (r.kind === "personal")
+      return [
+        "Personal, repaid",
+        [
+          r.method === "payroll_deduction"
+            ? "Payroll deduction"
+            : "Card payment",
+        ],
+      ];
+    if (r.kind === "missing_receipt")
+      return ["Missing-receipt affidavit", [`Signed by ${r.attestedBy}`]];
+    return ["Cleared", []];
+  };
+  const LEDGERLINE_GEN = {
+    CloseStatusCard: (p) => {
+      const ex = p.exceptions || [];
+      const cleared = ex.filter((x) => x.status === "cleared").length;
+      const pct = p.closed
+        ? 100
+        : Math.round(((p.ready || 0) / Math.max(1, p.total || 0)) * 100);
+      return `<div class="k-card ll-gen">${cap("CloseStatusCard", "showCloseStatus")}
+        <div class="ll-head"><div><div class="ll-title">${icon(p.closed ? "lock" : "pending")}${esc(p.card.periodLabel)} close</div>
+        <div class="ll-sub">${esc(p.card.holder)} · Visa •• ${esc(p.card.last4)} · ${p.total} charges</div></div>
+        <div class="ll-amt">${usd(p.totalAmount)}</div></div>
+        <div class="ll-prog"><div class="row"><span>${p.closed ? "Closed" : `${p.ready} of ${p.total} ready to close`}</span><span>${cleared} of ${ex.length} exceptions cleared</span></div>
+        <div class="ll-bar"><i class="${pct === 100 ? "full" : ""}" style="width:${pct}%"></i></div></div>
+        <div class="ll-row"><span class="ll-ic auto">${icon("auto_awesome")}</span><div>
+          <div class="ll-line"><span class="ll-what" style="color:var(--k-ink);font-weight:500">${p.autoMatched.count} receipts auto-matched</span><span class="ll-num">${usd(p.autoMatched.amount)}</span></div>
+          <div class="ll-chips">${(p.autoMatched.notes || []).map((n) => `<span class="ll-chip">${esc(n)}</span>`).join("")}</div></div></div>
+        ${ex
+          .map((x) => {
+            const [ic, label] = KIND[x.kind] || ["info", x.kind];
+            const done = x.status === "cleared";
+            return `<div class="ll-row"><span class="ll-ic ${done ? "done" : "need"}">${icon(ic)}</span><div>
+              <div class="ll-line"><span class="ll-desc">${esc(x.descriptor)}</span><span class="ll-num">${usd(x.amount)}</span></div>
+              <div class="ll-line"><span class="ll-what">${esc(label)}</span><span class="ll-chip ${done ? "ok" : "need"}">${done ? "Cleared" : "Needs you"}</span></div></div></div>`;
+          })
+          .join("")}
+      </div>`;
+    },
+    ReviewMatchesCard: (p) => {
+      const pairs = p.pairs || [];
+      const ex = pairs.filter((x) => x.exception);
+      const auto = pairs.filter((x) => !x.exception);
+      const total = pairs.reduce((n, x) => n + x.transaction.amount, 0);
+      const autoTotal = auto.reduce((n, x) => n + x.transaction.amount, 0);
+      const notes = [];
+      for (const x of auto) {
+        const a = x.adjustment;
+        if (x.receipts && x.receipts.length > 1)
+          notes.push(`Split · ${x.receipts.length} receipts`);
+        if (a && a.kind === "gratuity") notes.push(`Tip ${usd(a.amount)}`);
+        if (a && a.kind === "fx_conversion")
+          notes.push(
+            `€${Number(a.receiptAmount).toFixed(2)} at ${Number(a.rate).toFixed(4)}`,
+          );
+      }
+      const o = p.outcome;
+      return `<div class="k-card ll-gen">${cap("ReviewMatchesCard", "reviewMatches")}
+        <div class="ll-head"><div><div class="ll-title">${icon("checklist")}Review the ${esc(p.card.periodLabel)} close</div>
+        <div class="ll-sub">${esc(p.card.holder)} · Visa •• ${esc(p.card.last4)} · ${pairs.length} charges</div></div>
+        <div class="ll-amt">${usd(total)}</div></div>
+        ${ex
+          .map((x) => {
+            const [ic] = KIND[x.exception] || ["info"];
+            const [title, chips] = resolutionText(x.resolution);
+            return `<div class="ll-row"><span class="ll-ic ${x.resolution ? "done" : "need"}">${icon(ic)}</span><div>
+              <div class="ll-line"><span class="ll-desc">${esc(x.transaction.descriptor)}</span><span class="ll-num">${usd(x.transaction.amount)}</span></div>
+              <div class="ll-chips"><span class="ll-what">${esc(title)}</span>${chips.map((c) => `<span class="ll-chip ok">${esc(c)}</span>`).join("")}</div></div></div>`;
+          })
+          .join("")}
+        <div class="ll-row"><span class="ll-ic auto">${icon("auto_awesome")}</span><div>
+          <div class="ll-line"><span class="ll-what" style="color:var(--k-ink);font-weight:500">${auto.length} receipts auto-matched</span><span class="ll-num">${usd(autoTotal)}</span></div>
+          <div class="ll-chips">${[...new Set(notes)]
+            .slice(0, 3)
+            .map((n) => `<span class="ll-chip">${esc(n)}</span>`)
+            .join("")}</div></div></div>
+        ${
+          o && o.ok
+            ? `<div class="ll-foot ok">${icon("check_circle")}${esc(o.summary)}</div>`
+            : `<div class="ll-foot">${icon("lock")}Nothing closes until the cardholder confirms.<span class="ll-btn">${icon("lock")}Confirm and close ${esc(p.card.periodLabel)}</span></div>`
+        }
+      </div>`;
+    },
+  };
+
+  const genericGen = (name, props) =>
+    LEDGERLINE_GEN[name] && props && props.card
+      ? { props, html: () => LEDGERLINE_GEN[name](props) }
+      : {
+          props,
+          html: () =>
+            `<div class="k-card"><div class="k-head"><b>&lt;${esc(name)}&gt;</b></div><div style="padding:10px 16px 14px"><dl class="kv">${Object.entries(
+              props || {},
+            )
+              .slice(0, 6)
+              .map(
+                ([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(short(v, 60))}</dd>`,
+              )
+              .join("")}</dl></div></div>`,
+        };
   const genericSrc = (name) =>
     `export function ${name}(props) {\n  return <pre>{JSON.stringify(props, null, 2)}</pre>;\n}\n`;
 
