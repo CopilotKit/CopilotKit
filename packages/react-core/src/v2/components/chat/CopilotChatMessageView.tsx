@@ -405,6 +405,61 @@ export function deduplicateMessages(messages: Message[]): Message[] {
   return [...acc.values()];
 }
 
+/** What the view passes the wrapper of a message group. */
+export interface MessageGroupWrapperProps<S = unknown> {
+  /** The group's key, as returned by `groupMessages`. */
+  groupKey: string;
+  /** The messages in the group, in order. */
+  messages: Message[];
+  /** The default rendering of the group's messages. */
+  children: React.ReactNode;
+  /**
+   * State the view keeps for this group, keyed by `groupKey`. It survives the
+   * row leaving the window and the wrapper remounting, is dropped once the key
+   * no longer appears, and is cleared when the thread changes. `undefined`
+   * until first set.
+   */
+  state: S | undefined;
+  setState: (next: S) => void;
+}
+
+/** Several messages rendered as one row, inside an app-provided wrapper. */
+export interface MessageGroup<S = unknown> {
+  type: "group";
+  /**
+   * Identifies the group across renders: its React key and the key its state
+   * is held under. Keep it stable while the thread streams, e.g. the id of the
+   * group's first message.
+   */
+  key: string;
+  messages: Message[];
+  /**
+   * Define it once at module level. A component created inside
+   * `groupMessages` is a new type on every call and remounts each time.
+   */
+  wrapper: React.ComponentType<MessageGroupWrapperProps<S>>;
+}
+
+/** One row of the message list: a single message, or a group of them. */
+export type MessageRow = { type: "message"; message: Message } | MessageGroup;
+
+/** A row holding a single message, rendered as it would be ungrouped. */
+export function messageRow(message: Message): MessageRow {
+  return { type: "message", message };
+}
+
+/** A row holding a group of messages, rendered inside `wrapper`. */
+export function messageGroup<S>(
+  group: Omit<MessageGroup<S>, "type">,
+): MessageRow {
+  // A group's state type is between it and its own wrapper; the row list only
+  // hands back what that wrapper set. Erased once here so groups with
+  // different state types can share one array.
+  return { type: "group", ...group } as unknown as MessageGroup;
+}
+
+const GROUP_ROW_KEY_PREFIX = "copilotkit-group:";
+
 export type CopilotChatMessageViewProps = Omit<
   WithSlots<
     {
@@ -430,6 +485,19 @@ export type CopilotChatMessageViewProps = Omit<
        * (e.g. `useCallback`) or it reruns on every render.
        */
       transformMessages?: (messages: Message[]) => Message[];
+      /**
+       * Splits the message list into rows. Return `messageRow(message)` for a
+       * message that renders on its own, and `messageGroup({ key, messages,
+       * wrapper })` for messages that render together inside `wrapper` — a
+       * collapsible block of tool calls, say. Receives the list after
+       * `transformMessages`. Each row is one virtualized row.
+       *
+       * Return each message in at most one row. Tool-call cards still find
+       * their results in the full list.
+       *
+       * Memoized on its input and this function — pass a stable function.
+       */
+      groupMessages?: (messages: Message[]) => MessageRow[];
     } & React.HTMLAttributes<HTMLDivElement>
   >,
   "children"
@@ -456,6 +524,7 @@ export function CopilotChatMessageView({
   intelligenceIndicator,
   isRunning = false,
   transformMessages,
+  groupMessages,
   children,
   className,
   ...props
@@ -521,12 +590,34 @@ export function CopilotChatMessageView({
   // rendering — works off this list. Tool-result lookups keep using the full
   // `messages`, so a transform that hides tool results cannot break the cards
   // that display them.
-  const renderedMessages = useMemo(
+  const transformedMessages = useMemo(
     () =>
       transformMessages
         ? transformMessages(deduplicatedMessages)
         : deduplicatedMessages,
     [deduplicatedMessages, transformMessages],
+  );
+
+  // One entry per virtualized row. Without grouping, every message is its own.
+  const rows = useMemo<MessageRow[]>(
+    () =>
+      groupMessages
+        ? groupMessages(transformedMessages)
+        : transformedMessages.map(messageRow),
+    [transformedMessages, groupMessages],
+  );
+
+  // Every message that renders, in the order it renders, whether on its own
+  // row or inside a group. The message-level machinery below (row keys, the
+  // latest message, Intelligence anchors) reads this, not `rows`.
+  const renderedMessages = useMemo(
+    () =>
+      groupMessages
+        ? rows.flatMap((row) =>
+            row.type === "group" ? row.messages : [row.message],
+          )
+        : transformedMessages,
+    [rows, groupMessages, transformedMessages],
   );
 
   // "Latest" means the last row on screen, not the last entry of `messages`:
@@ -538,20 +629,64 @@ export function CopilotChatMessageView({
   // id would share a React key. Deduplication already ran on the input, so a
   // repeat here can only come from the transform.
   const transformDuplicateId = useMemo(() => {
-    if (process.env.NODE_ENV === "production" || !transformMessages) return;
+    if (
+      process.env.NODE_ENV === "production" ||
+      (!transformMessages && !groupMessages)
+    ) {
+      return;
+    }
     const seen = new Set<string>();
     for (const message of renderedMessages) {
       if (seen.has(message.id)) return message.id;
       seen.add(message.id);
     }
-  }, [renderedMessages, transformMessages]);
+  }, [renderedMessages, transformMessages, groupMessages]);
   useEffect(() => {
     if (transformDuplicateId === undefined) return;
     console.warn(
-      `[CopilotKit] CopilotChatMessageView: \`transformMessages\` returned more than one message with id "${transformDuplicateId}". ` +
-        "Return each id at most once; a message you create needs its own id, stable across renders.",
+      groupMessages
+        ? `[CopilotKit] CopilotChatMessageView: the message with id "${transformDuplicateId}" renders more than once. ` +
+            "`groupMessages` should place each message in at most one row, and `transformMessages` return each id at most once."
+        : `[CopilotKit] CopilotChatMessageView: \`transformMessages\` returned more than one message with id "${transformDuplicateId}". ` +
+            "Return each id at most once; a message you create needs its own id, stable across renders.",
     );
-  }, [transformDuplicateId]);
+  }, [transformDuplicateId, groupMessages]);
+
+  // Group keys are React keys and state keys, so two groups sharing one would
+  // share both.
+  const duplicateGroupKey = useMemo(() => {
+    if (process.env.NODE_ENV === "production" || !groupMessages) return;
+    const seen = new Set<string>();
+    for (const row of rows) {
+      if (row.type !== "group") continue;
+      if (seen.has(row.key)) return row.key;
+      seen.add(row.key);
+    }
+  }, [rows, groupMessages]);
+  useEffect(() => {
+    if (duplicateGroupKey === undefined) return;
+    console.warn(
+      `[CopilotKit] CopilotChatMessageView: \`groupMessages\` returned more than one group with key "${duplicateGroupKey}". ` +
+        "Give each group its own key, stable across renders.",
+    );
+  }, [duplicateGroupKey]);
+
+  // State each group's wrapper keeps here rather than in itself, so it
+  // survives the row being windowed out and the wrapper remounting. Cleared
+  // when the thread changes; pruned to the groups still on the list.
+  const groupStateRef = useRef<Map<string, unknown>>(new Map());
+  const groupStateThreadRef = useRef(config?.threadId);
+  if (groupStateThreadRef.current !== config?.threadId) {
+    groupStateThreadRef.current = config?.threadId;
+    groupStateRef.current = new Map();
+  }
+  useLayoutEffect(() => {
+    const live = new Set<string>();
+    for (const row of rows) if (row.type === "group") live.add(row.key);
+    for (const key of groupStateRef.current.keys()) {
+      if (!live.has(key)) groupStateRef.current.delete(key);
+    }
+  }, [rows]);
 
   // Stable per-row React keys. Backends can re-key a message mid-stream, and
   // keying rows by the canonical id remounts the row on that swap (the HITL
@@ -777,7 +912,7 @@ export function CopilotChatMessageView({
 
   const virtualizer = useVirtualizer({
     // count=0 disables the virtualizer without changing hook call order.
-    count: shouldVirtualize ? renderedMessages.length : 0,
+    count: shouldVirtualize ? rows.length : 0,
     getScrollElement: () => scrollElement,
     estimateSize: estimateRowSize,
     overscan: 5,
@@ -810,8 +945,8 @@ export function CopilotChatMessageView({
   // renderedMessages.length here would forcibly yank the user to the bottom
   // on every streaming chunk even if they've scrolled up to read history.
   useLayoutEffect(() => {
-    if (!shouldVirtualize || !renderedMessages.length) return;
-    virtualizer.scrollToIndex(renderedMessages.length - 1, {
+    if (!shouldVirtualize || !rows.length) return;
+    virtualizer.scrollToIndex(rows.length - 1, {
       align: "end",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -933,11 +1068,36 @@ export function CopilotChatMessageView({
     return elements.filter(Boolean) as React.ReactElement[];
   };
 
+  const rowKey = (row: MessageRow): string =>
+    row.type === "group"
+      ? `${GROUP_ROW_KEY_PREFIX}${row.key}`
+      : (rowRenderKeys.get(row.message.id) ?? row.message.id);
+
+  const renderRow = (row: MessageRow): React.ReactElement[] => {
+    if (row.type === "message") return renderMessageBlock(row.message);
+    const Wrapper = row.wrapper;
+    const { key } = row;
+    return [
+      <Wrapper
+        key={rowKey(row)}
+        groupKey={key}
+        messages={row.messages}
+        state={groupStateRef.current.get(key)}
+        setState={(next) => {
+          groupStateRef.current.set(key, next);
+          forceUpdate();
+        }}
+      >
+        {row.messages.flatMap(renderMessageBlock)}
+      </Wrapper>,
+    ];
+  };
+
   // Build the flat element list only when we're not virtualizing (avoids
   // creating 500 React elements that we'd immediately discard).
   const messageElements: React.ReactElement[] = shouldVirtualize
     ? []
-    : renderedMessages.flatMap(renderMessageBlock);
+    : rows.flatMap(renderRow);
 
   // ---------------------------------------------------------------------------
   // children render prop (custom layout, always non-virtual)
@@ -973,10 +1133,10 @@ export function CopilotChatMessageView({
           style={{ height: virtualizer.getTotalSize(), position: "relative" }}
         >
           {virtualizer.getVirtualItems().map((virtualItem) => {
-            const message = renderedMessages[virtualItem.index]!;
+            const row = rows[virtualItem.index]!;
             return (
               <div
-                key={rowRenderKeys.get(message.id) ?? message.id}
+                key={rowKey(row)}
                 data-index={virtualItem.index}
                 ref={virtualizer.measureElement}
                 style={{
@@ -987,7 +1147,7 @@ export function CopilotChatMessageView({
                   transform: `translateY(${virtualItem.start}px)`,
                 }}
               >
-                {renderMessageBlock(message)}
+                {renderRow(row)}
               </div>
             );
           })}

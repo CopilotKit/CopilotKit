@@ -8,6 +8,11 @@ import { renderWithCopilotKit } from "../../../__tests__/utils/test-helpers";
 import { defineToolCallRenderer } from "../../../types";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
 import { ScrollElementContext } from "../scroll-element-context";
+import {
+  createScrollElement,
+  drainAnimationFrames,
+  userMessages,
+} from "../../../__tests__/utils/virtualization";
 
 /**
  * `transformMessages` reshapes the list before anything downstream sees it:
@@ -34,39 +39,6 @@ vi.mock("@tanstack/react-virtual", async (importOriginal) => {
     }) as unknown as typeof actual.useVirtualizer,
   };
 });
-
-/**
- * jsdom reports no layout, and the message view only virtualizes inside a
- * scroll container with a real height. This one claims 600px.
- */
-function createScrollElement(): HTMLDivElement {
-  const element = document.createElement("div");
-  Object.defineProperty(element, "clientHeight", {
-    get: () => 600,
-    configurable: true,
-  });
-  element.getBoundingClientRect = () =>
-    ({
-      height: 600,
-      width: 800,
-      top: 0,
-      left: 0,
-      bottom: 600,
-      right: 800,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    }) as DOMRect;
-  return element;
-}
-
-function userMessages(count: number, prefix = "m"): Message[] {
-  return Array.from({ length: count }, (_, i) => ({
-    id: `${prefix}-${i}`,
-    role: "user" as const,
-    content: `${prefix} ${i}`,
-  }));
-}
 
 function virtualizedRowCount(): number {
   if (!capture.current) {
@@ -100,14 +72,6 @@ const dropStandIns = (list: Message[]): Message[] =>
           other.toolCalls?.some((tc) => tc.id === m.id),
       ),
   );
-
-/** TanStack schedules measurement frames; let them run before teardown. */
-async function drainAnimationFrames() {
-  await act(async () => {
-    await new Promise<void>((r) => requestAnimationFrame(() => r()));
-    await new Promise<void>((r) => requestAnimationFrame(() => r()));
-  });
-}
 
 afterEach(() => {
   cleanup();
