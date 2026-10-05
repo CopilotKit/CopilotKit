@@ -34,6 +34,18 @@ The repository gates still apply to files in this folder:
 2. In the same pull request, add a line for the folder to `.github/CODEOWNERS` that names you as the maintainer.
 3. In the same pull request, add a row for the package to the Community frameworks page. The page is `showcase/shell-docs/src/content/docs/community-frameworks.mdx`. Include the `@copilotkit/core` version that the package is tested with.
 
+## Releases
+
+A community package is published through the CopilotKit release pipeline, under its own scope and its own version line. The core team adds the scope. The maintainer does not.
+
+To add the scope, the core team does these steps in one pull request:
+
+1. Add the scope to `release.config.json`, with `"sharedVersion": false` and the package as its `versionSource`.
+2. Add the scope name to the `ReleaseScope` type in `scripts/release/lib/config.ts`.
+3. Add the scope to the `scope` options in `publish-release.yml`, `stable-release.yml` and `canary.yml`. If one of these lists does not match `release.config.json`, the `verify-release-scope-dropdowns.sh` gate fails.
+
+The release scripts find packages in `community/` as well as in `packages/`. The root build does not build community packages, because nx does not see them. So the publish workflow runs `scripts/release/build-community-packages.ts`. This script installs and builds each community package in the release scope inside its own folder.
+
 ## Retiring a package
 
 Some packages fall far behind CopilotKit and have no active maintainer. We can mark such a package as behind on the Community frameworks page, or remove it from this folder. Requests to update a package tell us that people use it, so we read them before we retire a package.
