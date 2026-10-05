@@ -566,9 +566,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
   }, [hasSelfManagedAgents, resolvedPublicKey]);
 
-  // Resolve headers from function or static object
-  const headers =
-    typeof headersProp === "function" ? headersProp() : headersProp;
+  // Resolve headers from function or static object. Memoized so a function prop
+  // is only invoked when its identity changes, keeping mergedHeaders stable
+  // across unrelated re-renders.
+  const headers = useMemo(
+    () => (typeof headersProp === "function" ? headersProp() : headersProp),
+    [headersProp],
+  );
 
   // Merge a provided publicApiKey into headers (without overwriting an explicit header).
   const mergedHeaders = useMemo(() => {
