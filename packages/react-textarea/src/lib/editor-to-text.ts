@@ -56,9 +56,16 @@ function nodeChildrenToTextComponents(
 export const editorToText = (
   editor: BaseEditor & ReactEditor & HistoryEditor,
 ) => {
-  const flattened = nodeChildrenToTextComponents(editor, editor.children);
-
-  const text = flattened.map((textComponent) => textComponent.text).join("\n");
-
-  return text;
+  // Join blocks with a newline, but never join the text nodes *inside* a block
+  // with one: Slate splits a single paragraph's text into several nodes whenever
+  // an inline void (a suggestion) or a leaf mark (bold) sits in the middle, and
+  // joining those with "\n" injected a phantom line break that the sibling
+  // `getFullEditorTextWithNewlines` does not produce for the same document.
+  return editor.children
+    .map((node) =>
+      nodeChildrenToTextComponents(editor, [node])
+        .map((textComponent) => textComponent.text)
+        .join(""),
+    )
+    .join("\n");
 };
