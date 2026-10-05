@@ -30,7 +30,7 @@ Every breaking change must:
 Mark the pull request in one or both of these ways:
 
 - Add `!` after the type in the pull request title, for example `feat(react-core)!: rename oldHook to newHook`.
-- Add a `BREAKING CHANGE:` line to the pull request description. Put the migration steps on the lines after it.
+- Add a `BREAKING CHANGE:` line to the pull request description. Put the migration steps on the lines directly after it, with no blank line between. A blank line ends the note, and so does a line that looks like a trailer, such as `Note: ...`. The release tooling drops any text after that point.
 
 ```
 BREAKING CHANGE: oldHook is removed.
@@ -41,7 +41,9 @@ The pull request title becomes the merge commit subject, and the description bec
 
 ## Where breaking changes appear
 
-If a release contains a marked breaking change, its GitHub release and its `CHANGELOG.md` entry have a "Breaking Changes" section. That section lists every marked pull request and the text after its `BREAKING CHANGE:` line. An unmarked breaking change does not appear in that section.
+The release tooling first writes draft release notes. In the draft, a "Breaking Changes" section lists every marked pull request and the text after its `BREAKING CHANGE:` line. An unmarked breaking change is not in that section.
+
+An AI model then rewrites the draft into the final notes. If that step fails, the tooling uses the draft as is. The final notes go into the `CHANGELOG.md` entry in the release pull request. After that pull request merges, the GitHub release uses the same text. The model can reword, regroup, or leave out entries, so review the Breaking Changes section in the release pull request.
 
 ## Deprecations
 
