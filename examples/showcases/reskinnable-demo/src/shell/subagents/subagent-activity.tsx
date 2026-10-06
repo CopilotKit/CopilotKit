@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
-import { findLatestDelegationToolCallId } from "./subagent-anchor";
+import { findDelegationAnchorToolCallIds } from "./subagent-anchor";
 import { resolveSubagentLineDepth } from "./subagent-depth";
 import {
   useAgent,
@@ -60,6 +60,12 @@ export interface SubagentInfo {
   subagentRunId: string;
   name: string;
   parentSubagentRunId?: string;
+  /**
+   * The `task` tool call that started this subagent, from `SUBAGENT_STARTED`.
+   * On a top-level subagent it names the parent's delegation, which is how a
+   * console finds the one run it belongs to.
+   */
+  parentToolCallId?: string;
   status: "running" | "finished" | "error";
 }
 
@@ -117,35 +123,27 @@ export const useSubagentActivity = (): SubagentActivity =>
   useContext(SubagentActivityContext);
 
 /**
- * The tool-call id used to anchor one surface (console/progress panel) for the
- * most recent delegated run.
- *
- * Message order is durable across restore. Within each user-turn segment, the
- * parent's delegation is the first `task` before any nested subagent can emit
- * another one. Selecting the latest such first call keeps repeated runs near
- * the turn that started them instead of pinning every future run to the first
- * delegation in the entire thread.
- */
-
-/**
- * The parent delegation that anchors the most recent delegated run.
+ * The tool-call ids that each anchor one surface (a console, a progress panel):
+ * the first `task` call of every delegating user turn, in order.
  *
  * Message order is used deliberately: it survives restore, and the first
  * `task` after a user turn must belong to the parent before any nested
- * subagent can emit another `task`.
+ * subagent can emit another `task`. See `findDelegationAnchorToolCallIds`.
  */
-export const useLatestDelegationToolCallId = (
+export const useDelegationAnchorToolCallIds = (
   toolName = "task",
-): string | undefined => {
+): ReadonlySet<string> => {
   const { agent } = useAgent({
     updates: [UseAgentUpdate.OnMessagesChanged],
     throttleMs: 200,
   });
   return useMemo(
-    () => findLatestDelegationToolCallId(agent?.messages ?? [], toolName),
+    () =>
+      new Set(findDelegationAnchorToolCallIds(agent?.messages ?? [], toolName)),
     [agent?.messages, toolName],
   );
 };
+
 // ── event shaping ───────────────────────────────────────────────────────────
 
 const str = (v: unknown): string =>
@@ -247,11 +245,15 @@ const foldEvent = (acc: Accum, event: unknown): Accum => {
       const parent = e.parentSubagentRunId
         ? str(e.parentSubagentRunId)
         : undefined;
+      const parentToolCallId = e.parentToolCallId
+        ? str(e.parentToolCallId)
+        : undefined;
       acc.subagents.set(tag, {
         subagentRunId: tag,
         name: str(e.name) || "subagent",
         status: "running",
         ...(parent ? { parentSubagentRunId: parent } : {}),
+        ...(parentToolCallId ? { parentToolCallId } : {}),
       });
       acc.lines.set(`${tag}-started`, {
         key: `${tag}-started`,

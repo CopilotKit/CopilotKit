@@ -9,7 +9,7 @@ import {
 } from "@copilotkit/react-core/v2";
 import { ExpenseHarnessReport } from "@/skins/banking/components/expense-harness-report";
 import { HarnessConsole } from "@/skins/banking/components/harness-console";
-import { useLatestDelegationToolCallId } from "@/shell/subagents/subagent-activity";
+import { useDelegationAnchorToolCallIds } from "@/shell/subagents/subagent-activity";
 import type { HarnessSummary } from "@/skins/banking/harness/types";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
@@ -127,9 +127,9 @@ const answeredPinChanges = new Map<
 // on.
 export function BankingTools() {
   const { currentUser } = useAuthContext();
-  // The most recent run's first `task` call — the parent's delegation to the
-  // analyst and the console's stable home for that run. See below.
-  const consoleAnchorId = useLatestDelegationToolCallId();
+  // Each run's first `task` call — the parent's delegation to the analyst, and
+  // that run's console's stable home. See the console block below.
+  const consoleAnchorIds = useDelegationAnchorToolCallIds();
   const skin = useSkin();
   const skinHref = useSkinHref(skin.id);
   const router = useRouter();
@@ -882,19 +882,27 @@ export function BankingTools() {
 
   // ── The offsite-expenses CLI console ───────────────────────────────────────
   //
-  // Anchored on the most recent user turn's FIRST `task` call — the parent's
-  // delegation to `expense-analyst`. Nested analyst → researcher calls in that
-  // same turn are ignored, while a later user turn can establish a new anchor.
-  // Message order is the durable answer across restore — see
-  // `useLatestDelegationToolCallId`.
+  // One console per run, anchored on that user turn's FIRST `task` call — the
+  // parent's delegation to `expense-analyst`. Nested analyst → researcher calls
+  // in the same turn are ignored, and a later turn gets its own console beside
+  // it. Message order is the durable answer across restore — see
+  // `useDelegationAnchorToolCallIds`.
+  //
+  // Each console shows only the subagent tree its own `task` call started
+  // (`SUBAGENT_STARTED.parentToolCallId`), so a second run never replays the
+  // first run's lines.
   useRenderTool(
     {
       name: "task",
       parameters: z.object({}).passthrough(),
       render: ({ toolCallId }) =>
-        toolCallId === consoleAnchorId ? <HarnessConsole /> : <></>,
+        consoleAnchorIds.has(toolCallId) ? (
+          <HarnessConsole delegationToolCallId={toolCallId} />
+        ) : (
+          <></>
+        ),
     },
-    [consoleAnchorId],
+    [consoleAnchorIds],
   );
 
   // ── The offsite-expenses report card ───────────────────────────────────────
