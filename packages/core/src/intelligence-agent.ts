@@ -113,9 +113,12 @@ interface McpResourceReadResponse {
 }
 
 function isMcpResourceRead(input: RunAgentInput): boolean {
-  const request = (input.forwardedProps as Record<string, unknown> | undefined)
-    ?.__proxiedMCPRequest;
+  const forwardedProps = input.forwardedProps as
+    | Record<string, unknown>
+    | undefined;
+  const request = forwardedProps?.__proxiedMCPRequest;
   return (
+    forwardedProps?.__copilotkitMcpResourceReadOnly === true &&
     typeof request === "object" &&
     request !== null &&
     (request as { method?: unknown }).method === "resources/read"

@@ -100,6 +100,7 @@ export async function handleIntelligenceRun({
     input.forwardedProps as Record<string, unknown> | undefined
   )?.__proxiedMCPRequest;
   if (
+    input.forwardedProps?.__copilotkitMcpResourceReadOnly === true &&
     proxyRequest &&
     typeof proxyRequest === "object" &&
     (proxyRequest as { method?: unknown }).method === "resources/read"

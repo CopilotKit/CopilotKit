@@ -31,6 +31,13 @@ describe("proxied MCP resource read isolation", () => {
     });
     expect(clone.threadId).toBe("thread-1");
     expect(cloneRun).toHaveBeenCalledOnce();
+    expect(cloneRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        forwardedProps: expect.objectContaining({
+          __copilotkitMcpResourceReadOnly: true,
+        }),
+      }),
+    );
     expect(originalRun).not.toHaveBeenCalled();
 
     await expect(

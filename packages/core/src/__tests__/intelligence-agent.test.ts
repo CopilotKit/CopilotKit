@@ -232,6 +232,7 @@ describe("IntelligenceAgent", () => {
             ...defaultInput,
             runId: "read-1",
             forwardedProps: {
+              __copilotkitMcpResourceReadOnly: true,
               __proxiedMCPRequest: {
                 method: "resources/read",
                 params: { uri: "ui://app" },
@@ -281,6 +282,7 @@ describe("IntelligenceAgent", () => {
             ...defaultInput,
             runId: "read",
             forwardedProps: {
+              __copilotkitMcpResourceReadOnly: true,
               __proxiedMCPRequest: { method: "resources/read" },
             },
           })

@@ -743,9 +743,18 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       throw new Error("Only MCP resources/read can use the read-only path");
     }
     await this.ensureRuntimeConfiguration();
+    // Only the renderer's dedicated read path opts into the direct response.
+    // Other MCP callers still receive the normal realtime run protocol.
+    const resourceParameters = {
+      ...parameters,
+      forwardedProps: {
+        ...parameters.forwardedProps,
+        __copilotkitMcpResourceReadOnly: true,
+      },
+    };
     return this.runtimeMode === RUNTIME_MODE_INTELLIGENCE
-      ? this.clone().runAgent(parameters)
-      : this.runAgent(parameters);
+      ? this.clone().runAgent(resourceParameters)
+      : this.runAgent(resourceParameters);
   }
 
   /**

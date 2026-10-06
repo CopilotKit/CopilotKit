@@ -96,7 +96,11 @@ function fixture() {
     lockHeartbeatIntervalSeconds: 15,
     forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
   } as unknown as CopilotRuntimeLike;
-  const request = (runId: string, proxy?: { method: string }) =>
+  const request = (
+    runId: string,
+    proxy?: { method: string },
+    directResourceRead = true,
+  ) =>
     new Request("https://example.test/agent/agent/run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -107,7 +111,14 @@ function fixture() {
         tools: [],
         context: [],
         state: {},
-        forwardedProps: proxy ? { __proxiedMCPRequest: proxy } : {},
+        forwardedProps: proxy
+          ? {
+              __proxiedMCPRequest: proxy,
+              ...(directResourceRead && proxy.method === "resources/read"
+                ? { __copilotkitMcpResourceReadOnly: true }
+                : {}),
+            }
+          : {},
       }),
     });
   return {
@@ -129,6 +140,19 @@ function fixture() {
 }
 
 describe("Intelligence MCP resource reads", () => {
+  it("keeps ordinary MCP resource callers on the realtime protocol", async () => {
+    const f = fixture();
+    const response = await handleRunAgent({
+      runtime: f.runtime,
+      agentId: "agent",
+      request: f.request("ordinary", { method: "resources/read" }, false),
+    });
+    expect(response.status).toBe(200);
+    expect(f.acquire).toHaveBeenCalledOnce();
+    expect(f.runner.run).toHaveBeenCalledOnce();
+    f.finishRead.resolve({ result: { contents: [] }, newMessages: [] });
+  });
+
   it("lets an approval continue while a resource read is pending", async () => {
     const f = fixture();
     const read = handleRunAgent({
@@ -200,7 +224,7 @@ describe("Intelligence MCP resource reads", () => {
   it("checks thread ownership and reports resource errors without a lock", async () => {
     const f = fixture();
     f.platform.getOrCreateThread.mockResolvedValueOnce({
-      thread: { id: "thread-1", agentId: "other" },
+      thread: { id: "thread-1", agentId: "other", name: "Existing" },
       created: false,
     });
     expect(
