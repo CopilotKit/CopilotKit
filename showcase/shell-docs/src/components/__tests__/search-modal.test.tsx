@@ -129,3 +129,12 @@ it("closes on Escape", () => {
   fireEvent.keyDown(screen.getByRole("combobox"), { key: "Escape" });
   expect(screen.queryByRole("dialog")).toBeNull();
 });
+
+it("does not navigate when an unrelated query has no results", async () => {
+  await search("chat");
+  const input = screen.getByRole("combobox");
+  fireEvent.change(input, { target: { value: "zzzzunmatchedqueryzzzz" } });
+  await waitFor(() => expect(resultRows()).toHaveLength(0));
+  fireEvent.keyDown(input, { key: "Enter" });
+  expect(pushed).toEqual([]);
+});

@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import React from "react";
 import {
   cleanup,
   fireEvent,

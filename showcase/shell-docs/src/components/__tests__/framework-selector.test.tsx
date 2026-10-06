@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import React from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
@@ -70,4 +69,18 @@ it("closes the picker on Escape", () => {
   expect(screen.getByRole("listbox")).toBeTruthy();
   fireEvent.keyDown(document, { key: "Escape" });
   expect(screen.queryByRole("listbox")).toBeNull();
+});
+
+it("does not navigate when a coming-soon frontend is clicked", () => {
+  renderSelector();
+  fireEvent.click(screen.getByRole("button", { name: "Choose frontend" }));
+  const disabled = screen
+    .getAllByRole("option")
+    .filter((option) => option.getAttribute("aria-disabled") === "true");
+  expect(disabled.length).toBeGreaterThan(0);
+  for (const option of disabled) {
+    expect((option as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(option);
+  }
+  expect(navigation.replace).not.toHaveBeenCalled();
 });

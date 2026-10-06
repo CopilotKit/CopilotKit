@@ -12,6 +12,9 @@ on:
       - "showcase/shared/**"
       - "showcase/features/**"
       - "showcase/*.json"
+      - "examples/integrations/ms-agent-framework-dotnet/**"
+      - "examples/v1/travel/agent/uv.lock"
+      - "packages/runtime/package.json"
       - ".github/workflows/test_unit-shell-docs.yml"
   push:
     branches: [main]
@@ -24,6 +27,9 @@ on:
       - "showcase/shared/**"
       - "showcase/features/**"
       - "showcase/*.json"
+      - "examples/integrations/ms-agent-framework-dotnet/**"
+      - "examples/v1/travel/agent/uv.lock"
+      - "packages/runtime/package.json"
       - ".github/workflows/test_unit-shell-docs.yml"
 
 permissions:
@@ -83,7 +89,7 @@ jobs:
         run: npm run typecheck --ignore-scripts
 
       # ShellDocs is outside the pnpm workspace and has no Nx target.
-      # Both test commands use the same small suite; data was generated above.
+      # Both test commands use the same suite; data was generated above.
       - name: Run shell-docs smoke suite
         working-directory: showcase/shell-docs
         run: npm run test:ci
