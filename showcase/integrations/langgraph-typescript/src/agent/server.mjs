@@ -55,7 +55,7 @@ const graphSpec = {
   "tool-rendering-reasoning-chain":
     "./tool-rendering-reasoning-chain.ts:showcaseGraph",
   interrupt_agent: "./interrupt-agent.ts:graph",
-  a2ui_dynamic: "./a2ui-dynamic.ts:graph",
+  a2ui_dynamic: "./a2ui-dynamic.ts:showcaseGraph",
   a2ui_fixed: "./a2ui-fixed.ts:graph",
   a2ui_recovery: "./recovery-agent.ts:graph",
   mcp_apps: "./mcp-apps.ts:graph",
