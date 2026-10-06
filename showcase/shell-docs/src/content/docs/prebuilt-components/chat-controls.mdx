@@ -127,6 +127,12 @@ Each handler receives the assistant `message`, so you can record the feedback
 against the specific response (`message.id`). The same `messageView` slot works on
 `<CopilotPopup>` and `<CopilotSidebar>` since they wrap `<CopilotChat>`.
 
+By default the toolbar appears once per reply: when one user message produces
+several assistant messages (for example text, a tool call, then more text), only
+the last of them shows the toolbar, and the handler receives that message. To
+collect feedback on every assistant message, set `toolbarScope: "message"` in the
+same `assistantMessage` slot.
+
 When the slot is rendered through `CopilotChatMessageView`, a live assistant
 message created by a direct AG-UI `TEXT_MESSAGE_START` can also include that
 event's opaque `rawEvent` value. The join happens when the thumbs callback runs;

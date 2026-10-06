@@ -103,6 +103,12 @@ This means you can pass slot overrides such as `messageView`, `input`, `scrollVi
   replacement component.
 </PropertyReference>
 
+<PropertyReference name="introAnimation" type="boolean" default="true">
+  Eases the welcome screen in: the greeting, suggestion cards, and input rise
+  into place in sequence. Set `false` to show them immediately. The animation is
+  always off when the user prefers reduced motion.
+</PropertyReference>
+
 ## Slot System
 
 All slot props inherited from `CopilotChatView` follow the same override pattern. Each slot accepts one of three value types:

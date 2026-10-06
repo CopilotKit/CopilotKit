@@ -5,9 +5,9 @@ description: "Primary text input and control surface for chat interactions"
 
 ## Overview
 
-`CopilotChatInput` is the primary text input and control surface for chat interactions. It provides a multi-line textarea that auto-grows up to a configurable maximum number of rows (default 5), action buttons for sending messages, voice transcription, and file attachment, and an optional tools menu for declarative command surfaces.
+`CopilotChatInput` is the primary text input and control surface for chat interactions. It provides a multi-line textarea that grows with its content up to 8 lines and then scrolls, action buttons for sending messages, voice transcription, and file attachment, and an optional tools menu for declarative command surfaces.
 
-The component operates in three modes: `"input"` (default text entry), `"transcribe"` (replaces the textarea with an audio recorder), and `"processing"` (indicates background processing is underway). When text spans multiple rows, the layout stacks the textarea above the control row.
+The component operates in three modes: `"input"` (default text entry), `"transcribe"` (replaces the textarea with an audio recorder), and `"processing"` (indicates background processing is underway). By default the text and the buttons share one row until the text wraps, then the textarea moves above the control row. The `layout` prop controls this.
 
 ## Import
 
@@ -92,6 +92,16 @@ import "@copilotkit/react-core/v2/styles.css";
   tools menu button is hidden.
 </PropertyReference>
 
+<PropertyReference name="layout" type='"auto" | "stacked"' default='"auto"'>
+  How the text and the action buttons are arranged.
+
+  - `"auto"`: a single row while the text fits on one line, so the input stays short. Once the text wraps, it moves onto its own full-width row above the actions.
+  - `"stacked"`: always text on top, actions underneath.
+
+  In either layout, inputs narrower than about 320px (a small popup, for
+  example) move voice input into the "+" menu so the actions fit.
+</PropertyReference>
+
 <PropertyReference
   name="children"
   type="(props: { isMultiline: boolean }) => React.ReactElement"
@@ -106,12 +116,22 @@ import "@copilotkit/react-core/v2/styles.css";
 All slot props follow the CopilotKit slot system: each accepts a replacement React component, a `className` string that is merged into the default component's classes, or a partial props object that extends the default component.
 
 <PropertyReference name="textArea" type="SlotProp">
-  Slot for the text input area. Defaults to an auto-growing textarea that expands up to 5 rows (configurable via `maxRows`).
+  Slot for the text input area. Defaults to an auto-growing textarea that expands up to 8 lines, then scrolls.
+
+The default textarea accepts standard `<textarea>` attributes plus:
+
+- `highlightMarkdown` (`boolean`, default `true`): styles list markers and links as the user types. The text stays a plain `<textarea>`, so caret, selection, and undo are unaffected. Set `false` for plain text.
 
 **As a className:**
 
 ```tsx
 <CopilotChatInput textArea="font-mono text-sm" />
+```
+
+**As partial props:**
+
+```tsx
+<CopilotChatInput textArea={{ highlightMarkdown: false }} />
 ```
 
 </PropertyReference>
@@ -397,10 +417,21 @@ function StyledInput() {
 }
 ```
 
+### Stacked Layout Inside CopilotChat
+
+Pass input props through the `input` slot of `CopilotChat`, `CopilotPopup`, or `CopilotSidebar`:
+
+```tsx
+<CopilotChat
+  input={{ layout: "stacked", textArea: { highlightMarkdown: false } }}
+/>
+```
+
 ## Behavior
 
-- **Auto-Growing Textarea**: The default textarea automatically expands as the user types, up to a maximum of 5 rows. After reaching the maximum, the textarea becomes scrollable.
-- **Layout Stacking**: When the input text spans multiple rows, the layout switches from inline (textarea and buttons side by side) to stacked (textarea above the control row containing the action buttons).
+- **Auto-Growing Textarea**: The default textarea automatically expands as the user types, up to a maximum of 8 lines. After reaching the maximum, the textarea becomes scrollable.
+- **Layout Stacking**: With `layout="auto"`, the input switches from inline (textarea and buttons side by side) to stacked (textarea above the control row) once the text wraps or contains a line break. `layout="stacked"` always uses the stacked arrangement.
+- **Markdown Highlighting**: List markers and links are styled as the user types. Turn it off with `textArea={{ highlightMarkdown: false }}`.
 - **Mode Switching**: Setting `mode` to `"transcribe"` replaces the textarea with the `audioRecorder` slot component. The transcription control buttons (`cancelTranscribeButton`, `finishTranscribeButton`) replace the standard send button.
 - **Controlled and Uncontrolled**: The component supports both controlled mode (via `value` and `onChange`) and uncontrolled mode (internal state management).
 - **Tools Menu**: The `toolsMenu` prop enables a declarative menu with support for flat items, separators (`"-"`), and nested submenus. The menu button is only rendered when `toolsMenu` is provided.

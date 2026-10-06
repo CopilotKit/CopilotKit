@@ -10,9 +10,10 @@ description: "Vue 3 component for displaying assistant messages with Markdown, t
 The toolbar provides copy, thumbs up, thumbs down, read aloud, and regenerate buttons. Tooltip and aria labels are sourced from the nearest `CopilotChatConfigurationProvider` (see [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration)). The thumbs up, thumbs down, read aloud, and regenerate buttons are only rendered when a listener for the corresponding event is attached; the copy button is always shown when the toolbar is visible.
 
 <Callout type="info">
-  The toolbar is hidden while the latest assistant message is still streaming
-  (when `isRunning` is `true` for the last message) and when the message has no
-  text content. It also respects the `toolbarVisible` prop.
+  The toolbar is hidden while the latest reply is still streaming (when
+  `isRunning` is `true`) and when the reply has no text content. With the default
+  `toolbarScope="turn"`, only the last assistant message of a reply shows it. It
+  also respects the `toolbarVisible` prop.
 </Callout>
 
 ## Import
@@ -56,8 +57,10 @@ const message: AssistantMessage = {
 
 <PropertyReference name="messages" type="Message[]" default="[]">
   The full array of conversation messages. Passed through to the tool calls view
-  for context-aware rendering, and used to determine whether this message is the
-  latest assistant message (which controls toolbar visibility during streaming).
+  for context-aware rendering, used to determine whether this message is the
+  latest assistant message (which controls toolbar visibility during streaming),
+  and used to find the reply this message belongs to when `toolbarScope` is
+  `"turn"`.
 </PropertyReference>
 
 <PropertyReference name="isRunning" type="boolean" default="false">
@@ -68,6 +71,21 @@ const message: AssistantMessage = {
 <PropertyReference name="toolbarVisible" type="boolean" default="true">
   Controls whether the action toolbar is visible. When set to `false`, the
   toolbar is hidden entirely regardless of which event listeners are attached.
+</PropertyReference>
+
+<PropertyReference name="toolbarScope" type='"turn" | "message"' default='"turn"'>
+  Where the toolbar (copy, feedback, regenerate, ...) appears.
+
+  - `"turn"`: one toolbar per reply. When a single user message produces several assistant messages, only the last one shows the toolbar, and copy and read aloud cover the whole reply.
+  - `"message"`: every assistant message gets its own toolbar.
+
+  Turn scope needs `messages` to find the reply. Without it, every message is its own turn.
+</PropertyReference>
+
+<PropertyReference name="showCursor" type="boolean" default="false">
+  Shows a pulsing cursor at the end of the message text while it is being
+  written. `CopilotChatMessageView` sets this on the reply that is streaming;
+  set it yourself only when rendering the component standalone.
 </PropertyReference>
 
 ## Events

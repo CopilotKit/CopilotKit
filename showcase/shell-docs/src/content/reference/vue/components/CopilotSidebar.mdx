@@ -26,7 +26,7 @@ import "@copilotkit/vue/styles.css";
 
 ## Props
 
-All reactive props are declared with `defineProps`. `CopilotSidebar` extends the `CopilotChat` props (and through them the inherited `CopilotChatView` props) and adds two of its own.
+All reactive props are declared with `defineProps`. `CopilotSidebar` extends the `CopilotChat` props (and through them the inherited `CopilotChatView` props) and adds three of its own.
 
 ### Own props
 
@@ -36,6 +36,10 @@ All reactive props are declared with `defineProps`. `CopilotSidebar` extends the
 
 <PropertyReference name="width" type="number | string">
   Width of the sidebar panel. Accepts a number (pixels) or a CSS string (for example `"400px"` or `"30vw"`). When omitted, the default panel width is used.
+</PropertyReference>
+
+<PropertyReference name="threadsDrawer" type="boolean | CopilotThreadsDrawerProps" default="false">
+  Adds a threads drawer to the sidebar. The header gets a history button (top-left) that slides the drawer in from the sidebar's left edge, over the chat. Picking a thread or "New Thread" switches the chat. Off by default. Pass `true` for the default drawer, or an object of `CopilotThreadsDrawer` props (`label`, `recentLabel`, `limit`, `collapsible`, `class`, ...) to configure it. The `threads-drawer` slot replaces the drawer (see [Slots](#slots)). The sidebar creates its own chat configuration when none surrounds it, so no `CopilotChatConfigurationProvider` is required. Threads need CopilotKit Intelligence; without it the drawer shows its locked state. See [Threads and the threads drawer](/frontends/vue/guides/threads-and-drawer).
 </PropertyReference>
 
 ### Inherited CopilotChat props
@@ -72,6 +76,32 @@ All reactive props are declared with `defineProps`. `CopilotSidebar` extends the
 
 <PropertyReference name="welcomeScreen" type="boolean" default="true">
   Whether to show the welcome screen when there are no messages and no explicit thread is selected. Pass `false` to disable it. Override the `welcome-screen` slot to fully customize it.
+</PropertyReference>
+
+<PropertyReference name="introAnimation" type="boolean" default="true">
+  Eases the welcome screen in: the greeting, suggestion cards, and input rise into place in sequence. Set `false` to show them immediately. The animation is always off when the user prefers reduced motion.
+</PropertyReference>
+
+Vue has no sub-component props, so the message and input options are set here and forwarded:
+
+<PropertyReference name="inlineCursor" type="boolean">
+  While a reply streams, show the cursor at the end of its text. On by default, unless you provide a custom `cursor` or `assistant-message` slot, which keeps the cursor below the messages. Set it explicitly to override either way.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageToolbarScope" type='"turn" | "message"' default='"turn"'>
+  Where assistant toolbars appear: one per reply (`"turn"`) or one per assistant message (`"message"`). Forwarded to each assistant message as `toolbarScope`.
+</PropertyReference>
+
+<PropertyReference name="userMessageMarkdown" type="boolean" default="true">
+  Render user messages as markdown. Set `false` to show them as plain text as typed. Forwarded to each user message as `markdown`.
+</PropertyReference>
+
+<PropertyReference name="inputLayout" type='"auto" | "stacked"' default='"auto"'>
+  The input's `layout`: `"auto"` keeps the text beside the actions until it wraps; `"stacked"` always puts the actions underneath.
+</PropertyReference>
+
+<PropertyReference name="inputHighlightMarkdown" type="boolean" default="true">
+  The input's `highlightMarkdown`: style list markers and links as the user types.
 </PropertyReference>
 
 <PropertyReference name="inputValue" type="string">
@@ -111,6 +141,10 @@ Vue uses named slots in place of React's render props and sub-component props. P
 
 <PropertyReference name="header" type="{ title: string; onClose: () => void; isOpen: boolean }">
   Replaces the default sidebar header. Receives the resolved `title`, an `onClose` callback, and the current `isOpen` state. The default header displays the title and a close button.
+</PropertyReference>
+
+<PropertyReference name="threads-drawer" type="(props: CopilotModalThreadsDrawerSlotProps) => unknown">
+  Replaces the threads drawer, and turns it on without `threadsDrawer`. Slot props: `isOpen`, `open`, `close`, `toggle` for its open state, and `threadId`, `selectThread(threadId)`, `startNewThread()` for the chat's thread. List threads with `useThreads()`. The header's history button opens it like the default drawer.
 </PropertyReference>
 
 <PropertyReference name="toggle-button" type="{ isOpen: boolean; toggle: () => void; open: () => void; close: () => void }">
@@ -175,6 +209,18 @@ import { CopilotSidebar } from "@copilotkit/vue/v2";
 
 <template>
   <CopilotSidebar agent-id="my-agent" :default-open="false" :width="500" />
+</template>
+```
+
+### With a threads drawer
+
+```vue
+<script setup lang="ts">
+import { CopilotSidebar } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotSidebar agent-id="my-agent" :threads-drawer="true" />
 </template>
 ```
 
