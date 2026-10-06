@@ -46,7 +46,8 @@ export async function buildShowcaseAgent(): Promise<StrandsAgent> {
     stateContextBuilder: buildStatePrompt,
     // @endregion[agent-config-context-registration]
     toolBehaviors: {
-      // Sales pipeline lives in shared state; emit the snapshot from args.
+      // The tool keeps the sales pipeline in appState; this snapshot, built
+      // from the args, only carries it to the UI.
       manage_sales_todos: {
         skipMessagesSnapshot: true,
         stateFromArgs: salesStateFromArgs,

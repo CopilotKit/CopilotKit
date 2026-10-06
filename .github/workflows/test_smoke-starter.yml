@@ -237,6 +237,7 @@ jobs:
           - pydantic-ai
           - adk
           - agno
+          - antigravity
           - llamaindex
           - langgraph-fastapi
           - strands-python

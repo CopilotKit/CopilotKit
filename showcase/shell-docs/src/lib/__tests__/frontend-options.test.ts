@@ -476,6 +476,27 @@ test("keeps Angular backend docs in context without a frontend-backend copy tree
   );
 });
 
+test("routes Angular interaction capture to the standalone collector", () => {
+  const captureSlug = "intelligence/capture-interactions";
+  const collectorSlug = "intelligence/standalone-collector";
+
+  expect(getFrontendCanonicalSlug("angular", captureSlug)).toBe(collectorSlug);
+  expect(resolveFrontendDocPage("angular", captureSlug)).toEqual({
+    status: "not-found",
+  });
+  expect(resolveAngularDoc(null, captureSlug)).toBeNull();
+  expect(resolveAngularDoc(null, collectorSlug)).toMatchObject({
+    contentSlugPath: collectorSlug,
+    source: "shared",
+  });
+
+  const pageUrls = collectPageUrls(
+    navTreeToPageTree(getAngularDocsNavTree(null), "/angular"),
+  );
+  expect(pageUrls).toContain(`/angular/${collectorSlug}`);
+  expect(pageUrls).not.toContain(`/angular/${captureSlug}`);
+});
+
 test("canonicalizes React-only frontend topics to Angular-native task guides", () => {
   expect(getFrontendCanonicalSlug("angular", "frontend-tools")).toBe(
     "guides/frontend-tools-generative-ui",

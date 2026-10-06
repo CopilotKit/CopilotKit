@@ -3,7 +3,7 @@
 Copy each block into `src/skins/<id>/<file>` and replace `<id>` / `<Brand>` /
 domain specifics. These are written against this app's frozen `Skin` contract
 (`src/shell/skin-contract.ts`) and mirror every shipped skin
-(`src/skins/{banking,airline,logistics,keel,people,commerce,bookstore,exec,myelin}/`) — see
+(`src/skins/{banking,airline,logistics,keel,people,commerce,bookstore,exec,myelin,ledgerline}/`) — see
 [demo-beats.md](./demo-beats.md) § "Which skin to copy for what" for which one to
 open for which problem.
 

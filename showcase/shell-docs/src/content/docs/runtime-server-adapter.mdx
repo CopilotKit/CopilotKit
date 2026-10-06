@@ -6,7 +6,11 @@ frontend:
   kind: universal
 ---
 
-The CopilotKit runtime is **framework-agnostic**. At its core, it's a pure Fetch handler — a function that takes a `Request` and returns a `Response`. This means it runs natively on any platform that supports the [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API), and thin adapters are provided for Node.js-based frameworks like Express and Hono.
+The TypeScript CopilotKit runtime is **framework-agnostic**. At its core, it's a pure Fetch handler — a function that takes a `Request` and returns a `Response`. This means it runs natively on any platform that supports the [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API), and thin adapters are provided for Node.js-based frameworks like Express and Hono.
+
+<Callout type="info" title="TypeScript server adapters">
+This guide covers the TypeScript runtime, which works with or without Intelligence. For Python, Go, Ruby, or C#/.NET servers, follow the [Intelligence quickstart](/intelligence/quickstart#connect-your-runtime). Those runtimes require Intelligence and expose multi-route endpoints.
+</Callout>
 
 ## Quick Overview
 
@@ -238,6 +242,23 @@ Deno.serve({ port: 4000 }, (request) => {
 </Tabs>
 
 ## Cloudflare Workers
+
+<Callout type="warn" title="Do not construct an agent at module scope">
+  Workers do not allow random values in global scope, and an agent generates a
+  thread ID when you construct it. An agent created at the top level of the module
+  stops the Worker from starting, with `Disallowed operation called within global
+  scope`. The examples below construct everything inside `fetch`. To create the
+  runtime once at module scope, pass `agents` as a factory. The runtime calls the
+  factory on each request:
+
+  ```ts
+  const runtime = new CopilotRuntime({
+    agents: () => ({
+      default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    }),
+  });
+  ```
+</Callout>
 
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing worker"]}>
 <Tab value="Multi-route">

@@ -107,9 +107,9 @@ describe("railway-envs SSOT", () => {
     expect(ENV_IDS.staging).toBe(STAGING_ENV_ID);
   });
 
-  it("contains exactly 42 services (30 showcase/infra + 12 starter-*)", () => {
+  it("contains exactly 43 services (31 showcase/infra + 12 starter-*)", () => {
     const names = listServiceNames();
-    expect(names.length).toBe(42);
+    expect(names.length).toBe(43);
   });
 
   it("models CrewAI conversational flows as a dual-environment showcase deployment", () => {
@@ -252,12 +252,13 @@ describe("railway-envs SSOT", () => {
     );
   });
 
-  it("CI_BUILT_SERVICES contains exactly 40 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
-    // 28 showcase/infra CI-built (including conversational flows) + 12
+  it("CI_BUILT_SERVICES contains exactly 41 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
+    // 29 showcase/infra CI-built (including conversational flows and the
+    // google-antigravity) + 12
     // starter-<slug> (S2 brought them under the gate; they ARE built+pushed by
     // showcase_build.yml's `build-starters` job to
     // ghcr.io/copilotkit/starter-<slug>:latest).
-    expect(CI_BUILT_SERVICES.size).toBe(40);
+    expect(CI_BUILT_SERVICES.size).toBe(41);
     // pocketbase is now CI-built (showcase_build.yml `pocketbase` slot,
     // gated to showcase/pocketbase/** changes).
     expect(CI_BUILT_SERVICES.has("pocketbase")).toBe(true);

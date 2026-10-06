@@ -13,7 +13,8 @@
 //     "JSON Configuration File" (two spaces → only first replaced →
 //     residual space in trigger but not in double-escaped content).
 //
-//   - We implement cross-page persistence for `groupId` + `persist`.
+//   - We implement cross-page persistence and same-page synchronization
+//     for `groupId` + `persist`.
 //     Fumadocs's own tabs hold selection in local component state and
 //     expose no persistence hook, so this wrapper takes over the
 //     controlled `value`/`onValueChange`. The precedence for the initial
@@ -63,6 +64,10 @@ function storageKeyFor(groupId: string): string {
   return `shell-docs.tab.${groupId}`;
 }
 
+const TAB_CHANGE_EVENT = "shell-docs.tab.change";
+
+type TabChangeDetail = { storageKey: string | null; value: string };
+
 interface ExtendedTabsProps extends Omit<FumadocsTabsProps, "defaultValue"> {
   /**
    * Initial active tab label. MDX authors write `default="Python"`
@@ -78,7 +83,7 @@ interface ExtendedTabsProps extends Omit<FumadocsTabsProps, "defaultValue"> {
    * the reader followed.
    */
   urlDefault?: string;
-  /** Groups tabs across pages so a `persist` pick carries over. */
+  /** Synchronizes persistent tabs in the same group, including across pages. */
   groupId?: string;
   /** Persist the active tab under `groupId` in localStorage. */
   persist?: boolean;
@@ -188,6 +193,26 @@ export function Tabs({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canPersist, storageKey, items]);
 
+  React.useEffect(() => {
+    if (!canPersist) {
+      return;
+    }
+    // The native storage event does not fire in the window that wrote
+    // the value. Notify mounted siblings explicitly, even if storage is
+    // blocked. URL defaults seed the initial choice; user picks can change it.
+    const onTabChange = (event: Event) => {
+      const detail = (event as CustomEvent<TabChangeDetail>).detail;
+      if (
+        detail.storageKey === storageKey &&
+        items?.some((item) => escapeValue(item) === detail.value)
+      ) {
+        setActive(detail.value);
+      }
+    };
+    window.addEventListener(TAB_CHANGE_EVENT, onTabChange);
+    return () => window.removeEventListener(TAB_CHANGE_EVENT, onTabChange);
+  }, [canPersist, storageKey, items]);
+
   const handleValueChange = (value: string) => {
     if (items && !items.some((item) => escapeValue(item) === value)) {
       return;
@@ -195,6 +220,11 @@ export function Tabs({
     setActive(value);
     if (canPersist) {
       writeStoredValue(storageKey, value);
+      window.dispatchEvent(
+        new CustomEvent<TabChangeDetail>(TAB_CHANGE_EVENT, {
+          detail: { storageKey, value },
+        }),
+      );
     }
   };
 

@@ -192,6 +192,8 @@ enterprise override. Nothing needs configuring on your side.
 
 ## Limiting access per request
 
+The runtime configuration in this section uses the TypeScript API. Python, Go, Ruby, and C#/.NET have different policy callbacks; see [Memory policies in other runtime languages](#memory-policies-in-other-runtime-languages).
+
 Entitlement decides whether memory exists for a deployment. `memory.access`
 decides what one request may do with it. It is a single policy on the
 Intelligence runtime, and it governs **both** memory surfaces: the tools an
@@ -292,6 +294,19 @@ A Channel run carries its own grant on `runAgent`, using the same three access
 levels, rather than consulting `memory.access`. See
 [Identity and Memory](/channels/identity-and-memory) for that path, including
 how to choose the memory subject in a group conversation.
+
+### Memory policies in other runtime languages
+
+After [connecting your runtime](/intelligence/quickstart#connect-your-runtime), configure its callback from trusted application policy:
+
+| Runtime | Configuration | Callback inputs |
+| --- | --- | --- |
+| Python | `IntelligenceRuntime(memory_policy=...)` | User, then Starlette request |
+| Go | `Config.MemoryAccess` | HTTP request, then user |
+| Ruby | `Runtime.new(memory_access: ...)` | User, then Rack environment |
+| C#/.NET | `RuntimeOptions.MemoryGrant` | HTTP context, user, cancellation token |
+
+These callbacks govern the native runtime's Memory routes. They do not implement the TypeScript `consumer` callback or its automatic agent-tool registration described above. Each grant names `user` and `project`, using `none`, `read`, or `read-write`. Without a callback, the native runtimes delegate to Intelligence's Memory policy; omitting it does not disable access.
 
 ## Reading and writing memories
 

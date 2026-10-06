@@ -66,7 +66,7 @@ git clone https://github.com/<your-GitHub-username>/CopilotKit
 ### 1) Install Prerequisites
 
 - Node.js 20.x or later
-- pnpm v9.x installed globally (npm i -g pnpm@^9)
+- pnpm v10.x installed globally (npm i -g pnpm@^10)
 
 > **Windows users:** Enable **Developer Mode** (Settings > System > For developers > Developer Mode → On) to allow symlink creation. This is required for Next.js standalone builds and pnpm to work correctly.
 
@@ -193,6 +193,19 @@ fix(server): missing entity on init
 - **perf**: A code change that improves performance
 - **test**: Adding missing or correcting existing tests
 - **chore**: Changes to the build process or auxiliary tools and libraries such as documentation generation
+
+### Breaking changes
+
+If your change can break code that works today, add `!` after the type and a `BREAKING CHANGE:` line with the migration steps:
+
+```
+feat(react-core)!: rename oldHook to newHook
+
+BREAKING CHANGE: oldHook is removed.
+Call newHook instead. It takes the same arguments.
+```
+
+Put the same marks in the pull request title and description. The release notes list these changes in a "Breaking Changes" section. See [VERSIONING.md](VERSIONING.md) for the full policy.
 
 ## Code of conduct
 
