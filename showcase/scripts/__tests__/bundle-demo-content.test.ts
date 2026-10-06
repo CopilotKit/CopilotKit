@@ -135,6 +135,22 @@ describe("Content Bundler", () => {
     }
   });
 
+  it("exposes the Mastra subagents working-memory companion", () => {
+    const demo = runBundlerAndRead().demos["mastra::subagents"];
+    const tool = demo.files.find(
+      (file: any) => file.filename === "src/mastra/tools/subagents.ts",
+    );
+    const memory = demo.files.find(
+      (file: any) => file.filename === "src/mastra/tools/working-memory.ts",
+    );
+
+    expect(tool.content).toContain('from "./working-memory"');
+    expect(memory).toMatchObject({ highlighted: true, language: "typescript" });
+    expect(memory.content).toContain(
+      "export async function writeDelegationsToWorkingMemory",
+    );
+  });
+
   it("bundles the Strands TypeScript sub-agent documentation regions", () => {
     const content = runBundlerAndRead();
     const demo = content.demos["strands-typescript::subagents"];

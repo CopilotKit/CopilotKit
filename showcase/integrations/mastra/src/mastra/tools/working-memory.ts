@@ -198,6 +198,7 @@ async function readExistingWorkingMemory(
   return {};
 }
 
+// @region[working-memory]
 /**
  * Append a delegation entry to the supervisor agent's `delegations` array in
  * working memory. Determinism guarantee: this is what drives the UI's live
@@ -234,6 +235,7 @@ export async function writeDelegationsToWorkingMemory(
     logWorkingMemoryFailure(component, "updateWorkingMemory threw", err);
   }
 }
+// @endregion[working-memory]
 
 /**
  * Replace the `steps` array in the gen-ui-agent's working memory.

@@ -1,0 +1,62 @@
+### Mastra sub-agents setup
+
+Copy `src/mastra/tools/working-memory.ts` from the demo's Code tab next to
+`subagents.ts`. The latter imports `writeDelegationsToWorkingMemory` from that
+file. The three chat cards render from sub-agent tool calls; the separate
+delegation log reads `agent.state.delegations` from working memory.
+
+<DemoCode file="src/mastra/tools/working-memory.ts" region="working-memory" title="working-memory.ts - delegation state helper" />
+
+The supervisor's `Memory` enables working memory with the
+`SubagentsAgentState` schema. Its delegation tools call
+`writeDelegationsToWorkingMemory` to update the log. Keep working memory
+enabled and use a consistent `resourceId` for a user's runs. The chat cards
+come from tool calls and do not depend on the working-memory log.
+
+When Mastra and your frontend run **in the same process**, use
+`MastraAgent.getLocalAgents` in your Copilot Runtime route, as the demo does.
+When Mastra runs as a **separate server**, expose a CopilotKit route on that
+server instead of wrapping its generic remote agent client. Add this to the
+`Mastra` instance that registers `subagentsSupervisorAgent`:
+
+```ts title="src/mastra/index.ts"
+import { Mastra } from "@mastra/core/mastra";
+import { registerCopilotKit } from "@ag-ui/mastra/copilotkit";
+import { subagentsSupervisorAgent } from "./agents";
+
+export const mastra = new Mastra({
+  agents: { subagentsSupervisorAgent },
+  server: {
+    apiRoutes: [
+      registerCopilotKit({
+        path: "/copilotkit",
+        resourceId: "user-1",
+        cors: { origin: "http://localhost:3000" },
+      }),
+    ],
+  },
+});
+```
+
+In the demo page, point the existing provider at that route and use the
+registered Mastra agent key:
+
+```tsx title="src/app/demos/subagents/page.tsx"
+<CopilotKit
+  runtimeUrl="http://127.0.0.1:4111/copilotkit"
+  agent="subagentsSupervisorAgent"
+>
+  <DemoContent />
+</CopilotKit>
+```
+
+In `DemoContent` on the same page, change `useAgent({ agentId: "subagents", ... })`
+to `useAgent({ agentId: "subagentsSupervisorAgent", ... })`. The provider and
+state hook must select the same agent. The demo's local runtime maps the
+short `subagents` alias, while the separate Mastra server exposes its
+registered key directly.
+
+Set the CORS origin to your frontend's actual origin and derive a distinct
+`resourceId` for each user in a multi-user deployment. Confirm the three tool
+cards complete **and** the delegation log receives state; they are different
+outputs.

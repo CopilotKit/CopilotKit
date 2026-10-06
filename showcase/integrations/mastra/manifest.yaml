@@ -400,6 +400,7 @@ demos:
     highlight:
       - src/mastra/agents/index.ts
       - src/mastra/tools/subagents.ts
+      - src/mastra/tools/working-memory.ts
       - src/app/demos/subagents/page.tsx
       - src/app/demos/subagents/delegation-log.tsx
       - src/app/api/copilotkit/route.ts
