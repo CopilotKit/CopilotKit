@@ -64,6 +64,7 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
     'href: "/intelligence/managed-intelligence-platform"',
   );
   expect(snippet).toContain('href: "/intelligence/self-hosting"');
+  expect(snippet).toContain("](/intelligence/self-hosting-local)");
   expect(snippet).not.toContain(
     "https://www.copilotkit.ai/copilotkit-intelligence",
   );
@@ -109,6 +110,30 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
       ),
     ),
   ).toBe(true);
+  expect(
+    existsSync(
+      resolve(here, "../../content/docs/intelligence/self-hosting-local.mdx"),
+    ),
+  ).toBe(true);
+});
+
+test("the landing links each interaction capture page once", () => {
+  const snippet = read("content/snippets/shared/intelligence/overview.mdx");
+  const pages = [
+    "capture-interactions",
+    "standalone-collector",
+    "captured-data",
+  ];
+
+  for (const page of pages) {
+    expect(snippet.split(`](/intelligence/${page})`)).toHaveLength(2);
+    expect(
+      existsSync(resolve(here, `../../content/docs/intelligence/${page}.mdx`)),
+    ).toBe(true);
+  }
+  expect(read("content/docs/learning.mdx")).toContain(
+    "](/intelligence/capture-interactions)",
+  );
 });
 
 test("the Automatic Learning guide stays focused on the reviewed workflow", () => {

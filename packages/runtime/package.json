@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/runtime",
-  "version": "1.76.0",
+  "version": "1.77.0",
   "private": false,
   "keywords": [
     "ai",
@@ -76,16 +76,16 @@
     "generate-graphql-schema": "node -e \"const fs=require('fs');fs.rmSync('__snapshots__',{recursive:true,force:true})\" && ts-node --transpile-only ./scripts/generate-gql-schema.ts",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global",
-    "check-dts": "tsx ../../scripts/validate-dts-ambient.ts dist && tsx ../../scripts/validate-dts-imports.ts dist && tsx ../../scripts/validate-optional-peer-entries.ts . && tsc --noEmit -p type-fixtures/express4/tsconfig.json && tsc --noEmit -p type-fixtures/express5/tsconfig.json",
+    "check-dts": "tsx ../../scripts/validate-dts-ambient.ts dist && tsx ../../scripts/validate-dts-imports.ts dist && tsx ../../scripts/validate-optional-peer-entries.ts . && tsx ../../scripts/validate-module-scope-create-require.ts . && tsc --noEmit -p type-fixtures/express4/tsconfig.json && tsc --noEmit -p type-fixtures/express5/tsconfig.json",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
     "@ag-ui/a2ui-middleware": "0.0.10",
-    "@ag-ui/client": "1.0.1",
-    "@ag-ui/core": "1.0.1",
-    "@ag-ui/encoder": "1.0.1",
-    "@ag-ui/langgraph": "0.0.43",
+    "@ag-ui/client": "1.0.2",
+    "@ag-ui/core": "1.0.2",
+    "@ag-ui/encoder": "1.0.2",
+    "@ag-ui/langgraph": "0.0.44",
     "@ag-ui/mcp-apps-middleware": "^0.1.1",
     "@ag-ui/mcp-middleware": "0.0.2",
     "@ai-sdk/anthropic": "^3.0.49",
