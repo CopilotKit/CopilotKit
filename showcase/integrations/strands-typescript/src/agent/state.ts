@@ -282,6 +282,36 @@ function flattenResult(resultData: unknown): string {
   return JSON.stringify(resultData);
 }
 
+/** Republish authoritative reads so a reconnect can rebuild an empty board. */
+export function salesStateFromResult(
+  ctx: Pick<ToolResultContext, "resultData">,
+): StatePayload {
+  const result = ctx.resultData;
+  // Parsed native records may carry arbitrary metadata, including "text".
+  // Only transport text blocks should pass through flattenResult.
+  const nativeList =
+    Array.isArray(result) &&
+    result.every(
+      (todo) =>
+        todo &&
+        typeof todo === "object" &&
+        !Array.isArray(todo) &&
+        ("title" in todo || !("text" in todo)),
+    );
+  const todos: unknown = nativeList
+    ? result
+    : JSON.parse(flattenResult(result));
+  if (
+    !Array.isArray(todos) ||
+    todos.some(
+      (todo) => !todo || typeof todo !== "object" || Array.isArray(todo),
+    )
+  ) {
+    throw new Error("get_sales_todos returned an invalid todo list");
+  }
+  return { todos };
+}
+
 /**
  * Factory for a `stateFromResult` hook bound to a sub-agent name. On each
  * delegation it appends a Delegation entry to the per-thread scratchpad and

@@ -942,6 +942,23 @@ def _flatten_tool_result(result_data) -> str:
     return str(result_data)
 
 
+async def sales_state_from_result(context):
+    """Republish authoritative reads when a reconnect has no local board."""
+    result = getattr(context, "result_data", None)
+    # The adapter parses the SDK's JSON text into a native list. Preserve that
+    # list directly: _flatten_tool_result's str(list) is not valid JSON.
+    if isinstance(result, list) and all(
+        isinstance(todo, dict) and ("title" in todo or "text" not in todo)
+        for todo in result
+    ):
+        todos = result
+    else:
+        todos = json.loads(_flatten_tool_result(result))
+    if not isinstance(todos, list) or not all(isinstance(todo, dict) for todo in todos):
+        raise ValueError("get_sales_todos returned an invalid todo list")
+    return {"todos": todos}
+
+
 # ---- State management ---------------------------------------------------
 
 
@@ -1498,6 +1515,9 @@ def build_showcase_agent(
             "manage_sales_todos": ToolBehavior(
                 skip_messages_snapshot=True,
                 state_from_args=sales_state_from_args,
+            ),
+            "get_sales_todos": ToolBehavior(
+                state_from_result=sales_state_from_result,
             ),
             # Shared State (Read + Write) — the agent writes notes to
             # `state["notes"]` via the `set_notes` tool. Emit a snapshot

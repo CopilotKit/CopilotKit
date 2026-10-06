@@ -11,6 +11,7 @@ import type {
 import type { RunAgentInput } from "@ag-ui/core";
 import { BoardStateStrandsAgent } from "./todo-state-sync";
 import { getSalesTodos } from "./tools";
+import { salesStateFromResult } from "./state";
 
 /** Every user turn reads native state through the real SDK tool context. */
 class ReadTodosModel extends Model<BaseModelConfig> {
@@ -77,11 +78,16 @@ async function read(
   state: unknown,
 ) {
   let result: unknown;
+  let snapshot: unknown;
   for await (const event of adapter.run(input(threadId, state))) {
     expect(event.type).not.toBe("RUN_ERROR");
+    expect(event.type).not.toBe("CUSTOM");
+    if (event.type === "STATE_SNAPSHOT" && "snapshot" in event)
+      snapshot = event.snapshot;
     if (event.type === "TOOL_CALL_RESULT" && "content" in event)
       result = JSON.parse(String(event.content));
   }
+  expect(snapshot).toEqual({ todos: result });
   return result;
 }
 
@@ -103,8 +109,14 @@ describe("frontend todo edits in native state", () => {
           printer: false,
         }),
         name: "test",
-        config: { sessionManagerProvider: () => manager },
+        config: {
+          sessionManagerProvider: () => manager,
+          toolBehaviors: {
+            get_sales_todos: { stateFromResult: salesStateFromResult },
+          },
+        },
       });
+      expect(await read(adapter, "saved", {})).toEqual(original);
       expect(await read(adapter, "saved", { todos: edited })).toEqual(edited);
       expect(await read(adapter, "saved", {})).toEqual(edited);
       expect(await read(adapter, "saved", { todos: [] })).toEqual([]);
@@ -127,6 +139,11 @@ describe("frontend todo edits in native state", () => {
         printer: false,
       }),
       name: "test",
+      config: {
+        toolBehaviors: {
+          get_sales_todos: { stateFromResult: salesStateFromResult },
+        },
+      },
     });
     const [first, second] = await Promise.all([
       read(adapter, "first", { todos: edited }),
@@ -136,4 +153,18 @@ describe("frontend todo edits in native state", () => {
     expect(second).toEqual(original);
     expect(await read(adapter, "third", {})).toEqual([]);
   });
+});
+
+it("rejects missing and invalid read results rather than clearing the board", () => {
+  for (const resultData of [undefined, "null", "{}", '["not a todo"]']) {
+    expect(() => salesStateFromResult({ resultData })).toThrow();
+  }
+  expect(salesStateFromResult({ resultData: [{ text: "[]" }] })).toEqual({
+    todos: [],
+  });
+});
+
+it("preserves native todo text metadata instead of treating it as a transport block", () => {
+  const todos = [{ ...original[0], text: "Customer context" }];
+  expect(salesStateFromResult({ resultData: todos })).toEqual({ todos });
 });

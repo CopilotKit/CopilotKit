@@ -29,6 +29,7 @@ import { BoardStateStrandsAgent } from "./todo-state-sync";
 import {
   buildStatePrompt,
   salesStateFromArgs,
+  salesStateFromResult,
   notesStateFromArgs,
   stepsStateFromArgs,
   documentStateFromArgs,
@@ -53,6 +54,7 @@ export async function buildShowcaseAgent(): Promise<StrandsAgent> {
         skipMessagesSnapshot: true,
         stateFromArgs: salesStateFromArgs,
       },
+      get_sales_todos: { stateFromResult: salesStateFromResult },
       // Shared State (Read + Write) — notes panel.
       set_notes: { stateFromArgs: notesStateFromArgs },
       // gen-ui-agent — live progress card driven by set_steps transitions.

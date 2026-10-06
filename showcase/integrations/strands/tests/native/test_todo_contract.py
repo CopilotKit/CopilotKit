@@ -4,6 +4,9 @@ import asyncio
 import sys
 from pathlib import Path
 
+import pytest
+import json
+
 from strands import Agent
 from strands.models.openai import OpenAIModel
 from strands.session.file_session_manager import FileSessionManager
@@ -11,7 +14,12 @@ from strands.types.tools import ToolContext
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
-from agents.agent import get_sales_todos, manage_sales_todos, sales_state_from_args
+from agents.agent import (
+    get_sales_todos,
+    manage_sales_todos,
+    sales_state_from_args,
+    sales_state_from_result,
+)
 from types import SimpleNamespace
 
 
@@ -60,6 +68,11 @@ def test_schema_and_durable_board(tmp_path):
     manager.sync_agent(agent)
     restored, manager = restore("original")
     assert get_sales_todos(tool_context=context(restored)) == saved
+    assert asyncio.run(
+        sales_state_from_result(
+            SimpleNamespace(result_data=get_sales_todos(tool_context=context(restored)))
+        )
+    ) == {"todos": saved}
     saved[0]["status"] = "completed"
     manage_sales_todos(todos=saved, tool_context=context(restored, "update"))
     manager.sync_agent(restored)
@@ -67,3 +80,37 @@ def test_schema_and_durable_board(tmp_path):
     assert get_sales_todos(tool_context=context(restarted)) == saved
     fresh, _ = restore("other")
     assert get_sales_todos(tool_context=context(fresh)) == []
+
+
+@pytest.mark.parametrize("shape", ["native", "json", "blocks", "block"])
+def test_read_snapshot_handles_native_and_wrapped_lists(shape):
+    todos = [
+        {
+            "id": "cedar",
+            "title": "Cedar",
+            "description": "Follow up",
+            "status": "pending",
+        }
+    ]
+    result = {
+        "native": todos,
+        "json": json.dumps(todos),
+        "blocks": [{"text": json.dumps(todos)}],
+        "block": {"text": json.dumps(todos)},
+    }[shape]
+    assert asyncio.run(
+        sales_state_from_result(SimpleNamespace(result_data=result))
+    ) == {"todos": todos}
+
+
+@pytest.mark.parametrize("result", [[], "[]", [{"text": "[]"}]])
+def test_empty_read_republishes_empty_board(result):
+    assert asyncio.run(
+        sales_state_from_result(SimpleNamespace(result_data=result))
+    ) == {"todos": []}
+
+
+@pytest.mark.parametrize("result", [None, "null", "{}", '["not a todo"]'])
+def test_invalid_read_fails_instead_of_clearing_board(result):
+    with pytest.raises(ValueError):
+        asyncio.run(sales_state_from_result(SimpleNamespace(result_data=result)))
