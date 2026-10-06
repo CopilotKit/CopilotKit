@@ -4,8 +4,6 @@ import InspectorPaneThreads from "@/snippets/shared/inspector/open-inspector-pan
 
 <span id="overview" />
 
-Keep your existing thread system. You do not need to replace your thread storage when you connect Intelligence. [Bring your own thread system](/intelligence/bring-your-own-thread-system) explains how Intelligence records its own copy while your framework keeps managing the original conversation and agent state.
-
 Intelligence’s AG-UI streams store and deliver the interaction to your users. Your framework threads manage the agent’s conversation and model context.
 
 Use Threads Drawer for a ready-made conversation list, or build your own with `useThreads`. Pass the selected `threadId` to your chat to load its history and receive new events.
@@ -25,8 +23,8 @@ Use Threads Drawer for a ready-made conversation list, or build your own with `u
   <Accordion title="Starting fresh?">
     Intelligence stores your conversation history and restores messages, generative UI, tool interactions, and multimodal inputs when users return.
   </Accordion>
-  <Accordion title="Already using LangGraph or ADK persistence?">
-    Keep it. Your framework stores agent context and execution state; Intelligence adds AG-UI event history, reconnection, and delivery to your users.
+  <Accordion title="Already have your own threading system?">
+    Keep it. Intelligence records its own copy of your supported AG-UI interactions while your framework manages the original conversation and agent state. [Read more](/intelligence/bring-your-own-thread-system).
   </Accordion>
 </Accordions>
 

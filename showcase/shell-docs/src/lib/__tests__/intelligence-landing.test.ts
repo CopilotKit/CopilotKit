@@ -189,7 +189,9 @@ test("existing thread storage has a guide linked from both overviews and navigat
     expect(overview.split(`](/${slug})`)).toHaveLength(2);
     expect(overview.indexOf(`](/${slug})`)).toBeLessThan(
       overview.indexOf(
-        section === "threads" ? "<div" : "<IntelligenceFeatureCards",
+        section === "threads"
+          ? "## Start with your coding agent"
+          : "<IntelligenceFeatureCards",
       ),
     );
   }
