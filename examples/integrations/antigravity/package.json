@@ -15,7 +15,7 @@
     "typecheck:channel": "tsc -p tsconfig.channel.json --noEmit"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.1",
+    "@ag-ui/client": "1.0.2",
     "@copilotkit/channels": "0.11.0",
     "@copilotkit/react-core": "1.76.0",
     "@copilotkit/runtime": "1.76.0",
@@ -43,9 +43,9 @@
     "typescript": "^5"
   },
   "overrides": {
-    "@ag-ui/client": "1.0.1",
-    "@ag-ui/core": "1.0.1",
-    "@ag-ui/encoder": "1.0.1",
-    "@ag-ui/proto": "1.0.1"
+    "@ag-ui/client": "1.0.2",
+    "@ag-ui/core": "1.0.2",
+    "@ag-ui/encoder": "1.0.2",
+    "@ag-ui/proto": "1.0.2"
   }
 }

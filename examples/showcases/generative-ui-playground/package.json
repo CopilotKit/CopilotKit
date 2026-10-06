@@ -12,7 +12,7 @@
     "@a2ui/lit": "^0.8.1",
     "@ag-ui/a2a": "^0.0.6",
     "@ag-ui/a2a-middleware": "^0.0.2",
-    "@ag-ui/client": "1.0.1",
+    "@ag-ui/client": "1.0.2",
     "@ag-ui/mcp-apps-middleware": "^0.0.1",
     "@copilotkit/a2ui-renderer": "workspace:*",
     "@copilotkit/core": "workspace:*",
