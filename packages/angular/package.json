@@ -69,6 +69,7 @@
     "@copilotkit/web-inspector": "workspace:*",
     "@jetbrains/websandbox": "^1.1.3",
     "clsx": "^2.1.1",
+    "dompurify": "^3.4.1",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.22",
     "marked": "^12.0.2",

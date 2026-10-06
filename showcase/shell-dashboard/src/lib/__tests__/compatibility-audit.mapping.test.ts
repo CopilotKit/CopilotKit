@@ -23,7 +23,7 @@ describe("Showcase compatibility mapping", () => {
     expect(() =>
       assertMappingCoverage(COMPATIBILITY_MAPPING, manifestSlugs),
     ).not.toThrow();
-    expect(COMPATIBILITY_MAPPING).toHaveLength(21);
+    expect(COMPATIBILITY_MAPPING).toHaveLength(22);
 
     const expected = COMPATIBILITY_SNAPSHOT.rows
       .filter((row) => !row.slug.endsWith("-dotnet"))
@@ -36,15 +36,39 @@ describe("Showcase compatibility mapping", () => {
     const mapped = COMPATIBILITY_MAPPING.flatMap((variant) =>
       variant.libraries.map((pkg) => `${variant.slug}/${pkg.name}`),
     );
-    expect(mapped).toHaveLength(33);
+    expect(mapped).toHaveLength(34);
     expect(mapped.sort()).toEqual(
       [
         ...expected,
+        "google-antigravity/google-antigravity",
         "ms-agent-dotnet/Microsoft.Agents.AI",
         "ms-agent-harness-dotnet/Microsoft.Agents.AI",
         "ms-agent-harness-dotnet/Microsoft.Agents.AI.Harness",
       ].sort(),
     );
+  });
+
+  it("maps Antigravity to its framework SDK and excludes its AG-UI adapter", () => {
+    expect(
+      COMPATIBILITY_MAPPING.find((item) => item.slug === "google-antigravity"),
+    ).toMatchObject({
+      language: "python",
+      libraries: [
+        {
+          name: "google-antigravity",
+          registry: "pypi",
+          required: true,
+          role: "framework",
+          source: {
+            kind: "requirements",
+            path: "showcase/integrations/google-antigravity/requirements.txt",
+          },
+        },
+      ],
+      excludedLibraries: [
+        { name: "ag-ui-antigravity", reason: expect.any(String) },
+      ],
+    });
   });
 
   it("keeps historical noncontributing packages explicitly excluded", () => {

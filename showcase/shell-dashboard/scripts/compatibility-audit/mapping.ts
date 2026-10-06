@@ -189,6 +189,19 @@ export const COMPATIBILITY_MAPPING: VariantMapping[] = [
     excludedLibraries: [adapter("ag-ui-adk")],
   },
   {
+    slug: "google-antigravity",
+    language: "python",
+    libraries: [
+      framework(
+        "google-antigravity",
+        "pypi",
+        requirements("google-antigravity"),
+        "Google Antigravity agent framework",
+      ),
+    ],
+    excludedLibraries: [adapter("ag-ui-antigravity")],
+  },
+  {
     slug: "langgraph-fastapi",
     language: "python",
     libraries: [
