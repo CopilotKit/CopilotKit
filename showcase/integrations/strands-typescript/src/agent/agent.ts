@@ -25,6 +25,7 @@ import {
 } from "@ag-ui/a2ui-toolkit";
 import { createModel } from "./model-factory";
 import { SHOWCASE_TOOLS } from "./tools";
+import { BoardStateStrandsAgent } from "./todo-state-sync";
 import {
   buildStatePrompt,
   salesStateFromArgs,
@@ -77,7 +78,7 @@ export async function buildShowcaseAgent(): Promise<StrandsAgent> {
     tools: SHOWCASE_TOOLS,
   });
 
-  return new StrandsAgent({
+  return new BoardStateStrandsAgent({
     agent: strandsAgent,
     name: "strands_agent",
     description:

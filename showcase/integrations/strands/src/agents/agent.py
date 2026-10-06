@@ -59,11 +59,12 @@ from strands.types.tools import ToolContext
 from tools import (
     get_weather_impl,
     query_data_impl,
-    manage_sales_todos_impl,
     roll_dice_impl,
     schedule_meeting_impl,
     search_flights_impl,
 )
+
+from tools.todos import BoardTodoInput, manage_todos_impl
 
 # gen-ui-agent specialization (set_steps tool + state hook + prompt addendum).
 # The shared Strands backend serves every demo; this module lives in its own
@@ -79,6 +80,7 @@ from agents.gen_ui_agent import (
 # own module for the same reason as gen_ui_agent above — and so the docs'
 # `backend-render-operations` snippet is that tool rather than all of agent.py.
 from agents.a2ui_generate import generate_a2ui
+from agents.todo_state_sync import TodoStateAgent, TodoStateHook
 
 logger = logging.getLogger(__name__)
 
@@ -393,14 +395,17 @@ def _process_sales_todos(todos: list, tool_use_id: str | None) -> list[dict]:
             else todo
             for index, todo in enumerate(todos)
         ]
-    return [dict(todo) for todo in manage_sales_todos_impl(todos)]
+    return [dict(todo) for todo in manage_todos_impl(todos)]
 
 
 @tool(context=True)
-def manage_sales_todos(todos: list[dict], tool_context: ToolContext):
+def manage_sales_todos(todos: list[BoardTodoInput], tool_context: ToolContext):
     """Manage the sales pipeline by replacing the entire list of todos.
 
-    IMPORTANT: Always provide the entire list, not just new items.
+    CRITICAL: Read get_sales_todos first and provide the entire list, not just
+    changed items. Copy every existing id exactly; omit id only for new items.
+    Preserve titles, descriptions, emoji and metadata on unchanged items.
+    Use status pending or completed for board tasks; do not use completed.
 
     Args:
         todos: The complete updated list of sales todos
@@ -413,14 +418,13 @@ def manage_sales_todos(todos: list[dict], tool_context: ToolContext):
     return f"Sales todos updated. Tracking {len(result)} item(s)."
 
 
-@tool
-def get_sales_todos():
-    """Get the current sales pipeline todos.
+@tool(context=True)
+def get_sales_todos(tool_context: ToolContext):
+    """Read the authoritative saved todo list for this conversation.
 
-    Returns:
-        Instruction to check the sales pipeline in context
+    Call before updating todos. Preserve the returned ids exactly.
     """
-    return "Check the sales pipeline provided in the context."
+    return tool_context.agent.state.get(SALES_TODOS_STATE_KEY) or []
 
 
 # @region[backend-tool-call]
@@ -1559,6 +1563,7 @@ def build_showcase_agent(
         name="strands_agent",
         description="A sales assistant that collaborates with you to manage a sales pipeline",
         config=shared_state_config,
+        hooks=[TodoStateHook()],
     )
 
     # Replace the per-thread agent dict with our hook-injecting variant.
@@ -1574,4 +1579,4 @@ def build_showcase_agent(
     # Wrap with MessagesSnapshot injection so the CopilotKit frontend
     # can build its message tree from tool-call responses. See the
     # class docstring for why this is needed.
-    return _MessagesSnapshotWrapper(agui_agent)
+    return _MessagesSnapshotWrapper(TodoStateAgent(agui_agent))
