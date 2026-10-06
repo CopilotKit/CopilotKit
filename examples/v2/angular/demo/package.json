@@ -34,6 +34,7 @@
     "@tanstack/pacer": "^0.20.1",
     "clsx": "^2.1.1",
     "compare-versions": "^6.1.1",
+    "dompurify": "^3.4.1",
     "fast-json-patch": "^3.1.1",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.22",
