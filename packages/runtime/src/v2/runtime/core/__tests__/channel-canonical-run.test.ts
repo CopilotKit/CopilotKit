@@ -257,6 +257,7 @@ test("runCanonical renews the standard thread lock until the run settles", async
       threadId: canonicalIdentity.threadId,
       runId: canonicalIdentity.runId,
       ttlSeconds: 120,
+      signal: expect.any(AbortSignal),
     });
 
     completeRun?.();

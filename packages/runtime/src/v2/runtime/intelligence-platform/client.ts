@@ -657,6 +657,8 @@ export interface RenewThreadLockRequest {
   ttlSeconds: number;
   /** Must match the prefix used when acquiring. */
   lockKeyPrefix?: string;
+  /** Aborts the request, e.g. when the heartbeat gives up on this attempt. */
+  signal?: AbortSignal;
 }
 
 export interface CleanupThreadLockRequest {
@@ -1403,6 +1405,7 @@ export class CopilotKitIntelligence {
     path: string,
     body?: unknown,
     extraHeaders?: Record<string, string>,
+    signal?: AbortSignal,
   ): Promise<T> {
     const url = `${this.#apiUrl}${path}`;
 
@@ -1416,6 +1419,7 @@ export class CopilotKitIntelligence {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
+      signal,
     });
 
     if (!response.ok) {
@@ -2017,6 +2021,8 @@ export class CopilotKitIntelligence {
           ? { lockKeyPrefix: params.lockKeyPrefix }
           : {}),
       },
+      undefined,
+      params.signal,
     );
   }
 

@@ -161,8 +161,11 @@ export async function handleIntelligenceRun({
   let joinToken: string | undefined;
   let backendThreadId: string | undefined;
   let lockTtlSeconds: number | undefined;
-  let lockAcquiredAt = 0;
+  let lockRequestedAt = 0;
   try {
+    // The platform starts the lock's TTL when it handles the request, so time
+    // the lifetime from the send rather than from the response.
+    lockRequestedAt = Date.now();
     const lockResult = await runtime.intelligence.ɵacquireThreadLock({
       supportsBackendThreadId: true,
       threadId: input.threadId,
@@ -180,7 +183,6 @@ export async function handleIntelligenceRun({
     joinToken = lockResult.joinToken;
     backendThreadId = lockResult.backendThreadId;
     lockTtlSeconds = lockResult.ttlSeconds;
-    lockAcquiredAt = Date.now();
   } catch (error) {
     logger.error("Thread lock denied:", error);
     const platformStatus = getPlatformErrorStatus(error);
@@ -256,7 +258,7 @@ export async function handleIntelligenceRun({
   // failures are retried within the lock's remaining TTL; only a lost lock
   // (or running out of time) aborts the run.
   const heartbeat = startThreadLockHeartbeat({
-    renew: () =>
+    renew: (signal) =>
       runtime.intelligence.ɵrenewThreadLock({
         threadId: canonicalThreadId,
         runId: canonicalRunId,
@@ -264,15 +266,17 @@ export async function handleIntelligenceRun({
         ...(runtime.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: runtime.lockKeyPrefix }
           : {}),
+        signal,
       }),
     intervalMs: runtime.lockHeartbeatIntervalSeconds * 1_000,
     fallbackTtlSeconds: runtime.lockTtlSeconds,
-    // The history lookup above runs between acquisition and now, so pass the
-    // lifetime the platform set minus the time already spent.
+    // The acquire round trip and the history lookup above both run between
+    // the lock request and now, so pass the lifetime the platform set minus
+    // the time already spent.
     initialTtlSeconds:
       lockTtlSeconds === undefined
         ? undefined
-        : lockTtlSeconds - (Date.now() - lockAcquiredAt) / 1_000,
+        : lockTtlSeconds - (Date.now() - lockRequestedAt) / 1_000,
     onLost: (err) => {
       logger.error("Failed to renew thread lock:", err);
       try {

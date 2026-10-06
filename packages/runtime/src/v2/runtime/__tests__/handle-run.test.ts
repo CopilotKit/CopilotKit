@@ -1256,6 +1256,7 @@ describe("handleRunAgent", () => {
           threadId: "canonical-thread",
           runId: "canonical-run",
           ttlSeconds: 5,
+          signal: expect.any(AbortSignal),
         });
         expect(runningAgent.abortRun).toHaveBeenCalledTimes(1);
       } finally {

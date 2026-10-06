@@ -282,15 +282,32 @@ describe("startThreadLockHeartbeat", () => {
     heartbeat.stop();
   });
 
-  it.each([
-    ["absent", undefined],
-    ["not positive", 0],
-  ])(
-    "uses the fallback TTL for the first renewal when the initial lifetime is %s",
-    async (_label, initialTtlSeconds) => {
-      const renew = vi
-        .fn<() => Promise<RenewThreadLockResponse>>()
-        .mockRejectedValue(serverError());
+  it("uses the fallback TTL for the first renewal when the initial lifetime is absent", async () => {
+    const renew = vi
+      .fn<() => Promise<RenewThreadLockResponse>>()
+      .mockRejectedValue(serverError());
+    const onLost = vi.fn();
+    startThreadLockHeartbeat({
+      renew,
+      intervalMs: 15_000,
+      fallbackTtlSeconds: 20,
+      onLost,
+    });
+
+    // Deadline t=20s. Failures at t=15, 16 and 18s; the 4s backoff would
+    // pass t=19s, so the lock is declared lost at t=18s.
+    await vi.advanceTimersByTimeAsync(17_999);
+    expect(onLost).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(renew).toHaveBeenCalledTimes(3);
+    expect(onLost).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([0, -3])(
+    "treats an initial lifetime of %is as already expired instead of falling back",
+    async (initialTtlSeconds) => {
+      const renew = vi.fn().mockResolvedValue(renewed);
       const onLost = vi.fn();
       startThreadLockHeartbeat({
         renew,
@@ -300,16 +317,92 @@ describe("startThreadLockHeartbeat", () => {
         onLost,
       });
 
-      // Deadline t=20s. Failures at t=15, 16 and 18s; the 4s backoff would
-      // pass t=19s, so the lock is declared lost at t=18s.
-      await vi.advanceTimersByTimeAsync(17_999);
-      expect(onLost).not.toHaveBeenCalled();
-      await vi.advanceTimersByTimeAsync(1);
+      await vi.advanceTimersByTimeAsync(0);
 
-      expect(renew).toHaveBeenCalledTimes(3);
       expect(onLost).toHaveBeenCalledTimes(1);
+      expect(renew).not.toHaveBeenCalled();
     },
   );
+
+  it("renews right away when the interval would run past the lock's lifetime", async () => {
+    const renew = vi.fn().mockResolvedValue(renewed);
+    const onLost = vi.fn();
+    const heartbeat = startThreadLockHeartbeat({
+      renew,
+      intervalMs: 15_000,
+      fallbackTtlSeconds: 20,
+      // E.g. a slow history lookup left 3s of the acquired lifetime.
+      initialTtlSeconds: 3,
+      onLost,
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(renew).toHaveBeenCalledTimes(1);
+
+    // The renewal returned 120s, so the regular cadence resumes.
+    await vi.advanceTimersByTimeAsync(14_999);
+    expect(renew).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(renew).toHaveBeenCalledTimes(2);
+    expect(onLost).not.toHaveBeenCalled();
+
+    heartbeat.stop();
+  });
+
+  /**
+   * The platform starts a lock's TTL when it handles the request, so a slow
+   * response must not push the runtime's deadline past the server's expiry.
+   */
+  it("measures the deadline from when the renewal was sent, not when it returned", async () => {
+    const slowRenewal = { ...renewed, ttlSeconds: 20 };
+    const renew = vi
+      .fn<() => Promise<RenewThreadLockResponse>>()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve(slowRenewal), 8_000),
+          ),
+      )
+      .mockRejectedValue(serverError());
+    const onLost = vi.fn();
+    startThreadLockHeartbeat({
+      renew,
+      intervalMs: 15_000,
+      fallbackTtlSeconds: 20,
+      initialTtlSeconds: 120,
+      onLost,
+    });
+
+    // Sent at t=15s, returned at t=23s with a 20s TTL: the server expires the
+    // lock at t=35s, so the runtime must give up before then. Timing from the
+    // response would put the deadline at t=43s and keep retrying until t=41s.
+    await vi.advanceTimersByTimeAsync(34_000);
+
+    expect(onLost).toHaveBeenCalledTimes(1);
+  });
+
+  it("aborts a renewal that timed out before retrying", async () => {
+    const signals: AbortSignal[] = [];
+    const renew = vi.fn((signal: AbortSignal) => {
+      signals.push(signal);
+      return new Promise<RenewThreadLockResponse>(() => {});
+    });
+    const heartbeat = startThreadLockHeartbeat({
+      renew,
+      intervalMs: 1_000,
+      fallbackTtlSeconds: 120,
+      onLost: vi.fn(),
+    });
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(signals[0]!.aborted).toBe(false);
+
+    // The attempt times out at t=11s and is cancelled before the retry.
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(signals[0]!.aborted).toBe(true);
+
+    heartbeat.stop();
+  });
 });
 
 describe("isRetryableLockRenewalError", () => {

@@ -12,8 +12,11 @@ const ATTEMPT_TIMEOUT_MS = 10_000;
 const DEADLINE_SAFETY_MARGIN_MS = 1_000;
 
 export interface ThreadLockHeartbeatOptions {
-  /** Sends one renewal request. */
-  renew: () => Promise<RenewThreadLockResponse>;
+  /**
+   * Sends one renewal request. The signal aborts when the attempt times out,
+   * so an abandoned request never overlaps its retry.
+   */
+  renew: (signal: AbortSignal) => Promise<RenewThreadLockResponse>;
   /** Delay between successful renewals. */
   intervalMs: number;
   /**
@@ -24,8 +27,10 @@ export interface ThreadLockHeartbeatOptions {
   fallbackTtlSeconds: number;
   /**
    * Remaining lock lifetime when the heartbeat starts, as reported by the
-   * platform at acquisition. Used until the first successful renewal; when
-   * absent or not positive, {@link fallbackTtlSeconds} applies instead.
+   * platform at acquisition, measured from when the acquire request was sent.
+   * Used until the first successful renewal; when absent,
+   * {@link fallbackTtlSeconds} applies instead. A value of zero or less means
+   * the lock has already expired.
    */
   initialTtlSeconds?: number;
   /**
@@ -67,12 +72,14 @@ export function isRetryableLockRenewalError(error: unknown): boolean {
 /**
  * Keep a thread lock alive for a running agent.
  *
- * Renews every `intervalMs`, with at most one renewal in flight. A failed
- * renewal is retried with exponential backoff while the lock is still valid:
- * the deadline is the last successful renewal plus the `ttlSeconds` it
- * returned (initially start plus `initialTtlSeconds`, or `fallbackTtlSeconds`
- * when the platform reported no lifetime at acquisition). A non-retryable
- * failure, or running out of time before the deadline, calls `onLost`.
+ * Renews every `intervalMs` (sooner if that would run past the lock's
+ * lifetime), with at most one renewal in flight. A failed renewal is retried
+ * with exponential backoff while the lock is still valid: the deadline is when
+ * the last successful renewal was *sent* plus the `ttlSeconds` it returned,
+ * because the platform starts the TTL when it handles the request (initially
+ * start plus `initialTtlSeconds`, or `fallbackTtlSeconds` when the platform
+ * reported no lifetime at acquisition). A non-retryable failure, or running
+ * out of time before the deadline, calls `onLost`.
  * A `"completed"` response means the run already ended on the platform, so
  * the heartbeat stops without calling `onLost`.
  */
@@ -84,7 +91,7 @@ export function startThreadLockHeartbeat(
   let timer: ReturnType<typeof setTimeout> | undefined;
   const initialTtlSeconds =
     typeof options.initialTtlSeconds === "number" &&
-    options.initialTtlSeconds > 0
+    Number.isFinite(options.initialTtlSeconds)
       ? options.initialTtlSeconds
       : fallbackTtlSeconds;
   let deadline = Date.now() + initialTtlSeconds * 1_000;
@@ -96,6 +103,16 @@ export function startThreadLockHeartbeat(
       void attempt();
     }, delayMs);
     if (options.unref) timer.unref?.();
+  };
+
+  /** Time left before the safety cutoff ahead of the lock's expiry. */
+  const remainingMs = (): number =>
+    deadline - DEADLINE_SAFETY_MARGIN_MS - Date.now();
+
+  // Renew on the interval, or right away when waiting that long would run
+  // past the cutoff and leave the lock to lapse.
+  const scheduleRenewal = (): void => {
+    schedule(intervalMs < remainingMs() ? intervalMs : 0);
   };
 
   const stop = (): void => {
@@ -112,9 +129,23 @@ export function startThreadLockHeartbeat(
   };
 
   const attempt = async (): Promise<void> => {
+    // Bound each attempt by the lock's remaining lifetime so a hung request
+    // cannot silently outlive the lock; past the cutoff, renewing is too late.
+    const timeoutMs = Math.min(ATTEMPT_TIMEOUT_MS, remainingMs());
+    if (timeoutMs <= 0) {
+      lose(new Error("Thread lock expired before it could be renewed"));
+      return;
+    }
+    const sentAt = Date.now();
+    const controller = new AbortController();
     let response: RenewThreadLockResponse;
     try {
-      response = await withTimeout(renew(), attemptTimeoutMs(), options.unref);
+      response = await withTimeout(
+        renew(controller.signal),
+        timeoutMs,
+        options.unref,
+        () => controller.abort(),
+      );
     } catch (error) {
       if (!stopped) handleFailure(error);
       return;
@@ -130,17 +161,8 @@ export function startThreadLockHeartbeat(
       typeof response?.ttlSeconds === "number" && response.ttlSeconds > 0
         ? response.ttlSeconds
         : fallbackTtlSeconds;
-    deadline = Date.now() + ttlSeconds * 1_000;
-    schedule(intervalMs);
-  };
-
-  // Bound each attempt by the lock's remaining lifetime so a hung request
-  // cannot silently outlive the lock.
-  const attemptTimeoutMs = (): number => {
-    const remaining = deadline - DEADLINE_SAFETY_MARGIN_MS - Date.now();
-    return remaining > 0
-      ? Math.min(ATTEMPT_TIMEOUT_MS, remaining)
-      : ATTEMPT_TIMEOUT_MS;
+    deadline = sentAt + ttlSeconds * 1_000;
+    scheduleRenewal();
   };
 
   const handleFailure = (error: unknown): void => {
@@ -153,19 +175,24 @@ export function startThreadLockHeartbeat(
       MAX_RETRY_DELAY_MS,
     );
     failedAttempts += 1;
-    const remainingMs = deadline - DEADLINE_SAFETY_MARGIN_MS - Date.now();
-    if (delayMs >= remainingMs) {
+    const remaining = remainingMs();
+    if (delayMs >= remaining) {
       lose(error);
       return;
     }
     logger.warn(
-      { err: error, attempt: failedAttempts, retryInMs: delayMs, remainingMs },
+      {
+        err: error,
+        attempt: failedAttempts,
+        retryInMs: delayMs,
+        remainingMs: remaining,
+      },
       "Thread lock renewal failed; retrying before the lock expires",
     );
     schedule(delayMs);
   };
 
-  schedule(intervalMs);
+  scheduleRenewal();
   return { stop };
 }
 
@@ -173,12 +200,13 @@ function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
   unref: boolean | undefined,
+  onTimeout: () => void,
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timeout = setTimeout(
-      () => reject(new RenewalTimeoutError(timeoutMs)),
-      timeoutMs,
-    );
+    const timeout = setTimeout(() => {
+      onTimeout();
+      reject(new RenewalTimeoutError(timeoutMs));
+    }, timeoutMs);
     if (unref) timeout.unref?.();
     promise.then(
       (value) => {

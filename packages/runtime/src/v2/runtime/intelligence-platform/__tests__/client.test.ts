@@ -416,6 +416,29 @@ describe("CopilotKitIntelligence", () => {
     });
   });
 
+  it("passes the renewal's abort signal to fetch without sending it in the body", async () => {
+    fetchMock.mockReturnValue(
+      jsonResponse({
+        threadId: "t-1",
+        runId: "r-1",
+        ttlSeconds: 120,
+        status: "renewed",
+      }),
+    );
+    const controller = new AbortController();
+
+    await client.ɵrenewThreadLock({
+      threadId: "t-1",
+      runId: "r-1",
+      ttlSeconds: 20,
+      signal: controller.signal,
+    });
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    expect(init.signal).toBe(controller.signal);
+    expect(JSON.parse(init.body)).toEqual({ runId: "r-1", ttlSeconds: 20 });
+  });
+
   describe("ɵrenewThreadLock errors", () => {
     const renew = () =>
       client.ɵrenewThreadLock({

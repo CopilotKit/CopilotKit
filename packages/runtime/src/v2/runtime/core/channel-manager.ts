@@ -695,6 +695,9 @@ async function runCanonicalChannelAgent(
         userId: args.userId,
         deliveryId: args.deliveryId,
       });
+  // The platform starts the lock's TTL when it handles the request, so time
+  // the lifetime from the send rather than from the response.
+  const lockRequestedAt = Date.now();
   const lock = await intelligence.ɵacquireThreadLock({
     threadId: args.threadId,
     runId: args.runId,
@@ -739,16 +742,20 @@ async function runCanonicalChannelAgent(
   };
   args.signal?.addEventListener("abort", abortCanonicalRun, { once: true });
   const heartbeat = startThreadLockHeartbeat({
-    renew: () =>
+    renew: (signal) =>
       intelligence.ɵrenewThreadLock({
         threadId: canonicalThreadId,
         runId: canonicalRunId,
         ttlSeconds: lockTtlSeconds,
         ...(lockKeyPrefix !== undefined ? { lockKeyPrefix } : {}),
+        signal,
       }),
     intervalMs: lockHeartbeatIntervalSeconds * 1_000,
     fallbackTtlSeconds: lockTtlSeconds,
-    initialTtlSeconds: lock.ttlSeconds,
+    initialTtlSeconds:
+      lock.ttlSeconds === undefined
+        ? undefined
+        : lock.ttlSeconds - (Date.now() - lockRequestedAt) / 1_000,
 
     unref: true,
     onLost: (error) => {
