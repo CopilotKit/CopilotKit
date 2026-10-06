@@ -43,9 +43,6 @@ npm commands above are the canonical path.
 
 ### Test scope
 
-The draft suite reduction is audited in the [test-removal catalog](./test-removal-catalog.md).
-It identifies functional and compatibility coverage to preserve before merging.
-
 Keep the unit suite small and focused on reader actions: internal links and navigation
 entries resolve, redirects preserve old links, search results navigate by click and
 keyboard, framework selectors switch routes, tabs switch and persist, and prompt/page
