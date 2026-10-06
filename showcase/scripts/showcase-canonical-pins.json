@@ -7,7 +7,8 @@
       "@copilotkit/react-core": "1.76.0",
       "@copilotkit/runtime": "1.76.0",
       "@copilotkit/shared": "1.76.0",
-      "@copilotkit/voice": "1.76.0"
+      "@copilotkit/voice": "1.76.0",
+      "ag-ui-antigravity": "@ https://github.com/ag-ui-protocol/ag-ui/archive/23c7d74b7b2103607b518f1ff5e4c65dad91ba69.zip"
     }
   }
 }
