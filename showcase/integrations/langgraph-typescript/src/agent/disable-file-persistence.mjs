@@ -29,7 +29,7 @@
 //   "Cannot assign to read only property". The writable seam is the CJS
 //   `require("node:fs").promises` object; the package reaches fs/promises via
 //   `import * as fs from "node:fs/promises"` and calls `fs.writeFile(...)`
-//   (NAMESPACE property access — verified in persist.mjs@1.1.17), which reads
+//   (NAMESPACE property access — verified in persist.mjs@1.5.2), which reads
 //   through to that same live object, so patching it there IS observed. NOTE:
 //   this holds for namespace/property-access calls; it does NOT hold for NAMED
 //   imports (`import { writeFile } from "node:fs/promises"`), whose bindings
@@ -51,7 +51,7 @@
 //   dropped. String, Buffer, and URL path forms are all normalised first.
 //
 // Why patch every write surface (and not just writeFile + mkdir):
-//   persist.mjs@1.1.17 writes ONLY via `fs.writeFile` + `fs.mkdir`. But an
+//   persist.mjs@1.5.2 writes ONLY via `fs.writeFile` + `fs.mkdir`. But an
 //   atomic write-then-rename, appendFile, open()+handle.write, a *Sync variant,
 //   or createWriteStream would each bypass a writeFile-only patch and let the
 //   dir grow again with zero signal (the exact recurring-outage failure mode).
@@ -95,7 +95,7 @@ if (!disabled) {
   // patch. If a version bump changes the pinned version OR the persist.mjs
   // source no longer matches the expected writer shape, FAIL LOUDLY at boot so
   // the mismatch is caught here and not as a silent disk-growth outage in prod.
-  const EXPECTED_PKG_VERSION = "1.1.17";
+  const EXPECTED_PKG_VERSION = "1.5.2";
   try {
     const pkgJsonPath =
       require.resolve("@langchain/langgraph-api/package.json");
