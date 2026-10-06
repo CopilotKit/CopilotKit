@@ -9,3 +9,8 @@ fastapi>=0.115.0
 logfire>=4.10.0
 starlette<1.0.0
 pypdf>=4.0.0,<7.0.0
+# griffelib 2.3.1 (2026-10-06) declares Python >=3.10 but uses enum.StrEnum
+# (3.11+), so `import pydantic_ai` fails on 3.10. pydantic-ai-slim only
+# requires griffelib>=2.0; hold the last working release until a fixed one
+# ships, then drop this line.
+griffelib==2.3.0
