@@ -107,6 +107,7 @@ def endpoint() -> GeminiAPIEndpoint | None:
         http_headers=aimock_headers(),
     )
 
+
 def chat_only_capabilities() -> CapabilitiesConfig:
     """Only ``finish`` stays enabled.
 
