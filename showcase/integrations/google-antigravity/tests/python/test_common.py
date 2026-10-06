@@ -52,3 +52,16 @@ def test_only_finish_is_enabled():
     # stay off on a public deployment.
     assert list(capabilities.enabled_tools) == [BuiltinTools.FINISH]
     assert capabilities.enable_subagents is False
+
+
+def test_every_agent_gets_the_tool_call_limit(monkeypatch, tmp_path):
+    # Bounds a turn that never stops calling tools; a turn outlives its client,
+    # so nothing else would stop it (PNI-570/PNI-571).
+    monkeypatch.setattr(_common, "WORKSPACE", str(tmp_path / "ws"))
+    monkeypatch.setattr(_common, "SAVE_DIR", str(tmp_path / "sessions"))
+    monkeypatch.setattr(_common, "_DIRS_READY", False)
+
+    agent = _common.build()
+
+    assert _common.MAX_TOOL_CALLS_PER_TURN == 50
+    assert agent._max_tool_calls_per_turn == 50
