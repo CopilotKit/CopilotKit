@@ -87,7 +87,8 @@ The runner redacts known generated secrets from command logs and omits stdout fo
 
 [The workflow](../../.github/workflows/intelligence-smoke.yml) runs on pull requests and manual dispatch, with read-only repository permissions.
 Its default path uses public digest-pinned images and a public digest-pinned chart, without repository secrets.
-It uploads the output directory even after failure and retains artifacts for 14 days.
+It also runs the incorrect-reply test and requires that failure to come from the Thread proof.
+It uploads both output directories even after failure and retains artifacts for 14 days.
 The job has a 45-minute limit.
 
 This test covers one deterministic conversation and its Learning output.

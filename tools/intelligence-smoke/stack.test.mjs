@@ -382,6 +382,14 @@ test("candidate import evidence connects loaded manifest bytes to the built imag
   assert.equal(result[0].id, digest(config));
   assert.ok(result[0].verifiedDigests.includes(digest(manifest)));
   assert.ok(result[0].verifiedDigests.includes(digest(index)));
+  candidate.imageEvidence[0].id = digest(index);
+  const modernDocker = await verifyCandidateImports({
+    candidate,
+    node: "k3d-test-server-0",
+    run,
+  });
+  assert.ok(modernDocker[0].verifiedDigests.includes(digest(manifest)));
+  assert.ok(modernDocker[0].verifiedDigests.includes(digest(config)));
   assert.ok(
     calls.every(
       ([, args]) => args[0] === "exec" && args[1] === "k3d-test-server-0",
@@ -576,3 +584,83 @@ test("candidate stack imports built images, proves running identity and removes 
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+for (const clusterFailure of [false, true]) {
+  test(`cleanup reports all image failures and preserves cluster failure=${clusterFailure}`, async () => {
+    const directory = await mkdtemp(join(tmpdir(), "cleanup-stack-"));
+    const images = [
+      "pe431-candidate/app-api:owned",
+      "pe431-candidate/gateway:owned",
+      "pe431-candidate/migrations:owned",
+    ];
+    const calls = [];
+    let retry = false;
+    let stack;
+    const clusterError = new Error("cluster deletion failed");
+    const imageErrors = images.map(
+      (image) => new Error(`image cleanup failed: ${image}`),
+    );
+    const run = async (_file, args, { step }) => {
+      calls.push({ args, step });
+      if (step === "stack-owner") return stack.id;
+      if (step === "cluster-delete" && clusterFailure && !retry)
+        throw clusterError;
+      if (
+        step === "candidate-image-cleanup" &&
+        !retry &&
+        args.at(-1) !== images[1]
+      )
+        throw imageErrors[images.indexOf(args.at(-1))];
+      return "";
+    };
+    try {
+      stack = createStack({
+        directory,
+        pins,
+        modelPort: 1,
+        intelligenceSource: "/candidate",
+        yaml: {},
+        run,
+        buildCandidate: async () => ({
+          revision: "a".repeat(40),
+          dockerImages: images,
+          images: {},
+          imageEvidence: [],
+        }),
+        fetch: async () => {
+          throw new Error("stop before cluster creation");
+        },
+      });
+      await assert.rejects(stack.start(), /stop before cluster creation/);
+      await assert.rejects(stack.stop(), (error) => {
+        assert.ok(error instanceof AggregateError);
+        assert.equal(error.errors.length, clusterFailure ? 3 : 2);
+        assert.ok(error.errors.includes(imageErrors[0]));
+        assert.ok(error.errors.includes(imageErrors[2]));
+        if (clusterFailure) assert.ok(error.errors.includes(clusterError));
+        return true;
+      });
+      assert.deepEqual(
+        calls
+          .filter(({ step }) => step === "candidate-image-cleanup")
+          .map(({ args }) => args.at(-1)),
+        images,
+      );
+      retry = true;
+      await stack.stop();
+      await stack.stop();
+      assert.deepEqual(
+        calls
+          .filter(({ step }) => step === "candidate-image-cleanup")
+          .map(({ args }) => args.at(-1)),
+        [...images, images[0], images[2]],
+      );
+      assert.equal(
+        calls.filter(({ step }) => step === "cluster-delete").length,
+        clusterFailure ? 2 : 1,
+      );
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+}

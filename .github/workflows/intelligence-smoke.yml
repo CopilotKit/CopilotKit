@@ -45,11 +45,33 @@ jobs:
         run: pnpm nx run intelligence-smoke:lint
       - name: Run candidate SDK against pinned public Intelligence
         run: pnpm nx run intelligence-smoke:run -- --output="$RUNNER_TEMP/intelligence-smoke-results"
+      - name: Prove an incorrect expected reply fails
+        env:
+          NEGATIVE_OUTPUT: ${{ runner.temp }}/intelligence-smoke-negative
+        run: |
+          if pnpm nx run intelligence-smoke:run -- --output="$NEGATIVE_OUTPUT" --expect-reply=BROKEN; then
+            echo "An incorrect reply expectation passed"
+            exit 1
+          fi
+          node --input-type=module <<'NODE'
+          import assert from "node:assert/strict";
+          import { readFileSync } from "node:fs";
+          const read = name => readFileSync(`${process.env.NEGATIVE_OUTPUT}/${name}`, "utf8");
+          const result = JSON.parse(read("result.json"));
+          assert.equal(result.status, "failed");
+          assert.deepEqual(result.cleanup, {model: "passed", stack: "passed", temporary: "passed"});
+          assert.equal(result.checks.thread, "failed");
+          assert.equal(result.checks.learning, "not_run");
+          assert.match(read("proof.log"), /Thread proof timed out/);
+          assert.deepEqual(JSON.parse(read("model-requests.json")).map(({phase, status}) => [phase, status]), [["agent", 200]]);
+          NODE
       - name: Preserve smoke evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: intelligence-smoke-results
-          path: ${{ runner.temp }}/intelligence-smoke-results/
+          path: |
+            ${{ runner.temp }}/intelligence-smoke-results/
+            ${{ runner.temp }}/intelligence-smoke-negative/
           if-no-files-found: error
           retention-days: 14

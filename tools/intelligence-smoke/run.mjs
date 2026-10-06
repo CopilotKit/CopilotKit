@@ -174,6 +174,11 @@ try {
 } catch (error) {
   failure = error;
 } finally {
+  evidence.cleanup = {
+    model: "not_run",
+    stack: "not_run",
+    temporary: "failed",
+  };
   try {
     const proof = JSON.parse(
       await readFile(join(output, "proof.json"), "utf8"),
@@ -192,8 +197,10 @@ try {
       join(output, "model-requests.json"),
       JSON.stringify(model.requests(), null, 2),
     );
+    evidence.cleanup.model = "failed";
     try {
       await model.stop();
+      evidence.cleanup.model = "passed";
     } catch (error) {
       failure ??= error;
     }
@@ -204,14 +211,17 @@ try {
     } catch (error) {
       failure ??= error;
     }
+    evidence.cleanup.stack = "failed";
     try {
       await stack.stop();
+      evidence.cleanup.stack = "passed";
     } catch (error) {
       failure ??= error;
     }
   }
   try {
     await rm(directory, { recursive: true, force: true });
+    evidence.cleanup.temporary = "passed";
   } catch (error) {
     failure ??= error;
   }

@@ -23,7 +23,7 @@ const imageReference = (image) =>
     ? `${image.repository}@${image.digest}`
     : `${image.repository}:${image.tag}`;
 
-/** Prove each imported containerd manifest contains the exact locally built image config. */
+/** Match imported content to Docker's config, manifest, or index image identity. */
 export async function verifyCandidateImports({ candidate, node, run }) {
   const ctr = (args, step) =>
     run("docker", ["exec", node, "ctr", "--namespace", "k8s.io", ...args], {
@@ -39,7 +39,7 @@ export async function verifyCandidateImports({ candidate, node, run }) {
         return [name, digest];
       }),
   );
-  const inspect = async (digest, configId, depth = 0) => {
+  const inspect = async (digest, builtId, depth = 0, trustedParent = false) => {
     if (depth > 3 || !/^sha256:[a-f0-9]{64}$/.test(digest ?? ""))
       throw new Error("Invalid imported candidate manifest");
     const raw = await ctr(
@@ -50,9 +50,20 @@ export async function verifyCandidateImports({ candidate, node, run }) {
     if (`sha256:${createHash("sha256").update(raw).digest("hex")}` !== digest)
       throw new Error("Imported candidate content digest mismatch");
     const manifest = JSON.parse(raw);
-    if (manifest.config?.digest === configId) return [digest, configId];
+    const matched = trustedParent || digest === builtId;
+    if (matched) {
+      const descendants = [digest];
+      if (/^sha256:[a-f0-9]{64}$/.test(manifest.config?.digest ?? ""))
+        descendants.push(manifest.config.digest);
+      for (const child of manifest.manifests ?? [])
+        descendants.push(
+          ...(await inspect(child.digest, builtId, depth + 1, true)),
+        );
+      return descendants;
+    }
+    if (manifest.config?.digest === builtId) return [digest, builtId];
     for (const child of manifest.manifests ?? []) {
-      const matches = await inspect(child.digest, configId, depth + 1);
+      const matches = await inspect(child.digest, builtId, depth + 1);
       if (matches.length) return [digest, ...matches];
     }
     return [];
@@ -296,6 +307,8 @@ export function createStack({
   let apiPort;
   let gatewayPort;
   let stopped = false;
+  let clusterRemoved = false;
+  const removedImages = new Set();
   let creationAttempted = false;
   let candidate;
   let candidateImages = [];
@@ -310,11 +323,21 @@ export function createStack({
         }
       : null;
   const cleanCandidate = async () => {
-    for (const image of candidate?.dockerImages ?? [])
-      await run("docker", ["image", "rm", image], {
-        step: "candidate-image-cleanup",
-        timeoutMs: 60_000,
-      }).catch(() => {});
+    const errors = [];
+    for (const image of candidate?.dockerImages ?? []) {
+      if (removedImages.has(image)) continue;
+      try {
+        await run("docker", ["image", "rm", image], {
+          step: "candidate-image-cleanup",
+          timeoutMs: 60_000,
+        });
+        removedImages.add(image);
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    if (errors.length)
+      throw new AggregateError(errors, "Candidate image cleanup failed");
   };
   const kube = (args, step, input) =>
     run("docker", ["exec", "-i", node, "kubectl", ...args], {
@@ -687,32 +710,55 @@ export function createStack({
     },
     async stop() {
       if (stopped) return;
+      const errors = [];
       // A missing container is an already-clean stack; an inspect failure is
       // distinguished from ownership mismatches before any deletion occurs.
       try {
-        await owned();
+        if (!clusterRemoved) {
+          let deleteCluster = true;
+          try {
+            await owned();
+          } catch (error) {
+            if (/ownership/.test(error.message)) throw error;
+            const containers = await run(
+              "docker",
+              [
+                "ps",
+                "-a",
+                "--filter",
+                `name=^/${node}$`,
+                "--format",
+                "{{.Names}}",
+              ],
+              { step: "cleanup-discovery" },
+            );
+            if (containers.trim()) throw error;
+            deleteCluster = creationAttempted;
+          }
+          if (deleteCluster)
+            await run(k3d, ["cluster", "delete", id], {
+              step: "cluster-delete",
+              timeoutMs: 180_000,
+            });
+          clusterRemoved = true;
+        }
       } catch (error) {
-        if (/ownership/.test(error.message)) throw error;
-        const containers = await run(
-          "docker",
-          ["ps", "-a", "--filter", `name=^/${node}$`, "--format", "{{.Names}}"],
-          { step: "cleanup-discovery" },
-        );
-        if (containers.trim()) throw error;
-        if (creationAttempted)
-          await run(k3d, ["cluster", "delete", id], {
-            step: "cluster-delete",
-            timeoutMs: 180_000,
-          });
-        await cleanCandidate();
-        stopped = true;
-        return;
+        errors.push(error);
       }
-      await run(k3d, ["cluster", "delete", id], {
-        step: "cluster-delete",
-        timeoutMs: 180_000,
-      });
-      await cleanCandidate();
+      try {
+        await cleanCandidate();
+      } catch (error) {
+        errors.push(
+          ...(error instanceof AggregateError ? error.errors : [error]),
+        );
+      }
+      if (errors.length) {
+        throw new AggregateError(
+          errors,
+          `Stack cleanup failed: ${errors.map((error) => error.message).join("; ")}`,
+          { cause: errors[0] },
+        );
+      }
       stopped = true;
     },
   };
