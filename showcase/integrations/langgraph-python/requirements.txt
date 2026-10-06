@@ -1,18 +1,19 @@
 copilotkit==0.1.96
-# Stays on 0.1.x: CopilotKit 1.73.3 speaks the pre-1.0 AG-UI protocol, so
-# ag-ui-protocol 1.0.0 is not supported yet.
-ag-ui-protocol==0.1.22
+# AG-UI 1.0: CopilotKit 1.77.0 speaks the 1.0 protocol (@ag-ui/core 1.0.1).
+ag-ui-protocol==1.0.0
 # Backend-owned A2UI tool factory (get_a2ui_tools) used by the a2ui-recovery
 # demo to run the validate->retry recovery loop in-graph.
-ag-ui-langgraph==0.0.45
-langchain==1.4.2
-langchain-openai==1.6.4
-langchain-anthropic==1.7.3
-langgraph==1.2.12
-langgraph-cli[inmem]==0.4.31
-langgraph-api==0.14.3
-langsmith==0.14.0
+ag-ui-langgraph==0.0.46
+langchain==1.4.3
+langchain-openai==1.6.7
+langchain-anthropic==1.7.5
+langgraph==1.2.13
+langgraph-cli[inmem]==0.4.32
+# langgraph-api 0.15.x requires Python >= 3.11 (the image uses 3.12).
+langgraph-api==0.15.1
+langsmith==0.14.4
 # langchain-openai 1.6.x requires openai>=2.45,<4.
-openai==3.18.0
-deepagents==0.7.17
+openai==3.24.0
+# deepagents 0.7.22 requires langchain-core>=1.6.6.
+deepagents==0.7.22
 pypdf>=4.0.0,<7.0.0
