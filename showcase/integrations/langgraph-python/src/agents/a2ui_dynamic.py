@@ -8,6 +8,10 @@ from copilotkit import CopilotKitMiddleware
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 
+from src.agents._header_forwarding_middleware import (
+    AuxiliaryModelHeaderForwardingMiddleware,
+)
+
 
 # Cross-reference: showcase/integrations/google-adk/src/agents/declarative_gen_ui_agent.py
 # Both integrations register the same a2ui catalog (Card / Row / Column /
@@ -53,9 +57,19 @@ SYSTEM_PROMPT = (
 # runtime's frontend `render_a2ui` tool. The middleware skips that injection
 # when the agent already defines a tool with the same name, so a backend stub
 # would shadow it, and a model that follows SYSTEM_PROMPT would run the stub.
+#
+# The subagent calls the model from the tool node, where CopilotKitMiddleware
+# does not re-read the forwarded `x-*` headers, so
+# AuxiliaryModelHeaderForwardingMiddleware does that at the tool boundary (as
+# in recovery_agent.py).
+_MODEL = ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o"))
+
 graph = create_agent(
-    model=ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o")),
+    model=_MODEL,
     tools=[],
-    middleware=[CopilotKitMiddleware()],
+    middleware=[
+        AuxiliaryModelHeaderForwardingMiddleware(_MODEL),
+        CopilotKitMiddleware(),
+    ],
     system_prompt=SYSTEM_PROMPT,
 )
