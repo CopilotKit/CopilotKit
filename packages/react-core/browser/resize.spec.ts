@@ -111,6 +111,16 @@ const viewportSized = [
     maxHeight: 200,
   },
   {
+    name: "an element JS sizes to innerHeight in a padded body",
+    html: `<style>body { padding: 16px }</style><div id="fill"></div><script>
+      function fill() { document.getElementById("fill").style.height = innerHeight + "px"; }
+      fill();
+      addEventListener("resize", fill);
+    </script>`,
+    maxReports: 3,
+    maxHeight: 424,
+  },
+  {
     name: "a padded 100vh hero",
     html: '<div style="min-height: 100vh; padding: 20px">Hero</div>',
     maxReports: 3,
@@ -205,6 +215,22 @@ test("content added inside a full-height body is followed", async ({
       () => innerHeight - document.body.getBoundingClientRect().height,
     ),
   ).toBe(0);
+});
+
+test("a stopped page neither grows nor stops scrolling when its text changes", async ({
+  page,
+}) => {
+  const html =
+    '<div style="min-height: 100vh; padding: 20px"><span id="clock">1</span></div>';
+  await render(page, html);
+  await settled(page, 3);
+  await expectReachable(page);
+  await render(page, html, [
+    'document.getElementById("clock").textContent = "2"',
+  ]);
+  await expect(sandboxFrame(page).locator("#clock")).toHaveText("2");
+  await settled(page, 3);
+  await expectReachable(page);
 });
 
 test("content that grows after the guard stops is still followed", async ({

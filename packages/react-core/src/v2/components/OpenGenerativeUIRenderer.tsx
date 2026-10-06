@@ -177,8 +177,9 @@ interface InnerProps {
      canvas set to innerHeight) is not reported at all.
    - After our own resize lands, the frame should fit the content. Two misfits in
      a row mean the content follows the frame with an offset (padding, a header,
-     110vh), so reporting stops until the content changes on its own. Such content
-     never fits, so while stopped the document scrolls instead of clipping it.
+     110vh), so reporting stops until the content height changes on its own
+     (viewport unchanged). Such content never fits, so it scrolls instead of
+     being clipped until it fits again.
    ResizeObserver misses content added inside a fixed-height body, so body
    mutations schedule a measurement too. Only body is watched: the measurement
    style goes to head. */
@@ -186,6 +187,7 @@ const CK_MEASURE_AND_WATCH = `
 (function() {
   if (window.__ckResizeWatch) return;
   var last = -1;
+  var measured = -1;
   var view = window.innerHeight;
   var misses = 0;
   var raf = 0;
@@ -204,12 +206,16 @@ const CK_MEASURE_AND_WATCH = `
   function report() {
     raf = 0;
     var h = measure();
-    var resized = window.innerHeight !== view;
+    if (window.innerHeight !== view) {
+      misses = Math.abs(h - window.innerHeight) >= 2 ? misses + 1 : 0;
+    } else if (Math.abs(h - measured) >= 2) {
+      misses = 0;
+    }
     view = window.innerHeight;
-    misses = resized && Math.abs(h - view) >= 2 ? misses + 1 : 0;
+    measured = h;
     if (misses > 1) {
       document.documentElement.style.setProperty('overflow-y', 'auto', 'important');
-    } else if (misses === 0) {
+    } else if (h - view < 2) {
       document.documentElement.style.removeProperty('overflow-y');
     }
     if (h < 1 || Math.abs(h - last) < 2 || misses > 1) return;
