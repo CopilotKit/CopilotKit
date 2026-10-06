@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:22.23.2-slim
 WORKDIR /app
 
 # Copy package files
