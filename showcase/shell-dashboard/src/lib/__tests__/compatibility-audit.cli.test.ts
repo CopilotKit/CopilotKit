@@ -249,7 +249,7 @@ describe("manual compatibility audit", () => {
       asOf: AS_OF,
       snapshot: result.snapshot,
     });
-    expect(result.packages).toHaveLength(33);
+    expect(result.packages).toHaveLength(34);
     for (const slug of ["ms-agent-dotnet", "ms-agent-harness-dotnet"]) {
       const row = result.snapshot.rows.find((item) => item.slug === slug)!;
       expect(row.status).toBe("not_verified");
