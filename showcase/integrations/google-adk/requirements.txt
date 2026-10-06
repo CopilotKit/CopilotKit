@@ -1,20 +1,20 @@
-# Floors are the versions resolved and tested (google-adk 2.9.2 itself needs
-# fastapi>=0.133; ag-ui-adk 0.7.0 needs uvicorn>=0.35).
+# Floors are the versions resolved and tested (google-adk 2.11.0 itself needs
+# fastapi>=0.133 and opentelemetry-api<=1.42.1, which holds fastapi below
+# 0.142; ag-ui-adk 0.7.1 needs uvicorn>=0.35).
 fastapi>=0.141.1
-uvicorn[standard]>=0.53.0
+uvicorn[standard]>=0.54.0
 python-dotenv
 pydantic
-google-adk==2.9.2
+google-adk==2.11.0
 # google-genai is required by both the primary LlmAgent (via google-adk) and
-# the secondary generate_a2ui planner call. google-adk 2.9.2 needs
+# the secondary generate_a2ui planner call. google-adk 2.11.0 needs
 # google-genai>=2.19,<3.
-google-genai==2.25.0
-# 0.7.0 ships the OSS-158 A2UI middleware path (auto-injected generate_a2ui,
+google-genai==2.28.0
+# 0.7.x ships the OSS-158 A2UI middleware path (auto-injected generate_a2ui,
 # toolkit recovery loop, render_as_llm_instructions prompt + parse_and_fix
-# healing, hard-failure envelope). It needs google-adk>=1.28.1,<3 and
+# healing, hard-failure envelope). 0.7.1 needs google-adk>=1.28.1,<3 and
 # a2ui-agent-sdk>=0.2.4,<0.3.0, and adds ag-ui-a2ui-toolkit transitively.
-ag-ui-adk==0.7.0
+ag-ui-adk==0.7.1
 a2ui-agent-sdk==0.2.4
-# Stays on 0.1.x: CopilotKit 1.73.3 speaks the pre-1.0 AG-UI protocol, so
-# ag-ui-protocol 1.0.0 is not supported yet.
-ag-ui-protocol==0.1.22
+# AG-UI 1.0: CopilotKit 1.77.0 speaks the 1.0 protocol (@ag-ui/core 1.0.1).
+ag-ui-protocol==1.0.0
