@@ -270,15 +270,14 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
   it("findMissingServices treats every gateValidated service as a target, per the envs it declares", () => {
     // With nothing "present", every gateValidated service should appear in
     // the missing set for each env it DECLARES. The dual-env gateValidated
-    // services (30 showcase/infra + 12 starters) carry both prod and staging
-    // and are demanded in BOTH envs; the staging-only google-antigravity is
-    // demanded in staging alone.
+    // services (31 showcase/infra + 12 starters) carry both prod and staging
+    // and are demanded in BOTH envs.
     const missingProd = findMissingServices("prod", new Set<string>());
     const missingStaging = findMissingServices("staging", new Set<string>());
-    expect(missingProd).toHaveLength(42);
+    expect(missingProd).toHaveLength(43);
     expect(missingStaging).toHaveLength(43);
     expect(missingStaging).toContain("showcase-google-antigravity");
-    expect(missingProd).not.toContain("showcase-google-antigravity");
+    expect(missingProd).toContain("showcase-google-antigravity");
     // CrewAI Conversational Flows is now required in both envs.
     expect(missingStaging).toContain("showcase-crewai-conversational-flows");
     expect(missingProd).toContain("showcase-crewai-conversational-flows");
