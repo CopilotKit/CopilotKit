@@ -22,8 +22,13 @@ test("renders the Mastra sub-agent helper and server setup for LLM readers", () 
   expect(output).toContain(
     "export async function writeDelegationsToWorkingMemory",
   );
+  expect(output).toContain("interface MaybeToolExecutionContext");
+  expect(output).toContain("async function resolveMemoryAndIds");
+  expect(output).toContain("async function readExistingWorkingMemory");
+  expect(output).toContain("function logWorkingMemoryFailure");
   expect(output).toContain("registerCopilotKit");
   expect(output).toContain("Keep working memory");
+  expect(output).not.toContain("Code tab");
   expect(output).not.toContain("@region[working-memory]");
 
   const otherFramework = renderPageToLlmText(

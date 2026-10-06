@@ -1,6 +1,6 @@
 ### Mastra sub-agents setup
 
-Copy `src/mastra/tools/working-memory.ts` from the demo's Code tab next to
+Save the complete helper below as `src/mastra/tools/working-memory.ts` next to
 `subagents.ts`. The latter imports `writeDelegationsToWorkingMemory` from that
 file. The three chat cards render from sub-agent tool calls; the separate
 delegation log reads `agent.state.delegations` from working memory.
@@ -14,10 +14,13 @@ enabled and use a consistent `resourceId` for a user's runs. The chat cards
 come from tool calls and do not depend on the working-memory log.
 
 When Mastra and your frontend run **in the same process**, use
-`MastraAgent.getLocalAgents` in your Copilot Runtime route, as the demo does.
+`getLocalAgent` in your Copilot Runtime route, as the demo does, and pass the
+same `resourceId` on each run for that user.
 When Mastra runs as a **separate server**, expose a CopilotKit route on that
-server instead of wrapping its generic remote agent client. Add this to the
-`Mastra` instance that registers `subagentsSupervisorAgent`:
+server. The generic `MastraAgent.getRemoteAgents` client forwards the sub-agent
+tool calls but does not forward the working-memory state used by the log.
+Install `@ag-ui/mastra@1.1.1` and `@copilotkit/runtime` on the Mastra server,
+then add this to the `Mastra` instance that registers `subagentsSupervisorAgent`:
 
 ```ts title="src/mastra/index.ts"
 import { Mastra } from "@mastra/core/mastra";
@@ -44,7 +47,17 @@ Point the frontend runtime URL at
 state. The demo's local runtime maps the short `subagents` alias, while the
 separate Mastra server exposes its registered key directly.
 
-Set the CORS origin to your frontend's actual origin and derive a distinct
-`resourceId` for each user in a multi-user deployment. Confirm the three tool
-cards complete **and** the delegation log receives state; they are different
-outputs.
+Set the CORS origin to your frontend's actual origin. In a multi-user server,
+add `setContext` to the `registerCopilotKit` options and set
+`MASTRA_RESOURCE_ID_KEY` from your authenticated user. For example, after
+importing `MASTRA_RESOURCE_ID_KEY` from `@mastra/core/request-context`:
+
+```ts
+setContext: async (c, requestContext) => {
+  const user = await requireAuthenticatedUser(c); // your server's auth layer
+  requestContext.set(MASTRA_RESOURCE_ID_KEY, user.id);
+},
+```
+
+The static `resourceId` above is only a single-user fallback. Confirm the
+three tool cards complete and the delegation log receives state.

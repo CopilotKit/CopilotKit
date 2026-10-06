@@ -35,6 +35,7 @@
  * broken demo.
  */
 
+// @region[working-memory]
 /**
  * Shape of the slice of `ToolExecutionContext` we actually consume. We keep
  * this typed loosely (Record<string, unknown>) so we don't pin to the exact
@@ -198,7 +199,6 @@ async function readExistingWorkingMemory(
   return {};
 }
 
-// @region[working-memory]
 /**
  * Append a delegation entry to the supervisor agent's `delegations` array in
  * working memory. Determinism guarantee: this is what drives the UI's live
