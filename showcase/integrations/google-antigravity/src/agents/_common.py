@@ -12,7 +12,15 @@ from google.antigravity import CapabilitiesConfig
 from google.antigravity.models import DEFAULT_MODEL
 from google.antigravity.types import BuiltinTools, GeminiAPIEndpoint
 
+from agents._header_forwarding import get_forwarded_headers
+
 SLUG = "google-antigravity"
+
+# Inbound headers worth carrying onto the model call, when the request has
+# them: X-AIMock-Strict turns a fixture miss into a failure instead of a proxy
+# to the real provider, and x-test-id / x-diag-* let the harness find this
+# run's calls in aimock's journal. Everything else (x-forwarded-for, ...) stays.
+_FORWARDED_PREFIXES = ("x-aimock-", "x-test-id", "x-diag-")
 
 # Keep the workspace path SHORT and stable. A long high-entropy path makes the
 # model reproduce it wrongly in tool calls and the run dies mid-call with an
@@ -63,12 +71,32 @@ def gemini_base_url() -> str | None:
     return os.environ.get("GOOGLE_GEMINI_BASE_URL", "").rstrip("/") or None
 
 
+def aimock_headers() -> dict[str, str]:
+    """Headers for a model call: the package's fixture context plus the
+    current request's mock and diagnostic headers.
+
+    ``X-AIMock-Context`` is fixed: it selects this package's fixtures whatever
+    the request says. The rest comes from the inbound request (captured by
+    ``HeaderForwardingHTTPMiddleware``) and is forwarded only when present, so
+    ordinary demo traffic is never forced into strict mode.
+    """
+    forwarded = {
+        k: v
+        for k, v in get_forwarded_headers().items()
+        if k.startswith(_FORWARDED_PREFIXES)
+    }
+    return {**forwarded, "x-aimock-context": SLUG}
+
+
 def endpoint() -> GeminiAPIEndpoint | None:
     """Where every model call goes: aimock under compose, Google's API otherwise.
 
-    Against aimock, the ``X-AIMock-Context`` header selects this package's
-    fixtures. The harness makes the model calls itself, so the header has to
-    ride on the endpoint rather than on a request this code sends.
+    Passed to the adapter as a callable, so it runs each time a session is
+    built, inside that conversation's first request. The harness makes the
+    model calls itself, so headers can only reach them on the endpoint: the
+    request's ``X-AIMock-Strict`` and ``x-test-id``/``x-diag-*`` ride along
+    from here (PNI-576). They are fixed per conversation, because the SDK
+    sets a conversation's model configuration when it starts.
     """
     base_url = gemini_base_url()
     if base_url is None:
@@ -76,7 +104,7 @@ def endpoint() -> GeminiAPIEndpoint | None:
     return GeminiAPIEndpoint(
         base_url=base_url,
         api_key=api_key(),
-        http_headers={"X-AIMock-Context": SLUG},
+        http_headers=aimock_headers(),
     )
 
 
@@ -134,7 +162,7 @@ def build(**kwargs):
     defaults = dict(
         model=MODEL,
         api_key=api_key(),
-        endpoint=endpoint(),
+        endpoint=endpoint,
         workspaces=[WORKSPACE],
         save_dir=SAVE_DIR,
         harness_pool=shared_pool(),
