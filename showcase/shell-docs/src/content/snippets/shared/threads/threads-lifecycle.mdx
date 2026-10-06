@@ -236,7 +236,9 @@ rename, archive, or delete records in the native framework store.
 
 ## Example: keep an existing LangGraph conversation
 
-Your React app already uses a LangGraph agent registered as `support` in your CopilotKit runtime. Its durable checkpointer or LangGraph deployment stores the conversation. After you [connect the runtime to Intelligence](/intelligence/quickstart), use the existing conversation to see recording in both systems.
+This example uses a React app with a LangGraph agent registered as `support` in the CopilotKit runtime. Its durable checkpointer or LangGraph deployment already stores a conversation. [Connect the runtime to Intelligence](/intelligence/quickstart), then continue that conversation.
+
+If you want to copy its earlier history, [import it first](/langgraph-python/threads-import). Import cannot merge that history into a record already created by live recording. Otherwise, continue without importing:
 
 1. Keep the agent's native persistence configured. Intelligence records AG-UI interaction history while LangGraph continues saving its own conversation and graph state.
 2. Copy the native conversation's thread ID from your app. Pass that value to `CopilotChat` under your existing `CopilotKitProvider`.
@@ -264,7 +266,7 @@ Your React app already uses a LangGraph agent registered as `support` in your Co
 4. Open your runtime's project in [CopilotKit Intelligence](https://dashboard.operations.copilotkit.ai/) and find the thread by its ID. Make sure that it contains your new message and the agent's reply. On localhost, you can also find it in Inspector's Rich Threads pane.
 5. Reopen the chat with the same thread ID and send another message as the same application user. Make sure that Intelligence adds it to the same thread and LangGraph updates the same native conversation.
 
-You now have an Intelligence record alongside the original LangGraph conversation. The ID connects subsequent runs to the same conversation in both systems. To include history from before you connected Intelligence, follow the optional [historical import guide](/threads-import).
+You now have an Intelligence record alongside the original LangGraph conversation. The ID connects subsequent runs to the same conversation in both systems.
 
 ## MCP Apps activity and history
 
