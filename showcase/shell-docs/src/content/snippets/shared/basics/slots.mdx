@@ -226,8 +226,11 @@ function ToolActivity({
   );
 }
 
+// An assistant message that also carries text stays on its own row, so the
+// text (or a card waiting on the user) is never folded into a closed group.
 const isToolStep = (m: Message) =>
-  m.role === "tool" || (m.role === "assistant" && !!m.toolCalls?.length);
+  m.role === "tool" ||
+  (m.role === "assistant" && !!m.toolCalls?.length && !m.content);
 
 export function Chat() {
   // [!code highlight:18]
@@ -258,7 +261,7 @@ export function Chat() {
 ```
 
 - **A group is one row.** Virtualization windows and measures it as a whole, and expanding it is just that row growing. The 50-message threshold still counts messages, so a long thread folded into a few groups stays virtualized.
-- **The wrapper's state outlives the row.** `state` and `setState` are kept by the chat under the group's `key`, so a block someone expanded is still expanded when they scroll back to it. They are dropped once the key no longer appears, and cleared when the thread changes. Keep keys stable while the thread streams — the id of the group's first message works.
+- **The wrapper's state outlives the row.** `state` and `setState` are kept by the chat under the group's `key`, so a block someone expanded is still expanded when they scroll back to it. They are dropped once the key no longer appears, and cleared when the thread changes. Key a group by the id of its first message: if the backend renames that message mid-stream (some LangChain providers swap a temporary `lc_run--…` id for the final one), the chat carries the group over the same way it does a single message, so it neither remounts nor loses its state. Any other key must stay the same while the thread streams.
 - **`children` is the default rendering** of the group's messages. Wrap it, hide it, or render the messages yourself from `messages`.
 - **Each message goes in at most one row.** In development the chat warns when a message renders twice or two groups share a key.
 

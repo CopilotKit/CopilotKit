@@ -418,6 +418,9 @@ describe("CopilotChatMessageView transformMessages", () => {
         String(text).includes("disables virtualization"),
       );
       expect(virtualizationWarnings).toHaveLength(1);
+      // Grouping is the case `transformMessages` cannot cover, so the warning
+      // must point there too.
+      expect(String(virtualizationWarnings[0]![0])).toContain("groupMessages");
       await drainAnimationFrames();
     });
 

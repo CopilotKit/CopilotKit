@@ -5,6 +5,7 @@ import type { Virtualizer } from "@tanstack/react-virtual";
 import type * as ReactVirtual from "@tanstack/react-virtual";
 import { renderWithCopilotKit } from "../../../__tests__/utils/test-helpers";
 import {
+  createScrollableElement,
   createScrollElement,
   drainAnimationFrames,
   userMessages,
@@ -101,6 +102,7 @@ afterEach(() => {
   cleanup();
   capture.current = null;
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("CopilotChatMessageView groupMessages", () => {
@@ -176,6 +178,125 @@ describe("CopilotChatMessageView groupMessages", () => {
 
     expect(virtualizedRowCount()).toBe(2);
     await drainAnimationFrames();
+  });
+
+  it("keeps an opened group open after it scrolls out of the virtual window and back", async () => {
+    const { element, scrollTo } = createScrollableElement();
+    renderWithCopilotKit({
+      children: (
+        <ScrollElementContext.Provider value={element}>
+          <CopilotChatMessageView
+            messages={[...userMessages(3, "tool"), ...userMessages(60, "a")]}
+            groupMessages={groupByPrefix("tool")}
+          />
+        </ScrollElementContext.Provider>
+      ),
+    });
+    await drainAnimationFrames();
+    const bottom = () => capture.current!.getTotalSize() - 600;
+
+    // Far from the top, the group (row 0) is outside the window.
+    await scrollTo(bottom());
+    expect(screen.queryByTestId("group-tool")).toBeNull();
+
+    await scrollTo(0);
+    fireEvent.click(screen.getByText("toggle tool"));
+    expect(screen.queryByText("tool 0")).not.toBeNull();
+
+    await scrollTo(bottom());
+    expect(screen.queryByTestId("group-tool")).toBeNull();
+
+    await scrollTo(0);
+    expect(screen.queryByText("tool 0")).not.toBeNull();
+  });
+
+  /**
+   * Some LangChain providers stream a message under a temporary `lc_run--…`
+   * id and rename it in the final snapshot. A group keyed by its first
+   * message's id would get a new key; it must neither remount (dropping a HITL
+   * card's state) nor lose the state its wrapper keeps.
+   */
+  it("keeps a group mounted and open when its first message is renamed", () => {
+    const toolCall = {
+      id: "call_A",
+      type: "function" as const,
+      function: { name: "lookup", arguments: "{}" },
+    };
+    const thread = (assistantId: string): Message[] => [
+      { id: "u-0", role: "user", content: "hi" },
+      {
+        id: assistantId,
+        role: "assistant",
+        content: "",
+        toolCalls: [toolCall],
+      },
+      { id: "t-0", role: "tool", content: "found", toolCallId: "call_A" },
+    ];
+    const groupToolSteps = (list: Message[]): MessageRow[] => {
+      const steps = list.filter((m) => m.role !== "user");
+      return [
+        ...list.filter((m) => m.role === "user").map(messageRow),
+        messageGroup({
+          key: steps[0]!.id,
+          messages: steps,
+          wrapper: Collapsible,
+        }),
+      ];
+    };
+    let setMessages: ((next: Message[]) => void) | null = null;
+    function Harness() {
+      const [messages, update] = React.useState(thread("lc_run--1"));
+      setMessages = update;
+      return (
+        <CopilotChatMessageView
+          messages={messages}
+          groupMessages={groupToolSteps}
+        />
+      );
+    }
+
+    renderWithCopilotKit({ children: <Harness /> });
+    const group = screen.getByTestId("group-lc_run--1");
+    fireEvent.click(screen.getByText("toggle lc_run--1"));
+    expect(group.textContent).toContain("toggle");
+
+    act(() => setMessages!(thread("resp_1")));
+
+    const renamed = screen.getByTestId("group-resp_1");
+    expect(renamed).toBe(group);
+    // Still open: the default rendering of its messages is mounted.
+    expect(renamed.children.length).toBeGreaterThan(1);
+  });
+
+  it("gives a group's wrapper the same setState on every render", () => {
+    const setters: Array<(next: boolean) => void> = [];
+    function Recording(props: MessageGroupWrapperProps<boolean>) {
+      setters.push(props.setState);
+      return <Collapsible {...props} />;
+    }
+    let setMessages: ((next: Message[]) => void) | null = null;
+    function Harness() {
+      const [messages, update] = React.useState([
+        ...userMessages(1, "a"),
+        ...userMessages(2, "tool"),
+      ]);
+      setMessages = update;
+      return (
+        <CopilotChatMessageView
+          messages={messages}
+          groupMessages={groupByPrefix("tool", Recording)}
+        />
+      );
+    }
+
+    renderWithCopilotKit({ children: <Harness /> });
+    act(() =>
+      setMessages!([...userMessages(2, "a"), ...userMessages(2, "tool")]),
+    );
+    fireEvent.click(screen.getByText("toggle tool"));
+
+    expect(setters.length).toBeGreaterThan(2);
+    expect(new Set(setters).size).toBe(1);
   });
 
   describe("group state", () => {

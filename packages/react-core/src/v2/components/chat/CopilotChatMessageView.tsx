@@ -671,23 +671,6 @@ export function CopilotChatMessageView({
     );
   }, [duplicateGroupKey]);
 
-  // State each group's wrapper keeps here rather than in itself, so it
-  // survives the row being windowed out and the wrapper remounting. Cleared
-  // when the thread changes; pruned to the groups still on the list.
-  const groupStateRef = useRef<Map<string, unknown>>(new Map());
-  const groupStateThreadRef = useRef(config?.threadId);
-  if (groupStateThreadRef.current !== config?.threadId) {
-    groupStateThreadRef.current = config?.threadId;
-    groupStateRef.current = new Map();
-  }
-  useLayoutEffect(() => {
-    const live = new Set<string>();
-    for (const row of rows) if (row.type === "group") live.add(row.key);
-    for (const key of groupStateRef.current.keys()) {
-      if (!live.has(key)) groupStateRef.current.delete(key);
-    }
-  }, [rows]);
-
   // Stable per-row React keys. Backends can re-key a message mid-stream, and
   // keying rows by the canonical id remounts the row on that swap (the HITL
   // chat flash). See @copilotkit/shared row-render-keys for the mechanism.
@@ -707,6 +690,49 @@ export function CopilotChatMessageView({
   useLayoutEffect(() => {
     commitRowKeyStore(rowKeyStore, renderedMessages);
   }, [rowKeyStore, renderedMessages]);
+
+  // A group's key, made stable the same way: a key that is a message id (the
+  // documented choice is the group's first message) resolves through
+  // `rowRenderKeys`, so a backend renaming that message mid-stream neither
+  // remounts the group nor loses its state.
+  const stableGroupKey = (key: string): string => rowRenderKeys.get(key) ?? key;
+
+  // State each group's wrapper keeps here rather than in itself, so it
+  // survives the row being windowed out and the wrapper remounting. Cleared
+  // when the thread changes; pruned to the groups still on the list. One
+  // setter per group, kept with its state, so a wrapper that depends on
+  // `setState` in an effect or memo sees the same function every render.
+  const groupStateRef = useRef<Map<string, unknown>>(new Map());
+  const groupSettersRef = useRef<Map<string, (next: unknown) => void>>(
+    new Map(),
+  );
+  const groupStateThreadRef = useRef(config?.threadId);
+  if (groupStateThreadRef.current !== config?.threadId) {
+    groupStateThreadRef.current = config?.threadId;
+    groupStateRef.current = new Map();
+    groupSettersRef.current = new Map();
+  }
+  const groupSetter = (key: string): ((next: unknown) => void) => {
+    let setter = groupSettersRef.current.get(key);
+    if (!setter) {
+      setter = (next) => {
+        groupStateRef.current.set(key, next);
+        forceUpdate();
+      };
+      groupSettersRef.current.set(key, setter);
+    }
+    return setter;
+  };
+  useLayoutEffect(() => {
+    const live = new Set<string>();
+    for (const row of rows) {
+      if (row.type === "group") live.add(stableGroupKey(row.key));
+    }
+    for (const store of [groupStateRef.current, groupSettersRef.current]) {
+      for (const key of store.keys()) if (!live.has(key)) store.delete(key);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stableGroupKey reads rowRenderKeys
+  }, [rows, rowRenderKeys]);
 
   if (
     process.env.NODE_ENV === "development" &&
@@ -825,9 +851,9 @@ export function CopilotChatMessageView({
     console.warn(
       `[CopilotKit] CopilotChatMessageView: the \`children\` render prop disables virtualization, ` +
         `so all ${renderedMessages.length} messages are mounted. ` +
-        (transformMessages
-          ? "`transformMessages` keeps virtualization on by itself; drop `children` to use it."
-          : "To reshape the list and keep virtualization, use `transformMessages` instead."),
+        (transformMessages || groupMessages
+          ? "`transformMessages` and `groupMessages` keep virtualization on by themselves; drop `children` to use them."
+          : "To reshape the list and keep virtualization, use `transformMessages` instead, or `groupMessages` to render several messages as one row."),
     );
   }, [
     childrenDisabledVirtualization,
@@ -1070,23 +1096,20 @@ export function CopilotChatMessageView({
 
   const rowKey = (row: MessageRow): string =>
     row.type === "group"
-      ? `${GROUP_ROW_KEY_PREFIX}${row.key}`
+      ? `${GROUP_ROW_KEY_PREFIX}${stableGroupKey(row.key)}`
       : (rowRenderKeys.get(row.message.id) ?? row.message.id);
 
   const renderRow = (row: MessageRow): React.ReactElement[] => {
     if (row.type === "message") return renderMessageBlock(row.message);
     const Wrapper = row.wrapper;
-    const { key } = row;
+    const stateKey = stableGroupKey(row.key);
     return [
       <Wrapper
         key={rowKey(row)}
-        groupKey={key}
+        groupKey={row.key}
         messages={row.messages}
-        state={groupStateRef.current.get(key)}
-        setState={(next) => {
-          groupStateRef.current.set(key, next);
-          forceUpdate();
-        }}
+        state={groupStateRef.current.get(stateKey)}
+        setState={groupSetter(stateKey)}
       >
         {row.messages.flatMap(renderMessageBlock)}
       </Wrapper>,
