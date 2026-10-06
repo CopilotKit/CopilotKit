@@ -7,7 +7,7 @@
         "command": "pnpm exec vitest run --config vitest.config.ts",
         "cwd": "showcase/integrations/strands-typescript/src/agent"
       },
-      "dependsOn": [],
+      "dependsOn": ["install-dependencies"],
       "cache": false
     },
     "check-types": {
@@ -16,7 +16,15 @@
         "command": "pnpm exec tsc --noEmit",
         "cwd": "showcase/integrations/strands-typescript/src/agent"
       },
-      "dependsOn": []
+      "dependsOn": ["install-dependencies"]
+    },
+    "install-dependencies": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund",
+        "cwd": "showcase/integrations/strands-typescript/src/agent"
+      },
+      "cache": false
     }
   }
 }
