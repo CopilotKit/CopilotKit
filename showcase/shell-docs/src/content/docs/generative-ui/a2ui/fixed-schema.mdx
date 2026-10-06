@@ -18,8 +18,9 @@ varies between integrations:
 
 - **Schema-loading** (langgraph-python, langgraph-typescript,
   langgraph-fastapi, llamaindex, crewai-crews, pydantic-ai,
-  ms-agent-python, google-adk, strands, strands-typescript), the schema is
-  saved as a `.json` file next to the agent and loaded once at startup.
+  ms-agent-python, google-adk, and both Strands integrations,
+  including Strands TypeScript), the schema is saved as a `.json` file
+  next to the agent and loaded once at startup.
 - **Schema-inline** (built-in-agent, spring-ai, ms-agent-dotnet), the schema is
   declared inline as a typed literal in source rather than loaded from a
   JSON file. Spring AI and .NET don't ship a `load_schema` JSON loader, and
