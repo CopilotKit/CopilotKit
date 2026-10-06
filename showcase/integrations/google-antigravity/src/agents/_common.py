@@ -33,6 +33,13 @@ SESSION_TIMEOUT_SECONDS = int(
     os.environ.get("ANTIGRAVITY_SESSION_TIMEOUT_SECONDS", "300")
 )
 MAX_SESSIONS = int(os.environ.get("ANTIGRAVITY_MAX_SESSIONS", "200"))
+# Bounds a turn that never stops calling tools. A turn keeps running after its
+# client disconnects, so without this a model or fixture that re-issues the
+# same call runs until the process dies (PNI-570/PNI-571: thousands of cycles
+# per stream on staging). The demos' longest turn makes 7 calls.
+MAX_TOOL_CALLS_PER_TURN = int(
+    os.environ.get("ANTIGRAVITY_MAX_TOOL_CALLS_PER_TURN", "50")
+)
 REASONING_MODEL = os.environ.get("ANTIGRAVITY_REASONING_MODEL", DEFAULT_MODEL)
 
 
@@ -134,6 +141,7 @@ def build(**kwargs):
         capabilities=chat_only_capabilities(),
         session_timeout_seconds=SESSION_TIMEOUT_SECONDS,
         max_sessions=MAX_SESSIONS,
+        max_tool_calls_per_turn=MAX_TOOL_CALLS_PER_TURN,
     )
     defaults.update(kwargs)
     return AntigravityAgent(**defaults)
