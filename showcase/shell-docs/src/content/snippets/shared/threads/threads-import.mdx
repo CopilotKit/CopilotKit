@@ -8,6 +8,8 @@ Add reconnection, catch-up, and delivery across devices to the conversations you
 
 Your framework continues managing agent context and execution state. Keep your durable LangGraph checkpointer or durable ADK session service configured and keep the mapping between CopilotKit `threadId` values and native framework conversation identifiers stable. See [AG-UI Streams & Framework Threads](/intelligence/threads-explained#how-threads-work-with-framework-storage) for the responsibilities of each layer.
 
+For a concrete example without historical import, see [keep an existing LangGraph conversation](/threads-lifecycle#example-keep-an-existing-langgraph-conversation).
+
 ## Include earlier conversations (optional)
 
 If you also want users to reopen history recorded before Intelligence was connected, copy supported history into Intelligence using the steps below. The importer currently supports Google ADK, LangGraph, and Mastra stores. It copies historical content; it does not enable live delivery, recover past execution, or establish ongoing database replication.

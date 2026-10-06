@@ -216,8 +216,8 @@ The bridge between the two is the `threadId`: when you pass an explicit CopilotK
 
 ### Future runs can remain durable in both places
 
-After historical import, future conversations that run through CopilotKit are
-written to CopilotKit Intelligence as threads. If your LangGraph agent
+Once Intelligence is connected, conversations that run through that runtime are
+recorded automatically in Intelligence. Historical import is optional. If your LangGraph agent
 continues using a durable checkpointer or LangGraph Platform, those same runs
 also continue through LangGraph's native persistence. The same applies to an ADK
 agent that remains connected to a durable session service with retained
@@ -233,6 +233,38 @@ rename, archive, or delete records in the native framework store.
 <Callout type="info">
   See [LangGraph persistence](/integrations/langgraph/advanced/persistence/message-persistence) for the framework-native (checkpointer) side, and [Importing and synchronizing thread history](/threads-import) for bringing existing framework conversations into the platform store. (LangGraph *Platform* requires thread ids to be UUIDs, which CopilotKit's auto-minted ids already are.)
 </Callout>
+
+## Example: keep an existing LangGraph conversation
+
+Your React app already uses a LangGraph agent registered as `support` in your CopilotKit runtime. Its durable checkpointer or LangGraph deployment stores the conversation. After you [connect the runtime to Intelligence](/intelligence/quickstart), use the existing conversation to see recording in both systems.
+
+1. Keep the agent's native persistence configured. Intelligence records AG-UI interaction history while LangGraph continues saving its own conversation and graph state.
+2. Copy the native conversation's thread ID from your app. Pass that value to `CopilotChat` under your existing `CopilotKitProvider`.
+
+   For example, if the native thread ID is `550e8400-e29b-41d4-a716-446655440000`, render this component in your app:
+
+   ```tsx title="SupportConversation.tsx"
+   "use client";
+
+   import { CopilotChat } from "@copilotkit/react-core/v2";
+
+   export function SupportConversation() {
+     return (
+       <CopilotChat
+         agentId="support"
+         threadId="550e8400-e29b-41d4-a716-446655440000"
+       />
+     );
+   }
+   ```
+
+   Use your runtime's registered agent ID and your conversation's actual thread ID. This example uses the same UUID in both systems. If your backend maps IDs instead, reuse the saved mapping on every run. LangGraph Platform requires UUID thread IDs. Do not generate a new ID or mapping when you reopen the conversation.
+
+3. Send a message through your app to run the agent. That run creates the Intelligence record if needed and records the supported interaction data. Opening the chat alone does not create the record or import old history.
+4. Open your runtime's project in [CopilotKit Intelligence](https://dashboard.operations.copilotkit.ai/) and find the thread by its ID. Make sure that it contains your new message and the agent's reply. On localhost, you can also find it in Inspector's Rich Threads pane.
+5. Reopen the chat with the same thread ID and send another message as the same application user. Make sure that Intelligence adds it to the same thread and LangGraph updates the same native conversation.
+
+You now have an Intelligence record alongside the original LangGraph conversation. The ID connects subsequent runs to the same conversation in both systems. To include history from before you connected Intelligence, follow the optional [historical import guide](/threads-import).
 
 ## MCP Apps activity and history
 
