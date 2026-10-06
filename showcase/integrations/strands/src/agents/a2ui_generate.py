@@ -17,9 +17,12 @@ tool (OSS-901).
 # @region[backend-render-operations]
 import json
 import logging
+import uuid
 from typing import TypedDict
 
 from strands import tool
+from strands.types.tools import ToolContext
+from tools.a2ui_catalog import read_client_catalog, validate_client_surface
 
 # Shared tool implementations, symlinked at the project root
 # (→ ../../shared/python/tools). ``build_a2ui_operations_from_tool_call`` wraps
@@ -50,9 +53,9 @@ class _A2uiError(TypedDict):
 # `build_a2ui_operations_from_tool_call`. The ag_ui_strands middleware
 # detects the container in the tool result and forwards the ops to
 # the frontend, which resolves component names through the registered
-# catalog (`copilotkit://generative-catalog`).
-@tool
-def generate_a2ui(context: str) -> str:
+# catalog supplied by the host in this run’s AG-UI context.
+@tool(context=True)
+def generate_a2ui(context: str, tool_context: ToolContext) -> str:
     """Generate dynamic A2UI components based on the conversation.
 
     A secondary LLM designs the UI schema and data. The result is
@@ -69,6 +72,36 @@ def generate_a2ui(context: str) -> str:
     Returns:
         A2UI operations (or ``_A2uiError``) as JSON string
     """
+    try:
+        catalog = read_client_catalog(
+            tool_context.agent.state.get("agui_context") or []
+        )
+    except (ValueError, TypeError) as exc:
+        return json.dumps(
+            _A2uiError(
+                error="a2ui_missing_catalog",
+                message=str(exc),
+                remediation="Register an A2UI catalog on the host and forward its component schema in request context.",
+            )
+        )
+
+    surface_id = f"dashboard-{uuid.uuid4()}"
+    # Read query results from the executing agent, not a model-authored summary.
+    # The primary model often supplies only layout instructions in `context`.
+    user_request = ""
+    query_ids = set()
+    query_results = []
+    for message in tool_context.agent.messages:
+        for block in message.get("content", []):
+            if message.get("role") == "user" and isinstance(block.get("text"), str):
+                user_request = block["text"]
+            call = block.get("toolUse", {})
+            if call.get("name") == "query_data":
+                query_ids.add(call["toolUseId"])
+            result = block.get("toolResult", {})
+            if result.get("toolUseId") in query_ids:
+                query_results.append(result.get("content", []))
+
     tool_schema = {
         "type": "function",
         "function": {
@@ -77,12 +110,11 @@ def generate_a2ui(context: str) -> str:
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "surfaceId": {"type": "string"},
-                    "catalogId": {"type": "string"},
+                    "catalogId": {"type": "string", "enum": [catalog["catalogId"]]},
                     "components": {"type": "array", "items": {"type": "object"}},
                     "data": {"type": "object"},
                 },
-                "required": ["surfaceId", "catalogId", "components"],
+                "required": ["catalogId", "components"],
             },
         },
     }
@@ -117,11 +149,23 @@ def generate_a2ui(context: str) -> str:
             messages=[
                 {
                     "role": "system",
-                    "content": context or "Generate a useful dashboard UI.",
+                    "content": (
+                        "CRITICAL: Generate a flat A2UI v0.9 surface using only the host catalog below. "
+                        "The root component must have id root. Never add a property not declared "
+                        "in that component schema (other than id). Use the exact component properties "
+                        "and actual query results supplied in the request. Do not invent data. "
+                        "Calculate totals and chart series from those results. If a requested "
+                        "metric cannot be derived, label it unavailable instead of leaving it blank.\n"
+                        + json.dumps(catalog)
+                    ),
                 },
                 {
                     "role": "user",
-                    "content": "Generate a dynamic A2UI dashboard based on the conversation.",
+                    "content": (
+                        user_request or context or "Generate a useful dashboard UI."
+                    )
+                    + "\n\nAuthoritative query_data results:\n"
+                    + json.dumps(query_results),
                 },
             ],
             tools=[tool_schema],
@@ -178,6 +222,19 @@ def generate_a2ui(context: str) -> str:
                 error="a2ui_invalid_arguments",
                 message=f"Could not parse render_a2ui arguments: {exc}",
                 remediation="Retry the request; the secondary LLM emitted malformed JSON.",
+            )
+        )
+
+    try:
+        if isinstance(args, dict):
+            args["surfaceId"] = surface_id
+        validate_client_surface(args, catalog)
+    except ValueError as exc:
+        return json.dumps(
+            _A2uiError(
+                error="a2ui_invalid_surface",
+                message=str(exc),
+                remediation="Generate a surface matching the supplied host catalog and component schemas.",
             )
         )
 
