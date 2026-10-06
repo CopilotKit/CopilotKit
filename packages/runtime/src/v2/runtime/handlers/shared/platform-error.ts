@@ -17,6 +17,10 @@ import { errorResponse } from "./json-response";
  * if the runtime itself broke. That also avoids a `RangeError` from
  * `new Response(..., { status })` on an out-of-range status. Anything that is
  * not a platform error at all stays 500.
+ *
+ * A platform **401/403** is also 502: it rejects the runtime's own API key
+ * (e.g. after a rotation), not the end user, so forwarding it would tell the
+ * browser the user is unauthorized for a fault only the server can fix.
  */
 export function platformErrorResponse(
   error: unknown,
@@ -24,7 +28,13 @@ export function platformErrorResponse(
 ): Response {
   if (error instanceof PlatformRequestError) {
     const { status } = error;
-    if (Number.isInteger(status) && status >= 400 && status <= 499) {
+    const isCredentialRejection = status === 401 || status === 403;
+    if (
+      Number.isInteger(status) &&
+      status >= 400 &&
+      status <= 499 &&
+      !isCredentialRejection
+    ) {
       return errorResponse(message, status);
     }
     return errorResponse(message, 502);

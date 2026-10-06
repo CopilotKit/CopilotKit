@@ -1052,6 +1052,34 @@ describe("thread handlers", () => {
       expect(response.status).toBe(502);
     });
 
+    /**
+     * A platform 401/403 rejects the runtime's own API key (e.g. a rotated
+     * key), which neither the user nor the browser can fix, so it must not
+     * reach the client as a user auth error.
+     */
+    it.each([401, 403])(
+      "reports a platform %i as 502, not a user auth error",
+      async (status) => {
+        const intelligence = {
+          getThreadEvents: vi
+            .fn()
+            .mockRejectedValue(new PlatformRequestError("denied", status)),
+        };
+        const runtime = createIntelligenceRuntime({
+          intelligence,
+          identifyUser: createIdentifyUser(),
+        });
+
+        const response = await handleGetThreadEvents({
+          runtime,
+          request: new Request("https://example.com/threads/t1/events"),
+          threadId: "t1",
+        });
+
+        expect(response.status).toBe(502);
+      },
+    );
+
     it("still reports a non-platform failure, as 500", async () => {
       const intelligence = {
         getThreadEvents: vi.fn().mockRejectedValue(new Error("unexpected")),
