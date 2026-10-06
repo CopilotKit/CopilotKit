@@ -6,7 +6,10 @@ import {
   TELEMETRY_EMITTER_V2,
   TELEMETRY_SURFACE_V2,
 } from "@copilotkit/shared";
-import * as packageJson from "../../../../package.json";
+import {
+  RUNTIME_PACKAGE_NAME,
+  RUNTIME_PACKAGE_VERSION,
+} from "../core/package-info";
 import { firstNonBlankTelemetryId } from "./telemetry-identity";
 
 /** Transport identity and sampling authority resolved for one runtime. */
@@ -180,8 +183,8 @@ export class TelemetryClient {
         // event whichever client produced it (OSS-1019).
         telemetry_transport: "lambda",
       },
-      packageName: packageJson.name,
-      packageVersion: packageJson.version,
+      packageName: RUNTIME_PACKAGE_NAME,
+      packageVersion: RUNTIME_PACKAGE_VERSION,
       telemetryId: identity.telemetryId ?? undefined,
       licenseToken: identity.licenseToken ?? undefined,
     });

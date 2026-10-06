@@ -42,6 +42,7 @@ on:
           - crewai-conversational-flows
           - crewai-crews
           - google-adk
+          - google-antigravity
           - langgraph-fastapi
           - langgraph-python
           - langgraph-typescript

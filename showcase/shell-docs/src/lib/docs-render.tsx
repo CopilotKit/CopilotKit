@@ -1295,6 +1295,13 @@ export function normalizeSidebarNav(
         node.type === "page" &&
         withoutRouteGroupSlug(node.slug) === "telemetry",
     ) ?? findPage("telemetry");
+  const communityFrameworks =
+    findNavNode(
+      [...inputOther, ...canonicalOther],
+      (node) =>
+        node.type === "page" &&
+        withoutRouteGroupSlug(node.slug) === "community-frameworks",
+    ) ?? findPage("community-frameworks");
 
   return [
     ...startLinks,
@@ -1424,6 +1431,9 @@ export function normalizeSidebarNav(
             title: "Open-source telemetry",
             icon: undefined,
           }
+        : null,
+      communityFrameworks?.type === "page"
+        ? { ...withoutRouteGroupSegments(communityFrameworks), icon: undefined }
         : null,
     ]),
   ];

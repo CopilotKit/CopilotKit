@@ -36,6 +36,20 @@ function readJson<T>(path: string): T {
   return JSON.parse(readFileSync(path, "utf8")) as T;
 }
 
+/**
+ * Script text that fails unless the loaded runtime reports `expected`.
+ *
+ * The runtime's version is injected at build time rather than imported from
+ * package.json (see packages/runtime/src/v2/runtime/core/package-info.ts).
+ * Source that runs without the injection reports a placeholder, so this is
+ * what proves the published build carries the real version, in each format.
+ */
+function assertVersion(expected: string): string {
+  return `if (VERSION !== ${JSON.stringify(expected)}) {
+  throw new Error("packed runtime reports VERSION " + JSON.stringify(VERSION) + ", expected ${expected}");
+}`;
+}
+
 function main(): void {
   const { packageManager } = readJson<RootManifest>(join(ROOT, "package.json"));
   if (!packageManager) {
@@ -52,6 +66,9 @@ function main(): void {
     const { manifest: packedManifest, tarball } = packPackage(
       RUNTIME,
       tarballDir,
+    );
+    const { version: runtimeVersion } = readJson<{ version: string }>(
+      join(ROOT, "packages/runtime/package.json"),
     );
     if (!packedManifest.dependencies?.[CHANNELS_INTELLIGENCE]) {
       throw new Error(
@@ -95,7 +112,8 @@ function main(): void {
         "node",
         "--eval",
         `require("@copilotkit/runtime");
-require("@copilotkit/runtime/v2");`,
+const { VERSION } = require("@copilotkit/runtime/v2");
+${assertVersion(runtimeVersion)}`,
       ],
       consumerDir,
     );
@@ -112,13 +130,15 @@ const channelsIntelligenceUrl = import.meta.resolve(
   "${CHANNELS_INTELLIGENCE}",
   runtimePackageUrl,
 );
-await import(channelsIntelligenceUrl);`,
+await import(channelsIntelligenceUrl);
+const { VERSION } = await import("@copilotkit/runtime/v2");
+${assertVersion(runtimeVersion)}`,
       ],
       consumerDir,
     );
 
     console.log(
-      `OK: packed runtime installs ${CHANNELS_INTELLIGENCE} and loads through ESM and CJS.`,
+      `OK: packed runtime installs ${CHANNELS_INTELLIGENCE}, loads through ESM and CJS, and reports VERSION ${runtimeVersion}.`,
     );
   } finally {
     rmSync(temp, { recursive: true, force: true });
