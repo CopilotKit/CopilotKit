@@ -2,14 +2,12 @@
 //
 // Goals
 // -----
-// 1. Advertise `audioFileTranscriptionEnabled: true` on `/info` so the chat
-//    composer renders the mic button.
+// 1. Advertise audio transcription on `/info` only when the dedicated
+//    `OPENAI_TRANSCRIPTION_API_KEY` is configured, so the chat composer shows
+//    the mic only when it can work. Unconfigured, `/transcribe` answers 503.
 // 2. Handle `POST /transcribe` with the shared voice transcription service
-//    (`src/app/demos/voice/transcription-service.ts`), so recorded audio is
-//    transcribed by OpenAI and placed in the chat composer for review. That
-//    file owns the endpoint and credential policy for every integration.
-// 3. Return a deterministic 401 when `OPENAI_API_KEY` is not configured,
-//    instead of an opaque 5xx.
+//    (`src/app/demos/voice/transcription-service.ts`), which owns the
+//    endpoint and credential policy for every integration.
 //
 // Implementation
 // --------------
@@ -27,7 +25,7 @@ import {
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
-import { GuardedOpenAITranscriptionService } from "@/app/demos/voice/transcription-service";
+import { createTranscriptionService } from "@/app/demos/voice/transcription-service";
 
 const LANGGRAPH_URL =
   process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
@@ -38,9 +36,7 @@ const voiceDemoAgent = new LangGraphAgent({
 });
 
 // Cache the runtime + handler across invocations so the transcription service
-// is constructed once per Node process instead of per request. A missing
-// OPENAI_API_KEY only fails in the transcribeFile call path, so constructing
-// it here is safe at cold start.
+// is constructed once per Node process instead of per request.
 let cachedHandler: ((req: Request) => Promise<Response>) | null = null;
 function getHandler(): (req: Request) => Promise<Response> {
   if (cachedHandler) return cachedHandler;
@@ -57,7 +53,7 @@ function getHandler(): (req: Request) => Promise<Response> {
       // default-agent lookups resolve against the same graph.
       default: voiceDemoAgent,
     },
-    transcriptionService: new GuardedOpenAITranscriptionService(),
+    transcriptionService: createTranscriptionService(),
   });
 
   cachedHandler = createCopilotRuntimeHandler({

@@ -10,7 +10,7 @@ vi.mock("@copilotkit/voice", () => ({
   TranscriptionServiceOpenAI: transcriptionService,
 }));
 
-import { createTranscriptionService } from "./transcription-service";
+import { createTranscriptionService } from "@/app/demos/voice/transcription-service";
 
 describe("createTranscriptionService", () => {
   beforeEach(() => vi.clearAllMocks());

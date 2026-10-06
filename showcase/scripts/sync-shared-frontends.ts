@@ -25,14 +25,6 @@ const selectedReactIntegrations = [
 
 const sharedStateReadWriteIntegrations = selectedReactIntegrations;
 
-// Built-in Agent keeps its own credential-gated transcription service
-// (src/lib/transcription-service.ts): it advertises the mic only when
-// OPENAI_TRANSCRIPTION_API_KEY is set. The other selected integrations share
-// the guarded service below.
-const sharedVoiceTranscriptionIntegrations = selectedReactIntegrations.filter(
-  (slug) => slug !== "built-in-agent",
-);
-
 // Every integration whose state-rendering docs resolve to the root guide
 // (`generative-ui/state-rendering.mdx`), which draws its frontend snippets
 // from these files.
@@ -142,7 +134,7 @@ const sharedFrontendEntries = [
       "shared/react/demos/voice/transcription-service.ts",
     ),
     targets: demoTargets(
-      sharedVoiceTranscriptionIntegrations,
+      selectedReactIntegrations,
       "voice/transcription-service.ts",
     ),
   },

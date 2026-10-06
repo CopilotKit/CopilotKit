@@ -2,12 +2,12 @@
 //
 // Goals
 // -----
-// 1. Advertise `audioFileTranscriptionEnabled: true` on `/info` so the chat
-//    composer renders the mic button.
+// 1. Advertise audio transcription on `/info` only when the dedicated
+//    `OPENAI_TRANSCRIPTION_API_KEY` is configured, so the chat composer shows
+//    the mic only when it can work. Unconfigured, `/transcribe` answers 503.
 // 2. Handle `POST /transcribe` with the shared voice transcription service
 //    (`src/app/demos/voice/transcription-service.ts`), which owns the
 //    endpoint and credential policy for every integration.
-// 3. Return a deterministic 401 when `OPENAI_API_KEY` is not configured.
 //
 // Wires the V2 `CopilotRuntime` directly because the V1 wrapper drops the
 // `transcriptionService` option. V2 URL-routes on `/info`, `/agent/:id/run`,
@@ -20,7 +20,7 @@ import {
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
-import { GuardedOpenAITranscriptionService } from "@/app/demos/voice/transcription-service";
+import { createTranscriptionService } from "@/app/demos/voice/transcription-service";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
@@ -36,7 +36,7 @@ function getHandler(): (req: Request) => Promise<Response> {
       "voice-demo": voiceDemoAgent,
       default: voiceDemoAgent,
     },
-    transcriptionService: new GuardedOpenAITranscriptionService(),
+    transcriptionService: createTranscriptionService(),
   });
 
   cachedHandler = createCopilotRuntimeHandler({

@@ -3,25 +3,24 @@
  * (canonical: showcase/shared/react/demos/voice/transcription-service.ts,
  * materialized byte-identically into every selected integration).
  *
- * The service is driven through the real V2 runtime `/transcribe` route, the
- * same path the browser mic uses. The provider is replaced by a recording
- * `fetch`, so these tests prove what is sent where without a network or key.
+ * The service is driven through the real V2 runtime, the same `/info` and
+ * `/transcribe` routes the browser mic uses. The provider is replaced by a
+ * recording `fetch`, so these tests prove what is sent where without a
+ * network or key.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
-import {
-  GuardedOpenAITranscriptionService,
-  resolveTranscriptionBaseUrl,
-} from "@/app/demos/voice/transcription-service";
+import { createTranscriptionService } from "@/app/demos/voice/transcription-service";
 
 const BASE_PATH = "/api/copilotkit-voice";
+const INFO_URL = `http://localhost${BASE_PATH}/info`;
 const TRANSCRIBE_URL = `http://localhost${BASE_PATH}/transcribe`;
 
 /** Deterministic 0.25 s, 16 kHz mono 16-bit PCM WAV (400 Hz square wave). */
-function sampleWav(): Uint8Array {
+function sampleWav(): Uint8Array<ArrayBuffer> {
   const sampleRate = 16_000;
   const samples = sampleRate / 4;
   const view = new DataView(new ArrayBuffer(44 + samples * 2));
@@ -86,61 +85,78 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/** Mirrors the voice route: the service comes straight from the factory. */
 function voiceHandler(env: Record<string, string | undefined>) {
   const runtime = new CopilotRuntime({
-    // @ts-ignore -- /transcribe never resolves an agent; see the voice routes
-    // for the published agents type mismatch.
+    // @ts-ignore -- /info and /transcribe never resolve an agent; see the
+    // voice routes for the published agents type mismatch.
     agents: {},
-    transcriptionService: new GuardedOpenAITranscriptionService(env),
+    transcriptionService: createTranscriptionService(env),
   });
   return createCopilotRuntimeHandler({ runtime, basePath: BASE_PATH });
 }
 
 function transcribe(
   handler: (req: Request) => Promise<Response>,
-  audio?: File,
+  audio: File,
 ): Promise<Response> {
   const body = new FormData();
-  if (audio) body.append("audio", audio);
+  body.append("audio", audio);
   return handler(new Request(TRANSCRIBE_URL, { method: "POST", body }));
+}
+
+async function micAdvertised(
+  handler: (req: Request) => Promise<Response>,
+): Promise<boolean> {
+  const response = await handler(new Request(INFO_URL));
+  expect(response.status).toBe(200);
+  const info = (await response.json()) as {
+    audioFileTranscriptionEnabled?: boolean;
+  };
+  return info.audioFileTranscriptionEnabled === true;
 }
 
 const wavFile = () =>
   new File([sampleWav()], "sample.wav", { type: "audio/wav" });
 
-// docker-compose.local.yml and Railway set these for every integration.
+// docker-compose.local.yml and Railway set these for every integration: chat
+// goes to AIMock with a placeholder key.
 const AIMOCK_CHAT_ENV = {
+  OPENAI_API_KEY: "aimock-placeholder",
   OPENAI_BASE_URL: "http://aimock:4010/v1",
   AIMOCK_URL: "http://aimock:4010",
 };
 
-describe("resolveTranscriptionBaseUrl", () => {
-  it("sends recordings to OpenAI even when chat is routed to AIMock", () => {
-    expect(resolveTranscriptionBaseUrl(AIMOCK_CHAT_ENV)).toBe(
-      "https://api.openai.com/v1",
-    );
-    expect(resolveTranscriptionBaseUrl({})).toBe("https://api.openai.com/v1");
+describe("voice transcription without OPENAI_TRANSCRIPTION_API_KEY", () => {
+  it("hides the mic on /info and answers /transcribe 503 without a provider call", async () => {
+    const handler = voiceHandler({
+      ...AIMOCK_CHAT_ENV,
+      OPENAI_TRANSCRIPTION_API_KEY: " ",
+    });
+
+    expect(await micAdvertised(handler)).toBe(false);
+
+    const response = await transcribe(handler, wavFile());
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "service_not_configured",
+    });
+    expect(providerCalls).toHaveLength(0);
   });
 
-  it("uses OPENAI_TRANSCRIPTION_BASE_URL only when it is set explicitly", () => {
-    expect(
-      resolveTranscriptionBaseUrl({
-        ...AIMOCK_CHAT_ENV,
-        OPENAI_TRANSCRIPTION_BASE_URL: " http://127.0.0.1:4010/v1 ",
-      }),
-    ).toBe("http://127.0.0.1:4010/v1");
-    expect(
-      resolveTranscriptionBaseUrl({ OPENAI_TRANSCRIPTION_BASE_URL: "  " }),
-    ).toBe("https://api.openai.com/v1");
+  it("is not enabled by the chat credentials alone", () => {
+    expect(createTranscriptionService(AIMOCK_CHAT_ENV)).toBeUndefined();
   });
 });
 
-describe("GuardedOpenAITranscriptionService behind POST /transcribe", () => {
-  it("forwards the recorded bytes unchanged to OpenAI with the configured key", async () => {
+describe("voice transcription with OPENAI_TRANSCRIPTION_API_KEY", () => {
+  it("shows the mic and forwards the recorded bytes unchanged to OpenAI, even when chat points at AIMock", async () => {
     const handler = voiceHandler({
       ...AIMOCK_CHAT_ENV,
-      OPENAI_API_KEY: "sk-local-test",
+      OPENAI_TRANSCRIPTION_API_KEY: "sk-transcription-test",
     });
+
+    expect(await micAdvertised(handler)).toBe(true);
 
     const response = await transcribe(handler, wavFile());
 
@@ -151,7 +167,7 @@ describe("GuardedOpenAITranscriptionService behind POST /transcribe", () => {
     expect(providerCalls).toHaveLength(1);
     const [call] = providerCalls;
     expect(call!.url).toBe("https://api.openai.com/v1/audio/transcriptions");
-    expect(call!.authorization).toBe("Bearer sk-local-test");
+    expect(call!.authorization).toBe("Bearer sk-transcription-test");
     expect(call!.form.get("model")).toBe("whisper-1");
     const sent = call!.form.get("file");
     expect(sent).toBeInstanceOf(File);
@@ -160,11 +176,11 @@ describe("GuardedOpenAITranscriptionService behind POST /transcribe", () => {
     );
   });
 
-  it("reaches AIMock only through the explicit transcription override", async () => {
+  it("sends audio to OPENAI_TRANSCRIPTION_BASE_URL when it is set explicitly", async () => {
     const handler = voiceHandler({
       ...AIMOCK_CHAT_ENV,
-      OPENAI_API_KEY: "sk-mock",
-      OPENAI_TRANSCRIPTION_BASE_URL: "http://127.0.0.1:4010/v1",
+      OPENAI_TRANSCRIPTION_API_KEY: "sk-mock",
+      OPENAI_TRANSCRIPTION_BASE_URL: " http://127.0.0.1:4010/v1 ",
     });
 
     const response = await transcribe(handler, wavFile());
@@ -173,49 +189,24 @@ describe("GuardedOpenAITranscriptionService behind POST /transcribe", () => {
     expect(providerCalls.map((call) => call.url)).toEqual([
       "http://127.0.0.1:4010/v1/audio/transcriptions",
     ]);
-  });
-
-  it("answers 401 auth_failed without a provider call when OPENAI_API_KEY is missing", async () => {
-    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
-    const handler = voiceHandler({ ...AIMOCK_CHAT_ENV, OPENAI_API_KEY: " " });
-
-    const response = await transcribe(handler, wavFile());
-
-    expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toMatchObject({
-      error: "auth_failed",
-    });
-    expect(providerCalls).toHaveLength(0);
-    expect(logged).toHaveBeenCalledWith(
-      expect.stringContaining("OPENAI_API_KEY is not set"),
-    );
-  });
-
-  it("answers 400 invalid_request without a provider call when the audio part is missing", async () => {
-    const handler = voiceHandler({ OPENAI_API_KEY: "sk-local-test" });
-
-    const response = await transcribe(handler);
-
-    expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toMatchObject({
-      error: "invalid_request",
-    });
-    expect(providerCalls).toHaveLength(0);
+    expect(providerCalls[0]!.authorization).toBe("Bearer sk-mock");
   });
 
   it("rejects a 0-byte upload without a provider call", async () => {
-    const handler = voiceHandler({ OPENAI_API_KEY: "sk-local-test" });
+    const handler = voiceHandler({
+      OPENAI_TRANSCRIPTION_API_KEY: "sk-transcription-test",
+    });
 
     const response = await transcribe(
       handler,
       new File([], "recording.webm", { type: "audio/webm" }),
     );
 
-    // Runtime 1.71.1 forwards a 0-byte `audio` part to the service and maps
-    // any error the service throws by its message text; none of its 4xx
-    // markers fits an empty recording, so this surfaces as provider_error
-    // (500) with the service's message. A 4xx needs the runtime itself to
-    // reject empty audio (TranscriptionErrors.audioTooShort).
+    // Published runtimes up to 1.77.0 forward a 0-byte `audio` part to the
+    // service and map the service's error by its message text; none of their
+    // 4xx markers fits an empty recording, so the service's rejection
+    // surfaces as provider_error (500). Later runtimes answer 400
+    // audio_too_short before the service runs.
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toMatchObject({
       error: "provider_error",
