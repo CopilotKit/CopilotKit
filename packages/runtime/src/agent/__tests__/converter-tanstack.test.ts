@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { compactEvents, EventType } from "@ag-ui/client";
+import type { BaseEvent } from "@ag-ui/client";
 import { EventSchemas } from "@ag-ui/core/schemas";
+import { convertInputToTanStackAI } from "../converters/tanstack";
 import {
+  BuiltInAgent,
   createAgent,
   createDefaultInput,
   collectEvents,
@@ -776,5 +779,627 @@ describe("TanStack AI converter — reasoning", () => {
     expect(types.indexOf(EventType.REASONING_END)).toBeLessThan(
       types.indexOf(EventType.TEXT_MESSAGE_CHUNK),
     );
+  });
+});
+
+// Shapes emitted by @tanstack/ai's normalizeStreamChunk for openai-base's
+// Responses adapter: reasoning message IDs and thinking step IDs are distinct.
+const responsesSignature = ' {"id":"ri-A","encrypted_content":"opaque+/= A"} ';
+function thinkingStep(stepId: string, legacy = false) {
+  return {
+    type: "STEP_STARTED",
+    stepName: stepId,
+    ...(legacy
+      ? { stepId, stepType: "thinking" }
+      : { metadata: { tanstack: { stepId, stepType: "thinking" } } }),
+  };
+}
+function encryptedReasoning(
+  entityId: string,
+  encryptedValue = responsesSignature,
+) {
+  return {
+    type: "REASONING_ENCRYPTED_VALUE",
+    subtype: "message",
+    entityId,
+    encryptedValue,
+    timestamp: 123,
+    metadata: { provider: "fixture" },
+  };
+}
+async function reasoningEvents(chunks: Record<string, unknown>[]) {
+  const events = await collectEvents(
+    createAgent("tanstack", chunks).run(createDefaultInput()),
+  );
+  for (const event of events) {
+    expect(EventSchemas.safeParse(event).success).toBe(true);
+  }
+  return events;
+}
+
+describe("TanStack AI converter — encrypted reasoning", () => {
+  it.each([
+    { failure: "iterator", unknownHead: false },
+    { failure: "iterator", unknownHead: true },
+    { failure: "RUN_ERROR", unknownHead: false },
+    { failure: "RUN_ERROR", unknownHead: true },
+  ])(
+    "retains known signatures on $failure with unknownHead=$unknownHead",
+    async ({ failure, unknownHead }) => {
+      const originalError = new Error("upstream fixture failure");
+      const unknown = encryptedReasoning("never-materialized", "unknown blob");
+      const known = encryptedReasoning("reasoning-A");
+      const agent = new BuiltInAgent({
+        type: "tanstack",
+        factory: async function* () {
+          if (unknownHead) yield unknown;
+          yield tanstackReasoningStart("span-A");
+          yield tanstackReasoningMessageStart("reasoning-A");
+          yield tanstackReasoningMessageEnd("reasoning-A");
+          yield tanstackReasoningEnd("span-A");
+          yield known;
+          yield tanstackTextChunk("partial answer");
+          // Let runAgent's asynchronous subscribers apply preceding events
+          // before the fixture fails, so the no-unknown controls are meaningful.
+          await new Promise<void>((resolve) => setImmediate(resolve));
+          if (failure === "RUN_ERROR") {
+            yield { type: "RUN_ERROR", message: originalError.message };
+            return;
+          }
+          throw originalError;
+        },
+      });
+      const events: BaseEvent[] = [];
+      const run = agent.runAgent(
+        { runId: "offline-partial-failure" },
+        {
+          onEvent: ({ event }) => {
+            events.push(event);
+          },
+        },
+      );
+      await expect(run).rejects.toThrow(originalError.message);
+      if (failure === "iterator") await expect(run).rejects.toBe(originalError);
+      expect(events.filter((e) => e.type === EventType.RUN_FINISHED)).toEqual(
+        [],
+      );
+      expect(
+        events.filter((e) => e.type === EventType.REASONING_ENCRYPTED_VALUE),
+      ).toContainEqual(known);
+      expect(agent.messages.find((m) => m.id === "reasoning-A")).toEqual({
+        id: "reasoning-A",
+        role: "reasoning",
+        content: "",
+        encryptedValue: responsesSignature,
+      });
+      expect(agent.messages.some((m) => m.id === "never-materialized")).toBe(
+        false,
+      );
+      const replay = convertInputToTanStackAI(
+        createDefaultInput({ messages: agent.messages }),
+      );
+      expect(replay.messages[0]).toEqual({
+        role: "assistant",
+        content: null,
+        thinking: [{ content: "", signature: responsesSignature }],
+      });
+      expect(replay.systemPrompts).toEqual([]);
+      // runAgent rejects on the error channel before invoking onEvent for the
+      // terminal RUN_ERROR; inspect the raw stream for that existing contract.
+      const rawRun = await collectEventsIncludingErrors(
+        agent.run(createDefaultInput()),
+      );
+      expect(rawRun.errored).toBe(true);
+      expect(
+        rawRun.events.filter((e) => e.type === EventType.RUN_FINISHED),
+      ).toEqual([]);
+      expect(
+        rawRun.events.filter((e) => e.type === EventType.RUN_ERROR),
+      ).toHaveLength(1);
+      expect(
+        eventField(rawRun.events[rawRun.events.length - 1], "message"),
+      ).toBe(originalError.message);
+    },
+  );
+
+  it("passes an unresolved target through public runAgent without creating a message or replacing its known signature", async () => {
+    const unknown = encryptedReasoning("never-materialized", "unknown blob");
+    const known = encryptedReasoning("reasoning-A");
+    const agent = createAgent("tanstack", [
+      unknown,
+      tanstackReasoningStart("span-A"),
+      tanstackReasoningMessageStart("reasoning-A"),
+      tanstackReasoningMessageEnd("reasoning-A"),
+      tanstackReasoningEnd("span-A"),
+      known,
+    ]);
+    const events: BaseEvent[] = [];
+    await agent.runAgent(
+      { runId: "offline-unresolved-target" },
+      {
+        onEvent: ({ event }) => {
+          events.push(event);
+        },
+      },
+    );
+    expectLifecycleWrapped(events);
+    const encryptedEvents = events.filter(
+      (e) => e.type === EventType.REASONING_ENCRYPTED_VALUE,
+    );
+    expect(encryptedEvents).toHaveLength(2);
+    expect(encryptedEvents).toContainEqual(unknown);
+    expect(encryptedEvents).toContainEqual(known);
+    expect(agent.messages).toEqual([
+      {
+        id: "reasoning-A",
+        role: "reasoning",
+        content: "",
+        encryptedValue: responsesSignature,
+      },
+    ]);
+  });
+
+  it("applies known message and tool updates while an unrelated target and the stream remain pending", async () => {
+    let release!: () => void;
+    const holdStreamOpen = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let reachedHold!: () => void;
+    const atHold = new Promise<void>((resolve) => {
+      reachedHold = resolve;
+    });
+    const unknown = encryptedReasoning("never-materialized", "unknown blob");
+    const first = encryptedReasoning("reasoning-A", "first opaque value");
+    const latest = encryptedReasoning("reasoning-A", responsesSignature);
+    const firstTool = {
+      ...encryptedReasoning("tc-1", "first tool signature"),
+      subtype: "tool-call",
+    };
+    const latestTool = {
+      ...encryptedReasoning("tc-1", "latest tool signature"),
+      subtype: "tool-call",
+    };
+    const agent = new BuiltInAgent({
+      type: "tanstack",
+      factory: async function* () {
+        yield unknown;
+        yield tanstackReasoningStart("span-A");
+        yield tanstackReasoningMessageStart("reasoning-A");
+        yield tanstackReasoningMessageEnd("reasoning-A");
+        yield tanstackReasoningEnd("span-A");
+        yield first;
+        yield latest;
+        yield tanstackToolCallStart("tc-1", "search");
+        yield tanstackToolCallArgs("tc-1", "{}");
+        yield tanstackToolCallEnd("tc-1");
+        yield firstTool;
+        yield latestTool;
+        reachedHold();
+        await holdStreamOpen;
+      },
+    });
+    const events: BaseEvent[] = [];
+    const run = agent.runAgent(
+      { runId: "offline-open-stream" },
+      {
+        onEvent: ({ event }) => {
+          events.push(event);
+        },
+      },
+    );
+    await atHold;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    try {
+      expect(events.some((e) => e.type === EventType.RUN_FINISHED)).toBe(false);
+      const encryptedEvents = events.filter(
+        (e) => e.type === EventType.REASONING_ENCRYPTED_VALUE,
+      );
+      expect(
+        encryptedEvents.filter(
+          (e) => eventField(e, "entityId") === "reasoning-A",
+        ),
+      ).toEqual([first, latest]);
+      expect(
+        encryptedEvents.filter((e) => eventField(e, "entityId") === "tc-1"),
+      ).toEqual([firstTool, latestTool]);
+      expect(encryptedEvents).not.toContainEqual(unknown);
+      expect(agent.messages.find((m) => m.id === "reasoning-A")).toMatchObject({
+        encryptedValue: responsesSignature,
+      });
+      const replay = convertInputToTanStackAI(
+        createDefaultInput({ messages: agent.messages }),
+      );
+      expect(replay.messages[0]).toEqual({
+        role: "assistant",
+        content: null,
+        thinking: [{ content: "", signature: responsesSignature }],
+      });
+      expect(replay.messages[1].toolCalls?.[0]).toMatchObject({
+        id: "tc-1",
+        metadata: { thoughtSignature: "latest tool signature" },
+      });
+    } finally {
+      release();
+      await run;
+    }
+    expect(
+      events.filter((e) => e.type === EventType.REASONING_ENCRYPTED_VALUE),
+    ).toContainEqual(unknown);
+    expect(agent.messages.some((m) => m.id === "never-materialized")).toBe(
+      false,
+    );
+  });
+
+  it.each([false, true])(
+    "maps an early thinking step signature (legacy=%s) without extracting a duplicate",
+    async (legacy) => {
+      const blob = encryptedReasoning("step-A");
+      const events = await reasoningEvents([
+        tanstackReasoningStart("reasoning-A"),
+        tanstackReasoningMessageStart("reasoning-A"),
+        thinkingStep("step-A", legacy),
+        {
+          type: "STEP_FINISHED",
+          stepName: "step-A",
+          metadata: {
+            tanstack: { stepId: "step-A", signature: responsesSignature },
+          },
+        },
+        blob,
+      ]);
+      expect(
+        events.filter((e) => e.type === EventType.REASONING_ENCRYPTED_VALUE),
+      ).toEqual([{ ...blob, entityId: "reasoning-A" }]);
+    },
+  );
+
+  it("buffers a blob until its alias and authoritative message ID are materialized", async () => {
+    const blob = encryptedReasoning("step-A");
+    const events = await reasoningEvents([
+      blob,
+      { type: "REASONING_START" },
+      thinkingStep("step-A"),
+      tanstackReasoningMessageStart("reasoning-A"),
+    ]);
+    const startIndex = events.findIndex(
+      (e) => e.type === EventType.REASONING_MESSAGE_START,
+    );
+    const blobIndex = events.findIndex(
+      (e) => e.type === EventType.REASONING_ENCRYPTED_VALUE,
+    );
+    expect(blobIndex).toBeGreaterThan(startIndex);
+    expect(events[blobIndex]).toEqual({ ...blob, entityId: "reasoning-A" });
+    expect(eventField(events[startIndex], "messageId")).toBe("reasoning-A");
+  });
+
+  it.each([
+    { spanId: undefined, explicitEnd: false },
+    { spanId: undefined, explicitEnd: true },
+    { spanId: "span-A", explicitEnd: false },
+    { spanId: "span-A", explicitEnd: true },
+  ])(
+    "round-trips early reasoning through runAgent with span=$spanId, explicitEnd=$explicitEnd",
+    async ({ spanId, explicitEnd }) => {
+      const agent = createAgent("tanstack", [
+        encryptedReasoning("step-A"),
+        {
+          type: "REASONING_START",
+          ...(spanId !== undefined ? { messageId: spanId } : {}),
+        },
+        thinkingStep("step-A"),
+        tanstackReasoningMessageStart("reasoning-A"),
+        ...(explicitEnd
+          ? [
+              tanstackReasoningMessageEnd("reasoning-A"),
+              {
+                type: "REASONING_END",
+                ...(spanId !== undefined ? { messageId: spanId } : {}),
+              },
+            ]
+          : []),
+      ]);
+      const events: BaseEvent[] = [];
+      await agent.runAgent(
+        { runId: "offline-distinct-reasoning-ids" },
+        {
+          onEvent: ({ event }) => {
+            events.push(event);
+          },
+        },
+      );
+
+      expectLifecycleWrapped(events);
+      for (const event of events) {
+        expect(EventSchemas.safeParse(event).success).toBe(true);
+      }
+      const start = events.find((e) => e.type === EventType.REASONING_START)!;
+      const end = events.find((e) => e.type === EventType.REASONING_END)!;
+      const emittedSpanId = eventField<string>(start, "messageId");
+      expect(emittedSpanId).toEqual(spanId ?? expect.any(String));
+      expect(eventField(end, "messageId")).toBe(emittedSpanId);
+      expect(
+        eventField(
+          events.find((e) => e.type === EventType.REASONING_MESSAGE_END)!,
+          "messageId",
+        ),
+      ).toBe("reasoning-A");
+      expect(
+        events.filter((e) => e.type === EventType.REASONING_ENCRYPTED_VALUE),
+      ).toEqual([{ ...encryptedReasoning("step-A"), entityId: "reasoning-A" }]);
+      expect(agent.messages).toEqual([
+        {
+          id: "reasoning-A",
+          role: "reasoning",
+          content: "",
+          encryptedValue: responsesSignature,
+        },
+      ]);
+      const replay = convertInputToTanStackAI(
+        createDefaultInput({ messages: agent.messages }),
+      );
+      expect(replay.messages).toEqual([
+        {
+          role: "assistant",
+          content: null,
+          thinking: [{ content: "", signature: responsesSignature }],
+        },
+      ]);
+      expect(replay.systemPrompts).toEqual([]);
+    },
+  );
+
+  it("keeps closed aliases across text, tools, per-turn finishes and newer reasoning", async () => {
+    const first = encryptedReasoning("step-A", "first opaque value");
+    const updated = encryptedReasoning("step-A", "updated opaque value");
+    const second = encryptedReasoning("step-B", "B opaque value");
+    const events = await reasoningEvents([
+      tanstackReasoningStart("reasoning-A"),
+      tanstackReasoningMessageStart("reasoning-A"),
+      thinkingStep("step-A"),
+      tanstackReasoningMessageContent("reasoning-A", "summary"),
+      tanstackReasoningMessageEnd("reasoning-A"),
+      tanstackReasoningEnd("reasoning-A"),
+      tanstackTextChunk("answer"),
+      first,
+      tanstackToolCallStart("tc-1", "search"),
+      tanstackToolCallEnd("tc-1"),
+      { type: "RUN_FINISHED" },
+      { type: "RUN_STARTED" },
+      tanstackReasoningStart("reasoning-B"),
+      tanstackReasoningMessageStart("reasoning-B"),
+      thinkingStep("step-B"),
+      updated,
+      second,
+    ]);
+    expect(
+      events.filter((e) => e.type === EventType.REASONING_ENCRYPTED_VALUE),
+    ).toEqual([
+      { ...first, entityId: "reasoning-A" },
+      { ...updated, entityId: "reasoning-A" },
+      { ...second, entityId: "reasoning-B" },
+    ]);
+    expect(
+      events.filter((e) => e.type === EventType.REASONING_START),
+    ).toHaveLength(2);
+    expect(
+      events.filter((e) => e.type === EventType.REASONING_END),
+    ).toHaveLength(2);
+    expect(
+      events
+        .filter((e) => e.type === EventType.TEXT_MESSAGE_CHUNK)
+        .map((e) => eventField(e, "delta")),
+    ).toEqual(["answer"]);
+  });
+
+  it("does not overwrite a newer durable signature when an older pending alias resolves to the same message", async () => {
+    const older = encryptedReasoning("step-A", "older opaque value");
+    const newer = encryptedReasoning("reasoning-A", "newer opaque value");
+    const agent = createAgent("tanstack", [
+      older,
+      tanstackReasoningStart("reasoning-A"),
+      tanstackReasoningMessageStart("reasoning-A"),
+      newer,
+      thinkingStep("step-A"),
+    ]);
+    const events: BaseEvent[] = [];
+    await agent.runAgent(
+      { runId: "offline-superseded-alias" },
+      {
+        onEvent: ({ event }) => {
+          events.push(event);
+        },
+      },
+    );
+    expect(
+      events.filter((e) => e.type === EventType.REASONING_ENCRYPTED_VALUE),
+    ).toEqual([newer]);
+    expect(agent.messages.find((m) => m.id === "reasoning-A")).toMatchObject({
+      encryptedValue: "newer opaque value",
+    });
+    expect(
+      convertInputToTanStackAI(createDefaultInput({ messages: agent.messages }))
+        .messages,
+    ).toEqual([
+      {
+        role: "assistant",
+        content: null,
+        thinking: [{ content: "", signature: "newer opaque value" }],
+      },
+    ]);
+  });
+
+  it("delivers an older pending A signature after a newer B update when A has not been superseded", async () => {
+    const olderA = encryptedReasoning("step-A", "A opaque value");
+    const newerB = encryptedReasoning("reasoning-B", "B opaque value");
+    const agent = createAgent("tanstack", [
+      olderA,
+      tanstackReasoningStart("span-B"),
+      tanstackReasoningMessageStart("reasoning-B"),
+      newerB,
+      tanstackReasoningMessageEnd("reasoning-B"),
+      tanstackReasoningEnd("span-B"),
+      tanstackReasoningStart("span-A"),
+      tanstackReasoningMessageStart("reasoning-A"),
+      thinkingStep("step-A"),
+    ]);
+    const events: BaseEvent[] = [];
+    await agent.runAgent(
+      { runId: "offline-independent-alias" },
+      {
+        onEvent: ({ event }) => {
+          events.push(event);
+        },
+      },
+    );
+    const encryptedEvents = events.filter(
+      (e) => e.type === EventType.REASONING_ENCRYPTED_VALUE,
+    );
+    expect(
+      events.findIndex(
+        (e) =>
+          e.type === EventType.REASONING_ENCRYPTED_VALUE &&
+          eventField(e, "entityId") === "reasoning-B",
+      ),
+    ).toBeLessThan(
+      events.findIndex(
+        (e) =>
+          e.type === EventType.REASONING_MESSAGE_START &&
+          eventField(e, "messageId") === "reasoning-A",
+      ),
+    );
+    expect(encryptedEvents).toHaveLength(2);
+    expect(encryptedEvents).toContainEqual(newerB);
+    expect(encryptedEvents).toContainEqual({
+      ...olderA,
+      entityId: "reasoning-A",
+    });
+    expect(
+      convertInputToTanStackAI(createDefaultInput({ messages: agent.messages }))
+        .messages,
+    ).toEqual([
+      {
+        role: "assistant",
+        content: null,
+        thinking: [{ content: "", signature: "B opaque value" }],
+      },
+      {
+        role: "assistant",
+        content: null,
+        thinking: [{ content: "", signature: "A opaque value" }],
+      },
+    ]);
+  });
+
+  it("preserves direct message and tool-call targets and provider metadata", async () => {
+    const messageBlob = encryptedReasoning("reasoning-A");
+    const toolBlob = { ...encryptedReasoning("tc-1"), subtype: "tool-call" };
+    const metadata = { itemId: "fc-A", provider: { name: "fixture" } };
+    const events = await reasoningEvents([
+      messageBlob,
+      tanstackReasoningStart("reasoning-A"),
+      tanstackReasoningMessageStart("reasoning-A"),
+      { ...tanstackToolCallStart("tc-1", "search"), metadata },
+      toolBlob,
+      tanstackToolCallArgs("tc-1", '{"q":"same"}'),
+      tanstackToolCallEnd("tc-1"),
+    ]);
+    expect(
+      events.filter((e) => e.type === EventType.REASONING_ENCRYPTED_VALUE),
+    ).toEqual([messageBlob, toolBlob]);
+    expect(
+      eventField(
+        events.find((e) => e.type === EventType.TOOL_CALL_START)!,
+        "metadata",
+      ),
+    ).toEqual(metadata);
+  });
+
+  it("passes unresolved targets through without guessing from malformed or non-thinking steps", async () => {
+    const unknown = encryptedReasoning("unknown-step");
+    const nonThinking = encryptedReasoning("tool-step");
+    const closed = encryptedReasoning("closed-step");
+    const events = await reasoningEvents([
+      tanstackReasoningStart("reasoning-A"),
+      tanstackReasoningMessageStart("reasoning-A"),
+      {
+        type: "STEP_STARTED",
+        stepName: "unknown-step",
+        metadata: { tanstack: "malformed" },
+      },
+      {
+        type: "STEP_STARTED",
+        stepName: "tool-step",
+        metadata: { tanstack: { stepId: "tool-step", stepType: "tool" } },
+      },
+      unknown,
+      nonThinking,
+      tanstackReasoningEnd("reasoning-A"),
+      thinkingStep("closed-step"),
+      closed,
+    ]);
+    expect(
+      events.filter((e) => e.type === EventType.REASONING_ENCRYPTED_VALUE),
+    ).toEqual([unknown, nonThinking, closed]);
+  });
+
+  it("does not close reasoning twice when normalized ends arrive after text auto-close", async () => {
+    const events = await reasoningEvents([
+      tanstackReasoningStart("reasoning-A"),
+      tanstackReasoningMessageStart("reasoning-A"),
+      thinkingStep("step-A"),
+      tanstackTextChunk("answer"),
+      tanstackReasoningMessageEnd("reasoning-A"),
+      tanstackReasoningEnd("reasoning-A"),
+      encryptedReasoning("step-A"),
+    ]);
+    expect(
+      events.filter((e) => e.type === EventType.REASONING_MESSAGE_END),
+    ).toHaveLength(1);
+    expect(
+      events.filter((e) => e.type === EventType.REASONING_END),
+    ).toHaveLength(1);
+  });
+
+  it("round-trips empty reasoning and tool signatures through public runAgent messages and replay", async () => {
+    const agent = createAgent("tanstack", [
+      tanstackReasoningStart("reasoning-A"),
+      tanstackReasoningMessageStart("reasoning-A"),
+      thinkingStep("step-A"),
+      tanstackReasoningMessageEnd("reasoning-A"),
+      tanstackReasoningEnd("reasoning-A"),
+      {
+        ...tanstackToolCallStart("tc-1", "search"),
+        metadata: { itemId: "fc-A" },
+      },
+      tanstackToolCallArgs("tc-1", '{"q":"same"}'),
+      tanstackToolCallEnd("tc-1"),
+      encryptedReasoning("step-A", "old signature"),
+      encryptedReasoning("step-A"),
+      {
+        ...encryptedReasoning("tc-1", "tool opaque value"),
+        subtype: "tool-call",
+      },
+      tanstackToolCallResult("tc-1", "result"),
+    ]);
+    await agent.runAgent({ runId: "offline-roundtrip" });
+    expect(agent.messages.find((m) => m.role === "reasoning")).toMatchObject({
+      id: "reasoning-A",
+      content: "",
+      encryptedValue: responsesSignature,
+    });
+    const { messages, systemPrompts } = convertInputToTanStackAI(
+      createDefaultInput({ messages: agent.messages }),
+    );
+    expect(messages[0]).toEqual({
+      role: "assistant",
+      content: null,
+      thinking: [{ content: "", signature: responsesSignature }],
+    });
+    expect(messages[1].toolCalls?.[0]).toMatchObject({
+      id: "tc-1",
+      function: { name: "search", arguments: '{"q":"same"}' },
+      metadata: { itemId: "fc-A", thoughtSignature: "tool opaque value" },
+    });
+    expect(systemPrompts).toEqual([]);
   });
 });
