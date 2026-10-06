@@ -73,7 +73,15 @@ function SwitchableChat() {
   const [threadId, setThreadId] = React.useState("test-thread");
   return (
     <>
-      <button onClick={() => setThreadId("other-thread")}>Switch thread</button>
+      <button
+        onClick={() =>
+          setThreadId((current) =>
+            current === "test-thread" ? "other-thread" : "test-thread",
+          )
+        }
+      >
+        Switch thread
+      </button>
       <CopilotChat
         threadId={threadId}
         welcomeScreen={false}
@@ -92,6 +100,7 @@ afterEach(() => {
 
 async function setupReplay(
   history: "completed" | "pending" | "ordinary" = "ordinary",
+  holdRuns = false,
 ) {
   vi.stubGlobal(
     "fetch",
@@ -112,12 +121,15 @@ async function setupReplay(
     ),
   );
   const runs: { state: unknown; messages: Message[] }[] = [];
+  const runCompletions: (() => void)[] = [];
   vi.spyOn(ProxiedCopilotRuntimeAgent.prototype, "runAgent").mockImplementation(
     async function (this: ProxiedCopilotRuntimeAgent) {
       runs.push({
         state: structuredClone(this.state),
         messages: structuredClone(this.messages),
       });
+      if (holdRuns)
+        await new Promise<void>((resolve) => runCompletions.push(resolve));
       return { result: undefined, newMessages: [] };
     },
   );
@@ -173,10 +185,10 @@ async function setupReplay(
       messages: [call],
     });
   });
-  const finish = async () => {
+  const finish = async (replayChannel = channel) => {
     await act(async () => {
       if (history === "completed") {
-        channel.serverPush("ag_ui_event", {
+        replayChannel.serverPush("ag_ui_event", {
           type: EventType.MESSAGES_SNAPSHOT,
           messages: [
             call,
@@ -189,24 +201,48 @@ async function setupReplay(
           ],
         });
       }
-      channel.serverPush("ag_ui_event", {
+      replayChannel.serverPush("ag_ui_event", {
         type: EventType.STATE_SNAPSHOT,
         snapshot: savedState,
       });
-      channel.serverPush("replay_complete", { latestEventId: "saved" });
-      channel.serverPush("stream_idle", { latestEventId: "saved" });
+      replayChannel.serverPush("replay_complete", { latestEventId: "saved" });
+      replayChannel.serverPush("stream_idle", { latestEventId: "saved" });
     });
   };
-  const submit = async () => {
+  const submit = async (value = "Read saved todos without modifying them") => {
     const input = await screen.findByRole("textbox");
     await act(async () => {
       fireEvent.change(input, {
-        target: { value: "Read saved todos without modifying them" },
+        target: { value },
       });
       fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
     });
   };
-  return { agent, runs, finish, submit, channel, handler, ...view };
+  const finishRun = async () => {
+    await act(async () => runCompletions.shift()?.());
+  };
+  const failReplay = async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error("Replay unavailable"));
+    await act(async () => {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        [...transport.sockets][0]!.triggerError(
+          new Error("Replay disconnected"),
+        );
+      }
+    });
+    await waitFor(() => expect(agent.isRunning).toBe(false));
+  };
+  return {
+    agent,
+    runs,
+    finish,
+    submit,
+    channel,
+    handler,
+    finishRun,
+    failReplay,
+    ...view,
+  };
 }
 
 describe.each(["completed", "pending", "ordinary"] as const)(
@@ -295,4 +331,93 @@ it("waits for saved state before dispatching a suggestion", async () => {
   expect(runs[0]?.messages.at(-1)?.content).toBe(
     "Read saved todos without modifying them",
   );
+});
+
+it("blocks a prompt submitted after replay has already failed", async () => {
+  const { runs, submit, failReplay } = await setupReplay();
+  await failReplay();
+  await submit();
+  expect(runs).toHaveLength(0);
+  expect(
+    screen.getByDisplayValue("Read saved todos without modifying them"),
+  ).toBeDefined();
+  expect(
+    screen.getByText(
+      "Could not load saved conversation. Reopen the thread and try again.",
+    ),
+  ).toBeDefined();
+});
+
+it.each(["typed", "suggestion"] as const)(
+  "serializes a queued prompt followed by a %s through run completion",
+  async (second) => {
+    const { runs, submit, finish, finishRun } = await setupReplay(
+      "ordinary",
+      true,
+    );
+    await submit("First prompt");
+    if (second === "typed") await submit("Second prompt");
+    else await act(async () => fireEvent.click(screen.getByText("Read todos")));
+    expect(runs).toHaveLength(0);
+    await finish();
+    expect(runs).toHaveLength(1);
+    expect(runs[0]?.messages.at(-1)?.content).toBe("First prompt");
+    await finishRun();
+    await waitFor(() => expect(runs).toHaveLength(2));
+    expect(runs[1]?.messages.at(-1)?.content).toBe(
+      second === "typed"
+        ? "Second prompt"
+        : "Read saved todos without modifying them",
+    );
+    await finishRun();
+  },
+);
+
+it.each(["switch", "unmount"] as const)(
+  "discards the remaining queue on %s while a submitted run is active",
+  async (action) => {
+    const { runs, submit, finish, finishRun, unmount } = await setupReplay(
+      "ordinary",
+      true,
+    );
+    await submit("First prompt");
+    await submit("Abandoned prompt");
+    await finish();
+    expect(runs).toHaveLength(1);
+    await act(async () => {
+      if (action === "switch")
+        fireEvent.click(screen.getByText("Switch thread"));
+      else unmount();
+    });
+    await finishRun();
+    expect(runs).toHaveLength(1);
+  },
+);
+
+it("allows submission after reopening a failed conversation and replaying successfully", async () => {
+  const { runs, submit, failReplay, finish } = await setupReplay();
+  await failReplay();
+  await submit();
+  expect(runs).toHaveLength(0);
+  await act(async () => fireEvent.click(screen.getByText("Switch thread")));
+  const previousSockets = transport.sockets.size;
+  await act(async () => fireEvent.click(screen.getByText("Switch thread")));
+  await waitFor(() =>
+    expect(transport.sockets.size).toBeGreaterThan(previousSockets),
+  );
+  const channel = [...transport.sockets].at(-1)!.channels[0]!;
+  await waitFor(() => expect(channel.joinCount).toBe(1));
+  await act(async () => {
+    channel.triggerJoin("ok");
+    channel.serverPush("ag_ui_event", {
+      type: EventType.RUN_STARTED,
+      run_id: "reopened",
+      threadId: "test-thread",
+      input: { messages: [] },
+    });
+  });
+  await finish(channel);
+  await submit();
+  await waitFor(() => expect(runs).toHaveLength(1));
+  expect(runs[0]?.state).toEqual(savedState);
 });
