@@ -29,8 +29,14 @@
 #   fixture for that prompt, through google-genai's own GOOGLE_GEMINI_BASE_URL
 #   environment variable. No request reaches Gemini.
 # * Other deviations, all environment-only: UV_EXCLUDE_NEWER and npm's
-#   --before (default 2026-09-22T23:00Z, >= 24 h before the audit run) bound
-#   what uv and npm resolve.
+#   --before bound what uv and npm resolve. The default is
+#   2026-10-05T21:00Z (>= 24 h before the 2026-10-06 run). It must not be
+#   earlier than 2026-10-05T14:21Z, when the guide's pinned
+#   @ag-ui/client@1.0.2 was published. (The 2026-09-23 run used 2026-09-22T23:00Z.)
+# * Completeness check: the extractor's block count is compared with the
+#   number of fenced blocks in the option's raw MDX, so a markup change
+#   (new Tabs, a moved option boundary) that hides blocks from the
+#   extractor fails the run instead of silently shrinking it.
 # * Prerequisite check first: the guide's own "Python X.Y+" line is read from
 #   its Prerequisites list, and the guide's `uv add` line is resolved for a
 #   `uv init` project whose requires-python is ">=X.Y" (uv locks for every
@@ -53,7 +59,7 @@ runner="$repo_root/tasks/docs-feature-audit/adk-byoc-runtime-run.mts"
 tsx="$repo_root/node_modules/.bin/tsx"
 llmock="$repo_root/showcase/scripts/node_modules/.bin/llmock"
 port=8000 mock_port=4411
-bound="${UV_EXCLUDE_NEWER:-2026-09-22T23:00:00Z}"
+bound="${UV_EXCLUDE_NEWER:-2026-10-05T21:00:00Z}"
 export UV_EXCLUDE_NEWER="$bound" npm_config_before="$bound"
 export npm_config_audit=false npm_config_fund=false npm_config_update_notifier=false DO_NOT_TRACK=1
 variants=("$@")
@@ -85,6 +91,18 @@ cleanup() {
 trap cleanup EXIT
 
 python3 "$extractor" "$guide" >"$temp_root/blocks.json"
+# Every fenced block in the option must reach the extractor's output.
+python3 - "$guide" "$temp_root/blocks.json" <<'PY2'
+import json, re, sys
+text = open(sys.argv[1]).read()
+start = text.index('id="bring-your-own"')
+region = text[start:text.index("</TailoredContentOption>", start)]
+fences = sum(1 for l in region.splitlines() if re.match(r"^\s*```", l)) // 2
+got = len(json.load(open(sys.argv[2])))
+tabs = sorted(set(re.findall(r'<Tabs groupId="([^"]+)"', region)))
+print(f"extractor: {got} blocks; raw MDX option: {fences} fenced blocks; Tabs groups in the option: {tabs or 'none'}")
+sys.exit(0 if got == fences else f"extractor found {got} of {fences} fenced blocks")
+PY2
 # block title=<file>|starts=<prefix>: the first fenced block with that title
 # or whose body starts with that prefix.
 block() {
