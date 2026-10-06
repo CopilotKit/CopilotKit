@@ -7,8 +7,9 @@ const fixture = JSON.parse(
 export const scenario = Object.freeze(fixture.scenario);
 
 /** Flatten only text sent to the model, including JSON-encoded Flue tool output. */
-function textOf(request) {
+function textOf(request, role) {
   return request.messages
+    .filter((message) => message.role === role)
     .map(({ content }) => {
       const text =
         typeof content === "string"
@@ -35,6 +36,12 @@ export async function startModel({ aimock, host = "127.0.0.1", port = 0 }) {
     journalMaxEntries: 0,
   });
   const phases = new Map();
+  let nextPhase = 0;
+  let snapshotId;
+  const bind = (value, id = snapshotId) =>
+    id
+      ? JSON.parse(JSON.stringify(value).replaceAll(scenario.threadId, id))
+      : value;
   for (const phase of fixture.phases) {
     const entry = {
       match: {
@@ -43,11 +50,30 @@ export async function startModel({ aimock, host = "127.0.0.1", port = 0 }) {
           const tools = new Set(
             (request.tools ?? []).map((tool) => tool.function.name),
           );
-          const text = textOf(request);
-          return (
-            phase.tools.every((name) => tools.has(name)) &&
-            phase.requiredText.every((part) => text.includes(part))
+          if (fixture.phases[nextPhase] !== phase) return false;
+          const text = textOf(
+            request,
+            phase.id === "candidate" ? "tool" : "user",
           );
+          let observedId = snapshotId;
+          if (phase.id === "candidate") {
+            observedId =
+              /^## Thread ([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\n/.exec(
+                text,
+              )?.[1];
+            if (
+              !observedId ||
+              text !== bind(phase.requiredText, observedId).join("\n")
+            )
+              return false;
+          }
+          const matches =
+            phase.tools.every((name) => tools.has(name)) &&
+            bind(phase.requiredText, observedId).every((part) =>
+              text.includes(part),
+            );
+          if (matches && phase.id === "candidate") snapshotId = observedId;
+          return matches;
         },
       },
       response: aimock.normalizeResponse(phase.response),
@@ -56,6 +82,11 @@ export async function startModel({ aimock, host = "127.0.0.1", port = 0 }) {
       .validateFixtures([entry])
       .filter((result) => result.severity === "error");
     assert.deepEqual(errors, [], `Invalid ${phase.id} fixture`);
+    const response = entry.response;
+    entry.response = () => {
+      nextPhase++;
+      return bind(response);
+    };
     server.addFixture(entry);
     phases.set(entry, phase.id);
   }
@@ -84,7 +115,12 @@ export async function startModel({ aimock, host = "127.0.0.1", port = 0 }) {
           `Missing or repeated model phase: ${phase.id}`,
         );
       }
-      return { requests };
+      assert.deepEqual(
+        requests.map((request) => request.phase),
+        fixture.phases.map((phase) => phase.id),
+        "Model phases ran out of order",
+      );
+      return { snapshotId, requests };
     },
   };
 }

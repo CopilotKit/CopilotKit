@@ -5,7 +5,9 @@
   "targets": {
     "test": {
       "executor": "nx:run-commands",
-      "options": { "command": "node --test tools/intelligence-smoke/*.test.mjs" },
+      "options": {
+        "command": "node --test tools/intelligence-smoke/*.test.mjs"
+      },
       "cache": false
     },
     "run": {

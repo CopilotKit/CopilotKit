@@ -17,9 +17,7 @@
         "userMessage": "Reply with exactly: Smoke reply saved."
       },
       "tools": [],
-      "requiredText": [
-        "Reply with exactly: Smoke reply saved."
-      ],
+      "requiredText": ["Reply with exactly: Smoke reply saved."],
       "response": {
         "content": "Smoke reply saved."
       }
@@ -30,13 +28,8 @@
         "model": "smoke-model",
         "hasToolResult": false
       },
-      "tools": [
-        "sample_threads",
-        "finish"
-      ],
-      "requiredText": [
-        "Find private candidate Insight changes"
-      ],
+      "tools": ["sample_threads", "finish"],
+      "requiredText": ["Find private candidate Insight changes"],
       "response": {
         "toolCalls": [
           {
@@ -55,10 +48,7 @@
         "model": "smoke-model",
         "hasToolResult": true
       },
-      "tools": [
-        "sample_threads",
-        "finish"
-      ],
+      "tools": ["sample_threads", "finish"],
       "requiredText": [
         "## Thread 11111111-1111-4111-8111-111111111111",
         "[11111111-1111-4111-8111-111111111111:message:1] user: Reply with exactly: Smoke reply saved.",
@@ -98,10 +88,7 @@
       "match": {
         "model": "smoke-model"
       },
-      "tools": [
-        "read_evidence",
-        "finish"
-      ],
+      "tools": ["read_evidence", "finish"],
       "requiredText": [
         "batch-0001:smoke-proof",
         "The agent returned the requested saved reply.",
@@ -129,9 +116,7 @@
                     }
                   ],
                   "finalAlias": "smoke-proof",
-                  "sourceCandidateAliases": [
-                    "batch-0001:smoke-proof"
-                  ]
+                  "sourceCandidateAliases": ["batch-0001:smoke-proof"]
                 }
               ]
             }
@@ -144,12 +129,8 @@
       "match": {
         "model": "smoke-model"
       },
-      "tools": [
-        "finish"
-      ],
-      "requiredText": [
-        "No final Insight additions are Skill-eligible."
-      ],
+      "tools": ["finish"],
+      "requiredText": ["No final Insight additions are Skill-eligible."],
       "response": {
         "toolCalls": [
           {
