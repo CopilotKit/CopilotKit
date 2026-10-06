@@ -23,10 +23,10 @@ Before you begin, you'll need the following:
 - (Optional) A LangSmith API key - only required if using an existing LangGraph agent
 
 <Callout type="info" title="Zod version for TypeScript agents">
-`@copilotkit/sdk-js` 1.73.3 requires Zod 3 as a peer dependency. When adding it to a TypeScript agent, install Zod 3 alongside it:
+`@copilotkit/sdk-js` 1.77.0 requires Zod 3 as a peer dependency. When adding it to a TypeScript agent, install Zod 3 alongside it:
 
 ```bash
-npm install @copilotkit/sdk-js@1.73.3 zod@3
+npm install @copilotkit/sdk-js@1.77.0 zod@3
 ```
 
 Pin `zod@3` explicitly. A separate, unversioned `npm install zod` selects Zod 4, which does not satisfy this SDK release's peer dependency; npm only warns that it is overriding it. Use `zod@3` with pnpm or Yarn too. If your agent already requires Zod 4, npm rejects the SDK with an `ERESOLVE` conflict: check SDK compatibility before changing its dependencies, and do not bypass the conflict with `--force` or `--legacy-peer-deps`.
@@ -124,8 +124,6 @@ Pin `zod@3` explicitly. A separate, unversioned `npm install zod` selects Zod 4,
             title="Use an existing agent"
             description="I already have a LangGraph agent and want to add CopilotKit."
         >
-          <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
-          <Tab value="Python">
           <Step>
               ### Initialize your agent project
 
@@ -242,6 +240,72 @@ Pin `zod@3` explicitly. A separate, unversioned `npm install zod` selects Zod 4,
                 exported `graph` constant, or the CLI fails with
                 "graph is nullish". The key `sample_agent` is the `graphId`
                 that the runtime route below connects to.
+
+                <Callout type="info" title="Want the complete runnable Showcase agent?">
+                  The excerpts on this page are not a starter project: the selected
+                  graph imports its own helpers and shared tools, and its configuration
+                  registers other Showcase graphs. To run that exact sample, clone the
+                  integration directory intact:
+
+                  ```bash
+                  git clone --depth 1 https://github.com/CopilotKit/CopilotKit.git
+                  cd CopilotKit/showcase/integrations/langgraph-typescript
+                  cp .env.example .env
+                  # Set OPENAI_API_KEY in .env, then:
+                  cd src/agent
+                  npm ci
+                  npm run dev
+                  ```
+
+                  This starts the selected agent on `http://localhost:8123`. The
+                  `langgraph.json` file loads `../../.env`, so leave `.env` in the
+                  integration directory.
+                </Callout>
+
+                If you already have a TypeScript LangGraph project, keep your graph
+                and its helpers together and use the Showcase package and
+                configuration below as references for the dependencies, CLI command,
+                and graph registration shape. Merge the dependencies and `dev`
+                script below into its `package.json`, install them, and keep your
+                own graph files and imports in place. The script starts the graph on
+                port `8123`, which matches the runtime route below.
+
+                <Snippet
+                  framework="langgraph-typescript"
+                  cell="cli-start"
+                  file="src/agent/package.json"
+                  title="src/agent/package.json — selected TypeScript agent dependencies and dev command"
+                />
+
+                ```bash
+                npm install
+                npm run dev
+                ```
+
+                Register the graph export that should receive chat runs in your own
+                `langgraph.json`. The selected Showcase maps `starterAgent` to the
+                `graph` export in `graph.ts`; use your own path and export when they
+                differ. Its full configuration is a reference only because it also
+                registers the other graphs included with the Showcase sample.
+
+                <Snippet
+                  framework="langgraph-typescript"
+                  cell="cli-start"
+                  file="src/agent/langgraph.json"
+                  title="src/agent/langgraph.json — selected TypeScript graph registrations (reference)"
+                />
+
+                The selected graph compiles a `StateGraph` and exports it as `graph`,
+                matching the `starterAgent` registration above. This excerpt depends
+                on the selected sample's chat node and tools, so use it to compare
+                graph shape rather than pasting it into an otherwise empty project:
+
+                <Snippet
+                  framework="langgraph-typescript"
+                  cell="cli-start"
+                  region="cli-start-graph-export"
+                  title="src/agent/graph.ts — compile and export the selected graph"
+                />
               </Tab>
               <Tab value="Python">
               <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
@@ -717,87 +781,6 @@ Pin `zod@3` explicitly. A separate, unversioned `npm install zod` selects Zod 4,
                   </Tab>
               </Tabs>
           </Step>
-          </Tab>
-          <Tab value="TypeScript">
-            ### Run an existing TypeScript LangGraph agent
-
-            This path assumes you already have a TypeScript LangGraph project.
-            Keep your graph and its helpers together; the Showcase package and
-            configuration below are references for the dependencies, CLI command,
-            and graph registration shape.
-
-            <Callout type="info" title="Want the complete runnable Showcase agent?">
-              The excerpts on this page are not a starter project: the selected
-              graph imports its own helpers and shared tools, and its configuration
-              registers other Showcase graphs. To run that exact sample, clone the
-              integration directory intact:
-
-              ```bash
-              git clone --depth 1 https://github.com/CopilotKit/CopilotKit.git
-              cd CopilotKit/showcase/integrations/langgraph-typescript
-              cp .env.example .env
-              # Set OPENAI_API_KEY in .env, then:
-              cd src/agent
-              npm ci
-              npm run dev
-              ```
-
-              This starts the selected agent on `http://localhost:8123`. The
-              `langgraph.json` file loads `../../.env`, so leave `.env` in the
-              integration directory.
-            </Callout>
-
-            For your existing project, merge the dependencies and `dev` script
-            below into its `package.json`, install them, and keep your own graph
-            files and imports in place. The script starts the graph on port `8123`,
-            which matches the selected Showcase runtime's local deployment URL.
-
-            <Snippet
-              framework="langgraph-typescript"
-              cell="cli-start"
-              file="src/agent/package.json"
-              title="src/agent/package.json — selected TypeScript agent dependencies and dev command"
-            />
-
-            ```bash
-            npm install
-            npm run dev
-            ```
-
-            Register the graph export that should receive chat runs in your own
-            `langgraph.json`. The selected Showcase maps `starterAgent` to the
-            `graph` export in `graph.ts`; use your own path and export when they
-            differ. Its full configuration is a reference only because it also
-            registers the other graphs included with the Showcase sample.
-
-            <Snippet
-              framework="langgraph-typescript"
-              cell="cli-start"
-              file="src/agent/langgraph.json"
-              title="src/agent/langgraph.json — selected TypeScript graph registrations (reference)"
-            />
-
-            The selected graph compiles a `StateGraph` and exports it as `graph`,
-            matching the `starterAgent` registration above. This excerpt depends
-            on the selected sample's chat node and tools, so use it to compare
-            graph shape rather than pasting it into an otherwise empty project:
-
-            <Snippet
-              framework="langgraph-typescript"
-              cell="cli-start"
-              region="cli-start-graph-export"
-              title="src/agent/graph.ts — compile and export the selected graph"
-            />
-
-            With the agent available at `http://localhost:8123`, connect your
-            React app through a V2 runtime route. The selected demo's route
-            maps its public agent names to the graph ids above; use the same
-            public name in your provider and runtime. See [Provider and handler
-            pairs](/backend/runtime-endpoints#provider-and-handler-pairs) for
-            the route shape and [the React quickstart](/built-in-agent/quickstart) for the frontend
-            setup.
-          </Tab>
-          </Tabs>
         </TailoredContentOption>
     </TailoredContent>
     </Step>
