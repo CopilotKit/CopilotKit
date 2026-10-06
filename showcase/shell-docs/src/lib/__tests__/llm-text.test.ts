@@ -1103,6 +1103,8 @@ test("raw Markdown keeps only the active framework's <WhenFrameworkHas> branch",
     { framework: "mastra" },
   );
   expect(mastra).toContain("Generate the schema dynamically");
+  expect(mastra).toContain("export function readForwardedA2uiContext");
+  expect(mastra).toContain("export function systemPromptFrom");
   expect(mastra).not.toContain("Load the schema JSON at startup");
   expect(mastra).not.toContain("Define the schema inline");
 });
