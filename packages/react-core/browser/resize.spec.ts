@@ -60,6 +60,19 @@ async function settled(page: Page, maxReports: number) {
   return height;
 }
 
+// Content that never fits must stay reachable: the document either fits the
+// frame up to the default 16px of body margins or scrolls.
+async function expectReachable(page: Page) {
+  const sandbox = page.frames().find((frame) => frame !== page.mainFrame());
+  if (!sandbox) throw new Error("Sandbox frame missing");
+  const doc = await sandbox.evaluate(() => ({
+    overflow: getComputedStyle(document.documentElement).overflowY,
+    hidden: document.documentElement.scrollHeight - innerHeight,
+  }));
+  if (doc.hidden > 16) expect(doc.overflow).toBe("auto");
+  else expect(doc.overflow).toBe("hidden");
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => {
@@ -119,6 +132,7 @@ for (const { name, html, maxReports, maxHeight } of viewportSized) {
   test(`${name} settles without a resize loop`, async ({ page }) => {
     await render(page, html);
     expect(await settled(page, maxReports)).toBeLessThanOrEqual(maxHeight);
+    await expectReachable(page);
   });
 }
 
@@ -126,6 +140,22 @@ test("ordinary content gets its exact height", async ({ page }) => {
   await render(page, '<div style="height: 600px"></div>');
   await expect.poll(() => frameHeight(page)).toBe(616);
   expect(await settled(page, 1)).toBe(616);
+  await expectReachable(page);
+});
+
+test("content added inside a full-height body is followed", async ({
+  page,
+}) => {
+  const html =
+    '<style>html, body { height: 100% }</style><div id="list"><div style="height: 50px"></div></div>';
+  await render(page, html);
+  await settled(page, 1);
+  await render(page, html, [
+    'const row = document.createElement("div"); row.style.height = "600px"; document.getElementById("list").appendChild(row)',
+  ]);
+  await expect.poll(() => frameHeight(page)).toBe(666);
+  await settled(page, 2);
+  await expectReachable(page);
 });
 
 test("content that grows after the guard stops is still followed", async ({
@@ -140,4 +170,5 @@ test("content that grows after the guard stops is still followed", async ({
   ]);
   await expect.poll(() => frameHeight(page)).toBeGreaterThanOrEqual(656);
   await settled(page, 8);
+  await expectReachable(page);
 });

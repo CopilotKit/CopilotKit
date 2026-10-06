@@ -29,6 +29,7 @@ be regenerated.
 `resize.spec.ts` checks that the frame height follows its content without a
 layout loop. Viewport-sized pages (a `100vh` hero with default margins, padding
 or a header, `110vh`, an element JS sizes to `innerHeight`) settle after a few
-reports; ordinary content gets its exact height; content that grows after the
-guard stops is still followed. A settled frame keeps its height and report
-count over a quiet window of animation frames.
+reports and scroll instead of clipping what does not fit; ordinary content gets
+its exact height; content added inside a full-height body, or after the guard
+stops, is still followed. A settled frame keeps its height and report count over
+a quiet window of animation frames.

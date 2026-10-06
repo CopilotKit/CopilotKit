@@ -177,7 +177,11 @@ interface InnerProps {
      canvas set to innerHeight) is not reported at all.
    - After our own resize lands, the frame should fit the content. Two misfits in
      a row mean the content follows the frame with an offset (padding, a header,
-     110vh), so reporting stops until the content changes on its own. */
+     110vh), so reporting stops until the content changes on its own. Such content
+     never fits, so while stopped the document scrolls instead of clipping it.
+   ResizeObserver misses content added inside a fixed-height body, so body
+   mutations schedule a measurement too. Only body is watched: the measurement
+   style goes to head. */
 const CK_MEASURE_AND_WATCH = `
 (function() {
   if (window.__ckResizeWatch) return;
@@ -203,6 +207,11 @@ const CK_MEASURE_AND_WATCH = `
     var resized = window.innerHeight !== view;
     view = window.innerHeight;
     misses = resized && Math.abs(h - view) >= 2 ? misses + 1 : 0;
+    if (misses > 1) {
+      document.documentElement.style.setProperty('overflow-y', 'auto', 'important');
+    } else if (misses === 0) {
+      document.documentElement.style.removeProperty('overflow-y');
+    }
     if (h < 1 || Math.abs(h - last) < 2 || misses > 1) return;
     last = h;
     parent.postMessage({ type: "__ck_resize", height: h }, "*");
@@ -211,6 +220,9 @@ const CK_MEASURE_AND_WATCH = `
   window.__ckResizeWatch = new ResizeObserver(schedule);
   window.__ckResizeWatch.observe(document.documentElement);
   window.__ckResizeWatch.observe(document.body);
+  new MutationObserver(schedule).observe(document.body, {
+    childList: true, subtree: true, attributes: true, characterData: true
+  });
   window.addEventListener('load', schedule);
   window.addEventListener('resize', schedule);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);
