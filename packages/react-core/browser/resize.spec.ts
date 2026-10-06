@@ -28,6 +28,12 @@ async function ticks(page: Page, count: number) {
   );
 }
 
+function sandboxFrame(page: Page) {
+  const sandbox = page.frames().find((frame) => frame !== page.mainFrame());
+  if (!sandbox) throw new Error("Sandbox frame missing");
+  return sandbox;
+}
+
 async function render(page: Page, html: string, jsExpressions?: string[]) {
   await page.evaluate(
     (content) => {
@@ -42,14 +48,12 @@ async function render(page: Page, html: string, jsExpressions?: string[]) {
     { html, jsExpressions },
   );
   await expect(page.locator("iframe")).toBeVisible();
-  const sandbox = page.frames().find((frame) => frame !== page.mainFrame());
-  if (!sandbox) throw new Error("Sandbox frame missing");
-  await sandbox.waitForFunction(() => "__ckResizeWatch" in window);
 }
 
 // A feedback loop reports every few frames forever, so a settled frame is one
 // whose height and report count stay unchanged over a quiet window of frames.
 async function settled(page: Page, maxReports: number) {
+  await sandboxFrame(page).waitForFunction(() => "__ckResizeWatch" in window);
   await ticks(page, 40);
   const reports = await reportCount(page);
   const height = await frameHeight(page);
@@ -63,9 +67,7 @@ async function settled(page: Page, maxReports: number) {
 // Content that never fits must stay reachable: the document either fits the
 // frame up to the default 16px of body margins or scrolls.
 async function expectReachable(page: Page) {
-  const sandbox = page.frames().find((frame) => frame !== page.mainFrame());
-  if (!sandbox) throw new Error("Sandbox frame missing");
-  const doc = await sandbox.evaluate(() => ({
+  const doc = await sandboxFrame(page).evaluate(() => ({
     overflow: getComputedStyle(document.documentElement).overflowY,
     hidden: document.documentElement.scrollHeight - innerHeight,
   }));
@@ -143,6 +145,47 @@ test("ordinary content gets its exact height", async ({ page }) => {
   await expectReachable(page);
 });
 
+// Frame height minus the height the content needs: the bottom of #text plus
+// the default 8px bottom body margin.
+const fitGap = async (page: Page) =>
+  (await frameHeight(page)) -
+  (await sandboxFrame(page).evaluate(() =>
+    Math.ceil(
+      document.getElementById("text")!.getBoundingClientRect().bottom + 8,
+    ),
+  ));
+
+test("ordinary content follows growth, shrink and a narrower host", async ({
+  page,
+}) => {
+  // HTML and generating: false arrive in one render, before the sandbox exists.
+  const html = `<div id="box" style="height: 300px"></div>
+    <p id="text" style="margin: 0; font: 16px/20px sans-serif">${"word ".repeat(120)}</p>`;
+  const grow = 'document.getElementById("box").style.height = "500px"';
+  const shrink = 'document.getElementById("box").style.height = "100px"';
+  await render(page, html);
+  await expect.poll(() => fitGap(page)).toBe(0);
+  const initial = await frameHeight(page);
+
+  await render(page, html, [grow]);
+  await expect.poll(() => fitGap(page)).toBe(0);
+  const grown = await frameHeight(page);
+  expect(grown).toBeGreaterThan(initial);
+
+  await render(page, html, [grow, shrink]);
+  await expect.poll(() => fitGap(page)).toBe(0);
+  const shrunk = await frameHeight(page);
+  expect(shrunk).toBeLessThan(grown);
+
+  await page.evaluate(() => {
+    document.getElementById("root")!.style.width = "240px";
+  });
+  await expect.poll(() => fitGap(page)).toBe(0);
+  expect(await frameHeight(page)).toBeGreaterThan(shrunk);
+  await settled(page, 4);
+  await expectReachable(page);
+});
+
 test("content added inside a full-height body is followed", async ({
   page,
 }) => {
@@ -156,6 +199,12 @@ test("content added inside a full-height body is followed", async ({
   await expect.poll(() => frameHeight(page)).toBe(666);
   await settled(page, 2);
   await expectReachable(page);
+  // The measurement's height override is gone: the body is 100% of the frame.
+  expect(
+    await sandboxFrame(page).evaluate(
+      () => innerHeight - document.body.getBoundingClientRect().height,
+    ),
+  ).toBe(0);
 });
 
 test("content that grows after the guard stops is still followed", async ({

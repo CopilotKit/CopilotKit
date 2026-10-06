@@ -203,6 +203,17 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
+  it("falls back to 200px for an out-of-range initialHeight", async () => {
+    for (const initialHeight of [0, 100_001]) {
+      const { container, unmount } = renderRenderer({ initialHeight });
+      await flushImport();
+      expect((container.firstElementChild as HTMLElement).style.height).toBe(
+        "200px",
+      );
+      unmount();
+    }
+  });
+
   it("creates sandbox when html is complete", async () => {
     const html = "<head></head><body><p>Hello</p></body>";
     renderRenderer({ html: [html], htmlComplete: true });
