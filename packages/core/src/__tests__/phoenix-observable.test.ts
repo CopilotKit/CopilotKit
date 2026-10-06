@@ -48,6 +48,37 @@ describe("phoenix observable utilities", () => {
     expect(socket!.disconnected).toBe(true);
   });
 
+  /**
+   * Phoenix's 30s default heartbeat equals a common reverse-proxy WebSocket
+   * idle timeout, so a quiet run would get its browser socket dropped.
+   */
+  it("pings every 15s by default so a 30s proxy idle timeout never fires", () => {
+    phoenix.sockets.splice(0);
+    const subscription = ɵphoenixSocket$({
+      url: "ws://localhost:4000/client",
+      options: { params: { token: "t" } },
+    }).subscribe();
+
+    expect(phoenix.sockets[0]!.opts).toEqual({
+      heartbeatIntervalMs: 15_000,
+      params: { token: "t" },
+    });
+
+    subscription.unsubscribe();
+  });
+
+  it("lets the caller override the heartbeat interval", () => {
+    phoenix.sockets.splice(0);
+    const subscription = ɵphoenixSocket$({
+      url: "ws://localhost:4000/client",
+      options: { heartbeatIntervalMs: 5_000 },
+    }).subscribe();
+
+    expect(phoenix.sockets[0]!.opts.heartbeatIntervalMs).toBe(5_000);
+
+    subscription.unsubscribe();
+  });
+
   it("joins channels automatically and leaves on teardown", () => {
     phoenix.sockets.splice(0);
     const socket$ = ɵphoenixSocket$({

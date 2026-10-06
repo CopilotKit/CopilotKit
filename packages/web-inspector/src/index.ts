@@ -1,4 +1,8 @@
 import { loadNotificationFeed } from "./lib/notification-loader.js";
+import { loadHudFeed } from "./lib/hud-loader.js";
+import { resolveHudContent } from "./lib/hud-config.js";
+import type { HudContent, HudFeed } from "./lib/hud-config.js";
+import { HUD_DEFAULT_CONTENT } from "./lib/hud-defaults.js";
 import {
   emptyNotificationState,
   reconcileNotifications,
@@ -124,6 +128,7 @@ import type {
 } from "./lib/home-briefing.js";
 import {
   INSPECTOR_GROUPS,
+  INSPECTOR_MENU_KEYS,
   INSPECTOR_NAV_SECTIONS,
   getGroupForMenu,
   isInspectorMenuKey,
@@ -421,9 +426,6 @@ type LauncherHudRowId = "threads" | "learning";
 
 const HUD_INSPECTOR_LABEL = "CopilotKit Inspector";
 const HUD_ANNOUNCEMENT_TITLE_LIMIT = 80;
-const HUD_THREADS_LABEL = "Rich Threads";
-const HUD_LEARNING_LABEL = "Automatic Learning";
-const HUD_LEARN_MORE_LABEL = "Click to learn more";
 
 type InspectorDismissalDuration = "day" | "week" | "forever";
 const INSPECTOR_DISMISSAL_MS: Readonly<
@@ -6917,6 +6919,10 @@ export class WebInspectorElement extends LitElement {
   private announcementId: string | null = null;
   private announcementLoaded = false;
   private announcementPromise: Promise<void> | null = null;
+  private hudFeed: HudFeed | null = null;
+  private hudFeedPromise: Promise<void> | null = null;
+  /** Launcher HUD copy and destinations: built-ins until a feed rule matches. */
+  private hudContent: HudContent = HUD_DEFAULT_CONTENT;
   private newsSignalArmed = false;
   /** Which signal's beat is in flight, or null between beats. */
   private pulsingSignal: LauncherSignalKey | null = null;
@@ -10796,6 +10802,8 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-launcher-hud__label {
         min-width: 0;
+        /* Remote copy can be one long word; wrap it inside the row. */
+        overflow-wrap: anywhere;
       }
 
       .cpk-launcher-hud__feature-icon {
@@ -11689,7 +11697,8 @@ export class WebInspectorElement extends LitElement {
       : this.renderButton();
   }
 
-  protected willUpdate(): void {
+  protected willUpdate(changed: Map<string, unknown>): void {
+    if (changed.has("notificationContext")) this.refreshHudContent();
     // Before the render that paints the dot: every mutation of the underlying
     // connection / thread state already requests an update, so mirroring the
     // latches here keeps the resting dot in step with the state it reports.
@@ -12281,8 +12290,16 @@ export class WebInspectorElement extends LitElement {
         ? trackHudFeatureToggleClicked({ feature: row, trigger })
         : trackHudFeatureClicked({ feature: row, control, trigger }),
     );
+    const destination = this.hudContent[row].destination;
+    // A known screen can still be hidden (e.g. no frontend tools); opening it
+    // would silently keep the last screen, so use the built-in row instead.
     this.hudLandingMenu =
-      row === "threads" ? "threads" : row === "learning" ? "memories" : "home";
+      isInspectorMenuKey(destination) &&
+      this.menuItems.some((item) => item.key === destination)
+        ? destination
+        : row === "threads"
+          ? "threads"
+          : "memories";
     this.closeLauncherHud();
     this.openInspector("floating_button");
   };
@@ -12367,13 +12384,14 @@ export class WebInspectorElement extends LitElement {
 
   private renderHudRow(args: {
     id: LauncherHudRowId;
-    label: string;
     icon: LucideIconName;
     connected?: boolean;
     introIndex: number;
   }): TemplateResult | typeof nothing {
     if (args.connected) return nothing;
     const detailId = `cpk-hud-detail-${args.id}`;
+    // Feed text is bound as text, never as markup.
+    const { label, description } = this.hudContent[args.id];
     return html`
       <li
         class="cpk-launcher-hud__row"
@@ -12391,7 +12409,7 @@ export class WebInspectorElement extends LitElement {
             type="button"
             class="cpk-launcher-hud__action"
             data-cpk-hud-action
-            aria-label=${`Open ${args.label} in Inspector`}
+            aria-label=${`Open ${label} in Inspector`}
             @click=${(event: Event) =>
               this.handleHudActionClick(event, args.id, "action")}
             @pointerdown=${(event: Event) => event.stopPropagation()}
@@ -12402,13 +12420,13 @@ export class WebInspectorElement extends LitElement {
               aria-hidden="true"
               >${this.renderIcon(args.icon)}</span
             >
-            <span class="cpk-launcher-hud__label">${args.label}</span>
+            <span class="cpk-launcher-hud__label">${label}</span>
           </button>
           <span
             class="cpk-launcher-hud__tooltip"
             id=${detailId}
             role="tooltip"
-            >${HUD_LEARN_MORE_LABEL}</span
+            >${description}</span
           >
         </span>
         <span class="cpk-launcher-hud__controls">
@@ -12416,7 +12434,7 @@ export class WebInspectorElement extends LitElement {
             type="button"
             class="cpk-launcher-hud__learn-more"
             data-cpk-hud-learn-more=${args.id}
-            aria-label=${`Learn more about ${args.label}`}
+            aria-label=${`Learn more about ${label}`}
             aria-describedby=${detailId}
             @click=${(event: Event) =>
               this.handleHudActionClick(event, args.id, "learn_more")}
@@ -12431,8 +12449,8 @@ export class WebInspectorElement extends LitElement {
             data-enabled=${args.connected ? "true" : "false"}
             aria-label=${
               args.connected
-                ? `${args.label} is enabled`
-                : `Open ${args.label} in Inspector`
+                ? `${label} is enabled`
+                : `Open ${label} in Inspector`
             }
             ?disabled=${args.connected}
             @click=${(event: Event) =>
@@ -12545,14 +12563,12 @@ export class WebInspectorElement extends LitElement {
                   >
                     ${this.renderHudRow({
                       id: "threads",
-                      label: HUD_THREADS_LABEL,
                       icon: "MessageSquare",
                       connected: threadsOn,
                       introIndex: featureBlockIntroIndex + 1,
                     })}
                     ${this.renderHudRow({
                       id: "learning",
-                      label: HUD_LEARNING_LABEL,
                       icon: "Brain",
                       connected: learningOn,
                       introIndex: featureBlockIntroIndex + (threadsOn ? 1 : 2),
@@ -22208,18 +22224,37 @@ export class WebInspectorElement extends LitElement {
     }
   }
 
+  /** Start the development-only remote feeds; neither blocks rendering. */
   private ensureAnnouncementLoading(): void {
     if (
       this.isInspectorDismissed ||
       !this.notificationContext.development ||
       !this.isConnected ||
-      this.announcementPromise ||
       typeof window === "undefined" ||
       typeof fetch === "undefined"
     ) {
       return;
     }
-    this.announcementPromise = this.fetchAnnouncement();
+    this.announcementPromise ??= this.fetchAnnouncement();
+    this.hudFeedPromise ??= this.fetchHudFeed();
+  }
+
+  private async fetchHudFeed(): Promise<void> {
+    this.hudFeed = await loadHudFeed();
+    this.refreshHudContent();
+    this.requestUpdate();
+  }
+
+  /** Overlay the matching feed rule on the built-in HUD content. */
+  private refreshHudContent(): void {
+    this.hudContent = resolveHudContent(
+      this.hudFeed,
+      this.notificationContext,
+      {
+        defaults: HUD_DEFAULT_CONTENT,
+        supportedDestinations: INSPECTOR_MENU_KEYS,
+      },
+    );
   }
 
   private async fetchAnnouncement(): Promise<void> {
