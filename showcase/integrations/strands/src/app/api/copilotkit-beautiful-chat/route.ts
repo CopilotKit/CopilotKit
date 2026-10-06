@@ -1,7 +1,8 @@
 // Dedicated runtime for the Beautiful Chat flagship showcase cell (Strands).
 //
-// Beautiful Chat exercises A2UI (dynamic + fixed schema) and Open
-// Generative UI. The shared Strands backend (agent_server.py) hosts a
+// Beautiful Chat exercises A2UI (dynamic + fixed schema), Open Generative UI
+// and MCP Apps (the "Excalidraw Diagram (MCP App)" suggestion). The shared
+// Strands backend (agent_server.py) hosts a
 // single Strands Agent instance on "/", so the cell routes there; the
 // flagship behavior comes from the runtime flags below plus the frontend's
 // per-cell registrations.
@@ -52,6 +53,21 @@ const runtime = new CopilotRuntime({
     // middleware then falls back to the unregistered spec basic catalog
     // ("Catalog not found" render error). Pin the catalog the page registers.
     defaultCatalogId: "copilotkit://app-dashboard-catalog",
+  },
+  // The shared Beautiful Chat page suggests an Excalidraw diagram (MCP App).
+  // The runtime's MCP Apps middleware adds the server's tools (create_view)
+  // to the agent's run and renders the resulting UI resource, as in
+  // src/app/api/copilotkit-mcp-apps/route.ts.
+  mcpApps: {
+    servers: [
+      {
+        type: "http",
+        url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com/mcp",
+        // Stable serverId so persisted threads keep restoring the same MCP
+        // server across URL changes.
+        serverId: "beautiful_chat_mcp",
+      },
+    ],
   },
 });
 
