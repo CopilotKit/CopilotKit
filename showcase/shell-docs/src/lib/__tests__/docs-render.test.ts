@@ -280,7 +280,7 @@ describe("loadDoc", () => {
     );
   });
 
-  it("keeps the approved overview assets and activation journey in order", () => {
+  it("explains existing-thread adoption and benefits before overview setup", () => {
     const overview = fs.readFileSync(
       path.join(SNIPPETS_DIR, "shared/threads/overview.mdx"),
       "utf8",
@@ -292,16 +292,19 @@ describe("loadDoc", () => {
     const gettingStarted = overview.indexOf("## Set up AG-UI Streams manually");
     const manualSteps = overview.indexOf("<Steps>");
     const why = overview.indexOf("## Why use CopilotKit AG-UI Streams?");
+    const existingThreads = overview.indexOf(
+      "## Add AG-UI Streams to existing threads",
+    );
     const diagram = overview.indexOf("threads-diagram-light.png");
 
     expect(screenshot).toBeGreaterThan(-1);
-    expect(screenshot).toBeLessThan(agentSetup);
+    expect(screenshot).toBeLessThan(existingThreads);
+    expect(existingThreads).toBeLessThan(why);
+    expect(why).toBeLessThan(agentSetup);
     expect(agentSetup).toBeLessThan(prompt);
     expect(prompt).toBeLessThan(gettingStarted);
     expect(gettingStarted).toBeLessThan(manualSteps);
-    expect(manualSteps).toBeLessThan(why);
-    expect(gettingStarted).toBeLessThan(why);
-    expect(why).toBeLessThan(diagram);
+    expect(manualSteps).toBeLessThan(diagram);
     expect(overview).toContain("npx copilotkit@latest init");
     expect(overview).not.toContain("<IntelligenceOnboardingPrompt");
     expect(overview).not.toContain("docs_threads_agent_prompt");
