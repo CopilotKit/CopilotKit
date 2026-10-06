@@ -1,5 +1,6 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: ".",
@@ -9,7 +10,7 @@ export default defineConfig({
   use: { baseURL: "http://127.0.0.1:15185" },
   webServer: {
     command: "node browser/server.mjs",
-    cwd: new URL("..", import.meta.url).pathname,
+    cwd: fileURLToPath(new URL("..", import.meta.url)),
     url: "http://127.0.0.1:15185",
     reuseExistingServer: false,
   },
