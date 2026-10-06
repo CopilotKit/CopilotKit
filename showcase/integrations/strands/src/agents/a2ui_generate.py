@@ -24,53 +24,26 @@ from strands import tool
 from strands.types.tools import ToolContext
 from tools.a2ui_catalog import read_client_catalog, validate_client_surface
 
-# Shared tool implementations, symlinked at the project root
-# (→ ../../shared/python/tools). ``build_a2ui_operations_from_tool_call`` wraps
-# the inner model's ``render_a2ui`` arguments in the nested A2UI v0.9
-# ``a2ui_operations`` envelope the middleware detects in a tool result.
+# Shared implementation emits the A2UI v0.9 envelope detected by middleware.
 from tools import build_a2ui_operations_from_tool_call
 
 logger = logging.getLogger(__name__)
 
 
 class _A2uiError(TypedDict):
-    """Shape of the structured error dict returned by generate_a2ui branches.
-
-    Mirrors the google-adk and langroid sibling agents' error shape — keep
-    all three in sync. Every error branch MUST populate all three keys so
-    callers (and the LLM summarizing the tool result) see a consistent
-    surface.
-    """
+    """Structured error contract shared with google-adk and langroid."""
 
     error: str
     message: str
     remediation: str
 
 
-# The `generate_a2ui` tool runs a secondary LLM call with a forced
-# `render_a2ui` tool, then converts that tool call's args into the
-# A2UI `a2ui_operations` container via
-# `build_a2ui_operations_from_tool_call`. The ag_ui_strands middleware
-# detects the container in the tool result and forwards the ops to
-# the frontend, which resolves component names through the registered
-# catalog supplied by the host in this run’s AG-UI context.
 @tool(context=True)
 def generate_a2ui(context: str, tool_context: ToolContext) -> str:
-    """Generate dynamic A2UI components based on the conversation.
-
-    A secondary LLM designs the UI schema and data. The result is
-    returned as an a2ui_operations container for the middleware to detect.
-
-    Error branches return a JSON-serialized ``_A2uiError`` dict rather
-    than raising, so OpenAI transport / quota / auth failures surface to
-    the LLM as a structured tool result (not an uncaught exception in the
-    strands tool machinery). See ``_A2uiError`` above.
+    """Generate a host-catalog A2UI surface, or a structured tool error.
 
     Args:
         context: Conversation context to generate UI from
-
-    Returns:
-        A2UI operations (or ``_A2uiError``) as JSON string
     """
     try:
         catalog = read_client_catalog(
