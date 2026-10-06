@@ -1053,32 +1053,33 @@ describe("thread handlers", () => {
     });
 
     /**
-     * A platform 401/403 rejects the runtime's own API key (e.g. a rotated
+     * A platform 401 rejects the runtime's own credentials (e.g. a rotated
      * key), which neither the user nor the browser can fix, so it must not
-     * reach the client as a user auth error.
+     * reach the client as a user auth error. A 403 denies this user an action
+     * and is the client's to handle, so it is forwarded.
      */
-    it.each([401, 403])(
-      "reports a platform %i as 502, not a user auth error",
-      async (status) => {
-        const intelligence = {
-          getThreadEvents: vi
-            .fn()
-            .mockRejectedValue(new PlatformRequestError("denied", status)),
-        };
-        const runtime = createIntelligenceRuntime({
-          intelligence,
-          identifyUser: createIdentifyUser(),
-        });
+    it.each([
+      [401, 502],
+      [403, 403],
+    ])("reports a platform %i as %i", async (status, expected) => {
+      const intelligence = {
+        getThreadEvents: vi
+          .fn()
+          .mockRejectedValue(new PlatformRequestError("denied", status)),
+      };
+      const runtime = createIntelligenceRuntime({
+        intelligence,
+        identifyUser: createIdentifyUser(),
+      });
 
-        const response = await handleGetThreadEvents({
-          runtime,
-          request: new Request("https://example.com/threads/t1/events"),
-          threadId: "t1",
-        });
+      const response = await handleGetThreadEvents({
+        runtime,
+        request: new Request("https://example.com/threads/t1/events"),
+        threadId: "t1",
+      });
 
-        expect(response.status).toBe(502);
-      },
-    );
+      expect(response.status).toBe(expected);
+    });
 
     it("still reports a non-platform failure, as 500", async () => {
       const intelligence = {

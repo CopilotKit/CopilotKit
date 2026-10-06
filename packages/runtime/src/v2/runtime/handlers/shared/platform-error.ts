@@ -18,9 +18,11 @@ import { errorResponse } from "./json-response";
  * `new Response(..., { status })` on an out-of-range status. Anything that is
  * not a platform error at all stays 500.
  *
- * A platform **401/403** is also 502: it rejects the runtime's own API key
- * (e.g. after a rotation), not the end user, so forwarding it would tell the
- * browser the user is unauthorized for a fault only the server can fix.
+ * A platform **401** is also 502: it rejects the runtime's own credentials
+ * (e.g. a rotated API key), not the end user, so forwarding it would tell the
+ * browser the user is unauthenticated for a fault only the server can fix. A
+ * **403** is different: the platform uses it to deny this user an action (e.g.
+ * a write to read-only memory), so it is forwarded like any other 4xx.
  */
 export function platformErrorResponse(
   error: unknown,
@@ -28,12 +30,11 @@ export function platformErrorResponse(
 ): Response {
   if (error instanceof PlatformRequestError) {
     const { status } = error;
-    const isCredentialRejection = status === 401 || status === 403;
     if (
       Number.isInteger(status) &&
       status >= 400 &&
       status <= 499 &&
-      !isCredentialRejection
+      status !== 401
     ) {
       return errorResponse(message, status);
     }
