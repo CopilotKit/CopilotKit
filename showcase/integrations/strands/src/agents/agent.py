@@ -33,6 +33,7 @@ from ag_ui.core.events import (
     ToolCallStartEvent,
 )
 from ag_ui.core.types import (
+    Context,
     AssistantMessage,
     FunctionCall,
     ToolCall,
@@ -127,6 +128,8 @@ class _MessagesSnapshotWrapper:
 
     async def run(self, input_data: Any) -> AsyncIterator[Any]:
         """Wrap ``delegate.run()`` and inject ``MessagesSnapshotEvent``."""
+
+        input_data = with_state_context(input_data)
 
         # Seed the snapshot message list from the full conversation
         # history that CopilotKit sends with every request.  This way
@@ -496,8 +499,8 @@ def set_theme_color(theme_color: str):
 # ---- Shared State (Read + Write) demo ----------------------------------
 #
 # The frontend's `shared-state-read-write` page writes a `preferences`
-# object into agent state via `agent.setState()`. ``build_state_prompt``
-# reads it from ``input_data.state`` and prepends a system-style line so
+# object into agent state via `agent.setState()`. ``with_state_context``
+# copies it from ``input_data.state`` into transient request context so
 # the LLM sees the user's preferred name / tone / language / interests on
 # every turn. The agent in turn uses ``set_notes`` to mutate
 # ``state["notes"]``; ``notes_state_from_args`` emits a ``StateSnapshotEvent``
@@ -970,137 +973,29 @@ def _format_preferences_block(prefs: dict) -> Optional[str]:
     )
 
 
-def _recover_original_user_message(input_data) -> Optional[str]:
-    """Extract the original user message for HITL continuation runs.
+def with_state_context(input_data):
+    """Copy current UI state into transient AG-UI context, preserving user text.
 
-    When a frontend tool (HITL) completes, ag_ui_strands synthesizes a
-    generic user message like ``"tool_name executed successfully with no
-    return value."`` and passes it to the state_context_builder.  This
-    synthetic message breaks aimock fixture matching which keys on the
-    *original* user message (e.g. ``"trip to mars"``).
-
-    We detect the continuation case — messages end with
-    ``[assistant(tool_calls), tool]`` — and walk backwards to find the
-    last *real* user message preceding the tool-call assistant turn.
-    Returns ``None`` when the conversation is not a HITL continuation.
+    The adapter supplies context during model calls and restores native history
+    afterward, including tool continuations. Never use state_context_builder to
+    prepend application instructions to durable user messages.
     """
-    messages = getattr(input_data, "messages", None)
-    if not messages or len(messages) < 3:
-        return None
-
-    # Check if messages end with [..., assistant(tool_calls), tool].
-    # That pattern signals a HITL continuation run.
-    last = messages[-1]
-    second_last = messages[-2]
-    if not (
-        getattr(last, "role", None) == "tool"
-        and getattr(second_last, "role", None) == "assistant"
-        and getattr(second_last, "tool_calls", None)
-    ):
-        return None
-
-    # Walk backwards from the assistant turn to find the real user message.
-    for i in range(len(messages) - 3, -1, -1):
-        msg = messages[i]
-        if getattr(msg, "role", None) == "user":
-            content = getattr(msg, "content", None)
-            if isinstance(content, str) and content.strip():
-                return content
-            if isinstance(content, list):
-                texts = [
-                    p.get("text", "") if isinstance(p, dict) else str(p)
-                    for p in content
-                ]
-                joined = " ".join(t for t in texts if t).strip()
-                if joined:
-                    return joined
-    return None
-
-
-def _format_context_block(context) -> Optional[str]:
-    """Format the AG-UI ``context`` array into a prompt block.
-
-    ``RunAgentInput.context`` is populated by the frontend's
-    ``useAgentContext`` (readonly-state-agent-context), by
-    ``openGenerativeUI.designSkill``, and by sandbox-function descriptors
-    (open-gen-ui / advanced). ag_ui_strands does NOT surface ``context`` to
-    the model on its own, so without lifting it here the agent never sees
-    readonly context ("Who am I?") nor the open-gen-ui design skill / "call
-    generateSandboxedUi" guidance. Mirrors langgraph's lift-context-into-prompt
-    pattern; the TS sibling does the same in ``buildStatePrompt``.
-
-    Each item is an AG-UI Context object with ``.description`` and ``.value``.
-    Returns ``None`` when nothing usable is present.
-    """
-    if not isinstance(context, list) or not context:
-        return None
-    lines: list[str] = []
-    for item in context:
-        description = getattr(item, "description", None)
-        value = getattr(item, "value", None)
-        if isinstance(item, dict):
-            description = item.get("description", description)
-            value = item.get("value", value)
-        if description is None or value is None:
-            continue
-        lines.append(f"- {str(description)}: {str(value)}")
-    if not lines:
-        return None
-    return (
-        "Context for this conversation (treat as authoritative — use it to "
-        "answer questions about the user and follow any instructions it "
-        "contains):\n" + "\n".join(lines)
-    )
-
-
-def build_state_prompt(input_data, user_message: str) -> str:
-    """Inject UI-owned shared state slots into the outgoing prompt.
-
-    Handles every demo whose backend reads from ``state``:
-
-    * ``shared-state-read-write`` — preferences (name, tone, language,
-      interests) written by the UI via ``agent.setState``.
-    * sales pipeline (legacy ``manage_sales_todos`` flow) — todos seeded
-      by the agent and re-rendered in cards.
-
-    For HITL continuation runs, the synthetic ``"tool_name executed
-    successfully..."`` message is replaced with the original user message
-    from the conversation history, so aimock fixture matching (which keys
-    on ``userMessage``) continues to work across turns.
-
-    All branches degrade to the original ``user_message`` when the
-    relevant slot is missing.
-    """
-    # On HITL continuation runs, recover the real user message so aimock
-    # can match the correct fixture (keyed on the original userMessage).
-    recovered = _recover_original_user_message(input_data)
-    if recovered is not None:
-        user_message = recovered
-
-    blocks: list[str] = []
-
-    state_dict = getattr(input_data, "state", None)
-    if isinstance(state_dict, dict):
-        prefs_block = _format_preferences_block(state_dict.get("preferences") or {})
-        if prefs_block:
-            blocks.append(prefs_block)
-
-        if "todos" in state_dict:
-            todos_json = json.dumps(state_dict["todos"], indent=2)
-            blocks.append(f"Current sales pipeline:\n{todos_json}")
-
-    context_block = _format_context_block(getattr(input_data, "context", None))
-    if context_block:
-        blocks.append(context_block)
-
-    if not blocks:
-        return user_message
-
-    return "\n\n".join(blocks) + f"\n\nUser request: {user_message}"
-
-
-# Back-compat alias: tests / scripts may import the old name.
-build_sales_prompt = build_state_prompt
+    context = list(input_data.context)
+    state = input_data.state
+    if isinstance(state, dict):
+        preferences = _format_preferences_block(state.get("preferences") or {})
+        if preferences:
+            context.append(
+                Context(description="Current user preferences", value=preferences)
+            )
+        if "todos" in state:
+            context.append(
+                Context(
+                    description="Current sales pipeline",
+                    value=json.dumps(state["todos"], indent=2),
+                )
+            )
+    return input_data.model_copy(update={"context": context})
 
 
 async def sales_state_from_args(context):
@@ -1489,7 +1384,6 @@ def build_showcase_agent(
     resolved_model = model if model is not None else _build_model()
 
     shared_state_config = StrandsAgentConfig(
-        state_context_builder=build_state_prompt,
         tool_behaviors={
             "manage_sales_todos": ToolBehavior(
                 skip_messages_snapshot=True,

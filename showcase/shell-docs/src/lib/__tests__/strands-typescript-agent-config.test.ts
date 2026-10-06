@@ -13,7 +13,7 @@ test("renders the Strands TypeScript agent-config bridge", () => {
     setupContentData as SetupContentBundle,
   );
 
-  expect(setup).toContain("stateContextBuilder: buildStatePrompt");
+  expect(setup).toContain("super.run(withStateContext(inputData))");
   expect(setup).toContain("inputData.context");
   expect(setup).not.toContain("@region[");
 
@@ -32,7 +32,7 @@ test("renders the Strands TypeScript agent-config bridge", () => {
     { framework: "strands-typescript" },
   );
 
-  expect(output).toContain("stateContextBuilder: buildStatePrompt");
+  expect(output).toContain("super.run(withStateContext(inputData))");
   expect(output).toContain("inputData.context");
   expect(output).not.toContain('title="backend/agent.py');
   expect(output).not.toContain("def read_config_value");
