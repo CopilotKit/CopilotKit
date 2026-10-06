@@ -1,5 +1,6 @@
 "use client";
 
+import { useOptionalSkin } from "@/shell/skin-provider";
 import { PanelLeftOpen } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
@@ -18,6 +19,7 @@ import {
   ASSISTANT_MIN_PX,
 } from "./panel-sizes";
 import { SelectorCard } from "./selector-card";
+import { ThreadsColumn } from "@/shell/chat/threads-column";
 import { useIsDesktop } from "./use-is-desktop";
 import { useLayoutPreferences } from "./layout-preferences";
 
@@ -43,6 +45,9 @@ export function ShellFrame({
   app: ReactNode;
 }) {
   const { sidebarSide, sidebarOpen, setSidebarOpen } = useLayoutPreferences();
+  const skin = useOptionalSkin();
+  const chatDefaultPx =
+    skin?.layoutDefaults?.chatWidthPx ?? ASSISTANT_DEFAULT_PX;
   const isDesktop = useIsDesktop();
   const hydrated = useHydrated();
 
@@ -50,7 +55,7 @@ export function ShellFrame({
   // means reversing JSX order; keying the layout by side is what stops a
   // left-docked width from being restored as a mirrored right-docked one.
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
-    id: `nw-shell-${sidebarSide === "left" ? "ltr" : "rtl"}`,
+    id: `nw-shell-${sidebarSide === "left" ? "ltr" : "rtl"}${skin?.layoutDefaults ? `-${skin.id}` : ""}`,
     storage: safeLayoutStorage,
   });
 
@@ -114,7 +119,15 @@ export function ShellFrame({
       id="sidebar-panel"
       minSize={ASSISTANT_MIN_PX}
       maxSize={ASSISTANT_MAX}
-      defaultSize={ASSISTANT_DEFAULT_PX}
+      defaultSize={chatDefaultPx}
+      // With the threads in their own column, opening it narrows this whole
+      // group. Holding the chat at its pixel width makes the app absorb all
+      // of that, so the conversation never shrinks.
+      groupResizeBehavior={
+        skin?.layoutDefaults?.inboxPlacement === "column"
+          ? "preserve-pixel-size"
+          : undefined
+      }
       className="h-full min-w-0"
     >
       {sidebarColumn}
@@ -129,24 +142,42 @@ export function ShellFrame({
     </Panel>
   );
 
+  const group = (
+    <ResizableGroup
+      // Remount once hydration is done. The server renders the panels with
+      // `flex-basis: <defaultSize>px`; the client computes `flex-basis: 0` +
+      // a grow share, and React does NOT patch inline-style mismatches on
+      // hydration — so the SSR basis stuck, and the assistant could never
+      // be dragged narrower than its 600px default whatever `minSize` said.
+      // A fresh client mount writes the library's real styles.
+      key={hydrated ? "client" : "server"}
+      orientation="horizontal"
+      defaultLayout={defaultLayout}
+      onLayoutChanged={onLayoutChanged}
+    >
+      {sidebarSide === "left" ? sidebarPanel : appPanel}
+      <ResizableGutter />
+      {sidebarSide === "left" ? appPanel : sidebarPanel}
+    </ResizableGroup>
+  );
+
+  // A skin can give the thread rail its own column on the chat's outer edge.
+  // The panel group sits in a flex row beside it, so as the column widens the
+  // group gets narrower and the app panel (the remainder) gives up the space.
+  if (skin?.layoutDefaults?.inboxPlacement === "column") {
+    const column = <ThreadsColumn side={sidebarSide} />;
+    return (
+      <div data-testid="shell-frame" className="flex h-screen bg-canvas p-2">
+        {sidebarSide === "left" ? column : null}
+        <div className="h-full min-w-0 flex-1">{group}</div>
+        {sidebarSide === "right" ? column : null}
+      </div>
+    );
+  }
+
   return (
     <div data-testid="shell-frame" className="h-screen bg-canvas p-2">
-      <ResizableGroup
-        // Remount once hydration is done. The server renders the panels with
-        // `flex-basis: <defaultSize>px`; the client computes `flex-basis: 0` +
-        // a grow share, and React does NOT patch inline-style mismatches on
-        // hydration — so the SSR basis stuck, and the assistant could never
-        // be dragged narrower than its 600px default whatever `minSize` said.
-        // A fresh client mount writes the library's real styles.
-        key={hydrated ? "client" : "server"}
-        orientation="horizontal"
-        defaultLayout={defaultLayout}
-        onLayoutChanged={onLayoutChanged}
-      >
-        {sidebarSide === "left" ? sidebarPanel : appPanel}
-        <ResizableGutter />
-        {sidebarSide === "left" ? appPanel : sidebarPanel}
-      </ResizableGroup>
+      {group}
     </div>
   );
 }
