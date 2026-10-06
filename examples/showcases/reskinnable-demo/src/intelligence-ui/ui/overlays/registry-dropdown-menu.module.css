@@ -1,0 +1,85 @@
+.content {
+  z-index: var(--cpki-z-index-dropdown);
+  max-height: var(--radix-dropdown-menu-content-available-height);
+  min-width: 8rem;
+  overflow: auto;
+  padding: 0.25rem;
+  border: 1px solid var(--border, var(--cpki-color-border));
+  border-radius: var(--radius-control, var(--cpki-radius-control));
+  background: var(--popover, var(--cpki-color-surface-raised));
+  color: var(--popover-foreground, var(--cpki-color-foreground));
+  box-shadow: var(--overlay-shadow, var(--cpki-shadow-overlay));
+}
+
+.radioItem {
+  position: relative;
+  display: flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem 0.375rem 2rem;
+  border-radius: var(--radius-control, var(--cpki-radius-control));
+  outline: none;
+  cursor: default;
+  font-size: 0.8125rem;
+  user-select: none;
+}
+
+.radioItem[data-highlighted] {
+  background: var(--accent, var(--cpki-color-surface-hover));
+  color: var(--accent-foreground, var(--cpki-color-foreground));
+}
+
+.radioItem[data-disabled] {
+  opacity: 0.5;
+}
+.radioItem > svg {
+  width: 1rem;
+  height: 1rem;
+}
+.indicator svg {
+  width: 0.5rem;
+  height: 0.5rem;
+}
+
+.indicator {
+  position: absolute;
+  left: 0.5rem;
+  display: grid;
+  width: 0.875rem;
+  height: 0.875rem;
+  place-items: center;
+}
+.item {
+  display: flex;
+  align-items: center;
+  min-height: 2rem;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: var(--radius-control);
+  outline: none;
+  cursor: default;
+  font-size: 0.8125rem;
+}
+.item[data-highlighted] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.item[data-disabled] {
+  opacity: 0.5;
+}
+.item svg {
+  width: 1rem;
+  height: 1rem;
+}
+.label {
+  padding: 0.375rem 0.5rem;
+  color: var(--cpki-color-muted-foreground);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+.separator {
+  height: 1px;
+  margin: 0.25rem -0.25rem;
+  background: var(--border);
+}
