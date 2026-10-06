@@ -1,0 +1,106 @@
+/* Preview settings grid: General on the left, delivery and schedule on the right. */
+.layout {
+  align-items: start;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+}
+.full {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.side {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+
+/* Settings cards carry a quiet header band (preview `settings-card`). */
+.layout [data-slot='card'] {
+  gap: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding-block: 0;
+}
+.layout [data-slot='card-header'] {
+  background: var(--muted);
+  border-bottom: 1px solid var(--border);
+  padding-block: 20px;
+}
+.layout [data-slot='card-content'] {
+  padding-block: 20px 24px;
+}
+.heading {
+  font: inherit;
+  margin: 0;
+}
+
+.form {
+  display: contents;
+}
+.fields {
+  display: grid;
+  gap: 20px;
+}
+.field {
+  display: grid;
+  gap: 8px;
+}
+.field label {
+  color: var(--foreground);
+  font-size: var(--text-control);
+  font-weight: 500;
+}
+.field :is(input, textarea) {
+  width: 100%;
+}
+.hint {
+  color: var(--muted-foreground);
+  font-size: var(--text-caption);
+  line-height: 1.6;
+  margin: 0;
+}
+.error {
+  color: var(--destructive);
+  font-size: var(--text-control);
+  margin: 0;
+}
+.cardFoot {
+  border-top: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: var(--text-caption);
+  gap: 16px;
+  justify-content: space-between;
+  padding-block: 16px;
+}
+
+/* Runtime identifier row under the delivery setup action. */
+.runtime {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 8px;
+  padding-top: 16px;
+}
+.runtimeLabel {
+  color: var(--muted-foreground);
+  font-size: var(--text-caption);
+}
+.runtimeValue {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-width: 0;
+}
+.runtimeValue code {
+  color: var(--foreground);
+  font-size: var(--text-body);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1023px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

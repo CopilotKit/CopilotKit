@@ -273,6 +273,8 @@ function SkinCopilotRuntime({
       <CopilotChatConfigurationProvider agentId={skin.id} threadId={threadId}>
         <SkinProvider skin={skin}>
           <ChatInboxProvider
+            initialOpen={skin.layoutDefaults?.inboxOpen ?? true}
+            persistKey={skin.layoutDefaults ? `nw-inbox:${skin.id}` : undefined}
             selectedThreadId={threadId}
             onSelectThread={selectThread}
             onCreateThread={createThread}
