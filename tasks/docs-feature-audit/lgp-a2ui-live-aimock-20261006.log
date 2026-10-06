@@ -1,0 +1,5 @@
+$ nice -n 10 showcase/scripts/node_modules/.bin/llmock --port 4411 --host 127.0.0.1 --strict --validate-on-load --chunk-size 8 --latency 60 --fixtures <scratch dir holding only lgp-a2ui-live-order-fixtures-20261006.json>   (2026-10-06T22:06:05Z)
+[aimock] Loaded 12 fixture(s) from /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/a2ui-live-fixtures
+[aimock] aimock server listening on http://127.0.0.1:4411
+[aimock] Shutting down...
+# stopped 2026-10-06T22:11:13Z (SIGTERM to process group 36160)

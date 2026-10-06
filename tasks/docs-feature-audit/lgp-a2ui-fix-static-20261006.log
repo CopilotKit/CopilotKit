@@ -1,0 +1,18 @@
+# after the a2ui_dynamic.py change (uncommitted), 2026-10-06T22:12:37Z
+$ python lgp-import-graphs.py
+OK   a2ui_dynamic                     CompiledStateGraph nodes=7 0.00s
+graphs: 29 ok, 0 failed, 29 total
+$ pytest tests/ src/agents/test_a2ui_internal_tools.py
+..........                                                               [100%]
+10 passed in 0.58s
+$ ruff format --check showcase/integrations/langgraph-python/src/agents/a2ui_dynamic.py
+1 file already formatted
+exit=0
+# after the header-forwarding change (uncommitted), 2026-10-06T22:27:22Z
+$ python lgp-import-graphs.py
+OK   a2ui_dynamic                     CompiledStateGraph nodes=7 0.00s
+graphs: 29 ok, 0 failed, 29 total
+$ pytest tests/ src/agents/test_a2ui_internal_tools.py
+10 passed in 0.47s
+$ ruff format --check src/agents/a2ui_dynamic.py (ruff 0.16.0 local; CI pins 0.15.13)
+1 file already formatted

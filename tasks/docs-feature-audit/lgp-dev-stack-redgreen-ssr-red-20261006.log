@@ -1,0 +1,966 @@
+# LGP stack via the integration's documented default dev command (package.json scripts.dev = concurrently "next dev --turbopack" "python -u -m langgraph_cli dev --config langgraph.json --host 0.0.0.0 --port 8123 --no-browser"), venv python (/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv, Python 3.12.6) first on PATH, same environment as lgp-dev-stack-20260923.log. .next and .langgraph_api removed first.
+$ cd showcase/integrations/langgraph-python && PORT=3100 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true DO_NOT_TRACK=1 LANGSMITH_TRACING=false LANGGRAPH_CLI_NO_ANALYTICS=1 OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://127.0.0.1:4410/v1 AIMOCK_URL=http://127.0.0.1:4410 LANGGRAPH_DEPLOYMENT_URL=http://localhost:8123 nice -n 10 npm run dev
+# node v22.16.0, npm 10.9.2, HEAD 1b47fc3db4, started Tue Oct  6 22:13:12 UTC 2026
+
+> @copilotkit/showcase-langgraph-python@0.1.0 dev
+> concurrently "next dev --turbopack" "python -u -m langgraph_cli dev --config langgraph.json --host 0.0.0.0 --port 8123 --no-browser"
+
+[0]  ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+[0]  We detected multiple lockfiles and selected the directory of /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/pnpm-lock.yaml as the root directory.
+[0]  To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+[0]    See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+[0]  Detected additional lockfiles: 
+[0]    * /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-python/package-lock.json
+[0] 
+[1] INFO:langgraph_api.cli:
+[1] 
+[1]         Welcome to
+[1] 
+[1] ╦  ┌─┐┌┐┌┌─┐╔═╗┬─┐┌─┐┌─┐┬ ┬
+[1] ║  ├─┤││││ ┬║ ╦├┬┘├─┤├─┘├─┤
+[1] ╩═╝┴ ┴┘└┘└─┘╚═╝┴└─┴ ┴┴  ┴ ┴
+[1] 
+[1] - 🚀 API: [36mhttp://0.0.0.0:8123[0m
+[1] - 🎨 Studio UI: [36mhttps://smith.langchain.com/studio/?baseUrl=http://0.0.0.0:8123[0m
+[1] - 📚 API Docs: [36mhttp://0.0.0.0:8123/docs[0m
+[1] 
+[1] This in-memory server is designed for development and testing.
+[1] For production use, please use LangSmith Deployment.
+[1] 
+[1] 
+[0]    ▲ Next.js 15.5.27 (Turbopack)
+[0]    - Local:        http://localhost:3100
+[0]    - Network:      http://192.168.4.34:3100
+[0] 
+[0]  ✓ Starting...
+[0]  ✓ Compiled middleware in 61ms
+[1] [2m2026-10-06T22:13:13.897608Z[0m [[32m[1minfo     [0m] [1mStarting dev persistence flush loop[0m [[0m[1m[34mlanggraph_runtime_inmem._persistence[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:13.912847Z[0m [[32m[1minfo     [0m] [1mUsing langgraph_runtime_inmem [0m [[0m[1m[34mlanggraph_runtime[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:13.970344Z[0m [[32m[1minfo     [0m] [1mUsing auth of type=noop       [0m [[0m[1m[34mlanggraph_api.auth.middleware[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:13.972310Z[0m [[32m[1minfo     [0m] [1mStarting In-Memory runtime with langgraph-api=0.15.1 and in-memory runtime=0.35.1[0m [[0m[1m[34mlanggraph_runtime_inmem.lifespan[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_runtime_inmem_version[0m=[35m0.35.1[0m [36mthread_name[0m=[35muvloop_0[0m [36mversion[0m=[35m0.15.1[0m
+[1] [2m2026-10-06T22:13:13.989590Z[0m [[32m[1minfo     [0m] [1mOTel metrics reporter initialized[0m [[0m[1m[34mlanggraph_api.metrics_otlp[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mbackends[0m=[35m['prometheus'][0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmax_emitting_tier[0m=[35m2[0m [36mmetric_prefix[0m=[35mlg_api_[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:13.990100Z[0m [[32m[1minfo     [0m] [1mCaching importlib.metadata.packages_distributions()[0m [[0m[1m[34mlanggraph_api.graph[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:13.990472Z[0m [[32m[1minfo     [0m] [1mNo license key or control plane API key set, skipping metadata loop[0m [[0m[1m[34mlanggraph_api.metadata[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:13.990580Z[0m [[32m[1minfo     [0m] [1mStarting OTLP metrics collector loop[0m [[0m[1m[34mlanggraph_api.metrics_collector[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36minterval_secs[0m=[35m60[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:13.990809Z[0m [[32m[1minfo     [0m] [1mWorker stats                  [0m [[0m[1m[34mlanggraph_api.metrics_collector[0m][0m [36mactive[0m=[35m0[0m [36mapi_variant[0m=[35mlocal_dev[0m [36mavailable[0m=[35m1[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmax[0m=[35m1[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:13.993834Z[0m [[32m[1minfo     [0m] [1m70 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] 2026-10-06 15:13:13,998 INFO agents._cvdiag_bootstrap CVDIAG bootstrap component=_shared tier=default pb_enabled=false
+[1] [2m2026-10-06T22:13:13.998981Z[0m [[32m[1minfo     [0m] [1mCVDIAG bootstrap component=_shared tier=default pb_enabled=false[0m [[0m[1m[34magents._cvdiag_bootstrap[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36masctime[0m=[35m'2026-10-06 15:13:13,998'[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmessage[0m=[35m'CVDIAG bootstrap component=_shared tier=default pb_enabled=false'[0m [36mthread_name[0m=[35muvloop_0[0m
+[0]  ✓ Ready in 775ms
+[1] [2m2026-10-06T22:13:14.356094Z[0m [[32m[1minfo     [0m] [1m2 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:14.384182Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.3937047090003034[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/main.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:13:14.389397Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.00491291700018337[0m [36mgraph_id[0m=[35mtool_rendering[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/tool_rendering_agent.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:14.879049Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.48933533299714327[0m [36mgraph_id[0m=[35mtool_rendering_reasoning_chain[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/tool_rendering_reasoning_chain_agent.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:13:14.881531Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0022152500023366883[0m [36mgraph_id[0m=[35ma2ui_dynamic[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/a2ui_dynamic.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:14.884978Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.003227917000913294[0m [36mgraph_id[0m=[35ma2ui_fixed[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/a2ui_fixed.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:13:14.890965Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.005791874998976709[0m [36mgraph_id[0m=[35ma2ui_recovery[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/recovery_agent.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:14.898053Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0068639590026577935[0m [36mgraph_id[0m=[35mreasoning_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/reasoning_agent.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:13:14.901419Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.003150707998429425[0m [36mgraph_id[0m=[35minterrupt_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/interrupt_agent.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:14.903625Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0020225419975758996[0m [36mgraph_id[0m=[35mopen_gen_ui[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/open_gen_ui_agent.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:13:14.905726Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0019281669992778916[0m [36mgraph_id[0m=[35mopen_gen_ui_advanced[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/open_gen_ui_advanced_agent.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:14.907793Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0018921670016425196[0m [36mgraph_id[0m=[35mmcp_apps[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/mcp_apps_agent.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:13:14.909787Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0018180420011049137[0m [36mgraph_id[0m=[35mhitl_in_chat[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/hitl_in_chat_agent.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:14.911687Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0017614159987715539[0m [36mgraph_id[0m=[35mhitl_in_app[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/hitl_in_app.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:13:14.913610Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.001796791999367997[0m [36mgraph_id[0m=[35mshared_state_read[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/shared_state_read.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:14.919095Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0053250000019033905[0m [36mgraph_id[0m=[35mshared_state_read_write[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/shared_state_read_write.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:13:14.921151Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0018636249988048803[0m [36mgraph_id[0m=[35mreadonly_state_agent_context[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/readonly_state_agent_context.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:14.926323Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.00501470800008974[0m [36mgraph_id[0m=[35mshared_state_streaming[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/shared_state_streaming.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:13:14.939589Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.013074499998765532[0m [36mgraph_id[0m=[35msubagents[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/subagents.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:14.945066Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0048565420001978055[0m [36mgraph_id[0m=[35mheadless_complete[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/headless_complete.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:13:14.947382Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.002061791998130502[0m [36mgraph_id[0m=[35magentic_chat[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/agentic_chat.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:14.949836Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.00215737500184332[0m [36mgraph_id[0m=[35mfrontend_tools[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/frontend_tools.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:13:14.952916Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0028204159971210174[0m [36mgraph_id[0m=[35mfrontend_tools_async[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/frontend_tools_async.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:14.958368Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.005103082999994513[0m [36mgraph_id[0m=[35mgen_ui_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/gen_ui_agent.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:13:14.960836Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0020893340006296057[0m [36mgraph_id[0m=[35mgen_ui_tool_based[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/gen_ui_tool_based.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:15.011843Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.05074445900027058[0m [36mgraph_id[0m=[35mbeautiful_chat[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/beautiful_chat.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:13:15.052262Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0401663330012525[0m [36mgraph_id[0m=[35mmultimodal[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/multimodal_agent.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:15.054723Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0022153339996293653[0m [36mgraph_id[0m=[35magent_config_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/agent_config_agent.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:13:15.057626Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.002681750000192551[0m [36mgraph_id[0m=[35mbyoc_hashbrown[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/byoc_hashbrown_agent.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:15.059894Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.002053749998594867[0m [36mgraph_id[0m=[35mbyoc_json_render[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/byoc_json_render_agent.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:13:15.064396Z[0m [[32m[1minfo     [0m] [1mApplication started up in 1.317s[0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed[0m=[35m1.3167824160009332[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:15.080912Z[0m [[32m[1minfo     [0m] [1mStarting cron scheduler       [0m [[0m[1m[34mlanggraph_api.cron_scheduler[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:15.081133Z[0m [[32m[1minfo     [0m] [1mStarting queue with shared loop[0m [[0m[1m[34mlanggraph_runtime_inmem.queue[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:15.081604Z[0m [[32m[1minfo     [0m] [1mStarting 1 background workers [0m [[0m[1m[34mlanggraph_runtime_inmem.queue[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:15.081726Z[0m [[32m[1minfo     [0m] [1mWorker stats                  [0m [[0m[1m[34mlanggraph_runtime_inmem.queue[0m][0m [36mactive[0m=[35m0[0m [36mapi_variant[0m=[35mlocal_dev[0m [36mavailable[0m=[35m1[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmax[0m=[35m1[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:15.583276Z[0m [[32m[1minfo     [0m] [1mQueue stats                   [0m [[0m[1m[34mlanggraph_runtime_inmem.queue[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mn_pending[0m=[35m0[0m [36mn_running[0m=[35m0[0m [36mpending_runs_wait_time_max_secs[0m=[35mNone[0m [36mpending_runs_wait_time_med_secs[0m=[35mNone[0m [36mpending_unblocked_runs_wait_time_max_secs[0m=[35mNone[0m [36mthread_name[0m=[35muvloop_1[0m
+[0]  ○ Compiling /api/health ...
+[0]  ✓ Compiled /api/health in 514ms
+[1] [2m2026-10-06T22:13:16.539274Z[0m [[32m[1minfo     [0m] [1m115 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/health 200 in 794ms
+[1] [2m2026-10-06T22:13:16.726519Z[0m [[32m[1minfo     [0m] [1mGetting auth instance: None   [0m [[0m[1m[34mlanggraph_api.auth.custom[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_auth[0m=[35mNone[0m [36mmethod[0m=[35mPOST[0m [36mpath[0m=[35m/assistants/search[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:17.112757Z[0m [[32m[1minfo     [0m] [1m15 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/shared-state-read ...
+[1] [2m2026-10-06T22:13:21.507352Z[0m [[32m[1minfo     [0m] [1m1550 changes detected         [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ✓ Compiled /demos/shared-state-read in 4.9s
+[1] [2m2026-10-06T22:13:21.905955Z[0m [[32m[1minfo     [0m] [1m317 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+[0]  GET /demos/shared-state-read 200 in 5394ms
+[0]  ○ Compiling /api/copilotkit ...
+[0]  ✓ Compiled /api/copilotkit in 849ms
+[1] [2m2026-10-06T22:13:23.111663Z[0m [[32m[1minfo     [0m] [1m156 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0] [copilotkit/route] Initializing CopilotKit runtime
+[0] [copilotkit/route] LANGGRAPH_URL: http://localhost:8123
+[0] [copilotkit/route] LANGSMITH_API_KEY: not set
+[0] [copilotkit/route] Registered 31 agent names: human_in_the_loop, shared-state-read, shared-state-write, prebuilt-sidebar, prebuilt-popup, chat-slots, chat-customization-css, headless-simple, tool-rendering, tool-rendering-default-catchall, tool-rendering-custom-catchall, tool-rendering-reasoning-chain, declarative-gen-ui, a2ui-fixed-schema, shared-state-streaming, subagents, agentic_chat, frontend_tools, threadid-frontend-tool-roundtrip, frontend-tools-async, gen-ui-agent, gen-ui-tool-based, reasoning-custom, reasoning-default, gen-ui-interrupt, interrupt-headless, hitl-in-chat, hitl-in-app, shared-state-read-write, readonly-state-agent-context, default
+[0]  GET /api/copilotkit 200 in 1314ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-fixed-schema in 221ms
+[1] [2m2026-10-06T22:13:23.793858Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-a2ui-fixed-schema 405 in 448ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-recovery in 195ms
+[1] [2m2026-10-06T22:13:24.267525Z[0m [[32m[1minfo     [0m] [1m91 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-a2ui-recovery 405 in 422ms
+[0]  ✓ Compiled /api/copilotkit-agent-config in 183ms
+[1] [2m2026-10-06T22:13:24.688583Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-agent-config 405 in 408ms
+[0]  ✓ Compiled /api/copilotkit-auth/[[...slug]] in 155ms
+[1] [2m2026-10-06T22:13:25.052649Z[0m [[32m[1minfo     [0m] [1m89 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-auth 401 in 980ms
+[0]  ✓ Compiled /api/copilotkit-beautiful-chat in 203ms
+[1] [2m2026-10-06T22:13:26.110414Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-beautiful-chat 405 in 461ms
+[0]  ✓ Compiled /api/copilotkit-declarative-gen-ui in 265ms
+[1] [2m2026-10-06T22:13:26.630724Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-declarative-gen-ui 405 in 495ms
+[0]  ✓ Compiled /api/copilotkit-declarative-hashbrown in 205ms
+[1] [2m2026-10-06T22:13:27.040618Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-declarative-hashbrown 405 in 434ms
+[0]  ✓ Compiled /api/copilotkit-declarative-json-render in 159ms
+[1] [2m2026-10-06T22:13:27.456989Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-declarative-json-render 405 in 383ms
+[0]  ✓ Compiled /api/copilotkit-mcp-apps/[[...slug]] in 154ms
+[1] [2m2026-10-06T22:13:27.873501Z[0m [[32m[1minfo     [0m] [1m89 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-mcp-apps 405 in 986ms
+[0]  ✓ Compiled /api/copilotkit-multimodal in 155ms
+[1] [2m2026-10-06T22:13:28.827435Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-multimodal 405 in 380ms
+[0]  ✓ Compiled /api/copilotkit-ogui in 150ms
+[1] [2m2026-10-06T22:13:29.239739Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-ogui 405 in 377ms
+[0]  ✓ Compiled /api/copilotkit-voice/[[...slug]] in 194ms
+[1] [2m2026-10-06T22:13:29.653529Z[0m [[32m[1minfo     [0m] [1m93 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-voice 404 in 1047ms
+[0]  ✓ Compiled /api/debug in 50ms
+[1] [2m2026-10-06T22:13:30.553500Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/debug 403 in 277ms
+[1] [2m2026-10-06T22:13:30.919517Z[0m [[32m[1minfo     [0m] [1m75 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/health 200 in 221ms
+[0]  GET /demos/shared-state-read 200 in 83ms
+[1] [2m2026-10-06T22:13:31.650810Z[0m [[32m[1minfo     [0m] [1m75 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ✓ Compiled /_not-found/page in 157ms
+[0]  GET /api/copilotkit/info 404 in 215ms
+[1] [2m2026-10-06T22:13:32.115492Z[0m [[32m[1minfo     [0m] [1m155 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  POST /api/copilotkit 200 in 229ms
+[1] [2m2026-10-06T22:13:32.473604Z[0m [[32m[1minfo     [0m] [1m375 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  POST /api/copilotkit 200 in 287ms
+[0]  POST /api/copilotkit 200 in 290ms
+[0]  POST /api/copilotkit 200 in 293ms
+[0]  POST /api/copilotkit 200 in 295ms
+[0]  POST /api/copilotkit 200 in 298ms
+[0]  POST /api/copilotkit 200 in 300ms
+[0]  POST /api/copilotkit 200 in 267ms
+[0]  POST /api/copilotkit 200 in 269ms
+[0]  POST /api/copilotkit 200 in 273ms
+[0]  POST /api/copilotkit 200 in 274ms
+[0]  POST /api/copilotkit 200 in 276ms
+[0]  POST /api/copilotkit 200 in 278ms
+[1] [2m2026-10-06T22:13:32.832165Z[0m [[32m[1minfo     [0m] [1m375 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  POST /api/copilotkit 200 in 269ms
+[0]  POST /api/copilotkit 200 in 270ms
+[0]  POST /api/copilotkit 200 in 272ms
+[0]  POST /api/copilotkit 200 in 273ms
+[0]  POST /api/copilotkit 200 in 276ms
+[0]  POST /api/copilotkit 200 in 279ms
+[1] [2m2026-10-06T22:13:33.299241Z[0m [[32m[1minfo     [0m] [1m735 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  POST /api/copilotkit 200 in 289ms
+[0]  POST /api/copilotkit 200 in 290ms
+[0]  POST /api/copilotkit 200 in 293ms
+[0]  POST /api/copilotkit 200 in 296ms
+[0]  POST /api/copilotkit 200 in 298ms
+[0]  POST /api/copilotkit 200 in 300ms
+[1] [2m2026-10-06T22:13:33.665799Z[0m [[32m[1minfo     [0m] [1m375 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  POST /api/copilotkit 200 in 273ms
+[0]  POST /api/copilotkit 200 in 274ms
+[0]  POST /api/copilotkit 200 in 277ms
+[0]  POST /api/copilotkit 200 in 278ms
+[0]  POST /api/copilotkit 200 in 280ms
+[0]  POST /api/copilotkit 200 in 281ms
+[0]  POST /api/copilotkit 200 in 232ms
+[1] [2m2026-10-06T22:13:33.966967Z[0m [[33m[1mwarning  [0m] [1mGET /threads/f61c4ccb-a14e-49c4-92bf-f2ec127bc7d5 404 0ms[0m [[0m[1m[34mlanggraph_api.server[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36merror_detail[0m=[35mNone[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlatency_ms[0m=[35m0[0m [36mmethod[0m=[35mGET[0m [36mpath[0m=[35m/threads/{thread_id}[0m [36mpath_params[0m=[35m{'thread_id': 'f61c4ccb-a14e-49c4-92bf-f2ec127bc7d5'}[0m [36mproto[0m=[35m1.1[0m [36mquery_string[0m=[35m[0m [36mreq_header[0m=[35m{}[0m [36mrequest_id[0m=[35m6671777c-9639-45fc-81bb-bd701c92f0b3[0m [36mres_header[0m=[35m{}[0m [36mresponse_size_bytes[0m=[35m74[0m [36mroute[0m=[35m/threads/{thread_id}[0m [36mrun_id[0m=[35mNone[0m [36mstatus[0m=[35m404[0m [36mthread_name[0m=[35mMainThread[0m [36mttfb_ms[0m=[35m0.0[0m
+[1] [2m2026-10-06T22:13:34.006954Z[0m [[32m[1minfo     [0m] [1mCreated run                   [0m [[0m[1m[34mlanggraph_api.models.run[0m][0m [36mafter_seconds[0m=[35m0[0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mcheckpoint_id[0m=[35mNone[0m [36mif_not_exists[0m=[35mreject[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmethod[0m=[35mPOST[0m [36mmultitask_strategy[0m=[35menqueue[0m [36mpath[0m=[35m/threads/{thread_id}/runs/stream[0m [36mrequest_id[0m=[35m79123842-6e91-4324-8ca8-f34e708ac973[0m [36mrun_create_ms[0m=[35m0[0m [36mrun_id[0m=[35m01a11347-7ab6-76f2-af98-117eb7b3d05c[0m [36mrun_put_ms[0m=[35m0[0m [36mstream_mode[0m=[35m['events', 'values', 'updates', 'messages-tuple'][0m [36mstream_resumable[0m=[35mFalse[0m [36mtemporary[0m=[35mFalse[0m [36mthread_id[0m=[35mf61c4ccb-a14e-49c4-92bf-f2ec127bc7d5[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:34.032561Z[0m [[32m[1minfo     [0m] [1m138 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:34.622396Z[0m [[32m[1minfo     [0m] [1mStarting background run       [0m [[0m[1m[34mlanggraph_api.worker[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mrequest_id[0m=[35m79123842-6e91-4324-8ca8-f34e708ac973[0m [36mresumable[0m=[35mFalse[0m [36mrun_attempt[0m=[35m1[0m [36mrun_creation_ms[0m=[35m0[0m [36mrun_id[0m=[35m01a11347-7ab6-76f2-af98-117eb7b3d05c[0m [36mrun_queue_ms[0m=[35m615[0m [36mrun_started_at[0m=[35m2026-10-06T22:13:34.622244+00:00[0m [36mrun_stream_start_ms[0m=[35m0[0m [36mtemporary[0m=[35mFalse[0m [36mthread_id[0m=[35mf61c4ccb-a14e-49c4-92bf-f2ec127bc7d5[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:34.635376Z[0m [[32m[1minfo     [0m] [1mHTTP Request: POST http://127.0.0.1:4410/v1/chat/completions "HTTP/1.1 503 Service Unavailable"[0m [[0m[1m[34mhttpx2[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35m79123842-6e91-4324-8ca8-f34e708ac973[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11347-7ab6-76f2-af98-117eb7b3d05c[0m [36mthread_id[0m=[35mf61c4ccb-a14e-49c4-92bf-f2ec127bc7d5[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:34.635596Z[0m [[32m[1minfo     [0m] [1mRetrying request in 0.488757 seconds (retry 1 of 2)[0m [[0m[1m[34mopenai._base_client[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35m79123842-6e91-4324-8ca8-f34e708ac973[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11347-7ab6-76f2-af98-117eb7b3d05c[0m [36mthread_id[0m=[35mf61c4ccb-a14e-49c4-92bf-f2ec127bc7d5[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:35.128225Z[0m [[32m[1minfo     [0m] [1mHTTP Request: POST http://127.0.0.1:4410/v1/chat/completions "HTTP/1.1 503 Service Unavailable"[0m [[0m[1m[34mhttpx2[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35m79123842-6e91-4324-8ca8-f34e708ac973[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11347-7ab6-76f2-af98-117eb7b3d05c[0m [36mthread_id[0m=[35mf61c4ccb-a14e-49c4-92bf-f2ec127bc7d5[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:35.128477Z[0m [[32m[1minfo     [0m] [1mRetrying request in 0.843594 seconds (retry 2 of 2)[0m [[0m[1m[34mopenai._base_client[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35m79123842-6e91-4324-8ca8-f34e708ac973[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11347-7ab6-76f2-af98-117eb7b3d05c[0m [36mthread_id[0m=[35mf61c4ccb-a14e-49c4-92bf-f2ec127bc7d5[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:35.975730Z[0m [[32m[1minfo     [0m] [1mHTTP Request: POST http://127.0.0.1:4410/v1/chat/completions "HTTP/1.1 503 Service Unavailable"[0m [[0m[1m[34mhttpx2[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35m79123842-6e91-4324-8ca8-f34e708ac973[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11347-7ab6-76f2-af98-117eb7b3d05c[0m [36mthread_id[0m=[35mf61c4ccb-a14e-49c4-92bf-f2ec127bc7d5[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:35.977894Z[0m [[31m[1merror    [0m] [1mRun encountered an error in graph: <class 'langchain_openai.chat_models.base.OpenAIAPIError'>(Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}})[0m [[0m[1m[34mlanggraph_api.worker[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mrequest_id[0m=[35m79123842-6e91-4324-8ca8-f34e708ac973[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11347-7ab6-76f2-af98-117eb7b3d05c[0m [36mthread_id[0m=[35mf61c4ccb-a14e-49c4-92bf-f2ec127bc7d5[0m [36mthread_name[0m=[35mMainThread[0m
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker.py", line 144, in wrap_user_errors
+[1]     await consume(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 671, in consume
+[1]     await _consume_inline(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 737, in _consume_inline
+[1]     raise e
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 697, in _consume_inline
+[1]     async for mode, payload in stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker_runtime.py", line 205, in stream_run
+[1]     async for mode, payload in stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 336, in astream_state
+[1]     event = await wait_if_not_done(anext(stream, sentinel), done)
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/asyncio.py", line 110, in wait_if_not_done
+[1]     raise e.exceptions[0] from None
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1670, in _astream_events_v1_v2
+[1]     async for event in event_stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 1101, in _astream_events_implementation_v2
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 1056, in consume_astream
+[1]     async for _ in event_streamer.tap_output_aiter(run_id, stream):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 220, in tap_output_aiter
+[1]     async for chunk in output:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/main.py", line 3505, in astream
+[1]     async for _ in runner.atick(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_runner.py", line 558, in atick
+[1]     _panic_or_proceed(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_runner.py", line 689, in _panic_or_proceed
+[1]     raise exc
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_retry.py", line 741, in arun_with_retry
+[1]     async for _ in task.proc.astream(task.input, config):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 890, in astream
+[1]     output = await asyncio.create_task(
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 959, in _consume_aiter
+[1]     async for chunk in it:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 197, in tap_output_aiter
+[1]     first = await anext(output, sentinel)
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1830, in atransform
+[1]     async for ichunk in input:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1234, in astream
+[1]     yield await self.ainvoke(input, config, **kwargs)
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 522, in ainvoke
+[1]     ret = await self.afunc(*args, **kwargs)
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 1602, in amodel_node
+[1]     result = await awrap_model_call_handler(request, _execute_model_async)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 418, in normalized_single
+[1]     return _to_composed_result(await single_handler(request, handler))
+[1]                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/copilotkit/copilotkit_lg_middleware.py", line 973, in awrap_model_call
+[1]     return await handler(request)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 1565, in _execute_model_async
+[1]     output = await model_.ainvoke(messages)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 6027, in ainvoke
+[1]     return await self.bound.ainvoke(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 511, in ainvoke
+[1]     llm_result = await self.agenerate_prompt(
+[1]                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1888, in agenerate_prompt
+[1]     return await self.agenerate(
+[1]            ^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1846, in agenerate
+[1]     raise exceptions[0]
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 2136, in _agenerate_with_cache
+[1]     async for chunk in self._astream(messages, stop=stop, **kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 3855, in _astream
+[1]     async for chunk in super()._astream(*args, **kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 2216, in _astream
+[1]     _handle_openai_api_error(e)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 740, in _handle_openai_api_error
+[1]     raise OpenAIAPIError(message=e.message, response=e.response, body=e.body) from e
+[1] langchain_openai.chat_models.base.OpenAIAPIError: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}}
+[1] During task with name 'model' and id 'bd464d50-f14e-016f-7e57-b65def51fbd2'
+[1] [2m2026-10-06T22:13:35.988854Z[0m [[31m[1merror    [0m] [1mBackground run failed. Exception: <class 'langchain_openai.chat_models.base.OpenAIAPIError'>(Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}})[0m [[0m[1m[34mlanggraph_api.worker[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mrequest_id[0m=[35m79123842-6e91-4324-8ca8-f34e708ac973[0m [36mrun_attempt[0m=[35m1[0m [36mrun_completed_in_ms[0m=[35m1982[0m [36mrun_created_at[0m=[35m2026-10-06T22:13:34.006907+00:00[0m [36mrun_ended_at[0m=[35m2026-10-06T22:13:35.988729+00:00[0m [36mrun_exec_ms[0m=[35m1366[0m [36mrun_id[0m=[35m01a11347-7ab6-76f2-af98-117eb7b3d05c[0m [36mrun_started_at[0m=[35m2026-10-06T22:13:34.622244+00:00[0m [36mrun_wait_time_ms[0m=[35m615[0m [36mthread_id[0m=[35mf61c4ccb-a14e-49c4-92bf-f2ec127bc7d5[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker.py", line 183, in worker
+[1]     await asyncio.wait_for(
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+[1]     return await fut
+[1]            ^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker.py", line 144, in wrap_user_errors
+[1]     await consume(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 671, in consume
+[1]     await _consume_inline(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 737, in _consume_inline
+[1]     raise e
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 697, in _consume_inline
+[1]     async for mode, payload in stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker_runtime.py", line 205, in stream_run
+[1]     async for mode, payload in stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 336, in astream_state
+[1]     event = await wait_if_not_done(anext(stream, sentinel), done)
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/asyncio.py", line 110, in wait_if_not_done
+[1]     raise e.exceptions[0] from None
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1670, in _astream_events_v1_v2
+[1]     async for event in event_stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 1101, in _astream_events_implementation_v2
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 1056, in consume_astream
+[1]     async for _ in event_streamer.tap_output_aiter(run_id, stream):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 220, in tap_output_aiter
+[1]     async for chunk in output:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/main.py", line 3505, in astream
+[1]     async for _ in runner.atick(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_runner.py", line 558, in atick
+[1]     _panic_or_proceed(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_runner.py", line 689, in _panic_or_proceed
+[1]     raise exc
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_retry.py", line 741, in arun_with_retry
+[1]     async for _ in task.proc.astream(task.input, config):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 890, in astream
+[1]     output = await asyncio.create_task(
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 959, in _consume_aiter
+[1]     async for chunk in it:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 197, in tap_output_aiter
+[1]     first = await anext(output, sentinel)
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1830, in atransform
+[1]     async for ichunk in input:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1234, in astream
+[1]     yield await self.ainvoke(input, config, **kwargs)
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 522, in ainvoke
+[1]     ret = await self.afunc(*args, **kwargs)
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 1602, in amodel_node
+[1]     result = await awrap_model_call_handler(request, _execute_model_async)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 418, in normalized_single
+[1]     return _to_composed_result(await single_handler(request, handler))
+[1]                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/copilotkit/copilotkit_lg_middleware.py", line 973, in awrap_model_call
+[1]     return await handler(request)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 1565, in _execute_model_async
+[1]     output = await model_.ainvoke(messages)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 6027, in ainvoke
+[1]     return await self.bound.ainvoke(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 511, in ainvoke
+[1]     llm_result = await self.agenerate_prompt(
+[1]                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1888, in agenerate_prompt
+[1]     return await self.agenerate(
+[1]            ^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1846, in agenerate
+[1]     raise exceptions[0]
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 2136, in _agenerate_with_cache
+[1]     async for chunk in self._astream(messages, stop=stop, **kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 3855, in _astream
+[1]     async for chunk in super()._astream(*args, **kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 2216, in _astream
+[1]     _handle_openai_api_error(e)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 740, in _handle_openai_api_error
+[1]     raise OpenAIAPIError(message=e.message, response=e.response, body=e.body) from e
+[1] langchain_openai.chat_models.base.OpenAIAPIError: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}}
+[1] During task with name 'model' and id 'bd464d50-f14e-016f-7e57-b65def51fbd2'
+[0]  POST /api/copilotkit 200 in 2274ms
+[1] [2m2026-10-06T22:13:36.286589Z[0m [[32m[1minfo     [0m] [1m75 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:36.456352Z[0m [[32m[1minfo     [0m] [1mCreated run                   [0m [[0m[1m[34mlanggraph_api.models.run[0m][0m [36mafter_seconds[0m=[35m0[0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mcheckpoint_id[0m=[35mNone[0m [36mif_not_exists[0m=[35mreject[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmethod[0m=[35mPOST[0m [36mmultitask_strategy[0m=[35menqueue[0m [36mpath[0m=[35m/threads/{thread_id}/runs/stream[0m [36mrequest_id[0m=[35mc6d4ea82-ea0a-4e24-b708-d9b5ace54278[0m [36mrun_create_ms[0m=[35m1[0m [36mrun_id[0m=[35m01a11347-8448-7bf0-baa6-33b555596a24[0m [36mrun_put_ms[0m=[35m0[0m [36mstream_mode[0m=[35m['events', 'values', 'updates', 'messages-tuple'][0m [36mstream_resumable[0m=[35mFalse[0m [36mtemporary[0m=[35mFalse[0m [36mthread_id[0m=[35mf61c4ccb-a14e-49c4-92bf-f2ec127bc7d5[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:36.993042Z[0m [[32m[1minfo     [0m] [1mStarting background run       [0m [[0m[1m[34mlanggraph_api.worker[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mrequest_id[0m=[35mc6d4ea82-ea0a-4e24-b708-d9b5ace54278[0m [36mresumable[0m=[35mFalse[0m [36mrun_attempt[0m=[35m1[0m [36mrun_creation_ms[0m=[35m1[0m [36mrun_id[0m=[35m01a11347-8448-7bf0-baa6-33b555596a24[0m [36mrun_queue_ms[0m=[35m536[0m [36mrun_started_at[0m=[35m2026-10-06T22:13:36.992942+00:00[0m [36mrun_stream_start_ms[0m=[35m0[0m [36mtemporary[0m=[35mFalse[0m [36mthread_id[0m=[35mf61c4ccb-a14e-49c4-92bf-f2ec127bc7d5[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:13:36.997718Z[0m [[32m[1minfo     [0m] [1mHTTP Request: POST http://127.0.0.1:4410/v1/chat/completions "HTTP/1.1 503 Service Unavailable"[0m [[0m[1m[34mhttpx2[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35mc6d4ea82-ea0a-4e24-b708-d9b5ace54278[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11347-8448-7bf0-baa6-33b555596a24[0m [36mthread_id[0m=[35mf61c4ccb-a14e-49c4-92bf-f2ec127bc7d5[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:36.997904Z[0m [[32m[1minfo     [0m] [1mRetrying request in 0.482318 seconds (retry 1 of 2)[0m [[0m[1m[34mopenai._base_client[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35mc6d4ea82-ea0a-4e24-b708-d9b5ace54278[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11347-8448-7bf0-baa6-33b555596a24[0m [36mthread_id[0m=[35mf61c4ccb-a14e-49c4-92bf-f2ec127bc7d5[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:37.482940Z[0m [[32m[1minfo     [0m] [1mHTTP Request: POST http://127.0.0.1:4410/v1/chat/completions "HTTP/1.1 503 Service Unavailable"[0m [[0m[1m[34mhttpx2[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35mc6d4ea82-ea0a-4e24-b708-d9b5ace54278[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11347-8448-7bf0-baa6-33b555596a24[0m [36mthread_id[0m=[35mf61c4ccb-a14e-49c4-92bf-f2ec127bc7d5[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:37.483146Z[0m [[32m[1minfo     [0m] [1mRetrying request in 0.921128 seconds (retry 2 of 2)[0m [[0m[1m[34mopenai._base_client[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35mc6d4ea82-ea0a-4e24-b708-d9b5ace54278[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11347-8448-7bf0-baa6-33b555596a24[0m [36mthread_id[0m=[35mf61c4ccb-a14e-49c4-92bf-f2ec127bc7d5[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:38.407068Z[0m [[32m[1minfo     [0m] [1mHTTP Request: POST http://127.0.0.1:4410/v1/chat/completions "HTTP/1.1 503 Service Unavailable"[0m [[0m[1m[34mhttpx2[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35mc6d4ea82-ea0a-4e24-b708-d9b5ace54278[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11347-8448-7bf0-baa6-33b555596a24[0m [36mthread_id[0m=[35mf61c4ccb-a14e-49c4-92bf-f2ec127bc7d5[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:38.408974Z[0m [[31m[1merror    [0m] [1mRun encountered an error in graph: <class 'langchain_openai.chat_models.base.OpenAIAPIError'>(Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}})[0m [[0m[1m[34mlanggraph_api.worker[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mrequest_id[0m=[35mc6d4ea82-ea0a-4e24-b708-d9b5ace54278[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11347-8448-7bf0-baa6-33b555596a24[0m [36mthread_id[0m=[35mf61c4ccb-a14e-49c4-92bf-f2ec127bc7d5[0m [36mthread_name[0m=[35mMainThread[0m
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker.py", line 144, in wrap_user_errors
+[1]     await consume(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 671, in consume
+[1]     await _consume_inline(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 737, in _consume_inline
+[1]     raise e
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 697, in _consume_inline
+[1]     async for mode, payload in stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker_runtime.py", line 205, in stream_run
+[1]     async for mode, payload in stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 336, in astream_state
+[1]     event = await wait_if_not_done(anext(stream, sentinel), done)
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/asyncio.py", line 110, in wait_if_not_done
+[1]     raise e.exceptions[0] from None
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1670, in _astream_events_v1_v2
+[1]     async for event in event_stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 1101, in _astream_events_implementation_v2
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 1056, in consume_astream
+[1]     async for _ in event_streamer.tap_output_aiter(run_id, stream):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 220, in tap_output_aiter
+[1]     async for chunk in output:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/main.py", line 3505, in astream
+[1]     async for _ in runner.atick(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_runner.py", line 558, in atick
+[1]     _panic_or_proceed(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_runner.py", line 689, in _panic_or_proceed
+[1]     raise exc
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_retry.py", line 741, in arun_with_retry
+[1]     async for _ in task.proc.astream(task.input, config):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 890, in astream
+[1]     output = await asyncio.create_task(
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 959, in _consume_aiter
+[1]     async for chunk in it:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 197, in tap_output_aiter
+[1]     first = await anext(output, sentinel)
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1830, in atransform
+[1]     async for ichunk in input:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1234, in astream
+[1]     yield await self.ainvoke(input, config, **kwargs)
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 522, in ainvoke
+[1]     ret = await self.afunc(*args, **kwargs)
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 1602, in amodel_node
+[1]     result = await awrap_model_call_handler(request, _execute_model_async)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 418, in normalized_single
+[1]     return _to_composed_result(await single_handler(request, handler))
+[1]                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/copilotkit/copilotkit_lg_middleware.py", line 973, in awrap_model_call
+[1]     return await handler(request)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 1565, in _execute_model_async
+[1]     output = await model_.ainvoke(messages)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 6027, in ainvoke
+[1]     return await self.bound.ainvoke(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 511, in ainvoke
+[1]     llm_result = await self.agenerate_prompt(
+[1]                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1888, in agenerate_prompt
+[1]     return await self.agenerate(
+[1]            ^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1846, in agenerate
+[1]     raise exceptions[0]
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 2136, in _agenerate_with_cache
+[1]     async for chunk in self._astream(messages, stop=stop, **kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 3855, in _astream
+[1]     async for chunk in super()._astream(*args, **kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 2216, in _astream
+[1]     _handle_openai_api_error(e)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 740, in _handle_openai_api_error
+[1]     raise OpenAIAPIError(message=e.message, response=e.response, body=e.body) from e
+[1] langchain_openai.chat_models.base.OpenAIAPIError: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}}
+[1] During task with name 'model' and id '039f2c68-5011-f017-e296-3b44a459416d'
+[1] [2m2026-10-06T22:13:38.410161Z[0m [[31m[1merror    [0m] [1mBackground run failed. Exception: <class 'langchain_openai.chat_models.base.OpenAIAPIError'>(Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}})[0m [[0m[1m[34mlanggraph_api.worker[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mrequest_id[0m=[35mc6d4ea82-ea0a-4e24-b708-d9b5ace54278[0m [36mrun_attempt[0m=[35m1[0m [36mrun_completed_in_ms[0m=[35m1955[0m [36mrun_created_at[0m=[35m2026-10-06T22:13:36.456326+00:00[0m [36mrun_ended_at[0m=[35m2026-10-06T22:13:38.410089+00:00[0m [36mrun_exec_ms[0m=[35m1417[0m [36mrun_id[0m=[35m01a11347-8448-7bf0-baa6-33b555596a24[0m [36mrun_started_at[0m=[35m2026-10-06T22:13:36.992942+00:00[0m [36mrun_wait_time_ms[0m=[35m536[0m [36mthread_id[0m=[35mf61c4ccb-a14e-49c4-92bf-f2ec127bc7d5[0m [36mthread_name[0m=[35muvloop_2[0m
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker.py", line 183, in worker
+[1]     await asyncio.wait_for(
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+[1]     return await fut
+[1]            ^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker.py", line 144, in wrap_user_errors
+[1]     await consume(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 671, in consume
+[1]     await _consume_inline(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 737, in _consume_inline
+[1]     raise e
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 697, in _consume_inline
+[1]     async for mode, payload in stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker_runtime.py", line 205, in stream_run
+[1]     async for mode, payload in stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 336, in astream_state
+[1]     event = await wait_if_not_done(anext(stream, sentinel), done)
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/asyncio.py", line 110, in wait_if_not_done
+[1]     raise e.exceptions[0] from None
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1670, in _astream_events_v1_v2
+[1]     async for event in event_stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 1101, in _astream_events_implementation_v2
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 1056, in consume_astream
+[1]     async for _ in event_streamer.tap_output_aiter(run_id, stream):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 220, in tap_output_aiter
+[1]     async for chunk in output:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/main.py", line 3505, in astream
+[1]     async for _ in runner.atick(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_runner.py", line 558, in atick
+[1]     _panic_or_proceed(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_runner.py", line 689, in _panic_or_proceed
+[1]     raise exc
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_retry.py", line 741, in arun_with_retry
+[1]     async for _ in task.proc.astream(task.input, config):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 890, in astream
+[1]     output = await asyncio.create_task(
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 959, in _consume_aiter
+[1]     async for chunk in it:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 197, in tap_output_aiter
+[1]     first = await anext(output, sentinel)
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1830, in atransform
+[1]     async for ichunk in input:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1234, in astream
+[1]     yield await self.ainvoke(input, config, **kwargs)
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 522, in ainvoke
+[1]     ret = await self.afunc(*args, **kwargs)
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 1602, in amodel_node
+[1]     result = await awrap_model_call_handler(request, _execute_model_async)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 418, in normalized_single
+[1]     return _to_composed_result(await single_handler(request, handler))
+[1]                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/copilotkit/copilotkit_lg_middleware.py", line 973, in awrap_model_call
+[1]     return await handler(request)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 1565, in _execute_model_async
+[1]     output = await model_.ainvoke(messages)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 6027, in ainvoke
+[1]     return await self.bound.ainvoke(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 511, in ainvoke
+[1]     llm_result = await self.agenerate_prompt(
+[1]                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1888, in agenerate_prompt
+[1]     return await self.agenerate(
+[1]            ^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1846, in agenerate
+[1]     raise exceptions[0]
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 2136, in _agenerate_with_cache
+[1]     async for chunk in self._astream(messages, stop=stop, **kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 3855, in _astream
+[1]     async for chunk in super()._astream(*args, **kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 2216, in _astream
+[1]     _handle_openai_api_error(e)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 740, in _handle_openai_api_error
+[1]     raise OpenAIAPIError(message=e.message, response=e.response, body=e.body) from e
+[1] langchain_openai.chat_models.base.OpenAIAPIError: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}}
+[1] During task with name 'model' and id '039f2c68-5011-f017-e296-3b44a459416d'
+[0]  POST /api/copilotkit 200 in 2219ms
+[1] [2m2026-10-06T22:13:43.987600Z[0m [[32m[1minfo     [0m] [1m3 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:13:54.012673Z[0m [[32m[1minfo     [0m] [1m3 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:14:04.017132Z[0m [[32m[1minfo     [0m] [1m3 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:14:13.991529Z[0m [[32m[1minfo     [0m] [1mWorker stats                  [0m [[0m[1m[34mlanggraph_api.metrics_collector[0m][0m [36mactive[0m=[35m0[0m [36mapi_variant[0m=[35mlocal_dev[0m [36mavailable[0m=[35m1[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmax[0m=[35m1[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:14:14.003838Z[0m [[32m[1minfo     [0m] [1m3 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:14:15.488263Z[0m [[32m[1minfo     [0m] [1mWorker stats                  [0m [[0m[1m[34mlanggraph_runtime_inmem.queue[0m][0m [36mactive[0m=[35m0[0m [36mapi_variant[0m=[35mlocal_dev[0m [36mavailable[0m=[35m1[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmax[0m=[35m1[0m [36mthread_name[0m=[35muvloop_2[0m
+[1] [2m2026-10-06T22:14:15.989529Z[0m [[32m[1minfo     [0m] [1mQueue stats                   [0m [[0m[1m[34mlanggraph_runtime_inmem.queue[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mn_pending[0m=[35m0[0m [36mn_running[0m=[35m0[0m [36mpending_runs_wait_time_max_secs[0m=[35mNone[0m [36mpending_runs_wait_time_med_secs[0m=[35mNone[0m [36mpending_unblocked_runs_wait_time_max_secs[0m=[35mNone[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:14:24.031326Z[0m [[32m[1minfo     [0m] [1m3 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /demos/shared-state-read 200 in 81ms
+[1] [2m2026-10-06T22:14:32.791816Z[0m [[32m[1minfo     [0m] [1m75 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit/info 404 in 44ms
+[1] [2m2026-10-06T22:14:33.157714Z[0m [[32m[1minfo     [0m] [1m135 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  POST /api/copilotkit 200 in 226ms
+[0]  POST /api/copilotkit 200 in 292ms
+[0]  POST /api/copilotkit 200 in 294ms
+[0]  POST /api/copilotkit 200 in 296ms
+[0]  POST /api/copilotkit 200 in 298ms
+[0]  POST /api/copilotkit 200 in 298ms
+[0]  POST /api/copilotkit 200 in 300ms
+[1] [2m2026-10-06T22:14:33.523149Z[0m [[32m[1minfo     [0m] [1m375 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  POST /api/copilotkit 200 in 257ms
+[0]  POST /api/copilotkit 200 in 259ms
+[0]  POST /api/copilotkit 200 in 260ms
+[0]  POST /api/copilotkit 200 in 262ms
+[0]  POST /api/copilotkit 200 in 263ms
+[0]  POST /api/copilotkit 200 in 266ms
+[1] [2m2026-10-06T22:14:33.995328Z[0m [[32m[1minfo     [0m] [1m738 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  POST /api/copilotkit 200 in 262ms
+[0]  POST /api/copilotkit 200 in 262ms
+[0]  POST /api/copilotkit 200 in 266ms
+[0]  POST /api/copilotkit 200 in 266ms
+[0]  POST /api/copilotkit 200 in 267ms
+[0]  POST /api/copilotkit 200 in 269ms
+[0]  POST /api/copilotkit 200 in 263ms
+[0]  POST /api/copilotkit 200 in 265ms
+[0]  POST /api/copilotkit 200 in 266ms
+[0]  POST /api/copilotkit 200 in 268ms
+[0]  POST /api/copilotkit 200 in 269ms
+[0]  POST /api/copilotkit 200 in 271ms
+[1] [2m2026-10-06T22:14:34.361464Z[0m [[32m[1minfo     [0m] [1m375 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  POST /api/copilotkit 200 in 261ms
+[0]  POST /api/copilotkit 200 in 262ms
+[0]  POST /api/copilotkit 200 in 265ms
+[0]  POST /api/copilotkit 200 in 266ms
+[0]  POST /api/copilotkit 200 in 268ms
+[0]  POST /api/copilotkit 200 in 270ms
+[1] [2m2026-10-06T22:14:34.724771Z[0m [[32m[1minfo     [0m] [1m495 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  POST /api/copilotkit 200 in 227ms
+[1] [2m2026-10-06T22:14:34.856342Z[0m [[33m[1mwarning  [0m] [1mGET /threads/fb685e24-c25d-4f28-9ded-67fab2013550 404 0ms[0m [[0m[1m[34mlanggraph_api.server[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36merror_detail[0m=[35mNone[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlatency_ms[0m=[35m0[0m [36mmethod[0m=[35mGET[0m [36mpath[0m=[35m/threads/{thread_id}[0m [36mpath_params[0m=[35m{'thread_id': 'fb685e24-c25d-4f28-9ded-67fab2013550'}[0m [36mproto[0m=[35m1.1[0m [36mquery_string[0m=[35m[0m [36mreq_header[0m=[35m{}[0m [36mrequest_id[0m=[35m405f1ca7-5468-4b56-a9bf-9c0a1d1d25b2[0m [36mres_header[0m=[35m{}[0m [36mresponse_size_bytes[0m=[35m74[0m [36mroute[0m=[35m/threads/{thread_id}[0m [36mrun_id[0m=[35mNone[0m [36mstatus[0m=[35m404[0m [36mthread_name[0m=[35mMainThread[0m [36mttfb_ms[0m=[35m0.0[0m
+[1] [2m2026-10-06T22:14:34.884520Z[0m [[32m[1minfo     [0m] [1mCreated run                   [0m [[0m[1m[34mlanggraph_api.models.run[0m][0m [36mafter_seconds[0m=[35m0[0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mcheckpoint_id[0m=[35mNone[0m [36mif_not_exists[0m=[35mreject[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmethod[0m=[35mPOST[0m [36mmultitask_strategy[0m=[35menqueue[0m [36mpath[0m=[35m/threads/{thread_id}/runs/stream[0m [36mrequest_id[0m=[35m3bb87de5-8321-40be-b704-7e81fd845915[0m [36mrun_create_ms[0m=[35m0[0m [36mrun_id[0m=[35m01a11348-6884-75e3-9f7f-5377e1703d6d[0m [36mrun_put_ms[0m=[35m0[0m [36mstream_mode[0m=[35m['events', 'values', 'updates', 'messages-tuple'][0m [36mstream_resumable[0m=[35mFalse[0m [36mtemporary[0m=[35mFalse[0m [36mthread_id[0m=[35mfb685e24-c25d-4f28-9ded-67fab2013550[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:14:35.529061Z[0m [[32m[1minfo     [0m] [1mStarting background run       [0m [[0m[1m[34mlanggraph_api.worker[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mrequest_id[0m=[35m3bb87de5-8321-40be-b704-7e81fd845915[0m [36mresumable[0m=[35mFalse[0m [36mrun_attempt[0m=[35m1[0m [36mrun_creation_ms[0m=[35m0[0m [36mrun_id[0m=[35m01a11348-6884-75e3-9f7f-5377e1703d6d[0m [36mrun_queue_ms[0m=[35m644[0m [36mrun_started_at[0m=[35m2026-10-06T22:14:35.528970+00:00[0m [36mrun_stream_start_ms[0m=[35m0[0m [36mtemporary[0m=[35mFalse[0m [36mthread_id[0m=[35mfb685e24-c25d-4f28-9ded-67fab2013550[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:14:35.536035Z[0m [[32m[1minfo     [0m] [1mHTTP Request: POST http://127.0.0.1:4410/v1/chat/completions "HTTP/1.1 503 Service Unavailable"[0m [[0m[1m[34mhttpx2[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35m3bb87de5-8321-40be-b704-7e81fd845915[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11348-6884-75e3-9f7f-5377e1703d6d[0m [36mthread_id[0m=[35mfb685e24-c25d-4f28-9ded-67fab2013550[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:14:35.536222Z[0m [[32m[1minfo     [0m] [1mRetrying request in 0.391125 seconds (retry 1 of 2)[0m [[0m[1m[34mopenai._base_client[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35m3bb87de5-8321-40be-b704-7e81fd845915[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11348-6884-75e3-9f7f-5377e1703d6d[0m [36mthread_id[0m=[35mfb685e24-c25d-4f28-9ded-67fab2013550[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:14:35.929411Z[0m [[32m[1minfo     [0m] [1mHTTP Request: POST http://127.0.0.1:4410/v1/chat/completions "HTTP/1.1 503 Service Unavailable"[0m [[0m[1m[34mhttpx2[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35m3bb87de5-8321-40be-b704-7e81fd845915[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11348-6884-75e3-9f7f-5377e1703d6d[0m [36mthread_id[0m=[35mfb685e24-c25d-4f28-9ded-67fab2013550[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:14:35.929575Z[0m [[32m[1minfo     [0m] [1mRetrying request in 0.960341 seconds (retry 2 of 2)[0m [[0m[1m[34mopenai._base_client[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35m3bb87de5-8321-40be-b704-7e81fd845915[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11348-6884-75e3-9f7f-5377e1703d6d[0m [36mthread_id[0m=[35mfb685e24-c25d-4f28-9ded-67fab2013550[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:14:36.892268Z[0m [[32m[1minfo     [0m] [1mHTTP Request: POST http://127.0.0.1:4410/v1/chat/completions "HTTP/1.1 503 Service Unavailable"[0m [[0m[1m[34mhttpx2[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35m3bb87de5-8321-40be-b704-7e81fd845915[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11348-6884-75e3-9f7f-5377e1703d6d[0m [36mthread_id[0m=[35mfb685e24-c25d-4f28-9ded-67fab2013550[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:14:36.893547Z[0m [[31m[1merror    [0m] [1mRun encountered an error in graph: <class 'langchain_openai.chat_models.base.OpenAIAPIError'>(Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}})[0m [[0m[1m[34mlanggraph_api.worker[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mrequest_id[0m=[35m3bb87de5-8321-40be-b704-7e81fd845915[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11348-6884-75e3-9f7f-5377e1703d6d[0m [36mthread_id[0m=[35mfb685e24-c25d-4f28-9ded-67fab2013550[0m [36mthread_name[0m=[35mMainThread[0m
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker.py", line 144, in wrap_user_errors
+[1]     await consume(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 671, in consume
+[1]     await _consume_inline(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 737, in _consume_inline
+[1]     raise e
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 697, in _consume_inline
+[1]     async for mode, payload in stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker_runtime.py", line 205, in stream_run
+[1]     async for mode, payload in stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 336, in astream_state
+[1]     event = await wait_if_not_done(anext(stream, sentinel), done)
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/asyncio.py", line 110, in wait_if_not_done
+[1]     raise e.exceptions[0] from None
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1670, in _astream_events_v1_v2
+[1]     async for event in event_stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 1101, in _astream_events_implementation_v2
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 1056, in consume_astream
+[1]     async for _ in event_streamer.tap_output_aiter(run_id, stream):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 220, in tap_output_aiter
+[1]     async for chunk in output:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/main.py", line 3505, in astream
+[1]     async for _ in runner.atick(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_runner.py", line 558, in atick
+[1]     _panic_or_proceed(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_runner.py", line 689, in _panic_or_proceed
+[1]     raise exc
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_retry.py", line 741, in arun_with_retry
+[1]     async for _ in task.proc.astream(task.input, config):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 890, in astream
+[1]     output = await asyncio.create_task(
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 959, in _consume_aiter
+[1]     async for chunk in it:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 197, in tap_output_aiter
+[1]     first = await anext(output, sentinel)
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1830, in atransform
+[1]     async for ichunk in input:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1234, in astream
+[1]     yield await self.ainvoke(input, config, **kwargs)
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 522, in ainvoke
+[1]     ret = await self.afunc(*args, **kwargs)
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 1602, in amodel_node
+[1]     result = await awrap_model_call_handler(request, _execute_model_async)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 418, in normalized_single
+[1]     return _to_composed_result(await single_handler(request, handler))
+[1]                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/copilotkit/copilotkit_lg_middleware.py", line 973, in awrap_model_call
+[1]     return await handler(request)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 1565, in _execute_model_async
+[1]     output = await model_.ainvoke(messages)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 6027, in ainvoke
+[1]     return await self.bound.ainvoke(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 511, in ainvoke
+[1]     llm_result = await self.agenerate_prompt(
+[1]                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1888, in agenerate_prompt
+[1]     return await self.agenerate(
+[1]            ^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1846, in agenerate
+[1]     raise exceptions[0]
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 2136, in _agenerate_with_cache
+[1]     async for chunk in self._astream(messages, stop=stop, **kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 3855, in _astream
+[1]     async for chunk in super()._astream(*args, **kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 2216, in _astream
+[1]     _handle_openai_api_error(e)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 740, in _handle_openai_api_error
+[1]     raise OpenAIAPIError(message=e.message, response=e.response, body=e.body) from e
+[1] langchain_openai.chat_models.base.OpenAIAPIError: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}}
+[1] During task with name 'model' and id '232b11ea-93cb-cd26-c7e2-2f4b3ff4e99a'
+[1] [2m2026-10-06T22:14:36.894635Z[0m [[31m[1merror    [0m] [1mBackground run failed. Exception: <class 'langchain_openai.chat_models.base.OpenAIAPIError'>(Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}})[0m [[0m[1m[34mlanggraph_api.worker[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mrequest_id[0m=[35m3bb87de5-8321-40be-b704-7e81fd845915[0m [36mrun_attempt[0m=[35m1[0m [36mrun_completed_in_ms[0m=[35m2010[0m [36mrun_created_at[0m=[35m2026-10-06T22:14:34.884496+00:00[0m [36mrun_ended_at[0m=[35m2026-10-06T22:14:36.894569+00:00[0m [36mrun_exec_ms[0m=[35m1365[0m [36mrun_id[0m=[35m01a11348-6884-75e3-9f7f-5377e1703d6d[0m [36mrun_started_at[0m=[35m2026-10-06T22:14:35.528970+00:00[0m [36mrun_wait_time_ms[0m=[35m644[0m [36mthread_id[0m=[35mfb685e24-c25d-4f28-9ded-67fab2013550[0m [36mthread_name[0m=[35muvloop_2[0m
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker.py", line 183, in worker
+[1]     await asyncio.wait_for(
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+[1]     return await fut
+[1]            ^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker.py", line 144, in wrap_user_errors
+[1]     await consume(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 671, in consume
+[1]     await _consume_inline(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 737, in _consume_inline
+[1]     raise e
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 697, in _consume_inline
+[1]     async for mode, payload in stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker_runtime.py", line 205, in stream_run
+[1]     async for mode, payload in stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 336, in astream_state
+[1]     event = await wait_if_not_done(anext(stream, sentinel), done)
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/asyncio.py", line 110, in wait_if_not_done
+[1]     raise e.exceptions[0] from None
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1670, in _astream_events_v1_v2
+[1]     async for event in event_stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 1101, in _astream_events_implementation_v2
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 1056, in consume_astream
+[1]     async for _ in event_streamer.tap_output_aiter(run_id, stream):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 220, in tap_output_aiter
+[1]     async for chunk in output:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/main.py", line 3505, in astream
+[1]     async for _ in runner.atick(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_runner.py", line 558, in atick
+[1]     _panic_or_proceed(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_runner.py", line 689, in _panic_or_proceed
+[1]     raise exc
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_retry.py", line 741, in arun_with_retry
+[1]     async for _ in task.proc.astream(task.input, config):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 890, in astream
+[1]     output = await asyncio.create_task(
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 959, in _consume_aiter
+[1]     async for chunk in it:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 197, in tap_output_aiter
+[1]     first = await anext(output, sentinel)
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1830, in atransform
+[1]     async for ichunk in input:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1234, in astream
+[1]     yield await self.ainvoke(input, config, **kwargs)
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 522, in ainvoke
+[1]     ret = await self.afunc(*args, **kwargs)
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 1602, in amodel_node
+[1]     result = await awrap_model_call_handler(request, _execute_model_async)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 418, in normalized_single
+[1]     return _to_composed_result(await single_handler(request, handler))
+[1]                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/copilotkit/copilotkit_lg_middleware.py", line 973, in awrap_model_call
+[1]     return await handler(request)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 1565, in _execute_model_async
+[1]     output = await model_.ainvoke(messages)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 6027, in ainvoke
+[1]     return await self.bound.ainvoke(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 511, in ainvoke
+[1]     llm_result = await self.agenerate_prompt(
+[1]                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1888, in agenerate_prompt
+[1]     return await self.agenerate(
+[1]            ^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1846, in agenerate
+[1]     raise exceptions[0]
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 2136, in _agenerate_with_cache
+[1]     async for chunk in self._astream(messages, stop=stop, **kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 3855, in _astream
+[1]     async for chunk in super()._astream(*args, **kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 2216, in _astream
+[1]     _handle_openai_api_error(e)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 740, in _handle_openai_api_error
+[1]     raise OpenAIAPIError(message=e.message, response=e.response, body=e.body) from e
+[1] langchain_openai.chat_models.base.OpenAIAPIError: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}}
+[1] During task with name 'model' and id '232b11ea-93cb-cd26-c7e2-2f4b3ff4e99a'
+[0]  POST /api/copilotkit 200 in 2275ms
+[1] [2m2026-10-06T22:14:37.154129Z[0m [[32m[1minfo     [0m] [1m75 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:14:37.309502Z[0m [[32m[1minfo     [0m] [1mCreated run                   [0m [[0m[1m[34mlanggraph_api.models.run[0m][0m [36mafter_seconds[0m=[35m0[0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mcheckpoint_id[0m=[35mNone[0m [36mif_not_exists[0m=[35mreject[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmethod[0m=[35mPOST[0m [36mmultitask_strategy[0m=[35menqueue[0m [36mpath[0m=[35m/threads/{thread_id}/runs/stream[0m [36mrequest_id[0m=[35m733cb46e-4ea0-4d7c-9e5a-6463c45b0fd9[0m [36mrun_create_ms[0m=[35m0[0m [36mrun_id[0m=[35m01a11348-71fd-7bf0-84d8-d98039a44ab6[0m [36mrun_put_ms[0m=[35m0[0m [36mstream_mode[0m=[35m['events', 'values', 'updates', 'messages-tuple'][0m [36mstream_resumable[0m=[35mFalse[0m [36mtemporary[0m=[35mFalse[0m [36mthread_id[0m=[35mfb685e24-c25d-4f28-9ded-67fab2013550[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:14:37.898883Z[0m [[32m[1minfo     [0m] [1mStarting background run       [0m [[0m[1m[34mlanggraph_api.worker[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mrequest_id[0m=[35m733cb46e-4ea0-4d7c-9e5a-6463c45b0fd9[0m [36mresumable[0m=[35mFalse[0m [36mrun_attempt[0m=[35m1[0m [36mrun_creation_ms[0m=[35m0[0m [36mrun_id[0m=[35m01a11348-71fd-7bf0-84d8-d98039a44ab6[0m [36mrun_queue_ms[0m=[35m589[0m [36mrun_started_at[0m=[35m2026-10-06T22:14:37.898770+00:00[0m [36mrun_stream_start_ms[0m=[35m0[0m [36mtemporary[0m=[35mFalse[0m [36mthread_id[0m=[35mfb685e24-c25d-4f28-9ded-67fab2013550[0m [36mthread_name[0m=[35muvloop_2[0m
+[1] [2m2026-10-06T22:14:37.903791Z[0m [[32m[1minfo     [0m] [1mHTTP Request: POST http://127.0.0.1:4410/v1/chat/completions "HTTP/1.1 503 Service Unavailable"[0m [[0m[1m[34mhttpx2[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35m733cb46e-4ea0-4d7c-9e5a-6463c45b0fd9[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11348-71fd-7bf0-84d8-d98039a44ab6[0m [36mthread_id[0m=[35mfb685e24-c25d-4f28-9ded-67fab2013550[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:14:37.903969Z[0m [[32m[1minfo     [0m] [1mRetrying request in 0.486938 seconds (retry 1 of 2)[0m [[0m[1m[34mopenai._base_client[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35m733cb46e-4ea0-4d7c-9e5a-6463c45b0fd9[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11348-71fd-7bf0-84d8-d98039a44ab6[0m [36mthread_id[0m=[35mfb685e24-c25d-4f28-9ded-67fab2013550[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:14:38.394221Z[0m [[32m[1minfo     [0m] [1mHTTP Request: POST http://127.0.0.1:4410/v1/chat/completions "HTTP/1.1 503 Service Unavailable"[0m [[0m[1m[34mhttpx2[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35m733cb46e-4ea0-4d7c-9e5a-6463c45b0fd9[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11348-71fd-7bf0-84d8-d98039a44ab6[0m [36mthread_id[0m=[35mfb685e24-c25d-4f28-9ded-67fab2013550[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:14:38.394458Z[0m [[32m[1minfo     [0m] [1mRetrying request in 0.841267 seconds (retry 2 of 2)[0m [[0m[1m[34mopenai._base_client[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35m733cb46e-4ea0-4d7c-9e5a-6463c45b0fd9[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11348-71fd-7bf0-84d8-d98039a44ab6[0m [36mthread_id[0m=[35mfb685e24-c25d-4f28-9ded-67fab2013550[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:14:39.237697Z[0m [[32m[1minfo     [0m] [1mHTTP Request: POST http://127.0.0.1:4410/v1/chat/completions "HTTP/1.1 503 Service Unavailable"[0m [[0m[1m[34mhttpx2[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35m733cb46e-4ea0-4d7c-9e5a-6463c45b0fd9[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11348-71fd-7bf0-84d8-d98039a44ab6[0m [36mthread_id[0m=[35mfb685e24-c25d-4f28-9ded-67fab2013550[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:14:39.238979Z[0m [[31m[1merror    [0m] [1mRun encountered an error in graph: <class 'langchain_openai.chat_models.base.OpenAIAPIError'>(Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}})[0m [[0m[1m[34mlanggraph_api.worker[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mrequest_id[0m=[35m733cb46e-4ea0-4d7c-9e5a-6463c45b0fd9[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11348-71fd-7bf0-84d8-d98039a44ab6[0m [36mthread_id[0m=[35mfb685e24-c25d-4f28-9ded-67fab2013550[0m [36mthread_name[0m=[35mMainThread[0m
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker.py", line 144, in wrap_user_errors
+[1]     await consume(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 671, in consume
+[1]     await _consume_inline(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 737, in _consume_inline
+[1]     raise e
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 697, in _consume_inline
+[1]     async for mode, payload in stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker_runtime.py", line 205, in stream_run
+[1]     async for mode, payload in stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 336, in astream_state
+[1]     event = await wait_if_not_done(anext(stream, sentinel), done)
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/asyncio.py", line 110, in wait_if_not_done
+[1]     raise e.exceptions[0] from None
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1670, in _astream_events_v1_v2
+[1]     async for event in event_stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 1101, in _astream_events_implementation_v2
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 1056, in consume_astream
+[1]     async for _ in event_streamer.tap_output_aiter(run_id, stream):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 220, in tap_output_aiter
+[1]     async for chunk in output:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/main.py", line 3505, in astream
+[1]     async for _ in runner.atick(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_runner.py", line 558, in atick
+[1]     _panic_or_proceed(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_runner.py", line 689, in _panic_or_proceed
+[1]     raise exc
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_retry.py", line 741, in arun_with_retry
+[1]     async for _ in task.proc.astream(task.input, config):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 890, in astream
+[1]     output = await asyncio.create_task(
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 959, in _consume_aiter
+[1]     async for chunk in it:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 197, in tap_output_aiter
+[1]     first = await anext(output, sentinel)
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1830, in atransform
+[1]     async for ichunk in input:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1234, in astream
+[1]     yield await self.ainvoke(input, config, **kwargs)
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 522, in ainvoke
+[1]     ret = await self.afunc(*args, **kwargs)
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 1602, in amodel_node
+[1]     result = await awrap_model_call_handler(request, _execute_model_async)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 418, in normalized_single
+[1]     return _to_composed_result(await single_handler(request, handler))
+[1]                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/copilotkit/copilotkit_lg_middleware.py", line 973, in awrap_model_call
+[1]     return await handler(request)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 1565, in _execute_model_async
+[1]     output = await model_.ainvoke(messages)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 6027, in ainvoke
+[1]     return await self.bound.ainvoke(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 511, in ainvoke
+[1]     llm_result = await self.agenerate_prompt(
+[1]                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1888, in agenerate_prompt
+[1]     return await self.agenerate(
+[1]            ^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1846, in agenerate
+[1]     raise exceptions[0]
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 2136, in _agenerate_with_cache
+[1]     async for chunk in self._astream(messages, stop=stop, **kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 3855, in _astream
+[1]     async for chunk in super()._astream(*args, **kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 2216, in _astream
+[1]     _handle_openai_api_error(e)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 740, in _handle_openai_api_error
+[1]     raise OpenAIAPIError(message=e.message, response=e.response, body=e.body) from e
+[1] langchain_openai.chat_models.base.OpenAIAPIError: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}}
+[1] During task with name 'model' and id '4b0834f1-4620-26b0-f78e-e727cdde60ac'
+[1] [2m2026-10-06T22:14:39.240052Z[0m [[31m[1merror    [0m] [1mBackground run failed. Exception: <class 'langchain_openai.chat_models.base.OpenAIAPIError'>(Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}})[0m [[0m[1m[34mlanggraph_api.worker[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35mfe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mrequest_id[0m=[35m733cb46e-4ea0-4d7c-9e5a-6463c45b0fd9[0m [36mrun_attempt[0m=[35m1[0m [36mrun_completed_in_ms[0m=[35m1930[0m [36mrun_created_at[0m=[35m2026-10-06T22:14:37.309478+00:00[0m [36mrun_ended_at[0m=[35m2026-10-06T22:14:39.239979+00:00[0m [36mrun_exec_ms[0m=[35m1341[0m [36mrun_id[0m=[35m01a11348-71fd-7bf0-84d8-d98039a44ab6[0m [36mrun_started_at[0m=[35m2026-10-06T22:14:37.898770+00:00[0m [36mrun_wait_time_ms[0m=[35m589[0m [36mthread_id[0m=[35mfb685e24-c25d-4f28-9ded-67fab2013550[0m [36mthread_name[0m=[35muvloop_2[0m
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker.py", line 183, in worker
+[1]     await asyncio.wait_for(
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+[1]     return await fut
+[1]            ^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker.py", line 144, in wrap_user_errors
+[1]     await consume(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 671, in consume
+[1]     await _consume_inline(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 737, in _consume_inline
+[1]     raise e
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 697, in _consume_inline
+[1]     async for mode, payload in stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/worker_runtime.py", line 205, in stream_run
+[1]     async for mode, payload in stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/stream.py", line 336, in astream_state
+[1]     event = await wait_if_not_done(anext(stream, sentinel), done)
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph_api/asyncio.py", line 110, in wait_if_not_done
+[1]     raise e.exceptions[0] from None
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1670, in _astream_events_v1_v2
+[1]     async for event in event_stream:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 1101, in _astream_events_implementation_v2
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 1056, in consume_astream
+[1]     async for _ in event_streamer.tap_output_aiter(run_id, stream):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 220, in tap_output_aiter
+[1]     async for chunk in output:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/main.py", line 3505, in astream
+[1]     async for _ in runner.atick(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_runner.py", line 558, in atick
+[1]     _panic_or_proceed(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_runner.py", line 689, in _panic_or_proceed
+[1]     raise exc
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/pregel/_retry.py", line 741, in arun_with_retry
+[1]     async for _ in task.proc.astream(task.input, config):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 890, in astream
+[1]     output = await asyncio.create_task(
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 959, in _consume_aiter
+[1]     async for chunk in it:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/tracers/event_stream.py", line 197, in tap_output_aiter
+[1]     first = await anext(output, sentinel)
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1830, in atransform
+[1]     async for ichunk in input:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 1234, in astream
+[1]     yield await self.ainvoke(input, config, **kwargs)
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 522, in ainvoke
+[1]     ret = await self.afunc(*args, **kwargs)
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 1602, in amodel_node
+[1]     result = await awrap_model_call_handler(request, _execute_model_async)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 418, in normalized_single
+[1]     return _to_composed_result(await single_handler(request, handler))
+[1]                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/copilotkit/copilotkit_lg_middleware.py", line 973, in awrap_model_call
+[1]     return await handler(request)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain/agents/factory.py", line 1565, in _execute_model_async
+[1]     output = await model_.ainvoke(messages)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 6027, in ainvoke
+[1]     return await self.bound.ainvoke(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 511, in ainvoke
+[1]     llm_result = await self.agenerate_prompt(
+[1]                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1888, in agenerate_prompt
+[1]     return await self.agenerate(
+[1]            ^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1846, in agenerate
+[1]     raise exceptions[0]
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 2136, in _agenerate_with_cache
+[1]     async for chunk in self._astream(messages, stop=stop, **kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 3855, in _astream
+[1]     async for chunk in super()._astream(*args, **kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 2216, in _astream
+[1]     _handle_openai_api_error(e)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 740, in _handle_openai_api_error
+[1]     raise OpenAIAPIError(message=e.message, response=e.response, body=e.body) from e
+[1] langchain_openai.chat_models.base.OpenAIAPIError: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}}
+[1] During task with name 'model' and id '4b0834f1-4620-26b0-f78e-e727cdde60ac'
+[0]  POST /api/copilotkit 200 in 2191ms
+[1] [2m2026-10-06T22:14:44.043700Z[0m [[32m[1minfo     [0m] [1m3 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:14:54.016519Z[0m [[32m[1minfo     [0m] [1m3 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:15:04.041507Z[0m [[32m[1minfo     [0m] [1m3 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:15:13.994020Z[0m [[32m[1minfo     [0m] [1mWorker stats                  [0m [[0m[1m[34mlanggraph_api.metrics_collector[0m][0m [36mactive[0m=[35m0[0m [36mapi_variant[0m=[35mlocal_dev[0m [36mavailable[0m=[35m1[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmax[0m=[35m1[0m [36mthread_name[0m=[35muvloop_3[0m
+[1] [2m2026-10-06T22:15:14.032560Z[0m [[32m[1minfo     [0m] [1m3 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:15:15.807412Z[0m [[32m[1minfo     [0m] [1mWorker stats                  [0m [[0m[1m[34mlanggraph_runtime_inmem.queue[0m][0m [36mactive[0m=[35m0[0m [36mapi_variant[0m=[35mlocal_dev[0m [36mavailable[0m=[35m1[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmax[0m=[35m1[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T22:15:16.309200Z[0m [[32m[1minfo     [0m] [1mQueue stats                   [0m [[0m[1m[34mlanggraph_runtime_inmem.queue[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mn_pending[0m=[35m0[0m [36mn_running[0m=[35m0[0m [36mpending_runs_wait_time_max_secs[0m=[35mNone[0m [36mpending_runs_wait_time_med_secs[0m=[35mNone[0m [36mpending_unblocked_runs_wait_time_max_secs[0m=[35mNone[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T22:15:24.043739Z[0m [[32m[1minfo     [0m] [1m3 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:15:33.451670Z[0m [[32m[1minfo     [0m] [1m75 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  POST /api/copilotkit-voice/threads/clear 204 in 236ms
+[1] [2m2026-10-06T22:15:33.808832Z[0m [[32m[1minfo     [0m] [1mShutting down background workers[0m [[0m[1m[34mlanggraph_runtime_inmem.queue[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:15:33.810207Z[0m [[32m[1minfo     [0m] [1mShutting down remote graphs   [0m [[0m[1m[34mlanggraph_api.graph[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:15:33.810792Z[0m [[32m[1minfo     [0m] [1mStopping dev persistence flush loop[0m [[0m[1m[34mlanggraph_runtime_inmem._persistence[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T22:15:33.810866Z[0m [[32m[1minfo     [0m] [1mdev persistence flush loop exiting[0m [[0m[1m[34mlanggraph_runtime_inmem._persistence[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mThread-1[0m
+[0] [?25h
+[0] next dev --turbopack exited with code 0
+[1] python -u -m langgraph_cli dev --config langgraph.json --host 0.0.0.0 --port 8123 --no-browser exited with code 0
+# stopped Tue Oct  6 22:15:36 UTC 2026 (SIGTERM to process group 47814)

@@ -1,0 +1,86 @@
+# copies per package in the lock and node_modules, 2026-10-06T21:45:43Z
+== @copilotkit/core (1 copy)
+  node_modules/@copilotkit/core lock=1.77.0 installed=1.77.0 resolved=registry.npmjs.org
+== @copilotkit/shared (1 copy)
+  node_modules/@copilotkit/shared lock=1.77.0 installed=1.77.0 resolved=registry.npmjs.org
+== @copilotkit/runtime (1 copy)
+  node_modules/@copilotkit/runtime lock=1.77.0 installed=1.77.0 resolved=registry.npmjs.org
+== @copilotkit/react-core (1 copy)
+  node_modules/@copilotkit/react-core lock=1.77.0 installed=1.77.0 resolved=registry.npmjs.org
+== @copilotkit/a2ui-renderer (1 copy)
+  node_modules/@copilotkit/a2ui-renderer lock=1.77.0 installed=1.77.0 resolved=registry.npmjs.org
+== @copilotkit/voice (1 copy)
+  node_modules/@copilotkit/voice lock=1.77.0 installed=1.77.0 resolved=registry.npmjs.org
+== @copilotkit/channels-core (1 copy)
+  node_modules/@copilotkit/channels-core lock=0.11.0 installed=0.11.0 resolved=registry.npmjs.org
+== @ag-ui/core (1 copy)
+  node_modules/@ag-ui/core lock=1.0.1 installed=1.0.1 resolved=registry.npmjs.org
+== @ag-ui/client (1 copy)
+  node_modules/@ag-ui/client lock=1.0.1 installed=1.0.1 resolved=registry.npmjs.org
+== @ag-ui/encoder (1 copy)
+  node_modules/@ag-ui/encoder lock=1.0.1 installed=1.0.1 resolved=registry.npmjs.org
+== @ag-ui/proto (1 copy)
+  node_modules/@ag-ui/proto lock=1.0.1 installed=1.0.1 resolved=registry.npmjs.org
+== @ag-ui/langgraph (1 copy)
+  node_modules/@ag-ui/langgraph lock=0.0.44 installed=0.0.44 resolved=registry.npmjs.org
+== @ag-ui/mcp-apps-middleware (1 copy)
+  node_modules/@ag-ui/mcp-apps-middleware lock=0.1.1 installed=0.1.1 resolved=registry.npmjs.org
+== @ag-ui/a2ui-middleware (1 copy)
+  node_modules/@ag-ui/a2ui-middleware lock=0.0.10 installed=0.0.10 resolved=registry.npmjs.org
+== @langchain/core (1 copy)
+  node_modules/@langchain/core lock=1.2.14 installed=1.2.14 resolved=registry.npmjs.org
+== @langchain/langgraph (1 copy)
+  node_modules/@langchain/langgraph lock=1.4.19 installed=1.4.19 resolved=registry.npmjs.org
+== @langchain/langgraph-sdk (1 copy)
+  node_modules/@langchain/langgraph-sdk lock=1.12.1 installed=1.12.1 resolved=registry.npmjs.org
+== next (1 copy)
+  node_modules/next lock=15.5.27 installed=15.5.27 resolved=registry.npmjs.org
+== react (1 copy)
+  node_modules/react lock=19.3.0 installed=19.3.0 resolved=registry.npmjs.org
+== react-dom (1 copy)
+  node_modules/react-dom lock=19.3.0 installed=19.3.0 resolved=registry.npmjs.org
+== openai (1 copy)
+  node_modules/openai lock=5.23.2 installed=5.23.2 resolved=registry.npmjs.org
+== npm ls @ag-ui/core @ag-ui/client --all
+@copilotkit/showcase-langgraph-python@0.1.0 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-python
++-- @copilotkit/react-core@1.77.0
+| +-- @ag-ui/client@1.0.1 overridden
+| | +-- @ag-ui/core@1.0.1 deduped
+| | `-- @ag-ui/proto@1.0.1
+| |   `-- @ag-ui/core@1.0.1 deduped
+| +-- @ag-ui/core@1.0.1 overridden
+| +-- @copilotkit/core@1.77.0
+| | `-- @ag-ui/client@1.0.1 deduped
+| +-- @copilotkit/mcp-apps-renderer@1.77.0
+| | `-- @ag-ui/client@1.0.1 deduped
+| `-- @copilotkit/web-inspector@1.77.0
+|   `-- @ag-ui/client@1.0.1 deduped
++-- @copilotkit/runtime@1.77.0
+| +-- @ag-ui/a2ui-middleware@0.0.10
+| | `-- @ag-ui/client@1.0.1 deduped
+| +-- @ag-ui/client@1.0.1 deduped
+| +-- @ag-ui/core@1.0.1 deduped
+| +-- @ag-ui/encoder@1.0.1
+| | `-- @ag-ui/core@1.0.1 deduped
+| +-- @ag-ui/langgraph@0.0.44
+| | +-- @ag-ui/client@1.0.1 deduped
+| | `-- @ag-ui/core@1.0.1 deduped
+| +-- @ag-ui/mcp-apps-middleware@0.1.1
+| | `-- @ag-ui/client@1.0.1 deduped
+| +-- @ag-ui/mcp-middleware@0.0.2
+| | `-- @ag-ui/client@1.0.1 deduped
+| +-- @copilotkit/channels-core@0.11.0
+| | +-- @ag-ui/client@1.0.1 deduped
+| | `-- @ag-ui/core@1.0.1 deduped
+| `-- @copilotkit/channels-intelligence@0.11.0
+|   +-- @ag-ui/client@1.0.1 deduped
+|   +-- @copilotkit/channels-slack@0.11.0
+|   | +-- @ag-ui/client@1.0.1 deduped
+|   | `-- @ag-ui/core@1.0.1 deduped
+|   `-- @copilotkit/channels-teams@0.11.0
+|     +-- @ag-ui/client@1.0.1 deduped
+|     `-- @ag-ui/core@1.0.1 deduped
+`-- @copilotkit/shared@1.77.0
+  +-- @ag-ui/client@1.0.1 deduped
+  `-- @ag-ui/core@1.0.1 deduped
+

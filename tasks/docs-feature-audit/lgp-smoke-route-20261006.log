@@ -1,0 +1,8 @@
+# /api/smoke and /info after the pre-warm, 2026-10-06T21:54:03Z
+$ curl -s http://localhost:3100/api/smoke
+{"status":"ok","integration":"langgraph-python","latency_ms":1261,"timestamp":"2026-10-06T21:54:04.752Z"}
+HTTP 200 1.567148s
+$ curl -s -X POST http://localhost:3100/api/copilotkit -d {"method":"info"}
+version 1.77.0 agents 31 human_in_the_loop,shared-state-write,prebuilt-sidebar,prebuilt-popup,chat-slots,chat-customization-css,headless-simple,tool-rendering,tool-rendering-default-catchall,tool-rendering-custom-catchall,tool-rendering-reasoning-chain,declarative-gen-ui,a2ui-fixed-schema,shared-state-streaming,subagents,agentic_chat,frontend_tools,threadid-frontend-tool-roundtrip,frontend-tools-async,gen-ui-agent,gen-ui-tool-based,reasoning-custom,reasoning-default,gen-ui-interrupt,interrupt-headless,hitl-in-chat,hitl-in-app,shared-state-read,shared-state-read-write,readonly-state-agent-context,default
+$ curl http://localhost:8123/info
+{"version":"0.15.1","langgraph_py_version":"1.2.13","flags":{"assistants":true,"crons":true,"langsmith":false,"langsmith_tracing_replicas":true,"langsmith_tracing_session_on_runs":true},"host":{"kind":"self-hosted","project_id":null,"host_revision_id":null,"revision_id":null,"tenant_id":null}}

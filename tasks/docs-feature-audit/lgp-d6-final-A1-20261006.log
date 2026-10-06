@@ -1,0 +1,500 @@
+$ AIMOCK_URL_LOCAL=http://127.0.0.1:4410 AIMOCK_URL=http://127.0.0.1:4410 SHOWCASE_LOCAL=1 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true nice -n 10 node_modules/.bin/tsx tasks/docs-feature-audit/run-local-d6.mts langgraph-python --demos beautiful-chat,cli-start,agentic-chat,prebuilt-sidebar,prebuilt-popup,chat-slots,chat-customization-css,headless-simple
+# node v22.16.0, HEAD 65e91cc7e4, load 8.28, started 2026-10-06T22:28:13Z
+{"level":"info","msg":"probe.e2e-full.service-start","ts":"2026-10-06T22:28:13.789Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureCount":11,"backendUrl":"http://localhost:3100"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:14.010Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:14.011Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:14.011Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:14.011Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/beautiful-chat',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/beautiful-chat',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/beautiful-chat',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/beautiful-chat',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/beautiful-chat',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/beautiful-chat',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/beautiful-chat',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/beautiful-chat',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-06T22:28:14.641Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"beautiful-chat-toggle-theme","hydrated":true,"hydrationMs":52}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-06T22:28:14.646Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"beautiful-chat-bar-chart","hydrated":true,"hydrationMs":57}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-06T22:28:14.647Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"beautiful-chat-pie-chart","hydrated":true,"hydrationMs":55}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-06T22:28:14.647Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"beautiful-chat-search-flights","hydrated":true,"hydrationMs":62}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 41, timeoutMs: 30000 }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 58, timeoutMs: 30000 }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 70, timeoutMs: 30000 }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 55, timeoutMs: 30000 }
+[conversation-runner] turn 1/1 — surface-mount completion armed {
+  testIds: [ 'copilot-assistant-message' ],
+  selectors: undefined,
+  minNewMounts: 1,
+  baselineSurfaces: { 'copilot-assistant-message': 0 }
+}
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 58,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 41,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 70,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 55,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 1, textLength: 89, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 1, textLength: 89 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 1, textLength: 89 }
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 15231 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-06T22:28:29.905Z","component":"docs-feature-audit-local-d6","key":"d6:langgraph-python/beautiful-chat-search-flights"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-06T22:28:29.905Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"beautiful-chat-search-flights","pass":true,"durationMs":15900}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:29.911Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:29.912Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/beautiful-chat',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/beautiful-chat',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-06T22:28:30.384Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"beautiful-chat-schedule-meeting","hydrated":true,"hydrationMs":33}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 79, timeoutMs: 30000 }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 79,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 1, textLength: 99, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 1, textLength: 99 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 1, textLength: 99 }
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 16158 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-06T22:28:30.831Z","component":"docs-feature-audit-local-d6","key":"d6:langgraph-python/beautiful-chat-pie-chart"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-06T22:28:30.831Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"beautiful-chat-pie-chart","pass":true,"durationMs":16827}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:30.833Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:30.834Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/agentic-chat',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/agentic-chat',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-06T22:28:31.093Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"agentic-chat","hydrated":true,"hydrationMs":30}
+[conversation-runner] starting conversation { totalTurns: 3, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/3 — sending message { inputLength: 65, timeoutMs: 30000 }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 65,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 1, textLength: 120, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 1, textLength: 120 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 1, textLength: 120 }
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 17230 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-06T22:28:31.900Z","component":"docs-feature-audit-local-d6","key":"d6:langgraph-python/beautiful-chat-bar-chart"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-06T22:28:31.900Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"beautiful-chat-bar-chart","pass":true,"durationMs":17895}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:31.901Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:31.903Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/prebuilt-sidebar',
+  hadTrackedRequest: false
+}
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 1, textLength: 14, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 1, textLength: 14 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 1, textLength: 14 }
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 17442 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-06T22:28:32.108Z","component":"docs-feature-audit-local-d6","key":"d6:langgraph-python/beautiful-chat-toggle-theme"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-06T22:28:32.108Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"beautiful-chat-toggle-theme","pass":true,"durationMs":18104}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:32.109Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:32.111Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/prebuilt-popup',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/prebuilt-sidebar',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-06T22:28:32.326Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"prebuilt-sidebar","hydrated":true,"hydrationMs":38}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 24, timeoutMs: 30000 }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 24,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/prebuilt-popup',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-06T22:28:32.416Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"prebuilt-popup","hydrated":true,"hydrationMs":37}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 22, timeoutMs: 30000 }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 22,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/3 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 0, textLength: 135, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 0, textLength: 135 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 0, textLength: 135 }
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 6272 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-06T22:28:36.674Z","component":"docs-feature-audit-local-d6","key":"d6:langgraph-python/beautiful-chat-schedule-meeting"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-06T22:28:36.674Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"beautiful-chat-schedule-meeting","pass":true,"durationMs":6763}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:36.676Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:36.678Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/chat-slots',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/chat-slots',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-06T22:28:36.914Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"chat-slots","hydrated":true,"hydrationMs":24}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 27, timeoutMs: 30000 }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 27,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] turn 1/3 — assistant settled { bubbleIndex: 0, textLength: 129, hasAssertions: true }
+[conversation-runner] turn 1/3 — settled metadata { turnNum: 1, bubbleIndex: 0, textLength: 129 }
+[conversation-runner] turn 1/3 — running assertions { bubbleIndex: 0, textLength: 129 }
+[d5-agentic-chat] turn 1 — checking non-empty { transcriptLength: 130 }
+[d5-agentic-chat] turn 1 — non-empty assertion passed
+[conversation-runner] turn 1/3 — assertions passed
+[conversation-runner] turn 2/3 — sending message { inputLength: 50, timeoutMs: 30000 }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 50,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 1,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 2, baseline: 1 }
+[conversation-runner] turn 2/3 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 2,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 0, textLength: 157, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 0, textLength: 157 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 0, textLength: 157 }
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 6526 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-06T22:28:38.869Z","component":"docs-feature-audit-local-d6","key":"d6:langgraph-python/prebuilt-sidebar"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-06T22:28:38.869Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"prebuilt-sidebar","pass":true,"durationMs":6968}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:38.870Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:38.872Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/chat-customization-css',
+  hadTrackedRequest: false
+}
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/chat-customization-css',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-06T22:28:39.124Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"chat-css","hydrated":true,"hydrationMs":36}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 30, timeoutMs: 30000 }
+[conversation-runner] turn 1/1 — surface-mount completion armed {
+  testIds: [ 'copilot-assistant-message' ],
+  selectors: undefined,
+  minNewMounts: 1,
+  baselineSurfaces: { 'copilot-assistant-message': 0 }
+}
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 30,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 0, textLength: 158, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 0, textLength: 158 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 0, textLength: 158 }
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 7846 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-06T22:28:40.278Z","component":"docs-feature-audit-local-d6","key":"d6:langgraph-python/prebuilt-popup"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-06T22:28:40.278Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"prebuilt-popup","pass":true,"durationMs":8169}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:40.279Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:40.280Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/headless-simple',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3100/demos/headless-simple',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-06T22:28:40.571Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"headless-simple","hydrated":true,"hydrationMs":29}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] turn 2/3 — assistant settled { bubbleIndex: 1, textLength: 141, hasAssertions: true }
+[conversation-runner] turn 2/3 — settled metadata { turnNum: 2, bubbleIndex: 1, textLength: 141 }
+[conversation-runner] turn 2/3 — running assertions { bubbleIndex: 1, textLength: 141 }
+[d5-agentic-chat] turn 2 — checking assistant contains { transcriptLength: 272, expectedFragmentCount: 3 }
+[d5-agentic-chat] turn 2 — assertion passed
+[conversation-runner] turn 2/3 — assertions passed
+[conversation-runner] turn 3/3 — sending message { inputLength: 53, timeoutMs: 30000 }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 53,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 2,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 3, baseline: 2 }
+[conversation-runner] turn 3/3 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 3,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 0, textLength: 185, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 0, textLength: 185 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 0, textLength: 185 }
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 6120 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-06T22:28:43.065Z","component":"docs-feature-audit-local-d6","key":"d6:langgraph-python/chat-slots"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-06T22:28:43.065Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"chat-slots","pass":true,"durationMs":6389}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:43.066Z","component":"docs-feature-audit-local-d6"}
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 0, textLength: 151, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 0, textLength: 151 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 0, textLength: 151 }
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 6348 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-06T22:28:45.492Z","component":"docs-feature-audit-local-d6","key":"d6:langgraph-python/chat-css"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-06T22:28:45.492Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"chat-css","pass":true,"durationMs":6622}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:45.494Z","component":"docs-feature-audit-local-d6"}
+[conversation-runner] chat input selector miss {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  error: 'page.waitForSelector: Timeout 5000ms exceeded.\n' +
+    'Call log:\n' +
+    `  - waiting for locator('[data-testid="copilot-chat-textarea"]') to be visible\n`
+}
+[conversation-runner] turn 3/3 — assistant settled { bubbleIndex: 2, textLength: 60, hasAssertions: true }
+[conversation-runner] turn 3/3 — settled metadata { turnNum: 3, bubbleIndex: 2, textLength: 60 }
+[conversation-runner] turn 3/3 — running assertions { bubbleIndex: 2, textLength: 60 }
+[d5-agentic-chat] turn 3 — checking assistant contains { transcriptLength: 333, expectedFragmentCount: 1 }
+[d5-agentic-chat] turn 3 — assertion passed
+[conversation-runner] turn 3/3 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 3, totalDurationMs: 15014 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-06T22:28:46.122Z","component":"docs-feature-audit-local-d6","key":"d6:langgraph-python/agentic-chat"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-06T22:28:46.122Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"agentic-chat","pass":true,"durationMs":15289}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:46.123Z","component":"docs-feature-audit-local-d6"}
+[conversation-runner] chat input selector miss {
+  selector: '[data-testid="copilot-chat-input"] textarea',
+  error: 'page.waitForSelector: Timeout 5000ms exceeded.\n' +
+    'Call log:\n' +
+    `  - waiting for locator('[data-testid="copilot-chat-input"] textarea') to be visible\n`
+}
+[conversation-runner] chat input selector resolved { selector: 'textarea' }
+[conversation-runner] resolved chat input selector at boot { selector: 'textarea' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 0, timeoutMs: 30000 }
+[conversation-runner] turn 1/1 — running preFill hook
+[d5-headless-simple] turn 1: clicking sample chip { label: 'Say hello in one short sentence.' }
+[conversation-runner] turn 1/1 — preFill hook completed
+[conversation-runner] turn 1/1 — skipSend=true, preFill handled submission; not touching textarea
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: 'textarea',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 0, textLength: 85, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 0, textLength: 85 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 0, textLength: 85 }
+[d5-headless-simple] turn 1 assertions passed { assistantTextLength: 85 }
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 3281 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-06T22:28:53.867Z","component":"docs-feature-audit-local-d6","key":"d6:langgraph-python/headless-simple"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-06T22:28:53.867Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","featureType":"headless-simple","pass":true,"durationMs":13588}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=ea9d5fbe-84e6-415b-bbab-0f896acb52c2 slug=langgraph-python header_present=true header_value_prefix=langgraph-py hop=- status=ok test_id=d6-langgraph-python-ea9d5fbe-84e6-415b-bbab-0f896acb52c2 error=","ts":"2026-10-06T22:28:53.868Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.service-complete","ts":"2026-10-06T22:28:53.868Z","component":"docs-feature-audit-local-d6","slug":"langgraph-python","passed":11,"failed":0,"skipped":0,"incapable":0,"total":11,"state":"green","durationMs":40079}
+{"level":"warn","msg":"probe.e2e-full.aggregate-writer-missing","ts":"2026-10-06T22:28:53.868Z","component":"docs-feature-audit-local-d6","key":"d6:langgraph-python"}
+  [32m✓[0m d6:langgraph-python [32mgreen[0m [2m(40.3s)[0m
+{"slug":"langgraph-python","results":[{"key":"d6:langgraph-python","state":"green","durationMs":40345,"signal":{"shape":"package","slug":"langgraph-python","backendUrl":"http://localhost:3100","total":11,"passed":11,"failed":[],"skipped":[]}}]}
+# exit=0 finished 2026-10-06T22:28:54Z

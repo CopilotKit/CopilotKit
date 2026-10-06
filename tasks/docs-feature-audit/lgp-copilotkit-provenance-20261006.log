@@ -1,0 +1,37 @@
+# CopilotKit / AG-UI provenance for the LangGraph Python stack, 2026-10-06T22:41:15Z, HEAD 65e91cc7e4
+## JS: every @copilotkit/* and @ag-ui/* lock entry: version, resolved host, lock integrity == registry dist.integrity
+OK   node_modules/@ag-ui/a2ui-middleware 0.0.10 registry.npmjs.org
+OK   node_modules/@ag-ui/a2ui-toolkit 0.0.4 registry.npmjs.org
+OK   node_modules/@ag-ui/client 1.0.1 registry.npmjs.org
+OK   node_modules/@ag-ui/core 1.0.1 registry.npmjs.org
+OK   node_modules/@ag-ui/encoder 1.0.1 registry.npmjs.org
+OK   node_modules/@ag-ui/langgraph 0.0.44 registry.npmjs.org
+OK   node_modules/@ag-ui/mcp-apps-middleware 0.1.1 registry.npmjs.org
+OK   node_modules/@ag-ui/mcp-middleware 0.0.2 registry.npmjs.org
+OK   node_modules/@ag-ui/proto 1.0.1 registry.npmjs.org
+OK   node_modules/@copilotkit/a2ui-renderer 1.77.0 registry.npmjs.org
+OK   node_modules/@copilotkit/channels-core 0.11.0 registry.npmjs.org
+OK   node_modules/@copilotkit/channels-intelligence 0.11.0 registry.npmjs.org
+OK   node_modules/@copilotkit/channels-slack 0.11.0 registry.npmjs.org
+OK   node_modules/@copilotkit/channels-teams 0.11.0 registry.npmjs.org
+OK   node_modules/@copilotkit/channels-ui 0.11.0 registry.npmjs.org
+OK   node_modules/@copilotkit/core 1.77.0 registry.npmjs.org
+OK   node_modules/@copilotkit/learning 0.0.1 registry.npmjs.org
+OK   node_modules/@copilotkit/license-verifier 0.5.0 registry.npmjs.org
+OK   node_modules/@copilotkit/mcp-apps-renderer 1.77.0 registry.npmjs.org
+OK   node_modules/@copilotkit/react-core 1.77.0 registry.npmjs.org
+OK   node_modules/@copilotkit/runtime 1.77.0 registry.npmjs.org
+OK   node_modules/@copilotkit/runtime-client-gql 1.77.0 registry.npmjs.org
+OK   node_modules/@copilotkit/shared 1.77.0 registry.npmjs.org
+OK   node_modules/@copilotkit/voice 1.77.0 registry.npmjs.org
+OK   node_modules/@copilotkit/web-components 1.77.0 registry.npmjs.org
+OK   node_modules/@copilotkit/web-inspector 1.77.0 registry.npmjs.org
+26 entries, 0 mismatches; lock entries resolved outside registry.npmjs.org: 0; link/file entries: 0
+## Python: installer and direct_url for the CopilotKit/AG-UI/LangGraph packages in the audit venv
+copilotkit-0.1.96.dist-info installer=uv direct_url=none
+ag_ui_langgraph-0.0.46.dist-info installer=uv direct_url=none
+ag_ui_protocol-1.0.0.dist-info installer=uv direct_url=none
+ag_ui_a2ui_toolkit-0.0.4.dist-info installer=uv direct_url=none
+langgraph-1.2.13.dist-info installer=uv direct_url=none
+langgraph_api-0.15.1.dist-info installer=uv direct_url=none
+langchain_openai-1.6.7.dist-info installer=uv direct_url=none

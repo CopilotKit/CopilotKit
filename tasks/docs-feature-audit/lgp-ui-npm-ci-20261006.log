@@ -1,0 +1,9 @@
+# 2026-10-06T21:45:25Z node v22.16.0 npm 10.9.2
+$ nice -n 10 npm ci --legacy-peer-deps   (the Dockerfile command)
+npm warn deprecated hast@1.0.0: Renamed to rehype
+npm warn deprecated lodash.get@4.4.2: This package is deprecated. Use the optional chaining (?.) operator instead.
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+npm warn deprecated recharts@2.15.4: 1.x and 2.x branches are no longer active. Bump to Recharts v3 to receive latest features and bugfixes. See https://github.com/recharts/recharts/wiki/3.0-migration-guide
+
+added 867 packages in 9s
+exit=0

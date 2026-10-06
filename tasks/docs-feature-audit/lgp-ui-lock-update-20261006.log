@@ -1,0 +1,16 @@
+# LangGraph Python UI lock regeneration, 2026-10-06T21:43:18Z, node v24.11.0, npm 11.6.1
+# Probe without overrides (temp copy of package.json minus overrides, same command): @ag-ui/core|client copies:
+#   node_modules/@ag-ui/client 1.0.1
+#   node_modules/@ag-ui/core 1.0.1
+#   node_modules/@copilotkit/channels-core/node_modules/@ag-ui/client 0.0.59
+#   node_modules/@copilotkit/channels-core/node_modules/@ag-ui/core 0.0.59
+#   node_modules/@copilotkit/channels-intelligence/node_modules/@ag-ui/client 0.0.59
+#   node_modules/@copilotkit/channels-intelligence/node_modules/@ag-ui/core 0.0.59
+#   node_modules/@copilotkit/channels-slack/node_modules/@ag-ui/client 0.0.59
+#   node_modules/@copilotkit/channels-slack/node_modules/@ag-ui/core 0.0.59
+#   node_modules/@copilotkit/channels-teams/node_modules/@ag-ui/client 0.0.59
+#   node_modules/@copilotkit/channels-teams/node_modules/@ag-ui/core 0.0.59
+$ rm -rf node_modules package-lock.json && nice -n 10 npm install --package-lock-only --legacy-peer-deps --before=2026-10-05T12:00:00Z
+
+up to date in 3s
+exit=0

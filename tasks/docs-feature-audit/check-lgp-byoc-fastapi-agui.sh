@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SUPERSEDED 2026-10-06: reproduce-lgp-byoc-setup.sh's existing-agent phase now
+# drives the guide's own route.ts for both tabs. This script reads the
+# 2026-09-23 extractor's list output and does not run against the current one.
 # Does the quickstart's FastAPI-tab agent work with the CopilotKit 1.73.3
 # runtime? Builds the agent exactly as reproduce-lgp-byoc-setup.sh does (the
 # guide's own blocks), points it at a scratch strict AIMock (port 4411, one

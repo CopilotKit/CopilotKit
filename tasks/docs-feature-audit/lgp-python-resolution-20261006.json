@@ -1,0 +1,729 @@
+{
+ "bound": "2026-10-05T21:00:00Z",
+ "checked_at": "2026-10-06T21:42:01.529928+00:00",
+ "count": 103,
+ "violations": 0,
+ "packages": [
+  {
+   "name": "toml",
+   "version": "0.10.2",
+   "published": "2020-11-01T01:40:20.672915Z",
+   "age_hours_at_resolution": 51980.0,
+   "within_bound": true
+  },
+  {
+   "name": "forbiddenfruit",
+   "version": "0.1.4",
+   "published": "2021-01-16T21:03:35.401084Z",
+   "age_hours_at_resolution": 50136.6,
+   "within_bound": true
+  },
+  {
+   "name": "filetype",
+   "version": "1.2.0",
+   "published": "2022-11-02T17:34:01.425061Z",
+   "age_hours_at_resolution": 34420.1,
+   "within_bound": true
+  },
+  {
+   "name": "requests-toolbelt",
+   "version": "1.0.0",
+   "published": "2023-05-01T04:11:28.427086Z",
+   "age_hours_at_resolution": 30113.5,
+   "within_bound": true
+  },
+  {
+   "name": "jsonpatch",
+   "version": "1.33",
+   "published": "2023-06-16T21:01:28.466546Z",
+   "age_hours_at_resolution": 28992.7,
+   "within_bound": true
+  },
+  {
+   "name": "distro",
+   "version": "1.9.0",
+   "published": "2023-12-24T09:54:30.421191Z",
+   "age_hours_at_resolution": 24419.8,
+   "within_bound": true
+  },
+  {
+   "name": "sniffio",
+   "version": "1.3.1",
+   "published": "2024-02-25T23:20:01.196159Z",
+   "age_hours_at_resolution": 22894.4,
+   "within_bound": true
+  },
+  {
+   "name": "python-dateutil",
+   "version": "2.9.0.post0",
+   "published": "2024-03-01T18:36:18.570437Z",
+   "age_hours_at_resolution": 22779.1,
+   "within_bound": true
+  },
+  {
+   "name": "six",
+   "version": "1.17.0",
+   "published": "2024-12-04T17:35:26.475808Z",
+   "age_hours_at_resolution": 16108.1,
+   "within_bound": true
+  },
+  {
+   "name": "httpx",
+   "version": "0.28.1",
+   "published": "2024-12-06T15:37:21.509172Z",
+   "age_hours_at_resolution": 16062.1,
+   "within_bound": true
+  },
+  {
+   "name": "pyasn1-modules",
+   "version": "0.4.2",
+   "published": "2025-03-28T02:41:19.028683Z",
+   "age_hours_at_resolution": 13387.0,
+   "within_bound": true
+  },
+  {
+   "name": "h11",
+   "version": "0.16.0",
+   "published": "2025-04-24T03:35:24.344199Z",
+   "age_hours_at_resolution": 12738.1,
+   "within_bound": true
+  },
+  {
+   "name": "httpcore",
+   "version": "1.0.9",
+   "published": "2025-04-24T22:06:20.566605Z",
+   "age_hours_at_resolution": 12719.6,
+   "within_bound": true
+  },
+  {
+   "name": "truststore",
+   "version": "0.10.4",
+   "published": "2025-08-12T18:49:01.460601Z",
+   "age_hours_at_resolution": 10082.9,
+   "within_bound": true
+  },
+  {
+   "name": "zstandard",
+   "version": "0.25.0",
+   "published": "2025-09-14T22:15:54.002551Z",
+   "age_hours_at_resolution": 9287.4,
+   "within_bound": true
+  },
+  {
+   "name": "pyyaml",
+   "version": "6.0.3",
+   "published": "2025-09-25T21:31:46.040932Z",
+   "age_hours_at_resolution": 9024.2,
+   "within_bound": true
+  },
+  {
+   "name": "structlog",
+   "version": "25.5.0",
+   "published": "2025-10-27T08:28:21.535190Z",
+   "age_hours_at_resolution": 8269.2,
+   "within_bound": true
+  },
+  {
+   "name": "cloudpickle",
+   "version": "3.1.2",
+   "published": "2025-11-03T09:25:25.534602Z",
+   "age_hours_at_resolution": 8100.3,
+   "within_bound": true
+  },
+  {
+   "name": "ormsgpack",
+   "version": "1.12.2",
+   "published": "2026-01-18T20:55:17.694758Z",
+   "age_hours_at_resolution": 6264.8,
+   "within_bound": true
+  },
+  {
+   "name": "pycparser",
+   "version": "3.0",
+   "published": "2026-01-21T14:26:50.693739Z",
+   "age_hours_at_resolution": 6199.3,
+   "within_bound": true
+  },
+  {
+   "name": "tenacity",
+   "version": "9.1.4",
+   "published": "2026-02-07T10:45:32.240169Z",
+   "age_hours_at_resolution": 5794.9,
+   "within_bound": true
+  },
+  {
+   "name": "jsonschema-rs",
+   "version": "0.44.1",
+   "published": "2026-03-03T19:07:34.512032Z",
+   "age_hours_at_resolution": 5210.6,
+   "within_bound": true
+  },
+  {
+   "name": "protobuf",
+   "version": "6.33.6",
+   "published": "2026-03-18T19:04:48.373493Z",
+   "age_hours_at_resolution": 4850.6,
+   "within_bound": true
+  },
+  {
+   "name": "jsonpointer",
+   "version": "3.1.1",
+   "published": "2026-03-23T22:32:31.568290Z",
+   "age_hours_at_resolution": 4727.2,
+   "within_bound": true
+  },
+  {
+   "name": "docstring-parser",
+   "version": "0.18.0",
+   "published": "2026-04-14T04:09:18.638975Z",
+   "age_hours_at_resolution": 4217.5,
+   "within_bound": true
+  },
+  {
+   "name": "pathspec",
+   "version": "1.1.1",
+   "published": "2026-04-27T01:46:07.060850Z",
+   "age_hours_at_resolution": 3907.9,
+   "within_bound": true
+  },
+  {
+   "name": "langgraph-prebuilt",
+   "version": "1.1.0",
+   "published": "2026-05-12T03:37:48.007261Z",
+   "age_hours_at_resolution": 3546.1,
+   "within_bound": true
+  },
+  {
+   "name": "requests",
+   "version": "2.34.2",
+   "published": "2026-05-14T19:25:26.443000Z",
+   "age_hours_at_resolution": 3482.3,
+   "within_bound": true
+  },
+  {
+   "name": "opentelemetry-api",
+   "version": "1.42.1",
+   "published": "2026-05-21T16:32:28.822320Z",
+   "age_hours_at_resolution": 3317.2,
+   "within_bound": true
+  },
+  {
+   "name": "opentelemetry-exporter-otlp-proto-common",
+   "version": "1.42.1",
+   "published": "2026-05-21T16:32:33.387712Z",
+   "age_hours_at_resolution": 3317.2,
+   "within_bound": true
+  },
+  {
+   "name": "opentelemetry-exporter-otlp-proto-http",
+   "version": "1.42.1",
+   "published": "2026-05-21T16:32:35.277426Z",
+   "age_hours_at_resolution": 3317.2,
+   "within_bound": true
+  },
+  {
+   "name": "opentelemetry-exporter-prometheus",
+   "version": "0.63b1",
+   "published": "2026-05-21T16:32:36.622279Z",
+   "age_hours_at_resolution": 3317.2,
+   "within_bound": true
+  },
+  {
+   "name": "opentelemetry-proto",
+   "version": "1.42.1",
+   "published": "2026-05-21T16:32:44.867552Z",
+   "age_hours_at_resolution": 3317.2,
+   "within_bound": true
+  },
+  {
+   "name": "opentelemetry-sdk",
+   "version": "1.42.1",
+   "published": "2026-05-21T16:32:45.894914Z",
+   "age_hours_at_resolution": 3317.2,
+   "within_bound": true
+  },
+  {
+   "name": "opentelemetry-semantic-conventions",
+   "version": "0.63b1",
+   "published": "2026-05-21T16:32:47.016301Z",
+   "age_hours_at_resolution": 3317.2,
+   "within_bound": true
+  },
+  {
+   "name": "httptools",
+   "version": "0.8.0",
+   "published": "2026-05-25T22:16:50.434730Z",
+   "age_hours_at_resolution": 3215.4,
+   "within_bound": true
+  },
+  {
+   "name": "grpcio",
+   "version": "1.81.1",
+   "published": "2026-06-11T12:44:19.364348Z",
+   "age_hours_at_resolution": 2817.0,
+   "within_bound": true
+  },
+  {
+   "name": "grpcio-tools",
+   "version": "1.81.1",
+   "published": "2026-06-11T12:49:21.447949Z",
+   "age_hours_at_resolution": 2816.9,
+   "within_bound": true
+  },
+  {
+   "name": "grpcio-health-checking",
+   "version": "1.81.1",
+   "published": "2026-06-11T12:58:38.008697Z",
+   "age_hours_at_resolution": 2816.7,
+   "within_bound": true
+  },
+  {
+   "name": "ag-ui-a2ui-toolkit",
+   "version": "0.0.4",
+   "published": "2026-06-17T13:34:28.695854Z",
+   "age_hours_at_resolution": 2672.1,
+   "within_bound": true
+  },
+  {
+   "name": "typing-extensions",
+   "version": "4.16.0",
+   "published": "2026-07-02T08:40:04.659120Z",
+   "age_hours_at_resolution": 2317.0,
+   "within_bound": true
+  },
+  {
+   "name": "pyasn1",
+   "version": "0.6.4",
+   "published": "2026-07-09T01:12:32.920042Z",
+   "age_hours_at_resolution": 2156.5,
+   "within_bound": true
+  },
+  {
+   "name": "croniter",
+   "version": "6.2.4",
+   "published": "2026-07-10T09:52:58.425221Z",
+   "age_hours_at_resolution": 2123.8,
+   "within_bound": true
+  },
+  {
+   "name": "websockets",
+   "version": "16.1.1",
+   "published": "2026-07-17T22:48:24.032247Z",
+   "age_hours_at_resolution": 1942.9,
+   "within_bound": true
+  },
+  {
+   "name": "bracex",
+   "version": "3.0.1",
+   "published": "2026-07-20T13:42:59.268411Z",
+   "age_hours_at_resolution": 1880.0,
+   "within_bound": true
+  },
+  {
+   "name": "certifi",
+   "version": "2026.7.22",
+   "published": "2026-07-22T03:35:11.276376Z",
+   "age_hours_at_resolution": 1842.1,
+   "within_bound": true
+  },
+  {
+   "name": "annotated-types",
+   "version": "0.8.0",
+   "published": "2026-07-23T20:16:12.938651Z",
+   "age_hours_at_resolution": 1801.4,
+   "within_bound": true
+  },
+  {
+   "name": "prometheus-client",
+   "version": "0.26.0",
+   "published": "2026-07-24T19:36:40.854254Z",
+   "age_hours_at_resolution": 1778.1,
+   "within_bound": true
+  },
+  {
+   "name": "annotated-doc",
+   "version": "0.0.5",
+   "published": "2026-07-28T13:50:57.239109Z",
+   "age_hours_at_resolution": 1687.9,
+   "within_bound": true
+  },
+  {
+   "name": "fastapi",
+   "version": "0.141.1",
+   "published": "2026-07-29T17:18:04.364385Z",
+   "age_hours_at_resolution": 1660.4,
+   "within_bound": true
+  },
+  {
+   "name": "cffi",
+   "version": "2.1.1",
+   "published": "2026-08-03T21:19:15.602573Z",
+   "age_hours_at_resolution": 1536.4,
+   "within_bound": true
+  },
+  {
+   "name": "packaging",
+   "version": "26.3",
+   "published": "2026-08-04T18:15:27.159957Z",
+   "age_hours_at_resolution": 1515.4,
+   "within_bound": true
+  },
+  {
+   "name": "langgraph-checkpoint",
+   "version": "4.2.0",
+   "published": "2026-08-07T20:05:02.655126Z",
+   "age_hours_at_resolution": 1441.6,
+   "within_bound": true
+  },
+  {
+   "name": "setuptools",
+   "version": "84.0.0",
+   "published": "2026-08-08T18:27:56.719708Z",
+   "age_hours_at_resolution": 1419.2,
+   "within_bound": true
+  },
+  {
+   "name": "typing-inspection",
+   "version": "0.4.4",
+   "published": "2026-08-12T12:37:24.648475Z",
+   "age_hours_at_resolution": 1329.1,
+   "within_bound": true
+  },
+  {
+   "name": "wcmatch",
+   "version": "11.0.1",
+   "published": "2026-08-14T15:20:39.379366Z",
+   "age_hours_at_resolution": 1278.4,
+   "within_bound": true
+  },
+  {
+   "name": "orjson",
+   "version": "3.12.0",
+   "published": "2026-08-14T16:12:00.607529Z",
+   "age_hours_at_resolution": 1277.5,
+   "within_bound": true
+  },
+  {
+   "name": "xxhash",
+   "version": "4.0.1",
+   "published": "2026-08-17T08:20:07.211618Z",
+   "age_hours_at_resolution": 1213.4,
+   "within_bound": true
+  },
+  {
+   "name": "tiktoken",
+   "version": "0.14.0",
+   "published": "2026-08-17T19:48:31.788018Z",
+   "age_hours_at_resolution": 1201.9,
+   "within_bound": true
+  },
+  {
+   "name": "click",
+   "version": "8.5.0",
+   "published": "2026-08-26T13:33:12.928043Z",
+   "age_hours_at_resolution": 992.1,
+   "within_bound": true
+  },
+  {
+   "name": "langchain-protocol",
+   "version": "0.0.19",
+   "published": "2026-08-26T21:11:59.781653Z",
+   "age_hours_at_resolution": 984.5,
+   "within_bound": true
+  },
+  {
+   "name": "copilotkit",
+   "version": "0.1.96",
+   "published": "2026-08-26T22:31:59.098008Z",
+   "age_hours_at_resolution": 983.2,
+   "within_bound": true
+  },
+  {
+   "name": "pydantic-core",
+   "version": "2.46.5",
+   "published": "2026-08-28T09:57:35.421713Z",
+   "age_hours_at_resolution": 947.7,
+   "within_bound": true
+  },
+  {
+   "name": "pydantic",
+   "version": "2.13.5",
+   "published": "2026-08-28T14:03:59.136157Z",
+   "age_hours_at_resolution": 943.6,
+   "within_bound": true
+  },
+  {
+   "name": "langchain-google-genai",
+   "version": "4.4.0",
+   "published": "2026-09-01T20:15:44.533201Z",
+   "age_hours_at_resolution": 841.4,
+   "within_bound": true
+  },
+  {
+   "name": "anyio",
+   "version": "4.15.1",
+   "published": "2026-09-05T10:42:37.923487Z",
+   "age_hours_at_resolution": 755.0,
+   "within_bound": true
+  },
+  {
+   "name": "uuid-utils",
+   "version": "0.17.1",
+   "published": "2026-09-08T11:27:33.172512Z",
+   "age_hours_at_resolution": 682.2,
+   "within_bound": true
+  },
+  {
+   "name": "partialjson",
+   "version": "1.2.0",
+   "published": "2026-09-11T22:46:55.211671Z",
+   "age_hours_at_resolution": 598.9,
+   "within_bound": true
+  },
+  {
+   "name": "jiter",
+   "version": "0.17.0",
+   "published": "2026-09-12T15:11:10.440276Z",
+   "age_hours_at_resolution": 582.5,
+   "within_bound": true
+  },
+  {
+   "name": "urllib3",
+   "version": "2.8.0",
+   "published": "2026-09-15T19:29:34.577402Z",
+   "age_hours_at_resolution": 506.2,
+   "within_bound": true
+  },
+  {
+   "name": "pypdf",
+   "version": "6.19.0",
+   "published": "2026-09-16T09:32:04.087160Z",
+   "age_hours_at_resolution": 492.2,
+   "within_bound": true
+  },
+  {
+   "name": "idna",
+   "version": "3.20",
+   "published": "2026-09-17T14:11:03.168153Z",
+   "age_hours_at_resolution": 463.5,
+   "within_bound": true
+  },
+  {
+   "name": "ag-ui-protocol",
+   "version": "1.0.0",
+   "published": "2026-09-17T18:31:18.471318Z",
+   "age_hours_at_resolution": 459.2,
+   "within_bound": true
+  },
+  {
+   "name": "blockbuster",
+   "version": "1.5.28",
+   "published": "2026-09-18T10:51:09.963986Z",
+   "age_hours_at_resolution": 442.8,
+   "within_bound": true
+  },
+  {
+   "name": "watchfiles",
+   "version": "1.3.0",
+   "published": "2026-09-21T09:08:13.518274Z",
+   "age_hours_at_resolution": 372.6,
+   "within_bound": true
+  },
+  {
+   "name": "langgraph-sdk",
+   "version": "0.4.5",
+   "published": "2026-09-21T14:42:54.623661Z",
+   "age_hours_at_resolution": 367.0,
+   "within_bound": true
+  },
+  {
+   "name": "starlette",
+   "version": "1.7.0",
+   "published": "2026-09-23T07:30:24.567239Z",
+   "age_hours_at_resolution": 326.2,
+   "within_bound": true
+  },
+  {
+   "name": "httpcore2",
+   "version": "2.13.1",
+   "published": "2026-09-23T07:47:19.365487Z",
+   "age_hours_at_resolution": 325.9,
+   "within_bound": true
+  },
+  {
+   "name": "httpx2",
+   "version": "2.13.1",
+   "published": "2026-09-23T07:47:20.995722Z",
+   "age_hours_at_resolution": 325.9,
+   "within_bound": true
+  },
+  {
+   "name": "langgraph-cli",
+   "version": "0.4.32",
+   "published": "2026-09-23T18:02:34.603118Z",
+   "age_hours_at_resolution": 315.7,
+   "within_bound": true
+  },
+  {
+   "name": "uvicorn",
+   "version": "0.54.0",
+   "published": "2026-09-25T06:52:35.829563Z",
+   "age_hours_at_resolution": 278.8,
+   "within_bound": true
+  },
+  {
+   "name": "langgraph-runtime-inmem",
+   "version": "0.35.1",
+   "published": "2026-09-25T17:45:58.894519Z",
+   "age_hours_at_resolution": 267.9,
+   "within_bound": true
+  },
+  {
+   "name": "langgraph-api",
+   "version": "0.15.1",
+   "published": "2026-09-25T17:47:17.616615Z",
+   "age_hours_at_resolution": 267.9,
+   "within_bound": true
+  },
+  {
+   "name": "sse-starlette",
+   "version": "3.5.0",
+   "published": "2026-09-28T17:48:13.228954Z",
+   "age_hours_at_resolution": 195.9,
+   "within_bound": true
+  },
+  {
+   "name": "pyjwt",
+   "version": "2.15.1",
+   "published": "2026-09-28T18:40:41.429003Z",
+   "age_hours_at_resolution": 195.0,
+   "within_bound": true
+  },
+  {
+   "name": "langchain",
+   "version": "1.4.3",
+   "published": "2026-09-28T20:17:22.978149Z",
+   "age_hours_at_resolution": 193.4,
+   "within_bound": true
+  },
+  {
+   "name": "regex",
+   "version": "2026.9.29",
+   "published": "2026-09-29T00:45:50.322376Z",
+   "age_hours_at_resolution": 188.9,
+   "within_bound": true
+  },
+  {
+   "name": "langchain-core",
+   "version": "1.6.6",
+   "published": "2026-09-29T14:52:53.213939Z",
+   "age_hours_at_resolution": 174.8,
+   "within_bound": true
+  },
+  {
+   "name": "langchain-anthropic",
+   "version": "1.7.5",
+   "published": "2026-09-29T15:22:05.832457Z",
+   "age_hours_at_resolution": 174.3,
+   "within_bound": true
+  },
+  {
+   "name": "googleapis-common-protos",
+   "version": "1.75.5",
+   "published": "2026-09-29T19:25:48.735170Z",
+   "age_hours_at_resolution": 170.3,
+   "within_bound": true
+  },
+  {
+   "name": "charset-normalizer",
+   "version": "3.5.2",
+   "published": "2026-09-30T04:34:42.843457Z",
+   "age_hours_at_resolution": 161.1,
+   "within_bound": true
+  },
+  {
+   "name": "cryptography",
+   "version": "50.0.2",
+   "published": "2026-09-30T14:43:44.339921Z",
+   "age_hours_at_resolution": 151.0,
+   "within_bound": true
+  },
+  {
+   "name": "langchain-openai",
+   "version": "1.6.7",
+   "published": "2026-09-30T15:12:01.876169Z",
+   "age_hours_at_resolution": 150.5,
+   "within_bound": true
+  },
+  {
+   "name": "anthropic",
+   "version": "1.11.0",
+   "published": "2026-09-30T22:58:21.098190Z",
+   "age_hours_at_resolution": 142.7,
+   "within_bound": true
+  },
+  {
+   "name": "uvloop",
+   "version": "0.23.0",
+   "published": "2026-10-01T03:15:21.220970Z",
+   "age_hours_at_resolution": 138.4,
+   "within_bound": true
+  },
+  {
+   "name": "python-dotenv",
+   "version": "1.2.4",
+   "published": "2026-10-01T05:36:08.633003Z",
+   "age_hours_at_resolution": 136.1,
+   "within_bound": true
+  },
+  {
+   "name": "ag-ui-langgraph",
+   "version": "0.0.46",
+   "published": "2026-10-01T16:21:09.812321Z",
+   "age_hours_at_resolution": 125.3,
+   "within_bound": true
+  },
+  {
+   "name": "openai",
+   "version": "3.24.0",
+   "published": "2026-10-02T15:55:16.228279Z",
+   "age_hours_at_resolution": 101.8,
+   "within_bound": true
+  },
+  {
+   "name": "langsmith",
+   "version": "0.14.4",
+   "published": "2026-10-02T17:16:34.724080Z",
+   "age_hours_at_resolution": 100.4,
+   "within_bound": true
+  },
+  {
+   "name": "google-genai",
+   "version": "2.28.0",
+   "published": "2026-10-02T17:58:12.585754Z",
+   "age_hours_at_resolution": 99.7,
+   "within_bound": true
+  },
+  {
+   "name": "deepagents",
+   "version": "0.7.22",
+   "published": "2026-10-05T14:07:39.616927Z",
+   "age_hours_at_resolution": 31.6,
+   "within_bound": true
+  },
+  {
+   "name": "google-auth",
+   "version": "2.60.0",
+   "published": "2026-10-05T16:05:08.053857Z",
+   "age_hours_at_resolution": 29.6,
+   "within_bound": true
+  },
+  {
+   "name": "langgraph",
+   "version": "1.2.13",
+   "published": "2026-10-05T17:51:20.221333Z",
+   "age_hours_at_resolution": 27.8,
+   "within_bound": true
+  }
+ ]
+}

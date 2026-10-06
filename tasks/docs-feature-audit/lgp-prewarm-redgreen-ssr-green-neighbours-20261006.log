@@ -1,0 +1,21 @@
+# Sequential pre-warm (one GET at a time): demo pages [shared-state-read,shared-state-read-write,readonly-state-agent-context,shared-state-streaming] and every API route except /api/smoke. Tue Oct  6 22:15:47 UTC 2026
+/demos/shared-state-read 200 5.388988s
+/demos/shared-state-read-write 200 1.752344s
+/demos/readonly-state-agent-context 200 1.428752s
+/demos/shared-state-streaming 200 1.016494s
+/api/copilotkit 200 1.350469s
+/api/copilotkit-a2ui-fixed-schema 405 0.525683s
+/api/copilotkit-a2ui-recovery 405 0.451765s
+/api/copilotkit-agent-config 405 0.445248s
+/api/copilotkit-auth 401 1.024415s
+/api/copilotkit-beautiful-chat 405 0.417251s
+/api/copilotkit-declarative-gen-ui 405 0.423715s
+/api/copilotkit-declarative-hashbrown 405 0.426260s
+/api/copilotkit-declarative-json-render 405 0.396241s
+/api/copilotkit-mcp-apps 405 0.988459s
+/api/copilotkit-multimodal 405 0.374876s
+/api/copilotkit-ogui 405 0.388191s
+/api/copilotkit-voice 404 1.075781s
+/api/debug 403 0.275296s
+/api/health 200 0.225697s
+# done Tue Oct  6 22:16:06 UTC 2026

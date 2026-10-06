@@ -1,0 +1,234 @@
+# LangGraph Python requirements.txt resolution, 2026-10-06 (resolved at 2026-10-06T21:41:50Z)
+# bound: --exclude-newer 2026-10-05T21:00:00Z (>= 24 h before resolution; the youngest direct pin, langgraph 1.2.13, is 2026-10-05T17:51Z)
+$ uv venv /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv --python 3.12
+Using CPython 3.12.6 interpreter at: /Users/tylerslaton/.pyenv/versions/3.12.6/bin/python3.12
+Creating virtual environment at: /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv
+Activate with: source /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv/bin/activate
+$ VIRTUAL_ENV=/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv nice -n 10 uv pip install -r requirements.txt --exclude-newer 2026-10-05T21:00:00Z --index-url https://pypi.org/simple
+Using Python 3.12.6 environment at: /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv
+Resolved 103 packages in 764ms
+Downloading google-genai (1.1MiB)
+Downloading anthropic (1.6MiB)
+Downloading openai (2.0MiB)
+Downloading cryptography (3.7MiB)
+Downloading uvloop (1.3MiB)
+ Downloaded uvloop
+ Downloaded google-genai
+ Downloaded anthropic
+ Downloaded openai
+ Downloaded cryptography
+Prepared 27 packages in 544ms
+Installed 103 packages in 168ms
+ + ag-ui-a2ui-toolkit==0.0.4
+ + ag-ui-langgraph==0.0.46
+ + ag-ui-protocol==1.0.0
+ + annotated-doc==0.0.5
+ + annotated-types==0.8.0
+ + anthropic==1.11.0
+ + anyio==4.15.1
+ + blockbuster==1.5.28
+ + bracex==3.0.1
+ + certifi==2026.7.22
+ + cffi==2.1.1
+ + charset-normalizer==3.5.2
+ + click==8.5.0
+ + cloudpickle==3.1.2
+ + copilotkit==0.1.96
+ + croniter==6.2.4
+ + cryptography==50.0.2
+ + deepagents==0.7.22
+ + distro==1.9.0
+ + docstring-parser==0.18.0
+ + fastapi==0.141.1
+ + filetype==1.2.0
+ + forbiddenfruit==0.1.4
+ + google-auth==2.60.0
+ + google-genai==2.28.0
+ + googleapis-common-protos==1.75.5
+ + grpcio==1.81.1
+ + grpcio-health-checking==1.81.1
+ + grpcio-tools==1.81.1
+ + h11==0.16.0
+ + httpcore==1.0.9
+ + httpcore2==2.13.1
+ + httptools==0.8.0
+ + httpx==0.28.1
+ + httpx2==2.13.1
+ + idna==3.20
+ + jiter==0.17.0
+ + jsonpatch==1.33
+ + jsonpointer==3.1.1
+ + jsonschema-rs==0.44.1
+ + langchain==1.4.3
+ + langchain-anthropic==1.7.5
+ + langchain-core==1.6.6
+ + langchain-google-genai==4.4.0
+ + langchain-openai==1.6.7
+ + langchain-protocol==0.0.19
+ + langgraph==1.2.13
+ + langgraph-api==0.15.1
+ + langgraph-checkpoint==4.2.0
+ + langgraph-cli==0.4.32
+ + langgraph-prebuilt==1.1.0
+ + langgraph-runtime-inmem==0.35.1
+ + langgraph-sdk==0.4.5
+ + langsmith==0.14.4
+ + openai==3.24.0
+ + opentelemetry-api==1.42.1
+ + opentelemetry-exporter-otlp-proto-common==1.42.1
+ + opentelemetry-exporter-otlp-proto-http==1.42.1
+ + opentelemetry-exporter-prometheus==0.63b1
+ + opentelemetry-proto==1.42.1
+ + opentelemetry-sdk==1.42.1
+ + opentelemetry-semantic-conventions==0.63b1
+ + orjson==3.12.0
+ + ormsgpack==1.12.2
+ + packaging==26.3
+ + partialjson==1.2.0
+ + pathspec==1.1.1
+ + prometheus-client==0.26.0
+ + protobuf==6.33.6
+ + pyasn1==0.6.4
+ + pyasn1-modules==0.4.2
+ + pycparser==3.0
+ + pydantic==2.13.5
+ + pydantic-core==2.46.5
+ + pyjwt==2.15.1
+ + pypdf==6.19.0
+ + python-dateutil==2.9.0.post0
+ + python-dotenv==1.2.4
+ + pyyaml==6.0.3
+ + regex==2026.9.29
+ + requests==2.34.2
+ + requests-toolbelt==1.0.0
+ + setuptools==84.0.0
+ + six==1.17.0
+ + sniffio==1.3.1
+ + sse-starlette==3.5.0
+ + starlette==1.7.0
+ + structlog==25.5.0
+ + tenacity==9.1.4
+ + tiktoken==0.14.0
+ + toml==0.10.2
+ + truststore==0.10.4
+ + typing-extensions==4.16.0
+ + typing-inspection==0.4.4
+ + urllib3==2.8.0
+ + uuid-utils==0.17.1
+ + uvicorn==0.54.0
+ + uvloop==0.23.0
+ + watchfiles==1.3.0
+ + wcmatch==11.0.1
+ + websockets==16.1.1
+ + xxhash==4.0.1
+ + zstandard==0.25.0
+exit=0
+$ uv pip check
+Using Python 3.12.6 environment at: /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv
+Checked 103 packages in 1ms
+All installed packages are compatible
+$ uv pip freeze
+Using Python 3.12.6 environment at: /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv
+ag-ui-a2ui-toolkit==0.0.4
+ag-ui-langgraph==0.0.46
+ag-ui-protocol==1.0.0
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anthropic==1.11.0
+anyio==4.15.1
+blockbuster==1.5.28
+bracex==3.0.1
+certifi==2026.7.22
+cffi==2.1.1
+charset-normalizer==3.5.2
+click==8.5.0
+cloudpickle==3.1.2
+copilotkit==0.1.96
+croniter==6.2.4
+cryptography==50.0.2
+deepagents==0.7.22
+distro==1.9.0
+docstring-parser==0.18.0
+fastapi==0.141.1
+filetype==1.2.0
+forbiddenfruit==0.1.4
+google-auth==2.60.0
+google-genai==2.28.0
+googleapis-common-protos==1.75.5
+grpcio==1.81.1
+grpcio-health-checking==1.81.1
+grpcio-tools==1.81.1
+h11==0.16.0
+httpcore==1.0.9
+httpcore2==2.13.1
+httptools==0.8.0
+httpx==0.28.1
+httpx2==2.13.1
+idna==3.20
+jiter==0.17.0
+jsonpatch==1.33
+jsonpointer==3.1.1
+jsonschema-rs==0.44.1
+langchain==1.4.3
+langchain-anthropic==1.7.5
+langchain-core==1.6.6
+langchain-google-genai==4.4.0
+langchain-openai==1.6.7
+langchain-protocol==0.0.19
+langgraph==1.2.13
+langgraph-api==0.15.1
+langgraph-checkpoint==4.2.0
+langgraph-cli==0.4.32
+langgraph-prebuilt==1.1.0
+langgraph-runtime-inmem==0.35.1
+langgraph-sdk==0.4.5
+langsmith==0.14.4
+openai==3.24.0
+opentelemetry-api==1.42.1
+opentelemetry-exporter-otlp-proto-common==1.42.1
+opentelemetry-exporter-otlp-proto-http==1.42.1
+opentelemetry-exporter-prometheus==0.63b1
+opentelemetry-proto==1.42.1
+opentelemetry-sdk==1.42.1
+opentelemetry-semantic-conventions==0.63b1
+orjson==3.12.0
+ormsgpack==1.12.2
+packaging==26.3
+partialjson==1.2.0
+pathspec==1.1.1
+prometheus-client==0.26.0
+protobuf==6.33.6
+pyasn1==0.6.4
+pyasn1-modules==0.4.2
+pycparser==3.0
+pydantic==2.13.5
+pydantic-core==2.46.5
+pyjwt==2.15.1
+pypdf==6.19.0
+python-dateutil==2.9.0.post0
+python-dotenv==1.2.4
+pyyaml==6.0.3
+regex==2026.9.29
+requests==2.34.2
+requests-toolbelt==1.0.0
+setuptools==84.0.0
+six==1.17.0
+sniffio==1.3.1
+sse-starlette==3.5.0
+starlette==1.7.0
+structlog==25.5.0
+tenacity==9.1.4
+tiktoken==0.14.0
+toml==0.10.2
+truststore==0.10.4
+typing-extensions==4.16.0
+typing-inspection==0.4.4
+urllib3==2.8.0
+uuid-utils==0.17.1
+uvicorn==0.54.0
+uvloop==0.23.0
+watchfiles==1.3.0
+wcmatch==11.0.1
+websockets==16.1.1
+xxhash==4.0.1
+zstandard==0.25.0

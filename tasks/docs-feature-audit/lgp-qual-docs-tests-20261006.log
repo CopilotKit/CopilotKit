@@ -1,0 +1,19 @@
+# under lockf -t 3600 /private/tmp/claude-501/shell-docs-gen.lock; HEAD 65e91cc7e4; Tue Oct  6 22:39:47 UTC 2026
+$ npx vitest run src/lib/__tests__/current-v2-authored-guides.test.ts src/lib/__tests__/llm-text.test.ts --maxWorkers=1 --execArgv=--max-old-space-size=4096
+
+ RUN  v4.1.7 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs
+
+
+ Test Files  2 passed (2)
+      Tests  72 passed (72)
+   Start at  15:39:47
+   Duration  20.04s (transform 5.51s, setup 0ms, import 19.32s, tests 569ms, environment 0ms)
+
+exit=0
+# informational, same flags: langgraph-configurable-channels.test.ts
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  15:40:08
+   Duration  10.76s (transform 4.21s, setup 0ms, import 10.68s, tests 14ms, environment 0ms)
+

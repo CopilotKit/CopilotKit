@@ -1,0 +1,22 @@
+# RED: the 2026-09-23 reproduce-lgp-byoc-setup.sh + extract-lgp-quickstart-python.py, unchanged, against the current guide (blob ac83d23a40), HEAD 65e91cc7e4, 2026-10-06T22:35:17Z
+$ python3 extract-lgp-quickstart-python.py quickstart.mdx  (block list)
+1 blocks
+  both None uv init my-agent
+$ UV_EXCLUDE_NEWER=2026-10-05T21:00:00Z bash reproduce-lgp-byoc-setup.sh
+=============== LangSmith tab (2026-10-06T22:35:17Z)
+--- Initialize your agent project
+$ uv init my-agent
+$ cd my-agent
+Initialized project `my-agent` at `/private/tmp/lgp-byoc-setup.XuGY6h/LangSmith/my-agent`
+--- Install LangGraph
+no LangSmith block matching starts=uv add langgraph 
+RESULT LangSmith: FAIL (exit 1)
+=============== FastAPI tab (2026-10-06T22:35:18Z)
+--- Initialize your agent project
+$ uv init my-agent
+$ cd my-agent
+Initialized project `my-agent` at `/private/tmp/lgp-byoc-setup.XuGY6h/FastAPI/my-agent`
+--- Install LangGraph
+no FastAPI block matching starts=uv add langgraph 
+RESULT FastAPI: FAIL (exit 1)
+exit=1

@@ -1,0 +1,837 @@
+{
+ "integration": "langgraph-python",
+ "date": "2026-10-06",
+ "runs": {
+  "full": {
+   "label": "first run at a11a368c5c",
+   "batches": {
+    "A1": {
+     "head": "a11a368c5c",
+     "passed": 11,
+     "failed": 0,
+     "total": 11,
+     "driverMs": 40876,
+     "featureRetries": 0,
+     "aimockRequests": 17,
+     "aimockStatus": {
+      "200": 17
+     },
+     "features": [
+      {
+       "featureType": "beautiful-chat-search-flights",
+       "pass": true,
+       "durationMs": 15830
+      },
+      {
+       "featureType": "beautiful-chat-bar-chart",
+       "pass": true,
+       "durationMs": 16851
+      },
+      {
+       "featureType": "beautiful-chat-pie-chart",
+       "pass": true,
+       "durationMs": 17913
+      },
+      {
+       "featureType": "beautiful-chat-toggle-theme",
+       "pass": true,
+       "durationMs": 18123
+      },
+      {
+       "featureType": "beautiful-chat-schedule-meeting",
+       "pass": true,
+       "durationMs": 7129
+      },
+      {
+       "featureType": "prebuilt-sidebar",
+       "pass": true,
+       "durationMs": 7326
+      },
+      {
+       "featureType": "prebuilt-popup",
+       "pass": true,
+       "durationMs": 8550
+      },
+      {
+       "featureType": "chat-slots",
+       "pass": true,
+       "durationMs": 6502
+      },
+      {
+       "featureType": "chat-css",
+       "pass": true,
+       "durationMs": 6483
+      },
+      {
+       "featureType": "agentic-chat",
+       "pass": true,
+       "durationMs": 15593
+      },
+      {
+       "featureType": "headless-simple",
+       "pass": true,
+       "durationMs": 13959
+      }
+     ]
+    },
+    "A2": {
+     "head": "a11a368c5c",
+     "passed": 11,
+     "failed": 0,
+     "total": 11,
+     "driverMs": 46234,
+     "featureRetries": 0,
+     "aimockRequests": 39,
+     "aimockStatus": {
+      "200": 39
+     },
+     "features": [
+      {
+       "featureType": "reasoning-default",
+       "pass": true,
+       "durationMs": 12804
+      },
+      {
+       "featureType": "reasoning-custom",
+       "pass": true,
+       "durationMs": 18048
+      },
+      {
+       "featureType": "frontend-tools-async",
+       "pass": true,
+       "durationMs": 10298
+      },
+      {
+       "featureType": "gen-ui-custom",
+       "pass": true,
+       "durationMs": 7557
+      },
+      {
+       "featureType": "frontend-tools",
+       "pass": true,
+       "durationMs": 30632
+      },
+      {
+       "featureType": "hitl-text-input",
+       "pass": true,
+       "durationMs": 8774
+      },
+      {
+       "featureType": "gen-ui-headless-complete",
+       "pass": true,
+       "durationMs": 34253
+      },
+      {
+       "featureType": "hitl-approve-deny",
+       "pass": true,
+       "durationMs": 8753
+      },
+      {
+       "featureType": "gen-ui-a2ui-fixed",
+       "pass": true,
+       "durationMs": 7494
+      },
+      {
+       "featureType": "a2ui-recovery",
+       "pass": true,
+       "durationMs": 9756
+      },
+      {
+       "featureType": "gen-ui-declarative",
+       "pass": true,
+       "durationMs": 15166
+      }
+     ]
+    },
+    "B1": {
+     "head": "a11a368c5c",
+     "passed": 6,
+     "failed": 0,
+     "total": 6,
+     "driverMs": 37302,
+     "featureRetries": 0,
+     "aimockRequests": 43,
+     "aimockStatus": {
+      "200": 43
+     },
+     "features": [
+      {
+       "featureType": "mcp-apps",
+       "pass": true,
+       "durationMs": 7740
+      },
+      {
+       "featureType": "tool-rendering-default-catchall",
+       "pass": true,
+       "durationMs": 11425
+      },
+      {
+       "featureType": "tool-rendering",
+       "pass": true,
+       "durationMs": 7569
+      },
+      {
+       "featureType": "tool-rendering-custom-catchall",
+       "pass": true,
+       "durationMs": 16875
+      },
+      {
+       "featureType": "gen-ui-agent",
+       "pass": true,
+       "durationMs": 18892
+      },
+      {
+       "featureType": "tool-rendering-reasoning-chain",
+       "pass": true,
+       "durationMs": 25536
+      }
+     ]
+    },
+    "B2": {
+     "head": "a11a368c5c",
+     "passed": 6,
+     "failed": 0,
+     "total": 6,
+     "driverMs": 44146,
+     "featureRetries": 0,
+     "aimockRequests": 21,
+     "aimockStatus": {
+      "200": 21
+     },
+     "features": [
+      {
+       "featureType": "readonly-state-context",
+       "pass": true,
+       "durationMs": 8891
+      },
+      {
+       "featureType": "shared-state-write",
+       "pass": true,
+       "durationMs": 13621
+      },
+      {
+       "featureType": "shared-state-read",
+       "pass": true,
+       "durationMs": 37593
+      },
+      {
+       "featureType": "subagents",
+       "pass": true,
+       "durationMs": 29221
+      },
+      {
+       "featureType": "shared-state-streaming",
+       "pass": true,
+       "durationMs": 38726
+      },
+      {
+       "featureType": "multimodal",
+       "pass": true,
+       "durationMs": 30279
+      }
+     ]
+    },
+    "B3": {
+     "head": "a11a368c5c",
+     "passed": 6,
+     "failed": 0,
+     "total": 6,
+     "driverMs": 61941,
+     "featureRetries": 0,
+     "aimockRequests": 13,
+     "aimockStatus": {
+      "200": 13
+     },
+     "features": [
+      {
+       "featureType": "byoc",
+       "pass": true,
+       "durationMs": 28649
+      },
+      {
+       "featureType": "gen-ui-open",
+       "pass": true,
+       "durationMs": 30082
+      },
+      {
+       "featureType": "gen-ui-open-advanced",
+       "pass": true,
+       "durationMs": 31025
+      },
+      {
+       "featureType": "voice",
+       "pass": true,
+       "durationMs": 4225
+      },
+      {
+       "featureType": "auth",
+       "pass": true,
+       "durationMs": 54884
+      },
+      {
+       "featureType": "agent-config",
+       "pass": true,
+       "durationMs": 31606
+      }
+     ]
+    }
+   },
+   "passed": 40,
+   "total": 40
+  },
+  "postfix1": {
+   "label": "intermediate run at 1b47fc3db4 (generate_a2ui stub removed)",
+   "batches": {
+    "A1": {
+     "head": "1b47fc3db4",
+     "passed": 11,
+     "failed": 0,
+     "total": 11,
+     "driverMs": 40711,
+     "featureRetries": 0,
+     "aimockRequests": 17,
+     "aimockStatus": {
+      "200": 17
+     },
+     "features": [
+      {
+       "featureType": "beautiful-chat-search-flights",
+       "pass": true,
+       "durationMs": 11583
+      },
+      {
+       "featureType": "beautiful-chat-bar-chart",
+       "pass": true,
+       "durationMs": 16843
+      },
+      {
+       "featureType": "beautiful-chat-pie-chart",
+       "pass": true,
+       "durationMs": 17686
+      },
+      {
+       "featureType": "beautiful-chat-toggle-theme",
+       "pass": true,
+       "durationMs": 17984
+      },
+      {
+       "featureType": "beautiful-chat-schedule-meeting",
+       "pass": true,
+       "durationMs": 7180
+      },
+      {
+       "featureType": "prebuilt-sidebar",
+       "pass": true,
+       "durationMs": 7481
+      },
+      {
+       "featureType": "prebuilt-popup",
+       "pass": true,
+       "durationMs": 8460
+      },
+      {
+       "featureType": "chat-slots",
+       "pass": true,
+       "durationMs": 9284
+      },
+      {
+       "featureType": "chat-css",
+       "pass": true,
+       "durationMs": 6439
+      },
+      {
+       "featureType": "agentic-chat",
+       "pass": true,
+       "durationMs": 15425
+      },
+      {
+       "featureType": "headless-simple",
+       "pass": true,
+       "durationMs": 14012
+      }
+     ]
+    },
+    "A2": {
+     "head": "1b47fc3db4",
+     "passed": 11,
+     "failed": 0,
+     "total": 11,
+     "driverMs": 46893,
+     "featureRetries": 0,
+     "aimockRequests": 47,
+     "aimockStatus": {
+      "200": 47
+     },
+     "features": [
+      {
+       "featureType": "reasoning-default",
+       "pass": true,
+       "durationMs": 10730
+      },
+      {
+       "featureType": "reasoning-custom",
+       "pass": true,
+       "durationMs": 15259
+      },
+      {
+       "featureType": "frontend-tools-async",
+       "pass": true,
+       "durationMs": 9738
+      },
+      {
+       "featureType": "gen-ui-custom",
+       "pass": true,
+       "durationMs": 7380
+      },
+      {
+       "featureType": "frontend-tools",
+       "pass": true,
+       "durationMs": 29190
+      },
+      {
+       "featureType": "gen-ui-headless-complete",
+       "pass": true,
+       "durationMs": 29271
+      },
+      {
+       "featureType": "hitl-text-input",
+       "pass": true,
+       "durationMs": 8842
+      },
+      {
+       "featureType": "hitl-approve-deny",
+       "pass": true,
+       "durationMs": 9160
+      },
+      {
+       "featureType": "gen-ui-a2ui-fixed",
+       "pass": true,
+       "durationMs": 7956
+      },
+      {
+       "featureType": "a2ui-recovery",
+       "pass": true,
+       "durationMs": 12949
+      },
+      {
+       "featureType": "gen-ui-declarative",
+       "pass": true,
+       "durationMs": 17481
+      }
+     ]
+    },
+    "B1": {
+     "head": "1b47fc3db4",
+     "passed": 6,
+     "failed": 0,
+     "total": 6,
+     "driverMs": 36465,
+     "featureRetries": 0,
+     "aimockRequests": 43,
+     "aimockStatus": {
+      "200": 43
+     },
+     "features": [
+      {
+       "featureType": "tool-rendering-default-catchall",
+       "pass": true,
+       "durationMs": 7971
+      },
+      {
+       "featureType": "mcp-apps",
+       "pass": true,
+       "durationMs": 8000
+      },
+      {
+       "featureType": "tool-rendering",
+       "pass": true,
+       "durationMs": 13270
+      },
+      {
+       "featureType": "tool-rendering-custom-catchall",
+       "pass": true,
+       "durationMs": 22727
+      },
+      {
+       "featureType": "gen-ui-agent",
+       "pass": true,
+       "durationMs": 24733
+      },
+      {
+       "featureType": "tool-rendering-reasoning-chain",
+       "pass": true,
+       "durationMs": 28162
+      }
+     ]
+    },
+    "B2": {
+     "head": "1b47fc3db4",
+     "passed": 6,
+     "failed": 0,
+     "total": 6,
+     "driverMs": 45693,
+     "featureRetries": 0,
+     "aimockRequests": 21,
+     "aimockStatus": {
+      "200": 21
+     },
+     "features": [
+      {
+       "featureType": "readonly-state-context",
+       "pass": true,
+       "durationMs": 10596
+      },
+      {
+       "featureType": "shared-state-write",
+       "pass": true,
+       "durationMs": 14207
+      },
+      {
+       "featureType": "shared-state-read",
+       "pass": true,
+       "durationMs": 17677
+      },
+      {
+       "featureType": "shared-state-streaming",
+       "pass": true,
+       "durationMs": 40399
+      },
+      {
+       "featureType": "subagents",
+       "pass": true,
+       "durationMs": 31667
+      },
+      {
+       "featureType": "multimodal",
+       "pass": true,
+       "durationMs": 31275
+      }
+     ]
+    },
+    "B3": {
+     "head": "1b47fc3db4",
+     "passed": 6,
+     "failed": 0,
+     "total": 6,
+     "driverMs": 61707,
+     "featureRetries": 0,
+     "aimockRequests": 13,
+     "aimockStatus": {
+      "200": 13
+     },
+     "features": [
+      {
+       "featureType": "byoc",
+       "pass": true,
+       "durationMs": 28544
+      },
+      {
+       "featureType": "gen-ui-open-advanced",
+       "pass": true,
+       "durationMs": 29571
+      },
+      {
+       "featureType": "gen-ui-open",
+       "pass": true,
+       "durationMs": 30799
+      },
+      {
+       "featureType": "voice",
+       "pass": true,
+       "durationMs": 4135
+      },
+      {
+       "featureType": "auth",
+       "pass": true,
+       "durationMs": 54722
+      },
+      {
+       "featureType": "agent-config",
+       "pass": true,
+       "durationMs": 31929
+      }
+     ]
+    }
+   },
+   "passed": 40,
+   "total": 40
+  },
+  "final": {
+   "label": "final run at 65e91cc7e4",
+   "batches": {
+    "A1": {
+     "head": "65e91cc7e4",
+     "passed": 11,
+     "failed": 0,
+     "total": 11,
+     "driverMs": 40079,
+     "featureRetries": 0,
+     "aimockRequests": 17,
+     "aimockStatus": {
+      "200": 17
+     },
+     "features": [
+      {
+       "featureType": "beautiful-chat-search-flights",
+       "pass": true,
+       "durationMs": 15900
+      },
+      {
+       "featureType": "beautiful-chat-pie-chart",
+       "pass": true,
+       "durationMs": 16827
+      },
+      {
+       "featureType": "beautiful-chat-bar-chart",
+       "pass": true,
+       "durationMs": 17895
+      },
+      {
+       "featureType": "beautiful-chat-toggle-theme",
+       "pass": true,
+       "durationMs": 18104
+      },
+      {
+       "featureType": "beautiful-chat-schedule-meeting",
+       "pass": true,
+       "durationMs": 6763
+      },
+      {
+       "featureType": "prebuilt-sidebar",
+       "pass": true,
+       "durationMs": 6968
+      },
+      {
+       "featureType": "prebuilt-popup",
+       "pass": true,
+       "durationMs": 8169
+      },
+      {
+       "featureType": "chat-slots",
+       "pass": true,
+       "durationMs": 6389
+      },
+      {
+       "featureType": "chat-css",
+       "pass": true,
+       "durationMs": 6622
+      },
+      {
+       "featureType": "agentic-chat",
+       "pass": true,
+       "durationMs": 15289
+      },
+      {
+       "featureType": "headless-simple",
+       "pass": true,
+       "durationMs": 13588
+      }
+     ]
+    },
+    "A2": {
+     "head": "65e91cc7e4",
+     "passed": 11,
+     "failed": 0,
+     "total": 11,
+     "driverMs": 48150,
+     "featureRetries": 0,
+     "aimockRequests": 47,
+     "aimockStatus": {
+      "200": 47
+     },
+     "features": [
+      {
+       "featureType": "reasoning-default",
+       "pass": true,
+       "durationMs": 11195
+      },
+      {
+       "featureType": "reasoning-custom",
+       "pass": true,
+       "durationMs": 16587
+      },
+      {
+       "featureType": "frontend-tools-async",
+       "pass": true,
+       "durationMs": 10809
+      },
+      {
+       "featureType": "gen-ui-custom",
+       "pass": true,
+       "durationMs": 8136
+      },
+      {
+       "featureType": "frontend-tools",
+       "pass": true,
+       "durationMs": 28740
+      },
+      {
+       "featureType": "hitl-text-input",
+       "pass": true,
+       "durationMs": 9045
+      },
+      {
+       "featureType": "gen-ui-headless-complete",
+       "pass": true,
+       "durationMs": 31101
+      },
+      {
+       "featureType": "hitl-approve-deny",
+       "pass": true,
+       "durationMs": 8831
+      },
+      {
+       "featureType": "gen-ui-a2ui-fixed",
+       "pass": true,
+       "durationMs": 7483
+      },
+      {
+       "featureType": "a2ui-recovery",
+       "pass": true,
+       "durationMs": 12300
+      },
+      {
+       "featureType": "gen-ui-declarative",
+       "pass": true,
+       "durationMs": 19169
+      }
+     ]
+    },
+    "B1": {
+     "head": "65e91cc7e4",
+     "passed": 6,
+     "failed": 0,
+     "total": 6,
+     "driverMs": 37050,
+     "featureRetries": 0,
+     "aimockRequests": 43,
+     "aimockStatus": {
+      "200": 43
+     },
+     "features": [
+      {
+       "featureType": "mcp-apps",
+       "pass": true,
+       "durationMs": 7492
+      },
+      {
+       "featureType": "tool-rendering-default-catchall",
+       "pass": true,
+       "durationMs": 11222
+      },
+      {
+       "featureType": "tool-rendering",
+       "pass": true,
+       "durationMs": 7634
+      },
+      {
+       "featureType": "tool-rendering-custom-catchall",
+       "pass": true,
+       "durationMs": 16665
+      },
+      {
+       "featureType": "gen-ui-agent",
+       "pass": true,
+       "durationMs": 18694
+      },
+      {
+       "featureType": "tool-rendering-reasoning-chain",
+       "pass": true,
+       "durationMs": 25597
+      }
+     ]
+    },
+    "B2": {
+     "head": "65e91cc7e4",
+     "passed": 6,
+     "failed": 0,
+     "total": 6,
+     "driverMs": 44486,
+     "featureRetries": 0,
+     "aimockRequests": 21,
+     "aimockStatus": {
+      "200": 21
+     },
+     "features": [
+      {
+       "featureType": "readonly-state-context",
+       "pass": true,
+       "durationMs": 9348
+      },
+      {
+       "featureType": "shared-state-write",
+       "pass": true,
+       "durationMs": 12824
+      },
+      {
+       "featureType": "shared-state-read",
+       "pass": true,
+       "durationMs": 16359
+      },
+      {
+       "featureType": "subagents",
+       "pass": true,
+       "durationMs": 31539
+      },
+      {
+       "featureType": "shared-state-streaming",
+       "pass": true,
+       "durationMs": 42534
+      },
+      {
+       "featureType": "multimodal",
+       "pass": true,
+       "durationMs": 31468
+      }
+     ]
+    },
+    "B3": {
+     "head": "65e91cc7e4",
+     "passed": 6,
+     "failed": 0,
+     "total": 6,
+     "driverMs": 61565,
+     "featureRetries": 0,
+     "aimockRequests": 13,
+     "aimockStatus": {
+      "200": 13
+     },
+     "features": [
+      {
+       "featureType": "byoc",
+       "pass": true,
+       "durationMs": 28440
+      },
+      {
+       "featureType": "gen-ui-open",
+       "pass": true,
+       "durationMs": 29775
+      },
+      {
+       "featureType": "gen-ui-open-advanced",
+       "pass": true,
+       "durationMs": 30701
+      },
+      {
+       "featureType": "voice",
+       "pass": true,
+       "durationMs": 4169
+      },
+      {
+       "featureType": "auth",
+       "pass": true,
+       "durationMs": 54650
+      },
+      {
+       "featureType": "agent-config",
+       "pass": true,
+       "durationMs": 31599
+      }
+     ]
+    }
+   },
+   "passed": 40,
+   "total": 40
+  }
+ }
+}

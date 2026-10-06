@@ -1,0 +1,44 @@
+# LGP Python static checks, venv /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv (Python 3.12.6), 2026-10-06T21:45:59Z, HEAD a7ddeedac6 + uncommitted dependency files
+$ python -m compileall -q -f src/agents tools _shared   (bytecode to a scratch prefix)
+exit=0
+$ PYTHONPATH=. OPENAI_API_KEY=sk-mock python lgp-import-graphs.py   (loads each langgraph.json graph like langgraph-api)
+2026-10-06 14:46:00,092 INFO agents._cvdiag_bootstrap CVDIAG bootstrap component=_shared tier=default pb_enabled=false
+OK   sample_agent                     CompiledStateGraph nodes=7 5.79s
+OK   tool_rendering                   CompiledStateGraph nodes=7 0.01s
+OK   tool_rendering_reasoning_chain   CompiledStateGraph nodes=5 1.39s
+OK   a2ui_dynamic                     CompiledStateGraph nodes=7 0.00s
+OK   a2ui_fixed                       CompiledStateGraph nodes=7 0.00s
+OK   a2ui_recovery                    CompiledStateGraph nodes=7 0.01s
+OK   reasoning_agent                  CompiledStateGraph nodes=5 0.01s
+OK   interrupt_agent                  CompiledStateGraph nodes=7 0.00s
+OK   open_gen_ui                      CompiledStateGraph nodes=7 0.00s
+OK   open_gen_ui_advanced             CompiledStateGraph nodes=7 0.00s
+OK   mcp_apps                         CompiledStateGraph nodes=7 0.00s
+OK   hitl_in_chat                     CompiledStateGraph nodes=7 0.00s
+OK   hitl_in_app                      CompiledStateGraph nodes=7 0.00s
+OK   shared_state_read                CompiledStateGraph nodes=7 0.00s
+OK   shared_state_read_write          CompiledStateGraph nodes=7 0.01s
+OK   readonly_state_agent_context     CompiledStateGraph nodes=7 0.00s
+OK   shared_state_streaming           CompiledStateGraph nodes=7 0.01s
+OK   subagents                        CompiledStateGraph nodes=7 0.01s
+OK   headless_complete                CompiledStateGraph nodes=7 0.00s
+OK   agentic_chat                     CompiledStateGraph nodes=7 0.00s
+OK   frontend_tools                   CompiledStateGraph nodes=7 0.00s
+OK   frontend_tools_async             CompiledStateGraph nodes=7 0.00s
+OK   gen_ui_agent                     CompiledStateGraph nodes=7 0.00s
+OK   gen_ui_tool_based                CompiledStateGraph nodes=7 0.00s
+OK   beautiful_chat                   CompiledStateGraph nodes=7 0.01s
+OK   multimodal                       CompiledStateGraph nodes=7 0.59s
+OK   agent_config_agent               CompiledStateGraph nodes=7 0.00s
+OK   byoc_hashbrown                   CompiledStateGraph nodes=7 0.00s
+OK   byoc_json_render                 CompiledStateGraph nodes=7 0.00s
+graphs: 29 ok, 0 failed, 29 total
+exit=0
+$ uv pip check
+Using Python 3.12.6 environment at: /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv
+Checked 103 packages in 7ms
+All installed packages are compatible
+$ informational: pytest tests/ src/agents/test_a2ui_internal_tools.py
+# pytest/pytest-asyncio installed to a separate --target dir (/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/pytest-target, same bound), not into the venv
+..........                                                               [100%]
+10 passed in 0.71s

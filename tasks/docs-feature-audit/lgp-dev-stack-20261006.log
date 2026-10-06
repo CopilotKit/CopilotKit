@@ -1,0 +1,343 @@
+# LGP stack via the integration's documented default dev command (package.json scripts.dev = concurrently "next dev --turbopack" "python -u -m langgraph_cli dev --config langgraph.json --host 0.0.0.0 --port 8123 --no-browser"), venv python (/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv, Python 3.12.6) first on PATH, same environment as lgp-dev-stack-20260923.log. .next and .langgraph_api removed first.
+$ cd showcase/integrations/langgraph-python && PORT=3100 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true DO_NOT_TRACK=1 LANGSMITH_TRACING=false LANGGRAPH_CLI_NO_ANALYTICS=1 OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://127.0.0.1:4410/v1 AIMOCK_URL=http://127.0.0.1:4410 LANGGRAPH_DEPLOYMENT_URL=http://localhost:8123 nice -n 10 npm run dev
+# node v22.16.0, npm 10.9.2, HEAD a11a368c5c, started Tue Oct  6 21:52:41 UTC 2026
+
+> @copilotkit/showcase-langgraph-python@0.1.0 dev
+> concurrently "next dev --turbopack" "python -u -m langgraph_cli dev --config langgraph.json --host 0.0.0.0 --port 8123 --no-browser"
+
+[0]  ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+[0]  We detected multiple lockfiles and selected the directory of /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/pnpm-lock.yaml as the root directory.
+[0]  To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+[0]    See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+[0]  Detected additional lockfiles: 
+[0]    * /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-python/package-lock.json
+[0] 
+[0]    ▲ Next.js 15.5.27 (Turbopack)
+[0]    - Local:        http://localhost:3100
+[0]    - Network:      http://192.168.4.34:3100
+[0] 
+[0]  ✓ Starting...
+[0]  ✓ Compiled middleware in 74ms
+[0]  ✓ Ready in 900ms
+[1] INFO:langgraph_api.cli:
+[1] 
+[1]         Welcome to
+[1] 
+[1] ╦  ┌─┐┌┐┌┌─┐╔═╗┬─┐┌─┐┌─┐┬ ┬
+[1] ║  ├─┤││││ ┬║ ╦├┬┘├─┤├─┘├─┤
+[1] ╩═╝┴ ┴┘└┘└─┘╚═╝┴└─┴ ┴┴  ┴ ┴
+[1] 
+[1] - 🚀 API: [36mhttp://0.0.0.0:8123[0m
+[1] - 🎨 Studio UI: [36mhttps://smith.langchain.com/studio/?baseUrl=http://0.0.0.0:8123[0m
+[1] - 📚 API Docs: [36mhttp://0.0.0.0:8123/docs[0m
+[1] 
+[1] This in-memory server is designed for development and testing.
+[1] For production use, please use LangSmith Deployment.
+[1] 
+[1] 
+[0]  ○ Compiling /api/health ...
+[0]  ✓ Compiled /api/health in 528ms
+[1] [2m2026-10-06T21:52:44.240009Z[0m [[32m[1minfo     [0m] [1m115 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/health 200 in 802ms
+[1] [2m2026-10-06T21:52:45.807783Z[0m [[32m[1minfo     [0m] [1mStarting dev persistence flush loop[0m [[0m[1m[34mlanggraph_runtime_inmem._persistence[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:52:45.866698Z[0m [[32m[1minfo     [0m] [1mUsing langgraph_runtime_inmem [0m [[0m[1m[34mlanggraph_runtime[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:52:45.909648Z[0m [[32m[1minfo     [0m] [1m1 change detected             [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:52:45.989931Z[0m [[32m[1minfo     [0m] [1mUsing auth of type=noop       [0m [[0m[1m[34mlanggraph_api.auth.middleware[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:52:45.994036Z[0m [[32m[1minfo     [0m] [1mStarting In-Memory runtime with langgraph-api=0.15.1 and in-memory runtime=0.35.1[0m [[0m[1m[34mlanggraph_runtime_inmem.lifespan[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_runtime_inmem_version[0m=[35m0.35.1[0m [36mthread_name[0m=[35muvloop_0[0m [36mversion[0m=[35m0.15.1[0m
+[1] [2m2026-10-06T21:52:46.048015Z[0m [[32m[1minfo     [0m] [1mOTel metrics reporter initialized[0m [[0m[1m[34mlanggraph_api.metrics_otlp[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mbackends[0m=[35m['prometheus'][0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmax_emitting_tier[0m=[35m2[0m [36mmetric_prefix[0m=[35mlg_api_[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:52:46.053705Z[0m [[32m[1minfo     [0m] [1mCaching importlib.metadata.packages_distributions()[0m [[0m[1m[34mlanggraph_api.graph[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:52:46.053924Z[0m [[32m[1minfo     [0m] [1mNo license key or control plane API key set, skipping metadata loop[0m [[0m[1m[34mlanggraph_api.metadata[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:52:46.054073Z[0m [[32m[1minfo     [0m] [1mStarting OTLP metrics collector loop[0m [[0m[1m[34mlanggraph_api.metrics_collector[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36minterval_secs[0m=[35m60[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:46.054266Z[0m [[32m[1minfo     [0m] [1mWorker stats                  [0m [[0m[1m[34mlanggraph_api.metrics_collector[0m][0m [36mactive[0m=[35m0[0m [36mapi_variant[0m=[35mlocal_dev[0m [36mavailable[0m=[35m1[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmax[0m=[35m1[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] 2026-10-06 14:52:46,065 INFO agents._cvdiag_bootstrap CVDIAG bootstrap component=_shared tier=default pb_enabled=false
+[1] [2m2026-10-06T21:52:46.065234Z[0m [[32m[1minfo     [0m] [1mCVDIAG bootstrap component=_shared tier=default pb_enabled=false[0m [[0m[1m[34magents._cvdiag_bootstrap[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36masctime[0m=[35m'2026-10-06 14:52:46,065'[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmessage[0m=[35m'CVDIAG bootstrap component=_shared tier=default pb_enabled=false'[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T21:52:46.811796Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.7578679170001124[0m [36mgraph_id[0m=[35msample_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/main.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T21:52:46.817736Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0056655000007594936[0m [36mgraph_id[0m=[35mtool_rendering[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/tool_rendering_agent.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:46.919256Z[0m [[32m[1minfo     [0m] [1m6 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:52:48.028124Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m1.2101784580008825[0m [36mgraph_id[0m=[35mtool_rendering_reasoning_chain[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/tool_rendering_reasoning_chain_agent.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T21:52:48.030962Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.00258399999984249[0m [36mgraph_id[0m=[35ma2ui_dynamic[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/a2ui_dynamic.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:48.035013Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0038924590007809456[0m [36mgraph_id[0m=[35ma2ui_fixed[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/a2ui_fixed.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T21:52:48.041244Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.006057584001609939[0m [36mgraph_id[0m=[35ma2ui_recovery[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/recovery_agent.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:48.047556Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.006148583999674884[0m [36mgraph_id[0m=[35mreasoning_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/reasoning_agent.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T21:52:48.050490Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0027709999994840473[0m [36mgraph_id[0m=[35minterrupt_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/interrupt_agent.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:48.052455Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0018063339994114358[0m [36mgraph_id[0m=[35mopen_gen_ui[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/open_gen_ui_agent.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T21:52:48.054499Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0019085000003542518[0m [36mgraph_id[0m=[35mopen_gen_ui_advanced[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/open_gen_ui_advanced_agent.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:48.056893Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.002251125000839238[0m [36mgraph_id[0m=[35mmcp_apps[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/mcp_apps_agent.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T21:52:48.058804Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0017656670006545028[0m [36mgraph_id[0m=[35mhitl_in_chat[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/hitl_in_chat_agent.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:48.060623Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.001688333000856801[0m [36mgraph_id[0m=[35mhitl_in_app[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/hitl_in_app.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T21:52:48.063012Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.002255291999972542[0m [36mgraph_id[0m=[35mshared_state_read[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/shared_state_read.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:48.068657Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0055136660012067296[0m [36mgraph_id[0m=[35mshared_state_read_write[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/shared_state_read_write.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T21:52:48.070476Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0016844589990796521[0m [36mgraph_id[0m=[35mreadonly_state_agent_context[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/readonly_state_agent_context.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:48.075238Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.004638333999537281[0m [36mgraph_id[0m=[35mshared_state_streaming[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/shared_state_streaming.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T21:52:48.087023Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.01165262500035169[0m [36mgraph_id[0m=[35msubagents[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/subagents.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:48.090624Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.003435791999436333[0m [36mgraph_id[0m=[35mheadless_complete[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/headless_complete.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T21:52:48.092487Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0017242920002900064[0m [36mgraph_id[0m=[35magentic_chat[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/agentic_chat.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:48.094350Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0017400420001649763[0m [36mgraph_id[0m=[35mfrontend_tools[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/frontend_tools.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T21:52:48.096152Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.001645667000047979[0m [36mgraph_id[0m=[35mfrontend_tools_async[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/frontend_tools_async.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:48.099677Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0034014579996437533[0m [36mgraph_id[0m=[35mgen_ui_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/gen_ui_agent.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T21:52:48.101513Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0017188749989145435[0m [36mgraph_id[0m=[35mgen_ui_tool_based[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/gen_ui_tool_based.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:48.111548Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.00990283300052397[0m [36mgraph_id[0m=[35mbeautiful_chat[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/beautiful_chat.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T21:52:48.196257Z[0m [[32m[1minfo     [0m] [1m15 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:52:48.326621Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.21490558300138218[0m [36mgraph_id[0m=[35mmultimodal[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/multimodal_agent.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:48.329072Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0021856249986740295[0m [36mgraph_id[0m=[35magent_config_agent[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/agent_config_agent.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T21:52:48.331462Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.0021995829993102234[0m [36mgraph_id[0m=[35mbyoc_hashbrown[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/byoc_hashbrown_agent.py[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:48.333408Z[0m [[32m[1minfo     [0m] [1mImporting graph profiling     [0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed_seconds[0m=[35m0.001777459001459647[0m [36mgraph_id[0m=[35mbyoc_json_render[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmodule[0m=[35mNone[0m [36mname[0m=[35m_graph_from_spec[0m [36mpath[0m=[35m./src/agents/byoc_json_render_agent.py[0m [36mthread_name[0m=[35muvloop_0[0m
+[1] [2m2026-10-06T21:52:48.357875Z[0m [[32m[1minfo     [0m] [1mApplication started up in 3.874s[0m [[0m[1m[34mlanggraph_api.timing.timer[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36melapsed[0m=[35m3.874111040999196[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:52:48.388493Z[0m [[32m[1minfo     [0m] [1mStarting cron scheduler       [0m [[0m[1m[34mlanggraph_api.cron_scheduler[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:52:48.388714Z[0m [[32m[1minfo     [0m] [1mStarting queue with shared loop[0m [[0m[1m[34mlanggraph_runtime_inmem.queue[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:48.389285Z[0m [[32m[1minfo     [0m] [1mStarting 1 background workers [0m [[0m[1m[34mlanggraph_runtime_inmem.queue[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:48.389418Z[0m [[32m[1minfo     [0m] [1mWorker stats                  [0m [[0m[1m[34mlanggraph_runtime_inmem.queue[0m][0m [36mactive[0m=[35m0[0m [36mapi_variant[0m=[35mlocal_dev[0m [36mavailable[0m=[35m1[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmax[0m=[35m1[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:48.561169Z[0m [[32m[1minfo     [0m] [1m75 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/health 200 in 227ms
+[1] [2m2026-10-06T21:52:48.891289Z[0m [[32m[1minfo     [0m] [1mQueue stats                   [0m [[0m[1m[34mlanggraph_runtime_inmem.queue[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mn_pending[0m=[35m0[0m [36mn_running[0m=[35m0[0m [36mpending_runs_wait_time_max_secs[0m=[35mNone[0m [36mpending_runs_wait_time_med_secs[0m=[35mNone[0m [36mpending_unblocked_runs_wait_time_max_secs[0m=[35mNone[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:52:49.853831Z[0m [[32m[1minfo     [0m] [1m75 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/health 200 in 225ms
+[1] [2m2026-10-06T21:52:50.013112Z[0m [[32m[1minfo     [0m] [1mGetting auth instance: None   [0m [[0m[1m[34mlanggraph_api.auth.custom[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_auth[0m=[35mNone[0m [36mmethod[0m=[35mPOST[0m [36mpath[0m=[35m/assistants/search[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:52:55.902313Z[0m [[32m[1minfo     [0m] [1m3 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:52:57.932431Z[0m [[32m[1minfo     [0m] [1m15 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/a2ui-fixed-schema ...
+[1] [2m2026-10-06T21:53:01.185086Z[0m [[32m[1minfo     [0m] [1m319 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:53:01.665629Z[0m [[32m[1minfo     [0m] [1m410 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:53:02.247508Z[0m [[32m[1minfo     [0m] [1m596 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ✓ Compiled /demos/a2ui-fixed-schema in 5.1s
+[1] [2m2026-10-06T21:53:02.788006Z[0m [[32m[1minfo     [0m] [1m725 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+[0]  GET /demos/a2ui-fixed-schema 200 in 5615ms
+[0]  ○ Compiling /demos/a2ui-recovery ...
+[0]  ✓ Compiled /demos/a2ui-recovery in 1962ms
+[1] [2m2026-10-06T21:53:05.277882Z[0m [[32m[1minfo     [0m] [1m761 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /demos/a2ui-recovery 200 in 2097ms
+[0]  ○ Compiling /demos/agent-config ...
+[1] [2m2026-10-06T21:53:05.914149Z[0m [[32m[1minfo     [0m] [1m3 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ✓ Compiled /demos/agent-config in 1101ms
+[0]  GET /demos/agent-config 200 in 1190ms
+[1] [2m2026-10-06T21:53:06.494525Z[0m [[32m[1minfo     [0m] [1m711 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/agentic-chat ...
+[0]  ✓ Compiled /demos/agentic-chat in 1141ms
+[0]  GET /demos/agentic-chat 200 in 1204ms
+[1] [2m2026-10-06T21:53:07.763140Z[0m [[32m[1minfo     [0m] [1m707 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/auth ...
+[0]  ✓ Compiled /demos/auth in 1094ms
+[0]  GET /demos/auth 200 in 1153ms
+[1] [2m2026-10-06T21:53:08.919484Z[0m [[32m[1minfo     [0m] [1m715 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/beautiful-chat ...
+[0]  ✓ Compiled /demos/beautiful-chat in 1242ms
+[1] [2m2026-10-06T21:53:10.255629Z[0m [[32m[1minfo     [0m] [1m723 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /demos/beautiful-chat 200 in 1393ms
+[0]  ○ Compiling /demos/chat-customization-css ...
+[0]  ✓ Compiled /demos/chat-customization-css in 1106ms
+[0]  GET /demos/chat-customization-css 200 in 1183ms
+[1] [2m2026-10-06T21:53:11.480452Z[0m [[32m[1minfo     [0m] [1m709 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/chat-slots ...
+[0]  ✓ Compiled /demos/chat-slots in 1020ms
+[0]  GET /demos/chat-slots 200 in 1078ms
+[1] [2m2026-10-06T21:53:12.598589Z[0m [[32m[1minfo     [0m] [1m711 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/declarative-gen-ui ...
+[0]  ✓ Compiled /demos/declarative-gen-ui in 1083ms
+[0]  GET /demos/declarative-gen-ui 200 in 1153ms
+[1] [2m2026-10-06T21:53:13.762671Z[0m [[32m[1minfo     [0m] [1m707 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/declarative-hashbrown ...
+[0]  ✓ Compiled /demos/declarative-hashbrown in 1330ms
+[1] [2m2026-10-06T21:53:15.142996Z[0m [[32m[1minfo     [0m] [1m749 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /demos/declarative-hashbrown 200 in 1447ms
+[0]  ○ Compiling /demos/declarative-json-render ...
+[1] [2m2026-10-06T21:53:15.883194Z[0m [[32m[1minfo     [0m] [1m3 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ✓ Compiled /demos/declarative-json-render in 1103ms
+[1] [2m2026-10-06T21:53:16.403976Z[0m [[32m[1minfo     [0m] [1m733 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /demos/declarative-json-render 200 in 1214ms
+[0]  ○ Compiling /demos/frontend-tools ...
+[0]  ✓ Compiled /demos/frontend-tools in 977ms
+[0]  GET /demos/frontend-tools 200 in 1046ms
+[1] [2m2026-10-06T21:53:17.469963Z[0m [[32m[1minfo     [0m] [1m711 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/frontend-tools-async ...
+[0]  ✓ Compiled /demos/frontend-tools-async in 948ms
+[0]  GET /demos/frontend-tools-async 200 in 1007ms
+[1] [2m2026-10-06T21:53:18.533586Z[0m [[32m[1minfo     [0m] [1m711 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/gen-ui-agent ...
+[0]  ✓ Compiled /demos/gen-ui-agent in 1027ms
+[0]  GET /demos/gen-ui-agent 200 in 1076ms
+[1] [2m2026-10-06T21:53:19.645572Z[0m [[32m[1minfo     [0m] [1m711 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/gen-ui-interrupt ...
+[0]  ✓ Compiled /demos/gen-ui-interrupt in 923ms
+[0]  GET /demos/gen-ui-interrupt 200 in 981ms
+[1] [2m2026-10-06T21:53:20.621753Z[0m [[32m[1minfo     [0m] [1m711 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/gen-ui-tool-based ...
+[0]  ✓ Compiled /demos/gen-ui-tool-based in 1212ms
+[0]  GET /demos/gen-ui-tool-based 200 in 1278ms
+[1] [2m2026-10-06T21:53:21.901560Z[0m [[32m[1minfo     [0m] [1m711 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/headless-complete ...
+[0]  ✓ Compiled /demos/headless-complete in 1238ms
+[1] [2m2026-10-06T21:53:23.173414Z[0m [[32m[1minfo     [0m] [1m731 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /demos/headless-complete 200 in 1332ms
+[0]  ○ Compiling /demos/headless-simple ...
+[0]  ✓ Compiled /demos/headless-simple in 1024ms
+[0]  GET /demos/headless-simple 200 in 1112ms
+[1] [2m2026-10-06T21:53:24.341227Z[0m [[32m[1minfo     [0m] [1m715 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/hitl ...
+[0]  ✓ Compiled /demos/hitl in 934ms
+[0]  GET /demos/hitl 200 in 991ms
+[1] [2m2026-10-06T21:53:25.345708Z[0m [[32m[1minfo     [0m] [1m711 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/hitl-in-app ...
+[1] [2m2026-10-06T21:53:25.933016Z[0m [[32m[1minfo     [0m] [1m3 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ✓ Compiled /demos/hitl-in-app in 926ms
+[0]  GET /demos/hitl-in-app 200 in 979ms
+[1] [2m2026-10-06T21:53:26.346522Z[0m [[32m[1minfo     [0m] [1m711 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/hitl-in-chat ...
+[0]  ✓ Compiled /demos/hitl-in-chat in 1048ms
+[0]  GET /demos/hitl-in-chat 200 in 1096ms
+[1] [2m2026-10-06T21:53:27.447269Z[0m [[32m[1minfo     [0m] [1m711 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/interrupt-headless ...
+[0]  ✓ Compiled /demos/interrupt-headless in 957ms
+[0]  GET /demos/interrupt-headless 200 in 1005ms
+[1] [2m2026-10-06T21:53:28.457495Z[0m [[32m[1minfo     [0m] [1m713 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/mcp-apps ...
+[0]  ✓ Compiled /demos/mcp-apps in 960ms
+[0]  GET /demos/mcp-apps 200 in 1005ms
+[1] [2m2026-10-06T21:53:29.519988Z[0m [[32m[1minfo     [0m] [1m707 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/multimodal ...
+[0]  ✓ Compiled /demos/multimodal in 1054ms
+[0]  GET /demos/multimodal 200 in 1104ms
+[1] [2m2026-10-06T21:53:30.587489Z[0m [[32m[1minfo     [0m] [1m711 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/open-gen-ui ...
+[0]  ✓ Compiled /demos/open-gen-ui in 1217ms
+[0]  GET /demos/open-gen-ui 200 in 1284ms
+[1] [2m2026-10-06T21:53:31.872593Z[0m [[32m[1minfo     [0m] [1m707 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/open-gen-ui-advanced ...
+[0]  ✓ Compiled /demos/open-gen-ui-advanced in 1115ms
+[0]  GET /demos/open-gen-ui-advanced 200 in 1176ms
+[1] [2m2026-10-06T21:53:33.092297Z[0m [[32m[1minfo     [0m] [1m707 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/prebuilt-popup ...
+[0]  ✓ Compiled /demos/prebuilt-popup in 1149ms
+[1] [2m2026-10-06T21:53:34.271372Z[0m [[32m[1minfo     [0m] [1m717 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /demos/prebuilt-popup 200 in 1244ms
+[0]  ○ Compiling /demos/prebuilt-sidebar ...
+[0]  ✓ Compiled /demos/prebuilt-sidebar in 1194ms
+[0]  GET /demos/prebuilt-sidebar 200 in 1291ms
+[1] [2m2026-10-06T21:53:35.597912Z[0m [[32m[1minfo     [0m] [1m715 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:53:35.960954Z[0m [[32m[1minfo     [0m] [1m3 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/readonly-state-agent-context ...
+[0]  ✓ Compiled /demos/readonly-state-agent-context in 1364ms
+[0]  GET /demos/readonly-state-agent-context 200 in 1430ms
+[1] [2m2026-10-06T21:53:37.067783Z[0m [[32m[1minfo     [0m] [1m711 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/reasoning-custom ...
+[0]  ✓ Compiled /demos/reasoning-custom in 1291ms
+[0]  GET /demos/reasoning-custom 200 in 1344ms
+[1] [2m2026-10-06T21:53:38.440515Z[0m [[32m[1minfo     [0m] [1m707 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/reasoning-default ...
+[0]  ✓ Compiled /demos/reasoning-default in 1208ms
+[0]  GET /demos/reasoning-default 200 in 1262ms
+[1] [2m2026-10-06T21:53:39.676206Z[0m [[32m[1minfo     [0m] [1m708 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/shared-state-read ...
+[0]  ✓ Compiled /demos/shared-state-read in 1584ms
+[1] [2m2026-10-06T21:53:41.338219Z[0m [[32m[1minfo     [0m] [1m721 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /demos/shared-state-read 200 in 1680ms
+[0]  ○ Compiling /demos/shared-state-read-write ...
+[0]  ✓ Compiled /demos/shared-state-read-write in 1293ms
+[0]  GET /demos/shared-state-read-write 200 in 1363ms
+[1] [2m2026-10-06T21:53:42.766291Z[0m [[32m[1minfo     [0m] [1m711 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/shared-state-streaming ...
+[0]  ✓ Compiled /demos/shared-state-streaming in 1464ms
+[0]  GET /demos/shared-state-streaming 200 in 1533ms
+[1] [2m2026-10-06T21:53:44.314948Z[0m [[32m[1minfo     [0m] [1m707 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/subagents ...
+[0]  ✓ Compiled /demos/subagents in 1199ms
+[0]  GET /demos/subagents 200 in 1269ms
+[1] [2m2026-10-06T21:53:45.588989Z[0m [[32m[1minfo     [0m] [1m711 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:53:45.954480Z[0m [[32m[1minfo     [0m] [1m3 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/threadid-frontend-tool-roundtrip ...
+[1] [2m2026-10-06T21:53:46.055090Z[0m [[32m[1minfo     [0m] [1mWorker stats                  [0m [[0m[1m[34mlanggraph_api.metrics_collector[0m][0m [36mactive[0m=[35m0[0m [36mapi_variant[0m=[35mlocal_dev[0m [36mavailable[0m=[35m1[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmax[0m=[35m1[0m [36mthread_name[0m=[35muvloop_0[0m
+[0]  ✓ Compiled /demos/threadid-frontend-tool-roundtrip in 1252ms
+[0]  GET /demos/threadid-frontend-tool-roundtrip 200 in 1312ms
+[1] [2m2026-10-06T21:53:46.899205Z[0m [[32m[1minfo     [0m] [1m711 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/tool-rendering ...
+[0]  ✓ Compiled /demos/tool-rendering in 1256ms
+[0]  GET /demos/tool-rendering 200 in 1325ms
+[1] [2m2026-10-06T21:53:48.224716Z[0m [[32m[1minfo     [0m] [1m711 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:53:48.497476Z[0m [[32m[1minfo     [0m] [1mWorker stats                  [0m [[0m[1m[34mlanggraph_runtime_inmem.queue[0m][0m [36mactive[0m=[35m0[0m [36mapi_variant[0m=[35mlocal_dev[0m [36mavailable[0m=[35m1[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmax[0m=[35m1[0m [36mthread_name[0m=[35muvloop_0[0m
+[0]  ○ Compiling /demos/tool-rendering-custom-catchall ...
+[1] [2m2026-10-06T21:53:48.999165Z[0m [[32m[1minfo     [0m] [1mQueue stats                   [0m [[0m[1m[34mlanggraph_runtime_inmem.queue[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mn_pending[0m=[35m0[0m [36mn_running[0m=[35m0[0m [36mpending_runs_wait_time_max_secs[0m=[35mNone[0m [36mpending_runs_wait_time_med_secs[0m=[35mNone[0m [36mpending_unblocked_runs_wait_time_max_secs[0m=[35mNone[0m [36mthread_name[0m=[35muvloop_1[0m
+[0]  ✓ Compiled /demos/tool-rendering-custom-catchall in 1224ms
+[0]  GET /demos/tool-rendering-custom-catchall 200 in 1277ms
+[1] [2m2026-10-06T21:53:49.501151Z[0m [[32m[1minfo     [0m] [1m711 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/tool-rendering-default-catchall ...
+[0]  ✓ Compiled /demos/tool-rendering-default-catchall in 1199ms
+[0]  GET /demos/tool-rendering-default-catchall 200 in 1244ms
+[1] [2m2026-10-06T21:53:50.775269Z[0m [[32m[1minfo     [0m] [1m707 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/tool-rendering-reasoning-chain ...
+[0]  ✓ Compiled /demos/tool-rendering-reasoning-chain in 1320ms
+[0]  GET /demos/tool-rendering-reasoning-chain 200 in 1369ms
+[1] [2m2026-10-06T21:53:52.159704Z[0m [[32m[1minfo     [0m] [1m707 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /demos/voice ...
+[0]  ✓ Compiled /demos/voice in 1306ms
+[0]  GET /demos/voice 200 in 1354ms
+[1] [2m2026-10-06T21:53:53.495535Z[0m [[32m[1minfo     [0m] [1m711 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  ○ Compiling /api/copilotkit ...
+[0]  ✓ Compiled /api/copilotkit in 955ms
+[1] [2m2026-10-06T21:53:54.546255Z[0m [[32m[1minfo     [0m] [1m156 changes detected          [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0] [copilotkit/route] Initializing CopilotKit runtime
+[0] [copilotkit/route] LANGGRAPH_URL: http://localhost:8123
+[0] [copilotkit/route] LANGSMITH_API_KEY: not set
+[0] [copilotkit/route] Registered 31 agent names: human_in_the_loop, shared-state-write, prebuilt-sidebar, prebuilt-popup, chat-slots, chat-customization-css, headless-simple, tool-rendering, tool-rendering-default-catchall, tool-rendering-custom-catchall, tool-rendering-reasoning-chain, declarative-gen-ui, a2ui-fixed-schema, shared-state-streaming, subagents, agentic_chat, frontend_tools, threadid-frontend-tool-roundtrip, frontend-tools-async, gen-ui-agent, gen-ui-tool-based, reasoning-custom, reasoning-default, gen-ui-interrupt, interrupt-headless, hitl-in-chat, hitl-in-app, shared-state-read, shared-state-read-write, readonly-state-agent-context, default
+[0]  GET /api/copilotkit 200 in 1450ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-fixed-schema in 272ms
+[1] [2m2026-10-06T21:53:55.297279Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-a2ui-fixed-schema 405 in 505ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-recovery in 325ms
+[1] [2m2026-10-06T21:53:55.930705Z[0m [[32m[1minfo     [0m] [1m91 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-a2ui-recovery 405 in 553ms
+[0]  ✓ Compiled /api/copilotkit-agent-config in 237ms
+[1] [2m2026-10-06T21:53:56.346107Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-agent-config 405 in 469ms
+[0]  ✓ Compiled /api/copilotkit-auth/[[...slug]] in 212ms
+[1] [2m2026-10-06T21:53:56.816473Z[0m [[32m[1minfo     [0m] [1m89 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-auth 401 in 1180ms
+[0]  ✓ Compiled /api/copilotkit-beautiful-chat in 178ms
+[1] [2m2026-10-06T21:53:57.990549Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-beautiful-chat 405 in 414ms
+[0]  ✓ Compiled /api/copilotkit-declarative-gen-ui in 266ms
+[1] [2m2026-10-06T21:53:58.455499Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-declarative-gen-ui 405 in 497ms
+[0]  ✓ Compiled /api/copilotkit-declarative-hashbrown in 247ms
+[1] [2m2026-10-06T21:53:58.978999Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-declarative-hashbrown 405 in 482ms
+[0]  ✓ Compiled /api/copilotkit-declarative-json-render in 161ms
+[1] [2m2026-10-06T21:53:59.391683Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-declarative-json-render 405 in 390ms
+[0]  ✓ Compiled /api/copilotkit-mcp-apps/[[...slug]] in 157ms
+[1] [2m2026-10-06T21:53:59.757730Z[0m [[32m[1minfo     [0m] [1m89 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-mcp-apps 405 in 1006ms
+[0]  ✓ Compiled /api/copilotkit-multimodal in 170ms
+[1] [2m2026-10-06T21:54:00.772683Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-multimodal 405 in 399ms
+[0]  ✓ Compiled /api/copilotkit-ogui in 179ms
+[1] [2m2026-10-06T21:54:01.193788Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-ogui 405 in 422ms
+[0]  ✓ Compiled /api/copilotkit-voice/[[...slug]] in 278ms
+[1] [2m2026-10-06T21:54:01.772141Z[0m [[32m[1minfo     [0m] [1m93 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/copilotkit-voice 404 in 1199ms
+[0]  ✓ Compiled /api/debug in 72ms
+[1] [2m2026-10-06T21:54:02.771892Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/debug 403 in 301ms
+[1] [2m2026-10-06T21:54:03.137375Z[0m [[32m[1minfo     [0m] [1m75 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  GET /api/health 200 in 248ms
+[0]  ✓ Compiled /api/smoke in 77ms
+[1] [2m2026-10-06T21:54:03.493281Z[0m [[32m[1minfo     [0m] [1m88 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:54:03.739411Z[0m [[33m[1mwarning  [0m] [1mGET /threads/783f6325-6bba-4edf-a27b-9f5e01f70c62 404 1ms[0m [[0m[1m[34mlanggraph_api.server[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36merror_detail[0m=[35mNone[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlatency_ms[0m=[35m1[0m [36mmethod[0m=[35mGET[0m [36mpath[0m=[35m/threads/{thread_id}[0m [36mpath_params[0m=[35m{'thread_id': '783f6325-6bba-4edf-a27b-9f5e01f70c62'}[0m [36mproto[0m=[35m1.1[0m [36mquery_string[0m=[35m[0m [36mreq_header[0m=[35m{}[0m [36mrequest_id[0m=[35m56f142da-9ced-4102-a758-6d11090fe741[0m [36mres_header[0m=[35m{}[0m [36mresponse_size_bytes[0m=[35m74[0m [36mroute[0m=[35m/threads/{thread_id}[0m [36mrun_id[0m=[35mNone[0m [36mstatus[0m=[35m404[0m [36mthread_name[0m=[35mMainThread[0m [36mttfb_ms[0m=[35m1.0[0m
+[1] [2m2026-10-06T21:54:03.781412Z[0m [[32m[1minfo     [0m] [1mCreated run                   [0m [[0m[1m[34mlanggraph_api.models.run[0m][0m [36mafter_seconds[0m=[35m0[0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35maf77e4cd-2160-599e-9a20-86b1cdc1b3c7[0m [36mcheckpoint_id[0m=[35mNone[0m [36mif_not_exists[0m=[35mreject[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mmethod[0m=[35mPOST[0m [36mmultitask_strategy[0m=[35menqueue[0m [36mpath[0m=[35m/threads/{thread_id}/runs/stream[0m [36mrequest_id[0m=[35mab1f6d1a-7499-44e4-b30a-1999dc708fa6[0m [36mrun_create_ms[0m=[35m1[0m [36mrun_id[0m=[35m01a11335-9f85-7aa0-9fb0-7c8ab629f585[0m [36mrun_put_ms[0m=[35m0[0m [36mstream_mode[0m=[35m['events', 'values', 'updates', 'messages-tuple'][0m [36mstream_resumable[0m=[35mFalse[0m [36mtemporary[0m=[35mFalse[0m [36mthread_id[0m=[35m783f6325-6bba-4edf-a27b-9f5e01f70c62[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:54:03.854671Z[0m [[32m[1minfo     [0m] [1m75 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:54:04.528375Z[0m [[32m[1minfo     [0m] [1mStarting background run       [0m [[0m[1m[34mlanggraph_api.worker[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35maf77e4cd-2160-599e-9a20-86b1cdc1b3c7[0m [36mgraph_id[0m=[35magentic_chat[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mrequest_id[0m=[35mab1f6d1a-7499-44e4-b30a-1999dc708fa6[0m [36mresumable[0m=[35mFalse[0m [36mrun_attempt[0m=[35m1[0m [36mrun_creation_ms[0m=[35m1[0m [36mrun_id[0m=[35m01a11335-9f85-7aa0-9fb0-7c8ab629f585[0m [36mrun_queue_ms[0m=[35m746[0m [36mrun_started_at[0m=[35m2026-10-06T21:54:04.528118+00:00[0m [36mrun_stream_start_ms[0m=[35m0[0m [36mtemporary[0m=[35mFalse[0m [36mthread_id[0m=[35m783f6325-6bba-4edf-a27b-9f5e01f70c62[0m [36mthread_name[0m=[35muvloop_1[0m
+[1] [2m2026-10-06T21:54:04.617124Z[0m [[32m[1minfo     [0m] [1mHTTP Request: POST http://127.0.0.1:4410/v1/chat/completions "HTTP/1.1 200 OK"[0m [[0m[1m[34mhttpx2[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35maf77e4cd-2160-599e-9a20-86b1cdc1b3c7[0m [36mgraph_id[0m=[35magentic_chat[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mlanggraph_node[0m=[35mmodel[0m [36mrequest_id[0m=[35mab1f6d1a-7499-44e4-b30a-1999dc708fa6[0m [36mrun_attempt[0m=[35m1[0m [36mrun_id[0m=[35m01a11335-9f85-7aa0-9fb0-7c8ab629f585[0m [36mthread_id[0m=[35m783f6325-6bba-4edf-a27b-9f5e01f70c62[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:54:04.745140Z[0m [[32m[1minfo     [0m] [1mBackground run succeeded      [0m [[0m[1m[34mlanggraph_api.worker[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36massistant_id[0m=[35maf77e4cd-2160-599e-9a20-86b1cdc1b3c7[0m [36mgraph_id[0m=[35magentic_chat[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mrequest_id[0m=[35mab1f6d1a-7499-44e4-b30a-1999dc708fa6[0m [36mrun_attempt[0m=[35m1[0m [36mrun_completed_in_ms[0m=[35m965[0m [36mrun_created_at[0m=[35m2026-10-06T21:54:03.781371+00:00[0m [36mrun_ended_at[0m=[35m2026-10-06T21:54:04.745067+00:00[0m [36mrun_exec_ms[0m=[35m216[0m [36mrun_id[0m=[35m01a11335-9f85-7aa0-9fb0-7c8ab629f585[0m [36mrun_started_at[0m=[35m2026-10-06T21:54:04.528118+00:00[0m [36mrun_wait_time_ms[0m=[35m746[0m [36mthread_id[0m=[35m783f6325-6bba-4edf-a27b-9f5e01f70c62[0m [36mthread_name[0m=[35muvloop_1[0m
+[0]  POST /api/copilotkit 200 in 1257ms
+[0]  GET /api/smoke 200 in 1565ms
+[1] [2m2026-10-06T21:54:04.875630Z[0m [[32m[1minfo     [0m] [1m75 changes detected           [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[0]  POST /api/copilotkit 200 in 226ms
+[1] [2m2026-10-06T21:54:05.936138Z[0m [[32m[1minfo     [0m] [1m3 changes detected            [0m [[0m[1m[34mwatchfiles.main[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:54:09.943074Z[0m [[32m[1minfo     [0m] [1mShutting down background workers[0m [[0m[1m[34mlanggraph_runtime_inmem.queue[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:54:09.946036Z[0m [[32m[1minfo     [0m] [1mShutting down remote graphs   [0m [[0m[1m[34mlanggraph_api.graph[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:54:09.946608Z[0m [[32m[1minfo     [0m] [1mStopping dev persistence flush loop[0m [[0m[1m[34mlanggraph_runtime_inmem._persistence[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mMainThread[0m
+[1] [2m2026-10-06T21:54:09.946681Z[0m [[32m[1minfo     [0m] [1mdev persistence flush loop exiting[0m [[0m[1m[34mlanggraph_runtime_inmem._persistence[0m][0m [36mapi_variant[0m=[35mlocal_dev[0m [36mlanggraph_api_version[0m=[35m0.15.1[0m [36mthread_name[0m=[35mThread-1[0m
+[0] [?25h
+[0] next dev --turbopack exited with code 0
+[1] python -u -m langgraph_cli dev --config langgraph.json --host 0.0.0.0 --port 8123 --no-browser exited with code 0
+# stopped Tue Oct  6 21:54:12 UTC 2026 (SIGTERM to process group 14712)

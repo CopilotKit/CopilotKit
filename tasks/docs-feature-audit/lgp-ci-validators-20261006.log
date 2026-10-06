@@ -1,0 +1,53 @@
+# showcase_validate.yml validators that read the LangGraph Python integration, run locally at HEAD a11a368c5c (dependency update committed), 2026-10-06T21:50:10Z, node v22.16.0. Other integrations' [WARN]/[FAIL] lines are filtered; langgraph-python's are kept.
+$ pnpm exec tsx validate-parity.ts
+
+package                      status  demos  specs   qa  notes     
+------------------------------------------------------------------
+langgraph-python             [PASS]     39     39   40  3 warn    
+[WARN] langgraph-python: demo 'interrupt-headless' has no tests/e2e/interrupt-headless.spec.ts
+[WARN] langgraph-python: demo 'reasoning-custom' has no qa/reasoning-custom.md
+[WARN] langgraph-python: demo count 39 deviates from baseline 9
+
+22 package(s) checked, 22 pass, 0 fail, 442 warning(s)
+exit=0
+$ pnpm exec tsx validate-shared-symlinks.ts
+ℹ 2 single-source slot(s) are ERODED (should be symlinks into showcase/shared/...):
+
+✔ single-source symlinks OK — no NEW erosion (2/2 baselined slot(s) still eroded, expected until symlinks are restored).
+exit=0
+$ pnpm exec tsx sync-shared-frontends.ts
+Shared frontend sources are in sync.
+exit=0
+$ pnpm exec tsx validate-fixture-tool-surface.ts
+✓ validate-fixture-tool-surface: 0 fixtures × 781 demos — no drift
+exit=0
+$ pnpm exec tsx validate-pins.ts  (ratchet: CI compares the FAIL count/hash with fail-baseline.json)
+[FAIL] langgraph-python: @copilotkit/a2ui-renderer pinned to 1.77.0, canonical is 1.68.2
+[FAIL] langgraph-python: @copilotkit/react-core pinned to 1.77.0, canonical is 1.68.2
+[FAIL] langgraph-python: @copilotkit/runtime pinned to 1.77.0, canonical is 1.68.2
+[FAIL] langgraph-python: @copilotkit/shared pinned to 1.77.0, canonical is 1.68.2
+[FAIL] langgraph-python: @copilotkit/voice pinned to 1.77.0, canonical is 1.68.2
+[FAIL] langgraph-python: openai is not an exact pin (^5.9.0)
+Summary: OK=6 SKIP=0 WARN=2 FAIL=47
+exit=1
+# validate-pins against the pre-update tree: git archive a7ddeedac6 (the commit before a11a368c5c) of showcase/ into a temp dir, VALIDATE_PINS_REPO_ROOT=<archive>
+[FAIL] langgraph-python: @copilotkit/a2ui-renderer pinned to 1.73.3, canonical is 1.68.2
+[FAIL] langgraph-python: @copilotkit/react-core pinned to 1.73.3, canonical is 1.68.2
+[FAIL] langgraph-python: @copilotkit/runtime pinned to 1.73.3, canonical is 1.68.2
+[FAIL] langgraph-python: @copilotkit/shared pinned to 1.73.3, canonical is 1.68.2
+[FAIL] langgraph-python: @copilotkit/voice pinned to 1.73.3, canonical is 1.68.2
+[FAIL] langgraph-python: openai is not an exact pin (^5.9.0)
+Summary: OK=6 SKIP=0 WARN=2 FAIL=47
+exit=1
+# FAIL lines only before (-) / only after (+):
+- [FAIL] langgraph-python: @copilotkit/a2ui-renderer pinned to 1.73.3, canonical is 1.68.2
+- [FAIL] langgraph-python: @copilotkit/react-core pinned to 1.73.3, canonical is 1.68.2
+- [FAIL] langgraph-python: @copilotkit/runtime pinned to 1.73.3, canonical is 1.68.2
+- [FAIL] langgraph-python: @copilotkit/shared pinned to 1.73.3, canonical is 1.68.2
+- [FAIL] langgraph-python: @copilotkit/voice pinned to 1.73.3, canonical is 1.68.2
++ [FAIL] langgraph-python: @copilotkit/a2ui-renderer pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] langgraph-python: @copilotkit/react-core pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] langgraph-python: @copilotkit/runtime pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] langgraph-python: @copilotkit/shared pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] langgraph-python: @copilotkit/voice pinned to 1.77.0, canonical is 1.68.2
+# baseline: {  "_comment": "Drift ratchet baseline for showcase_validate.yml. `validatePinsFailCount` holds the last-known FAIL count; `validatePinsFailHash` is a SHA-256 of the stderr-only `[FAIL] ...` lines from validate-pins.ts, deduplicated and sorted with `LC_ALL=C sort -u`. CI compares BOTH: if the count changes, it tells you to ratchet (up rejected, down instructed). If the count is equal but the hash 

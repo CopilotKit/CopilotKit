@@ -1,0 +1,227 @@
+# reproduce-lgp-byoc-setup.sh (rewritten), HEAD 65e91cc7e4 + uncommitted script, 2026-10-06T22:37:08Z
+$ nice -n 10 bash tasks/docs-feature-audit/reproduce-lgp-byoc-setup.sh
+guide: showcase/shell-docs/src/content/docs/integrations/langgraph/quickstart.mdx (blob ac83d23a40); node v22.16.0; uv 0.11.7; UV_EXCLUDE_NEWER=2026-10-05T21:00:00Z; npm --before=2026-10-05T12:00:00Z
+=============== LangSmith tab, phase: visible-path (2026-10-06T22:37:08Z)
+visible to a Python reader on the LangSmith tab (17):
+   (untitled): uv init my-agent
+   (untitled): uv add langgraph langchain-openai langchain-core python-dote
+   main.py: from dotenv import load_dotenv
+   (untitled): touch langgraph.json
+   langgraph.json: {
+   .env: OPENAI_API_KEY=your_openai_api_key
+   (untitled): npx create-next-app@latest frontend
+   (untitled): npm install @copilotkit/react-core @copilotkit/runtime
+   (untitled): mkdir -p app/api/copilotkit && touch app/api/copilotkit/rout
+   app/api/copilotkit/route.ts: import {
+   Terminal: npx copilotkit@latest project select
+   .env: CPK_INTELLIGENCE_API_KEY=cpk-...
+   app/providers.tsx: "use client";
+   app/layout.tsx: import { Providers } from "./providers";
+   app/page.tsx: "use client";
+   (untitled): cd ..
+   (untitled): cd frontend
+in a Python or LangSmith tab but hidden from that reader (3; the other deployment tab's blocks):
+   (untitled): uv add ag-ui-langgraph fastapi uvicorn copilotkit
+   main.py: import os
+   (untitled): cd ..
+   present: agent install (uv add langgraph ...)
+   present: agent code (main.py)
+   present: runtime route (app/api/copilotkit/route.ts)
+   present: graph registration (langgraph.json)
+   present: route uses LangGraphAgent
+   present: agent start command (langgraph-cli dev)
+RESULT LangSmith visible-path: PASS
+=============== LangSmith tab, phase: existing-agent (2026-10-06T22:37:09Z)
+scratch AIMock on 4411: [aimock] Loaded 1 fixture(s) from /private/tmp/lgp-byoc-setup.QoU7OD/fixtures-LangSmith
+--- Initialize your agent project
+$ uv init my-agent
+$ cd my-agent
+Initialized project `my-agent` at `/private/tmp/lgp-byoc-setup.QoU7OD/LangSmith/my-agent`
+--- Install LangGraph
+$ uv add langgraph langchain-openai langchain-core python-dotenv
+Resolved 46 packages in 358ms
+Installed 44 packages in 55ms
+ + langgraph==1.2.13
+ + openai==3.24.0
+--- Expose your agent via AG-UI (LangSmith)
+$ touch langgraph.json
+wrote main.py (22 lines) and langgraph.json from the guide: {'sample_agent': './main.py:graph'}
+resolved: langchain-core 1.6.6, langchain-openai 1.6.7, langgraph 1.2.13, python 3.12.6
+--- Configure your environment (the guide's own placeholder key)
+.env: OPENAI_API_KEY=your_openai_api_key
+--- Create your frontend (scaffold not reproduced: npm init -y stands in for create-next-app)
+# guide: npx create-next-app@latest frontend
+# guide: cd frontend
+--- Install CopilotKit packages
+$ npm install @copilotkit/react-core @copilotkit/runtime
+added 1172 packages in 30s
+top-level: @copilotkit/runtime 1.77.0, @ag-ui/client 1.0.1; @ag-ui/core copies:  15 @ag-ui/core@0.0.59; 7 @ag-ui/core@1.0.1;
+--- Setup Copilot Runtime (the guide's LangSmith route.ts, with the no-Intelligence callout applied)
+$ mkdir -p app/api/copilotkit && touch app/api/copilotkit/route.ts
+@@ -1,5 +1,4 @@
+ import {
+-  CopilotKitIntelligence,
+   CopilotRuntime,
+   createCopilotRuntimeHandler,
+ } from "@copilotkit/runtime/v2";
+@@ -13,14 +12,6 @@
+       langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
+     }),
+   },
+-  intelligence: new CopilotKitIntelligence({
+-    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+-  }),
+-  // Local single-user setup. Replace this before deploying to multiple users.
+-  identifyUser: () => ({
+-    id: "local-demo-user",
+-    name: "Local demo user",
+-  }),
+ });
+ 
+ const handler = createCopilotRuntimeHandler({
+provider agent: sample_agent
+--- Start your agent (the guide's block, run verbatim from frontend/)
+$ cd ..
+$ npx @langchain/langgraph-cli dev --port 8123 --no-browser
+GET http://localhost:8123/ok -> 200 after 8s
+listeners: python3.1/127.0.0.1:8123 
+GET /info: {"version":"0.15.1","langgraph_py_version":"1.2.13","flags":{"assistants":true,"crons":true,"langsmith":false,"langsmith_tracing_replicas":true,"langsmith_tracing_session_on_runs":true},"host":{"kind":"self-hosted","project_id":null,"host_revision_id":null,"revision_id":null,"tenant_id":null}}
+--- Start chatting: one run through the route
+POST /api/copilotkit {method:"info"} -> 200 runtime 1.77.0 agents: sample_agent
+POST /api/copilotkit {method:"agent/run", agentId:"sample_agent"} -> 200
+event types: RUN_STARTED STEP_STARTED STATE_SNAPSHOT RAW RAW RAW RAW TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_CONTENT RAW RAW TEXT_MESSAGE_END RAW RAW STATE_SNAPSHOT RAW STATE_SNAPSHOT RAW STEP_FINISHED STATE_SNAPSHOT MESSAGES_SNAPSHOT RUN_FINISHED
+assistant text: "Why do programmers prefer dark mode? Because light attracts bugs."
+RESULT: RUN_FINISHED
+--- scratch AIMock journal for this run
+  /v1/chat/completions gpt-4.1-mini ['system', 'user'] {'userMessage': 'tell me a joke'} 200
+--- agent server log (ANSI stripped, tail)
+2026-10-06T22:37:54.687245Z [info     ] 1545 changes detected          [watchfiles.main] api_variant=local_dev langgraph_api_version=0.15.1 thread_name=MainThread
+2026-10-06T22:37:54.864356Z [info     ] Application started up in 2.351s [langgraph_api.timing.timer] api_variant=local_dev elapsed=2.351024583000253 langgraph_api_version=0.15.1 thread_name=MainThread
+2026-10-06T22:37:54.908436Z [info     ] Starting cron scheduler        [langgraph_api.cron_scheduler] api_variant=local_dev langgraph_api_version=0.15.1 thread_name=MainThread
+2026-10-06T22:37:54.908577Z [info     ] Starting queue with shared loop [langgraph_runtime_inmem.queue] api_variant=local_dev langgraph_api_version=0.15.1 thread_name=uvloop_1
+2026-10-06T22:37:54.908990Z [info     ] Starting 10 background workers [langgraph_runtime_inmem.queue] api_variant=local_dev langgraph_api_version=0.15.1 thread_name=uvloop_0
+2026-10-06T22:37:54.909107Z [info     ] Worker stats                   [langgraph_runtime_inmem.queue] active=0 api_variant=local_dev available=10 langgraph_api_version=0.15.1 max=10 thread_name=uvloop_1
+2026-10-06T22:37:55.063551Z [info     ] 49 changes detected            [watchfiles.main] api_variant=local_dev langgraph_api_version=0.15.1 thread_name=MainThread
+2026-10-06T22:37:55.410616Z [info     ] Queue stats                    [langgraph_runtime_inmem.queue] api_variant=local_dev langgraph_api_version=0.15.1 n_pending=0 n_running=0 pending_runs_wait_time_max_secs=None pending_runs_wait_time_med_secs=None pending_unblocked_runs_wait_time_max_secs=None thread_name=uvloop_0
+2026-10-06T22:37:57.427160Z [info     ] Getting auth instance: None    [langgraph_api.auth.custom] api_variant=local_dev langgraph_api_version=0.15.1 langgraph_auth=None method=POST path=/assistants/search thread_name=MainThread
+2026-10-06T22:37:57.432563Z [warning  ] GET /threads/6a7a01cd-fe24-4039-bf20-c6d4b073bba5 404 0ms [langgraph_api.server] api_variant=local_dev error_detail=None langgraph_api_version=0.15.1 latency_ms=0 method=GET path=/threads/{thread_id} path_params={'thread_id': '6a7a01cd-fe24-4039-bf20-c6d4b073bba5'} proto=1.1 query_string= req_header={} request_id=f99d3e3e-80ac-4e07-aa4b-a845f62b4e1f res_header={} response_size_bytes=74 route=/threads/{thread_id} run_id=None status=404 thread_name=MainThread ttfb_ms=0.0
+2026-10-06T22:37:57.468431Z [info     ] Created run                    [langgraph_api.models.run] after_seconds=0 api_variant=local_dev assistant_id=fe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea checkpoint_id=None if_not_exists=reject langgraph_api_version=0.15.1 method=POST multitask_strategy=enqueue path=/threads/{thread_id}/runs/stream request_id=a95348d1-aa90-4d56-a535-a1435c9a5b8b run_create_ms=1 run_id=01a1135d-cf5c-7973-ac28-f3e2b8490d1b run_put_ms=0 stream_mode=['events', 'values', 'updates', 'messages-tuple'] stream_resumable=False temporary=False thread_id=6a7a01cd-fe24-4039-bf20-c6d4b073bba5 thread_name=MainThread
+2026-10-06T22:37:58.416438Z [info     ] Starting background run        [langgraph_api.worker] api_variant=local_dev assistant_id=fe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea graph_id=sample_agent langgraph_api_version=0.15.1 request_id=a95348d1-aa90-4d56-a535-a1435c9a5b8b resumable=False run_attempt=1 run_creation_ms=1 run_id=01a1135d-cf5c-7973-ac28-f3e2b8490d1b run_queue_ms=947 run_started_at=2026-10-06T22:37:58.416065+00:00 run_stream_start_ms=0 temporary=False thread_id=6a7a01cd-fe24-4039-bf20-c6d4b073bba5 thread_name=uvloop_0
+2026-10-06T22:37:58.571398Z [info     ] 55 changes detected            [watchfiles.main] api_variant=local_dev langgraph_api_version=0.15.1 thread_name=MainThread
+2026-10-06T22:37:58.651031Z [info     ] HTTP Request: POST http://127.0.0.1:4411/v1/chat/completions "HTTP/1.1 200 OK" [httpx2] api_variant=local_dev assistant_id=fe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea graph_id=sample_agent langgraph_api_version=0.15.1 langgraph_node=mock_llm request_id=a95348d1-aa90-4d56-a535-a1435c9a5b8b run_attempt=1 run_id=01a1135d-cf5c-7973-ac28-f3e2b8490d1b thread_id=6a7a01cd-fe24-4039-bf20-c6d4b073bba5 thread_name=MainThread
+2026-10-06T22:37:58.661785Z [info     ] Background run succeeded       [langgraph_api.worker] api_variant=local_dev assistant_id=fe68dfa1-88d3-57dc-afdf-6ac84f8fe8ea graph_id=sample_agent langgraph_api_version=0.15.1 request_id=a95348d1-aa90-4d56-a535-a1435c9a5b8b run_attempt=1 run_completed_in_ms=1194 run_created_at=2026-10-06T22:37:57.468393+00:00 run_ended_at=2026-10-06T22:37:58.661641+00:00 run_exec_ms=245 run_id=01a1135d-cf5c-7973-ac28-f3e2b8490d1b run_started_at=2026-10-06T22:37:58.416065+00:00 run_wait_time_ms=947 thread_id=6a7a01cd-fe24-4039-bf20-c6d4b073bba5 thread_name=uvloop_0
+ports 8123/4411 after stop: free/free
+RESULT LangSmith existing-agent: PASS
+=============== FastAPI tab, phase: visible-path (2026-10-06T22:38:00Z)
+visible to a Python reader on the FastAPI tab (16):
+   (untitled): uv init my-agent
+   (untitled): uv add langgraph langchain-openai langchain-core python-dote
+   (untitled): uv add ag-ui-langgraph fastapi uvicorn copilotkit
+   main.py: import os
+   .env: OPENAI_API_KEY=your_openai_api_key
+   (untitled): npx create-next-app@latest frontend
+   (untitled): npm install @copilotkit/react-core @copilotkit/runtime
+   (untitled): mkdir -p app/api/copilotkit && touch app/api/copilotkit/rout
+   app/api/copilotkit/route.ts: import {
+   Terminal: npx copilotkit@latest project select
+   .env: CPK_INTELLIGENCE_API_KEY=cpk-...
+   app/providers.tsx: "use client";
+   app/layout.tsx: import { Providers } from "./providers";
+   app/page.tsx: "use client";
+   (untitled): cd ..
+   (untitled): cd frontend
+in a Python or FastAPI tab but hidden from that reader (4; the other deployment tab's blocks):
+   main.py: from dotenv import load_dotenv
+   (untitled): touch langgraph.json
+   langgraph.json: {
+   (untitled): cd ..
+   present: agent install (uv add langgraph ...)
+   present: agent code (main.py)
+   present: runtime route (app/api/copilotkit/route.ts)
+   present: FastAPI install (uv add ag-ui-langgraph ...)
+   present: route uses HttpAgent
+   present: agent start command (uv run main.py)
+RESULT FastAPI visible-path: PASS
+=============== FastAPI tab, phase: existing-agent (2026-10-06T22:38:00Z)
+scratch AIMock on 4411: [aimock] Loaded 1 fixture(s) from /private/tmp/lgp-byoc-setup.QoU7OD/fixtures-FastAPI
+--- Initialize your agent project
+$ uv init my-agent
+$ cd my-agent
+Initialized project `my-agent` at `/private/tmp/lgp-byoc-setup.QoU7OD/FastAPI/my-agent`
+--- Install LangGraph
+$ uv add langgraph langchain-openai langchain-core python-dotenv
+Resolved 46 packages in 11ms
+Installed 44 packages in 50ms
+ + langgraph==1.2.13
+ + openai==3.24.0
+--- Expose your agent via AG-UI (FastAPI)
+$ uv add ag-ui-langgraph fastapi uvicorn copilotkit
+Resolved 59 packages in 145ms
+Installed 13 packages in 8ms
+ + copilotkit==0.1.96
+ + fastapi==0.142.2
+ + langchain==1.4.3
+ + uvicorn==0.54.0
+wrote main.py (56 lines) from the guide
+resolved: ag-ui-langgraph 0.0.46, ag-ui-protocol 1.0.0, copilotkit 0.1.96, fastapi 0.142.2, langchain-core 1.6.6, langchain-openai 1.6.7, langgraph 1.2.13, uvicorn 0.54.0, python 3.12.6
+--- Configure your environment (the guide's own placeholder key)
+.env: OPENAI_API_KEY=your_openai_api_key
+--- Create your frontend (scaffold not reproduced: npm init -y stands in for create-next-app)
+# guide: npx create-next-app@latest frontend
+# guide: cd frontend
+--- Install CopilotKit packages
+$ npm install @copilotkit/react-core @copilotkit/runtime
+added 1172 packages in 9s
+top-level: @copilotkit/runtime 1.77.0, @ag-ui/client 1.0.1; @ag-ui/core copies:  15 @ag-ui/core@0.0.59; 7 @ag-ui/core@1.0.1;
+--- Setup Copilot Runtime (the guide's FastAPI route.ts, with the no-Intelligence callout applied)
+$ mkdir -p app/api/copilotkit && touch app/api/copilotkit/route.ts
+@@ -1,5 +1,4 @@
+ import {
+-  CopilotKitIntelligence,
+   CopilotRuntime,
+   createCopilotRuntimeHandler,
+ } from "@copilotkit/runtime/v2";
+@@ -11,14 +10,6 @@
+       url:  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
+     }),
+   },
+-  intelligence: new CopilotKitIntelligence({
+-    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+-  }),
+-  // Local single-user setup. Replace this before deploying to multiple users.
+-  identifyUser: () => ({
+-    id: "local-demo-user",
+-    name: "Local demo user",
+-  }),
+ });
+ 
+ const handler = createCopilotRuntimeHandler({
+provider agent: sample_agent
+--- Start your agent (the guide's block, run verbatim from frontend/)
+$ cd ..
+$ uv run main.py
+GET http://localhost:8123/health -> 200 after 5s
+listeners: python3.1/*:8123 
+GET /health: {"status":"ok","agent":{"name":"sample_agent"}}
+--- Start chatting: one run through the route
+POST /api/copilotkit {method:"info"} -> 200 runtime 1.77.0 agents: sample_agent
+POST /api/copilotkit {method:"agent/run", agentId:"sample_agent"} -> 200
+event types: RUN_STARTED RAW STEP_STARTED RAW RAW RAW RAW TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_CONTENT RAW RAW RAW TEXT_MESSAGE_END RAW STATE_SNAPSHOT RAW RAW RAW STEP_FINISHED STATE_SNAPSHOT MESSAGES_SNAPSHOT RUN_FINISHED
+assistant text: "Why do programmers prefer dark mode? Because light attracts bugs."
+RESULT: RUN_FINISHED
+--- scratch AIMock journal for this run
+  /v1/chat/completions gpt-4.1-mini ['system', 'user'] {'userMessage': 'tell me a joke'} 200
+--- agent server log (ANSI stripped, tail)
+INFO:     Will watch for changes in these directories: ['/private/tmp/lgp-byoc-setup.QoU7OD/FastAPI/my-agent']
+INFO:     Uvicorn running on http://0.0.0.0:8123 (Press CTRL+C to quit)
+INFO:     Started reloader process [90639] using StatReload
+INFO:     Started server process [90668]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:60329 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60331 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60334 - "POST / HTTP/1.1" 200 OK
+tasks/docs-feature-audit/reproduce-lgp-byoc-setup.sh: line 273: 90634 Killed: 9                  OPENAI_BASE_URL="http://127.0.0.1:$mock_port/v1" perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV' bash -c "$cmd" > "$log" 2>&1 < /dev/null
+ports 8123/4411 after stop: free/free
+RESULT FastAPI existing-agent: PASS
+exit=0

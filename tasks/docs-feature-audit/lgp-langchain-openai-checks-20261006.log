@@ -1,0 +1,18 @@
+# 2026-10-06T21:51:59Z, venv /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv, strict AIMock on 127.0.0.1:4410 (lgp-aimock-20261006.log)
+$ python lgp-langchain-openai-checks-20261006.py
+langchain-openai 1.6.7 langchain-core 1.6.6 openai 3.24.0
+raw status 200
+raw first delta keys: ['reasoning_content']
+aggregated type: AIMessageChunk AIMessageChunk
+aggregated tool_calls: ['create_view']
+additional_kwargs keys: []
+gpt-5.4: roles=['system', 'user'] responses_api=False
+gpt-5: roles=['system', 'user'] responses_api=False
+gpt-5-mini: roles=['system', 'user'] responses_api=False
+gpt-4o: roles=['system', 'user'] responses_api=False
+gpt-4o-mini: roles=['system', 'user'] responses_api=False
+o3-mini: roles=['developer', 'user'] responses_api=False
+role-less delta ['reasoning_content'] -> AIMessageChunk
+role-less delta ['content'] -> AIMessageChunk
+role-less delta ['tool_calls'] -> AIMessageChunk
+exit=0
