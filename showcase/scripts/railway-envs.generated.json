@@ -541,19 +541,18 @@
     {
       "name": "showcase-google-antigravity",
       "serviceId": "6441783f-3e93-40cf-b75d-872c6713d7f2",
-      "prodInstanceId": "6441783f-3e93-40cf-b75d-872c6713d7f2",
+      "prodInstanceId": "ad2c3bc8-7006-4ac6-b6f5-1f34e35a5b98",
       "stagingInstanceId": "a2abd2e8-55a8-4c6e-8052-fd385d3bb3cc",
       "ciBuilt": true,
       "gateValidated": true,
-      "onlyEnvironment": "staging",
       "dispatchName": "google-antigravity",
       "domains": {
         "staging": "showcase-google-antigravity-staging.up.railway.app",
-        "prod": ""
+        "prod": "showcase-google-antigravity-production.up.railway.app"
       },
       "probe": {
         "staging": true,
-        "prod": false,
+        "prod": true,
         "driver": "agent"
       },
       "promoteTier": 2,
@@ -565,6 +564,7 @@
         }
       ],
       "healthcheckPath": {
+        "prod": "/api/health",
         "staging": "/api/health"
       },
       "autoUpdates": {
@@ -1522,6 +1522,10 @@
         "tier": 2
       },
       {
+        "name": "showcase-google-antigravity",
+        "tier": 2
+      },
+      {
         "name": "showcase-langgraph-fastapi",
         "tier": 2
       },
@@ -1622,11 +1626,6 @@
         "tier": 2
       }
     ],
-    "skipped": [
-      {
-        "name": "showcase-google-antigravity",
-        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
-      }
-    ]
+    "skipped": []
   }
 }

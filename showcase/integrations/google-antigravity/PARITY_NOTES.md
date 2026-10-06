@@ -39,22 +39,34 @@ sets `GOOGLE_GEMINI_BASE_URL=http://aimock:4010` for the whole fleet, and
 `GeminiAPIEndpoint` pointed at aimock. With no base URL set, the same code
 calls Google's API with `GEMINI_API_KEY` (or the fleet's `GOOGLE_API_KEY`).
 
-The endpoint also carries a **static** `X-AIMock-Context: google-antigravity`
-header, because the harness — not this Python process — makes the model call.
-Python's usual per-request `ContextVar` header-forwarding hook
-(`_header_forwarding.py`, copied from google-adk for CVDIAG parity) can attach
-headers to the _agent_ hop, but those headers cannot cross into the Go
-subprocess's own HTTP call to aimock. Concretely this means:
+The harness, not this Python process, makes the model call, so the request's
+headers can only reach it on the endpoint. `agents/_common.py` therefore hands
+the adapter `endpoint` as a **callable** (supported from ag-ui-antigravity
+0.2.1). The adapter resolves it each time it builds a session, inside that
+conversation's first request, where `HeaderForwardingHTTPMiddleware` has
+captured the inbound `x-*` headers (PNI-576):
 
-- Per-request `X-AIMock-Strict` and `x-test-id` headers stop at the agent hop
-  and never reach the LLM hop. A fixture miss on the LLM hop therefore proxies
-  through to the real upstream provider instead of hard-failing the way strict
-  mode does elsewhere in showcase.
-- CVDIAG has no LLM-hop rows for this integration — only agent-hop rows —
-  since the LLM call itself is invisible to the Python-side middleware.
+- `X-AIMock-Context: google-antigravity` is always set, and wins over any
+  inbound value, so this package's fixtures are selected.
+- Inbound `X-AIMock-Strict`, `x-test-id` and `x-diag-*` are forwarded when
+  present, so a fixture miss under a strict probe fails instead of proxying to
+  the real provider, and the harness can find the run's model calls in
+  aimock's journal by `x-diag-run-id`. Other `x-*` headers (`x-forwarded-for`,
+  ...) are not forwarded, and ordinary demo traffic is never made strict.
+- The two Python-side Gemini calls (`subagents.py`, `a2ui_dynamic.py`) use the
+  same `aimock_headers()`.
 
-This is a deliberate, documented trade-off rather than an oversight; revisit
-if cells start flapping because of it.
+Verified against a local aimock in `--proxy-only` mode through the real agent
+server: a probe-style request's model call carried its strict, test and
+diagnostic headers; a strict fixture miss returned 503 with no proxy attempt;
+a non-strict miss still proxied.
+
+**Remaining limit:** headers are fixed per conversation. The SDK sets a
+conversation's model configuration when it starts, so later runs on the same
+thread keep the headers of the run that built the session. Probes use a fresh
+thread per conversation, and concurrent threads each get their own, so per-run
+correlation holds for probe traffic. There are still no backend-emitted CVDIAG
+rows for the model call itself: correlation comes from aimock's journal.
 
 ## Tool execution
 
@@ -471,10 +483,12 @@ messages in the request — which the harness _does_ expose faithfully:
 **+2 per tool round-trip, +1 per plain text answer**, verified against the
 aimock journal on every cell. So each leg carries an absolute `turnIndex`:
 leg 1 of the first turn at 0, its narration at 2, leg 1 of the next turn at
-3, and so on. `sequenceIndex` was rejected deliberately: the LLM hop carries
-no `x-test-id` (see "LLM path"), so its counters would live in the
-`DEFAULT_TEST_ID` bucket forever and the second run against a warm aimock
-would silently skip the tool leg — a masked green.
+3, and so on. `sequenceIndex` was rejected deliberately: when these fixtures
+were written the LLM hop carried no `x-test-id`, so its counters would have
+lived in the `DEFAULT_TEST_ID` bucket forever and the second run against a
+warm aimock would silently skip the tool leg — a masked green. Probe traffic
+now forwards `x-test-id` (see "LLM path"), but only per conversation and only
+when the request carries it, so `turnIndex` stays the discriminator.
 
 **A leg needs EVERY absolute position it can be reached from.** `turnIndex` is
 a position _disambiguator_, not a reject gate (aimock's `selectByTurnIndex`):

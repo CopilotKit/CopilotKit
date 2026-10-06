@@ -1,7 +1,7 @@
 # The Antigravity AG-UI adapter. google-antigravity ships platform wheels
 # bundling the Go localharness binary (manylinux x86_64 and aarch64 both
 # published).
-ag-ui-antigravity==0.2.0
+ag-ui-antigravity==0.2.1
 google-antigravity==0.1.9
 ag-ui-protocol==1.0.0
 # Prompt assembly, validation and the validate->retry loop behind the
