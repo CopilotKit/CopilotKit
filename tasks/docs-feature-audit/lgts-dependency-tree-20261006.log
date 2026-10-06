@@ -1,0 +1,111 @@
+## ui: every installed copy (lock entries) of the duplicate-sensitive packages
+node_modules/@ag-ui/a2ui-middleware 0.0.10
+node_modules/@ag-ui/a2ui-toolkit 0.0.4
+node_modules/@ag-ui/client 1.0.1
+node_modules/@ag-ui/core 1.0.1
+node_modules/@ag-ui/encoder 1.0.1
+node_modules/@ag-ui/langgraph 0.0.44
+node_modules/@ag-ui/mcp-apps-middleware 0.1.1
+node_modules/@ag-ui/mcp-middleware 0.0.2
+node_modules/@ag-ui/proto 1.0.1
+node_modules/@copilotkit/a2ui-renderer 1.77.0
+node_modules/@copilotkit/channels-core 0.11.0
+node_modules/@copilotkit/channels-intelligence 0.11.0
+node_modules/@copilotkit/channels-slack 0.11.0
+node_modules/@copilotkit/channels-teams 0.11.0
+node_modules/@copilotkit/channels-ui 0.11.0
+node_modules/@copilotkit/core 1.77.0
+node_modules/@copilotkit/learning 0.0.1
+node_modules/@copilotkit/license-verifier 0.5.0
+node_modules/@copilotkit/mcp-apps-renderer 1.77.0
+node_modules/@copilotkit/react-core 1.77.0
+node_modules/@copilotkit/react-ui 1.77.0
+node_modules/@copilotkit/runtime 1.77.0
+node_modules/@copilotkit/runtime-client-gql 1.77.0
+node_modules/@copilotkit/sdk-js 1.77.0
+node_modules/@copilotkit/shared 1.77.0
+node_modules/@copilotkit/voice 1.77.0
+node_modules/@copilotkit/web-components 1.77.0
+node_modules/@copilotkit/web-inspector 1.77.0
+node_modules/@json-render/core/node_modules/zod 4.6.5
+node_modules/@langchain/core 1.2.14
+node_modules/@langchain/langgraph 1.4.19
+node_modules/@langchain/langgraph-checkpoint 1.1.5
+node_modules/@langchain/langgraph-sdk 1.12.1
+node_modules/@langchain/openai 1.6.2
+node_modules/@langchain/openai/node_modules/openai 7.28.0
+node_modules/@langchain/protocol 0.0.19
+node_modules/langchain 1.5.15
+node_modules/next 15.5.27
+node_modules/openai 5.23.2
+node_modules/react 19.3.0
+node_modules/react-dom 19.3.0
+node_modules/zod 3.25.76
+## ui: npm ls @copilotkit/core @copilotkit/shared @ag-ui/core @ag-ui/client @langchain/core @langchain/langgraph
+  13 @ag-ui/client@1.0.1 deduped
+   1 @ag-ui/client@1.0.1 overridden
+   9 @ag-ui/core@1.0.1 deduped
+   1 @ag-ui/core@1.0.1 overridden
+   1 @copilotkit/core@1.77.0
+   4 @copilotkit/core@1.77.0 deduped
+   1 @copilotkit/shared@1.77.0
+  12 @copilotkit/shared@1.77.0 deduped
+   1 @langchain/core@1.2.14
+   8 @langchain/core@1.2.14 deduped
+   1 @langchain/langgraph@1.4.19
+   2 @langchain/langgraph@1.4.19 deduped
+## agent: every installed copy (lock entries) of the duplicate-sensitive packages
+node_modules/@ag-ui/a2ui-middleware 0.0.10
+node_modules/@ag-ui/a2ui-toolkit 0.0.4
+node_modules/@ag-ui/client 1.0.1
+node_modules/@ag-ui/core 1.0.1
+node_modules/@ag-ui/encoder 1.0.1
+node_modules/@ag-ui/langgraph 0.0.44
+node_modules/@ag-ui/proto 1.0.1
+node_modules/@copilotkit/license-verifier 0.5.0
+node_modules/@copilotkit/sdk-js 1.77.0
+node_modules/@copilotkit/shared 1.77.0
+node_modules/@langchain/core 1.2.14
+node_modules/@langchain/langgraph 1.4.19
+node_modules/@langchain/langgraph-api 1.5.2
+node_modules/@langchain/langgraph-checkpoint 1.1.5
+node_modules/@langchain/langgraph-cli 1.5.2 (dev)
+node_modules/@langchain/langgraph-sdk 1.12.1
+node_modules/@langchain/langgraph-ui 1.5.2
+node_modules/@langchain/openai 1.6.2
+node_modules/@langchain/protocol 0.0.19
+node_modules/langchain 1.5.15
+node_modules/openai 7.28.0
+node_modules/zod 3.25.76
+## agent: npm ls @copilotkit/core @copilotkit/shared @ag-ui/core @ag-ui/client @langchain/core @langchain/langgraph
+   1 @ag-ui/client@1.0.1
+   2 @ag-ui/client@1.0.1 deduped
+   1 @ag-ui/core@1.0.1
+   4 @ag-ui/core@1.0.1 deduped
+   1 @copilotkit/shared@1.77.0
+   1 @langchain/core@1.2.14
+   8 @langchain/core@1.2.14 deduped
+   1 @langchain/langgraph@1.4.19
+   3 @langchain/langgraph@1.4.19 deduped
+## publish times of the direct targets
+@copilotkit/runtime@1.77.0 2026-10-02T21:33:53.904Z
+@copilotkit/react-core@1.77.0 2026-10-02T21:33:26.579Z
+@copilotkit/sdk-js@1.77.0 2026-10-02T21:34:05.870Z
+@copilotkit/shared@1.77.0 2026-10-02T21:33:21.265Z
+@copilotkit/core@1.77.0 2026-10-02T21:32:44.136Z
+@ag-ui/core@1.0.1 2026-09-29T09:45:43.722Z
+@ag-ui/client@1.0.1 2026-09-29T09:44:19.950Z
+@ag-ui/langgraph@0.0.44 2026-10-01T16:14:19.909Z
+@ag-ui/mcp-apps-middleware@0.1.1 2026-09-11T18:19:27.449Z
+@langchain/core@1.2.14 2026-10-01T01:19:56.282Z
+@langchain/langgraph@1.4.19 2026-10-03T18:39:33.809Z
+@langchain/langgraph-sdk@1.12.1 2026-10-03T18:39:55.316Z
+@langchain/langgraph-api@1.5.2 2026-10-03T18:40:09.010Z
+@langchain/langgraph-cli@1.5.2 2026-10-03T18:40:14.523Z
+@langchain/langgraph-checkpoint@1.1.5 2026-08-19T23:35:45.889Z
+@langchain/openai@1.6.2 2026-10-01T14:15:02.934Z
+langchain@1.5.15 2026-10-01T01:17:31.824Z
+openai@7.28.0 2026-10-04T18:31:37.091Z
+next@15.5.27 2026-09-30T16:19:50.862Z
+react@19.3.0 2026-09-09T17:21:30.071Z
+react-dom@19.3.0 2026-09-09T17:17:39.744Z

@@ -1,0 +1,28 @@
+# production agent boot: node v22.16.0, HEAD b02bf16e9c, langgraph-api 1.5.2, EXPECTED_PKG_VERSION=EXPECTED_PKG_VERSION = "1.1.17", Tue Oct  6 20:40:09 UTC 2026
+$ cd showcase/integrations/langgraph-typescript/src/agent && LANGGRAPH_DISABLE_FILE_PERSISTENCE=true PORT=8123 HOST=127.0.0.1 OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://127.0.0.1:4410/v1 npm start   # entrypoint.sh's agent command
+# agent process exited after 2s
+# --- agent output ---
+
+> langgraph-typescript-agent@0.0.1 start
+> node --import ./disable-file-persistence.mjs --import tsx liveness.mjs
+
+[persistence] version/shape guard failed: @langchain/langgraph-api is 1.5.2, but the fs-write interception was verified against 1.1.17. Re-verify persist.mjs's write surfaces and import form (see disable-file-persistence.mjs header), then bump EXPECTED_PKG_VERSION. Refusing to boot with an unverified writer shape.
+file:///Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/disable-file-persistence.mjs:104
+      throw new Error(
+            ^
+
+Error: @langchain/langgraph-api is 1.5.2, but the fs-write interception was verified against 1.1.17. Re-verify persist.mjs's write surfaces and import form (see disable-file-persistence.mjs header), then bump EXPECTED_PKG_VERSION. Refusing to boot with an unverified writer shape.
+    at file:///Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/disable-file-persistence.mjs:104:13
+    at ModuleJob.run (node:internal/modules/esm/module_job:274:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:644:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:112:9)
+
+Node.js v22.16.0
+# port 8123 free
+# port 8124 free
+result=FAIL
+# Attribution: the same preload at a7e2c82dcc (before this run's update) against the @langchain/langgraph-api 1.5.0 tarball that the 2026-09-23 update (c0b57935cf) installed. origin/main still pins 1.1.17.
+$ LANGGRAPH_DISABLE_FILE_PERSISTENCE=true node --import ./disable-file-persistence.mjs -e 0
+[persistence] version/shape guard failed: @langchain/langgraph-api is 1.5.0, but the fs-write interception was verified against 1.1.17. Re-verify persist.mjs's write surfaces and import form (see disable-file-persistence.mjs header), then bump EXPECTED_PKG_VERSION. Refusing to boot with an unverified writer shape.
+file:///private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgts/pre1150/disable-file-persistence.mjs:104
+exit=1

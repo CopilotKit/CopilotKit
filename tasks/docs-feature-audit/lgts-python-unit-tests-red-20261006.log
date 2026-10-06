@@ -1,0 +1,245 @@
+# showcase_validate.yml python-unit-tests for langgraph-typescript (CI: npm install in src/agent, then LGT_REQUIRE_BEHAVIORAL=1 pytest tests/python/ -v). Here the agent deps are the committed lock installed by npm ci (lgts-agent-npm-ci-20261006.log), so the behavioral tests drive the real @langchain/langgraph-api 1.5.2.
+# HEAD b02bf16e9c; node v22.16.0; Python 3.12.6; Tue Oct  6 20:39:03 UTC 2026
+$ cd showcase/integrations/langgraph-typescript && LGT_REQUIRE_BEHAVIORAL=1 PYTHONPATH=.:src python -m pytest tests/python/ -v
+============================= test session starts ==============================
+platform darwin -- Python 3.12.6, pytest-9.1.1, pluggy-1.6.0 -- /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgts/pyvenv/bin/python
+rootdir: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript
+plugins: mock-3.16.0, asyncio-1.4.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 24 items
+
+tests/python/test_entrypoint_watchdog.py::TestBootPurge::test_purges_existing_persist_dir PASSED [  4%]
+tests/python/test_entrypoint_watchdog.py::TestBootPurge::test_clean_boot_logs_no_prior_state PASSED [  8%]
+tests/python/test_entrypoint_watchdog.py::TestBootPurge::test_persist_dir_uses_env_override PASSED [ 12%]
+tests/python/test_entrypoint_watchdog.py::TestFilePersistenceDisabled::test_export_runs_before_agent_start PASSED [ 16%]
+tests/python/test_entrypoint_watchdog.py::TestFilePersistenceDisabled::test_env_var_exported_in_source PASSED [ 20%]
+tests/python/test_entrypoint_watchdog.py::TestFilePersistenceDisabled::test_preload_module_exists_and_gated PASSED [ 25%]
+tests/python/test_entrypoint_watchdog.py::TestFilePersistenceDisabled::test_start_script_preloads_disable_module PASSED [ 29%]
+tests/python/test_entrypoint_watchdog.py::TestFilePersistenceDisabled::test_real_package_writes_are_suppressed_behavioral FAILED [ 33%]
+tests/python/test_entrypoint_watchdog.py::TestFilePersistenceDisabled::test_boot_fails_if_namespace_binding_not_patched_high1 FAILED [ 37%]
+tests/python/test_entrypoint_watchdog.py::TestNoFixedIntervalTruncate::test_truncate_loop_absent_from_entrypoint PASSED [ 41%]
+tests/python/test_entrypoint_watchdog.py::TestNoFixedIntervalTruncate::test_no_truncate_curl_call_in_source PASSED [ 45%]
+tests/python/test_entrypoint_watchdog.py::TestNoFixedIntervalTruncate::test_no_periodic_truncate_comment PASSED [ 50%]
+tests/python/test_entrypoint_watchdog.py::TestSizeGatedRestart::test_gate_fires_when_over_threshold PASSED [ 54%]
+tests/python/test_entrypoint_watchdog.py::TestSizeGatedRestart::test_gate_does_not_fire_when_under_threshold PASSED [ 58%]
+tests/python/test_entrypoint_watchdog.py::TestSizeGatedRestart::test_gate_fires_at_exact_threshold PASSED [ 62%]
+tests/python/test_entrypoint_watchdog.py::TestSizeGatedRestart::test_gate_skipped_when_persist_dir_missing PASSED [ 66%]
+tests/python/test_entrypoint_watchdog.py::TestSizeGatedRestart::test_gate_logs_size_on_each_cycle PASSED [ 70%]
+tests/python/test_entrypoint_watchdog.py::TestSizeGatedRestart::test_size_check_interval_default_is_60s PASSED [ 75%]
+tests/python/test_entrypoint_watchdog.py::TestSizeGatedRestart::test_size_threshold_configurable PASSED [ 79%]
+tests/python/test_entrypoint_watchdog.py::TestSizePidOrphanGuard::test_size_pid_captured_in_watchdog PASSED [ 83%]
+tests/python/test_entrypoint_watchdog.py::TestSizePidOrphanGuard::test_size_pid_reaped_by_in_subshell_trap PASSED [ 87%]
+tests/python/test_entrypoint_watchdog.py::TestSizePidOrphanGuard::test_reap_watchdog_children_reaps_real_sub_loop_behavioral PASSED [ 91%]
+tests/python/test_entrypoint_watchdog.py::TestSetECorrectness::test_no_bare_command_substitution_for_curl_truncate PASSED [ 95%]
+tests/python/test_entrypoint_watchdog.py::TestSetECorrectness::test_du_in_size_check_has_error_guard PASSED [100%]
+
+=================================== FAILURES ===================================
+_ TestFilePersistenceDisabled.test_real_package_writes_are_suppressed_behavioral _
+
+self = <test_entrypoint_watchdog.TestFilePersistenceDisabled object at 0x106d14c80>
+tmp_path = PosixPath('/private/var/folders/b6/vwlb8t4n6sqdg9v2s565gwjm0000gn/T/pytest-of-tylerslaton/pytest-0/test_real_package_writes_are_s0')
+
+    def test_real_package_writes_are_suppressed_behavioral(self, tmp_path):
+        """BEHAVIORAL (real package): with the preload active and the flag ON, the
+        REAL @langchain/langgraph-api FileSystemPersistence flush must NOT grow
+        `.langgraph_api` on disk, AND an in-memory write/read round-trip must still
+        return the value (persistence disabled != conversation capability removed).
+    
+        Skipped if the agent's node_modules is not installed (CI matrices that do
+        not `npm ci` the agent). When installed, this is the proof that closes the
+        stubbed-fs gap: it drives the real writer, not a fake.
+        """
+        import json
+        import shutil
+    
+        agent_dir = _PKG_ROOT / "src" / "agent"
+        persist_pkg = (
+            agent_dir
+            / "node_modules"
+            / "@langchain"
+            / "langgraph-api"
+            / "dist"
+            / "storage"
+            / "persist.mjs"
+        )
+        # In CI, LGT_REQUIRE_BEHAVIORAL=1 makes a missing runtime a FAILURE, not
+        # a skip: the merge-gating job is SUPPOSED to have the package installed,
+        # so a silent skip there would let the suite go green without ever
+        # exercising the real writer — the exact false-confidence mode this fix
+        # exists to prevent. Local dev machines (flag unset) still skip
+        # gracefully when the agent deps legitimately are not installed.
+        require_behavioral = os.environ.get("LGT_REQUIRE_BEHAVIORAL") == "1"
+        if not persist_pkg.exists():
+            msg = (
+                "agent node_modules not installed (@langchain/langgraph-api) at "
+                f"{persist_pkg}"
+            )
+            if require_behavioral:
+                pytest.fail(
+                    "LGT_REQUIRE_BEHAVIORAL=1 but " + msg + " — the CI job that "
+                    "gates this fix MUST install the agent deps (npm install in "
+                    "src/agent) so the real-package interception is actually "
+                    "exercised. Refusing to skip the sole behavioral proof."
+                )
+            pytest.skip(msg)
+        node = shutil.which("node")
+        if node is None:
+            if require_behavioral:
+                pytest.fail(
+                    "LGT_REQUIRE_BEHAVIORAL=1 but node is not on PATH — the CI job "
+                    "must set up Node before running the behavioral proof."
+                )
+            pytest.skip("node not on PATH")
+    
+        run_cwd = tmp_path / "run"
+        run_cwd.mkdir()
+        driver = tmp_path / "driver.mjs"
+        driver.write_text(
+            dedent(r"""
+            import { pathToFileURL } from "node:url";
+            import * as fsSync from "node:fs";
+            import * as path from "node:path";
+            const persistAbs = process.env.PERSIST_ABS;
+            const cwd = process.env.RUN_CWD;
+            const { FileSystemPersistence } =
+              await import(pathToFileURL(persistAbs).href);
+            const conn = new FileSystemPersistence(
+              ".langgraphjs_api.checkpointer.json", () => ({ threads: {} }));
+            await conn.initialize(cwd);
+            await conn.with(async (data) => {
+              for (let i = 0; i < 500; i++)
+                data.threads["t" + i] =
+                  { messages: [{ role: "assistant", content: "reply-" + i }] };
+            });
+            let readBack;
+            await conn.with(async (data) => {
+              readBack = data.threads["t0"]?.messages?.[0]?.content;
+            });
+            await conn.flush();
+            await new Promise((r) => setTimeout(r, 3500));
+            const dir = path.join(cwd, ".langgraph_api");
+            let bytes = 0;
+            if (fsSync.existsSync(dir))
+              for (const e of fsSync.readdirSync(dir))
+                bytes += fsSync.statSync(path.join(dir, e)).size;
+            console.log(JSON.stringify({ readBack, bytes }));
+        """)
+        )
+    
+        env = {
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+            "HOME": os.environ.get("HOME", "/tmp"),
+            "LANGGRAPH_DISABLE_FILE_PERSISTENCE": "true",
+            "PERSIST_ABS": str(persist_pkg),
+            "RUN_CWD": str(run_cwd),
+        }
+        preload = agent_dir / "disable-file-persistence.mjs"
+        result = subprocess.run(
+            [node, "--import", str(preload), str(driver)],
+            cwd=str(agent_dir),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+>       assert result.returncode == 0, (
+            f"driver failed rc={result.returncode}\n"
+            f"stdout={result.stdout!r}\nstderr={result.stderr!r}"
+        )
+E       AssertionError: driver failed rc=1
+E         stdout=''
+E         stderr="[persistence] version/shape guard failed: @langchain/langgraph-api is 1.5.2, but the fs-write interception was verified against 1.1.17. Re-verify persist.mjs's write surfaces and import form (see disable-file-persistence.mjs header), then bump EXPECTED_PKG_VERSION. Refusing to boot with an unverified writer shape.\nfile:///Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/disable-file-persistence.mjs:104\n      throw new Error(\n            ^\n\nError: @langchain/langgraph-api is 1.5.2, but the fs-write interception was verified against 1.1.17. Re-verify persist.mjs's write surfaces and import form (see disable-file-persistence.mjs header), then bump EXPECTED_PKG_VERSION. Refusing to boot with an unverified writer shape.\n    at file:///Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/disable-file-persistence.mjs:104:13\n    at ModuleJob.run (node:internal/modules/esm/module_job:274:25)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:644:26)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:112:9)\n\nNode.js v22.16.0\n"
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/tylerslaton/.nvm/versions/node/v22.16.0/bin/node', '--import', '/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/disable-file-persistence.mjs', '/private/var/folders/b6/vwlb8t4n6sqdg9v2s565gwjm0000gn/T/pytest-of-tylerslaton/pytest-0/test_real_package_writes_are_s0/driver.mjs'], returncode=1, stdout='', stderr="[persistence] version/shape guard failed: @langchain/langgraph-api is 1.5.2, but the fs-write interception was verified against 1.1.17. Re-verify persist.mjs's write surfaces and import form (see disable-file-persistence.mjs header), then bump EXPECTED_PKG_VERSION. Refusing to boot with an unverified writer shape.\nfile:///Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/disable-file-persistence.mjs:104\n      throw new Error(\n            ^\n\nError: @langchain/langgraph-api is 1.5.2, but the fs-write interception was verified against 1.1.17. Re-verify persist.mjs's write surfaces and import form (see disable-file-persistence.mjs header), then bump EXPECTED_PKG_VERSION. Refusing to boot with an unverified writer shape.\n    at file:///Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/disable-file-persistence.mjs:104:13\n    at ModuleJob.run (node:internal/modules/esm/module_job:274:25)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:644:26)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:112:9)\n\nNode.js v22.16.0\n").returncode
+
+tests/python/test_entrypoint_watchdog.py:486: AssertionError
+_ TestFilePersistenceDisabled.test_boot_fails_if_namespace_binding_not_patched_high1 _
+
+self = <test_entrypoint_watchdog.TestFilePersistenceDisabled object at 0x106d14950>
+tmp_path = PosixPath('/private/var/folders/b6/vwlb8t4n6sqdg9v2s565gwjm0000gn/T/pytest-of-tylerslaton/pytest-0/test_boot_fails_if_namespace_b0')
+
+    def test_boot_fails_if_namespace_binding_not_patched_high1(self, tmp_path):
+        """HIGH-1 negative proof: if node:fs/promises is LINKED before the
+        preload's property reassignments run, the ESM namespace snapshots the
+        ORIGINAL (unpatched) function reference and a consumer's fs.writeFile
+        would silently bypass the no-op. The preload's runtime binding-identity
+        assertion MUST catch this and FAIL BOOT (non-zero exit) naming the
+        affected members — never continue silently into a disk-growth outage.
+    
+        We simulate the fragile ordering with an earlier `--import` module that
+        links node:fs/promises before the disable module, then assert the
+        process exits non-zero with the FATAL identity-mismatch message. A
+        control run (correct ordering) is covered by
+        test_real_package_writes_are_suppressed_behavioral above.
+        """
+        import shutil
+    
+        node = shutil.which("node")
+        require_behavioral = os.environ.get("LGT_REQUIRE_BEHAVIORAL") == "1"
+        if node is None:
+            if require_behavioral:
+                pytest.fail(
+                    "LGT_REQUIRE_BEHAVIORAL=1 but node is not on PATH — cannot "
+                    "run the HIGH-1 guard-fires proof."
+                )
+            pytest.skip("node not on PATH")
+    
+        agent_dir = _PKG_ROOT / "src" / "agent"
+        preload = agent_dir / "disable-file-persistence.mjs"
+        assert preload.exists(), f"preload missing at {preload}"
+    
+        # Earlier-ordered --import that links node:fs/promises FIRST, forcing the
+        # namespace binding to snapshot the pre-patch original.
+        early = tmp_path / "early_link_fs_promises.mjs"
+        early.write_text(
+            dedent(
+                """
+                import * as _fsp from "node:fs/promises";
+                void _fsp.writeFile; // force the namespace binding to resolve now
+                """
+            )
+        )
+    
+        env = {
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+            "HOME": os.environ.get("HOME", "/tmp"),
+            "LANGGRAPH_DISABLE_FILE_PERSISTENCE": "true",
+        }
+        result = subprocess.run(
+            [
+                node,
+                "--import",
+                str(early),
+                "--import",
+                str(preload),
+                "-e",
+                "console.log('SHOULD-NOT-REACH')",
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        combined = result.stdout + result.stderr
+        assert result.returncode != 0, (
+            "Expected boot to FAIL when node:fs/promises is linked before the "
+            "patch (namespace snapshots the original fn), but the process exited "
+            f"0. stdout={result.stdout!r} stderr={result.stderr!r}"
+        )
+        assert "SHOULD-NOT-REACH" not in result.stdout, (
+            "Boot continued past the identity guard despite the namespace binding "
+            "NOT reflecting the patch — this is the silent-bypass failure mode."
+        )
+>       assert "namespace binding does NOT reflect the installed patch" in combined, (
+            "Expected the FATAL binding-identity message naming the unpatched "
+            f"members. output={combined!r}"
+        )
+E       AssertionError: Expected the FATAL binding-identity message naming the unpatched members. output="[persistence] version/shape guard failed: @langchain/langgraph-api is 1.5.2, but the fs-write interception was verified against 1.1.17. Re-verify persist.mjs's write surfaces and import form (see disable-file-persistence.mjs header), then bump EXPECTED_PKG_VERSION. Refusing to boot with an unverified writer shape.\nfile:///Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/disable-file-persistence.mjs:104\n      throw new Error(\n            ^\n\nError: @langchain/langgraph-api is 1.5.2, but the fs-write interception was verified against 1.1.17. Re-verify persist.mjs's write surfaces and import form (see disable-file-persistence.mjs header), then bump EXPECTED_PKG_VERSION. Refusing to boot with an unverified writer shape.\n    at file:///Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/disable-file-persistence.mjs:104:13\n    at ModuleJob.run (node:internal/modules/esm/module_job:274:25)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:644:26)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:112:9)\n\nNode.js v22.16.0\n"
+E       assert 'namespace binding does NOT reflect the installed patch' in "[persistence] version/shape guard failed: @langchain/langgraph-api is 1.5.2, but the fs-write interception was verified against 1.1.17. Re-verify persist.mjs's write surfaces and import form (see disable-file-persistence.mjs header), then bump EXPECTED_PKG_VERSION. Refusing to boot with an unverified writer shape.\nfile:///Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/disable-file-persistence.mjs:104\n      throw new Error(\n            ^\n\nError: @langchain/langgraph-api is 1.5.2, but the fs-write interception was verified against 1.1.17. Re-verify persist.mjs's write surfaces and import form (see disable-file-persistence.mjs header), then bump EXPECTED_PKG_VERSION. Refusing to boot with an unverified writer shape.\n    at file:///Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/disable-file-persistence.mjs:104:13\n    at ModuleJob.run (node:internal/modules/esm/module_job:274:25)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:644:26)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:112:9)\n\nNode.js v22.16.0\n"
+
+tests/python/test_entrypoint_watchdog.py:582: AssertionError
+=========================== short test summary info ============================
+FAILED tests/python/test_entrypoint_watchdog.py::TestFilePersistenceDisabled::test_real_package_writes_are_suppressed_behavioral
+FAILED tests/python/test_entrypoint_watchdog.py::TestFilePersistenceDisabled::test_boot_fails_if_namespace_binding_not_patched_high1
+========================= 2 failed, 22 passed in 4.37s =========================
+exit=1

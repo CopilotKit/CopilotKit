@@ -1,0 +1,37 @@
+# GREEN: same command as lgts-python-unit-tests-red-20261006.log, with EXPECTED_PKG_VERSION bumped to 1.5.2 (uncommitted at run time; diff = the 3 lines in disable-file-persistence.mjs)
+# HEAD b02bf16e9c; node v22.16.0; Python 3.12.6; Tue Oct  6 20:40:55 UTC 2026
+$ cd showcase/integrations/langgraph-typescript && LGT_REQUIRE_BEHAVIORAL=1 PYTHONPATH=.:src python -m pytest tests/python/ -v
+============================= test session starts ==============================
+platform darwin -- Python 3.12.6, pytest-9.1.1, pluggy-1.6.0 -- /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgts/pyvenv/bin/python
+rootdir: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript
+plugins: mock-3.16.0, asyncio-1.4.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 24 items
+
+tests/python/test_entrypoint_watchdog.py::TestBootPurge::test_purges_existing_persist_dir PASSED [  4%]
+tests/python/test_entrypoint_watchdog.py::TestBootPurge::test_clean_boot_logs_no_prior_state PASSED [  8%]
+tests/python/test_entrypoint_watchdog.py::TestBootPurge::test_persist_dir_uses_env_override PASSED [ 12%]
+tests/python/test_entrypoint_watchdog.py::TestFilePersistenceDisabled::test_export_runs_before_agent_start PASSED [ 16%]
+tests/python/test_entrypoint_watchdog.py::TestFilePersistenceDisabled::test_env_var_exported_in_source PASSED [ 20%]
+tests/python/test_entrypoint_watchdog.py::TestFilePersistenceDisabled::test_preload_module_exists_and_gated PASSED [ 25%]
+tests/python/test_entrypoint_watchdog.py::TestFilePersistenceDisabled::test_start_script_preloads_disable_module PASSED [ 29%]
+tests/python/test_entrypoint_watchdog.py::TestFilePersistenceDisabled::test_real_package_writes_are_suppressed_behavioral PASSED [ 33%]
+tests/python/test_entrypoint_watchdog.py::TestFilePersistenceDisabled::test_boot_fails_if_namespace_binding_not_patched_high1 PASSED [ 37%]
+tests/python/test_entrypoint_watchdog.py::TestNoFixedIntervalTruncate::test_truncate_loop_absent_from_entrypoint PASSED [ 41%]
+tests/python/test_entrypoint_watchdog.py::TestNoFixedIntervalTruncate::test_no_truncate_curl_call_in_source PASSED [ 45%]
+tests/python/test_entrypoint_watchdog.py::TestNoFixedIntervalTruncate::test_no_periodic_truncate_comment PASSED [ 50%]
+tests/python/test_entrypoint_watchdog.py::TestSizeGatedRestart::test_gate_fires_when_over_threshold PASSED [ 54%]
+tests/python/test_entrypoint_watchdog.py::TestSizeGatedRestart::test_gate_does_not_fire_when_under_threshold PASSED [ 58%]
+tests/python/test_entrypoint_watchdog.py::TestSizeGatedRestart::test_gate_fires_at_exact_threshold PASSED [ 62%]
+tests/python/test_entrypoint_watchdog.py::TestSizeGatedRestart::test_gate_skipped_when_persist_dir_missing PASSED [ 66%]
+tests/python/test_entrypoint_watchdog.py::TestSizeGatedRestart::test_gate_logs_size_on_each_cycle PASSED [ 70%]
+tests/python/test_entrypoint_watchdog.py::TestSizeGatedRestart::test_size_check_interval_default_is_60s PASSED [ 75%]
+tests/python/test_entrypoint_watchdog.py::TestSizeGatedRestart::test_size_threshold_configurable PASSED [ 79%]
+tests/python/test_entrypoint_watchdog.py::TestSizePidOrphanGuard::test_size_pid_captured_in_watchdog PASSED [ 83%]
+tests/python/test_entrypoint_watchdog.py::TestSizePidOrphanGuard::test_size_pid_reaped_by_in_subshell_trap PASSED [ 87%]
+tests/python/test_entrypoint_watchdog.py::TestSizePidOrphanGuard::test_reap_watchdog_children_reaps_real_sub_loop_behavioral PASSED [ 91%]
+tests/python/test_entrypoint_watchdog.py::TestSetECorrectness::test_no_bare_command_substitution_for_curl_truncate PASSED [ 95%]
+tests/python/test_entrypoint_watchdog.py::TestSetECorrectness::test_du_in_size_check_has_error_guard PASSED [100%]
+
+============================== 24 passed in 7.88s ==============================
+exit=0

@@ -1,0 +1,1087 @@
+# LGTS stack via the integration's documented default dev command (package.json scripts.dev = concurrently "next dev --turbopack" + langgraph-cli@1.5.2 dev --port 8123), same environment as lgts-dev-stack-20260923b.log. .next removed first.
+$ cd showcase/integrations/langgraph-typescript && PORT=3101 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true DO_NOT_TRACK=1 LANGSMITH_TRACING=false LANGGRAPH_CLI_NO_ANALYTICS=1 OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://127.0.0.1:4410/v1 AIMOCK_URL=http://127.0.0.1:4410 LANGGRAPH_DEPLOYMENT_URL=http://localhost:8123 nice -n 10 npm run dev
+# node v22.16.0, npm 10.9.2, HEAD bb1ae7bfdc, started Tue Oct  6 21:14:47 UTC 2026
+
+> @copilotkit/showcase-langgraph-typescript@0.1.0 dev
+> concurrently "next dev --turbopack" "cd src/agent && npx @langchain/langgraph-cli@1.5.2 dev --port 8123 --no-browser"
+
+[0]  ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+[0]  We detected multiple lockfiles and selected the directory of /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/pnpm-lock.yaml as the root directory.
+[0]  To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+[0]    See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+[0]  Detected additional lockfiles: 
+[0]    * /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/package-lock.json
+[0] 
+[1] 
+[1]           Welcome to
+[1] 
+[1] ╦  ┌─┐┌┐┌┌─┐╔═╗┬─┐┌─┐┌─┐┬ ┬
+[1] ║  ├─┤││││ ┬║ ╦├┬┘├─┤├─┘├─┤
+[1] ╩═╝┴ ┴┘└┘└─┘╚═╝┴└─┴ ┴┴  ┴ ┴.js
+[1] 
+[1] - 🚀 API: [36mhttp://localhost:8123[0m
+[1] - 🎨 Studio UI: [36mhttps://smith.langchain.com/studio?baseUrl=http://localhost:8123[0m
+[1] 
+[1] This in-memory server is designed for development and testing.
+[1] For production use, please use LangSmith Deployment.
+[1] 
+[1] 
+[0]    ▲ Next.js 15.5.27 (Turbopack)
+[0]    - Local:        http://localhost:3101
+[0]    - Network:      http://192.168.4.34:3101
+[0]    - Environments: .env
+[0] 
+[0]  ✓ Starting...
+[0]  ✓ Compiled middleware in 72ms
+[1] [32minfo[39m:    [32m▪ [32mStarting server...[39m
+[1] [32minfo[39m:    [32m▪ [32mInitializing storage...[39m
+[0]  ✓ Ready in 746ms
+[1] [32minfo[39m:    [32m▪ [32mRegistering graphs from /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent[39m
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'sample_agent'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'sample_agent'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'starterAgent'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'starterAgent'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'beautiful_chat'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'beautiful_chat'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'headless_complete'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'headless_complete'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'multimodal'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'multimodal'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'agent_config_agent'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'agent_config_agent'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'agentic-chat-reasoning'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'agentic-chat-reasoning'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'tool_rendering'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'tool_rendering'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'tool-rendering-reasoning-chain'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'tool-rendering-reasoning-chain'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'interrupt_agent'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'interrupt_agent'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'a2ui_dynamic'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'a2ui_dynamic'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'a2ui_fixed'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'a2ui_fixed'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'a2ui_recovery'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'a2ui_recovery'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'mcp_apps'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'mcp_apps'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'frontend_tools'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'frontend_tools'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'frontend_tools_async'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'frontend_tools_async'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'hitl_in_app'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'hitl_in_app'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'hitl_in_chat'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'hitl_in_chat'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'readonly_state_agent_context'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'readonly_state_agent_context'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'byoc_hashbrown'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'byoc_hashbrown'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'byoc_json_render'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'byoc_json_render'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'open_gen_ui'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'open_gen_ui'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'open_gen_ui_advanced'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'open_gen_ui_advanced'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'shared_state_read'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'shared_state_read'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'shared_state_read_write'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'shared_state_read_write'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'shared_state_streaming'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'shared_state_streaming'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'subagents'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'subagents'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'gen_ui_agent'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'gen_ui_agent'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'gen_ui_tool_based'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'gen_ui_tool_based'[39m }
+[0]  ○ Compiling /api/health ...
+[0]  ✓ Compiled /api/health in 593ms
+[1] [32minfo[39m:    [32m▪ [32mStarting 10 workers[39m
+[1] [32minfo[39m:    [32m▪ [32mServer running at ::1:8123[39m
+[0]  GET /api/health 200 in 871ms
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /ok[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /ok [32m200[0m 2ms[39m
+[0]  GET /api/health 200 in 239ms
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 3ms[39m
+[0]  ○ Compiling /demos/beautiful-chat ...
+[0]  ✓ Compiled /demos/beautiful-chat in 5.5s
+[0] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+[0]  GET /demos/beautiful-chat 200 in 6051ms
+[0]  ○ Compiling /demos/agentic-chat ...
+[0]  ✓ Compiled /demos/agentic-chat in 1406ms
+[0]  GET /demos/agentic-chat 200 in 1497ms
+[0]  ○ Compiling /demos/prebuilt-sidebar ...
+[0]  ✓ Compiled /demos/prebuilt-sidebar in 1136ms
+[0]  GET /demos/prebuilt-sidebar 200 in 1226ms
+[0]  ○ Compiling /demos/prebuilt-popup ...
+[0]  ✓ Compiled /demos/prebuilt-popup in 1162ms
+[0]  GET /demos/prebuilt-popup 200 in 1252ms
+[0]  ○ Compiling /demos/chat-slots ...
+[0]  ✓ Compiled /demos/chat-slots in 1107ms
+[0]  GET /demos/chat-slots 200 in 1168ms
+[0]  ○ Compiling /demos/chat-customization-css ...
+[0]  ✓ Compiled /demos/chat-customization-css in 1072ms
+[0]  GET /demos/chat-customization-css 200 in 1133ms
+[0]  ○ Compiling /demos/headless-simple ...
+[0]  ✓ Compiled /demos/headless-simple in 1173ms
+[0]  GET /demos/headless-simple 200 in 1265ms
+[0]  ✓ Compiled /api/copilotkit in 69ms
+[0] [copilotkit/route] Initializing CopilotKit runtime
+[0] [copilotkit/route] AGENT_URL: http://localhost:8123
+[0] [copilotkit/route] Registered 31 agent names: agentic_chat, human_in_the_loop, shared-state-write, prebuilt-sidebar, prebuilt-popup, chat-customization-css, chat-slots, headless-simple, hitl, default, starterAgent, gen-ui-interrupt, interrupt-headless, shared-state-read, frontend_tools, frontend-tools-async, hitl-in-app, hitl-in-chat, readonly-state-agent-context, shared-state-read-write, shared-state-streaming, subagents, gen-ui-agent, gen-ui-tool-based, threadid-frontend-tool-roundtrip, reasoning-custom, reasoning-default, tool-rendering, tool-rendering-default-catchall, tool-rendering-custom-catchall, tool-rendering-reasoning-chain
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /ok[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /ok [32m200[0m 0ms[39m
+[0]  GET /api/copilotkit 200 in 842ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-fixed-schema in 58ms
+[0]  GET /api/copilotkit-a2ui-fixed-schema 405 in 285ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-recovery in 63ms
+[0]  GET /api/copilotkit-a2ui-recovery 405 in 289ms
+[0]  ✓ Compiled /api/copilotkit-agent-config in 55ms
+[0]  GET /api/copilotkit-agent-config 405 in 287ms
+[0]  ✓ Compiled /api/copilotkit-auth/[[...slug]] in 63ms
+[0]  GET /api/copilotkit-auth 401 in 1119ms
+[0]  ✓ Compiled /api/copilotkit-beautiful-chat in 56ms
+[0]  GET /api/copilotkit-beautiful-chat 405 in 287ms
+[0]  ✓ Compiled /api/copilotkit-declarative-gen-ui in 53ms
+[0]  GET /api/copilotkit-declarative-gen-ui 405 in 287ms
+[0]  ✓ Compiled /api/copilotkit-declarative-hashbrown in 56ms
+[0]  GET /api/copilotkit-declarative-hashbrown 405 in 288ms
+[0]  ✓ Compiled /api/copilotkit-declarative-json-render in 53ms
+[0]  GET /api/copilotkit-declarative-json-render 405 in 285ms
+[0]  ✓ Compiled /api/copilotkit-mcp-apps/[[...slug]] in 53ms
+[0]  GET /api/copilotkit-mcp-apps 405 in 1108ms
+[0]  ✓ Compiled /api/copilotkit-multimodal in 51ms
+[0]  GET /api/copilotkit-multimodal 405 in 282ms
+[0]  ✓ Compiled /api/copilotkit-ogui in 56ms
+[0]  GET /api/copilotkit-ogui 405 in 288ms
+[0]  ✓ Compiled /api/copilotkit-voice/[[...slug]] in 100ms
+[0]  GET /api/copilotkit-voice 404 in 1170ms
+[0]  ✓ Compiled /api/debug in 55ms
+[0]  GET /api/debug 403 in 286ms
+[0]  GET /api/health 200 in 231ms
+[0]  GET /demos/beautiful-chat 200 in 325ms
+[0]  GET /demos/beautiful-chat 200 in 334ms
+[0]  GET /demos/beautiful-chat 200 in 336ms
+[0]  GET /demos/beautiful-chat 200 in 337ms
+[0] SyntaxError: Unexpected end of JSON input
+[0]     at JSON.parse (<anonymous>)
+[0]  ⨯ unhandledRejection: SyntaxError: Unexpected end of JSON input
+[0]     at JSON.parse (<anonymous>)
+[0]  ⨯ unhandledRejection:  SyntaxError: Unexpected end of JSON input
+[0]     at JSON.parse (<anonymous>)
+[0]  ✓ Compiled /_not-found/page in 209ms
+[0]  GET /api/copilotkit-beautiful-chat/info 404 in 364ms
+[0]  GET /api/copilotkit-beautiful-chat/info 404 in 317ms
+[0]  GET /api/copilotkit-beautiful-chat/info 404 in 320ms
+[0]  GET /api/copilotkit-beautiful-chat/info 404 in 319ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 300ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 262ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 269ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 274ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 302ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 303ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 305ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 310ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 313ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 317ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 318ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 321ms
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/9fe54273-baee-44f7-9b82-6c4d92505c6c[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/9fe54273-baee-44f7-9b82-6c4d92505c6c [33m404[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/8715187e-848e-49af-b768-85a945bedf74[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/8715187e-848e-49af-b768-85a945bedf74 [33m404[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/9fe54273-baee-44f7-9b82-6c4d92505c6c/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/9fe54273-baee-44f7-9b82-6c4d92505c6c/state [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/8715187e-848e-49af-b768-85a945bedf74/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/8715187e-848e-49af-b768-85a945bedf74/state [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/schemas[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/schemas[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/0803ea00-5118-44ba-a182-3061bf1d3096[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/0803ea00-5118-44ba-a182-3061bf1d3096 [33m404[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/0803ea00-5118-44ba-a182-3061bf1d3096/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/0803ea00-5118-44ba-a182-3061bf1d3096/state [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/schemas[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/d6ac20a8-5539-446f-846d-c88d9c50569d[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/d6ac20a8-5539-446f-846d-c88d9c50569d [33m404[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/d6ac20a8-5539-446f-846d-c88d9c50569d/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/d6ac20a8-5539-446f-846d-c88d9c50569d/state [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/schemas[39m
+[1] Option '--incremental' can only be specified using tsconfig, emitting to single file or when option '--tsBuildInfoFile' is specified.
+[1] 
+[1] Option '--incremental' can only be specified using tsconfig, emitting to single file or when option '--tsBuildInfoFile' is specified.
+[1] 
+[1] Option '--incremental' can only be specified using tsconfig, emitting to single file or when option '--tsBuildInfoFile' is specified.
+[1] 
+[1] Option '--incremental' can only be specified using tsconfig, emitting to single file or when option '--tsBuildInfoFile' is specified.
+[1] 
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/schemas [32m200[0m 3s[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/graph [32m200[0m 3ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/9fe54273-baee-44f7-9b82-6c4d92505c6c/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a11312-2806-747e-b7cb-25713bedb7a5'[39m, thread_id: [32m'9fe54273-baee-44f7-9b82-6c4d92505c6c'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/9fe54273-baee-44f7-9b82-6c4d92505c6c/runs/stream [32m200[0m 4ms[39m
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-2806-747e-b7cb-25713bedb7a5'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:19.431Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:19.449Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m18[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/schemas [32m200[0m 3s[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/graph [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/8715187e-848e-49af-b768-85a945bedf74/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a11312-2854-74cb-8e79-0510c259b4c6'[39m, thread_id: [32m'8715187e-848e-49af-b768-85a945bedf74'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/8715187e-848e-49af-b768-85a945bedf74/runs/stream [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-2854-74cb-8e79-0510c259b4c6'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:19.509Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:19.593Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m84[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/schemas [32m200[0m 3s[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/graph [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/0803ea00-5118-44ba-a182-3061bf1d3096/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a11312-28d1-7611-8c40-0a85c20ccab2'[39m, thread_id: [32m'0803ea00-5118-44ba-a182-3061bf1d3096'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/0803ea00-5118-44ba-a182-3061bf1d3096/runs/stream [32m200[0m 2ms[39m
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-28d1-7611-8c40-0a85c20ccab2'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:19.633Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:19.663Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m30[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/schemas [32m200[0m 3s[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/graph [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/d6ac20a8-5539-446f-846d-c88d9c50569d/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a11312-2922-761b-bb4e-33de0fe87fe7'[39m, thread_id: [32m'd6ac20a8-5539-446f-846d-c88d9c50569d'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/d6ac20a8-5539-446f-846d-c88d9c50569d/runs/stream [32m200[0m 2ms[39m
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-2922-761b-bb4e-33de0fe87fe7'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:19.714Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:19.780Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m66[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] [32minfo[39m:    [32m┏ [32mBackground run succeeded[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-2854-74cb-8e79-0510c259b4c6'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:19.509Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:19.593Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_ended_at: [35m2026-10-06T21:15:19.866Z[39m,
+[1] [32minfo[39m:    [32m┃ [7]   run_exec_ms: [33m273[39m
+[1] [32minfo[39m:    [32m┗ [8] }
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/8715187e-848e-49af-b768-85a945bedf74/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/8715187e-848e-49af-b768-85a945bedf74/state [32m200[0m 8ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/8715187e-848e-49af-b768-85a945bedf74/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/8715187e-848e-49af-b768-85a945bedf74/state [32m200[0m 1ms[39m
+[0]  POST /api/copilotkit-beautiful-chat 200 in 4594ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 313ms
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/8715187e-848e-49af-b768-85a945bedf74[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/8715187e-848e-49af-b768-85a945bedf74 [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/8715187e-848e-49af-b768-85a945bedf74/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/8715187e-848e-49af-b768-85a945bedf74/state [32m200[0m 2ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/schemas[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/schemas [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/graph [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/8715187e-848e-49af-b768-85a945bedf74/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a11312-2f1f-750c-86dd-0dca52e5e0f8'[39m, thread_id: [32m'8715187e-848e-49af-b768-85a945bedf74'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/8715187e-848e-49af-b768-85a945bedf74/runs/stream [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-2f1f-750c-86dd-0dca52e5e0f8'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:21.248Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:21.251Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m3[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] [32minfo[39m:    [32m┏ [32mBackground run succeeded[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-2f1f-750c-86dd-0dca52e5e0f8'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:21.248Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:21.251Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_ended_at: [35m2026-10-06T21:15:21.516Z[39m,
+[1] [32minfo[39m:    [32m┃ [7]   run_exec_ms: [33m265[39m
+[1] [32minfo[39m:    [32m┗ [8] }
+[1] [32minfo[39m:    [32m┏ [32mBackground run succeeded[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-2922-761b-bb4e-33de0fe87fe7'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:19.714Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:19.780Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_ended_at: [35m2026-10-06T21:15:21.693Z[39m,
+[1] [32minfo[39m:    [32m┃ [7]   run_exec_ms: [33m1913[39m
+[1] [32minfo[39m:    [32m┗ [8] }
+[1] [32minfo[39m:    [32m┏ [32mBackground run succeeded[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-28d1-7611-8c40-0a85c20ccab2'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:19.633Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:19.663Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_ended_at: [35m2026-10-06T21:15:21.702Z[39m,
+[1] [32minfo[39m:    [32m┃ [7]   run_exec_ms: [33m2039[39m
+[1] [32minfo[39m:    [32m┗ [8] }
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/8715187e-848e-49af-b768-85a945bedf74/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/8715187e-848e-49af-b768-85a945bedf74/state [32m200[0m 4ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/8715187e-848e-49af-b768-85a945bedf74/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/8715187e-848e-49af-b768-85a945bedf74/state [32m200[0m 1ms[39m
+[0]  POST /api/copilotkit-beautiful-chat 200 in 1617ms
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/d6ac20a8-5539-446f-846d-c88d9c50569d/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/d6ac20a8-5539-446f-846d-c88d9c50569d/state [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/d6ac20a8-5539-446f-846d-c88d9c50569d/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/d6ac20a8-5539-446f-846d-c88d9c50569d/state [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/0803ea00-5118-44ba-a182-3061bf1d3096/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/0803ea00-5118-44ba-a182-3061bf1d3096/state [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/0803ea00-5118-44ba-a182-3061bf1d3096/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/0803ea00-5118-44ba-a182-3061bf1d3096/state [32m200[0m 2ms[39m
+[0]  POST /api/copilotkit-beautiful-chat 200 in 6415ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 6432ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 232ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 281ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 271ms
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/0803ea00-5118-44ba-a182-3061bf1d3096[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/0803ea00-5118-44ba-a182-3061bf1d3096 [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/0803ea00-5118-44ba-a182-3061bf1d3096/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/0803ea00-5118-44ba-a182-3061bf1d3096/state [32m200[0m 2ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/schemas[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/d6ac20a8-5539-446f-846d-c88d9c50569d[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/d6ac20a8-5539-446f-846d-c88d9c50569d [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/schemas [32m200[0m 2ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/d6ac20a8-5539-446f-846d-c88d9c50569d/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/d6ac20a8-5539-446f-846d-c88d9c50569d/state [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/graph [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/schemas[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/schemas [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/0803ea00-5118-44ba-a182-3061bf1d3096/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a11312-35ca-7493-bcdc-5907630e0ff2'[39m, thread_id: [32m'0803ea00-5118-44ba-a182-3061bf1d3096'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/0803ea00-5118-44ba-a182-3061bf1d3096/runs/stream [32m200[0m 2ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/graph [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/d6ac20a8-5539-446f-846d-c88d9c50569d/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a11312-35cf-746a-921a-6192b46a40f3'[39m, thread_id: [32m'd6ac20a8-5539-446f-846d-c88d9c50569d'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/d6ac20a8-5539-446f-846d-c88d9c50569d/runs/stream [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-35ca-7493-bcdc-5907630e0ff2'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:22.954Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:22.988Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m34[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-35cf-746a-921a-6192b46a40f3'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:22.960Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:23.009Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m49[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[0]  GET /demos/beautiful-chat 200 in 118ms
+[1] [32minfo[39m:    [32m┏ [32mBackground run succeeded[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-35ca-7493-bcdc-5907630e0ff2'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:22.954Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:22.988Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_ended_at: [35m2026-10-06T21:15:23.921Z[39m,
+[1] [32minfo[39m:    [32m┃ [7]   run_exec_ms: [33m933[39m
+[1] [32minfo[39m:    [32m┗ [8] }
+[1] [32minfo[39m:    [32m┏ [32mBackground run succeeded[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-35cf-746a-921a-6192b46a40f3'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:22.960Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:23.009Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_ended_at: [35m2026-10-06T21:15:24.062Z[39m,
+[1] [32minfo[39m:    [32m┃ [7]   run_exec_ms: [33m1053[39m
+[1] [32minfo[39m:    [32m┗ [8] }
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[0]  GET /api/copilotkit-beautiful-chat/info 404 in 179ms
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/0803ea00-5118-44ba-a182-3061bf1d3096/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/0803ea00-5118-44ba-a182-3061bf1d3096/state [32m200[0m 2ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/0803ea00-5118-44ba-a182-3061bf1d3096/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/0803ea00-5118-44ba-a182-3061bf1d3096/state [32m200[0m 2ms[39m
+[0]  POST /api/copilotkit-beautiful-chat 200 in 2186ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 237ms
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/d6ac20a8-5539-446f-846d-c88d9c50569d/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/d6ac20a8-5539-446f-846d-c88d9c50569d/state [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/d6ac20a8-5539-446f-846d-c88d9c50569d/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/d6ac20a8-5539-446f-846d-c88d9c50569d/state [32m200[0m 2ms[39m
+[0]  POST /api/copilotkit-beautiful-chat 200 in 2351ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 237ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 275ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 278ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 241ms
+[1] [32minfo[39m:    [32m┏ [32mBackground run succeeded[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-2806-747e-b7cb-25713bedb7a5'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:19.431Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:19.449Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_ended_at: [35m2026-10-06T21:15:24.947Z[39m,
+[1] [32minfo[39m:    [32m┃ [7]   run_exec_ms: [33m5498[39m
+[1] [32minfo[39m:    [32m┗ [8] }
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/9fe54273-baee-44f7-9b82-6c4d92505c6c/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/9fe54273-baee-44f7-9b82-6c4d92505c6c/state [32m200[0m 3ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/9fe54273-baee-44f7-9b82-6c4d92505c6c/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/9fe54273-baee-44f7-9b82-6c4d92505c6c/state [32m200[0m 1ms[39m
+[0]  POST /api/copilotkit-beautiful-chat 200 in 9673ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 232ms
+[0]  GET /demos/agentic-chat 200 in 80ms
+[0]  GET /demos/prebuilt-sidebar 200 in 94ms
+[0]  GET /api/copilotkit/info 404 in 112ms
+[0]  GET /api/copilotkit/info 404 in 65ms
+[0]  POST /api/copilotkit 200 in 252ms
+[0]  POST /api/copilotkit 200 in 228ms
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/f46ddc99-8f70-4d0e-8d42-eb4775543eba[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/f46ddc99-8f70-4d0e-8d42-eb4775543eba [33m404[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/f46ddc99-8f70-4d0e-8d42-eb4775543eba/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/f46ddc99-8f70-4d0e-8d42-eb4775543eba/state [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/schemas[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/schemas [32m200[0m 2ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/2388ad82-5188-53ba-9d19-c099d1866fd2/graph [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/f46ddc99-8f70-4d0e-8d42-eb4775543eba/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a11312-451f-774a-a4fc-a6008ea22933'[39m, thread_id: [32m'f46ddc99-8f70-4d0e-8d42-eb4775543eba'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/f46ddc99-8f70-4d0e-8d42-eb4775543eba/runs/stream [32m200[0m 2ms[39m
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-451f-774a-a4fc-a6008ea22933'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:26.879Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:26.912Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m33[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[0]  POST /api/copilotkit 200 in 278ms
+[0]  POST /api/copilotkit 200 in 282ms
+[0]  POST /api/copilotkit 200 in 285ms
+[0]  POST /api/copilotkit 200 in 287ms
+[0]  POST /api/copilotkit 200 in 289ms
+[0]  POST /api/copilotkit 200 in 291ms
+[0]  POST /api/copilotkit 200 in 329ms
+[0]  POST /api/copilotkit 200 in 331ms
+[0]  POST /api/copilotkit 200 in 332ms
+[0]  POST /api/copilotkit 200 in 336ms
+[0]  POST /api/copilotkit 200 in 338ms
+[0]  POST /api/copilotkit 200 in 339ms
+[0]  GET /demos/prebuilt-popup 200 in 147ms
+[0]  POST /api/copilotkit 200 in 299ms
+[0]  POST /api/copilotkit 200 in 301ms
+[0]  POST /api/copilotkit 200 in 304ms
+[0]  POST /api/copilotkit 200 in 306ms
+[0]  POST /api/copilotkit 200 in 315ms
+[0]  POST /api/copilotkit 200 in 318ms
+[0]  POST /api/copilotkit 200 in 420ms
+[0]  POST /api/copilotkit 200 in 429ms
+[0]  POST /api/copilotkit 200 in 432ms
+[0]  POST /api/copilotkit 200 in 433ms
+[0]  POST /api/copilotkit 200 in 436ms
+[1] [32minfo[39m:    [32m┏ [32mBackground run succeeded[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-451f-774a-a4fc-a6008ea22933'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:26.879Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:26.912Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_ended_at: [35m2026-10-06T21:15:27.664Z[39m,
+[1] [32minfo[39m:    [32m┃ [7]   run_exec_ms: [33m752[39m
+[1] [32minfo[39m:    [32m┗ [8] }
+[0]  POST /api/copilotkit 200 in 437ms
+[0]  POST /api/copilotkit 200 in 351ms
+[0]  POST /api/copilotkit 200 in 354ms
+[0]  POST /api/copilotkit 200 in 357ms
+[0]  POST /api/copilotkit 200 in 360ms
+[0]  POST /api/copilotkit 200 in 362ms
+[0]  POST /api/copilotkit 200 in 364ms
+[0]  GET /api/copilotkit/info 404 in 197ms
+[0]  POST /api/copilotkit 200 in 443ms
+[0]  POST /api/copilotkit 200 in 434ms
+[0]  POST /api/copilotkit 200 in 436ms
+[0]  POST /api/copilotkit 200 in 442ms
+[0]  POST /api/copilotkit 200 in 444ms
+[0]  POST /api/copilotkit 200 in 447ms
+[0]  POST /api/copilotkit 200 in 450ms
+[0]  POST /api/copilotkit 200 in 396ms
+[0]  POST /api/copilotkit 200 in 397ms
+[0]  POST /api/copilotkit 200 in 400ms
+[0]  POST /api/copilotkit 200 in 403ms
+[0]  POST /api/copilotkit 200 in 406ms
+[0]  POST /api/copilotkit 200 in 410ms
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/f46ddc99-8f70-4d0e-8d42-eb4775543eba/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/f46ddc99-8f70-4d0e-8d42-eb4775543eba/state [32m200[0m 2ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/f46ddc99-8f70-4d0e-8d42-eb4775543eba/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/f46ddc99-8f70-4d0e-8d42-eb4775543eba/state [32m200[0m 1ms[39m
+[0]  POST /api/copilotkit-beautiful-chat 200 in 2049ms
+[0]  POST /api/copilotkit 200 in 498ms
+[0]  POST /api/copilotkit 200 in 493ms
+[0]  POST /api/copilotkit 200 in 496ms
+[0]  POST /api/copilotkit 200 in 501ms
+[0]  POST /api/copilotkit 200 in 505ms
+[0]  POST /api/copilotkit 200 in 506ms
+[0]  POST /api/copilotkit 200 in 508ms
+[0]  POST /api/copilotkit 200 in 512ms
+[0]  POST /api/copilotkit 200 in 512ms
+[0]  POST /api/copilotkit 200 in 517ms
+[0]  POST /api/copilotkit 200 in 520ms
+[0]  POST /api/copilotkit 200 in 520ms
+[0]  POST /api/copilotkit 200 in 525ms
+[0]  POST /api/copilotkit 200 in 527ms
+[0]  POST /api/copilotkit 200 in 527ms
+[0]  POST /api/copilotkit 200 in 529ms
+[0]  POST /api/copilotkit 200 in 533ms
+[0]  POST /api/copilotkit 200 in 536ms
+[0]  POST /api/copilotkit-beautiful-chat 200 in 503ms
+[0]  POST /api/copilotkit 200 in 393ms
+[0]  POST /api/copilotkit 200 in 393ms
+[0]  POST /api/copilotkit 200 in 397ms
+[0]  POST /api/copilotkit 200 in 383ms
+[0]  POST /api/copilotkit 200 in 385ms
+[0]  POST /api/copilotkit 200 in 386ms
+[0]  POST /api/copilotkit 200 in 389ms
+[0]  POST /api/copilotkit 200 in 392ms
+[0]  POST /api/copilotkit 200 in 394ms
+[0]  POST /api/copilotkit 200 in 398ms
+[0]  POST /api/copilotkit 200 in 400ms
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 0ms[39m
+[0]  POST /api/copilotkit 200 in 408ms
+[0]  POST /api/copilotkit 200 in 411ms
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90 [33m404[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/state [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/schemas[39m
+[0]  POST /api/copilotkit 200 in 328ms
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 0ms[39m
+[0]  POST /api/copilotkit 200 in 330ms
+[0]  POST /api/copilotkit 200 in 334ms
+[0]  POST /api/copilotkit 200 in 337ms
+[0]  POST /api/copilotkit 200 in 340ms
+[0]  POST /api/copilotkit 200 in 330ms
+[0]  POST /api/copilotkit 200 in 332ms
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/933c5283-685d-4180-9103-38c7fb1893c2[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/933c5283-685d-4180-9103-38c7fb1893c2 [33m404[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/933c5283-685d-4180-9103-38c7fb1893c2/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/933c5283-685d-4180-9103-38c7fb1893c2/state [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/schemas[39m
+[0]  POST /api/copilotkit 200 in 320ms
+[0]  POST /api/copilotkit 200 in 322ms
+[0]  POST /api/copilotkit 200 in 325ms
+[0]  POST /api/copilotkit 200 in 328ms
+[0]  POST /api/copilotkit 200 in 330ms
+[0]  POST /api/copilotkit 200 in 338ms
+[0]  GET /demos/chat-slots 200 in 112ms
+[0]  POST /api/copilotkit 200 in 329ms
+[0]  POST /api/copilotkit 200 in 334ms
+[0]  POST /api/copilotkit 200 in 338ms
+[0]  POST /api/copilotkit 200 in 341ms
+[0]  POST /api/copilotkit 200 in 343ms
+[0]  POST /api/copilotkit 200 in 349ms
+[0]  GET /api/copilotkit/info 404 in 87ms
+[0]  POST /api/copilotkit 200 in 258ms
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/86f24989-3bef-45d2-84ea-4fe463043e51[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/86f24989-3bef-45d2-84ea-4fe463043e51 [33m404[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/86f24989-3bef-45d2-84ea-4fe463043e51/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/86f24989-3bef-45d2-84ea-4fe463043e51/state [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/schemas[39m
+[0]  POST /api/copilotkit 200 in 246ms
+[0]  POST /api/copilotkit 200 in 309ms
+[0]  POST /api/copilotkit 200 in 313ms
+[0]  POST /api/copilotkit 200 in 316ms
+[0]  POST /api/copilotkit 200 in 319ms
+[0]  POST /api/copilotkit 200 in 321ms
+[0]  POST /api/copilotkit 200 in 325ms
+[0]  POST /api/copilotkit 200 in 327ms
+[0]  POST /api/copilotkit 200 in 329ms
+[0]  POST /api/copilotkit 200 in 332ms
+[0]  POST /api/copilotkit 200 in 334ms
+[0]  POST /api/copilotkit 200 in 340ms
+[0]  POST /api/copilotkit 200 in 344ms
+[0]  POST /api/copilotkit 200 in 313ms
+[0]  POST /api/copilotkit 200 in 317ms
+[0]  POST /api/copilotkit 200 in 320ms
+[0]  POST /api/copilotkit 200 in 322ms
+[0]  POST /api/copilotkit 200 in 325ms
+[0]  POST /api/copilotkit 200 in 328ms
+[1] Option '--incremental' can only be specified using tsconfig, emitting to single file or when option '--tsBuildInfoFile' is specified.
+[1] 
+[0]  POST /api/copilotkit 200 in 313ms
+[0]  POST /api/copilotkit 200 in 316ms
+[0]  POST /api/copilotkit 200 in 318ms
+[0]  POST /api/copilotkit 200 in 322ms
+[0]  POST /api/copilotkit 200 in 324ms
+[0]  POST /api/copilotkit 200 in 328ms
+[1] Option '--incremental' can only be specified using tsconfig, emitting to single file or when option '--tsBuildInfoFile' is specified.
+[1] 
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/schemas [32m200[0m 3s[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/graph [32m200[0m 1ms[39m
+[0]  POST /api/copilotkit 200 in 308ms
+[0]  POST /api/copilotkit 200 in 310ms
+[0]  POST /api/copilotkit 200 in 313ms
+[0]  POST /api/copilotkit 200 in 315ms
+[0]  POST /api/copilotkit 200 in 319ms
+[0]  POST /api/copilotkit 200 in 323ms
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a11312-5abc-72cd-babf-747d5d7c3704'[39m, thread_id: [32m'47b097ac-8810-4ed6-9023-ea8b139cbd90'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/runs/stream [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-5abc-72cd-babf-747d5d7c3704'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:32.413Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:32.573Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m160[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[0]  POST /api/copilotkit 200 in 244ms
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/87468027-c020-4024-9631-ffa6ed5e537f[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/87468027-c020-4024-9631-ffa6ed5e537f [33m404[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/87468027-c020-4024-9631-ffa6ed5e537f/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/87468027-c020-4024-9631-ffa6ed5e537f/state [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/schemas[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/schemas [32m200[0m 2ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/graph [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/87468027-c020-4024-9631-ffa6ed5e537f/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a11312-5c05-744d-aa39-adb2004d16fa'[39m, thread_id: [32m'87468027-c020-4024-9631-ffa6ed5e537f'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/87468027-c020-4024-9631-ffa6ed5e537f/runs/stream [32m200[0m 2ms[39m
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-5c05-744d-aa39-adb2004d16fa'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:32.741Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:32.746Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m5[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/schemas [32m200[0m 3s[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/graph [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/933c5283-685d-4180-9103-38c7fb1893c2/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a11312-5c41-726c-bb58-87328769fd7a'[39m, thread_id: [32m'933c5283-685d-4180-9103-38c7fb1893c2'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/933c5283-685d-4180-9103-38c7fb1893c2/runs/stream [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-5c41-726c-bb58-87328769fd7a'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:32.802Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:32.848Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m46[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] Option '--incremental' can only be specified using tsconfig, emitting to single file or when option '--tsBuildInfoFile' is specified.
+[1] 
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/schemas [32m200[0m 3s[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/graph [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/86f24989-3bef-45d2-84ea-4fe463043e51/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a11312-5f4c-7036-903a-5b3be2c2ec3f'[39m, thread_id: [32m'86f24989-3bef-45d2-84ea-4fe463043e51'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/86f24989-3bef-45d2-84ea-4fe463043e51/runs/stream [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-5f4c-7036-903a-5b3be2c2ec3f'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:33.580Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:33.673Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m93[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] [32minfo[39m:    [32m┏ [32mBackground run succeeded[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-5abc-72cd-babf-747d5d7c3704'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:32.413Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:32.573Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_ended_at: [35m2026-10-06T21:15:33.746Z[39m,
+[1] [32minfo[39m:    [32m┃ [7]   run_exec_ms: [33m1173[39m
+[1] [32minfo[39m:    [32m┗ [8] }
+[1] [32minfo[39m:    [32m┏ [32mBackground run succeeded[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-5c41-726c-bb58-87328769fd7a'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:32.802Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:32.848Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_ended_at: [35m2026-10-06T21:15:34.197Z[39m,
+[1] [32minfo[39m:    [32m┃ [7]   run_exec_ms: [33m1349[39m
+[1] [32minfo[39m:    [32m┗ [8] }
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/state [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/state [32m200[0m 0ms[39m
+[0]  POST /api/copilotkit 200 in 5489ms
+[1] [32minfo[39m:    [32m┏ [32mBackground run succeeded[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-5c05-744d-aa39-adb2004d16fa'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:32.741Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:32.746Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_ended_at: [35m2026-10-06T21:15:34.340Z[39m,
+[1] [32minfo[39m:    [32m┃ [7]   run_exec_ms: [33m1594[39m
+[1] [32minfo[39m:    [32m┗ [8] }
+[0]  POST /api/copilotkit 200 in 234ms
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/933c5283-685d-4180-9103-38c7fb1893c2/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/933c5283-685d-4180-9103-38c7fb1893c2/state [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/933c5283-685d-4180-9103-38c7fb1893c2/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/933c5283-685d-4180-9103-38c7fb1893c2/state [32m200[0m 1ms[39m
+[0]  POST /api/copilotkit 200 in 5521ms
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/87468027-c020-4024-9631-ffa6ed5e537f/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/87468027-c020-4024-9631-ffa6ed5e537f/state [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/87468027-c020-4024-9631-ffa6ed5e537f/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/87468027-c020-4024-9631-ffa6ed5e537f/state [32m200[0m 1ms[39m
+[0]  POST /api/copilotkit 200 in 2370ms
+[0]  POST /api/copilotkit 200 in 235ms
+[1] [32minfo[39m:    [32m┏ [32mBackground run succeeded[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-5f4c-7036-903a-5b3be2c2ec3f'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:33.580Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:33.673Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_ended_at: [35m2026-10-06T21:15:35.020Z[39m,
+[1] [32minfo[39m:    [32m┃ [7]   run_exec_ms: [33m1347[39m
+[1] [32minfo[39m:    [32m┗ [8] }
+[0]  POST /api/copilotkit 200 in 234ms
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/86f24989-3bef-45d2-84ea-4fe463043e51/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/86f24989-3bef-45d2-84ea-4fe463043e51/state [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/86f24989-3bef-45d2-84ea-4fe463043e51/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/86f24989-3bef-45d2-84ea-4fe463043e51/state [32m200[0m 0ms[39m
+[0]  POST /api/copilotkit 200 in 5287ms
+[0]  POST /api/copilotkit 200 in 230ms
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90 [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/state [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/schemas[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/schemas [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/graph [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a11312-6916-71ea-bfc8-52f23cca3216'[39m, thread_id: [32m'47b097ac-8810-4ed6-9023-ea8b139cbd90'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/runs/stream [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-6916-71ea-bfc8-52f23cca3216'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:36.086Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:36.123Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m37[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[0]  GET /demos/chat-customization-css 200 in 84ms
+[0]  GET /demos/headless-simple 200 in 168ms
+[0]  GET /api/copilotkit/info 404 in 158ms
+[0]  GET /api/copilotkit/info 404 in 82ms
+[0]  POST /api/copilotkit 200 in 274ms
+[0]  POST /api/copilotkit 200 in 239ms
+[1] [32minfo[39m:    [32m┏ [32mBackground run succeeded[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-6916-71ea-bfc8-52f23cca3216'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:36.086Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:36.123Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_ended_at: [35m2026-10-06T21:15:37.350Z[39m,
+[1] [32minfo[39m:    [32m┃ [7]   run_exec_ms: [33m1227[39m
+[1] [32minfo[39m:    [32m┗ [8] }
+[0]  POST /api/copilotkit 200 in 298ms
+[0]  POST /api/copilotkit 200 in 302ms
+[0]  POST /api/copilotkit 200 in 307ms
+[0]  POST /api/copilotkit 200 in 309ms
+[0]  POST /api/copilotkit 200 in 313ms
+[0]  POST /api/copilotkit 200 in 316ms
+[0]  POST /api/copilotkit 200 in 312ms
+[0]  POST /api/copilotkit 200 in 314ms
+[0]  POST /api/copilotkit 200 in 317ms
+[0]  POST /api/copilotkit 200 in 321ms
+[0]  POST /api/copilotkit 200 in 325ms
+[0]  POST /api/copilotkit 200 in 328ms
+[0]  POST /api/copilotkit 200 in 317ms
+[0]  POST /api/copilotkit 200 in 310ms
+[0]  POST /api/copilotkit 200 in 321ms
+[0]  POST /api/copilotkit 200 in 327ms
+[0]  POST /api/copilotkit 200 in 327ms
+[0]  POST /api/copilotkit 200 in 330ms
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/state [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/state [32m200[0m 1ms[39m
+[0]  POST /api/copilotkit 200 in 2024ms
+[0]  POST /api/copilotkit 200 in 312ms
+[0]  POST /api/copilotkit 200 in 316ms
+[0]  POST /api/copilotkit 200 in 320ms
+[0]  POST /api/copilotkit 200 in 322ms
+[0]  POST /api/copilotkit 200 in 325ms
+[0]  POST /api/copilotkit 200 in 327ms
+[0]  POST /api/copilotkit 200 in 349ms
+[0]  POST /api/copilotkit 200 in 353ms
+[0]  POST /api/copilotkit 200 in 368ms
+[0]  POST /api/copilotkit 200 in 371ms
+[0]  POST /api/copilotkit 200 in 377ms
+[0]  POST /api/copilotkit 200 in 382ms
+[0]  POST /api/copilotkit 200 in 375ms
+[0]  POST /api/copilotkit 200 in 330ms
+[0]  POST /api/copilotkit 200 in 333ms
+[0]  POST /api/copilotkit 200 in 338ms
+[0]  POST /api/copilotkit 200 in 340ms
+[0]  POST /api/copilotkit 200 in 342ms
+[0]  POST /api/copilotkit 200 in 346ms
+[0]  POST /api/copilotkit 200 in 348ms
+[0]  POST /api/copilotkit 200 in 352ms
+[0]  POST /api/copilotkit 200 in 379ms
+[0]  POST /api/copilotkit 200 in 382ms
+[0]  POST /api/copilotkit 200 in 386ms
+[0]  POST /api/copilotkit 200 in 389ms
+[0]  POST /api/copilotkit 200 in 423ms
+[0]  POST /api/copilotkit 200 in 424ms
+[0]  POST /api/copilotkit 200 in 424ms
+[0]  POST /api/copilotkit 200 in 434ms
+[0]  POST /api/copilotkit 200 in 440ms
+[0]  POST /api/copilotkit 200 in 444ms
+[0]  POST /api/copilotkit 200 in 278ms
+[0]  POST /api/copilotkit 200 in 281ms
+[0]  POST /api/copilotkit 200 in 278ms
+[0]  POST /api/copilotkit 200 in 275ms
+[0]  POST /api/copilotkit 200 in 281ms
+[0]  POST /api/copilotkit 200 in 283ms
+[0]  POST /api/copilotkit 200 in 347ms
+[0]  POST /api/copilotkit 200 in 350ms
+[0]  POST /api/copilotkit 200 in 352ms
+[0]  POST /api/copilotkit 200 in 352ms
+[0]  POST /api/copilotkit 200 in 354ms
+[0]  POST /api/copilotkit 200 in 359ms
+[0]  POST /api/copilotkit 200 in 354ms
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/64d4b4ed-3132-48fd-a8a7-94faba68eb09[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/64d4b4ed-3132-48fd-a8a7-94faba68eb09 [33m404[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/64d4b4ed-3132-48fd-a8a7-94faba68eb09/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/64d4b4ed-3132-48fd-a8a7-94faba68eb09/state [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/schemas[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/schemas [32m200[0m 2ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/graph [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/64d4b4ed-3132-48fd-a8a7-94faba68eb09/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a11312-74f8-721b-9af0-dd30a694ec38'[39m, thread_id: [32m'64d4b4ed-3132-48fd-a8a7-94faba68eb09'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/64d4b4ed-3132-48fd-a8a7-94faba68eb09/runs/stream [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-74f8-721b-9af0-dd30a694ec38'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:39.128Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:39.148Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m20[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[0]  POST /api/copilotkit 200 in 249ms
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90 [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/state [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/schemas[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/schemas [32m200[0m 2ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/graph [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a11312-7746-7136-9ac6-4c4765314c5e'[39m, thread_id: [32m'47b097ac-8810-4ed6-9023-ea8b139cbd90'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/runs/stream [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-7746-7136-9ac6-4c4765314c5e'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:39.718Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:39.761Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m43[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] [32minfo[39m:    [32m┏ [32mBackground run succeeded[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-7746-7136-9ac6-4c4765314c5e'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:39.718Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:39.761Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_ended_at: [35m2026-10-06T21:15:40.382Z[39m,
+[1] [32minfo[39m:    [32m┃ [7]   run_exec_ms: [33m621[39m
+[1] [32minfo[39m:    [32m┗ [8] }
+[1] [32minfo[39m:    [32m┏ [32mBackground run succeeded[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-74f8-721b-9af0-dd30a694ec38'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:39.128Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:39.148Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_ended_at: [35m2026-10-06T21:15:40.435Z[39m,
+[1] [32minfo[39m:    [32m┃ [7]   run_exec_ms: [33m1287[39m
+[1] [32minfo[39m:    [32m┗ [8] }
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/state [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/47b097ac-8810-4ed6-9023-ea8b139cbd90/state [32m200[0m 1ms[39m
+[0]  POST /api/copilotkit 200 in 1432ms
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/64d4b4ed-3132-48fd-a8a7-94faba68eb09/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/64d4b4ed-3132-48fd-a8a7-94faba68eb09/state [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/64d4b4ed-3132-48fd-a8a7-94faba68eb09/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/64d4b4ed-3132-48fd-a8a7-94faba68eb09/state [32m200[0m 1ms[39m
+[0]  POST /api/copilotkit 200 in 2189ms
+[0]  POST /api/copilotkit 200 in 244ms
+[0]  POST /api/copilotkit 200 in 241ms
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/1f6ebb28-df23-4a56-a302-8ebd07586dfb[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/1f6ebb28-df23-4a56-a302-8ebd07586dfb [33m404[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/1f6ebb28-df23-4a56-a302-8ebd07586dfb/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/1f6ebb28-df23-4a56-a302-8ebd07586dfb/state [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/schemas[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/schemas [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/1aecf6c6-e6b5-51c8-82c7-22e883d77ba2/graph [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/1f6ebb28-df23-4a56-a302-8ebd07586dfb/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a11312-9470-7566-9de4-9d18c77b1307'[39m, thread_id: [32m'1f6ebb28-df23-4a56-a302-8ebd07586dfb'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/1f6ebb28-df23-4a56-a302-8ebd07586dfb/runs/stream [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-9470-7566-9de4-9d18c77b1307'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:47.184Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:47.254Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m70[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[1] CVDIAG component=backend-langgraph-ts boundary=configurable-read run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] CVDIAG component=backend-langgraph-ts boundary=outbound-llm run_id=c0d9edcf-9082-45df-a193-638554350959 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=2 status=ok test_id=d6-langgraph-typescript-c0d9edcf-9082-45df-a193-638554350959 error=
+[1] [32minfo[39m:    [32m┏ [32mBackground run succeeded[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11312-9470-7566-9de4-9d18c77b1307'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:15:47.184Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:15:47.254Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_ended_at: [35m2026-10-06T21:15:48.068Z[39m,
+[1] [32minfo[39m:    [32m┃ [7]   run_exec_ms: [33m814[39m
+[1] [32minfo[39m:    [32m┗ [8] }
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/1f6ebb28-df23-4a56-a302-8ebd07586dfb/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/1f6ebb28-df23-4a56-a302-8ebd07586dfb/state [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/1f6ebb28-df23-4a56-a302-8ebd07586dfb/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/1f6ebb28-df23-4a56-a302-8ebd07586dfb/state [32m200[0m 1ms[39m
+[0]  POST /api/copilotkit 200 in 1639ms
+[0]  POST /api/copilotkit 200 in 230ms
+[0]  POST /api/copilotkit-voice/threads/clear 204 in 239ms
+[1] [32minfo[39m:    [32m▪ [32mFlushing to persistent storage, exiting...[39m
+[0] [?25h
+[0] next dev --turbopack exited with code 0
+[1] cd src/agent && npx @langchain/langgraph-cli@1.5.2 dev --port 8123 --no-browser exited with code SIGTERM
+# stopped Tue Oct  6 21:15:52 UTC 2026 (SIGTERM to process group 52551)

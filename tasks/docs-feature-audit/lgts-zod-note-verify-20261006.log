@@ -1,0 +1,18 @@
+# Zod note check for @copilotkit/sdk-js 1.77.0 (npm 10.9.2, --before=2026-10-05T12:00:00Z), Tue Oct  6 21:32:59 UTC 2026
+peer: ^3.23.3 || ^3.24.0 || ^3.25.0
+zod latest under the bound: 4.6.5
+$ npm install @copilotkit/sdk-js@1.77.0 zod@3
+added 66 packages in 4s
+zod -> 3.25.76
+$ npm install zod   (separate, unversioned, after the SDK)
+zod -> 3.25.76
+$ (project on zod 4) npm install @copilotkit/sdk-js@1.77.0
+npm error code ERESOLVE
+npm error ERESOLVE unable to resolve dependency tree
+$ (fresh) npm install @copilotkit/sdk-js@1.77.0   then   npm install zod   (the note's "separate, unversioned" case)
+added 66 packages in 1s
+zod after the SDK alone -> 3.25.76
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: c@1.0.0
+added 3 packages, and changed 1 package in 316ms
+zod -> 4.6.5; package.json zod: ^4.6.5

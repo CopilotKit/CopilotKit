@@ -1,0 +1,55 @@
+# RED (rerun with the corrected clone-equivalent copy): reproduce-lgts-byoc-setup.sh against the guide at HEAD bb1ae7bfdc, Tue Oct  6 21:32:01 UTC 2026
+guide: showcase/shell-docs/src/content/docs/integrations/langgraph/quickstart.mdx (blob 898e903315); node v22.16.0; npm --before=2026-10-05T12:00:00Z
+=============== phase: visible-path (2026-10-06T21:32:02Z)
+visible to a TypeScript reader (5):
+   (untitled): git clone --depth 1 https://github.com/CopilotKit/CopilotKit
+   <Snippet src/agent/package.json>
+   (untitled): npm install
+   <Snippet src/agent/langgraph.json>
+   <Snippet cli-start-graph-export>
+in a TypeScript tab but hidden from that reader (5):
+   (untitled): mkdir my-agent
+   (untitled): npm install @langchain/langgraph @langchain/core @langchain/
+   src/agent.ts: import { SystemMessage } from "@langchain/core/messages";
+   langgraph.json: {
+   (untitled): cd ..
+   MISSING: agent code (src/agent.ts)
+   MISSING: graph registration (langgraph.json)
+   MISSING: runtime route (app/api/copilotkit/route.ts)
+   MISSING: agent start command (langgraph-cli dev)
+RESULT visible-path: FAIL (exit 1)
+=============== phase: showcase-callout (2026-10-06T21:32:02Z)
+# guide: git clone --depth 1 https://github.com/CopilotKit/CopilotKit.git
+# guide: cd CopilotKit/showcase/integrations/langgraph-typescript
+# guide: cp .env.example .env
+# guide: # Set OPENAI_API_KEY in .env, then:
+# guide: cd src/agent
+# guide: npm ci
+# guide: npm run dev
+symlink showcase/integrations/langgraph-typescript/_shared -> showcase/integrations/_shared: copied
+copied 462 files; node_modules present: no; .langgraph_api present: no
+$ cp .env.example .env
+# "Set OPENAI_API_KEY in .env": placeholder (no model request in this phase)
+$ cd src/agent && npm ci
+added 253 packages in 2s
++-- @copilotkit/sdk-js@1.77.0
++-- @langchain/core@1.2.14
++-- @langchain/langgraph-api@1.5.2
++-- @langchain/langgraph-cli@1.5.2
++-- @langchain/langgraph-sdk@1.12.1
++-- @langchain/langgraph@1.4.19
++-- @langchain/openai@1.6.2
+`-- langchain@1.5.15
+
+strict graph.ts typecheck: pass
+$ npm run dev
+GET http://localhost:8123/ok -> 200 after 3s; registered graphs: 29
+GET /assistants/<id>/graph: 29/29 return 200
+port 8123 after stop: free
+RESULT showcase-callout: PASS
+=============== phase: existing-agent (2026-10-06T21:32:08Z)
+scratch AIMock on 4411: [aimock] Loaded 1 fixture(s) from /private/tmp/lgts-byoc-setup.k9qQnk/fixtures
+--- Initialize your agent project
+no visible block matching starts=mkdir my-agent
+RESULT existing-agent: FAIL (exit 1)
+exit=1

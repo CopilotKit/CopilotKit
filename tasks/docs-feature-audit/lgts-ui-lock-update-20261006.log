@@ -1,0 +1,7 @@
+# LGTS lock regeneration, 2026-10-06. Publish-age bound --before=2026-10-05T12:00:00Z (32.5 h before start). node v24.11.0, npm 11.6.1, HEAD a7e2c82dcc.
+# Fresh resolution (stale node_modules removed: it biases resolution and drops resolved/integrity), as in lgts-ui-lock-update-20260923.log.
+$ cd showcase/integrations/langgraph-typescript && rm -rf node_modules package-lock.json && npm install --package-lock-only --no-audit --no-fund --before=2026-10-05T12:00:00Z
+Tue Oct  6 20:34:26 UTC 2026
+
+up to date in 5s
+exit=0

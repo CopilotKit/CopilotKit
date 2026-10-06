@@ -1,0 +1,293 @@
+# LGTS stack via the integration's documented default dev command (package.json scripts.dev = concurrently "next dev --turbopack" + langgraph-cli@1.5.2 dev --port 8123), same environment as lgts-dev-stack-20260923b.log. .next removed first.
+$ cd showcase/integrations/langgraph-typescript && PORT=3101 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true DO_NOT_TRACK=1 LANGSMITH_TRACING=false LANGGRAPH_CLI_NO_ANALYTICS=1 OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://127.0.0.1:4412/v1 AIMOCK_URL=http://127.0.0.1:4410 LANGGRAPH_DEPLOYMENT_URL=http://localhost:8123 nice -n 10 npm run dev
+# node v22.16.0, npm 10.9.2, HEAD dfdd312f50, started Tue Oct  6 21:04:34 UTC 2026
+
+> @copilotkit/showcase-langgraph-typescript@0.1.0 dev
+> concurrently "next dev --turbopack" "cd src/agent && npx @langchain/langgraph-cli@1.5.2 dev --port 8123 --no-browser"
+
+[0]  ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+[0]  We detected multiple lockfiles and selected the directory of /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/pnpm-lock.yaml as the root directory.
+[0]  To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+[0]    See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+[0]  Detected additional lockfiles: 
+[0]    * /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/package-lock.json
+[0] 
+[0]    ▲ Next.js 15.5.27 (Turbopack)
+[0]    - Local:        http://localhost:3101
+[0]    - Network:      http://192.168.4.34:3101
+[0]    - Environments: .env
+[0] 
+[0]  ✓ Starting...
+[1] 
+[1]           Welcome to
+[1] 
+[1] ╦  ┌─┐┌┐┌┌─┐╔═╗┬─┐┌─┐┌─┐┬ ┬
+[1] ║  ├─┤││││ ┬║ ╦├┬┘├─┤├─┘├─┤
+[1] ╩═╝┴ ┴┘└┘└─┘╚═╝┴└─┴ ┴┴  ┴ ┴.js
+[1] 
+[1] - 🚀 API: [36mhttp://localhost:8123[0m
+[1] - 🎨 Studio UI: [36mhttps://smith.langchain.com/studio?baseUrl=http://localhost:8123[0m
+[1] 
+[1] This in-memory server is designed for development and testing.
+[1] For production use, please use LangSmith Deployment.
+[1] 
+[1] 
+[0]  ✓ Compiled middleware in 69ms
+[1] [32minfo[39m:    [32m▪ [32mStarting server...[39m
+[1] [32minfo[39m:    [32m▪ [32mInitializing storage...[39m
+[0]  ✓ Ready in 759ms
+[1] [32minfo[39m:    [32m▪ [32mRegistering graphs from /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent[39m
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'sample_agent'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'sample_agent'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'starterAgent'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'starterAgent'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'beautiful_chat'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'beautiful_chat'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'headless_complete'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'headless_complete'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'multimodal'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'multimodal'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'agent_config_agent'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'agent_config_agent'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'agentic-chat-reasoning'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'agentic-chat-reasoning'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'tool_rendering'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'tool_rendering'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'tool-rendering-reasoning-chain'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'tool-rendering-reasoning-chain'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'interrupt_agent'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'interrupt_agent'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'a2ui_dynamic'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'a2ui_dynamic'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'a2ui_fixed'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'a2ui_fixed'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'a2ui_recovery'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'a2ui_recovery'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'mcp_apps'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'mcp_apps'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'frontend_tools'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'frontend_tools'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'frontend_tools_async'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'frontend_tools_async'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'hitl_in_app'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'hitl_in_app'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'hitl_in_chat'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'hitl_in_chat'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'readonly_state_agent_context'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'readonly_state_agent_context'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'byoc_hashbrown'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'byoc_hashbrown'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'byoc_json_render'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'byoc_json_render'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'open_gen_ui'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'open_gen_ui'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'open_gen_ui_advanced'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'open_gen_ui_advanced'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'shared_state_read'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'shared_state_read'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'shared_state_read_write'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'shared_state_read_write'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'shared_state_streaming'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'shared_state_streaming'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'subagents'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'subagents'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'gen_ui_agent'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'gen_ui_agent'[39m }
+[1] [32minfo[39m:    [32m┏ [32mRegistering graph with id 'gen_ui_tool_based'[39m
+[1] [32minfo[39m:    [32m┗ [1] { graph_id: [32m'gen_ui_tool_based'[39m }
+[0]  ○ Compiling /api/health ...
+[0]  ✓ Compiled /api/health in 522ms
+[0]  GET /api/health 200 in 797ms
+[1] [32minfo[39m:    [32m▪ [32mStarting 10 workers[39m
+[1] [32minfo[39m:    [32m▪ [32mServer running at ::1:8123[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /ok[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /ok [32m200[0m 0ms[39m
+[0]  GET /api/health 200 in 235ms
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 1ms[39m
+[0]  ○ Compiling /demos/declarative-gen-ui ...
+[0]  ✓ Compiled /demos/declarative-gen-ui in 4.8s
+[0] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+[0]  GET /demos/declarative-gen-ui 200 in 5340ms
+[0]  ✓ Compiled /api/copilotkit in 66ms
+[0] [copilotkit/route] Initializing CopilotKit runtime
+[0] [copilotkit/route] AGENT_URL: http://localhost:8123
+[0] [copilotkit/route] Registered 31 agent names: agentic_chat, human_in_the_loop, shared-state-write, prebuilt-sidebar, prebuilt-popup, chat-customization-css, chat-slots, headless-simple, hitl, default, starterAgent, gen-ui-interrupt, interrupt-headless, shared-state-read, frontend_tools, frontend-tools-async, hitl-in-app, hitl-in-chat, readonly-state-agent-context, shared-state-read-write, shared-state-streaming, subagents, gen-ui-agent, gen-ui-tool-based, threadid-frontend-tool-roundtrip, reasoning-custom, reasoning-default, tool-rendering, tool-rendering-default-catchall, tool-rendering-custom-catchall, tool-rendering-reasoning-chain
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /ok[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /ok [32m200[0m 1ms[39m
+[0]  GET /api/copilotkit 200 in 873ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-fixed-schema in 51ms
+[0]  GET /api/copilotkit-a2ui-fixed-schema 405 in 279ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-recovery in 52ms
+[0]  GET /api/copilotkit-a2ui-recovery 405 in 280ms
+[0]  ✓ Compiled /api/copilotkit-agent-config in 47ms
+[0]  GET /api/copilotkit-agent-config 405 in 281ms
+[0]  ✓ Compiled /api/copilotkit-auth/[[...slug]] in 46ms
+[0]  GET /api/copilotkit-auth 401 in 1035ms
+[0]  ✓ Compiled /api/copilotkit-beautiful-chat in 48ms
+[0]  GET /api/copilotkit-beautiful-chat 405 in 275ms
+[0]  ✓ Compiled /api/copilotkit-declarative-gen-ui in 71ms
+[0]  GET /api/copilotkit-declarative-gen-ui 405 in 298ms
+[0]  ✓ Compiled /api/copilotkit-declarative-hashbrown in 49ms
+[0]  GET /api/copilotkit-declarative-hashbrown 405 in 285ms
+[0]  ✓ Compiled /api/copilotkit-declarative-json-render in 48ms
+[0]  GET /api/copilotkit-declarative-json-render 405 in 277ms
+[0]  ✓ Compiled /api/copilotkit-mcp-apps/[[...slug]] in 48ms
+[0]  GET /api/copilotkit-mcp-apps 405 in 1024ms
+[0]  ✓ Compiled /api/copilotkit-multimodal in 44ms
+[0]  GET /api/copilotkit-multimodal 405 in 269ms
+[0]  ✓ Compiled /api/copilotkit-ogui in 50ms
+[0]  GET /api/copilotkit-ogui 405 in 278ms
+[0]  ✓ Compiled /api/copilotkit-voice/[[...slug]] in 92ms
+[0]  GET /api/copilotkit-voice 404 in 1082ms
+[0]  ✓ Compiled /api/debug in 52ms
+[0]  GET /api/debug 403 in 277ms
+[0]  GET /api/health 200 in 223ms
+[0]  GET /demos/declarative-gen-ui 200 in 85ms
+[0]  ✓ Compiled /_not-found/page in 306ms
+[0]  GET /api/copilotkit-declarative-gen-ui/info 404 in 378ms
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 234ms
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 228ms
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/88c637ab-29e6-411c-981c-cffa307c111c[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/88c637ab-29e6-411c-981c-cffa307c111c [33m404[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/88c637ab-29e6-411c-981c-cffa307c111c/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/88c637ab-29e6-411c-981c-cffa307c111c/state [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/d041f79c-04bc-5d20-a161-11fde1f56b97/schemas[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/d041f79c-04bc-5d20-a161-11fde1f56b97/schemas [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/d041f79c-04bc-5d20-a161-11fde1f56b97/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/d041f79c-04bc-5d20-a161-11fde1f56b97/graph [32m200[0m 2ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/88c637ab-29e6-411c-981c-cffa307c111c/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a11308-9d5d-70f8-a1e6-1f32ad624a4e'[39m, thread_id: [32m'88c637ab-29e6-411c-981c-cffa307c111c'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/88c637ab-29e6-411c-981c-cffa307c111c/runs/stream [32m200[0m 4ms[39m
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a11308-9d5d-70f8-a1e6-1f32ad624a4e'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:04:54.109Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:04:54.164Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m55[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 90568ms
+[0]  GET /demos/declarative-gen-ui 200 in 90ms
+[0]  GET /api/copilotkit-declarative-gen-ui/info 404 in 76ms
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 231ms
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 228ms
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/ba95342c-4585-4445-80cc-4962443c3b54[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/ba95342c-4585-4445-80cc-4962443c3b54 [33m404[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/ba95342c-4585-4445-80cc-4962443c3b54/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/ba95342c-4585-4445-80cc-4962443c3b54/state [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/d041f79c-04bc-5d20-a161-11fde1f56b97/schemas[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/d041f79c-04bc-5d20-a161-11fde1f56b97/schemas [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/d041f79c-04bc-5d20-a161-11fde1f56b97/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/d041f79c-04bc-5d20-a161-11fde1f56b97/graph [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/ba95342c-4585-4445-80cc-4962443c3b54/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a1130a-0884-7466-b5c4-32ecd9986000'[39m, thread_id: [32m'ba95342c-4585-4445-80cc-4962443c3b54'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/ba95342c-4585-4445-80cc-4962443c3b54/runs/stream [32m200[0m 2ms[39m
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a1130a-0884-7466-b5c4-32ecd9986000'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:06:27.077Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:06:27.087Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m10[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[1] [31merror[39m:   [31m┏ [31mBackground run failed:[39m
+[1] [31mError: 503 Strict mode: no fixture matched[39m
+[1] [31m    at Function.wrap (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/langchain/src/agents/errors.ts:127:12)[39m
+[1] [31m    at wrappedHandler (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/langchain/src/agents/nodes/AgentNode.ts:708:35)[39m
+[1] [31m    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)[39m
+[1] [31m    at async AgentNode.#invokeModel (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/langchain/src/agents/nodes/AgentNode.ts:742:14)[39m
+[1] [31m    at async AgentNode.#run (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/langchain/src/agents/nodes/AgentNode.ts:259:7)[39m
+[1] [31m    at async AgentNode.invoke (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/langchain/src/agents/RunnableCallable.ts:71:25)[39m
+[1] [31m    at async RunnableSequence.invoke (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/@langchain/core/src/runnables/base.ts:1988:25)[39m
+[1] [31m    at async Object._runWithRetry (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/@langchain/langgraph/src/pregel/retry.ts:123:18)[39m
+[1] [31m    at async PregelRunner._executeTasksWithRetry (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/@langchain/langgraph/src/pregel/runner.ts:354:27)[39m
+[1] [31m    at async PregelRunner.tick (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/@langchain/langgraph/src/pregel/runner.ts:150:37)[39m
+[1] [31merror[39m:   [31m┃ [1] {
+[1] [31merror[39m:   [31m┃ [2]   run_id: [32m'01a11308-9d5d-70f8-a1e6-1f32ad624a4e'[39m,
+[1] [31merror[39m:   [31m┃ [3]   run_attempt: [33m1[39m,
+[1] [31merror[39m:   [31m┃ [4]   run_created_at: [35m2026-10-06T21:04:54.109Z[39m,
+[1] [31merror[39m:   [31m┃ [5]   run_started_at: [35m2026-10-06T21:04:54.164Z[39m,
+[1] [31merror[39m:   [31m┃ [6]   run_ended_at: [35m2026-10-06T21:06:51.088Z[39m,
+[1] [31merror[39m:   [31m┃ [7]   run_exec_ms: [33m116924[39m
+[1] [31merror[39m:   [31m┗ [8] }
+[1] [31merror[39m:   [31m┏ [31mBackground run failed:[39m
+[1] [31mError: 503 Strict mode: no fixture matched[39m
+[1] [31m    at Function.wrap (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/langchain/src/agents/errors.ts:127:12)[39m
+[1] [31m    at wrappedHandler (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/langchain/src/agents/nodes/AgentNode.ts:708:35)[39m
+[1] [31m    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)[39m
+[1] [31m    at async AgentNode.#invokeModel (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/langchain/src/agents/nodes/AgentNode.ts:742:14)[39m
+[1] [31m    at async AgentNode.#run (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/langchain/src/agents/nodes/AgentNode.ts:259:7)[39m
+[1] [31m    at async AgentNode.invoke (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/langchain/src/agents/RunnableCallable.ts:71:25)[39m
+[1] [31m    at async RunnableSequence.invoke (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/@langchain/core/src/runnables/base.ts:1988:25)[39m
+[1] [31m    at async Object._runWithRetry (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/@langchain/langgraph/src/pregel/retry.ts:123:18)[39m
+[1] [31m    at async PregelRunner._executeTasksWithRetry (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/@langchain/langgraph/src/pregel/runner.ts:354:27)[39m
+[1] [31m    at async PregelRunner.tick (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/@langchain/langgraph/src/pregel/runner.ts:150:37)[39m
+[1] [31merror[39m:   [31m┃ [1] {
+[1] [31merror[39m:   [31m┃ [2]   run_id: [32m'01a1130a-0884-7466-b5c4-32ecd9986000'[39m,
+[1] [31merror[39m:   [31m┃ [3]   run_attempt: [33m1[39m,
+[1] [31merror[39m:   [31m┃ [4]   run_created_at: [35m2026-10-06T21:06:27.077Z[39m,
+[1] [31merror[39m:   [31m┃ [5]   run_started_at: [35m2026-10-06T21:06:27.087Z[39m,
+[1] [31merror[39m:   [31m┃ [6]   run_ended_at: [35m2026-10-06T21:07:47.137Z[39m,
+[1] [31merror[39m:   [31m┃ [7]   run_exec_ms: [33m80050[39m
+[1] [31merror[39m:   [31m┗ [8] }
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 80313ms
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[1] [32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/ba95342c-4585-4445-80cc-4962443c3b54[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/ba95342c-4585-4445-80cc-4962443c3b54 [32m200[0m 1ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /threads/ba95342c-4585-4445-80cc-4962443c3b54/state[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /threads/ba95342c-4585-4445-80cc-4962443c3b54/state [32m200[0m 9ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/d041f79c-04bc-5d20-a161-11fde1f56b97/schemas[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/d041f79c-04bc-5d20-a161-11fde1f56b97/schemas [32m200[0m 0ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- GET /assistants/d041f79c-04bc-5d20-a161-11fde1f56b97/graph[39m
+[1] [32minfo[39m:    [32m▪ [32m--> GET /assistants/d041f79c-04bc-5d20-a161-11fde1f56b97/graph [32m200[0m 2ms[39m
+[1] [32minfo[39m:    [32m▪ [32m<-- POST /threads/ba95342c-4585-4445-80cc-4962443c3b54/runs/stream[39m
+[1] [32minfo[39m:    [32m┏ [32mCreated run[39m
+[1] [32minfo[39m:    [32m┗ [1] { run_id: [32m'01a1130b-432b-769c-8116-07d109092695'[39m, thread_id: [32m'ba95342c-4585-4445-80cc-4962443c3b54'[39m }
+[1] [32minfo[39m:    [32m▪ [32m--> POST /threads/ba95342c-4585-4445-80cc-4962443c3b54/runs/stream [32m200[0m 2ms[39m
+[1] [32minfo[39m:    [32m┏ [32mStarting background run[39m
+[1] [32minfo[39m:    [32m┃ [1] {
+[1] [32minfo[39m:    [32m┃ [2]   run_id: [32m'01a1130b-432b-769c-8116-07d109092695'[39m,
+[1] [32minfo[39m:    [32m┃ [3]   run_attempt: [33m1[39m,
+[1] [32minfo[39m:    [32m┃ [4]   run_created_at: [35m2026-10-06T21:07:47.628Z[39m,
+[1] [32minfo[39m:    [32m┃ [5]   run_started_at: [35m2026-10-06T21:07:47.657Z[39m,
+[1] [32minfo[39m:    [32m┃ [6]   run_queue_ms: [33m29[39m
+[1] [32minfo[39m:    [32m┗ [7] }
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 7448ms
+[0]  POST /api/copilotkit-voice/threads/clear 204 in 229ms
+[1] [31merror[39m:   [31m┏ [31mBackground run failed:[39m
+[1] [31mError: 503 Strict mode: no fixture matched[39m
+[1] [31m    at Function.wrap (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/langchain/src/agents/errors.ts:127:12)[39m
+[1] [31m    at wrappedHandler (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/langchain/src/agents/nodes/AgentNode.ts:708:35)[39m
+[1] [31m    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)[39m
+[1] [31m    at async AgentNode.#invokeModel (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/langchain/src/agents/nodes/AgentNode.ts:742:14)[39m
+[1] [31m    at async AgentNode.#run (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/langchain/src/agents/nodes/AgentNode.ts:259:7)[39m
+[1] [31m    at async AgentNode.invoke (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/langchain/src/agents/RunnableCallable.ts:71:25)[39m
+[1] [31m    at async RunnableSequence.invoke (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/@langchain/core/src/runnables/base.ts:1988:25)[39m
+[1] [31m    at async Object._runWithRetry (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/@langchain/langgraph/src/pregel/retry.ts:123:18)[39m
+[1] [31m    at async PregelRunner._executeTasksWithRetry (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/@langchain/langgraph/src/pregel/runner.ts:354:27)[39m
+[1] [31m    at async PregelRunner.tick (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/node_modules/@langchain/langgraph/src/pregel/runner.ts:150:37)[39m
+[1] [31merror[39m:   [31m┃ [1] {
+[1] [31merror[39m:   [31m┃ [2]   run_id: [32m'01a1130b-432b-769c-8116-07d109092695'[39m,
+[1] [31merror[39m:   [31m┃ [3]   run_attempt: [33m1[39m,
+[1] [31merror[39m:   [31m┃ [4]   run_created_at: [35m2026-10-06T21:07:47.628Z[39m,
+[1] [31merror[39m:   [31m┃ [5]   run_started_at: [35m2026-10-06T21:07:47.657Z[39m,
+[1] [31merror[39m:   [31m┃ [6]   run_ended_at: [35m2026-10-06T21:09:40.158Z[39m,
+[1] [31merror[39m:   [31m┃ [7]   run_exec_ms: [33m112501[39m
+[1] [31merror[39m:   [31m┗ [8] }
+[1] [32minfo[39m:    [32m▪ [32mFlushing to persistent storage, exiting...[39m
+[0] [?25h
+[0] next dev --turbopack exited with code 0
+[1] cd src/agent && npx @langchain/langgraph-cli@1.5.2 dev --port 8123 --no-browser exited with code SIGTERM
+# stopped Tue Oct  6 21:10:19 UTC 2026 (SIGTERM to process group 38300)

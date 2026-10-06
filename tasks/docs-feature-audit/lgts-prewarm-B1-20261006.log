@@ -1,0 +1,23 @@
+# Sequential pre-warm (one GET at a time): demo pages [mcp-apps,gen-ui-agent,tool-rendering-default-catchall,tool-rendering-custom-catchall,tool-rendering,tool-rendering-reasoning-chain] and every API route except /api/smoke. Tue Oct  6 20:56:42 UTC 2026
+/demos/mcp-apps 200 4.749411s
+/demos/gen-ui-agent 200 1.092064s
+/demos/tool-rendering-default-catchall 200 0.936231s
+/demos/tool-rendering-custom-catchall 200 0.909637s
+/demos/tool-rendering 200 0.894790s
+/demos/tool-rendering-reasoning-chain 200 0.982273s
+/api/copilotkit 200 0.978203s
+/api/copilotkit-a2ui-fixed-schema 405 0.287977s
+/api/copilotkit-a2ui-recovery 405 0.295589s
+/api/copilotkit-agent-config 405 0.292524s
+/api/copilotkit-auth 401 1.063284s
+/api/copilotkit-beautiful-chat 405 0.291056s
+/api/copilotkit-declarative-gen-ui 405 0.302764s
+/api/copilotkit-declarative-hashbrown 405 0.292033s
+/api/copilotkit-declarative-json-render 405 0.292544s
+/api/copilotkit-mcp-apps 405 1.036825s
+/api/copilotkit-multimodal 405 0.281605s
+/api/copilotkit-ogui 405 0.290466s
+/api/copilotkit-voice 404 1.191499s
+/api/debug 403 0.282631s
+/api/health 200 0.237902s
+# done Tue Oct  6 20:56:59 UTC 2026

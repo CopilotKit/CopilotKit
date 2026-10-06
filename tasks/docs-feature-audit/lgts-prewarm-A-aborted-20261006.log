@@ -1,0 +1,35 @@
+# Sequential pre-warm (one GET at a time): demo pages [beautiful-chat,agentic-chat,prebuilt-sidebar,prebuilt-popup,chat-slots,chat-customization-css,headless-simple,headless-complete,reasoning-custom,reasoning-default,frontend-tools,frontend-tools-async,gen-ui-tool-based,hitl-in-chat,hitl-in-app,declarative-gen-ui,a2ui-fixed-schema,a2ui-recovery] and every API route except /api/smoke. Tue Oct  6 20:46:58 UTC 2026
+/demos/beautiful-chat 200 4.731990s
+/demos/agentic-chat 200 1.180443s
+/demos/prebuilt-sidebar 200 0.927310s
+/demos/prebuilt-popup 200 0.991294s
+/demos/chat-slots 200 0.840127s
+/demos/chat-customization-css 200 0.887705s
+/demos/headless-simple 200 0.947382s
+/demos/headless-complete 200 1.210301s
+/demos/reasoning-custom 200 0.954665s
+/demos/reasoning-default 200 1.109672s
+/demos/frontend-tools 200 1.034278s
+/demos/frontend-tools-async 200 1.044254s
+/demos/gen-ui-tool-based 200 1.171914s
+/demos/hitl-in-chat 200 1.099322s
+/demos/hitl-in-app 200 1.046582s
+/demos/declarative-gen-ui 200 1.341021s
+/demos/a2ui-fixed-schema 200 0.976562s
+/demos/a2ui-recovery 200 1.153039s
+/api/copilotkit 200 0.720292s
+/api/copilotkit-a2ui-fixed-schema 405 0.288987s
+/api/copilotkit-a2ui-recovery 405 0.297436s
+/api/copilotkit-agent-config 405 0.283661s
+/api/copilotkit-auth 401 1.046155s
+/api/copilotkit-beautiful-chat 405 0.283507s
+/api/copilotkit-declarative-gen-ui 405 0.293988s
+/api/copilotkit-declarative-hashbrown 405 0.291739s
+/api/copilotkit-declarative-json-render 405 0.287875s
+/api/copilotkit-mcp-apps 405 1.020393s
+/api/copilotkit-multimodal 405 0.281114s
+/api/copilotkit-ogui 405 0.289746s
+/api/copilotkit-voice 404 1.232188s
+/api/debug 403 0.287089s
+/api/health 200 0.234543s
+# done Tue Oct  6 20:47:29 UTC 2026

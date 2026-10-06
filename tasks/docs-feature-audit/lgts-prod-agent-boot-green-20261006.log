@@ -1,0 +1,84 @@
+# production agent boot: node v22.16.0, HEAD b02bf16e9c, langgraph-api 1.5.2, EXPECTED_PKG_VERSION=EXPECTED_PKG_VERSION = "1.5.2", Tue Oct  6 20:41:03 UTC 2026
+$ cd showcase/integrations/langgraph-typescript/src/agent && LANGGRAPH_DISABLE_FILE_PERSISTENCE=true PORT=8123 HOST=127.0.0.1 OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://127.0.0.1:4410/v1 npm start   # entrypoint.sh's agent command
+# :8123/ok 200 after 3s; :8124/ok 200
+# assistants/search: 29 a2ui_dynamic,a2ui_fixed,a2ui_recovery,agent_config_agent,agentic-chat-reasoning,beautiful_chat,byoc_hashbrown,byoc_json_render,frontend_tools,frontend_tools_async,gen_ui_agent,gen_ui_tool_based,headless_complete,hitl_in_app,hitl_in_chat,interrupt_agent,mcp_apps,multimodal,open_gen_ui,open_gen_ui_advanced,readonly_state_agent_context,sample_agent,shared_state_read,shared_state_read_write,shared_state_streaming,starterAgent,subagents,tool-rendering-reasoning-chain,tool_rendering
+total 226064
+drwxr-xr-x@  5 tylerslaton  staff        160 Sep 10 13:00 .
+drwxr-xr-x@ 45 tylerslaton  staff       1440 Oct  6 13:40 ..
+-rw-r--r--@  1 tylerslaton  staff  102108478 Sep 23 15:49 .langgraphjs_api.checkpointer.json
+-rw-r--r--@  1 tylerslaton  staff         92 Sep 23 15:35 .langgraphjs_api.store.json
+# --- agent output ---
+
+> langgraph-typescript-agent@0.0.1 start
+> node --import ./disable-file-persistence.mjs --import tsx liveness.mjs
+
+[persistence] LANGGRAPH_DISABLE_FILE_PERSISTENCE enabled (value="true") — FileSystemPersistence disk flush disabled across all fs write surfaces (in-memory only); namespace binding-identity verified for 6 members
+[liveness] probe listening on 0.0.0.0:8124
+[persistence] LANGGRAPH_DISABLE_FILE_PERSISTENCE enabled (value="true") — FileSystemPersistence disk flush disabled across all fs write surfaces (in-memory only); namespace binding-identity verified for 6 members
+[32minfo[39m:    [32m▪ [32mInitializing storage...[39m
+[persistence] intercepted first persist-dir write via promises.mkdir (target=/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent/.langgraph_api); further hits silent
+[32minfo[39m:    [32m▪ [32mRegistering graphs from /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent[39m
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'starterAgent'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'starterAgent'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'beautiful_chat'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'beautiful_chat'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'headless_complete'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'headless_complete'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'multimodal'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'multimodal'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'agent_config_agent'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'agent_config_agent'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'agentic-chat-reasoning'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'agentic-chat-reasoning'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'tool_rendering'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'tool_rendering'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'tool-rendering-reasoning-chain'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'tool-rendering-reasoning-chain'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'interrupt_agent'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'interrupt_agent'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'a2ui_dynamic'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'a2ui_dynamic'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'a2ui_fixed'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'a2ui_fixed'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'a2ui_recovery'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'a2ui_recovery'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'mcp_apps'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'mcp_apps'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'frontend_tools'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'frontend_tools'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'frontend_tools_async'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'frontend_tools_async'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'hitl_in_app'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'hitl_in_app'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'hitl_in_chat'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'hitl_in_chat'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'readonly_state_agent_context'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'readonly_state_agent_context'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'byoc_hashbrown'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'byoc_hashbrown'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'byoc_json_render'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'byoc_json_render'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'open_gen_ui'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'open_gen_ui'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'open_gen_ui_advanced'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'open_gen_ui_advanced'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'shared_state_read'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'shared_state_read'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'shared_state_read_write'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'shared_state_read_write'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'shared_state_streaming'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'shared_state_streaming'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'subagents'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'subagents'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'gen_ui_agent'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'gen_ui_agent'[39m }
+[32minfo[39m:    [32m┏ [32mRegistering graph with id 'gen_ui_tool_based'[39m
+[32minfo[39m:    [32m┗ [1] { graph_id: [32m'gen_ui_tool_based'[39m }
+[32minfo[39m:    [32m▪ [32mStarting 10 workers[39m
+[32minfo[39m:    [32m▪ [32m<-- GET /ok[39m
+[32minfo[39m:    [32m▪ [32m--> GET /ok [32m200[0m 1ms[39m
+[32minfo[39m:    [32m▪ [32m<-- POST /assistants/search[39m
+[32minfo[39m:    [32m▪ [32m--> POST /assistants/search [32m200[0m 2ms[39m
+# port 8123 free
+# port 8124 free
+result=PASS

@@ -1,0 +1,17 @@
+# Standalone (no stack): tasks/docs-feature-audit/lgts-langchain-openai-checks-20261006.mjs. node v22.16.0, HEAD dfdd312f50, Tue Oct  6 20:43:31 UTC 2026
+$ node tasks/docs-feature-audit/lgts-langchain-openai-checks-20261006.mjs <worktree>
+{"@langchain/openai":"1.6.2","@langchain/core":"1.2.14","openai":"7.28.0","@copilotkit/aimock":"1.37.4"}
+# check 1: role-less first delta -> aggregated message type
+{"variant":"aimock-1.37.4 content+tool+reasoning (role-less first delta)","firstDeltaKeys":["reasoning_content"],"firstStreamChunkType":"generic","endType":"generic","tool_calls":null,"additional_kwargs_tool_calls":["create_view"],"contentChars":63}
+{"variant":"aimock-1.37.4 tool-only+reasoning (role-less first delta)","firstDeltaKeys":["reasoning_content"],"firstStreamChunkType":"generic","endType":"generic","tool_calls":null,"additional_kwargs_tool_calls":["create_view"],"contentChars":0}
+{"variant":"aimock-1.37.4 text-only+reasoning (role-less first delta)","firstDeltaKeys":["reasoning_content"],"firstStreamChunkType":"generic","endType":"generic","tool_calls":null,"additional_kwargs_tool_calls":null,"contentChars":63}
+{"variant":"content+tool, no reasoning (role on first delta)","firstDeltaKeys":["role","content"],"firstStreamChunkType":"ai","endType":"ai","tool_calls":["create_view"],"additional_kwargs_tool_calls":["create_view"],"contentChars":63}
+# check 2: role ChatOpenAI sends for a SystemMessage
+{"model":"gpt-5-mini","roles":["developer","user"]}
+{"model":"gpt-5.4","roles":["developer","user"]}
+{"model":"gpt-4o-mini","roles":["system","user"]}
+{"model":"gpt-4.1","roles":["system","user"]}
+# check 2b: strict aimock 1.37.4 systemMessage matcher on /v1/chat/completions
+{"role":"system","status":200}
+{"role":"developer","status":503}
+exit=0

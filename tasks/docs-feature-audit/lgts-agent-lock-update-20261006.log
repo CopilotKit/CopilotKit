@@ -1,0 +1,7 @@
+# LGTS agent lock regeneration, 2026-10-06. Publish-age bound --before=2026-10-05T12:00:00Z. node v24.11.0, npm 11.6.1, HEAD a7e2c82dcc.
+# overrides: @ag-ui/core and @ag-ui/client dropped (a probe resolution without them gives a single 1.0.1 copy); @ag-ui/langgraph -> 0.0.44.
+$ cd showcase/integrations/langgraph-typescript/src/agent && rm -rf node_modules package-lock.json && npm install --package-lock-only --no-audit --no-fund --before=2026-10-05T12:00:00Z
+Tue Oct  6 20:34:52 UTC 2026
+
+up to date in 1s
+exit=0

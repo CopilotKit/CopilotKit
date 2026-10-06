@@ -1,0 +1,660 @@
+[
+ {
+  "ts": "2026-10-06T21:04:54.208Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:04:55.992Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:04:59.671Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:05:05.582Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:05:19.636Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:05:47.763Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:06:27.109Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:06:28.346Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:06:32.278Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:06:38.995Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:06:48.786Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:06:51.075Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:07:10.060Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:07:47.134Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:07:47.679Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:07:49.007Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:07:51.059Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:07:55.148Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:08:07.182Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:08:38.752Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ },
+ {
+  "ts": "2026-10-06T21:09:40.153Z",
+  "path": "/v1/chat/completions",
+  "status": 503,
+  "model": "gpt-5-mini",
+  "tool_choice": null,
+  "tools": [
+   "generate_a2ui"
+  ],
+  "xHeaders": {},
+  "messages": [
+   {
+    "role": "developer",
+    "chars": 429,
+    "head": "[{\"type\":\"text\",\"text\":\"You are a demo assistant for Declarative Generative UI (A2UI — Dynamic Schema). Whenever a response would benefit from a rich visual — a"
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   },
+   {
+    "role": "user",
+    "chars": 44,
+    "head": "Show me my sales dashboard for this quarter."
+   },
+   {
+    "role": "developer",
+    "chars": 64218,
+    "head": "App Context:\n[\n  {\n    \"description\": \"A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.\",\n    \"value\": \""
+   }
+  ]
+ }
+]

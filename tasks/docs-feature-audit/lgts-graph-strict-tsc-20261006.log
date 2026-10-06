@@ -1,0 +1,5 @@
+$ cd showcase/integrations/langgraph-typescript/src/agent && NODE_OPTIONS=--max-old-space-size=4096 nice -n 10 ./node_modules/.bin/tsc --noEmit --strict --module nodenext --moduleResolution nodenext --target es2022 --skipLibCheck --listFilesOnly graph.ts | wc -l; then the same without --listFilesOnly
+# same command as lgts-graph-strict-tsc-20260923b.log; HEAD b02bf16e9c; node v22.16.0; Tue Oct  6 20:38:50 UTC 2026
+Version 5.9.3
+files:     1204
+exit=0

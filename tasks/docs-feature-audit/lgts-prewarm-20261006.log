@@ -1,0 +1,63 @@
+# Sequential pre-warm (one GET at a time): demo pages [a2ui-fixed-schema,a2ui-recovery,agent-config,agentic-chat,auth,beautiful-chat,chat-customization-css,chat-slots,declarative-gen-ui,declarative-hashbrown,declarative-json-render,frontend-tools,frontend-tools-async,gen-ui-agent,gen-ui-interrupt,gen-ui-tool-based,headless-complete,headless-simple,hitl,hitl-in-app,hitl-in-chat,interrupt-headless,mcp-apps,multimodal,open-gen-ui,open-gen-ui-advanced,prebuilt-popup,prebuilt-sidebar,readonly-state-agent-context,reasoning-custom,reasoning-default,shared-state-read,shared-state-read-write,shared-state-streaming,subagents,threadid-frontend-tool-roundtrip,tool-rendering,tool-rendering-custom-catchall,tool-rendering-default-catchall,tool-rendering-reasoning-chain,voice,] and every API route except /api/smoke. Tue Oct  6 20:45:25 UTC 2026
+/demos/a2ui-fixed-schema 200 4.719335s
+/demos/a2ui-recovery 200 1.568503s
+/demos/agent-config 200 0.927043s
+/demos/agentic-chat 200 1.054088s
+/demos/auth 200 1.004327s
+/demos/beautiful-chat 200 1.107239s
+/demos/chat-customization-css 200 0.882131s
+/demos/chat-slots 200 0.941560s
+/demos/declarative-gen-ui 200 0.918438s
+/demos/declarative-hashbrown 200 1.143736s
+/demos/declarative-json-render 200 1.216169s
+/demos/frontend-tools 200 0.885592s
+/demos/frontend-tools-async 200 0.913099s
+/demos/gen-ui-agent 200 1.009373s
+/demos/gen-ui-interrupt 200 0.872074s
+/demos/gen-ui-tool-based 200 1.073967s
+/demos/headless-complete 200 1.001228s
+/demos/headless-simple 200 1.004126s
+/demos/hitl 200 0.882751s
+/demos/hitl-in-app 200 0.892591s
+/demos/hitl-in-chat 200 0.873751s
+/demos/interrupt-headless 200 0.916351s
+/demos/mcp-apps 200 0.902222s
+/demos/multimodal 200 0.937368s
+/demos/open-gen-ui 200 0.941459s
+/demos/open-gen-ui-advanced 200 0.959692s
+/demos/prebuilt-popup 200 0.988836s
+/demos/prebuilt-sidebar 200 1.030550s
+/demos/readonly-state-agent-context 200 1.494372s
+/demos/reasoning-custom 200 1.008420s
+/demos/reasoning-default 200 1.016098s
+/demos/shared-state-read 200 1.406964s
+/demos/shared-state-read-write 200 1.117494s
+/demos/shared-state-streaming 200 1.305289s
+/demos/subagents 200 1.224253s
+/demos/threadid-frontend-tool-roundtrip 200 1.276040s
+/demos/tool-rendering 200 1.223697s
+/demos/tool-rendering-custom-catchall 200 1.202952s
+/demos/tool-rendering-default-catchall 200 1.293421s
+/demos/tool-rendering-reasoning-chain 200 1.303734s
+/demos/voice 200 1.421802s
+/api/copilotkit 200 0.797840s
+/api/copilotkit-a2ui-fixed-schema 405 0.285791s
+/api/copilotkit-a2ui-recovery 405 0.295302s
+/api/copilotkit-agent-config 405 0.287904s
+/api/copilotkit-auth 401 1.051652s
+/api/copilotkit-beautiful-chat 405 0.283662s
+/api/copilotkit-declarative-gen-ui 405 0.289019s
+/api/copilotkit-declarative-hashbrown 405 0.276072s
+/api/copilotkit-declarative-json-render 405 0.301024s
+/api/copilotkit-mcp-apps 405 1.029886s
+/api/copilotkit-multimodal 405 0.288991s
+/api/copilotkit-ogui 405 0.284182s
+/api/copilotkit-voice 404 1.243944s
+/api/debug 403 0.292648s
+/api/health 200 0.233083s
+# done Tue Oct  6 20:46:21 UTC 2026
+# boot-1 checks Tue Oct  6 20:46:36 UTC 2026
+$ curl http://localhost:3101/api/smoke
+{"status":"ok","integration":"langgraph-typescript","latency_ms":2863} 200 3.17s (one gpt-5-mini /v1/chat/completions request, 200)
+$ curl -X POST -d '{"method":"info"}' http://localhost:3101/api/copilotkit
+version=1.77.0 agents=31

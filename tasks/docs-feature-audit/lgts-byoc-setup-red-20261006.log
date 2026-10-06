@@ -1,0 +1,75 @@
+# RED: reproduce-lgts-byoc-setup.sh against the guide at HEAD bb1ae7bfdc, Tue Oct  6 21:28:01 UTC 2026
+guide: showcase/shell-docs/src/content/docs/integrations/langgraph/quickstart.mdx (blob 898e903315); node v22.16.0; npm --before=2026-10-05T12:00:00Z
+=============== phase: visible-path (2026-10-06T21:28:02Z)
+visible to a TypeScript reader (5):
+   (untitled): git clone --depth 1 https://github.com/CopilotKit/CopilotKit
+   <Snippet src/agent/package.json>
+   (untitled): npm install
+   <Snippet src/agent/langgraph.json>
+   <Snippet cli-start-graph-export>
+in a TypeScript tab but hidden from that reader (5):
+   (untitled): mkdir my-agent
+   (untitled): npm install @langchain/langgraph @langchain/core @langchain/
+   src/agent.ts: import { SystemMessage } from "@langchain/core/messages";
+   langgraph.json: {
+   (untitled): cd ..
+   MISSING: agent code (src/agent.ts)
+   MISSING: graph registration (langgraph.json)
+   MISSING: runtime route (app/api/copilotkit/route.ts)
+   MISSING: agent start command (langgraph-cli dev)
+RESULT visible-path: FAIL (exit 1)
+=============== phase: showcase-callout (2026-10-06T21:28:02Z)
+# guide: git clone --depth 1 https://github.com/CopilotKit/CopilotKit.git
+# guide: cd CopilotKit/showcase/integrations/langgraph-typescript
+# guide: cp .env.example .env
+# guide: # Set OPENAI_API_KEY in .env, then:
+# guide: cd src/agent
+# guide: npm ci
+# guide: npm run dev
+copied 462 files; node_modules present: no; .langgraph_api present: no
+$ cp .env.example .env
+# "Set OPENAI_API_KEY in .env": placeholder (no model request in this phase)
+$ cd src/agent && npm ci
+added 253 packages in 2s
++-- @copilotkit/sdk-js@1.77.0
++-- @langchain/core@1.2.14
++-- @langchain/langgraph-api@1.5.2
++-- @langchain/langgraph-cli@1.5.2
++-- @langchain/langgraph-sdk@1.12.1
++-- @langchain/langgraph@1.4.19
++-- @langchain/openai@1.6.2
+`-- langchain@1.5.15
+
+strict graph.ts typecheck: pass
+$ npm run dev
+GET http://localhost:8123/ok -> 000 after 180s; registered graphs: 29
+info:    ┗ [1] { graph_id: 'shared_state_streaming' }
+info:    ┏ Registering graph with id 'subagents'
+info:    ┗ [1] { graph_id: 'subagents' }
+info:    ┏ Registering graph with id 'gen_ui_agent'
+info:    ┗ [1] { graph_id: 'gen_ui_agent' }
+info:    ┏ Registering graph with id 'gen_ui_tool_based'
+info:    ┗ [1] { graph_id: 'gen_ui_tool_based' }
+error:   ▪ Error: Cannot find module '../../_shared/ts/a2ui/context'
+Require stack:
+- /private/tmp/lgts-byoc-setup.xzbbx2/clone/showcase/integrations/langgraph-typescript/src/agent/beautiful-chat.ts
+    at node:internal/modules/cjs/loader:1401:15
+    at nextResolveSimple (/private/tmp/lgts-byoc-setup.xzbbx2/clone/showcase/integrations/langgraph-typescript/src/agent/node_modules/tsx/dist/register-B1c7OH6V.cjs:23:1010)
+    at /private/tmp/lgts-byoc-setup.xzbbx2/clone/showcase/integrations/langgraph-typescript/src/agent/node_modules/tsx/dist/register-B1c7OH6V.cjs:22:4512
+    at /private/tmp/lgts-byoc-setup.xzbbx2/clone/showcase/integrations/langgraph-typescript/src/agent/node_modules/tsx/dist/register-B1c7OH6V.cjs:22:2830
+    at resolveTsPaths (/private/tmp/lgts-byoc-setup.xzbbx2/clone/showcase/integrations/langgraph-typescript/src/agent/node_modules/tsx/dist/register-B1c7OH6V.cjs:23:762)
+    at /private/tmp/lgts-byoc-setup.xzbbx2/clone/showcase/integrations/langgraph-typescript/src/agent/node_modules/tsx/dist/register-B1c7OH6V.cjs:23:1203
+    at j._resolveFilename (file:///private/tmp/lgts-byoc-setup.xzbbx2/clone/showcase/integrations/langgraph-typescript/src/agent/node_modules/tsx/dist/register-nyXW-TH3.mjs:2:18825)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1057:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1062:22)
+    at Function._load (node:internal/modules/cjs/loader:1211:37)
+port 8123 after stop: free
+RESULT showcase-callout: FAIL (exit 1)
+=============== phase: existing-agent (2026-10-06T21:31:10Z)
+scratch AIMock on 4411: [aimock] Loaded 1 fixture(s) from /private/tmp/lgts-byoc-setup.xzbbx2/fixtures
+--- Initialize your agent project
+no visible block matching starts=mkdir my-agent
+RESULT existing-agent: FAIL (exit 1)
+exit=1
+# NOTE: the showcase-callout FAIL above is a defect of this script's clone-equivalent copy, not of the guide: since c3f876bf73 the integration's _shared is a symlink to ../_shared, which a real git clone contains but the copy (git ls-files of the integration only) did not. The script now also copies the in-repo targets of the integration's symlinks; see lgts-byoc-setup-red2-20261006.log.
+# NOTE 2: that run also left its scratch AIMock (:4411) running, because each phase runs in a subshell that does not inherit the EXIT trap; it was stopped by hand (SIGTERM to its process group) and the script now stops each phase's processes from the subshell.

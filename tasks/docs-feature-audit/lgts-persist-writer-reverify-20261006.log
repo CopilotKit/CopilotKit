@@ -1,0 +1,22 @@
+# Re-verification of @langchain/langgraph-api's FileSystemPersistence writer shape before bumping EXPECTED_PKG_VERSION (npm pack of each version)
+$ diff 1.1.17/package/dist/storage/persist.mjs 1.5.2/package/dist/storage/persist.mjs
+71c71
+<         let schedulePersist = () => void (shouldPersist = true);
+---
+>         const schedulePersist = () => void (shouldPersist = true);
+$ grep -rln 'writeFile|appendFile|createWriteStream|writeFileSync' <ver>/package/dist
+1.1.17: dist/graph/parser/parser.mjs dist/storage/persist.mjs 
+1.5.2: dist/graph/parser/parser.mjs dist/storage/persist.mjs 
+$ grep -rn 'new FileSystemPersistence(' <ver>/package/dist
+1.1.17: dist/server.mjs:80:        const opsConn = new FileSystemPersistence
+1.1.17: dist/storage/store.mjs:3:const conn = new FileSystemPersistence
+1.1.17: dist/storage/checkpoint.mjs:15:const conn = new FileSystemPersistence
+1.5.2: dist/server.mjs:82:        const opsConn = new FileSystemPersistence
+1.5.2: dist/storage/checkpoint.mjs:15:const conn = new FileSystemPersistence
+1.5.2: dist/storage/store.mjs:3:const conn = new FileSystemPersistence
+$ grep -rln langgraph_api 1.5.2/package/dist  (new: protocol/session/metadata.mjs, which only names a 'langgraph_api_url' metadata key)
+dist/loopback.mjs
+dist/stream.mjs
+dist/protocol/session/metadata.mjs
+dist/storage/persist.mjs
+17:    "langgraph_api_url",

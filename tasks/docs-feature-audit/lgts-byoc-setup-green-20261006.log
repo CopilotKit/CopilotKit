@@ -1,0 +1,133 @@
+# GREEN: reproduce-lgts-byoc-setup.sh against the fixed guide (uncommitted at run time: the restructure + the Zod note version), HEAD bb1ae7bfdc, Tue Oct  6 21:33:23 UTC 2026
+guide: showcase/shell-docs/src/content/docs/integrations/langgraph/quickstart.mdx (blob ac83d23a40); node v22.16.0; npm --before=2026-10-05T12:00:00Z
+=============== phase: visible-path (2026-10-06T21:33:23Z)
+visible to a TypeScript reader (21):
+   (untitled): mkdir my-agent
+   (untitled): npm install @langchain/langgraph @langchain/core @langchain/
+   src/agent.ts: import { SystemMessage } from "@langchain/core/messages";
+   langgraph.json: {
+   (untitled): git clone --depth 1 https://github.com/CopilotKit/CopilotKit
+   <Snippet src/agent/package.json>
+   (untitled): npm install
+   <Snippet src/agent/langgraph.json>
+   <Snippet cli-start-graph-export>
+   .env: OPENAI_API_KEY=your_openai_api_key
+   (untitled): npx create-next-app@latest frontend
+   (untitled): npm install @copilotkit/react-core @copilotkit/runtime
+   (untitled): mkdir -p app/api/copilotkit && touch app/api/copilotkit/rout
+   app/api/copilotkit/route.ts: import {
+   Terminal: npx copilotkit@latest project select
+   .env: CPK_INTELLIGENCE_API_KEY=cpk-...
+   app/providers.tsx: "use client";
+   app/layout.tsx: import { Providers } from "./providers";
+   app/page.tsx: "use client";
+   (untitled): cd ..
+   (untitled): cd frontend
+in a TypeScript tab but hidden from that reader (0):
+   present: agent code (src/agent.ts)
+   present: graph registration (langgraph.json)
+   present: runtime route (app/api/copilotkit/route.ts)
+   present: agent start command (langgraph-cli dev)
+RESULT visible-path: PASS
+=============== phase: showcase-callout (2026-10-06T21:33:23Z)
+# guide: git clone --depth 1 https://github.com/CopilotKit/CopilotKit.git
+# guide: cd CopilotKit/showcase/integrations/langgraph-typescript
+# guide: cp .env.example .env
+# guide: # Set OPENAI_API_KEY in .env, then:
+# guide: cd src/agent
+# guide: npm ci
+# guide: npm run dev
+symlink showcase/integrations/langgraph-typescript/_shared -> showcase/integrations/_shared: copied
+copied 462 files; node_modules present: no; .langgraph_api present: no
+$ cp .env.example .env
+# "Set OPENAI_API_KEY in .env": placeholder (no model request in this phase)
+$ cd src/agent && npm ci
+added 253 packages in 2s
++-- @copilotkit/sdk-js@1.77.0
++-- @langchain/core@1.2.14
++-- @langchain/langgraph-api@1.5.2
++-- @langchain/langgraph-cli@1.5.2
++-- @langchain/langgraph-sdk@1.12.1
++-- @langchain/langgraph@1.4.19
++-- @langchain/openai@1.6.2
+`-- langchain@1.5.15
+
+strict graph.ts typecheck: pass
+$ npm run dev
+GET http://localhost:8123/ok -> 200 after 3s; registered graphs: 29
+GET /assistants/<id>/graph: 29/29 return 200
+port 8123 after stop: free
+RESULT showcase-callout: PASS
+=============== phase: existing-agent (2026-10-06T21:33:30Z)
+scratch AIMock on 4411: [aimock] Loaded 1 fixture(s) from /private/tmp/lgts-byoc-setup.R9hfk4/fixtures
+--- Initialize your agent project
+$ mkdir my-agent
+$ cd my-agent
+$ npm init -y
+--- Install LangGraph
+$ npm install @langchain/langgraph @langchain/core @langchain/openai
+added 24 packages in 993ms
+resolved: +-- @langchain/core@1.2.14+-- @langchain/langgraph@1.4.19`-- @langchain/openai@1.6.2
+--- Expose your agent via AG-UI
+wrote src/agent.ts (23 lines) and langgraph.json from the guide: {"sample_agent":"./src/agent.ts:graph"}
+--- Configure your environment (the guide's own placeholder key)
+.env: OPENAI_API_KEY=your_openai_api_key
+--- Create your frontend (scaffold not reproduced: npm init -y stands in for create-next-app)
+# guide: npx create-next-app@latest frontend
+# guide: cd frontend
+--- Install CopilotKit packages
+$ npm install @copilotkit/react-core @copilotkit/runtime
+added 1172 packages in 32s
+top-level: @copilotkit/runtime 1.77.0, @ag-ui/client 1.0.1; @ag-ui/core copies:  15 @ag-ui/core@0.0.59; 7 @ag-ui/core@1.0.1;
+--- Setup Copilot Runtime (the guide's LangSmith route.ts, with the no-Intelligence callout applied)
+@@ -1,5 +1,4 @@
+ import {
+-  CopilotKitIntelligence,
+   CopilotRuntime,
+   createCopilotRuntimeHandler,
+ } from "@copilotkit/runtime/v2";
+@@ -13,14 +12,6 @@
+       langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
+     }),
+   },
+-  intelligence: new CopilotKitIntelligence({
+-    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+-  }),
+-  // Local single-user setup. Replace this before deploying to multiple users.
+-  identifyUser: () => ({
+-    id: "local-demo-user",
+-    name: "Local demo user",
+-  }),
+ });
+ 
+ const handler = createCopilotRuntimeHandler({
+provider agent: sample_agent
+--- Start your agent
+$ cd ..
+$ npx @langchain/langgraph-cli dev --port 8123 --no-browser
+GET http://localhost:8123/ok -> 200 after 6s
+listeners: node/[::1]:8123 
+--- Start chatting: one run through the route
+POST /api/copilotkit {method:"info"} -> 200 runtime 1.77.0 agents: sample_agent
+POST /api/copilotkit {method:"agent/run", agentId:"sample_agent"} -> 200
+event types: RUN_STARTED STEP_STARTED STATE_SNAPSHOT RAW RAW RAW RAW TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_END RAW RAW STATE_SNAPSHOT RAW STATE_SNAPSHOT RAW STEP_FINISHED STATE_SNAPSHOT MESSAGES_SNAPSHOT RUN_FINISHED
+assistant text: "Why do programmers prefer dark mode? Because light attracts bugs."
+RESULT: RUN_FINISHED
+--- scratch AIMock journal for this run
+  /v1/chat/completions gpt-4.1-mini {'userMessage': 'tell me a joke'} 200
+--- agent server log (ANSI stripped, per-graph lines collapsed, tail)
+info:    ┃ [1] {
+info:    ┃ [2]   run_id: '01a11323-793b-7673-9d47-c8abf9c182ec',
+info:    ┃ [3]   run_attempt: 1,
+info:    ┃ [4]   run_created_at: 2026-10-06T21:34:14.332Z,
+info:    ┃ [5]   run_started_at: 2026-10-06T21:34:14.417Z,
+info:    ┃ [6]   run_ended_at: 2026-10-06T21:34:14.449Z,
+info:    ┃ [7]   run_exec_ms: 32
+info:    ┗ [8] }
+info:    ▪ <-- GET /threads/23b61513-d47b-4722-a059-e1be0093cdce/state
+info:    ▪ --> GET /threads/23b61513-d47b-4722-a059-e1be0093cdce/state 200 9ms
+info:    ▪ <-- GET /threads/23b61513-d47b-4722-a059-e1be0093cdce/state
+info:    ▪ --> GET /threads/23b61513-d47b-4722-a059-e1be0093cdce/state 200 1ms
+port 8123 after stop: free
+RESULT existing-agent: PASS
+exit=0

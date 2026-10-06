@@ -1,0 +1,88 @@
+# showcase_validate.yml validators that read the LangGraph TypeScript integration, run locally at HEAD b02bf16e9c (dependency update committed), 2026-10-06T20:38:12Z, node v22.16.0. Other integrations' [WARN]/[FAIL] lines are filtered; langgraph-typescript's are kept.
+$ pnpm exec tsx validate-parity.ts
+langgraph-typescript         [PASS]     39     38   11  33 warn   
+[WARN] langgraph-typescript: demo 'interrupt-headless' has no tests/e2e/interrupt-headless.spec.ts
+[WARN] langgraph-typescript: demo 'chat-customization-css' has no qa/chat-customization-css.md
+[WARN] langgraph-typescript: demo 'tool-rendering-default-catchall' has no qa/tool-rendering-default-catchall.md
+[WARN] langgraph-typescript: demo 'tool-rendering-custom-catchall' has no qa/tool-rendering-custom-catchall.md
+[WARN] langgraph-typescript: demo 'frontend-tools' has no qa/frontend-tools.md
+[WARN] langgraph-typescript: demo 'frontend-tools-async' has no qa/frontend-tools-async.md
+[WARN] langgraph-typescript: demo 'hitl-in-app' has no qa/hitl-in-app.md
+[WARN] langgraph-typescript: demo 'tool-rendering-reasoning-chain' has no qa/tool-rendering-reasoning-chain.md
+[WARN] langgraph-typescript: demo 'prebuilt-sidebar' has no qa/prebuilt-sidebar.md
+[WARN] langgraph-typescript: demo 'prebuilt-popup' has no qa/prebuilt-popup.md
+[WARN] langgraph-typescript: demo 'chat-slots' has no qa/chat-slots.md
+[WARN] langgraph-typescript: demo 'headless-simple' has no qa/headless-simple.md
+[WARN] langgraph-typescript: demo 'headless-complete' has no qa/headless-complete.md
+[WARN] langgraph-typescript: demo 'reasoning-default' has no qa/reasoning-default.md
+[WARN] langgraph-typescript: demo 'reasoning-custom' has no qa/reasoning-custom.md
+[WARN] langgraph-typescript: demo 'gen-ui-interrupt' has no qa/gen-ui-interrupt.md
+[WARN] langgraph-typescript: demo 'interrupt-headless' has no qa/interrupt-headless.md
+[WARN] langgraph-typescript: demo 'declarative-gen-ui' has no qa/declarative-gen-ui.md
+[WARN] langgraph-typescript: demo 'a2ui-fixed-schema' has no qa/a2ui-fixed-schema.md
+[WARN] langgraph-typescript: demo 'mcp-apps' has no qa/mcp-apps.md
+[WARN] langgraph-typescript: demo 'readonly-state-agent-context' has no qa/readonly-state-agent-context.md
+[WARN] langgraph-typescript: demo 'declarative-json-render' has no qa/declarative-json-render.md
+[WARN] langgraph-typescript: demo 'beautiful-chat' has no qa/beautiful-chat.md
+[WARN] langgraph-typescript: demo 'multimodal' has no qa/multimodal.md
+[WARN] langgraph-typescript: demo 'auth' has no qa/auth.md
+[WARN] langgraph-typescript: demo 'declarative-hashbrown' has no qa/declarative-hashbrown.md
+[WARN] langgraph-typescript: demo 'open-gen-ui' has no qa/open-gen-ui.md
+[WARN] langgraph-typescript: demo 'open-gen-ui-advanced' has no qa/open-gen-ui-advanced.md
+[WARN] langgraph-typescript: demo 'voice' has no qa/voice.md
+[WARN] langgraph-typescript: demo 'agent-config' has no qa/agent-config.md
+[WARN] langgraph-typescript: demo count 39 deviates from baseline 9
+[WARN] langgraph-typescript: spec count 38 < demo count 39
+[WARN] langgraph-typescript: qa count 11 < demo count 39
+22 package(s) checked, 22 pass, 0 fail, 442 warning(s)
+exit=0
+$ pnpm exec tsx validate-shared-symlinks.ts
+ℹ 2 single-source slot(s) are ERODED (should be symlinks into showcase/shared/...):
+  • [known] showcase/integrations/langgraph-typescript/shared-tools  (real-dir)
+✔ single-source symlinks OK — no NEW erosion (2/2 baselined slot(s) still eroded, expected until symlinks are restored).
+exit=0
+$ pnpm exec tsx sync-shared-frontends.ts
+Shared frontend sources are in sync.
+exit=0
+$ pnpm exec tsx validate-fixture-tool-surface.ts
+✓ validate-fixture-tool-surface: 0 fixtures × 781 demos — no drift
+exit=0
+$ pnpm exec tsx validate-pins.ts  (ratchet: CI compares the FAIL count/hash with fail-baseline.json)
+[FAIL] langgraph-typescript: @copilotkit/a2ui-renderer pinned to 1.77.0, canonical is 1.68.2
+[FAIL] langgraph-typescript: @copilotkit/react-core pinned to 1.77.0, canonical is 1.68.2
+[FAIL] langgraph-typescript: @copilotkit/react-ui pinned to 1.77.0, canonical is 1.68.2
+[FAIL] langgraph-typescript: @copilotkit/runtime pinned to 1.77.0, canonical is 1.68.2
+[FAIL] langgraph-typescript: @copilotkit/sdk-js pinned to 1.77.0, canonical is 1.68.2
+[FAIL] langgraph-typescript: @copilotkit/shared pinned to 1.77.0, canonical is 1.68.2
+[FAIL] langgraph-typescript: @copilotkit/voice pinned to 1.77.0, canonical is 1.68.2
+[FAIL] langgraph-typescript: openai is not an exact pin (^5.9.0)
+Summary: OK=6 SKIP=0 WARN=2 FAIL=47
+exit=1
+# validate-pins against the pre-update tree: git archive a7e2c82dcc (the commit before b02bf16e9c) of showcase/ into a temp dir, VALIDATE_PINS_REPO_ROOT=<archive>
+[FAIL] langgraph-typescript: @copilotkit/a2ui-renderer pinned to 1.73.3, canonical is 1.68.2
+[FAIL] langgraph-typescript: @copilotkit/react-core pinned to 1.73.3, canonical is 1.68.2
+[FAIL] langgraph-typescript: @copilotkit/react-ui pinned to 1.73.3, canonical is 1.68.2
+[FAIL] langgraph-typescript: @copilotkit/runtime pinned to 1.73.3, canonical is 1.68.2
+[FAIL] langgraph-typescript: @copilotkit/sdk-js pinned to 1.73.3, canonical is 1.68.2
+[FAIL] langgraph-typescript: @copilotkit/shared pinned to 1.73.3, canonical is 1.68.2
+[FAIL] langgraph-typescript: @copilotkit/voice pinned to 1.73.3, canonical is 1.68.2
+[FAIL] langgraph-typescript: openai is not an exact pin (^5.9.0)
+Summary: OK=6 SKIP=0 WARN=2 FAIL=47
+exit=1
+# FAIL lines only before (-) / only after (+):
+- [FAIL] langgraph-typescript: @copilotkit/a2ui-renderer pinned to 1.73.3, canonical is 1.68.2
+- [FAIL] langgraph-typescript: @copilotkit/react-core pinned to 1.73.3, canonical is 1.68.2
+- [FAIL] langgraph-typescript: @copilotkit/react-ui pinned to 1.73.3, canonical is 1.68.2
+- [FAIL] langgraph-typescript: @copilotkit/runtime pinned to 1.73.3, canonical is 1.68.2
+- [FAIL] langgraph-typescript: @copilotkit/sdk-js pinned to 1.73.3, canonical is 1.68.2
+- [FAIL] langgraph-typescript: @copilotkit/shared pinned to 1.73.3, canonical is 1.68.2
+- [FAIL] langgraph-typescript: @copilotkit/voice pinned to 1.73.3, canonical is 1.68.2
++ [FAIL] langgraph-typescript: @copilotkit/a2ui-renderer pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] langgraph-typescript: @copilotkit/react-core pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] langgraph-typescript: @copilotkit/react-ui pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] langgraph-typescript: @copilotkit/runtime pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] langgraph-typescript: @copilotkit/sdk-js pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] langgraph-typescript: @copilotkit/shared pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] langgraph-typescript: @copilotkit/voice pinned to 1.77.0, canonical is 1.68.2
+# baseline: {"_comment":"Drift ratchet baseline for showcase_validate.yml. `validatePinsFailCount` holds the last-known FAIL count; `validatePinsFailHash` is a SHA-256 of the stderr-only `[FAIL] ...` lines from validate-pins.ts, deduplicated and sorted with `LC_ALL=C sort -u`. CI compares BOTH: if the count cha
+# validate-pins delta: FAIL count 47 -> 47 (the 7 @copilotkit/* lines change 1.73.3 -> 1.77.0, so the FAIL hash changes); WARN 2 -> 2. Baseline (fail-baseline.json) validatePinsFailCount=26; red before this change. Not fixed here.

@@ -1,0 +1,10 @@
+# node v22.16.0, npm 10.9.2 (the Dockerfile's node:22 major)
+$ cd showcase/integrations/langgraph-typescript/src/agent && SCARF_ANALYTICS=false nice -n 10 npm ci --no-audit --no-fund
+Tue Oct  6 20:36:39 UTC 2026
+
+added 253 packages in 2s
+exit=0
+$ npm ci --dry-run --legacy-peer-deps --ignore-scripts --no-audit --no-fund   # the Dockerfile's flags
+
+added 46 packages in 150ms
+exit=0
