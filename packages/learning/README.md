@@ -41,7 +41,7 @@ copilotkit.stopTrajectory();
 
 An omitted `trajectoryId` generates a UUID. Start succeeds after Runtime authentication and the Phoenix channel join. The Runtime resolves the user on the server and sends only their ID to Intelligence. Browser-supplied identity and container IDs are ignored; container assignment is deferred. Setting `learningContainerIds` for authenticated capture produces a warning. That option applies only to custom sinks.
 
-Capture includes page context, navigation, clicks, form edits, network requests, and developer events. Paths remain unchanged. Thread linking and agent events are deferred for this connection path.
+Capture includes page context, navigation, clicks, form edits, network requests, and developer events. Paths remain unchanged. When Runtime starts an agent run, Core sends `thread.linked` with the run's `threadId`, once for each Thread. Runtime creates the Thread before the run starts, so Intelligence can store the link. Click Thread context and agent events are deferred for this connection path.
 
 Core sends Phoenix `events` messages with `{ events, dropped }`. It flushes after two seconds, at 50 events, or before the batch exceeds 64 KiB. Each event must fit within 16 KiB, including sequence metadata. Sizes use serialized UTF-8 JSON. The Gateway replies with `{ highestSeq, accepted, rejected }`. This receipt confirms Redis acceptance, not a Postgres commit. Postgres projection follows asynchronously. The receipt does not identify individual rejected events.
 
