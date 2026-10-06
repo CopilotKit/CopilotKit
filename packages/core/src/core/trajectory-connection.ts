@@ -1,5 +1,6 @@
 import { Socket } from "phoenix";
 import type { Channel } from "phoenix";
+import type { AbstractAgent } from "@ag-ui/client";
 import { phoenixExponentialBackoff } from "@copilotkit/shared";
 import { createTrajectoryCollector } from "@copilotkit/learning";
 import type {
@@ -59,6 +60,10 @@ interface Session {
   offline: boolean;
   onOffline(): void;
   onOnline(): void;
+  /** Threads already linked to this Trajectory. */
+  linkedThreads: Set<string>;
+  runWatch?: { unsubscribe(): void };
+  agentWatches: Map<AbstractAgent, { unsubscribe(): void }>;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -175,8 +180,15 @@ export class TrajectoryConnection {
           void this.connect(session);
         }
       },
+      linkedThreads: new Set(),
+      agentWatches: new Map(),
     };
     this.session = session;
+    // Runtime creates the Thread before RUN_STARTED reaches the browser, so a
+    // link sent from that event names a Thread that Intelligence can store.
+    session.runWatch = this.core.subscribe({
+      onAgentRunStarted: ({ agent }) => this.watchAgent(session, agent),
+    });
     if (
       typeof window !== "undefined" &&
       typeof window.addEventListener === "function"
@@ -212,6 +224,47 @@ export class TrajectoryConnection {
     }
   }
 
+  private watchAgent(session: Session, agent: AbstractAgent): void {
+    if (this.session !== session || session.agentWatches.has(agent)) return;
+    session.agentWatches.set(
+      agent,
+      agent.subscribe({
+        onRunStartedEvent: ({ event }) => this.linkThread(session, event),
+      }),
+    );
+  }
+
+  /** Sends one `thread.linked` per Thread. A link that cannot be sent waits for the next run. */
+  private linkThread(
+    session: Session,
+    { threadId }: { threadId: string },
+  ): void {
+    const connection = session.connection;
+    if (
+      !session.ready ||
+      !connection ||
+      !threadId ||
+      session.linkedThreads.has(threadId)
+    )
+      return;
+    session.linkedThreads.add(threadId);
+    // `thread.linked` is a built-in name, so it skips the collector's
+    // developer-event check. The host's beforeSend filter still applies.
+    const event: TrajectoryEvent = {
+      type: "CUSTOM",
+      name: "thread.linked",
+      timestamp: Date.now(),
+      value: { threadId },
+    };
+    try {
+      const { beforeSend } = session.config;
+      const kept = beforeSend === undefined ? event : beforeSend(event);
+      if (kept !== null) this.send(session, connection, kept);
+    } catch {
+      this.report(session, "INVALID_EVENT");
+    }
+  }
+
   private report(session: Session, code: string): void {
     try {
       session.config.onError?.({
@@ -231,6 +284,9 @@ export class TrajectoryConnection {
     if (this.session !== session) return;
     this.session = undefined;
     clearTimeout(session.retry);
+    session.runWatch?.unsubscribe();
+    for (const watch of session.agentWatches.values()) watch.unsubscribe();
+    session.agentWatches.clear();
     session.collector?.stop();
     session.ready = false;
     if (session.queue.length > 0) this.report(session, "EVENTS_DROPPED");
@@ -297,6 +353,8 @@ export class TrajectoryConnection {
     }
     session.ready = false;
     this.discardQueue(session);
+    // A discarded or unconfirmed link is sent again on the next run.
+    session.linkedThreads.clear();
     for (const pending of connection.pending)
       pending.finish("PERSISTENCE_UNKNOWN");
     if (!this.current(session, connection)) return;

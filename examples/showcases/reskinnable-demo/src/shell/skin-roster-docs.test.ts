@@ -127,6 +127,7 @@ const ORDINAL_WORDS: Record<string, number> = {
   eighth: 8,
   ninth: 9,
   tenth: 10,
+  eleventh: 11,
 };
 /** Group-free alternations, so they can be embedded more than once per pattern. */
 const NUM_ALT = `(?:${Object.keys(NUMBER_WORDS).join("|")}|[2-9]|1[0-2])`;
@@ -690,7 +691,7 @@ describe("the roster checks themselves", () => {
       // leave alone — the numeral-free forms this test's own failure message
       // recommends, plus a truthful total.
       "Every registered skin hits every row.",
-      "all nine skins run behind the same `Skin` contract",
+      "all ten skins run behind the same `Skin` contract",
       "`useData` has exactly one implementor",
     ];
     expect(

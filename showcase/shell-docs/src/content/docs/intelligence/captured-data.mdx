@@ -51,12 +51,12 @@ Each event is an AG-UI `CUSTOM` event: `{ type: "CUSTOM", name, value, timestamp
 | `click` | `target` (`tag`, `role`, `action`, `text`, `attributes`, control values, `input`), `route`, `url` | Collector |
 | `input` | `eventType`, `target` (element details and control values), `route`, `url` | Collector |
 | `network` | `transport`, `method`, `url`, `origin`, `route`, `status`, `durationMs`, `outcome`, `request`, `response` | Collector |
-| `thread.linked` | `threadId`, `agentId`, `hasMessages`, `reason` | Core custom-sink integration |
+| `thread.linked` | `threadId`, `agentId`, `hasMessages`, `reason` (custom sinks); `threadId` (connected capture) | Core |
 | `agent.run` | `phase`, `runId`, `threadId`, `agentId` | Core custom-sink integration |
 | `agent.message` | `messageId`, `runId`, `threadId`, `role`, `textLength`, `text` | Core custom-sink integration |
 | `tool.call` | `phase`, `toolCallId`, `toolName`, `threadId`, `messageId`, `runId`, `durationMs`, `outcome` | Core custom-sink integration |
 
-In the custom-sink integration, a `click` also carries `threadId`, `agentId`, `messageId`, `runId`, `toolCallId`, `toolName`, and `toolStatus`. When two chats show different Threads, `threadAmbiguity` describes the candidates. Standalone browser capture does not add these fields or emit chat events.
+In the custom-sink integration, a `click` also carries `threadId`, `agentId`, `messageId`, `runId`, `toolCallId`, `toolName`, and `toolStatus`. When two chats show different Threads, `threadAmbiguity` describes the candidates. Standalone browser capture does not add these fields or emit chat events. Connected Core capture emits only `thread.linked`, once for each Thread, when Runtime starts a run in it.
 
 Control values include `value`, `checked` for checkboxes and radio buttons, `selectedValues` for select elements, and file metadata for file inputs.
 
