@@ -61,7 +61,8 @@ transcription provider.
 **Microphone.** Select the mic button, allow microphone access, speak, then stop
 recording. The transcript appears in the composer for you to review and send.
 Only this path records audio, uploads it to `/transcribe` and calls the
-transcription provider. It needs an OpenAI API key on the server (see
+transcription provider. The mic button appears only when the server has a
+dedicated transcription key (see
 [Credentials and local configuration](#credentials-and-local-configuration)).
 No automated Showcase check records from a microphone, so try it yourself
 before relying on it.
@@ -103,26 +104,33 @@ credential belongs in the server environment of the app that serves
 `/api/copilotkit-voice`. For `next dev`, that means `.env.local` or the shell
 that starts it. Never put it in a `NEXT_PUBLIC_` variable.
 
-- **An OpenAI API key is required.** `TranscriptionServiceOpenAI` sends audio
-  to OpenAI's `whisper-1` model by default, so the key needs access to it. The
-  Built-in Agent Showcase reads a dedicated `OPENAI_TRANSCRIPTION_API_KEY` and
-  omits the service when it is unset, so the mic button stays hidden. The
-  Showcase's shared voice service for the other integrations reads
-  `OPENAI_API_KEY`. Without it the mic button still appears, because `/info`
-  advertises transcription whenever a service is configured. Transcription then
-  fails: `/transcribe` answers `401` with `auth_failed` and the chat shows an
-  authentication error instead of a transcript.
+- **Voice needs its own OpenAI API key.** `TranscriptionServiceOpenAI` sends
+  audio to OpenAI's `whisper-1` model by default, so the key needs access to
+  it. Every Showcase voice demo reads a dedicated
+  `OPENAI_TRANSCRIPTION_API_KEY`, never the chat key in `OPENAI_API_KEY`. When
+  it is unset, the route omits `transcriptionService`: `/info` reports
+  `audioFileTranscriptionEnabled: false`, so the mic button stays hidden, and
+  a direct `POST /transcribe` answers `503` with `service_not_configured`.
 - **Keep transcription off `OPENAI_BASE_URL`.** The OpenAI SDK falls back to
   `OPENAI_BASE_URL` when you don't pass `baseURL`. If that variable routes chat
   through a proxy or a mock server, give the transcription client its own
   `baseURL`, or recorded audio goes to that server too. The Showcase points
   `OPENAI_BASE_URL` at a fixture server (AIMock) so chat replies are
   deterministic, and that server answers transcription requests from fixtures
-  without listening to the audio. The Showcase's shared voice service therefore
-  keeps recordings on `https://api.openai.com/v1` and takes an override only
-  from `OPENAI_TRANSCRIPTION_BASE_URL`.
+  without listening to the audio. The Showcase voice service therefore sends
+  recordings to `https://api.openai.com/v1` and ignores `OPENAI_BASE_URL` and
+  `AIMOCK_URL`. Set `OPENAI_TRANSCRIPTION_BASE_URL` to send them to another
+  OpenAI-compatible endpoint instead.
 - **The browser needs microphone permission** and a secure context: `https://`
   or `http://localhost`.
+
+For a Showcase voice demo, set:
+
+```bash
+OPENAI_TRANSCRIPTION_API_KEY=your-api-key
+# Optional: defaults to https://api.openai.com/v1
+OPENAI_TRANSCRIPTION_BASE_URL=https://your-speech-provider.example.com/v1
+```
 
 ### Custom transcription backends
 
@@ -138,9 +146,11 @@ such as `OpenAI returned 429 rate limited` maps to the right error code on its o
 it with your own wording bypasses that and everything lands as a generic provider error.
 </Callout>
 
-The runtime rejects a request with no `audio` part (`400`, `invalid_request`),
-but it passes a 0-byte file through to your service. Check `audioFile.size`
-before calling a provider that might answer an empty upload.
+The runtime rejects a request with no `audio` part (`400`, `invalid_request`).
+Published runtime releases up to 1.77.0 still pass a 0-byte file through to
+your service; later releases reject it with `400` `audio_too_short` before your
+service runs. Until you upgrade, check `audioFile.size` before calling a
+provider that might answer an empty upload. The Showcase service does this.
 
 A useful pattern is constructing the service only when its dedicated credential is configured. Without it, omit `transcriptionService`; the runtime reports the capability as disabled, hides the mic, and returns the documented 503 if `/transcribe` is called directly:
 
