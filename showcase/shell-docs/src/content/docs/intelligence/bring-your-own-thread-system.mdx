@@ -31,6 +31,8 @@ To include older history, use the optional [supported import flow](/threads-impo
 
 Intelligence rename, archive, and delete actions affect only Intelligence records. They do not rename, archive, or delete the original conversation in your native framework store. Neither automatic recording nor historical import keeps the two databases in sync.
 
+<FrontendOnly frontend="react">
+
 ## Example: keep an existing LangGraph conversation
 
 This example uses a React app with a LangGraph agent registered as `support` in the CopilotKit runtime. Its durable checkpointer or LangGraph deployment already stores a conversation. [Connect the runtime to Intelligence](/intelligence/quickstart), then continue that conversation.
@@ -63,3 +65,4 @@ If you want to copy its earlier history, [import it first](/langgraph-python/thr
 4. Open your runtime's project in [CopilotKit Intelligence](https://dashboard.operations.copilotkit.ai/) and find the thread by its ID. Make sure that it contains your new message and the agent's reply. On localhost, you can also find it in Inspector's Rich Threads pane.
 5. Reopen the chat with the same thread ID and send another message as the same application user. Make sure that Intelligence adds it to the same thread and LangGraph updates the same native conversation.
 
+</FrontendOnly>
