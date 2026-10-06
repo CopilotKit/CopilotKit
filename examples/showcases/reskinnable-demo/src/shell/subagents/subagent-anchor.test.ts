@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findLatestDelegationToolCallId } from "./subagent-anchor";
+import { findDelegationAnchorToolCallIds } from "./subagent-anchor";
 
 const task = (id: string) => ({
   id,
@@ -7,7 +7,7 @@ const task = (id: string) => ({
 });
 
 describe("subagent console anchoring", () => {
-  it("anchors repeated delegated runs beside the latest parent turn", () => {
+  it("gives every delegating turn its own anchor, not only the latest", () => {
     const messages = [
       { role: "user", content: "analyze the first batch" },
       { role: "assistant", toolCalls: [task("parent-1")] },
@@ -17,10 +17,13 @@ describe("subagent console anchoring", () => {
       { role: "assistant", toolCalls: [task("nested-2")] },
     ];
 
-    expect(findLatestDelegationToolCallId(messages)).toBe("parent-2");
+    expect(findDelegationAnchorToolCallIds(messages)).toEqual([
+      "parent-1",
+      "parent-2",
+    ]);
   });
 
-  it("does not let a later non-delegating turn erase the last console anchor", () => {
+  it("does not let a later non-delegating turn erase an earlier console anchor", () => {
     const messages = [
       { role: "user", content: "analyze expenses" },
       { role: "assistant", toolCalls: [task("parent")] },
@@ -29,7 +32,7 @@ describe("subagent console anchoring", () => {
       { role: "assistant", content: "you're welcome" },
     ];
 
-    expect(findLatestDelegationToolCallId(messages)).toBe("parent");
+    expect(findDelegationAnchorToolCallIds(messages)).toEqual(["parent"]);
   });
 
   it("uses the first task in a turn so nested delegations do not steal the anchor", () => {
@@ -39,6 +42,6 @@ describe("subagent console anchoring", () => {
       { role: "assistant", toolCalls: [task("nested-b")] },
     ];
 
-    expect(findLatestDelegationToolCallId(messages)).toBe("parent");
+    expect(findDelegationAnchorToolCallIds(messages)).toEqual(["parent"]);
   });
 });
