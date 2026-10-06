@@ -21,24 +21,43 @@ type IdentityCase = {
 
 const cases: IdentityCase[] = [
   {
-    name: "legacy Slack platform identity",
+    name: "Slack-shaped custom ID without tenant provenance",
     appUserId: "slack:T123:U123",
-    expectedTenant: "T123",
+    expectedTenant: "unknown",
   },
   {
-    name: "Slack W user identity",
+    name: "Slack W identity without tenant provenance",
     appUserId: "slack:T123:W123",
     actorId: "W123",
-    expectedTenant: "T123",
+    expectedTenant: "unknown",
   },
   {
     name: "another workspace",
     appUserId: "slack:T999:U123",
-    expectedTenant: "T999",
+    expectedTenant: "unknown",
   },
   {
     name: "another user",
     appUserId: "slack:T123:U999",
+    actorId: "U999",
+    expectedTenant: "unknown",
+  },
+  {
+    name: "trusted owner workspace with a custom application user",
+    appUserId: "application-owner",
+    tenant: { id: "T123", name: "Trusted workspace" },
+    expectedTenant: "T123",
+  },
+  {
+    name: "trusted owner workspace with a conflicting encoded workspace",
+    appUserId: "slack:T999:U123",
+    tenant: { id: "T123" },
+    expectedTenant: "T123",
+  },
+  {
+    name: "trusted workspace with an unlinked actor",
+    appUserId: "application-owner",
+    tenant: { id: "T123" },
     actorId: "U999",
     expectedTenant: "T123",
   },

@@ -88,33 +88,6 @@ const MANAGED_ASSET_ACTIVITY_TYPE = "copilotkit.managed-asset";
 const MANAGED_ASSET_HISTORY_ATTEMPTS = 3;
 const MANAGED_SLACK_TEXT_INTERVAL_MS = 600;
 
-/**
- * Managed Slack deliveries can omit tenant metadata while retaining the default
- * platform identity (`slack:<team>:<user>`) in the authenticated appUserId.
- * Recover only that exact identity when it agrees with the human provider
- * actor. Explicit tenant metadata wins; custom identities and other providers
- * keep the unknown fallback. Never infer a workspace from message text or raw.
- */
-function resolveDeliveryTenant(
-  delivery: PreparedChannelDelivery,
-): NonNullable<PreparedChannelDelivery["tenant"]> {
-  if (delivery.tenant !== undefined) return delivery.tenant;
-  if (delivery.adapter === "slack" && delivery.turn.actor?.kind === "human") {
-    const identity = /^slack:(T[A-Z0-9]+):([UW][A-Z0-9]+)$/.exec(
-      delivery.appUserId,
-    );
-    if (
-      identity &&
-      identity[1] &&
-      identity[0] === delivery.appUserId &&
-      identity[2] === delivery.turn.actor.externalUserId
-    ) {
-      return { id: identity[1] };
-    }
-  }
-  return { id: "unknown" };
-}
-
 /** Slack could not prove whether a managed file became visible. */
 export class ChannelFileDeliveryUnknownError extends ChannelDeliveryTerminatedError {
   readonly code = "unknown";
@@ -445,7 +418,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       platform: delivery.adapter,
       actor,
       identityContext: {
-        tenant: resolveDeliveryTenant(delivery),
+        tenant: delivery.tenant ?? { id: "unknown" },
         installation: delivery.installation ?? { id: "unknown" },
         conversation: delivery.conversation ?? {
           id: delivery.canonicalThreadId,
