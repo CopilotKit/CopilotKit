@@ -1,0 +1,255 @@
+# ADK stack via the integration's documented default dev command (package.json scripts.dev = concurrently "next dev --turbopack" "cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload"), venv python (/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv, Python 3.12.6) first on PATH, same environment as adk-dev-stack-20260923.log. .next removed first.
+$ cd showcase/integrations/google-adk && PORT=3103 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true DO_NOT_TRACK=1 GOOGLE_API_KEY=fake-gemini-key GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:4410 OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://127.0.0.1:4410/v1 AIMOCK_URL=http://127.0.0.1:4410 AGENT_URL=http://localhost:8000 nice -n 10 npm run dev
+# node v22.16.0, npm 10.9.2, HEAD e737fc702f, tree vs HEAD outside tasks/: , started Tue Oct  6 22:53:51 UTC 2026
+
+> @copilotkit/showcase-google-adk@0.1.0 dev
+> concurrently "next dev --turbopack" "cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload"
+
+[1] INFO:     Will watch for changes in these directories: ['/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src']
+[1] INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+[1] INFO:     Started reloader process [26653] using WatchFiles
+[0]  ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+[0]  We detected multiple lockfiles and selected the directory of /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/pnpm-lock.yaml as the root directory.
+[0]  To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+[0]    See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+[0]  Detected additional lockfiles: 
+[0]    * /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/package-lock.json
+[0] 
+[1] 2026-10-06 15:53:52,064 INFO agents._cvdiag_bootstrap CVDIAG bootstrap component=_shared tier=default pb_enabled=false
+[0]    ▲ Next.js 15.5.27 (Turbopack)
+[0]    - Local:        http://localhost:3103
+[0]    - Network:      http://192.168.4.34:3103
+[0] 
+[0]  ✓ Starting...
+[1] 2026-10-06 15:53:52,594 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src/agents/shared_chat.py:144: UserWarning: install_httpx_hook: client of type Gemini has no recognized event_hooks attribute; x-* headers will not be forwarded
+[1]   install_httpx_hook(gemini)
+[1] 2026-10-06 15:53:52,595 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,596 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,596 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,596 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,596 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,602 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,602 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,602 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,602 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,603 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,603 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,603 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,603 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,603 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,603 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,604 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,604 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,604 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,604 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,604 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,604 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,604 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,605 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] No flight schema file found, using inline minimal schema
+[1] 2026-10-06 15:53:52,608 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,608 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,608 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,608 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,608 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:53:52,608 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/ag_ui_adk/adk_agent.py:478: UserWarning: [EXPERIMENTAL] InMemoryCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+[1]   self._credential_service = credential_service or InMemoryCredentialService()
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/auth/credential_service/in_memory_credential_service.py:33: UserWarning: [EXPERIMENTAL] BaseCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+[1]   super().__init__()
+[1] INFO:     Started server process [26667]
+[1] INFO:     Waiting for application startup.
+[1] INFO:     Application startup complete.
+[0]  ✓ Ready in 793ms
+[1] 2026-10-06 15:53:53,153 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:65149 - "GET /health HTTP/1.1" 200 OK
+[0]  ○ Compiling /api/health ...
+[0]  ✓ Compiled /api/health in 588ms
+[0]  GET /api/health 200 in 884ms
+[1] 2026-10-06 15:53:54,062 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID agents_state_endpoint_agents_state_post for function agents_state_endpoint at /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/ag_ui_adk/endpoint.py
+[1]   warnings.warn(message, stacklevel=1)
+[1] INFO:     127.0.0.1:65155 - "GET /openapi.json HTTP/1.1" 200 OK
+[0]  ○ Compiling /_not-found/page ...
+[0]  ✓ Compiled /_not-found/page in 1005ms
+[0]  POST /api/copilotkit/info 404 in 1144ms
+[0]  GET /api/copilotkit/info 404 in 33ms
+[0]  ○ Compiling /api/copilotkit ...
+[0]  ✓ Compiled /api/copilotkit in 701ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[0]  POST /api/copilotkit 200 in 1120ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[0]  POST /api/copilotkit 200 in 226ms
+# runtime info (POST /api/copilotkit {"method":"info"}): version 1.77.0, 40 agents
+[0]  ○ Compiling /demos/a2ui-fixed-schema ...
+[0]  ✓ Compiled /demos/a2ui-fixed-schema in 4.9s
+[0] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+[0]  GET /demos/a2ui-fixed-schema 200 in 5189ms
+[0]  ○ Compiling /demos/a2ui-recovery ...
+[0]  ✓ Compiled /demos/a2ui-recovery in 1670ms
+[0]  GET /demos/a2ui-recovery 200 in 1783ms
+[0]  ○ Compiling /demos/agent-config ...
+[0]  ✓ Compiled /demos/agent-config in 1045ms
+[0]  GET /demos/agent-config 200 in 1116ms
+[0]  ○ Compiling /demos/agentic-chat ...
+[0]  ✓ Compiled /demos/agentic-chat in 1159ms
+[0]  GET /demos/agentic-chat 200 in 1213ms
+[0]  ○ Compiling /demos/auth ...
+[0]  ✓ Compiled /demos/auth in 1221ms
+[0]  GET /demos/auth 200 in 1267ms
+[0]  ○ Compiling /demos/beautiful-chat ...
+[0]  ✓ Compiled /demos/beautiful-chat in 1133ms
+[0]  GET /demos/beautiful-chat 200 in 1232ms
+[0]  ○ Compiling /demos/chat-customization-css ...
+[0]  ✓ Compiled /demos/chat-customization-css in 946ms
+[0]  GET /demos/chat-customization-css 200 in 998ms
+[0]  ○ Compiling /demos/chat-slots ...
+[0]  ✓ Compiled /demos/chat-slots in 1150ms
+[0]  GET /demos/chat-slots 200 in 1205ms
+[0]  ○ Compiling /demos/declarative-gen-ui ...
+[0]  ✓ Compiled /demos/declarative-gen-ui in 1253ms
+[0]  GET /demos/declarative-gen-ui 200 in 1339ms
+[0]  ○ Compiling /demos/declarative-hashbrown ...
+[0]  ✓ Compiled /demos/declarative-hashbrown in 1309ms
+[0]  GET /demos/declarative-hashbrown 200 in 1418ms
+[0]  ○ Compiling /demos/declarative-json-render ...
+[0]  ✓ Compiled /demos/declarative-json-render in 1339ms
+[0]  GET /demos/declarative-json-render 200 in 1473ms
+[0]  ○ Compiling /demos/frontend-tools ...
+[0]  ✓ Compiled /demos/frontend-tools in 1116ms
+[0]  GET /demos/frontend-tools 200 in 1182ms
+[0]  ○ Compiling /demos/frontend-tools-async ...
+[0]  ✓ Compiled /demos/frontend-tools-async in 1170ms
+[0]  GET /demos/frontend-tools-async 200 in 1225ms
+[0]  ○ Compiling /demos/gen-ui-agent ...
+[0]  ✓ Compiled /demos/gen-ui-agent in 1267ms
+[0]  GET /demos/gen-ui-agent 200 in 1322ms
+[0]  ○ Compiling /demos/gen-ui-interrupt ...
+[0]  ✓ Compiled /demos/gen-ui-interrupt in 1173ms
+[0]  GET /demos/gen-ui-interrupt 200 in 1229ms
+[0]  ○ Compiling /demos/gen-ui-tool-based ...
+[0]  ✓ Compiled /demos/gen-ui-tool-based in 1318ms
+[0]  GET /demos/gen-ui-tool-based 200 in 1387ms
+[0]  ○ Compiling /demos/headless-complete ...
+[0]  ✓ Compiled /demos/headless-complete in 1187ms
+[0]  GET /demos/headless-complete 200 in 1288ms
+[0]  ○ Compiling /demos/headless-simple ...
+[0]  ✓ Compiled /demos/headless-simple in 1286ms
+[0]  GET /demos/headless-simple 200 in 1367ms
+[0]  ○ Compiling /demos/hitl ...
+[0]  ✓ Compiled /demos/hitl in 1149ms
+[0]  GET /demos/hitl 200 in 1198ms
+[0]  ○ Compiling /demos/hitl-in-app ...
+[0]  ✓ Compiled /demos/hitl-in-app in 1097ms
+[0]  GET /demos/hitl-in-app 200 in 1147ms
+[0]  ○ Compiling /demos/hitl-in-chat ...
+[0]  ✓ Compiled /demos/hitl-in-chat in 1098ms
+[0]  GET /demos/hitl-in-chat 200 in 1142ms
+[0]  ○ Compiling /demos/mcp-apps ...
+[0]  ✓ Compiled /demos/mcp-apps in 1104ms
+[0]  GET /demos/mcp-apps 200 in 1148ms
+[0]  ○ Compiling /demos/multimodal ...
+[0]  ✓ Compiled /demos/multimodal in 1086ms
+[0]  GET /demos/multimodal 200 in 1130ms
+[0]  ○ Compiling /demos/open-gen-ui ...
+[0]  ✓ Compiled /demos/open-gen-ui in 1050ms
+[0]  GET /demos/open-gen-ui 200 in 1112ms
+[0]  ○ Compiling /demos/open-gen-ui-advanced ...
+[0]  ✓ Compiled /demos/open-gen-ui-advanced in 1085ms
+[0]  GET /demos/open-gen-ui-advanced 200 in 1126ms
+[0]  ○ Compiling /demos/prebuilt-popup ...
+[0]  ✓ Compiled /demos/prebuilt-popup in 1103ms
+[0]  GET /demos/prebuilt-popup 200 in 1153ms
+[0]  ○ Compiling /demos/prebuilt-sidebar ...
+[0]  ✓ Compiled /demos/prebuilt-sidebar in 1191ms
+[0]  GET /demos/prebuilt-sidebar 200 in 1259ms
+[0]  ○ Compiling /demos/readonly-state-agent-context ...
+[0]  ✓ Compiled /demos/readonly-state-agent-context in 1583ms
+[0]  GET /demos/readonly-state-agent-context 200 in 1652ms
+[0]  ○ Compiling /demos/reasoning-custom ...
+[0]  ✓ Compiled /demos/reasoning-custom in 1335ms
+[0]  GET /demos/reasoning-custom 200 in 1404ms
+[0]  ○ Compiling /demos/reasoning-default ...
+[0]  ✓ Compiled /demos/reasoning-default in 1317ms
+[0]  GET /demos/reasoning-default 200 in 1361ms
+[0]  ○ Compiling /demos/shared-state-read ...
+[0]  ✓ Compiled /demos/shared-state-read in 1399ms
+[0]  GET /demos/shared-state-read 200 in 1485ms
+[0]  ○ Compiling /demos/shared-state-read-write ...
+[0]  ✓ Compiled /demos/shared-state-read-write in 1602ms
+[0]  GET /demos/shared-state-read-write 200 in 1674ms
+[0]  ○ Compiling /demos/shared-state-streaming ...
+[0]  ✓ Compiled /demos/shared-state-streaming in 1983ms
+[0]  GET /demos/shared-state-streaming 200 in 2060ms
+[0]  ○ Compiling /demos/subagents ...
+[0]  ✓ Compiled /demos/subagents in 1746ms
+[0]  GET /demos/subagents 200 in 1828ms
+[0]  ○ Compiling /demos/threadid-frontend-tool-roundtrip ...
+[0]  ✓ Compiled /demos/threadid-frontend-tool-roundtrip in 1742ms
+[0]  GET /demos/threadid-frontend-tool-roundtrip 200 in 1831ms
+[0]  ○ Compiling /demos/tool-rendering ...
+[0]  ✓ Compiled /demos/tool-rendering in 2.1s
+[0]  GET /demos/tool-rendering 200 in 2170ms
+[0]  ○ Compiling /demos/tool-rendering-custom-catchall ...
+[0]  ✓ Compiled /demos/tool-rendering-custom-catchall in 1640ms
+[0]  GET /demos/tool-rendering-custom-catchall 200 in 1721ms
+[0]  ○ Compiling /demos/tool-rendering-default-catchall ...
+[0]  ✓ Compiled /demos/tool-rendering-default-catchall in 1686ms
+[0]  GET /demos/tool-rendering-default-catchall 200 in 1745ms
+[0]  ○ Compiling /demos/tool-rendering-reasoning-chain ...
+[0]  ✓ Compiled /demos/tool-rendering-reasoning-chain in 1878ms
+[0]  GET /demos/tool-rendering-reasoning-chain 200 in 1940ms
+[0]  ○ Compiling /demos/voice ...
+[0]  ✓ Compiled /demos/voice in 1558ms
+[0]  GET /demos/voice 200 in 1625ms
+[1] 2026-10-06 15:55:06,340 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:65497 - "GET /health HTTP/1.1" 200 OK
+[0]  GET /api/copilotkit 200 in 237ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-fixed-schema in 274ms
+[0]  GET /api/copilotkit-a2ui-fixed-schema 405 in 502ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-recovery in 303ms
+[0]  GET /api/copilotkit-a2ui-recovery 405 in 555ms
+[0]  ✓ Compiled /api/copilotkit-agent-config in 245ms
+[0]  GET /api/copilotkit-agent-config 405 in 474ms
+[0]  ✓ Compiled /api/copilotkit-auth/[[...slug]] in 245ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[0]  GET /api/copilotkit-auth 401 in 1180ms
+[0]  ✓ Compiled /api/copilotkit-beautiful-chat in 193ms
+[0]  GET /api/copilotkit-beautiful-chat 405 in 418ms
+[0]  ✓ Compiled /api/copilotkit-declarative-gen-ui in 176ms
+[0]  GET /api/copilotkit-declarative-gen-ui 405 in 402ms
+[0]  ✓ Compiled /api/copilotkit-declarative-hashbrown in 190ms
+[0]  GET /api/copilotkit-declarative-hashbrown 405 in 415ms
+[0]  ✓ Compiled /api/copilotkit-declarative-json-render in 158ms
+[0]  GET /api/copilotkit-declarative-json-render 405 in 385ms
+[0]  ✓ Compiled /api/copilotkit-mcp-apps in 150ms
+[0]  GET /api/copilotkit-mcp-apps 405 in 374ms
+[0]  ✓ Compiled /api/copilotkit-multimodal in 165ms
+[0]  GET /api/copilotkit-multimodal 405 in 390ms
+[0]  ✓ Compiled /api/copilotkit-ogui in 153ms
+[0]  GET /api/copilotkit-ogui 405 in 376ms
+[0]  ✓ Compiled /api/copilotkit-voice/[[...slug]] in 218ms
+[0]  GET /api/copilotkit-voice 404 in 1029ms
+[0]  ✓ Compiled /api/debug in 57ms
+[0]  GET /api/debug 403 in 284ms
+[0]  GET /api/health 200 in 227ms
+[0]  ✓ Compiled /api/smoke in 55ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[1] 2026-10-06 15:55:20,198 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[1] INFO:     ::1:0 - "POST /agentic_chat HTTP/1.1" 200 OK
+[1] Direct use of automatic function calling (AFC) in AsyncModels.generate_content_stream is not recommended. Instead, we recommend to use AFC in AsyncChat.send_message_stream. Similarly, direct use of AFC in AsyncModels.generate_content is not recommended. Instead, we recommend to use AFC in AsyncChat.send_message.
+[1] 2026-10-06 15:55:21,944 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=transport=aiohttp
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py:341: UserWarning: [EXPERIMENTAL] feature FeatureName.PROGRESSIVE_SSE_STREAMING is enabled.
+[1]   async for llm_response in aggregator_gen:
+[0]  POST /api/copilotkit 200 in 2079ms
+[0]  GET /api/smoke 200 in 2365ms
+[1] INFO:     Shutting down
+[1] INFO:     Waiting for application shutdown.
+[1] INFO:     Application shutdown complete.
+[1] INFO:     Finished server process [26667]
+[1] INFO:     Stopping reloader process [26653]
+[1] cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload exited with code SIGTERM
+[0] [?25h
+[0] next dev --turbopack exited with code 0
+# stopped Tue Oct  6 22:55:39 UTC 2026 (SIGTERM to process group 26617)

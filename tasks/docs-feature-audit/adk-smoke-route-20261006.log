@@ -1,0 +1,5 @@
+# /api/smoke on the boot-1 stack (HEAD e737fc702f), 2026-10-06T22:55:19Z. Journal reset first.
+$ curl -s -w ' HTTP %{http_code} %{time_total}s' http://localhost:3103/api/smoke
+{"status":"ok","integration":"google-adk","latency_ms":2082,"timestamp":"2026-10-06T22:55:22.041Z"} HTTP 200 2.365189s
+# AIMock journal:
+  POST /v1beta/models/gemini-3.1-flash-lite:streamGenerateContent 200 {"userMessage":"Respond with exactly: OK"} strict=undefined ctx=google-adk

@@ -1,0 +1,1282 @@
+# ADK stack via the integration's documented default dev command (package.json scripts.dev = concurrently "next dev --turbopack" "cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload"), venv python (/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv, Python 3.12.6) first on PATH, same environment as adk-dev-stack-20260923.log. .next removed first.
+$ cd showcase/integrations/google-adk && PORT=3103 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true DO_NOT_TRACK=1 GOOGLE_API_KEY=fake-gemini-key GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:4411 OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://127.0.0.1:4410/v1 AIMOCK_URL=http://127.0.0.1:4410 AGENT_URL=http://localhost:8000 nice -n 10 npm run dev
+# node v22.16.0, npm 10.9.2, HEAD e737fc702f, tree vs HEAD outside tasks/: , started Tue Oct  6 23:04:43 UTC 2026
+
+> @copilotkit/showcase-google-adk@0.1.0 dev
+> concurrently "next dev --turbopack" "cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload"
+
+[1] INFO:     Will watch for changes in these directories: ['/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src']
+[1] INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+[1] INFO:     Started reloader process [48154] using WatchFiles
+[1] 2026-10-06 16:04:44,016 INFO agents._cvdiag_bootstrap CVDIAG bootstrap component=_shared tier=default pb_enabled=false
+[0]  ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+[0]  We detected multiple lockfiles and selected the directory of /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/pnpm-lock.yaml as the root directory.
+[0]  To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+[0]    See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+[0]  Detected additional lockfiles: 
+[0]    * /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/package-lock.json
+[0] 
+[0]    ▲ Next.js 15.5.27 (Turbopack)
+[0]    - Local:        http://localhost:3103
+[0]    - Network:      http://192.168.4.34:3103
+[0] 
+[0]  ✓ Starting...
+[1] 2026-10-06 16:04:44,565 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src/agents/shared_chat.py:144: UserWarning: install_httpx_hook: client of type Gemini has no recognized event_hooks attribute; x-* headers will not be forwarded
+[1]   install_httpx_hook(gemini)
+[1] 2026-10-06 16:04:44,567 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,567 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,568 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,568 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,568 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,573 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,573 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,573 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,574 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,574 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,574 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,574 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,574 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,574 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,574 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,575 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,575 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,575 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,575 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,576 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,576 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,576 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,576 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] No flight schema file found, using inline minimal schema
+[1] 2026-10-06 16:04:44,579 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,579 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,580 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,580 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,580 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:04:44,580 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/ag_ui_adk/adk_agent.py:478: UserWarning: [EXPERIMENTAL] InMemoryCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+[1]   self._credential_service = credential_service or InMemoryCredentialService()
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/auth/credential_service/in_memory_credential_service.py:33: UserWarning: [EXPERIMENTAL] BaseCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+[1]   super().__init__()
+[1] INFO:     Started server process [48162]
+[1] INFO:     Waiting for application startup.
+[1] INFO:     Application startup complete.
+[1] 2026-10-06 16:04:44,634 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:51974 - "GET /health HTTP/1.1" 200 OK
+[0]  ✓ Ready in 780ms
+[0]  ○ Compiling /api/health ...
+[0]  ✓ Compiled /api/health in 599ms
+[0]  GET /api/health 200 in 892ms
+[1] 2026-10-06 16:04:46,020 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID agents_state_endpoint_agents_state_post for function agents_state_endpoint at /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/ag_ui_adk/endpoint.py
+[1]   warnings.warn(message, stacklevel=1)
+[1] INFO:     127.0.0.1:51997 - "GET /openapi.json HTTP/1.1" 200 OK
+[0]  ○ Compiling /demos/declarative-gen-ui ...
+[0]  ✓ Compiled /demos/declarative-gen-ui in 5.8s
+[0] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+[0]  GET /demos/declarative-gen-ui 200 in 6289ms
+[0]  ○ Compiling /api/copilotkit ...
+[0]  ✓ Compiled /api/copilotkit in 724ms
+[1] 2026-10-06 16:04:53,544 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:52008 - "GET /health HTTP/1.1" 200 OK
+[0]  GET /api/copilotkit 200 in 1170ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-fixed-schema in 208ms
+[0]  GET /api/copilotkit-a2ui-fixed-schema 405 in 435ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-recovery in 215ms
+[0]  GET /api/copilotkit-a2ui-recovery 405 in 441ms
+[0]  ✓ Compiled /api/copilotkit-agent-config in 180ms
+[0]  GET /api/copilotkit-agent-config 405 in 405ms
+[0]  ✓ Compiled /api/copilotkit-auth/[[...slug]] in 237ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[0]  GET /api/copilotkit-auth 401 in 1033ms
+[0]  ✓ Compiled /api/copilotkit-beautiful-chat in 185ms
+[0]  GET /api/copilotkit-beautiful-chat 405 in 420ms
+[0]  ✓ Compiled /api/copilotkit-declarative-gen-ui in 211ms
+[0]  GET /api/copilotkit-declarative-gen-ui 405 in 438ms
+[0]  ✓ Compiled /api/copilotkit-declarative-hashbrown in 155ms
+[0]  GET /api/copilotkit-declarative-hashbrown 405 in 385ms
+[0]  ✓ Compiled /api/copilotkit-declarative-json-render in 142ms
+[0]  GET /api/copilotkit-declarative-json-render 405 in 365ms
+[0]  ✓ Compiled /api/copilotkit-mcp-apps in 151ms
+[0]  GET /api/copilotkit-mcp-apps 405 in 378ms
+[0]  ✓ Compiled /api/copilotkit-multimodal in 172ms
+[0]  GET /api/copilotkit-multimodal 405 in 401ms
+[0]  ✓ Compiled /api/copilotkit-ogui in 157ms
+[0]  GET /api/copilotkit-ogui 405 in 388ms
+[0]  ✓ Compiled /api/copilotkit-voice/[[...slug]] in 322ms
+[0]  GET /api/copilotkit-voice 404 in 1142ms
+[0]  ✓ Compiled /api/debug in 58ms
+[0]  GET /api/debug 403 in 283ms
+[0]  GET /api/health 200 in 221ms
+[0]  GET /demos/declarative-gen-ui 200 in 71ms
+[0]  ✓ Compiled /_not-found/page in 178ms
+[0]  GET /api/copilotkit-declarative-gen-ui/info 404 in 240ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 233ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 228ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=
+[1] 2026-10-06 16:05:03,731 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=
+[1] INFO:     ::1:0 - "POST /declarative_gen_ui HTTP/1.1" 200 OK
+[1] 2026-10-06 16:05:04,087 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=transport=aiohttp
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_common.py:676: UserWarning: FUNCTION_CALL is not a valid FinishReason
+[1]   warnings.warn(f'{value} is not a valid {cls.__name__}')
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py:341: UserWarning: [EXPERIMENTAL] feature FeatureName.PROGRESSIVE_SSE_STREAMING is enabled.
+[1]   async for llm_response in aggregator_gen:
+[1] 2026-10-06 16:05:04,178 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=transport=aiohttp
+[1] 2026-10-06 16:05:04,248 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=transport=aiohttp
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 876ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 247ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=
+[1] 2026-10-06 16:05:06,289 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=
+[1] INFO:     ::1:0 - "POST /declarative_gen_ui HTTP/1.1" 200 OK
+[1] 2026-10-06 16:05:06,296 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=transport=aiohttp
+[1] 2026-10-06 16:05:06,362 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=transport=aiohttp
+[1] 2026-10-06 16:05:06,427 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=transport=aiohttp
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 447ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 228ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=
+[1] 2026-10-06 16:05:08,415 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=
+[1] INFO:     ::1:0 - "POST /declarative_gen_ui HTTP/1.1" 200 OK
+[1] 2026-10-06 16:05:08,424 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=transport=aiohttp
+[1] 2026-10-06 16:05:08,491 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=transport=aiohttp
+[1] 2026-10-06 16:05:08,560 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=transport=aiohttp
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 456ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 229ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=
+[1] 2026-10-06 16:05:10,584 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=
+[1] INFO:     ::1:0 - "POST /declarative_gen_ui HTTP/1.1" 200 OK
+[1] 2026-10-06 16:05:10,597 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=transport=aiohttp
+[1] 2026-10-06 16:05:10,665 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=transport=aiohttp
+[1] 2026-10-06 16:05:10,735 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=transport=aiohttp
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 496ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=e2a75562-0cb1-4813-802b-f3c684cef8aa slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-e2a75562-0cb1-4813-802b-f3c684cef8aa error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 241ms
+[0]  POST /api/copilotkit-voice/threads/clear 204 in 227ms
+[1] WARNING:  WatchFiles detected changes in 'agents/declarative_gen_ui_agent.py'. Reloading...
+[1] INFO:     Shutting down
+[1] INFO:     Waiting for application shutdown.
+[1] INFO:     Application shutdown complete.
+[1] INFO:     Finished server process [48162]
+[1] 2026-10-06 16:05:25,853 INFO agents._cvdiag_bootstrap CVDIAG bootstrap component=_shared tier=default pb_enabled=false
+[1] 2026-10-06 16:05:26,310 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src/agents/shared_chat.py:144: UserWarning: install_httpx_hook: client of type Gemini has no recognized event_hooks attribute; x-* headers will not be forwarded
+[1]   install_httpx_hook(gemini)
+[1] 2026-10-06 16:05:26,311 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,312 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,312 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,312 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,312 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,317 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,317 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,317 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,317 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,317 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,317 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,318 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,318 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,318 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,318 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,319 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,319 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,319 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,319 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,319 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,319 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,319 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,319 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] No flight schema file found, using inline minimal schema
+[1] 2026-10-06 16:05:26,321 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,321 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,321 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,321 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,321 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:05:26,321 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/ag_ui_adk/adk_agent.py:478: UserWarning: [EXPERIMENTAL] InMemoryCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+[1]   self._credential_service = credential_service or InMemoryCredentialService()
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/auth/credential_service/in_memory_credential_service.py:33: UserWarning: [EXPERIMENTAL] BaseCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+[1]   super().__init__()
+[1] INFO:     Started server process [48876]
+[1] INFO:     Waiting for application startup.
+[1] INFO:     Application startup complete.
+[1] 2026-10-06 16:05:37,277 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:52183 - "GET /health HTTP/1.1" 200 OK
+[0]  GET /demos/declarative-gen-ui 200 in 86ms
+[0]  GET /api/copilotkit-declarative-gen-ui/info 404 in 54ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 232ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 236ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=
+[1] 2026-10-06 16:05:40,425 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=
+[1] INFO:     ::1:0 - "POST /declarative_gen_ui HTTP/1.1" 200 OK
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/llm_request.py:306: UserWarning: [EXPERIMENTAL] feature FeatureName.JSON_SCHEMA_FOR_FUNC_DECL is enabled.
+[1]   declaration = tool._get_declaration()
+[1] WARNING:root:Duplicate tool name 'generate_a2ui': the previously registered tool is shadowed and can no longer be called.
+[1] 2026-10-06 16:05:40,612 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] INFO:agents._header_forwarding:CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_common.py:676: UserWarning: FUNCTION_CALL is not a valid FinishReason
+[1]   warnings.warn(f'{value} is not a valid {cls.__name__}')
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py:341: UserWarning: [EXPERIMENTAL] feature FeatureName.PROGRESSIVE_SSE_STREAMING is enabled.
+[1]   async for llm_response in aggregator_gen:
+[1] 2026-10-06 16:05:40,689 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] INFO:agents._header_forwarding:CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] WARNING:root:Duplicate tool name 'generate_a2ui': the previously registered tool is shadowed and can no longer be called.
+[1] 2026-10-06 16:05:40,759 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] INFO:agents._header_forwarding:CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 642ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 234ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=
+[1] 2026-10-06 16:05:42,765 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=
+[1] INFO:agents._header_forwarding:CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=
+[1] INFO:     ::1:0 - "POST /declarative_gen_ui HTTP/1.1" 200 OK
+[1] WARNING:root:Duplicate tool name 'generate_a2ui': the previously registered tool is shadowed and can no longer be called.
+[1] 2026-10-06 16:05:42,772 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] INFO:agents._header_forwarding:CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] 2026-10-06 16:05:42,837 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] INFO:agents._header_forwarding:CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] WARNING:root:Duplicate tool name 'generate_a2ui': the previously registered tool is shadowed and can no longer be called.
+[1] 2026-10-06 16:05:42,904 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] INFO:agents._header_forwarding:CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 451ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 231ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=
+[1] 2026-10-06 16:05:44,868 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=
+[1] INFO:agents._header_forwarding:CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=
+[1] INFO:     ::1:0 - "POST /declarative_gen_ui HTTP/1.1" 200 OK
+[1] WARNING:root:Duplicate tool name 'generate_a2ui': the previously registered tool is shadowed and can no longer be called.
+[1] 2026-10-06 16:05:44,875 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] INFO:agents._header_forwarding:CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] 2026-10-06 16:05:44,942 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] INFO:agents._header_forwarding:CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] WARNING:root:Duplicate tool name 'generate_a2ui': the previously registered tool is shadowed and can no longer be called.
+[1] 2026-10-06 16:05:45,009 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] INFO:agents._header_forwarding:CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 446ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 224ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=
+[1] 2026-10-06 16:05:46,991 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=
+[1] INFO:agents._header_forwarding:CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=
+[1] INFO:     ::1:0 - "POST /declarative_gen_ui HTTP/1.1" 200 OK
+[1] WARNING:root:Duplicate tool name 'generate_a2ui': the previously registered tool is shadowed and can no longer be called.
+[1] 2026-10-06 16:05:47,000 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] INFO:agents._header_forwarding:CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] 2026-10-06 16:05:47,068 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] INFO:agents._header_forwarding:CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] WARNING:root:Duplicate tool name 'generate_a2ui': the previously registered tool is shadowed and can no longer be called.
+[1] 2026-10-06 16:05:47,138 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[1] INFO:agents._header_forwarding:CVDIAG component=backend-google-adk boundary=outbound-llm run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=transport=aiohttp
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 456ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-34fbf7b0-d2fb-4b97-888f-6ca4f8b6ea66 error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 240ms
+[0]  POST /api/copilotkit-voice/threads/clear 204 in 225ms
+[1] WARNING:  WatchFiles detected changes in 'agents/declarative_gen_ui_agent.py'. Reloading...
+[1] INFO:     Shutting down
+[1] INFO:     Waiting for application shutdown.
+[1] INFO:     Application shutdown complete.
+[1] INFO:     Finished server process [48876]
+[1] 2026-10-06 16:06:11,054 INFO agents._cvdiag_bootstrap CVDIAG bootstrap component=_shared tier=default pb_enabled=false
+[1] 2026-10-06 16:06:11,481 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src/agents/shared_chat.py:144: UserWarning: install_httpx_hook: client of type Gemini has no recognized event_hooks attribute; x-* headers will not be forwarded
+[1]   install_httpx_hook(gemini)
+[1] 2026-10-06 16:06:11,482 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,482 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,483 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,483 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,483 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,488 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,488 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,488 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,488 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,488 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,488 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,488 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,488 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,488 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,489 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,489 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,489 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,489 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,489 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,489 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,489 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,490 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,490 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] No flight schema file found, using inline minimal schema
+[1] 2026-10-06 16:06:11,491 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,491 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,491 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,491 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,492 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:06:11,492 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/ag_ui_adk/adk_agent.py:478: UserWarning: [EXPERIMENTAL] InMemoryCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+[1]   self._credential_service = credential_service or InMemoryCredentialService()
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/auth/credential_service/in_memory_credential_service.py:33: UserWarning: [EXPERIMENTAL] BaseCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+[1]   super().__init__()
+[1] INFO:     Started server process [49808]
+[1] INFO:     Waiting for application startup.
+[1] INFO:     Application startup complete.
+[1] 2026-10-06 16:06:15,723 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:52223 - "GET /health HTTP/1.1" 200 OK
+[0]  GET /demos/declarative-gen-ui 200 in 72ms
+[0]  GET /api/copilotkit-declarative-gen-ui/info 404 in 59ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=19ba0a44-882f-41ca-b6c0-928e9d66e028 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-19ba0a44-882f-41ca-b6c0-928e9d66e028 error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 229ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=19ba0a44-882f-41ca-b6c0-928e9d66e028 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-19ba0a44-882f-41ca-b6c0-928e9d66e028 error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 231ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=19ba0a44-882f-41ca-b6c0-928e9d66e028 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-19ba0a44-882f-41ca-b6c0-928e9d66e028 error=
+[1] 2026-10-06 16:06:18,842 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=19ba0a44-882f-41ca-b6c0-928e9d66e028 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-19ba0a44-882f-41ca-b6c0-928e9d66e028 error=
+[1] Frontend tools ['render_a2ui'] were sent with this run but the agent tree has no AGUIToolset, so they will not be declared to the model. Add AGUIToolset() to the agent's tools to expose them.
+[1] INFO:     ::1:0 - "POST /declarative_gen_ui HTTP/1.1" 200 OK
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/llm_request.py:306: UserWarning: [EXPERIMENTAL] feature FeatureName.JSON_SCHEMA_FOR_FUNC_DECL is enabled.
+[1]   declaration = tool._get_declaration()
+[1] 2026-10-06 16:06:19,041 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=19ba0a44-882f-41ca-b6c0-928e9d66e028 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-19ba0a44-882f-41ca-b6c0-928e9d66e028 error=transport=aiohttp
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_common.py:676: UserWarning: FUNCTION_CALL is not a valid FinishReason
+[1]   warnings.warn(f'{value} is not a valid {cls.__name__}')
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py:341: UserWarning: [EXPERIMENTAL] feature FeatureName.PROGRESSIVE_SSE_STREAMING is enabled.
+[1]   async for llm_response in aggregator_gen:
+[1] Node execution failed with exception
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+[1]     await self._execute_node(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+[1]     await self._run_node_loop(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+[1]     async for item in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+[1]     async for event in run_iter:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 433, in _run_one_step_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 534, in _postprocess_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 588, in _postprocess_handle_function_calls_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/core/_function_call_postprocessor.py", line 77, in postprocess_handle_function_calls_async
+[1]     if function_response_event := await functions.handle_function_calls_async(
+[1]                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_functions.py", line 277, in handle_function_calls_async
+[1]     return await functions.handle_function_call_list_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_functions.py", line 257, in handle_function_call_list_async
+[1]     return await _batch_tool_executor.handle_function_call_list_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 405, in handle_function_call_list_async
+[1]     return await _execute_prepared_function_calls_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 326, in _execute_prepared_function_calls_async
+[1]     maybe_function_response_events = await _gather_or_cancel(tasks)
+[1]                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 192, in _gather_or_cancel
+[1]     return list(await asyncio.gather(*tasks))
+[1]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 953, in _execute_single_prepared_call_async
+[1]     return await _execute_single_prepared_call(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 906, in _execute_single_prepared_call
+[1]     tel_ctx.function_response_event = await _run_with_trace()
+[1]                                       ^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 847, in _run_with_trace
+[1]     raise tool_error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 829, in _run_with_trace
+[1]     function_response = await tool_runner()
+[1]                         ^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 947, in call_tool
+[1]     return await _call_tool_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 450, in _call_tool_async
+[1]     result: object = await tool.run_async(args=args, tool_context=tool_context)
+[1]                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py", line 419, in run_async
+[1]     return await self._invoke_callable(self.func, args_to_call)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py", line 460, in _invoke_callable
+[1]     return target(**args_to_call)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src/agents/declarative_gen_ui_agent.py", line 55, in generate_a2ui
+[1]     raise RuntimeError("generate_a2ui called directly")
+[1] RuntimeError: generate_a2ui called directly
+[1] Root node DeclarativeGenUiAgent failed.
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 250, in _drive_root_node
+[1]     await root_ctx._run_node_internal(  # pylint: disable=protected-access
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/context.py", line 515, in _run_node_internal
+[1]     return await _dynamic_node_scheduler.run_node_internal(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_dynamic_node_scheduler.py", line 740, in run_node_internal
+[1]     raise DynamicNodeFailError(
+[1] google.adk.workflow._errors.DynamicNodeFailError: Dynamic node DeclarativeGenUiAgent failed
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 877, in _cleanup_root_task
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 259, in _drive_root_node
+[1]     raise e.error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+[1]     await self._execute_node(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+[1]     await self._run_node_loop(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+[1]     async for item in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+[1]     async for event in run_iter:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 433, in _run_one_step_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 534, in _postprocess_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 588, in _postprocess_handle_function_calls_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/core/_function_call_postprocessor.py", line 77, in postprocess_handle_function_calls_async
+[1]     if function_response_event := await functions.handle_function_calls_async(
+[1]                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_functions.py", line 277, in handle_function_calls_async
+[1]     return await functions.handle_function_call_list_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_functions.py", line 257, in handle_function_call_list_async
+[1]     return await _batch_tool_executor.handle_function_call_list_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 405, in handle_function_call_list_async
+[1]     return await _execute_prepared_function_calls_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 326, in _execute_prepared_function_calls_async
+[1]     maybe_function_response_events = await _gather_or_cancel(tasks)
+[1]                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 192, in _gather_or_cancel
+[1]     return list(await asyncio.gather(*tasks))
+[1]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 953, in _execute_single_prepared_call_async
+[1]     return await _execute_single_prepared_call(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 906, in _execute_single_prepared_call
+[1]     tel_ctx.function_response_event = await _run_with_trace()
+[1]                                       ^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 847, in _run_with_trace
+[1]     raise tool_error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 829, in _run_with_trace
+[1]     function_response = await tool_runner()
+[1]                         ^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 947, in call_tool
+[1]     return await _call_tool_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 450, in _call_tool_async
+[1]     result: object = await tool.run_async(args=args, tool_context=tool_context)
+[1]                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py", line 419, in run_async
+[1]     return await self._invoke_callable(self.func, args_to_call)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py", line 460, in _invoke_callable
+[1]     return target(**args_to_call)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src/agents/declarative_gen_ui_agent.py", line 55, in generate_a2ui
+[1]     raise RuntimeError("generate_a2ui called directly")
+[1] RuntimeError: generate_a2ui called directly
+[1] Background execution error: generate_a2ui called directly
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 250, in _drive_root_node
+[1]     await root_ctx._run_node_internal(  # pylint: disable=protected-access
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/context.py", line 515, in _run_node_internal
+[1]     return await _dynamic_node_scheduler.run_node_internal(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_dynamic_node_scheduler.py", line 740, in run_node_internal
+[1]     raise DynamicNodeFailError(
+[1] google.adk.workflow._errors.DynamicNodeFailError: Dynamic node DeclarativeGenUiAgent failed
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/ag_ui_adk/adk_agent.py", line 3870, in _run_adk_in_background
+[1]     async for adk_event in runner.run_async(**run_kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 1240, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 590, in _run_node_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 357, in run_node_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 283, in _run
+[1]     await runner._cleanup_root_task(  # pylint: disable=protected-access
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 877, in _cleanup_root_task
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 259, in _drive_root_node
+[1]     raise e.error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+[1]     await self._execute_node(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+[1]     await self._run_node_loop(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+[1]     async for item in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+[1]     async for event in run_iter:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 433, in _run_one_step_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 534, in _postprocess_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 588, in _postprocess_handle_function_calls_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/core/_function_call_postprocessor.py", line 77, in postprocess_handle_function_calls_async
+[1]     if function_response_event := await functions.handle_function_calls_async(
+[1]                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_functions.py", line 277, in handle_function_calls_async
+[1]     return await functions.handle_function_call_list_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_functions.py", line 257, in handle_function_call_list_async
+[1]     return await _batch_tool_executor.handle_function_call_list_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 405, in handle_function_call_list_async
+[1]     return await _execute_prepared_function_calls_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 326, in _execute_prepared_function_calls_async
+[1]     maybe_function_response_events = await _gather_or_cancel(tasks)
+[1]                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 192, in _gather_or_cancel
+[1]     return list(await asyncio.gather(*tasks))
+[1]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 953, in _execute_single_prepared_call_async
+[1]     return await _execute_single_prepared_call(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 906, in _execute_single_prepared_call
+[1]     tel_ctx.function_response_event = await _run_with_trace()
+[1]                                       ^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 847, in _run_with_trace
+[1]     raise tool_error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 829, in _run_with_trace
+[1]     function_response = await tool_runner()
+[1]                         ^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 947, in call_tool
+[1]     return await _call_tool_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 450, in _call_tool_async
+[1]     result: object = await tool.run_async(args=args, tool_context=tool_context)
+[1]                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py", line 419, in run_async
+[1]     return await self._invoke_callable(self.func, args_to_call)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py", line 460, in _invoke_callable
+[1]     return target(**args_to_call)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src/agents/declarative_gen_ui_agent.py", line 55, in generate_a2ui
+[1]     raise RuntimeError("generate_a2ui called directly")
+[1] RuntimeError: generate_a2ui called directly
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 518ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=19ba0a44-882f-41ca-b6c0-928e9d66e028 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-19ba0a44-882f-41ca-b6c0-928e9d66e028 error=
+[1] 2026-10-06 16:07:49,402 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=19ba0a44-882f-41ca-b6c0-928e9d66e028 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-19ba0a44-882f-41ca-b6c0-928e9d66e028 error=
+[1] INFO:     ::1:0 - "POST /declarative_gen_ui HTTP/1.1" 200 OK
+[1] Dropping function calls with no matching function response: ['call_d6_decl_dash_outer_001']
+[1] 2026-10-06 16:07:49,406 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=19ba0a44-882f-41ca-b6c0-928e9d66e028 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-19ba0a44-882f-41ca-b6c0-928e9d66e028 error=transport=aiohttp
+[1] Node execution failed with exception
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+[1]     await self._execute_node(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+[1]     await self._run_node_loop(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+[1]     async for item in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+[1]     async for event in run_iter:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 433, in _run_one_step_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 534, in _postprocess_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 588, in _postprocess_handle_function_calls_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/core/_function_call_postprocessor.py", line 77, in postprocess_handle_function_calls_async
+[1]     if function_response_event := await functions.handle_function_calls_async(
+[1]                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_functions.py", line 277, in handle_function_calls_async
+[1]     return await functions.handle_function_call_list_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_functions.py", line 257, in handle_function_call_list_async
+[1]     return await _batch_tool_executor.handle_function_call_list_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 405, in handle_function_call_list_async
+[1]     return await _execute_prepared_function_calls_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 326, in _execute_prepared_function_calls_async
+[1]     maybe_function_response_events = await _gather_or_cancel(tasks)
+[1]                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 192, in _gather_or_cancel
+[1]     return list(await asyncio.gather(*tasks))
+[1]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 953, in _execute_single_prepared_call_async
+[1]     return await _execute_single_prepared_call(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 906, in _execute_single_prepared_call
+[1]     tel_ctx.function_response_event = await _run_with_trace()
+[1]                                       ^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 847, in _run_with_trace
+[1]     raise tool_error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 829, in _run_with_trace
+[1]     function_response = await tool_runner()
+[1]                         ^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 947, in call_tool
+[1]     return await _call_tool_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 450, in _call_tool_async
+[1]     result: object = await tool.run_async(args=args, tool_context=tool_context)
+[1]                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py", line 419, in run_async
+[1]     return await self._invoke_callable(self.func, args_to_call)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py", line 460, in _invoke_callable
+[1]     return target(**args_to_call)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src/agents/declarative_gen_ui_agent.py", line 55, in generate_a2ui
+[1]     raise RuntimeError("generate_a2ui called directly")
+[1] RuntimeError: generate_a2ui called directly
+[1] Root node DeclarativeGenUiAgent failed.
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 250, in _drive_root_node
+[1]     await root_ctx._run_node_internal(  # pylint: disable=protected-access
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/context.py", line 515, in _run_node_internal
+[1]     return await _dynamic_node_scheduler.run_node_internal(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_dynamic_node_scheduler.py", line 740, in run_node_internal
+[1]     raise DynamicNodeFailError(
+[1] google.adk.workflow._errors.DynamicNodeFailError: Dynamic node DeclarativeGenUiAgent failed
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 877, in _cleanup_root_task
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 259, in _drive_root_node
+[1]     raise e.error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+[1]     await self._execute_node(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+[1]     await self._run_node_loop(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+[1]     async for item in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+[1]     async for event in run_iter:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 433, in _run_one_step_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 534, in _postprocess_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 588, in _postprocess_handle_function_calls_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/core/_function_call_postprocessor.py", line 77, in postprocess_handle_function_calls_async
+[1]     if function_response_event := await functions.handle_function_calls_async(
+[1]                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_functions.py", line 277, in handle_function_calls_async
+[1]     return await functions.handle_function_call_list_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_functions.py", line 257, in handle_function_call_list_async
+[1]     return await _batch_tool_executor.handle_function_call_list_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 405, in handle_function_call_list_async
+[1]     return await _execute_prepared_function_calls_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 326, in _execute_prepared_function_calls_async
+[1]     maybe_function_response_events = await _gather_or_cancel(tasks)
+[1]                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 192, in _gather_or_cancel
+[1]     return list(await asyncio.gather(*tasks))
+[1]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 953, in _execute_single_prepared_call_async
+[1]     return await _execute_single_prepared_call(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 906, in _execute_single_prepared_call
+[1]     tel_ctx.function_response_event = await _run_with_trace()
+[1]                                       ^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 847, in _run_with_trace
+[1]     raise tool_error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 829, in _run_with_trace
+[1]     function_response = await tool_runner()
+[1]                         ^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 947, in call_tool
+[1]     return await _call_tool_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 450, in _call_tool_async
+[1]     result: object = await tool.run_async(args=args, tool_context=tool_context)
+[1]                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py", line 419, in run_async
+[1]     return await self._invoke_callable(self.func, args_to_call)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py", line 460, in _invoke_callable
+[1]     return target(**args_to_call)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src/agents/declarative_gen_ui_agent.py", line 55, in generate_a2ui
+[1]     raise RuntimeError("generate_a2ui called directly")
+[1] RuntimeError: generate_a2ui called directly
+[1] Background execution error: generate_a2ui called directly
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 250, in _drive_root_node
+[1]     await root_ctx._run_node_internal(  # pylint: disable=protected-access
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/context.py", line 515, in _run_node_internal
+[1]     return await _dynamic_node_scheduler.run_node_internal(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_dynamic_node_scheduler.py", line 740, in run_node_internal
+[1]     raise DynamicNodeFailError(
+[1] google.adk.workflow._errors.DynamicNodeFailError: Dynamic node DeclarativeGenUiAgent failed
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/ag_ui_adk/adk_agent.py", line 3870, in _run_adk_in_background
+[1]     async for adk_event in runner.run_async(**run_kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 1240, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 590, in _run_node_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 357, in run_node_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 283, in _run
+[1]     await runner._cleanup_root_task(  # pylint: disable=protected-access
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 877, in _cleanup_root_task
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 259, in _drive_root_node
+[1]     raise e.error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+[1]     await self._execute_node(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+[1]     await self._run_node_loop(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+[1]     async for item in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+[1]     async for event in run_iter:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 433, in _run_one_step_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 534, in _postprocess_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 588, in _postprocess_handle_function_calls_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/core/_function_call_postprocessor.py", line 77, in postprocess_handle_function_calls_async
+[1]     if function_response_event := await functions.handle_function_calls_async(
+[1]                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_functions.py", line 277, in handle_function_calls_async
+[1]     return await functions.handle_function_call_list_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_functions.py", line 257, in handle_function_call_list_async
+[1]     return await _batch_tool_executor.handle_function_call_list_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 405, in handle_function_call_list_async
+[1]     return await _execute_prepared_function_calls_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 326, in _execute_prepared_function_calls_async
+[1]     maybe_function_response_events = await _gather_or_cancel(tasks)
+[1]                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 192, in _gather_or_cancel
+[1]     return list(await asyncio.gather(*tasks))
+[1]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 953, in _execute_single_prepared_call_async
+[1]     return await _execute_single_prepared_call(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 906, in _execute_single_prepared_call
+[1]     tel_ctx.function_response_event = await _run_with_trace()
+[1]                                       ^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 847, in _run_with_trace
+[1]     raise tool_error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 829, in _run_with_trace
+[1]     function_response = await tool_runner()
+[1]                         ^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 947, in call_tool
+[1]     return await _call_tool_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 450, in _call_tool_async
+[1]     result: object = await tool.run_async(args=args, tool_context=tool_context)
+[1]                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py", line 419, in run_async
+[1]     return await self._invoke_callable(self.func, args_to_call)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py", line 460, in _invoke_callable
+[1]     return target(**args_to_call)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src/agents/declarative_gen_ui_agent.py", line 55, in generate_a2ui
+[1]     raise RuntimeError("generate_a2ui called directly")
+[1] RuntimeError: generate_a2ui called directly
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 310ms
+[0]  GET /demos/declarative-gen-ui 200 in 72ms
+[0]  GET /api/copilotkit-declarative-gen-ui/info 404 in 69ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=19ba0a44-882f-41ca-b6c0-928e9d66e028 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-19ba0a44-882f-41ca-b6c0-928e9d66e028 error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 232ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=19ba0a44-882f-41ca-b6c0-928e9d66e028 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-19ba0a44-882f-41ca-b6c0-928e9d66e028 error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 235ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=19ba0a44-882f-41ca-b6c0-928e9d66e028 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-19ba0a44-882f-41ca-b6c0-928e9d66e028 error=
+[1] 2026-10-06 16:07:53,985 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=19ba0a44-882f-41ca-b6c0-928e9d66e028 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-19ba0a44-882f-41ca-b6c0-928e9d66e028 error=
+[1] INFO:     ::1:0 - "POST /declarative_gen_ui HTTP/1.1" 200 OK
+[1] 2026-10-06 16:07:53,988 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=19ba0a44-882f-41ca-b6c0-928e9d66e028 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-19ba0a44-882f-41ca-b6c0-928e9d66e028 error=transport=aiohttp
+[1] Node execution failed with exception
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+[1]     await self._execute_node(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+[1]     await self._run_node_loop(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+[1]     async for item in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+[1]     async for event in run_iter:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 433, in _run_one_step_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 534, in _postprocess_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 588, in _postprocess_handle_function_calls_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/core/_function_call_postprocessor.py", line 77, in postprocess_handle_function_calls_async
+[1]     if function_response_event := await functions.handle_function_calls_async(
+[1]                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_functions.py", line 277, in handle_function_calls_async
+[1]     return await functions.handle_function_call_list_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_functions.py", line 257, in handle_function_call_list_async
+[1]     return await _batch_tool_executor.handle_function_call_list_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 405, in handle_function_call_list_async
+[1]     return await _execute_prepared_function_calls_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 326, in _execute_prepared_function_calls_async
+[1]     maybe_function_response_events = await _gather_or_cancel(tasks)
+[1]                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 192, in _gather_or_cancel
+[1]     return list(await asyncio.gather(*tasks))
+[1]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 953, in _execute_single_prepared_call_async
+[1]     return await _execute_single_prepared_call(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 906, in _execute_single_prepared_call
+[1]     tel_ctx.function_response_event = await _run_with_trace()
+[1]                                       ^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 847, in _run_with_trace
+[1]     raise tool_error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 829, in _run_with_trace
+[1]     function_response = await tool_runner()
+[1]                         ^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 947, in call_tool
+[1]     return await _call_tool_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 450, in _call_tool_async
+[1]     result: object = await tool.run_async(args=args, tool_context=tool_context)
+[1]                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py", line 419, in run_async
+[1]     return await self._invoke_callable(self.func, args_to_call)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py", line 460, in _invoke_callable
+[1]     return target(**args_to_call)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src/agents/declarative_gen_ui_agent.py", line 55, in generate_a2ui
+[1]     raise RuntimeError("generate_a2ui called directly")
+[1] RuntimeError: generate_a2ui called directly
+[1] Root node DeclarativeGenUiAgent failed.
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 250, in _drive_root_node
+[1]     await root_ctx._run_node_internal(  # pylint: disable=protected-access
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/context.py", line 515, in _run_node_internal
+[1]     return await _dynamic_node_scheduler.run_node_internal(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_dynamic_node_scheduler.py", line 740, in run_node_internal
+[1]     raise DynamicNodeFailError(
+[1] google.adk.workflow._errors.DynamicNodeFailError: Dynamic node DeclarativeGenUiAgent failed
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 877, in _cleanup_root_task
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 259, in _drive_root_node
+[1]     raise e.error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+[1]     await self._execute_node(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+[1]     await self._run_node_loop(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+[1]     async for item in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+[1]     async for event in run_iter:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 433, in _run_one_step_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 534, in _postprocess_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 588, in _postprocess_handle_function_calls_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/core/_function_call_postprocessor.py", line 77, in postprocess_handle_function_calls_async
+[1]     if function_response_event := await functions.handle_function_calls_async(
+[1]                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_functions.py", line 277, in handle_function_calls_async
+[1]     return await functions.handle_function_call_list_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_functions.py", line 257, in handle_function_call_list_async
+[1]     return await _batch_tool_executor.handle_function_call_list_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 405, in handle_function_call_list_async
+[1]     return await _execute_prepared_function_calls_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 326, in _execute_prepared_function_calls_async
+[1]     maybe_function_response_events = await _gather_or_cancel(tasks)
+[1]                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 192, in _gather_or_cancel
+[1]     return list(await asyncio.gather(*tasks))
+[1]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 953, in _execute_single_prepared_call_async
+[1]     return await _execute_single_prepared_call(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 906, in _execute_single_prepared_call
+[1]     tel_ctx.function_response_event = await _run_with_trace()
+[1]                                       ^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 847, in _run_with_trace
+[1]     raise tool_error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 829, in _run_with_trace
+[1]     function_response = await tool_runner()
+[1]                         ^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 947, in call_tool
+[1]     return await _call_tool_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 450, in _call_tool_async
+[1]     result: object = await tool.run_async(args=args, tool_context=tool_context)
+[1]                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py", line 419, in run_async
+[1]     return await self._invoke_callable(self.func, args_to_call)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py", line 460, in _invoke_callable
+[1]     return target(**args_to_call)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src/agents/declarative_gen_ui_agent.py", line 55, in generate_a2ui
+[1]     raise RuntimeError("generate_a2ui called directly")
+[1] RuntimeError: generate_a2ui called directly
+[1] Background execution error: generate_a2ui called directly
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 250, in _drive_root_node
+[1]     await root_ctx._run_node_internal(  # pylint: disable=protected-access
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/context.py", line 515, in _run_node_internal
+[1]     return await _dynamic_node_scheduler.run_node_internal(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_dynamic_node_scheduler.py", line 740, in run_node_internal
+[1]     raise DynamicNodeFailError(
+[1] google.adk.workflow._errors.DynamicNodeFailError: Dynamic node DeclarativeGenUiAgent failed
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/ag_ui_adk/adk_agent.py", line 3870, in _run_adk_in_background
+[1]     async for adk_event in runner.run_async(**run_kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 1240, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 590, in _run_node_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 357, in run_node_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 283, in _run
+[1]     await runner._cleanup_root_task(  # pylint: disable=protected-access
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 877, in _cleanup_root_task
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 259, in _drive_root_node
+[1]     raise e.error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+[1]     await self._execute_node(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+[1]     await self._run_node_loop(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+[1]     async for item in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+[1]     async for event in run_iter:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 433, in _run_one_step_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 534, in _postprocess_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 588, in _postprocess_handle_function_calls_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/core/_function_call_postprocessor.py", line 77, in postprocess_handle_function_calls_async
+[1]     if function_response_event := await functions.handle_function_calls_async(
+[1]                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_functions.py", line 277, in handle_function_calls_async
+[1]     return await functions.handle_function_call_list_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_functions.py", line 257, in handle_function_call_list_async
+[1]     return await _batch_tool_executor.handle_function_call_list_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 405, in handle_function_call_list_async
+[1]     return await _execute_prepared_function_calls_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 326, in _execute_prepared_function_calls_async
+[1]     maybe_function_response_events = await _gather_or_cancel(tasks)
+[1]                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_batch_executor.py", line 192, in _gather_or_cancel
+[1]     return list(await asyncio.gather(*tasks))
+[1]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 953, in _execute_single_prepared_call_async
+[1]     return await _execute_single_prepared_call(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 906, in _execute_single_prepared_call
+[1]     tel_ctx.function_response_event = await _run_with_trace()
+[1]                                       ^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 847, in _run_with_trace
+[1]     raise tool_error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 829, in _run_with_trace
+[1]     function_response = await tool_runner()
+[1]                         ^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 947, in call_tool
+[1]     return await _call_tool_async(
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/tools/_caller.py", line 450, in _call_tool_async
+[1]     result: object = await tool.run_async(args=args, tool_context=tool_context)
+[1]                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py", line 419, in run_async
+[1]     return await self._invoke_callable(self.func, args_to_call)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py", line 460, in _invoke_callable
+[1]     return target(**args_to_call)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src/agents/declarative_gen_ui_agent.py", line 55, in generate_a2ui
+[1]     raise RuntimeError("generate_a2ui called directly")
+[1] RuntimeError: generate_a2ui called directly
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 323ms
+[0]  POST /api/copilotkit-voice/threads/clear 204 in 231ms
+[1] WARNING:  WatchFiles detected changes in 'agents/declarative_gen_ui_agent.py'. Reloading...
+[1] INFO:     Shutting down
+[1] INFO:     Waiting for application shutdown.
+[1] INFO:     Application shutdown complete.
+[1] INFO:     Finished server process [49808]
+[1] 2026-10-06 16:09:31,148 INFO agents._cvdiag_bootstrap CVDIAG bootstrap component=_shared tier=default pb_enabled=false
+[1] 2026-10-06 16:09:31,619 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src/agents/shared_chat.py:144: UserWarning: install_httpx_hook: client of type Gemini has no recognized event_hooks attribute; x-* headers will not be forwarded
+[1]   install_httpx_hook(gemini)
+[1] 2026-10-06 16:09:31,620 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,620 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,620 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,620 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,621 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,625 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,626 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,626 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,626 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,626 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,626 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,626 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,626 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,626 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,627 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,627 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,627 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,627 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,627 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,627 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,627 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,627 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,627 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] No flight schema file found, using inline minimal schema
+[1] 2026-10-06 16:09:31,629 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,629 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,629 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,629 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,629 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 16:09:31,629 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/ag_ui_adk/adk_agent.py:478: UserWarning: [EXPERIMENTAL] InMemoryCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+[1]   self._credential_service = credential_service or InMemoryCredentialService()
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/auth/credential_service/in_memory_credential_service.py:33: UserWarning: [EXPERIMENTAL] BaseCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+[1]   super().__init__()
+[1] INFO:     Started server process [52454]
+[1] INFO:     Waiting for application startup.
+[1] INFO:     Application startup complete.
+[1] 2026-10-06 16:09:36,578 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:52747 - "GET /health HTTP/1.1" 200 OK
+[0]  GET /demos/declarative-gen-ui 200 in 76ms
+[0]  GET /api/copilotkit-declarative-gen-ui/info 404 in 62ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 230ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 246ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=
+[1] 2026-10-06 16:09:39,734 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=
+[1] INFO:     ::1:0 - "POST /declarative_gen_ui HTTP/1.1" 200 OK
+[1] 2026-10-06 16:09:39,974 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=transport=aiohttp
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_common.py:676: UserWarning: FUNCTION_CALL is not a valid FinishReason
+[1]   warnings.warn(f'{value} is not a valid {cls.__name__}')
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py:341: UserWarning: [EXPERIMENTAL] feature FeatureName.PROGRESSIVE_SSE_STREAMING is enabled.
+[1]   async for llm_response in aggregator_gen:
+[1] 2026-10-06 16:09:40,058 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=transport=aiohttp
+[1] 2026-10-06 16:09:40,127 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=transport=aiohttp
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 697ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 226ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=
+[1] 2026-10-06 16:09:42,063 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=
+[1] INFO:     ::1:0 - "POST /declarative_gen_ui HTTP/1.1" 200 OK
+[1] 2026-10-06 16:09:42,069 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=transport=aiohttp
+[1] 2026-10-06 16:09:42,136 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=transport=aiohttp
+[1] 2026-10-06 16:09:42,202 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=transport=aiohttp
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 444ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 226ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=
+[1] 2026-10-06 16:09:44,156 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=
+[1] INFO:     ::1:0 - "POST /declarative_gen_ui HTTP/1.1" 200 OK
+[1] 2026-10-06 16:09:44,165 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=transport=aiohttp
+[1] 2026-10-06 16:09:44,231 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=transport=aiohttp
+[1] 2026-10-06 16:09:44,299 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=transport=aiohttp
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 443ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 222ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=
+[1] 2026-10-06 16:09:46,273 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=
+[1] INFO:     ::1:0 - "POST /declarative_gen_ui HTTP/1.1" 200 OK
+[1] 2026-10-06 16:09:46,283 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=transport=aiohttp
+[1] 2026-10-06 16:09:46,349 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=transport=aiohttp
+[1] 2026-10-06 16:09:46,416 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=transport=aiohttp
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 447ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-726d0e9e-e524-42dc-8f4e-0c2d5bfd99f4 error=
+[0]  POST /api/copilotkit-declarative-gen-ui 200 in 226ms
+[0]  POST /api/copilotkit-voice/threads/clear 204 in 224ms
+[0] [?25h
+[0] next dev --turbopack exited with code 0
+[1] INFO:     Shutting down
+[1] INFO:     Waiting for application shutdown.
+[1] INFO:     Application shutdown complete.
+[1] INFO:     Finished server process [52454]
+[1] INFO:     Stopping reloader process [48154]
+[1] cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload exited with code SIGTERM
+# stopped Tue Oct  6 23:09:57 UTC 2026 (SIGTERM to process group 48115)

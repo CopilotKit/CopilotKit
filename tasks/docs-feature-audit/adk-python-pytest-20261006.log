@@ -1,0 +1,22 @@
+# ADK tests/python (the showcase_validate.yml python-unit-tests job collects this directory), 2026-10-06T22:51:51Z, HEAD 3e043e217a + uncommitted dependency update. CI's test deps go to a separate --target dir, so the venv stays the requirement set.
+$ uv pip install --python /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/bin/python --target /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/pytest-target pytest pytest-asyncio pytest-mock typing_extensions --exclude-newer 2026-10-05T21:00:00Z
+Installed 8 packages in 23ms
+ + iniconfig==2.3.0
+ + packaging==26.3
+ + pluggy==1.6.0
+ + pygments==2.21.0
+ + pytest==9.1.1
+ + pytest-asyncio==1.4.0
+ + pytest-mock==3.16.0
+ + typing-extensions==4.16.0
+$ PYTHONPATH=<target>:.:src python -m pytest tests/python/ -q -p no:cacheprovider  (CI: -v)
+........................................................................ [ 90%]
+........                                                                 [100%]
+=============================== warnings summary ===============================
+tests/python/test_cvdiag_boundaries.py:34
+  /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/tests/python/test_cvdiag_boundaries.py:34: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+80 passed, 1 warning in 7.22s
+exit=0

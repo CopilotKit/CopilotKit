@@ -1,0 +1,2 @@
+plain function  existing_tool_names=[] -> injects a second generate_a2ui
+FunctionTool    existing_tool_names=['generate_a2ui'] -> skips injection (user prevails)

@@ -1,0 +1,34 @@
+diff --git a/showcase/integrations/google-adk/src/agents/declarative_gen_ui_agent.py b/showcase/integrations/google-adk/src/agents/declarative_gen_ui_agent.py
+index f9bc77001f..e6c073aeea 100644
+--- a/showcase/integrations/google-adk/src/agents/declarative_gen_ui_agent.py
++++ b/showcase/integrations/google-adk/src/agents/declarative_gen_ui_agent.py
+@@ -26,6 +26,7 @@ automatically (see ag-ui-adk CONTEXT_STATE_KEY routing).
+ from __future__ import annotations
+ 
+ from google.adk.agents import LlmAgent
++from google.adk.tools import FunctionTool
+ 
+ from agents.shared_chat import get_model, stop_on_terminal_text
+ 
+@@ -47,6 +48,13 @@ _INSTRUCTION = (
+     "real analytics product, not a single widget."
+ )
+ 
++
++def generate_a2ui() -> dict:
++    """Negative control (2026-10-06 audit, NOT committed): the LangGraph Python
++    pattern, a backend stub that shadows the adapter's auto-injected tool."""
++    raise RuntimeError("generate_a2ui called directly")
++
++
+ # Plain agent — no A2UI tool wired. The route's `injectA2UITool: true` makes the
+ # ag-ui-adk adapter auto-inject the no-arg `generate_a2ui` tool before the run
+ # (USER-PREVAILS: because this agent declares none, the adapter injects its own).
+@@ -56,6 +64,6 @@ declarative_gen_ui_agent = LlmAgent(
+     name="DeclarativeGenUiAgent",
+     model=get_model(),
+     instruction=_INSTRUCTION,
+-    tools=[],
++    tools=[FunctionTool(generate_a2ui)],
+     after_model_callback=stop_on_terminal_text,
+ )

@@ -1,0 +1,537 @@
+# ADK stack via the integration's documented default dev command (package.json scripts.dev = concurrently "next dev --turbopack" "cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload"), venv python (/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv, Python 3.12.6) first on PATH, same environment as adk-dev-stack-20260923.log. .next removed first.
+$ cd showcase/integrations/google-adk && PORT=3103 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true DO_NOT_TRACK=1 GOOGLE_API_KEY=fake-gemini-key GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:4410 OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://127.0.0.1:4410/v1 AIMOCK_URL=http://127.0.0.1:4410 AGENT_URL=http://localhost:8000 nice -n 10 npm run dev
+# node v22.16.0, npm 10.9.2, HEAD e737fc702f, tree vs HEAD outside tasks/: , started Tue Oct  6 22:59:23 UTC 2026
+
+> @copilotkit/showcase-google-adk@0.1.0 dev
+> concurrently "next dev --turbopack" "cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload"
+
+[1] INFO:     Will watch for changes in these directories: ['/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src']
+[1] INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+[1] INFO:     Started reloader process [38633] using WatchFiles
+[0]  ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+[0]  We detected multiple lockfiles and selected the directory of /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/pnpm-lock.yaml as the root directory.
+[0]  To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+[0]    See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+[0]  Detected additional lockfiles: 
+[0]    * /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/package-lock.json
+[0] 
+[1] 2026-10-06 15:59:23,523 INFO agents._cvdiag_bootstrap CVDIAG bootstrap component=_shared tier=default pb_enabled=false
+[0]    ▲ Next.js 15.5.27 (Turbopack)
+[0]    - Local:        http://localhost:3103
+[0]    - Network:      http://192.168.4.34:3103
+[0] 
+[0]  ✓ Starting...
+[1] 2026-10-06 15:59:24,153 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src/agents/shared_chat.py:144: UserWarning: install_httpx_hook: client of type Gemini has no recognized event_hooks attribute; x-* headers will not be forwarded
+[1]   install_httpx_hook(gemini)
+[1] 2026-10-06 15:59:24,156 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,157 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,157 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,157 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,158 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,164 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,164 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,165 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,165 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,165 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,165 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,166 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,166 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,166 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,166 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,166 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,166 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,167 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,167 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,168 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,168 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,168 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,168 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] No flight schema file found, using inline minimal schema
+[1] 2026-10-06 15:59:24,173 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,173 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,174 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,175 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,175 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-10-06 15:59:24,175 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/ag_ui_adk/adk_agent.py:478: UserWarning: [EXPERIMENTAL] InMemoryCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+[1]   self._credential_service = credential_service or InMemoryCredentialService()
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/auth/credential_service/in_memory_credential_service.py:33: UserWarning: [EXPERIMENTAL] BaseCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+[1]   super().__init__()
+[1] INFO:     Started server process [38635]
+[1] INFO:     Waiting for application startup.
+[1] INFO:     Application startup complete.
+[1] 2026-10-06 15:59:24,286 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:50824 - "GET /health HTTP/1.1" 200 OK
+[0]  ✓ Ready in 802ms
+[0]  ○ Compiling /api/health ...
+[0]  ✓ Compiled /api/health in 587ms
+[0]  GET /api/health 200 in 867ms
+[1] 2026-10-06 15:59:25,368 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID agents_state_endpoint_agents_state_post for function agents_state_endpoint at /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/ag_ui_adk/endpoint.py
+[1]   warnings.warn(message, stacklevel=1)
+[1] INFO:     127.0.0.1:50829 - "GET /openapi.json HTTP/1.1" 200 OK
+[0]  ○ Compiling /demos/auth ...
+[0]  ✓ Compiled /demos/auth in 6s
+[0] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+[0]  GET /demos/auth 200 in 6796ms
+[0]  ○ Compiling /demos/declarative-hashbrown ...
+[0]  ✓ Compiled /demos/declarative-hashbrown in 3s
+[0]  GET /demos/declarative-hashbrown 200 in 3103ms
+[0]  ○ Compiling /demos/declarative-json-render ...
+[0]  ✓ Compiled /demos/declarative-json-render in 1582ms
+[0]  GET /demos/declarative-json-render 200 in 1703ms
+[0]  ○ Compiling /demos/open-gen-ui ...
+[0]  ✓ Compiled /demos/open-gen-ui in 1338ms
+[0]  GET /demos/open-gen-ui 200 in 1394ms
+[0]  ○ Compiling /demos/open-gen-ui-advanced ...
+[0]  ✓ Compiled /demos/open-gen-ui-advanced in 1182ms
+[0]  GET /demos/open-gen-ui-advanced 200 in 1242ms
+[0]  ○ Compiling /demos/voice ...
+[0]  ✓ Compiled /demos/voice in 1267ms
+[0]  GET /demos/voice 200 in 1324ms
+[0]  ○ Compiling /demos/agent-config ...
+[0]  ✓ Compiled /demos/agent-config in 1180ms
+[0]  GET /demos/agent-config 200 in 1256ms
+[0]  ○ Compiling /demos/gen-ui-interrupt ...
+[0]  ✓ Compiled /demos/gen-ui-interrupt in 1199ms
+[0]  GET /demos/gen-ui-interrupt 200 in 1251ms
+[0]  ○ Compiling /api/copilotkit ...
+[0]  ✓ Compiled /api/copilotkit in 835ms
+[1] 2026-10-06 15:59:44,862 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:50877 - "GET /health HTTP/1.1" 200 OK
+[0]  GET /api/copilotkit 200 in 1265ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-fixed-schema in 200ms
+[0]  GET /api/copilotkit-a2ui-fixed-schema 405 in 423ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-recovery in 183ms
+[0]  GET /api/copilotkit-a2ui-recovery 405 in 407ms
+[0]  ✓ Compiled /api/copilotkit-agent-config in 195ms
+[0]  GET /api/copilotkit-agent-config 405 in 418ms
+[0]  ✓ Compiled /api/copilotkit-auth/[[...slug]] in 167ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[0]  GET /api/copilotkit-auth 401 in 999ms
+[0]  ✓ Compiled /api/copilotkit-beautiful-chat in 230ms
+[0]  GET /api/copilotkit-beautiful-chat 405 in 456ms
+[0]  ✓ Compiled /api/copilotkit-declarative-gen-ui in 155ms
+[0]  GET /api/copilotkit-declarative-gen-ui 405 in 380ms
+[0]  ✓ Compiled /api/copilotkit-declarative-hashbrown in 233ms
+[0]  GET /api/copilotkit-declarative-hashbrown 405 in 460ms
+[0]  ✓ Compiled /api/copilotkit-declarative-json-render in 125ms
+[0]  GET /api/copilotkit-declarative-json-render 405 in 347ms
+[0]  ✓ Compiled /api/copilotkit-mcp-apps in 156ms
+[0]  GET /api/copilotkit-mcp-apps 405 in 380ms
+[0]  ✓ Compiled /api/copilotkit-multimodal in 147ms
+[0]  GET /api/copilotkit-multimodal 405 in 371ms
+[0]  ✓ Compiled /api/copilotkit-ogui in 151ms
+[0]  GET /api/copilotkit-ogui 405 in 374ms
+[0]  ✓ Compiled /api/copilotkit-voice/[[...slug]] in 219ms
+[0]  GET /api/copilotkit-voice 404 in 1046ms
+[0]  ✓ Compiled /api/debug in 53ms
+[0]  GET /api/debug 403 in 278ms
+[0]  GET /api/health 200 in 221ms
+[0]  GET /demos/open-gen-ui-advanced 200 in 242ms
+[0]  GET /demos/auth 200 in 257ms
+[0]  GET /demos/open-gen-ui 200 in 260ms
+[0]  GET /demos/declarative-hashbrown 200 in 260ms
+[0]  ✓ Compiled /_not-found/page in 275ms
+[0]  GET /api/copilotkit-ogui/info 404 in 370ms
+[0]  GET /api/copilotkit-ogui/info 404 in 375ms
+[0]  GET /api/copilotkit-declarative-hashbrown/info 404 in 350ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-ogui 200 in 248ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-ogui 200 in 247ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-declarative-hashbrown 200 in 249ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-ogui 200 in 266ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-declarative-hashbrown 200 in 265ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-ogui 200 in 272ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-ogui 200 in 273ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-ogui 200 in 276ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] 2026-10-06 15:59:55,306 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] 2026-10-06 15:59:55,307 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] 2026-10-06 15:59:55,309 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] INFO:     ::1:0 - "POST /declarative-hashbrown HTTP/1.1" 200 OK
+[1] Direct use of automatic function calling (AFC) in AsyncModels.generate_content_stream is not recommended. Instead, we recommend to use AFC in AsyncChat.send_message_stream. Similarly, direct use of AFC in AsyncModels.generate_content is not recommended. Instead, we recommend to use AFC in AsyncChat.send_message.
+[1] 2026-10-06 15:59:55,569 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=transport=aiohttp
+[1] INFO:     ::1:0 - "POST /open_gen_ui HTTP/1.1" 200 OK
+[1] INFO:     ::1:0 - "POST /open_gen_ui_advanced HTTP/1.1" 200 OK
+[1] 2026-10-06 15:59:55,595 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=transport=aiohttp
+[1] 2026-10-06 15:59:55,610 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=transport=aiohttp
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py:341: UserWarning: [EXPERIMENTAL] feature FeatureName.PROGRESSIVE_SSE_STREAMING is enabled.
+[1]   async for llm_response in aggregator_gen:
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_common.py:676: UserWarning: FUNCTION_CALL is not a valid FinishReason
+[1]   warnings.warn(f'{value} is not a valid {cls.__name__}')
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 45, in _with_caller_context
+[1]     yield item
+[1] GeneratorExit
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 143, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 42, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x10c5e4f90> at 0x10d6b7940> was created in a different Context
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 45, in _with_caller_context
+[1]     yield item
+[1] GeneratorExit
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 143, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 42, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x10c5e4f90> at 0x10f256f40> was created in a different Context
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/trace/__init__.py", line 608, in use_span
+[1]     yield span
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/trace/__init__.py", line 508, in start_as_current_span
+[1]     yield span
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/trace/__init__.py", line 443, in start_as_current_span
+[1]     yield span
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/telemetry/_instrumentation.py", line 157, in record_invocation
+[1]     yield
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 279, in _run
+[1]     yield event
+[1] GeneratorExit
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 143, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 42, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x10c5e4f90> at 0x10f21f600> was created in a different Context
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/trace/__init__.py", line 608, in use_span
+[1]     yield span
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/trace/__init__.py", line 508, in start_as_current_span
+[1]     yield span
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/trace/__init__.py", line 443, in start_as_current_span
+[1]     yield span
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/telemetry/_instrumentation.py", line 157, in record_invocation
+[1]     yield
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 279, in _run
+[1]     yield event
+[1] GeneratorExit
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 143, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 42, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x10c5e4f90> at 0x10f23ad80> was created in a different Context
+[0]  POST /api/copilotkit-ogui 200 in 656ms
+[0]  POST /api/copilotkit-ogui 200 in 657ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-ogui 200 in 277ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-ogui 200 in 274ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] 2026-10-06 15:59:55,997 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] INFO:     ::1:0 - "POST /open_gen_ui HTTP/1.1" 200 OK
+[1] 2026-10-06 15:59:56,002 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] 2026-10-06 15:59:56,004 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=transport=aiohttp
+[1] INFO:     ::1:0 - "POST /open_gen_ui_advanced HTTP/1.1" 200 OK
+[1] 2026-10-06 15:59:56,009 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=transport=aiohttp
+[0]  POST /api/copilotkit-ogui 200 in 1141ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-ogui 200 in 223ms
+[0]  POST /api/copilotkit-ogui 200 in 1445ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-ogui 200 in 242ms
+[0]  GET /demos/voice 200 in 69ms
+[0]  GET /demos/agent-config 200 in 64ms
+[0]  GET /api/copilotkit-voice/info 200 in 238ms
+[0]  GET /api/copilotkit-agent-config/info 404 in 65ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-agent-config 200 in 239ms
+[1] 2026-10-06 15:59:59,320 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] INFO:     127.0.0.1:50990 - "POST /voice HTTP/1.1" 200 OK
+[1] 2026-10-06 15:59:59,339 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=transport=aiohttp
+[0]  POST /api/copilotkit-declarative-hashbrown 200 in 4355ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-agent-config 200 in 242ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-agent-config 200 in 245ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-declarative-hashbrown 200 in 238ms
+[0]  POST /api/copilotkit-voice/agent/voice-demo/run 200 in 989ms
+[0]  GET /demos/gen-ui-interrupt 200 in 57ms
+[0]  GET /api/copilotkit/info 404 in 45ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] 2026-10-06 16:00:01,371 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] INFO:     ::1:0 - "POST /agent_config HTTP/1.1" 200 OK
+[1] 2026-10-06 16:00:01,389 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=transport=aiohttp
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 227ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 277ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 279ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 281ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 284ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 286ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 289ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 265ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 266ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 269ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 271ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 273ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 275ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 261ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 264ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 266ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 270ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 273ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 275ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 266ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 268ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 270ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 272ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 274ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 276ms
+[0]  POST /api/copilotkit-agent-config 200 in 1738ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 267ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 271ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 274ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 276ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 279ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 282ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-agent-config 200 in 225ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 280ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 281ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 284ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 286ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 288ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 290ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 254ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 256ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 258ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 260ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] 2026-10-06 16:00:03,588 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] INFO:     ::1:0 - "POST /gen-ui-interrupt HTTP/1.1" 200 OK
+[1] 2026-10-06 16:00:03,605 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=transport=aiohttp
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 45, in _with_caller_context
+[1]     yield item
+[1] GeneratorExit
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 143, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 42, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x10c5e4f90> at 0x10f2db080> was created in a different Context
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/trace/__init__.py", line 608, in use_span
+[1]     yield span
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/trace/__init__.py", line 508, in start_as_current_span
+[1]     yield span
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/trace/__init__.py", line 443, in start_as_current_span
+[1]     yield span
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/telemetry/_instrumentation.py", line 157, in record_invocation
+[1]     yield
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 279, in _run
+[1]     yield event
+[1] GeneratorExit
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 143, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 42, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x10c5e4f90> at 0x10f2606c0> was created in a different Context
+[0]  POST /api/copilotkit 200 in 309ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 228ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] 2026-10-06 16:00:04,735 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] INFO:     ::1:0 - "POST /agent_config HTTP/1.1" 200 OK
+[1] 2026-10-06 16:00:04,739 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=transport=aiohttp
+[0]  POST /api/copilotkit-agent-config 200 in 1092ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] 2026-10-06 16:00:05,651 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] INFO:     ::1:0 - "POST /gen-ui-interrupt HTTP/1.1" 200 OK
+[1] 2026-10-06 16:00:05,656 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=transport=aiohttp
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-agent-config 200 in 229ms
+[0]  POST /api/copilotkit 200 in 725ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 226ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] 2026-10-06 16:00:06,928 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] INFO:     ::1:0 - "POST /gen-ui-interrupt HTTP/1.1" 200 OK
+[1] 2026-10-06 16:00:06,932 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=transport=aiohttp
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 45, in _with_caller_context
+[1]     yield item
+[1] GeneratorExit
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 143, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 42, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x10c5e4f90> at 0x10d6a4800> was created in a different Context
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/trace/__init__.py", line 608, in use_span
+[1]     yield span
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/trace/__init__.py", line 508, in start_as_current_span
+[1]     yield span
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/trace/__init__.py", line 443, in start_as_current_span
+[1]     yield span
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/telemetry/_instrumentation.py", line 157, in record_invocation
+[1]     yield
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 279, in _run
+[1]     yield event
+[1] GeneratorExit
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 143, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 42, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x10c5e4f90> at 0x10f2ba940> was created in a different Context
+[0]  POST /api/copilotkit 200 in 296ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 225ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] 2026-10-06 16:00:07,412 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] INFO:     ::1:0 - "POST /agent_config HTTP/1.1" 200 OK
+[1] 2026-10-06 16:00:07,416 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=transport=aiohttp
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] 2026-10-06 16:00:08,983 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] INFO:     ::1:0 - "POST /gen-ui-interrupt HTTP/1.1" 200 OK
+[1] 2026-10-06 16:00:08,989 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=transport=aiohttp
+[0]  POST /api/copilotkit-agent-config 200 in 1881ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-agent-config 200 in 228ms
+[0]  POST /api/copilotkit 200 in 728ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit 200 in 226ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] 2026-10-06 16:00:10,911 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] INFO:     ::1:0 - "POST /agent_config HTTP/1.1" 200 OK
+[1] 2026-10-06 16:00:10,916 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=transport=aiohttp
+[0]  POST /api/copilotkit-agent-config 200 in 3536ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-agent-config 200 in 228ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] 2026-10-06 16:00:16,065 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] INFO:     ::1:0 - "POST /agent_config HTTP/1.1" 200 OK
+[1] 2026-10-06 16:00:16,071 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=transport=aiohttp
+[0]  POST /api/copilotkit-agent-config 200 in 973ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-agent-config 200 in 231ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] 2026-10-06 16:00:18,644 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] INFO:     ::1:0 - "POST /agent_config HTTP/1.1" 200 OK
+[1] 2026-10-06 16:00:18,651 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=transport=aiohttp
+[0]  POST /api/copilotkit-agent-config 200 in 5546ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-agent-config 200 in 238ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  GET /api/copilotkit-auth/info 200 in 246ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  GET /api/copilotkit-auth/threads?agentId=auth-demo 200 in 230ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  GET /api/copilotkit-auth/threads?agentId=default 200 in 231ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] 2026-10-06 16:00:40,176 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[1] INFO:     ::1:0 - "POST /auth HTTP/1.1" 200 OK
+[1] 2026-10-06 16:00:40,182 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=transport=aiohttp
+[0]  POST /api/copilotkit-auth/agent/auth-demo/run 200 in 1272ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  GET /api/copilotkit-auth/threads?agentId=auth-demo 200 in 225ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  GET /api/copilotkit-auth/threads?agentId=auth-demo 401 in 245ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  GET /api/copilotkit-auth/threads?agentId=default 401 in 247ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  GET /api/copilotkit-auth/info 401 in 226ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=b62b2aef-a40d-4cdb-be2a-fd4a646494a9 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-b62b2aef-a40d-4cdb-be2a-fd4a646494a9 error=
+[0]  POST /api/copilotkit-voice/threads/clear 204 in 224ms
+[1] INFO:     Shutting down
+[0] [?25h
+[0] next dev --turbopack exited with code 0
+[1] INFO:     Waiting for application shutdown.
+[1] INFO:     Application shutdown complete.
+[1] INFO:     Finished server process [38635]
+[1] INFO:     Stopping reloader process [38633]
+[1] cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload exited with code SIGTERM
+# stopped Tue Oct  6 23:00:49 UTC 2026 (SIGTERM to process group 38597)

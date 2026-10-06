@@ -1,0 +1,36 @@
+# Google ADK UI lock regeneration, 2026-10-06T22:47:47Z, node v24.11.0, npm 11.6.1
+# Probe without overrides (temp copy of package.json minus overrides, same command): @ag-ui/core|client copies:
+#   node_modules/@ag-ui/client 1.0.1
+#   node_modules/@ag-ui/core 1.0.1
+#   node_modules/@copilotkit/channels-core/node_modules/@ag-ui/client 0.0.59
+#   node_modules/@copilotkit/channels-core/node_modules/@ag-ui/core 0.0.59
+#   node_modules/@copilotkit/channels-intelligence/node_modules/@ag-ui/client 0.0.59
+#   node_modules/@copilotkit/channels-intelligence/node_modules/@ag-ui/core 0.0.59
+#   node_modules/@copilotkit/channels-slack/node_modules/@ag-ui/client 0.0.59
+#   node_modules/@copilotkit/channels-slack/node_modules/@ag-ui/core 0.0.59
+#   node_modules/@copilotkit/channels-teams/node_modules/@ag-ui/client 0.0.59
+#   node_modules/@copilotkit/channels-teams/node_modules/@ag-ui/core 0.0.59
+$ rm -rf node_modules package-lock.json && nice -n 10 npm install --package-lock-only --legacy-peer-deps --before=2026-10-05T12:00:00Z
+
+up to date, audited 902 packages in 6s
+
+275 packages are looking for funding
+  run `npm fund` for details
+
+22 vulnerabilities (7 low, 6 moderate, 7 high, 2 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues possible (including breaking changes), run:
+  npm audit fix --force
+
+Some issues need review, and may require choosing
+a different dependency.
+
+Run `npm audit` for details.
+exit=0
+# @ag-ui/core|client entries after:
+#   node_modules/@ag-ui/client 1.0.1
+#   node_modules/@ag-ui/core 1.0.1
+# entries: 901, peer-flagged 0, non-registry 0

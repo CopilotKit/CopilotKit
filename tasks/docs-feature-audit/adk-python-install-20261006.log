@@ -1,0 +1,86 @@
+$ VIRTUAL_ENV=/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv nice -n 10 uv pip install -r requirements.txt --exclude-newer 2026-10-05T21:00:00Z --index-url https://pypi.org/simple
+# uv uv 0.11.7 (9d177269e 2026-04-15 aarch64-apple-darwin), 2026-10-06T22:46:55Z
+Using Python 3.12.6 environment at: /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv
+Resolved 73 packages in 627ms
+Downloading google-adk (4.6MiB)
+ Downloaded google-adk
+Prepared 7 packages in 348ms
+Installed 73 packages in 153ms
+ + a2a-sdk==1.2.2
+ + a2ui-agent-sdk==0.2.4
+ + ag-ui-a2ui-toolkit==0.0.4
+ + ag-ui-adk==0.7.1
+ + ag-ui-protocol==1.0.0
+ + aiohappyeyeballs==2.7.1
+ + aiohttp==3.14.4
+ + aiologic==0.17.1
+ + aiosignal==1.4.0
+ + aiosqlite==0.22.1
+ + annotated-doc==0.0.5
+ + annotated-types==0.8.0
+ + anyio==4.15.1
+ + asyncio==4.0.0
+ + attrs==26.1.0
+ + authlib==1.8.0
+ + certifi==2026.7.22
+ + cffi==2.1.1
+ + charset-normalizer==3.5.2
+ + click==8.5.0
+ + cryptography==50.0.2
+ + culsans==0.11.0
+ + distro==1.9.0
+ + fastapi==0.141.1
+ + frozenlist==1.8.0
+ + google-adk==2.11.0
+ + google-api-core==2.34.0
+ + google-auth==2.60.0
+ + google-genai==2.28.0
+ + googleapis-common-protos==1.75.5
+ + graphviz==0.21
+ + h11==0.16.0
+ + httpcore==1.0.9
+ + httptools==0.8.0
+ + httpx==0.28.1
+ + idna==3.20
+ + joserfc==1.7.5
+ + json-rpc==1.15.0
+ + jsonschema==4.26.0
+ + jsonschema-specifications==2025.9.1
+ + multidict==6.9.1
+ + opentelemetry-api==1.42.1
+ + opentelemetry-sdk==1.42.1
+ + opentelemetry-semantic-conventions==0.63b1
+ + packaging==26.3
+ + propcache==0.5.4
+ + proto-plus==1.29.0
+ + protobuf==7.36.2
+ + pyasn1==0.6.4
+ + pyasn1-modules==0.4.2
+ + pycparser==3.0
+ + pydantic==2.13.5
+ + pydantic-core==2.46.5
+ + python-dotenv==1.2.4
+ + python-multipart==0.0.32
+ + pyyaml==6.0.3
+ + referencing==0.37.0
+ + requests==2.34.2
+ + rpds-py==2026.9.1
+ + sniffio==1.3.1
+ + sse-starlette==3.5.0
+ + starlette==1.7.0
+ + tenacity==9.1.4
+ + typing-extensions==4.16.0
+ + typing-inspection==0.4.4
+ + urllib3==2.8.0
+ + uvicorn==0.54.0
+ + uvloop==0.23.0
+ + watchdog==6.0.0
+ + watchfiles==1.3.0
+ + websockets==15.0.1
+ + wrapt==2.5.0
+ + yarl==1.25.1
+# exit 0
+$ uv pip check
+Using Python 3.12.6 environment at: /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv
+Checked 73 packages in 0.96ms
+All installed packages are compatible

@@ -1,0 +1,311 @@
+{
+ "integration": "google-adk",
+ "date": "2026-10-06",
+ "head": "e737fc702f",
+ "copilotkit": "1.77.0",
+ "agui": "1.0.1",
+ "batches": {
+  "A1": {
+   "demos": [
+    "beautiful-chat",
+    "cli-start",
+    "agentic-chat",
+    "prebuilt-sidebar",
+    "prebuilt-popup",
+    "chat-slots",
+    "chat-customization-css",
+    "headless-simple"
+   ],
+   "checks": 11,
+   "passed": 11,
+   "retries": 0,
+   "requests": 17,
+   "status200": 17,
+   "features": [
+    {
+     "check": "beautiful-chat-search-flights",
+     "pass": true,
+     "durationMs": 6505
+    },
+    {
+     "check": "beautiful-chat-toggle-theme",
+     "pass": true,
+     "durationMs": 6630
+    },
+    {
+     "check": "beautiful-chat-pie-chart",
+     "pass": true,
+     "durationMs": 7229
+    },
+    {
+     "check": "beautiful-chat-bar-chart",
+     "pass": true,
+     "durationMs": 7333
+    },
+    {
+     "check": "beautiful-chat-schedule-meeting",
+     "pass": true,
+     "durationMs": 5024
+    },
+    {
+     "check": "prebuilt-sidebar",
+     "pass": true,
+     "durationMs": 6944
+    },
+    {
+     "check": "prebuilt-popup",
+     "pass": true,
+     "durationMs": 6847
+    },
+    {
+     "check": "chat-slots",
+     "pass": true,
+     "durationMs": 5762
+    },
+    {
+     "check": "agentic-chat",
+     "pass": true,
+     "durationMs": 12088
+    },
+    {
+     "check": "chat-css",
+     "pass": true,
+     "durationMs": 6380
+    },
+    {
+     "check": "headless-simple",
+     "pass": true,
+     "durationMs": 12971
+    }
+   ]
+  },
+  "A2": {
+   "demos": [
+    "headless-complete",
+    "reasoning-custom",
+    "reasoning-default",
+    "frontend-tools",
+    "frontend-tools-async",
+    "gen-ui-tool-based",
+    "hitl-in-app",
+    "hitl-in-chat",
+    "declarative-gen-ui",
+    "a2ui-fixed-schema",
+    "a2ui-recovery"
+   ],
+   "checks": 11,
+   "passed": 11,
+   "retries": 0,
+   "requests": 46,
+   "status200": 46,
+   "features": [
+    {
+     "check": "reasoning-default",
+     "pass": true,
+     "durationMs": 10774
+    },
+    {
+     "check": "reasoning-custom",
+     "pass": true,
+     "durationMs": 10786
+    },
+    {
+     "check": "frontend-tools",
+     "pass": true,
+     "durationMs": 12670
+    },
+    {
+     "check": "gen-ui-custom",
+     "pass": true,
+     "durationMs": 7019
+    },
+    {
+     "check": "frontend-tools-async",
+     "pass": true,
+     "durationMs": 7780
+    },
+    {
+     "check": "hitl-approve-deny",
+     "pass": true,
+     "durationMs": 7133
+    },
+    {
+     "check": "gen-ui-headless-complete",
+     "pass": true,
+     "durationMs": 23922
+    },
+    {
+     "check": "hitl-text-input",
+     "pass": true,
+     "durationMs": 6420
+    },
+    {
+     "check": "gen-ui-a2ui-fixed",
+     "pass": true,
+     "durationMs": 5158
+    },
+    {
+     "check": "gen-ui-declarative",
+     "pass": true,
+     "durationMs": 10909
+    },
+    {
+     "check": "a2ui-recovery",
+     "pass": true,
+     "durationMs": 6664
+    }
+   ]
+  },
+  "B1": {
+   "demos": [
+    "mcp-apps",
+    "gen-ui-agent",
+    "tool-rendering-default-catchall",
+    "tool-rendering-custom-catchall",
+    "tool-rendering"
+   ],
+   "checks": 5,
+   "passed": 5,
+   "retries": 0,
+   "requests": 33,
+   "status200": 33,
+   "features": [
+    {
+     "check": "tool-rendering-default-catchall",
+     "pass": true,
+     "durationMs": 7864
+    },
+    {
+     "check": "tool-rendering",
+     "pass": true,
+     "durationMs": 8483
+    },
+    {
+     "check": "tool-rendering-custom-catchall",
+     "pass": true,
+     "durationMs": 10336
+    },
+    {
+     "check": "gen-ui-agent",
+     "pass": true,
+     "durationMs": 12401
+    },
+    {
+     "check": "mcp-apps",
+     "pass": true,
+     "durationMs": 6004
+    }
+   ]
+  },
+  "B2": {
+   "demos": [
+    "shared-state-read",
+    "shared-state-read-write",
+    "shared-state-streaming",
+    "readonly-state-agent-context",
+    "subagents",
+    "multimodal"
+   ],
+   "checks": 6,
+   "passed": 6,
+   "retries": 0,
+   "requests": 21,
+   "status200": 21,
+   "features": [
+    {
+     "check": "readonly-state-context",
+     "pass": true,
+     "durationMs": 8905
+    },
+    {
+     "check": "shared-state-write",
+     "pass": true,
+     "durationMs": 10452
+    },
+    {
+     "check": "shared-state-streaming",
+     "pass": true,
+     "durationMs": 13554
+    },
+    {
+     "check": "shared-state-read",
+     "pass": true,
+     "durationMs": 13784
+    },
+    {
+     "check": "multimodal",
+     "pass": true,
+     "durationMs": 7228
+    },
+    {
+     "check": "subagents",
+     "pass": true,
+     "durationMs": 11542
+    }
+   ]
+  },
+  "B3": {
+   "demos": [
+    "auth",
+    "declarative-hashbrown",
+    "declarative-json-render",
+    "open-gen-ui",
+    "open-gen-ui-advanced",
+    "voice",
+    "agent-config",
+    "gen-ui-interrupt"
+   ],
+   "checks": 7,
+   "passed": 7,
+   "retries": 0,
+   "requests": 17,
+   "status200": 17,
+   "features": [
+    {
+     "check": "gen-ui-open-advanced",
+     "pass": true,
+     "durationMs": 6221
+    },
+    {
+     "check": "gen-ui-open",
+     "pass": true,
+     "durationMs": 6528
+    },
+    {
+     "check": "byoc",
+     "pass": true,
+     "durationMs": 8780
+    },
+    {
+     "check": "voice",
+     "pass": true,
+     "durationMs": 3200
+    },
+    {
+     "check": "gen-ui-interrupt",
+     "pass": true,
+     "durationMs": 9004
+    },
+    {
+     "check": "agent-config",
+     "pass": true,
+     "durationMs": 26843
+    },
+    {
+     "check": "auth",
+     "pass": true,
+     "durationMs": 54127
+    }
+   ]
+  }
+ },
+ "raw": {
+  "checks": 40,
+  "passed": 40
+ },
+ "published": {
+  "checks": 40,
+  "passed": 40
+ },
+ "requests": 134
+}
