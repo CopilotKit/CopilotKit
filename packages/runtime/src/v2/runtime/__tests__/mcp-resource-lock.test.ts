@@ -157,6 +157,11 @@ describe("Intelligence MCP resource reads", () => {
       runId: "read",
       result: { contents: [{ uri: "ui://app", text: "html" }] },
     });
+    expect(f.platform.getOrCreateThread).toHaveBeenCalledWith({
+      threadId: "thread-1",
+      userId: "user-1",
+      agentId: "agent",
+    });
     expect(f.runner.run).toHaveBeenCalledTimes(1);
   });
 
@@ -194,9 +199,9 @@ describe("Intelligence MCP resource reads", () => {
 
   it("checks thread ownership and reports resource errors without a lock", async () => {
     const f = fixture();
-    f.platform.getThread.mockResolvedValueOnce({
-      id: "thread-1",
-      agentId: "other",
+    f.platform.getOrCreateThread.mockResolvedValueOnce({
+      thread: { id: "thread-1", agentId: "other" },
+      created: false,
     });
     expect(
       (

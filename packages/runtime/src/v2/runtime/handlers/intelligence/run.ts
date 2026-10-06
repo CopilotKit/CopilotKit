@@ -105,9 +105,10 @@ export async function handleIntelligenceRun({
     (proxyRequest as { method?: unknown }).method === "resources/read"
   ) {
     try {
-      const thread = await runtime.intelligence.getThread({
+      const { thread } = await runtime.intelligence.getOrCreateThread({
         threadId: input.threadId,
         userId,
+        agentId,
       });
       if (thread.agentId && thread.agentId !== agentId) {
         return Response.json(
