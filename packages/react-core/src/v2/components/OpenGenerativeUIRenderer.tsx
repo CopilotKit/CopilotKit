@@ -169,11 +169,21 @@ interface InnerProps {
    The body height override exists only for the duration of one measurement, so
    generated full-height layouts (`html, body { height: 100% }`) keep working
    between measurements. Uses body.scrollHeight because documentElement's is
-   clamped to the iframe viewport and can never shrink below it. */
+   clamped to the iframe viewport and can never shrink below it.
+   Content sized from the viewport (vh units, JS reading innerHeight) follows the
+   frame, so reporting it would grow the frame and the content with it, without
+   end. Two guards stop that:
+   - Content exactly as tall as the viewport (a \`min-height: 100vh\` hero, a
+     canvas set to innerHeight) is not reported at all.
+   - After our own resize lands, the frame should fit the content. Two misfits in
+     a row mean the content follows the frame with an offset (padding, a header,
+     110vh), so reporting stops until the content changes on its own. */
 const CK_MEASURE_AND_WATCH = `
 (function() {
   if (window.__ckResizeWatch) return;
   var last = -1;
+  var view = window.innerHeight;
+  var misses = 0;
   var raf = 0;
   function measure() {
     var s = document.createElement('style');
@@ -181,15 +191,19 @@ const CK_MEASURE_AND_WATCH = `
     document.head.appendChild(s);
     var h = document.body.scrollHeight;
     var cs = getComputedStyle(document.body);
+    s.remove();
+    if (Math.abs(h - window.innerHeight) < 2) return 0;
     h += parseFloat(cs.marginTop) || 0;
     h += parseFloat(cs.marginBottom) || 0;
-    s.remove();
     return Math.ceil(h);
   }
   function report() {
     raf = 0;
     var h = measure();
-    if (h < 1 || Math.abs(h - last) < 2) return;
+    var resized = window.innerHeight !== view;
+    view = window.innerHeight;
+    misses = resized && Math.abs(h - view) >= 2 ? misses + 1 : 0;
+    if (h < 1 || Math.abs(h - last) < 2 || misses > 1) return;
     last = h;
     parent.postMessage({ type: "__ck_resize", height: h }, "*");
   }
@@ -198,6 +212,7 @@ const CK_MEASURE_AND_WATCH = `
   window.__ckResizeWatch.observe(document.documentElement);
   window.__ckResizeWatch.observe(document.body);
   window.addEventListener('load', schedule);
+  window.addEventListener('resize', schedule);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);
   report();
 })();
