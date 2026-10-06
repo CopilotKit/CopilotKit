@@ -99,7 +99,7 @@ Full-featured demo applications highlighting CopilotKit capabilities in real-wor
 
 ### Retired hosted demos (8)
 
-These Mark Morgan demos are being retired from the hosted demo catalog. Their source remains available for historical reference and local use. A source link below does not imply a maintained live deployment.
+These legacy demos are being retired from the hosted demo catalog. Their source remains available for historical reference and local use. A source link below does not imply a maintained live deployment.
 
 | Source                                                            | Description                                                                        |
 | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
