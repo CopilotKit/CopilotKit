@@ -163,6 +163,41 @@ describe("Provider ID collision (#3410, #3623)", () => {
     );
   });
 
+  it("should not reuse an Anthropic content-block index across runs", async () => {
+    // @ai-sdk/anthropic sets text-start ids to the content-block index, so a
+    // reply that starts with a thinking block uses text id "1" on every run.
+    const agent = new BuiltInAgent({ model: "anthropic:claude-sonnet-4-5" });
+
+    const runOnce = async (runId: string) => {
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          { type: "text-start", id: "1" },
+          textDelta("Hello"),
+          finish(),
+        ]) as any,
+      );
+      const events = await collectEvents(
+        agent["run"]({
+          threadId: "thread-5",
+          runId,
+          messages: [{ id: "1", role: "user", content: "Hi" }],
+          tools: [],
+          context: [],
+          state: {},
+        }),
+      );
+      const chunk = events.find((e) => e.type === EventType.TEXT_MESSAGE_CHUNK);
+      return (chunk as any).messageId as string;
+    };
+
+    const first = await runOnce("run-5a");
+    const second = await runOnce("run-5b");
+
+    expect(first).not.toBe("1");
+    expect(second).not.toBe("1");
+    expect(first).not.toBe(second);
+  });
+
   it("should preserve legitimate provider IDs", async () => {
     const agent = new BuiltInAgent({ model: "openai:gpt-4o-mini" });
 

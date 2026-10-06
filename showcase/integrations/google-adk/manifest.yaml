@@ -528,3 +528,9 @@ demos:
       - src/agents/agent_config_agent.py
       - src/app/demos/agent-config/page.tsx
       - src/app/api/copilotkit/route.ts
+
+# Starter VALIDATION ladder (dashboard). NOT the `starter:` key — that one
+# drives the public "Full Starter" section on the integration profile page.
+starter_validation:
+  path: examples/integrations/adk
+  service: starter-adk

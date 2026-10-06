@@ -206,6 +206,7 @@ interface ChatContextProps {
   setOpen: (open: boolean) => void;
 }
 
+/** Provides chat configuration and UI state to message and control components. */
 export const ChatContextProvider = ({
   // temperature,
   // instructions,

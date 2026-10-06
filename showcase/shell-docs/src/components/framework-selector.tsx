@@ -4,6 +4,7 @@
 // exposes frontend and agent backend as separate, simple dropdowns.
 
 import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
@@ -176,6 +177,18 @@ export function FrameworkSelector({
     setOpenMenu(null);
   }
 
+  function openCommunityFrameworks() {
+    try {
+      posthog?.capture("docs.frontend_picker.community_frameworks_clicked", {
+        from_frontend: effectiveFrontendId,
+        from_path: pathname,
+      });
+    } catch {
+      // Swallow - analytics is fire-and-forget.
+    }
+    setOpenMenu(null);
+  }
+
   function selectFramework(slug: string) {
     setStoredFramework(slug);
     try {
@@ -284,7 +297,7 @@ export function FrameworkSelector({
     >
       {isSidebar ? (
         <>
-          <div className="shell-docs-picker-group shell-docs-picker-group-selected shell-docs-picker-group-bordered space-y-0.5">
+          <div className="shell-docs-picker-group shell-docs-picker-group-selected shell-docs-picker-group-bordered">
             <button
               type="button"
               onClick={() =>
@@ -293,7 +306,7 @@ export function FrameworkSelector({
               aria-haspopup="listbox"
               aria-expanded={openMenu === "frontend"}
               aria-label={frontendMenuLabel}
-              className="shell-docs-picker-row group flex min-h-[52px] w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              className="shell-docs-picker-row group flex min-h-11 w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
               <span
                 className="shell-docs-picker-icon-chip flex h-8 w-8 shrink-0 items-center justify-center"
@@ -320,7 +333,7 @@ export function FrameworkSelector({
               aria-haspopup="listbox"
               aria-expanded={openMenu === "backend"}
               aria-label="Choose agent backend"
-              className="shell-docs-picker-row shell-docs-picker-row-divided group flex min-h-[52px] w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              className="shell-docs-picker-row shell-docs-picker-row-divided group flex min-h-11 w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
               <span
                 className="shell-docs-picker-icon-chip flex h-8 w-8 shrink-0 items-center justify-center"
@@ -410,6 +423,17 @@ export function FrameworkSelector({
                   option={option}
                 />
               ))}
+              <div
+                role="separator"
+                className="mx-2 mb-1 mt-2 border-t border-[var(--border)]"
+              />
+              <Link
+                href="/community-frameworks"
+                onClick={openCommunityFrameworks}
+                className="shell-docs-radius-control flex w-full items-center px-2 py-1.5 text-[13px] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              >
+                Community frameworks →
+              </Link>
             </div>
           )}
 

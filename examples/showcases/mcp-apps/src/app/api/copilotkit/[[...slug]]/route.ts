@@ -20,7 +20,7 @@ const determineModel = () => {
     return "openai/gpt-5.2";
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
-    return "anthropic/claude-sonnet-4.5";
+    return "anthropic/claude-sonnet-4-6";
   }
   if (process.env.GOOGLE_API_KEY?.trim()) {
     return "google/gemini-2.5-pro";

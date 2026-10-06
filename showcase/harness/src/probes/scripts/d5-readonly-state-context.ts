@@ -22,11 +22,8 @@
  * structural Page type does not, so we runtime-cast and verify.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-  type D5FeatureType,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext, D5FeatureType } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 import {
   FIRST_SIGNAL_TIMEOUT_MS,

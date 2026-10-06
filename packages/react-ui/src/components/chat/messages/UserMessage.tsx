@@ -70,6 +70,7 @@ const getMediaParts = (content: UserMessageContent | undefined) => {
   }>;
 };
 
+/** Renders user text or attachments and the optional message timestamp. */
 export const UserMessage = (props: UserMessageProps) => {
   const { showTimestamps } = useChatContext();
   const { message, ImageRenderer } = props;

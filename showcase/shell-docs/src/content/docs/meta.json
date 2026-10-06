@@ -12,16 +12,11 @@
     "---Build Chat UIs---",
     "prebuilt-components",
     {
-      "title": "Rich Threads",
+      "title": "Threads",
       "defaultOpen": true,
       "pages": [
-        "threads",
         "prebuilt-components/copilot-threads-drawer",
-        "headless-threads",
-        "threads-lifecycle",
-        "threads-import",
-        "threads-self-managed",
-        "premium/threads-explained"
+        "headless-threads"
       ]
     },
     "custom-look-and-feel",
@@ -32,6 +27,7 @@
     "...generative-ui",
     "---Add Agent Powers---",
     "frontend-tools",
+    "webmcp",
     {
       "title": "Shared State",
       "pages": [
@@ -53,15 +49,38 @@
     "inspector",
     "vs-code-extension",
     "---Intelligence---",
-    "premium/overview",
-    "premium/managed-intelligence-platform",
-    "premium/connect-your-runtime",
-    "premium/self-hosting",
-    "premium/intelligence-platform",
+    "intelligence/overview",
+    "intelligence/quickstart",
+    "intelligence/intelligence-platform",
+    {
+      "title": "AG-UI Streams",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "threads-import",
+        "threads-lifecycle",
+        "intelligence/threads-explained"
+      ]
+    },
+    "intelligence/memories",
+    "learning",
+    "intelligence/learned-skills",
+    "intelligence/capture-interactions",
+    "intelligence/standalone-collector",
+    "intelligence/captured-data",
+    "intelligence/analytics",
+    "intelligence/channels",
+    "intelligence/managed-intelligence-platform",
+    "intelligence/plans",
+    "intelligence/self-hosting",
+    "intelligence/self-hosting-local",
+    "intelligence/self-hosting-ecs",
+    "intelligence/self-hosting-observability",
     "---Deploy---",
     "...deploy",
     "---Other---",
     "...(other)",
+    "community-frameworks",
     {
       "title": "Troubleshooting",
       "pages": [
@@ -87,7 +106,11 @@
     },
     {
       "title": "Migrate",
-      "pages": ["migrate/v2", "migrate/1.10.X", "migrate/1.8.2"]
+      "pages": [
+        "migrate/v2",
+        "migrate/1.10.X",
+        "migrate/1.8.2"
+      ]
     }
   ]
 }

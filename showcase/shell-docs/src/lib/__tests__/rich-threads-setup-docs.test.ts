@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { loadDoc } from "../docs-render";
 import { renderPageToLlmText } from "../llm-text";
 
-test("offers the Rich Threads agent prompt before the manual repair steps", () => {
+test("offers the AG-UI Streams agent prompt before the manual repair steps", () => {
   const source = loadDoc("backend/runtime-endpoints")?.source ?? "";
   const prompt = source.indexOf("<RichThreadsSetupPrompt />");
   const manualSteps = source.indexOf("<Steps>", prompt);
@@ -11,23 +11,29 @@ test("offers the Rich Threads agent prompt before the manual repair steps", () =
   expect(manualSteps).toBeGreaterThan(prompt);
 });
 
-test("expands the Rich Threads agent prompt for Markdown and LLM readers", () => {
-  const doc = loadDoc("backend/runtime-endpoints");
-  if (!doc) throw new Error("Runtime endpoints doc is missing");
+test.each([
+  "backend/runtime-endpoints",
+  "threads",
+  "integrations/mastra/threads",
+])(
+  "expands the AG-UI Streams agent prompt for Markdown and LLM readers on %s",
+  (slug) => {
+    const doc = loadDoc(slug);
+    if (!doc) throw new Error(`Doc is missing: ${slug}`);
 
-  const output = renderPageToLlmText({
-    url: "backend/runtime-endpoints",
-    title: doc.fm.title,
-    description: doc.fm.description,
-    filePath: doc.filePath,
-    loadSlug: "backend/runtime-endpoints",
-  });
+    const output = renderPageToLlmText({
+      url: slug,
+      title: doc.fm.title,
+      description: doc.fm.description,
+      filePath: doc.filePath,
+      loadSlug: slug,
+    });
 
-  expect(output).toContain(
-    "Read https://docs.copilotkit.ai/backend/runtime-endpoints#enable-rich-threads-routes",
-  );
-  expect(output).toContain(
-    "Preserve existing authentication middleware and access checks",
-  );
-  expect(output).not.toContain("<RichThreadsSetupPrompt />");
-});
+    // The route owns the instructions; the raw-Markdown route only has to
+    // carry the command that reaches it. See `createFeatureSetupPrompt`.
+    expect(output).toContain(
+      "npx --yes copilotkit@latest onboard start --intent add-rich-threads",
+    );
+    expect(output).not.toContain("<RichThreadsSetupPrompt />");
+  },
+);

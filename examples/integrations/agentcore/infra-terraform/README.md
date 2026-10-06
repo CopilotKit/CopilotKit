@@ -1,6 +1,9 @@
 # Terraform Infrastructure
 
-Equivalent of `../infra-cdk/` using Terraform.
+Terraform support covers the base AgentCore agent, gateway, authentication, and
+frontend infrastructure. It does not project managed Intelligence credentials
+into the CopilotKit Runtime Lambda. Use the CDK deployment path documented in
+`../README.md` when the managed Threads and Intelligence path is required.
 
 ## Usage
 

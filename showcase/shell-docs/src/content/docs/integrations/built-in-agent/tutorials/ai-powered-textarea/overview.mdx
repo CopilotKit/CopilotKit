@@ -2,6 +2,16 @@
 title: Overview
 ---
 
+<Callout type="warn" title="CopilotTextarea is a deprecated v1 component">
+  `@copilotkit/react-textarea` is part of the deprecated v1 SDK and its
+  autosuggestion and insertion features no longer reach a backend — the
+  transport they called was removed in v1.50.0. This tutorial is kept for
+  readers maintaining an existing v1 integration. There is no 1:1 v2
+  replacement; new work should start from
+  [`@copilotkit/react-core/v2`](/reference/v2).
+</Callout>
+
+
 import { FaGithub } from "react-icons/fa";
 import Link from "next/link";
 
@@ -20,7 +30,7 @@ In this tutorial, you will take a simple email application and add AI-powered au
 
 You will learn:
 
-- 💡 How to use `useCopilotReadable` to allow your copilot to read the state of your app
+- 💡 How to use `useAgentContext` to allow your copilot to read the state of your app
 - 💡 How to use the `<CopilotTextarea />` component to get instant context-aware autocompletions in your app
 - 💡 How to use the Copilot Textarea Action Popup to generate text or adjust existing text in the textarea
 

@@ -7,10 +7,18 @@ export const ROOT = path.resolve(
   "../../..",
 );
 
-export type ReleaseScope = "monorepo" | "angular" | "channels";
+export type ReleaseScope =
+  | "monorepo"
+  | "learning"
+  | "angular"
+  | "channels"
+  | "intelligence-langgraph"
+  | "intelligence-mastra";
 
 export interface ScopeConfig {
   packages: string[];
+  /** Additional repository-relative sources included in release notes, not publishing. */
+  sourcePaths?: string[];
   versionSource: string;
   sharedVersion: boolean;
 }
@@ -39,17 +47,22 @@ export function loadConfig(): ReleaseConfig {
  */
 export const ALL_SCOPES = "all";
 
+/** Canary-only composition: independent release groups from one source commit. */
+export const LEARNING_PREVIEW = "learning-preview";
+
 /**
  * Resolve a dispatched `scope` input into the concrete scopes to act on:
  * {@link ALL_SCOPES} expands to every scope in release.config.json order, any
- * other value must name exactly one scope.
+ * {@link LEARNING_PREVIEW} selects only monorepo and Learning; any other value
+ * must name exactly one scope. Neither composition is a stable release scope.
  */
 export function resolveScopes(selector: string): ReleaseScope[] {
   const scopes = Object.keys(loadConfig().scopes) as ReleaseScope[];
   if (selector === ALL_SCOPES) return scopes;
+  if (selector === LEARNING_PREVIEW) return ["monorepo", "learning"];
   if (!scopes.includes(selector as ReleaseScope)) {
     throw new Error(
-      `Unknown scope: ${selector}. Valid scopes: ${[...scopes, ALL_SCOPES].join(", ")}`,
+      `Unknown scope: ${selector}. Valid scopes: ${[...scopes, ALL_SCOPES, LEARNING_PREVIEW].join(", ")}`,
     );
   }
   return [selector as ReleaseScope];

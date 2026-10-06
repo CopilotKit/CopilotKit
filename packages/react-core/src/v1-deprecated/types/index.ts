@@ -9,6 +9,7 @@ export type {
   FrontendActionAvailability,
   RenderFunctionStatus,
   CatchAllActionRenderProps,
+  CatchAllActionRenderPropsWait,
   CatchAllFrontendAction,
 } from "./frontend-action";
 

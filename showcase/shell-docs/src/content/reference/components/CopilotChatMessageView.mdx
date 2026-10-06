@@ -26,8 +26,21 @@ import "@copilotkit/react-core/v2/styles.css";
   an `id`, `role` (`"user"` or `"assistant"`), and `content`.
 </PropertyReference>
 
+<PropertyReference name="transformMessages" type="(messages: Message[]) => Message[]">
+  Reshapes the list before it renders: drop, replace or reorder messages with
+  the whole list in view. Receives the messages after duplicate ids are merged
+  and returns the list to render. Virtualization, row keys, scroll-to-bottom
+  and the "latest message" all follow the returned list, so a dropped message
+  takes no row. Tool-call cards still look up their results in the full
+  `messages`, so hiding tool-result messages does not empty them. Return each
+  id at most once, and give any message you build an id that stays the same
+  while the thread streams. The transform reruns when `messages` or the
+  function change, so pass a stable function (for example with `useCallback`).
+  See [Reshaping the Message List](/custom-look-and-feel/slots#reshaping-the-message-list).
+</PropertyReference>
+
 <PropertyReference name="children" type="(props: { isRunning: boolean; messages: Message[]; messageElements: React.ReactElement[] }) => React.ReactElement">
-Optional render-prop function that receives the resolved state and pre-built message elements. When provided, the component calls this function instead of rendering the default message list layout. The callback receives `isRunning` (current running state), `messages` (the raw message array), and `messageElements` (an array of React elements built from the `assistantMessage` and `userMessage` slots).
+Optional render-prop function that receives the resolved state and pre-built message elements. When provided, the component calls this function instead of rendering the default message list layout. The callback receives `isRunning` (current running state), `messages` (the raw message array), and `messageElements` (an array of React elements built from the `assistantMessage` and `userMessage` slots). Providing `children` turns virtualization off, so every message is mounted; for list-level changes, prefer `transformMessages`.
 </PropertyReference>
 
 ## Slots
@@ -186,7 +199,9 @@ function MinimalChat() {
 ## Behavior
 
 - **Message Rendering**: Each message in the `messages` array is rendered using the corresponding slot component based on its `role`. Assistant messages use the `assistantMessage` slot; user messages use the `userMessage` slot.
-- **Cursor Display**: The `cursor` slot is only rendered when `isRunning` is `true`. It appears after the last message in the list.
+- **Cursor Display**: The `cursor` slot is only rendered when `isRunning` is `true`. It appears after the last message in the list, and is hidden when the last rendered message is a reasoning message, which shows its own indicator.
+- **Virtualization**: Inside a chat scroll container, once more than 50 messages render, only the rows on screen are mounted. The count uses the list `transformMessages` returns. Providing `children` turns virtualization off; in development the component warns once when that is what keeps a long thread mounted in full.
+- **Latest Message**: The last rendered message is passed to its slot as `isLatest`. While `isRunning` is `true`, the latest assistant message hides its toolbar and a latest reasoning message shows as streaming.
 - **Render-Prop Override**: When `children` is provided as a function, the component delegates all layout to that function. The `messageElements` array is pre-built from the slot components, so custom layouts still benefit from slot customization.
 - **Slot System**: Each slot prop accepts three forms -- a replacement component, a className string merged into the default, or a partial props object that extends the default component's props.
 

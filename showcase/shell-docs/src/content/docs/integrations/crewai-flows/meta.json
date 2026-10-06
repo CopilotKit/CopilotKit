@@ -11,15 +11,14 @@
     "---Basics---",
     "prebuilt-components",
     {
-      "title": "Rich Threads",
+      "title": "AG-UI Streams",
       "defaultOpen": true,
       "pages": [
         "threads",
         "prebuilt-components/copilot-threads-drawer",
         "headless-threads",
         "threads-lifecycle",
-        "threads-import",
-        "threads-self-managed"
+        "threads-import"
       ]
     },
     "custom-look-and-feel",
@@ -30,6 +29,7 @@
     "---App Control---",
     "frontend-tools",
     "shared-state",
+    "agent-app-context",
     "---CrewAI Flows---",
     "advanced",
     "multi-agent-flows",

@@ -106,6 +106,7 @@ import type {
   ChatSuggestions,
 } from "@copilotkit/react-core";
 import {
+  createAttachmentContent,
   CopilotKitError,
   CopilotKitErrorCode,
   Severity,
@@ -761,14 +762,7 @@ export function CopilotChat({
       }
 
       for (const attachment of currentAttachments) {
-        contentParts.push({
-          type: attachment.type,
-          source: attachment.source,
-          metadata: {
-            ...(attachment.filename ? { filename: attachment.filename } : {}),
-            ...attachment.metadata,
-          },
-        } as InputContent);
+        contentParts.push(createAttachmentContent(attachment));
       }
 
       return sendMessage({

@@ -102,6 +102,23 @@ def _install_stub_modules() -> None:
         m.OpenAIModel = _Permissive  # type: ignore[attr-defined]
         sys.modules["strands.models.openai"] = m
 
+    # The reasoning demos build their model from the Responses API surface, and
+    # the interrupt tool takes a ToolContext. Both are imported at agent-server
+    # import time, so a missing stub pulls the real packages in and the import
+    # fails on an unrelated stub (httpx) instead.
+    if "strands.models.openai_responses" not in sys.modules:
+        m = types.ModuleType("strands.models.openai_responses")
+        m.OpenAIResponsesModel = _Permissive  # type: ignore[attr-defined]
+        sys.modules["strands.models.openai_responses"] = m
+
+    if "strands.types" not in sys.modules:
+        sys.modules["strands.types"] = types.ModuleType("strands.types")
+
+    if "strands.types.tools" not in sys.modules:
+        m = types.ModuleType("strands.types.tools")
+        m.ToolContext = _Permissive  # type: ignore[attr-defined]
+        sys.modules["strands.types.tools"] = m
+
     if "uvicorn" not in sys.modules:
         m = types.ModuleType("uvicorn")
         m.run = lambda *a, **k: None  # type: ignore[attr-defined]

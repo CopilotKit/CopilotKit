@@ -26,6 +26,8 @@ import { mergeRowsToMap } from "@/lib/live-status";
 import { useOverlays } from "@/hooks/useOverlays";
 import { OverlayToggleBar } from "@/components/overlay-toggle-bar";
 import { UnifiedCell } from "@/components/unified-cell";
+import { StatusChip } from "@/components/badges";
+import { GLYPHS } from "@/lib/glyphs";
 import { buildCellModel } from "@/lib/cell-model";
 import {
   computeHealthStats,
@@ -207,14 +209,16 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
           `buildCellModel failed for ${ctx.integration.slug}/${ctx.feature.id} — degrading this cell`,
           err,
         );
+        // A fault on OUR side, not a verdict about the integration — same
+        // class (and same mark) as a pool-unreachable depth chip and a docs
+        // probe error, so it renders as the hollow indigo `!`.
         return (
-          <span
-            className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-base border border-slate-500/40 bg-slate-500/10 text-slate-400"
+          <StatusChip
+            tone="blue"
+            label={GLYPHS.fault.mark}
             title={`Cell unavailable (invalid feature id): ${ctx.feature.id}`}
-            data-testid={`cell-error-${ctx.integration.slug}-${ctx.feature.id}`}
-          >
-            !
-          </span>
+            testId={`cell-error-${ctx.integration.slug}-${ctx.feature.id}`}
+          />
         );
       }
       return <UnifiedCell ctx={ctx} model={model} overlays={overlays} />;

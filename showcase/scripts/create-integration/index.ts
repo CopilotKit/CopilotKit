@@ -35,6 +35,11 @@ const PACKAGES_DIR =
 const WORKFLOWS_DIR =
   process.env.CREATE_INTEGRATION_WORKFLOWS_DIR ??
   path.resolve(ROOT, "..", ".github", "workflows");
+// The Playwright smoke spec whose `STARTERS` array must stay set-equal to the
+// workflow's `matrix.starter`. Overridable for the same reason WORKFLOWS_DIR is.
+const SMOKE_SPEC_PATH =
+  process.env.CREATE_INTEGRATION_SMOKE_SPEC ??
+  path.join(ROOT, "tests", "e2e", "starter-smoke.spec.ts");
 const FEATURE_REGISTRY_PATH = path.join(
   ROOT,
   "shared",
@@ -55,7 +60,37 @@ interface CLIArgs {
   language: Language;
   features: string[];
   extraDeps: string[];
+  /**
+   * The new integration's STARTER disposition — required, with no default.
+   *
+   * Exactly one of the two shapes the `starter_validation:` manifest key
+   * accepts. It is required because this script WRITES the two artifacts the
+   * starter-validation drift assertions grade, and before this it satisfied
+   * neither: a scaffolded integration landed assertions 3 and 4 red in an
+   * unrelated author's PR, whose cheapest repair is an allowlist — the exact
+   * guard-weakening lever `EXCLUDED_STARTERS` was deleted to disarm.
+   *
+   * There is deliberately NO default and NO placeholder: a placeholder
+   * `reason` is schema-valid (`minLength: 1`) and would ship an unreviewed
+   * "this framework has no starter" capability claim.
+   */
+  starter: StarterDisposition;
 }
+
+/** A real in-repo starter under `examples/integrations/<dir>`. */
+interface StarterPathDisposition {
+  kind: "path";
+  /** Repo-root-relative, e.g. `examples/integrations/my-starter`. */
+  path: string;
+  /** The deployed Railway service, when one is already provisioned. */
+  service?: string;
+}
+/** A positive, reviewed declaration that this framework has no starter. */
+interface StarterReasonDisposition {
+  kind: "reason";
+  reason: string;
+}
+type StarterDisposition = StarterPathDisposition | StarterReasonDisposition;
 
 const CATEGORIES = [
   "popular",
@@ -229,6 +264,19 @@ export function parseArgs(): CLIArgs {
     console.error(
       "  --deps       Extra npm dependencies (e.g. '@ag-ui/mastra,@mastra/core')",
     );
+    console.error("\nStarter disposition (EXACTLY ONE is required):");
+    console.error(
+      "  --starter-path    examples/integrations/<dir> for an in-repo starter",
+    );
+    console.error(
+      "  --starter-service <name>  the Railway service, only with --starter-path",
+    );
+    console.error(
+      "  --starter-reason  '<why this framework has no starter>' — a reviewed",
+    );
+    console.error(
+      "                    sentence, not a placeholder; it renders as a claim",
+    );
     process.exit(1);
   }
 
@@ -249,11 +297,68 @@ export function parseArgs(): CLIArgs {
     process.exit(1);
   }
 
+  // Starter disposition — EXACTLY ONE of the two, never both, never neither.
+  const hasPath = parsed["starter-path"] !== undefined;
+  const hasReason = parsed["starter-reason"] !== undefined;
+  if (hasPath === hasReason) {
+    console.error(
+      hasPath
+        ? "Error: --starter-path and --starter-reason are mutually exclusive."
+        : "Error: a starter disposition is required. Pass exactly one of " +
+            "--starter-path <examples/integrations/dir> or " +
+            "--starter-reason '<why this framework has no starter>'.",
+    );
+    process.exit(1);
+  }
+  if (!hasPath && parsed["starter-service"] !== undefined) {
+    console.error(
+      "Error: --starter-service is only meaningful with --starter-path.",
+    );
+    process.exit(1);
+  }
+  let starter: StarterDisposition;
+  if (hasPath) {
+    const rel = parsed["starter-path"];
+    // Satisfy the drift assertion's path-reality clause at AUTHORING time
+    // rather than in someone else's CI run.
+    if (!fs.existsSync(path.resolve(ROOT, "..", rel))) {
+      console.error(
+        `Error: --starter-path '${rel}' does not exist (resolved against the repo root).`,
+      );
+      process.exit(1);
+    }
+    starter = {
+      kind: "path",
+      path: rel,
+      ...(parsed["starter-service"]
+        ? { service: parsed["starter-service"] }
+        : {}),
+    };
+  } else {
+    const reason = parsed["starter-reason"].trim();
+    if (reason.length < 20) {
+      console.error(
+        "Error: --starter-reason must be a real sentence (>= 20 chars). It is " +
+          "rendered to users as a capability claim, so a placeholder is worse " +
+          "than no value.",
+      );
+      process.exit(1);
+    }
+    if (/\b(TODO|FIXME|TBD|XXX)\b/i.test(reason)) {
+      console.error(
+        "Error: --starter-reason must not contain a TODO/FIXME/TBD placeholder.",
+      );
+      process.exit(1);
+    }
+    starter = { kind: "reason", reason };
+  }
+
   return {
     name: parsed.name,
     slug: parsed.slug,
     category: parsed.category as Category,
     language: parsed.language as Language,
+    starter,
     // Filter empty strings so trailing/leading commas (e.g. "a,b," or ",a")
     // don't produce an empty-string entry that the registry lookup rejects
     // with a confusing "Unknown feature id ''" error.
@@ -346,6 +451,20 @@ function generateManifest(args: CLIArgs, features: Feature[]): string {
     interaction_modalities: ["chat"],
     features: args.features,
     demos,
+    // The starter-VALIDATION ladder declaration (dashboard). Emitted
+    // UNCONDITIONALLY, in whichever of the two `oneOf` branches the CLI
+    // selected, so the generated manifest validates by construction and drift
+    // assertion 3 ("no silent column") is satisfied for every newly scaffolded
+    // column by construction rather than by convention.
+    //
+    // NOT the `starter:` key — that one drives public product content.
+    starter_validation:
+      args.starter.kind === "path"
+        ? {
+            path: args.starter.path,
+            ...(args.starter.service ? { service: args.starter.service } : {}),
+          }
+        : { supported: false, reason: args.starter.reason },
     managed_platform: undefined as { name: string; url: string } | undefined,
   };
 
@@ -1659,6 +1778,9 @@ async function main() {
   } else {
     console.log("--- Updating CI workflows ---\n");
     updateWorkflows(args);
+    // Both halves of the smoke-matrix pair, or neither. Called from the same
+    // guarded block so CREATE_INTEGRATION_SKIP_WORKFLOWS=1 still skips both.
+    updateStarterSmokeSpec(args);
     console.log("");
   }
 
@@ -2037,6 +2159,24 @@ export function updateWorkflows(args: CLIArgs) {
   // Railway at runtime.
 
   // 3. Update test_smoke-starter.yml — add to matrix (block sequence format)
+  //
+  // CONDITIONAL on a declared in-repo starter. A column with no starter is not
+  // a smoke-matrix member, and adding one would make the drift assertions
+  // unsatisfiable: the matrix's members are EXAMPLE slugs
+  // (`examples/integrations/<x>`) while this scaffolder only ever creates
+  // `showcase/integrations/<slug>`. It used to append UNCONDITIONALLY and in
+  // the WRONG NAMESPACE — the column slug into a list of example slugs — which
+  // the 6 recorded name drifts (`adk`→`google-adk`, `langgraph-js`→
+  // `langgraph-typescript`, `strands-python`→`strands`, …) show are not the
+  // same namespace.
+  if (args.starter.kind !== "path") {
+    console.log(
+      "  test_smoke-starter.yml: no --starter-path, so neither smoke file is touched.",
+    );
+    return;
+  }
+  // The EXAMPLE slug, which is what the matrix and the spec both list.
+  const starterSlug = path.basename(args.starter.path);
   const smokePath = path.join(workflowsDir, "test_smoke-starter.yml");
   const smokeState = probePath(smokePath);
   if (smokeState === "unreadable") {
@@ -2052,7 +2192,7 @@ export function updateWorkflows(args: CLIArgs) {
   }
   if (smokeState === "exists") {
     let smoke = fs.readFileSync(smokePath, "utf-8");
-    const slug = args.slug;
+    const slug = starterSlug;
 
     // The matrix uses YAML block sequence format:
     //   starter:
@@ -2144,6 +2284,84 @@ export function updateWorkflows(args: CLIArgs) {
       );
     }
   }
+}
+
+/**
+ * The OTHER half of the smoke-matrix pair: `STARTERS` in
+ * `showcase/tests/e2e/starter-smoke.spec.ts`.
+ *
+ * `updateWorkflows` authored `test_smoke-starter.yml`'s `matrix.starter` and
+ * nothing authored this, so a scaffold moved one half of a pair that a drift
+ * assertion now requires to be SET-EQUAL — breaking it by the very machine that
+ * writes half of it. Both halves move together or neither does.
+ *
+ * Mirrors `updateWorkflows`'s three error disciplines exactly: an idempotent
+ * skip when the slug is already present, a throw when the declaration or its
+ * terminator cannot be located (the layout-may-have-changed error), and a path
+ * override so a test can point it at a fixture.
+ *
+ * The entries are heterogeneous — three are multi-line objects — so the new
+ * line is inserted immediately BEFORE the array's terminator rather than after
+ * "the last entry", which cannot be located by pattern in the general case.
+ */
+export function updateStarterSmokeSpec(args: CLIArgs) {
+  if (args.starter.kind !== "path") return;
+  const starterSlug = path.basename(args.starter.path);
+  const specPath = SMOKE_SPEC_PATH;
+
+  const state = probePath(specPath);
+  if (state === "unreadable") {
+    console.error(
+      `Error: ${specPath} exists but is unreadable; refusing to silently skip the smoke-spec update.`,
+    );
+    process.exit(1);
+  }
+  if (state === "missing") {
+    console.warn(
+      `  [WARN] ${specPath} not found; skipping starter-smoke.spec.ts update.`,
+    );
+    return;
+  }
+
+  const src = fs.readFileSync(specPath, "utf-8");
+  const lines = src.split("\n");
+  const declIndex = lines.findIndex((l) =>
+    /^const STARTERS:\s*Starter\[\]\s*=\s*\[\s*$/.test(l),
+  );
+  if (declIndex < 0) {
+    throw new Error(
+      `updateStarterSmokeSpec: failed to locate the 'const STARTERS: Starter[] = [' ` +
+        `declaration in ${specPath}. The spec layout may have changed; update the ` +
+        "parser in updateStarterSmokeSpec().",
+    );
+  }
+  // The matching column-0 terminator.
+  const endIndex = lines.findIndex(
+    (l, i) => i > declIndex && /^\];\s*$/.test(l),
+  );
+  if (endIndex < 0) {
+    throw new Error(
+      `updateStarterSmokeSpec: located the 'STARTERS' declaration in ${specPath} but ` +
+        "not its terminating '];'. The spec layout may have changed; update the " +
+        "parser in updateStarterSmokeSpec().",
+    );
+  }
+
+  const body = lines.slice(declIndex + 1, endIndex).join("\n");
+  if (new RegExp(`slug:\\s*"${escapeRegex(starterSlug)}"`).test(body)) {
+    console.info(
+      `  starter-smoke.spec.ts: slug "${starterSlug}" already present in STARTERS, skipping.`,
+    );
+    return;
+  }
+
+  lines.splice(
+    endIndex,
+    0,
+    `  { ...DEFAULT_STARTER, slug: "${starterSlug}" },`,
+  );
+  fs.writeFileSync(specPath, lines.join("\n"));
+  console.log("  Updated starter-smoke.spec.ts");
 }
 
 // Only run main() when executed directly (tsx / node). Importing this

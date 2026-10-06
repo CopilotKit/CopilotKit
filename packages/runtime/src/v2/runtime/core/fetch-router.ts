@@ -74,6 +74,11 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "inspector/metadata" };
   }
 
+  // /inspector-learning (1 segment)
+  if (len >= 1 && segments[len - 1] === "inspector-learning") {
+    return { method: "inspector/learning" };
+  }
+
   // /transcribe (1 segment)
   if (len >= 1 && segments[len - 1] === "transcribe") {
     return { method: "transcribe" };
@@ -121,6 +126,17 @@ function matchSegments(path: string): RouteInfo | null {
     const agentId = safeDecodeURIComponent(segments[len - 2]!);
     if (!agentId) return null;
     return { method: "agent/connect", agentId };
+  }
+
+  // /trajectory/:trajectoryId/connect (3 segments)
+  if (
+    len >= 3 &&
+    segments[len - 3] === "trajectory" &&
+    segments[len - 1] === "connect"
+  ) {
+    const trajectoryId = safeDecodeURIComponent(segments[len - 2]!);
+    if (!trajectoryId) return null;
+    return { method: "trajectory/connect", trajectoryId };
   }
 
   // /agent/:agentId/stop/:threadId (4 segments)

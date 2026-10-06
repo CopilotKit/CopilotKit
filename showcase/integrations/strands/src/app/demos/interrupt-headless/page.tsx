@@ -1,27 +1,25 @@
 "use client";
 
-// Headless Interrupt cell — demonstrates `useHeadlessInterrupt`.
+// Headless Interrupt cell: renders `useInterrupt` outside the chat.
 //
 // Layout: chat on the right, empty app surface on the left. The user
 // triggers the agent from a chat suggestion. When the backend calls
-// `schedule_meeting`, LangGraph's `interrupt()` surfaces via the hook
+// `schedule_meeting`, Strands' native `tool_context.interrupt()` surfaces as a
+// standard AG-UI interrupt via the hook
 // and we render a time-picker popup IN THE APP SURFACE (left pane) —
 // not inside the chat. Picking a slot resolves the interrupt, the
 // popup vanishes, and the agent confirms back in chat.
 
 // @region[headless-useinterrupt-primitives]
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   CopilotKit,
   CopilotChat,
-  useAgent,
   useConfigureSuggestions,
-  useCopilotKit,
+  useInterrupt,
 } from "@copilotkit/react-core/v2";
 import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
 import type { TimeSlot } from "../_shared/interrupt-fallback-slots";
-
-const INTERRUPT_EVENT_NAME = "on_interrupt";
 
 type InterruptPayload = {
   topic?: string;
@@ -29,10 +27,60 @@ type InterruptPayload = {
   slots?: TimeSlot[];
 };
 
-type InterruptEvent = {
-  name: string;
-  value: InterruptPayload;
-};
+// Read the tool's `interrupt()` reason off an AG-UI interrupt.
+//
+// The two bridges expose it on different channels: `ag_ui_strands` (Python)
+// carries the reason object under `metadata.reason`, while the published
+// `@ag-ui/aws-strands` 0.2.3 JSON-encodes it into `message` instead. Both are
+// read so one page serves both, and the legacy event value is read last for
+// adapters that pass the payload through unwrapped.
+/**
+ * JSON.parse that never throws and never returns a primitive. Both readers run
+ * inside a React render callback, where a throw takes the whole pane down.
+ */
+function parseObject(raw: string | undefined): Record<string, unknown> | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function readInterruptPayload(
+  interrupt: { metadata?: unknown; message?: string } | null | undefined,
+  eventValue: unknown,
+): InterruptPayload {
+  const metadata = interrupt?.metadata as
+    | { reason?: InterruptPayload }
+    | undefined;
+  if (metadata?.reason && typeof metadata.reason === "object") {
+    return metadata.reason;
+  }
+
+  // The published TypeScript bridge JSON-encodes the reason into `message`
+  // instead of carrying it on metadata.
+  const decoded = parseObject(interrupt?.message);
+  if (decoded) {
+    const nested = (decoded as { reason?: InterruptPayload }).reason;
+    return nested && typeof nested === "object"
+      ? nested
+      : (decoded as InterruptPayload);
+  }
+
+  // Legacy channel: some adapters pass the payload through as the event value,
+  // JSON-encoded or not.
+  const legacy =
+    typeof eventValue === "string" ? parseObject(eventValue) : eventValue;
+  if (!legacy || typeof legacy !== "object") return {};
+  const wrapped = (legacy as { metadata?: { reason?: InterruptPayload } })
+    .metadata?.reason;
+  if (wrapped && typeof wrapped === "object") return wrapped;
+  return legacy as InterruptPayload;
+}
 
 export default function InterruptHeadlessDemo() {
   return (
@@ -43,7 +91,58 @@ export default function InterruptHeadlessDemo() {
 }
 
 function Layout() {
-  const { pending, resolve } = useHeadlessInterrupt("interrupt-headless");
+  const [resolving, setResolving] = useState(false);
+  const interruptElement = useInterrupt({
+    agentId: "interrupt-headless",
+    renderInChat: false,
+    render: ({ event, interrupt, resolve }) => {
+      const payload = readInterruptPayload(interrupt, event.value);
+      const resumeAfterPaint = (response: unknown) => {
+        setResolving(true);
+        // A frame boundary lets React paint before resume unmounts the
+        // interrupt, but `requestAnimationFrame` never fires in a background
+        // tab, so a timer runs whichever comes first and the resume cannot be
+        // stranded. Fire-and-forget by design: a rejected resume is re-surfaced
+        // globally instead of disappearing.
+        let fired = false;
+        const resumeOnce = () => {
+          if (fired) return;
+          fired = true;
+          void resolve(response).then(
+            () => setResolving(false),
+            (error) => {
+              setResolving(false);
+              queueMicrotask(() => {
+                throw error;
+              });
+            },
+          );
+        };
+        requestAnimationFrame(resumeOnce);
+        window.setTimeout(resumeOnce, 100);
+      };
+      return (
+        <TimeSlotPopup
+          payload={payload}
+          onPick={(slot) => {
+            resumeAfterPaint({
+              chosen_time: slot.iso,
+              chosen_label: slot.label,
+            });
+          }}
+          onCancel={() => {
+            resumeAfterPaint({ cancelled: true });
+          }}
+        />
+      );
+    },
+  });
+
+  useEffect(() => {
+    if (interruptElement) {
+      setResolving(false);
+    }
+  }, [interruptElement]);
 
   useConfigureSuggestions({
     suggestions: [
@@ -61,98 +160,21 @@ function Layout() {
 
   return (
     <div className="grid h-screen grid-cols-[1fr_420px] bg-[#FAFAFC]">
-      <AppSurface pending={pending} resolve={resolve} />
+      <AppSurface interruptElement={interruptElement} resolving={resolving} />
       <div className="border-l border-[#DBDBE5] bg-white">
         <CopilotChat agentId="interrupt-headless" className="h-full" />
       </div>
     </div>
   );
 }
-
-function useHeadlessInterrupt(agentId: string): {
-  pending: InterruptEvent | null;
-  resolve: (response: unknown) => Promise<unknown>;
-} {
-  const { copilotkit } = useCopilotKit();
-  const { agent } = useAgent({ agentId });
-  const [pending, setPending] = useState<InterruptEvent | null>(null);
-  const pendingRef = useRef<InterruptEvent | null>(null);
-  pendingRef.current = pending;
-
-  useEffect(() => {
-    let local: InterruptEvent | null = null;
-    const sub = agent.subscribe({
-      onCustomEvent: ({ event }) => {
-        if (event.name === INTERRUPT_EVENT_NAME) {
-          // The AG-UI adapter JSON-stringifies interrupt values, so
-          // parse when the value arrives as a string.
-          const raw = event.value ?? {};
-          local = {
-            name: event.name,
-            value: (typeof raw === "string"
-              ? JSON.parse(raw)
-              : raw) as InterruptPayload,
-          };
-        }
-      },
-      onRunStartedEvent: () => {
-        local = null;
-        setPending(null);
-      },
-      onRunFinalized: () => {
-        if (local) {
-          setPending(local);
-          local = null;
-        }
-      },
-      onRunFailed: () => {
-        local = null;
-        setPending(null);
-      },
-    });
-    return () => sub.unsubscribe();
-  }, [agent]);
-
-  const resolve = useMemo(
-    () => async (response: unknown) => {
-      const snapshot = pendingRef.current;
-      try {
-        return await copilotkit.runAgent({
-          agent,
-          forwardedProps: {
-            command: {
-              resume: response,
-              interruptEvent: snapshot?.value,
-            },
-          },
-        });
-      } catch (err) {
-        // Catastrophic rejection (network error, auth failure, validation
-        // reject) may fire before the run starts, so onRunFailed never runs.
-        // Clear pending here so the popup unmounts. Symmetric with the
-        // framework resolve catch + onRunFailed handler — all write null,
-        // no race. Caller still sees the rethrow.
-        console.error(
-          "[interrupt-headless] resume runAgent rejected; clearing pending + rethrowing",
-          err,
-        );
-        setPending(null);
-        throw err;
-      }
-    },
-    [agent, copilotkit],
-  );
-
-  return { pending, resolve };
-}
 // @endregion[headless-useinterrupt-primitives]
 
 type AppSurfaceProps = {
-  pending: InterruptEvent | null;
-  resolve: (response: unknown) => Promise<unknown>;
+  interruptElement: React.ReactElement | null;
+  resolving: boolean;
 };
 
-function AppSurface({ pending, resolve }: AppSurfaceProps) {
+function AppSurface({ interruptElement, resolving }: AppSurfaceProps) {
   return (
     <div
       data-testid="interrupt-headless-app-surface"
@@ -166,18 +188,21 @@ function AppSurface({ pending, resolve }: AppSurfaceProps) {
       </header>
 
       <div className="relative flex flex-1 items-center justify-center p-8">
-        {pending ? (
-          <TimeSlotPopup
-            payload={pending.value}
-            onPick={(slot) =>
-              resolve({ chosen_time: slot.iso, chosen_label: slot.label })
-            }
-            onCancel={() => resolve({ cancelled: true })}
-          />
-        ) : (
-          <EmptyState />
-        )}
+        {interruptElement ?? (resolving ? <ResolvingState /> : <EmptyState />)}
       </div>
+    </div>
+  );
+}
+
+function ResolvingState() {
+  return (
+    <div data-testid="interrupt-headless-resolving" className="text-center">
+      <div className="text-sm font-medium text-[#010507]">
+        Confirming your selection…
+      </div>
+      <p className="mt-1 text-sm text-[#57575B]">
+        The assistant will post the confirmed booking in chat.
+      </p>
     </div>
   );
 }
@@ -222,10 +247,13 @@ type TimeSlotPopupProps = {
 };
 
 function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
-  // Prefer the slots from the interrupt payload — the backend
-  // (`interrupt_agent.py:_candidate_slots`) generates them relative to "now"
-  // so the picker always shows future times. Fall back to a fresh
-  // local-time generator only if the backend didn't supply any.
+  // One answer per interrupt: the buttons latch on the first click so a second
+  // one cannot race the resume that is already in flight.
+  const [answered, setAnswered] = useState(false);
+  // The interrupt payload carries the topic and attendee, not the slots: both
+  // backends pause with a reason only, so the times below are generated here,
+  // relative to "now", so the picker always shows future slots. The payload
+  // branch stays for a backend that does send its own candidates.
   const slots =
     payload.slots && payload.slots.length > 0
       ? payload.slots
@@ -261,8 +289,12 @@ function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
             key={slot.iso}
             type="button"
             data-testid={`interrupt-headless-slot-${slot.iso}`}
-            onClick={() => onPick(slot)}
-            className="rounded-xl border border-[#DBDBE5] bg-white px-3 py-3 text-sm font-medium text-[#010507] transition-colors hover:border-[#BEC2FF] hover:bg-[#BEC2FF1A]"
+            disabled={answered}
+            onClick={() => {
+              setAnswered(true);
+              onPick(slot);
+            }}
+            className="rounded-xl border border-[#DBDBE5] bg-white px-3 py-3 text-sm font-medium text-[#010507] transition-colors hover:border-[#BEC2FF] hover:bg-[#BEC2FF1A] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {slot.label}
           </button>
@@ -272,8 +304,12 @@ function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
       <button
         type="button"
         data-testid="interrupt-headless-cancel"
-        onClick={onCancel}
-        className="mt-4 w-full rounded-xl border border-[#DBDBE5] bg-white px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-[#57575B] transition-colors hover:bg-[#FAFAFC]"
+        disabled={answered}
+        onClick={() => {
+          setAnswered(true);
+          onCancel();
+        }}
+        className="mt-4 w-full rounded-xl border border-[#DBDBE5] bg-white px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-[#57575B] transition-colors hover:bg-[#FAFAFC] disabled:cursor-not-allowed disabled:opacity-60"
       >
         Cancel
       </button>

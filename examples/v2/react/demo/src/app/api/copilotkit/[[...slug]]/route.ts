@@ -13,7 +13,7 @@ import OpenAI from "openai";
 const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
 const openAIApiKey = process.env.OPENAI_API_KEY?.trim();
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
-const DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o-mini";
+const DEFAULT_OPENROUTER_MODEL = "openai/gpt-5-mini";
 
 const determineOpenRouterModelId = () => {
   return process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL;

@@ -55,7 +55,7 @@ The default web quickstart includes a numbered step after the first chat:
 2. Send a chat message. **Agents** then **AG-UI Events**: events are moving.
 3. **Threads**: unlocked, or locked with Enable Intelligence.
 
-Angular uses the Angular step snippet, which links the Angular Inspector install page first. React Native and Channels do not get this step.
+Angular uses the shared step snippet, like every other web frontend: `@copilotkit/angular` auto-mounts a pinned `@copilotkit/web-inspector`, so there is no install step to link (OSS-948). React Native and Channels do not get this step at all.
 
 ## Decision Tree
 

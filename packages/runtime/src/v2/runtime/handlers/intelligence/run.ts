@@ -73,6 +73,8 @@ export async function handleIntelligenceRun({
   input,
   startTime,
 }: HandleIntelligenceRunParams): Promise<Response> {
+  const runtimeTelemetry = runtime.telemetry ?? telemetry;
+
   if (!runtime.intelligence) {
     return Response.json(
       {
@@ -156,8 +158,10 @@ export async function handleIntelligenceRun({
   let canonicalThreadId = input.threadId;
   let canonicalRunId = input.runId;
   let joinToken: string | undefined;
+  let backendThreadId: string | undefined;
   try {
     const lockResult = await runtime.intelligence.ɵacquireThreadLock({
+      supportsBackendThreadId: true,
       threadId: input.threadId,
       runId: input.runId,
       userId,
@@ -171,6 +175,7 @@ export async function handleIntelligenceRun({
     canonicalThreadId = lockResult.threadId;
     canonicalRunId = lockResult.runId;
     joinToken = lockResult.joinToken;
+    backendThreadId = lockResult.backendThreadId;
   } catch (error) {
     logger.error("Thread lock denied:", error);
     const platformStatus = getPlatformErrorStatus(error);
@@ -240,7 +245,7 @@ export async function handleIntelligenceRun({
     }
   }
 
-  telemetry.capture("oss.runtime.agent_execution_stream_started", {});
+  runtimeTelemetry.capture("oss.runtime.agent_execution_stream_started", {});
 
   // Start heartbeat timer to renew the thread lock.
   let heartbeatStopped = false;
@@ -287,6 +292,7 @@ export async function handleIntelligenceRun({
 
   const runRequest: AgentRunnerRunRequest = {
     threadId: canonicalThreadId,
+    ...(backendThreadId === undefined ? {} : { backendThreadId }),
     agent,
     input: canonicalInput,
     ...(persistedInputMessages !== undefined ? { persistedInputMessages } : {}),
@@ -297,6 +303,11 @@ export async function handleIntelligenceRun({
   const reportAgentError = (error: unknown, phase: RuntimeErrorPhase) => {
     if (agentErrorReported) return;
     agentErrorReported = true;
+    // Analytics describes the outcome; only the application-owned reporter
+    // receives diagnostics that may contain customer or upstream content.
+    runtimeTelemetry.capture("oss.runtime.agent_execution_stream_errored", {
+      error: "AGENT_EXECUTION_FAILED",
+    });
     runtimeErrorReporter?.report({
       request,
       error,
@@ -355,14 +366,16 @@ export async function handleIntelligenceRun({
         } else {
           cleanupLock("runner-error");
         }
-        telemetry.capture("oss.runtime.agent_execution_stream_errored", {
-          error: error instanceof Error ? error.message : String(error),
-        });
         logger.error("Error running agent:", error);
       },
       complete: () => {
         clearHeartbeat();
-        telemetry.capture("oss.runtime.agent_execution_stream_ended", {});
+        // Preserve the existing completion count even when the stream contains
+        // RUN_ERROR. Failure reporting is separate and carries only a safe code.
+        runtimeTelemetry.capture(
+          "oss.runtime.agent_execution_stream_ended",
+          {},
+        );
       },
     });
 

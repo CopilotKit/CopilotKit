@@ -11,10 +11,17 @@ built-in model strings or pass any custom AI SDK model.
 
 Specify a model using the `"provider:model"` format. `"provider/model"` also works.
 
+The tables list the models these docs use. The quickstart uses `openai:gpt-5.4-mini`.
+The Built-in Agent sends the model id to the provider unchanged, so other model ids
+from the same provider also work.
+
 ### OpenAI
 
 | Model        | Specifier             |
 | ------------ | --------------------- |
+| GPT-5.5      | `openai:gpt-5.5`      |
+| GPT-5.4      | `openai:gpt-5.4`      |
+| GPT-5.4 Mini | `openai:gpt-5.4-mini` |
 | GPT-5        | `openai:gpt-5`        |
 | GPT-5 Mini   | `openai:gpt-5-mini`   |
 | GPT-4.1      | `openai:gpt-4.1`      |
@@ -28,7 +35,7 @@ Specify a model using the `"provider:model"` format. `"provider/model"` also wor
 
 ```typescript
 const agent = new BuiltInAgent({
-  model: "openai:gpt-4.1",
+  model: "openai:gpt-5.4-mini",
 });
 ```
 
@@ -99,14 +106,25 @@ Alternatively, pass the API key directly in your configuration:
 
 ```typescript
 const agent = new BuiltInAgent({
-  model: "openai:gpt-4.1",
+  model: "openai:gpt-5.4-mini",
   apiKey: process.env.MY_OPENAI_KEY, // [!code highlight]
 });
 ```
 
 ## Custom Models (AI SDK)
 
-For models not in the built-in list, you can pass any Vercel AI SDK `LanguageModel` instance directly:
+For models not in the built-in list, you can pass any Vercel AI SDK `LanguageModel` instance directly.
+First, install the provider package from its `ai-v6` release line:
+
+```npm
+npm install @ai-sdk/openai@ai-v6
+```
+
+<Callout type="warn" title="Install the ai-v6 version of each @ai-sdk provider">
+  The Built-in Agent runs on AI SDK 6 (`ai@6`), which needs `@ai-sdk/*` provider
+  packages from the 3.x line. Add `@ai-v6` to every provider you install, for example
+  `npm install @ai-sdk/azure@ai-v6`.
+</Callout>
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
@@ -170,16 +188,17 @@ const agent = new BuiltInAgent({
 ```
 
 The same shape works for any OpenAI-compatible proxy. Swap the `baseURL` and key.
-There is no CopilotKit-specific provider to install; if the
+There is no CopilotKit-specific provider to install. Install
+`@ai-sdk/openai@ai-v6` as shown in [Custom Models](#custom-models-ai-sdk). If the
 AI SDK can talk to it, the Built-in Agent can use it.
 
 <Callout type="warn" title="The model is set on the agent">
-  CopilotKit does **not** expose a hosted/Cloud endpoint for choosing or
+  CopilotKit does **not** expose a cloud-hosted endpoint for choosing or
   switching the model at request time. The model is configured **on the agent**,
   either as a `"provider:model"` string or an AI SDK `LanguageModel` instance:
 
 ```typescript
-new BuiltInAgent({ model: "openai:gpt-4.1" }); // built-in string
+new BuiltInAgent({ model: "openai:gpt-5.4-mini" }); // built-in string
 new BuiltInAgent({ model: openrouter("...") }); // any LanguageModel
 ```
 
@@ -195,7 +214,7 @@ The Built-in Agent resolves model strings to AI SDK provider instances:
 
 | Model string                    | AI SDK provider     | Resolved call                    |
 | ------------------------------- | ------------------- | -------------------------------- |
-| `"openai:gpt-4.1"`              | `@ai-sdk/openai`    | `openai("gpt-4.1")`              |
+| `"openai:gpt-5.4-mini"`         | `@ai-sdk/openai`    | `openai("gpt-5.4-mini")`         |
 | `"anthropic:claude-sonnet-4-6"` | `@ai-sdk/anthropic` | `anthropic("claude-sonnet-4-6")` |
 | `"google:gemini-2.5-pro"`       | `@ai-sdk/google`    | `google("gemini-2.5-pro")`       |
 

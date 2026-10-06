@@ -109,6 +109,7 @@ async function setup(options: SetupOptions = {}): Promise<InspectorContext> {
           agents: {},
           audioFileTranscriptionEnabled: false,
           mode: "sse",
+          intelligence: { wsUrl: "" },
           threadEndpoints: {
             list: options.threadsAvailable ?? false,
             inspect: options.threadsAvailable ?? false,
@@ -217,7 +218,7 @@ test("renders the trusted manage link in the Threads usage footer", async () => 
     expect(identity?.textContent).toContain("Support");
     expect(identity?.textContent).toContain("Acme Inc.");
     expect(plan?.textContent).toContain("Enterprise");
-    await context.selectTab("Threads");
+    await context.selectTab("Rich Threads");
     const action = root.querySelector<HTMLAnchorElement>(
       '[data-inspector-action-placement="threads-footer"]',
     );
@@ -243,7 +244,7 @@ test("keeps the Threads footer action clickable outside the drag handle", async 
   });
   try {
     await context.open();
-    await context.selectTab("Threads");
+    await context.selectTab("Rich Threads");
 
     const action =
       context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
@@ -280,7 +281,7 @@ test.each([
     });
     try {
       await context.open();
-      await context.selectTab("Threads");
+      await context.selectTab("Rich Threads");
 
       const root = context.inspector.shadowRoot!;
       expect(root.querySelector("cpk-thread-list")).not.toBeNull();
@@ -294,19 +295,17 @@ test.each([
   },
 );
 
+const LOCKED_THREADS_HEADING =
+  "Production-grade chat threads without the complexity. Self hostable.";
+
 test.each([
-  ["valid", "manage_plan", "Finish setting up Rich Threads", undefined],
-  [
-    "none",
-    "enable_intelligence",
-    "Enable Intelligence to inspect Threads.",
-    "Enable Intelligence",
-  ],
-  ["expired", "renew", "Renew Intelligence to inspect Threads.", "Renew"],
-  ["unknown", "manage_plan", "Threads are unavailable.", undefined],
+  ["valid", "manage_plan"],
+  ["none", "enable_intelligence"],
+  ["expired", "renew"],
+  ["unknown", "manage_plan"],
 ] as const)(
-  "locked Threads use %s license copy and action placement",
-  async (licenseState, actionKind, heading, actionLabel) => {
+  "locked Threads ignore %s license metadata and use the unified actions",
+  async (licenseState, actionKind) => {
     const context = await setup({
       metadata: fullMetadata(licenseState, actionKind),
       runtimeLicense: licenseState,
@@ -314,19 +313,21 @@ test.each([
     });
     try {
       await context.open();
-      await context.selectTab("Threads");
+      await context.selectTab("Rich Threads");
 
       const root = context.inspector.shadowRoot!;
       const action = root.querySelector<HTMLAnchorElement>(
         '[data-inspector-action-placement="locked"]',
       );
-      expect(root.textContent).toContain(heading);
-      expect(action?.textContent?.trim()).toBe(actionLabel);
-      if (actionLabel !== undefined) {
-        expect(action?.href).toBe(
-          `https://cloud.copilotkit.ai/actions/${actionKind}`,
-        );
-      }
+      const talk = root.querySelector<HTMLAnchorElement>(
+        '[data-inspector-locked-feature-talk="threads"]',
+      );
+      expect(root.textContent).toContain(LOCKED_THREADS_HEADING);
+      expect(action).toBeNull();
+      expect(talk?.textContent?.trim()).toBe("Talk to an Engineer");
+      expect(
+        root.querySelector('[data-inspector-feature-setup-prompt="threads"]'),
+      ).not.toBeNull();
     } finally {
       context.teardown();
     }
@@ -361,19 +362,22 @@ test("renders valid partial modules without identity placeholders", async () => 
   }
 });
 
-test("an old runtime omits metadata UI and keeps the generic locked fallback", async () => {
+test("an old runtime omits metadata UI and keeps the guided setup fallback", async () => {
   const context = await setup({
     metadataSupported: false,
     threadsAvailable: false,
   });
   try {
     await context.open();
-    await context.selectTab("Threads");
+    await context.selectTab("Rich Threads");
 
     const root = context.inspector.shadowRoot!;
     expect(root.querySelector("[data-inspector-metadata]")).toBeNull();
     expect(root.querySelector("[data-inspector-action-placement]")).toBeNull();
-    expect(root.textContent).toContain("Threads are unavailable.");
+    expect(root.textContent).toContain(
+      "Production-grade chat threads without the complexity. Self hostable.",
+    );
+    expect(root.textContent).not.toContain("Threads are unavailable.");
   } finally {
     context.teardown();
   }
@@ -430,11 +434,11 @@ test("known license disagreement uses Runtime copy and hides the metadata action
   });
   try {
     await context.open();
-    await context.selectTab("Threads");
+    await context.selectTab("Rich Threads");
 
     const root = context.inspector.shadowRoot!;
     expect(root.textContent).toContain(
-      "Renew Intelligence to inspect Threads.",
+      "Production-grade chat threads without the complexity. Self hostable.",
     );
     expect(
       root.querySelector('[data-inspector-action-placement="locked"]'),
@@ -455,7 +459,7 @@ test("metadata refresh rerenders without resetting the selected example or reque
   });
   try {
     await context.open();
-    await context.selectTab("Threads");
+    await context.selectTab("Rich Threads");
     const list = context.inspector.shadowRoot?.querySelector("cpk-thread-list");
     await waitFor(
       () => list?.shadowRoot?.querySelector(".cpk-tl__item") !== null,
@@ -480,7 +484,7 @@ test("metadata refresh rerenders without resetting the selected example or reque
           ?.textContent?.includes("Scale") === true,
       "the refreshed plan label",
     );
-    await context.selectTab("Threads");
+    await context.selectTab("Rich Threads");
 
     const selectedAfter = Reflect.get(
       context.inspector.shadowRoot?.querySelector("cpk-thread-details") ?? {},
@@ -505,7 +509,7 @@ test("metadata usage stays independent from Threads capability and debug navigat
   });
   try {
     await context.open();
-    await context.selectTab("Threads");
+    await context.selectTab("Rich Threads");
 
     const root = context.inspector.shadowRoot!;
     const usage = context.core.inspectorMetadata?.usage;
@@ -522,18 +526,20 @@ test("metadata usage stays independent from Threads capability and debug navigat
       Object.prototype.hasOwnProperty.call(usage ?? {}, "expiringSoonCount"),
     ).toBe(true);
     expect(root.textContent).toContain(
-      "Enable Intelligence to inspect Threads.",
+      "Production-grade chat threads without the complexity. Self hostable.",
     );
-    expect(lockedAction?.textContent?.trim()).toBe("Enable Intelligence");
-    expect(lockedAction?.href).toBe(
-      "https://cloud.copilotkit.ai/actions/enable_intelligence",
-    );
+    expect(lockedAction).toBeNull();
     expect(
       context.requests.filter((url) => url.includes("/threads?")),
     ).toHaveLength(0);
     expect(talk).toBeInstanceOf(HTMLAnchorElement);
     expect(talk).not.toBe(lockedAction);
-    for (const label of ["Home", "Threads", "Learning", "Agent"]) {
+    for (const label of [
+      "Home",
+      "Rich Threads",
+      "Automatic Learning",
+      "Agent",
+    ]) {
       expect(findControl(root, label), label).toBeDefined();
     }
     await context.selectTab("Agent");

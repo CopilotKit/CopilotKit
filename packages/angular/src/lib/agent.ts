@@ -90,6 +90,9 @@ export class AgentStore {
       onRunInitialized: () => {
         this.#isRunning.set(true);
       },
+      onRunStartedEvent: () => {
+        this.#isRunning.set(abstractAgent.isRunning);
+      },
       onRunFinalized: () => {
         this.#isRunning.set(false);
       },
@@ -99,7 +102,8 @@ export class AgentStore {
       // Protocol-level RUN_ERROR event (distinct from onRunFailed which
       // handles local exceptions like network errors).
       onRunErrorEvent: () => {
-        this.#isRunning.set(false);
+        // A replayed error does not end the connection restoring history.
+        this.#isRunning.set(abstractAgent.isRunning);
       },
     });
     // Preserve the store projection as the agent's first subscriber so its

@@ -1,0 +1,188 @@
+// @vitest-environment jsdom
+
+// Guards the compact page-tools split action.
+//
+// The prompt action is available even when a route has no registry-backed
+// framework name; the copied context simply omits that optional sentence.
+// It is tested here rather than through
+// `DocsPageView` because that component reads MDX off disk, walks the content
+// tree to build the sidebar, and compiles the body through `next-mdx-remote` —
+// none of which the action contract depends on.
+
+import React from "react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { DocsPageTools, docsMarkdownUrl } from "../docs-page-tools";
+import { PROMPT_DESTINATION_HINT } from "@/lib/prompt-guidance";
+
+const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
+
+vi.mock("fumadocs-core/framework", () => ({
+  usePathname: () => "/mastra/generative-ui",
+}));
+
+vi.mock("posthog-js/react", () => ({
+  usePostHog: () => analytics,
+}));
+
+vi.mock("@/lib/runtime-config.client", () => ({
+  getRuntimeConfig: () => ({ baseUrl: "https://docs.copilotkit.ai" }),
+}));
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+
+const GITHUB_URL =
+  "https://github.com/CopilotKit/CopilotKit/blob/main/showcase/shell-docs/src/content/docs/generative-ui.mdx";
+
+function renderRow(onboardingFramework?: { slug: string; name: string }): void {
+  render(
+    <DocsPageTools
+      slugPath="generative-ui"
+      slugHrefPrefix="/mastra"
+      githubUrl={GITHUB_URL}
+      onboardingFramework={onboardingFramework}
+    />,
+  );
+}
+
+it("renders one split CTA with copy prompt as its root action", async () => {
+  // The surfaces that omit the prop are `a2a` and `agent-spec`: documented
+  // like frameworks, but absent from the registry, so there is no display
+  // name to put in the prompt. They are docs pages all the same, and the
+  // button's offer holds — the prompt just names no framework and lets the
+  // CLI's graph work the framework out from the repository, which it does
+  // regardless of what the prompt says.
+  renderRow();
+
+  expect(screen.getByRole("button", { name: /copy prompt/i })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /copy page/i })).toBeNull();
+  expect(screen.queryByRole("button", { name: /^open$/i })).toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: /more page actions/i }));
+
+  expect(
+    await screen.findByRole("button", { name: /copy page/i }),
+  ).toBeTruthy();
+  expect(screen.getByRole("separator")).toBeTruthy();
+  expect(screen.getByRole("link", { name: /open in github/i })).toBeTruthy();
+  expect(screen.queryByRole("link", { name: /view as markdown/i })).toBeNull();
+});
+
+it("renders the onboarding button when a framework is passed", () => {
+  renderRow({ slug: "mastra", name: "Mastra" });
+
+  const button = screen.getByRole("button", { name: /copy prompt/i });
+  expect(button.textContent).toContain("Copy Prompt");
+  expect(screen.queryByRole("button", { name: /^Open in / })).toBeNull();
+});
+
+it("names the page the markdown button fetches, without its .mdx suffix", async () => {
+  // The row computes the URL once and hands it to both buttons, so the page
+  // the prompt names and the text "Copy Markdown" fetches cannot drift apart.
+  // The prompt names the human page, not the `.mdx` text (PE-309).
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
+
+  renderRow({ slug: "mastra", name: "Mastra" });
+  fireEvent.click(screen.getByRole("button", { name: /copy prompt/i }));
+
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+
+  expect(writeText.mock.calls[0][0]).toContain(
+    "https://docs.copilotkit.ai/mastra/generative-ui.",
+  );
+});
+
+describe("docsMarkdownUrl", () => {
+  it("appends .mdx to the page's own URL", () => {
+    expect(docsMarkdownUrl("/mastra", "generative-ui/tool-rendering")).toBe(
+      "/mastra/generative-ui/tool-rendering.mdx",
+    );
+  });
+
+  it("collapses the empty slug of a framework root", () => {
+    // `slugPath` is "" at `/<framework>`, which would otherwise produce a
+    // trailing-slash URL the `.mdx` rewrite does not match.
+    expect(docsMarkdownUrl("/mastra", "")).toBe("/mastra.mdx");
+  });
+
+  it("keeps a root-surface page at the origin", () => {
+    expect(docsMarkdownUrl("", "quickstart")).toBe("/quickstart.mdx");
+  });
+});
+
+it("names the quickstart page as the source and claims no stack", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
+  render(
+    <DocsPageTools
+      slugPath="quickstart"
+      slugHrefPrefix="/angular/mastra"
+      githubUrl={GITHUB_URL}
+      onboardingFramework={{ slug: "mastra", name: "Mastra" }}
+      onboardingFrontend={{ id: "angular", name: "Angular" }}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /copy prompt/i }));
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+  const prompt = writeText.mock.calls[0][0];
+  // The page is the topic and the source, not a claim about the reader's
+  // stack (PE-309).
+  expect(prompt).toContain(
+    " The page covers the Mastra agent framework with Angular. I started from this CopilotKit docs page: https://docs.copilotkit.ai/angular/mastra/quickstart.",
+  );
+  expect(prompt).not.toMatch(/\bI use\b|My goal|\.mdx/);
+});
+
+// Every prompt row carries the hero's line under it, and the rows without a
+// prompt leave it out (PE-340).
+it("shows the destination line under the row only when it offers the prompt", () => {
+  renderRow();
+  expect(screen.getByText(PROMPT_DESTINATION_HINT)).toBeTruthy();
+  cleanup();
+
+  render(
+    <DocsPageTools
+      slugPath="generative-ui"
+      slugHrefPrefix="/mastra"
+      githubUrl={GITHUB_URL}
+      hideOnboardingPrompt
+    />,
+  );
+  expect(screen.queryByText(PROMPT_DESTINATION_HINT)).toBeNull();
+});
+
+// A page with its own `agentPrompt` hands the agent that task instead of the
+// generic onboarding prompt, and still names the page it came from.
+it("copies the page's own prompt when the page supplies one", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
+  render(
+    <DocsPageTools
+      slugPath="manufact"
+      slugHrefPrefix="/cookbook"
+      githubUrl={GITHUB_URL}
+      onboardingFramework={{ slug: "built-in-agent", name: "Built-in" }}
+      pagePrompt="Add an mcp-use MCP App to my CopilotKit app."
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /copy prompt/i }));
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+  expect(writeText.mock.calls[0][0]).toBe(
+    "Add an mcp-use MCP App to my CopilotKit app. I started from this CopilotKit docs page: https://docs.copilotkit.ai/cookbook/manufact.",
+  );
+  expect(analytics.capture).toHaveBeenCalledWith(
+    "docs.page_prompt_copied",
+    expect.objectContaining({ surface: "docs_page_tools_page_prompt" }),
+  );
+  expect(screen.getByText(PROMPT_DESTINATION_HINT)).toBeTruthy();
+});

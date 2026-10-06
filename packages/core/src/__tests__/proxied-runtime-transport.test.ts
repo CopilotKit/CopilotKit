@@ -174,6 +174,116 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
         const headers = new Headers(init.headers as HeadersInit);
         expect(headers.get("content-type")).toBe("application/json");
       });
+
+      describe("stop scope", () => {
+        const agentId = "stop-scope-agent";
+        const stopBody = (call: number): unknown => {
+          const init = fetchMock.mock.calls[call]![1] as RequestInit;
+          const body =
+            init.body === undefined
+              ? undefined
+              : JSON.parse(init.body as string);
+          return transport === "rest" ? body : body.body;
+        };
+        const stopThread = (call: number): string => {
+          const [url, init] = fetchMock.mock.calls[call]! as [
+            string,
+            RequestInit,
+          ];
+          return transport === "rest"
+            ? url.slice(url.lastIndexOf("/") + 1)
+            : JSON.parse(init.body as string).params.threadId;
+        };
+
+        /** Start a run whose SSE stream stays open until `finish` is called. */
+        async function startPendingRun(
+          agent: ProxiedCopilotRuntimeAgent,
+          runId: string,
+        ) {
+          const { response, finish } = createPendingSseResponse(runId);
+          const runCall = fetchMock.mock.calls.length + 1;
+          fetchMock.mockResolvedValueOnce(response);
+          const run = agent.runAgent({ runId });
+          await vi.waitFor(() =>
+            expect(fetchMock).toHaveBeenCalledTimes(runCall),
+          );
+          fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+          return { run, finish };
+        }
+
+        it("scopes stop to the running run and widens once it finishes", async () => {
+          const agent = new ProxiedCopilotRuntimeAgent({
+            runtimeUrl,
+            agentId,
+            transport,
+          });
+          agent.threadId = "thread-123";
+          const { run, finish } = await startPendingRun(agent, "run-1");
+
+          agent.abortRun();
+          expect(stopBody(1)).toEqual({ runId: "run-1" });
+
+          finish();
+          await run;
+          agent.abortRun();
+          expect(stopBody(2)).toBeUndefined();
+        });
+
+        it("widens stop when the host switched threadId under the run", async () => {
+          const agent = new ProxiedCopilotRuntimeAgent({
+            runtimeUrl,
+            agentId,
+            transport,
+          });
+          agent.threadId = "thread-123";
+          const { run, finish } = await startPendingRun(agent, "run-1");
+
+          agent.threadId = "thread-456";
+          agent.abortRun();
+          expect(stopThread(1)).toBe("thread-456");
+          expect(stopBody(1)).toBeUndefined();
+
+          finish();
+          await run;
+        });
+
+        it("widens stop after connect even while the run is still open", async () => {
+          const agent = new ProxiedCopilotRuntimeAgent({
+            runtimeUrl,
+            agentId,
+            transport,
+          });
+          agent.threadId = "thread-123";
+          const { run, finish } = await startPendingRun(agent, "run-1");
+
+          fetchMock.mockResolvedValueOnce(createSseResponse());
+          await agent.connectAgent({});
+          agent.abortRun();
+          expect(stopBody(2)).toBeUndefined();
+
+          finish();
+          await run;
+        });
+
+        it("keeps the newer run when an older stream finalizes late", async () => {
+          const agent = new ProxiedCopilotRuntimeAgent({
+            runtimeUrl,
+            agentId,
+            transport,
+          });
+          agent.threadId = "thread-123";
+          const first = await startPendingRun(agent, "run-1");
+          const second = await startPendingRun(agent, "run-2");
+
+          first.finish();
+          await first.run;
+          agent.abortRun();
+          expect(stopBody(2)).toEqual({ runId: "run-2" });
+
+          second.finish();
+          await second.run;
+        });
+      });
     });
   });
 
@@ -453,6 +563,39 @@ function createSseResponse(
     status: 200,
     headers: { "content-type": "text/event-stream" },
   });
+}
+
+/** An SSE response that emits RUN_STARTED and stays open until `finish` ends the run. */
+function createPendingSseResponse(runId: string): {
+  response: Response;
+  finish: () => void;
+} {
+  const frame = (event: object) =>
+    encoder.encode(`data: ${JSON.stringify(event)}\n\n`);
+  let controller!: ReadableStreamDefaultController<Uint8Array>;
+  const stream = new ReadableStream<Uint8Array>({
+    start(c) {
+      controller = c;
+      c.enqueue(frame({ type: "RUN_STARTED", threadId: "thread-123", runId }));
+    },
+  });
+  return {
+    response: new Response(stream, {
+      status: 200,
+      headers: { "content-type": "text/event-stream" },
+    }),
+    finish: () => {
+      controller.enqueue(
+        frame({
+          type: "RUN_FINISHED",
+          threadId: "thread-123",
+          runId,
+          result: { newMessages: [] },
+        }),
+      );
+      controller.close();
+    },
+  };
 }
 
 describe("Auto-detect transport from runtime info response", () => {
@@ -1077,5 +1220,85 @@ describe("AgentRegistry runtime info requests", () => {
       expect(remoteAgent).toBeDefined();
       expect(remoteAgent?.agentId).toBe("remote");
     });
+  });
+});
+
+describe("ProxiedCopilotRuntimeAgent runtimeUrl with a trailing slash", () => {
+  const originalFetch = global.fetch;
+  const runtimeUrl = "https://runtime.example/service/copilotkit/";
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    global.fetch = fetchMock;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    global.fetch = originalFetch;
+  });
+
+  it("keeps the caller's URL verbatim as the single-route endpoint", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "agent",
+      transport: "single",
+    });
+    fetchMock.mockResolvedValueOnce(createSseResponse());
+
+    await agent.runAgent({});
+
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(runtimeUrl);
+  });
+
+  it("joins REST paths without a double slash", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "agent",
+      transport: "rest",
+    });
+    fetchMock.mockResolvedValueOnce(createSseResponse());
+
+    await agent.runAgent({});
+
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(
+      "https://runtime.example/service/copilotkit/agent/agent/run",
+    );
+  });
+
+  it("keeps the verbatim endpoint when auto detection falls back to single-route", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "agent",
+      transport: "auto",
+    });
+    // REST /info is not there; the single-route info envelope answers.
+    fetchMock.mockResolvedValueOnce(new Response("", { status: 404 }));
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ version: "1.0.0", agents: {} }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(createSseResponse());
+
+    await agent.runAgent({});
+
+    const urls = fetchMock.mock.calls.map(([url]) => url);
+    expect(urls[0]).toBe("https://runtime.example/service/copilotkit/info");
+    expect(urls[1]).toBe(runtimeUrl);
+    expect(urls[2]).toBe(runtimeUrl);
+  });
+
+  it("clones with the verbatim endpoint", () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "agent",
+      transport: "single",
+    });
+
+    expect(agent.clone().url).toBe(runtimeUrl);
   });
 });

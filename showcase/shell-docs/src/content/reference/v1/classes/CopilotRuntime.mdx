@@ -22,13 +22,58 @@ import { CopilotRuntime } from "@copilotkit/runtime";
 const copilotKit = new CopilotRuntime();
 ```
 
-## constructor(params?: CopilotRuntimeConstructorParams&lt;T&gt; &
-      PartialBy&lt;CopilotRuntimeOptions, "agents"&gt;)
+## Constructor Parameters
 
+<PropertyReference name="agents" type="AgentsConfig"  > 
+TODO: un-omit `transcriptionService` above once it's supported
+ 
+  This satisfies...
+   – the optional constraint in `CopilotRuntimeConstructorParams_BASE`
+   – the `MaybePromise<NonEmptyRecord<T>>` constraint in `CopilotRuntimeOptionsVNext`
+   – the `Record<string, AbstractAgent>` constraint in `both
+</PropertyReference>
 
+<PropertyReference name="intelligence" type="CopilotIntelligenceRuntimeOptions['intelligence']"  > 
 
-<PropertyReference name="params" type="CopilotRuntimeConstructorParams<T> &
-      PartialBy<CopilotRuntimeOptions, 'agents'>" >
+</PropertyReference>
+
+<PropertyReference name="identifyUser" type="CopilotIntelligenceRuntimeOptions['identifyUser']"  > 
+
+</PropertyReference>
+
+<PropertyReference name="memory" type="CopilotIntelligenceRuntimeOptions['memory']"  > 
+
+</PropertyReference>
+
+<PropertyReference name="channels" type="CopilotIntelligenceRuntimeOptions['channels']"  > 
+
+</PropertyReference>
+
+<PropertyReference name="ɵlearning" type="CopilotIntelligenceRuntimeOptions['ɵlearning']"  > 
+
+</PropertyReference>
+
+<PropertyReference name="generateThreadNames" type="CopilotIntelligenceRuntimeOptions['generateThreadNames']"  > 
+
+</PropertyReference>
+
+<PropertyReference name="maxReconnectMs" type="CopilotIntelligenceRuntimeOptions['maxReconnectMs']"  > 
+
+</PropertyReference>
+
+<PropertyReference name="maxRejoinMs" type="CopilotIntelligenceRuntimeOptions['maxRejoinMs']"  > 
+
+</PropertyReference>
+
+<PropertyReference name="lockTtlSeconds" type="CopilotIntelligenceRuntimeOptions['lockTtlSeconds']"  > 
+
+</PropertyReference>
+
+<PropertyReference name="lockKeyPrefix" type="CopilotIntelligenceRuntimeOptions['lockKeyPrefix']"  > 
+
+</PropertyReference>
+
+<PropertyReference name="lockHeartbeatIntervalSeconds" type="CopilotIntelligenceRuntimeOptions['lockHeartbeatIntervalSeconds']"  > 
 
 </PropertyReference>
 

@@ -52,9 +52,11 @@ def build_open_gen_ui_agent():
         raise RuntimeError(
             "OPENAI_API_KEY must be set for the open-gen-ui Strands agent"
         )
+    from .agent import model_id
+
     model = OpenAIModel(
         client_args={"api_key": api_key},
-        model_id="gpt-4o",
+        model_id=model_id(),
     )
     return Agent(
         model=model,

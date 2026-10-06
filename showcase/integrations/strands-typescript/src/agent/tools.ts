@@ -13,10 +13,13 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { AIMOCK_CONTEXT } from "./model-factory";
 import { forwardingFetch } from "./header-forwarding.js";
-import { SUBAGENT_FAILURE_MARKER } from "./state";
+import {
+  SALES_TODOS_STATE_KEY,
+  SUBAGENT_FAILURE_MARKER,
+  salesTodosForCall,
+} from "./state";
 import {
   getWeatherImpl,
-  manageSalesTodosImpl,
   queryDataImpl,
   rollDiceImpl,
   scheduleMeetingImpl,
@@ -24,6 +27,7 @@ import {
 } from "./lib/tool-impls";
 import type { Flight } from "./lib/tool-impls";
 
+// @region[weather-tool-backend]
 export const getWeather = tool({
   name: "get_weather",
   description: "Get current weather for a location.",
@@ -32,6 +36,7 @@ export const getWeather = tool({
   }),
   callback: ({ location }) => JSON.stringify(getWeatherImpl(location)),
 });
+// @endregion[weather-tool-backend]
 
 export const queryData = tool({
   name: "query_data",
@@ -52,8 +57,15 @@ export const manageSalesTodos = tool({
       .array(z.record(z.string(), z.unknown()))
       .describe("The complete updated list of sales todos."),
   }),
-  callback: ({ todos }) => {
-    const result = manageSalesTodosImpl(todos as never[]);
+  // The list is application state, so the tool keeps it in the agent's
+  // `appState`, which a configured SessionManager persists with the thread.
+  // The STATE_SNAPSHOT the adapter emits from the args only carries it to the UI.
+  callback: ({ todos }, context) => {
+    const result = salesTodosForCall(
+      todos as never[],
+      context?.toolUse.toolUseId,
+    );
+    context?.agent.appState.set(SALES_TODOS_STATE_KEY, result);
     return `Sales todos updated. Tracking ${result.length} item(s).`;
   },
 });

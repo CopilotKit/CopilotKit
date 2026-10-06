@@ -189,6 +189,42 @@ function useIsRecentToolActivity(toolCallId: string, track: boolean): boolean {
  * while the call is in flight the label shimmers, then settles to a static line
  * with a check.
  */
+/**
+ * True when EVERY tool call of an assistant message currently renders nothing:
+ * each is either an internal tool or a generic activity line that has aged out
+ * of the `VISIBLE_TOOL_ACTIVITY` window.
+ *
+ * Why the message filter needs this: an agent that emits one assistant message
+ * PER STEP (ag-ui-adk does — each model response is its own message, which is
+ * correct message semantics) leaves a message whose only content is one
+ * activity line. When that line ages out, the message is still drawn — an empty
+ * bubble with its copy / tools toolbar — so a long run left a column of bare
+ * toolbars. Agents that put a whole turn's tool calls in one message never
+ * showed it, because their message still had visible lines.
+ *
+ * A tool call with its OWN renderer (a `useComponent` card, a HITL card) never
+ * registers here, so it counts as visible and its message is never hidden.
+ */
+export function useToolCallsAllAgedOut(
+  toolCalls: ReadonlyArray<{ id?: string; function?: { name?: string } }>,
+): boolean {
+  const key = toolCalls
+    .map((tc) => `${tc.id ?? ""}:${tc.function?.name ?? ""}`)
+    .join("|");
+  return useSyncExternalStore(
+    subscribeActivity,
+    () =>
+      key.length > 0 &&
+      toolCalls.every((tc) => {
+        const name = tc.function?.name ?? "";
+        if (isInternalTool(name)) return true;
+        const id = tc.id ?? "";
+        return activityOrder.includes(id) && !isRecentActivity(id);
+      }),
+    () => false,
+  );
+}
+
 function ToolCallChip({
   toolCallId,
   name,

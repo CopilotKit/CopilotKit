@@ -1,25 +1,28 @@
+import type { TemplateRef, Type } from "@angular/core";
 import {
   Component,
   input,
   output,
   ContentChild,
-  TemplateRef,
-  Type,
   ChangeDetectionStrategy,
   ViewEncapsulation,
+  afterRenderEffect,
   computed,
-  inject,
 } from "@angular/core";
-import { NgComponentOutlet, NgTemplateOutlet } from "@angular/common";
+import { NgTemplateOutlet } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
-import type { ActivityMessage, Message, ReasoningMessage } from "@ag-ui/core";
+import type { Message, ReasoningMessage } from "@ag-ui/core";
 import { CopilotChatAssistantMessage } from "./copilot-chat-assistant-message";
 import { CopilotChatUserMessage } from "./copilot-chat-user-message";
 import { CopilotChatMessageViewCursor } from "./copilot-chat-message-view-cursor";
 import { CopilotChatReasoningMessage } from "./copilot-chat-reasoning-message";
+import { CopilotActivity } from "../activity/copilot-activity";
 import { cn } from "../../utils";
-import { CopilotKit } from "../../copilotkit";
-import type { RenderActivityMessageConfig } from "../../activity-renderer";
+import {
+  commitRowKeyStore,
+  createRowKeyStore,
+  resolveRowRenderKeys,
+} from "@copilotkit/shared";
 
 /**
  * CopilotChatMessageView component - Angular port of the React component.
@@ -31,12 +34,12 @@ import type { RenderActivityMessageConfig } from "../../activity-renderer";
   host: { "data-copilotkit": "" },
   imports: [
     NgTemplateOutlet,
-    NgComponentOutlet,
     CopilotSlot,
     CopilotChatAssistantMessage,
     CopilotChatUserMessage,
     CopilotChatReasoningMessage,
     CopilotChatMessageViewCursor,
+    CopilotActivity,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
@@ -51,7 +54,7 @@ import type { RenderActivityMessageConfig } from "../../activity-renderer";
       <!-- Default layout - exact React DOM structure: div with "flex flex-col" classes -->
       <div [class]="computedClass()">
         <!-- Message iteration - simplified without tool calls -->
-        @for (message of messagesValue(); track trackByMessageId($index, message)) {
+        @for (message of messagesValue(); track rowRenderKey($index, message)) {
           @if (message && message.role === "assistant") {
             <!-- Assistant message with slot support -->
             @if (assistantMessageComponent() || assistantMessageTemplate()) {
@@ -107,13 +110,7 @@ import type { RenderActivityMessageConfig } from "../../activity-renderer";
               />
             }
           } @else if (message && message.role === "activity") {
-            @let activityRender = resolveActivityRender(message);
-            @if (activityRender) {
-              <ng-container
-                [ngComponentOutlet]="activityRender.component"
-                [ngComponentOutletInputs]="activityRender.inputs"
-              />
-            }
+            <copilot-activity [message]="message" [agentId]="agentId()" />
           }
         }
 
@@ -195,10 +192,25 @@ export class CopilotChatMessageView {
   protected readonly defaultUserComponent = CopilotChatUserMessage;
   protected readonly defaultReasoningComponent = CopilotChatReasoningMessage;
   protected readonly defaultCursorComponent = CopilotChatMessageViewCursor;
-  protected readonly copilotKit = inject(CopilotKit);
 
   // Derived values from inputs
   protected messagesValue = computed(() => this.messages());
+
+  /**
+   * Override table backing `rowRenderKey`. Per component instance, so its
+   * lifetime matches the rendered list.
+   */
+  private readonly rowKeyStore = createRowKeyStore();
+  protected rowRenderKeys = computed(() =>
+    resolveRowRenderKeys(this.rowKeyStore, this.messagesValue()),
+  );
+
+  // Record what actually rendered, never what the computed merely evaluated:
+  // an anchor from an evaluation that never reaches the DOM would re-key a
+  // rendered row and recreate it.
+  private readonly rowKeyStoreCommit = afterRenderEffect(() => {
+    commitRowKeyStore(this.rowKeyStore, this.messagesValue());
+  });
   protected showCursorValue = computed(
     () => this.showCursor() && this.lastMessage()?.role !== "reasoning",
   );
@@ -279,51 +291,13 @@ export class CopilotChatMessageView {
     return message as ReasoningMessage;
   }
 
-  // TrackBy function for performance optimization
-  trackByMessageId(index: number, message: Message): string {
-    return message?.id || `index-${index}`;
-  }
-
-  private pickActivityRenderer(
-    message: ActivityMessage,
-  ): RenderActivityMessageConfig | undefined {
-    const agentId = this.agentId();
-    const renderers = this.copilotKit.activityMessageRenderConfigs();
-    const matches = renderers.filter(
-      (renderer) => renderer.activityType === message.activityType,
-    );
-
-    return (
-      matches.find((candidate) => candidate.agentId === agentId) ??
-      matches.find((candidate) => candidate.agentId === undefined) ??
-      renderers.find((candidate) => candidate.activityType === "*")
-    );
-  }
-
-  protected resolveActivityRender(message: ActivityMessage) {
-    const renderer = this.pickActivityRenderer(message);
-    if (!renderer) return undefined;
-
-    const parseResult = renderer.content.safeParse(message.content);
-    if (parseResult.success === false) {
-      console.warn(
-        `Failed to parse content for activity message '${message.activityType}':`,
-        parseResult.error,
-      );
-      return undefined;
-    }
-
-    const agentId = this.agentId();
-    const agent = agentId ? this.copilotKit.getAgent(agentId) : undefined;
-    return {
-      component: renderer.component,
-      inputs: {
-        activityType: message.activityType,
-        content: parseResult.data,
-        message,
-        agent,
-      },
-    };
+  /**
+   * Stable `@for` track key. A message's canonical id can change mid-stream, and
+   * tracking by it destroys and recreates the row on that swap (the HITL chat
+   * flash). See ./row-render-keys for the mechanism and its limits.
+   */
+  rowRenderKey(index: number, message: Message): string {
+    return this.rowRenderKeys()[index] ?? message?.id ?? `index-${index}`;
   }
 
   // Event handlers - just pass them through

@@ -562,6 +562,40 @@ describe("CopilotChatInput", () => {
     expect(screen.queryByTestId("copilot-chat-input-send")).toBeNull();
   });
 
+  it("shows finish control when only onFinishTranscribeWithAudio is provided", () => {
+    renderWithProvider({
+      props: {
+        mode: "transcribe",
+      },
+      listeners: {
+        onCancelTranscribe: () => {},
+        onFinishTranscribeWithAudio: () => {},
+      },
+    });
+
+    expect(
+      screen.getByTestId("copilot-chat-input-finish-transcribe"),
+    ).toBeDefined();
+  });
+
+  it("hides finish control when neither finish handler is provided", () => {
+    renderWithProvider({
+      props: {
+        mode: "transcribe",
+      },
+      listeners: {
+        onCancelTranscribe: () => {},
+      },
+    });
+
+    expect(
+      screen.queryByTestId("copilot-chat-input-finish-transcribe"),
+    ).toBeNull();
+    expect(
+      screen.getByTestId("copilot-chat-input-cancel-transcribe"),
+    ).toBeDefined();
+  });
+
   it("disables add menu button in transcribe mode", () => {
     renderWithProvider({
       props: {

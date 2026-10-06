@@ -33,7 +33,7 @@ jobs:
       - name: Setup pnpm
         # Omit `version:` so pnpm/action-setup inherits from the repo's
         # `packageManager` field in package.json (via corepack).
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
       - name: Use Node.js 20
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -49,9 +49,9 @@ jobs:
       - name: Build packages
         run: >
           npx nx run-many -t build
-          --projects=@copilotkit/core,@copilotkit/shared,@copilotkit/react-core,@copilotkit/react-ui,@copilotkit/react-textarea,@copilotkit/runtime-client-gql,@copilotkit/web-inspector,@copilotkit/voice,@copilotkit/a2ui-renderer
+          --projects=@copilotkit/core,@copilotkit/shared,@copilotkit/react-core,@copilotkit/react-ui,@copilotkit/react-textarea,@copilotkit/runtime-client-gql,@copilotkit/web-inspector,@copilotkit/voice,@copilotkit/a2ui-renderer,@copilotkit/mcp-apps-renderer
 
       - name: Run compat-check
         run: >
           npx nx run-many -t compat-check
-          --projects=@copilotkit/core,@copilotkit/shared,@copilotkit/react-core,@copilotkit/react-ui,@copilotkit/react-textarea,@copilotkit/runtime-client-gql,@copilotkit/web-inspector,@copilotkit/voice,@copilotkit/a2ui-renderer
+          --projects=@copilotkit/core,@copilotkit/shared,@copilotkit/react-core,@copilotkit/react-ui,@copilotkit/react-textarea,@copilotkit/runtime-client-gql,@copilotkit/web-inspector,@copilotkit/voice,@copilotkit/a2ui-renderer,@copilotkit/mcp-apps-renderer

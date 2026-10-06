@@ -23,7 +23,7 @@ import sys
 # patch below — it does not pull ``strands`` into ``sys.modules``.
 import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import — bootstrap side effects)
 
-# HACK: strands-agents (observed on 1.35.0, requirements.txt floors at 1.15.0)
+# HACK: strands-agents (still true on the pinned 1.54.0)
 # unconditionally calls ``ThreadingInstrumentor().instrument()`` when its
 # Tracer is constructed (strands/telemetry/tracer.py). In combination with
 # strands' async model client dispatching work onto ThreadPoolExecutor, this
@@ -38,7 +38,9 @@ import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import —
 # Neutralize the instrument() call before strands imports the module.
 # Remove this block once ``strands-agents >= X.Y.Z`` is pinned in
 # requirements.txt, where X.Y.Z is the version that makes OTel
-# instrumentation opt-in (not yet released as of strands-agents 1.35.0).
+# instrumentation opt-in. Verified against the wheel: 1.54.0 still calls
+# ``ThreadingInstrumentor().instrument()`` unconditionally in
+# ``strands/telemetry/tracer.py``.
 from opentelemetry.instrumentation.threading import (  # noqa: E402  (must precede ag_ui_strands / strands imports)
     ThreadingInstrumentor as _ThreadingInstrumentor,
 )
@@ -133,6 +135,9 @@ from agents.voice_agent import build_voice_agent  # noqa: E402  (must follow ins
 from agents.a2ui_fixed import build_a2ui_fixed_schema_agent  # noqa: E402  (must follow instrumentor patch)
 from agents.a2ui_dynamic import build_a2ui_dynamic_agent  # noqa: E402  (must follow instrumentor patch)
 from agents.recovery_agent import build_a2ui_recovery_agent  # noqa: E402  (must follow instrumentor patch)
+from agents.interrupt_agent import build_interrupt_agent  # noqa: E402  (must follow instrumentor patch)
+from agents.reasoning_agent import build_reasoning_agent  # noqa: E402  (must follow instrumentor patch)
+from agents.reasoning_chain_agent import build_reasoning_chain_agent  # noqa: E402  (must follow instrumentor patch)
 
 load_dotenv()
 
@@ -185,6 +190,25 @@ a2ui_dynamic_app = create_strands_app(a2ui_dynamic_agui_agent, "/")
 a2ui_recovery_agui_agent = build_a2ui_recovery_agent()
 a2ui_recovery_app = create_strands_app(a2ui_recovery_agui_agent, "/")
 
+# Interrupt agent: owns a `schedule_meeting` backend tool that pauses itself via
+# Strands' native `tool_context.interrupt(...)`. Mounted separately because the
+# hitl-in-chat demo registers a FRONTEND tool of the same name on the shared
+# agent, and one tool name cannot be both client-executed and backend-pausing.
+interrupt_agui_agent = build_interrupt_agent()
+interrupt_app = create_strands_app(interrupt_agui_agent, "/")
+
+# Reasoning agent: tool-free, on the OpenAI Responses API with reasoning
+# summaries enabled, so the bridge emits REASONING_MESSAGE_* events. The shared
+# agent runs chat completions (for incremental tool-argument streaming), which
+# emits no reasoning items at all.
+reasoning_agui_agent = build_reasoning_agent()
+reasoning_app = create_strands_app(reasoning_agui_agent, "/")
+
+# Reasoning-chain agent: same reasoning model plus the four chained mock tools
+# the tool-rendering-reasoning-chain demo paints per-tool renderers for.
+reasoning_chain_agui_agent = build_reasoning_chain_agent()
+reasoning_chain_app = create_strands_app(reasoning_chain_agui_agent, "/")
+
 # Create the FastAPI app from the AG-UI Strands integration
 agent_path = os.getenv("AGENT_PATH", "/")
 app = create_strands_app(agui_agent, agent_path)
@@ -209,6 +233,13 @@ app.mount("/declarative-gen-ui", a2ui_dynamic_app)
 # A2UI error-recovery: the Next.js route proxies to AGENT_URL/a2ui-recovery/
 # (trailing slash) so the sub-application's root route resolves.
 app.mount("/a2ui-recovery", a2ui_recovery_app)
+# Interrupts: the Next.js runtime points the gen-ui-interrupt and
+# interrupt-headless agent names at AGENT_URL/interrupt/.
+app.mount("/interrupt", interrupt_app)
+# Reasoning: reasoning-default and reasoning-custom share AGENT_URL/reasoning/;
+# the chain demo gets its own tool-carrying agent at AGENT_URL/reasoning-chain/.
+app.mount("/reasoning", reasoning_app)
+app.mount("/reasoning-chain", reasoning_chain_app)
 
 
 # Serve /health via middleware so it short-circuits BEFORE route resolution.

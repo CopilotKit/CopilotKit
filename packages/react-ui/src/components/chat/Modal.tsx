@@ -183,6 +183,7 @@ const CopilotModalInner = ({
   );
 };
 
+/** Renders chat in a modal and forwards display preferences to its message context. */
 export const CopilotModal = ({
   instructions,
   defaultOpen = false,

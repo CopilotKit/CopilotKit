@@ -10,6 +10,7 @@ import {
   useCopilotChatConfiguration,
 } from "../../providers/CopilotChatConfigurationProvider";
 import {
+  createAttachmentContent,
   DEFAULT_AGENT_ID,
   randomUUID,
   TranscriptionErrorCode,
@@ -21,6 +22,7 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
   isRunCompletionAware,
   ɵcreateThreadStore,
+  ɵisHttpAgent,
 } from "@copilotkit/core";
 import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
 import React, {
@@ -30,10 +32,13 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useCopilotKit, useLicenseContext } from "../../context";
+import {
+  useCopilotKit,
+  useDefaultAgentId,
+  useLicenseContext,
+} from "../../context";
 import { InlineFeatureWarning } from "../../components/license-warning-banner";
 import type { AbstractAgent } from "@ag-ui/client";
-import { HttpAgent } from "@ag-ui/client";
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot, useShallowStableRef } from "../../lib/slots";
 import {
@@ -43,6 +48,10 @@ import {
 import { LastUserMessageContext } from "./last-user-message-context";
 import type { LastUserMessageState } from "./last-user-message-context";
 import { useInspectorThreadOverride } from "../../providers/use-inspector-thread-override";
+import {
+  CopilotKitInspectorContextProvider,
+  useCopilotKitInspector,
+} from "../CopilotKitInspectorContext";
 
 export type CopilotChatProps = Omit<
   CopilotChatViewProps,
@@ -63,7 +72,14 @@ export type CopilotChatProps = Omit<
   agentId?: string;
   threadId?: string;
   labels?: Partial<CopilotChatLabels>;
-  chatView?: SlotValue<typeof CopilotChatView>;
+  /**
+   * Enable Inspector message shortcuts for this chat (enabled by default).
+   * An explicit CopilotKit provider enableInspector value takes priority.
+   * Shortcuts only appear in local development while Inspector is visible.
+   */
+  inspectorTools?: boolean;
+  /** Accepts a className, partial props, or any component with CopilotChatView props — static namespace members are not required. */
+  chatView?: SlotValue<React.ComponentType<CopilotChatViewProps>>;
   isModalDefaultOpen?: boolean;
   /** Enable multimodal file attachments (images, audio, video, documents). */
   attachments?: AttachmentsConfig;
@@ -94,6 +110,7 @@ export function CopilotChat({
   agentId,
   threadId,
   labels,
+  inspectorTools,
   chatView,
   isModalDefaultOpen,
   attachments: attachmentsConfig,
@@ -103,10 +120,21 @@ export function CopilotChat({
 }: CopilotChatProps) {
   // Check for existing configuration provider
   const existingConfig = useCopilotChatConfiguration();
+  const inspector = useCopilotKitInspector();
+  const inspectorContextValue = useMemo(
+    () => ({
+      ...inspector,
+      isInspectorEnabled:
+        inspector.isInspectorEnabled &&
+        (inspector.providerEnableInspector ?? inspectorTools ?? true),
+    }),
+    [inspector, inspectorTools],
+  );
 
   // Apply priority: props > existing config > defaults
+  const providerAgentId = useDefaultAgentId();
   const resolvedAgentId =
-    agentId ?? existingConfig?.agentId ?? DEFAULT_AGENT_ID;
+    agentId ?? existingConfig?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID;
   const providedThreadId = threadId ?? existingConfig?.threadId;
   const baseThreadId = useMemo(
     () => providedThreadId ?? randomUUID(),
@@ -294,7 +322,12 @@ export function CopilotChat({
   const previousThreadRef = useRef<{
     threadId: string;
     inspectorRequestId: string | null;
+    agent: AbstractAgent;
+    clearDiscardedBaseline?: () => void;
   } | null>(null);
+  const detachPromisesRef = useRef(new WeakMap<AbstractAgent, Promise<void>>());
+  // Agent clones can share cursors. Finish every old reset before connecting again.
+  const pendingTeardownRef = useRef(Promise.resolve());
 
   // Latest explicitness, readable from an async connect that may resolve after
   // the user has already switched threads (see the stale-connect guard below).
@@ -372,10 +405,16 @@ export function CopilotChat({
       previousThread.inspectorRequestId !== inspectorRequestId &&
       (previousThread.inspectorRequestId !== null ||
         inspectorRequestId !== null);
-    previousThreadRef.current = {
+    const selection: NonNullable<typeof previousThreadRef.current> = {
       threadId: resolvedThreadId,
       inspectorRequestId,
+      agent,
     };
+    previousThreadRef.current = selection;
+    const discardedThreadId =
+      previousThread?.agent === agent
+        ? previousThread.threadId
+        : agent.threadId;
 
     if (inspectorTransition) {
       if (typeof copilotkit.stopAgent === "function") {
@@ -401,10 +440,66 @@ export function CopilotChat({
       // to the welcome screen. Guard on an actual threadId change so re-renders
       // of the current thread (including its first run) never wipe an
       // in-progress conversation.
-      if (threadChanged && agent.messages.length > 0) {
-        agent.setMessages([]);
+      let active = true;
+      if (threadChanged && previousThread !== null) {
+        let resetPending = true;
+        const clearCursor = () => {
+          if (
+            "clearReplayCursor" in agent &&
+            typeof agent.clearReplayCursor === "function"
+          ) {
+            agent.clearReplayCursor(discardedThreadId);
+          }
+          if (
+            "clearReconnectCursor" in agent &&
+            typeof agent.clearReconnectCursor === "function"
+          ) {
+            agent.clearReconnectCursor(discardedThreadId);
+          }
+        };
+        const clearDiscardedBaseline = () => {
+          if (
+            !active ||
+            !resetPending ||
+            previousThreadRef.current !== selection
+          )
+            return;
+          agent.setMessages([]);
+          agent.setState({});
+          agent.pendingInterrupts = [];
+          clearCursor();
+        };
+        if (previousThread.agent === agent) {
+          previousThread.clearDiscardedBaseline = clearDiscardedBaseline;
+        }
+        const detach =
+          detachPromisesRef.current.get(agent) ?? agent.detachActiveRun();
+        detachPromisesRef.current.set(agent, detach);
+        const finishReset = () => {
+          if (!resetPending) return;
+          // The cursor belongs to the discarded view, even after a fast reopen.
+          clearCursor();
+          clearDiscardedBaseline();
+          resetPending = false;
+        };
+        clearDiscardedBaseline();
+        pendingTeardownRef.current = Promise.all([
+          pendingTeardownRef.current,
+          detach,
+        ])
+          .then(finishReset)
+          .catch((error) => {
+            console.error("CopilotChat: detachActiveRun failed", error);
+          })
+          .finally(() => {
+            if (detachPromisesRef.current.get(agent) === detach) {
+              detachPromisesRef.current.delete(agent);
+            }
+          });
       }
-      return;
+      return () => {
+        active = false;
+      };
     }
 
     let detached = false;
@@ -414,13 +509,14 @@ export function CopilotChat({
     // in its fetch config. Unlike runAgent(), connectAgent() does NOT create a new
     // AbortController automatically, so we must set one before connecting.
     const connectAbortController = new AbortController();
-    if (agent instanceof HttpAgent) {
-      agent.abortController = connectAbortController;
-    }
-
     const connect = async (agentToConnect: AbstractAgent) => {
       activeConnectCountRef.current += 1;
       try {
+        await pendingTeardownRef.current;
+        if (detached) return;
+        if (ɵisHttpAgent(agentToConnect)) {
+          agentToConnect.abortController = connectAbortController;
+        }
         await copilotkit.connectAgent({ agent: agentToConnect });
       } catch (error) {
         // Ignore errors from aborted connections (e.g., React StrictMode cleanup)
@@ -456,7 +552,7 @@ export function CopilotChat({
           // to apply is stale — clear it so the welcome screen shows instead of
           // the abandoned thread's messages. A switch to ANOTHER explicit thread
           // is left alone: that thread's own connect owns the message reset.
-          agentToConnect.setMessages([]);
+          selection.clearDiscardedBaseline?.();
         }
         activeConnectCountRef.current = Math.max(
           0,
@@ -482,7 +578,17 @@ export function CopilotChat({
       // AbortError" in browser devtools. detachActiveRun() itself does not reject,
       // but without an attached handler V8 flags the promise chain as unhandled
       // when the abort signal propagates through connected promises internally.
-      void agent.detachActiveRun().catch(() => {});
+      const detach = agent.detachActiveRun().catch(() => {});
+      detachPromisesRef.current.set(agent, detach);
+      pendingTeardownRef.current = Promise.all([
+        pendingTeardownRef.current,
+        detach,
+      ]).then(() => {});
+      void detach.then(() => {
+        if (detachPromisesRef.current.get(agent) === detach) {
+          detachPromisesRef.current.delete(agent);
+        }
+      });
     };
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -755,14 +861,7 @@ export function CopilotChat({
           contentParts.push({ type: "text", text: value });
         }
         for (const att of readyAttachments) {
-          contentParts.push({
-            type: att.type,
-            source: att.source,
-            metadata: {
-              ...(att.filename ? { filename: att.filename } : {}),
-              ...att.metadata,
-            },
-          } as InputContent);
+          contentParts.push(createAttachmentContent(att));
         }
         agent.addMessage({
           id: randomUUID(),
@@ -1196,7 +1295,9 @@ export function CopilotChat({
           </div>
         )}
         <LastUserMessageContext.Provider value={lastUserMessageState}>
-          {RenderedChatView}
+          <CopilotKitInspectorContextProvider value={inspectorContextValue}>
+            {RenderedChatView}
+          </CopilotKitInspectorContextProvider>
         </LastUserMessageContext.Provider>
       </div>
     </CopilotChatConfigurationProvider>

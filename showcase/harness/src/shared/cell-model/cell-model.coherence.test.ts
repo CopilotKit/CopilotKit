@@ -65,7 +65,12 @@
  */
 import { describe, it, expect } from "vitest";
 import { buildCellModel } from "./cell-model.js";
-import { combine } from "./cell-model.combine.js";
+import {
+  combine,
+  LIVENESS_AXIS,
+  STARTER_AXIS,
+  STARTER_CEILING,
+} from "./cell-model.combine.js";
 import type {
   RungContribution,
   RungKind,
@@ -77,17 +82,12 @@ import {
   RED_RANK,
 } from "./cell-model.contribution.js";
 import type { CellModel, CellModelInput } from "./cell-model.js";
-import type {
-  LiveStatusMap,
-  StarterLevel,
-  State,
-  StatusRow,
-} from "./live-status.js";
+import type { LiveStatusMap, State, StatusRow } from "./live-status.js";
 import {
   keyFor,
   mergeRowsToMap,
   CATALOG_TO_D5_KEY,
-  STARTER_LEVELS,
+  STARTER_ROW_LEVELS,
 } from "./live-status.js";
 import { E2E_STALE_AFTER_MS } from "./staleness.js";
 import { FIXTURES, NOW } from "./cell-model.equivalence-fixtures.js";
@@ -164,17 +164,23 @@ function assertCoherent(label: string, m: Coherable): void {
  * unrelated map contents.
  *
  * STARTER AXIS — DELIBERATELY UNSUPPORTED, and INV7 has NO starter coverage.
- * This function used to return the four `starter:<column>/<level>` keys, which
- * read as coverage the invariant does not have: a starter cell carries no depth
- * strip at all (`buildStarterCellModelV2` returns `NOT_WIRED_LEVEL` — `exists:
- * false`, `status: null` — for d3-d6), so `stripReadsRed` is false for EVERY
- * starter cell however red its rows are, and `assertChipStripCoherent`
- * short-circuits before it ever gets here. The branch was therefore
- * unreachable. It is a throw instead of a silent fallthrough so that IF the
- * starter axis ever grows a depth strip, INV7 fails loudly and demands the
- * keyspace back rather than quietly measuring the agent keyspace of a cell that
- * has none. `INV7 does not reach the starter axis` (below) pins the structural
- * reason and fails if it stops holding.
+ * This function used to return the `starter:<column>/<level>` keys, which read
+ * as coverage the invariant does not have.
+ *
+ * The starter axis now HAS a ladder — but it is not the strip INV7 measures.
+ * INV7 is chip-vs-D-STRIP coherence: `assertChipStripCoherent` short-circuits
+ * on `!stripReadsRed`, and `stripReadsRed` is computed over `d3..d6`. A starter
+ * cell has an S-STRIP (`ladderRungs`, `achievedDepth` 1..3, `ceilingDepth` 3)
+ * and no D-strip: `foldLadderCell`'s starter call site fixes `d3..d6` at
+ * `NOT_WIRED_LEVEL` and they are never read on the starter render path, so
+ * `stripReadsRed` is false for EVERY starter cell however red its rows are and
+ * INV7's precondition still cannot hold.
+ *
+ * So the throw STANDS. It is a throw instead of a silent fallthrough because a
+ * fallthrough would measure the AGENT keyspace for a cell that has none: if
+ * `d3..d6` ever become live on the starter axis, this fires and INV7 must be
+ * given real coverage. The S-strip's own coherence guarantee is the case
+ * `a starter chip may not be green over a non-green rung` below.
  */
 function contributingKeys(input: CellModelInput): string[] {
   if (input.probeAxis === "starter") {
@@ -397,7 +403,12 @@ describe("cell-model coherence — null-feature D1/D2 contiguity", () => {
   });
 
   it("absent D1 + green D2 → gray chip AND achieved 0 (contiguity broken at D1)", () => {
-    const r = combine([c("D1", "ABSENT"), c("D2", "GREEN_FRESH")], 2, NOW);
+    const r = combine(
+      [c("D1", "ABSENT"), c("D2", "GREEN_FRESH")],
+      2,
+      NOW,
+      LIVENESS_AXIS,
+    );
     // The flagged incoherence: a gray null-feature chip must NOT report the
     // ceiling as reached. D1 absent breaks the ladder at the base.
     expect(r.chipColor).toBe("gray");
@@ -409,7 +420,12 @@ describe("cell-model coherence — null-feature D1/D2 contiguity", () => {
   });
 
   it("green D1 + absent D2 → gray chip AND achieved 1 (< ceiling 2)", () => {
-    const r = combine([c("D1", "GREEN_FRESH"), c("D2", "ABSENT")], 2, NOW);
+    const r = combine(
+      [c("D1", "GREEN_FRESH"), c("D2", "ABSENT")],
+      2,
+      NOW,
+      LIVENESS_AXIS,
+    );
     expect(r.chipColor).toBe("gray");
     expect(r.achievedDepth).toBe(1);
     expect(r.achievedDepth).toBeLessThan(r.ceilingDepth);
@@ -417,7 +433,12 @@ describe("cell-model coherence — null-feature D1/D2 contiguity", () => {
   });
 
   it("green D1 + green D2 → green chip AND achieved 2 (== ceiling)", () => {
-    const r = combine([c("D1", "GREEN_FRESH"), c("D2", "GREEN_FRESH")], 2, NOW);
+    const r = combine(
+      [c("D1", "GREEN_FRESH"), c("D2", "GREEN_FRESH")],
+      2,
+      NOW,
+      LIVENESS_AXIS,
+    );
     expect(r.chipColor).toBe("green");
     expect(r.achievedDepth).toBe(2);
     assertCoherent("null-feature-all-green", r);
@@ -750,13 +771,15 @@ describe("cell-model coherence — INV7 soundness (scope + stale exemption)", ()
 // ── INV7's reach: the STARTER axis is STRUCTURALLY out of scope ─────────────
 //
 // b24: `contributingKeys` used to carry a `probeAxis === "starter"` branch,
-// which read as starter coverage INV7 does not have. A starter cell has no
-// depth strip at all (`buildStarterCellModelV2` returns `NOT_WIRED_LEVEL` for
-// d3-d6), so `stripReadsRed` is false for EVERY starter cell and INV7's
-// precondition can never hold — no matter how red the starter rows are. Rather
-// than imply coverage through unreachable code, the branch is now a loud throw
-// and this test pins the structural reason it is unreachable: if the starter
-// axis ever grows a depth strip, this test fails and the branch must come back.
+// which read as starter coverage INV7 does not have.
+//
+// The starter axis now has a ladder, but not the strip INV7 measures. INV7 is
+// chip-vs-D-STRIP coherence and `stripReadsRed` is computed over `d3..d6`;
+// `foldLadderCell`'s starter call site fixes those at `NOT_WIRED_LEVEL`, so
+// INV7's precondition still cannot hold for any starter cell and the throw
+// stands. What the axis grew is the S-STRIP (`ladderRungs`, `achievedDepth`,
+// `ceilingDepth`), a different structure — given its own coherence case below
+// so this file does not merely lose a claim.
 describe("cell-model coherence — INV7 does not reach the starter axis", () => {
   const COL = "acme";
   const FRESH_AT = new Date(NOW - 60_000).toISOString();
@@ -769,23 +792,32 @@ describe("cell-model coherence — INV7 does not reach the starter axis", () => 
     probeAxis: "starter",
   };
 
+  const starterRow = (
+    level: string,
+    state: State,
+    extra: Partial<StatusRow> = {},
+  ): StatusRow => ({
+    id: `id-starter-${level}`,
+    key: keyFor("starter", COL, level),
+    dimension: "starter",
+    state,
+    signal: state === "red" ? { errorClass: "assertion-failed" } : null,
+    observed_at: FRESH_AT,
+    transitioned_at: FRESH_AT,
+    fail_count: state === "red" ? 9 : 0,
+    first_failure_at: state === "red" ? FRESH_AT : null,
+    ...extra,
+  });
+
   it("a hard-red starter cell exposes NO depth strip, so INV7 never engages", () => {
     const live = mergeRowsToMap(
-      (STARTER_LEVELS as readonly StarterLevel[]).map((level) => ({
-        id: `id-starter-${level}`,
-        key: keyFor("starter", COL, level),
-        dimension: "starter",
-        state: "red" as State,
-        signal: { errorClass: "assertion-failed" },
-        observed_at: FRESH_AT,
-        transitioned_at: FRESH_AT,
-        fail_count: 9,
-        first_failure_at: FRESH_AT,
-      })),
+      STARTER_ROW_LEVELS.map((level) => starterRow(level, "red")),
     );
     const m = buildCellModel(live, starterInput, NOW);
     expect(m.chipColor).toBe("red");
-    // The structural reason INV7 is inapplicable: no pill can read red.
+    // The structural reason INV7 is inapplicable: no pill can read red. This
+    // loop is the EXECUTABLE pin on the starter cell's field disposition — the
+    // `d3..d6` slots are agent-axis `TestLevel`s and a starter has no D-rungs.
     for (const [name, lvl] of [
       ["d3", m.d3],
       ["d4", m.d4],
@@ -803,5 +835,63 @@ describe("cell-model coherence — INV7 does not reach the starter axis", () => 
 
   it("`contributingKeys` refuses a starter input rather than imply coverage", () => {
     expect(() => contributingKeys(starterInput)).toThrow(/starter axis/);
+  });
+
+  // ── The S-strip's own coherence guarantee, stated at the CEILING bound ──
+  //
+  // The analogue of INV7 for the strip the starter axis actually grew: a
+  // starter chip may not be GREEN while ANY rung at depth <= `ceilingDepth` is
+  // not `GREEN_FRESH` — including one that is absent, gated, or MISSING FROM
+  // `ladderRungs` ENTIRELY.
+  //
+  // Stated at the ceiling, not at `achievedDepth`. At `achievedDepth` it would
+  // be VACUOUS: `achieved` advances only on `GREEN_FRESH` and `STARTER_AXIS`
+  // has no gate rungs, so every rung at depth <= `achievedDepth` is green BY
+  // CONSTRUCTION and the asserted set is empty for every starter cell the engine
+  // can produce.
+  //
+  // MUTATION THAT REDS THIS CASE: truncate `STARTER_AXIS.ladderKinds` to
+  // `["S1"]`. `collectStarterLadder` iterates `ladderKinds`, so `ladderRungs`
+  // becomes `[S1]` and S2 — depth 2, <= ceiling 3 — is missing entirely while
+  // the chip folds GREEN at `D1`. Executed output under that mutation:
+  //   {"chipColor":"green","achievedDepth":1,"ceilingDepth":3}
+  // It also binds under the collector gap (omit S2's contribution: green at
+  // `D3` with S2 missing). It does NOT bind under the
+  // `slice(0, achieved + 1)` mutation, which renders amber rather than green —
+  // that one is owned by the A5 case in `starter-ladder.redgreen.test.ts`.
+  it("a starter chip may not be green over a non-green rung at or below the ceiling", () => {
+    // A1's shape: S1 green / S2 fresh-red / S3 green — the langgraph trio.
+    const live = mergeRowsToMap([
+      starterRow("shell", "green"),
+      starterRow("runtime", "red"),
+      starterRow("agentrun", "green"),
+    ]);
+    const m = buildCellModel(live, starterInput, NOW);
+
+    expect(m.chipColor).toBe("red");
+    expect(m.achievedDepth).toBe(1);
+    expect(m.ceilingDepth).toBe(STARTER_CEILING);
+
+    if (m.chipColor === "green") {
+      const rungs = m.ladderRungs ?? [];
+      const byDepth = new Map<number, (typeof rungs)[number]>();
+      for (const r of rungs) byDepth.set(r.depth, r);
+      for (let d = 1; d <= m.ceilingDepth; d++) {
+        const rung = byDepth.get(d);
+        expect(rung, `no rung at depth ${d} under a green chip`).toBeDefined();
+        expect(rung?.state, `rung at depth ${d} under a green chip`).toBe(
+          "green",
+        );
+      }
+    }
+  });
+
+  it("the S-strip is complete: one rung per declared axis kind, always", () => {
+    const live = mergeRowsToMap([starterRow("shell", "green")]);
+    const m = buildCellModel(live, starterInput, NOW);
+    expect(m.ladderRungs?.map((r) => r.kind)).toEqual([
+      ...STARTER_AXIS.ladderKinds,
+    ]);
+    expect(m.ladderRungs).toHaveLength(m.ceilingDepth);
   });
 });

@@ -28,6 +28,7 @@ function useComponent<TSchema extends z.ZodTypeAny | undefined = undefined>(
     // When omitted, render accepts any props.
     render: ComponentType<InferRenderProps<TSchema>>;
     agentId?: string;
+    followUp?: boolean;
   },
   deps?: ReadonlyArray<unknown>,
 ): void;
@@ -37,9 +38,10 @@ function useComponent<TSchema extends z.ZodTypeAny | undefined = undefined>(
 
 - `config.name`: tool name used by the agent to invoke this component tool.
 - `config.description`: optional extra description for model guidance.
-- `config.parameters`: optional Zod schema for typed/validated parameters. When provided, `render` props are inferred from the schema.
+- `config.parameters`: optional Zod schema for the tool's parameters. When provided, `render` props are inferred from the schema. When omitted, the tool is advertised with an empty parameter schema (`{ "type": "object", "properties": {} }`), so the agent invokes it with no arguments.
 - `config.render`: React component rendered with parsed tool parameters. Accepts any props when `parameters` is omitted.
 - `config.agentId`: optional agent scope for the registration.
+- `config.followUp`: whether the agent should continue after rendering the component. Defaults to `true`; set it to `false` to stop after the tool call.
 - `deps`: optional dependency array for refreshing registration.
 
 ## Behavior

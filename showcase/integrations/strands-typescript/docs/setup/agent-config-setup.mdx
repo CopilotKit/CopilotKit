@@ -1,0 +1,30 @@
+<Steps>
+  <Step>
+    ### Turn frontend context into model input
+
+    `useAgentContext` adds the typed configuration to the current AG-UI run.
+    The Strands adapter does not add arbitrary context to the model prompt, so
+    format the current run's context. This showcase composes the helper into
+    its shared `stateContextBuilder`:
+
+    <DemoCode
+      file="src/agent/state.ts"
+      region="agent-config-context-builder"
+      title="src/agent/state.ts"
+    />
+
+  </Step>
+  <Step>
+    ### Register the context builder
+
+    Add the builder to your `StrandsAgentConfig`. It runs again for every
+    request, so a changed frontend configuration applies to the next turn.
+
+    <DemoCode
+      file="src/agent/agent.ts"
+      region="agent-config-context-registration"
+      title="src/agent/agent.ts"
+    />
+
+  </Step>
+</Steps>

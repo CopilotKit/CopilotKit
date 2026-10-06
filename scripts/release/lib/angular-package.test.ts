@@ -4,6 +4,7 @@ import {
   createAngularConsumerManifest,
   createAngularConsumerSources,
   findPackageResolutions,
+  readAgUiClientDependency,
   readAngularSupportContract,
   validateAngularSsrHtml,
   validateAngularPackageManifest,
@@ -27,6 +28,9 @@ const validManifest = {
         },
       ],
     },
+  },
+  dependencies: {
+    "@ag-ui/client": "0.0.59",
   },
   devDependencies: {
     "@angular/common": "22.0.0",
@@ -134,6 +138,7 @@ test("creates an exact packed Angular consumer without framework overrides", () 
 
   expect(
     createAngularConsumerManifest({
+      agUiClient: readAgUiClientDependency(validManifest),
       angularTarball: "/tmp/copilotkit-angular.tgz",
       packageManager: "pnpm@10.33.4",
       siblingTarballs: new Map([
@@ -151,7 +156,7 @@ test("creates an exact packed Angular consumer without framework overrides", () 
       "serve:ssr": "node dist/smoke/server/server.mjs",
     },
     dependencies: {
-      "@ag-ui/client": "0.0.57",
+      "@ag-ui/client": "0.0.59",
       "@angular/cdk": "22.0.0",
       "@angular/common": "22.0.0",
       "@angular/core": "22.0.0",
@@ -182,6 +187,22 @@ test("creates an exact packed Angular consumer without framework overrides", () 
       },
     },
   });
+});
+
+test("reads the AG-UI client pin the Angular package actually ships against", () => {
+  const packageManifest = JSON.parse(
+    readFileSync(
+      new URL("../../../packages/angular/package.json", import.meta.url),
+      "utf8",
+    ),
+  ) as { dependencies: Record<string, string> };
+
+  expect(readAgUiClientDependency(packageManifest)).toBe(
+    packageManifest.dependencies["@ag-ui/client"],
+  );
+  expect(() => readAgUiClientDependency({ dependencies: {} })).toThrow(
+    'dependencies["@ag-ui/client"]',
+  );
 });
 
 test("creates a zoneless SSR and hydration browser smoke fixture", () => {

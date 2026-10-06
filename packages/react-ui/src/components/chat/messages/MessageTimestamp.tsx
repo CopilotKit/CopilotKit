@@ -2,6 +2,12 @@ interface MessageTimestampProps {
   timestamp?: number;
 }
 
+/**
+ * Formats an epoch-millisecond timestamp as a local time label.
+ *
+ * Missing or invalid values render nothing; the `dateTime` attribute uses ISO
+ * format for machine-readable output.
+ */
 export function MessageTimestamp({ timestamp }: MessageTimestampProps) {
   if (timestamp === undefined || !Number.isFinite(timestamp)) return null;
 

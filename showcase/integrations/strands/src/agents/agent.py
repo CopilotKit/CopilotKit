@@ -53,6 +53,7 @@ from strands.hooks import (
     HookRegistry,
 )
 from strands.models.openai import OpenAIModel
+from strands.types.tools import ToolContext
 
 # Import shared tool implementations (symlinked at project root → ../../shared/python/tools)
 from tools import (
@@ -367,8 +368,36 @@ def query_data(query: str):
     return json.dumps(query_data_impl(query))
 
 
-@tool
-def manage_sales_todos(todos: list[dict]):
+# Native agent state key holding the sales pipeline. A configured Strands
+# SessionManager persists ``agent.state`` with the session and restores it on
+# the next agent built for the same session. The STATE_SNAPSHOT emitted by
+# ``sales_state_from_args`` only carries the list to the UI.
+SALES_TODOS_STATE_KEY = "todos"
+
+
+def _process_sales_todos(todos: list, tool_use_id: str | None) -> list[dict]:
+    """Run the shared impl, giving new items ids derived from the tool call.
+
+    ``sales_state_from_args`` (UI snapshot, emitted before the tool runs) and
+    ``manage_sales_todos`` (native state) process the same arguments
+    separately. Deriving a missing id from the tool call id and position keeps
+    both copies identical instead of each drawing its own random id.
+    """
+    if tool_use_id:
+        todos = [
+            {
+                **todo,
+                "id": str(uuid.uuid5(uuid.NAMESPACE_URL, f"{tool_use_id}/{index}")),
+            }
+            if isinstance(todo, dict) and not todo.get("id")
+            else todo
+            for index, todo in enumerate(todos)
+        ]
+    return [dict(todo) for todo in manage_sales_todos_impl(todos)]
+
+
+@tool(context=True)
+def manage_sales_todos(todos: list[dict], tool_context: ToolContext):
     """Manage the sales pipeline by replacing the entire list of todos.
 
     IMPORTANT: Always provide the entire list, not just new items.
@@ -379,7 +408,8 @@ def manage_sales_todos(todos: list[dict]):
     Returns:
         Success message
     """
-    result = manage_sales_todos_impl(todos)
+    result = _process_sales_todos(todos, tool_context.tool_use.get("toolUseId"))
+    tool_context.agent.state.set(SALES_TODOS_STATE_KEY, result)
     return f"Sales todos updated. Tracking {len(result)} item(s)."
 
 
@@ -393,20 +423,20 @@ def get_sales_todos():
     return "Check the sales pipeline provided in the context."
 
 
-# @region[backend-interrupt-tool]
 # @region[backend-tool-call]
-# Strands has no native interrupt primitive, so the gen-ui-interrupt and
-# interrupt-headless demos register `schedule_meeting` as a frontend tool
-# through the frontend's tool registration API. Its async handler returns a
-# Promise that only resolves once the user picks a slot or cancels in the
-# in-chat picker
-# (the Strands shim for LangGraph's `interrupt()` / `resolve()` pair).
+# `hitl-in-chat` registers `schedule_meeting` as a FRONTEND tool, so its async
+# handler resolves only once the user picks a slot or cancels in the in-chat
+# picker.
 #
 # This `@tool` declaration is the backend's contract with the LLM: the
 # docstring and signature are what the model sees when deciding to call
 # `schedule_meeting`. CopilotKit's runtime routes the call to the frontend
 # handler registered with the same name, so the local
 # `schedule_meeting_impl` body acts as a fallback for non-UI invocations.
+#
+# The interrupt demos do NOT use this tool. They run against the dedicated
+# `agents/interrupt_agent.py`, whose `schedule_meeting` pauses itself with
+# Strands' native `tool_context.interrupt(...)`.
 @tool
 def schedule_meeting(reason: str):
     """Schedule a meeting with user approval.
@@ -424,7 +454,6 @@ def schedule_meeting(reason: str):
 
 
 # @endregion[backend-tool-call]
-# @endregion[backend-interrupt-tool]
 
 
 @tool
@@ -720,7 +749,7 @@ def _invoke_subagent_llm(system_prompt: str, task: str) -> str:
     try:
         client = _openai_mod.OpenAI()
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-5-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": task},
@@ -1128,8 +1157,8 @@ async def sales_state_from_args(context):
     if not isinstance(todos_data, list):
         return None
 
-    processed = manage_sales_todos_impl(todos_data)
-    return {"todos": [dict(t) for t in processed]}
+    processed = _process_sales_todos(todos_data, getattr(context, "tool_use_id", None))
+    return {"todos": processed}
 
 
 # ---- Loop guard ---------------------------------------------------------
@@ -1388,6 +1417,21 @@ class _HookInjectingAgentDict(dict):
 # ---- Factory ------------------------------------------------------------
 
 
+DEFAULT_MODEL = "gpt-5-mini"
+
+
+def model_id() -> str:
+    """Resolve the chat model at call time.
+
+    Read here rather than at module scope: the agent server imports this module
+    before it calls `load_dotenv()`, so a module-level read would always miss an
+    override from the environment file. Mirrors the TypeScript integration,
+    which already honours `MODEL_ID`, so both columns can be pointed at another
+    model without a rebuild.
+    """
+    return os.environ.get("MODEL_ID", DEFAULT_MODEL)
+
+
 def _build_model() -> OpenAIModel:
     """Construct the OpenAI model, failing fast on missing credentials."""
     api_key = os.getenv("OPENAI_API_KEY", "")
@@ -1395,7 +1439,7 @@ def _build_model() -> OpenAIModel:
         raise RuntimeError("OPENAI_API_KEY must be set for the strands showcase agent")
     return OpenAIModel(
         client_args={"api_key": api_key},
-        model_id="gpt-4o",
+        model_id=model_id(),
     )
 
 

@@ -1,0 +1,63 @@
+{
+  "name": "learned-skill-conformance",
+  "projectType": "library",
+  "root": "tools/learned-skill-conformance",
+  "targets": {
+    "acceptance": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/learned-skill-conformance/run.mjs"
+      },
+      "cache": false
+    },
+    "verify-python-distributions": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run --project tools/learned-skill-conformance python tools/learned-skill-conformance/check_python_packages.py"
+      },
+      "cache": false
+    },
+    "test-workspace-artifacts": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node --test tools/learned-skill-conformance/workspace-artifacts.test.mjs"
+      },
+      "inputs": ["{projectRoot}/workspace-artifacts*.mjs"],
+      "cache": true
+    },
+    "test-doc-dependencies": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node --test scripts/doc-tests/dependencies.test.mjs"
+      },
+      "inputs": [
+        "{workspaceRoot}/scripts/doc-tests/dependencies*.mjs",
+        "{projectRoot}/workspace-artifacts.mjs"
+      ],
+      "cache": true
+    },
+    "test-doc-snippets": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm tsx scripts/doc-tests/extract.ts && pnpm tsx scripts/doc-tests/run.ts"
+      },
+      "cache": false,
+      "dependsOn": [
+        {
+          "target": "build",
+          "projects": ["@copilotkit/runtime"]
+        }
+      ]
+    },
+    "test-native-delivery-drivers": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node --test tools/learned-skill-conformance/native-drivers.test.mjs"
+      },
+      "dependsOn": ["^build"],
+      "inputs": ["default", "^production"],
+      "cache": true
+    }
+  },
+  "tags": ["scope:intelligence", "type:test"]
+}

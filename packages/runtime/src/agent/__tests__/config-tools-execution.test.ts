@@ -4,6 +4,7 @@ import { BasicAgent, defineTool } from "../index";
 import { EventType } from "@ag-ui/client";
 import type { RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
+import type * as AISDK from "ai";
 import {
   mockStreamTextResponse,
   toolCallStreamingStart,
@@ -14,7 +15,8 @@ import {
 } from "./test-helpers";
 
 // Mock the ai module
-vi.mock("ai", () => ({
+vi.mock("ai", async (importOriginal) => ({
+  ...(await importOriginal<typeof AISDK>()),
   streamText: vi.fn(),
   tool: vi.fn((config) => config),
   stepCountIs: vi.fn((count: number) => ({ type: "stepCount", count })),

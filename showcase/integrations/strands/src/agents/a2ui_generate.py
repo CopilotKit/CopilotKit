@@ -113,7 +113,7 @@ def generate_a2ui(context: str) -> str:
     try:
         client = _openai_mod.OpenAI()
         response = client.chat.completions.create(
-            model="gpt-4.1",
+            model="gpt-5-mini",
             messages=[
                 {
                     "role": "system",

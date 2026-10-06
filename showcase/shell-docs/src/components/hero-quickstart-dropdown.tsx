@@ -1,5 +1,7 @@
 "use client";
 
+import { useHomepageTelemetry } from "@/lib/use-homepage-telemetry";
+
 import React from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
@@ -18,6 +20,7 @@ export function HeroQuickstartDropdown({
 }: {
   options: HeroQuickstartOption[];
 }) {
+  const track = useHomepageTelemetry();
   const [open, setOpen] = React.useState(false);
   const { setStoredFramework } = useFramework();
   const rootRef = React.useRef<HTMLDivElement | null>(null);
@@ -54,7 +57,10 @@ export function HeroQuickstartDropdown({
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
-        className="shell-docs-radius-control inline-flex h-11 w-full items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors duration-150 hover:bg-[var(--accent-strong)] sm:w-fit"
+        // Secondary treatment, matching <QuickstartLinkButton variant="secondary">:
+        // the hero's accent belongs to the onboarding-prompt button beside this
+        // one, and two accent buttons in the same row would compete.
+        className="shell-docs-radius-control inline-flex h-11 w-full items-center justify-center gap-2 border border-[var(--border)] bg-[var(--bg-surface)] px-4 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-control)] transition-colors duration-150 hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:outline-none sm:w-fit"
         onClick={() => setOpen((value) => !value)}
       >
         Quickstart
@@ -75,6 +81,10 @@ export function HeroQuickstartDropdown({
                 role="menuitem"
                 className="shell-docs-radius-control group flex items-center gap-3 px-2.5 py-2.5 no-underline transition-colors hover:bg-[var(--accent-dim)]"
                 onClick={() => {
+                  track("quickstart_selected", {
+                    backend: option.slug,
+                    destination: option.href,
+                  });
                   setStoredFramework(option.slug);
                   setOpen(false);
                 }}

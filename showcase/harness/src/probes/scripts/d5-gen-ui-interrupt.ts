@@ -1,9 +1,10 @@
 /**
  * D5 — gen-ui-interrupt script.
  *
- * Drives `/demos/gen-ui-interrupt`. The agent's `schedule_meeting`
- * tool either calls LangGraph's `interrupt(...)` or is registered as
- * a frontend human-in-the-loop tool. The frontend renders the
+ * Drives `/demos/gen-ui-interrupt`. The agent's `schedule_meeting` tool pauses
+ * the run: through LangGraph's `interrupt(...)`, through the framework's own
+ * interrupt primitive (AWS Strands), or through a frontend human-in-the-loop
+ * tool on frameworks with no server-side pause. The frontend renders the
  * `<TimePickerCard>` inline, and choosing a slot resumes the run.
  *
  * Genuine assertion: send the pill prompt; assert
@@ -179,6 +180,14 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
     input: prompt,
     assertions: buildInterruptAssertion(tag),
     responseTimeoutMs: 60_000,
+    // An interrupt turn ends AT the pause: the meaningful output is the
+    // mounted picker, and whether any assistant prose lands last depends on
+    // the bridge. A bridge that emits the tool call before pausing (the AG-UI
+    // Strands bridges do) leaves the final assistant bubble textless, so the
+    // text-stability conjunct can never converge and the turn would time out
+    // with `reason=text-unstable` before the assertions below ever run. Settle
+    // on the picker mounting instead; run-finished and new-bubble still apply.
+    completeOnMount: { testIds: ["time-picker-card"] },
   }));
 }
 

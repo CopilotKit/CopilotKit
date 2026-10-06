@@ -12,6 +12,12 @@
  *   V2 docs: https://docs.copilotkit.ai/
  *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
+ * @copilotkit/runtime — SdkClientLike:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE

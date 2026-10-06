@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { expect, test } from "vitest";
 
 import { inlineSnippets, loadDoc } from "../docs-render";
+import { renderPageToLlmText } from "../llm-text";
 
 const shellDocsRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -69,4 +70,27 @@ test("the tool-rendering runtime frontend remains identical across integrations"
   const googleAdk = page("google-adk");
   expect(page("langgraph-python")).toBe(googleAdk);
   expect(page("mastra")).toBe(googleAdk);
+});
+
+test("the Strands TypeScript guide resolves its runnable weather tool", () => {
+  const doc = loadDoc("generative-ui/tool-rendering");
+  expect(doc).not.toBeNull();
+
+  const output = renderPageToLlmText(
+    {
+      url: "strands-typescript/generative-ui/tool-rendering",
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+      loadSlug: "generative-ui/tool-rendering",
+      framework: "strands-typescript",
+    },
+    { framework: "strands-typescript" },
+  );
+
+  expect(output.match(/export const getWeather = tool/g)).toHaveLength(1);
+  expect(output).toContain('name: "get_weather"');
+  expect(output).not.toContain(
+    "region 'weather-tool-backend' missing in strands-typescript::tool-rendering",
+  );
 });

@@ -83,10 +83,13 @@ import {
   useSuggestions,
 } from "../../v2";
 import type { Suggestion } from "@copilotkit/core";
-import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import {
+  CopilotKitCoreRuntimeConnectionStatus,
+  ɵisHttpAgent,
+} from "@copilotkit/core";
 import { useLazyToolRenderer } from "./use-lazy-tool-renderer";
 import type { AbstractAgent } from "@ag-ui/client";
-import { AGUIConnectNotImplementedError, HttpAgent } from "@ag-ui/client";
+import { AGUIConnectNotImplementedError } from "@ag-ui/client";
 import { CoAgentStateRenderBridge } from "./use-coagent-state-render-bridge";
 import type { CoAgentStateRenderBridgeProps } from "./use-coagent-state-render-bridge";
 
@@ -377,6 +380,12 @@ export interface UseCopilotChatReturn {
   threadId?: string;
 }
 
+/**
+ * Adapts the active v2 agent to the deprecated v1 chat API.
+ *
+ * Assistant timestamps are assigned to messages first observed during a run;
+ * restored messages keep only timestamps already present in their data.
+ */
 export function useCopilotChatInternal({
   suggestions,
   onInProgress,
@@ -413,7 +422,7 @@ export function useCopilotChatInternal({
     // its fetch config.  connectAgent() does NOT create a new AbortController
     // automatically, so we must set one before connecting.
     const connectAbortController = new AbortController();
-    if (agent instanceof HttpAgent) {
+    if (ɵisHttpAgent(agent)) {
       agent.abortController = connectAbortController;
     }
 

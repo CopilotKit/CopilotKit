@@ -1,0 +1,32 @@
+{
+  "name": "runtime-conformance",
+  "root": "tools/runtime-conformance",
+  "projectType": "library",
+  "targets": {
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": { "command": "oxlint tools/runtime-conformance" },
+      "dependsOn": [],
+      "cache": false
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node --test tools/runtime-conformance/test/*.test.mjs"
+      },
+      "dependsOn": [],
+      "inputs": ["{projectRoot}/**/*"],
+      "outputs": [],
+      "cache": false
+    },
+    "conformance": {
+      "executor": "nx:run-commands",
+      "options": { "command": "node tools/runtime-conformance/run.mjs" },
+      "dependsOn": [],
+      "inputs": ["{projectRoot}/**/*"],
+      "outputs": [],
+      "cache": false
+    }
+  },
+  "tags": ["type:tooling"]
+}

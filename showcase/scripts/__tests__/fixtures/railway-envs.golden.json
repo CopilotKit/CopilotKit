@@ -255,6 +255,15 @@
       "repoName": "showcase-google-adk"
     }
   },
+  "showcase-google-antigravity": {
+    "staging": {
+      "instanceId": "a2abd2e8-55a8-4c6e-8052-fd385d3bb3cc",
+      "domain": "showcase-google-antigravity-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-google-antigravity"
+    }
+  },
   "showcase-langgraph-fastapi": {
     "prod": {
       "instanceId": "105b7e01-acd0-48e2-9a09-541e2103e8d2",

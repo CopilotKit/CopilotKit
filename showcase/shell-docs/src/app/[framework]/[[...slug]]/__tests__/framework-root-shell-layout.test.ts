@@ -13,15 +13,26 @@ function sourceBetween(startMarker: string, endMarker: string): string {
   return pageSource.slice(startIndex, endIndex);
 }
 
-test("does not add top padding above framework landing content", () => {
+// Was "does not add top padding above framework landing content", asserting
+// `pt-0`. That zero came in with "fix(docs): polish shell docs UX"
+// (2026-05-28) for the landing layout of the time. The current layout opens
+// with the framework icon lockup rather than a breadcrumb, and at `pt-0` it
+// sat flush against the top of the article while every other docs page starts
+// 16px down — including /intelligence/overview, which is also a landing page
+// with no breadcrumb. The landing pages now use the same padding as the rest
+// of the docs, and `docs-article-content` gives them the same reading measure
+// as the authored-MDX partner pages.
+test("uses the shared docs measure and top padding for framework landing content", () => {
   const shellSource = pageSource.match(
     /function FrameworkRootShell[\s\S]*?<\/ShellDocsLayout>/,
   )?.[0];
 
   expect(shellSource).toContain(
-    'className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-0 pb-6"',
+    'className="docs-inner-content docs-article-content mx-auto px-4 pb-6 pt-2 md:px-6 md:pt-3 xl:pt-4"',
   );
-  expect(shellSource).not.toContain("pt-2 pb-6 md:pt-3 xl:pt-4");
+  // Matched against the class list, not the file text: the comment above the
+  // element names the old value and would trip a bare substring check.
+  expect(shellSource).not.toContain("md:px-6 pt-0");
 });
 
 test("parses frontend routes before resolving frontend content slugs", () => {

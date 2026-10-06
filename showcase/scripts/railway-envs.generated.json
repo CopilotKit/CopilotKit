@@ -539,6 +539,40 @@
       }
     },
     {
+      "name": "showcase-google-antigravity",
+      "serviceId": "6441783f-3e93-40cf-b75d-872c6713d7f2",
+      "prodInstanceId": "6441783f-3e93-40cf-b75d-872c6713d7f2",
+      "stagingInstanceId": "a2abd2e8-55a8-4c6e-8052-fd385d3bb3cc",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "onlyEnvironment": "staging",
+      "dispatchName": "google-antigravity",
+      "domains": {
+        "staging": "showcase-google-antigravity-staging.up.railway.app",
+        "prod": ""
+      },
+      "probe": {
+        "staging": true,
+        "prod": false,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "GOOGLE_GEMINI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
       "name": "showcase-langgraph-fastapi",
       "serviceId": "06cccb5c-59f4-46b5-8adc-7113e77011a4",
       "prodInstanceId": "105b7e01-acd0-48e2-9a09-541e2103e8d2",
@@ -1588,6 +1622,11 @@
         "tier": 2
       }
     ],
-    "skipped": []
+    "skipped": [
+      {
+        "name": "showcase-google-antigravity",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      }
+    ]
   }
 }

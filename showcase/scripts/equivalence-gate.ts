@@ -56,7 +56,7 @@ import type {
 import {
   keyFor,
   CATALOG_TO_D5_KEY,
-  STARTER_LEVELS,
+  STARTER_ROW_LEVELS,
 } from "../shell-dashboard/src/lib/live-status";
 import type { LiveStatusMap } from "../shell-dashboard/src/lib/live-status";
 
@@ -141,12 +141,18 @@ function newestProdObservation(
 ): number | null {
   const { slug, featureId } = cell;
   // STARTER axis: a starter cell derives ONLY from its `starter:<col>/<level>`
-  // rows (`buildCellModel`'s `resolveStarterChip` reads exactly these), so its
-  // §6.4 freshness must be dated off the SAME keys — NOT the agent
-  // e2e/chat/tools/health + d5/d6 keyspace, which a starter never writes.
+  // rows (`collectStarterLadder` reads exactly these), so its §6.4 freshness
+  // must be dated off the SAME keys — NOT the agent e2e/chat/tools/health +
+  // d5/d6 keyspace, which a starter never writes.
+  //
+  // KEEP THIS IN LOCKSTEP WITH THE ENGINE'S KEYSPACE. `newestProdObservation`
+  // returns `null` when no key matches, and `compareCell` reads `null` as "not
+  // stale" — so a keyspace drift here does not error, it SILENTLY DISABLES the
+  // §6.4 re-sweep freshness guard across the whole starter axis and lets a
+  // stale-green prod starter cell pass the promote gate as fresh evidence.
   const keys: string[] =
     cell.probeAxis === "starter"
-      ? STARTER_LEVELS.map((level) => keyFor("starter", slug, level))
+      ? STARTER_ROW_LEVELS.map((level) => keyFor("starter", slug, level))
       : [
           keyFor("e2e", slug, featureId),
           keyFor("chat", slug),
