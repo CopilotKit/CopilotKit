@@ -4,8 +4,11 @@ import type { StateStore } from "./state-store.js";
 const DEFAULT_LOCK_TTL_MS = 30_000;
 
 type Expiring<V> = { value: V; expiresAt?: number };
+// Strictly less-than, so an entry is already expired at its expiry timestamp. A
+// `ttlMs: 0` therefore expires at once rather than staying readable for the
+// remainder of the current millisecond.
 const live = <V>(e: Expiring<V> | undefined): e is Expiring<V> =>
-  !!e && (e.expiresAt === undefined || Date.now() <= e.expiresAt);
+  !!e && (e.expiresAt === undefined || Date.now() < e.expiresAt);
 
 export class MemoryStore implements StateStore {
   private kvMap = new Map<string, Expiring<unknown>>();
@@ -25,7 +28,10 @@ export class MemoryStore implements StateStore {
     set: async <T>(key: string, value: T, ttlMs?: number): Promise<void> => {
       this.kvMap.set(key, {
         value,
-        expiresAt: ttlMs ? Date.now() + ttlMs : undefined,
+        // `!== undefined` (not truthiness) so an explicit `ttlMs: 0` still
+        // expires immediately instead of silently becoming a no-expiry set.
+        // Matches the rule the sibling StateStore adapter documents.
+        expiresAt: ttlMs !== undefined ? Date.now() + ttlMs : undefined,
       });
     },
     delete: async (key: string): Promise<void> => {
@@ -55,7 +61,10 @@ export class MemoryStore implements StateStore {
         arr.splice(0, arr.length - opts.maxLen);
       this.lists.set(key, {
         value: arr,
-        expiresAt: opts?.ttlMs ? Date.now() + opts.ttlMs : e?.expiresAt,
+        // `!== undefined` (not truthiness), for the same reason as `kv.set`
+        // above: an explicit `ttlMs: 0` must expire, not live forever.
+        expiresAt:
+          opts?.ttlMs !== undefined ? Date.now() + opts.ttlMs : e?.expiresAt,
       });
       return arr.length;
     },
