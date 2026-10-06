@@ -178,3 +178,23 @@ test("the docs home has one onboarding offer without the redundant Intelligence 
   expect(home).not.toContain("IntelligenceOnboardingPrompt");
   expect(home).not.toContain("docs_landing_learning");
 });
+
+test("existing thread storage has a guide linked from both overviews and navigation", () => {
+  const slug = "intelligence/bring-your-own-thread-system";
+  expect(existsSync(resolve(here, `../../content/docs/${slug}.mdx`))).toBe(
+    true,
+  );
+  for (const section of ["intelligence", "threads"]) {
+    const overview = read(`content/snippets/shared/${section}/overview.mdx`);
+    expect(overview.split(`](/${slug})`)).toHaveLength(2);
+    expect(overview.indexOf(`](/${slug})`)).toBeLessThan(
+      overview.indexOf(
+        section === "threads" ? "<div" : "<IntelligenceFeatureCards",
+      ),
+    );
+  }
+  expect(read("content/docs/meta.json")).toContain(`"${slug}"`);
+  expect(read("content/docs/intelligence/meta.json")).toContain(
+    '"bring-your-own-thread-system"',
+  );
+});

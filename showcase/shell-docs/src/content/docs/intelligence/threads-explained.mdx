@@ -38,30 +38,9 @@ Starting fresh? CopilotKit Intelligence provides conversation persistence: it st
 
 Keep your existing thread system when you connect Intelligence. As conversations run through your connected CopilotKit runtime, Intelligence automatically records its own copy of the supported AG-UI interaction history. Your framework continues managing the original conversation and agent state. Keep your [durable LangGraph checkpointer or deployment](https://docs.langchain.com/oss/python/langgraph/persistence) configured. For ADK, keep your [durable session service](https://google.github.io/adk-docs/sessions/session/) configured. Replaying recorded AG-UI history does not resume framework execution from a checkpoint. Your framework still handles that recovery.
 
-Keep the same thread ID, or a stable mapping to the native thread or session ID, when you continue a conversation. The [existing LangGraph app example](/threads-lifecycle#example-keep-an-existing-langgraph-conversation) shows how to record a conversation without replacing native persistence.
+Keep the same thread ID, or a stable mapping to the native thread or session ID, when you continue a conversation. [Bring your own thread system](/intelligence/bring-your-own-thread-system) explains what Intelligence records and shows an existing LangGraph app example.
 
-### When recording starts
-
-Sending a message that starts an agent run through the connected runtime creates the Intelligence thread record if it does not exist. Intelligence then records the interaction under that thread ID. Selecting a thread ID or opening the chat alone does not record a conversation.
-
-Recording covers traffic through that runtime after you connect Intelligence. Runs that bypass it do not appear automatically. Connecting Intelligence does not scan your framework database or copy all its older conversations. If the agent sends earlier messages during a new run, Intelligence can record those messages too.
-
-### What the copy contains
-
-Intelligence records the supported interaction data sent through the connected runtime:
-
-- Messages sent by the user and agent.
-- Tool calls, their arguments, and tool results.
-- Application state sent as AG-UI state events.
-- Supported UI content, such as generative UI and activity messages, sent as part of the interaction.
-
-The copy contains what the integration sends through AG-UI. It is not a copy of your framework database, internal checkpoints, or arbitrary browser state. Restoring UI content also requires the matching renderers in your app.
-
-### Older history and lifecycle actions
-
-To include older history, use the optional [supported import flow](/threads-import) for LangGraph, ADK, or Mastra. Import copies the supported content that the source still exposes. It is not required for automatic recording of future runs and does not create a general replication link between databases.
-
-Intelligence rename, archive, and delete actions affect only Intelligence records. They do not rename, archive, or delete the original conversation in your native framework store. Neither automatic recording nor historical import establishes ongoing bidirectional database synchronization.
+Historical import is optional. It copies supported history and does not create a general replication link between databases. Intelligence rename, archive, and delete actions affect only its own records.
 
 ## Key concepts
 

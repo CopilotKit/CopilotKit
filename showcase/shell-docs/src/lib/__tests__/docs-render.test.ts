@@ -700,6 +700,10 @@ describe("framework nav", () => {
         slug: "sidebar#ag-ui-streams",
         children: [
           { title: "Overview", slug: "threads" },
+          {
+            title: "Bring your own thread system",
+            slug: "intelligence/bring-your-own-thread-system",
+          },
           { title: "Add to Existing Threads", slug: "threads-import" },
           { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
           {
@@ -936,6 +940,10 @@ describe("framework nav", () => {
     );
     const expected = [
       { title: "Overview", slug: "threads" },
+      {
+        title: "Bring your own thread system",
+        slug: "intelligence/bring-your-own-thread-system",
+      },
       { title: "Add to Existing Threads", slug: "threads-import" },
       { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
       {
@@ -1014,6 +1022,10 @@ describe("framework nav", () => {
         )?.map(({ label }) => label),
       ).toEqual(["Intelligence", "Features", "AG-UI Streams"]);
       expect(groupPageEntries(nav, "AG-UI Streams")).toEqual([
+        {
+          title: "Bring your own thread system",
+          slug: "intelligence/bring-your-own-thread-system",
+        },
         {
           title: "Streams & Framework Threads",
           slug: "intelligence/threads-explained",
@@ -1164,6 +1176,10 @@ describe("framework nav", () => {
         slug: "sidebar#ag-ui-streams",
         children: [
           { title: "Overview", slug: "threads" },
+          {
+            title: "Bring your own thread system",
+            slug: "intelligence/bring-your-own-thread-system",
+          },
           { title: "Add to Existing Threads", slug: "threads-import" },
           { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
           {

@@ -6,6 +6,7 @@
   "pages": [
     "overview",
     "quickstart",
+    "bring-your-own-thread-system",
     "intelligence-platform",
     "memories",
     "learned-skills",
