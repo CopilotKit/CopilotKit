@@ -15,6 +15,13 @@ async function fixture(t, overrides = {}) {
     calls.push({ file, args, options });
     if (file === "git" && args[0] === "status") return overrides.dirty ?? "";
     if (file === "git" && args[0] === "rev-parse") return revision;
+    if (
+      file === "git" &&
+      args[0] === "archive" &&
+      overrides.lfs &&
+      options.env?.GIT_LFS_SKIP_SMUDGE !== "1"
+    )
+      throw new Error("Private LFS download requires credentials");
     if (file === "git" && args[0] === "archive")
       await writeFile(
         args[args.indexOf("--output") + 1],
@@ -118,4 +125,10 @@ test("partial candidate failure removes only attempted unique tags and keeps the
     assert.deepEqual(removed, refs);
     assert.deepEqual(await readdir(f.directory), []);
   }
+});
+
+test("candidate archives do not download private LFS test fixtures", async (t) => {
+  const f = await fixture(t, { lfs: true });
+  const result = await buildCandidate(f);
+  assert.equal(result.imageEvidence.length, 3);
 });

@@ -18,7 +18,13 @@ const identityFormat =
 /** Build local images from the clean committed checkout without untracked secrets. */
 export async function buildCandidate({ source, directory, run }) {
   const cwd = resolve(source);
-  const git = (args, step) => run("git", args, { cwd, step });
+  // Test/media fixtures stay as committed LFS pointers; service builds do not consume them.
+  const git = (args, step) =>
+    run("git", args, {
+      cwd,
+      step,
+      env: { ...process.env, GIT_LFS_SKIP_SMUDGE: "1" },
+    });
   const revision = (
     await git(["rev-parse", "HEAD"], "candidate-revision")
   ).trim();
