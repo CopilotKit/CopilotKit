@@ -222,12 +222,13 @@ aborts with `unknown_tool` instead of streaming the call through (see
 
 ## Operational
 
-`deployed: false`; no Railway service, no `showcase_deploy.yml` job, and no
-`railway-envs.ts` entry — the same posture Hermes shipped with until its
-adapter reached PyPI. CI build-check (`showcase_build_check.yml`) and
-on-demand E2E (`test_e2e-showcase-on-demand.yml`) are wired so every PR
-touching this package still builds the image and can run the shared
-Playwright specs against aimock on demand.
+`deployed: true`. The staging and production Railway instances are tracked in
+the Railway SSOT (`railway-envs.ts`), production runs the staging-tested image
+digest, and `showcase_build.yml` builds and pushes the image on changes to this
+package. CI build-check (`showcase_build_check.yml`) and on-demand E2E
+(`test_e2e-showcase-on-demand.yml`) are wired so every PR touching this
+package still builds the image and can run the shared Playwright specs against
+aimock on demand.
 
 **The on-demand E2E job runs the package's WHOLE `tests/e2e` directory** — its
 final step is a bare `BASE_URL=http://localhost:3000 npx playwright test
@@ -352,10 +353,12 @@ born-in-showcase package with no docs namespace.
 
 ## Documentation
 
-Until the package is deployed, the landing record links features to the
-package source on GitHub rather than to showcase URLs, omits per-feature demo
-links, and ships an empty `liveDemos` list (an embedded showcase iframe would
-404). Restore the showcase links and the live demo when `deployed` flips.
+The package is deployed and listed in the public showcase catalog, but its docs
+stay unpublished: the manifest keeps `docs_mode: hidden`, so shell-docs leaves
+the framework out of its selector, search, sitemap and LLM routes. Apart from
+`docs-links.json`, the docs surface below is not on `main` yet. When it lands with the docs, point the
+landing record's features at the showcase demos and fill its `liveDemos`
+before changing `docs_mode`.
 
 What exists for this integration's shell-docs surface:
 
