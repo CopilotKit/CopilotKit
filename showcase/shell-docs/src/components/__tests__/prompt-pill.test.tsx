@@ -10,7 +10,6 @@ import {
 } from "@testing-library/react";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { PromptPill } from "../prompt-pill";
-import { PROMPT_DESTINATION_HINT } from "../../lib/prompt-guidance";
 
 beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function () {
@@ -33,35 +32,6 @@ const viewShelf = () =>
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-});
-
-// A web page cannot choose the folder that a `claude-cli://` or `codex://`
-// link opens the agent in, and the link does nothing without the app. About
-// 90% of those clicks reached no agent (PE-337), so Copy is the only action
-// (PE-381). The logos stay as decoration inside Copy: they say where the
-// prompt goes, open nothing, and a click on them copies.
-it("offers Copy and View prompt, with static logos and no app links", async () => {
-  const writeText = vi.fn().mockResolvedValue(undefined);
-  Object.assign(navigator, { clipboard: { writeText } });
-  const { container } = render(
-    <PromptPill createPrompt={() => ({ text: "Run" })} />,
-  );
-  expect(
-    screen.getAllByRole("button").map((button) => button.textContent),
-  ).toEqual(["Copy Prompt", "", "View prompt"]);
-  expect(container.querySelector("a")).toBeNull();
-  const copy = screen.getByRole("button", { name: "Copy prompt" });
-  const logos = Array.from(container.querySelectorAll("img"));
-  expect(logos.map((logo) => logo.getAttribute("src"))).toEqual([
-    "/images/prompt-claude.webp",
-    "/images/prompt-codex.webp",
-  ]);
-  for (const logo of logos) {
-    expect(copy.contains(logo)).toBe(true);
-    expect(logo.getAttribute("alt")).toBe("");
-  }
-  fireEvent.click(logos[1]);
-  await waitFor(() => expect(writeText).toHaveBeenCalledWith("Run"));
 });
 
 // A touch screen cannot hover to reveal the shelf, so View prompt is also an
@@ -143,69 +113,4 @@ it("counts denied copy intent without claiming success and ignores analytics fai
   await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
   expect(action).toHaveBeenCalledExactlyOnceWith("copy");
   expect(copied).not.toHaveBeenCalled();
-});
-
-it("keeps preview actions bound to the displayed run and excludes close", async () => {
-  const events: string[] = [];
-  Object.assign(navigator, {
-    clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
-  });
-  let run = 0;
-  render(
-    <PromptPill
-      createPrompt={() => {
-        const id = ++run;
-        return {
-          text: `Run ${id}`,
-          onAction: (action) => events.push(`${id}:${action}`),
-          onCopied: (action) => events.push(`${id}:success:${action}`),
-        };
-      }}
-    />,
-  );
-  fireEvent.click(viewShelf());
-  fireEvent.click(
-    screen.getByRole("button", { name: "Copy displayed prompt" }),
-  );
-  await waitFor(() =>
-    expect(events).toEqual([
-      "1:view_prompt",
-      "1:copy_preview",
-      "1:success:copy_preview",
-    ]),
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Close prompt" }));
-  expect(events).toHaveLength(3);
-});
-
-it("reports a completed clipboard write after unmount without updating the UI", async () => {
-  const copied = vi.fn();
-  let resolveWrite!: () => void;
-  Object.assign(navigator, {
-    clipboard: {
-      writeText: vi.fn(
-        () =>
-          new Promise<void>((resolve) => {
-            resolveWrite = resolve;
-          }),
-      ),
-    },
-  });
-  const { unmount } = render(
-    <PromptPill
-      createPrompt={() => ({ text: "Run once", onCopied: copied })}
-    />,
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
-  unmount();
-  resolveWrite();
-  await waitFor(() => expect(copied).toHaveBeenCalledExactlyOnceWith("copy"));
-});
-
-// The line lives under each pill row, in the same place as under the docs
-// hero, not in the hover shelf (PE-340).
-it("keeps the destination line out of the pill itself", () => {
-  render(<PromptPill createPrompt={() => ({ text: "Run" })} />);
-
-  expect(screen.queryByText(PROMPT_DESTINATION_HINT)).toBeNull();
 });

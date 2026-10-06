@@ -35,14 +35,12 @@ Inspector pane callouts (`inspector-docs`).
 
 Edit these in the same change as the feature or docs page:
 
-| Surface                              | File                                                                                                |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| Hero CTA (`CONNECT_HREF`) and cards  | `showcase/shell-docs/src/components/content/landing-pages/intelligence-overview.tsx`                |
-| Body, quickstart link, hosting links | `showcase/shell-docs/src/content/snippets/shared/intelligence/overview.mdx`                         |
-| Section nav                          | `showcase/shell-docs/src/content/docs/intelligence/meta.json`                                       |
-| Root sidebar Intelligence group      | `showcase/shell-docs/src/content/docs/meta.json`                                                    |
-| Card and CTA tests                   | `showcase/shell-docs/src/components/content/landing-pages/__tests__/intelligence-overview.test.tsx` |
-| Snippet order tests                  | `showcase/shell-docs/src/lib/__tests__/intelligence-landing.test.ts`                                |
+| Surface                              | File                                                                                 |
+| ------------------------------------ | ------------------------------------------------------------------------------------ |
+| Hero CTA (`CONNECT_HREF`) and cards  | `showcase/shell-docs/src/components/content/landing-pages/intelligence-overview.tsx` |
+| Body, quickstart link, hosting links | `showcase/shell-docs/src/content/snippets/shared/intelligence/overview.mdx`          |
+| Section nav                          | `showcase/shell-docs/src/content/docs/intelligence/meta.json`                        |
+| Root sidebar Intelligence group      | `showcase/shell-docs/src/content/docs/meta.json`                                     |
 
 The root overview page only wraps the snippet. Do not duplicate landing copy
 in `docs/intelligence/overview.mdx`.
@@ -61,19 +59,21 @@ in `docs/intelligence/overview.mdx`.
    runs**. Every link must be a real URL.
 4. Do not add a second link for the same page. One page, one landing entry.
 5. If the feature is a named pillar in the hero, add it to the subtitle.
-6. Extend the tests in the same commit. Pin the new CTA href as a literal.
+6. Follow the new CTA in the docs preview and run the shared ShellDocs link
+   checks. Keep test scope aligned with `showcase/shell-docs/README.md`; do not
+   add tests that pin card copy, snippet order, or page composition.
 
 ### Procedure 2: Rename or move a page
 
 1. Update every landing CTA that pointed at the old path: card `href`,
    quickstart link, and the links under **Choose where Intelligence runs**.
 2. Update `meta.json` files.
-3. Update the tests that pin those hrefs.
+3. Follow the updated links in the docs preview and run the shared link checks.
 
 ### Procedure 3: Remove a feature or page
 
 1. Remove the card or snippet link, subtitle mention, and nav entry.
-2. Remove the matching test assertions.
+2. Run the shared link checks after removing or redirecting the page.
 3. Do not leave a landing link to a deleted page.
 
 ## Decision Tree
