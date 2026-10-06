@@ -17,7 +17,7 @@ AG2 (1.0+) ships a first-class A2UI integration in the `ag2.a2ui` module: wrap a
 Install AG2 with the A2UI, AG-UI and OpenAI extras:
 
 ```bash
-pip install "ag2[a2ui,ag-ui,openai]" uvicorn
+pip install "ag2[a2ui,ag-ui,openai]>=1.1.2" uvicorn
 ```
 
 Build a plain agent and wrap it in `A2UIServer`. The server instance is the ASGI app; `AgUiTransport` serves the AG-UI endpoint, and functions decorated with `@a2ui_action` become clickable buttons whose handlers run on the server:

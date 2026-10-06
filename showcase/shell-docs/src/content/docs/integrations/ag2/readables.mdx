@@ -16,7 +16,7 @@ One of the most common use cases for CopilotKit is to register app state and con
 This way, you can notify CopilotKit of what is going in your app in real time.
 Some examples might be: the current user, the current page, etc.
 
-This context can then be shared with your AG2 backend. With AG2 1.0, `AGUIStream` already hands every `useAgentContext` entry to the model, so a plain AG-UI endpoint needs no extra code.
+This context can then be shared with your AG2 backend. With AG2 1.1.2 or newer, `AGUIStream` already hands every `useAgentContext` entry to the model, so a plain AG-UI endpoint needs no extra code. On AG2 1.0.x the entries never reach the model, so upgrade first.
 
 ## Implementation
 <Callout>
