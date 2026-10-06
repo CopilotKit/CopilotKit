@@ -1,10 +1,7 @@
 # The Antigravity AG-UI adapter. google-antigravity ships platform wheels
 # bundling the Go localharness binary (manylinux x86_64 and aarch64 both
 # published).
-# PREVIEW PIN (PNI-576): ag-ui-protocol/ag-ui#2969 at its head commit, which
-# adds the per-session endpoint factory. Replace with ag-ui-antigravity==0.2.1
-# once that is released, before this PR merges.
-ag-ui-antigravity @ https://github.com/ag-ui-protocol/ag-ui/archive/23c7d74b7b2103607b518f1ff5e4c65dad91ba69.zip#subdirectory=integrations/antigravity/python
+ag-ui-antigravity==0.2.1
 google-antigravity==0.1.9
 ag-ui-protocol==1.0.0
 # Prompt assembly, validation and the validate->retry loop behind the
