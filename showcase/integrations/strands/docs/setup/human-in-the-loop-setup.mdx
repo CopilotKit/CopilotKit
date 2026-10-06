@@ -17,9 +17,11 @@
     AWS Strands ships a first-class
     [interrupt primitive](https://strandsagents.com/docs/user-guide/concepts/interrupts/).
     A tool declared with `@tool(context=True)` calls
-    `tool_context.interrupt(name, reason=...)`, which halts the agent loop and
-    hands `reason` to the client as the interrupt payload. The AG-UI adapter
-    finishes the run with `RUN_FINISHED` carrying `outcome.type == "interrupt"`.
+    `tool_context.interrupt(name, reason=...)`, which halts the agent loop. The
+    AG-UI adapter finishes the run with `RUN_FINISHED` carrying
+    `outcome.type == "interrupt"`; each interrupt's own `reason` field is the
+    `name`, and the `reason` object reaches the client as its
+    `metadata.reason`, which is where the `useInterrupt` renderer reads it.
 
     <DemoCode
       file="src/agents/interrupt_agent.py"
