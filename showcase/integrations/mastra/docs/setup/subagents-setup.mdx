@@ -38,23 +38,11 @@ export const mastra = new Mastra({
 });
 ```
 
-In the demo page, point the existing provider at that route and use the
-registered Mastra agent key:
-
-```tsx title="src/app/demos/subagents/page.tsx"
-<CopilotKit
-  runtimeUrl="http://127.0.0.1:4111/copilotkit"
-  agent="subagentsSupervisorAgent"
->
-  <DemoContent />
-</CopilotKit>
-```
-
-In `DemoContent` on the same page, change `useAgent({ agentId: "subagents", ... })`
-to `useAgent({ agentId: "subagentsSupervisorAgent", ... })`. The provider and
-state hook must select the same agent. The demo's local runtime maps the
-short `subagents` alias, while the separate Mastra server exposes its
-registered key directly.
+Point the frontend runtime URL at
+`http://127.0.0.1:4111/copilotkit` and select the registered agent key
+`subagentsSupervisorAgent` wherever the frontend selects or reads agent
+state. The demo's local runtime maps the short `subagents` alias, while the
+separate Mastra server exposes its registered key directly.
 
 Set the CORS origin to your frontend's actual origin and derive a distinct
 `resourceId` for each user in a multi-user deployment. Confirm the three tool
