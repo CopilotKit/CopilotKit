@@ -1,0 +1,192 @@
+/*
+ * One finding row for Learning Insights and Product Insights (preview
+ * `finding-row`): divider rows inside one card, the whole row opens. Both lists
+ * share every rule here: chip line, 13px/600 title, 12px description, 11px meta.
+ */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.list[data-bordered] {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  overflow: hidden;
+}
+
+.row {
+  align-items: center;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  isolation: isolate;
+  min-width: 0;
+  padding: 18px 20px 18px 22px;
+  position: relative;
+  transition: background var(--motion-fast, 120ms) ease;
+}
+.row + .row {
+  border-top: 1px solid var(--border);
+}
+.row:hover {
+  background: var(--muted);
+}
+.row:has(.title:focus-visible) {
+  background: var(--muted);
+  box-shadow: inset 0 0 0 2px var(--ring);
+}
+
+.body {
+  display: grid;
+  justify-items: start;
+  min-width: 0;
+}
+
+.chips {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+/* Same metrics as the shared Badge, so a source chip and a status badge read as
+   one chip line. */
+.source {
+  align-items: center;
+  background: var(--lilac-subtle);
+  border-radius: 999px;
+  color: var(--lilac-foreground);
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 500;
+  gap: 5px;
+  line-height: 1;
+  min-height: 20px;
+  padding: 2px 8px;
+  position: relative;
+  text-decoration: none;
+  z-index: 2;
+}
+.source:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.source svg {
+  flex: 0 0 auto;
+  height: 12px;
+  width: 12px;
+}
+
+.title {
+  background: transparent;
+  border: 0;
+  color: var(--foreground);
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+/* The title owns the row's click target without nesting the other actions. */
+.title::after {
+  content: '';
+  inset: 0;
+  position: absolute;
+  z-index: 1;
+}
+.title:focus-visible {
+  outline: 0;
+}
+.title strong {
+  font-size: var(--text-body);
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+/* A description is a paragraph; the drawer behind the row shows all of it. */
+.title span {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--muted-foreground);
+  display: -webkit-box;
+  font-size: var(--text-control);
+  line-height: 1.65;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  align-items: center;
+  color: var(--muted-foreground);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  gap: 4px 16px;
+  margin-top: 10px;
+  pointer-events: none;
+  position: relative;
+  z-index: 2;
+}
+.meta :is(a, button) {
+  pointer-events: auto;
+}
+
+/* Span and button share one box, so both lists keep the same row height. */
+.evidence {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  display: inline-flex;
+  font: inherit;
+  gap: 6px;
+  min-height: 20px;
+  padding: 0;
+}
+button.evidence {
+  cursor: pointer;
+}
+button.evidence:hover {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.evidence svg {
+  flex: 0 0 auto;
+  height: 12px;
+  width: 12px;
+}
+
+.status {
+  display: inline-flex;
+}
+
+.chevron {
+  color: var(--muted-foreground);
+  flex: 0 0 auto;
+  height: 15px;
+  width: 15px;
+}
+.row:hover .chevron {
+  color: var(--foreground);
+}
+
+.source:focus-visible,
+button.evidence:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (max-width: 767px) {
+  .row {
+    gap: 10px;
+    padding: 16px 14px 16px 16px;
+  }
+}

@@ -1151,6 +1151,34 @@ export const SERVICES: Record<
       },
     },
   },
+  "showcase-google-antigravity": {
+    serviceId: "6441783f-3e93-40cf-b75d-872c6713d7f2",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "google-antigravity",
+    probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep as google-adk's: the agent's native
+    // Gemini traffic goes to the env-local aimock through
+    // GOOGLE_GEMINI_BASE_URL, so a cluster promote pulls aimock (tier-0)
+    // into the closure.
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "GOOGLE_GEMINI_BASE_URL", target: "aimock" }],
+    environments: {
+      prod: {
+        instanceId: "ad2c3bc8-7006-4ac6-b6f5-1f34e35a5b98",
+        healthcheckPath: "/api/health",
+        domain: "showcase-google-antigravity-production.up.railway.app",
+        probe: true,
+      },
+      staging: {
+        instanceId: "a2abd2e8-55a8-4c6e-8052-fd385d3bb3cc",
+        healthcheckPath: "/api/health",
+        domain: "showcase-google-antigravity-staging.up.railway.app",
+        probe: true,
+      },
+    },
+  },
   "showcase-langgraph-fastapi": {
     serviceId: "06cccb5c-59f4-46b5-8adc-7113e77011a4",
     autoUpdates: { staging: "disabled", prod: "disabled" },

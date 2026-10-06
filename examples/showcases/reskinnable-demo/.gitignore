@@ -16,3 +16,6 @@ tsconfig.tsbuildinfo
 test-results/
 playwright-report/
 playwright/.cache/
+
+# The Ledgerline MCP app bundle, built by scripts/build-ledgerline-mcp-app.mjs on dev/build.
+src/skins/ledgerline/mcp-app/dist/

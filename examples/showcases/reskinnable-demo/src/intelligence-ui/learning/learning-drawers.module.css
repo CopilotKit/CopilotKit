@@ -1,0 +1,334 @@
+.panel:focus-visible,
+.evidenceLink:focus-visible,
+.evidenceDot:focus-visible {
+  outline: var(--cpki-focus-ring-width) solid var(--cpki-color-focus-ring);
+  outline-offset: var(--cpki-focus-ring-offset);
+}
+
+.head {
+  align-items: center;
+  border-bottom: 1px solid var(--cpki-color-border);
+  display: flex;
+  gap: var(--cpki-space-3);
+  justify-content: space-between;
+  min-height: 3.875rem;
+  padding: var(--cpki-space-0) var(--cpki-space-12) var(--cpki-space-0)
+    var(--cpki-space-5);
+}
+
+.headTitle {
+  color: var(--cpki-color-foreground);
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The drawer body scrolls under the fixed head, with the shared edge shadows. */
+.bodyScroll {
+  flex: 1;
+  min-height: 0;
+}
+.body {
+  display: flex;
+  flex-direction: column;
+}
+
+.hero {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 24px 28px 20px;
+}
+
+/* The classification uses the shared Badge, matching the Insight row. */
+.heroTag {
+  display: inline-flex;
+  justify-self: start;
+}
+
+.heroStatement {
+  color: var(--cpki-color-foreground);
+  font-size: 21px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.heroImpact {
+  color: var(--cpki-color-muted-foreground);
+  font-size: 12px;
+  line-height: 1.75;
+  margin: 0;
+}
+
+.heroMeta {
+  align-items: center;
+  color: var(--cpki-color-muted-foreground);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 10px;
+  gap: var(--cpki-space-2);
+}
+
+/* The tab strip scrolls with the Insight it follows. It is not sticky: a pinned
+   strip would sit under the scroller's edge fade. Its visuals come from the
+   shared tab slots; with the trigger's 2px inset each label lines up with the
+   hero's content edge (28px, 16px narrow), and the approved 47px strip height
+   (a 46px tab over a 1px divider) keeps the panel where it was. It must not shrink: the shared strip clips its
+   overflow, so a squeezed flex item would lose its height. */
+.tabs {
+  flex: 0 0 auto;
+  min-height: 47px;
+  padding: 0 26px;
+}
+
+.panel {
+  display: grid;
+  gap: var(--cpki-space-4);
+  justify-items: stretch;
+  padding: 20px 28px 28px;
+}
+
+.panelHeading {
+  color: var(--cpki-color-foreground);
+  font-size: 12px;
+  margin: 0;
+}
+
+.evidenceBrowser {
+  min-width: 0;
+}
+
+.evidenceHead {
+  align-items: center;
+  color: var(--cpki-color-foreground);
+  display: flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: var(--cpki-space-3);
+  justify-content: space-between;
+  min-height: 2rem;
+  margin-bottom: 10px;
+}
+
+.evidenceNav {
+  display: flex;
+  gap: var(--cpki-space-1);
+}
+
+/* The quote is the point of this panel, so it gets the card's whole body and
+   the largest type in it. Everything else is provenance around the edge. */
+.evidenceQuotes {
+  display: grid;
+  gap: 10px;
+}
+
+.evidenceQuote {
+  background: var(--cpki-color-surface-subtle);
+  border-radius: 10px;
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 14px 16px;
+}
+
+.evidenceQuote[data-role='assistant'] {
+  background: var(--learning);
+}
+
+.evidenceQuote p {
+  color: var(--cpki-color-foreground);
+  font-size: 12px;
+  line-height: 1.75;
+  margin: 0;
+}
+
+.evidenceRole {
+  color: var(--cpki-color-muted-foreground);
+  font-size: 10px;
+}
+
+.evidenceSource {
+  display: grid;
+  gap: var(--cpki-space-1);
+  min-width: 0;
+}
+
+.evidenceSourceLabel {
+  color: var(--cpki-color-muted-foreground);
+  font-size: 10px;
+}
+
+.evidenceSourceName {
+  color: var(--cpki-color-foreground);
+  font-size: 12px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.evidenceMessageCount {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-1);
+  margin: 0;
+}
+
+.evidenceFoot {
+  align-items: center;
+  display: flex;
+  gap: var(--cpki-space-3);
+  justify-content: space-between;
+  padding: 18px 0 0;
+}
+
+.evidenceLink {
+  color: var(--cpki-color-muted-foreground);
+  font-size: 10px;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.evidenceDots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cpki-space-1);
+  justify-content: center;
+}
+
+.evidenceDot {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  display: inline-flex;
+  height: 1.5rem;
+  padding: var(--cpki-space-0) var(--cpki-space-1);
+}
+
+.evidenceDot::before {
+  background: var(--cpki-color-border-strong);
+  border-radius: var(--cpki-radius-round);
+  content: '';
+  display: block;
+  height: 0.375rem;
+  width: 1rem;
+}
+
+.evidenceDot[aria-current='true']::before {
+  background: var(--cpki-color-accent);
+  width: 1.625rem;
+}
+
+.evidenceEmpty {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-1);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.proposal {
+  display: grid;
+  gap: var(--cpki-space-2);
+  justify-items: start;
+}
+
+.proposalName {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-3);
+  margin: 0;
+}
+
+.proposalDescription {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-1);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.proposalAction {
+  margin-top: var(--cpki-space-2);
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cpki-space-2);
+}
+
+.skillBody {
+  display: grid;
+  gap: var(--cpki-space-5);
+  padding: var(--cpki-space-6);
+}
+
+.detailBlock {
+  display: grid;
+  gap: var(--cpki-space-2);
+}
+
+.detailBlockTitle {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--text-caption);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.detailBlockText {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-1);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.skillSource pre {
+  max-height: 24rem;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.usage {
+  background: var(--cpki-color-surface-subtle);
+  border: 1px solid var(--cpki-color-border);
+  border-radius: var(--cpki-radius-panel);
+  display: grid;
+  gap: var(--cpki-space-3);
+  padding: var(--cpki-space-4);
+}
+
+.usageHeading {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-2);
+  margin: 0;
+}
+
+.usageText {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-1);
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .evidenceDot::before {
+    transition: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .hero {
+    padding: var(--cpki-space-5) var(--cpki-space-4) var(--cpki-space-4);
+  }
+
+  .tabs {
+    padding: 0 14px;
+  }
+
+  .panel,
+  .skillBody {
+    padding: var(--cpki-space-4);
+  }
+}
