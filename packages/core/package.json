@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/core",
-  "version": "1.76.0",
+  "version": "1.77.0",
   "description": "Core web utilities for CopilotKit2",
   "license": "MIT",
   "repository": {
@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "@ag-ui/client": "1.0.1",
+    "@copilotkit/learning": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@tanstack/pacer": "^0.20.1",
     "phoenix": "^1.8.4",

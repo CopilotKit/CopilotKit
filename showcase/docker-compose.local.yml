@@ -427,6 +427,17 @@ services:
     volumes:
       - ./integrations/google-adk/src:/app/src
 
+  google-antigravity:
+    <<: *integration-defaults
+    build: ./integrations/google-antigravity
+    image: showcase-google-antigravity:local
+    container_name: showcase-google-antigravity
+    ports:
+      - "3121:10000"
+    profiles: ["google-antigravity", "all"]
+    volumes:
+      - ./integrations/google-antigravity/src:/app/src
+
   mastra:
     <<: *integration-defaults
     build: ./integrations/mastra

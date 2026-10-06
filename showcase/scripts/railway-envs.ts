@@ -1151,6 +1151,29 @@ export const SERVICES: Record<
       },
     },
   },
+  "showcase-google-antigravity": {
+    serviceId: "6441783f-3e93-40cf-b75d-872c6713d7f2",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "google-antigravity",
+    probeDriver: "agent",
+    // Staging-only until its prod instance is provisioned (see RAILWAY.md,
+    // "Promoting a Staging-Only Integration to Production"): there is no
+    // prod key, so fleet-wide promotes leave it out. Runtime dep as
+    // google-adk's: the agent's native Gemini traffic goes to the env-local
+    // aimock through GOOGLE_GEMINI_BASE_URL.
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "GOOGLE_GEMINI_BASE_URL", target: "aimock" }],
+    environments: {
+      staging: {
+        instanceId: "a2abd2e8-55a8-4c6e-8052-fd385d3bb3cc",
+        healthcheckPath: "/api/health",
+        domain: "showcase-google-antigravity-staging.up.railway.app",
+        probe: true,
+      },
+    },
+  },
   "showcase-langgraph-fastapi": {
     serviceId: "06cccb5c-59f4-46b5-8adc-7113e77011a4",
     autoUpdates: { staging: "disabled", prod: "disabled" },

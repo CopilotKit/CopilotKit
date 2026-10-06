@@ -6,6 +6,7 @@ import type {
   ResumeEntry,
   Tool,
   ToolCall,
+  ContentPart,
 } from "@ag-ui/client";
 import { randomUUID, logger } from "@copilotkit/shared";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
@@ -14,7 +15,10 @@ import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
 import { isAbortError } from "../utils/abort-error";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
-import { isForwardedToClientPlaceholder } from "./tool-result-content";
+import {
+  isForwardedToClientPlaceholder,
+  toToolResultContent,
+} from "./tool-result-content";
 import { createToolSchema } from "./tool-schema";
 import { WebMCPRegistry } from "./webmcp";
 
@@ -102,6 +106,9 @@ export interface CopilotKitCoreRunToolResult {
  * Internal result from the shared tool handler execution logic.
  */
 interface ExecuteToolHandlerResult {
+  /** The tool message content: a string, or content parts from the handler. */
+  content: string | ContentPart[];
+  /** The string form of `content`, for surfaces typed as `result: string`. */
   result: string;
   error?: string;
   isArgumentError: boolean;
@@ -622,7 +629,7 @@ export class RunHandler {
       void this.processAgentResult({
         runAgentResult,
         agent,
-        toolExecutionMode: "human-in-the-loop",
+        toolExecutionMode: "restore",
         signal: controller.signal,
       })
         .catch(async (error: unknown) => {
@@ -853,7 +860,7 @@ export class RunHandler {
     runAgentResult: RunAgentResult;
     agent: AbstractAgent;
     runId?: string;
-    toolExecutionMode?: "all" | "human-in-the-loop";
+    toolExecutionMode?: "all" | "restore";
     signal?: AbortSignal;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
@@ -870,7 +877,7 @@ export class RunHandler {
     // executing call would start later calls concurrently and replace a HITL
     // hook's response resolver. A saved remote answer releases this barrier.
     if (
-      toolExecutionMode === "human-in-the-loop" &&
+      toolExecutionMode === "restore" &&
       agent.messages.some(
         (message) =>
           message.role === "assistant" &&
@@ -893,9 +900,7 @@ export class RunHandler {
     // Reconcile the current history so a remote answer can unblock a pending
     // call that was already present. Snapshot it because handlers insert results.
     const messagesToProcess =
-      toolExecutionMode === "human-in-the-loop"
-        ? [...agent.messages]
-        : newMessages;
+      toolExecutionMode === "restore" ? [...agent.messages] : newMessages;
     for (const message of messagesToProcess) {
       if (message.role === "assistant") {
         for (const toolCall of message.toolCalls || []) {
@@ -917,10 +922,15 @@ export class RunHandler {
           };
 
           const executableTool = tool ?? getWildcardTool();
+          // Restoring history runs only handlers that are safe to run again:
+          // human-in-the-loop prompts, and tools that opt in with
+          // reconnectBehavior "resume-pending" (#6101). Every other tool stays
+          // passive, so a reload never repeats its side effects.
           if (
-            toolExecutionMode === "human-in-the-loop" &&
-            (executableTool?.type !== "human-in-the-loop" ||
-              !executableTool.handler)
+            toolExecutionMode === "restore" &&
+            (!executableTool?.handler ||
+              (executableTool.type !== "human-in-the-loop" &&
+                executableTool.reconnectBehavior !== "resume-pending"))
           ) {
             continue;
           }
@@ -997,8 +1007,7 @@ export class RunHandler {
             }
             const executionSignal = interactionController?.signal ?? signal;
             const discardOnAbort =
-              toolExecutionMode === "human-in-the-loop" ||
-              !!interactionController;
+              toolExecutionMode === "restore" || !!interactionController;
             try {
               if (tool) {
                 const followUp = await this.executeSpecificTool(
@@ -1009,6 +1018,7 @@ export class RunHandler {
                   agentId,
                   executionSignal,
                   discardOnAbort,
+                  toolExecutionMode === "restore",
                 );
                 if (followUp) {
                   needsFollowUp = true;
@@ -1024,6 +1034,7 @@ export class RunHandler {
                     agentId,
                     executionSignal,
                     discardOnAbort,
+                    toolExecutionMode === "restore",
                   );
                   if (followUp) {
                     needsFollowUp = true;
@@ -1108,6 +1119,7 @@ export class RunHandler {
     messageId,
     signal = this._runAbortController?.signal,
     discardOnAbort = false,
+    isReplay = false,
   }: {
     tool: FrontendTool<any>;
     toolCall: { id: string; function: { name: string; arguments: string } };
@@ -1118,8 +1130,10 @@ export class RunHandler {
     messageId?: string;
     signal?: AbortSignal;
     discardOnAbort?: boolean;
+    isReplay?: boolean;
   }): Promise<ExecuteToolHandlerResult> {
-    let toolCallResult = "";
+    let toolCallResult: string | ContentPart[] = "";
+    let toolCallText = "";
     let errorMessage: string | undefined;
     let isArgumentError = false;
 
@@ -1163,14 +1177,10 @@ export class RunHandler {
           toolCall: toolCall as any,
           agent,
           signal,
+          ...(isReplay ? { isReplay } : {}),
         });
-        if (result === undefined || result === null) {
-          toolCallResult = "";
-        } else if (typeof result === "string") {
-          toolCallResult = result;
-        } else {
-          toolCallResult = JSON.stringify(result);
-        }
+        ({ content: toolCallResult, text: toolCallText } =
+          toToolResultContent(result));
       } catch (error) {
         const handlerError =
           error instanceof Error ? error : new Error(String(error));
@@ -1193,7 +1203,7 @@ export class RunHandler {
     }
 
     if (errorMessage) {
-      toolCallResult = `Error: ${errorMessage}`;
+      toolCallResult = toolCallText = `Error: ${errorMessage}`;
     }
 
     await this._internal.notifySubscribers(
@@ -1203,13 +1213,18 @@ export class RunHandler {
           toolCallId: toolCall.id,
           agentId,
           toolName: toolCall.function.name,
-          result: errorMessage ? "" : toolCallResult,
+          result: errorMessage ? "" : toolCallText,
           error: errorMessage,
         }),
       "Subscriber onToolExecutionEnd error:",
     );
 
-    return { result: toolCallResult, error: errorMessage, isArgumentError };
+    return {
+      content: toolCallResult,
+      result: toolCallText,
+      error: errorMessage,
+      isArgumentError,
+    };
   }
 
   /**
@@ -1223,6 +1238,7 @@ export class RunHandler {
     agentId: string,
     signal?: AbortSignal,
     discardOnAbort = false,
+    isReplay = false,
   ): Promise<boolean> {
     const threadId = agent.threadId;
     // Check if tool is constrained to a specific agent
@@ -1232,6 +1248,7 @@ export class RunHandler {
     }
 
     let handlerResult: ExecuteToolHandlerResult = {
+      content: "",
       result: "",
       error: undefined,
       isArgumentError: false,
@@ -1248,6 +1265,7 @@ export class RunHandler {
         messageId: message.id,
         signal,
         discardOnAbort,
+        isReplay,
       });
     }
 
@@ -1283,7 +1301,7 @@ export class RunHandler {
         id: randomUUID(),
         role: "tool" as const,
         toolCallId: toolCall.id,
-        content: handlerResult.result,
+        content: handlerResult.content,
       };
       agent.messages.splice(insertAt, 0, toolMessage);
 
@@ -1309,6 +1327,7 @@ export class RunHandler {
     agentId: string,
     signal?: AbortSignal,
     discardOnAbort = false,
+    isReplay = false,
   ): Promise<boolean> {
     const threadId = agent.threadId;
     // Check if wildcard tool is constrained to a specific agent
@@ -1317,7 +1336,8 @@ export class RunHandler {
       return false;
     }
 
-    let toolCallResult = "";
+    let toolCallResult: string | ContentPart[] = "";
+    let toolCallText = "";
     let errorMessage: string | undefined;
 
     if (wildcardTool?.handler) {
@@ -1370,14 +1390,10 @@ export class RunHandler {
             // Use the same execution signal as named tools, including the
             // replay-specific signal when restoring a wildcard HITL handler.
             signal,
+            ...(isReplay ? { isReplay } : {}),
           });
-          if (result === undefined || result === null) {
-            toolCallResult = "";
-          } else if (typeof result === "string") {
-            toolCallResult = result;
-          } else {
-            toolCallResult = JSON.stringify(result);
-          }
+          ({ content: toolCallResult, text: toolCallText } =
+            toToolResultContent(result));
         } catch (error) {
           const handlerError =
             error instanceof Error ? error : new Error(String(error));
@@ -1400,7 +1416,7 @@ export class RunHandler {
       }
 
       if (errorMessage) {
-        toolCallResult = `Error: ${errorMessage}`;
+        toolCallResult = toolCallText = `Error: ${errorMessage}`;
       }
 
       await this._internal.notifySubscribers(
@@ -1410,7 +1426,7 @@ export class RunHandler {
             toolCallId: toolCall.id,
             agentId: agentId,
             toolName: toolCall.function.name,
-            result: errorMessage ? "" : toolCallResult,
+            result: errorMessage ? "" : toolCallText,
             error: errorMessage,
           }),
         "Subscriber onToolExecutionEnd error:",
@@ -1518,6 +1534,7 @@ export class RunHandler {
 
     // 5. Execute the tool handler (if it has one)
     let handlerResult: ExecuteToolHandlerResult = {
+      content: "",
       result: "",
       error: undefined,
       isArgumentError: false,
@@ -1539,7 +1556,7 @@ export class RunHandler {
       id: randomUUID(),
       role: "tool",
       toolCallId,
-      content: handlerResult.result,
+      content: handlerResult.content,
     };
 
     const assistantIndex = agent.messages.findIndex(

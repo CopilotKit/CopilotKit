@@ -82,6 +82,10 @@ import {
 import { handleRunAgent } from "../handlers/handle-run";
 import { handleSuggestAgent } from "../handlers/handle-suggest";
 import { handleConnectAgent } from "../handlers/handle-connect";
+import {
+  handleTrajectoryConnect,
+  trajectoryErrorResponse,
+} from "../handlers/handle-trajectory-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleInspectorMetadata } from "../handlers/handle-inspector-metadata";
@@ -615,7 +619,8 @@ function dispatchRoute(
   if (
     isIntelligenceRuntime(runtime) &&
     runtime.identifyUser === undefined &&
-    route.method !== "info"
+    route.method !== "info" &&
+    route.method !== "trajectory/connect"
   ) {
     throw jsonResponse({ error: "Not found" }, 404);
   }
@@ -634,6 +639,12 @@ function dispatchRoute(
   }
 
   switch (route.method) {
+    case "trajectory/connect":
+      return handleTrajectoryConnect({
+        runtime,
+        request,
+        trajectoryId: route.trajectoryId,
+      });
     case "agent/run":
       return handleRunAgent({
         runtime,
@@ -783,6 +794,18 @@ async function resolveSingleRoute(
 
   let route: RouteInfo;
   switch (methodCall.method) {
+    case "trajectory/connect": {
+      const trajectoryId = methodCall.params?.trajectoryId;
+      if (typeof trajectoryId !== "string") {
+        throw trajectoryErrorResponse(
+          "INVALID_REQUEST",
+          "A valid trajectoryId is required",
+          400,
+        );
+      }
+      route = { method: "trajectory/connect", trajectoryId };
+      break;
+    }
     case "agent/run":
       route = {
         method: "agent/run",

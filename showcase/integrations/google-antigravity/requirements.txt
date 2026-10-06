@@ -1,0 +1,14 @@
+# The Antigravity AG-UI adapter. google-antigravity ships platform wheels
+# bundling the Go localharness binary (manylinux x86_64 and aarch64 both
+# published).
+ag-ui-antigravity==0.2.0
+google-antigravity==0.1.9
+ag-ui-protocol==1.0.0
+# Prompt assembly, validation and the validate->retry loop behind the
+# generate_a2ui server tool (src/agents/a2ui_dynamic.py). No dependencies.
+ag-ui-a2ui-toolkit==0.0.4
+fastapi==0.141.0
+uvicorn[standard]==0.52.0
+sse-starlette==3.4.6
+httpx==0.28.1
+python-dotenv==1.0.1

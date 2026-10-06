@@ -155,6 +155,13 @@ Defaults to `false` for production safety.
 
 </PropertyReference>
 
+<PropertyReference name="showIntelligenceIndicator" type="boolean">
+Whether to automatically mount the built-in CopilotKit Intelligence indicator
+in chat. Set to `false` when your application renders its own Intelligence
+status UI. Defaults to `true`.
+
+</PropertyReference>
+
 <PropertyReference name="selfManagedAgents" type="Record<string, AbstractAgent>">
   AG-UI agents managed by your app and registered directly with CopilotKit.
   Use this when you connect to agents without routing through a Copilot Runtime.

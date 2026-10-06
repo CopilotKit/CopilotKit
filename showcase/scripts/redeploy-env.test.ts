@@ -49,7 +49,7 @@ describe("runRedeploy", () => {
     summary += s + "\n";
   };
 
-  it("default staging scope = 40 CI-built services + their imageOf consumers (harness-workers)", async () => {
+  it("default staging scope = 41 CI-built services + their imageOf consumers (harness-workers)", async () => {
     const seenNames: string[] = [];
     const redeploy = vi.fn(async (serviceId: string) => {
       // Reverse-lookup the SSOT name from serviceId so the test can
@@ -69,13 +69,13 @@ describe("runRedeploy", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    // 40 CI-built (28 showcase/infra incl. conversational flows,
-    // + 12 starters) + harness-workers (imageOf consumer of showcase-harness)
-    // = 41. All 40 declare staging, so the env-aware
-    // default scope keeps every one of them.
-    expect(result.attempted).toBe(41);
-    expect(result.succeeded).toBe(41);
-    expect(redeploy).toHaveBeenCalledTimes(41);
+    // 41 CI-built (29 showcase/infra incl. conversational flows and the
+    // staging-only google-antigravity, + 12 starters) + harness-workers
+    // (imageOf consumer of showcase-harness) = 42. All 41 declare staging, so
+    // the env-aware default scope keeps every one of them.
+    expect(result.attempted).toBe(42);
+    expect(result.succeeded).toBe(42);
+    expect(redeploy).toHaveBeenCalledTimes(42);
     // pocketbase is now CI-built, so it IS in the default redeploy scope.
     expect(seenNames).toContain("pocketbase");
     // The TypeScript Strands integration declares staging, so it IS in the
@@ -152,7 +152,7 @@ describe("runRedeploy", () => {
     // is also dual-env and joins. CrewAI Conversational Flows now has a prod
     // instance and joins too. The prod default = the 41 services that declare
     // prod (28 CI-built showcase/infra + 12 starters + the imageOf-consumer
-    // harness-workers).
+    // harness-workers). google-antigravity is staging-only, so it stays out.
     const seenNames: string[] = [];
     const redeploy = vi.fn(async (serviceId: string) => {
       const name = Object.entries(SERVICES).find(
@@ -631,10 +631,11 @@ describe("resolveTargetServices", () => {
 
   it("returns the CI_BUILT_SERVICES set sorted when given undefined", () => {
     const resolved = resolveTargetServices(undefined);
-    // 28 showcase/infra CI-built (incl. conversational flows) +
-    // 12 starters = 40. resolveTargetServices returns the FULL CI_BUILT set;
+    // 29 showcase/infra CI-built (incl. conversational flows and the
+    // staging-only google-antigravity) + 12 starters = 41.
+    // resolveTargetServices returns the FULL CI_BUILT set;
     // the env-aware narrowing happens later in runRedeploy, not here.
-    expect(resolved.length).toBe(40);
+    expect(resolved.length).toBe(41);
     // pocketbase is now CI-built and part of the default scope.
     expect(resolved).toContain("pocketbase");
     expect(resolved).toContain("showcase-crewai-conversational-flows");

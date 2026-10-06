@@ -15,6 +15,7 @@ import type {
 } from "@ag-ui/aws-strands";
 import type { RunAgentInput } from "@ag-ui/core";
 import { manageSalesTodosImpl } from "./lib/tool-impls";
+import type { SalesTodo } from "./lib/tool-impls";
 
 /** Parse a tool's input (string JSON or already-parsed object). */
 function parseToolInput(raw: unknown): unknown {
@@ -119,6 +120,26 @@ export function buildStatePrompt(
 
 // ---- state-from-args hooks -----------------------------------------------
 
+/** The Strands `appState` key `manage_sales_todos` keeps the pipeline under. */
+export const SALES_TODOS_STATE_KEY = "todos";
+
+/**
+ * Normalize the list one `manage_sales_todos` call carries. A todo the model
+ * sent without an id gets one derived from the call id, so the UI snapshot
+ * built from the args and the copy the tool stores name each item the same way.
+ */
+export function salesTodosForCall(
+  todos: Partial<SalesTodo>[],
+  toolUseId: string | undefined,
+): SalesTodo[] {
+  if (!toolUseId) return manageSalesTodosImpl(todos);
+  return manageSalesTodosImpl(
+    todos.map((todo, index) =>
+      todo.id ? todo : { ...todo, id: `${toolUseId}-${index}` },
+    ),
+  );
+}
+
 /** manage_sales_todos → { todos } */
 export async function salesStateFromArgs(
   ctx: ToolCallContext,
@@ -133,7 +154,7 @@ export async function salesStateFromArgs(
     return null;
   }
   if (!Array.isArray(todos)) return null;
-  return { todos: manageSalesTodosImpl(todos as never[]) };
+  return { todos: salesTodosForCall(todos as never[], ctx.toolUseId) };
 }
 
 /** set_notes → { notes } */

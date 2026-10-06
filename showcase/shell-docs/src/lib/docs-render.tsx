@@ -1198,6 +1198,10 @@ export function normalizeSidebarNav(
     "intelligence/self-hosting-ecs",
     "AWS ECS/Fargate",
   );
+  const intelligenceLocal = intelligencePage(
+    "intelligence/self-hosting-local",
+    "Local evaluation",
+  );
   const intelligenceLearning = intelligencePage(
     "learning",
     "Automatic Learning",
@@ -1209,6 +1213,18 @@ export function normalizeSidebarNav(
   const intelligenceSkillDelivery = intelligencePage(
     "intelligence/learned-skills",
     "Skill delivery",
+  );
+  const intelligenceCapture = intelligencePage(
+    "intelligence/capture-interactions",
+    "Capture interactions",
+  );
+  const intelligenceStandaloneCollector = intelligencePage(
+    "intelligence/standalone-collector",
+    "Standalone collector",
+  );
+  const intelligenceCapturedData = intelligencePage(
+    "intelligence/captured-data",
+    "Captured data",
   );
   // Skill delivery is a step inside Automatic Learning, so it nests under
   // that page. The group shares the page's slug, and page-tree-bridge lifts
@@ -1279,6 +1295,13 @@ export function normalizeSidebarNav(
         node.type === "page" &&
         withoutRouteGroupSlug(node.slug) === "telemetry",
     ) ?? findPage("telemetry");
+  const communityFrameworks =
+    findNavNode(
+      [...inputOther, ...canonicalOther],
+      (node) =>
+        node.type === "page" &&
+        withoutRouteGroupSlug(node.slug) === "community-frameworks",
+    ) ?? findPage("community-frameworks");
 
   return [
     ...startLinks,
@@ -1329,6 +1352,9 @@ export function normalizeSidebarNav(
           intelligenceStreams,
           intelligenceLearningGroup,
           intelligenceMemory,
+          intelligenceCapture,
+          intelligenceStandaloneCollector,
+          intelligenceCapturedData,
           intelligenceAnalytics,
           intelligenceChannels,
         ].filter((node): node is NavNode => node !== null),
@@ -1337,9 +1363,12 @@ export function normalizeSidebarNav(
       sidebarTopicGroup(
         "Hosting",
         "sidebar#intelligence-hosting",
-        [intelligenceCloud, intelligenceSelfHosted, intelligenceEcs].filter(
-          (node): node is NavNode => node !== null,
-        ),
+        [
+          intelligenceCloud,
+          intelligenceSelfHosted,
+          intelligenceEcs,
+          intelligenceLocal,
+        ].filter((node): node is NavNode => node !== null),
       ),
     ]),
     ...sidebarSection("Backend", [
@@ -1402,6 +1431,9 @@ export function normalizeSidebarNav(
             title: "Open-source telemetry",
             icon: undefined,
           }
+        : null,
+      communityFrameworks?.type === "page"
+        ? { ...withoutRouteGroupSegments(communityFrameworks), icon: undefined }
         : null,
     ]),
   ];

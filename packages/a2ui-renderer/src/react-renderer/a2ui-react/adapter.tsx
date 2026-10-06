@@ -15,13 +15,14 @@
  */
 
 import React, {
-  useRef,
+  useMemo,
   useSyncExternalStore,
   useCallback,
   memo,
   useEffect,
 } from "react";
-import { type ComponentContext, GenericBinder } from "@a2ui/web_core/v0_9";
+import { GenericBinder } from "@a2ui/web_core/v0_9";
+import type { ComponentContext } from "@a2ui/web_core/v0_9";
 import type {
   ComponentApi,
   InferredComponentApiSchemaType,
@@ -41,6 +42,54 @@ export type ReactA2uiComponentProps<T> = {
   buildChild: (id: string, basePath?: string) => React.ReactNode;
   context: ComponentContext;
 };
+
+function ComponentFailure({ name, detail }: { name: string; detail: string }) {
+  return (
+    <div role="alert">
+      Unable to display {name}: {detail}. Ask the assistant to correct this
+      component and try again.
+    </div>
+  );
+}
+
+type RenderBoundaryProps = {
+  name: string;
+  snapshot: unknown;
+  children: React.ReactNode;
+};
+
+// A valid binding can resolve to an invalid value after a data-model update.
+// Keep the binder mounted so a subsequent correction can retry the renderer.
+class RenderBoundary extends React.Component<
+  RenderBoundaryProps,
+  { failed: boolean; snapshot: unknown }
+> {
+  state = { failed: false, snapshot: this.props.snapshot };
+
+  static getDerivedStateFromProps(
+    props: RenderBoundaryProps,
+    state: { snapshot: unknown },
+  ) {
+    return props.snapshot !== state.snapshot
+      ? { failed: false, snapshot: props.snapshot }
+      : null;
+  }
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    return this.state.failed ? (
+      <ComponentFailure
+        name={this.props.name}
+        detail="invalid component value"
+      />
+    ) : (
+      this.props.children
+    );
+  }
+}
 
 // --- Component Factories ---
 
@@ -69,22 +118,14 @@ export function createReactComponent<Api extends ComponentApi>(
   const ReactWrapper: React.FC<{
     context: ComponentContext;
     buildChild: (id: string, basePath?: string) => React.ReactNode;
-  }> = ({ context, buildChild }) => {
-    const bindingRef = useRef<GenericBinder<Props> | null>(null);
-
-    // Create or recreate the binder if the context object changes.
-    // DeferredChild memoizes `context`, so reference changes strictly correspond
-    // to ComponentModel updates (like type changes) or Base Path adjustments.
-    if (!bindingRef.current) {
-      bindingRef.current = new GenericBinder<Props>(context, api.schema);
-    } else if (
-      (bindingRef.current as unknown as { context: ComponentContext })
-        .context !== context
-    ) {
-      bindingRef.current.dispose();
-      bindingRef.current = new GenericBinder<Props>(context, api.schema);
-    }
-    const binding = bindingRef.current;
+    properties: ComponentContext["componentModel"]["properties"];
+  }> = ({ context, buildChild, properties }) => {
+    // Rebuild on wire updates as well as context changes, so a previously
+    // failed binding cannot leave stale resolved props on a corrected component.
+    const binding = useMemo(
+      () => new GenericBinder<Props>(context, api.schema),
+      [context, properties],
+    );
 
     const subscribe = useCallback(
       (callback: () => void) => {
@@ -103,18 +144,61 @@ export function createReactComponent<Api extends ComponentApi>(
     }, [binding]);
 
     return (
-      <MemoizedRender
-        props={props || ({} as Props)}
-        buildChild={buildChild}
-        context={context}
-      />
+      <RenderBoundary name={api.name} snapshot={props}>
+        <MemoizedRender
+          props={props || ({} as Props)}
+          buildChild={buildChild}
+          context={context}
+        />
+      </RenderBoundary>
+    );
+  };
+
+  const ValidatedWrapper: ReactComponentImplementation["render"] = ({
+    context,
+    buildChild,
+  }) => {
+    const subscribe = useCallback(
+      (callback: () => void) => {
+        const subscription =
+          context.componentModel.onUpdated.subscribe(callback);
+        return () => subscription.unsubscribe();
+      },
+      [context],
+    );
+    const getSnapshot = useCallback(
+      () => context.componentModel.properties,
+      [context],
+    );
+    const properties = useSyncExternalStore(subscribe, getSnapshot);
+
+    // Validate before mounting the binder, which can throw on malformed input.
+    // Validate the wire props, not the bound props: the binder turns valid
+    // actions into callbacks and child templates into resolved child lists.
+    // A plain string schema deliberately does not accept a { path } binding.
+    const validation = api.schema.safeParse(properties);
+    if (!validation.success) {
+      const fields = validation.error.issues
+        .map((issue) => `${issue.path.join(".") || "props"}: ${issue.message}`)
+        .join("; ");
+      return <ComponentFailure name={api.name} detail={fields} />;
+    }
+
+    return (
+      <RenderBoundary name={api.name} snapshot={properties}>
+        <ReactWrapper
+          buildChild={buildChild}
+          context={context}
+          properties={properties}
+        />
+      </RenderBoundary>
     );
   };
 
   return {
     name: api.name,
     schema: api.schema,
-    render: ReactWrapper,
+    render: ValidatedWrapper,
   };
 }
 
