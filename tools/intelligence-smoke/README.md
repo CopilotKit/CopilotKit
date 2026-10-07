@@ -56,6 +56,9 @@ The chart and supporting services still use the public pins.
 4. Install the pinned chart, run its migration and bootstrap hooks, and start the services.
 5. Exercise Thread and Learning, save evidence, and remove the owned cluster and temporary files.
 
+On SIGINT or SIGTERM, the runner stops active commands and completes cleanup before it exits with a nonzero status.
+Repeated signals do not stop cleanup commands, which retain their time limits.
+
 The built SDK runs in a separate process.
 It sends a real agent run through the Intelligence gateway and reads the saved conversation through app-api.
 Learning binds that Thread, waits for harvest, starts a run, and reads the saved Insights twice.

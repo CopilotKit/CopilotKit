@@ -112,11 +112,13 @@ export async function buildCandidate({ source, directory, run }) {
         const present = await run("docker", ["image", "ls", "--quiet", ref], {
           cwd,
           step: "candidate-cleanup-list",
+          cleanup: true,
         });
         if (present.trim())
           await run("docker", ["image", "rm", "--force", ref], {
             cwd,
             step: "candidate-cleanup-image",
+            cleanup: true,
           });
       } catch (cleanupError) {
         cleanupErrors.push(cleanupError);

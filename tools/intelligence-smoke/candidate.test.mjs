@@ -132,3 +132,17 @@ test("candidate archives do not download private LFS test fixtures", async (t) =
   const result = await buildCandidate(f);
   assert.equal(result.imageEvidence.length, 3);
 });
+
+test("interrupted candidate permits only cleanup commands and preserves cancellation", async (t) => {
+  const f = await fixture(t);
+  const run = f.run;
+  const interruption = new Error("Smoke run interrupted by SIGINT");
+  let interrupted = false;
+  f.run = async (file, args, options) => {
+    if (options.step === "candidate-build-realtime-gateway") interrupted = true;
+    if (interrupted && !options.cleanup) throw interruption;
+    return run(file, args, options);
+  };
+  await assert.rejects(buildCandidate(f), (error) => error === interruption);
+  assert.equal(f.calls.filter(({ args }) => args[1] === "rm").length, 2);
+});

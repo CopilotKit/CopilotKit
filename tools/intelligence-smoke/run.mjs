@@ -1,15 +1,13 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
+import { writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { mkdir, mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import {
-  packRuntimeWorkspace,
-  standaloneConsumerEnv,
-} from "../learned-skill-conformance/workspace-artifacts.mjs";
+import { standaloneConsumerEnv } from "../learned-skill-conformance/workspace-artifacts.mjs";
 import { commandRunner } from "./process.mjs";
 import { startModel, scenario } from "./model.mjs";
 import { createStack } from "./stack.mjs";
@@ -29,7 +27,7 @@ const output = resolve(values.output ?? `smoke-results-${randomUUID()}`);
 await mkdir(output, { recursive: false, mode: 0o700 });
 const directory = await mkdtemp(join(tmpdir(), "pe-431-"));
 const secrets = [];
-const run = commandRunner(output, secrets);
+const run = commandRunner(output, secrets, { handleSignals: true });
 const evidence = {
   status: "failed",
   startedAt: new Date().toISOString(),
@@ -50,10 +48,21 @@ try {
   });
   const consumer = join(directory, "consumer");
   await mkdir(consumer);
-  const artifacts = packRuntimeWorkspace(
-    root,
-    join(directory, "packages"),
-    standaloneConsumerEnv(),
+  // Packing uses synchronous subprocesses internally. Isolate it so the parent
+  // can handle cancellation and terminate the entire packing process group.
+  const artifacts = JSON.parse(
+    await run(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `import { packRuntimeWorkspace } from ${JSON.stringify(new URL("../learned-skill-conformance/workspace-artifacts.mjs", import.meta.url).href)};
+     console.log(JSON.stringify(packRuntimeWorkspace(process.argv[1], process.argv[2], process.env)));`,
+        root,
+        join(directory, "packages"),
+      ],
+      { step: "sdk-pack", env: standaloneConsumerEnv() },
+    ),
   );
   await writeFile(
     join(consumer, "package.json"),
@@ -174,6 +183,7 @@ try {
 } catch (error) {
   failure = error;
 } finally {
+  run.beginCleanup();
   evidence.cleanup = {
     model: "not_run",
     stack: "not_run",
@@ -193,10 +203,14 @@ try {
     if (error.code !== "ENOENT") failure ??= error;
   }
   if (model) {
-    await writeFile(
-      join(output, "model-requests.json"),
-      JSON.stringify(model.requests(), null, 2),
-    );
+    try {
+      await writeFile(
+        join(output, "model-requests.json"),
+        JSON.stringify(model.requests(), null, 2),
+      );
+    } catch (error) {
+      failure ??= error;
+    }
     evidence.cleanup.model = "failed";
     try {
       await model.stop();
@@ -225,6 +239,8 @@ try {
   } catch (error) {
     failure ??= error;
   }
+  failure ??= run.interruption;
+  if (run.interruption) evidence.signal = run.interruption.signal;
   evidence.finishedAt = new Date().toISOString();
   evidence.status = failure ? "failed" : "passed";
   if (failure)
@@ -234,13 +250,13 @@ try {
         (text, secret) => text.replaceAll(secret, "[redacted]"),
         String(failure),
       );
-  await writeFile(
-    join(output, "result.json"),
-    JSON.stringify(evidence, null, 2),
-  );
+  // Keep the signal snapshot and final evidence write in one event-loop turn.
+  writeFileSync(join(output, "result.json"), JSON.stringify(evidence, null, 2));
 }
 console.log(`${evidence.status}: ${join(output, "result.json")}`);
 if (failure) {
   console.error(evidence.error);
-  process.exitCode = 1;
+  process.exitCode = run.interruption?.exitCode ?? 1;
 }
+
+run.dispose();
