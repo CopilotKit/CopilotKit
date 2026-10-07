@@ -40,7 +40,7 @@ history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
 ### Other Changes
 
-- chore(deps): bump @ag-ui/* to 1.0.2 (PNI-551) (#7648) (d4afb51)
+- chore(deps): bump @ag-ui/\* to 1.0.2 (PNI-551) (#7648) (d4afb51)
 
 ## 1.77.0 - 2026-10-02
 
