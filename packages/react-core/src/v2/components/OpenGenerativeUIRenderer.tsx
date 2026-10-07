@@ -59,6 +59,16 @@ interface OpenGenerativeUIActivityRendererProps {
 }
 
 const THROTTLE_MS = 1000;
+// Allow long generated documents while bounding iframe-controlled layout size.
+const MAX_FRAME_HEIGHT = 100_000;
+function isFrameHeight(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value > 0 &&
+    value <= MAX_FRAME_HEIGHT
+  );
+}
 
 /**
  * Returns true when the inner component should re-render immediately
@@ -151,6 +161,80 @@ interface InnerProps {
   content: OpenGenerativeUIContent;
 }
 
+/* Runs inside the sandbox once it is ready. Reports the content height to the
+   host whenever it changes (late fonts, charts, reflow when the host narrows).
+   A single measurement when generation ends could not follow those changes, and
+   it was skipped when the HTML and `generating: false` arrived in one render,
+   because the sandbox did not exist yet.
+   The body height override exists only for the duration of one measurement, so
+   generated full-height layouts (`html, body { height: 100% }`) keep working
+   between measurements. Uses body.scrollHeight because documentElement's is
+   clamped to the iframe viewport and can never shrink below it.
+   Content sized from the viewport (vh units, JS reading innerHeight) follows the
+   frame, so reporting it would grow the frame and the content with it, without
+   end. Two guards stop that:
+   - Content exactly as tall as the viewport (a \`min-height: 100vh\` hero, a
+     canvas set to innerHeight) is not reported at all.
+   - After our own resize lands, the frame should fit the content. Two misfits in
+     a row mean the content follows the frame with an offset (padding, a header,
+     110vh), so reporting stops until the content height changes on its own
+     (viewport unchanged). Such content never fits, so it scrolls instead of
+     being clipped until it fits again.
+   ResizeObserver misses content added inside a fixed-height body, so body
+   mutations schedule a measurement too. Only body is watched: the measurement
+   style goes to head. */
+const CK_MEASURE_AND_WATCH = `
+(function() {
+  if (window.__ckResizeWatch) return;
+  var last = -1;
+  var measured = -1;
+  var view = window.innerHeight;
+  var misses = 0;
+  var raf = 0;
+  function measure() {
+    var s = document.createElement('style');
+    s.textContent = 'body { height: auto !important; min-height: 0 !important; }';
+    document.head.appendChild(s);
+    var h = document.body.scrollHeight;
+    var cs = getComputedStyle(document.body);
+    s.remove();
+    if (Math.abs(h - window.innerHeight) < 2) return 0;
+    h += parseFloat(cs.marginTop) || 0;
+    h += parseFloat(cs.marginBottom) || 0;
+    return Math.ceil(h);
+  }
+  function report() {
+    raf = 0;
+    var h = measure();
+    if (window.innerHeight !== view) {
+      misses = Math.abs(h - window.innerHeight) >= 2 ? misses + 1 : 0;
+    } else if (Math.abs(h - measured) >= 2) {
+      misses = 0;
+    }
+    view = window.innerHeight;
+    measured = h;
+    if (misses > 1) {
+      document.documentElement.style.setProperty('overflow-y', 'auto', 'important');
+    } else if (h - view < 2) {
+      document.documentElement.style.removeProperty('overflow-y');
+    }
+    if (h < 1 || Math.abs(h - last) < 2 || misses > 1) return;
+    last = h;
+    parent.postMessage({ type: "__ck_resize", height: h }, "*");
+  }
+  function schedule() { if (!raf) raf = requestAnimationFrame(report); }
+  window.__ckResizeWatch = new ResizeObserver(schedule);
+  window.__ckResizeWatch.observe(document.documentElement);
+  window.__ckResizeWatch.observe(document.body);
+  new MutationObserver(schedule).observe(document.body, {
+    childList: true, subtree: true, attributes: true, characterData: true
+  });
+  window.addEventListener('load', schedule);
+  window.addEventListener('resize', schedule);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);
+  report();
+})();
+`;
 function ensureHead(html: string): string {
   if (/<head[\s>]/i.test(html)) return html;
   return `<head></head>${html}`;
@@ -170,7 +254,9 @@ function injectCssIntoHtml(html: string, css: string): string {
 
 const OpenGenerativeUIActivityRendererInner = React.memo(
   function OpenGenerativeUIActivityRendererInner({ content }: InnerProps) {
-    const initialHeight = content.initialHeight ?? 200;
+    const initialHeight = isFrameHeight(content.initialHeight)
+      ? content.initialHeight
+      : 200;
     const [autoHeight, setAutoHeight] = useState<number | null>(null);
     const sandboxFunctions = useSandboxFunctions();
 
@@ -366,6 +452,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
             for (const code of queue) {
               sandbox.run(code);
             }
+            sandbox.run(CK_MEASURE_AND_WATCH);
           });
         })
         .catch((err: unknown) => {
@@ -428,52 +515,44 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       }
     }, [content.jsExpressions?.length]);
 
-    // Effect 4 — One-shot height measurement (fires once when generation completes)
-    // Uses body.scrollHeight (not documentElement.scrollHeight) because the latter
-    // is clamped to the iframe viewport and can never shrink below the current size.
-    const generationDone = content.generating === false;
+    // Listen before the asynchronous sandbox creation. The observer starts after
+    // sandbox readiness and follows late content and host-width changes.
     useEffect(() => {
-      const sandbox = sandboxRef.current;
-      if (!generationDone || !sandbox) return;
-
-      let handled = false;
+      let frame: number | null = null;
+      let pending: {
+        source: MessageEventSource | null;
+        height: number;
+      } | null = null;
       const onMessage = (e: MessageEvent) => {
-        if (handled) return;
+        const sandbox = sandboxRef.current;
         if (
-          e.source === sandbox.iframe.contentWindow &&
-          e.data?.type === "__ck_resize"
-        ) {
-          handled = true;
-          setAutoHeight(e.data.height);
-          window.removeEventListener("message", onMessage);
-        }
+          !sandbox ||
+          e.source !== sandbox.iframe.contentWindow ||
+          e.data?.type !== "__ck_resize" ||
+          !isFrameHeight(e.data.height)
+        )
+          return;
+        pending = { source: e.source, height: e.data.height };
+        if (frame !== null) return;
+        frame = requestAnimationFrame(() => {
+          frame = null;
+          const resize = pending;
+          pending = null;
+          if (
+            resize &&
+            sandboxRef.current?.iframe.contentWindow === resize.source
+          ) {
+            setAutoHeight(resize.height);
+          }
+        });
       };
       window.addEventListener("message", onMessage);
-
-      const measureOnce = `
-        (function() {
-          var s = document.createElement('style');
-          s.textContent = 'body { height: auto !important; min-height: 0 !important; }';
-          document.head.appendChild(s);
-          var h = document.body.scrollHeight;
-          var cs = getComputedStyle(document.body);
-          h += parseFloat(cs.marginTop) || 0;
-          h += parseFloat(cs.marginBottom) || 0;
-          s.remove();
-          parent.postMessage({ type: "__ck_resize", height: Math.ceil(h) }, "*");
-        })();
-      `;
-
-      if (sandboxReadyRef.current) {
-        sandbox.run(measureOnce);
-      } else {
-        pendingQueueRef.current.push(measureOnce);
-      }
-
       return () => {
         window.removeEventListener("message", onMessage);
+        if (frame !== null) cancelAnimationFrame(frame);
+        pending = null;
       };
-    }, [generationDone]);
+    }, [fullHtml, css, localApi]);
 
     const height = autoHeight ?? initialHeight;
 
