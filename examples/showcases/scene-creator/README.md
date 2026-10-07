@@ -1,5 +1,7 @@
 # Scene Creator - CopilotKit + LangGraph + Gemini 3 Demo
 
+> **Hosted demo retirement:** This hosted demo is being retired from the public catalog. Source remains available for historical reference and local use. There is no replacement hosted deployment.
+
 A demo app showcasing [CopilotKit](https://copilotkit.ai) integration with [LangGraph](https://www.langchain.com/langgraph) and Google's Gemini 3 models. Generate AI-powered scenes by creating characters, backgrounds, and combining them together.
 
 https://github.com/user-attachments/assets/3c60c2b8-5ccd-42f0-817f-0e5e22398a48

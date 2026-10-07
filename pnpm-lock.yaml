@@ -1267,6 +1267,9 @@ importers:
       compare-versions:
         specifier: ^6.1.1
         version: 6.1.1
+      dompurify:
+        specifier: '>=3.3.2'
+        version: 3.4.1
       fast-json-patch:
         specifier: ^3.1.1
         version: 3.1.1
@@ -2305,6 +2308,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      dompurify:
+        specifier: '>=3.3.2'
+        version: 3.4.1
       highlight.js:
         specifier: ^11.11.1
         version: 11.11.1
