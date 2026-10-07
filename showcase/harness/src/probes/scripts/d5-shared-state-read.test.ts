@@ -103,7 +103,8 @@ describe("d5-shared-state-read script", () => {
   });
 
   it("types the edited title into the form and waits for it to stick", async () => {
-    const { page, fills } = makePage((typed) => typed);
+    // The probe reads only after `fill`, so the empty default never shows.
+    const { page, fills } = makePage((typed) => typed ?? "");
     await editRecipeTitle(page);
     expect(fills).toEqual([
       { selector: RECIPE_TITLE_SELECTOR, value: EDITED_RECIPE_TITLE },
