@@ -3,7 +3,7 @@
     ### Pause a tool with Strands' native interrupt
 
     AWS Strands ships a first-class
-    [interrupt primitive](https://strandsagents.com/docs/user-guide/concepts/interrupts/).
+    [interrupt primitive](https://strandsagents.com/docs/user-guide/sdk/interrupts/).
     A tool's callback receives a context whose `interrupt({ name, reason })`
     call halts the agent loop and hands `reason` to the client as the interrupt
     payload. The AG-UI adapter finishes the run with `RUN_FINISHED` carrying

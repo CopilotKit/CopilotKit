@@ -20,7 +20,7 @@ runtime.
 This framework ships a first-class interrupt primitive that lets running
 work suspend itself and hand control to the client
 ([LangGraph](https://docs.langchain.com/oss/python/langgraph/interrupts),
-[AWS Strands](https://strandsagents.com/docs/user-guide/concepts/interrupts/)).
+[AWS Strands](https://strandsagents.com/docs/user-guide/sdk/interrupts/)).
 The run is frozen server-side until the client resolves the interrupt with a
 payload, at which point execution resumes as if the interrupt call had simply
 returned that payload.
