@@ -16,11 +16,12 @@ async function* chunks(items: Chunk[]): AsyncIterable<Chunk> {
   for (const item of items) yield item;
 }
 
-async function collect(items: Chunk[]) {
+async function collect(items: Chunk[], initialState?: unknown) {
   const out = [];
   for await (const event of convertStream(
     chunks(items),
     new AbortController().signal,
+    initialState,
   )) {
     out.push(event);
   }
@@ -122,6 +123,51 @@ describe("convertStream — subagent delegations", () => {
     expect(second.map((d) => d.sub_agent)).toEqual([
       "research_agent",
       "writing_agent",
+    ]);
+  });
+
+  it("keeps the delegations of earlier runs in the thread (REPAIR-041)", async () => {
+    // Run 2 of a thread: the client sends the log it already holds as
+    // RunAgentInput.state. The whole-array `add` must extend that log, not
+    // replace it with this run's entries only.
+    const earlier = {
+      id: "call-run1",
+      sub_agent: "research_agent",
+      task: "Research",
+      status: "completed",
+      result: "facts",
+    };
+    const events = await collect(
+      delegationChunks({
+        toolCallId: "call-run2",
+        toolCallName: "writing_agent",
+        task: "Draft",
+        text: "prose",
+      }),
+      { delegations: [earlier], unrelated: true },
+    );
+
+    const ops = delegationDeltas(events);
+    expect(ops).toHaveLength(1);
+    const log = ops[0].value as Array<{ id: string; sub_agent: string }>;
+    expect(log.map((d) => d.id)).toEqual(["call-run1", "call-run2"]);
+    expect(log[0]).toEqual(earlier);
+  });
+
+  it("ignores a malformed delegations slot in the incoming state", async () => {
+    const events = await collect(
+      delegationChunks({
+        toolCallId: "call-1",
+        toolCallName: "research_agent",
+        task: "Research",
+        text: "facts",
+      }),
+      { delegations: "not-a-list" },
+    );
+
+    const ops = delegationDeltas(events);
+    expect((ops[0].value as Array<{ id: string }>).map((d) => d.id)).toEqual([
+      "call-1",
     ]);
   });
 

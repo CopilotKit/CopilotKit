@@ -89,6 +89,9 @@ function randomUUID(): string {
 export async function* convertStream(
   stream: AsyncIterable<unknown>,
   abortSignal: AbortSignal,
+  // The run's incoming AG-UI state (RunAgentInput.state). Only its
+  // `delegations` slot is read, to seed the subagents delegation log.
+  initialState?: unknown,
 ): AsyncGenerator<BaseEvent> {
   const messageId = randomUUID();
   // Track tool calls that have already emitted TOOL_CALL_END to suppress
@@ -103,7 +106,10 @@ export async function* convertStream(
   const toolArgsById = new Map<string, string>();
   // Running `delegations` list for the subagents demo. Emitted whole on each
   // append (see the STATE_DELTA below for why it is not an RFC-6902 append).
-  const delegations: Delegation[] = [];
+  // Seeded from the thread's incoming state: the whole-array `add` replaces
+  // the slot, so starting empty would wipe the entries of earlier runs on
+  // the first delegation of every later run (REPAIR-041).
+  const delegations: Delegation[] = initialDelegations(initialState);
 
   for await (const chunk of stream) {
     if (abortSignal.aborted) break;
@@ -313,6 +319,12 @@ export async function* convertStream(
   }
 }
 
+function initialDelegations(state: unknown): Delegation[] {
+  if (!state || typeof state !== "object") return [];
+  const prior = (state as { delegations?: unknown }).delegations;
+  return Array.isArray(prior) ? [...(prior as Delegation[])] : [];
+}
+
 function safeParseJSON(value: string): unknown {
   try {
     return JSON.parse(value);
@@ -518,7 +530,7 @@ export function createBuiltInAgent(options: BuiltInAgentOptions = {}) {
         agentLoopStrategy: DEMO_AGENT_LOOP_STRATEGY,
       });
 
-      return convertStream(stream, abortController.signal);
+      return convertStream(stream, abortController.signal, input.state);
       // @endregion[gen-ui-agent-wiring]
     },
   });
