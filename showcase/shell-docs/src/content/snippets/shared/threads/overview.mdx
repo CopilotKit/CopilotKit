@@ -1,3 +1,4 @@
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import { RichThreadsSetupPrompt } from "@/components/rich-threads-setup-prompt";
 import InspectorPaneThreads from "@/snippets/shared/inspector/open-inspector-pane-threads.mdx";
 
@@ -17,6 +18,15 @@ They’re designed to complement your existing thread storage, whether you use L
     className="block w-full !my-0"
   />
 </div>
+
+<Accordions>
+  <Accordion title="Starting fresh?">
+    Intelligence stores your conversation history and restores messages, generative UI, tool interactions, and multimodal inputs when users return.
+  </Accordion>
+  <Accordion title="Already have your own threading system?">
+    Keep it. Intelligence records its own copy of your supported AG-UI interactions while your framework manages the original conversation and agent state. [Read more](/intelligence/bring-your-own-thread-system).
+  </Accordion>
+</Accordions>
 
 <span id="sync-existing-conversations" />
 

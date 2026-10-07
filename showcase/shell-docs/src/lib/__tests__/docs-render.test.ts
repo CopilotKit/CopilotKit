@@ -276,3 +276,19 @@ describe("framework nav", () => {
     ).toEqual(["Basics", "Threads"]);
   });
 });
+
+it("keeps the existing-thread guide discoverable in root and framework sidebars", () => {
+  const expected = {
+    title: "Bring your own thread system",
+    slug: "intelligence/bring-your-own-thread-system",
+  };
+  for (const nav of [
+    buildRootSurfaceNav("built-in-agent"),
+    buildFrameworkNav("langgraph", "LangGraph (Python)", "langgraph-python"),
+    buildFrameworkOnlyNav("ag2"),
+  ]) {
+    expect(
+      groupPageEntries(normalizeSidebarNav(nav), "AG-UI Streams"),
+    ).toContainEqual(expected);
+  }
+});
