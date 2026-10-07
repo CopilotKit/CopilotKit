@@ -3,7 +3,7 @@
 This is the live progress document for repairing the five selected agent integrations in React:
 LangGraph Python, LangGraph JS, Google ADK, Strands, and Built-in Agent.
 
-**Current position: paused at a planned checkpoint (September 23). Three integrations pass their full strict local replay matrix; none is fully qualified (reader review and live-provider proof pending).** See [the September 23 checkpoint](checkpoint-20260923.md).
+**Current position (Oct 7): all five integrations pass their full strict local replay matrix on unpatched published CopilotKit 1.77.0 + AG-UI 1.0.1; docs suite, build and reader review green. Replay-only; live-provider proof and three owner decisions remain.** See [the completion record](completion-20261007.md).
 
 The [per-defect ledger](repair-status.json) tracks all 37 confirmed findings, fix commits,
 after-evidence, and independent reviews. New failures found during repairs use separate `REPAIR-*`
@@ -53,13 +53,13 @@ Local execution follows the [resource budget](resource-budget.md): the user-appr
   results below used Webpack because the default Turbopack command failed.
 - Keep new results in iteration records; do not overwrite the original failed verdicts.
 
-| Integration      | Original baseline                                  | Current repair status                                                                                                                                                                                                                                                                                                                    | Qualification                      |
-| ---------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| LangGraph Python | 38/40; voice and multimodal failed                 | 2026-09-23: current stable deps (langgraph 1.2.12, langchain 1.4.2, langchain-openai 1.6.4) on unpatched published 1.73.3; strict local matrix **40/40** first run, no retries; shared-state-read red→green; LangSmith and FastAPI BYO setup paths boot from the guide's own code blocks. Reader review and live-provider proof pending. | Runtime qualified locally (replay) |
-| LangGraph JS     | 37/40 under Webpack; default dev broken            | 2026-09-23: current stable deps on unpatched published 1.73.3; strict local matrix **40/40** (0 strict 503s); documented BYO setup boots from a fresh copy. Reader review and live-provider proof pending.                                                                                                                               | Runtime qualified locally (replay) |
-| Google ADK       | UI startup blocked by conflicting routes           | 2026-09-23: current stable deps (google-adk 2.9.2, google-genai 2.25.0, ag-ui-adk 0.7.0) on unpatched published 1.73.3; strict local matrix **40/40** first run (three batches under 11 GB); shared-state-read red→green; BYO guide Python floor corrected to 3.10 and reproduced. Reader review and live-provider proof pending.        | Runtime qualified locally (replay) |
-| Strands          | 34/36; voice and multimodal failed                 | Recipe/state bridge and 3 related strict local cells green. Full refresh pending.                                                                                                                                                                                                                                                        | Not qualified                      |
-| Built-in Agent   | 35/39; three confirmed fixture gaps plus a timeout | Final 38/39 raw strict local matrix: all 38 published checks pass; the unshipped thread-ID demo remains RED. Uses public 1.71.1 plus local core URL fix; unpatched public package still fails. Voice audio transcription remains untested.                                                                                               | Not qualified                      |
+| Integration      | Original baseline                                  | Current repair status                                                    | Qualification                      |
+| ---------------- | -------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------- |
+| LangGraph Python | 38/40; voice and multimodal failed                 | 40/40 on 1.77.0 (Oct 6); setup reproduced                                | Runtime qualified locally (replay) |
+| LangGraph JS     | 37/40 under Webpack; default dev broken            | 40/40 on 1.77.0 (Oct 6); setup reproduced                                | Runtime qualified locally (replay) |
+| Google ADK       | UI startup blocked by conflicting routes           | 40/40 on 1.77.0 (Oct 6); setup reproduced                                | Runtime qualified locally (replay) |
+| Strands          | 34/36; voice and multimodal failed                 | 41/41 on 1.77.0 (Oct 6); setup reproduced                                | Runtime qualified locally (replay) |
+| Built-in Agent   | 35/39; three confirmed fixture gaps plus a timeout | 38/38 published on 1.77.0 + TanStack AI 0.64.1 (Oct 6); setup reproduced | Runtime qualified locally (replay) |
 
 Check counts differ from routed-demo counts because D6 expands some features. The two LangGraph
 interrupt demos remain explicitly quarantined pending supported SDK behavior. See the
@@ -220,3 +220,5 @@ Paused on September 13 at the user’s request. Audit servers and workers are st
 - Focused docs checks: 14 files, 199/199. Typecheck clean. The full docs suite has not been rerun yet.
 
 - Before/after reader comparison (13 pairs, main `5b02c0254a` vs branch `0c7796721b`): https://claude.ai/artifact/4k2yZEzDqz8S5vYrZ155C7 (private to the owner).
+
+| 49 | Rebase and requalify on CopilotKit 1.77.0 + AG-UI 1.0 | Branch 931 behind main; 1.73.3 pins | Rebased twice (final HEAD `8383e7abe4` on `4d1f4c1df4`); all five matrices green on 1.77.0; docs suite 1230/1230, build, reader review | Complete for replay scope; see completion-20261007.md |
