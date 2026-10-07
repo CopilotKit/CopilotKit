@@ -8,6 +8,8 @@ import { presenterResetEnabled } from "@/lib/presenter";
 import { LockedSkinProvider } from "@/shell/locked-skin-context";
 import { lockedSkinId } from "@/lib/locked-skin";
 import { skinIdentities } from "@/shell/skins-config";
+import Script from "next/script";
+import { workspaceThemeBootstrap } from "@/intelligence-ui/shell/workspace-theme-bootstrap";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -78,6 +80,12 @@ export default function RootLayout({
             per-skin provider stack live inside each skin (see /[skin]/layout.tsx),
             not here. Both are runtime envs read per request; the `force-dynamic`
             export above (see its note) is what keeps either from being baked in. */}
+        {/* /intelligence only: the Intelligence workspace theme goes on the
+            document root before first paint (beforeInteractive is root-layout
+            only). It does nothing on any other route. */}
+        <Script id="intelligence-workspace-theme" strategy="beforeInteractive">
+          {workspaceThemeBootstrap}
+        </Script>
         <LockedSkinProvider lockedSkinId={lockedSkinId()}>
           <PresenterResetProvider enabled={presenterResetEnabled()}>
             {children}

@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/sqlite-runner",
-  "version": "1.77.0",
+  "version": "1.77.1",
   "description": "SQLite-backed agent runner for CopilotKit2",
   "license": "MIT",
   "repository": {
@@ -32,7 +32,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.1",
+    "@ag-ui/client": "1.0.2",
     "@copilotkit/runtime": "workspace:*",
     "rxjs": "7.8.1"
   },

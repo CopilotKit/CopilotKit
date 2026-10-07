@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-core",
-  "version": "1.77.0",
+  "version": "1.77.1",
   "private": false,
   "keywords": [
     "ai",
@@ -72,11 +72,12 @@
     "unlink:global": "pnpm unlink --global",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16",
-    "generate:external-reexports": "node scripts/generate-external-reexports.mjs"
+    "generate:external-reexports": "node scripts/generate-external-reexports.mjs",
+    "test:browser": "playwright test --config browser/playwright.config.ts"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.1",
-    "@ag-ui/core": "1.0.1",
+    "@ag-ui/client": "1.0.2",
+    "@ag-ui/core": "1.0.2",
     "@copilotkit/a2ui-renderer": "workspace:*",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/mcp-apps-renderer": "workspace:*",
@@ -132,11 +133,21 @@
     "typescript": "^5.2.3",
     "valibot": "^1.2.0",
     "vitest": "^3.2.4",
-    "zod": ">=3.0.0"
+    "zod": ">=3.0.0",
+    "@playwright/test": "^1.59.1"
   },
   "peerDependencies": {
     "react": "^18 || ^19 || ^19.0.0-rc",
     "react-dom": "^18 || ^19 || ^19.0.0-rc",
     "zod": ">=3.25"
+  },
+  "nx": {
+    "targets": {
+      "test:browser": {
+        "dependsOn": [
+          "^build"
+        ]
+      }
+    }
   }
 }

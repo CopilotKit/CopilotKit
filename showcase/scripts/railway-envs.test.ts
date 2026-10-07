@@ -254,7 +254,7 @@ describe("railway-envs SSOT", () => {
 
   it("CI_BUILT_SERVICES contains exactly 41 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
     // 29 showcase/infra CI-built (including conversational flows and the
-    // staging-only google-antigravity) + 12
+    // google-antigravity) + 12
     // starter-<slug> (S2 brought them under the gate; they ARE built+pushed by
     // showcase_build.yml's `build-starters` job to
     // ghcr.io/copilotkit/starter-<slug>:latest).

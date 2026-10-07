@@ -1,0 +1,84 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--cpki-font-sans);
+  line-height: var(--cpki-line-height-normal);
+  text-size-adjust: 100%;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--cpki-color-foreground);
+  background: var(--cpki-color-background);
+  font-family: var(--cpki-font-sans);
+  font-size: var(--cpki-font-size-2);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled,
+input:disabled,
+textarea:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
+a {
+  color: inherit;
+}
+
+img,
+picture,
+svg,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--cpki-font-mono);
+}
+
+::selection {
+  color: var(--cpki-color-primary-foreground);
+  background: var(--cpki-color-primary);
+}
+
+:focus-visible {
+  outline: var(--cpki-focus-ring-width) solid var(--cpki-color-focus-ring);
+  outline-offset: var(--cpki-focus-ring-offset);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.cpki-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
