@@ -8,8 +8,7 @@
 // matcher, kept deliberately free of React, network calls and side
 // effects so it can be read, reviewed and tested as plain data.
 //
-// Rules the data must keep (all enforced by
-// lib/__tests__/intelligence-search-ctas.test.ts):
+// Rules to preserve when editing the recommendations:
 //
 //  - Every destination is an INTERNAL docs route. Never an absolute URL:
 //    the modal navigates through next/router and an external href would

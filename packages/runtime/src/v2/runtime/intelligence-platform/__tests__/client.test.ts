@@ -416,6 +416,77 @@ describe("CopilotKitIntelligence", () => {
     });
   });
 
+  it("passes the renewal's abort signal to fetch without sending it in the body", async () => {
+    fetchMock.mockReturnValue(
+      jsonResponse({
+        threadId: "t-1",
+        runId: "r-1",
+        ttlSeconds: 120,
+        status: "renewed",
+      }),
+    );
+    const controller = new AbortController();
+
+    await client.ɵrenewThreadLock({
+      threadId: "t-1",
+      runId: "r-1",
+      ttlSeconds: 20,
+      signal: controller.signal,
+    });
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    expect(init.signal).toBe(controller.signal);
+    expect(JSON.parse(init.body)).toEqual({ runId: "r-1", ttlSeconds: 20 });
+  });
+
+  describe("ɵrenewThreadLock errors", () => {
+    const renew = () =>
+      client.ɵrenewThreadLock({
+        threadId: "t-1",
+        runId: "r-1",
+        ttlSeconds: 20,
+      });
+
+    it.each([
+      [500, true],
+      [409, false],
+    ])(
+      "carries the platform's retryable flag for a %i response",
+      async (status, retryable) => {
+        fetchMock.mockReturnValue(
+          jsonResponse(
+            {
+              error: {
+                code: "SOME_CODE",
+                message: "failed",
+                category: "internal",
+                retryable,
+              },
+              requestId: "req-1",
+              traceId: "trace-1",
+            },
+            status,
+          ),
+        );
+
+        await expect(renew()).rejects.toMatchObject({
+          name: "PlatformRequestError",
+          status,
+          retryable,
+        });
+      },
+    );
+
+    it("leaves retryable unset when the error body is not the platform envelope", async () => {
+      fetchMock.mockReturnValue(textResponse("Bad Gateway", 502));
+
+      const error = await renew().catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(PlatformRequestError);
+      expect((error as PlatformRequestError).status).toBe(502);
+      expect((error as PlatformRequestError).retryable).toBeUndefined();
+    });
+  });
+
   it("strips trailing slash from apiUrl", async () => {
     const c = new CopilotKitIntelligence({
       apiUrl: "https://api.example.com/",
