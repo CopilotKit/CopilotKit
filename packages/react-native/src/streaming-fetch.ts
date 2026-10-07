@@ -1,13 +1,17 @@
 /**
- * Streaming fetch implementation for React Native.
+ * Streaming fetch for React Native.
  *
- * React Native's built-in fetch doesn't support response.body.getReader()
- * (ReadableStream). This replaces global.fetch with an XHR-based
- * implementation that streams chunks via ReadableStream, enabling
- * CopilotKit's SSE-based agent communication.
+ * React Native's own fetch (whatwg-fetch over XMLHttpRequest) buffers the whole
+ * response, so `response.body.getReader()` is unavailable and AG-UI's SSE
+ * transport cannot stream. {@link createStreamingFetch} builds an XHR-based
+ * fetch whose `body` is a `ReadableStream` fed chunk by chunk.
  *
- * If native fetch already supports ReadableStream bodies (newer RN / Hermes),
- * the replacement is skipped entirely.
+ * It never replaces `globalThis.fetch` on its own. `CopilotKitProvider` hands
+ * it to Core only when the platform's fetch cannot stream
+ * ({@link streamingFetchForPlatform}); on Expo, whose `expo/fetch` already
+ * streams, Core uses Expo's fetch and the app keeps its own.
+ * {@link installStreamingFetch} is the opt-in global replacement, published as
+ * `@copilotkit/react-native/polyfills/fetch`.
  *
  * THREADING NOTE: In React Native, XHR callbacks (onprogress, onload, etc.)
  * may fire on a native networking thread. Pushing data into the ReadableStream
@@ -15,13 +19,40 @@
  * thread, causing iOS to kill the process with "deleted thread with uncommitted
  * CATransaction". All stream-mutating operations are therefore deferred via
  * setTimeout(fn, 0) to bounce back to the JS thread (main thread in Hermes).
- *
- * Call `installStreamingFetch()` once at app startup after polyfills.
  */
 
 declare const global: typeof globalThis;
 
-/** Subset of the Response interface implemented by the streaming fetch polyfill. */
+/** Options for {@link createStreamingFetch}. */
+export interface StreamingFetchOptions {
+  /**
+   * Milliseconds a request may go without receiving anything (headers or body
+   * data) before it fails with `TypeError("Network request timed out")`. Every
+   * chunk restarts the clock, so a long agent run that keeps streaming is never
+   * cut off; this only catches a connection that has stalled (a Wi-Fi to
+   * cellular handover, a tunnel). CopilotRuntime writes an SSE keep-alive after
+   * 15 s of silence, well inside the default.
+   *
+   * `0` disables it. Cancel a request with `init.signal` either way.
+   *
+   * @default 60000
+   */
+  idleTimeoutMs?: number;
+}
+
+const DEFAULT_IDLE_TIMEOUT_MS = 60_000;
+
+/** Fetches built here, so detection recognises one installed as the global. */
+const streamingFetches = new WeakSet<object>();
+
+type FetchWithMarkers = typeof fetch & {
+  /** Set by whatwg-fetch, React Native's own (non-streaming) fetch. */
+  polyfill?: unknown;
+  /** The fetch {@link installStreamingFetch} replaced. */
+  __originalFetch?: typeof fetch;
+};
+
+/** Subset of the Response interface implemented by the streaming fetch. */
 interface StreamingFetchResponse {
   readonly ok: boolean;
   readonly status: number;
@@ -36,7 +67,7 @@ interface StreamingFetchResponse {
   text(): Promise<string>;
   arrayBuffer(): Promise<ArrayBuffer>;
   blob(): Promise<Blob>;
-  clone(): never;
+  clone(): StreamingFetchResponse;
   formData(): Promise<never>;
 }
 
@@ -47,35 +78,110 @@ function createAbortError(): DOMException {
   );
 }
 
-export function installStreamingFetch(): void {
-  // Skip if native fetch already supports ReadableStream body.
-  // Newer React Native versions (Hermes) may support this natively.
+/** Whether the global `Response` produces bodies with `getReader()`. */
+function responseBodiesStream(): boolean {
+  if (typeof global.Response !== "function") {
+    return false;
+  }
   try {
-    const testResponse = new Response("");
-    if (
-      testResponse.body != null &&
-      typeof testResponse.body.getReader === "function"
-    ) {
-      return;
-    }
+    const body = new Response("").body;
+    return body != null && typeof body.getReader === "function";
   } catch (e) {
-    // Response constructor unavailable — expected in older RN environments.
-    if (
-      __DEV__ &&
-      e instanceof Error &&
-      !(e instanceof ReferenceError) &&
-      !(e instanceof TypeError)
-    ) {
+    if (__DEV__) {
       console.warn(
-        "[CopilotKit] Unexpected error during streaming fetch feature detection, " +
-          "installing XHR-based polyfill:",
+        "[CopilotKit] Unexpected error probing Response for streaming support; " +
+          "treating the platform fetch as non-streaming:",
         e,
       );
     }
+    return false;
   }
+}
 
+/**
+ * Whether the platform's `globalThis.fetch` returns bodies CopilotKit can
+ * stream. Decided from the fetch itself, not from the global `Response`:
+ *
+ * - React Native's own fetch is whatwg-fetch, marked `fetch.polyfill === true`.
+ *   It buffers the whole body, so it cannot stream.
+ * - Where the global `Response` streams (browsers, Node, react-native-web), the
+ *   fetch that returns it does too.
+ * - Expo replaces React Native's fetch with `expo/fetch`, which streams, but
+ *   leaves React Native's `Response` (no `body`) as the global. Expo marks its
+ *   runtime with `globalThis.expo`.
+ *
+ * Any other fetch on a runtime whose `Response` cannot stream, such as a
+ * monitoring wrapper that hides the `polyfill` flag, counts as non-streaming,
+ * so CopilotKit falls back to its XHR transport rather than lose streaming.
+ */
+export function platformFetchStreams(): boolean {
+  const platformFetch = global.fetch as FetchWithMarkers | undefined;
+  if (typeof platformFetch !== "function") {
+    return false;
+  }
+  if (streamingFetches.has(platformFetch)) {
+    return true;
+  }
+  if (platformFetch.polyfill === true) {
+    return false;
+  }
+  if (responseBodiesStream()) {
+    return true;
+  }
+  const expo = (global as { expo?: unknown }).expo;
+  return typeof expo === "object" && expo !== null;
+}
+
+/**
+ * The fetch `CopilotKitProvider` gives Core when the app passes none:
+ * `undefined` when the platform's fetch streams (Core then uses it), else a
+ * streaming fetch scoped to CopilotKit's requests. The global is not touched.
+ */
+export function streamingFetchForPlatform(): typeof fetch | undefined {
+  return platformFetchStreams() ? undefined : createStreamingFetch();
+}
+
+/**
+ * Opt-in: replace `globalThis.fetch` with a streaming fetch when the
+ * platform's fetch cannot stream, for apps that call AG-UI agents (or other
+ * SSE endpoints) through the global fetch themselves. The replaced fetch stays
+ * reachable as `globalThis.fetch.__originalFetch`. Skipped where the platform
+ * fetch already streams (Expo, browsers); calling it twice is a no-op.
+ *
+ * Prefer passing `createStreamingFetch()` to the code that needs it, e.g.
+ * `new HttpAgent({ url, fetch: createStreamingFetch() })`: the global
+ * replacement applies to every request in the app.
+ */
+export function installStreamingFetch(options?: StreamingFetchOptions): void {
+  if (platformFetchStreams()) {
+    return;
+  }
   const originalFetch = global.fetch;
-  const TextEncoder = global.TextEncoder;
+  const streamingFetch = createStreamingFetch(options) as FetchWithMarkers;
+  streamingFetch.__originalFetch = originalFetch;
+  global.fetch = streamingFetch;
+}
+
+/**
+ * Create an XHR-based `fetch` whose responses stream: `response.body` is a
+ * `ReadableStream` that receives each chunk as React Native's networking
+ * layer delivers it. It honours `method`, `headers`, `body`, `signal` and
+ * `credentials` (`"omit"` sends no cookies; `"include"` and `"same-origin"`
+ * keep React Native's default of sending them, as its own fetch does).
+ *
+ * The request has no total-time limit; see
+ * {@link StreamingFetchOptions.idleTimeoutMs} for the stall timeout. Pass the
+ * result as `CopilotKitProvider`'s `fetch`, or to your own `HttpAgent`.
+ */
+export function createStreamingFetch(
+  options: StreamingFetchOptions = {},
+): typeof fetch {
+  const idleTimeoutMs = options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
+  if (!Number.isFinite(idleTimeoutMs) || idleTimeoutMs < 0) {
+    throw new RangeError(
+      `idleTimeoutMs must be a finite number of milliseconds >= 0 (0 disables it), got ${String(options.idleTimeoutMs)}`,
+    );
+  }
 
   const streamingFetch = function streamingFetch(
     input: RequestInfo | URL,
@@ -96,6 +202,7 @@ export function installStreamingFetch(): void {
     const headers = init?.headers || (request ? request.headers : {});
     const body = (init?.body ?? request?.body) as string | null | undefined;
     const signal = init?.signal || request?.signal;
+    const credentials = init?.credentials ?? request?.credentials;
 
     return new Promise((resolve, reject) => {
       // Reject immediately if signal is already aborted (per fetch spec)
@@ -107,10 +214,18 @@ export function installStreamingFetch(): void {
       const xhr = new XMLHttpRequest();
       xhr.open(method, url);
 
-      // Default 60s timeout to prevent hanging on stalled mobile connections
-      // (WiFi→cellular transitions, tunnels, serverless cold starts).
-      // Callers can still use AbortSignal.timeout() for finer control.
-      xhr.timeout = 60_000;
+      // No `xhr.timeout`: React Native passes it to OkHttp as a call timeout
+      // on Android, which caps the whole request, so any run longer than it
+      // was cut off (iOS treats the same value as an idle timeout). The idle
+      // timer below gives both platforms the same stall protection instead.
+
+      // React Native's XHR sends cookies unless told otherwise. Map the fetch
+      // credentials mode the way its own fetch (whatwg-fetch) does.
+      if (credentials === "omit") {
+        xhr.withCredentials = false;
+      } else if (credentials === "include") {
+        xhr.withCredentials = true;
+      }
 
       let headerEntries: [string, string][];
       if (headers instanceof Headers) {
@@ -126,12 +241,15 @@ export function installStreamingFetch(): void {
 
       xhr.responseType = "text";
 
-      let streamController: ReadableStreamDefaultController<Uint8Array> | null =
-        null;
+      // One controller per response body: the response and each clone()
+      // read their own stream, all fed from the same XHR.
+      const branches = new Set<ReadableStreamDefaultController<Uint8Array>>();
       let lastIndex = 0;
       let streamClosed = false;
+      let streamError: Error | undefined;
       let settled = false;
-      const encoder = new TextEncoder();
+      let finished = false;
+      const encoder = new global.TextEncoder();
 
       // Promise that resolves/rejects when XHR completes or fails
       let resolveFullText: (text: string) => void;
@@ -143,36 +261,59 @@ export function installStreamingFetch(): void {
       // Prevent unhandled rejection when error occurs but .text()/.json() is never called
       fullTextPromise.catch(() => {});
 
-      function closeStream() {
-        if (streamController && !streamClosed) {
-          streamClosed = true;
-          streamController.close();
+      let idleTimer: ReturnType<typeof setTimeout> | undefined;
+
+      function clearIdleTimer() {
+        if (idleTimer !== undefined) {
+          clearTimeout(idleTimer);
+          idleTimer = undefined;
         }
+      }
+
+      /** Restart the stall clock. Called on every sign of life from the XHR. */
+      function armIdleTimer() {
+        if (idleTimeoutMs === 0 || finished) return;
+        clearIdleTimer();
+        idleTimer = setTimeout(() => {
+          idleTimer = undefined;
+          fail(new TypeError("Network request timed out"));
+          xhr.abort();
+        }, idleTimeoutMs);
+      }
+
+      /** Stop the stall clock and the abort wiring: the request is over. */
+      function finish() {
+        finished = true;
+        clearIdleTimer();
+        cleanupAbortListener();
+      }
+
+      function closeStream() {
+        if (streamClosed) return;
+        streamClosed = true;
+        for (const controller of branches) controller.close();
       }
 
       function errorStream(err: Error) {
-        if (streamController && !streamClosed) {
-          streamClosed = true;
-          streamController.error(err);
-        }
+        if (streamClosed) return;
+        streamClosed = true;
+        streamError = err;
+        for (const controller of branches) controller.error(err);
       }
 
       function flushChunks() {
-        if (
-          streamController &&
-          !streamClosed &&
-          xhr.responseText.length > lastIndex
-        ) {
+        if (!streamClosed && xhr.responseText.length > lastIndex) {
           const newData = xhr.responseText.slice(lastIndex);
           lastIndex = xhr.responseText.length;
-          streamController.enqueue(encoder.encode(newData));
+          const chunk = encoder.encode(newData);
+          for (const controller of branches) controller.enqueue(chunk);
         }
       }
 
       /** Centralized error handler — errors the stream, rejects fullTextPromise,
        *  and rejects the outer fetch promise if not yet settled. */
       function fail(err: Error) {
-        cleanupAbortListener();
+        finish();
         errorStream(err);
         rejectFullText(err);
         if (!settled) {
@@ -196,25 +337,52 @@ export function installStreamingFetch(): void {
         }
       }
 
-      const stream = new ReadableStream<Uint8Array>({
-        start(controller) {
-          streamController = controller;
-        },
-        cancel() {
-          xhr.abort();
-          rejectFullText(createAbortError());
-        },
-      });
+      /**
+       * A body stream for one response. It starts with everything received so
+       * far, so a clone made after some chunks arrived still reads the whole
+       * body. Cancelling it aborts the XHR only once no other body is reading.
+       */
+      function createBranch(): ReadableStream<Uint8Array> {
+        let branch: ReadableStreamDefaultController<Uint8Array>;
+        return new ReadableStream<Uint8Array>({
+          start(controller) {
+            branch = controller;
+            if (lastIndex > 0) {
+              controller.enqueue(
+                encoder.encode(xhr.responseText.slice(0, lastIndex)),
+              );
+            }
+            if (streamError) {
+              controller.error(streamError);
+            } else if (streamClosed) {
+              controller.close();
+            } else {
+              branches.add(controller);
+            }
+          },
+          cancel() {
+            branches.delete(branch);
+            if (branches.size === 0 && !streamClosed) {
+              finish();
+              streamClosed = true;
+              xhr.abort();
+              rejectFullText(createAbortError());
+            }
+          },
+        });
+      }
 
       // All XHR callbacks are wrapped with setTimeout(fn, 0) to ensure they
       // run on the JS thread. In React Native, XHR callbacks may fire on a
-      // native networking thread; calling streamController.enqueue() there
-      // triggers downstream React setState on the wrong thread, which causes
-      // iOS to kill the process ("deleted thread with uncommitted CATransaction").
+      // native networking thread; calling enqueue() there triggers downstream
+      // React setState on the wrong thread, which causes iOS to kill the
+      // process ("deleted thread with uncommitted CATransaction").
       // setTimeout(fn, 0) defers execution to the JS event loop (main thread
       // in Hermes) with negligible latency — streaming still feels real-time.
+      // The idle clock is restarted synchronously, before the deferral.
 
       xhr.onprogress = function () {
+        armIdleTimer();
         setTimeout(() => {
           try {
             flushChunks();
@@ -226,8 +394,10 @@ export function installStreamingFetch(): void {
       };
 
       xhr.onload = function () {
+        // Synchronously, so the idle timer cannot fire between load and the
+        // deferred close below.
+        finish();
         setTimeout(() => {
-          cleanupAbortListener();
           try {
             flushChunks();
           } catch (err) {
@@ -251,6 +421,82 @@ export function installStreamingFetch(): void {
         }, 0);
       };
 
+      function createResponse(
+        status: number,
+        statusText: string,
+        responseHeaders: Headers,
+      ): StreamingFetchResponse {
+        const stream = createBranch();
+        let bodyUsed = false;
+        const response: StreamingFetchResponse = {
+          // Duck-typed Response object (not a native Response instance)
+          ok: status >= 200 && status < 300,
+          status,
+          statusText,
+          url: url,
+          type: "basic",
+          redirected: false,
+          get bodyUsed() {
+            return bodyUsed;
+          },
+          headers: responseHeaders,
+          body: stream,
+          json: async () => {
+            bodyUsed = true;
+            const text = await fullTextPromise;
+            try {
+              return JSON.parse(text);
+            } catch (e) {
+              throw new TypeError(
+                `Failed to parse JSON from ${method} ${url} (status ${status}): ${
+                  text.length > 200 ? text.slice(0, 200) + "..." : text
+                }`,
+                { cause: e },
+              );
+            }
+          },
+          text: async () => {
+            bodyUsed = true;
+            return fullTextPromise;
+          },
+          arrayBuffer: async () => {
+            bodyUsed = true;
+            return encoder.encode(await fullTextPromise).buffer;
+          },
+          blob: async () => {
+            bodyUsed = true;
+            const buf = encoder.encode(await fullTextPromise);
+            if (typeof Blob !== "undefined") {
+              return new Blob([buf], {
+                type: responseHeaders.get("content-type") || "",
+              });
+            }
+            throw new Error(
+              "Blob is not available in this React Native environment.",
+            );
+          },
+          clone: () => {
+            // Per the fetch spec, a used or locked body cannot be cloned.
+            if (bodyUsed || stream.locked) {
+              throw new TypeError(
+                "Response.clone: the response body has already been used",
+              );
+            }
+            return createResponse(
+              status,
+              statusText,
+              new Headers(responseHeaders),
+            );
+          },
+          formData: async () => {
+            throw new Error(
+              "Response.formData() is not supported by the React Native streaming fetch.",
+            );
+          },
+        };
+        return response;
+      }
+
       // Resolve with Response once headers arrive.
       // Guard against status === 0 which XHR produces for CORS failures,
       // DNS errors, and mixed-content blocks — let onerror handle those.
@@ -262,6 +508,7 @@ export function installStreamingFetch(): void {
         const xhrStatus = xhr.status;
         const xhrStatusText = xhr.statusText;
         const rawHeaders = xhr.getAllResponseHeaders() || "";
+        armIdleTimer();
 
         setTimeout(() => {
           // Safety net: if XHR completed but we never resolved/rejected, fail explicitly.
@@ -276,7 +523,7 @@ export function installStreamingFetch(): void {
             return;
           }
 
-          if (readyState >= 2 && !resp && xhrStatus !== 0) {
+          if (readyState >= 2 && !resp && xhrStatus !== 0 && !settled) {
             const respHeaders: Record<string, string> = {};
             for (const line of rawHeaders.trim().split("\r\n")) {
               const idx = line.indexOf(": ");
@@ -287,68 +534,11 @@ export function installStreamingFetch(): void {
               }
             }
 
-            const responseHeaders = new Headers(respHeaders);
-
-            let bodyUsed = false;
-
-            resp = {
-              // Duck-typed Response object (not a native Response instance)
-              ok: xhrStatus >= 200 && xhrStatus < 300,
-              status: xhrStatus,
-              statusText: xhrStatusText,
-              url: url,
-              type: "basic",
-              redirected: false,
-              get bodyUsed() {
-                return bodyUsed;
-              },
-              headers: responseHeaders,
-              body: stream,
-              json: async () => {
-                bodyUsed = true;
-                const text = await fullTextPromise;
-                try {
-                  return JSON.parse(text);
-                } catch (e) {
-                  throw new TypeError(
-                    `Failed to parse JSON from ${method} ${url} (status ${xhrStatus}): ${
-                      text.length > 200 ? text.slice(0, 200) + "..." : text
-                    }`,
-                    { cause: e },
-                  );
-                }
-              },
-              text: async () => {
-                bodyUsed = true;
-                return fullTextPromise;
-              },
-              arrayBuffer: async () => {
-                bodyUsed = true;
-                return encoder.encode(await fullTextPromise).buffer;
-              },
-              blob: async () => {
-                bodyUsed = true;
-                const buf = encoder.encode(await fullTextPromise);
-                if (typeof Blob !== "undefined") {
-                  return new Blob([buf], {
-                    type: responseHeaders.get("content-type") || "",
-                  });
-                }
-                throw new Error(
-                  "Blob is not available in this React Native environment.",
-                );
-              },
-              clone: () => {
-                throw new Error(
-                  "Response.clone() is not supported by the React Native streaming fetch polyfill.",
-                );
-              },
-              formData: async () => {
-                throw new Error(
-                  "Response.formData() is not supported by the React Native streaming fetch polyfill.",
-                );
-              },
-            };
+            resp = createResponse(
+              xhrStatus,
+              xhrStatusText,
+              new Headers(respHeaders),
+            );
             settled = true;
             // NOTE: abort listener is NOT removed here — the signal must remain
             // wired to xhr.abort() for mid-stream cancellation. Cleanup happens
@@ -358,11 +548,11 @@ export function installStreamingFetch(): void {
         }, 0);
       };
 
+      armIdleTimer();
       xhr.send(body ?? null);
     });
   };
 
-  // Expose original fetch for opt-out (e.g., third-party libs that need native behavior)
-  (streamingFetch as any).__originalFetch = originalFetch;
-  global.fetch = streamingFetch as typeof fetch;
+  streamingFetches.add(streamingFetch);
+  return streamingFetch as typeof fetch;
 }
