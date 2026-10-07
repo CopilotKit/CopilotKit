@@ -1,7 +1,13 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import { expect, test } from "vitest";
 
+import setupContentData from "@/data/setup-content.json";
 import { loadDoc } from "../docs-render";
 import { renderPageToLlmText } from "../llm-text";
+import { resolveBundledSetupConcept } from "../setup-content";
+import type { SetupContentBundle } from "../setup-content";
 
 function render(loadSlug: string, url: string, framework: string): string {
   const doc = loadDoc(loadSlug);
@@ -233,5 +239,88 @@ test("selected LangGraph Auth routes render complete current runtime excerpts", 
     );
     expect(output, route.framework).not.toContain("<!-- snippet skipped:");
     expect(output, route.framework).not.toContain("<Snippet");
+  }
+});
+
+// REPAIR-038: LangGraph TypeScript agents build their executable graph with a
+// Showcase-only header-forwarding helper. Published regions and setup must
+// show plain `new ChatOpenAI(...)`, while the servers keep loading the
+// header-forwarding `showcaseGraph` exports.
+const langgraphTypeScriptAgentRoot = path.resolve(
+  import.meta.dirname,
+  "../../../../integrations/langgraph-typescript/src/agent",
+);
+
+function publishedRegionBodies(source: string): string[] {
+  const lines = source.split("\n");
+  const bodies: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const open = /^\s*\/\/\s*(?:@region\[([^\]]+)\]|region:\s*(\S+))\s*$/.exec(
+      lines[i],
+    );
+    if (!open) continue;
+    const end = open[1]
+      ? new RegExp(
+          `^\\s*//\\s*@endregion\\[${open[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\]\\s*$`,
+        )
+      : /^\s*\/\/\s*endregion\b/;
+    const close = lines.findIndex((line, j) => j > i && end.test(line));
+    if (close === -1) throw new Error(`Unterminated region at line ${i + 1}`);
+    bodies.push(lines.slice(i + 1, close).join("\n"));
+  }
+  return bodies;
+}
+
+test("LangGraph TypeScript published regions and setup use only public model construction", () => {
+  const agentFiles = fs
+    .readdirSync(langgraphTypeScriptAgentRoot)
+    .filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"));
+  let regionCount = 0;
+  for (const file of agentFiles) {
+    const source = fs.readFileSync(
+      path.join(langgraphTypeScriptAgentRoot, file),
+      "utf8",
+    );
+    for (const body of publishedRegionBodies(source)) {
+      regionCount++;
+      expect(body, file).not.toContain("makeChatOpenAI");
+      expect(body, file).not.toContain("./openai-headers");
+    }
+  }
+  expect(regionCount).toBeGreaterThan(0);
+
+  const setupContent = setupContentData as SetupContentBundle;
+  for (const concept of [
+    "agent-setup",
+    "agent-config-setup",
+    "frontend-tools-setup",
+    "tool-rendering-setup",
+  ]) {
+    const setup = resolveBundledSetupConcept(
+      "langgraph-typescript",
+      concept,
+      setupContent,
+    );
+    expect(setup, concept).toContain("new ChatOpenAI({");
+    expect(setup, concept).not.toContain("makeChatOpenAI");
+    expect(setup, concept).not.toContain("@region[");
+  }
+
+  const config = JSON.parse(
+    fs.readFileSync(
+      path.join(langgraphTypeScriptAgentRoot, "langgraph.json"),
+      "utf8",
+    ),
+  ) as { graphs: Record<string, string> };
+  const server = fs.readFileSync(
+    path.join(langgraphTypeScriptAgentRoot, "server.mjs"),
+    "utf8",
+  );
+  const showcaseGraphs = Object.values(config.graphs).filter((spec) =>
+    spec.endsWith(":showcaseGraph"),
+  );
+  expect(showcaseGraphs).toContain("./gen-ui-agent.ts:showcaseGraph");
+  for (const spec of showcaseGraphs) {
+    expect(server, spec).toContain(`"${spec}"`);
   }
 });

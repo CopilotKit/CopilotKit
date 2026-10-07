@@ -405,6 +405,7 @@ test("keeps the preference fallback only for an unscoped render", () => {
   expect(output).toContain(donor.code);
   expect(output).not.toContain("snippet skipped");
 });
+
 test("inlines shared snippets used inside a framework setup", () => {
   const doc = loadDoc("frontend-tools");
   expect(doc).not.toBeNull();
@@ -425,4 +426,3 @@ test("inlines shared snippets used inside a framework setup", () => {
   expect(output).toContain("uv add copilotkit");
   expect(output).not.toContain("<InstallPythonSDK");
 });
-
