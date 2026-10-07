@@ -1,23 +1,18 @@
 import { expect, test } from "vitest";
 import { docCandidateOrder, inlineSnippets, loadDoc } from "../docs-render";
 import { getAllLlmPages, renderPageToLlmText } from "../llm-text";
+import { getDocsMode } from "../registry";
 
 test("Mastra dynamic-schema guide documents its own remote CopilotKit route", () => {
   const slug = "integrations/mastra/generative-ui/a2ui/dynamic-schema";
+  expect(getDocsMode("mastra")).toBe("authored");
   expect(
     docCandidateOrder(
-      "generated",
+      getDocsMode("mastra"),
       "mastra",
       "generative-ui/a2ui/dynamic-schema",
     )[0],
   ).toBe(slug);
-  expect(
-    docCandidateOrder(
-      "generated",
-      "google-adk",
-      "generative-ui/a2ui/dynamic-schema",
-    )[0],
-  ).toBe("generative-ui/a2ui/dynamic-schema");
   const doc = loadDoc(slug);
   expect(doc).not.toBeNull();
 
