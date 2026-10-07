@@ -430,6 +430,7 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
   generateThreadNames?: CopilotIntelligenceRuntimeOptions["generateThreadNames"];
   maxReconnectMs?: CopilotIntelligenceRuntimeOptions["maxReconnectMs"];
   maxRejoinMs?: CopilotIntelligenceRuntimeOptions["maxRejoinMs"];
+  heartbeatIntervalMs?: CopilotIntelligenceRuntimeOptions["heartbeatIntervalMs"];
   lockTtlSeconds?: CopilotIntelligenceRuntimeOptions["lockTtlSeconds"];
   lockKeyPrefix?: CopilotIntelligenceRuntimeOptions["lockKeyPrefix"];
   lockHeartbeatIntervalSeconds?: CopilotIntelligenceRuntimeOptions["lockHeartbeatIntervalSeconds"];
@@ -562,6 +563,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         generateThreadNames: params.generateThreadNames,
         maxReconnectMs: params.maxReconnectMs,
         maxRejoinMs: params.maxRejoinMs,
+        heartbeatIntervalMs: params.heartbeatIntervalMs,
         lockTtlSeconds: params.lockTtlSeconds,
         lockKeyPrefix: params.lockKeyPrefix,
         lockHeartbeatIntervalSeconds: params.lockHeartbeatIntervalSeconds,

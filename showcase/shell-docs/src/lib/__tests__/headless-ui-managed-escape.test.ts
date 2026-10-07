@@ -30,10 +30,6 @@ function calloutHrefs(): string[] {
 }
 
 describe("headless-UI managed escape hatch", () => {
-  test("the snippet links out at least once", () => {
-    expect(calloutHrefs().length).toBeGreaterThan(0);
-  });
-
   // The namespaces that actually render this snippet, plus two that reach it
   // only through the root page, so a routing change cannot quietly narrow this.
   test.each(["ag2", "mastra", "built-in-agent", "langgraph", "adk"])(

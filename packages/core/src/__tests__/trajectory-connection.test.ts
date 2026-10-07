@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import { from } from "rxjs";
 import { CopilotKitCore } from "../core";
 import type { CopilotKitCoreConfig } from "../core";
 import type { JsonValue, TrajectoryEvent } from "@copilotkit/learning";
@@ -1072,4 +1075,58 @@ describe("Core trajectory connection", () => {
     expect(await pending).toEqual({ status: "error", code: "CAPTURE_FAILED" });
     expect(core.trajectoryId).toBeNull();
   });
+
+  it("links each Thread once after Runtime starts a run in it", async () => {
+    const core = makeCore();
+    const beforeJoin = new ChatAgent("thread-before-join");
+    const pending = core.startTrajectory({ trajectoryId: "trajectory-1" });
+    await core.runAgent({ agent: beforeJoin });
+    await authorize();
+    const channel = join();
+    await pending;
+
+    const chat = new ChatAgent("thread-1");
+    await core.runAgent({ agent: chat });
+    await core.runAgent({ agent: chat });
+    await core.runAgent({ agent: beforeJoin });
+    await vi.advanceTimersByTimeAsync(2_000);
+    persist(channel);
+    core.stopTrajectory();
+    await core.runAgent({ agent: new ChatAgent("thread-after-stop") });
+
+    const links = channel.pushes
+      .flatMap(({ payload }) => payload.events)
+      .filter((event) => event.name === "thread.linked")
+      .map((event) => event.value.threadId);
+    expect(links).toEqual(["thread-1", "thread-before-join"]);
+  });
+
+  it("lets beforeSend drop a Thread link", async () => {
+    const core = makeCore({
+      learning: {
+        capture: { clicks: false, navigation: false, inputs: false },
+        beforeSend: (event: TrajectoryEvent) =>
+          event.name === "thread.linked" ? null : event,
+        onError,
+      },
+    });
+    const { channel } = await start(core);
+    await core.runAgent({ agent: new ChatAgent("thread-1") });
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(names(channel)).not.toContain("thread.linked");
+  });
 });
+
+class ChatAgent extends AbstractAgent {
+  constructor(threadId: string) {
+    super({ agentId: "default", threadId });
+  }
+
+  run(input: RunAgentInput) {
+    const { threadId, runId } = input;
+    return from<BaseEvent[]>([
+      { type: EventType.RUN_STARTED, threadId, runId },
+      { type: EventType.RUN_FINISHED, threadId, runId },
+    ]);
+  }
+}

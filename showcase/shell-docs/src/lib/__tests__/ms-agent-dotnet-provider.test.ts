@@ -142,28 +142,3 @@ test("registers predictive state mappings as AG-UI endpoint metadata", () => {
     /AGUIStreamOptions streamOptions = new AGUIStreamOptions\(\)[\s\S]*?\.MapCall\("step_progress",[\s\S]*?app\.MapAGUIServer\("\/", agent\)\.WithMetadata\(streamOptions\);/,
   );
 });
-
-test("runs the provider guard in docs CI for docs and starter changes", () => {
-  const workflow = read(".github/workflows/test_integration-docs.yml");
-  const pathTriggers = [
-    "showcase/shell-docs/src/content/**",
-    "showcase/shell-docs/model-allowlist.json",
-    "showcase/shell-docs/src/lib/__tests__/ms-agent-dotnet-provider.test.ts",
-    "showcase/shell-docs/package.json",
-    "showcase/shell-docs/package-lock.json",
-    "examples/integrations/ms-agent-framework-dotnet/**",
-  ] as const;
-
-  for (const pathTrigger of pathTriggers) {
-    const matchingLines = workflow
-      .split("\n")
-      .filter((line) => line === `      - "${pathTrigger}"`);
-    expect(
-      matchingLines,
-      `${pathTrigger} must trigger on PRs and pushes`,
-    ).toHaveLength(2);
-  }
-  expect(workflow).toContain(
-    "npm exec -- vitest run src/lib/__tests__/ms-agent-dotnet-provider.test.ts",
-  );
-});

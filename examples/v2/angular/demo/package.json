@@ -11,10 +11,10 @@
     "clean": "rimraf dist .angular"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.1",
-    "@ag-ui/core": "1.0.1",
-    "@ag-ui/encoder": "1.0.1",
-    "@ag-ui/proto": "1.0.1",
+    "@ag-ui/client": "1.0.2",
+    "@ag-ui/core": "1.0.2",
+    "@ag-ui/encoder": "1.0.2",
+    "@ag-ui/proto": "1.0.2",
     "@a2ui/web_core": "0.10.4",
     "@angular/animations": "22.0.0",
     "@angular/cdk": "22.0.0",
@@ -34,6 +34,7 @@
     "@tanstack/pacer": "^0.20.1",
     "clsx": "^2.1.1",
     "compare-versions": "^6.1.1",
+    "dompurify": "^3.4.1",
     "fast-json-patch": "^3.1.1",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.22",
