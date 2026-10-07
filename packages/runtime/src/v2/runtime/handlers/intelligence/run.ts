@@ -20,6 +20,7 @@ import {
   resolveLearningContainerSelector,
 } from "../../core/learning";
 import { getPlatformErrorStatus } from "../shared/intelligence-utils";
+import { startThreadLockHeartbeat } from "../../intelligence-platform/thread-lock-heartbeat";
 
 /**
  * Builds browser-facing realtime connection metadata owned by the runtime.
@@ -159,7 +160,12 @@ export async function handleIntelligenceRun({
   let canonicalRunId = input.runId;
   let joinToken: string | undefined;
   let backendThreadId: string | undefined;
+  let lockTtlSeconds: number | undefined;
+  let lockRequestedAt = 0;
   try {
+    // The platform starts the lock's TTL when it handles the request, so time
+    // the lifetime from the send rather than from the response.
+    lockRequestedAt = Date.now();
     const lockResult = await runtime.intelligence.ɵacquireThreadLock({
       supportsBackendThreadId: true,
       threadId: input.threadId,
@@ -176,6 +182,7 @@ export async function handleIntelligenceRun({
     canonicalRunId = lockResult.runId;
     joinToken = lockResult.joinToken;
     backendThreadId = lockResult.backendThreadId;
+    lockTtlSeconds = lockResult.ttlSeconds;
   } catch (error) {
     logger.error("Thread lock denied:", error);
     const platformStatus = getPlatformErrorStatus(error);
@@ -247,43 +254,44 @@ export async function handleIntelligenceRun({
 
   runtimeTelemetry.capture("oss.runtime.agent_execution_stream_started", {});
 
-  // Start heartbeat timer to renew the thread lock.
-  let heartbeatStopped = false;
-  let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
-  heartbeatTimer = setInterval(() => {
-    runtime.intelligence
-      .ɵrenewThreadLock({
+  // Keep the thread lock alive while the run executes. Transient renewal
+  // failures are retried within the lock's remaining TTL; only a lost lock
+  // (or running out of time) aborts the run.
+  const heartbeat = startThreadLockHeartbeat({
+    renew: (signal) =>
+      runtime.intelligence.ɵrenewThreadLock({
         threadId: canonicalThreadId,
         runId: canonicalRunId,
         ttlSeconds: runtime.lockTtlSeconds,
         ...(runtime.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: runtime.lockKeyPrefix }
           : {}),
-      })
-      .catch((err) => {
-        if (heartbeatStopped) {
-          return;
-        }
-
-        logger.error("Failed to renew thread lock:", err);
-        clearHeartbeat();
-        try {
-          agent.abortRun();
-        } catch (abortError) {
-          logger.error(
-            "Failed to abort agent after lock renewal failure:",
-            abortError,
-          );
-        }
-      });
-  }, runtime.lockHeartbeatIntervalSeconds * 1_000);
+        signal,
+      }),
+    intervalMs: runtime.lockHeartbeatIntervalSeconds * 1_000,
+    fallbackTtlSeconds: runtime.lockTtlSeconds,
+    // The acquire round trip and the history lookup above both run between
+    // the lock request and now, so pass the lifetime the platform set minus
+    // the time already spent.
+    initialTtlSeconds:
+      lockTtlSeconds === undefined
+        ? undefined
+        : lockTtlSeconds - (Date.now() - lockRequestedAt) / 1_000,
+    onLost: (err) => {
+      logger.error("Failed to renew thread lock:", err);
+      try {
+        agent.abortRun();
+      } catch (abortError) {
+        logger.error(
+          "Failed to abort agent after lock renewal failure:",
+          abortError,
+        );
+      }
+    },
+  });
 
   const clearHeartbeat = () => {
-    heartbeatStopped = true;
-    if (heartbeatTimer !== undefined) {
-      clearInterval(heartbeatTimer);
-      heartbeatTimer = undefined;
-    }
+    heartbeat.stop();
   };
 
   const runStarted = { current: false };

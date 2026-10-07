@@ -124,7 +124,7 @@ class TestGenerateA2UI:
             f"http://aimock.test/v1beta/models/{a2ui_dynamic.MODEL}:generateContent"
         )
         assert request["headers"] == {
-            "X-AIMock-Context": "google-antigravity",
+            "x-aimock-context": "google-antigravity",
             "x-goog-api-key": "fake-gemini-key",
         }
         body = request["json"]

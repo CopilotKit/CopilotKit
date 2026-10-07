@@ -1158,14 +1158,19 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "google-antigravity",
     probeDriver: "agent",
-    // Staging-only until its prod instance is provisioned (see RAILWAY.md,
-    // "Promoting a Staging-Only Integration to Production"): there is no
-    // prod key, so fleet-wide promotes leave it out. Runtime dep as
-    // google-adk's: the agent's native Gemini traffic goes to the env-local
-    // aimock through GOOGLE_GEMINI_BASE_URL.
+    // Tier-2 leaf (default). Runtime dep as google-adk's: the agent's native
+    // Gemini traffic goes to the env-local aimock through
+    // GOOGLE_GEMINI_BASE_URL, so a cluster promote pulls aimock (tier-0)
+    // into the closure.
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "GOOGLE_GEMINI_BASE_URL", target: "aimock" }],
     environments: {
+      prod: {
+        instanceId: "ad2c3bc8-7006-4ac6-b6f5-1f34e35a5b98",
+        healthcheckPath: "/api/health",
+        domain: "showcase-google-antigravity-production.up.railway.app",
+        probe: true,
+      },
       staging: {
         instanceId: "a2abd2e8-55a8-4c6e-8052-fd385d3bb3cc",
         healthcheckPath: "/api/health",

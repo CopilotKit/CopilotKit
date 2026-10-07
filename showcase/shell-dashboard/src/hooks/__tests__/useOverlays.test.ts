@@ -75,6 +75,29 @@ async function importHook() {
 // ---------------------------------------------------------------------------
 
 describe("useOverlays", () => {
+  it("opens Compatibility from a shareable URL without replacing its hash", async () => {
+    hashValue = "#compatibility";
+    const useOverlays = await importHook();
+    const { result } = renderHook(() => useOverlays());
+
+    expect(result.current.activeTab).toBe("compatibility");
+    expect(hashValue).toBe("#compatibility");
+  });
+
+  it("restores Compatibility through history while preserving Coverage overlays", async () => {
+    const useOverlays = await importHook();
+    const { result } = renderHook(() => useOverlays());
+    act(() => result.current.toggle("parity"));
+    act(() => {
+      hashValue = "#compatibility";
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(result.current.activeTab).toBe("compatibility");
+    expect(result.current.overlays.has("parity")).toBe(true);
+    act(() => result.current.setTab("matrix"));
+    expect(hashValue).toContain("parity");
+  });
+
   // 1. Default state
   it("defaults to links + health + depth when no hash and no localStorage", async () => {
     const useOverlays = await importHook();
