@@ -161,10 +161,12 @@ jobs:
         if: matrix.language == 'ruby'
         run: |
           bundle install --gemfile packages/runtime-ruby/Gemfile
-          # The checked-in Rails lock currently contains only arm64-darwin-23.
-          # Add the runner platform without changing the source Gemfile.
-          bundle lock --gemfile packages/runtime-ruby/examples/rails/Gemfile --add-platform x86_64-linux
-          bundle install --gemfile packages/runtime-ruby/examples/rails/Gemfile
+          # The checked-in Rails lock lists x86_64-linux and a nokogiri with a
+          # precompiled Ruby 3.3 build, so nokogiri no longer compiles from
+          # source. Smaller native gems such as psych, date, and bigdecimal
+          # still do. Frozen mode fails the step instead of re-resolving if
+          # the lock goes stale.
+          BUNDLE_FROZEN=true bundle install --gemfile packages/runtime-ruby/examples/rails/Gemfile
 
       - name: Validate Ruby library
         if: matrix.language == 'ruby'
