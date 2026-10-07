@@ -57,6 +57,9 @@
     "@ag-ui/core": "1.0.1",
     "@tanstack/ai": {
       "@ag-ui/core": "^0.0.52"
+    },
+    "@copilotkit/voice": {
+      "openai": "$openai"
     }
   }
 }
