@@ -42,7 +42,6 @@ Edit these in the same change as the feature or docs page:
 | Section nav                          | `showcase/shell-docs/src/content/docs/intelligence/meta.json`                                       |
 | Root sidebar Intelligence group      | `showcase/shell-docs/src/content/docs/meta.json`                                                    |
 | Card and CTA tests                   | `showcase/shell-docs/src/components/content/landing-pages/__tests__/intelligence-overview.test.tsx` |
-| Snippet order tests                  | `showcase/shell-docs/src/lib/__tests__/intelligence-landing.test.ts`                                |
 
 The root overview page only wraps the snippet. Do not duplicate landing copy
 in `docs/intelligence/overview.mdx`.
