@@ -431,13 +431,15 @@ export class TrajectoryConnection {
       const payload: unknown = await response.json().catch(() => undefined);
       if (!this.current(session, connection)) return;
       if (!response.ok) {
+        const code = errorCode(payload, "CONNECTION_FAILED");
         this.fail(
           session,
           connection,
-          errorCode(payload, "CONNECTION_FAILED"),
-          response.status >= 500 ||
-            response.status === 408 ||
-            response.status === 429,
+          code,
+          code !== "LEARNING_CONTAINER_SELECTION_FAILED" &&
+            (response.status >= 500 ||
+              response.status === 408 ||
+              response.status === 429),
         );
         return;
       }

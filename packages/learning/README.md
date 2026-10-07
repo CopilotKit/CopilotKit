@@ -39,7 +39,23 @@ if (result.status === "started") {
 copilotkit.stopTrajectory();
 ```
 
-An omitted `trajectoryId` generates a UUID. Start succeeds after Runtime authentication and the Phoenix channel join. The Runtime resolves the user on the server and sends only their ID to Intelligence. Browser-supplied identity and container IDs are ignored; container assignment is deferred. Setting `learningContainerIds` for authenticated capture produces a warning. That option applies only to custom sinks.
+An omitted `trajectoryId` generates a UUID. Start succeeds after Runtime authentication and the Phoenix channel join. The Runtime resolves the user on the server. Browser-supplied identity and container IDs are ignored. Setting `learningContainerIds` in browser capture configuration produces a warning; that option applies only to custom sinks.
+
+To assign authenticated capture to an existing Learning Space, configure the Runtime on the server:
+
+```ts
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+  getTrajectoryLearningContainerIds: ({ trajectoryId, user }) => {
+    // Use the verified application user to choose existing Spaces.
+    return ["expense-review"];
+  },
+});
+```
+
+The selector accepts synchronous or asynchronous results. Return `[]` to request no new assignments explicitly. Return `null` or `undefined` to omit assignments from the connect request. Each connect adds memberships; none of these results removes existing memberships. Keep the result stable across reconnects. The selector needs no agent run or Thread. Intelligence validates that the selected Spaces belong to the API key's project. A missing or deleted Space stops the connection with `LEARNING_CONTAINER_NOT_FOUND`.
+
+The selector has a five-second deadline and receives an optional second `AbortSignal` argument for cancelling its work when the request ends or the deadline expires. A callback error, invalid result, or deadline expiry logs a server error and returns `LEARNING_CONTAINER_SELECTION_FAILED`; capture stops without automatic retries. Processing assigned events requires an Intelligence backend with Trajectory inputs enabled for Automatic Learning.
 
 Capture includes page context, navigation, clicks, form edits, network requests, and developer events. Paths remain unchanged. When Runtime starts an agent run, Core sends `thread.linked` with the run's `threadId`, once for each Thread. Runtime creates the Thread before the run starts, so Intelligence can store the link. Click Thread context and agent events are deferred for this connection path.
 
