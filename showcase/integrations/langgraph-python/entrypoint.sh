@@ -66,7 +66,7 @@ echo "========================================="
 # the inmem runtime periodically flushes unbounded thread/checkpoint state to
 # .langgraph_api/*.pckl files, which is a slow-burn OOM risk on Railway.
 # The env var is checked at import time in langgraph_runtime_inmem
-# _persistence.py and checkpoint.py (langgraph-api==0.7.101 / runtime==0.27.4).
+# _persistence.py and checkpoint.py (langgraph-api==0.14.1 / runtime==0.34.2).
 export LANGGRAPH_DISABLE_FILE_PERSISTENCE=true
 
 # `python -u` forces unbuffered stdout/stderr at the interpreter level
