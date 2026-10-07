@@ -51,14 +51,14 @@ def search_docs(
 researcher = Agent(
     name="researcher",
     prompt="You research topics using the documentation tool and report findings plainly.",
-    config=OpenAIResponsesConfig(model="gpt-6-luna"),
+    config=OpenAIResponsesConfig(model="gpt-5.5"),
     tools=[search_docs],
 )
 
 writer = Agent(
     name="writer",
     prompt="You turn research notes into a single tight paragraph.",
-    config=OpenAIResponsesConfig(model="gpt-6-luna"),
+    config=OpenAIResponsesConfig(model="gpt-5.5"),
 )
 
 coordinator = Agent(
@@ -67,7 +67,7 @@ coordinator = Agent(
         "You coordinate specialists. Delegate research to `task_researcher`, "
         "then hand the findings to `task_writer`. Do not answer from memory."
     ),
-    config=OpenAIResponsesConfig(model="gpt-6-luna"),
+    config=OpenAIResponsesConfig(model="gpt-5.5"),
     tools=[
         researcher.as_tool(description="Research a topic in the product docs."),
         writer.as_tool(description="Turn research notes into one paragraph."),

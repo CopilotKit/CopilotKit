@@ -117,7 +117,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
                 "When you need the user to choose, call the frontend tool `offerOptions`. "
                 "After it returns, call `store_user_choice` with the selected value."
             ),
-            config=OpenAIResponsesConfig(model="gpt-6-luna"),
+            config=OpenAIResponsesConfig(model="gpt-5.5"),
             tools=[store_user_choice],
         )
 

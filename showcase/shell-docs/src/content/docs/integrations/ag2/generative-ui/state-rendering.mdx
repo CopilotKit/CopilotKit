@@ -83,7 +83,7 @@ is a situation where a user and an agent are working together to solve a problem
             "You are a helpful assistant for storing searches. "
             "Use `add_search` once per query, then call `run_searches`."
         ),
-        config=OpenAIResponsesConfig(model="gpt-6-luna"),
+        config=OpenAIResponsesConfig(model="gpt-5.5"),
         tools=[add_search, run_searches],
     )
 

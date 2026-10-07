@@ -91,7 +91,7 @@ This context can then be shared with your AG2 backend. With AG2 1.1.2 or newer, 
                 agent = Agent(
                     name="assistant",
                     prompt="You are a helpful assistant that can help emailing colleagues.",
-                    config=OpenAIResponsesConfig(model="gpt-6-luna"),
+                    config=OpenAIResponsesConfig(model="gpt-5.5"),
                 )
 
                 stream = AGUIStream(agent)
@@ -181,7 +181,7 @@ This context can then be shared with your AG2 backend. With AG2 1.1.2 or newer, 
                 agent = Agent(
                     name="assistant",
                     prompt="You are a helpful assistant that can help emailing colleagues.",
-                    config=OpenAIResponsesConfig(model="gpt-6-luna"),
+                    config=OpenAIResponsesConfig(model="gpt-5.5"),
                     tools=[get_colleagues],
                 )
 
