@@ -306,6 +306,11 @@ Pin `zod@3` explicitly. A separate, unversioned `npm install zod` selects Zod 4,
                   region="cli-start-graph-export"
                   title="src/agent/graph.ts — compile and export the selected graph"
                 />
+
+                This Showcase graph still compiles with a `MemorySaver`. The
+                TypeScript LangGraph API server replaces any compiled checkpointer
+                with its own when it loads the graph, so that `MemorySaver` has no
+                effect here. Leave it out of your own graph, as in the agent above.
               </Tab>
               <Tab value="Python">
               <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
