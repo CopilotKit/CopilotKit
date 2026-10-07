@@ -1,0 +1,20 @@
+# Sequential pre-warm (one GET at a time): demo pages [agentic-chat,multimodal,voice] and every API route except /api/smoke. Wed Oct  7 00:55:17 UTC 2026
+/demos/agentic-chat 200 4.832910s
+/demos/multimodal 200 1.112238s
+/demos/voice 200 0.922156s
+/api/copilotkit 404 1.505212s
+/api/copilotkit-a2ui-fixed-schema 404 1.025392s
+/api/copilotkit-a2ui-recovery 404 1.005281s
+/api/copilotkit-agent-config 404 0.967615s
+/api/copilotkit-auth 401 0.992119s
+/api/copilotkit-beautiful-chat 404 1.004243s
+/api/copilotkit-declarative-gen-ui 404 1.007061s
+/api/copilotkit-declarative-hashbrown 404 0.979725s
+/api/copilotkit-declarative-json-render 404 0.987945s
+/api/copilotkit-mcp-apps 404 1.002154s
+/api/copilotkit-multimodal 404 1.473025s
+/api/copilotkit-ogui 404 1.009652s
+/api/copilotkit-reasoning 404 0.993148s
+/api/copilotkit-voice 404 1.007142s
+/api/health 200 0.223352s
+# done Wed Oct  7 00:55:39 UTC 2026

@@ -1,0 +1,326 @@
+$ AIMOCK_URL_LOCAL=http://127.0.0.1:4410 AIMOCK_URL=http://127.0.0.1:4410 SHOWCASE_LOCAL=1 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true nice -n 10 node_modules/.bin/tsx tasks/docs-feature-audit/run-local-d6.mts built-in-agent --demos mcp-apps,gen-ui-agent,tool-rendering-default-catchall,tool-rendering-custom-catchall,tool-rendering
+# node v22.16.0, HEAD 3538cc3ac1, load 5.58, started 2026-10-07T00:33:24Z
+{"level":"info","msg":"probe.e2e-full.service-start","ts":"2026-10-07T00:33:25.111Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureCount":5,"backendUrl":"http://localhost:3117"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=60e9689e-fb09-410e-b14f-6fa17cf3051a slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-60e9689e-fb09-410e-b14f-6fa17cf3051a error=","ts":"2026-10-07T00:33:25.322Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=60e9689e-fb09-410e-b14f-6fa17cf3051a slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-60e9689e-fb09-410e-b14f-6fa17cf3051a error=","ts":"2026-10-07T00:33:25.322Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=60e9689e-fb09-410e-b14f-6fa17cf3051a slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-60e9689e-fb09-410e-b14f-6fa17cf3051a error=","ts":"2026-10-07T00:33:25.323Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=60e9689e-fb09-410e-b14f-6fa17cf3051a slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-60e9689e-fb09-410e-b14f-6fa17cf3051a error=","ts":"2026-10-07T00:33:25.323Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/mcp-apps',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/tool-rendering-custom-catchall',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/tool-rendering-default-catchall',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/gen-ui-agent',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/mcp-apps',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/tool-rendering-custom-catchall',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/tool-rendering-default-catchall',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/gen-ui-agent',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-07T00:33:25.887Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"mcp-apps","hydrated":true,"hydrationMs":50}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-07T00:33:25.897Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"gen-ui-agent","hydrated":true,"hydrationMs":55}
+[conversation-runner] starting conversation { totalTurns: 3, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-07T00:33:25.899Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"tool-rendering-custom-catchall","hydrated":true,"hydrationMs":60}
+[conversation-runner] starting conversation { totalTurns: 2, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-07T00:33:25.910Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"tool-rendering-default-catchall","hydrated":true,"hydrationMs":66}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 80, timeoutMs: 30000 }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/3 — sending message { inputLength: 43, timeoutMs: 60000 }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/2 — sending message { inputLength: 44, timeoutMs: 30000 }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 18, timeoutMs: 30000 }
+[conversation-runner] turn 1/3 — surface-mount completion armed {
+  testIds: [ 'agent-state-card' ],
+  selectors: undefined,
+  minNewMounts: 0,
+  baselineSurfaces: { 'agent-state-card': 0 }
+}
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 44,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 43,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] turn 1/1 — surface-mount completion armed {
+  testIds: undefined,
+  selectors: [ '[data-testid="mcp-app-iframe"], iframe[sandbox]' ],
+  minNewMounts: 1,
+  baselineSurfaces: { '[data-testid="mcp-app-iframe"], iframe[sandbox]': 0 }
+}
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 80,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 18,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/2 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/3 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 60000
+}
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 0, textLength: 118, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 0, textLength: 118 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 0, textLength: 118 }
+[d5-tool-rendering-default-catchall] all checks passed {
+  pollCount: 1,
+  snap: {
+    containerWithToolName: true,
+    statusPillPresent: true,
+    observedToolNames: [ 'get_weather' ],
+    customLeakPhrasePresent: false
+  }
+}
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 6037 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-07T00:33:31.997Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent/tool-rendering-default-catchall"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-07T00:33:31.997Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"tool-rendering-default-catchall","pass":true,"durationMs":6679}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=60e9689e-fb09-410e-b14f-6fa17cf3051a slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-60e9689e-fb09-410e-b14f-6fa17cf3051a error=","ts":"2026-10-07T00:33:32.007Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=60e9689e-fb09-410e-b14f-6fa17cf3051a slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-60e9689e-fb09-410e-b14f-6fa17cf3051a error=","ts":"2026-10-07T00:33:32.009Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/tool-rendering',
+  hadTrackedRequest: false
+}
+[conversation-runner] turn 1/2 — assistant settled { bubbleIndex: 0, textLength: 143, hasAssertions: true }
+[conversation-runner] turn 1/2 — settled metadata { turnNum: 1, bubbleIndex: 0, textLength: 143 }
+[conversation-runner] turn 1/2 — running assertions { bubbleIndex: 0, textLength: 143 }
+[d5-tool-rendering-custom-catchall] cross-tool signature passed {
+  pollCount: 1,
+  snap: {
+    toolNames: [ 'get_weather' ],
+    containerCount: 1,
+    customContentPhrasePresent: true
+  }
+}
+[conversation-runner] turn 1/2 — assertions passed
+[conversation-runner] turn 2/2 — sending message { inputLength: 40, timeoutMs: 30000 }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 40,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 1,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/tool-rendering',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-07T00:33:32.266Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"tool-rendering","hydrated":true,"hydrationMs":32}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 16, timeoutMs: 30000 }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 16,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 2, baseline: 1 }
+[conversation-runner] turn 2/2 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 2,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] turn 2/2 — assistant settled { bubbleIndex: 1, textLength: 96, hasAssertions: true }
+[conversation-runner] turn 2/2 — settled metadata { turnNum: 2, bubbleIndex: 1, textLength: 96 }
+[conversation-runner] turn 2/2 — running assertions { bubbleIndex: 1, textLength: 96 }
+[d5-tool-rendering-custom-catchall] cross-tool signature passed {
+  pollCount: 1,
+  snap: {
+    toolNames: [ 'get_weather', 'get_stock_price' ],
+    containerCount: 2,
+    customContentPhrasePresent: true
+  }
+}
+[conversation-runner] turn 2/2 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 2, totalDurationMs: 10191 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-07T00:33:36.127Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent/tool-rendering-custom-catchall"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-07T00:33:36.127Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"tool-rendering-custom-catchall","pass":true,"durationMs":10809}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=60e9689e-fb09-410e-b14f-6fa17cf3051a slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-60e9689e-fb09-410e-b14f-6fa17cf3051a error=","ts":"2026-10-07T00:33:36.129Z","component":"docs-feature-audit-local-d6"}
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 0, textLength: 72, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 0, textLength: 72 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 0, textLength: 72 }
+[d5-tool-rendering] waiting for tool card {
+  canonicalSelector: '[data-testid="weather-card"]',
+  pollTimeoutMs: 10000
+}
+[d5-tool-rendering] canonical selector matched { selector: '[data-testid="weather-card"]' }
+[d5-tool-rendering] tool card structurally complete {
+  selector: '[data-testid="weather-card"]',
+  textLength: 53,
+  childCount: 1,
+  probeAttempts: 1
+}
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 6949 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-07T00:33:39.229Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent/tool-rendering"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-07T00:33:39.229Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"tool-rendering","pass":true,"durationMs":7222}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=60e9689e-fb09-410e-b14f-6fa17cf3051a slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-60e9689e-fb09-410e-b14f-6fa17cf3051a error=","ts":"2026-10-07T00:33:39.232Z","component":"docs-feature-audit-local-d6"}
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 0, textLength: 61, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 0, textLength: 61 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 0, textLength: 61 }
+[d5-mcp-apps] iframe present { selector: '[data-testid="mcp-app-iframe"]' }
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 14648 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-07T00:33:40.581Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent/mcp-apps"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-07T00:33:40.581Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"mcp-apps","pass":true,"durationMs":15264}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=60e9689e-fb09-410e-b14f-6fa17cf3051a slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-60e9689e-fb09-410e-b14f-6fa17cf3051a error=","ts":"2026-10-07T00:33:40.583Z","component":"docs-feature-audit-local-d6"}
+[conversation-runner] turn 1/3 — FAILED {
+  errorCategory: 'settle-surface-missing',
+  turnsCompleted: 0,
+  elapsedMs: 62663,
+  bodyTextLength: 305,
+  hasTextarea: true,
+  hasErrorBoundary: false
+}
+{"level":"warn","msg":"probe.e2e-full.runFeature.flap-diagnostics","ts":"2026-10-07T00:34:28.598Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"gen-ui-agent","error":"waitForTurnComplete: turn 1 did not complete within 60000ms (reason=surface-missing, runsFinished=1, count=1, attrPresent=true, runningNow=false, runStartCount=1)","diagnostics":{"userMsgCount":1,"apiRequestCount":43,"apiRequests":[{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_29ec4558._.js","duration":123,"transferSize":54129,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_shared_dist_f85b502d._.js","duration":131,"transferSize":31961,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_core_dist_index_mjs_bbbcdc32._.js","duration":160,"transferSize":88502,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_react-core_dist_copilotkit-CP9qPAqV_mjs_a7bea7e5._.js","duration":187,"transferSize":146798,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_react-core_dist_788feb99._.js","duration":144,"transferSize":2525,"status":200}],"pageErrors":[],"chatContainerExists":true,"url":"http://localhost:3117/demos/gen-ui-agent","title":"CopilotKit's Built-in Agent","bodyTextSnippet":"Plan a product launch for a new mobile app.\nStopped at step 1 of 3\n1\nDefine launch goals and audience\n2\nCoordinate marketing and PR rollout\n3\nTrack post-launch metrics for week 1\nPlan a product launch\nOrganize a team offsite\nResearch a competitor\nAI can make mistakes. Please verify important informa","assistantMsgCount":1,"consoleLogs":["[warning] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.","[error] Access to fetch at 'https://cdn.copilotkit.ai/notifications/v1.json?framework=react&sdkVersion=1.77.0' from origin 'http://localhost:3117' has been blocked by CORS policy: Response to preflight reques","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit Inspector] Failed to load notifications TypeError: Failed to fetch\n    at g.fetch (<anonymous>:88:31)\n    at loadNotificationFeed (http://localhost:3117/_next/static/chunks/bdfc8_%40copilo","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3117' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3117' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit] The agent called the tool \"set_steps\", and no renderer is registered for it, so that message rendered nothing. No tool-call renderers are registered. Register one with useRenderTool({ nam"],"requestFailures":["GET https://cdn.copilotkit.ai/notifications/v1.json?framework=react&sdkVersion=1.77.0 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED"]}}
+{"level":"warn","msg":"CVDIAG component=harness-d6 boundary=fixture-match run_id=60e9689e-fb09-410e-b14f-6fa17cf3051a slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=miss test_id=d6-built-in-agent-60e9689e-fb09-410e-b14f-6fa17cf3051a error=waitForTurnComplete: turn 1 did not complete within 60000ms (reason=surface-missing, runsFinished=1, count=1, attrPresent=true, runningNow=false, runStartCount=1)","ts":"2026-10-07T00:34:28.599Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.feature-retry","ts":"2026-10-07T00:34:28.602Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"gen-ui-agent","attempt":1,"errorClass":"conversation-error","errorDesc":"waitForTurnComplete: turn 1 did not complete within 60000ms (reason=surface-missing, runsFinished=1, count=1, attrPresent=true, runningNow=false, runStartCount=1)","attempt1DurationMs":63285}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=60e9689e-fb09-410e-b14f-6fa17cf3051a slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-60e9689e-fb09-410e-b14f-6fa17cf3051a error=","ts":"2026-10-07T00:34:28.603Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/gen-ui-agent',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/gen-ui-agent',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-07T00:34:28.909Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"gen-ui-agent","hydrated":true,"hydrationMs":38}
+[conversation-runner] starting conversation { totalTurns: 3, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/3 — sending message { inputLength: 43, timeoutMs: 60000 }
+[conversation-runner] turn 1/3 — surface-mount completion armed {
+  testIds: [ 'agent-state-card' ],
+  selectors: undefined,
+  minNewMounts: 0,
+  baselineSurfaces: { 'agent-state-card': 0 }
+}
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 43,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/3 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 60000
+}
+[conversation-runner] turn 1/3 — FAILED {
+  errorCategory: 'settle-surface-missing',
+  turnsCompleted: 0,
+  elapsedMs: 62699,
+  bodyTextLength: 305,
+  hasTextarea: true,
+  hasErrorBoundary: false
+}
+{"level":"warn","msg":"probe.e2e-full.runFeature.flap-diagnostics","ts":"2026-10-07T00:35:31.620Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"gen-ui-agent","error":"waitForTurnComplete: turn 1 did not complete within 60000ms (reason=surface-missing, runsFinished=1, count=1, attrPresent=true, runningNow=false, runStartCount=1)","diagnostics":{"userMsgCount":1,"apiRequestCount":43,"apiRequests":[{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_29ec4558._.js","duration":39,"transferSize":54129,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_shared_dist_f85b502d._.js","duration":43,"transferSize":31961,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_core_dist_index_mjs_bbbcdc32._.js","duration":53,"transferSize":88502,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_react-core_dist_copilotkit-CP9qPAqV_mjs_a7bea7e5._.js","duration":61,"transferSize":146798,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_react-core_dist_788feb99._.js","duration":45,"transferSize":2525,"status":200}],"pageErrors":[],"chatContainerExists":true,"url":"http://localhost:3117/demos/gen-ui-agent","title":"CopilotKit's Built-in Agent","bodyTextSnippet":"Plan a product launch for a new mobile app.\nStopped at step 1 of 3\n1\nDefine launch goals and audience\n2\nCoordinate marketing and PR rollout\n3\nTrack post-launch metrics for week 1\nPlan a product launch\nOrganize a team offsite\nResearch a competitor\nAI can make mistakes. Please verify important informa","assistantMsgCount":1,"consoleLogs":["[warning] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.","[error] Access to fetch at 'https://cdn.copilotkit.ai/notifications/v1.json?framework=react&sdkVersion=1.77.0' from origin 'http://localhost:3117' has been blocked by CORS policy: Response to preflight reques","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit Inspector] Failed to load notifications TypeError: Failed to fetch\n    at g.fetch (<anonymous>:88:31)\n    at loadNotificationFeed (http://localhost:3117/_next/static/chunks/bdfc8_%40copilo","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3117' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3117' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit] The agent called the tool \"set_steps\", and no renderer is registered for it, so that message rendered nothing. No tool-call renderers are registered. Register one with useRenderTool({ nam"],"requestFailures":["GET https://cdn.copilotkit.ai/notifications/v1.json?framework=react&sdkVersion=1.77.0 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED"]}}
+{"level":"warn","msg":"CVDIAG component=harness-d6 boundary=fixture-match run_id=60e9689e-fb09-410e-b14f-6fa17cf3051a slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=miss test_id=d6-built-in-agent-60e9689e-fb09-410e-b14f-6fa17cf3051a error=waitForTurnComplete: turn 1 did not complete within 60000ms (reason=surface-missing, runsFinished=1, count=1, attrPresent=true, runningNow=false, runStartCount=1)","ts":"2026-10-07T00:35:31.620Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.feature-retry-result","ts":"2026-10-07T00:35:31.622Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"gen-ui-agent","attempt":2,"ok":false,"errorClass":"conversation-error"}
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-07T00:35:31.622Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent/gen-ui-agent"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-07T00:35:31.622Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"gen-ui-agent","pass":false,"errorDesc":"waitForTurnComplete: turn 1 did not complete within 60000ms (reason=surface-missing, runsFinished=1, count=1, attrPresent=true, runningNow=false, runStartCount=1)","durationMs":126305}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=60e9689e-fb09-410e-b14f-6fa17cf3051a slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-60e9689e-fb09-410e-b14f-6fa17cf3051a error=","ts":"2026-10-07T00:35:31.629Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.service-complete","ts":"2026-10-07T00:35:31.629Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","passed":4,"failed":1,"skipped":0,"incapable":0,"total":5,"state":"red","durationMs":126518}
+{"level":"warn","msg":"probe.e2e-full.aggregate-writer-missing","ts":"2026-10-07T00:35:31.629Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent"}
+  [31m✗[0m d6:built-in-agent [31mred[0m [2m(126.8s)[0m
+    [31mgen-ui-agent: waitForTurnComplete: turn 1 did not complete within 60000ms (reason=surface-missing, runsFinished=1, count=1, attrPresent=true, runningNow=false, runStartCount=1)[0m
+{"slug":"built-in-agent","results":[{"key":"d6:built-in-agent","state":"red","durationMs":126777,"signal":{"shape":"package","slug":"built-in-agent","backendUrl":"http://localhost:3117","total":5,"passed":4,"failed":["gen-ui-agent"],"skipped":[],"failureSummary":"gen-ui-agent: waitForTurnComplete: turn 1 did not complete within 60000ms (reason=surface-missing, runsFinished=1, count=1, attrPresent=true, runningNow=false, runStartCount=1)"},"error":"gen-ui-agent: waitForTurnComplete: turn 1 did not complete within 60000ms (reason=surface-missing, runsFinished=1, count=1, attrPresent=true, runningNow=false, runStartCount=1)"}]}
+# exit=1 finished 2026-10-07T00:35:31Z

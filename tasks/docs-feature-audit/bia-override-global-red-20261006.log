@@ -1,0 +1,48 @@
+# RED: global @ag-ui/core 1.0.1 override (package.json overrides {"@ag-ui/client":"1.0.1","@ag-ui/core":"1.0.1"}) also replaces @tanstack/ai 0.35.0's own @ag-ui/core ^0.0.52. 2026-10-07T00:21:58Z, HEAD 88718205e2 + uncommitted phase-1 package.json/lock, node v22.16.0
+# Installed: node_modules/@ag-ui/core=1.0.1 node_modules/@tanstack/ai/node_modules/@ag-ui/core=absent 
+$ node --input-type=module -e "import(\"@tanstack/ai\")"   (minimal repro, in showcase/integrations/built-in-agent)
+ESM import FAIL: SyntaxError The requested module '@ag-ui/core' does not provide an export named 'RunAgentInputSchema'
+# @ag-ui/core 1.0.1 moved its Zod schemas to the '@ag-ui/core/schemas' subpath; @tanstack/ai 0.35.0 dist/esm/utilities/chat-params.js line 1: import { RunAgentInputSchema, AGUIError } from "@ag-ui/core";
+# root export RunAgentInputSchema in @ag-ui/core 1.0.1: undefined; in @ag-ui/core/schemas: object
+$ ../../../node_modules/.bin/vitest run --config vitest.config.ts --maxWorkers=2
+
+ RUN  v4.1.3 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/built-in-agent
+
+ ❯ src/lib/factory/demo-stream.test.ts (0 test)
+ ❯ src/lib/factory/tanstack-factory.test.ts (0 test)
+ ❯ src/lib/factory/tanstack-factory.shared-state.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/factory/demo-stream.test.ts [ src/lib/factory/demo-stream.test.ts ]
+SyntaxError: The requested module '@ag-ui/core' does not provide an export named 'RunAgentInputSchema'
+ ❯ src/lib/factory/demo-stream.ts:7:1
+      5| // while the demo is BROKEN against a real LLM").
+      6|
+      7| import { maxIterations } from "@tanstack/ai";
+       | ^
+      8|
+      9| /**
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/lib/factory/tanstack-factory.shared-state.test.ts [ src/lib/factory/tanstack-factory.shared-state.test.ts ]
+ FAIL  src/lib/factory/tanstack-factory.test.ts [ src/lib/factory/tanstack-factory.test.ts ]
+SyntaxError: The requested module '@ag-ui/core' does not provide an export named 'RunAgentInputSchema'
+ ❯ src/lib/factory/tanstack-factory.ts:6:1
+      4| import type { BaseEvent } from "@ag-ui/client";
+      5| import type { RunAgentInput } from "@ag-ui/client";
+      6| import { chat, toolDefinition } from "@tanstack/ai";
+       | ^
+      7| import { openaiText } from "@tanstack/ai-openai";
+      8| import { z } from "zod";
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+
+ Test Files  3 failed | 5 passed | 1 skipped (9)
+      Tests  23 passed | 5 skipped (28)
+   Start at  17:18:51
+   Duration  1.05s (transform 127ms, setup 0ms, import 429ms, tests 26ms, environment 0ms)
+
+# Under next dev (Turbopack) the same tree still served a run (the missing named export is bundled as undefined and chatParamsFromRequest is unused): see bia-dev-stack-override-global-red-20261006.log, POST /api/copilotkit/agent/default/run 200 RUN_FINISHED 'OK'.

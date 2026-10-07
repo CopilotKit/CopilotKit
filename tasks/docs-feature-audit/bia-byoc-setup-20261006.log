@@ -1,0 +1,79 @@
+# reproduce-bia-byoc-setup.sh at HEAD f73f47038a (script uncommitted), 2026-10-07T01:41:49Z, node v22.16.0, npm 10.9.2
+extractor: 11 visible + 3 hidden = 14 blocks; raw MDX page: 14 fenced blocks
+  visible  1 bash      -                                          Create your frontend
+  visible  2 npm       -                                          Install CopilotKit packages
+  visible  3 plaintext .env                                       Configure your environment
+  visible  4 ts        app/api/copilotkit/[[...slug]]/route.ts    Setup Copilot Runtime
+  visible  5 tsx       app/providers.tsx                          Configure CopilotKit Provider
+  visible  6 tsx       app/layout.tsx                             Configure CopilotKit Provider
+  visible  7 tsx       app/page.tsx                               Add the chat interface
+  visible  8 bash      -                                          Start the development server
+  visible 12 (none)    -                                          Start chatting
+  visible 13 (none)    -                                          Start chatting
+  visible 14 (none)    -                                          Start chatting
+  hidden   9 bash      -                                          Start the development server tabs=['pnpm'] frontend=None
+  hidden  10 bash      -                                          Start the development server tabs=['yarn'] frontend=None
+  hidden  11 bash      -                                          Start the development server tabs=['bun'] frontend=None
+=============== visible-path (2026-10-07T01:41:50Z)
+found starts=npx create-next-app: npx create-next-app@latest my-copilot-app
+found starts=npm install @copilotkit: npm install @copilotkit/react-core @copilotkit/runtime
+found title=.env: OPENAI_API_KEY=your_openai_api_key
+found title=app/api/copilotkit/[[...slug]]/route.ts: import {
+found title=app/providers.tsx: "use client";
+found title=app/layout.tsx: import { Providers } from "./providers";
+found title=app/page.tsx: "use client";
+found step=Start the development server: npm run dev
+found step=Start chatting: Can you tell me a joke?
+route model: openai:gpt-5.4-mini; prompt from the guide's Start chatting step: "Can you tell me a joke?"
+RESULT visible-path: PASS
+=============== prerequisites
+guide: "- Node.js 20+"; node v22.16.0, npm 10.9.2
+RESULT prerequisites: PASS
+scratch AIMock on 4412: [aimock] Loaded 1 fixture(s) from /private/tmp/bia-byoc-setup.6o3lrB/fixtures
+bound: npm --before=2026-10-05T21:00:00Z
+=============== quickstart, variant: as-written (2026-10-07T01:41:53Z)
+--- Create your frontend
+$ npx create-next-app@latest my-copilot-app
+$ cd my-copilot-app
+Creating a new Next.js app in /private/tmp/bia-byoc-setup.6o3lrB/as_written/my-copilot-app.
+Installing dependencies:
+Installing devDependencies:
+Success! Created my-copilot-app at /private/tmp/bia-byoc-setup.6o3lrB/as_written/my-copilot-app
+scaffold: next 16.3.8, react 19.2.8, app dir app/, files: favicon.ico globals.css layout.tsx page.tsx 
+--- Install CopilotKit packages
+$ npm install @copilotkit/react-core @copilotkit/runtime
+added 1163 packages in 27s
+package.json dependencies: {"@copilotkit/react-core":"^1.77.0","@copilotkit/runtime":"^1.77.0","next":"16.3.8","react":"19.2.8","react-dom":"19.2.8"}
+installed @ag-ui/core copies:    15 @ag-ui/core@0.0.59; 7 @ag-ui/core@1.0.1;
+installed @ag-ui/client copies:  4 @ag-ui/client@0.0.59; 10 @ag-ui/client@1.0.1;
+top-level: @copilotkit/runtime 1.77.0, @copilotkit/react-core 1.77.0
+--- Configure your environment
+wrote .env from the guide: OPENAI_API_KEY=<guide placeholder>
+--- Setup Copilot Runtime / Configure CopilotKit Provider / Add the chat interface
+wrote app/api/copilotkit/[[...slug]]/route.ts, app/providers.tsx, app/layout.tsx (replaces the scaffold's), app/page.tsx (replaces the scaffold's), verbatim
+--- Start the development server (the guide's npm block, verbatim; PORT=3118 in the environment)
+$ npm run dev
+GET http://localhost:3118/ -> 200 after 2s; page contains 'Your App': yes
+--- Start chatting: the provider's transport against the guide's route
+GET /api/copilotkit/info: version 1.77.0 agents ['default']
+POST /api/copilotkit/agent/default/run -> 200
+events: RUN_STARTED TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_END RUN_FINISHED
+assistant text: 'Why do programmers prefer dark mode? Because light attracts bugs.'
+--- scratch AIMock journal for this run
+  POST /v1/responses gpt-5.4-mini {'userMessage': 'tell me a joke'} 200
+--- dev server log (tail, ANSI stripped)
+- Local:         http://localhost:3118
+- Network:       http://192.168.4.34:3118
+- Environments: .env
+✓ Ready in 159ms
+✓ Running next.config.ts took 13ms
+
+○ Compiling / ...
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+ GET / 200 in 4.7s (next.js: 4.4s, application-code: 296ms)
+ GET / 200 in 17ms (next.js: 3ms, application-code: 14ms)
+ GET /api/copilotkit/info 200 in 1347ms (next.js: 1241ms, application-code: 106ms)
+ POST /api/copilotkit/agent/default/run 200 in 43ms (next.js: 2ms, application-code: 41ms)
+port 3118 after stop: free
+RESULT quickstart as-written: PASS
+exit=0

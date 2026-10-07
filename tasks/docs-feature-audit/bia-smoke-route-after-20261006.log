@@ -1,0 +1,27 @@
+# Built-in Agent /api/smoke (after the fix (uncommitted route change on 326090bcf8)), HEAD 326090bcf8, Wed Oct  7 00:28:27 UTC 2026
+## smoke route source: 59db540a52  M showcase/integrations/built-in-agent/src/app/api/smoke/route.ts
+## 1: GET /api/smoke
+{"status":"ok","integration":"built-in-agent","latency_ms":800,"timestamp":"2026-10-07T00:28:28.730Z"}
+HTTP 200 1.054413s
+## AIMock journal:
+1 request(s)
+   POST /v1/responses 200 ctx=built-in-agent match={"userMessage": "Respond with exactly: OK"}
+## 2 (discriminating): queue one 400 for the next provider request, then GET /api/smoke
+$ curl -X POST http://127.0.0.1:4410/__aimock/error -d '{"status":400,"body":{"message":"injected provider failure","type":"invalid_request_error"}}'
+{"queued":true}
+{"status":"error","integration":"built-in-agent","stage":"run_error","error":"Run failed: 400 injected provider failure","latency_ms":263,"timestamp":"2026-10-07T00:28:32.402Z"}
+HTTP 502 0.491814s
+## AIMock journal:
+1 request(s)
+   POST /v1/responses 400 ctx=built-in-agent match={}
+## The same failing run replayed directly (error queued again), multi-route POST /api/copilotkit/agent/default/run, read to the end:
+HTTP 200
+events: RUN_STARTED RUN_ERROR
+text: ''
+RUN_ERROR: 400 injected provider failure
+## 3: GET /api/smoke again with nothing queued
+{"status":"ok","integration":"built-in-agent","latency_ms":790,"timestamp":"2026-10-07T00:28:37.522Z"}
+HTTP 200 1.014946s
+## AIMock journal:
+1 request(s)
+   POST /v1/responses 200 ctx=built-in-agent match={"userMessage": "Respond with exactly: OK"}

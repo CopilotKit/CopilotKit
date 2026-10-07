@@ -1,0 +1,24 @@
+# npm ci (phase 2 lock), 2026-10-07T01:14:55Z, node v22.16.0, npm 10.9.2
+$ nice -n 10 npm ci --legacy-peer-deps
+npm warn deprecated hast@1.0.0: Renamed to rehype
+npm warn deprecated lodash.get@4.4.2: This package is deprecated. Use the optional chaining (?.) operator instead.
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+npm warn deprecated recharts@2.15.4: 1.x and 2.x branches are no longer active. Bump to Recharts v3 to receive latest features and bugfixes. See https://github.com/recharts/recharts/wiki/3.0-migration-guide
+
+added 843 packages, and audited 844 packages in 8s
+
+242 packages are looking for funding
+  run `npm fund` for details
+
+20 vulnerabilities (7 low, 6 moderate, 7 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues possible (including breaking changes), run:
+  npm audit fix --force
+
+Some issues need review, and may require choosing
+a different dependency.
+
+Run `npm audit` for details.

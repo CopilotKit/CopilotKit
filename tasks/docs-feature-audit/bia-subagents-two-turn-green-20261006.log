@@ -1,0 +1,14 @@
+# GREEN run: HEAD 9875b32373 + uncommitted convertStream fix ( M showcase/integrations/built-in-agent/src/lib/factory/tanstack-factory.test.ts  M showcase/integrations/built-in-agent/src/lib/factory/tanstack-factory.ts ); stack OPENAI_BASE_URL -> scratch AIMock :4411
+# REPAIR-041 two-turn delegation-log check, 2026-10-07T00:52:02.461Z, @ag-ui/client 1.0.1, http://localhost:3117, threadId 0a074d98-afe2-403c-b949-d79f1bec1e10
+## turn 1: "Delegation log check one"
+   RunAgentInput.state sent: delegations = (none)
+   events: RUN_STARTED TOOL_CALL_START TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_END STATE_DELTA TOOL_CALL_RESULT TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_END RUN_FINISHED
+   STATE_DELTA [{"op":"add","path":"/delegations","value":"research_agent(\"inner task alpha\")"}]
+   agent.state.delegations after the run: research_agent("inner task alpha")
+## turn 2: "Delegation log check two"
+   RunAgentInput.state sent: delegations = research_agent("inner task alpha")
+   events: RUN_STARTED TOOL_CALL_START TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_END STATE_DELTA TOOL_CALL_RESULT TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_END RUN_FINISHED
+   STATE_DELTA [{"op":"add","path":"/delegations","value":"research_agent(\"inner task alpha\"), writing_agent(\"inner task beta\")"}]
+   agent.state.delegations after the run: research_agent("inner task alpha"), writing_agent("inner task beta")
+RESULT: PASS - the turn-1 delegation is still in the log after turn 2.
+exit=0

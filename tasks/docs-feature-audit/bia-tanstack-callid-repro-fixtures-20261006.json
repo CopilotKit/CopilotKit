@@ -1,0 +1,16 @@
+{
+  "_meta": {
+    "description": "Scratch strict fixtures for bia-tanstack-callid-repro.mjs (served on :4411 only). The follow-up matches only a tool result whose call_id is the model's call_id.",
+    "created": "2026-10-06"
+  },
+  "fixtures": [
+    {
+      "match": { "userMessage": "callid repro", "toolCallId": "call_repro_1" },
+      "response": { "content": "Follow-up matched by call_id." }
+    },
+    {
+      "match": { "userMessage": "callid repro" },
+      "response": { "toolCalls": [{ "id": "call_repro_1", "name": "echo_tool", "arguments": {} }] }
+    }
+  ]
+}

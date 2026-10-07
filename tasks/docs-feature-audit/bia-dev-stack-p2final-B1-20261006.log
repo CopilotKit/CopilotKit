@@ -1,0 +1,595 @@
+# Built-in Agent stack via the integration's documented default dev command (package.json scripts.dev = next dev --turbopack). In-process agent: no separate agent server. .next removed first.
+$ cd showcase/integrations/built-in-agent && PORT=3117 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true DO_NOT_TRACK=1 OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://127.0.0.1:4410/v1 AIMOCK_URL=http://127.0.0.1:4410 nice -n 10 npm run dev
+# node v22.16.0, npm 10.9.2, runtime 1.77.0, @tanstack/ai 0.64.1, HEAD f73f47038a, tree vs HEAD: , started Wed Oct  7 01:33:30 UTC 2026
+
+> @copilotkit/showcase-built-in-agent@0.1.0 dev
+> next dev --turbopack
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/pnpm-lock.yaml as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/built-in-agent/package-lock.json
+
+   ▲ Next.js 15.5.27 (Turbopack)
+   - Local:        http://localhost:3117
+   - Network:      http://192.168.4.34:3117
+
+ ✓ Starting...
+ ✓ Ready in 688ms
+ ⚠ Webpack is configured while Turbopack is not, which may cause problems.
+ ⚠ See instructions if you need to configure Turbopack:
+  https://nextjs.org/docs/app/api-reference/next-config-js/turbopack
+
+ ○ Compiling /api/health ...
+ ✓ Compiled /api/health in 550ms
+ GET /api/health 200 in 820ms
+ ○ Compiling /demos/gen-ui-agent ...
+ ✓ Compiled /demos/gen-ui-agent in 5.7s
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+ GET /demos/gen-ui-agent 200 in 6281ms
+ ○ Compiling /demos/mcp-apps ...
+ ✓ Compiled /demos/mcp-apps in 1512ms
+ GET /demos/mcp-apps 200 in 1571ms
+ ○ Compiling /demos/tool-rendering ...
+ ✓ Compiled /demos/tool-rendering in 1021ms
+ GET /demos/tool-rendering 200 in 1084ms
+ ○ Compiling /demos/tool-rendering-custom-catchall ...
+ ✓ Compiled /demos/tool-rendering-custom-catchall in 1106ms
+ GET /demos/tool-rendering-custom-catchall 200 in 1177ms
+ ○ Compiling /demos/tool-rendering-default-catchall ...
+ ✓ Compiled /demos/tool-rendering-default-catchall in 1114ms
+ GET /demos/tool-rendering-default-catchall 200 in 1201ms
+ ✓ Compiled /api/copilotkit/[[...slug]] in 325ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit 404 in 1885ms
+ ✓ Compiled /api/copilotkit-a2ui-fixed-schema/[[...slug]] in 287ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-a2ui-fixed-schema 404 in 1293ms
+ ✓ Compiled /api/copilotkit-a2ui-recovery/[[...slug]] in 148ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-a2ui-recovery 404 in 1189ms
+ ✓ Compiled /api/copilotkit-agent-config/[[...slug]] in 95ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-agent-config 404 in 1033ms
+ ✓ Compiled /api/copilotkit-auth/[[...slug]] in 103ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-auth 401 in 1060ms
+ ✓ Compiled /api/copilotkit-beautiful-chat/[[...slug]] in 86ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-beautiful-chat 404 in 1062ms
+ ✓ Compiled /api/copilotkit-declarative-gen-ui/[[...slug]] in 87ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-declarative-gen-ui 404 in 1044ms
+ ✓ Compiled /api/copilotkit-declarative-hashbrown/[[...slug]] in 127ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-declarative-hashbrown 404 in 1120ms
+ ✓ Compiled /api/copilotkit-declarative-json-render/[[...slug]] in 108ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-declarative-json-render 404 in 1119ms
+ ✓ Compiled /api/copilotkit-mcp-apps/[[...slug]] in 80ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-mcp-apps 404 in 1047ms
+ ○ Compiling /api/copilotkit-multimodal/[[...slug]] ...
+ ✓ Compiled /api/copilotkit-multimodal/[[...slug]] in 503ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-multimodal 404 in 1564ms
+ ✓ Compiled /api/copilotkit-ogui/[[...slug]] in 74ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-ogui 404 in 1036ms
+ ✓ Compiled /api/copilotkit-reasoning/[[...slug]] in 84ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-reasoning 404 in 1058ms
+ ✓ Compiled /api/copilotkit-voice/[[...slug]] in 80ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-voice 404 in 1061ms
+ GET /api/health 200 in 226ms
+ GET /demos/mcp-apps 200 in 266ms
+ GET /demos/tool-rendering-custom-catchall 200 in 269ms
+ GET /demos/gen-ui-agent 200 in 272ms
+ GET /demos/tool-rendering-default-catchall 200 in 275ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit-mcp-apps/info 200 in 306ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/info 200 in 301ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/info 200 in 304ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/info 200 in 298ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit-mcp-apps/threads?agentId=mcp-apps 200 in 412ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=default 200 in 410ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=chat-customization-css 200 in 405ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=agentic_chat 200 in 410ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit-mcp-apps/threads?agentId=headless-complete 200 in 419ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=prebuilt-sidebar 200 in 403ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=prebuilt-popup 200 in 413ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=default 200 in 407ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=chat-slots 200 in 417ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=agentic_chat 200 in 414ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=chat-slots 200 in 418ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=agentic_chat 200 in 420ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=chat-slots 200 in 423ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=default 200 in 427ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=prebuilt-sidebar 200 in 428ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=prebuilt-sidebar 200 in 432ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=prebuilt-popup 200 in 434ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=chat-customization-css 200 in 434ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=chat-customization-css 200 in 438ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=prebuilt-popup 200 in 441ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=headless-simple 200 in 418ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=frontend_tools 200 in 419ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=frontend-tools-async 200 in 421ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=headless-simple 200 in 424ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering-default-catchall 200 in 426ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=headless-simple 200 in 427ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering-custom-catchall 200 in 429ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=frontend-tools-async 200 in 431ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering 200 in 433ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering 200 in 433ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering-default-catchall 200 in 435ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=frontend_tools 200 in 438ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=frontend-tools-async 200 in 441ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering-custom-catchall 200 in 444ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering 200 in 444ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering-default-catchall 200 in 446ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=frontend_tools 200 in 448ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering-custom-catchall 200 in 449ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=gen-ui-agent 200 in 443ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=gen-ui-interrupt 200 in 443ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=gen-ui-tool-based 200 in 445ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=gen-ui-tool-based 200 in 448ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=gen-ui-tool-based 200 in 449ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=human_in_the_loop 200 in 451ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=gen-ui-agent 200 in 452ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=human_in_the_loop 200 in 452ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=interrupt-headless 200 in 455ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=gen-ui-interrupt 200 in 455ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=hitl-in-chat 200 in 457ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=hitl-in-chat 200 in 459ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=interrupt-headless 200 in 461ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=gen-ui-agent 200 in 465ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=human_in_the_loop 200 in 466ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=gen-ui-interrupt 200 in 468ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=hitl-in-chat 200 in 467ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=interrupt-headless 200 in 471ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=hitl-in-app 200 in 379ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=hitl-in-app 200 in 376ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=readonly-state-agent-context 200 in 378ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=shared-state-streaming 200 in 382ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=shared-state-read-write 200 in 384ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=shared-state-read 200 in 389ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=readonly-state-agent-context 200 in 389ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=shared-state-read-write 200 in 392ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=subagents 200 in 394ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=shared-state-streaming 200 in 397ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=shared-state-streaming 200 in 400ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=subagents 200 in 403ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=hitl-in-app 200 in 407ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=shared-state-read 200 in 413ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=shared-state-read 200 in 415ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=subagents 200 in 417ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=readonly-state-agent-context 200 in 419ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=shared-state-read-write 200 in 423ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=threadid-frontend-tool-roundtrip 200 in 367ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=reasoning-custom 200 in 367ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering-reasoning-chain 200 in 368ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=reasoning-default 200 in 369ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=reasoning-custom 200 in 371ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=reasoning-default 200 in 372ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=reasoning-default 200 in 373ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=threadid-frontend-tool-roundtrip 200 in 375ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=threadid-frontend-tool-roundtrip 200 in 376ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering-reasoning-chain 200 in 406ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=reasoning-custom 200 in 415ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering-reasoning-chain 200 in 422ms
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ POST /api/copilotkit/agent/tool-rendering-default-catchall/run 200 in 2416ms
+ POST /api/copilotkit/agent/tool-rendering-custom-catchall/run 200 in 2598ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering-default-catchall 200 in 229ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering-custom-catchall 200 in 229ms
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /demos/tool-rendering 200 in 71ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/info 200 in 242ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=default 200 in 284ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=chat-slots 200 in 288ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=prebuilt-sidebar 200 in 289ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=prebuilt-popup 200 in 291ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=agentic_chat 200 in 294ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=chat-customization-css 200 in 296ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=headless-simple 200 in 288ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=frontend_tools 200 in 291ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=frontend-tools-async 200 in 293ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering 200 in 294ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering-custom-catchall 200 in 296ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering-default-catchall 200 in 299ms
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=gen-ui-agent 200 in 276ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=gen-ui-tool-based 200 in 279ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=human_in_the_loop 200 in 280ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=gen-ui-interrupt 200 in 282ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=hitl-in-chat 200 in 283ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=interrupt-headless 200 in 285ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=hitl-in-app 200 in 272ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=shared-state-read 200 in 273ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=shared-state-streaming 200 in 275ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=subagents 200 in 276ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=shared-state-read-write 200 in 278ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=readonly-state-agent-context 200 in 279ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=threadid-frontend-tool-roundtrip 200 in 248ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=reasoning-custom 200 in 249ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=reasoning-default 200 in 251ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering-reasoning-chain 200 in 253ms
+ POST /api/copilotkit/agent/tool-rendering-custom-catchall/run 200 in 2269ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering-custom-catchall 200 in 234ms
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ POST /api/copilotkit/agent/tool-rendering/run 200 in 3324ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=tool-rendering 200 in 236ms
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ POST /api/copilotkit-mcp-apps/agent/mcp-apps/run 200 in 10500ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit-mcp-apps/threads?agentId=mcp-apps 200 in 254ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ POST /api/copilotkit-mcp-apps/agent/mcp-apps/run 200 in 722ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit-mcp-apps/threads?agentId=mcp-apps 200 in 231ms
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ POST /api/copilotkit/agent/gen-ui-agent/run 200 in 18715ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=gen-ui-agent 200 in 230ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ POST /api/copilotkit/agent/gen-ui-agent/run 200 in 19664ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=gen-ui-agent 200 in 246ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ POST /api/copilotkit/agent/gen-ui-agent/run 200 in 20212ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=76b931bc-87a7-4de6-b20c-503cde44c969 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-76b931bc-87a7-4de6-b20c-503cde44c969 error=
+ GET /api/copilotkit/threads?agentId=gen-ui-agent 200 in 234ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ POST /api/copilotkit-voice/threads/clear 204 in 237ms
+[?25h
+# stopped Wed Oct  7 01:35:11 UTC 2026 (SIGTERM to process group 21066)

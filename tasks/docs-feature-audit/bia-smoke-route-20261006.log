@@ -1,0 +1,31 @@
+# Built-in Agent /api/smoke (before the fix: route at 326090bcf8), HEAD 326090bcf8, Wed Oct  7 00:27:28 UTC 2026
+## smoke route source: 59db540a52 
+## 1: GET /api/smoke
+{"status":"error","integration":"built-in-agent","stage":"runtime_response","error":"Runtime returned 400: {\"error\":\"Not found\",\"code\":\"single_route_envelope_against_multi_route_runtime\",\"message\":\"Received a single-route request envelope ({ method: \\\"...\\\" }) but this runtime is mounted in multi-route mod","latency_ms":238,"timestamp":"2026-10-07T00:27:29.018Z"}
+HTTP 502 0.757008s
+## AIMock journal:
+0 request(s)
+## 2 (discriminating): queue one 400 for the next provider request, then GET /api/smoke
+$ curl -X POST http://127.0.0.1:4410/__aimock/error -d '{"status":400,"body":{"message":"injected provider failure","type":"invalid_request_error"}}'
+{"queued":true}
+{"status":"error","integration":"built-in-agent","stage":"runtime_response","error":"Runtime returned 400: {\"error\":\"Not found\",\"code\":\"single_route_envelope_against_multi_route_runtime\",\"message\":\"Received a single-route request envelope ({ method: \\\"...\\\" }) but this runtime is mounted in multi-route mod","latency_ms":245,"timestamp":"2026-10-07T00:27:32.676Z"}
+HTTP 502 0.473702s
+## AIMock journal:
+0 request(s)
+## The same failing run replayed directly (error queued again), multi-route POST /api/copilotkit/agent/default/run, read to the end:
+HTTP 200
+events: RUN_STARTED RUN_ERROR
+text: ''
+RUN_ERROR: 400 injected provider failure
+## 3: GET /api/smoke again with nothing queued
+{"status":"error","integration":"built-in-agent","stage":"runtime_response","error":"Runtime returned 400: {\"error\":\"Not found\",\"code\":\"single_route_envelope_against_multi_route_runtime\",\"message\":\"Received a single-route request envelope ({ method: \\\"...\\\" }) but this runtime is mounted in multi-route mod","latency_ms":229,"timestamp":"2026-10-07T00:27:37.199Z"}
+HTTP 502 0.455061s
+## AIMock journal:
+0 request(s)
+## Cleanup check: step 2 queued a 400 that the route never reached (it made no provider call). Two direct runs follow; both finish with "OK", so no injected error remained queued:
+HTTP 200
+events: RUN_STARTED TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_END RUN_FINISHED
+text: 'OK'
+HTTP 200
+events: RUN_STARTED TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_END RUN_FINISHED
+text: 'OK'

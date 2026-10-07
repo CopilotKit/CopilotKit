@@ -1,0 +1,19 @@
+# Sequential pre-warm (one GET at a time): demo pages [gen-ui-agent,threadid-frontend-tool-roundtrip] and every API route except /api/smoke. Wed Oct  7 00:40:32 UTC 2026
+/demos/gen-ui-agent 200 5.657980s
+/demos/threadid-frontend-tool-roundtrip 200 1.390449s
+/api/copilotkit 404 1.629399s
+/api/copilotkit-a2ui-fixed-schema 404 1.059569s
+/api/copilotkit-a2ui-recovery 404 1.045391s
+/api/copilotkit-agent-config 404 1.009158s
+/api/copilotkit-auth 401 1.021461s
+/api/copilotkit-beautiful-chat 404 1.141911s
+/api/copilotkit-declarative-gen-ui 404 1.075985s
+/api/copilotkit-declarative-hashbrown 404 0.999299s
+/api/copilotkit-declarative-json-render 404 1.001742s
+/api/copilotkit-mcp-apps 404 1.043370s
+/api/copilotkit-multimodal 404 1.577549s
+/api/copilotkit-ogui 404 1.046389s
+/api/copilotkit-reasoning 404 1.012809s
+/api/copilotkit-voice 404 1.315114s
+/api/health 200 0.227845s
+# done Wed Oct  7 00:40:56 UTC 2026

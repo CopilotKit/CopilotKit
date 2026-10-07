@@ -1,0 +1,13 @@
+diff --git a/showcase/integrations/built-in-agent/src/lib/factory/tanstack-factory.ts b/showcase/integrations/built-in-agent/src/lib/factory/tanstack-factory.ts
+index 35254b3601..eebdd52c25 100644
+--- a/showcase/integrations/built-in-agent/src/lib/factory/tanstack-factory.ts
++++ b/showcase/integrations/built-in-agent/src/lib/factory/tanstack-factory.ts
+@@ -459,7 +459,7 @@ export function createBuiltInAgent(options: BuiltInAgentOptions = {}) {
+     factory: async ({ input, abortController }) => {
+       // @region[agent-context-conversion]
+       const { messages: convertedMessages, systemPrompts } =
+-        convertInputToTanStackAI(input);
++        convertInputToTanStackAI({ ...input, state: {} }); // RED stub: drop the UI state
+       // @endregion[agent-context-conversion]
+       // Opt-in message rewrite (multimodal PDF flatten). Default: pass-through.
+       const messages = options.preprocessMessages

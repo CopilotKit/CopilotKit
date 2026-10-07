@@ -1,0 +1,32 @@
+# REPAIR-033: @copilotkit/voice 1.77.0 depends on openai ^5.9.0 (regular dependency); the Built-in Agent pins openai ^6.49.0 and passes an openai 6 client to TranscriptionServiceOpenAI. 2026-10-07T00:54:14Z, HEAD 23670bd498
+## BEFORE (lock at HEAD): openai copies
+  node_modules/@copilotkit/voice/node_modules/openai 5.23.2
+  node_modules/openai 6.49.0
+## @copilotkit/voice 1.77.0 uses openai only for its client type and a fallback 'new OpenAI()' when config.openai is missing; the shared transcription-service.ts always passes its own client:
+  2:import OpenAI from "openai";
+  4://#region src/transcription/transcription-service-openai.ts
+  6:	openai;
+  13:		this.openai = config.openai ?? new OpenAI();
+  20:		return (await this.openai.audio.transcriptions.create({
+  32://# sourceMappingURL=transcription-service-openai.mjs.map
+## FIX: package.json overrides += {"@copilotkit/voice": {"openai": "$openai"}} (voice's openai resolves to the integration's own ^6.49.0)
+$ rm -rf node_modules package-lock.json && nice -n 10 npm install --package-lock-only --legacy-peer-deps --before=2026-10-05T12:00:00Z   (node v24.11.0, npm 11.6.1)
+up to date, audited 903 packages in 13s
+## AFTER: openai copies
+  node_modules/openai 6.49.0
+## lock entries changed:
+  < node_modules/@copilotkit/voice/node_modules/openai 5.23.2
+$ nice -n 10 npm ci --legacy-peer-deps   (node v22.16.0, npm 10.9.2)
+added 845 packages, and audited 846 packages in 6s
+## tsc --noEmit -p tsconfig.json: BEFORE (phase-1 tree at 326090bcf8) 59 diagnostics, of which on transcription-service.ts:
+  src/app/demos/voice/transcription-service.ts(67,7): error TS2322: Type 'import("/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/built-in-agent/node_modules/openai/client").OpenAI' is not assignable to type 'import("/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/built-in-agent/node_modules/@copilotkit/voice/node_modules/openai/client").OpenAI'.
+    Property '#private' in type 'OpenAI' refers to a different member that cannot be accessed from within type 'OpenAI'.
+## tsc AFTER: 58 diagnostics; on transcription-service.ts: 0. Diagnostics removed (-) / added (+), line numbers dropped:
+  - src/app/demos/voice/transcription-service.ts: error TS2322: Type 'import("/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/built-in-agent/node_modules/openai/client").OpenAI' is not assignable to type 'import("/Users/tylerslaton/.c
+## vitest (includes src/lib/transcription-service.test.ts)
+ Test Files  8 passed | 1 skipped (9)
+      Tests  40 passed | 5 skipped (45)
+## runtime check: @copilotkit/voice now resolves the integration's openai, and the service constructs around an openai 6 client
+  openai packages on disk: node_modules/openai=6.49.0 
+  constructed TranscriptionServiceOpenAI around openai (no VERSION)
+## D6 regression (fresh boot): voice, multimodal, agentic-chat 3/3, 7 requests all 200 (bia-d6-redgreen-voice-openai-20261006.log)

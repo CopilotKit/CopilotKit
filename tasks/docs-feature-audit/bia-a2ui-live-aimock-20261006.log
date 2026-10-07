@@ -1,0 +1,6 @@
+# Scratch strict AIMock on :4411 for the generate_a2ui order check: only the fixtures in /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/bia/fx-a2ui; same flags as the Showcase AIMock.
+$ AIMOCK_STRICT_TURN_INDEX=1 nice -n 10 showcase/scripts/node_modules/.bin/llmock --port 4411 --host 127.0.0.1 --strict --validate-on-load --chunk-size 8 --latency 60 --fixtures /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/bia/fx-a2ui
+# HEAD 8f6aa03851, started Wed Oct  7 00:56:32 UTC 2026
+[aimock] Loaded 12 fixture(s) from /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/bia/fx-a2ui
+[aimock] aimock server listening on http://127.0.0.1:4411
+[aimock] Shutting down...

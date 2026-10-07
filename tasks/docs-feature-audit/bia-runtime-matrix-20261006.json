@@ -1,0 +1,1262 @@
+{
+ "integration": "built-in-agent",
+ "date": "2026-10-06",
+ "runner": "tasks/docs-feature-audit/run-local-d6.mts built-in-agent --demos <batch>",
+ "unshippedChecks": [
+  "threadid-frontend-tool-roundtrip"
+ ],
+ "runs": {
+  "first": {
+   "tag": "full",
+   "head": "3538cc3ac1",
+   "batches": {
+    "A1": {
+     "features": [
+      "beautiful-chat",
+      "cli-start",
+      "agentic-chat",
+      "prebuilt-sidebar",
+      "prebuilt-popup",
+      "chat-slots",
+      "chat-customization-css",
+      "headless-simple"
+     ],
+     "checks": [
+      {
+       "check": "beautiful-chat-toggle-theme",
+       "pass": true,
+       "seconds": 7.1
+      },
+      {
+       "check": "beautiful-chat-pie-chart",
+       "pass": true,
+       "seconds": 9.4
+      },
+      {
+       "check": "beautiful-chat-bar-chart",
+       "pass": true,
+       "seconds": 9.4
+      },
+      {
+       "check": "beautiful-chat-search-flights",
+       "pass": true,
+       "seconds": 11.5
+      },
+      {
+       "check": "beautiful-chat-schedule-meeting",
+       "pass": true,
+       "seconds": 5.8
+      },
+      {
+       "check": "prebuilt-sidebar",
+       "pass": true,
+       "seconds": 6.2
+      },
+      {
+       "check": "prebuilt-popup",
+       "pass": true,
+       "seconds": 6.1
+      },
+      {
+       "check": "chat-slots",
+       "pass": true,
+       "seconds": 6.3
+      },
+      {
+       "check": "chat-css",
+       "pass": true,
+       "seconds": 5.9
+      },
+      {
+       "check": "agentic-chat",
+       "pass": true,
+       "seconds": 12.4
+      },
+      {
+       "check": "headless-simple",
+       "pass": true,
+       "seconds": 13.1
+      }
+     ],
+     "requests": 17,
+     "statuses": {
+      "200": 17
+     },
+     "requestsWithAllForwardedHeaders": 17,
+     "featureRetries": 0
+    },
+    "A2": {
+     "features": [
+      "headless-complete",
+      "reasoning-custom",
+      "reasoning-default",
+      "frontend-tools",
+      "frontend-tools-async",
+      "gen-ui-tool-based",
+      "hitl-in-app",
+      "hitl-in-chat",
+      "declarative-gen-ui",
+      "a2ui-fixed-schema",
+      "a2ui-recovery"
+     ],
+     "checks": [
+      {
+       "check": "reasoning-custom",
+       "pass": true,
+       "seconds": 9.2
+      },
+      {
+       "check": "reasoning-default",
+       "pass": true,
+       "seconds": 9.2
+      },
+      {
+       "check": "frontend-tools",
+       "pass": true,
+       "seconds": 14.3
+      },
+      {
+       "check": "frontend-tools-async",
+       "pass": true,
+       "seconds": 7.4
+      },
+      {
+       "check": "gen-ui-custom",
+       "pass": true,
+       "seconds": 8.0
+      },
+      {
+       "check": "hitl-text-input",
+       "pass": true,
+       "seconds": 7.1
+      },
+      {
+       "check": "hitl-approve-deny",
+       "pass": true,
+       "seconds": 7.7
+      },
+      {
+       "check": "gen-ui-headless-complete",
+       "pass": true,
+       "seconds": 26.6
+      },
+      {
+       "check": "gen-ui-a2ui-fixed",
+       "pass": true,
+       "seconds": 6.5
+      },
+      {
+       "check": "a2ui-recovery",
+       "pass": true,
+       "seconds": 16.7
+      },
+      {
+       "check": "gen-ui-declarative",
+       "pass": true,
+       "seconds": 66.2
+      }
+     ],
+     "requests": 46,
+     "statuses": {
+      "200": 46
+     },
+     "requestsWithAllForwardedHeaders": 46,
+     "featureRetries": 0
+    },
+    "B1": {
+     "features": [
+      "mcp-apps",
+      "gen-ui-agent",
+      "tool-rendering-default-catchall",
+      "tool-rendering-custom-catchall",
+      "tool-rendering"
+     ],
+     "checks": [
+      {
+       "check": "tool-rendering-default-catchall",
+       "pass": true,
+       "seconds": 6.7
+      },
+      {
+       "check": "tool-rendering-custom-catchall",
+       "pass": true,
+       "seconds": 10.8
+      },
+      {
+       "check": "tool-rendering",
+       "pass": true,
+       "seconds": 7.2
+      },
+      {
+       "check": "mcp-apps",
+       "pass": true,
+       "seconds": 15.3
+      },
+      {
+       "check": "gen-ui-agent",
+       "pass": false,
+       "seconds": 126.3,
+       "error": "waitForTurnComplete: turn 1 did not complete within 60000ms (reason=surface-missing, runsFinished=1, count=1, attrPresent=true, runningNow=false, runStartCount=1)"
+      }
+     ],
+     "requests": 59,
+     "statuses": {
+      "200": 59
+     },
+     "requestsWithAllForwardedHeaders": 59,
+     "featureRetries": 1
+    },
+    "B2": {
+     "features": [
+      "shared-state-read",
+      "shared-state-read-write",
+      "readonly-state-agent-context",
+      "subagents",
+      "multimodal"
+     ],
+     "checks": [
+      {
+       "check": "readonly-state-context",
+       "pass": true,
+       "seconds": 6.9
+      },
+      {
+       "check": "shared-state-write",
+       "pass": true,
+       "seconds": 9.5
+      },
+      {
+       "check": "shared-state-read",
+       "pass": true,
+       "seconds": 12.1
+      },
+      {
+       "check": "multimodal",
+       "pass": true,
+       "seconds": 8.5
+      },
+      {
+       "check": "subagents",
+       "pass": true,
+       "seconds": 31.7
+      }
+     ],
+     "requests": 15,
+     "statuses": {
+      "200": 15
+     },
+     "requestsWithAllForwardedHeaders": 15,
+     "featureRetries": 0
+    },
+    "B3": {
+     "features": [
+      "auth",
+      "declarative-hashbrown",
+      "declarative-json-render",
+      "open-gen-ui",
+      "open-gen-ui-advanced",
+      "voice",
+      "agent-config",
+      "threadid-frontend-tool-roundtrip"
+     ],
+     "checks": [
+      {
+       "check": "byoc",
+       "pass": true,
+       "seconds": 8.9
+      },
+      {
+       "check": "gen-ui-open-advanced",
+       "pass": true,
+       "seconds": 14.0
+      },
+      {
+       "check": "voice",
+       "pass": true,
+       "seconds": 5.6
+      },
+      {
+       "check": "gen-ui-open",
+       "pass": true,
+       "seconds": 14.7
+      },
+      {
+       "check": "agent-config",
+       "pass": true,
+       "seconds": 32.0
+      },
+      {
+       "check": "auth",
+       "pass": true,
+       "seconds": 54.5
+      },
+      {
+       "check": "threadid-frontend-tool-roundtrip",
+       "pass": false,
+       "seconds": 120.7,
+       "error": "waitForTurnComplete: turn 1 did not complete within 55788ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)"
+      }
+     ],
+     "requests": 26,
+     "statuses": {
+      "200": 14,
+      "503": 12
+     },
+     "requestsWithAllForwardedHeaders": 26,
+     "featureRetries": 1
+    }
+   },
+   "raw": {
+    "total": 39,
+    "passed": 37
+   },
+   "published": {
+    "total": 38,
+    "passed": 37
+   },
+   "failed": [
+    "gen-ui-agent",
+    "threadid-frontend-tool-roundtrip"
+   ]
+  },
+  "p1final": {
+   "tag": "final",
+   "head": "8f6aa03851",
+   "batches": {
+    "A1": {
+     "features": [
+      "beautiful-chat",
+      "cli-start",
+      "agentic-chat",
+      "prebuilt-sidebar",
+      "prebuilt-popup",
+      "chat-slots",
+      "chat-customization-css",
+      "headless-simple"
+     ],
+     "checks": [
+      {
+       "check": "beautiful-chat-toggle-theme",
+       "pass": true,
+       "seconds": 7.0
+      },
+      {
+       "check": "beautiful-chat-bar-chart",
+       "pass": true,
+       "seconds": 9.3
+      },
+      {
+       "check": "beautiful-chat-pie-chart",
+       "pass": true,
+       "seconds": 9.4
+      },
+      {
+       "check": "beautiful-chat-search-flights",
+       "pass": true,
+       "seconds": 11.3
+      },
+      {
+       "check": "beautiful-chat-schedule-meeting",
+       "pass": true,
+       "seconds": 5.7
+      },
+      {
+       "check": "prebuilt-sidebar",
+       "pass": true,
+       "seconds": 6.0
+      },
+      {
+       "check": "prebuilt-popup",
+       "pass": true,
+       "seconds": 6.0
+      },
+      {
+       "check": "chat-slots",
+       "pass": true,
+       "seconds": 6.2
+      },
+      {
+       "check": "agentic-chat",
+       "pass": true,
+       "seconds": 11.9
+      },
+      {
+       "check": "chat-css",
+       "pass": true,
+       "seconds": 5.8
+      },
+      {
+       "check": "headless-simple",
+       "pass": true,
+       "seconds": 13.0
+      }
+     ],
+     "requests": 17,
+     "statuses": {
+      "200": 17
+     },
+     "requestsWithAllForwardedHeaders": 17,
+     "featureRetries": 0
+    },
+    "A2": {
+     "features": [
+      "headless-complete",
+      "reasoning-custom",
+      "reasoning-default",
+      "frontend-tools",
+      "frontend-tools-async",
+      "gen-ui-tool-based",
+      "hitl-in-app",
+      "hitl-in-chat",
+      "declarative-gen-ui",
+      "a2ui-fixed-schema",
+      "a2ui-recovery"
+     ],
+     "checks": [
+      {
+       "check": "reasoning-custom",
+       "pass": true,
+       "seconds": 9.2
+      },
+      {
+       "check": "reasoning-default",
+       "pass": true,
+       "seconds": 9.2
+      },
+      {
+       "check": "frontend-tools",
+       "pass": true,
+       "seconds": 14.2
+      },
+      {
+       "check": "frontend-tools-async",
+       "pass": true,
+       "seconds": 7.3
+      },
+      {
+       "check": "gen-ui-custom",
+       "pass": true,
+       "seconds": 8.1
+      },
+      {
+       "check": "hitl-text-input",
+       "pass": true,
+       "seconds": 7.0
+      },
+      {
+       "check": "hitl-approve-deny",
+       "pass": true,
+       "seconds": 7.7
+      },
+      {
+       "check": "gen-ui-headless-complete",
+       "pass": true,
+       "seconds": 26.8
+      },
+      {
+       "check": "gen-ui-a2ui-fixed",
+       "pass": true,
+       "seconds": 6.5
+      },
+      {
+       "check": "a2ui-recovery",
+       "pass": true,
+       "seconds": 16.6
+      },
+      {
+       "check": "gen-ui-declarative",
+       "pass": true,
+       "seconds": 66.1
+      }
+     ],
+     "requests": 46,
+     "statuses": {
+      "200": 46
+     },
+     "requestsWithAllForwardedHeaders": 46,
+     "featureRetries": 0
+    },
+    "B1": {
+     "features": [
+      "mcp-apps",
+      "gen-ui-agent",
+      "tool-rendering-default-catchall",
+      "tool-rendering-custom-catchall",
+      "tool-rendering"
+     ],
+     "checks": [
+      {
+       "check": "tool-rendering-default-catchall",
+       "pass": true,
+       "seconds": 6.7
+      },
+      {
+       "check": "tool-rendering-custom-catchall",
+       "pass": true,
+       "seconds": 10.7
+      },
+      {
+       "check": "tool-rendering",
+       "pass": true,
+       "seconds": 7.2
+      },
+      {
+       "check": "mcp-apps",
+       "pass": true,
+       "seconds": 15.3
+      },
+      {
+       "check": "gen-ui-agent",
+       "pass": false,
+       "seconds": 126.2,
+       "error": "waitForTurnComplete: turn 1 did not complete within 60000ms (reason=surface-missing, runsFinished=1, count=1, attrPresent=true, runningNow=false, runStartCount=1)"
+      }
+     ],
+     "requests": 59,
+     "statuses": {
+      "200": 59
+     },
+     "requestsWithAllForwardedHeaders": 59,
+     "featureRetries": 1
+    },
+    "B2": {
+     "features": [
+      "shared-state-read",
+      "shared-state-read-write",
+      "readonly-state-agent-context",
+      "subagents",
+      "multimodal"
+     ],
+     "checks": [
+      {
+       "check": "readonly-state-context",
+       "pass": true,
+       "seconds": 7.1
+      },
+      {
+       "check": "shared-state-write",
+       "pass": true,
+       "seconds": 9.7
+      },
+      {
+       "check": "shared-state-read",
+       "pass": true,
+       "seconds": 12.4
+      },
+      {
+       "check": "multimodal",
+       "pass": true,
+       "seconds": 8.5
+      },
+      {
+       "check": "subagents",
+       "pass": true,
+       "seconds": 31.9
+      }
+     ],
+     "requests": 15,
+     "statuses": {
+      "200": 15
+     },
+     "requestsWithAllForwardedHeaders": 15,
+     "featureRetries": 0
+    },
+    "B3": {
+     "features": [
+      "auth",
+      "declarative-hashbrown",
+      "declarative-json-render",
+      "open-gen-ui",
+      "open-gen-ui-advanced",
+      "voice",
+      "agent-config",
+      "threadid-frontend-tool-roundtrip"
+     ],
+     "checks": [
+      {
+       "check": "byoc",
+       "pass": true,
+       "seconds": 8.8
+      },
+      {
+       "check": "gen-ui-open-advanced",
+       "pass": true,
+       "seconds": 13.9
+      },
+      {
+       "check": "voice",
+       "pass": true,
+       "seconds": 5.5
+      },
+      {
+       "check": "gen-ui-open",
+       "pass": true,
+       "seconds": 14.7
+      },
+      {
+       "check": "agent-config",
+       "pass": true,
+       "seconds": 31.9
+      },
+      {
+       "check": "auth",
+       "pass": true,
+       "seconds": 54.5
+      },
+      {
+       "check": "threadid-frontend-tool-roundtrip",
+       "pass": false,
+       "seconds": 120.8,
+       "error": "waitForTurnComplete: turn 1 did not complete within 55677ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)"
+      }
+     ],
+     "requests": 26,
+     "statuses": {
+      "200": 14,
+      "503": 12
+     },
+     "requestsWithAllForwardedHeaders": 26,
+     "featureRetries": 1
+    }
+   },
+   "raw": {
+    "total": 39,
+    "passed": 37
+   },
+   "published": {
+    "total": 38,
+    "passed": 37
+   },
+   "failed": [
+    "gen-ui-agent",
+    "threadid-frontend-tool-roundtrip"
+   ]
+  },
+  "p2first": {
+   "tag": "p2",
+   "head": "8f6aa03851+uncommitted-p2",
+   "batches": {
+    "A1": {
+     "features": [
+      "beautiful-chat",
+      "cli-start",
+      "agentic-chat",
+      "prebuilt-sidebar",
+      "prebuilt-popup",
+      "chat-slots",
+      "chat-customization-css",
+      "headless-simple"
+     ],
+     "checks": [
+      {
+       "check": "beautiful-chat-toggle-theme",
+       "pass": true,
+       "seconds": 7.1
+      },
+      {
+       "check": "beautiful-chat-pie-chart",
+       "pass": true,
+       "seconds": 9.5
+      },
+      {
+       "check": "beautiful-chat-bar-chart",
+       "pass": true,
+       "seconds": 9.5
+      },
+      {
+       "check": "beautiful-chat-search-flights",
+       "pass": true,
+       "seconds": 11.3
+      },
+      {
+       "check": "beautiful-chat-schedule-meeting",
+       "pass": true,
+       "seconds": 5.9
+      },
+      {
+       "check": "prebuilt-sidebar",
+       "pass": true,
+       "seconds": 6.2
+      },
+      {
+       "check": "prebuilt-popup",
+       "pass": true,
+       "seconds": 6.2
+      },
+      {
+       "check": "chat-slots",
+       "pass": true,
+       "seconds": 6.4
+      },
+      {
+       "check": "chat-css",
+       "pass": true,
+       "seconds": 5.9
+      },
+      {
+       "check": "agentic-chat",
+       "pass": true,
+       "seconds": 12.2
+      },
+      {
+       "check": "headless-simple",
+       "pass": true,
+       "seconds": 13.0
+      }
+     ],
+     "requests": 17,
+     "statuses": {
+      "200": 17
+     },
+     "requestsWithAllForwardedHeaders": 17,
+     "featureRetries": 0
+    },
+    "A2": {
+     "features": [
+      "headless-complete",
+      "reasoning-custom",
+      "reasoning-default",
+      "frontend-tools",
+      "frontend-tools-async",
+      "gen-ui-tool-based",
+      "hitl-in-app",
+      "hitl-in-chat",
+      "declarative-gen-ui",
+      "a2ui-fixed-schema",
+      "a2ui-recovery"
+     ],
+     "checks": [
+      {
+       "check": "frontend-tools",
+       "pass": true,
+       "seconds": 14.7
+      },
+      {
+       "check": "frontend-tools-async",
+       "pass": true,
+       "seconds": 7.6
+      },
+      {
+       "check": "gen-ui-headless-complete",
+       "pass": true,
+       "seconds": 26.6
+      },
+      {
+       "check": "reasoning-custom",
+       "pass": false,
+       "seconds": 28.4,
+       "error": "reasoning-display: no reasoning-role message rendered within 5000ms \u2014 expected one of [data-testid=\"reasoning-block\"], [data-testid=\"reasoning-content\"], [data-testid=\"reasoning-default\"], [data-message-role=\"reasoning\"], text=Thought for, text=Thinking\u2026"
+      },
+      {
+       "check": "reasoning-default",
+       "pass": false,
+       "seconds": 28.7,
+       "error": "reasoning-display: no reasoning-role message rendered within 5000ms \u2014 expected one of [data-testid=\"reasoning-block\"], [data-testid=\"reasoning-content\"], [data-testid=\"reasoning-default\"], [data-message-role=\"reasoning\"], text=Thought for, text=Thinking\u2026"
+      },
+      {
+       "check": "gen-ui-custom",
+       "pass": true,
+       "seconds": 8.1
+      },
+      {
+       "check": "hitl-text-input",
+       "pass": true,
+       "seconds": 7.3
+      },
+      {
+       "check": "hitl-approve-deny",
+       "pass": true,
+       "seconds": 7.8
+      },
+      {
+       "check": "gen-ui-a2ui-fixed",
+       "pass": true,
+       "seconds": 6.6
+      },
+      {
+       "check": "a2ui-recovery",
+       "pass": true,
+       "seconds": 16.7
+      },
+      {
+       "check": "gen-ui-declarative",
+       "pass": true,
+       "seconds": 66.0
+      }
+     ],
+     "requests": 48,
+     "statuses": {
+      "200": 48
+     },
+     "requestsWithAllForwardedHeaders": 48,
+     "featureRetries": 2
+    },
+    "B1": {
+     "features": [
+      "mcp-apps",
+      "gen-ui-agent",
+      "tool-rendering-default-catchall",
+      "tool-rendering-custom-catchall",
+      "tool-rendering"
+     ],
+     "checks": [
+      {
+       "check": "tool-rendering-default-catchall",
+       "pass": true,
+       "seconds": 6.8
+      },
+      {
+       "check": "tool-rendering-custom-catchall",
+       "pass": true,
+       "seconds": 10.8
+      },
+      {
+       "check": "tool-rendering",
+       "pass": true,
+       "seconds": 7.2
+      },
+      {
+       "check": "mcp-apps",
+       "pass": true,
+       "seconds": 15.4
+      },
+      {
+       "check": "gen-ui-agent",
+       "pass": true,
+       "seconds": 65.5
+      }
+     ],
+     "requests": 33,
+     "statuses": {
+      "200": 33
+     },
+     "requestsWithAllForwardedHeaders": 33,
+     "featureRetries": 0
+    },
+    "B2": {
+     "features": [
+      "shared-state-read",
+      "shared-state-read-write",
+      "readonly-state-agent-context",
+      "subagents",
+      "multimodal"
+     ],
+     "checks": [
+      {
+       "check": "readonly-state-context",
+       "pass": true,
+       "seconds": 8.0
+      },
+      {
+       "check": "shared-state-write",
+       "pass": true,
+       "seconds": 10.5
+      },
+      {
+       "check": "shared-state-read",
+       "pass": true,
+       "seconds": 13.2
+      },
+      {
+       "check": "multimodal",
+       "pass": true,
+       "seconds": 8.4
+      },
+      {
+       "check": "subagents",
+       "pass": true,
+       "seconds": 32.7
+      }
+     ],
+     "requests": 15,
+     "statuses": {
+      "200": 15
+     },
+     "requestsWithAllForwardedHeaders": 15,
+     "featureRetries": 0
+    },
+    "B3": {
+     "features": [
+      "auth",
+      "declarative-hashbrown",
+      "declarative-json-render",
+      "open-gen-ui",
+      "open-gen-ui-advanced",
+      "voice",
+      "agent-config",
+      "threadid-frontend-tool-roundtrip"
+     ],
+     "checks": [
+      {
+       "check": "byoc",
+       "pass": true,
+       "seconds": 8.9
+      },
+      {
+       "check": "gen-ui-open-advanced",
+       "pass": true,
+       "seconds": 13.9
+      },
+      {
+       "check": "voice",
+       "pass": true,
+       "seconds": 5.6
+      },
+      {
+       "check": "gen-ui-open",
+       "pass": true,
+       "seconds": 14.7
+      },
+      {
+       "check": "agent-config",
+       "pass": true,
+       "seconds": 32.0
+      },
+      {
+       "check": "auth",
+       "pass": true,
+       "seconds": 54.5
+      },
+      {
+       "check": "threadid-frontend-tool-roundtrip",
+       "pass": false,
+       "seconds": 120.7,
+       "error": "waitForTurnComplete: turn 1 did not complete within 55687ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)"
+      }
+     ],
+     "requests": 26,
+     "statuses": {
+      "200": 14,
+      "503": 12
+     },
+     "requestsWithAllForwardedHeaders": 26,
+     "featureRetries": 1
+    }
+   },
+   "raw": {
+    "total": 39,
+    "passed": 36
+   },
+   "published": {
+    "total": 38,
+    "passed": 36
+   },
+   "failed": [
+    "reasoning-custom",
+    "reasoning-default",
+    "threadid-frontend-tool-roundtrip"
+   ]
+  },
+  "p2final": {
+   "tag": "p2final",
+   "head": "f73f47038a",
+   "batches": {
+    "A1": {
+     "features": [
+      "beautiful-chat",
+      "cli-start",
+      "agentic-chat",
+      "prebuilt-sidebar",
+      "prebuilt-popup",
+      "chat-slots",
+      "chat-customization-css",
+      "headless-simple"
+     ],
+     "checks": [
+      {
+       "check": "beautiful-chat-toggle-theme",
+       "pass": true,
+       "seconds": 7.1
+      },
+      {
+       "check": "beautiful-chat-pie-chart",
+       "pass": true,
+       "seconds": 9.4
+      },
+      {
+       "check": "beautiful-chat-bar-chart",
+       "pass": true,
+       "seconds": 9.5
+      },
+      {
+       "check": "beautiful-chat-search-flights",
+       "pass": true,
+       "seconds": 11.4
+      },
+      {
+       "check": "beautiful-chat-schedule-meeting",
+       "pass": true,
+       "seconds": 5.8
+      },
+      {
+       "check": "prebuilt-sidebar",
+       "pass": true,
+       "seconds": 6.2
+      },
+      {
+       "check": "prebuilt-popup",
+       "pass": true,
+       "seconds": 6.0
+      },
+      {
+       "check": "chat-slots",
+       "pass": true,
+       "seconds": 6.5
+      },
+      {
+       "check": "agentic-chat",
+       "pass": true,
+       "seconds": 12.1
+      },
+      {
+       "check": "chat-css",
+       "pass": true,
+       "seconds": 6.1
+      },
+      {
+       "check": "headless-simple",
+       "pass": true,
+       "seconds": 13.3
+      }
+     ],
+     "requests": 17,
+     "statuses": {
+      "200": 17
+     },
+     "requestsWithAllForwardedHeaders": 17,
+     "featureRetries": 0
+    },
+    "A2": {
+     "features": [
+      "headless-complete",
+      "reasoning-custom",
+      "reasoning-default",
+      "frontend-tools",
+      "frontend-tools-async",
+      "gen-ui-tool-based",
+      "hitl-in-app",
+      "hitl-in-chat",
+      "declarative-gen-ui",
+      "a2ui-fixed-schema",
+      "a2ui-recovery"
+     ],
+     "checks": [
+      {
+       "check": "reasoning-custom",
+       "pass": true,
+       "seconds": 9.9
+      },
+      {
+       "check": "reasoning-default",
+       "pass": true,
+       "seconds": 9.9
+      },
+      {
+       "check": "frontend-tools",
+       "pass": true,
+       "seconds": 15.0
+      },
+      {
+       "check": "frontend-tools-async",
+       "pass": true,
+       "seconds": 7.4
+      },
+      {
+       "check": "gen-ui-custom",
+       "pass": true,
+       "seconds": 8.2
+      },
+      {
+       "check": "hitl-text-input",
+       "pass": true,
+       "seconds": 7.3
+      },
+      {
+       "check": "hitl-approve-deny",
+       "pass": true,
+       "seconds": 8.0
+      },
+      {
+       "check": "gen-ui-headless-complete",
+       "pass": true,
+       "seconds": 26.8
+      },
+      {
+       "check": "gen-ui-a2ui-fixed",
+       "pass": true,
+       "seconds": 6.6
+      },
+      {
+       "check": "a2ui-recovery",
+       "pass": true,
+       "seconds": 16.9
+      },
+      {
+       "check": "gen-ui-declarative",
+       "pass": true,
+       "seconds": 66.7
+      }
+     ],
+     "requests": 46,
+     "statuses": {
+      "200": 46
+     },
+     "requestsWithAllForwardedHeaders": 46,
+     "featureRetries": 0
+    },
+    "B1": {
+     "features": [
+      "mcp-apps",
+      "gen-ui-agent",
+      "tool-rendering-default-catchall",
+      "tool-rendering-custom-catchall",
+      "tool-rendering"
+     ],
+     "checks": [
+      {
+       "check": "tool-rendering-default-catchall",
+       "pass": true,
+       "seconds": 6.9
+      },
+      {
+       "check": "tool-rendering-custom-catchall",
+       "pass": true,
+       "seconds": 11.0
+      },
+      {
+       "check": "tool-rendering",
+       "pass": true,
+       "seconds": 7.3
+      },
+      {
+       "check": "mcp-apps",
+       "pass": true,
+       "seconds": 15.7
+      },
+      {
+       "check": "gen-ui-agent",
+       "pass": true,
+       "seconds": 66.3
+      }
+     ],
+     "requests": 33,
+     "statuses": {
+      "200": 33
+     },
+     "requestsWithAllForwardedHeaders": 33,
+     "featureRetries": 0
+    },
+    "B2": {
+     "features": [
+      "shared-state-read",
+      "shared-state-read-write",
+      "readonly-state-agent-context",
+      "subagents",
+      "multimodal"
+     ],
+     "checks": [
+      {
+       "check": "readonly-state-context",
+       "pass": true,
+       "seconds": 7.0
+      },
+      {
+       "check": "shared-state-write",
+       "pass": true,
+       "seconds": 9.6
+      },
+      {
+       "check": "shared-state-read",
+       "pass": true,
+       "seconds": 12.4
+      },
+      {
+       "check": "multimodal",
+       "pass": true,
+       "seconds": 8.5
+      },
+      {
+       "check": "subagents",
+       "pass": true,
+       "seconds": 32.0
+      }
+     ],
+     "requests": 15,
+     "statuses": {
+      "200": 15
+     },
+     "requestsWithAllForwardedHeaders": 15,
+     "featureRetries": 0
+    },
+    "B3": {
+     "features": [
+      "auth",
+      "declarative-hashbrown",
+      "declarative-json-render",
+      "open-gen-ui",
+      "open-gen-ui-advanced",
+      "voice",
+      "agent-config",
+      "threadid-frontend-tool-roundtrip"
+     ],
+     "checks": [
+      {
+       "check": "byoc",
+       "pass": true,
+       "seconds": 9.0
+      },
+      {
+       "check": "gen-ui-open-advanced",
+       "pass": true,
+       "seconds": 14.1
+      },
+      {
+       "check": "voice",
+       "pass": true,
+       "seconds": 5.6
+      },
+      {
+       "check": "gen-ui-open",
+       "pass": true,
+       "seconds": 14.9
+      },
+      {
+       "check": "agent-config",
+       "pass": true,
+       "seconds": 32.2
+      },
+      {
+       "check": "auth",
+       "pass": true,
+       "seconds": 54.5
+      },
+      {
+       "check": "threadid-frontend-tool-roundtrip",
+       "pass": false,
+       "seconds": 120.7,
+       "error": "waitForTurnComplete: turn 1 did not complete within 55671ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)"
+      }
+     ],
+     "requests": 26,
+     "statuses": {
+      "200": 14,
+      "503": 12
+     },
+     "requestsWithAllForwardedHeaders": 26,
+     "featureRetries": 1
+    }
+   },
+   "raw": {
+    "total": 39,
+    "passed": 38
+   },
+   "published": {
+    "total": 38,
+    "passed": 38
+   },
+   "failed": [
+    "threadid-frontend-tool-roundtrip"
+   ]
+  }
+ }
+}

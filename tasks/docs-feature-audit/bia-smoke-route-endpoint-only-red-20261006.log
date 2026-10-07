@@ -1,0 +1,12 @@
+# Intermediate RED: the old first-chunk route with ONLY the endpoint change (multi-route REST endpoint + randomUUID ids; bia-smoke-route-endpoint-only-20261006.diff, never committed). Wed Oct  7 00:28:58 UTC 2026
+## normal: GET /api/smoke
+{"status":"ok","integration":"built-in-agent","latency_ms":236,"timestamp":"2026-10-07T00:28:58.690Z"}
+HTTP 200 0.486805s
+## queue one 400, then GET /api/smoke
+{"queued":true}
+{"status":"ok","integration":"built-in-agent","latency_ms":253,"timestamp":"2026-10-07T00:29:01.197Z"}
+HTTP 200 0.481889s
+## AIMock journal:
+2 request(s)
+   POST /v1/responses 200
+   POST /v1/responses 400

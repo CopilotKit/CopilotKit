@@ -1,0 +1,47 @@
+# Phase 2 lock regeneration: @tanstack/ai 0.35.0 -> 0.64.1, @tanstack/ai-openai 0.15.6 -> 0.26.0 (peer @tanstack/ai ^0.64.0), 2026-10-07T01:13:52Z, node v24.11.0, npm 11.6.1, HEAD 8f6aa03851
+# Bound: --before=2026-10-05T21:00:00Z (@tanstack/ai 0.64.1 and @tanstack/openai-base 0.12.3 were published 2026-10-05T13:04Z, after the phase-1 bound of 12:00Z).
+# Probe without any override (temp copy, same command): @ag-ui/core, @ag-ui/client and openai copies:
+#   node_modules/@ag-ui/client 1.0.1
+#   node_modules/@ag-ui/core 1.0.1
+#   node_modules/@copilotkit/channels-core/node_modules/@ag-ui/client 0.0.59
+#   node_modules/@copilotkit/channels-core/node_modules/@ag-ui/core 0.0.59
+#   node_modules/@copilotkit/channels-intelligence/node_modules/@ag-ui/client 0.0.59
+#   node_modules/@copilotkit/channels-intelligence/node_modules/@ag-ui/core 0.0.59
+#   node_modules/@copilotkit/channels-slack/node_modules/@ag-ui/client 0.0.59
+#   node_modules/@copilotkit/channels-slack/node_modules/@ag-ui/core 0.0.59
+#   node_modules/@copilotkit/channels-teams/node_modules/@ag-ui/client 0.0.59
+#   node_modules/@copilotkit/channels-teams/node_modules/@ag-ui/core 0.0.59
+#   node_modules/@copilotkit/voice/node_modules/openai 5.23.2
+#   node_modules/@tanstack/ai/node_modules/@ag-ui/core 1.0.0
+#   node_modules/openai 6.49.0
+# @tanstack/ai 0.64.1 pins @ag-ui/core 1.0.0 exactly. Its dist imports only AGUIError and EventType from the @ag-ui/core root (both exported by 1.0.1), so the phase-1 exemption that kept @tanstack/ai 0.35.0 on 0.0.52 is removed and the global 1.0.1 override now covers it too: one copy.
+$ rm -rf node_modules package-lock.json && nice -n 10 npm install --package-lock-only --legacy-peer-deps --before=2026-10-05T21:00:00Z
+up to date, audited 901 packages in 16s
+#   node_modules/@ag-ui/client 1.0.1
+#   node_modules/@ag-ui/core 1.0.1
+#   node_modules/@ag-ui/encoder 1.0.1
+#   node_modules/@ag-ui/proto 1.0.1
+#   node_modules/@copilotkit/core 1.77.0
+#   node_modules/@tanstack/ai 0.64.1
+#   node_modules/@tanstack/ai-event-client 0.13.0
+#   node_modules/@tanstack/ai-openai 0.26.0
+#   node_modules/@tanstack/ai-utils 0.4.1
+#   node_modules/@tanstack/openai-base 0.12.3
+#   node_modules/openai 6.49.0
+# entries 900, non-registry resolved 0
+
+# --- Regenerated with a tighter bound, 2026-10-07T01:14:35Z: --before=2026-10-05T21:00Z also moved runtime transitives (ai 6.0.301, @ai-sdk/*) that were published between 12:00Z and 21:00Z. --before=2026-10-05T13:10:00Z admits @tanstack/ai 0.64.1 (13:04:46Z) and @tanstack/openai-base 0.12.3 (13:04:49Z) and keeps everything else at the phase-1 resolution.
+$ rm -rf node_modules package-lock.json && nice -n 10 npm install --package-lock-only --legacy-peer-deps --before=2026-10-05T13:10:00Z
+up to date, audited 901 packages in 4s
+#   node_modules/@ag-ui/client 1.0.1
+#   node_modules/@ag-ui/core 1.0.1
+#   node_modules/@ag-ui/encoder 1.0.1
+#   node_modules/@ag-ui/proto 1.0.1
+#   node_modules/@copilotkit/core 1.77.0
+#   node_modules/@tanstack/ai 0.64.1
+#   node_modules/@tanstack/ai-event-client 0.13.0
+#   node_modules/@tanstack/ai-openai 0.26.0
+#   node_modules/@tanstack/ai-utils 0.4.1
+#   node_modules/@tanstack/openai-base 0.12.3
+#   node_modules/openai 6.49.0
+# entries 900, non-registry resolved 0

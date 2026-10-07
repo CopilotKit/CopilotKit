@@ -1,0 +1,49 @@
+# Built-in Agent stack via the integration's documented default dev command (package.json scripts.dev = next dev --turbopack). In-process agent: no separate agent server. .next removed first.
+$ cd showcase/integrations/built-in-agent && PORT=3117 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true DO_NOT_TRACK=1 OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://127.0.0.1:4410/v1 AIMOCK_URL=http://127.0.0.1:4410 nice -n 10 npm run dev
+# node v22.16.0, npm 10.9.2, runtime 1.77.0, @tanstack/ai 0.35.0, HEAD 88718205e2, tree vs HEAD:  M showcase/integrations/built-in-agent/package-lock.json  M showcase/integrations/built-in-agent/package.json , started Wed Oct  7 00:20:30 UTC 2026
+
+> @copilotkit/showcase-built-in-agent@0.1.0 dev
+> next dev --turbopack
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/pnpm-lock.yaml as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/built-in-agent/package-lock.json
+
+   ▲ Next.js 15.5.27 (Turbopack)
+   - Local:        http://localhost:3117
+   - Network:      http://192.168.4.34:3117
+
+ ✓ Starting...
+ ✓ Ready in 605ms
+ ⚠ Webpack is configured while Turbopack is not, which may cause problems.
+ ⚠ See instructions if you need to configure Turbopack:
+  https://nextjs.org/docs/app/api-reference/next-config-js/turbopack
+
+ ○ Compiling /api/health ...
+ ✓ Compiled /api/health in 506ms
+ GET /api/health 200 in 794ms
+ ✓ Compiled /api/copilotkit/[[...slug]] in 211ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=bia-direct-1791332445 error=
+{
+  url: 'http://localhost:3117/api/copilotkit',
+  path: '/api/copilotkit',
+  method: 'agent/run'
+} Received a single-route request envelope ({ method: "..." }) but this runtime is mounted in multi-route mode, so the request matched no route. Either drop useSingleEndpoint from the frontend provider so it negotiates the transport, or mount the runtime with mode: "single-route" to serve this envelope.
+ POST /api/copilotkit 400 in 1531ms
+ ✓ Compiled /api/smoke in 47ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+{
+  url: 'http://localhost:3117/api/copilotkit',
+  path: '/api/copilotkit',
+  method: 'agent/run'
+} Received a single-route request envelope ({ method: "..." }) but this runtime is mounted in multi-route mode, so the request matched no route. Either drop useSingleEndpoint from the frontend provider so it negotiates the transport, or mount the runtime with mode: "single-route" to serve this envelope.
+ POST /api/copilotkit 400 in 239ms
+ GET /api/smoke 502 in 534ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=bia-direct-1791332477 error=
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=bia-direct-1791332477 error=
+ POST /api/copilotkit/agent/default/run 200 in 797ms
+[?25h
+# stopped Wed Oct  7 00:22:06 UTC 2026 (SIGTERM to process group 43109)

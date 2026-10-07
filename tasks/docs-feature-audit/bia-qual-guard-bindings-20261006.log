@@ -1,0 +1,12 @@
+# under lockf -t 3600 /private/tmp/claude-501/shell-docs-gen.lock; HEAD ba1bb258c7; Wed Oct  7 01:43:35 UTC 2026
+$ npx vitest run src/lib/__tests__/selected-showcase-guide-bindings.test.ts --maxWorkers=1 --execArgv=--max-old-space-size=4096
+
+ RUN  v4.1.7 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs
+
+
+ Test Files  1 passed (1)
+      Tests  25 passed (25)
+   Start at  18:43:35
+   Duration  13.15s (transform 4.87s, setup 0ms, import 12.77s, tests 322ms, environment 0ms)
+
+exit=0

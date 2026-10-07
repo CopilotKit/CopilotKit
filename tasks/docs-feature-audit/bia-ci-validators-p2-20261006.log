@@ -1,0 +1,13 @@
+# Phase 2: the same validators at HEAD 8f6aa03851 + the uncommitted @tanstack/ai 0.64.1 update, 2026-10-07T01:16:19Z, node v22.16.0. built-in-agent lines only.
+$ pnpm exec tsx validate-parity.ts -> exit=0; built-in-agent               [PASS]     39     33    9  40 warn    22 package(s) checked, 22 pass, 0 fail, 442 warning(s) 
+$ pnpm exec tsx validate-shared-symlinks.ts -> exit=0; ✔ single-source symlinks OK — no NEW erosion (2/2 baselined slot(s) still eroded, expected until symlinks are restored). 
+$ pnpm exec tsx sync-shared-frontends.ts -> exit=0; Shared frontend sources are in sync. 
+$ pnpm exec tsx validate-fixture-tool-surface.ts -> exit=0; ✓ validate-fixture-tool-surface: 0 fixtures × 781 demos — no drift 
+$ pnpm exec tsx validate-pins.ts -> exit=1; Summary: OK=5 SKIP=0 WARN=2 FAIL=53 
+[FAIL] built-in-agent: @copilotkit/a2ui-renderer pinned to 1.77.0, canonical is 1.68.2
+[FAIL] built-in-agent: @copilotkit/react-core pinned to 1.77.0, canonical is 1.68.2
+[FAIL] built-in-agent: @copilotkit/runtime pinned to 1.77.0, canonical is 1.68.2
+[FAIL] built-in-agent: @copilotkit/shared pinned to 1.77.0, canonical is 1.68.2
+[FAIL] built-in-agent: @copilotkit/voice pinned to 1.77.0, canonical is 1.68.2
+[FAIL] built-in-agent: openai is not an exact pin (^6.49.0)
+# validate-pins FAIL-line hash: cf2d58293025f077 (phase 1: cf2d58293025f077)

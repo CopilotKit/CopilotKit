@@ -1,0 +1,92 @@
+# showcase_validate.yml validators that read the Built-in Agent integration, run locally at HEAD 88718205e2 + the uncommitted phase-1 dependency update, 2026-10-07T00:25:06Z, node v22.16.0. Other integrations' [WARN]/[FAIL] lines and parity rows are filtered; built-in-agent's are kept.
+$ pnpm exec tsx validate-parity.ts
+
+package                      status  demos  specs   qa  notes     
+------------------------------------------------------------------
+
+22 package(s) checked, 22 pass, 0 fail, 442 warning(s)
+built-in-agent               [PASS]     39     33    9  40 warn   
+[WARN] built-in-agent: demo 'reasoning-default' has no tests/e2e/reasoning-default.spec.ts
+[WARN] built-in-agent: demo 'reasoning-custom' has no tests/e2e/reasoning-custom.spec.ts
+[WARN] built-in-agent: demo 'interrupt-headless' has no tests/e2e/interrupt-headless.spec.ts
+[WARN] built-in-agent: demo 'a2ui-recovery' has no tests/e2e/a2ui-recovery.spec.ts
+[WARN] built-in-agent: demo 'declarative-json-render' has no tests/e2e/declarative-json-render.spec.ts
+[WARN] built-in-agent: demo 'declarative-hashbrown' has no tests/e2e/declarative-hashbrown.spec.ts
+[WARN] built-in-agent: demo 'chat-customization-css' has no qa/chat-customization-css.md
+[WARN] built-in-agent: demo 'tool-rendering-default-catchall' has no qa/tool-rendering-default-catchall.md
+[WARN] built-in-agent: demo 'tool-rendering-custom-catchall' has no qa/tool-rendering-custom-catchall.md
+[WARN] built-in-agent: demo 'frontend-tools' has no qa/frontend-tools.md
+[WARN] built-in-agent: demo 'frontend-tools-async' has no qa/frontend-tools-async.md
+[WARN] built-in-agent: demo 'hitl-in-app' has no qa/hitl-in-app.md
+[WARN] built-in-agent: demo 'tool-rendering-reasoning-chain' has no qa/tool-rendering-reasoning-chain.md
+[WARN] built-in-agent: demo 'shared-state-read' has no qa/shared-state-read.md
+[WARN] built-in-agent: demo 'prebuilt-sidebar' has no qa/prebuilt-sidebar.md
+[WARN] built-in-agent: demo 'prebuilt-popup' has no qa/prebuilt-popup.md
+[WARN] built-in-agent: demo 'chat-slots' has no qa/chat-slots.md
+[WARN] built-in-agent: demo 'headless-simple' has no qa/headless-simple.md
+[WARN] built-in-agent: demo 'headless-complete' has no qa/headless-complete.md
+[WARN] built-in-agent: demo 'reasoning-default' has no qa/reasoning-default.md
+[WARN] built-in-agent: demo 'reasoning-custom' has no qa/reasoning-custom.md
+[WARN] built-in-agent: demo 'gen-ui-interrupt' has no qa/gen-ui-interrupt.md
+[WARN] built-in-agent: demo 'interrupt-headless' has no qa/interrupt-headless.md
+[WARN] built-in-agent: demo 'declarative-gen-ui' has no qa/declarative-gen-ui.md
+[WARN] built-in-agent: demo 'a2ui-fixed-schema' has no qa/a2ui-fixed-schema.md
+[WARN] built-in-agent: demo 'a2ui-recovery' has no qa/a2ui-recovery.md
+[WARN] built-in-agent: demo 'mcp-apps' has no qa/mcp-apps.md
+[WARN] built-in-agent: demo 'readonly-state-agent-context' has no qa/readonly-state-agent-context.md
+[WARN] built-in-agent: demo 'declarative-json-render' has no qa/declarative-json-render.md
+[WARN] built-in-agent: demo 'beautiful-chat' has no qa/beautiful-chat.md
+[WARN] built-in-agent: demo 'multimodal' has no qa/multimodal.md
+[WARN] built-in-agent: demo 'auth' has no qa/auth.md
+[WARN] built-in-agent: demo 'declarative-hashbrown' has no qa/declarative-hashbrown.md
+[WARN] built-in-agent: demo 'open-gen-ui' has no qa/open-gen-ui.md
+[WARN] built-in-agent: demo 'open-gen-ui-advanced' has no qa/open-gen-ui-advanced.md
+[WARN] built-in-agent: demo 'voice' has no qa/voice.md
+[WARN] built-in-agent: demo 'agent-config' has no qa/agent-config.md
+[WARN] built-in-agent: demo count 39 deviates from baseline 9
+[WARN] built-in-agent: spec count 33 < demo count 39
+[WARN] built-in-agent: qa count 9 < demo count 39
+exit=0
+$ pnpm exec tsx validate-shared-symlinks.ts
+ℹ 2 single-source slot(s) are ERODED (should be symlinks into showcase/shared/...):
+  • [known] showcase/integrations/claude-sdk-typescript/shared-tools  (real-dir)
+  • [known] showcase/integrations/langgraph-typescript/shared-tools  (real-dir)
+
+✔ single-source symlinks OK — no NEW erosion (2/2 baselined slot(s) still eroded, expected until symlinks are restored).
+exit=0
+$ pnpm exec tsx sync-shared-frontends.ts
+Shared frontend sources are in sync.
+exit=0
+$ pnpm exec tsx validate-fixture-tool-surface.ts
+✓ validate-fixture-tool-surface: 0 fixtures × 781 demos — no drift
+exit=0
+$ pnpm exec tsx validate-pins.ts  (ratchet: CI compares the FAIL count/hash with fail-baseline.json)
+[FAIL] built-in-agent: @copilotkit/a2ui-renderer pinned to 1.77.0, canonical is 1.68.2
+[FAIL] built-in-agent: @copilotkit/react-core pinned to 1.77.0, canonical is 1.68.2
+[FAIL] built-in-agent: @copilotkit/runtime pinned to 1.77.0, canonical is 1.68.2
+[FAIL] built-in-agent: @copilotkit/shared pinned to 1.77.0, canonical is 1.68.2
+[FAIL] built-in-agent: @copilotkit/voice pinned to 1.77.0, canonical is 1.68.2
+[FAIL] built-in-agent: openai is not an exact pin (^6.49.0)
+Summary: OK=5 SKIP=0 WARN=2 FAIL=53
+exit=1
+# validate-pins before the update: the clean tree at HEAD 88718205e2 (run before any edit)
+Summary: OK=5 SKIP=0 WARN=2 FAIL=53
+[FAIL] built-in-agent: @copilotkit/a2ui-renderer pinned to ^1.71.1, canonical is 1.68.2
+[FAIL] built-in-agent: @copilotkit/react-core pinned to ^1.71.1, canonical is 1.68.2
+[FAIL] built-in-agent: @copilotkit/runtime pinned to ^1.71.1, canonical is 1.68.2
+[FAIL] built-in-agent: @copilotkit/shared pinned to ^1.71.1, canonical is 1.68.2
+[FAIL] built-in-agent: @copilotkit/voice pinned to ^1.71.1, canonical is 1.68.2
+[FAIL] built-in-agent: openai is not an exact pin (^6.49.0)
+# FAIL lines only before (-) / only after (+):
+- [FAIL] built-in-agent: @copilotkit/a2ui-renderer pinned to ^1.71.1, canonical is 1.68.2
+- [FAIL] built-in-agent: @copilotkit/react-core pinned to ^1.71.1, canonical is 1.68.2
+- [FAIL] built-in-agent: @copilotkit/runtime pinned to ^1.71.1, canonical is 1.68.2
+- [FAIL] built-in-agent: @copilotkit/shared pinned to ^1.71.1, canonical is 1.68.2
+- [FAIL] built-in-agent: @copilotkit/voice pinned to ^1.71.1, canonical is 1.68.2
++ [FAIL] built-in-agent: @copilotkit/a2ui-renderer pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] built-in-agent: @copilotkit/react-core pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] built-in-agent: @copilotkit/runtime pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] built-in-agent: @copilotkit/shared pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] built-in-agent: @copilotkit/voice pinned to 1.77.0, canonical is 1.68.2
+# FAIL-line hash before/after (LC_ALL=C sort -u | shasum -a 256): f2b4f09e4b22ba4c / cf2d58293025f077
+# baseline: "validatePinsFailCount": 26

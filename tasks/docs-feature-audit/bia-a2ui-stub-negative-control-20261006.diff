@@ -1,0 +1,13 @@
+diff --git a/showcase/integrations/built-in-agent/src/lib/factory/a2ui-factory.ts b/showcase/integrations/built-in-agent/src/lib/factory/a2ui-factory.ts
+index 53fd6b77fd..cbc385cbae 100644
+--- a/showcase/integrations/built-in-agent/src/lib/factory/a2ui-factory.ts
++++ b/showcase/integrations/built-in-agent/src/lib/factory/a2ui-factory.ts
+@@ -345,6 +345,8 @@ function buildGenerateA2uiTool(
+         ),
+     }),
+   }).server(async ({ brief }) => {
++    // NEGATIVE CONTROL (uncommitted): the LangGraph Python stub pattern.
++    throw new Error("generate_a2ui called directly");
+     const systemPrompt = catalogContext
+       ? `${SECONDARY_LLM_INSTRUCTIONS}\n\nRegistered catalog:\n${catalogContext}`
+       : SECONDARY_LLM_INSTRUCTIONS;

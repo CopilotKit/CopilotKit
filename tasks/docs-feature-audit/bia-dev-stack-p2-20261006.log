@@ -1,0 +1,262 @@
+# Built-in Agent stack via the integration's documented default dev command (package.json scripts.dev = next dev --turbopack). In-process agent: no separate agent server. .next removed first.
+$ cd showcase/integrations/built-in-agent && PORT=3117 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true DO_NOT_TRACK=1 OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://127.0.0.1:4410/v1 AIMOCK_URL=http://127.0.0.1:4410 nice -n 10 npm run dev
+# node v22.16.0, npm 10.9.2, runtime 1.77.0, @tanstack/ai 0.64.1, HEAD 8f6aa03851, tree vs HEAD:  M showcase/integrations/built-in-agent/package-lock.json  M showcase/integrations/built-in-agent/package.json  M showcase/integrations/built-in-agent/src/lib/factory/demo-stream.ts , started Wed Oct  7 01:16:30 UTC 2026
+
+> @copilotkit/showcase-built-in-agent@0.1.0 dev
+> next dev --turbopack
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/pnpm-lock.yaml as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/built-in-agent/package-lock.json
+
+   ▲ Next.js 15.5.27 (Turbopack)
+   - Local:        http://localhost:3117
+   - Network:      http://192.168.4.34:3117
+
+ ✓ Starting...
+ ✓ Ready in 713ms
+ ⚠ Webpack is configured while Turbopack is not, which may cause problems.
+ ⚠ See instructions if you need to configure Turbopack:
+  https://nextjs.org/docs/app/api-reference/next-config-js/turbopack
+
+ ○ Compiling /api/health ...
+ ✓ Compiled /api/health in 574ms
+ GET /api/health 200 in 865ms
+ ○ Compiling /demos/a2ui-fixed-schema ...
+ ✓ Compiled /demos/a2ui-fixed-schema in 7.3s
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+ GET /demos/a2ui-fixed-schema 200 in 8061ms
+ ○ Compiling /demos/a2ui-recovery ...
+ ✓ Compiled /demos/a2ui-recovery in 2.5s
+ GET /demos/a2ui-recovery 200 in 2690ms
+ ○ Compiling /demos/agent-config ...
+ ✓ Compiled /demos/agent-config in 1704ms
+ GET /demos/agent-config 200 in 1808ms
+ ○ Compiling /demos/agentic-chat ...
+ ✓ Compiled /demos/agentic-chat in 1691ms
+ GET /demos/agentic-chat 200 in 1797ms
+ ○ Compiling /demos/auth ...
+ ✓ Compiled /demos/auth in 1516ms
+ GET /demos/auth 200 in 1604ms
+ ○ Compiling /demos/beautiful-chat ...
+ ✓ Compiled /demos/beautiful-chat in 2.1s
+ GET /demos/beautiful-chat 200 in 2244ms
+ ○ Compiling /demos/chat-customization-css ...
+ ✓ Compiled /demos/chat-customization-css in 1592ms
+ GET /demos/chat-customization-css 200 in 1693ms
+ ○ Compiling /demos/chat-slots ...
+ ✓ Compiled /demos/chat-slots in 1739ms
+ GET /demos/chat-slots 200 in 1833ms
+ ○ Compiling /demos/declarative-gen-ui ...
+ ✓ Compiled /demos/declarative-gen-ui in 1613ms
+ GET /demos/declarative-gen-ui 200 in 1718ms
+ ○ Compiling /demos/declarative-hashbrown ...
+ ✓ Compiled /demos/declarative-hashbrown in 1894ms
+ GET /demos/declarative-hashbrown 200 in 2045ms
+ ○ Compiling /demos/declarative-json-render ...
+ ✓ Compiled /demos/declarative-json-render in 1696ms
+ GET /demos/declarative-json-render 200 in 1843ms
+ ○ Compiling /demos/frontend-tools ...
+ ✓ Compiled /demos/frontend-tools in 1383ms
+ GET /demos/frontend-tools 200 in 1457ms
+ ○ Compiling /demos/frontend-tools-async ...
+ ✓ Compiled /demos/frontend-tools-async in 1592ms
+ GET /demos/frontend-tools-async 200 in 1652ms
+ ○ Compiling /demos/gen-ui-agent ...
+ ✓ Compiled /demos/gen-ui-agent in 1473ms
+ GET /demos/gen-ui-agent 200 in 1528ms
+ ○ Compiling /demos/gen-ui-interrupt ...
+ ✓ Compiled /demos/gen-ui-interrupt in 1259ms
+ GET /demos/gen-ui-interrupt 200 in 1332ms
+ ○ Compiling /demos/gen-ui-tool-based ...
+ ✓ Compiled /demos/gen-ui-tool-based in 1560ms
+ GET /demos/gen-ui-tool-based 200 in 1621ms
+ ○ Compiling /demos/headless-complete ...
+ ✓ Compiled /demos/headless-complete in 1396ms
+ GET /demos/headless-complete 200 in 1517ms
+ ○ Compiling /demos/headless-simple ...
+ ✓ Compiled /demos/headless-simple in 1320ms
+ GET /demos/headless-simple 200 in 1403ms
+ ○ Compiling /demos/hitl ...
+ ✓ Compiled /demos/hitl in 1233ms
+ GET /demos/hitl 200 in 1287ms
+ ○ Compiling /demos/hitl-in-app ...
+ ✓ Compiled /demos/hitl-in-app in 1254ms
+ GET /demos/hitl-in-app 200 in 1319ms
+ ○ Compiling /demos/hitl-in-chat ...
+ ✓ Compiled /demos/hitl-in-chat in 1383ms
+ GET /demos/hitl-in-chat 200 in 1444ms
+ ○ Compiling /demos/interrupt-headless ...
+ ✓ Compiled /demos/interrupt-headless in 1324ms
+ GET /demos/interrupt-headless 200 in 1387ms
+ ○ Compiling /demos/mcp-apps ...
+ ✓ Compiled /demos/mcp-apps in 1268ms
+ GET /demos/mcp-apps 200 in 1318ms
+ ○ Compiling /demos/multimodal ...
+ ✓ Compiled /demos/multimodal in 1262ms
+ GET /demos/multimodal 200 in 1312ms
+ ○ Compiling /demos/open-gen-ui ...
+ ✓ Compiled /demos/open-gen-ui in 1322ms
+ GET /demos/open-gen-ui 200 in 1376ms
+ ○ Compiling /demos/open-gen-ui-advanced ...
+ ✓ Compiled /demos/open-gen-ui-advanced in 1392ms
+ GET /demos/open-gen-ui-advanced 200 in 1458ms
+ ○ Compiling /demos/prebuilt-popup ...
+ ✓ Compiled /demos/prebuilt-popup in 1368ms
+ GET /demos/prebuilt-popup 200 in 1455ms
+ ○ Compiling /demos/prebuilt-sidebar ...
+ ✓ Compiled /demos/prebuilt-sidebar in 1413ms
+ GET /demos/prebuilt-sidebar 200 in 1510ms
+ ○ Compiling /demos/readonly-state-agent-context ...
+ ✓ Compiled /demos/readonly-state-agent-context in 1907ms
+ GET /demos/readonly-state-agent-context 200 in 1976ms
+ ○ Compiling /demos/reasoning-custom ...
+ ✓ Compiled /demos/reasoning-custom in 1442ms
+ GET /demos/reasoning-custom 200 in 1500ms
+ ○ Compiling /demos/reasoning-default ...
+ ✓ Compiled /demos/reasoning-default in 1604ms
+ GET /demos/reasoning-default 200 in 1668ms
+ ○ Compiling /demos/shared-state-read ...
+ ✓ Compiled /demos/shared-state-read in 1945ms
+ GET /demos/shared-state-read 200 in 2071ms
+ ○ Compiling /demos/shared-state-read-write ...
+ ✓ Compiled /demos/shared-state-read-write in 1430ms
+ GET /demos/shared-state-read-write 200 in 1502ms
+ ○ Compiling /demos/shared-state-streaming ...
+ ✓ Compiled /demos/shared-state-streaming in 1549ms
+ GET /demos/shared-state-streaming 200 in 1634ms
+ ○ Compiling /demos/subagents ...
+ ✓ Compiled /demos/subagents in 1408ms
+ GET /demos/subagents 200 in 1469ms
+ ○ Compiling /demos/threadid-frontend-tool-roundtrip ...
+ ✓ Compiled /demos/threadid-frontend-tool-roundtrip in 1254ms
+ GET /demos/threadid-frontend-tool-roundtrip 200 in 1320ms
+ ○ Compiling /demos/tool-rendering ...
+ ✓ Compiled /demos/tool-rendering in 1495ms
+ GET /demos/tool-rendering 200 in 1597ms
+ ○ Compiling /demos/tool-rendering-custom-catchall ...
+ ✓ Compiled /demos/tool-rendering-custom-catchall in 1617ms
+ GET /demos/tool-rendering-custom-catchall 200 in 1675ms
+ ○ Compiling /demos/tool-rendering-default-catchall ...
+ ✓ Compiled /demos/tool-rendering-default-catchall in 1446ms
+ GET /demos/tool-rendering-default-catchall 200 in 1502ms
+ ○ Compiling /demos/tool-rendering-reasoning-chain ...
+ ✓ Compiled /demos/tool-rendering-reasoning-chain in 1576ms
+ GET /demos/tool-rendering-reasoning-chain 200 in 1636ms
+ ○ Compiling /demos/voice ...
+ ✓ Compiled /demos/voice in 1508ms
+ GET /demos/voice 200 in 1565ms
+ ✓ Compiled /api/copilotkit/[[...slug]] in 458ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit 404 in 2406ms
+ ✓ Compiled /api/copilotkit-a2ui-fixed-schema/[[...slug]] in 247ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-a2ui-fixed-schema 404 in 1225ms
+ ✓ Compiled /api/copilotkit-a2ui-recovery/[[...slug]] in 210ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-a2ui-recovery 404 in 1192ms
+ ✓ Compiled /api/copilotkit-agent-config/[[...slug]] in 111ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-agent-config 404 in 1079ms
+ ✓ Compiled /api/copilotkit-auth/[[...slug]] in 108ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-auth 401 in 1095ms
+ ✓ Compiled /api/copilotkit-beautiful-chat/[[...slug]] in 116ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-beautiful-chat 404 in 1132ms
+ ✓ Compiled /api/copilotkit-declarative-gen-ui/[[...slug]] in 180ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-declarative-gen-ui 404 in 1168ms
+ ✓ Compiled /api/copilotkit-declarative-hashbrown/[[...slug]] in 80ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-declarative-hashbrown 404 in 1007ms
+ ✓ Compiled /api/copilotkit-declarative-json-render/[[...slug]] in 80ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-declarative-json-render 404 in 1022ms
+ ✓ Compiled /api/copilotkit-mcp-apps/[[...slug]] in 80ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-mcp-apps 404 in 1045ms
+ ✓ Compiled /api/copilotkit-multimodal/[[...slug]] in 498ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-multimodal 404 in 1570ms
+ ✓ Compiled /api/copilotkit-ogui/[[...slug]] in 80ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-ogui 404 in 1070ms
+ ✓ Compiled /api/copilotkit-reasoning/[[...slug]] in 91ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-reasoning 404 in 1037ms
+ ✓ Compiled /api/copilotkit-voice/[[...slug]] in 75ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-voice 404 in 1072ms
+ GET /api/health 200 in 227ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit/info 200 in 229ms
+ ✓ Compiled /api/smoke in 62ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=none error=
+ POST /api/copilotkit/agent/default/run 200 in 800ms
+ GET /api/smoke 200 in 1094ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=none error=
+[ag-ui][enforce] Removed unrecognised material at '/threadId' on RUN_ERROR. Nothing handled it; see the repo-root DEPRECATIONS.md if it is a retired shape.
+[ag-ui][enforce] Removed unrecognised material at '/runId' on RUN_ERROR. Nothing handled it; see the repo-root DEPRECATIONS.md if it is a retired shape.
+Agent execution failed: Error: 400 injected provider failure
+    at throwOnRunError (src/lib/factory/demo-stream.ts:57:9)
+    at convertStream (src/lib/factory/tanstack-factory.ts:122:20)
+  55 | }): void {
+  56 |   if (raw?.type !== "RUN_ERROR") return;
+> 57 |   throw new Error(
+     |         ^
+  58 |     typeof raw.message === "string" ? raw.message : "TanStack AI run error",
+  59 |   );
+  60 | }
+ POST /api/copilotkit/agent/default/run 200 in 241ms
+ GET /api/smoke 502 in 475ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=smoke-replay error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=smoke-replay error=
+[ag-ui][enforce] Removed unrecognised material at '/threadId' on RUN_ERROR. Nothing handled it; see the repo-root DEPRECATIONS.md if it is a retired shape.
+[ag-ui][enforce] Removed unrecognised material at '/runId' on RUN_ERROR. Nothing handled it; see the repo-root DEPRECATIONS.md if it is a retired shape.
+Agent execution failed: Error: 400 injected provider failure
+    at throwOnRunError (src/lib/factory/demo-stream.ts:57:9)
+    at convertStream (src/lib/factory/tanstack-factory.ts:122:20)
+  55 | }): void {
+  56 |   if (raw?.type !== "RUN_ERROR") return;
+> 57 |   throw new Error(
+     |         ^
+  58 |     typeof raw.message === "string" ? raw.message : "TanStack AI run error",
+  59 |   );
+  60 | }
+ POST /api/copilotkit/agent/default/run 200 in 234ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateSnapshot" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateSnapshot'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "AGUISendStateDelta" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'AGUISendStateDelta'[39m }
+⚠️ [tanstack-ai:warn] ⚠️ tool "set_steps" sent with strict: false: schema has a node with no type (for example z.any() or z.unknown())
+{ tool: [32m'set_steps'[39m }
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=none error=
+ POST /api/copilotkit/agent/default/run 200 in 783ms
+ GET /api/smoke 200 in 1008ms
+[?25h
+# stopped Wed Oct  7 01:18:18 UTC 2026 (SIGTERM to process group 97991)

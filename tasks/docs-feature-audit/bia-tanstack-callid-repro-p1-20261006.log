@@ -1,0 +1,7 @@
+# @tanstack/openai-base call_id repro, 2026-10-07T00:39:09.822Z, {"@tanstack/ai":"0.35.0","@tanstack/ai-openai":"0.15.6","@tanstack/openai-base":"0.9.2"}, AIMock http://127.0.0.1:4411
+TOOL_CALL_START toolCallIds: fc-eMDcitIRkJVtEfeU, fc-H1EXcVXA_6DFRWWT, fc-RqR3Kp3G07gSH0E3
+assistant text: ""
+request 1: last message role=user -> fixture {"userMessage":"callid repro"}
+request 2: last message role=tool tool_call_id=fc-eMDcitIRkJVtEfeU -> fixture {"userMessage":"callid repro"}
+request 3: last message role=tool tool_call_id=fc-H1EXcVXA_6DFRWWT -> fixture {"userMessage":"callid repro"}
+RESULT: FAIL - the tool result did not echo the model's call_id.

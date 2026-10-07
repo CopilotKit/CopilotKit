@@ -1,0 +1,481 @@
+$ AIMOCK_URL_LOCAL=http://127.0.0.1:4410 AIMOCK_URL=http://127.0.0.1:4410 SHOWCASE_LOCAL=1 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true nice -n 10 node_modules/.bin/tsx tasks/docs-feature-audit/run-local-d6.mts built-in-agent --demos auth,declarative-hashbrown,declarative-json-render,open-gen-ui,open-gen-ui-advanced,voice,agent-config,threadid-frontend-tool-roundtrip
+# node v22.16.0, HEAD 8f6aa03851, load 6.85, started 2026-10-07T01:25:14Z
+{"level":"info","msg":"probe.e2e-full.service-start","ts":"2026-10-07T01:25:14.644Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureCount":7,"backendUrl":"http://localhost:3117"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=a95295b6-ce3c-4e79-ab87-6d13413c9d17 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-a95295b6-ce3c-4e79-ab87-6d13413c9d17 error=","ts":"2026-10-07T01:25:14.826Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=a95295b6-ce3c-4e79-ab87-6d13413c9d17 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-a95295b6-ce3c-4e79-ab87-6d13413c9d17 error=","ts":"2026-10-07T01:25:14.826Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=a95295b6-ce3c-4e79-ab87-6d13413c9d17 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-a95295b6-ce3c-4e79-ab87-6d13413c9d17 error=","ts":"2026-10-07T01:25:14.827Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=a95295b6-ce3c-4e79-ab87-6d13413c9d17 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-a95295b6-ce3c-4e79-ab87-6d13413c9d17 error=","ts":"2026-10-07T01:25:14.827Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/open-gen-ui-advanced',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/open-gen-ui',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/declarative-hashbrown',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state { url: 'http://localhost:3117/demos/auth', hadTrackedRequest: false }
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state { url: 'http://localhost:3117/demos/auth', hadTrackedRequest: false }
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/open-gen-ui-advanced',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/open-gen-ui',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-07T01:25:15.411Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"gen-ui-open-advanced","hydrated":true,"hydrationMs":43}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-07T01:25:15.416Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"gen-ui-open","hydrated":true,"hydrationMs":45}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/declarative-hashbrown',
+  hadTrackedRequest: false
+}
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 27, timeoutMs: 30000 }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 38, timeoutMs: 90000 }
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-07T01:25:15.460Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"byoc","hydrated":true,"hydrationMs":40}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 38,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 27,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 137, timeoutMs: 30000 }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 137,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 90000
+}
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 0, textLength: 1047, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 0, textLength: 1047 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 0, textLength: 1047 }
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 8235 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-07T01:25:23.716Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent/byoc"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-07T01:25:23.716Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"byoc","pass":true,"durationMs":8897}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=a95295b6-ce3c-4e79-ab87-6d13413c9d17 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-a95295b6-ce3c-4e79-ab87-6d13413c9d17 error=","ts":"2026-10-07T01:25:23.722Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=a95295b6-ce3c-4e79-ab87-6d13413c9d17 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-a95295b6-ce3c-4e79-ab87-6d13413c9d17 error=","ts":"2026-10-07T01:25:23.724Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state { url: 'http://localhost:3117/demos/voice', hadTrackedRequest: false }
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state { url: 'http://localhost:3117/demos/voice', hadTrackedRequest: false }
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-07T01:25:23.984Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"voice","hydrated":true,"hydrationMs":27}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 0, timeoutMs: 30000 }
+[conversation-runner] turn 1/1 — running preFill hook
+[conversation-runner] turn 1/1 — preFill hook completed
+[conversation-runner] turn 1/1 — skipFill=true, waiting for textarea content then pressing Enter
+[conversation-runner] waitForContentAndSend — start { selector: '[data-testid="copilot-chat-textarea"]', timeoutMs: 30000 }
+[conversation-runner] waitForContentAndSend — textarea has content, pressing Enter { valueLength: 29, valuePreview: 'What is the weather in Tokyo?' }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 1, textLength: 92, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 1, textLength: 92 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 1, textLength: 92 }
+[d5-gen-ui-open-advanced] iframe present { selector: 'iframe[sandbox*="allow-scripts"]' }
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 13324 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-07T01:25:28.760Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent/gen-ui-open-advanced"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-07T01:25:28.760Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"gen-ui-open-advanced","pass":true,"durationMs":13940}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=a95295b6-ce3c-4e79-ab87-6d13413c9d17 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-a95295b6-ce3c-4e79-ab87-6d13413c9d17 error=","ts":"2026-10-07T01:25:28.762Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=a95295b6-ce3c-4e79-ab87-6d13413c9d17 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-a95295b6-ce3c-4e79-ab87-6d13413c9d17 error=","ts":"2026-10-07T01:25:28.763Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/agent-config',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/agent-config',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-07T01:25:29.051Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"agent-config","hydrated":true,"hydrationMs":42}
+[conversation-runner] starting conversation { totalTurns: 6, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/6 — sending message { inputLength: 54, timeoutMs: 45000 }
+[conversation-runner] turn 1/6 — running preFill hook
+[conversation-runner] turn 1/6 — preFill hook completed
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 54,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 0, textLength: 72, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 0, textLength: 72 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 0, textLength: 72 }
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 5282 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-07T01:25:29.283Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent/voice"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-07T01:25:29.283Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"voice","pass":true,"durationMs":5561}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=a95295b6-ce3c-4e79-ab87-6d13413c9d17 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-a95295b6-ce3c-4e79-ab87-6d13413c9d17 error=","ts":"2026-10-07T01:25:29.284Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=a95295b6-ce3c-4e79-ab87-6d13413c9d17 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-a95295b6-ce3c-4e79-ab87-6d13413c9d17 error=","ts":"2026-10-07T01:25:29.286Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/threadid-frontend-tool-roundtrip',
+  hadTrackedRequest: false
+}
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 1, textLength: 133, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 1, textLength: 133 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 1, textLength: 133 }
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 14039 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-07T01:25:29.477Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent/gen-ui-open"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-07T01:25:29.477Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"gen-ui-open","pass":true,"durationMs":14658}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=a95295b6-ce3c-4e79-ab87-6d13413c9d17 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-a95295b6-ce3c-4e79-ab87-6d13413c9d17 error=","ts":"2026-10-07T01:25:29.478Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/threadid-frontend-tool-roundtrip',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-07T01:25:29.554Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"threadid-frontend-tool-roundtrip","hydrated":true,"hydrationMs":39}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 43, timeoutMs: 60000 }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 43,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+{"level":"warn","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=a95295b6-ce3c-4e79-ab87-6d13413c9d17 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=error test_id=d6-built-in-agent-a95295b6-ce3c-4e79-ab87-6d13413c9d17 error=hydration-timeout: page.waitForFunction: Timeout 15000ms exceeded.","ts":"2026-10-07T01:25:30.378Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-07T01:25:30.378Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"auth","hydrated":false,"hydrationMs":15001}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/6 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 45000
+}
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 60000
+}
+[conversation-runner] turn 1/1 — cold-start banner fast-fail; reloading + re-sending ONCE before fast-fail { errorCategory: 'assertion-failed' }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 43,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 1,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 2, baseline: 1 }
+[conversation-runner] turn 1/6 — assistant settled { bubbleIndex: 0, textLength: 214, hasAssertions: true }
+[conversation-runner] turn 1/6 — settled metadata { turnNum: 1, bubbleIndex: 0, textLength: 214 }
+[conversation-runner] turn 1/6 — running assertions { bubbleIndex: 0, textLength: 214 }
+[conversation-runner] turn 1/6 — assertions passed
+[conversation-runner] turn 2/6 — sending message { inputLength: 48, timeoutMs: 45000 }
+[conversation-runner] turn 2/6 — running preFill hook
+[conversation-runner] turn 2/6 — preFill hook completed
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 48,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 1,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] chat input selector miss {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  error: 'page.waitForSelector: Timeout 5000ms exceeded.\n' +
+    'Call log:\n' +
+    `  - waiting for locator('[data-testid="copilot-chat-textarea"]') to be visible\n`
+}
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 2, baseline: 1 }
+[conversation-runner] turn 2/6 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 2,
+  settleMs: 1500,
+  timeoutMs: 45000
+}
+[conversation-runner] turn 2/6 — assistant settled { bubbleIndex: 1, textLength: 135, hasAssertions: true }
+[conversation-runner] turn 2/6 — settled metadata { turnNum: 2, bubbleIndex: 1, textLength: 135 }
+[conversation-runner] turn 2/6 — running assertions { bubbleIndex: 1, textLength: 135 }
+[conversation-runner] turn 2/6 — assertions passed
+[conversation-runner] turn 3/6 — sending message { inputLength: 65, timeoutMs: 45000 }
+[conversation-runner] turn 3/6 — running preFill hook
+[conversation-runner] turn 3/6 — preFill hook completed
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 65,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 2,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 3, baseline: 2 }
+[conversation-runner] turn 3/6 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 3,
+  settleMs: 1500,
+  timeoutMs: 45000
+}
+[conversation-runner] chat input selector miss {
+  selector: '[data-testid="copilot-chat-input"] textarea',
+  error: 'page.waitForSelector: Timeout 5000ms exceeded.\n' +
+    'Call log:\n' +
+    `  - waiting for locator('[data-testid="copilot-chat-input"] textarea') to be visible\n`
+}
+[conversation-runner] turn 3/6 — assistant settled { bubbleIndex: 2, textLength: 286, hasAssertions: true }
+[conversation-runner] turn 3/6 — settled metadata { turnNum: 3, bubbleIndex: 2, textLength: 286 }
+[conversation-runner] turn 3/6 — running assertions { bubbleIndex: 2, textLength: 286 }
+[conversation-runner] turn 3/6 — assertions passed
+[conversation-runner] turn 4/6 — sending message { inputLength: 63, timeoutMs: 45000 }
+[conversation-runner] turn 4/6 — running preFill hook
+[conversation-runner] turn 4/6 — preFill hook completed
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 63,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 3,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 4, baseline: 3 }
+[conversation-runner] turn 4/6 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 4,
+  settleMs: 1500,
+  timeoutMs: 45000
+}
+[conversation-runner] chat input selector miss {
+  selector: 'textarea',
+  error: 'page.waitForSelector: Timeout 5000ms exceeded.\n' +
+    'Call log:\n' +
+    "  - waiting for locator('textarea') to be visible\n"
+}
+[conversation-runner] turn 4/6 — assistant settled { bubbleIndex: 3, textLength: 473, hasAssertions: true }
+[conversation-runner] turn 4/6 — settled metadata { turnNum: 4, bubbleIndex: 3, textLength: 473 }
+[conversation-runner] turn 4/6 — running assertions { bubbleIndex: 3, textLength: 473 }
+[conversation-runner] turn 4/6 — assertions passed
+[conversation-runner] turn 5/6 — sending message { inputLength: 63, timeoutMs: 45000 }
+[conversation-runner] turn 5/6 — running preFill hook
+[conversation-runner] turn 5/6 — preFill hook completed
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 63,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 4,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 5, baseline: 4 }
+[conversation-runner] turn 5/6 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 5,
+  settleMs: 1500,
+  timeoutMs: 45000
+}
+[conversation-runner] chat input selector miss {
+  selector: 'input[placeholder="Type a message"]',
+  error: 'page.waitForSelector: Timeout 5000ms exceeded.\n' +
+    'Call log:\n' +
+    `  - waiting for locator('input[placeholder="Type a message"]') to be visible\n`
+}
+[conversation-runner] turn 5/6 — assistant settled { bubbleIndex: 4, textLength: 113, hasAssertions: true }
+[conversation-runner] turn 5/6 — settled metadata { turnNum: 5, bubbleIndex: 4, textLength: 113 }
+[conversation-runner] turn 5/6 — running assertions { bubbleIndex: 4, textLength: 113 }
+[conversation-runner] turn 5/6 — assertions passed
+[conversation-runner] turn 6/6 — sending message { inputLength: 64, timeoutMs: 45000 }
+[conversation-runner] turn 6/6 — running preFill hook
+[conversation-runner] turn 6/6 — preFill hook completed
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 64,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 5,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 6, baseline: 5 }
+[conversation-runner] turn 6/6 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 6,
+  settleMs: 1500,
+  timeoutMs: 45000
+}
+[conversation-runner] chat input selector miss {
+  selector: 'input[type="text"]',
+  error: 'page.waitForSelector: Timeout 5000ms exceeded.\n' +
+    'Call log:\n' +
+    `  - waiting for locator('input[type="text"]') to be visible\n`
+}
+[conversation-runner] chat input selector miss {
+  selector: '[role="textbox"]',
+  error: 'page.waitForSelector: Timeout 5000ms exceeded.\n' +
+    'Call log:\n' +
+    `  - waiting for locator('[role="textbox"]') to be visible\n`
+}
+[conversation-runner] chat input cascade did not resolve at boot — deferring to post-preFill (auth shape)
+CVDIAG component=conversation-runner boundary=inbound run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=chat-input cascade miss at boot: page.waitForSelector: Timeout 5000ms exceeded. Call log:   - waiting for locator('[role="textbox"]') to be visible 
+[conversation-runner] turn 1/1 — sending message { inputLength: 17, timeoutMs: 30000 }
+[conversation-runner] turn 1/1 — running preFill hook
+[conversation-runner] turn 1/1 — preFill hook completed
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector { selector: '[data-testid="copilot-chat-textarea"]', turnNum: 1 }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 17,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] turn 6/6 — assistant settled { bubbleIndex: 5, textLength: 788, hasAssertions: true }
+[conversation-runner] turn 6/6 — settled metadata { turnNum: 6, bubbleIndex: 5, textLength: 788 }
+[conversation-runner] turn 6/6 — running assertions { bubbleIndex: 5, textLength: 788 }
+[conversation-runner] turn 6/6 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 6, totalDurationMs: 31627 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-07T01:26:00.718Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent/agent-config"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-07T01:26:00.718Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"agent-config","pass":true,"durationMs":31956}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=a95295b6-ce3c-4e79-ab87-6d13413c9d17 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-a95295b6-ce3c-4e79-ab87-6d13413c9d17 error=","ts":"2026-10-07T01:26:00.720Z","component":"docs-feature-audit-local-d6"}
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 0, textLength: 123, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 0, textLength: 123 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 0, textLength: 123 }
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 8979 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-07T01:26:09.364Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent/auth"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-07T01:26:09.364Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"auth","pass":true,"durationMs":54546}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=a95295b6-ce3c-4e79-ab87-6d13413c9d17 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-a95295b6-ce3c-4e79-ab87-6d13413c9d17 error=","ts":"2026-10-07T01:26:09.366Z","component":"docs-feature-audit-local-d6"}
+[conversation-runner] turn 1/1 — FAILED {
+  errorCategory: 'settle-dom-missing',
+  turnsCompleted: 0,
+  elapsedMs: 60056,
+  bodyTextLength: 270,
+  hasTextarea: true,
+  hasErrorBoundary: false
+}
+{"level":"warn","msg":"probe.e2e-full.runFeature.flap-diagnostics","ts":"2026-10-07T01:26:29.643Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"threadid-frontend-tool-roundtrip","error":"waitForTurnComplete: turn 1 did not complete within 55791ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)","diagnostics":{"userMsgCount":2,"apiRequestCount":43,"apiRequests":[{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_29ec4558._.js","duration":34,"transferSize":54129,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_shared_dist_f85b502d._.js","duration":38,"transferSize":31961,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_core_dist_index_mjs_bbbcdc32._.js","duration":47,"transferSize":88502,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_react-core_dist_68bc6e14._.js","duration":42,"transferSize":2501,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_react-core_dist_copilotkit-CP9qPAqV_mjs_a7bea7e5._.js","duration":54,"transferSize":146798,"status":200}],"pageErrors":[],"chatContainerExists":true,"url":"http://localhost:3117/demos/threadid-frontend-tool-roundtrip","title":"CopilotKit's Built-in Agent","bodyTextSnippet":"503 Strict mode: no fixture matched\nShow Details\nx\nFrontend Tool Thread Round Trip\n\nSDK-generated thread\n\nExplicit threadId\ninvoke testFrontendToolCalling with label X\ninvoke testFrontendToolCalling with label X\nAI can make mistakes. Please verify important information.","assistantMsgCount":0,"consoleLogs":["[warning] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.","[error] Access to fetch at 'https://cdn.copilotkit.ai/notifications/v1.json?framework=react&sdkVersion=1.77.0' from origin 'http://localhost:3117' has been blocked by CORS policy: Response to preflight reques","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit Inspector] Failed to load notifications TypeError: Failed to fetch\n    at g.fetch (<anonymous>:88:31)\n    at loadNotificationFeed (http://localhost:3117/_next/static/chunks/bdfc8_%40copilo","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3117' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3117' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] [CopilotKit] Agent error: 503 Strict mode: no fixture matched \n  Code: agent_run_error_event \n  Context: {source: onRunErrorEvent, event: Object, runtimeErrorCode: undefined, agentId: threadid-fronten","[error] [CopilotKit] Error (agent_run_error_event): Error: 503 Strict mode: no fixture matched\n    at Object.onRunErrorEvent (http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_core_dist_index_mjs_","[warning] Element cpk-web-inspector scheduled an update (generally because a property was set) after an update completed, causing a new update to be scheduled. This is inefficient and should be avoided unless t","[error] [CopilotKit] Agent error: 503 Strict mode: no fixture matched \n  Code: agent_run_error_event \n  Context: {source: onRunErrorEvent, event: Object, runtimeErrorCode: undefined, agentId: threadid-fronten","[error] [CopilotKit] Error (agent_run_error_event): Error: 503 Strict mode: no fixture matched\n    at Object.onRunErrorEvent (http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_core_dist_index_mjs_"],"requestFailures":["GET https://cdn.copilotkit.ai/notifications/v1.json?framework=react&sdkVersion=1.77.0 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED"]}}
+{"level":"warn","msg":"CVDIAG component=harness-d6 boundary=fixture-match run_id=a95295b6-ce3c-4e79-ab87-6d13413c9d17 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=miss test_id=d6-built-in-agent-a95295b6-ce3c-4e79-ab87-6d13413c9d17 error=waitForTurnComplete: turn 1 did not complete within 55791ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)","ts":"2026-10-07T01:26:29.643Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.feature-retry","ts":"2026-10-07T01:26:29.647Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"threadid-frontend-tool-roundtrip","attempt":1,"errorClass":"conversation-error","errorDesc":"waitForTurnComplete: turn 1 did not complete within 55791ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)","attempt1DurationMs":60363}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=a95295b6-ce3c-4e79-ab87-6d13413c9d17 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-a95295b6-ce3c-4e79-ab87-6d13413c9d17 error=","ts":"2026-10-07T01:26:29.649Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/threadid-frontend-tool-roundtrip',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/threadid-frontend-tool-roundtrip',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-07T01:26:29.949Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"threadid-frontend-tool-roundtrip","hydrated":true,"hydrationMs":42}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 43, timeoutMs: 60000 }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 43,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 60000
+}
+[conversation-runner] turn 1/1 — cold-start banner fast-fail; reloading + re-sending ONCE before fast-fail { errorCategory: 'assertion-failed' }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 43,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 1,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 2, baseline: 1 }
+[conversation-runner] turn 1/1 — FAILED {
+  errorCategory: 'settle-dom-missing',
+  turnsCompleted: 0,
+  elapsedMs: 60015,
+  bodyTextLength: 270,
+  hasTextarea: true,
+  hasErrorBoundary: false
+}
+{"level":"warn","msg":"probe.e2e-full.runFeature.flap-diagnostics","ts":"2026-10-07T01:27:29.996Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"threadid-frontend-tool-roundtrip","error":"waitForTurnComplete: turn 1 did not complete within 55687ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)","diagnostics":{"userMsgCount":2,"apiRequestCount":43,"apiRequests":[{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_29ec4558._.js","duration":35,"transferSize":54129,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_shared_dist_f85b502d._.js","duration":39,"transferSize":31961,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_core_dist_index_mjs_bbbcdc32._.js","duration":48,"transferSize":88502,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_react-core_dist_68bc6e14._.js","duration":41,"transferSize":2501,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_react-core_dist_copilotkit-CP9qPAqV_mjs_a7bea7e5._.js","duration":55,"transferSize":146798,"status":200}],"pageErrors":[],"chatContainerExists":true,"url":"http://localhost:3117/demos/threadid-frontend-tool-roundtrip","title":"CopilotKit's Built-in Agent","bodyTextSnippet":"503 Strict mode: no fixture matched\nShow Details\nx\nFrontend Tool Thread Round Trip\n\nSDK-generated thread\n\nExplicit threadId\ninvoke testFrontendToolCalling with label X\ninvoke testFrontendToolCalling with label X\nAI can make mistakes. Please verify important information.","assistantMsgCount":0,"consoleLogs":["[warning] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.","[error] Access to fetch at 'https://cdn.copilotkit.ai/notifications/v1.json?framework=react&sdkVersion=1.77.0' from origin 'http://localhost:3117' has been blocked by CORS policy: Response to preflight reques","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit Inspector] Failed to load notifications TypeError: Failed to fetch\n    at g.fetch (<anonymous>:88:31)\n    at loadNotificationFeed (http://localhost:3117/_next/static/chunks/bdfc8_%40copilo","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3117' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3117' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] [CopilotKit] Agent error: 503 Strict mode: no fixture matched \n  Code: agent_run_error_event \n  Context: {source: onRunErrorEvent, event: Object, runtimeErrorCode: undefined, agentId: threadid-fronten","[error] [CopilotKit] Error (agent_run_error_event): Error: 503 Strict mode: no fixture matched\n    at Object.onRunErrorEvent (http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_core_dist_index_mjs_","[warning] Element cpk-web-inspector scheduled an update (generally because a property was set) after an update completed, causing a new update to be scheduled. This is inefficient and should be avoided unless t","[error] [CopilotKit] Agent error: 503 Strict mode: no fixture matched \n  Code: agent_run_error_event \n  Context: {source: onRunErrorEvent, event: Object, runtimeErrorCode: undefined, agentId: threadid-fronten","[error] [CopilotKit] Error (agent_run_error_event): Error: 503 Strict mode: no fixture matched\n    at Object.onRunErrorEvent (http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_core_dist_index_mjs_"],"requestFailures":["GET https://cdn.copilotkit.ai/notifications/v1.json?framework=react&sdkVersion=1.77.0 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED"]}}
+{"level":"warn","msg":"CVDIAG component=harness-d6 boundary=fixture-match run_id=a95295b6-ce3c-4e79-ab87-6d13413c9d17 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=miss test_id=d6-built-in-agent-a95295b6-ce3c-4e79-ab87-6d13413c9d17 error=waitForTurnComplete: turn 1 did not complete within 55687ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)","ts":"2026-10-07T01:27:29.996Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.feature-retry-result","ts":"2026-10-07T01:27:30.000Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"threadid-frontend-tool-roundtrip","attempt":2,"ok":false,"errorClass":"conversation-error"}
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-07T01:27:30.000Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent/threadid-frontend-tool-roundtrip"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-07T01:27:30.000Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"threadid-frontend-tool-roundtrip","pass":false,"errorDesc":"waitForTurnComplete: turn 1 did not complete within 55687ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)","durationMs":120716}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=a95295b6-ce3c-4e79-ab87-6d13413c9d17 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-a95295b6-ce3c-4e79-ab87-6d13413c9d17 error=","ts":"2026-10-07T01:27:30.004Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.service-complete","ts":"2026-10-07T01:27:30.004Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","passed":6,"failed":1,"skipped":0,"incapable":0,"total":7,"state":"red","durationMs":135360}
+{"level":"warn","msg":"probe.e2e-full.aggregate-writer-missing","ts":"2026-10-07T01:27:30.004Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent"}
+  [31m✗[0m d6:built-in-agent [31mred[0m [2m(135.6s)[0m
+    [31mthreadid-frontend-tool-roundtrip: waitForTurnComplete: turn 1 did not complete within 55687ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)[0m
+{"slug":"built-in-agent","results":[{"key":"d6:built-in-agent","state":"red","durationMs":135636,"signal":{"shape":"package","slug":"built-in-agent","backendUrl":"http://localhost:3117","total":7,"passed":6,"failed":["threadid-frontend-tool-roundtrip"],"skipped":[],"failureSummary":"threadid-frontend-tool-roundtrip: waitForTurnComplete: turn 1 did not complete within 55687ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)"},"error":"threadid-frontend-tool-roundtrip: waitForTurnComplete: turn 1 did not complete within 55687ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)"}]}
+# exit=1 finished 2026-10-07T01:27:30Z

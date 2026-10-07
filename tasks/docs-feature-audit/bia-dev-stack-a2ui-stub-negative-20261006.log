@@ -1,0 +1,100 @@
+# Built-in Agent stack via the integration's documented default dev command (package.json scripts.dev = next dev --turbopack). In-process agent: no separate agent server. .next removed first.
+$ cd showcase/integrations/built-in-agent && PORT=3117 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true DO_NOT_TRACK=1 OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://127.0.0.1:4411/v1 AIMOCK_URL=http://127.0.0.1:4410 nice -n 10 npm run dev
+# node v22.16.0, npm 10.9.2, runtime 1.77.0, @tanstack/ai 0.35.0, HEAD 8f6aa03851, tree vs HEAD:  M showcase/integrations/built-in-agent/src/lib/factory/a2ui-factory.ts , started Wed Oct  7 00:58:23 UTC 2026
+
+> @copilotkit/showcase-built-in-agent@0.1.0 dev
+> next dev --turbopack
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/pnpm-lock.yaml as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/built-in-agent/package-lock.json
+
+   ▲ Next.js 15.5.27 (Turbopack)
+   - Local:        http://localhost:3117
+   - Network:      http://192.168.4.34:3117
+
+ ✓ Starting...
+ ✓ Ready in 585ms
+ ⚠ Webpack is configured while Turbopack is not, which may cause problems.
+ ⚠ See instructions if you need to configure Turbopack:
+  https://nextjs.org/docs/app/api-reference/next-config-js/turbopack
+
+ ○ Compiling /api/health ...
+ ✓ Compiled /api/health in 526ms
+ GET /api/health 200 in 792ms
+ ○ Compiling /demos/declarative-gen-ui ...
+ ✓ Compiled /demos/declarative-gen-ui in 4.9s
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+ GET /demos/declarative-gen-ui 200 in 5443ms
+ ✓ Compiled /api/copilotkit/[[...slug]] in 304ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit 404 in 1630ms
+ ✓ Compiled /api/copilotkit-a2ui-fixed-schema/[[...slug]] in 136ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-a2ui-fixed-schema 404 in 1096ms
+ ✓ Compiled /api/copilotkit-a2ui-recovery/[[...slug]] in 93ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-a2ui-recovery 404 in 1059ms
+ ✓ Compiled /api/copilotkit-agent-config/[[...slug]] in 84ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-agent-config 404 in 1020ms
+ ✓ Compiled /api/copilotkit-auth/[[...slug]] in 93ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-auth 401 in 1054ms
+ ✓ Compiled /api/copilotkit-beautiful-chat/[[...slug]] in 85ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-beautiful-chat 404 in 1039ms
+ ✓ Compiled /api/copilotkit-declarative-gen-ui/[[...slug]] in 81ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-declarative-gen-ui 404 in 1030ms
+ ✓ Compiled /api/copilotkit-declarative-hashbrown/[[...slug]] in 68ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-declarative-hashbrown 404 in 986ms
+ ✓ Compiled /api/copilotkit-declarative-json-render/[[...slug]] in 55ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-declarative-json-render 404 in 982ms
+ ✓ Compiled /api/copilotkit-mcp-apps/[[...slug]] in 77ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-mcp-apps 404 in 1046ms
+ ✓ Compiled /api/copilotkit-multimodal/[[...slug]] in 479ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-multimodal 404 in 1513ms
+ ✓ Compiled /api/copilotkit-ogui/[[...slug]] in 69ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-ogui 404 in 1005ms
+ ✓ Compiled /api/copilotkit-reasoning/[[...slug]] in 74ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-reasoning 404 in 1022ms
+ ✓ Compiled /api/copilotkit-voice/[[...slug]] in 81ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ GET /api/copilotkit-voice 404 in 1018ms
+ GET /api/health 200 in 223ms
+ GET /demos/declarative-gen-ui 200 in 75ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=3ab932f5-9a97-4796-99ff-a234981fc41e slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-3ab932f5-9a97-4796-99ff-a234981fc41e error=
+ GET /api/copilotkit-declarative-gen-ui/info 200 in 248ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=3ab932f5-9a97-4796-99ff-a234981fc41e slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-3ab932f5-9a97-4796-99ff-a234981fc41e error=
+ GET /api/copilotkit-declarative-gen-ui/threads?agentId=declarative-gen-ui 200 in 228ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=3ab932f5-9a97-4796-99ff-a234981fc41e slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-3ab932f5-9a97-4796-99ff-a234981fc41e error=
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=3ab932f5-9a97-4796-99ff-a234981fc41e slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-3ab932f5-9a97-4796-99ff-a234981fc41e error=
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=3ab932f5-9a97-4796-99ff-a234981fc41e slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-3ab932f5-9a97-4796-99ff-a234981fc41e error=
+ POST /api/copilotkit-declarative-gen-ui/agent/declarative-gen-ui/run 200 in 1414ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=3ab932f5-9a97-4796-99ff-a234981fc41e slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-3ab932f5-9a97-4796-99ff-a234981fc41e error=
+ GET /api/copilotkit-declarative-gen-ui/threads?agentId=declarative-gen-ui 200 in 224ms
+ GET /demos/declarative-gen-ui 200 in 83ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=3ab932f5-9a97-4796-99ff-a234981fc41e slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-3ab932f5-9a97-4796-99ff-a234981fc41e error=
+ GET /api/copilotkit-declarative-gen-ui/info 200 in 237ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=3ab932f5-9a97-4796-99ff-a234981fc41e slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-3ab932f5-9a97-4796-99ff-a234981fc41e error=
+ GET /api/copilotkit-declarative-gen-ui/threads?agentId=declarative-gen-ui 200 in 228ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=3ab932f5-9a97-4796-99ff-a234981fc41e slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-3ab932f5-9a97-4796-99ff-a234981fc41e error=
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=3ab932f5-9a97-4796-99ff-a234981fc41e slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-3ab932f5-9a97-4796-99ff-a234981fc41e error=
+CVDIAG component=backend-built-in-agent boundary=outbound-llm run_id=3ab932f5-9a97-4796-99ff-a234981fc41e slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=2 status=ok test_id=d6-built-in-agent-3ab932f5-9a97-4796-99ff-a234981fc41e error=
+ POST /api/copilotkit-declarative-gen-ui/agent/declarative-gen-ui/run 200 in 1406ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=3ab932f5-9a97-4796-99ff-a234981fc41e slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=1 status=ok test_id=d6-built-in-agent-3ab932f5-9a97-4796-99ff-a234981fc41e error=
+ GET /api/copilotkit-declarative-gen-ui/threads?agentId=declarative-gen-ui 200 in 228ms
+CVDIAG component=route-built-in-agent boundary=als-snapshot run_id=none slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=none error=
+ POST /api/copilotkit-voice/threads/clear 204 in 235ms
+[?25h
+# stopped Wed Oct  7 01:01:56 UTC 2026 (SIGTERM to process group 81580)

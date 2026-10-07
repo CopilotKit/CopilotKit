@@ -1,0 +1,25 @@
+# Sequential pre-warm (one GET at a time): demo pages [agent-config,auth,declarative-hashbrown,declarative-json-render,open-gen-ui,open-gen-ui-advanced,threadid-frontend-tool-roundtrip,voice] and every API route except /api/smoke. Wed Oct  7 01:10:48 UTC 2026
+/demos/agent-config 200 5.177255s
+/demos/auth 200 1.275951s
+/demos/declarative-hashbrown 200 1.393510s
+/demos/declarative-json-render 200 1.356468s
+/demos/open-gen-ui 200 1.021484s
+/demos/open-gen-ui-advanced 200 0.947965s
+/demos/threadid-frontend-tool-roundtrip 200 0.965993s
+/demos/voice 200 1.156822s
+/api/copilotkit 404 1.684076s
+/api/copilotkit-a2ui-fixed-schema 404 1.070853s
+/api/copilotkit-a2ui-recovery 404 1.068177s
+/api/copilotkit-agent-config 404 1.077899s
+/api/copilotkit-auth 401 1.048589s
+/api/copilotkit-beautiful-chat 404 1.114251s
+/api/copilotkit-declarative-gen-ui 404 1.046517s
+/api/copilotkit-declarative-hashbrown 404 1.043551s
+/api/copilotkit-declarative-json-render 404 0.999635s
+/api/copilotkit-mcp-apps 404 1.027420s
+/api/copilotkit-multimodal 404 1.551236s
+/api/copilotkit-ogui 404 1.046917s
+/api/copilotkit-reasoning 404 1.057052s
+/api/copilotkit-voice 404 1.054991s
+/api/health 200 0.225721s
+# done Wed Oct  7 01:11:17 UTC 2026

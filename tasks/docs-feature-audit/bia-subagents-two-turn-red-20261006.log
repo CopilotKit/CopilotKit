@@ -1,0 +1,14 @@
+# RED run: HEAD 9875b32373, tanstack-factory.ts unchanged; stack OPENAI_BASE_URL -> scratch AIMock :4411 (bia-subagents-two-turn-fixtures-20261006.json)
+# REPAIR-041 two-turn delegation-log check, 2026-10-07T00:51:09.056Z, @ag-ui/client 1.0.1, http://localhost:3117, threadId 808db65b-47fc-4387-b98e-0547450d6573
+## turn 1: "Delegation log check one"
+   RunAgentInput.state sent: delegations = (none)
+   events: RUN_STARTED TOOL_CALL_START TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_END STATE_DELTA TOOL_CALL_RESULT TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_END RUN_FINISHED
+   STATE_DELTA [{"op":"add","path":"/delegations","value":"research_agent(\"inner task alpha\")"}]
+   agent.state.delegations after the run: research_agent("inner task alpha")
+## turn 2: "Delegation log check two"
+   RunAgentInput.state sent: delegations = research_agent("inner task alpha")
+   events: RUN_STARTED TOOL_CALL_START TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_END STATE_DELTA TOOL_CALL_RESULT TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_END RUN_FINISHED
+   STATE_DELTA [{"op":"add","path":"/delegations","value":"writing_agent(\"inner task beta\")"}]
+   agent.state.delegations after the run: writing_agent("inner task beta")
+RESULT: FAIL - expected [research_agent, writing_agent] after turn 2, got [writing_agent].
+exit=1

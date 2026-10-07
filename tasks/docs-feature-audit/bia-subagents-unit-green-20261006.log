@@ -1,0 +1,6 @@
+# REPAIR-041 unit GREEN: the same tests after the convertStream fix, 2026-10-07T00:51:46Z
+ RUN  v4.1.3 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/built-in-agent
+ Test Files  8 passed | 1 skipped (9)
+      Tests  40 passed | 5 skipped (45)
+   Start at  17:51:47
+   Duration  412ms (transform 317ms, setup 0ms, import 1.38s, tests 35ms, environment 0ms)

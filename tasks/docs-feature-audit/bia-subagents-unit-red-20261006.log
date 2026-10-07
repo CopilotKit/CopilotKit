@@ -1,0 +1,25 @@
+# REPAIR-041 unit RED: new tests in tanstack-factory.test.ts against the unchanged convertStream, 2026-10-07T00:51:35Z
+ RUN  v4.1.3 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/built-in-agent
+ ❯ src/lib/factory/tanstack-factory.test.ts (7 tests | 1 failed) 5ms
+     × keeps the delegations of earlier runs in the thread (REPAIR-041) 2ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/lib/factory/tanstack-factory.test.ts > convertStream — subagent delegations > keeps the delegations of earlier runs in the thread (REPAIR-041)
+AssertionError: expected [ 'call-run2' ] to deeply equal [ 'call-run1', 'call-run2' ]
+- Expected
++ Received
+  [
+-   "call-run1",
+    "call-run2",
+  ]
+ ❯ src/lib/factory/tanstack-factory.test.ts:153:34
+    151|     expect(ops).toHaveLength(1);
+    152|     const log = ops[0].value as Array<{ id: string; sub_agent: string …
+    153|     expect(log.map((d) => d.id)).toEqual(["call-run1", "call-run2"]);
+       |                                  ^
+    154|     expect(log[0]).toEqual(earlier);
+    155|   });
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  17:51:35
+   Duration  380ms (transform 31ms, setup 0ms, import 315ms, tests 5ms, environment 0ms)

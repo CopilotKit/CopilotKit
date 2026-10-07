@@ -1,0 +1,76 @@
+{
+  "_meta": {
+    "description": "Scratch strict fixtures for the REPAIR-041 two-turn delegation-log check (bia-subagents-two-turn.mjs), served by a scratch AIMock on :4411 only. Turn 1 delegates once to research_agent, turn 2 (same thread, turn 1 in its history) delegates once to writing_agent. Each run's follow-up is gated on hasToolResult (the current turn carries the sub-agent's tool result) and its own prompt, so each leg can only match its own run; not on toolCallId, which @tanstack/openai-base 0.9.2 replaces with the Responses item id. No turnIndex: the second run's history already holds turn 1's assistant messages.",
+    "created": "2026-10-06"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Delegation log check one",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Turn one is done: the research sub-agent reported back."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Delegation log check two",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Turn two is done: the writing sub-agent reported back."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "inner task alpha"
+      },
+      "response": {
+        "content": "- Alpha fact one\n- Alpha fact two\n- Alpha fact three"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "inner task beta"
+      },
+      "response": {
+        "content": "Beta draft paragraph built on the alpha facts."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Delegation log check one",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dlc_one",
+            "name": "research_agent",
+            "arguments": {
+              "task": "inner task alpha"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Delegation log check two",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dlc_two",
+            "name": "writing_agent",
+            "arguments": {
+              "task": "inner task beta"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

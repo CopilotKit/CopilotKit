@@ -1,0 +1,6 @@
+# @tanstack/openai-base call_id repro, 2026-10-07T01:39:22.914Z, {"@tanstack/ai":"0.64.1","@tanstack/ai-openai":"0.26.0","@tanstack/openai-base":"0.12.3"}, AIMock http://127.0.0.1:4411
+TOOL_CALL_START toolCallIds: call_repro_1
+assistant text: "Follow-up matched by call_id."
+request 1: last message role=user -> fixture {"userMessage":"callid repro"}
+request 2: last message role=tool tool_call_id=call_repro_1 -> fixture {"userMessage":"callid repro","toolCallId":"call_repro_1"}
+RESULT: PASS - the tool result echoed the model's call_id.

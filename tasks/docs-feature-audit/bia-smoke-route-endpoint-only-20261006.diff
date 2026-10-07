@@ -1,0 +1,50 @@
+0a1
+> import { randomUUID } from "node:crypto";
+15c16,20
+<     const res = await fetch(`${baseUrl}/api/copilotkit`, {
+---
+>     // /api/copilotkit is a multi-route ([[...slug]]) runtime, so the run
+>     // goes to its REST endpoint. Runtime 1.77.0 rejects the single-route
+>     // `{ method: "agent/run" }` envelope there with 400
+>     // `single_route_envelope_against_multi_route_runtime`.
+>     const res = await fetch(`${baseUrl}/api/copilotkit/agent/default/run`, {
+17c22,25
+<       headers: { "Content-Type": "application/json" },
+---
+>       headers: {
+>         "Content-Type": "application/json",
+>         Accept: "text/event-stream",
+>       },
+19,35c27,40
+<         method: "agent/run",
+<         params: { agentId: "default" },
+<         body: {
+<           threadId: `smoke-${Date.now()}`,
+<           runId: `smoke-run-${Date.now()}`,
+<           state: {},
+<           messages: [
+<             {
+<               id: `smoke-msg-${Date.now()}`,
+<               role: "user",
+<               content: "Respond with exactly: OK",
+<             },
+<           ],
+<           tools: [],
+<           context: [],
+<           forwardedProps: {},
+<         },
+---
+>         // Fresh ids per run, as the LangGraph smoke routes send.
+>         threadId: randomUUID(),
+>         runId: randomUUID(),
+>         state: {},
+>         messages: [
+>           {
+>             id: randomUUID(),
+>             role: "user",
+>             content: "Respond with exactly: OK",
+>           },
+>         ],
+>         tools: [],
+>         context: [],
+>         forwardedProps: {},

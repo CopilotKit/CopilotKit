@@ -1,0 +1,24 @@
+{
+  "label": "bia-phase2",
+  "checkedAt": "2026-10-07T01:14:39.236Z",
+  "bound": "2026-10-05T13:10:00Z",
+  "floor24h": "2026-10-06T01:14:39.236Z",
+  "addedOrChanged": 5,
+  "removed": 6,
+  "violations": [],
+  "exoticResolved": [],
+  "youngest": [
+    "@tanstack/ai@0.64.1 (36.2 h)",
+    "@tanstack/openai-base@0.12.3 (36.2 h)",
+    "@tanstack/ai-openai@0.26.0 (108.5 h)",
+    "@tanstack/ai-event-client@0.13.0 (295.3 h)",
+    "@tanstack/ai-utils@0.4.1 (368.7 h)"
+  ],
+  "added": [
+    "@tanstack/ai@0.64.1 2026-10-05T13:04:46.975Z",
+    "@tanstack/openai-base@0.12.3 2026-10-05T13:04:49.131Z",
+    "@tanstack/ai-openai@0.26.0 2026-10-02T12:46:28.625Z",
+    "@tanstack/ai-event-client@0.13.0 2026-09-24T17:59:16.384Z",
+    "@tanstack/ai-utils@0.4.1 2026-09-21T16:31:12.790Z"
+  ]
+}
