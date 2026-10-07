@@ -10,9 +10,9 @@ import { maxIterations } from "@tanstack/ai";
  * Agent-loop budget for every demo factory's `chat()` call.
  *
  * `@tanstack/ai`'s `chat()` defaults to `maxIterations(5)` when no
- * `agentLoopStrategy` is passed (verified in the pinned `@tanstack/ai@0.35.0`,
- * `src/activities/chat/index.ts`: `config.params.agentLoopStrategy ||
- * maxIterationsStrategy(5)`). One iteration is consumed per model turn, so a
+ * `agentLoopStrategy` is passed (verified in `@tanstack/ai@0.35.0` and again in
+ * the pinned `@tanstack/ai@0.64.1`, `dist/esm/activities/chat/index.js`:
+ * `config.params.agentLoopStrategy || maxIterations(5)`). One iteration is consumed per model turn, so a
  * demo that scripts a multi-call tool walk silently runs out of loop before it
  * finishes — the run just ends mid-plan with no error.
  *

@@ -41,10 +41,12 @@ function randomUUID(): string {
  * model's reasoning summary into AG-UI `REASONING_MESSAGE_*` events.
  *
  * Why this custom converter instead of `type: "tanstack"`:
- *   - `openaiText` (TanStack's OpenAI *Responses*-API adapter) surfaces the
- *     reasoning summary as `STEP_STARTED` (`stepType: "thinking"`) followed by
- *     a run of `STEP_FINISHED` chunks that each carry a `delta` of summary
- *     text — NOT as upstream `REASONING_*` chunks.
+ *   - `openaiText` (TanStack's OpenAI *Responses*-API adapter) up to
+ *     `@tanstack/ai` 0.35 surfaces the reasoning summary as `STEP_STARTED`
+ *     (`stepType: "thinking"`) followed by a run of `STEP_FINISHED` chunks
+ *     that each carry a `delta` of summary text — NOT as upstream
+ *     `REASONING_*` chunks. From 0.64 the thinking `STEP_STARTED` still opens
+ *     the trace, but the text arrives as `REASONING_MESSAGE_CONTENT` deltas.
  *   - The runtime's built-in `convertTanStackStream` only maps `REASONING_*`
  *     chunks to AG-UI reasoning events; it has no `STEP_*` handler, so the
  *     whole trace is silently dropped and `<ReasoningBlock>` never mounts.
@@ -116,6 +118,23 @@ async function* convertReasoningStream(
             delta,
           };
         }
+      }
+      continue;
+    }
+
+    // @tanstack/ai 0.64 (openai-base 0.12) streams the summary text as
+    // REASONING_MESSAGE_CONTENT deltas instead; its thinking STEP chunks no
+    // longer carry any. Its REASONING_START / _MESSAGE_START / _MESSAGE_END /
+    // _END lifecycle chunks are not forwarded: this converter emits its own.
+    if (type === "REASONING_MESSAGE_CONTENT") {
+      yield* openReasoningIfNeeded();
+      const delta = raw.delta;
+      if (typeof delta === "string" && delta.length > 0) {
+        yield {
+          type: EventType.REASONING_MESSAGE_CONTENT,
+          messageId: reasoningMessageId,
+          delta,
+        };
       }
       continue;
     }
