@@ -22,6 +22,6 @@ replay. Assertions cover arithmetic and metric buttons; the instrumented fixture
 also checks initialization counts, reopening, and denied host/storage access.
 The captured real-model response keeps CI deterministic and credential-free.
 
-This contract change guides newly generated code. It does not rewrite historical
-JavaScript or redispatch document readiness events; existing inert payloads must
-be regenerated.
+The generation contract guides newly generated code, including a visible update
+after each interaction. It cannot prove arbitrary generated JavaScript correct or
+rewrite historical payloads.
