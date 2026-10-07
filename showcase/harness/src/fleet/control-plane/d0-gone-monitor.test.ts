@@ -1663,3 +1663,157 @@ describe("D0-gone monitor — A6 no state advance when Slack target throws (veri
     expect(JSON.parse(f.getState().hash!).alpha).toBeUndefined();
   });
 });
+
+describe("D0-gone monitor — PROD_D0_MONITOR_SLUGS per-slug allowlist (§10.8)", () => {
+  it("unset → ALL wired+supported slugs evaluated (prod-INERT baseline)", async () => {
+    // Both alpha and beta are fully gone; with no allowlist BOTH are named.
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    f.setStatusRows([...goneRows("alpha", T0), ...goneRows("beta", T0)]);
+    const m = createD0GoneMonitor(f.deps); // no env → no allowlist
+    await m.tick();
+    expect(f.posted).toHaveLength(1);
+    expect(f.posted[0]).toContain("`alpha`");
+    expect(f.posted[0]).toContain("`beta`");
+  });
+
+  it("allowlist scopes evaluation to exactly the listed slugs — other gone columns are NOT alerted", async () => {
+    // alpha AND beta are both fully gone, but the allowlist names only alpha →
+    // ONLY alpha is evaluated + alerted; beta (also gone) is never mentioned and
+    // never opens an outage entry.
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    f.setStatusRows([...goneRows("alpha", T0), ...goneRows("beta", T0)]);
+    const m = createD0GoneMonitor({
+      ...f.deps,
+      env: { PROD_D0_MONITOR_SLUGS: "alpha" },
+    });
+    await m.tick();
+    expect(f.posted).toHaveLength(1);
+    expect(f.posted[0]).toContain("`alpha`");
+    expect(f.posted[0]).not.toContain("`beta`");
+    const map = JSON.parse(f.getState().hash!);
+    expect(map.alpha).toBeDefined();
+    expect(map.beta).toBeUndefined(); // beta filtered out of the monitored set
+  });
+
+  it("allowlist intersects with wired+supported — a non-wired allowlisted slug fabricates nothing", async () => {
+    // The allowlist names alpha (wired) + a bogus slug not in the registry. Only
+    // alpha is evaluated; the bogus slug has no cells to fold, so no column is
+    // fabricated for it.
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    f.setStatusRows([...goneRows("alpha", T0), ...goneRows("beta", T0)]);
+    const m = createD0GoneMonitor({
+      ...f.deps,
+      env: { PROD_D0_MONITOR_SLUGS: "alpha,does-not-exist" },
+    });
+    await m.tick();
+    expect(f.posted).toHaveLength(1);
+    expect(f.posted[0]).toContain("`alpha`");
+    expect(f.posted[0]).not.toContain("`beta`");
+    expect(f.posted[0]).not.toContain("does-not-exist");
+  });
+});
+
+describe("D0-gone monitor — PROD_D0_MONITOR_DRY_RUN log-capture mode (§10.8)", () => {
+  function makeCapturingLogger() {
+    const info: Array<{ msg: string; meta: unknown }> = [];
+    return {
+      records: info,
+      logger: {
+        info(msg: string, meta: unknown) {
+          info.push({ msg, meta });
+        },
+        warn() {},
+        error() {},
+        debug() {},
+      },
+    };
+  }
+
+  it("dry-run: LOGS the composed outage payload, does NOT POST, still advances lastAlertAt", async () => {
+    const f = makeFakes();
+    const { records, logger } = makeCapturingLogger();
+    f.setSummary(f.liveProducer());
+    f.setStatusRows(goneRows("alpha", T0));
+    const m = createD0GoneMonitor({
+      ...f.deps,
+      logger,
+      env: { PROD_D0_MONITOR_DRY_RUN: "true" },
+    });
+    await m.tick();
+
+    // NO real Slack post.
+    expect(f.posted).toHaveLength(0);
+    // The fully-composed outage payload is logged with the dry-run tag.
+    const dryRun = records.filter((r) => r.msg === "d0-monitor.dry-run-alert");
+    expect(dryRun).toHaveLength(1);
+    const meta = dryRun[0].meta as { kind?: string; text?: string };
+    expect(meta.kind).toBe("outage");
+    expect(meta.text).toContain("completely gone");
+    expect(meta.text).toContain("`alpha`");
+    // State machine STILL advances exactly as if sent (lastAlertAt set, open).
+    const map = JSON.parse(f.getState().hash!);
+    expect(map.alpha).toBeDefined();
+    expect(map.alpha.lastAlertAt).not.toBe("");
+  });
+
+  it("dry-run: cadence + recovery exercise normally in logs with no real send", async () => {
+    const f = makeFakes();
+    const { records, logger } = makeCapturingLogger();
+    f.setSummary(f.liveProducer());
+    f.setStatusRows(goneRows("alpha", T0));
+    const m = createD0GoneMonitor({
+      ...f.deps,
+      logger,
+      env: { PROD_D0_MONITOR_DRY_RUN: "1" },
+    });
+    await m.tick(); // OPEN (logged, not posted)
+
+    // 15/30/45m ticks silent (hourly dedup still honored in dry-run).
+    for (const mins of [15, 30, 45]) {
+      f.setClock(T0 + mins * MIN);
+      f.setSummary(f.liveProducer(T0 + mins * MIN));
+      f.setStatusRows(goneRows("alpha", T0));
+      await m.tick();
+    }
+    const outageLogs = records.filter(
+      (r) =>
+        r.msg === "d0-monitor.dry-run-alert" &&
+        (r.meta as { kind?: string }).kind === "outage",
+    );
+    expect(outageLogs).toHaveLength(1); // no re-log before 60m (cadence intact)
+
+    // Recovery still exercises: fresh-healthy → a recovery payload is logged and
+    // the state entry is cleared (advanced exactly as if sent).
+    f.setClock(T0 + 20 * MIN); // within the open outage, before the 60m repost
+    f.setSummary(f.liveProducer(T0 + 20 * MIN));
+    f.setStatusRows(healthyRows("alpha", T0 + 20 * MIN));
+    await m.tick();
+    const recoveryLogs = records.filter(
+      (r) =>
+        r.msg === "d0-monitor.dry-run-alert" &&
+        (r.meta as { kind?: string }).kind === "recovery",
+    );
+    expect(recoveryLogs).toHaveLength(1);
+    expect((recoveryLogs[0].meta as { text?: string }).text).toContain(
+      "recovered",
+    );
+    expect(f.posted).toHaveLength(0); // never a real send
+    expect(JSON.parse(f.getState().hash ?? "{}").alpha).toBeUndefined(); // cleared
+  });
+
+  it("unset DRY_RUN → real send path (prod-INERT baseline)", async () => {
+    const f = makeFakes();
+    const { records, logger } = makeCapturingLogger();
+    f.setSummary(f.liveProducer());
+    f.setStatusRows(goneRows("alpha", T0));
+    const m = createD0GoneMonitor({ ...f.deps, logger }); // no DRY_RUN env
+    await m.tick();
+    expect(f.posted).toHaveLength(1); // real post
+    expect(
+      records.filter((r) => r.msg === "d0-monitor.dry-run-alert"),
+    ).toHaveLength(0); // no dry-run log
+  });
+});
