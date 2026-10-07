@@ -405,3 +405,24 @@ test("keeps the preference fallback only for an unscoped render", () => {
   expect(output).toContain(donor.code);
   expect(output).not.toContain("snippet skipped");
 });
+test("inlines shared snippets used inside a framework setup", () => {
+  const doc = loadDoc("frontend-tools");
+  expect(doc).not.toBeNull();
+
+  const output = renderPageToLlmText(
+    {
+      url: "langgraph-python/frontend-tools",
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+      loadSlug: "frontend-tools",
+      framework: "langgraph-python",
+    },
+    { framework: "langgraph-python" },
+  );
+
+  expect(output).toContain("### Install the LangGraph Python SDK");
+  expect(output).toContain("uv add copilotkit");
+  expect(output).not.toContain("<InstallPythonSDK");
+});
+

@@ -767,7 +767,11 @@ function expandFrameworkSetups(
         }
         return `<!-- setup skipped: ${concept} is not bundled for ${framework} -->`;
       }
-      return source.trimEnd();
+      // Setup fragments can use shared snippet components such as
+      // `<InstallPythonSDK />`. The page-level inlining pass ran before this
+      // expansion, so inline the fragment's own snippets here, as the HTML
+      // renderer does.
+      return inlineSnippets(source).trimEnd();
     },
   );
 }
