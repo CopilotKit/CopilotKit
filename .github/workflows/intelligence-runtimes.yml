@@ -3,31 +3,21 @@ name: test / intelligence runtimes
 on:
   pull_request:
     branches: [main]
+  # No `paths` filter: the scope job's gate.mjs is the single source of truth
+  # for which changes need the matrix, and it skips the matrix otherwise.
   push:
     branches: [main]
-    paths:
-      - "packages/runtime/**"
-      - "packages/runtime-python/**"
-      - "packages/runtime-go/**"
-      - "packages/runtime-ruby/**"
-      - "packages/runtime-dotnet/**"
-      - "packages/core/**"
-      - "packages/shared/**"
-      - "packages/aimock/**"
-      - "tools/runtime-conformance/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - "nx.json"
-      - "tsconfig*.json"
-      - ".github/workflows/intelligence-runtimes.yml"
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Each push to main gets its own group: the scope job diffs only that push,
+  # so a later unrelated push must not cancel or replace an earlier runtime run.
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -55,7 +45,11 @@ jobs:
       - name: Find runtime changes
         id: scope
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          # pull_request diffs the merge commit against its first parent, so
+          # BASE_SHA stays empty there; PR_HEAD_SHA confirms that commit is
+          # GitHub's merge of the PR head. workflow_dispatch runs everything.
+          BASE_SHA: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event_name == 'push' && github.event.before || '' }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node tools/runtime-conformance/gate.mjs scope >> "$GITHUB_OUTPUT"
 
   conformance:
