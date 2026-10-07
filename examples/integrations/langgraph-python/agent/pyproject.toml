@@ -11,7 +11,7 @@ dependencies = [
   "fastapi>=0.115.5,<1.0.0",
   "uvicorn>=0.29.0,<1.0.0",
   "python-dotenv>=1.0.0,<2.0.0",
-  "langgraph-cli[inmem]==0.4.32",
+  "langgraph-cli[inmem]==0.4.31",
   "langchain-openai==1.1.9",
   "copilotkit==0.1.96",
   # Pinned explicitly even though copilotkit pulls it in transitively: without
@@ -29,7 +29,7 @@ dependencies = [
   # ag-ui-protocol resolve transitively — so this closes a second image/local
   # drift rather than opening one.
   "ag-ui-protocol==0.1.22",
-  "langgraph-api==0.15.1",
+  "langgraph-api==0.14.1",
   "pip>=26.0.1",
   "langchain-anthropic==1.4.1",
 ]
