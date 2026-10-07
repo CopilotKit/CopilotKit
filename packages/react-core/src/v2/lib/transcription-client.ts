@@ -1,8 +1,6 @@
 import type { CopilotKitCoreReact } from "./react-core";
-import {
-  TranscriptionErrorCode,
-  type TranscriptionErrorResponse,
-} from "@copilotkit/shared";
+import { TranscriptionErrorCode } from "@copilotkit/shared";
+import type { TranscriptionErrorResponse } from "@copilotkit/shared";
 
 export interface TranscriptionResult {
   text: string;
@@ -113,7 +111,8 @@ export async function transcribeAudio(
 
       headers["Content-Type"] = "application/json";
 
-      response = await fetch(runtimeUrl, {
+      // Core's fetch: the provider's `fetch` prop, else the global one.
+      response = await core.ɵfetch(runtimeUrl, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -133,7 +132,7 @@ export async function transcribeAudio(
       const formData = new FormData();
       formData.append("audio", audioBlob, filename);
 
-      response = await fetch(`${runtimeUrl}/transcribe`, {
+      response = await core.ɵfetch(`${runtimeUrl}/transcribe`, {
         method: "POST",
         headers,
         body: formData,

@@ -278,6 +278,9 @@ export function useAgent({
         runtimeAgentId,
         transport: copilotkit.runtimeTransport,
         runtimeMode: "pending",
+        // Core's fetch (the provider's `fetch` prop), so a provisional agent's
+        // requests travel the same transport as the real one's.
+        fetch: copilotkit.ɵfetch,
       });
       copilotkit.applyHeadersToAgent(provisional);
       provisionalAgentCache.current.set(resolvedAgentId, provisional);
@@ -312,6 +315,7 @@ export function useAgent({
         transport: copilotkit.runtimeTransport,
         credentials: copilotkit.credentials,
         runtimeMode: "pending",
+        fetch: copilotkit.ɵfetch,
       });
       // Apply current headers so runs/connects inherit them
       copilotkit.applyHeadersToAgent(provisional);
@@ -338,6 +342,7 @@ export function useAgent({
         transport: copilotkit.runtimeTransport,
         credentials: copilotkit.credentials,
         runtimeMode: "pending",
+        fetch: copilotkit.ɵfetch,
       });
       copilotkit.applyHeadersToAgent(provisional);
       provisionalAgentCache.current.set(resolvedAgentId, provisional);

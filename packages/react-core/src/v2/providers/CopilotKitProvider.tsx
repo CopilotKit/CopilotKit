@@ -126,6 +126,23 @@ export interface CopilotKitProviderProps {
    */
   credentials?: RequestCredentials;
   /**
+   * The `fetch` CopilotKit uses for every request it makes to your runtime:
+   * agent runs (which stream), `/info`, threads, suggestions, transcription
+   * and the rest. Defaults to the global `fetch`, looked up per request, so
+   * omitting it changes nothing. CopilotKit never replaces `globalThis.fetch`.
+   *
+   * Pass one to route CopilotKit's traffic through your own client (tracing,
+   * a proxy, a test double) without changing the rest of the app. It must
+   * return a `Response` whose `body` supports `getReader()`, and is called as
+   * `fetch(input, init)` with the provider's `headers` and `credentials`
+   * already in `init`. Agents you pass in yourself keep their own transport.
+   *
+   * Same prop, same contract as React Native's `CopilotKitProvider`, which
+   * also uses it to supply a streaming fetch where the platform's cannot
+   * stream.
+   */
+  fetch?: typeof fetch;
+  /**
    * Rewrites the message list sent to runtime agents on every run.
    *
    * CopilotKit sends the whole thread each time. When your agent already
@@ -347,6 +364,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   runtimeUrl,
   headers: headersProp = EMPTY_HEADERS,
   credentials,
+  fetch: fetchProp,
   messageFilter,
   publicApiKey,
   publicLicenseKey,
@@ -779,6 +797,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
             : "auto",
       headers: mergedHeaders,
       credentials,
+      fetch: fetchProp,
       messageFilter,
       properties,
       agents__unsafe_dev_only: mergedAgents,
@@ -942,6 +961,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useEffect(() => {
     copilotkit.setMessageFilter(messageFilter);
   }, [copilotkit, messageFilter]);
+
+  // Set at construction, so the first `/info` already uses it; this keeps
+  // Core on the current prop afterwards (`undefined` means the global fetch).
+  useEffect(() => {
+    copilotkit.setFetch(fetchProp);
+  }, [copilotkit, fetchProp]);
 
   useEffect(() => {
     copilotkit.setRuntimeUrl(chatApiEndpoint);
