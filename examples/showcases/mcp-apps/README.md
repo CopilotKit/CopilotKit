@@ -4,9 +4,9 @@ https://github.com/user-attachments/assets/48eeab8d-7845-4d06-83ef-d518a807da03
 
 Interactive app demos built with [CopilotKit](https://copilotkit.ai) and [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) — showcasing the MCP Apps Extension (SEP-1865) for rendering interactive UIs directly in the chat.
 
-## Live Demo
+## Hosted demo retirement
 
-**https://web-app-production-9af6.up.railway.app**
+The hosted demo is being retired. Source is preserved for local use; see the setup below. For current MCP Apps guidance, see the [MCP Apps documentation](https://docs.copilotkit.ai/generative-ui/mcp-apps).
 
 ## Featured Apps
 
@@ -125,16 +125,11 @@ mcp-apps/
 - **MCP SDK** (`@modelcontextprotocol/sdk`) - Model Context Protocol server
 - **Vite** - Bundles each app into single self-contained HTML files
 
-## Deployment
+## Running your own deployment
 
-The demo is deployed on Railway with two services:
+The source contains a web app and an MCP server. The previous hosted demo is being retired.
 
-| Service    | URL                                               |
-| ---------- | ------------------------------------------------- |
-| Web App    | https://web-app-production-9af6.up.railway.app    |
-| MCP Server | https://mcp-server-production-bbb4.up.railway.app |
-
-For production, set `MCP_SERVER_URL` environment variable to point to your deployed MCP server.
+If you deploy this source yourself, set the web app's `MCP_SERVER_URL` environment variable to your own MCP server URL.
 
 ## License
 
