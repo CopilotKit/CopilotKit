@@ -23,6 +23,7 @@ import type {
   ConnectionStatus,
 } from "@/lib/live-status";
 import { formatTs } from "@/lib/format-ts";
+import { buildCellModel } from "@/lib/cell-model";
 import { getPb } from "@/lib/pb";
 import { TONE_CLASS, DOT_BG } from "./badges";
 import { useWorkerRuns, familyForProbeKey } from "@/lib/worker-runs-context";
@@ -647,6 +648,12 @@ export function CellDrilldown({
     () => resolveCell(liveStatus, slug, featureId, { connection }),
     [liveStatus, slug, featureId, connection],
   );
+  const model = buildCellModel(liveStatus, {
+    slug,
+    featureId,
+    isSupported: true,
+    isWired: true,
+  });
 
   // Collect the record ids of GENUINELY-FAILING badges whose row arrived
   // WITHOUT a `signal` (the initial fetch projection drops it — see
@@ -707,13 +714,17 @@ export function CellDrilldown({
       {/* Rollup */}
       <div className="px-4 py-2 flex items-center gap-2 border-b border-[var(--border)]">
         <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
-          Service (health + e2e)
+          Feature status
         </span>
         <span
-          className={`inline-block w-2 h-2 rounded-full ${DOT_BG[cell.rollup]}`}
+          className={`inline-block w-2 h-2 rounded-full ${DOT_BG[model.chipColor]}`}
         />
-        <span className={`text-xs font-semibold ${TONE_CLASS[cell.rollup]}`}>
-          {cell.rollup}
+        <span
+          className={`text-xs font-semibold ${TONE_CLASS[model.chipColor]}`}
+        >
+          {model.blockedBy && model.chipColor !== "red"
+            ? "Integration unavailable"
+            : model.chipColor}
         </span>
       </div>
       {/* Badge rows */}

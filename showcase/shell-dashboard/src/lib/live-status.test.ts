@@ -719,10 +719,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     expect(c.d2.tone).toBe("red");
   });
 
-  it("resolves d5 / d6 per-feature rows when present", () => {
-    // D5 AND D6 use per-feature keys (`<dim>:<slug>/<featureType>`), both
-    // mapped from catalog featureId via CATALOG_TO_D5_KEY. The aggregate
-    // `d6:<slug>` here (green) must NOT be read — the per-cell row wins.
+  it("functional admission keeps raw green unverified and surfaces per-feature red", () => {
     const live = mapOf([
       row("d5:agno/agentic-chat", "d5", "green"),
       // aggregate green distractor — not consulted:
@@ -731,9 +728,9 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
       row("d6:agno/agentic-chat", "d6", "red"),
     ]);
     const c = resolveCell(live, "agno", "agentic-chat");
-    expect(c.d5.tone).toBe("green");
-    expect(c.d5.label).toBe("✓");
-    expect(c.d5.row?.key).toBe("d5:agno/agentic-chat");
+    expect(c.d5.tone).toBe("gray");
+    expect(c.d5.label).toBe("?");
+    expect(c.d5.row).toBeNull();
     expect(c.d6.tone).toBe("red");
     expect(c.d6.label).toBe("✗");
     expect(c.d6.row?.key).toBe("d6:agno/agentic-chat");
@@ -884,13 +881,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     expect(c.d5.tone).toBe("red");
   });
 
-  it("d5 multi-key fan-out: degraded beats green regardless of iteration order", () => {
-    // Pre-fix regression: only `red` could replace `worst`, so a degraded
-    // row encountered after a green row was silently dropped and the
-    // badge stayed green. With the fix, degraded > green wins.
-    // All 5 mapped sub-rows are present (STRICT requires a full family before
-    // a non-red fold is credited) so the fold — not missing handling — is
-    // what's under test.
+  it("d5 multi-key fan-out: an unverified green sibling blocks non-red credit in either order", () => {
     const liveGreenFirst = mapOf([
       row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
       row("d5:agno/beautiful-chat-pie-chart", "d5", "degraded"),
@@ -899,7 +890,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
       row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green"),
     ]);
     expect(resolveCell(liveGreenFirst, "agno", "beautiful-chat").d5.tone).toBe(
-      "amber",
+      "gray",
     );
 
     const liveDegradedFirst = mapOf([
@@ -911,7 +902,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     ]);
     expect(
       resolveCell(liveDegradedFirst, "agno", "beautiful-chat").d5.tone,
-    ).toBe("amber");
+    ).toBe("gray");
   });
 
   it("d5 multi-key fan-out: red beats degraded", () => {
@@ -922,7 +913,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     expect(resolveCell(live, "agno", "beautiful-chat").d5.tone).toBe("red");
   });
 
-  it("d5 multi-key fan-out: all green stays green", () => {
+  it("d5 multi-key fan-out: all legacy green remains unverified", () => {
     const live = mapOf([
       row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
       row("d5:agno/beautiful-chat-pie-chart", "d5", "green"),
@@ -930,7 +921,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
       row("d5:agno/beautiful-chat-search-flights", "d5", "green"),
       row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green"),
     ]);
-    expect(resolveCell(live, "agno", "beautiful-chat").d5.tone).toBe("green");
+    expect(resolveCell(live, "agno", "beautiful-chat").d5.tone).toBe("gray");
   });
 
   // ── STRICT missing-sub-row handling (mirrors cell-model.ts resolveD5) ──
@@ -983,12 +974,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     expect(c.d5.row).toBeNull();
   });
 
-  it("d5 multi-key fan-out: stale-green sub-row listed FIRST folds to amber (order-independent)", () => {
-    // Mirrors cell-model.test.ts's staleFirst coverage to pin order-
-    // independence of the stale fold. A stale-green sub-row listed FIRST must
-    // still force the full (otherwise-fresh-green) family to amber — the fold
-    // does not depend on CATALOG_TO_D5_KEY order. All 5 sub-rows present so
-    // STRICT missing handling is satisfied and the fold is what's exercised.
+  it("d5 multi-key fan-out: stale legacy green remains unverified in either order", () => {
     const NOW = Date.parse("2026-05-30T00:00:00Z");
     const staleAt = new Date(
       NOW - (E2E_STALE_AFTER_MS + 60 * 60 * 1000),
@@ -1013,8 +999,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
       }),
     ]);
     const c = resolveCell(live, "agno", "beautiful-chat", { now: NOW });
-    expect(c.d5.tone).not.toBe("green");
-    expect(c.d5.tone).toBe("amber");
+    expect(c.d5.tone).toBe("gray");
   });
 });
 
@@ -1092,11 +1077,7 @@ describe("resolveCell — staleness downgrade (unification A)", () => {
     expect(c.rollup).toBe("amber");
   });
 
-  it("stale-green d5 badge downgrades to amber (per-sub-row fold, 6h window)", () => {
-    // resolveD5Row applies the per-sub-row stale fold BEFORE worst-state, so
-    // any stale-green sub-row forces the family amber. All 5 mapped sub-rows
-    // are present so STRICT missing handling is satisfied and the stale fold
-    // is what's under test.
+  it("stale legacy d5 green remains unverified", () => {
     const live = mapOf([
       row("d5:agno/beautiful-chat-toggle-theme", "d5", "green", {
         observed_at: freshAt(0),
@@ -1115,18 +1096,17 @@ describe("resolveCell — staleness downgrade (unification A)", () => {
       }),
     ]);
     const c = resolveCell(live, "agno", "beautiful-chat", { now: NOW });
-    expect(c.d5.tone).toBe("amber");
+    expect(c.d5.tone).toBe("gray");
   });
 
-  it("stale-green d6 badge downgrades to amber (6h window)", () => {
-    // D6 is per-cell (d6:<slug>/<featureType>), so use a mapped feature.
+  it("stale legacy d6 green remains unverified", () => {
     const live = mapOf([
       row("d6:agno/agentic-chat", "d6", "green", {
         observed_at: freshAt(E2E_STALE_AFTER_MS + 60 * 60 * 1000),
       }),
     ]);
     const c = resolveCell(live, "agno", "agentic-chat", { now: NOW });
-    expect(c.d6.tone).toBe("amber");
+    expect(c.d6.tone).toBe("gray");
   });
 
   it("stale-green smoke / d2 badges downgrade to amber (45m window)", () => {
@@ -1172,43 +1152,23 @@ describe("resolveCell — staleness downgrade (unification A)", () => {
   });
 });
 
-describe("resolveD5Row / resolveD6Row — effective (stale-downgraded) winner (G2f)", () => {
-  const NOW = Date.parse("2026-05-30T00:00:00Z");
-  const staleAt = new Date(
-    NOW - E2E_STALE_AFTER_MS - 60 * 60 * 1000,
-  ).toISOString();
-  const freshAt = new Date(NOW).toISOString();
-
-  it("resolveD5Row returns the EFFECTIVE row for a stale-green winner (.row.state agrees with the fold)", () => {
-    // The fold ranks the stale-green sub-row as degraded, but the resolver
-    // used to store the RAW row — a consumer reading .state saw a latent
-    // false-green that contradicted the rank that made it the winner.
-    // Mirrors cell-model.ts resolveD5's effective-row storage.
-    const live = mapOf([
-      row("d5:agno/agentic-chat", "d5", "green", { observed_at: staleAt }),
-    ]);
-    const r = resolveD5Row(live, "agno", "agentic-chat", NOW);
-    expect(r?.state).toBe("degraded");
-    // Producer fields preserved by the spread (drilldown metadata intact).
-    expect(r?.key).toBe("d5:agno/agentic-chat");
-    expect(r?.observed_at).toBe(staleAt);
-  });
-
-  it("resolveD6Row returns the EFFECTIVE row for a stale-green winner", () => {
-    const live = mapOf([
-      row("d6:agno/agentic-chat", "d6", "green", { observed_at: staleAt }),
-    ]);
-    const r = resolveD6Row(live, "agno", "agentic-chat", NOW);
-    expect(r?.state).toBe("degraded");
-  });
-
-  it("a fresh winner row passes through by reference, unmodified", () => {
-    const fresh = row("d5:agno/agentic-chat", "d5", "green", {
-      observed_at: freshAt,
-    });
-    const live = mapOf([fresh]);
-    expect(resolveD5Row(live, "agno", "agentic-chat", NOW)).toBe(fresh);
-  });
+describe("functional admission — raw positives never acquire reader credit", () => {
+  it.each([resolveD5Row, resolveD6Row])(
+    "denies producer-supplied qualification at fresh and stale ages",
+    (resolve) => {
+      const dimension = resolve === resolveD5Row ? "d5" : "d6";
+      const now = Date.parse("2026-05-30T00:00:00Z");
+      for (const age of [0, E2E_STALE_AFTER_MS + 1]) {
+        const raw = row(`${dimension}:agno/agentic-chat`, dimension, "green", {
+          observed_at: new Date(now - age).toISOString(),
+          signal: { qualifies: true, expected: { complete: true } },
+        });
+        expect(resolve(mapOf([raw]), "agno", "agentic-chat", now)).toBeNull();
+        expect(raw.state).toBe("green");
+        expect(raw.observed_at).toBe(new Date(now - age).toISOString());
+      }
+    },
+  );
 });
 
 describe("formatTooltip behaviour (via resolveCell)", () => {

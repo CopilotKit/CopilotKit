@@ -502,7 +502,12 @@ describe("projectRunBatch", () => {
       ],
     };
     const projected = projectRunBatch(batch, false);
-    expect(projected.cells).toEqual({ total: 16, passed: 14, failed: 2 });
+    expect(projected.cells).toEqual({
+      total: 16,
+      passed: 0,
+      failed: 2,
+      unverified: 14,
+    });
     expect(projected.finishedAt).toBe(iso(-50_000));
     expect(projected.enqueuedAt).toBe(iso(-600_000));
     expect(projected.durationMs).toBe(550_000);

@@ -59,12 +59,12 @@ export type ProbeKind =
   | (string & {});
 
 export type ServiceState = "queued" | "running" | "completed" | "failed";
-export type ProbeResult = "green" | "yellow" | "red";
+export type ProbeResult = "green" | "yellow" | "red" | "unverified";
 
 export interface ProbeRunServiceResult {
   slug: string;
   state: "completed" | "failed";
-  result?: "green" | "yellow" | "red";
+  result?: ProbeResult;
   error?: string;
 }
 
@@ -72,6 +72,7 @@ export interface ProbeRunSummary {
   total: number;
   passed: number;
   failed: number;
+  unverified?: number;
   services?: ProbeRunServiceResult[];
 }
 
@@ -402,6 +403,7 @@ export interface WorkerCellCounts {
   total: number;
   passed: number;
   failed: number;
+  unverified?: number;
 }
 
 /**

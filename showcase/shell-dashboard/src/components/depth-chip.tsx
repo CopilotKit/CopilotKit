@@ -65,6 +65,7 @@ export interface DepthChipProps {
    * ambiguous reclaim).
    */
   pending?: boolean;
+  blockedBy?: "health" | "agent";
   /** Tooltip text for the unreachable / pending treatment (names the kind). */
   commTooltip?: string;
 }
@@ -127,8 +128,24 @@ export function DepthChip({
   chipColor,
   unreachable,
   pending,
+  blockedBy,
   commTooltip,
 }: DepthChipProps) {
+  if (blockedBy && chipColor !== "red" && !unreachable) {
+    return (
+      <StatusChip
+        testId="depth-chip"
+        dataAttrs={{
+          "data-status": "unavailable",
+          "data-blocked-by": blockedBy,
+        }}
+        tone="gray"
+        size="md"
+        label="?"
+        title={`Integration unavailable: ${blockedBy === "health" ? "health" : "API"} check failed`}
+      />
+    );
+  }
   // Pool comm-error overlay (REQ-B) takes precedence over every probe colour:
   // a "couldn't reach the pool" state must never be mistaken for a red test.
   // A distinct HOLLOW indigo `!` chip, resolved BEFORE the unshipped/

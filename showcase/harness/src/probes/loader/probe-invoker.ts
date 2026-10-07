@@ -1,4 +1,5 @@
 import type { ProbeConfig } from "./schema.js";
+import { functionalAdmission } from "../../shared/cell-model/live-status.js";
 import type { DiscoveryRegistry, ProbeDriver } from "../types.js";
 import type {
   Logger,
@@ -123,6 +124,7 @@ export interface RunSummary {
   total: number;
   passed: number;
   failed: number;
+  unverified?: number;
   /**
    * True when discovery enumeration itself failed (source threw or timed
    * out). Distinct from per-target failures, which roll up into `failed`.
@@ -405,6 +407,7 @@ export function buildProbeInvoker(
 
     let passed = 0;
     let failed = 0;
+    let unverified = 0;
 
     // CR-A1.5: discovery enumerate failure short-circuits the fan-out.
     // Surface a synthetic-error ProbeResult (so the alert-engine sees a
@@ -492,7 +495,7 @@ export function buildProbeInvoker(
         });
       }
       // The sentinel itself counts as the single failure unit so the
-      // RunSummary invariant (total === passed + failed) holds.
+      // RunSummary invariant (total === passed + failed + unverified) holds.
       // Finalize the run row + clear the tracker so we don't leak the
       // observability state we set up at the top of invoke().
       tracker.fail(sentinel.key, sentinel.errorDesc ?? "discovery sentinel");
@@ -650,6 +653,11 @@ export function buildProbeInvoker(
             "unknown error";
           tracker.fail(key, errDesc);
           failed++;
+        } else if (
+          functionalAdmission(result.key, result.state) === "unverified"
+        ) {
+          tracker.complete(key, "unverified");
+          unverified++;
         } else if (result.state === "green") {
           tracker.complete(key, "green");
           passed++;
@@ -723,7 +731,7 @@ export function buildProbeInvoker(
     // R4-A.7: when the outer catch fires, we synthesize an internal-
     // invariant tile and bump `failed`. Track that with a flag so the
     // RunSummary.total below adds 1 for the synthetic tile (preserving
-    // the `total === passed + failed` invariant).
+    // the `total === passed + failed + unverified` invariant).
     let outerInvariantFailure = false;
     try {
       // Skip fan-out when discovery failed — there are no inputs to fan
@@ -773,7 +781,7 @@ export function buildProbeInvoker(
     } finally {
       // R2-A.1: when discovery failed, treat the discovery itself as a
       // single failed unit so the RunSummary invariant
-      // (total === passed + failed) holds. inputs.length is 0 in that
+      // (total === passed + failed + unverified) holds. inputs.length is 0 in that
       // case (no per-target fan-out), and `failed` was bumped by 1
       // above for the synthetic-error tile, so total must be 1 too.
       //
@@ -782,11 +790,11 @@ export function buildProbeInvoker(
       // processed (some targets may have completed before the throw,
       // others never started). Use the partial passed/failed tally
       // (which already includes the +1 synthetic invariant tile) so
-      // `total === passed + failed` holds by construction. The
+      // `total === passed + failed + unverified` holds by construction. The
       // discoveryFailed and happy-path branches keep their existing
       // `total` semantics.
       const baseTotal = outerInvariantFailure
-        ? passed + failed
+        ? passed + failed + unverified
         : resolved.ok
           ? inputs.length
           : 1;
@@ -794,6 +802,7 @@ export function buildProbeInvoker(
         total: baseTotal,
         passed,
         failed,
+        ...(unverified > 0 ? { unverified } : {}),
         ...(resolved.ok ? {} : { discoveryFailed: true }),
       };
       // B7: finalize the run row. Best-effort: log + swallow on failure so
@@ -804,6 +813,7 @@ export function buildProbeInvoker(
           total: summary.total,
           passed: summary.passed,
           failed: summary.failed,
+          ...(unverified > 0 ? { unverified } : {}),
           services: snap.services.map((s) => ({
             slug: s.slug,
             state: s.state,
@@ -832,6 +842,7 @@ export function buildProbeInvoker(
         total: summary.total,
         passed: summary.passed,
         failed: summary.failed,
+        ...(unverified > 0 ? { unverified } : {}),
         durationMs: Date.now() - tickStart,
         discoveryFailed: summary.discoveryFailed ?? false,
       });
@@ -850,6 +861,7 @@ export function buildProbeInvoker(
           total: summary.total,
           passed: summary.passed,
           failed: summary.failed,
+          ...(unverified > 0 ? { unverified } : {}),
           durationMs: Date.now() - tickStart,
           services: summarySnap.services.map((s) => ({
             slug: s.slug,
@@ -865,14 +877,14 @@ export function buildProbeInvoker(
       scheduler?.setEntryTracker(schedulerEntryId, null);
     }
 
-    // R2-A.1: same total-vs-(passed+failed) invariant in the return —
+    // R2-A.1: same total-vs-(passed+failed+unverified) invariant in the return —
     // mirror the persisted summary above.
     // R4-A.7: when the outer catch fired, fall back to the partial
-    // passed+failed sum (which already includes the +1 synthetic
+    // passed+failed+unverified sum (which already includes the +1 synthetic
     // invariant tile) so the returned summary matches what was
     // persisted by the finally block above.
     const returnTotal = outerInvariantFailure
-      ? passed + failed
+      ? passed + failed + unverified
       : resolved.ok
         ? inputs.length
         : 1;
@@ -880,6 +892,7 @@ export function buildProbeInvoker(
       total: returnTotal,
       passed,
       failed,
+      ...(unverified > 0 ? { unverified } : {}),
       ...(resolved.ok ? {} : { discoveryFailed: true }),
     };
   };

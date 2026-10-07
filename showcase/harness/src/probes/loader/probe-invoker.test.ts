@@ -64,6 +64,57 @@ const BASE_DEPS = {
 };
 
 describe("buildProbeInvoker", () => {
+  it("functional admission retains raw green history but gives no passing counter or tracker credit", async () => {
+    const inputSchema = z.object({ key: z.string() });
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: { qualifies: true },
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "d5",
+      schedule: "*/15 * * * *",
+      max_concurrency: 1,
+      targets: [{ key: "d5:mastra/gen-ui-a2ui-fixed" }],
+    };
+    const { writer, writes } = mkWriter();
+    let tracker: ProbeRunTracker | null = null;
+    const summary = await buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      ...BASE_DEPS,
+      scheduler: {
+        getEntry: () => undefined,
+        setEntryTracker: (_id, entry) => {
+          if (entry) tracker = entry;
+        },
+      },
+    })();
+    expect(summary).toMatchObject({
+      total: 1,
+      passed: 0,
+      failed: 0,
+      unverified: 1,
+    });
+    expect(writes[0]).toMatchObject({
+      state: "green",
+      signal: { qualifies: true },
+    });
+    expect(tracker!.snapshot().services[0]).toMatchObject({
+      state: "completed",
+      result: "unverified",
+    });
+  });
   it("fans out static targets and emits one writer.write per target", async () => {
     const inputSchema = z.object({ key: z.string(), url: z.string().url() });
     const driver: ProbeDriver<z.infer<typeof inputSchema>, { ok: true }> = {

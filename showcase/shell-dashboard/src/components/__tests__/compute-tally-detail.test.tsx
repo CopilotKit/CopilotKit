@@ -241,7 +241,7 @@ describe("computeColumnTallyDetail", () => {
     expect(result.red).toEqual([]);
   });
 
-  it("green D6 cells land in green bucket", () => {
+  it("legacy D6 positives do not land in green bucket", () => {
     // Use feature IDs with a D5 mapping (agentic-chat, tool-rendering) so the
     // verification ladder is contiguous to D5. Green requires an intact
     // ladder: a green D6 cannot paint green over a missing/red D5.
@@ -295,10 +295,7 @@ describe("computeColumnTallyDetail", () => {
     );
 
     expect(result.unknown).toBe(false);
-    expect(result.green).toEqual([
-      { label: "Feature A", dimension: "e2e", featureId: "agentic-chat" },
-      { label: "Feature B", dimension: "e2e", featureId: "tool-rendering" },
-    ]);
+    expect(result.green).toEqual([]);
     expect(result.amber).toEqual([]);
     expect(result.red).toEqual([]);
   });
@@ -369,9 +366,7 @@ describe("computeColumnTallyDetail", () => {
     expect(result.unknown).toBe(false);
     // agentic-chat: wired + intact green ladder → green; tool-rendering:
     // unwired → gray.
-    expect(result.green).toEqual([
-      { label: "Feature 1", dimension: "e2e", featureId: "agentic-chat" },
-    ]);
+    expect(result.green).toEqual([]);
     expect(result.amber).toEqual([]);
     expect(result.red).toEqual([]);
   });
@@ -538,14 +533,12 @@ describe("computeColumnTallyDetail", () => {
     expect(result.unknown).toBe(false);
     // agentic-chat: intact green ladder → green; tool-rendering: unsupported
     // → gray → excluded.
-    expect(result.green).toEqual([
-      { label: "Feature A", dimension: "e2e", featureId: "agentic-chat" },
-    ]);
+    expect(result.green).toEqual([]);
     expect(result.amber).toEqual([]);
     expect(result.red).toEqual([]);
   });
 
-  it("amber cell (D5 green, D6 absent) classifies as 'health', not 'e2e' (A.6)", () => {
+  it("unqualified D5 positive without D6 creates no positive tally", () => {
     // A.6 dimension-classification rule: an amber cell is amber BECAUSE its
     // D5 sub-signal is green (the ladder is intact through D5) but D6 is not
     // green. That is a LIVE-conversation/parity surface — it must classify as
@@ -578,12 +571,10 @@ describe("computeColumnTallyDetail", () => {
     expect(result.unknown).toBe(false);
     expect(result.green).toEqual([]);
     expect(result.red).toEqual([]);
-    expect(result.amber).toEqual([
-      { label: "Feature A", dimension: "health", featureId: "agentic-chat" },
-    ]);
+    expect(result.amber).toEqual([]);
   });
 
-  it("tallies PER-CELL D6 greens in a column with mixed per-cell rows (bug fix)", () => {
+  it("tallies genuine PER-CELL D6 failure while legacy positives stay unverified", () => {
     // The bug: the column tally derived from the integration aggregate
     // `d6:<slug>`, so the moment ANY cell failed parity the WHOLE column went
     // red. With per-cell D6 rows, a column with one red and one green cell
@@ -619,13 +610,11 @@ describe("computeColumnTallyDetail", () => {
 
     expect(result.unknown).toBe(false);
     // voice: D5 green + per-cell D6 green → green (NOT dragged red by aggregate).
-    expect(result.green).toEqual([
-      { label: "Voice", dimension: "e2e", featureId: "voice" },
-    ]);
+    expect(result.green).toEqual([]);
     // agentic-chat: D5 green + per-cell D6 red → amber (D6 above D5).
-    expect(result.amber).toEqual([
+    expect(result.red).toEqual([
       { label: "Agentic Chat", dimension: "health", featureId: "agentic-chat" },
     ]);
-    expect(result.red).toEqual([]);
+    expect(result.amber).toEqual([]);
   });
 });

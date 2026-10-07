@@ -237,8 +237,16 @@ export function combine(
   //    isRegression read — NOT the raw folded row status — so an infra-only red
   //    D6 (folded to gray in the chip) does not surface as a product-red badge.
   const tc = axis.softTop ? byKind.get(axis.softTop.kind) : undefined;
+  // An unverified D5 must not hide a classified fresh D6 product failure.
+  const d6FailureAboveUnverified =
+    !!axis.softTop &&
+    achieved === 4 &&
+    byKind.get("D5")?.contribution === "NO_DATA" &&
+    tc?.contribution === "FAIL_FRESH";
   const d6Effective: TestStatus =
-    axis.softTop && achieved >= axis.softTop.atCeiling - 1 && tc
+    axis.softTop &&
+    (achieved >= axis.softTop.atCeiling - 1 || d6FailureAboveUnverified) &&
+    tc
       ? contributionToD6Status(tc.contribution)
       : null;
 
@@ -250,11 +258,11 @@ export function combine(
     stopRung.contribution === "FAIL_FRESH";
 
   return {
-    chipColor,
+    chipColor: d6FailureAboveUnverified ? "red" : chipColor,
     achievedDepth: achieved,
     ceilingDepth: structuralCeiling,
     d6Effective,
-    isRegression,
+    isRegression: d6FailureAboveUnverified || isRegression,
   };
 }
 

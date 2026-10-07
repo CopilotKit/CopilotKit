@@ -4180,3 +4180,95 @@ describe("selected fleet observations", () => {
     expect(env.rows.size).toBe(0);
   });
 });
+
+describe("functional admission history-only writes", () => {
+  it("keeps selected unqualified green atomic history-only and preserves failure state", async () => {
+    const env = fakePb();
+    const key = "d5:mastra/gen-ui-a2ui-fixed";
+    const baseline = {
+      id: "status000000001",
+      key,
+      dimension: "d5",
+      state: "red" as const,
+      signal: { original: true },
+      observed_at: "2026-04-19T00:00:00Z",
+      transitioned_at: "2026-04-19T00:00:00Z",
+      first_failure_at: "2026-04-19T00:00:00Z",
+      fail_count: 7,
+    };
+    env.rows.set(key, baseline);
+    const apply = vi.fn<NonNullable<PbClient["applyFleetObservation"]>>(
+      async (plan) => {
+        if (!("outcome" in plan)) throw new Error("expected history plan");
+        return { replay: false, outcome: plan.outcome };
+      },
+    );
+    const bus = createEventBus();
+    const changed = vi.fn();
+    bus.on("status.changed", changed);
+    const writer = createStatusWriter({
+      pb: {
+        ...env.pb,
+        getOne: async <T>() => ({ result_observation_receipts: null }) as T,
+        applyFleetObservation: apply,
+      },
+      bus,
+      logger,
+    });
+    const result = {
+      ...probeResult("green"),
+      key,
+      signal: { qualifies: true },
+    };
+    const outcome = await writer.writeSelected({
+      jobId: "job000000000001",
+      result,
+    });
+    expect(apply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        route: "history",
+        status: null,
+        history: expect.objectContaining({
+          state: "green",
+          transition: "error",
+          signal: result.signal,
+          observed_at: result.observedAt,
+        }),
+      }),
+    );
+    expect(outcome).toMatchObject({
+      kind: "write",
+      value: {
+        previousState: "red",
+        newState: "green",
+        firstFailureAt: baseline.first_failure_at,
+        failCount: 7,
+        persisted: false,
+      },
+    });
+    expect(env.rows.get(key)).toEqual(baseline);
+    expect(changed).not.toHaveBeenCalled();
+  });
+  it("retains ordinary unqualified raw audit history and throws on audit failure", async () => {
+    const env = fakePb();
+    const writer = createStatusWriter({
+      pb: env.pb,
+      bus: createEventBus(),
+      logger,
+    });
+    const result = {
+      ...probeResult("green"),
+      key: "d6:mastra/chat",
+      signal: { skipped: true },
+    };
+    await expect(writer.write(result)).resolves.toMatchObject({
+      persisted: false,
+    });
+    expect(env.rows.size).toBe(0);
+    expect(env.history).toHaveLength(1);
+    vi.spyOn(env.pb, "create").mockRejectedValueOnce(
+      new Error("history rejected"),
+    );
+    await expect(writer.write(result)).rejects.toThrow("history rejected");
+  });
+});

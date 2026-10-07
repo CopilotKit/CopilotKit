@@ -16,6 +16,7 @@ import {
   SOFT_MISS_TOLERANCE_THRESHOLD,
   SOFT_STARTER_FAILURE_CLASSES,
   starterErrorClassFromSignal,
+  functionalAdmission,
 } from "./live-status.js";
 import {
   isStale,
@@ -521,7 +522,14 @@ export function classifyRung(raw: RawRung, now: number): RungContribution {
     // STRICT anyMissing collapse: a missing mapped/unconditional sub-row makes
     // the family unverified → NO_DATA (unless a present red dominates — handled
     // in the red branch below).
-    if (raw.anyExpectedMissing) {
+    if (
+      raw.anyExpectedMissing ||
+      raw.rows.some(
+        (row) =>
+          functionalAdmission(`${kind.toLowerCase()}:`, row.state) ===
+          "unverified",
+      )
+    ) {
       return { ...base, contribution: "NO_DATA", rawStatus: null };
     }
     if (worst === "green") {

@@ -30,6 +30,8 @@ export interface ProbeRunSummary {
   total: number;
   passed: number;
   failed: number;
+  /** Observations denied functional credit; neither passes nor failures. */
+  unverified?: number;
   /**
    * Optional per-target breakdown. Kept as `unknown[]` so callers that
    * already produce richer per-target shapes (Railway service records,

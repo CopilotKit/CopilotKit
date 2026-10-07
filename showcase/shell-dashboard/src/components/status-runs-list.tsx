@@ -38,6 +38,7 @@ function runTone(run: ProbeRun): StateTone {
   if (!run.finishedAt) return "running";
   if (run.summary) {
     if (run.summary.failed > 0) return "red";
+    if (run.summary.unverified) return "gray";
     // R2-D.4: failed=0 is necessary but not sufficient for green. If
     // some services were skipped/unknown (passed < total) we render
     // amber + "partial" so the operator doesn't misread an incomplete
@@ -54,6 +55,7 @@ function runStateLabel(run: ProbeRun): string {
   if (!run.finishedAt) return "running";
   if (run.summary) {
     if (run.summary.failed > 0) return "failed";
+    if (run.summary.unverified) return "Not verified";
     if (run.summary.passed < run.summary.total) {
       const skipped = run.summary.total - run.summary.passed;
       return `partial (${skipped} skipped)`;
@@ -89,6 +91,7 @@ const RESULT_ICON: Record<string, string> = {
   green: "✅",
   yellow: "⚠️",
   red: "❌",
+  unverified: "?",
 };
 
 function serviceChipIcon(svc: ProbeRunServiceResult): string {
@@ -158,9 +161,13 @@ export function StatusRunsList({ runs }: StatusRunsListProps) {
               : r.startedAt;
             const duration =
               r.durationMs != null ? formatDuration(r.durationMs) : "—";
-            const summaryText = r.summary
+            let summaryText = r.summary
               ? `${r.summary.passed}/${r.summary.total} pass`
               : "—";
+            if (r.summary?.failed)
+              summaryText += `; ${r.summary.failed} failed`;
+            if (r.summary?.unverified)
+              summaryText += `; ${r.summary.unverified} not verified`;
             const services = r.summary?.services;
             const hasServices = services && services.length > 0;
             const isExpanded = expanded.has(r.id);

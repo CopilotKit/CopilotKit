@@ -317,11 +317,11 @@ describe("result ↔ storage mappers (preserve dashboard row shape)", () => {
     });
   });
 
-  it("maps the rollup onto the ProbeRunSummary shape", () => {
+  it("counts unqualified functional observations separately from failures", () => {
     const summary = runSummaryForServiceJobResult(
       makeResult({ rollup: { total: 3, passed: 2, failed: 1 } }),
     );
-    expect(summary).toEqual({ total: 3, passed: 2, failed: 1 });
+    expect(summary).toEqual({ total: 3, passed: 0, failed: 1, unverified: 2 });
     // structurally assignable to the storage contract
     const asSummary: ProbeRunSummary = summary;
     expect(asSummary.total).toBe(3);
@@ -500,4 +500,88 @@ describe("type-level: contract assignability", () => {
   it("WORKERS_COLLECTION is the workers literal", () => {
     expect(WORKERS_COLLECTION).toBe("workers");
   });
+});
+
+it("functional admission denies the worker's legacy functional pass rollup", () => {
+  expect(
+    runSummaryForServiceJobResult(
+      makeResult({
+        probeKey: "smoke:mastra",
+        aggregateKey: "smoke:mastra",
+        cells: [],
+      }),
+    ),
+  ).toEqual({ total: 1, passed: 1, failed: 0 });
+});
+
+it("functional admission denies the recorded selected D5 namespace positive", () => {
+  const result = makeResult({
+    probeKey: "d5-single-pill-e2e:mastra",
+    aggregateKey: "d5-single-pill-e2e:mastra",
+    cells: [
+      {
+        cellId: "gen-ui-a2ui-fixed",
+        cellKey: "d5:mastra/gen-ui-a2ui-fixed",
+        state: "green",
+        signal: { qualifies: true },
+        observedAt: "2026-10-01T03:50:00.000Z",
+      },
+    ],
+  });
+  expect(runSummaryForServiceJobResult(result)).toEqual({
+    total: 1,
+    passed: 0,
+    failed: 0,
+    unverified: 1,
+  });
+});
+
+it("functional admission denies the configured D6 producer namespace positive", () => {
+  expect(
+    runSummaryForServiceJobResult(
+      makeResult({
+        probeKey: "d6-all-pills-e2e:showcase-mastra",
+        aggregateKey: "d6-all-pills-e2e:showcase-mastra",
+      }),
+    ),
+  ).toEqual({ total: 1, passed: 0, failed: 0, unverified: 1 });
+});
+
+it("review admission denies functional cells behind a nonfunctional wrapper and retains unrelated credit", () => {
+  const result = makeResult({
+    probeKey: "qa:mastra",
+    aggregateKey: "qa:mastra",
+    rollup: { total: 3, passed: 2, failed: 1 },
+    cells: [
+      {
+        cellId: "functional",
+        cellKey: "d5:mastra/gen-ui-a2ui-fixed",
+        state: "green",
+        signal: { qualifies: true },
+        observedAt: "2026-10-01T03:50:00.000Z",
+      },
+      {
+        cellId: "readiness",
+        cellKey: "health:mastra",
+        state: "green",
+        signal: {},
+        observedAt: "2026-10-01T03:50:00.000Z",
+      },
+      {
+        cellId: "failure",
+        cellKey: "d6:mastra/shared-state",
+        state: "red",
+        signal: {},
+        observedAt: "2026-10-01T03:50:00.000Z",
+      },
+    ],
+  });
+  const before = JSON.stringify(result);
+  expect(runSummaryForServiceJobResult(result)).toEqual({
+    total: 3,
+    passed: 1,
+    failed: 1,
+    unverified: 1,
+  });
+  expect(JSON.stringify(result)).toBe(before);
 });

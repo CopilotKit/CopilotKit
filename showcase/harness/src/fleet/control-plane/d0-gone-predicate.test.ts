@@ -191,6 +191,8 @@ function modelsFor(fx: ColumnFixture): CellGoneInput[] {
   return fx.inputs.map((input) => {
     const m = buildCellModel(fx.live, input, NOW);
     return {
+      d3: m.d3,
+      d4: m.d4,
       achievedDepth: m.achievedDepth,
       chipColor: m.chipColor,
       isStaleCell: m.isStaleCell,
@@ -248,6 +250,8 @@ describe("d0-gone-predicate — no divergence from buildCellModel (§10.1)", () 
         const m = buildCellModel(fx.live, input, NOW);
         const folded = modelsFor(fx)[i];
         expect(folded).toEqual({
+          d3: m.d3,
+          d4: m.d4,
           achievedDepth: m.achievedDepth,
           chipColor: m.chipColor,
           isStaleCell: m.isStaleCell,
@@ -279,21 +283,16 @@ describe("d0-gone-predicate — no divergence from buildCellModel (§10.1)", () 
 });
 
 describe("B-F1 — recovery requires POSITIVE green, never mere absence/no-data", () => {
-  // A "partial-ladder no-data" cell: e2e/chat/tools green but NO d5/d6 rows →
-  // buildCellModel yields { achievedDepth: 4, chipColor: "gray" } (the D5
-  // exists-but-unemitted no-data collapse). This is EXACTLY the shape a gone
-  // column decays into when the producer stops writing d5/d6 rows — the cell
-  // goes to NO-DATA (gray), NOT green. The OLD `columnFreshHealthy` (`!some
-  // cellGone`) marked this gray cell as recovered; the fixed predicate must NOT.
+  // D3 readiness alone, without unconditional D4 chat, is not recovery.
   const noDataLive = mergeRowsToMap([
     row(keyFor("e2e", SLUG, "agentic-chat"), "green"),
-    row(keyFor("chat", SLUG), "green"),
-    row(keyFor("tools", SLUG), "green"),
   ]);
   const noDataInput: CellModelInput = wired("agentic-chat");
   function noDataModel(): CellGoneInput {
     const m = buildCellModel(noDataLive, noDataInput, NOW);
     return {
+      d3: m.d3,
+      d4: m.d4,
       achievedDepth: m.achievedDepth,
       chipColor: m.chipColor,
       isStaleCell: m.isStaleCell,
@@ -319,16 +318,18 @@ describe("B-F1 — recovery requires POSITIVE green, never mere absence/no-data"
     expect(columnGone([noDataModel()])).toBe(false);
   });
 
-  it("only a REAL green ladder recovers (positive evidence)", () => {
+  it("positive D3/D4 readiness recovers while the functional chip stays unverified", () => {
     const greenLive = mergeRowsToMap(greenLadder("agentic-chat", FRESH));
     const m = buildCellModel(greenLive, wired("agentic-chat"), NOW);
     const model: CellGoneInput = {
+      d3: m.d3,
+      d4: m.d4,
       achievedDepth: m.achievedDepth,
       chipColor: m.chipColor,
       isStaleCell: m.isStaleCell,
       surfaceState: m.surfaceState,
     };
-    expect(m.chipColor).toBe("green");
+    expect(m.chipColor).toBe("gray");
     expect(cellHealthy(model)).toBe(true);
     expect(classifyCell(model)).toBe("healthy");
     expect(columnFreshHealthy([model])).toBe(true);
@@ -338,6 +339,8 @@ describe("B-F1 — recovery requires POSITIVE green, never mere absence/no-data"
     // A stale-green ladder folds to amber at the depth level; an amber cell is
     // not a positive green, so it must not recover.
     const amber: CellGoneInput = {
+      d3: null,
+      d4: null,
       achievedDepth: 4,
       chipColor: "amber",
       isStaleCell: false,
