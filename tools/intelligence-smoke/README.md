@@ -59,10 +59,15 @@ The chart and supporting services still use the public pins.
 The built SDK runs in a separate process.
 It sends a real agent run through the Intelligence gateway and reads the saved conversation through app-api.
 Learning binds that Thread, waits for harvest, starts a run, and reads the saved Insights twice.
-The proof requires nonempty output with citations to the saved Thread messages.
+The proof requires nonempty output with the complete fixture citation list bound to the saved snapshot.
+Missing, duplicated, or unrelated citations fail the proof.
 Both reads must produce the same digest.
 
 AIMock serves only the checked-in replies in [fixtures.json](./fixtures.json).
+It listens on `0.0.0.0` so the Docker stack can reach it on Linux and Docker Desktop.
+Other hosts can reach this temporary port if the host firewall permits it.
+Run the test on an isolated CI runner or a trusted local network.
+The server never forwards requests to a model provider.
 Unknown, missing, repeated, or out-of-order model phases fail the result.
 The transcript fixture requires the expected conversation.
 The SDK model client rejects requests to another origin.
