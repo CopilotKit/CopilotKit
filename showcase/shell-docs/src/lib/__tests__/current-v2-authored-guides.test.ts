@@ -110,10 +110,14 @@ test("uses the AG2 runtime header and server gate for authentication", () => {
   expect(output).toContain("onRequest");
 });
 
-test("keeps audited quickstart install commands on current package-manager defaults", () => {
+test("keeps audited quickstart install commands resolvable with current adapters", () => {
+  // @ag-ui/claude-agent-sdk peer-requires @anthropic-ai/claude-agent-sdk
+  // ^0.2.58, while the SDK's `latest` tag is 0.3.x. An unpinned install
+  // resolves outside that peer range.
   const claude = source("integrations/claude-sdk-typescript/quickstart");
-  expect(claude).toContain("@anthropic-ai/claude-agent-sdk @anthropic-ai/sdk");
-  expect(claude).not.toContain("@anthropic-ai/claude-agent-sdk@^");
+  expect(claude).toContain(
+    "npm install @anthropic-ai/claude-agent-sdk@^0.2.58 @anthropic-ai/sdk @ag-ui/claude-agent-sdk",
+  );
 
   const crewai = source("integrations/crewai-flows/quickstart");
   expect(crewai).toContain(
