@@ -3,8 +3,10 @@ import test from "node:test";
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   chmodSync,
+  existsSync,
   mkdtempSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   writeFileSync,
   rmSync,
@@ -14,6 +16,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   REPO_LOCAL_GIT_VARS,
+  SKIP_DIRECTORIES,
+  SKIP_FILES,
   requiresConformance,
   gatePassed,
 } from "../gate.mjs";
@@ -48,6 +52,43 @@ test("runtime, fixture, dependency, and gate changes require conformance", () =>
   }
 });
 
+test("workspace packages the conformance build compiles require conformance", () => {
+  // Transitive workspace dependencies of @copilotkit/runtime and
+  // @copilotkit/core, which every leg builds with `nx run-many -t build`.
+  for (const path of [
+    "packages/channels/src/index.ts",
+    "packages/channels-core/src/index.ts",
+    "packages/channels-discord/src/index.ts",
+    "packages/channels-intelligence/src/index.ts",
+    "packages/channels-slack/src/index.ts",
+    "packages/channels-teams/src/index.ts",
+    "packages/channels-telegram/src/index.ts",
+    "packages/channels-ui/src/index.ts",
+    "packages/channels-whatsapp/src/index.ts",
+    "packages/learning/src/index.ts",
+    "packages/tsconfig/base.json",
+    "packages/typescript-config/base.json",
+    ".npmrc",
+    ".pnpmfile.cjs",
+  ]) {
+    assert.equal(requiresConformance([path]), true, path);
+  }
+});
+
+test("a pull request touching only a runtime dependency requires conformance", () => {
+  scopeFixture(({ git, commitFile, scope }) => {
+    commitFile("README.md");
+    git("switch", "-c", "feature");
+    const head = commitFile("packages/channels-ui/src/index.ts");
+    git("switch", "main");
+    git("merge", "--no-ff", "-m", "merge", "feature");
+    assert.equal(
+      scope({ GITHUB_EVENT_NAME: "pull_request", PR_HEAD_SHA: head }),
+      "required=true",
+    );
+  });
+});
+
 test("docs-only and empty changes do not require native toolchains", () => {
   assert.equal(
     requiresConformance(["showcase/shell-docs/README.md", "README.md"]),
@@ -69,18 +110,6 @@ test("the gate rejects failed, cancelled, missing, and unexpectedly skipped jobs
   assert.equal(gatePassed("cancelled", "true", "success"), false);
   assert.equal(gatePassed("success", undefined, "success"), false);
   assert.equal(gatePassed("success", "false", "failure"), false);
-});
-
-test("REPO_LOCAL_GIT_VARS covers the installed git's --local-env-vars", () => {
-  const listed = execFileSync("git", ["rev-parse", "--local-env-vars"], {
-    encoding: "utf8",
-  })
-    .split("\n")
-    .filter(Boolean);
-  assert.ok(listed.length > 0, "git printed no local env vars");
-  for (const name of listed) {
-    assert.ok(REPO_LOCAL_GIT_VARS.includes(name), name);
-  }
 });
 
 test("moving a runtime file outside the package still requires conformance", () => {
@@ -152,6 +181,264 @@ test("unrelated frontend packages skip native toolchains", () => {
     ]),
     false,
   );
+});
+
+test("build inputs outside the runtime packages require conformance", () => {
+  for (const path of [
+    // packages/runtime `build` runs this after tsdown.
+    "scripts/deprecations/v1-dist-notices.mjs",
+    // nx.json lists these as check-dts inputs; the TypeScript leg runs check-dts.
+    "scripts/validate-dts-ambient.ts",
+    "scripts/validate-x.ts",
+    // Any script may become a build input, so all of scripts/ is required.
+    "scripts/doc-tests/run.ts",
+    // oxlint reads the root config for `runtime-conformance:lint`.
+    ".oxlintrc.json",
+    // Both .NET csproj files pack ../../../LICENSE.
+    "LICENSE",
+    // pnpm applies patchedDependencies from here during install.
+    "patches/eventsource@3.0.7.patch",
+    // `pnpm install` runs the root `prepare` script, `lefthook install`.
+    "lefthook.yml",
+    ".gitattributes",
+    ".gitignore",
+    "tsconfig.json",
+    // runtime tests import this package's conformance snapshot by path.
+    "packages/intelligence-delivery-core/conformance/snapshots.v1.json",
+  ]) {
+    assert.equal(requiresConformance([path]), true, path);
+  }
+});
+
+test("a path outside the skip-list requires conformance, even a new one", () => {
+  for (const path of [
+    "brand-new-dir/index.ts",
+    "new-root-file.json",
+    "packages/brand-new-package/src/index.ts",
+    "tools/brand-new-tool/run.mjs",
+    ".github/actions/setup/action.yml",
+  ]) {
+    assert.equal(requiresConformance([path]), true, path);
+  }
+});
+
+test("REPO_LOCAL_GIT_VARS covers the installed git's --local-env-vars", () => {
+  const listed = execFileSync("git", ["rev-parse", "--local-env-vars"], {
+    encoding: "utf8",
+  })
+    .split("\n")
+    .filter(Boolean);
+  assert.ok(listed.length > 0, "git printed no local env vars");
+  for (const name of listed) {
+    assert.ok(REPO_LOCAL_GIT_VARS.includes(name), name);
+  }
+});
+
+test("every skip-list entry skips the matrix", () => {
+  for (const path of [
+    "AGENTS.md",
+    "CHANGELOG.md",
+    "CLAUDE.md",
+    "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md",
+    "README.md",
+    "SECURITY.md",
+    "VERSIONING.md",
+    ".coderabbit.yaml",
+    ".dockerignore",
+    ".kodiak.toml",
+    ".mcp.json",
+    ".nvmrc",
+    "commitlint.config.js",
+    "dangerfile.js",
+    "deploy-starter.sh",
+    "docs",
+    "release.config.json",
+    "renovate.json",
+    ".claude/docs/git.md",
+    ".claude-plugin/plugin.json",
+    ".cursor/rules/x.mdc",
+    ".github/ISSUE_TEMPLATE/bug.yml",
+    ".github/PULL_REQUEST_TEMPLATE.md",
+    ".github/config-allowlist.txt",
+    ".github/scripts/check-config-allowlist.sh",
+    ".github/workflows/other.yml",
+    ".github/zizmor.yml",
+    ".superset/config.json",
+    "assets/logo.png",
+    "codemods/x.ts",
+    "community/x/README.md",
+    "dev-docs/x.md",
+    "docs/x.md",
+    "examples/v2/react/demo/src/app.tsx",
+    "prds/x.md",
+    "sdk-python/copilotkit/x.py",
+    "showcase/shell-docs/src/content/x.mdx",
+    "skills/x/SKILL.md",
+    "tasks/x.md",
+    "tools/compatibility-monitor/x.mjs",
+    "tools/intelligence-smoke/run.mjs",
+    "tools/learned-skill-conformance/x.mjs",
+    "packages/a2ui-renderer/src/x.ts",
+    "packages/agentcore-runner/src/x.ts",
+    "packages/angular/src/x.ts",
+    "packages/demo-agents/src/x.ts",
+    "packages/intelligence-adk-python/x.py",
+    "packages/intelligence-agent-framework-dotnet/x.cs",
+    "packages/intelligence-delivery-python-core/x.py",
+    "packages/intelligence-langgraph/src/x.ts",
+    "packages/intelligence-langgraph-python/x.py",
+    "packages/intelligence-mastra/src/x.ts",
+    "packages/mcp-apps-renderer/src/x.ts",
+    "packages/react-core/src/x.ts",
+    "packages/react-native/src/x.ts",
+    "packages/react-textarea/src/x.ts",
+    "packages/react-ui/src/x.ts",
+    "packages/runtime-client-gql/src/x.ts",
+    "packages/sdk-js/src/x.ts",
+    "packages/sqlite-runner/src/x.ts",
+    "packages/tailwind-config/x.js",
+    "packages/voice/src/x.ts",
+    "packages/vue/src/x.ts",
+    "packages/web-components/src/x.ts",
+    "packages/web-inspector/src/x.ts",
+    ...SKIP_FILES,
+    ...SKIP_DIRECTORIES.map((dir) => `${dir}/x.md`),
+  ]) {
+    assert.equal(requiresConformance([path]), false, path);
+  }
+});
+
+test("skip-list entries match whole paths, not look-alikes", () => {
+  for (const path of [
+    // A skipped package name is only a prefix of these.
+    "packages/react-core-next/src/index.ts",
+    "packages/runtime-client-gql-next/src/index.ts",
+    "packages/vue2/src/index.ts",
+    "tools/intelligence-smoke-next/run.mjs",
+    // A skipped directory name appears inside a required path.
+    "packages/runtime/src/examples/x.ts",
+    "scripts/docs/x.ts",
+    "tools/runtime-conformance/showcase/x.mjs",
+    // A skipped root file name appears below the root or with a suffix.
+    "packages/runtime/README.md",
+    "packages/runtime/LICENSE",
+    "README.md.bak",
+    "xREADME.md",
+    "docsx",
+    // A skipped top-level directory without its separator.
+    "examples.json",
+    // Required files inside a skipped directory.
+    ".github/workflows/intelligence-runtimes.yml",
+    ".github/CODEOWNERS",
+  ]) {
+    assert.equal(requiresConformance([path]), true, path);
+  }
+});
+
+test("a workspace or project-graph manifest requires conformance, even in a skipped directory", () => {
+  // Every matrix leg runs `pnpm install --frozen-lockfile`, which reads the
+  // manifest of every workspace member, and builds the Nx project graph, which
+  // reads every project.json in the repository. A manifest edit anywhere can
+  // fail both, so the rule matches the file name in any directory.
+  for (const path of [
+    "packages/vue/package.json",
+    "examples/v2/react/demo/package.json",
+    "examples/v2/interrupts-langgraph/apps/web/project.json",
+    "tools/learned-skill-conformance/package.json",
+    "tools/learned-skill-conformance/project.json",
+    "packages/web-inspector/project.json",
+    "showcase/shared/typescript/project.json",
+    "showcase/harness/package.json",
+    "community/x/package.json",
+    // pnpm also reads a member manifest written as YAML or JSON5.
+    "packages/vue/package.yaml",
+    "packages/vue/package.json5",
+  ]) {
+    assert.equal(requiresConformance([path]), true, path);
+  }
+});
+
+test("other files beside a skipped manifest still skip the matrix", () => {
+  for (const path of [
+    "packages/vue/README.md",
+    "packages/vue/src/package.json.ts",
+    "packages/vue/my-package.json",
+    "packages/vue/package.json.bak",
+    "packages/vue/project.jsonc",
+    "packages/vue/tsconfig.json",
+    "examples/v2/react/demo/README.md",
+    "tools/learned-skill-conformance/x.mjs",
+  ]) {
+    assert.equal(requiresConformance([path]), false, path);
+  }
+});
+
+test("a pull request touching only a skipped package manifest requires conformance", () => {
+  scopeFixture(({ git, commitFile, scope }) => {
+    commitFile("README.md");
+    git("switch", "-c", "feature");
+    const head = commitFile("packages/vue/package.json");
+    git("switch", "main");
+    git("merge", "--no-ff", "-m", "merge", "feature");
+    assert.equal(
+      scope({ GITHUB_EVENT_NAME: "pull_request", PR_HEAD_SHA: head }),
+      "required=true",
+    );
+  });
+});
+
+test("a pull request touching only docs in a skipped package does not require conformance", () => {
+  scopeFixture(({ git, commitFile, scope }) => {
+    commitFile("packages/vue/package.json");
+    git("switch", "-c", "feature");
+    const head = commitFile("packages/vue/README.md");
+    git("switch", "main");
+    git("merge", "--no-ff", "-m", "merge", "feature");
+    assert.equal(
+      scope({ GITHUB_EVENT_NAME: "pull_request", PR_HEAD_SHA: head }),
+      "required=false",
+    );
+  });
+});
+
+test("one runtime file among skipped files requires conformance", () => {
+  assert.equal(
+    requiresConformance([
+      "README.md",
+      "showcase/shell-docs/src/content/x.mdx",
+      "scripts/deprecations/v1-dist-notices.mjs",
+    ]),
+    true,
+  );
+});
+
+test("a pull request touching only a runtime build script requires conformance", () => {
+  scopeFixture(({ git, commitFile, scope }) => {
+    commitFile("README.md");
+    git("switch", "-c", "feature");
+    const head = commitFile("scripts/deprecations/v1-dist-notices.mjs");
+    git("switch", "main");
+    git("merge", "--no-ff", "-m", "merge", "feature");
+    assert.equal(
+      scope({ GITHUB_EVENT_NAME: "pull_request", PR_HEAD_SHA: head }),
+      "required=true",
+    );
+  });
+});
+
+test("a pull request adding a new top-level directory requires conformance", () => {
+  scopeFixture(({ git, commitFile, scope }) => {
+    commitFile("README.md");
+    git("switch", "-c", "feature");
+    const head = commitFile("brand-new-dir/index.ts");
+    git("switch", "main");
+    git("merge", "--no-ff", "-m", "merge", "feature");
+    assert.equal(
+      scope({ GITHUB_EVENT_NAME: "pull_request", PR_HEAD_SHA: head }),
+      "required=true",
+    );
+  });
 });
 
 /** Build a throwaway repository and run the scope command inside it. */
@@ -902,4 +1189,135 @@ test("a malformed pull request head sha runs everything without reaching git", (
       assert.deepEqual(result.gitArgs, [], PR_HEAD_SHA);
     }
   });
+});
+
+/** The repository root that contains this checkout of the gate. */
+const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
+
+/**
+ * The pnpm workspace member directories, read from pnpm-workspace.yaml. Only
+ * literal and `*` path segments are expanded; any other glob syntax fails the
+ * test so that a new pattern cannot hide a member.
+ */
+function workspaceMembers() {
+  const yaml = readFileSync(join(REPO_ROOT, "pnpm-workspace.yaml"), "utf8");
+  const block = yaml.split(/^packages:\s*$/m)[1]?.split(/^\S/m)[0] ?? "";
+  const include = [];
+  const exclude = new Set();
+  for (const line of block.split("\n")) {
+    const match = line.match(/^\s+-\s+["']?([^"'#\s]+)["']?\s*(#.*)?$/);
+    if (!match) continue;
+    const pattern = match[1];
+    if (pattern.startsWith("!")) exclude.add(pattern.slice(1));
+    else include.push(pattern);
+  }
+  assert.ok(include.length > 0, "no packages: entries in pnpm-workspace.yaml");
+  const members = new Set();
+  for (const pattern of include) {
+    let dirs = [""];
+    for (const segment of pattern.split("/")) {
+      assert.match(
+        segment,
+        /^(\*|[^*?[\]{}!]+)$/,
+        `unsupported glob ${pattern}`,
+      );
+      dirs = dirs.flatMap((dir) => {
+        if (segment !== "*") return [dir ? `${dir}/${segment}` : segment];
+        const abs = join(REPO_ROOT, dir);
+        if (!existsSync(abs)) return [];
+        return readdirSync(abs, { withFileTypes: true })
+          .filter((entry) => entry.isDirectory())
+          .map((entry) => (dir ? `${dir}/${entry.name}` : entry.name));
+      });
+    }
+    for (const dir of dirs) {
+      if (existsSync(join(REPO_ROOT, dir, "package.json"))) members.add(dir);
+    }
+  }
+  for (const dir of exclude) members.delete(dir);
+  return members;
+}
+
+/**
+ * The transitive workspace closure of the matrix roots, as a map from member
+ * directory to the chain of directories that pulled it in. An edge is any
+ * dependency of any kind (dependencies, devDependencies, peerDependencies,
+ * optionalDependencies) whose name is a workspace package, and any
+ * project.json implicitDependencies entry, the same rule nx uses for
+ * `^build`.
+ */
+function workspaceClosure(roots) {
+  const byName = new Map();
+  const manifests = new Map();
+  for (const dir of workspaceMembers()) {
+    const pkg = JSON.parse(
+      readFileSync(join(REPO_ROOT, dir, "package.json"), "utf8"),
+    );
+    const projectPath = join(REPO_ROOT, dir, "project.json");
+    const project = existsSync(projectPath)
+      ? JSON.parse(readFileSync(projectPath, "utf8"))
+      : {};
+    manifests.set(dir, { pkg, project });
+    if (pkg.name) byName.set(pkg.name, dir);
+    if (project.name) byName.set(project.name, dir);
+  }
+  const chains = new Map();
+  const queue = [];
+  for (const root of roots) {
+    assert.ok(manifests.has(root), `${root} is not a workspace member`);
+    chains.set(root, [root]);
+    queue.push(root);
+  }
+  while (queue.length > 0) {
+    const dir = queue.shift();
+    const { pkg, project } = manifests.get(dir);
+    const names = [
+      ...Object.keys(pkg.dependencies ?? {}),
+      ...Object.keys(pkg.devDependencies ?? {}),
+      ...Object.keys(pkg.peerDependencies ?? {}),
+      ...Object.keys(pkg.optionalDependencies ?? {}),
+      ...(project.implicitDependencies ?? []),
+    ];
+    for (const name of names) {
+      const dep = byName.get(name);
+      if (dep === undefined || chains.has(dep)) continue;
+      chains.set(dep, [...chains.get(dir), dep]);
+      queue.push(dep);
+    }
+  }
+  return chains;
+}
+
+test("no package in the matrix's workspace dependency closure is skipped", () => {
+  // The roots the matrix builds, tests, and lints: runtime and core (nx
+  // `^build` pulls in their dependencies), the conformance harness, and the
+  // four native runtimes.
+  const closure = workspaceClosure([
+    "packages/runtime",
+    "packages/core",
+    "tools/runtime-conformance",
+    "packages/runtime-python",
+    "packages/runtime-go",
+    "packages/runtime-ruby",
+    "packages/runtime-dotnet",
+  ]);
+  // Positive control: the walk follows real edges, so the check below cannot
+  // pass on an empty closure.
+  for (const dir of [
+    "packages/shared",
+    "packages/learning",
+    "packages/channels-ui",
+  ]) {
+    assert.ok(closure.has(dir), `${dir} missing from the closure`);
+  }
+  // Probe a source file, not the manifest: a manifest requires conformance in
+  // every directory, so it cannot tell whether the directory itself is skipped.
+  const skipped = [...closure]
+    .filter(([dir]) => !requiresConformance([`${dir}/src/index.ts`]))
+    .map(([dir, chain]) => `${dir} (via ${chain.join(" -> ")})`);
+  assert.deepEqual(
+    skipped,
+    [],
+    `gate.mjs skips packages the matrix builds: ${skipped.join("; ")}`,
+  );
 });

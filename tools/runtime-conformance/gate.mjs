@@ -2,13 +2,132 @@ import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-/** Identify changes that can alter the runtime or its conformance contract. */
-export function requiresConformance(paths) {
-  return paths.some((path) =>
-    /^(?:packages\/(?:runtime(?:-(?:python|go|ruby|dotnet))?|core|shared|aimock)\/|tools\/runtime-conformance\/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|nx\.json$|tsconfig[^/]*\.json$|\.github\/(?:CODEOWNERS$|workflows\/intelligence-runtimes\.yml$))/.test(
-      path,
-    ),
+/**
+ * Files under a skipped directory that still require the matrix: the matrix
+ * workflow itself, and the owners of the gate.
+ */
+const REQUIRED_FILES = new Set([
+  ".github/CODEOWNERS",
+  ".github/workflows/intelligence-runtimes.yml",
+]);
+
+/**
+ * File names that require the matrix in any directory, skipped or not. Every
+ * matrix leg runs `pnpm install --frozen-lockfile`, which reads the manifest of
+ * every workspace member (package.json, or package.yaml or package.json5), and
+ * builds the Nx project graph, which reads every project.json in the
+ * repository and the package.json of every workspace member. A dependency
+ * added without a lockfile update, or a duplicate project name, fails every
+ * leg even when the package itself is skipped.
+ */
+const REQUIRED_NAMES = new Set([
+  "package.json",
+  "package.json5",
+  "package.yaml",
+  "project.json",
+]);
+
+/**
+ * Files that no matrix step reads: documentation, review and release bots,
+ * and editor settings. `.nvmrc` is skipped because the workflow pins
+ * `node-version: "22.x"`. `docs` is a symlink to showcase/shell-docs.
+ */
+export const SKIP_FILES = new Set([
+  ".github/PULL_REQUEST_TEMPLATE.md",
+  ".github/config-allowlist.txt",
+  ".github/zizmor.yml",
+  ".coderabbit.yaml",
+  ".dockerignore",
+  ".kodiak.toml",
+  ".mcp.json",
+  ".nvmrc",
+  "AGENTS.md",
+  "CHANGELOG.md",
+  "CLAUDE.md",
+  "CODE_OF_CONDUCT.md",
+  "CONTRIBUTING.md",
+  "README.md",
+  "SECURITY.md",
+  "VERSIONING.md",
+  "commitlint.config.js",
+  "dangerfile.js",
+  "deploy-starter.sh",
+  "docs",
+  "release.config.json",
+  "renovate.json",
+]);
+
+/**
+ * Directories that no matrix step reads. The skipped packages are outside the
+ * transitive workspace dependency closure of what the matrix builds, tests,
+ * and lints (@copilotkit/runtime, @copilotkit/core, runtime-conformance, and
+ * the four native runtimes), and no file in that closure reads them by path.
+ */
+export const SKIP_DIRECTORIES = [
+  ".claude",
+  ".claude-plugin",
+  ".cursor",
+  ".github/ISSUE_TEMPLATE",
+  ".github/scripts",
+  ".github/workflows",
+  ".superset",
+  "assets",
+  "codemods",
+  "community",
+  "dev-docs",
+  "docs",
+  "examples",
+  "prds",
+  "sdk-python",
+  "showcase",
+  "skills",
+  "tasks",
+  "tools/compatibility-monitor",
+  "tools/intelligence-smoke",
+  "tools/learned-skill-conformance",
+  "packages/a2ui-renderer",
+  "packages/agentcore-runner",
+  "packages/angular",
+  "packages/demo-agents",
+  "packages/intelligence-adk-python",
+  "packages/intelligence-agent-framework-dotnet",
+  "packages/intelligence-delivery-python-core",
+  "packages/intelligence-langgraph",
+  "packages/intelligence-langgraph-python",
+  "packages/intelligence-mastra",
+  "packages/mcp-apps-renderer",
+  "packages/react-core",
+  "packages/react-native",
+  "packages/react-textarea",
+  "packages/react-ui",
+  "packages/runtime-client-gql",
+  "packages/sdk-js",
+  "packages/sqlite-runner",
+  "packages/tailwind-config",
+  "packages/voice",
+  "packages/vue",
+  "packages/web-components",
+  "packages/web-inspector",
+];
+
+/** Whether a changed path is known not to feed the conformance matrix. */
+function skippable(path) {
+  if (REQUIRED_FILES.has(path)) return false;
+  if (REQUIRED_NAMES.has(path.slice(path.lastIndexOf("/") + 1))) return false;
+  return (
+    SKIP_FILES.has(path) ||
+    SKIP_DIRECTORIES.some((dir) => path.startsWith(`${dir}/`))
   );
+}
+
+/**
+ * Identify changes that can alter the runtime or its conformance contract.
+ * This is a skip-list: a change is exempt only when every path is known to be
+ * unrelated. Any other path, including a new package, directory, or root
+ * file, requires the matrix, so a new build input cannot be missed.
+ */
+export function requiresConformance(paths) {
+  return !paths.every(skippable);
 }
 
 /** Accept only a complete matrix or a confirmed unrelated change. */
