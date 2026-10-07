@@ -41,6 +41,17 @@ import type { ConnectionReplayLifecycle } from "./utils/connect-replay";
 import { ɵconnectWithoutEventVerification } from "./utils/connect-replay";
 import type { CopilotKitMessageFilter } from "./core/message-filter";
 import { ɵrepairToolCallPairs } from "./core/message-filter";
+import type {
+  RuntimeRequestInit,
+  RuntimeRequestMeta,
+} from "./utils/runtime-request";
+
+/**
+ * Stops go through the agent's own `fetch`, the transport its runs use (Core's
+ * runtime fetch for the agents Core creates). A stop is fire-and-forget, so
+ * its failure must not count against the runtime's health.
+ */
+const STOP_REQUEST_META: RuntimeRequestMeta = { nonCritical: true };
 
 type ResolvedRuntimeMode = RuntimeMode | "pending";
 
@@ -395,7 +406,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         ...this.headers,
         "Content-Type": "application/json",
       });
-      void fetch(this.singleEndpointUrl, {
+      const stopInit: RuntimeRequestInit = {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -407,7 +418,9 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
           ...(runId === undefined ? {} : { body: { runId } }),
         }),
         ...(this.credentials ? { credentials: this.credentials } : {}),
-      }).catch((error) => {
+        ɵruntimeRequest: STOP_REQUEST_META,
+      };
+      void this.fetch(this.singleEndpointUrl, stopInit).catch((error) => {
         console.error("ProxiedCopilotRuntimeAgent: stop request failed", error);
       });
       return;
@@ -425,7 +438,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     const base = new URL(this.runtimeUrl, origin);
     const stopUrl = new URL(stopPath, base);
 
-    void fetch(stopUrl.toString(), {
+    const stopInit: RuntimeRequestInit = {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -433,7 +446,9 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       },
       ...(runId === undefined ? {} : { body: JSON.stringify({ runId }) }),
       ...(this.credentials ? { credentials: this.credentials } : {}),
-    }).catch((error) => {
+      ɵruntimeRequest: STOP_REQUEST_META,
+    };
+    void this.fetch(stopUrl.toString(), stopInit).catch((error) => {
       console.error("ProxiedCopilotRuntimeAgent: stop request failed", error);
     });
   }

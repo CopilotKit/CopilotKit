@@ -227,19 +227,20 @@ export class SuggestionEngine {
           resolvedProviderAgentId,
         )}/suggest`;
         const credentials = this.core.credentials;
+        const coreFetch = this.core.ɵfetch;
         suggestionAgent = new HttpAgent({
           agentId: resolvedProviderAgentId,
           url: suggestUrl,
           headers: { ...this.core.headers },
-          // `HttpAgentConfig` has no `credentials` field; inject it via a fetch
-          // wrapper so cookie-based / self-hosted auth still rides along on the
-          // `/suggest` request.
-          ...(credentials
-            ? {
-                fetch: (url: string, requestInit: RequestInit) =>
-                  fetch(url, { ...requestInit, credentials }),
-              }
-            : {}),
+          // Core's fetch, so the `/suggest` stream works where the global fetch
+          // cannot stream. `HttpAgentConfig` has no `credentials` field, so the
+          // credentials mode rides along here too, keeping cookie-based /
+          // self-hosted auth on the request.
+          fetch: (url: string, requestInit: RequestInit) =>
+            coreFetch(
+              url,
+              credentials ? { ...requestInit, credentials } : requestInit,
+            ),
         });
       } else {
         suggestionAgent = suggestionsProviderAgent.clone();

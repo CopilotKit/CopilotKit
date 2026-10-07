@@ -76,6 +76,22 @@ export interface CopilotKitCoreConfig {
   /** Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies). */
   credentials?: RequestCredentials;
   /**
+   * The `fetch` implementation for every request Core makes: `/info`, agent
+   * runs, connects and stops, suggestions, threads, memories, learning capture
+   * and Inspector metadata. Agent runs stream through it, so it must return a
+   * `Response` whose `body` supports `getReader()`.
+   *
+   * Defaults to the global `fetch`, looked up when each request is made. Pass
+   * one when the global fetch cannot stream (React Native's own fetch buffers
+   * the whole body) or when Core's requests need a different transport from
+   * the rest of the app. Core never replaces the global `fetch`.
+   *
+   * Core calls it without a receiver, as `fetch(input, init)`, and passes the
+   * configured `headers` and `credentials` in `init`. Agents your app passes in
+   * directly keep their own transport. Change it later with `setFetch`.
+   */
+  fetch?: typeof fetch;
+  /**
    * Rewrites the message list sent to runtime agents on every run. Use it when
    * the backend already stores the conversation and re-sending it is waste or
    * duplication. See `setMessageFilter` and {@link CopilotKitMessageFilter}.
@@ -444,6 +460,7 @@ function normalizeHeaders(
 export class CopilotKitCore {
   private _headers: Record<string, string>;
   private _credentials?: RequestCredentials;
+  private _fetch?: typeof fetch;
   private _messageFilter?: CopilotKitMessageFilter;
   private _properties: Record<string, unknown>;
   private _defaultThrottleMs?: number;
@@ -482,6 +499,7 @@ export class CopilotKitCore {
     deferInitialConnection = false,
     headers = {},
     credentials,
+    fetch: fetchImplementation,
     messageFilter,
     properties = {},
     agents__unsafe_dev_only = {},
@@ -492,6 +510,7 @@ export class CopilotKitCore {
   }: CopilotKitCoreConfig) {
     this._headers = normalizeHeaders(headers);
     this._credentials = credentials;
+    this._fetch = fetchImplementation;
     this._messageFilter = messageFilter;
     this._properties = properties;
     this._debug = debug;
@@ -720,6 +739,26 @@ export class CopilotKitCore {
     return this._credentials;
   }
 
+  /**
+   * The configured `fetch`, or `undefined` when Core uses the global one.
+   * See {@link CopilotKitCoreConfig.fetch}.
+   */
+  get fetch(): typeof fetch | undefined {
+    return this._fetch;
+  }
+
+  /**
+   * @internal The fetch every Core request goes through: the configured one,
+   * else the global `fetch` as it is when the request is made. Stable, so it
+   * can be handed to stores and agents once. It calls the implementation
+   * without a receiver, because a browser's `window.fetch` throws "Illegal
+   * invocation" when called as a method of anything else.
+   */
+  readonly ɵfetch: typeof fetch = (input, init) => {
+    const fetchImplementation = this._fetch ?? globalThis.fetch;
+    return fetchImplementation(input, init);
+  };
+
   get messageFilter(): CopilotKitMessageFilter | undefined {
     return this._messageFilter;
   }
@@ -907,6 +946,16 @@ export class CopilotKitCore {
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );
     this.agentRegistry.handleCredentialsChanged();
+  }
+
+  /**
+   * Replace the `fetch` Core's requests go through. Pass `undefined` to go
+   * back to the global `fetch`. Requests already in flight finish on the fetch
+   * they started with; every later request, including runs of agents Core
+   * already created, uses the new one. See {@link CopilotKitCoreConfig.fetch}.
+   */
+  setFetch(fetchImplementation: typeof fetch | undefined): void {
+    this._fetch = fetchImplementation;
   }
 
   /**

@@ -406,7 +406,7 @@ export class TrajectoryConnection {
         if (!this.current(session, connection)) return;
       }
       const rest = transport === "rest";
-      const response = await fetch(
+      const response = await this.core.ɵfetch(
         rest
           ? `${runtimeUrl}/trajectory/${encodeURIComponent(session.trajectoryId)}/connect`
           : (this.core.ɵruntimeEndpointUrl ?? runtimeUrl),

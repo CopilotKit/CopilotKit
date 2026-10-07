@@ -702,8 +702,11 @@ export class AgentRegistry {
                 )
               : null;
           const response = singleRouteRequest
-            ? await fetch(singleRouteRequest.input, singleRouteRequest.init)
-            : await fetch(input, init);
+            ? await this.core.ɵfetch(
+                singleRouteRequest.input,
+                singleRouteRequest.init,
+              )
+            : await this.core.ɵfetch(input, init);
           watchdog.clear();
           this.handleRuntimeRequestOutcome(
             response.ok ? "ok" : meta()?.nonCritical ? "ignored" : "failed",
@@ -885,7 +888,7 @@ export class AgentRegistry {
     credentials: RequestCredentials | undefined;
     signal: AbortSignal;
   }): Promise<Response> {
-    return fetch(`${runtimeUrl}/inspector-metadata`, {
+    return this.core.ɵfetch(`${runtimeUrl}/inspector-metadata`, {
       method: "GET",
       headers,
       ...(credentials ? { credentials } : {}),
@@ -904,7 +907,7 @@ export class AgentRegistry {
     credentials: RequestCredentials | undefined;
     signal: AbortSignal;
   }): Promise<Response> {
-    return fetch(runtimeUrl, {
+    return this.core.ɵfetch(runtimeUrl, {
       method: "POST",
       headers: withJsonContentType(headers),
       body: JSON.stringify({ method: "inspector/metadata" }),
@@ -1609,7 +1612,7 @@ export class AgentRegistry {
     }
 
     // REST transport
-    const response = await fetch(`${runtimeUrl}/info`, {
+    const response = await this.core.ɵfetch(`${runtimeUrl}/info`, {
       headers,
       ...(credentials ? { credentials } : {}),
       ...(signal ? { signal } : {}),
@@ -1642,7 +1645,7 @@ export class AgentRegistry {
     credentials: RequestCredentials | undefined,
     signal?: AbortSignal,
   ): Promise<RuntimeInfo> {
-    const response = await fetch(runtimeUrl, {
+    const response = await this.core.ɵfetch(runtimeUrl, {
       method: "POST",
       headers: withJsonContentType(headers),
       body: JSON.stringify({ method: "info" }),
@@ -1668,7 +1671,7 @@ export class AgentRegistry {
   ): Promise<RuntimeInfoFetchResult> {
     // Try REST first (GET /info)
     try {
-      const response = await fetch(`${runtimeUrl}/info`, {
+      const response = await this.core.ɵfetch(`${runtimeUrl}/info`, {
         headers: { ...headers },
         ...(credentials ? { credentials } : {}),
         ...(signal ? { signal } : {}),
