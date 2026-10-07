@@ -1,5 +1,7 @@
 # Deep Research Assistant
 
+> **Hosted demo retirement:** This hosted demo is being retired from the public catalog. Source remains available for historical reference and local use. There is no replacement hosted deployment.
+
 A [CopilotKit](https://copilotkit.ai) Deep Agents demo showcasing planning, memory/files, and generative UI using [Tavily](https://www.tavily.com/) for web research.
 
 https://github.com/user-attachments/assets/68d5729f-91f9-4fd9-a579-cd1a8f4aad8d

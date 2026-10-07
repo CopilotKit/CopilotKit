@@ -60,8 +60,8 @@
   },
   "dependencies": {
     "@a2ui/web_core": "0.10.4",
-    "@ag-ui/client": "1.0.1",
-    "@ag-ui/core": "1.0.1",
+    "@ag-ui/client": "1.0.2",
+    "@ag-ui/core": "1.0.2",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/mcp-apps-renderer": "workspace:*",
     "@copilotkit/shared": "workspace:*",
@@ -69,6 +69,7 @@
     "@copilotkit/web-inspector": "workspace:*",
     "@jetbrains/websandbox": "^1.1.3",
     "clsx": "^2.1.1",
+    "dompurify": "^3.4.1",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.22",
     "marked": "^12.0.2",

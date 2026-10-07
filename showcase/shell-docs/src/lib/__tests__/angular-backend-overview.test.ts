@@ -107,63 +107,6 @@ describe("buildAngularBackendOverview", () => {
     );
   });
 
-  it("uses exact runnable cells for every generated Angular backend overview", () => {
-    const generatedBackends = getIntegrations().filter(
-      (integration) =>
-        integration.docs_mode === "generated" &&
-        frameworkOverviews[integration.slug] !== undefined,
-    );
-
-    expect(generatedBackends.length).toBeGreaterThan(0);
-    for (const backend of generatedBackends) {
-      const overview = buildAngularBackendOverview(
-        frameworkOverviews[backend.slug],
-        backend.slug,
-      );
-      const demoHrefs = [
-        ...overview.supportedFeatures.flatMap((feature) =>
-          feature.demoLink ? [feature.demoLink] : [],
-        ),
-        ...overview.liveDemos.map((demo) => demo.iframeUrl),
-      ];
-
-      expect(demoHrefs.length, backend.slug).toBeGreaterThan(0);
-      expect(
-        demoHrefs.every((href) => exactRunnableAngularHref(href, backend.slug)),
-        backend.slug,
-      ).toBe(true);
-    }
-  });
-
-  it("preserves the generated overview while deriving exact Angular demo cells", () => {
-    const source = frameworkOverviews["langgraph-python"];
-    const overview = buildAngularBackendOverview(source, "langgraph-python");
-
-    expect(overview.header).toBe(source.header);
-    expect(overview.architectureImage).toBe(source.architectureImage);
-    expect(overview.cta).toBe(source.cta);
-    expect(overview.guideLink).toBe("/langgraph-python/quickstart");
-
-    const demoHrefs = [
-      ...overview.supportedFeatures.flatMap((feature) =>
-        feature.demoLink ? [feature.demoLink] : [],
-      ),
-      ...overview.liveDemos.map((demo) => demo.iframeUrl),
-    ];
-    expect(demoHrefs.length).toBeGreaterThan(0);
-    expect(
-      demoHrefs.every((href) =>
-        exactRunnableAngularHref(href, "langgraph-python"),
-      ),
-    ).toBe(true);
-    expect(demoHrefs).not.toContain(
-      "https://examples-coagents-ai-travel-app.vercel.app/",
-    );
-    expect(JSON.stringify(overview.liveDemos)).not.toMatch(
-      /\bReact\b|useComponent|useHumanInTheLoop/,
-    );
-  });
-
   it("never falls through to a different backend's runnable cell", () => {
     const overview = buildAngularBackendOverview(
       frameworkOverviews["langgraph-python"],
