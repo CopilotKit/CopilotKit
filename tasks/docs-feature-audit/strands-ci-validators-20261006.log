@@ -1,0 +1,49 @@
+# showcase_validate.yml validators that read the Strands integration, run locally at HEAD 078a361d85 + the uncommitted dependency update, 2026-10-06T23:28:11Z, node v22.16.0. Other integrations' [WARN]/[FAIL] lines and parity rows are filtered; strands' are kept.
+$ pnpm exec tsx validate-parity.ts
+package                      status  demos  specs   qa  notes     
+------------------------------------------------------------------
+strands                      [PASS]     41     41   38  8 warn    
+[WARN] strands: demo 'hitl-in-chat-booking' has no tests/e2e/hitl-in-chat-booking.spec.ts
+[WARN] strands: demo 'hitl' has no tests/e2e/hitl.spec.ts
+[WARN] strands: demo 'hitl-in-chat-booking' has no qa/hitl-in-chat-booking.md
+[WARN] strands: demo 'hitl' has no qa/hitl.md
+[WARN] strands: demo 'mcp-apps' has no qa/mcp-apps.md
+[WARN] strands: demo 'beautiful-chat' has no qa/beautiful-chat.md
+[WARN] strands: demo count 41 deviates from baseline 9
+[WARN] strands: qa count 38 < demo count 41
+22 package(s) checked, 22 pass, 0 fail, 442 warning(s)
+exit=0
+$ pnpm exec tsx validate-shared-symlinks.ts
+ℹ 2 single-source slot(s) are ERODED (should be symlinks into showcase/shared/...):
+  • [known] showcase/integrations/claude-sdk-typescript/shared-tools  (real-dir)
+  • [known] showcase/integrations/langgraph-typescript/shared-tools  (real-dir)
+
+✔ single-source symlinks OK — no NEW erosion (2/2 baselined slot(s) still eroded, expected until symlinks are restored).
+exit=0
+$ pnpm exec tsx sync-shared-frontends.ts
+Shared frontend sources are in sync.
+exit=0
+$ pnpm exec tsx validate-fixture-tool-surface.ts
+✓ validate-fixture-tool-surface: 0 fixtures × 781 demos — no drift
+exit=0
+$ pnpm exec tsx validate-pins.ts  (ratchet: CI compares the FAIL count/hash with fail-baseline.json)
+[FAIL] strands: @copilotkit/a2ui-renderer pinned to 1.77.0, canonical is 1.68.2
+[FAIL] strands: @copilotkit/react-core pinned to 1.77.0, canonical is 1.68.2
+[FAIL] strands: @copilotkit/react-ui pinned to 1.77.0, canonical is 1.68.2
+[FAIL] strands: @copilotkit/runtime pinned to 1.77.0, canonical is 1.68.2
+[FAIL] strands: @copilotkit/shared pinned to 1.77.0, canonical is 1.68.2
+[FAIL] strands: @copilotkit/voice pinned to 1.77.0, canonical is 1.68.2
+Summary: OK=5 SKIP=0 WARN=2 FAIL=53
+exit=1
+# validate-pins against the pre-update tree: git archive of HEAD 078a361d85 (showcase/) into a temp dir, VALIDATE_PINS_REPO_ROOT=<archive>
+Summary: OK=6 SKIP=0 WARN=2 FAIL=47
+# (no strands lines before: strands pinned the canonical 1.68.2, so it was one of the OK packages)
+# FAIL lines only before (-) / only after (+):
++ [FAIL] strands: @copilotkit/a2ui-renderer pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] strands: @copilotkit/react-core pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] strands: @copilotkit/react-ui pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] strands: @copilotkit/runtime pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] strands: @copilotkit/shared pinned to 1.77.0, canonical is 1.68.2
++ [FAIL] strands: @copilotkit/voice pinned to 1.77.0, canonical is 1.68.2
+# FAIL-line hash before/after (LC_ALL=C sort -u | shasum -a 256): dff21530a05f56e8 / f2b4f09e4b22ba4c
+# baseline: "validatePinsFailCount": 26

@@ -1,0 +1,24 @@
+## resolved: run 1 (pause): HTTP 200
+  events: RUN_STARTED STATE_SNAPSHOT MESSAGES_SNAPSHOT TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_END MESSAGES_SNAPSHOT TOOL_CALL_START TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_END MESSAGES_SNAPSHOT RAW STATE_SNAPSHOT RUN_FINISHED
+  TOOL_CALL_START schedule_meeting call_d6_schedule_sales_001
+  RUN_FINISHED outcome: {"type":"interrupt","interrupts":[{"id":"v1:tool_call:call_d6_schedule_sales_001:340a4daa-b874-5aad-8309-a63b92d507dd","reason":"schedule_meeting","metadata":{"reason":{"topic":"Sales intro call","attendee":"Sales team"}}}]}
+  assistant text: "Sure, let me check available times."
+  interrupt: {"id":"v1:tool_call:call_d6_schedule_sales_001:340a4daa-b874-5aad-8309-a63b92d507dd","reason":"schedule_meeting","metadata":{"reason":{"topic":"Sales intro call","attendee":"Sales team"}}}
+## resolved: run 2 (resume {"status":"resolved","payload":{"chosen_time":"2026-10-08T10:00","chosen_label":"Thu 10:00 AM"}}): HTTP 200
+  events: RUN_STARTED STATE_SNAPSHOT TOOL_CALL_RESULT TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_END STATE_SNAPSHOT RUN_FINISHED
+  TOOL_CALL_RESULT "\"Meeting scheduled for Thu 10:00 AM: Sales intro call\""
+  RUN_FINISHED outcome: {"type":"success"}
+  assistant text: "Booked: Sales intro call confirmed for the slot you picked."
+  RESULT resolved: PASS (tool result must contain "Meeting scheduled for Thu 10:00 AM")
+## cancelled: run 1 (pause): HTTP 200
+  events: RUN_STARTED STATE_SNAPSHOT MESSAGES_SNAPSHOT TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_END MESSAGES_SNAPSHOT TOOL_CALL_START TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_ARGS TOOL_CALL_END MESSAGES_SNAPSHOT RAW STATE_SNAPSHOT RUN_FINISHED
+  TOOL_CALL_START schedule_meeting call_d6_schedule_sales_001
+  RUN_FINISHED outcome: {"type":"interrupt","interrupts":[{"id":"v1:tool_call:call_d6_schedule_sales_001:340a4daa-b874-5aad-8309-a63b92d507dd","reason":"schedule_meeting","metadata":{"reason":{"topic":"Sales intro call","attendee":"Sales team"}}}]}
+  assistant text: "Sure, let me check available times."
+  interrupt: {"id":"v1:tool_call:call_d6_schedule_sales_001:340a4daa-b874-5aad-8309-a63b92d507dd","reason":"schedule_meeting","metadata":{"reason":{"topic":"Sales intro call","attendee":"Sales team"}}}
+## cancelled: run 2 (resume {"status":"cancelled"}): HTTP 200
+  events: RUN_STARTED STATE_SNAPSHOT TOOL_CALL_RESULT TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_END STATE_SNAPSHOT RUN_FINISHED
+  TOOL_CALL_RESULT "\"User cancelled. Meeting NOT scheduled: Sales intro call\""
+  RUN_FINISHED outcome: {"type":"success"}
+  assistant text: "Denied - the sales intro call was not booked because no time slot was selected."
+  RESULT cancelled: PASS (tool result must contain "User cancelled")

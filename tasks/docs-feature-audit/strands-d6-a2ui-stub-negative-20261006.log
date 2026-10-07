@@ -1,0 +1,128 @@
+$ AIMOCK_URL_LOCAL=http://127.0.0.1:4410 AIMOCK_URL=http://127.0.0.1:4410 SHOWCASE_LOCAL=1 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true nice -n 10 node_modules/.bin/tsx tasks/docs-feature-audit/run-local-d6.mts strands --demo declarative-gen-ui
+# node v22.16.0, HEAD 92a42187ec, load 4.27, started 2026-10-06T23:48:49Z
+{"level":"info","msg":"probe.e2e-full.service-start","ts":"2026-10-06T23:48:49.230Z","component":"docs-feature-audit-local-d6","slug":"strands","featureCount":1,"backendUrl":"http://localhost:3112"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=5edf7f64-e927-4601-8b70-a6902becbcc1 slug=strands header_present=true header_value_prefix=strands hop=- status=ok test_id=d6-strands-5edf7f64-e927-4601-8b70-a6902becbcc1 error=","ts":"2026-10-06T23:48:49.406Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3112/demos/declarative-gen-ui',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3112/demos/declarative-gen-ui',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-06T23:48:49.681Z","component":"docs-feature-audit-local-d6","slug":"strands","featureType":"gen-ui-declarative","hydrated":true,"hydrationMs":34}
+[conversation-runner] starting conversation { totalTurns: 4, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/4 — sending message { inputLength: 44, timeoutMs: 90000 }
+[conversation-runner] turn 1/4 — running preFill hook
+[conversation-runner] turn 1/4 — preFill hook completed
+[conversation-runner] turn 1/4 — surface-mount completion armed {
+  testIds: [
+    'declarative-metric',
+    'declarative-pie-chart',
+    'declarative-bar-chart'
+  ],
+  selectors: undefined,
+  minNewMounts: 1,
+  baselineSurfaces: {
+    'declarative-metric': 0,
+    'declarative-pie-chart': 0,
+    'declarative-bar-chart': 0
+  }
+}
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 44,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/4 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 90000
+}
+[conversation-runner] turn 1/4 — FAILED {
+  errorCategory: 'settle-surface-missing',
+  turnsCompleted: 0,
+  elapsedMs: 92618,
+  bodyTextLength: 216,
+  hasTextarea: true,
+  hasErrorBoundary: false
+}
+{"level":"warn","msg":"probe.e2e-full.runFeature.flap-diagnostics","ts":"2026-10-06T23:50:22.343Z","component":"docs-feature-audit-local-d6","slug":"strands","featureType":"gen-ui-declarative","error":"waitForTurnComplete: turn 1 did not complete within 90000ms (reason=surface-missing, runsFinished=1, count=2, attrPresent=true, runningNow=false, runStartCount=1)","diagnostics":{"userMsgCount":1,"apiRequestCount":17,"apiRequests":[{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_shared_dist_aa512603._.js","duration":35,"transferSize":31896,"status":200},{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_react-core_dist_18ed7b56._.js","duration":38,"transferSize":2479,"status":200},{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_core_dist_index_mjs_c01497d1._.js","duration":45,"transferSize":88344,"status":200},{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_react-core_dist_copilotkit-CP9qPAqV_mjs_4adbc71e._.js","duration":63,"transferSize":146137,"status":200},{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_a2ui-renderer_dist_4ef869f6._.js","duration":65,"transferSize":19184,"status":200}],"pageErrors":[],"chatContainerExists":true,"url":"http://localhost:3112/demos/declarative-gen-ui","title":"AWS Strands (Python)","bodyTextSnippet":"Show me my sales dashboard for this quarter.\n\nHere's your Q2 sales dashboard.\n\nShow my sales dashboard\nTeam performance\nAnything at risk?\nTop account details\nAI can make mistakes. Please verify important information.","assistantMsgCount":2,"consoleLogs":["[warning] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.","[error] Access to fetch at 'https://cdn.copilotkit.ai/notifications/v1.json?framework=react&sdkVersion=1.77.0' from origin 'http://localhost:3112' has been blocked by CORS policy: Response to preflight reques","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit Inspector] Failed to load notifications TypeError: Failed to fetch\n    at g.fetch (<anonymous>:88:31)\n    at loadNotificationFeed (http://localhost:3112/_next/static/chunks/87101_%40copilo","[error] Failed to load resource: the server responded with a status of 404 (Not Found)","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3112' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3112' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit] The agent called the tool \"generate_a2ui\", and no renderer is registered for it, so that message rendered nothing. Registered renderers: \"render_a2ui\". Register one with useRenderTool({ n"],"requestFailures":["GET https://cdn.copilotkit.ai/notifications/v1.json?framework=react&sdkVersion=1.77.0 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED"]}}
+{"level":"warn","msg":"CVDIAG component=harness-d6 boundary=fixture-match run_id=5edf7f64-e927-4601-8b70-a6902becbcc1 slug=strands header_present=true header_value_prefix=strands hop=- status=miss test_id=d6-strands-5edf7f64-e927-4601-8b70-a6902becbcc1 error=waitForTurnComplete: turn 1 did not complete within 90000ms (reason=surface-missing, runsFinished=1, count=2, attrPresent=true, runningNow=false, runStartCount=1)","ts":"2026-10-06T23:50:22.343Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.feature-retry","ts":"2026-10-06T23:50:22.348Z","component":"docs-feature-audit-local-d6","slug":"strands","featureType":"gen-ui-declarative","attempt":1,"errorClass":"conversation-error","errorDesc":"waitForTurnComplete: turn 1 did not complete within 90000ms (reason=surface-missing, runsFinished=1, count=2, attrPresent=true, runningNow=false, runStartCount=1)","attempt1DurationMs":92946}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=5edf7f64-e927-4601-8b70-a6902becbcc1 slug=strands header_present=true header_value_prefix=strands hop=- status=ok test_id=d6-strands-5edf7f64-e927-4601-8b70-a6902becbcc1 error=","ts":"2026-10-06T23:50:22.349Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3112/demos/declarative-gen-ui',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3112/demos/declarative-gen-ui',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-06T23:50:22.614Z","component":"docs-feature-audit-local-d6","slug":"strands","featureType":"gen-ui-declarative","hydrated":true,"hydrationMs":34}
+[conversation-runner] starting conversation { totalTurns: 4, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/4 — sending message { inputLength: 44, timeoutMs: 90000 }
+[conversation-runner] turn 1/4 — running preFill hook
+[conversation-runner] turn 1/4 — preFill hook completed
+[conversation-runner] turn 1/4 — surface-mount completion armed {
+  testIds: [
+    'declarative-metric',
+    'declarative-pie-chart',
+    'declarative-bar-chart'
+  ],
+  selectors: undefined,
+  minNewMounts: 1,
+  baselineSurfaces: {
+    'declarative-metric': 0,
+    'declarative-pie-chart': 0,
+    'declarative-bar-chart': 0
+  }
+}
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 44,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/4 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 90000
+}
+[conversation-runner] turn 1/4 — FAILED {
+  errorCategory: 'settle-surface-missing',
+  turnsCompleted: 0,
+  elapsedMs: 92678,
+  bodyTextLength: 216,
+  hasTextarea: true,
+  hasErrorBoundary: false
+}
+{"level":"warn","msg":"probe.e2e-full.runFeature.flap-diagnostics","ts":"2026-10-06T23:51:55.305Z","component":"docs-feature-audit-local-d6","slug":"strands","featureType":"gen-ui-declarative","error":"waitForTurnComplete: turn 1 did not complete within 90000ms (reason=surface-missing, runsFinished=1, count=2, attrPresent=true, runningNow=false, runStartCount=1)","diagnostics":{"userMsgCount":1,"apiRequestCount":17,"apiRequests":[{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_shared_dist_aa512603._.js","duration":28,"transferSize":31896,"status":200},{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_core_dist_index_mjs_c01497d1._.js","duration":37,"transferSize":88344,"status":200},{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_react-core_dist_18ed7b56._.js","duration":31,"transferSize":2479,"status":200},{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_react-core_dist_copilotkit-CP9qPAqV_mjs_4adbc71e._.js","duration":46,"transferSize":146137,"status":200},{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_a2ui-renderer_dist_4ef869f6._.js","duration":46,"transferSize":19184,"status":200}],"pageErrors":[],"chatContainerExists":true,"url":"http://localhost:3112/demos/declarative-gen-ui","title":"AWS Strands (Python)","bodyTextSnippet":"Show me my sales dashboard for this quarter.\n\nHere's your Q2 sales dashboard.\n\nShow my sales dashboard\nTeam performance\nAnything at risk?\nTop account details\nAI can make mistakes. Please verify important information.","assistantMsgCount":2,"consoleLogs":["[warning] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.","[error] Failed to load resource: the server responded with a status of 404 (Not Found)","[error] Access to fetch at 'https://cdn.copilotkit.ai/notifications/v1.json?framework=react&sdkVersion=1.77.0' from origin 'http://localhost:3112' has been blocked by CORS policy: Response to preflight reques","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit Inspector] Failed to load notifications TypeError: Failed to fetch\n    at g.fetch (<anonymous>:88:31)\n    at loadNotificationFeed (http://localhost:3112/_next/static/chunks/87101_%40copilo","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3112' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3112' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit] The agent called the tool \"generate_a2ui\", and no renderer is registered for it, so that message rendered nothing. Registered renderers: \"render_a2ui\". Register one with useRenderTool({ n"],"requestFailures":["GET https://cdn.copilotkit.ai/notifications/v1.json?framework=react&sdkVersion=1.77.0 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED"]}}
+{"level":"warn","msg":"CVDIAG component=harness-d6 boundary=fixture-match run_id=5edf7f64-e927-4601-8b70-a6902becbcc1 slug=strands header_present=true header_value_prefix=strands hop=- status=miss test_id=d6-strands-5edf7f64-e927-4601-8b70-a6902becbcc1 error=waitForTurnComplete: turn 1 did not complete within 90000ms (reason=surface-missing, runsFinished=1, count=2, attrPresent=true, runningNow=false, runStartCount=1)","ts":"2026-10-06T23:51:55.306Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.feature-retry-result","ts":"2026-10-06T23:51:55.308Z","component":"docs-feature-audit-local-d6","slug":"strands","featureType":"gen-ui-declarative","attempt":2,"ok":false,"errorClass":"conversation-error"}
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-06T23:51:55.309Z","component":"docs-feature-audit-local-d6","key":"d6:strands/gen-ui-declarative"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-06T23:51:55.309Z","component":"docs-feature-audit-local-d6","slug":"strands","featureType":"gen-ui-declarative","pass":false,"errorDesc":"waitForTurnComplete: turn 1 did not complete within 90000ms (reason=surface-missing, runsFinished=1, count=2, attrPresent=true, runningNow=false, runStartCount=1)","durationMs":185907}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=5edf7f64-e927-4601-8b70-a6902becbcc1 slug=strands header_present=true header_value_prefix=strands hop=- status=ok test_id=d6-strands-5edf7f64-e927-4601-8b70-a6902becbcc1 error=","ts":"2026-10-06T23:51:55.314Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.service-complete","ts":"2026-10-06T23:51:55.315Z","component":"docs-feature-audit-local-d6","slug":"strands","passed":0,"failed":1,"skipped":0,"incapable":0,"total":1,"state":"red","durationMs":186085}
+{"level":"warn","msg":"probe.e2e-full.aggregate-writer-missing","ts":"2026-10-06T23:51:55.315Z","component":"docs-feature-audit-local-d6","key":"d6:strands"}
+  [31m✗[0m d6:strands [31mred[0m [2m(186.3s)[0m
+    [31mgen-ui-declarative: waitForTurnComplete: turn 1 did not complete within 90000ms (reason=surface-missing, runsFinished=1, count=2, attrPresent=true, runningNow=false, runStartCount=1)[0m
+{"slug":"strands","results":[{"key":"d6:strands","state":"red","durationMs":186342,"signal":{"shape":"package","slug":"strands","backendUrl":"http://localhost:3112","total":1,"passed":0,"failed":["gen-ui-declarative"],"skipped":[],"failureSummary":"gen-ui-declarative: waitForTurnComplete: turn 1 did not complete within 90000ms (reason=surface-missing, runsFinished=1, count=2, attrPresent=true, runningNow=false, runStartCount=1)"},"error":"gen-ui-declarative: waitForTurnComplete: turn 1 did not complete within 90000ms (reason=surface-missing, runsFinished=1, count=2, attrPresent=true, runningNow=false, runStartCount=1)"}]}
+# exit=1 finished 2026-10-06T23:51:55Z

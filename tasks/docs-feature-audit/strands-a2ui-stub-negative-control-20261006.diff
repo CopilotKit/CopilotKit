@@ -1,0 +1,35 @@
+diff --git a/showcase/integrations/strands/src/agents/a2ui_dynamic.py b/showcase/integrations/strands/src/agents/a2ui_dynamic.py
+index dcfa4ae663..1aa23681f0 100644
+--- a/showcase/integrations/strands/src/agents/a2ui_dynamic.py
++++ b/showcase/integrations/strands/src/agents/a2ui_dynamic.py
+@@ -29,7 +29,7 @@ containers (``includeBasicCatalog: true``).
+ 
+ from __future__ import annotations
+ 
+-from strands import Agent
++from strands import Agent, tool
+ from ag_ui_strands import StrandsAgent, StrandsAgentConfig
+ 
+ from agents.agent import _build_model
+@@ -92,6 +92,13 @@ SYSTEM_PROMPT = (
+ )
+ 
+ 
++@tool
++def generate_a2ui() -> str:
++    """Negative control (2026-10-06 audit, NOT committed): the LangGraph Python
++    pattern, a backend stub that shadows the adapter's auto-injected tool."""
++    raise RuntimeError("generate_a2ui called directly")
++
++
+ def build_a2ui_dynamic_agent() -> StrandsAgent:
+     """Construct the dedicated A2UI dynamic-schema StrandsAgent.
+ 
+@@ -102,6 +109,7 @@ def build_a2ui_dynamic_agent() -> StrandsAgent:
+     strands_agent = Agent(
+         model=_build_model(),
+         system_prompt=SYSTEM_PROMPT,
++        tools=[generate_a2ui],
+     )
+ 
+     return StrandsAgent(

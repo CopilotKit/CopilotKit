@@ -1,0 +1,46 @@
+# Strands stack via the integration's documented default dev command (package.json scripts.dev = concurrently "next dev --turbopack" "PYTHONPATH=. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload"), venv python (/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv, Python 3.12.6) first on PATH. .next removed first.
+$ cd showcase/integrations/strands && PORT=3112 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true DO_NOT_TRACK=1 OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://127.0.0.1:4410/v1 AIMOCK_URL=http://127.0.0.1:4410 AGENT_URL=http://localhost:8000 nice -n 10 npm run dev
+# node v22.16.0, npm 10.9.2, HEAD 078a361d85, tree vs HEAD outside tasks/:  M showcase/integrations/strands/package-lock.json  M showcase/integrations/strands/package.json  M showcase/integrations/strands/requirements.txt  M showcase/integrations/strands/src/agent_server.py , started Tue Oct  6 23:29:32 UTC 2026
+
+> @copilotkit/showcase-strands@0.1.0 dev
+> concurrently "next dev --turbopack" "PYTHONPATH=. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload"
+
+[1] INFO:     Will watch for changes in these directories: ['/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands']
+[1] INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+[1] INFO:     Started reloader process [82211] using StatReload
+[0]  ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+[0]  We detected multiple lockfiles and selected the directory of /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/pnpm-lock.yaml as the root directory.
+[0]  To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+[0]    See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+[0]  Detected additional lockfiles: 
+[0]    * /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/package-lock.json
+[0] 
+[1] ERROR:    Error loading ASGI app. Could not import module "agent_server".
+[0]    ▲ Next.js 15.5.27 (Turbopack)
+[0]    - Local:        http://localhost:3112
+[0]    - Network:      http://192.168.4.34:3112
+[0] 
+[0]  ✓ Starting...
+[0]  ✓ Ready in 740ms
+[0]  ○ Compiling /api/health ...
+[0]  ✓ Compiled /api/health in 585ms
+[0]  GET /api/health 200 in 863ms
+[0]  GET /api/health 200 in 237ms
+[0]  GET /api/health 200 in 226ms
+[0]  GET /api/health 200 in 225ms
+[0]  GET /api/health 200 in 229ms
+[0]  GET /api/health 200 in 221ms
+[0]  GET /api/health 200 in 225ms
+[0]  GET /api/health 200 in 223ms
+[0]  GET /api/health 200 in 222ms
+[0]  GET /api/health 200 in 223ms
+[0]  GET /api/health 200 in 220ms
+[0]  GET /api/health 200 in 221ms
+[0]  GET /api/health 200 in 222ms
+[0]  GET /api/health 200 in 225ms
+# RED as written: the agent half exits at import ('Could not import module "agent_server"'): scripts.dev runs uvicorn from the integration root with PYTHONPATH=., but agent_server.py lives in src/. UI /api/health=200, agent /health=000 at 2026-10-06T23:30:30Z
+[0] [?25h
+[0] next dev --turbopack exited with code 0
+[1] INFO:     Stopping reloader process [82211]
+[1] PYTHONPATH=. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload exited with code 0
+# stopped Tue Oct  6 23:30:33 UTC 2026 (SIGTERM to process group 82164)

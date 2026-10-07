@@ -1,0 +1,245 @@
+# 2026-10-07T00:02:14Z HEAD 602a595fe2, node v22.16.0, npm 10.9.2, uv 0.11.7 (9d177269e 2026-04-15 aarch64-apple-darwin)
+$ nice -n 10 tasks/docs-feature-audit/reproduce-strands-byoc-setup.sh
+extractor: 16 visible + 9 hidden = 25 blocks; raw MDX option: 25 fenced blocks
+  visible  0 bash      -                                          Initialize your agent project
+  visible  1 bash      -                                          Install Strands with AG-UI
+  visible  2 bash      -                                          Configure your environment
+  visible  3 bash      -                                          Configure your environment  [callout]
+  visible  4 python    main.py                                    Configure your environment  [callout]
+  visible  5 python    main.py                                    Expose your agent via AG-UI
+  visible  6 bash      -                                          Create your frontend
+  visible  7 npm       -                                          Install CopilotKit packages
+  visible  8 tsx       app/api/copilotkit/[[...slug]]/route.ts    Setup Copilot Runtime
+  visible  9 bash      Terminal                                   Setup Copilot Runtime
+  visible 10 plaintext .env                                       Setup Copilot Runtime
+  visible 11 tsx       app/providers.tsx                          Configure CopilotKit Provider
+  visible 12 tsx       app/layout.tsx                             Configure CopilotKit Provider
+  visible 13 tsx       app/page.tsx                               Add the chat interface
+  visible 14 bash      -                                          Start your agent
+  visible 15 bash      -                                          Start your UI
+=============== visible-path (2026-10-07T00:02:15Z)
+found starts=uv init my-agent: uv init my-agent
+found starts=uv add ag-ui-strands: uv add ag-ui-strands "strands-agents[OpenAI]" fastapi uvicorn
+found starts=export OPENAI_API_KEY: export OPENAI_API_KEY=your_openai_api_key
+found title=main.py: import os
+found title=app/api/copilotkit/[[...slug]]/route.ts: import {
+found title=app/providers.tsx: "use client";
+found step=Start your agent: cd ..
+provider agent: strands_agent; prompt from the guide's Start chatting step: "Please tell me a joke."
+RESULT visible-path: PASS
+scratch AIMock on 4411: [aimock] Loaded 1 fixture(s) from /private/tmp/strands-byoc-setup.8rZoLy/fixtures
+bound: UV_EXCLUDE_NEWER=npm --before=2026-10-05T21:00:00Z
+=============== prerequisites: the guide says "- Python 3.12+ (Python agents only)" (2026-10-07T00:02:18Z)
+requires-python set to the stated minimum: requires-python = ">=3.12"
+$ uv add ag-ui-strands "strands-agents[OpenAI]" fastapi uvicorn
+resolves for Python >=3.12: ag-ui-protocol 1.0.0, ag-ui-strands 0.4.1, fastapi 0.142.2, openai 2.54.0, strands-agents 1.57.2
+RESULT prerequisites: PASS
+=============== existing-agent, variant: as-written (2026-10-07T00:02:20Z)
+--- Initialize your agent project
+$ uv init my-agent
+$ cd my-agent
+uv init project: requires-python = ">=3.12", .python-version 3.12
+--- Install Strands with AG-UI
+$ uv add ag-ui-strands "strands-agents[OpenAI]" fastapi uvicorn
+ + ag-ui-a2ui-toolkit==0.0.4
+ + ag-ui-protocol==1.0.0
+ + ag-ui-strands==0.4.1
+ + fastapi==0.142.2
+ + openai==2.54.0
+ + starlette==1.7.0
+ + strands-agents==1.57.2
+ + uvicorn==0.54.0
+resolved: ag-ui-a2ui-toolkit 0.0.4, ag-ui-protocol 1.0.0, ag-ui-strands 0.4.1, fastapi 0.142.2, openai 2.54.0, strands-agents 1.57.2, uvicorn 0.54.0,  python 3.12.6
+--- Configure your environment
+$ export OPENAI_API_KEY=your_openai_api_key
+--- Expose your agent via AG-UI
+wrote main.py (31 lines) from the guide (replaces uv init's hello-world main.py)
+--- Create your frontend (scaffold not reproduced: npm init -y in frontend/ stands in for create-next-app)
+# guide: npx create-next-app@latest frontend
+# guide: cd frontend
+--- Install CopilotKit packages
+$ npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.2
+added 1198 packages in 31s
+package.json dependencies: {"@ag-ui/client":"^1.0.2","@copilotkit/react-core":"^1.77.0","@copilotkit/runtime":"^1.77.0"}
+installed @ag-ui/client copies:  4 @ag-ui/client@0.0.59; 5 @ag-ui/client@1.0.1; 6 @ag-ui/client@1.0.2;
+installed @ag-ui/core copies:    15 @ag-ui/core@0.0.59; 17 @ag-ui/core@1.0.1; 5 @ag-ui/core@1.0.2;
+top-level: @copilotkit/runtime 1.77.0, @ag-ui/client 1.0.2
+--- Setup Copilot Runtime (the guide's route.ts, with the no-Intelligence callout applied)
+@@ -1,5 +1,4 @@
+ import {
+-  CopilotKitIntelligence,
+   CopilotRuntime,
+   createCopilotRuntimeHandler,
+ } from "@copilotkit/runtime/v2";
+@@ -9,14 +8,6 @@
+   agents: {
+     strands_agent: new HttpAgent({ url: "http://localhost:8000" }),
+   },
+-  intelligence: new CopilotKitIntelligence({
+-    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+-  }),
+-  // Local single-user setup. Replace this before deploying to multiple users.
+-  identifyUser: () => ({
+-    id: "local-demo-user",
+-    name: "Local demo user",
+-  }),
+ });
+ 
+ const handler = createCopilotRuntimeHandler({
+--- Start your agent (the guide's block, verbatim, from frontend/)
+$ cd ..
+$ uv run main.py
+GET http://localhost:8000/openapi.json -> 200 after 4s
+listeners: python3.1/*:8000 
+routes: POST /, GET /ping
+--- Start chatting: one run through the route
+GET /api/copilotkit/info -> 200 agents: strands_agent
+POST /api/copilotkit/agent/strands_agent/run -> 200
+event types: RUN_STARTED STATE_SNAPSHOT MESSAGES_SNAPSHOT TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_END MESSAGES_SNAPSHOT STATE_SNAPSHOT RUN_FINISHED
+assistant text: "Why do programmers prefer dark mode? Because light attracts bugs."
+RESULT: RUN_FINISHED
+--- scratch AIMock journal for this run
+  /v1/chat/completions gpt-5.4 system,user {'userMessage': 'tell me a joke'} 200
+--- agent server log (tail, ANSI stripped)
+ValueError: <Token var=<ContextVar name='current_context' default={} at 0x10a220b30> at 0x10d9bf340> was created in a different Context
+Failed to detach context
+Traceback (most recent call last):
+  File "/private/tmp/strands-byoc-setup.8rZoLy/as_written/my-agent/.venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+    _RUNTIME_CONTEXT.detach(token)
+  File "/private/tmp/strands-byoc-setup.8rZoLy/as_written/my-agent/.venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+    self._current_context.reset(token)
+ValueError: <Token var=<ContextVar name='current_context' default={} at 0x10a220b30> at 0x10d9bc500> was created in a different Context
+Failed to detach context
+Traceback (most recent call last):
+  File "/private/tmp/strands-byoc-setup.8rZoLy/as_written/my-agent/.venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+    _RUNTIME_CONTEXT.detach(token)
+  File "/private/tmp/strands-byoc-setup.8rZoLy/as_written/my-agent/.venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+    self._current_context.reset(token)
+ValueError: <Token var=<ContextVar name='current_context' default={} at 0x10a220b30> at 0x10d9bed80> was created in a different Context
+port 8000 after stop: free
+RESULT existing-agent as-written: PASS
+exit=0
+
+# 2026-10-07T00:03:20Z variant run: the runtime's own @ag-ui/client pin
+$ nice -n 10 tasks/docs-feature-audit/reproduce-strands-byoc-setup.sh npm:@ag-ui/client@1.0.1
+extractor: 16 visible + 9 hidden = 25 blocks; raw MDX option: 25 fenced blocks
+  visible  0 bash      -                                          Initialize your agent project
+  visible  1 bash      -                                          Install Strands with AG-UI
+  visible  2 bash      -                                          Configure your environment
+  visible  3 bash      -                                          Configure your environment  [callout]
+  visible  4 python    main.py                                    Configure your environment  [callout]
+  visible  5 python    main.py                                    Expose your agent via AG-UI
+  visible  6 bash      -                                          Create your frontend
+  visible  7 npm       -                                          Install CopilotKit packages
+  visible  8 tsx       app/api/copilotkit/[[...slug]]/route.ts    Setup Copilot Runtime
+  visible  9 bash      Terminal                                   Setup Copilot Runtime
+  visible 10 plaintext .env                                       Setup Copilot Runtime
+  visible 11 tsx       app/providers.tsx                          Configure CopilotKit Provider
+  visible 12 tsx       app/layout.tsx                             Configure CopilotKit Provider
+  visible 13 tsx       app/page.tsx                               Add the chat interface
+  visible 14 bash      -                                          Start your agent
+  visible 15 bash      -                                          Start your UI
+=============== visible-path (2026-10-07T00:03:21Z)
+found starts=uv init my-agent: uv init my-agent
+found starts=uv add ag-ui-strands: uv add ag-ui-strands "strands-agents[OpenAI]" fastapi uvicorn
+found starts=export OPENAI_API_KEY: export OPENAI_API_KEY=your_openai_api_key
+found title=main.py: import os
+found title=app/api/copilotkit/[[...slug]]/route.ts: import {
+found title=app/providers.tsx: "use client";
+found step=Start your agent: cd ..
+provider agent: strands_agent; prompt from the guide's Start chatting step: "Please tell me a joke."
+RESULT visible-path: PASS
+scratch AIMock on 4411: [aimock] Loaded 1 fixture(s) from /private/tmp/strands-byoc-setup.wK6PPg/fixtures
+bound: UV_EXCLUDE_NEWER=npm --before=2026-10-05T21:00:00Z
+=============== prerequisites: the guide says "- Python 3.12+ (Python agents only)" (2026-10-07T00:03:24Z)
+requires-python set to the stated minimum: requires-python = ">=3.12"
+$ uv add ag-ui-strands "strands-agents[OpenAI]" fastapi uvicorn
+resolves for Python >=3.12: ag-ui-protocol 1.0.0, ag-ui-strands 0.4.1, fastapi 0.142.2, openai 2.54.0, strands-agents 1.57.2
+RESULT prerequisites: PASS
+=============== existing-agent, variant: npm:@ag-ui/client@1.0.1 (2026-10-07T00:03:25Z)
+--- Initialize your agent project
+$ uv init my-agent
+$ cd my-agent
+uv init project: requires-python = ">=3.12", .python-version 3.12
+--- Install Strands with AG-UI
+$ uv add ag-ui-strands "strands-agents[OpenAI]" fastapi uvicorn
+ + ag-ui-a2ui-toolkit==0.0.4
+ + ag-ui-protocol==1.0.0
+ + ag-ui-strands==0.4.1
+ + fastapi==0.142.2
+ + openai==2.54.0
+ + starlette==1.7.0
+ + strands-agents==1.57.2
+ + uvicorn==0.54.0
+resolved: ag-ui-a2ui-toolkit 0.0.4, ag-ui-protocol 1.0.0, ag-ui-strands 0.4.1, fastapi 0.142.2, openai 2.54.0, strands-agents 1.57.2, uvicorn 0.54.0,  python 3.12.6
+--- Configure your environment
+$ export OPENAI_API_KEY=your_openai_api_key
+--- Expose your agent via AG-UI
+wrote main.py (31 lines) from the guide (replaces uv init's hello-world main.py)
+--- Create your frontend (scaffold not reproduced: npm init -y in frontend/ stands in for create-next-app)
+# guide: npx create-next-app@latest frontend
+# guide: cd frontend
+--- Install CopilotKit packages
+$ npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.2
+added 1198 packages in 9s
+$ npm install @ag-ui/client@1.0.1   (variant)
+added 3 packages, removed 24 packages, and changed 3 packages in 697ms
+package.json dependencies: {"@ag-ui/client":"^1.0.1","@copilotkit/react-core":"^1.77.0","@copilotkit/runtime":"^1.77.0"}
+installed @ag-ui/client copies:  4 @ag-ui/client@0.0.59; 11 @ag-ui/client@1.0.1;
+installed @ag-ui/core copies:    15 @ag-ui/core@0.0.59; 5 @ag-ui/core@1.0.1; 2 @ag-ui/core@1.0.2;
+top-level: @copilotkit/runtime 1.77.0, @ag-ui/client 1.0.1
+--- Setup Copilot Runtime (the guide's route.ts, with the no-Intelligence callout applied)
+@@ -1,5 +1,4 @@
+ import {
+-  CopilotKitIntelligence,
+   CopilotRuntime,
+   createCopilotRuntimeHandler,
+ } from "@copilotkit/runtime/v2";
+@@ -9,14 +8,6 @@
+   agents: {
+     strands_agent: new HttpAgent({ url: "http://localhost:8000" }),
+   },
+-  intelligence: new CopilotKitIntelligence({
+-    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+-  }),
+-  // Local single-user setup. Replace this before deploying to multiple users.
+-  identifyUser: () => ({
+-    id: "local-demo-user",
+-    name: "Local demo user",
+-  }),
+ });
+ 
+ const handler = createCopilotRuntimeHandler({
+--- Start your agent (the guide's block, verbatim, from frontend/)
+$ cd ..
+$ uv run main.py
+GET http://localhost:8000/openapi.json -> 200 after 4s
+listeners: python3.1/*:8000 
+routes: POST /, GET /ping
+--- Start chatting: one run through the route
+GET /api/copilotkit/info -> 200 agents: strands_agent
+POST /api/copilotkit/agent/strands_agent/run -> 200
+event types: RUN_STARTED STATE_SNAPSHOT MESSAGES_SNAPSHOT TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_END MESSAGES_SNAPSHOT STATE_SNAPSHOT RUN_FINISHED
+assistant text: "Why do programmers prefer dark mode? Because light attracts bugs."
+RESULT: RUN_FINISHED
+--- scratch AIMock journal for this run
+  /v1/chat/completions gpt-5.4 system,user {'userMessage': 'tell me a joke'} 200
+--- agent server log (tail, ANSI stripped)
+ValueError: <Token var=<ContextVar name='current_context' default={} at 0x106810b30> at 0x109fa5e40> was created in a different Context
+Failed to detach context
+Traceback (most recent call last):
+  File "/private/tmp/strands-byoc-setup.wK6PPg/npm__ag_ui_client_1.0.1/my-agent/.venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+    _RUNTIME_CONTEXT.detach(token)
+  File "/private/tmp/strands-byoc-setup.wK6PPg/npm__ag_ui_client_1.0.1/my-agent/.venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+    self._current_context.reset(token)
+ValueError: <Token var=<ContextVar name='current_context' default={} at 0x106810b30> at 0x109fa6000> was created in a different Context
+Failed to detach context
+Traceback (most recent call last):
+  File "/private/tmp/strands-byoc-setup.wK6PPg/npm__ag_ui_client_1.0.1/my-agent/.venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+    _RUNTIME_CONTEXT.detach(token)
+  File "/private/tmp/strands-byoc-setup.wK6PPg/npm__ag_ui_client_1.0.1/my-agent/.venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+    self._current_context.reset(token)
+ValueError: <Token var=<ContextVar name='current_context' default={} at 0x106810b30> at 0x109fa6b00> was created in a different Context
+port 8000 after stop: free
+RESULT existing-agent npm:@ag-ui/client@1.0.1: PASS
+exit=0

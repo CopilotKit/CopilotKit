@@ -1,0 +1,543 @@
+# Strands stack via the integration's documented default dev command (package.json scripts.dev = concurrently "next dev --turbopack" "cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload"), venv python (/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv, Python 3.12.6) first on PATH. .next removed first.
+$ cd showcase/integrations/strands && PORT=3112 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true DO_NOT_TRACK=1 OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://127.0.0.1:4410/v1 AIMOCK_URL=http://127.0.0.1:4410 AGENT_URL=http://localhost:8000 nice -n 10 npm run dev
+# node v22.16.0, npm 10.9.2, HEAD 078a361d85, tree vs HEAD outside tasks/:  M showcase/integrations/strands/package-lock.json  M showcase/integrations/strands/package.json  M showcase/integrations/strands/requirements.txt  M showcase/integrations/strands/src/agent_server.py , started Tue Oct  6 23:30:52 UTC 2026
+
+> @copilotkit/showcase-strands@0.1.0 dev
+> concurrently "next dev --turbopack" "cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload"
+
+[1] INFO:     Will watch for changes in these directories: ['/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src']
+[1] INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+[1] INFO:     Started reloader process [84419] using StatReload
+[1] 2026-10-06 16:30:53,155 INFO agents._cvdiag_bootstrap CVDIAG bootstrap component=_shared tier=default pb_enabled=false
+[0]  ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+[0]  We detected multiple lockfiles and selected the directory of /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/pnpm-lock.yaml as the root directory.
+[0]  To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+[0]    See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+[0]  Detected additional lockfiles: 
+[0]    * /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/package-lock.json
+[0] 
+[0]    ▲ Next.js 15.5.27 (Turbopack)
+[0]    - Local:        http://localhost:3112
+[0]    - Network:      http://192.168.4.34:3112
+[0] 
+[0]  ✓ Starting...
+[0]  ✓ Ready in 608ms
+[1] No flight schema file found, using inline minimal schema
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:151: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   voice_app = create_strands_app(voice_agui_agent, "/")
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:158: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   byoc_hashbrown_app = create_strands_app(byoc_hashbrown_agui_agent, "/")
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:164: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   byoc_json_render_app = create_strands_app(byoc_json_render_agui_agent, "/")
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:174: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   a2ui_fixed_schema_app = create_strands_app(a2ui_fixed_schema_agui_agent, "/")
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:184: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   a2ui_dynamic_app = create_strands_app(a2ui_dynamic_agui_agent, "/")
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:194: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   a2ui_recovery_app = create_strands_app(a2ui_recovery_agui_agent, "/")
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:202: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   interrupt_app = create_strands_app(interrupt_agui_agent, "/")
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:209: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   reasoning_app = create_strands_app(reasoning_agui_agent, "/")
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:214: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   reasoning_chain_app = create_strands_app(reasoning_chain_agui_agent, "/")
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:219: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   app = create_strands_app(agui_agent, agent_path)
+[1] INFO:     Started server process [84435]
+[1] INFO:     Waiting for application startup.
+[1] INFO:     Application startup complete.
+[1] 2026-10-06 16:30:54,193 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:56156 - "GET /health HTTP/1.1" 200 OK
+[0]  ○ Compiling /api/health ...
+[0]  ✓ Compiled /api/health in 522ms
+[0]  GET /api/health 200 in 801ms
+[1] 2026-10-06 16:30:55,015 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:56161 - "GET /ping HTTP/1.1" 200 OK
+[1] 2026-10-06 16:30:55,027 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:56163 - "GET /voice/ping HTTP/1.1" 200 OK
+[1] 2026-10-06 16:30:55,035 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:56165 - "GET /byoc-hashbrown/ping HTTP/1.1" 200 OK
+[1] 2026-10-06 16:30:55,042 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:56167 - "GET /byoc-json-render/ping HTTP/1.1" 200 OK
+[1] 2026-10-06 16:30:55,049 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:56169 - "GET /a2ui-fixed-schema/ping HTTP/1.1" 200 OK
+[1] 2026-10-06 16:30:55,056 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:56171 - "GET /declarative-gen-ui/ping HTTP/1.1" 200 OK
+[1] 2026-10-06 16:30:55,064 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:56173 - "GET /a2ui-recovery/ping HTTP/1.1" 200 OK
+[1] 2026-10-06 16:30:55,071 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:56175 - "GET /interrupt/ping HTTP/1.1" 200 OK
+[1] 2026-10-06 16:30:55,078 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:56177 - "GET /reasoning/ping HTTP/1.1" 200 OK
+[1] 2026-10-06 16:30:55,085 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:56179 - "GET /reasoning-chain/ping HTTP/1.1" 200 OK
+[0]  ○ Compiling /api/copilotkit ...
+[0]  ✓ Compiled /api/copilotkit in 614ms
+[0] [copilotkit/route] Initializing CopilotKit runtime
+[0] [copilotkit/route] AGENT_URL: http://localhost:8000
+[0] [copilotkit/route] Registered 40 agent names: agentic_chat, human_in_the_loop, tool-rendering, gen-ui-tool-based, gen-ui-agent, shared-state-read, shared-state-write, shared-state-streaming, subagents, chat-customization-css, prebuilt-sidebar, prebuilt-popup, chat-slots, headless-simple, headless-complete, reasoning-default, reasoning-custom, frontend_tools, frontend-tools-async, hitl-in-chat, hitl-in-app, tool-rendering-default-catchall, tool-rendering-custom-catchall, tool-rendering-reasoning-chain, readonly-state-agent-context, shared-state-read-write, declarative-gen-ui, a2ui-fixed-schema, multimodal, voice, auth, agent-config, byoc-hashbrown-demo, byoc_json_render, open-gen-ui, open-gen-ui-advanced, beautiful-chat, gen-ui-interrupt, interrupt-headless, default
+[0]  POST /api/copilotkit 200 in 1052ms
+[0]  ○ Compiling /demos/a2ui-fixed-schema ...
+[0]  ✓ Compiled /demos/a2ui-fixed-schema in 4.6s
+[0] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+[0]  GET /demos/a2ui-fixed-schema 200 in 5069ms
+[0]  ○ Compiling /demos/a2ui-recovery ...
+[0]  ✓ Compiled /demos/a2ui-recovery in 1705ms
+[0]  GET /demos/a2ui-recovery 200 in 1832ms
+[0]  ○ Compiling /demos/agent-config ...
+[0]  ✓ Compiled /demos/agent-config in 988ms
+[0]  GET /demos/agent-config 200 in 1053ms
+[0]  ○ Compiling /demos/agentic-chat ...
+[0]  ✓ Compiled /demos/agentic-chat in 1010ms
+[0]  GET /demos/agentic-chat 200 in 1061ms
+[0]  ○ Compiling /demos/auth ...
+[0]  ✓ Compiled /demos/auth in 971ms
+[0]  GET /demos/auth 200 in 1032ms
+[0]  ○ Compiling /demos/beautiful-chat ...
+[0]  ✓ Compiled /demos/beautiful-chat in 1189ms
+[0]  GET /demos/beautiful-chat 200 in 1292ms
+[0]  ○ Compiling /demos/chat-customization-css ...
+[0]  ✓ Compiled /demos/chat-customization-css in 1014ms
+[0]  GET /demos/chat-customization-css 200 in 1089ms
+[0]  ○ Compiling /demos/chat-slots ...
+[0]  ✓ Compiled /demos/chat-slots in 1207ms
+[0]  GET /demos/chat-slots 200 in 1271ms
+[0]  ○ Compiling /demos/declarative-gen-ui ...
+[0]  ✓ Compiled /demos/declarative-gen-ui in 1061ms
+[0]  GET /demos/declarative-gen-ui 200 in 1120ms
+[0]  ○ Compiling /demos/declarative-hashbrown ...
+[0]  ✓ Compiled /demos/declarative-hashbrown in 1215ms
+[0]  GET /demos/declarative-hashbrown 200 in 1320ms
+[0]  ○ Compiling /demos/declarative-json-render ...
+[0]  ✓ Compiled /demos/declarative-json-render in 1204ms
+[0]  GET /demos/declarative-json-render 200 in 1328ms
+[0]  ○ Compiling /demos/frontend-tools ...
+[0]  ✓ Compiled /demos/frontend-tools in 962ms
+[0]  GET /demos/frontend-tools 200 in 1027ms
+[0]  ○ Compiling /demos/frontend-tools-async ...
+[0]  ✓ Compiled /demos/frontend-tools-async in 1092ms
+[0]  GET /demos/frontend-tools-async 200 in 1153ms
+[0]  ○ Compiling /demos/gen-ui-agent ...
+[0]  ✓ Compiled /demos/gen-ui-agent in 1057ms
+[0]  GET /demos/gen-ui-agent 200 in 1136ms
+[0]  ○ Compiling /demos/gen-ui-interrupt ...
+[0]  ✓ Compiled /demos/gen-ui-interrupt in 1082ms
+[0]  GET /demos/gen-ui-interrupt 200 in 1139ms
+[0]  ○ Compiling /demos/gen-ui-tool-based ...
+[0]  ✓ Compiled /demos/gen-ui-tool-based in 1299ms
+[0]  GET /demos/gen-ui-tool-based 200 in 1357ms
+[0]  ○ Compiling /demos/headless-complete ...
+[0]  ✓ Compiled /demos/headless-complete in 1147ms
+[0]  GET /demos/headless-complete 200 in 1258ms
+[0]  ○ Compiling /demos/headless-simple ...
+[0]  ✓ Compiled /demos/headless-simple in 1036ms
+[0]  GET /demos/headless-simple 200 in 1113ms
+[0]  ○ Compiling /demos/hitl ...
+[0]  ✓ Compiled /demos/hitl in 1016ms
+[0]  GET /demos/hitl 200 in 1072ms
+[0]  ○ Compiling /demos/hitl-in-app ...
+[0]  ✓ Compiled /demos/hitl-in-app in 1127ms
+[0]  GET /demos/hitl-in-app 200 in 1188ms
+[0]  ○ Compiling /demos/hitl-in-chat ...
+[0]  ✓ Compiled /demos/hitl-in-chat in 1214ms
+[0]  GET /demos/hitl-in-chat 200 in 1271ms
+[0]  ○ Compiling /demos/interrupt-headless ...
+[0]  ✓ Compiled /demos/interrupt-headless in 1104ms
+[0]  GET /demos/interrupt-headless 200 in 1162ms
+[0]  ○ Compiling /demos/mcp-apps ...
+[0]  ✓ Compiled /demos/mcp-apps in 1079ms
+[0]  GET /demos/mcp-apps 200 in 1127ms
+[0]  ○ Compiling /demos/multimodal ...
+[0]  ✓ Compiled /demos/multimodal in 1173ms
+[0]  GET /demos/multimodal 200 in 1228ms
+[0]  ○ Compiling /demos/open-gen-ui ...
+[0]  ✓ Compiled /demos/open-gen-ui in 1130ms
+[0]  GET /demos/open-gen-ui 200 in 1189ms
+[0]  ○ Compiling /demos/open-gen-ui-advanced ...
+[0]  ✓ Compiled /demos/open-gen-ui-advanced in 1176ms
+[0]  GET /demos/open-gen-ui-advanced 200 in 1231ms
+[0]  ○ Compiling /demos/prebuilt-popup ...
+[0]  ✓ Compiled /demos/prebuilt-popup in 1146ms
+[0]  GET /demos/prebuilt-popup 200 in 1234ms
+[0]  ○ Compiling /demos/prebuilt-sidebar ...
+[0]  ✓ Compiled /demos/prebuilt-sidebar in 1180ms
+[0]  GET /demos/prebuilt-sidebar 200 in 1278ms
+[0]  ○ Compiling /demos/readonly-state-agent-context ...
+[0]  ✓ Compiled /demos/readonly-state-agent-context in 1229ms
+[0]  GET /demos/readonly-state-agent-context 200 in 1301ms
+[0]  ○ Compiling /demos/reasoning-custom ...
+[0]  ✓ Compiled /demos/reasoning-custom in 1230ms
+[0]  GET /demos/reasoning-custom 200 in 1283ms
+[0]  ○ Compiling /demos/reasoning-default ...
+[0]  ✓ Compiled /demos/reasoning-default in 1166ms
+[0]  GET /demos/reasoning-default 200 in 1221ms
+[0]  ○ Compiling /demos/shared-state-read ...
+[0]  ✓ Compiled /demos/shared-state-read in 1474ms
+[0]  GET /demos/shared-state-read 200 in 1576ms
+[0]  ○ Compiling /demos/shared-state-read-write ...
+[0]  ✓ Compiled /demos/shared-state-read-write in 1383ms
+[0]  GET /demos/shared-state-read-write 200 in 1453ms
+[0]  ○ Compiling /demos/shared-state-streaming ...
+[0]  ✓ Compiled /demos/shared-state-streaming in 1291ms
+[0]  GET /demos/shared-state-streaming 200 in 1360ms
+[0]  ○ Compiling /demos/subagents ...
+[0]  ✓ Compiled /demos/subagents in 1315ms
+[0]  GET /demos/subagents 200 in 1381ms
+[0]  ○ Compiling /demos/threadid-frontend-tool-roundtrip ...
+[0]  ✓ Compiled /demos/threadid-frontend-tool-roundtrip in 1279ms
+[0]  GET /demos/threadid-frontend-tool-roundtrip 200 in 1346ms
+[0]  ○ Compiling /demos/tool-rendering ...
+[0]  ✓ Compiled /demos/tool-rendering in 1380ms
+[0]  GET /demos/tool-rendering 200 in 1451ms
+[0]  ○ Compiling /demos/tool-rendering-custom-catchall ...
+[0]  ✓ Compiled /demos/tool-rendering-custom-catchall in 1527ms
+[0]  GET /demos/tool-rendering-custom-catchall 200 in 1627ms
+[0]  ○ Compiling /demos/tool-rendering-default-catchall ...
+[0]  ✓ Compiled /demos/tool-rendering-default-catchall in 1491ms
+[0]  GET /demos/tool-rendering-default-catchall 200 in 1546ms
+[0]  ○ Compiling /demos/tool-rendering-reasoning-chain ...
+[0]  ✓ Compiled /demos/tool-rendering-reasoning-chain in 1696ms
+[0]  GET /demos/tool-rendering-reasoning-chain 200 in 1746ms
+[0]  ○ Compiling /demos/voice ...
+[0]  ✓ Compiled /demos/voice in 1427ms
+[0]  GET /demos/voice 200 in 1487ms
+[1] 2026-10-06 16:31:56,452 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:56261 - "GET /health HTTP/1.1" 200 OK
+[0]  GET /api/copilotkit 200 in 234ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-fixed-schema in 195ms
+[0]  GET /api/copilotkit-a2ui-fixed-schema 405 in 420ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-recovery in 173ms
+[0]  GET /api/copilotkit-a2ui-recovery 405 in 400ms
+[0]  ✓ Compiled /api/copilotkit-agent-config in 164ms
+[0]  GET /api/copilotkit-agent-config 405 in 390ms
+[0]  ✓ Compiled /api/copilotkit-auth/[[...slug]] in 143ms
+[0]  GET /api/copilotkit-auth 401 in 916ms
+[0]  ✓ Compiled /api/copilotkit-beautiful-chat in 122ms
+[0]  GET /api/copilotkit-beautiful-chat 405 in 347ms
+[0]  ✓ Compiled /api/copilotkit-byoc-hashbrown in 152ms
+[0]  GET /api/copilotkit-byoc-hashbrown 405 in 376ms
+[0]  ✓ Compiled /api/copilotkit-byoc-json-render in 164ms
+[0]  GET /api/copilotkit-byoc-json-render 405 in 390ms
+[0]  ✓ Compiled /api/copilotkit-declarative-gen-ui in 134ms
+[0]  GET /api/copilotkit-declarative-gen-ui 405 in 363ms
+[0]  ✓ Compiled /api/copilotkit-declarative-hashbrown in 147ms
+[0]  GET /api/copilotkit-declarative-hashbrown 405 in 374ms
+[0]  ✓ Compiled /api/copilotkit-declarative-json-render in 135ms
+[0]  GET /api/copilotkit-declarative-json-render 405 in 361ms
+[0]  ✓ Compiled /api/copilotkit-mcp-apps in 135ms
+[0]  GET /api/copilotkit-mcp-apps 405 in 364ms
+[0]  ✓ Compiled /api/copilotkit-multimodal in 206ms
+[0]  GET /api/copilotkit-multimodal 405 in 431ms
+[0]  ✓ Compiled /api/copilotkit-ogui in 145ms
+[0]  GET /api/copilotkit-ogui 405 in 370ms
+[0]  ✓ Compiled /api/copilotkit-voice/[[...slug]] in 397ms
+[0]  GET /api/copilotkit-voice 404 in 1207ms
+[0]  ✓ Compiled /api/debug in 54ms
+[0]  GET /api/debug 403 in 281ms
+[0]  GET /api/health 200 in 228ms
+[0]  ✓ Compiled /api/smoke in 47ms
+[1] 2026-10-06 16:32:36,839 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:56348 - "POST / HTTP/1.1" 200 OK
+[0]  GET /api/smoke 200 in 550ms
+[0]  POST /api/copilotkit 200 in 268ms
+[1] 2026-10-06 16:32:36,895 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=async-detect run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=ok test_id=none error=path=isinstance-async confidence=high
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x109566160> at 0x10c62f880> was created in a different Context
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x109566160> at 0x10c50d700> was created in a different Context
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x109566160> at 0x10c72bc00> was created in a different Context
+[1] 2026-10-06 16:32:41,172 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] OKINFO:     127.0.0.1:56348 - "POST / HTTP/1.1" 200 OK
+[1] 2026-10-06 16:32:41,181 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=async-detect run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=ok test_id=none error=path=isinstance-async confidence=high
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x109566160> at 0x116278f40> was created in a different Context
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x109566160> at 0x10c72a0c0> was created in a different Context
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x109566160> at 0x10c7289c0> was created in a different Context
+[0]  POST /api/copilotkit 200 in 432ms
+[1] 2026-10-06 16:32:41,882 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] OKINFO:     127.0.0.1:56348 - "POST / HTTP/1.1" 200 OK
+[0]  GET /api/smoke 200 in 465ms
+[0]  POST /api/copilotkit 200 in 237ms
+[1] 2026-10-06 16:32:41,888 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=async-detect run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=ok test_id=none error=path=isinstance-async confidence=high
+[1] Agent stream force-stopped (thread_id=smoke-1791329561646, reason=Error code: 400 - {'error': {'message': 'injected provider failure (smoke check)', 'type': 'invalid_request_error', 'param': None, 'code': None}})
+[1] Strands stream raised after force_stop (thread_id=smoke-1791329561646)
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 531, in _stream_with_model_context
+[1]     event = await iterator.__anext__()
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1398, in stream_async
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1542, in _run_loop
+[1]     async for event in self._middleware_registry.invoke(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/_middleware/registry.py", line 167, in invoke
+[1]     async for event in gen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1697, in terminal
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1752, in _execute_event_loop_cycle
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 302, in event_loop_cycle
+[1]     async for model_event in model_events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 691, in _handle_model_execution
+[1]     raise e
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 609, in _handle_model_execution
+[1]     async for event in agent._middleware_registry.invoke(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/_middleware/registry.py", line 167, in invoke
+[1]     async for event in gen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 740, in terminal
+[1]     async for event in stream_messages(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/streaming.py", line 572, in stream_messages
+[1]     async for event in process_stream(chunks, start_time, cancel_signal):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/streaming.py", line 460, in process_stream
+[1]     async for chunk in chunks:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/models/openai.py", line 735, in stream
+[1]     response = await client.chat.completions.create(**request)
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/resources/chat/completions/completions.py", line 2907, in create
+[1]     return await self._post(
+[1]            ^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/_base_client.py", line 1992, in post
+[1]     return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/_base_client.py", line 1777, in request
+[1]     raise self._make_status_error_from_response(err.response) from None
+[1] openai.BadRequestError: Error code: 400 - {'error': {'message': 'injected provider failure (smoke check)', 'type': 'invalid_request_error', 'param': None, 'code': None}}
+[1] 
+[1] The above exception was the direct cause of the following exception:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 5975, in _run_raw
+[1]     async for event in _stream_with_model_context(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 535, in _stream_with_model_context
+[1]     raise _ForeignFault(exc) from exc
+[1] ag_ui_strands.agent._ForeignFault: Error code: 400 - {'error': {'message': 'injected provider failure (smoke check)', 'type': 'invalid_request_error', 'param': None, 'code': None}}
+[1] 2026-10-06 16:32:46,187 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:56376 - "POST / HTTP/1.1" 200 OK
+[1] 2026-10-06 16:32:46,192 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=async-detect run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=ok test_id=none error=path=isinstance-async confidence=high
+[1] Agent stream force-stopped (thread_id=smoke-1791329565948, reason=Error code: 400 - {'error': {'message': 'injected provider failure (smoke check)', 'type': 'invalid_request_error', 'param': None, 'code': None}})
+[1] Strands stream raised after force_stop (thread_id=smoke-1791329565948)
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 531, in _stream_with_model_context
+[1]     event = await iterator.__anext__()
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1398, in stream_async
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1542, in _run_loop
+[1]     async for event in self._middleware_registry.invoke(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/_middleware/registry.py", line 167, in invoke
+[1]     async for event in gen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1697, in terminal
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1752, in _execute_event_loop_cycle
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 302, in event_loop_cycle
+[1]     async for model_event in model_events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 691, in _handle_model_execution
+[1]     raise e
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 609, in _handle_model_execution
+[1]     async for event in agent._middleware_registry.invoke(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/_middleware/registry.py", line 167, in invoke
+[1]     async for event in gen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 740, in terminal
+[1]     async for event in stream_messages(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/streaming.py", line 572, in stream_messages
+[1]     async for event in process_stream(chunks, start_time, cancel_signal):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/streaming.py", line 460, in process_stream
+[1]     async for chunk in chunks:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/models/openai.py", line 735, in stream
+[1]     response = await client.chat.completions.create(**request)
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/resources/chat/completions/completions.py", line 2907, in create
+[1]     return await self._post(
+[1]            ^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/_base_client.py", line 1992, in post
+[1]     return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/_base_client.py", line 1777, in request
+[1]     raise self._make_status_error_from_response(err.response) from None
+[1] openai.BadRequestError: Error code: 400 - {'error': {'message': 'injected provider failure (smoke check)', 'type': 'invalid_request_error', 'param': None, 'code': None}}
+[1] 
+[1] The above exception was the direct cause of the following exception:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 5975, in _run_raw
+[1]     async for event in _stream_with_model_context(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 535, in _stream_with_model_context
+[1]     raise _ForeignFault(exc) from exc
+[1] ag_ui_strands.agent._ForeignFault: Error code: 400 - {'error': {'message': 'injected provider failure (smoke check)', 'type': 'invalid_request_error', 'param': None, 'code': None}}
+[0]  POST /api/copilotkit 200 in 240ms
+[1] 2026-10-06 16:33:00,936 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:56406 - "POST / HTTP/1.1" 200 OK
+[1] 2026-10-06 16:33:00,942 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=async-detect run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=ok test_id=none error=path=isinstance-async confidence=high
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x109566160> at 0x10c62fb80> was created in a different Context
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x109566160> at 0x10c50dec0> was created in a different Context
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x109566160> at 0x1162e7e00> was created in a different Context
+[0]  POST /api/copilotkit 200 in 434ms
+[0]  GET /api/smoke 200 in 680ms
+[1] 2026-10-06 16:33:01,668 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] OKINFO:     127.0.0.1:56406 - "POST / HTTP/1.1" 200 OK
+[1] 2026-10-06 16:33:01,677 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=async-detect run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=ok test_id=none error=path=isinstance-async confidence=high
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x109566160> at 0x116507040> was created in a different Context
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x109566160> at 0x10c50ce80> was created in a different Context
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x109566160> at 0x10c72b680> was created in a different Context
+[0]  POST /api/copilotkit 200 in 445ms
+[0]  GET /api/smoke 200 in 674ms
+[1] 2026-10-06 16:33:02,393 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] OKINFO:     127.0.0.1:56406 - "POST / HTTP/1.1" 200 OK
+[1] 2026-10-06 16:33:02,402 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=async-detect run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=ok test_id=none error=path=isinstance-async confidence=high
+[1] Agent stream force-stopped (thread_id=b6cb6f23-2cf9-4ee6-bc79-8d432f008bd4, reason=Error code: 400 - {'error': {'message': 'injected provider failure (smoke check)', 'type': 'invalid_request_error', 'param': None, 'code': None}})
+[1] Strands stream raised after force_stop (thread_id=b6cb6f23-2cf9-4ee6-bc79-8d432f008bd4)
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 531, in _stream_with_model_context
+[1]     event = await iterator.__anext__()
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1398, in stream_async
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1542, in _run_loop
+[1]     async for event in self._middleware_registry.invoke(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/_middleware/registry.py", line 167, in invoke
+[1]     async for event in gen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1697, in terminal
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1752, in _execute_event_loop_cycle
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 302, in event_loop_cycle
+[1]     async for model_event in model_events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 691, in _handle_model_execution
+[1]     raise e
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 609, in _handle_model_execution
+[1]     async for event in agent._middleware_registry.invoke(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/_middleware/registry.py", line 167, in invoke
+[1]     async for event in gen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 740, in terminal
+[1]     async for event in stream_messages(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/streaming.py", line 572, in stream_messages
+[1]     async for event in process_stream(chunks, start_time, cancel_signal):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/streaming.py", line 460, in process_stream
+[1]     async for chunk in chunks:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/models/openai.py", line 735, in stream
+[1]     response = await client.chat.completions.create(**request)
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/resources/chat/completions/completions.py", line 2907, in create
+[1]     return await self._post(
+[1]            ^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/_base_client.py", line 1992, in post
+[1]     return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/_base_client.py", line 1777, in request
+[1]     raise self._make_status_error_from_response(err.response) from None
+[1] openai.BadRequestError: Error code: 400 - {'error': {'message': 'injected provider failure (smoke check)', 'type': 'invalid_request_error', 'param': None, 'code': None}}
+[1] 
+[1] The above exception was the direct cause of the following exception:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 5975, in _run_raw
+[1]     async for event in _stream_with_model_context(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 535, in _stream_with_model_context
+[1]     raise _ForeignFault(exc) from exc
+[1] ag_ui_strands.agent._ForeignFault: Error code: 400 - {'error': {'message': 'injected provider failure (smoke check)', 'type': 'invalid_request_error', 'param': None, 'code': None}}
+[0]  POST /api/copilotkit 200 in 250ms
+[0]  GET /api/smoke 502 in 479ms
+[1] 2026-10-06 16:33:02,918 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:56406 - "POST / HTTP/1.1" 200 OK
+[1] 2026-10-06 16:33:02,927 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=async-detect run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=ok test_id=none error=path=isinstance-async confidence=high
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x109566160> at 0x116251cc0> was created in a different Context
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x109566160> at 0x11651b500> was created in a different Context
+[1] Failed to detach context
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/__init__.py", line 127, in detach
+[1]     _RUNTIME_CONTEXT.detach(token)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/opentelemetry/context/contextvars_context.py", line 40, in detach
+[1]     self._current_context.reset(token)
+[1] ValueError: <Token var=<ContextVar name='current_context' default={} at 0x109566160> at 0x11651b7c0> was created in a different Context
+[0]  POST /api/copilotkit 200 in 443ms
+[0]  GET /api/smoke 200 in 673ms
+[1] INFO:     Shutting down
+[0] [?25h
+[0] next dev --turbopack exited with code 0
+[1] INFO:     Waiting for application shutdown.
+[1] INFO:     Application shutdown complete.
+[1] INFO:     Finished server process [84435]
+[1] INFO:     Stopping reloader process [84419]
+[1] cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload exited with code SIGTERM
+# stopped Tue Oct  6 23:34:20 UTC 2026 (SIGTERM to process group 84355)

@@ -1,0 +1,445 @@
+# Strands stack via the integration's documented default dev command (package.json scripts.dev = concurrently "next dev --turbopack" "cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload"), venv python (/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv, Python 3.12.6) first on PATH. .next removed first.
+$ cd showcase/integrations/strands && PORT=3112 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true DO_NOT_TRACK=1 OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://127.0.0.1:4410/v1 AIMOCK_URL=http://127.0.0.1:4410 AGENT_URL=http://localhost:8000 nice -n 10 npm run dev
+# node v22.16.0, npm 10.9.2, HEAD 96eb243ad2, tree vs HEAD outside tasks/:  M showcase/integrations/strands/src/agents/agent.py , started Tue Oct  6 23:42:01 UTC 2026
+
+> @copilotkit/showcase-strands@0.1.0 dev
+> concurrently "next dev --turbopack" "cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload"
+
+[1] INFO:     Will watch for changes in these directories: ['/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src']
+[1] INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+[1] INFO:     Started reloader process [1062] using StatReload
+[1] 2026-10-06 16:42:01,481 INFO agents._cvdiag_bootstrap CVDIAG bootstrap component=_shared tier=default pb_enabled=false
+[0]  ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+[0]  We detected multiple lockfiles and selected the directory of /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/pnpm-lock.yaml as the root directory.
+[0]  To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+[0]    See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+[0]  Detected additional lockfiles: 
+[0]    * /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/package-lock.json
+[0] 
+[0]    ▲ Next.js 15.5.27 (Turbopack)
+[0]    - Local:        http://localhost:3112
+[0]    - Network:      http://192.168.4.34:3112
+[0] 
+[0]  ✓ Starting...
+[1] No flight schema file found, using inline minimal schema
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:151: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   voice_app = create_strands_app(voice_agui_agent, "/")
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:158: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   byoc_hashbrown_app = create_strands_app(byoc_hashbrown_agui_agent, "/")
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:164: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   byoc_json_render_app = create_strands_app(byoc_json_render_agui_agent, "/")
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:174: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   a2ui_fixed_schema_app = create_strands_app(a2ui_fixed_schema_agui_agent, "/")
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:184: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   a2ui_dynamic_app = create_strands_app(a2ui_dynamic_agui_agent, "/")
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:194: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   a2ui_recovery_app = create_strands_app(a2ui_recovery_agui_agent, "/")
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:202: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   interrupt_app = create_strands_app(interrupt_agui_agent, "/")
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:209: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   reasoning_app = create_strands_app(reasoning_agui_agent, "/")
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:214: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   reasoning_chain_app = create_strands_app(reasoning_chain_agui_agent, "/")
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands/src/agent_server.py:219: FutureWarning: Implicit wildcard CORS is insecure and deprecated. Pass origins=[...] to allow only trusted browser origins, origins=['*'] to explicitly retain wildcard CORS, or cors_enabled=False to disable CORS. The implicit wildcard default will be removed in a future release.
+[1]   app = create_strands_app(agui_agent, agent_path)
+[1] INFO:     Started server process [1064]
+[1] INFO:     Waiting for application startup.
+[1] INFO:     Application startup complete.
+[1] 2026-10-06 16:42:02,212 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:58103 - "GET /health HTTP/1.1" 200 OK
+[0]  ✓ Ready in 591ms
+[0]  ○ Compiling /api/health ...
+[0]  ✓ Compiled /api/health in 505ms
+[0]  GET /api/health 200 in 780ms
+[1] 2026-10-06 16:42:03,046 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:58106 - "GET /ping HTTP/1.1" 200 OK
+[1] 2026-10-06 16:42:03,054 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:58108 - "GET /voice/ping HTTP/1.1" 200 OK
+[1] 2026-10-06 16:42:03,061 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:58110 - "GET /byoc-hashbrown/ping HTTP/1.1" 200 OK
+[1] 2026-10-06 16:42:03,068 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:58112 - "GET /byoc-json-render/ping HTTP/1.1" 200 OK
+[1] 2026-10-06 16:42:03,076 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:58114 - "GET /a2ui-fixed-schema/ping HTTP/1.1" 200 OK
+[1] 2026-10-06 16:42:03,082 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:58116 - "GET /declarative-gen-ui/ping HTTP/1.1" 200 OK
+[1] 2026-10-06 16:42:03,089 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:58118 - "GET /a2ui-recovery/ping HTTP/1.1" 200 OK
+[1] 2026-10-06 16:42:03,096 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:58120 - "GET /interrupt/ping HTTP/1.1" 200 OK
+[1] 2026-10-06 16:42:03,103 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:58122 - "GET /reasoning/ping HTTP/1.1" 200 OK
+[1] 2026-10-06 16:42:03,110 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:58124 - "GET /reasoning-chain/ping HTTP/1.1" 200 OK
+[0]  ○ Compiling /demos/shared-state-read ...
+[0]  ✓ Compiled /demos/shared-state-read in 4.5s
+[0] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+[0]  GET /demos/shared-state-read 200 in 4940ms
+[0]  ○ Compiling /api/copilotkit ...
+[0]  ✓ Compiled /api/copilotkit in 649ms
+[0] [copilotkit/route] Initializing CopilotKit runtime
+[0] [copilotkit/route] AGENT_URL: http://localhost:8000
+[0] [copilotkit/route] Registered 40 agent names: agentic_chat, human_in_the_loop, tool-rendering, gen-ui-tool-based, gen-ui-agent, shared-state-read, shared-state-write, shared-state-streaming, subagents, chat-customization-css, prebuilt-sidebar, prebuilt-popup, chat-slots, headless-simple, headless-complete, reasoning-default, reasoning-custom, frontend_tools, frontend-tools-async, hitl-in-chat, hitl-in-app, tool-rendering-default-catchall, tool-rendering-custom-catchall, tool-rendering-reasoning-chain, readonly-state-agent-context, shared-state-read-write, declarative-gen-ui, a2ui-fixed-schema, multimodal, voice, auth, agent-config, byoc-hashbrown-demo, byoc_json_render, open-gen-ui, open-gen-ui-advanced, beautiful-chat, gen-ui-interrupt, interrupt-headless, default
+[1] 2026-10-06 16:42:09,131 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:58136 - "GET /health HTTP/1.1" 200 OK
+[0]  GET /api/copilotkit 200 in 1057ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-fixed-schema in 180ms
+[0]  GET /api/copilotkit-a2ui-fixed-schema 405 in 418ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-recovery in 184ms
+[0]  GET /api/copilotkit-a2ui-recovery 405 in 409ms
+[0]  ✓ Compiled /api/copilotkit-agent-config in 150ms
+[0]  GET /api/copilotkit-agent-config 405 in 384ms
+[0]  ✓ Compiled /api/copilotkit-auth/[[...slug]] in 142ms
+[0]  GET /api/copilotkit-auth 401 in 908ms
+[0]  ✓ Compiled /api/copilotkit-beautiful-chat in 131ms
+[0]  GET /api/copilotkit-beautiful-chat 405 in 358ms
+[0]  ✓ Compiled /api/copilotkit-byoc-hashbrown in 137ms
+[0]  GET /api/copilotkit-byoc-hashbrown 405 in 370ms
+[0]  ✓ Compiled /api/copilotkit-byoc-json-render in 137ms
+[0]  GET /api/copilotkit-byoc-json-render 405 in 370ms
+[0]  ✓ Compiled /api/copilotkit-declarative-gen-ui in 125ms
+[0]  GET /api/copilotkit-declarative-gen-ui 405 in 352ms
+[0]  ✓ Compiled /api/copilotkit-declarative-hashbrown in 137ms
+[0]  GET /api/copilotkit-declarative-hashbrown 405 in 360ms
+[0]  ✓ Compiled /api/copilotkit-declarative-json-render in 144ms
+[0]  GET /api/copilotkit-declarative-json-render 405 in 368ms
+[0]  ✓ Compiled /api/copilotkit-mcp-apps in 131ms
+[0]  GET /api/copilotkit-mcp-apps 405 in 355ms
+[0]  ✓ Compiled /api/copilotkit-multimodal in 127ms
+[0]  GET /api/copilotkit-multimodal 405 in 349ms
+[0]  ✓ Compiled /api/copilotkit-ogui in 117ms
+[0]  GET /api/copilotkit-ogui 405 in 338ms
+[0]  ✓ Compiled /api/copilotkit-voice/[[...slug]] in 172ms
+[0]  GET /api/copilotkit-voice 404 in 955ms
+[0]  ✓ Compiled /api/debug in 43ms
+[0]  GET /api/debug 403 in 267ms
+[0]  GET /api/health 200 in 221ms
+[0]  GET /demos/shared-state-read 200 in 84ms
+[0]  ✓ Compiled /_not-found/page in 170ms
+[0]  GET /api/copilotkit/info 404 in 223ms
+[0]  POST /api/copilotkit 200 in 227ms
+[0]  POST /api/copilotkit 200 in 281ms
+[0]  POST /api/copilotkit 200 in 284ms
+[0]  POST /api/copilotkit 200 in 290ms
+[0]  POST /api/copilotkit 200 in 293ms
+[0]  POST /api/copilotkit 200 in 295ms
+[0]  POST /api/copilotkit 200 in 297ms
+[0]  POST /api/copilotkit 200 in 273ms
+[0]  POST /api/copilotkit 200 in 274ms
+[0]  POST /api/copilotkit 200 in 264ms
+[0]  POST /api/copilotkit 200 in 266ms
+[0]  POST /api/copilotkit 200 in 266ms
+[0]  POST /api/copilotkit 200 in 270ms
+[0]  POST /api/copilotkit 200 in 263ms
+[0]  POST /api/copilotkit 200 in 266ms
+[0]  POST /api/copilotkit 200 in 268ms
+[0]  POST /api/copilotkit 200 in 270ms
+[0]  POST /api/copilotkit 200 in 272ms
+[0]  POST /api/copilotkit 200 in 274ms
+[0]  POST /api/copilotkit 200 in 268ms
+[0]  POST /api/copilotkit 200 in 270ms
+[0]  POST /api/copilotkit 200 in 271ms
+[0]  POST /api/copilotkit 200 in 272ms
+[0]  POST /api/copilotkit 200 in 274ms
+[0]  POST /api/copilotkit 200 in 277ms
+[0]  POST /api/copilotkit 200 in 260ms
+[0]  POST /api/copilotkit 200 in 263ms
+[0]  POST /api/copilotkit 200 in 265ms
+[0]  POST /api/copilotkit 200 in 267ms
+[0]  POST /api/copilotkit 200 in 269ms
+[0]  POST /api/copilotkit 200 in 271ms
+[0]  POST /api/copilotkit 200 in 262ms
+[0]  POST /api/copilotkit 200 in 264ms
+[0]  POST /api/copilotkit 200 in 267ms
+[0]  POST /api/copilotkit 200 in 269ms
+[0]  POST /api/copilotkit 200 in 271ms
+[0]  POST /api/copilotkit 200 in 274ms
+[0]  POST /api/copilotkit 200 in 291ms
+[0]  POST /api/copilotkit 200 in 293ms
+[0]  POST /api/copilotkit 200 in 294ms
+[0]  POST /api/copilotkit 200 in 305ms
+[1] 2026-10-06 16:42:19,217 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=- status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=
+[1] INFO:     127.0.0.1:58173 - "POST / HTTP/1.1" 200 OK
+[1] 2026-10-06 16:42:19,230 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=async-detect run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=ok test_id=none error=path=isinstance-async confidence=high
+[1] 2026-10-06 16:42:19,355 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=outbound-llm run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=2 status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=
+[1] 2026-10-06 16:42:19,829 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=outbound-llm run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=2 status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=
+[1] 2026-10-06 16:42:20,776 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=outbound-llm run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=2 status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=
+[1] Agent stream force-stopped (thread_id=ab5343ff-7594-4487-9d80-b229e1259a65, reason=Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}})
+[1] Strands stream raised after force_stop (thread_id=ab5343ff-7594-4487-9d80-b229e1259a65)
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 531, in _stream_with_model_context
+[1]     event = await iterator.__anext__()
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1398, in stream_async
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1542, in _run_loop
+[1]     async for event in self._middleware_registry.invoke(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/_middleware/registry.py", line 167, in invoke
+[1]     async for event in gen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1697, in terminal
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1752, in _execute_event_loop_cycle
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 302, in event_loop_cycle
+[1]     async for model_event in model_events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 691, in _handle_model_execution
+[1]     raise e
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 609, in _handle_model_execution
+[1]     async for event in agent._middleware_registry.invoke(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/_middleware/registry.py", line 167, in invoke
+[1]     async for event in gen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 740, in terminal
+[1]     async for event in stream_messages(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/streaming.py", line 572, in stream_messages
+[1]     async for event in process_stream(chunks, start_time, cancel_signal):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/streaming.py", line 460, in process_stream
+[1]     async for chunk in chunks:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/models/openai.py", line 735, in stream
+[1]     response = await client.chat.completions.create(**request)
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/resources/chat/completions/completions.py", line 2907, in create
+[1]     return await self._post(
+[1]            ^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/_base_client.py", line 1992, in post
+[1]     return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/_base_client.py", line 1777, in request
+[1]     raise self._make_status_error_from_response(err.response) from None
+[1] openai.InternalServerError: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}}
+[1] 
+[1] The above exception was the direct cause of the following exception:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 5975, in _run_raw
+[1]     async for event in _stream_with_model_context(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 535, in _stream_with_model_context
+[1]     raise _ForeignFault(exc) from exc
+[1] ag_ui_strands.agent._ForeignFault: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}}
+[0]  POST /api/copilotkit 200 in 1875ms
+[1] 2026-10-06 16:42:21,219 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=- status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=
+[1] INFO:     127.0.0.1:58173 - "POST / HTTP/1.1" 200 OK
+[1] 2026-10-06 16:42:21,226 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=async-detect run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=ok test_id=none error=path=isinstance-async confidence=high
+[1] 2026-10-06 16:42:21,227 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=outbound-llm run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=2 status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=
+[1] 2026-10-06 16:42:21,660 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=outbound-llm run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=2 status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=
+[1] 2026-10-06 16:42:22,579 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=outbound-llm run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=2 status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=
+[1] Agent stream force-stopped (thread_id=ab5343ff-7594-4487-9d80-b229e1259a65, reason=Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}})
+[1] Strands stream raised after force_stop (thread_id=ab5343ff-7594-4487-9d80-b229e1259a65)
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 531, in _stream_with_model_context
+[1]     event = await iterator.__anext__()
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1398, in stream_async
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1542, in _run_loop
+[1]     async for event in self._middleware_registry.invoke(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/_middleware/registry.py", line 167, in invoke
+[1]     async for event in gen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1697, in terminal
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1752, in _execute_event_loop_cycle
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 302, in event_loop_cycle
+[1]     async for model_event in model_events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 691, in _handle_model_execution
+[1]     raise e
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 609, in _handle_model_execution
+[1]     async for event in agent._middleware_registry.invoke(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/_middleware/registry.py", line 167, in invoke
+[1]     async for event in gen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 740, in terminal
+[1]     async for event in stream_messages(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/streaming.py", line 572, in stream_messages
+[1]     async for event in process_stream(chunks, start_time, cancel_signal):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/streaming.py", line 460, in process_stream
+[1]     async for chunk in chunks:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/models/openai.py", line 735, in stream
+[1]     response = await client.chat.completions.create(**request)
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/resources/chat/completions/completions.py", line 2907, in create
+[1]     return await self._post(
+[1]            ^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/_base_client.py", line 1992, in post
+[1]     return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/_base_client.py", line 1777, in request
+[1]     raise self._make_status_error_from_response(err.response) from None
+[1] openai.InternalServerError: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}}
+[1] 
+[1] The above exception was the direct cause of the following exception:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 5975, in _run_raw
+[1]     async for event in _stream_with_model_context(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 535, in _stream_with_model_context
+[1]     raise _ForeignFault(exc) from exc
+[1] ag_ui_strands.agent._ForeignFault: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}}
+[0]  POST /api/copilotkit 200 in 1592ms
+[0]  GET /demos/shared-state-read 200 in 78ms
+[0]  GET /api/copilotkit/info 404 in 41ms
+[0]  POST /api/copilotkit 200 in 225ms
+[0]  POST /api/copilotkit 200 in 285ms
+[0]  POST /api/copilotkit 200 in 288ms
+[0]  POST /api/copilotkit 200 in 290ms
+[0]  POST /api/copilotkit 200 in 292ms
+[0]  POST /api/copilotkit 200 in 296ms
+[0]  POST /api/copilotkit 200 in 298ms
+[0]  POST /api/copilotkit 200 in 268ms
+[0]  POST /api/copilotkit 200 in 270ms
+[0]  POST /api/copilotkit 200 in 273ms
+[0]  POST /api/copilotkit 200 in 274ms
+[0]  POST /api/copilotkit 200 in 273ms
+[0]  POST /api/copilotkit 200 in 275ms
+[0]  POST /api/copilotkit 200 in 264ms
+[0]  POST /api/copilotkit 200 in 265ms
+[0]  POST /api/copilotkit 200 in 267ms
+[0]  POST /api/copilotkit 200 in 270ms
+[0]  POST /api/copilotkit 200 in 271ms
+[0]  POST /api/copilotkit 200 in 275ms
+[0]  POST /api/copilotkit 200 in 265ms
+[0]  POST /api/copilotkit 200 in 267ms
+[0]  POST /api/copilotkit 200 in 270ms
+[0]  POST /api/copilotkit 200 in 272ms
+[0]  POST /api/copilotkit 200 in 274ms
+[0]  POST /api/copilotkit 200 in 277ms
+[0]  POST /api/copilotkit 200 in 267ms
+[0]  POST /api/copilotkit 200 in 268ms
+[0]  POST /api/copilotkit 200 in 270ms
+[0]  POST /api/copilotkit 200 in 271ms
+[0]  POST /api/copilotkit 200 in 273ms
+[0]  POST /api/copilotkit 200 in 274ms
+[0]  POST /api/copilotkit 200 in 264ms
+[0]  POST /api/copilotkit 200 in 267ms
+[0]  POST /api/copilotkit 200 in 269ms
+[0]  POST /api/copilotkit 200 in 273ms
+[0]  POST /api/copilotkit 200 in 276ms
+[0]  POST /api/copilotkit 200 in 278ms
+[0]  POST /api/copilotkit 200 in 276ms
+[0]  POST /api/copilotkit 200 in 303ms
+[0]  POST /api/copilotkit 200 in 304ms
+[0]  POST /api/copilotkit 200 in 311ms
+[1] 2026-10-06 16:43:20,210 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=- status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=
+[1] INFO:     127.0.0.1:58254 - "POST / HTTP/1.1" 200 OK
+[1] 2026-10-06 16:43:20,217 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=async-detect run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=ok test_id=none error=path=isinstance-async confidence=high
+[1] 2026-10-06 16:43:20,219 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=outbound-llm run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=2 status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=
+[1] 2026-10-06 16:43:20,679 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=outbound-llm run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=2 status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=
+[1] 2026-10-06 16:43:21,543 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=outbound-llm run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=2 status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=
+[1] Agent stream force-stopped (thread_id=9ede6ae3-2adf-4a04-9a59-e78d7f340204, reason=Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}})
+[1] Strands stream raised after force_stop (thread_id=9ede6ae3-2adf-4a04-9a59-e78d7f340204)
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 531, in _stream_with_model_context
+[1]     event = await iterator.__anext__()
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1398, in stream_async
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1542, in _run_loop
+[1]     async for event in self._middleware_registry.invoke(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/_middleware/registry.py", line 167, in invoke
+[1]     async for event in gen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1697, in terminal
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1752, in _execute_event_loop_cycle
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 302, in event_loop_cycle
+[1]     async for model_event in model_events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 691, in _handle_model_execution
+[1]     raise e
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 609, in _handle_model_execution
+[1]     async for event in agent._middleware_registry.invoke(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/_middleware/registry.py", line 167, in invoke
+[1]     async for event in gen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 740, in terminal
+[1]     async for event in stream_messages(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/streaming.py", line 572, in stream_messages
+[1]     async for event in process_stream(chunks, start_time, cancel_signal):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/streaming.py", line 460, in process_stream
+[1]     async for chunk in chunks:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/models/openai.py", line 735, in stream
+[1]     response = await client.chat.completions.create(**request)
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/resources/chat/completions/completions.py", line 2907, in create
+[1]     return await self._post(
+[1]            ^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/_base_client.py", line 1992, in post
+[1]     return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/_base_client.py", line 1777, in request
+[1]     raise self._make_status_error_from_response(err.response) from None
+[1] openai.InternalServerError: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}}
+[1] 
+[1] The above exception was the direct cause of the following exception:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 5975, in _run_raw
+[1]     async for event in _stream_with_model_context(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 535, in _stream_with_model_context
+[1]     raise _ForeignFault(exc) from exc
+[1] ag_ui_strands.agent._ForeignFault: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}}
+[0]  POST /api/copilotkit 200 in 1651ms
+[1] 2026-10-06 16:43:21,964 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=contextvar-capture run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=- status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=
+[1] INFO:     127.0.0.1:58254 - "POST / HTTP/1.1" 200 OK
+[1] 2026-10-06 16:43:21,970 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=async-detect run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=ok test_id=none error=path=isinstance-async confidence=high
+[1] 2026-10-06 16:43:21,972 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=outbound-llm run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=2 status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=
+[1] 2026-10-06 16:43:22,433 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=outbound-llm run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=2 status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=
+[1] 2026-10-06 16:43:23,305 INFO agents._header_forwarding CVDIAG component=backend-strands boundary=outbound-llm run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=2 status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=
+[1] Agent stream force-stopped (thread_id=9ede6ae3-2adf-4a04-9a59-e78d7f340204, reason=Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}})
+[1] Strands stream raised after force_stop (thread_id=9ede6ae3-2adf-4a04-9a59-e78d7f340204)
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 531, in _stream_with_model_context
+[1]     event = await iterator.__anext__()
+[1]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1398, in stream_async
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1542, in _run_loop
+[1]     async for event in self._middleware_registry.invoke(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/_middleware/registry.py", line 167, in invoke
+[1]     async for event in gen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1697, in terminal
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/agent/agent.py", line 1752, in _execute_event_loop_cycle
+[1]     async for event in events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 302, in event_loop_cycle
+[1]     async for model_event in model_events:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 691, in _handle_model_execution
+[1]     raise e
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 609, in _handle_model_execution
+[1]     async for event in agent._middleware_registry.invoke(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/_middleware/registry.py", line 167, in invoke
+[1]     async for event in gen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/event_loop.py", line 740, in terminal
+[1]     async for event in stream_messages(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/streaming.py", line 572, in stream_messages
+[1]     async for event in process_stream(chunks, start_time, cancel_signal):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/event_loop/streaming.py", line 460, in process_stream
+[1]     async for chunk in chunks:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/strands/models/openai.py", line 735, in stream
+[1]     response = await client.chat.completions.create(**request)
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/resources/chat/completions/completions.py", line 2907, in create
+[1]     return await self._post(
+[1]            ^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/_base_client.py", line 1992, in post
+[1]     return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/openai/_base_client.py", line 1777, in request
+[1]     raise self._make_status_error_from_response(err.response) from None
+[1] openai.InternalServerError: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}}
+[1] 
+[1] The above exception was the direct cause of the following exception:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 5975, in _run_raw
+[1]     async for event in _stream_with_model_context(
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/lib/python3.12/site-packages/ag_ui_strands/agent.py", line 535, in _stream_with_model_context
+[1]     raise _ForeignFault(exc) from exc
+[1] ag_ui_strands.agent._ForeignFault: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}}
+[0]  POST /api/copilotkit 200 in 1572ms
+[0]  POST /api/copilotkit-voice/threads/clear 204 in 242ms
+[1] INFO:     Shutting down
+[0] [?25h
+[0] next dev --turbopack exited with code 0
+[1] INFO:     Waiting for application shutdown.
+[1] INFO:     Application shutdown complete.
+[1] INFO:     Finished server process [1064]
+[1] INFO:     Stopping reloader process [1062]
+[1] cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload exited with code SIGTERM
+# stopped Tue Oct  6 23:44:21 UTC 2026 (SIGTERM to process group 1013)

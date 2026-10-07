@@ -1,0 +1,658 @@
+{
+ "integration": "strands",
+ "date": "2026-10-06",
+ "runner": "tasks/docs-feature-audit/run-local-d6.mts strands --demos <batch>",
+ "notSupported": [
+  "shared-state-streaming"
+ ],
+ "runs": {
+  "full": {
+   "head": "96eb243ad2",
+   "batches": {
+    "A1": {
+     "features": [
+      "beautiful-chat",
+      "cli-start",
+      "agentic-chat",
+      "prebuilt-sidebar",
+      "prebuilt-popup",
+      "chat-slots",
+      "chat-customization-css",
+      "headless-simple"
+     ],
+     "checks": [
+      {
+       "check": "chat-css",
+       "pass": true,
+       "seconds": 7.9
+      },
+      {
+       "check": "prebuilt-popup",
+       "pass": true,
+       "seconds": 8.0
+      },
+      {
+       "check": "prebuilt-sidebar",
+       "pass": true,
+       "seconds": 8.0
+      },
+      {
+       "check": "beautiful-chat-toggle-theme",
+       "pass": true,
+       "seconds": 5.3
+      },
+      {
+       "check": "agentic-chat",
+       "pass": true,
+       "seconds": 13.3
+      },
+      {
+       "check": "chat-slots",
+       "pass": true,
+       "seconds": 6.1
+      },
+      {
+       "check": "beautiful-chat-pie-chart",
+       "pass": true,
+       "seconds": 7.7
+      },
+      {
+       "check": "beautiful-chat-bar-chart",
+       "pass": true,
+       "seconds": 7.7
+      },
+      {
+       "check": "headless-simple",
+       "pass": true,
+       "seconds": 13.1
+      },
+      {
+       "check": "beautiful-chat-search-flights",
+       "pass": true,
+       "seconds": 9.8
+      },
+      {
+       "check": "beautiful-chat-schedule-meeting",
+       "pass": true,
+       "seconds": 5.1
+      }
+     ],
+     "requests": 17,
+     "statuses": {
+      "200": 17
+     },
+     "requestsWithAllForwardedHeaders": 17,
+     "featureRetries": 0
+    },
+    "A2": {
+     "features": [
+      "headless-complete",
+      "reasoning-custom",
+      "reasoning-default",
+      "frontend-tools",
+      "frontend-tools-async",
+      "gen-ui-tool-based",
+      "hitl-in-app",
+      "hitl-in-chat",
+      "declarative-gen-ui",
+      "a2ui-fixed-schema",
+      "a2ui-recovery"
+     ],
+     "checks": [
+      {
+       "check": "frontend-tools-async",
+       "pass": true,
+       "seconds": 8.6
+      },
+      {
+       "check": "hitl-text-input",
+       "pass": true,
+       "seconds": 8.7
+      },
+      {
+       "check": "frontend-tools",
+       "pass": true,
+       "seconds": 14.1
+      },
+      {
+       "check": "hitl-approve-deny",
+       "pass": true,
+       "seconds": 7.3
+      },
+      {
+       "check": "gen-ui-custom",
+       "pass": true,
+       "seconds": 7.5
+      },
+      {
+       "check": "gen-ui-a2ui-fixed",
+       "pass": true,
+       "seconds": 6.3
+      },
+      {
+       "check": "a2ui-recovery",
+       "pass": true,
+       "seconds": 8.2
+      },
+      {
+       "check": "gen-ui-headless-complete",
+       "pass": true,
+       "seconds": 25.2
+      },
+      {
+       "check": "gen-ui-declarative",
+       "pass": true,
+       "seconds": 13.0
+      },
+      {
+       "check": "reasoning-default",
+       "pass": true,
+       "seconds": 8.8
+      },
+      {
+       "check": "reasoning-custom",
+       "pass": true,
+       "seconds": 8.8
+      }
+     ],
+     "requests": 47,
+     "statuses": {
+      "200": 47
+     },
+     "requestsWithAllForwardedHeaders": 47,
+     "featureRetries": 0
+    },
+    "B1": {
+     "features": [
+      "mcp-apps",
+      "gen-ui-agent",
+      "tool-rendering-default-catchall",
+      "tool-rendering-custom-catchall",
+      "tool-rendering",
+      "tool-rendering-reasoning-chain",
+      "hitl",
+      "hitl-in-chat-booking"
+     ],
+     "checks": [
+      {
+       "check": "tool-rendering-default-catchall",
+       "pass": true,
+       "seconds": 7.4
+      },
+      {
+       "check": "tool-rendering",
+       "pass": true,
+       "seconds": 8.1
+      },
+      {
+       "check": "hitl-text-input",
+       "pass": true,
+       "seconds": 8.9
+      },
+      {
+       "check": "tool-rendering-custom-catchall",
+       "pass": true,
+       "seconds": 11.2
+      },
+      {
+       "check": "mcp-apps",
+       "pass": true,
+       "seconds": 13.7
+      },
+      {
+       "check": "tool-rendering-reasoning-chain",
+       "pass": true,
+       "seconds": 31.5
+      },
+      {
+       "check": "gen-ui-agent",
+       "pass": true,
+       "seconds": 60.9
+      }
+     ],
+     "requests": 45,
+     "statuses": {
+      "200": 45
+     },
+     "requestsWithAllForwardedHeaders": 45,
+     "featureRetries": 0
+    },
+    "B2": {
+     "features": [
+      "shared-state-read",
+      "shared-state-read-write",
+      "readonly-state-agent-context",
+      "subagents",
+      "multimodal"
+     ],
+     "checks": [
+      {
+       "check": "readonly-state-context",
+       "pass": true,
+       "seconds": 7.1
+      },
+      {
+       "check": "multimodal",
+       "pass": true,
+       "seconds": 8.0
+      },
+      {
+       "check": "shared-state-write",
+       "pass": true,
+       "seconds": 9.1
+      },
+      {
+       "check": "shared-state-read",
+       "pass": true,
+       "seconds": 10.3
+      },
+      {
+       "check": "subagents",
+       "pass": true,
+       "seconds": 19.9
+      }
+     ],
+     "requests": 15,
+     "statuses": {
+      "200": 15
+     },
+     "requestsWithAllForwardedHeaders": 15,
+     "featureRetries": 0
+    },
+    "B3": {
+     "features": [
+      "auth",
+      "declarative-hashbrown",
+      "declarative-json-render",
+      "open-gen-ui",
+      "open-gen-ui-advanced",
+      "voice",
+      "agent-config",
+      "gen-ui-interrupt",
+      "interrupt-headless"
+     ],
+     "checks": [
+      {
+       "check": "voice",
+       "pass": true,
+       "seconds": 5.0
+      },
+      {
+       "check": "byoc",
+       "pass": true,
+       "seconds": 8.4
+      },
+      {
+       "check": "gen-ui-open",
+       "pass": true,
+       "seconds": 15.0
+      },
+      {
+       "check": "gen-ui-open-advanced",
+       "pass": true,
+       "seconds": 15.8
+      },
+      {
+       "check": "interrupt-headless",
+       "pass": true,
+       "seconds": 5.9
+      },
+      {
+       "check": "gen-ui-interrupt",
+       "pass": true,
+       "seconds": 12.0
+      },
+      {
+       "check": "agent-config",
+       "pass": true,
+       "seconds": 33.7
+      },
+      {
+       "check": "auth",
+       "pass": true,
+       "seconds": 54.4
+      }
+     ],
+     "requests": 22,
+     "statuses": {
+      "200": 22
+     },
+     "requestsWithAllForwardedHeaders": 22,
+     "featureRetries": 0
+    }
+   },
+   "raw": {
+    "checks": 42,
+    "pass": 42
+   },
+   "published": {
+    "checks": 42,
+    "pass": 42
+   }
+  },
+  "final": {
+   "head": "602a595fe2",
+   "batches": {
+    "A1": {
+     "features": [
+      "beautiful-chat",
+      "cli-start",
+      "agentic-chat",
+      "prebuilt-sidebar",
+      "prebuilt-popup",
+      "chat-slots",
+      "chat-customization-css",
+      "headless-simple"
+     ],
+     "checks": [
+      {
+       "check": "prebuilt-sidebar",
+       "pass": true,
+       "seconds": 7.7
+      },
+      {
+       "check": "prebuilt-popup",
+       "pass": true,
+       "seconds": 7.7
+      },
+      {
+       "check": "chat-css",
+       "pass": true,
+       "seconds": 7.7
+      },
+      {
+       "check": "agentic-chat",
+       "pass": true,
+       "seconds": 13.2
+      },
+      {
+       "check": "beautiful-chat-toggle-theme",
+       "pass": true,
+       "seconds": 6.0
+      },
+      {
+       "check": "chat-slots",
+       "pass": true,
+       "seconds": 6.8
+      },
+      {
+       "check": "headless-simple",
+       "pass": true,
+       "seconds": 13.1
+      },
+      {
+       "check": "beautiful-chat-pie-chart",
+       "pass": true,
+       "seconds": 8.4
+      },
+      {
+       "check": "beautiful-chat-bar-chart",
+       "pass": true,
+       "seconds": 8.3
+      },
+      {
+       "check": "beautiful-chat-search-flights",
+       "pass": true,
+       "seconds": 10.1
+      },
+      {
+       "check": "beautiful-chat-schedule-meeting",
+       "pass": true,
+       "seconds": 5.6
+      }
+     ],
+     "requests": 17,
+     "statuses": {
+      "200": 17
+     },
+     "requestsWithAllForwardedHeaders": 17,
+     "featureRetries": 0
+    },
+    "A2": {
+     "features": [
+      "headless-complete",
+      "reasoning-custom",
+      "reasoning-default",
+      "frontend-tools",
+      "frontend-tools-async",
+      "gen-ui-tool-based",
+      "hitl-in-app",
+      "hitl-in-chat",
+      "declarative-gen-ui",
+      "a2ui-fixed-schema",
+      "a2ui-recovery"
+     ],
+     "checks": [
+      {
+       "check": "frontend-tools-async",
+       "pass": true,
+       "seconds": 8.6
+      },
+      {
+       "check": "hitl-text-input",
+       "pass": true,
+       "seconds": 8.6
+      },
+      {
+       "check": "frontend-tools",
+       "pass": true,
+       "seconds": 14.3
+      },
+      {
+       "check": "hitl-approve-deny",
+       "pass": true,
+       "seconds": 8.1
+      },
+      {
+       "check": "gen-ui-custom",
+       "pass": true,
+       "seconds": 8.2
+      },
+      {
+       "check": "gen-ui-a2ui-fixed",
+       "pass": true,
+       "seconds": 6.4
+      },
+      {
+       "check": "gen-ui-headless-complete",
+       "pass": true,
+       "seconds": 24.9
+      },
+      {
+       "check": "a2ui-recovery",
+       "pass": true,
+       "seconds": 8.3
+      },
+      {
+       "check": "gen-ui-declarative",
+       "pass": true,
+       "seconds": 12.8
+      },
+      {
+       "check": "reasoning-default",
+       "pass": true,
+       "seconds": 8.9
+      },
+      {
+       "check": "reasoning-custom",
+       "pass": true,
+       "seconds": 8.7
+      }
+     ],
+     "requests": 47,
+     "statuses": {
+      "200": 47
+     },
+     "requestsWithAllForwardedHeaders": 47,
+     "featureRetries": 0
+    },
+    "B1": {
+     "features": [
+      "mcp-apps",
+      "gen-ui-agent",
+      "tool-rendering-default-catchall",
+      "tool-rendering-custom-catchall",
+      "tool-rendering",
+      "tool-rendering-reasoning-chain",
+      "hitl",
+      "hitl-in-chat-booking"
+     ],
+     "checks": [
+      {
+       "check": "tool-rendering-default-catchall",
+       "pass": true,
+       "seconds": 7.4
+      },
+      {
+       "check": "tool-rendering",
+       "pass": true,
+       "seconds": 7.9
+      },
+      {
+       "check": "hitl-text-input",
+       "pass": true,
+       "seconds": 8.8
+      },
+      {
+       "check": "tool-rendering-custom-catchall",
+       "pass": true,
+       "seconds": 11.1
+      },
+      {
+       "check": "mcp-apps",
+       "pass": true,
+       "seconds": 13.2
+      },
+      {
+       "check": "tool-rendering-reasoning-chain",
+       "pass": true,
+       "seconds": 31.2
+      },
+      {
+       "check": "gen-ui-agent",
+       "pass": true,
+       "seconds": 60.9
+      }
+     ],
+     "requests": 45,
+     "statuses": {
+      "200": 45
+     },
+     "requestsWithAllForwardedHeaders": 45,
+     "featureRetries": 0
+    },
+    "B2": {
+     "features": [
+      "shared-state-read",
+      "shared-state-read-write",
+      "readonly-state-agent-context",
+      "subagents",
+      "multimodal"
+     ],
+     "checks": [
+      {
+       "check": "readonly-state-context",
+       "pass": true,
+       "seconds": 7.7
+      },
+      {
+       "check": "multimodal",
+       "pass": true,
+       "seconds": 8.3
+      },
+      {
+       "check": "shared-state-write",
+       "pass": true,
+       "seconds": 9.7
+      },
+      {
+       "check": "shared-state-read",
+       "pass": true,
+       "seconds": 10.5
+      },
+      {
+       "check": "subagents",
+       "pass": true,
+       "seconds": 20.5
+      }
+     ],
+     "requests": 15,
+     "statuses": {
+      "200": 15
+     },
+     "requestsWithAllForwardedHeaders": 15,
+     "featureRetries": 0
+    },
+    "B3": {
+     "features": [
+      "auth",
+      "declarative-hashbrown",
+      "declarative-json-render",
+      "open-gen-ui",
+      "open-gen-ui-advanced",
+      "voice",
+      "agent-config",
+      "gen-ui-interrupt",
+      "interrupt-headless"
+     ],
+     "checks": [
+      {
+       "check": "voice",
+       "pass": true,
+       "seconds": 4.5
+      },
+      {
+       "check": "byoc",
+       "pass": true,
+       "seconds": 8.4
+      },
+      {
+       "check": "gen-ui-open",
+       "pass": true,
+       "seconds": 14.9
+      },
+      {
+       "check": "gen-ui-open-advanced",
+       "pass": true,
+       "seconds": 15.8
+      },
+      {
+       "check": "interrupt-headless",
+       "pass": true,
+       "seconds": 5.9
+      },
+      {
+       "check": "gen-ui-interrupt",
+       "pass": true,
+       "seconds": 12.0
+      },
+      {
+       "check": "agent-config",
+       "pass": true,
+       "seconds": 33.7
+      },
+      {
+       "check": "auth",
+       "pass": true,
+       "seconds": 54.4
+      }
+     ],
+     "requests": 22,
+     "statuses": {
+      "200": 22
+     },
+     "requestsWithAllForwardedHeaders": 22,
+     "featureRetries": 0
+    }
+   },
+   "raw": {
+    "checks": 42,
+    "pass": 42
+   },
+   "published": {
+    "checks": 42,
+    "pass": 42
+   }
+  }
+ }
+}

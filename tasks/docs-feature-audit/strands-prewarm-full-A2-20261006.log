@@ -1,0 +1,30 @@
+# Sequential pre-warm (one GET at a time): demo pages [a2ui-fixed-schema,a2ui-recovery,declarative-gen-ui,frontend-tools,frontend-tools-async,gen-ui-tool-based,headless-complete,hitl-in-app,hitl-in-chat,reasoning-custom,reasoning-default] and every API route except /api/smoke. Tue Oct  6 23:35:34 UTC 2026
+/demos/a2ui-fixed-schema 200 4.769085s
+/demos/a2ui-recovery 200 1.537093s
+/demos/declarative-gen-ui 200 1.081348s
+/demos/frontend-tools 200 1.109854s
+/demos/frontend-tools-async 200 0.938923s
+/demos/gen-ui-tool-based 200 1.155527s
+/demos/headless-complete 200 1.384135s
+/demos/hitl-in-app 200 1.133206s
+/demos/hitl-in-chat 200 0.980434s
+/demos/reasoning-custom 200 1.088718s
+/demos/reasoning-default 200 0.968898s
+/api/copilotkit 200 1.042180s
+/api/copilotkit-a2ui-fixed-schema 405 0.486655s
+/api/copilotkit-a2ui-recovery 405 0.392131s
+/api/copilotkit-agent-config 405 0.449211s
+/api/copilotkit-auth 401 0.906618s
+/api/copilotkit-beautiful-chat 405 0.368077s
+/api/copilotkit-byoc-hashbrown 405 0.381366s
+/api/copilotkit-byoc-json-render 405 0.397098s
+/api/copilotkit-declarative-gen-ui 405 0.385695s
+/api/copilotkit-declarative-hashbrown 405 0.386075s
+/api/copilotkit-declarative-json-render 405 0.386037s
+/api/copilotkit-mcp-apps 405 0.369973s
+/api/copilotkit-multimodal 405 0.366374s
+/api/copilotkit-ogui 405 0.368630s
+/api/copilotkit-voice 404 1.006006s
+/api/debug 403 0.282108s
+/api/health 200 0.226121s
+# done Tue Oct  6 23:35:59 UTC 2026

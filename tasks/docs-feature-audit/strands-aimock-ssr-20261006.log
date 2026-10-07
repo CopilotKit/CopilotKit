@@ -1,0 +1,363 @@
+# AIMock (fixture-only, strict, strict turn-index), same command as adk-aimock-20261006.log; no --record/--proxy-only/--provider-* so no request can leave the mock.
+$ AIMOCK_STRICT_TURN_INDEX=1 nice -n 10 showcase/scripts/node_modules/.bin/llmock --port 4410 --host 127.0.0.1 --strict --validate-on-load --chunk-size 8 --latency 60 --fixtures showcase/aimock/shared --fixtures showcase/aimock/d4 --fixtures showcase/aimock/d5-recorded --fixtures showcase/aimock/d6
+# @copilotkit/aimock 1.37.4, node v22.16.0, HEAD 96eb243ad2, started Tue Oct  6 23:41:08 UTC 2026
+[aimock] Loaded 9056 fixture(s) from showcase/aimock/shared, showcase/aimock/d4, showcase/aimock/d5-recorded, showcase/aimock/d6
+[aimock] Fixture 1933: duplicate userMessage 'ship the demo on Friday' — shadows fixture 1899
+[aimock] Fixture 1934: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 1900
+[aimock] Fixture 1950: duplicate userMessage 'intro call with the sales team' — shadows fixture 1902
+[aimock] Fixture 1952: duplicate userMessage '1:1 with Alice' — shadows fixture 1904
+[aimock] Fixture 1954: duplicate userMessage 'intro call with the sales team' — shadows fixture 1902
+[aimock] Fixture 1955: duplicate userMessage '1:1 with Alice' — shadows fixture 1904
+[aimock] Fixture 1956: duplicate userMessage 'intro call with the sales team' — shadows fixture 1901
+[aimock] Fixture 1957: duplicate userMessage '1:1 with Alice' — shadows fixture 1903
+[aimock] Fixture 1965: duplicate userMessage 'hi from the popup test' — shadows fixture 1817
+[aimock] Fixture 1966: duplicate userMessage 'hi from the sidebar test' — shadows fixture 1818
+[aimock] Fixture 2079: duplicate userMessage 'poem about autumn leaves' — shadows fixture 2013
+[aimock] Fixture 2081: duplicate userMessage 'polite email declining' — shadows fixture 2015
+[aimock] Fixture 2083: duplicate userMessage 'quantum computing for a curious teenager' — shadows fixture 2017
+[aimock] Fixture 2209: duplicate userMessage 'Inline expression evaluator' — shadows fixture 2205
+[aimock] Fixture 2210: duplicate userMessage 'Inline expression evaluator' — shadows fixture 2206
+[aimock] Fixture 2580: duplicate userMessage 'introductory sales team call' — shadows fixture 2528
+[aimock] Fixture 2581: duplicate userMessage 'introductory sales team call' — shadows fixture 2529
+[aimock] Fixture 2582: duplicate userMessage 'one-on-one with Alice' — shadows fixture 2530
+[aimock] Fixture 2583: duplicate userMessage 'one-on-one with Alice' — shadows fixture 2531
+[aimock] Fixture 2788: duplicate userMessage '30-minute meeting to learn about CopilotKit' — shadows fixture 298
+[aimock] Fixture 2794: duplicate userMessage 'Use Excalidraw to create a simple network diagram' — shadows fixture 2751
+[aimock] Fixture 2799: duplicate userMessage 'build a modern calculator with standard buttons' — shadows fixture 2741
+[aimock] Fixture 2800: duplicate userMessage 'build a modern calculator with standard buttons' — shadows fixture 2742
+[aimock] Fixture 2801: duplicate userMessage 'build a modern calculator with standard buttons' — shadows fixture 2743
+[aimock] Fixture 2903: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 2873
+[aimock] Fixture 2907: duplicate userMessage 'ship the demo on Friday' — shadows fixture 2872
+[aimock] Fixture 2925: duplicate userMessage 'intro call with the sales team' — shadows fixture 2921
+[aimock] Fixture 2926: duplicate userMessage '1:1 with Alice' — shadows fixture 2923
+[aimock] Fixture 2935: duplicate userMessage 'hi from the popup test' — shadows fixture 2769
+[aimock] Fixture 2936: duplicate userMessage 'hi from the sidebar test' — shadows fixture 2770
+[aimock] Fixture 3061: duplicate userMessage 'poem about autumn leaves' — shadows fixture 2984
+[aimock] Fixture 3063: duplicate userMessage 'polite email declining' — shadows fixture 2986
+[aimock] Fixture 3065: duplicate userMessage 'quantum computing for a curious teenager' — shadows fixture 2988
+[aimock] Fixture 3121: duplicate userMessage '30-minute meeting to learn about CopilotKit' — shadows fixture 382
+[aimock] Fixture 3127: duplicate userMessage 'Use Excalidraw to create a simple network diagram' — shadows fixture 3083
+[aimock] Fixture 3132: duplicate userMessage 'build a modern calculator with standard buttons' — shadows fixture 3073
+[aimock] Fixture 3133: duplicate userMessage 'build a modern calculator with standard buttons' — shadows fixture 3074
+[aimock] Fixture 3134: duplicate userMessage 'build a modern calculator with standard buttons' — shadows fixture 3075
+[aimock] Fixture 3264: duplicate userMessage 'introductory sales team call' — shadows fixture 3209
+[aimock] Fixture 3265: duplicate userMessage 'introductory sales team call' — shadows fixture 3210
+[aimock] Fixture 3266: duplicate userMessage 'one-on-one with Alice' — shadows fixture 3211
+[aimock] Fixture 3267: duplicate userMessage 'one-on-one with Alice' — shadows fixture 3212
+[aimock] Fixture 3268: duplicate userMessage 'Book an intro call with the sales team to discuss pricing' — shadows fixture 3213
+[aimock] Fixture 3270: duplicate userMessage 'Schedule a 1:1 with Alice next week to review Q2 goals' — shadows fixture 3215
+[aimock] Fixture 3548: duplicate userMessage '3D axis visualization (model airplane)' — shadows fixture 3542
+[aimock] Fixture 3550: duplicate userMessage 'How a neural network works' — shadows fixture 3543
+[aimock] Fixture 3552: duplicate userMessage 'Quicksort visualization' — shadows fixture 3544
+[aimock] Fixture 3554: duplicate userMessage 'Fourier: square wave from sines' — shadows fixture 3545
+[aimock] Fixture 3556: duplicate userMessage 'Calculator (calls evaluateExpression)' — shadows fixture 3538
+[aimock] Fixture 3558: duplicate userMessage 'Ping the host (calls notifyHost)' — shadows fixture 3539
+[aimock] Fixture 3560: duplicate userMessage 'Inline expression evaluator' — shadows fixture 3540
+[aimock] Fixture 3569: duplicate userMessage 'What's the weather in Tokyo' — shadows fixture 3528
+[aimock] Fixture 3570: duplicate userMessage 'price of AAPL right now' — shadows fixture 3529
+[aimock] Fixture 3571: duplicate userMessage 'ship the demo on Friday' — shadows fixture 3530
+[aimock] Fixture 3572: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 3531
+[aimock] Fixture 3588: duplicate userMessage 'intro call with the sales team' — shadows fixture 3533
+[aimock] Fixture 3589: duplicate userMessage 'intro call with the sales team' — shadows fixture 3532
+[aimock] Fixture 3590: duplicate userMessage '1:1 with Alice' — shadows fixture 3536
+[aimock] Fixture 3591: duplicate userMessage '1:1 with Alice' — shadows fixture 3535
+[aimock] Fixture 3592: duplicate userMessage 'intro call with the sales team' — shadows fixture 3532
+[aimock] Fixture 3593: duplicate userMessage 'intro call with the sales team' — shadows fixture 3533
+[aimock] Fixture 3594: duplicate userMessage 'intro call with the sales team' — shadows fixture 3534
+[aimock] Fixture 3595: duplicate userMessage '1:1 with Alice' — shadows fixture 3535
+[aimock] Fixture 3596: duplicate userMessage '1:1 with Alice' — shadows fixture 3536
+[aimock] Fixture 3597: duplicate userMessage '1:1 with Alice' — shadows fixture 3537
+[aimock] Fixture 3604: duplicate userMessage 'hi from the popup test' — shadows fixture 3452
+[aimock] Fixture 3605: duplicate userMessage 'hi from the sidebar test' — shadows fixture 3453
+[aimock] Fixture 3621: duplicate userMessage 'Show me a pie chart of revenue by category' — shadows fixture 3518
+[aimock] Fixture 3622: duplicate userMessage 'Show me a pie chart of revenue by category' — shadows fixture 3519
+[aimock] Fixture 3721: duplicate userMessage 'Chain a few tools in this single turn' — shadows fixture 3693
+[aimock] Fixture 3733: duplicate userMessage 'Roll a 20-sided die.' — shadows fixture 3703
+[aimock] Fixture 3744: duplicate userMessage 'poem about autumn leaves' — shadows fixture 3652
+[aimock] Fixture 3746: duplicate userMessage 'polite email declining' — shadows fixture 3654
+[aimock] Fixture 3748: duplicate userMessage 'quantum computing for a curious teenager' — shadows fixture 3656
+[aimock] Fixture 3773: duplicate userMessage 'Build a CrewAI Q2 revenue summary and self-correct a malformed first attempt.' — shadows fixture 3434
+[aimock] Fixture 3774: duplicate userMessage 'Build a CrewAI Q2 revenue summary and self-correct a malformed first attempt.' — shadows fixture 3435
+[aimock] Fixture 3776: duplicate userMessage 'Build a CrewAI Q2 revenue summary and self-correct a malformed first attempt.' — shadows fixture 3437
+[aimock] Fixture 3777: duplicate userMessage 'Build a CrewAI report that fails every validation pass so I can preview the fallback.' — shadows fixture 3438
+[aimock] Fixture 3779: duplicate userMessage 'Build a CrewAI report that fails every validation pass so I can preview the fallback.' — shadows fixture 3440
+[aimock] Fixture 3887: duplicate userMessage '3D axis visualization (model airplane)' — shadows fixture 3881
+[aimock] Fixture 3889: duplicate userMessage 'How a neural network works' — shadows fixture 3882
+[aimock] Fixture 3891: duplicate userMessage 'Quicksort visualization' — shadows fixture 3883
+[aimock] Fixture 3893: duplicate userMessage 'Fourier: square wave from sines' — shadows fixture 3884
+[aimock] Fixture 3895: duplicate userMessage 'Calculator (calls evaluateExpression)' — shadows fixture 3877
+[aimock] Fixture 3897: duplicate userMessage 'Ping the host (calls notifyHost)' — shadows fixture 3878
+[aimock] Fixture 3899: duplicate userMessage 'Inline expression evaluator' — shadows fixture 3879
+[aimock] Fixture 3908: duplicate userMessage 'What's the weather in Tokyo' — shadows fixture 3867
+[aimock] Fixture 3909: duplicate userMessage 'price of AAPL right now' — shadows fixture 3868
+[aimock] Fixture 3910: duplicate userMessage 'ship the demo on Friday' — shadows fixture 3869
+[aimock] Fixture 3911: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 3870
+[aimock] Fixture 3927: duplicate userMessage 'intro call with the sales team' — shadows fixture 3872
+[aimock] Fixture 3928: duplicate userMessage 'intro call with the sales team' — shadows fixture 3871
+[aimock] Fixture 3929: duplicate userMessage '1:1 with Alice' — shadows fixture 3875
+[aimock] Fixture 3930: duplicate userMessage '1:1 with Alice' — shadows fixture 3874
+[aimock] Fixture 3931: duplicate userMessage 'intro call with the sales team' — shadows fixture 3871
+[aimock] Fixture 3932: duplicate userMessage 'intro call with the sales team' — shadows fixture 3872
+[aimock] Fixture 3933: duplicate userMessage 'intro call with the sales team' — shadows fixture 3873
+[aimock] Fixture 3934: duplicate userMessage '1:1 with Alice' — shadows fixture 3874
+[aimock] Fixture 3935: duplicate userMessage '1:1 with Alice' — shadows fixture 3875
+[aimock] Fixture 3936: duplicate userMessage '1:1 with Alice' — shadows fixture 3876
+[aimock] Fixture 3943: duplicate userMessage 'hi from the popup test' — shadows fixture 3791
+[aimock] Fixture 3944: duplicate userMessage 'hi from the sidebar test' — shadows fixture 3792
+[aimock] Fixture 3960: duplicate userMessage 'Show me a pie chart of revenue by category' — shadows fixture 3857
+[aimock] Fixture 3961: duplicate userMessage 'Show me a pie chart of revenue by category' — shadows fixture 3858
+[aimock] Fixture 4060: duplicate userMessage 'Chain a few tools in this single turn' — shadows fixture 4032
+[aimock] Fixture 4072: duplicate userMessage 'Roll a 20-sided die.' — shadows fixture 4042
+[aimock] Fixture 4083: duplicate userMessage 'poem about autumn leaves' — shadows fixture 3991
+[aimock] Fixture 4085: duplicate userMessage 'polite email declining' — shadows fixture 3993
+[aimock] Fixture 4087: duplicate userMessage 'quantum computing for a curious teenager' — shadows fixture 3995
+[aimock] Fixture 4200: duplicate userMessage 'Show me my sales dashboard for this quarter.' — shadows fixture 1881
+[aimock] Fixture 4203: duplicate userMessage 'How are our sales reps performing against quota?' — shadows fixture 1884
+[aimock] Fixture 4206: duplicate userMessage 'Are any accounts or pipeline deals at risk this quarter?' — shadows fixture 1887
+[aimock] Fixture 4209: duplicate userMessage 'Pull up the details on our biggest account.' — shadows fixture 1890
+[aimock] Fixture 4252: duplicate userMessage 'What's the weather in Tokyo' — shadows fixture 4216
+[aimock] Fixture 4253: duplicate userMessage 'price of AAPL right now' — shadows fixture 4217
+[aimock] Fixture 4254: duplicate userMessage 'ship the demo on Friday' — shadows fixture 4218
+[aimock] Fixture 4255: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 4219
+[aimock] Fixture 4281: duplicate userMessage 'hi from the popup test' — shadows fixture 4129
+[aimock] Fixture 4282: duplicate userMessage 'hi from the sidebar test' — shadows fixture 4130
+[aimock] Fixture 4303: duplicate userMessage 'trip to mars' — shadows fixture 4271
+[aimock] Fixture 4304: duplicate userMessage 'trip to mars' — shadows fixture 4272
+[aimock] Fixture 4400: duplicate userMessage 'Chain a few tools in this single turn' — shadows fixture 4372
+[aimock] Fixture 4402: duplicate userMessage 'What's the weather in San Francisco?' — shadows fixture 4374
+[aimock] Fixture 4404: duplicate userMessage 'Find flights from SFO to JFK.' — shadows fixture 4376
+[aimock] Fixture 4412: duplicate userMessage 'Roll a 20-sided die.' — shadows fixture 4382
+[aimock] Fixture 4423: duplicate userMessage 'poem about autumn leaves' — shadows fixture 4329
+[aimock] Fixture 4425: duplicate userMessage 'polite email declining' — shadows fixture 4331
+[aimock] Fixture 4427: duplicate userMessage 'quantum computing for a curious teenager' — shadows fixture 4333
+[aimock] Fixture 4656: duplicate userMessage 'What's the weather in Tokyo' — shadows fixture 4610
+[aimock] Fixture 4657: duplicate userMessage 'price of AAPL right now' — shadows fixture 4611
+[aimock] Fixture 4658: duplicate userMessage 'ship the demo on Friday' — shadows fixture 4612
+[aimock] Fixture 4659: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 4613
+[aimock] Fixture 4660: duplicate userMessage 'What's the weather in Tokyo' — shadows fixture 4614
+[aimock] Fixture 4661: duplicate userMessage 'price of AAPL right now' — shadows fixture 4615
+[aimock] Fixture 4662: duplicate userMessage 'ship the demo on Friday' — shadows fixture 4616
+[aimock] Fixture 4663: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 4617
+[aimock] Fixture 4666: duplicate userMessage 'What's the weather in Tokyo' — shadows fixture 4618
+[aimock] Fixture 4667: duplicate userMessage 'What's the weather in Tokyo' — shadows fixture 4619
+[aimock] Fixture 4668: duplicate userMessage 'What's the weather in Tokyo' — shadows fixture 4620
+[aimock] Fixture 4669: duplicate userMessage 'What's the weather in Tokyo' — shadows fixture 4621
+[aimock] Fixture 4670: duplicate userMessage 'What's the weather in Tokyo' — shadows fixture 4622
+[aimock] Fixture 4671: duplicate userMessage 'What's the weather in Tokyo' — shadows fixture 4623
+[aimock] Fixture 4672: duplicate userMessage 'price of AAPL right now' — shadows fixture 4624
+[aimock] Fixture 4673: duplicate userMessage 'price of AAPL right now' — shadows fixture 4625
+[aimock] Fixture 4674: duplicate userMessage 'price of AAPL right now' — shadows fixture 4626
+[aimock] Fixture 4675: duplicate userMessage 'price of AAPL right now' — shadows fixture 4627
+[aimock] Fixture 4676: duplicate userMessage 'price of AAPL right now' — shadows fixture 4628
+[aimock] Fixture 4677: duplicate userMessage 'price of AAPL right now' — shadows fixture 4629
+[aimock] Fixture 4678: duplicate userMessage 'ship the demo on Friday' — shadows fixture 4630
+[aimock] Fixture 4679: duplicate userMessage 'ship the demo on Friday' — shadows fixture 4631
+[aimock] Fixture 4680: duplicate userMessage 'ship the demo on Friday' — shadows fixture 4632
+[aimock] Fixture 4681: duplicate userMessage 'ship the demo on Friday' — shadows fixture 4633
+[aimock] Fixture 4682: duplicate userMessage 'ship the demo on Friday' — shadows fixture 4634
+[aimock] Fixture 4683: duplicate userMessage 'ship the demo on Friday' — shadows fixture 4635
+[aimock] Fixture 4684: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 4636
+[aimock] Fixture 4685: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 4637
+[aimock] Fixture 4686: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 4638
+[aimock] Fixture 4687: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 4639
+[aimock] Fixture 4688: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 4640
+[aimock] Fixture 4689: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 4641
+[aimock] Fixture 4907: duplicate userMessage 'monthly expenses as a bar chart' — shadows fixture 719
+[aimock] Fixture 4959: duplicate userMessage 'Show me my sales dashboard for this quarter.' — shadows fixture 1881
+[aimock] Fixture 4962: duplicate userMessage 'How are our sales reps performing against quota?' — shadows fixture 1884
+[aimock] Fixture 4965: duplicate userMessage 'Are any accounts or pipeline deals at risk this quarter?' — shadows fixture 1887
+[aimock] Fixture 4968: duplicate userMessage 'Pull up the details on our biggest account.' — shadows fixture 1890
+[aimock] Fixture 5011: duplicate userMessage 'What's the weather in Tokyo' — shadows fixture 4975
+[aimock] Fixture 5012: duplicate userMessage 'price of AAPL right now' — shadows fixture 4976
+[aimock] Fixture 5013: duplicate userMessage 'ship the demo on Friday' — shadows fixture 4977
+[aimock] Fixture 5014: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 4978
+[aimock] Fixture 5035: duplicate userMessage 'introductory sales team call' — shadows fixture 4979
+[aimock] Fixture 5036: duplicate userMessage 'introductory sales team call' — shadows fixture 4980
+[aimock] Fixture 5037: duplicate userMessage 'introductory sales team call' — shadows fixture 4981
+[aimock] Fixture 5038: duplicate userMessage 'one-on-one with Alice' — shadows fixture 4982
+[aimock] Fixture 5039: duplicate userMessage 'one-on-one with Alice' — shadows fixture 4983
+[aimock] Fixture 5040: duplicate userMessage 'one-on-one with Alice' — shadows fixture 4984
+[aimock] Fixture 5131: duplicate userMessage 'Find flights from SFO to JFK.' — shadows fixture 721
+[aimock] Fixture 5146: duplicate userMessage 'Weather in SF' — shadows fixture 5129
+[aimock] Fixture 5148: duplicate userMessage 'Find flights from SFO to JFK.' — shadows fixture 721
+[aimock] Fixture 5155: duplicate userMessage 'Roll a d20' — shadows fixture 5138
+[aimock] Fixture 5159: duplicate userMessage 'Chain tools' — shadows fixture 5142
+[aimock] Fixture 5314: duplicate userMessage 'Show me my sales dashboard for this quarter.' — shadows fixture 1881
+[aimock] Fixture 5317: duplicate userMessage 'How are our sales reps performing against quota?' — shadows fixture 1884
+[aimock] Fixture 5320: duplicate userMessage 'Are any accounts or pipeline deals at risk this quarter?' — shadows fixture 1887
+[aimock] Fixture 5323: duplicate userMessage 'Pull up the details on our biggest account.' — shadows fixture 1890
+[aimock] Fixture 5367: duplicate userMessage 'What's the weather in Tokyo' — shadows fixture 5330
+[aimock] Fixture 5368: duplicate userMessage 'price of AAPL right now' — shadows fixture 5331
+[aimock] Fixture 5369: duplicate userMessage 'ship the demo on Friday' — shadows fixture 5332
+[aimock] Fixture 5370: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 5333
+[aimock] Fixture 5386: duplicate userMessage 'intro call with the sales team' — shadows fixture 5335
+[aimock] Fixture 5388: duplicate userMessage '1:1 with Alice' — shadows fixture 5337
+[aimock] Fixture 5390: duplicate userMessage 'intro call with the sales team' — shadows fixture 5335
+[aimock] Fixture 5391: duplicate userMessage '1:1 with Alice' — shadows fixture 5337
+[aimock] Fixture 5392: duplicate userMessage 'intro call with the sales team' — shadows fixture 5334
+[aimock] Fixture 5393: duplicate userMessage '1:1 with Alice' — shadows fixture 5336
+[aimock] Fixture 5400: duplicate userMessage 'hi from the popup test' — shadows fixture 5245
+[aimock] Fixture 5401: duplicate userMessage 'hi from the sidebar test' — shadows fixture 5246
+[aimock] Fixture 5417: duplicate userMessage 'Show me a pie chart of revenue by category' — shadows fixture 5312
+[aimock] Fixture 5418: duplicate userMessage 'Show me a pie chart of revenue by category' — shadows fixture 5313
+[aimock] Fixture 5519: duplicate userMessage 'Chain a few tools in this single turn' — shadows fixture 5491
+[aimock] Fixture 5531: duplicate userMessage 'Roll a 20-sided die.' — shadows fixture 5501
+[aimock] Fixture 5542: duplicate userMessage 'poem about autumn leaves' — shadows fixture 5448
+[aimock] Fixture 5544: duplicate userMessage 'polite email declining' — shadows fixture 5450
+[aimock] Fixture 5546: duplicate userMessage 'quantum computing for a curious teenager' — shadows fixture 5452
+[aimock] Fixture 5657: duplicate userMessage 'Show me my sales dashboard for this quarter.' — shadows fixture 1881
+[aimock] Fixture 5660: duplicate userMessage 'How are our sales reps performing against quota?' — shadows fixture 1884
+[aimock] Fixture 5663: duplicate userMessage 'Are any accounts or pipeline deals at risk this quarter?' — shadows fixture 1887
+[aimock] Fixture 5666: duplicate userMessage 'Pull up the details on our biggest account.' — shadows fixture 1890
+[aimock] Fixture 5689: duplicate userMessage '3D axis visualization (model airplane)' — shadows fixture 5684
+[aimock] Fixture 5697: duplicate userMessage 'Calculator (calls evaluateExpression)' — shadows fixture 5681
+[aimock] Fixture 5699: duplicate userMessage 'Ping the host (calls notifyHost)' — shadows fixture 5682
+[aimock] Fixture 5701: duplicate userMessage 'Inline expression evaluator' — shadows fixture 5686
+[aimock] Fixture 5710: duplicate userMessage 'What's the weather in Tokyo' — shadows fixture 5673
+[aimock] Fixture 5711: duplicate userMessage 'price of AAPL right now' — shadows fixture 5674
+[aimock] Fixture 5712: duplicate userMessage 'ship the demo on Friday' — shadows fixture 5675
+[aimock] Fixture 5713: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 5676
+[aimock] Fixture 5729: duplicate userMessage 'intro call with the sales team' — shadows fixture 5678
+[aimock] Fixture 5731: duplicate userMessage '1:1 with Alice' — shadows fixture 5680
+[aimock] Fixture 5733: duplicate userMessage 'intro call with the sales team' — shadows fixture 5678
+[aimock] Fixture 5734: duplicate userMessage '1:1 with Alice' — shadows fixture 5680
+[aimock] Fixture 5735: duplicate userMessage 'intro call with the sales team' — shadows fixture 5677
+[aimock] Fixture 5736: duplicate userMessage '1:1 with Alice' — shadows fixture 5679
+[aimock] Fixture 5743: duplicate userMessage 'hi from the popup test' — shadows fixture 5589
+[aimock] Fixture 5744: duplicate userMessage 'hi from the sidebar test' — shadows fixture 5590
+[aimock] Fixture 5760: duplicate userMessage 'Show me a pie chart of revenue by category' — shadows fixture 5655
+[aimock] Fixture 5761: duplicate userMessage 'Show me a pie chart of revenue by category' — shadows fixture 5656
+[aimock] Fixture 5862: duplicate userMessage 'Chain a few tools in this single turn' — shadows fixture 5834
+[aimock] Fixture 5874: duplicate userMessage 'Roll a 20-sided die.' — shadows fixture 5844
+[aimock] Fixture 5885: duplicate userMessage 'poem about autumn leaves' — shadows fixture 5791
+[aimock] Fixture 5887: duplicate userMessage 'polite email declining' — shadows fixture 5793
+[aimock] Fixture 5889: duplicate userMessage 'quantum computing for a curious teenager' — shadows fixture 5795
+[aimock] Fixture 6052: duplicate userMessage 'introductory sales team call' — shadows fixture 6001
+[aimock] Fixture 6053: duplicate userMessage 'introductory sales team call' — shadows fixture 6002
+[aimock] Fixture 6054: duplicate userMessage 'one-on-one with Alice' — shadows fixture 6003
+[aimock] Fixture 6055: duplicate userMessage 'one-on-one with Alice' — shadows fixture 6004
+[aimock] Fixture 6244: duplicate userMessage 'auth check turn 1' — shadows fixture 6224
+[aimock] Fixture 6356: duplicate userMessage 'introductory sales team call' — shadows fixture 6305
+[aimock] Fixture 6357: duplicate userMessage 'introductory sales team call' — shadows fixture 6306
+[aimock] Fixture 6358: duplicate userMessage 'one-on-one with Alice' — shadows fixture 6307
+[aimock] Fixture 6359: duplicate userMessage 'one-on-one with Alice' — shadows fixture 6308
+[aimock] Fixture 6366: duplicate userMessage 'hi from the popup test' — shadows fixture 6221
+[aimock] Fixture 6367: duplicate userMessage 'hi from the sidebar test' — shadows fixture 6222
+[aimock] Fixture 6607: duplicate userMessage 'Show me my sales dashboard for this quarter.' — shadows fixture 1881
+[aimock] Fixture 6610: duplicate userMessage 'How are our sales reps performing against quota?' — shadows fixture 1884
+[aimock] Fixture 6613: duplicate userMessage 'Are any accounts or pipeline deals at risk this quarter?' — shadows fixture 1887
+[aimock] Fixture 6616: duplicate userMessage 'Pull up the details on our biggest account.' — shadows fixture 1890
+[aimock] Fixture 6644: duplicate userMessage 'Inline expression evaluator' — shadows fixture 6633
+[aimock] Fixture 6668: duplicate userMessage 'What's the weather in Tokyo' — shadows fixture 6623
+[aimock] Fixture 6669: duplicate userMessage 'price of AAPL right now' — shadows fixture 6624
+[aimock] Fixture 6670: duplicate userMessage 'ship the demo on Friday' — shadows fixture 6625
+[aimock] Fixture 6671: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 6626
+[aimock] Fixture 6687: duplicate userMessage 'intro call with the sales team' — shadows fixture 6629
+[aimock] Fixture 6688: duplicate userMessage 'intro call with the sales team' — shadows fixture 6627
+[aimock] Fixture 6689: duplicate userMessage '1:1 with Alice' — shadows fixture 6632
+[aimock] Fixture 6690: duplicate userMessage '1:1 with Alice' — shadows fixture 6630
+[aimock] Fixture 6691: duplicate userMessage 'intro call with the sales team' — shadows fixture 6628
+[aimock] Fixture 6692: duplicate userMessage 'intro call with the sales team' — shadows fixture 6629
+[aimock] Fixture 6693: duplicate userMessage '1:1 with Alice' — shadows fixture 6631
+[aimock] Fixture 6694: duplicate userMessage '1:1 with Alice' — shadows fixture 6632
+[aimock] Fixture 6695: duplicate userMessage 'intro call with the sales team' — shadows fixture 6627
+[aimock] Fixture 6696: duplicate userMessage '1:1 with Alice' — shadows fixture 6630
+[aimock] Fixture 6721: duplicate userMessage 'Show me a pie chart of revenue by category' — shadows fixture 6605
+[aimock] Fixture 6722: duplicate userMessage 'Show me a pie chart of revenue by category' — shadows fixture 6606
+[aimock] Fixture 6987: duplicate userMessage 'What's the weather in Tokyo' — shadows fixture 6953
+[aimock] Fixture 6988: duplicate userMessage 'price of AAPL right now' — shadows fixture 6954
+[aimock] Fixture 6989: duplicate userMessage 'ship the demo on Friday' — shadows fixture 6955
+[aimock] Fixture 6990: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 6956
+[aimock] Fixture 7012: duplicate userMessage 'intro call with the sales team' — shadows fixture 7006
+[aimock] Fixture 7013: duplicate userMessage '1:1 with Alice' — shadows fixture 7008
+[aimock] Fixture 7022: duplicate userMessage 'hi from the popup test' — shadows fixture 6872
+[aimock] Fixture 7023: duplicate userMessage 'hi from the sidebar test' — shadows fixture 6873
+[aimock] Fixture 7136: duplicate userMessage 'Chain a few tools in this single turn' — shadows fixture 7108
+[aimock] Fixture 7147: duplicate userMessage 'Roll a 20-sided die.' — shadows fixture 7118
+[aimock] Fixture 7313: duplicate userMessage 'What's the weather in Tokyo' — shadows fixture 7279
+[aimock] Fixture 7314: duplicate userMessage 'price of AAPL right now' — shadows fixture 7280
+[aimock] Fixture 7315: duplicate userMessage 'ship the demo on Friday' — shadows fixture 7281
+[aimock] Fixture 7316: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 7282
+[aimock] Fixture 7338: duplicate userMessage 'intro call with the sales team' — shadows fixture 7332
+[aimock] Fixture 7339: duplicate userMessage '1:1 with Alice' — shadows fixture 7334
+[aimock] Fixture 7348: duplicate userMessage 'hi from the popup test' — shadows fixture 7198
+[aimock] Fixture 7349: duplicate userMessage 'hi from the sidebar test' — shadows fixture 7199
+[aimock] Fixture 7462: duplicate userMessage 'Chain a few tools in this single turn' — shadows fixture 7434
+[aimock] Fixture 7473: duplicate userMessage 'Roll a 20-sided die.' — shadows fixture 7444
+[aimock] Fixture 7646: duplicate userMessage 'What's the weather in Tokyo' — shadows fixture 7616
+[aimock] Fixture 7647: duplicate userMessage 'price of AAPL right now' — shadows fixture 7617
+[aimock] Fixture 7648: duplicate userMessage 'ship the demo on Friday' — shadows fixture 7618
+[aimock] Fixture 7649: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 7619
+[aimock] Fixture 7669: duplicate userMessage 'intro call with the sales team' — shadows fixture 7665
+[aimock] Fixture 7670: duplicate userMessage '1:1 with Alice' — shadows fixture 7667
+[aimock] Fixture 7696: duplicate userMessage 'Show me a pie chart of revenue by category' — shadows fixture 7598
+[aimock] Fixture 7697: duplicate userMessage 'Show me a pie chart of revenue by category' — shadows fixture 7599
+[aimock] Fixture 7791: duplicate userMessage 'Chain a few tools in this single turn' — shadows fixture 7764
+[aimock] Fixture 7802: duplicate userMessage 'Roll a 20-sided die.' — shadows fixture 7774
+[aimock] Fixture 7813: duplicate userMessage 'poem about autumn leaves' — shadows fixture 7723
+[aimock] Fixture 7815: duplicate userMessage 'polite email declining' — shadows fixture 7725
+[aimock] Fixture 7817: duplicate userMessage 'quantum computing for a curious teenager' — shadows fixture 7727
+[aimock] Fixture 7921: duplicate userMessage 'Show me my sales dashboard for this quarter.' — shadows fixture 1881
+[aimock] Fixture 7924: duplicate userMessage 'How are our sales reps performing against quota?' — shadows fixture 1884
+[aimock] Fixture 7927: duplicate userMessage 'Are any accounts or pipeline deals at risk this quarter?' — shadows fixture 1887
+[aimock] Fixture 7930: duplicate userMessage 'Pull up the details on our biggest account.' — shadows fixture 1890
+[aimock] Fixture 7980: duplicate userMessage 'ship the demo on Friday' — shadows fixture 7939
+[aimock] Fixture 7981: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 7940
+[aimock] Fixture 8001: duplicate userMessage 'intro call with the sales team' — shadows fixture 7997
+[aimock] Fixture 8002: duplicate userMessage '1:1 with Alice' — shadows fixture 7999
+[aimock] Fixture 8030: duplicate userMessage 'Show me a pie chart of revenue by category' — shadows fixture 7919
+[aimock] Fixture 8031: duplicate userMessage 'Show me a pie chart of revenue by category' — shadows fixture 7920
+[aimock] Fixture 8193: duplicate userMessage 'Show me a Q4 sales dashboard. Include a total-revenue metric card, a pie chart of revenue by segment, and a bar chart of monthly revenue.' — shadows fixture 1565
+[aimock] Fixture 8194: duplicate userMessage 'Break down Q4 revenue by product category as a pie chart. Include at least four segments with realistic sample values.' — shadows fixture 1566
+[aimock] Fixture 8195: duplicate userMessage 'Show me monthly operating expenses for the last six months as a bar chart with one bar per month.' — shadows fixture 1567
+[aimock] Fixture 8196: duplicate userMessage 'Show me the sales dashboard with metrics and a revenue chart' — shadows fixture 1562
+[aimock] Fixture 8197: duplicate userMessage 'Break down revenue by category as a pie chart' — shadows fixture 1563
+[aimock] Fixture 8198: duplicate userMessage 'Show me monthly expenses as a bar chart' — shadows fixture 1564
+[aimock] Fixture 8305: duplicate userMessage 'introductory sales team call' — shadows fixture 8254
+[aimock] Fixture 8306: duplicate userMessage 'introductory sales team call' — shadows fixture 8255
+[aimock] Fixture 8307: duplicate userMessage 'one-on-one with Alice' — shadows fixture 8256
+[aimock] Fixture 8308: duplicate userMessage 'one-on-one with Alice' — shadows fixture 8257
+[aimock] Fixture 8491: duplicate userMessage 'Show me a Q4 sales dashboard. Include a total-revenue metric card, a pie chart of revenue by segment, and a bar chart of monthly revenue.' — shadows fixture 1649
+[aimock] Fixture 8492: duplicate userMessage 'Break down Q4 revenue by product category as a pie chart. Include at least four segments with realistic sample values.' — shadows fixture 1650
+[aimock] Fixture 8493: duplicate userMessage 'Show me monthly operating expenses for the last six months as a bar chart with one bar per month.' — shadows fixture 1651
+[aimock] Fixture 8494: duplicate userMessage 'Show me the sales dashboard with metrics and a revenue chart' — shadows fixture 1646
+[aimock] Fixture 8495: duplicate userMessage 'Break down revenue by category as a pie chart' — shadows fixture 1647
+[aimock] Fixture 8496: duplicate userMessage 'Show me monthly expenses as a bar chart' — shadows fixture 1648
+[aimock] Fixture 8538: duplicate userMessage 'Show me my sales dashboard for this quarter.' — shadows fixture 1881
+[aimock] Fixture 8541: duplicate userMessage 'How are our sales reps performing against quota?' — shadows fixture 1884
+[aimock] Fixture 8544: duplicate userMessage 'Are any accounts or pipeline deals at risk this quarter?' — shadows fixture 1887
+[aimock] Fixture 8547: duplicate userMessage 'Pull up the details on our biggest account.' — shadows fixture 1890
+[aimock] Fixture 8588: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 8553
+[aimock] Fixture 8608: duplicate userMessage 'intro call with the sales team' — shadows fixture 8558
+[aimock] Fixture 8610: duplicate userMessage '1:1 with Alice' — shadows fixture 8561
+[aimock] Fixture 8611: duplicate userMessage 'intro call with the sales team' — shadows fixture 8558
+[aimock] Fixture 8614: duplicate userMessage '1:1 with Alice' — shadows fixture 8561
+[aimock] Fixture 8813: duplicate userMessage 'Show me a Q4 sales dashboard. Include a total-revenue metric card, a pie chart of revenue by segment, and a bar chart of monthly revenue.' — shadows fixture 1734
+[aimock] Fixture 8814: duplicate userMessage 'Break down Q4 revenue by product category as a pie chart. Include at least four segments with realistic sample values.' — shadows fixture 1735
+[aimock] Fixture 8815: duplicate userMessage 'Show me monthly operating expenses for the last six months as a bar chart with one bar per month.' — shadows fixture 1736
+[aimock] Fixture 8816: duplicate userMessage 'Show me the sales dashboard with metrics and a revenue chart' — shadows fixture 1731
+[aimock] Fixture 8817: duplicate userMessage 'Break down revenue by category as a pie chart' — shadows fixture 1732
+[aimock] Fixture 8818: duplicate userMessage 'Show me monthly expenses as a bar chart' — shadows fixture 1733
+[aimock] Fixture 8842: duplicate userMessage 'Show me my sales dashboard for this quarter.' — shadows fixture 1881
+[aimock] Fixture 8845: duplicate userMessage 'How are our sales reps performing against quota?' — shadows fixture 1884
+[aimock] Fixture 8848: duplicate userMessage 'Are any accounts or pipeline deals at risk this quarter?' — shadows fixture 1887
+[aimock] Fixture 8851: duplicate userMessage 'Pull up the details on our biggest account.' — shadows fixture 1890
+[aimock] Fixture 8892: duplicate userMessage 'chart of revenue over the last six months' — shadows fixture 8857
+[aimock] Fixture 8912: duplicate userMessage 'intro call with the sales team' — shadows fixture 8862
+[aimock] Fixture 8914: duplicate userMessage '1:1 with Alice' — shadows fixture 8865
+[aimock] Fixture 8915: duplicate userMessage 'intro call with the sales team' — shadows fixture 8862
+[aimock] Fixture 8918: duplicate userMessage '1:1 with Alice' — shadows fixture 8865
+[aimock] aimock server listening on http://127.0.0.1:4410
+[aimock] STRICT: No fixture matched for POST /v1/chat/completions
+[aimock] STRICT: No fixture matched for POST /v1/chat/completions
+[aimock] STRICT: No fixture matched for POST /v1/chat/completions
+[aimock] STRICT: No fixture matched for POST /v1/chat/completions
+[aimock] STRICT: No fixture matched for POST /v1/chat/completions
+[aimock] STRICT: No fixture matched for POST /v1/chat/completions
+[aimock] STRICT: No fixture matched for POST /v1/chat/completions
+[aimock] STRICT: No fixture matched for POST /v1/chat/completions
+[aimock] STRICT: No fixture matched for POST /v1/chat/completions
+[aimock] STRICT: No fixture matched for POST /v1/chat/completions
+[aimock] STRICT: No fixture matched for POST /v1/chat/completions
+[aimock] STRICT: No fixture matched for POST /v1/chat/completions
+[aimock] Shutting down...

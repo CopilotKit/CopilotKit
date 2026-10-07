@@ -1,0 +1,24 @@
+# Sequential pre-warm (one GET at a time): demo pages [multimodal,readonly-state-agent-context,shared-state-read,shared-state-read-write,subagents] and every API route except /api/smoke. Tue Oct  6 23:59:52 UTC 2026
+/demos/multimodal 200 4.675683s
+/demos/readonly-state-agent-context 200 1.165051s
+/demos/shared-state-read 200 1.025647s
+/demos/shared-state-read-write 200 0.984759s
+/demos/subagents 200 0.895289s
+/api/copilotkit 200 1.064907s
+/api/copilotkit-a2ui-fixed-schema 405 0.413989s
+/api/copilotkit-a2ui-recovery 405 0.400281s
+/api/copilotkit-agent-config 405 0.378715s
+/api/copilotkit-auth 401 0.912675s
+/api/copilotkit-beautiful-chat 405 0.363603s
+/api/copilotkit-byoc-hashbrown 405 0.383722s
+/api/copilotkit-byoc-json-render 405 0.372260s
+/api/copilotkit-declarative-gen-ui 405 0.354975s
+/api/copilotkit-declarative-hashbrown 405 0.351516s
+/api/copilotkit-declarative-json-render 405 0.352620s
+/api/copilotkit-mcp-apps 405 0.355824s
+/api/copilotkit-multimodal 405 0.384021s
+/api/copilotkit-ogui 405 0.348062s
+/api/copilotkit-voice 404 0.972802s
+/api/debug 403 0.271955s
+/api/health 200 0.230134s
+# done Wed Oct  7 00:00:09 UTC 2026

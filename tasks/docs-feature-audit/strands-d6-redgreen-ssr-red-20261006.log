@@ -1,0 +1,114 @@
+$ AIMOCK_URL_LOCAL=http://127.0.0.1:4410 AIMOCK_URL=http://127.0.0.1:4410 SHOWCASE_LOCAL=1 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true nice -n 10 node_modules/.bin/tsx tasks/docs-feature-audit/run-local-d6.mts strands --demo shared-state-read
+# node v22.16.0, HEAD 96eb243ad2, load 4.29, started 2026-10-06T23:42:16Z
+{"level":"info","msg":"probe.e2e-full.service-start","ts":"2026-10-06T23:42:16.322Z","component":"docs-feature-audit-local-d6","slug":"strands","featureCount":1,"backendUrl":"http://localhost:3112"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=- status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=","ts":"2026-10-06T23:42:16.498Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3112/demos/shared-state-read',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3112/demos/shared-state-read',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-06T23:42:16.799Z","component":"docs-feature-audit-local-d6","slug":"strands","featureType":"shared-state-read","hydrated":true,"hydrationMs":72}
+[conversation-runner] starting conversation { totalTurns: 2, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/2 — sending message { inputLength: 40, timeoutMs: 60000 }
+[conversation-runner] turn 1/2 — running preFill hook
+[conversation-runner] turn 1/2 — preFill hook completed
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 40,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/2 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 60000
+}
+[conversation-runner] turn 1/2 — cold-start banner fast-fail; reloading + re-sending ONCE before fast-fail { errorCategory: 'assertion-failed' }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 40,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 1,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 2, baseline: 1 }
+[conversation-runner] turn 1/2 — FAILED {
+  errorCategory: 'settle-dom-missing',
+  turnsCompleted: 0,
+  elapsedMs: 60048,
+  bodyTextLength: 529,
+  hasTextarea: true,
+  hasErrorBoundary: false
+}
+{"level":"warn","msg":"probe.e2e-full.runFeature.flap-diagnostics","ts":"2026-10-06T23:43:17.649Z","component":"docs-feature-audit-local-d6","slug":"strands","featureType":"shared-state-read","error":"waitForTurnComplete: turn 1 did not complete within 56103ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)","diagnostics":{"userMsgCount":2,"apiRequestCount":55,"apiRequests":[{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_shared_dist_aa512603._.js","duration":35,"transferSize":31896,"status":200},{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_core_dist_index_mjs_c01497d1._.js","duration":45,"transferSize":88344,"status":200},{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_react-core_dist_37e0625e._.js","duration":37,"transferSize":2506,"status":200},{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_react-core_dist_copilotkit-CP9qPAqV_mjs_4adbc71e._.js","duration":52,"transferSize":146137,"status":200},{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_a2ui-renderer_dist_4ef869f6._.js","duration":53,"transferSize":19184,"status":200}],"pageErrors":[],"chatContainerExists":true,"url":"http://localhost:3112/demos/shared-state-read","title":"AWS Strands (Python)","bodyTextSnippet":"Strict mode: no fixture matched\nShow Details\nx\n🕒\n45 min\n5 min\n15 min\n30 min\n45 min\n60+ min\n🏆\nIntermediate\nBeginner\nIntermediate\nAdvanced\nDietary Preferences\nHigh Protein\nLow Carb\nSpicy\nBudget-Friendly\nOne-Pot Meal\nVegetarian\nVegan\nIngredients\n+ Add Ingredient\n🥕\n🌾\nInstructions\n+ Add Step\n1\nImprov","assistantMsgCount":0,"consoleLogs":["[warning] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.","[error] Access to fetch at 'https://cdn.copilotkit.ai/notifications/v1.json?framework=react&sdkVersion=1.77.0' from origin 'http://localhost:3112' has been blocked by CORS policy: Response to preflight reques","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit Inspector] Failed to load notifications TypeError: Failed to fetch\n    at g.fetch (<anonymous>:88:31)\n    at loadNotificationFeed (http://localhost:3112/_next/static/chunks/87101_%40copilo","[error] Failed to load resource: the server responded with a status of 404 (Not Found)","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3112' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3112' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] [CopilotKit] Agent error: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}} \n  Code: agent_run_err","[error] [CopilotKit] Error (agent_run_error_event): Error: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'","[warning] Element cpk-web-inspector scheduled an update (generally because a property was set) after an update completed, causing a new update to be scheduled. This is inefficient and should be avoided unless t","[error] [CopilotKit] Agent error: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}} \n  Code: agent_run_err","[error] [CopilotKit] Error (agent_run_error_event): Error: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'"],"requestFailures":["GET https://cdn.copilotkit.ai/notifications/v1.json?framework=react&sdkVersion=1.77.0 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED"]}}
+{"level":"warn","msg":"CVDIAG component=harness-d6 boundary=fixture-match run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=- status=miss test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=waitForTurnComplete: turn 1 did not complete within 56103ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)","ts":"2026-10-06T23:43:17.649Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.feature-retry","ts":"2026-10-06T23:43:17.655Z","component":"docs-feature-audit-local-d6","slug":"strands","featureType":"shared-state-read","attempt":1,"errorClass":"conversation-error","errorDesc":"waitForTurnComplete: turn 1 did not complete within 56103ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)","attempt1DurationMs":61161}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=- status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=","ts":"2026-10-06T23:43:17.656Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3112/demos/shared-state-read',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3112/demos/shared-state-read',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-10-06T23:43:17.936Z","component":"docs-feature-audit-local-d6","slug":"strands","featureType":"shared-state-read","hydrated":true,"hydrationMs":54}
+[conversation-runner] starting conversation { totalTurns: 2, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/2 — sending message { inputLength: 40, timeoutMs: 60000 }
+[conversation-runner] turn 1/2 — running preFill hook
+[conversation-runner] turn 1/2 — preFill hook completed
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 40,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/2 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 60000
+}
+[conversation-runner] turn 1/2 — cold-start banner fast-fail; reloading + re-sending ONCE before fast-fail { errorCategory: 'assertion-failed' }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 40,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 1,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 2, baseline: 1 }
+[conversation-runner] turn 1/2 — FAILED {
+  errorCategory: 'settle-dom-missing',
+  turnsCompleted: 0,
+  elapsedMs: 60103,
+  bodyTextLength: 529,
+  hasTextarea: true,
+  hasErrorBoundary: false
+}
+{"level":"warn","msg":"probe.e2e-full.runFeature.flap-diagnostics","ts":"2026-10-06T23:44:18.352Z","component":"docs-feature-audit-local-d6","slug":"strands","featureType":"shared-state-read","error":"waitForTurnComplete: turn 1 did not complete within 56004ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)","diagnostics":{"userMsgCount":2,"apiRequestCount":55,"apiRequests":[{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_shared_dist_aa512603._.js","duration":29,"transferSize":31896,"status":200},{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_core_dist_index_mjs_c01497d1._.js","duration":38,"transferSize":88344,"status":200},{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_react-core_dist_37e0625e._.js","duration":31,"transferSize":2506,"status":200},{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_react-core_dist_copilotkit-CP9qPAqV_mjs_4adbc71e._.js","duration":45,"transferSize":146137,"status":200},{"url":"http://localhost:3112/_next/static/chunks/87101_%40copilotkit_a2ui-renderer_dist_4ef869f6._.js","duration":46,"transferSize":19184,"status":200}],"pageErrors":[],"chatContainerExists":true,"url":"http://localhost:3112/demos/shared-state-read","title":"AWS Strands (Python)","bodyTextSnippet":"Strict mode: no fixture matched\nShow Details\nx\n🕒\n45 min\n5 min\n15 min\n30 min\n45 min\n60+ min\n🏆\nIntermediate\nBeginner\nIntermediate\nAdvanced\nDietary Preferences\nHigh Protein\nLow Carb\nSpicy\nBudget-Friendly\nOne-Pot Meal\nVegetarian\nVegan\nIngredients\n+ Add Ingredient\n🥕\n🌾\nInstructions\n+ Add Step\n1\nImprov","assistantMsgCount":0,"consoleLogs":["[warning] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.","[error] Failed to load resource: the server responded with a status of 404 (Not Found)","[error] Access to fetch at 'https://cdn.copilotkit.ai/notifications/v1.json?framework=react&sdkVersion=1.77.0' from origin 'http://localhost:3112' has been blocked by CORS policy: Response to preflight reques","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit Inspector] Failed to load notifications TypeError: Failed to fetch\n    at g.fetch (<anonymous>:88:31)\n    at loadNotificationFeed (http://localhost:3112/_next/static/chunks/87101_%40copilo","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3112' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3112' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] [CopilotKit] Agent error: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}} \n  Code: agent_run_err","[error] [CopilotKit] Error (agent_run_error_event): Error: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'","[warning] Element cpk-web-inspector scheduled an update (generally because a property was set) after an update completed, causing a new update to be scheduled. This is inefficient and should be avoided unless t","[error] [CopilotKit] Agent error: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'}} \n  Code: agent_run_err","[error] [CopilotKit] Error (agent_run_error_event): Error: Error code: 503 - {'error': {'message': 'Strict mode: no fixture matched', 'type': 'invalid_request_error', 'param': None, 'code': 'no_fixture_match'"],"requestFailures":["GET https://cdn.copilotkit.ai/notifications/v1.json?framework=react&sdkVersion=1.77.0 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED"]}}
+{"level":"warn","msg":"CVDIAG component=harness-d6 boundary=fixture-match run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=- status=miss test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=waitForTurnComplete: turn 1 did not complete within 56004ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)","ts":"2026-10-06T23:44:18.352Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.feature-retry-result","ts":"2026-10-06T23:44:18.357Z","component":"docs-feature-audit-local-d6","slug":"strands","featureType":"shared-state-read","attempt":2,"ok":false,"errorClass":"conversation-error"}
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-10-06T23:44:18.357Z","component":"docs-feature-audit-local-d6","key":"d6:strands/shared-state-read"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-10-06T23:44:18.357Z","component":"docs-feature-audit-local-d6","slug":"strands","featureType":"shared-state-read","pass":false,"errorDesc":"waitForTurnComplete: turn 1 did not complete within 56004ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)","durationMs":121863}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 slug=strands header_present=true header_value_prefix=strands hop=- status=ok test_id=d6-strands-4dd3a6d2-28ad-457a-ad87-1c6a7242ca51 error=","ts":"2026-10-06T23:44:18.369Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.service-complete","ts":"2026-10-06T23:44:18.369Z","component":"docs-feature-audit-local-d6","slug":"strands","passed":0,"failed":1,"skipped":0,"incapable":0,"total":1,"state":"red","durationMs":122047}
+{"level":"warn","msg":"probe.e2e-full.aggregate-writer-missing","ts":"2026-10-06T23:44:18.369Z","component":"docs-feature-audit-local-d6","key":"d6:strands"}
+  [31m✗[0m d6:strands [31mred[0m [2m(122.3s)[0m
+    [31mshared-state-read: waitForTurnComplete: turn 1 did not complete within 56004ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)[0m
+{"slug":"strands","results":[{"key":"d6:strands","state":"red","durationMs":122324,"signal":{"shape":"package","slug":"strands","backendUrl":"http://localhost:3112","total":1,"passed":0,"failed":["shared-state-read"],"skipped":[],"failureSummary":"shared-state-read: waitForTurnComplete: turn 1 did not complete within 56004ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)"},"error":"shared-state-read: waitForTurnComplete: turn 1 did not complete within 56004ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)"}]}
+# exit=1 finished 2026-10-06T23:44:18Z

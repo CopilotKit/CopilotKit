@@ -1,0 +1,22 @@
+## BEFORE (route without mcpApps)
+# 2026-10-06T23:54:58Z HEAD 92a42187ec, route tree state: 
+# prompt: Use Excalidraw to create a simple network diagram showing a router connected to two switches, each connected to two computers.
+events: RUN_STARTED STATE_SNAPSHOT MESSAGES_SNAPSHOTx2 TOOL_CALL_START TOOL_CALL_ARGSx165 TOOL_CALL_END MESSAGES_SNAPSHOTx2 RAW TOOL_CALL_RESULT MESSAGES_SNAPSHOTx2 TEXT_MESSAGE_START TEXT_MESSAGE_CONTENTx12 RAW TEXT_MESSAGE_END MESSAGES_SNAPSHOTx2 STATE_SNAPSHOT RUN_FINISHED
+TOOL_CALL_START create_view
+TOOL_CALL_RESULT "Unknown tool: create_view"
+200 match={"userMessage":"Use Excalidraw to create a simple network diagram","hasToolResult":false,"context":"strands"} tools(15): get_sales_todos,manage_sales_todos,get_weather,query_data,roll_dice,schedule_meeting,search_flights,generate_a2ui,set_theme_color,set_notes,set_steps,write_document,research_agent,writing_agent,critique_agent
+create_view advertised: false
+200 match={"userMessage":"Use Excalidraw to create a simple network diagram","hasToolResult":true,"context":"strands"} tools(15): get_sales_todos,manage_sales_todos,get_weather,query_data,roll_dice,schedule_meeting,search_flights,generate_a2ui,set_theme_color,set_notes,set_steps,write_document,research_agent,writing_agent,critique_agent
+create_view advertised: false
+
+## AFTER (route with mcpApps, as google-adk's and langgraph-python's beautiful-chat routes; Turbopack hot reload, same stack)
+# 2026-10-06T23:55:23Z HEAD 92a42187ec, route tree state:  M showcase/integrations/strands/src/app/api/copilotkit-beautiful-chat/route.ts 
+# prompt: Use Excalidraw to create a simple network diagram showing a router connected to two switches, each connected to two computers.
+events: RUN_STARTED STATE_SNAPSHOT MESSAGES_SNAPSHOTx2 TOOL_CALL_START TOOL_CALL_ARGSx165 RAW TOOL_CALL_END MESSAGES_SNAPSHOTx2 STATE_SNAPSHOT TOOL_CALL_RESULT ACTIVITY_SNAPSHOT RUN_FINISHED
+TOOL_CALL_START create_view
+TOOL_CALL_RESULT Diagram displayed! Checkpoint id: "74575348d6d64606aa".
+If user asks to create a new diagram - simply create a new one from scratch.
+However, if the user wants 
+ACTIVITY_SNAPSHOT mcp-apps
+200 match={"userMessage":"Use Excalidraw to create a simple network diagram","hasToolResult":false,"context":"strands"} tools(16): get_sales_todos,manage_sales_todos,get_weather,query_data,roll_dice,schedule_meeting,search_flights,generate_a2ui,set_theme_color,set_notes,set_steps,write_document,research_agent,writing_agent,critique_agent,create_view
+create_view advertised: true

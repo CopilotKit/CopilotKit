@@ -1,0 +1,73 @@
+# Strands /api/smoke at HEAD 078a361d85 + uncommitted dependency/dev-script update (route itself unchanged), stack from strands-dev-stack-20261006.log, Tue Oct  6 23:32:36 UTC 2026
+## BEFORE 1: GET /api/smoke
+{"status":"ok","integration":"strands","latency_ms":268,"timestamp":"2026-10-06T23:32:36.858Z"}
+HTTP 200 0.551022s
+## AIMock journal right after it:
+0 request(s)
+## AIMock journal 4 s later:
+1 request(s)
+  POST /v1/chat/completions 200 ctx=- strict=- match={"userMessage":"Respond with exactly: OK"}
+## The same request the route sends (threadId smoke-<ms>, agentId agentic_chat), POSTed to /api/copilotkit and read to the end:
+  RUN_STARTED 
+  STATE_SNAPSHOT 
+  MESSAGES_SNAPSHOT 
+  MESSAGES_SNAPSHOT 
+  TEXT_MESSAGE_START 
+  TEXT_MESSAGE_CONTENT OK
+  RAW 
+  TEXT_MESSAGE_END 
+  MESSAGES_SNAPSHOT 
+  MESSAGES_SNAPSHOT 
+  STATE_SNAPSHOT 
+  RUN_FINISHED 
+## AIMock journal after both:
+2 request(s)
+  POST /v1/chat/completions 200 ctx=- strict=- match={"userMessage":"Respond with exactly: OK"}
+  POST /v1/chat/completions 200 ctx=- strict=- match={"userMessage":"Respond with exactly: OK"}
+## BEFORE 2 (discriminating): make the model call fail, then GET /api/smoke. AIMock's control endpoint queues one 400 for the next provider request (non-retryable).
+$ curl -X POST http://127.0.0.1:4410/__aimock/error -d '{"status":400,...}'
+{"queued":true}
+$ GET /api/smoke
+{"status":"ok","integration":"strands","latency_ms":239,"timestamp":"2026-10-06T23:32:41.885Z"}
+HTTP 200 0.465203s
+## AIMock journal:
+1 request(s)
+  POST /v1/chat/completions 400 ctx=- strict=- match={}
+## The same failing run replayed directly (error queued again), stream read to the end:
+  RUN_STARTED 
+  STATE_SNAPSHOT 
+  MESSAGES_SNAPSHOT 
+  MESSAGES_SNAPSHOT 
+  RUN_ERROR Error code: 400 - {'error': {'message': 'injected provider failure (smoke check)', 'type': 'invalid_request_error', 'param': None, 'code': None}}
+## AIMock journal:
+2 request(s)
+  POST /v1/chat/completions 400 ctx=- strict=- match={}
+  POST /v1/chat/completions 400 ctx=- strict=- match={}
+
+## AFTER: route.ts replaced by the ADK fix from b2323ec714 (= LangGraph 0828d39b45 / 7e2b368bc5: randomUUID ids, stream read to the terminal event; 502 run_error / run_incomplete unless RUN_FINISHED). Only the slug and the 'Gemini' -> 'OpenAI' comment differ from ADK's file. Same stack, Turbopack hot reload. Tue Oct  6 23:33:00 UTC 2026
+$ GET /api/smoke  (first hit compiles the route)
+{"status":"ok","integration":"strands","latency_ms":435,"timestamp":"2026-10-06T23:33:01.138Z"}
+HTTP 200 0.680616s
+## AIMock journal:
+1 request(s)
+  POST /v1/chat/completions 200 ctx=- strict=- match={"userMessage":"Respond with exactly: OK"}
+$ GET /api/smoke  (again)
+{"status":"ok","integration":"strands","latency_ms":448,"timestamp":"2026-10-06T23:33:01.872Z"}
+HTTP 200 0.674646s
+## AIMock journal:
+1 request(s)
+  POST /v1/chat/completions 200 ctx=- strict=- match={"userMessage":"Respond with exactly: OK"}
+## With one 400 queued:
+{"queued":true}
+$ GET /api/smoke
+{"status":"error","integration":"strands","stage":"run_error","error":"Run failed: Error code: 400 - {'error': {'message': 'injected provider failure (smoke check)', 'type': 'invalid_request_error', 'param': None, 'code': None}}","latency_ms":253,"timestamp":"2026-10-06T23:33:02.409Z"}
+HTTP 502 0.480057s
+## AIMock journal:
+1 request(s)
+  POST /v1/chat/completions 400 ctx=- strict=- match={}
+## Unqueued again:
+{"status":"ok","integration":"strands","latency_ms":447,"timestamp":"2026-10-06T23:33:03.122Z"}
+HTTP 200 0.673059s
+## AIMock journal:
+1 request(s)
+  POST /v1/chat/completions 200 ctx=- strict=- match={"userMessage":"Respond with exactly: OK"}

@@ -1,0 +1,16 @@
+diff --git a/showcase/integrations/strands/src/agents/agent.py b/showcase/integrations/strands/src/agents/agent.py
+index b880631db7..16ca3b5be3 100644
+--- a/showcase/integrations/strands/src/agents/agent.py
++++ b/showcase/integrations/strands/src/agents/agent.py
+@@ -985,9 +985,8 @@ def _format_recipe_block(recipe: dict) -> Optional[str]:
+     current snapshot so the assistant can answer about edits the user made in
+     the recipe card.
+     """
+-    if not isinstance(recipe, dict) or not recipe:
+-        return None
+-    return "Current recipe from the editor:\n" + json.dumps(recipe, indent=2)
++    # RED stub (2026-10-06 audit, NOT committed): drop the UI-owned recipe.
++    return None
+ 
+ 
+ # @endregion[shared-state-recipe-prompt]

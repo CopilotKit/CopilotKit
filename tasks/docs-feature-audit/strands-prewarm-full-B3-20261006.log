@@ -1,0 +1,28 @@
+# Sequential pre-warm (one GET at a time): demo pages [agent-config,auth,declarative-hashbrown,declarative-json-render,gen-ui-interrupt,interrupt-headless,open-gen-ui,open-gen-ui-advanced,voice] and every API route except /api/smoke. Tue Oct  6 23:38:57 UTC 2026
+/demos/agent-config 200 4.871495s
+/demos/auth 200 1.285045s
+/demos/declarative-hashbrown 200 1.421795s
+/demos/declarative-json-render 200 1.397653s
+/demos/gen-ui-interrupt 200 0.940299s
+/demos/interrupt-headless 200 1.107764s
+/demos/open-gen-ui 200 1.024658s
+/demos/open-gen-ui-advanced 200 1.040423s
+/demos/voice 200 0.923279s
+/api/copilotkit 200 1.216897s
+/api/copilotkit-a2ui-fixed-schema 405 0.429091s
+/api/copilotkit-a2ui-recovery 405 0.404751s
+/api/copilotkit-agent-config 405 0.405140s
+/api/copilotkit-auth 401 0.919570s
+/api/copilotkit-beautiful-chat 405 0.365865s
+/api/copilotkit-byoc-hashbrown 405 0.369427s
+/api/copilotkit-byoc-json-render 405 0.382955s
+/api/copilotkit-declarative-gen-ui 405 0.354447s
+/api/copilotkit-declarative-hashbrown 405 0.356696s
+/api/copilotkit-declarative-json-render 405 0.370578s
+/api/copilotkit-mcp-apps 405 0.366875s
+/api/copilotkit-multimodal 405 0.365018s
+/api/copilotkit-ogui 405 0.376561s
+/api/copilotkit-voice 404 0.970966s
+/api/debug 403 0.274390s
+/api/health 200 0.222690s
+# done Tue Oct  6 23:39:19 UTC 2026

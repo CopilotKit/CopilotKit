@@ -1,0 +1,38 @@
+# CopilotKit / AG-UI provenance, 2026-10-06T23:25:57Z
+## JS: every @copilotkit/* and @ag-ui/* lock entry vs registry dist.integrity
+OK  node_modules/@ag-ui/a2ui-middleware 0.0.10 https://registry.npmjs.org
+OK  node_modules/@ag-ui/a2ui-toolkit 0.0.4 https://registry.npmjs.org
+OK  node_modules/@ag-ui/client 1.0.1 https://registry.npmjs.org
+OK  node_modules/@ag-ui/core 1.0.1 https://registry.npmjs.org
+OK  node_modules/@ag-ui/encoder 1.0.1 https://registry.npmjs.org
+OK  node_modules/@ag-ui/langgraph 0.0.44 https://registry.npmjs.org
+OK  node_modules/@ag-ui/mcp-apps-middleware 0.1.1 https://registry.npmjs.org
+OK  node_modules/@ag-ui/mcp-middleware 0.0.2 https://registry.npmjs.org
+OK  node_modules/@ag-ui/proto 1.0.1 https://registry.npmjs.org
+OK  node_modules/@copilotkit/a2ui-renderer 1.77.0 https://registry.npmjs.org
+OK  node_modules/@copilotkit/channels-core 0.11.0 https://registry.npmjs.org
+OK  node_modules/@copilotkit/channels-intelligence 0.11.0 https://registry.npmjs.org
+OK  node_modules/@copilotkit/channels-slack 0.11.0 https://registry.npmjs.org
+OK  node_modules/@copilotkit/channels-teams 0.11.0 https://registry.npmjs.org
+OK  node_modules/@copilotkit/channels-ui 0.11.0 https://registry.npmjs.org
+OK  node_modules/@copilotkit/core 1.77.0 https://registry.npmjs.org
+OK  node_modules/@copilotkit/learning 0.0.1 https://registry.npmjs.org
+OK  node_modules/@copilotkit/license-verifier 0.5.0 https://registry.npmjs.org
+OK  node_modules/@copilotkit/mcp-apps-renderer 1.77.0 https://registry.npmjs.org
+OK  node_modules/@copilotkit/react-core 1.77.0 https://registry.npmjs.org
+OK  node_modules/@copilotkit/react-ui 1.77.0 https://registry.npmjs.org
+OK  node_modules/@copilotkit/runtime 1.77.0 https://registry.npmjs.org
+OK  node_modules/@copilotkit/runtime-client-gql 1.77.0 https://registry.npmjs.org
+OK  node_modules/@copilotkit/shared 1.77.0 https://registry.npmjs.org
+OK  node_modules/@copilotkit/voice 1.77.0 https://registry.npmjs.org
+OK  node_modules/@copilotkit/web-components 1.77.0 https://registry.npmjs.org
+OK  node_modules/@copilotkit/web-inspector 1.77.0 https://registry.npmjs.org
+# 27 match, 0 mismatch
+# exotic sources in lock (link/file/git): 0
+## Python: direct_url.json present? (absent = installed from the index)
+ag_ui_strands-0.4.1.dist-info direct_url=none installer=uv
+ag_ui_protocol-1.0.0.dist-info direct_url=none installer=uv
+strands_agents-1.57.2.dist-info direct_url=none installer=uv
+strands_agents_tools-0.8.9.dist-info direct_url=none installer=uv
+copilotkit-0.1.96.dist-info direct_url=none installer=uv
+ag_ui_a2ui_toolkit-0.0.4.dist-info direct_url=none installer=uv

@@ -1,0 +1,17 @@
+# Strands tests/python (the showcase_validate.yml python-unit-tests job collects this directory on its 3.12 leg; strands is skipped on 3.10), 2026-10-06T23:27:11Z, HEAD 078a361d85 + uncommitted dependency update. Test deps go to a separate --target dir, so the venv stays the requirement set.
+$ uv pip install --python /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/bin/python --target /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/pytest-target pytest pytest-asyncio pytest-mock typing_extensions --exclude-newer 2026-10-05T21:00:00Z
+Using CPython 3.12.6 interpreter at: /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/strands/venv/bin/python
+Resolved 8 packages in 160ms
+Installed 8 packages in 9ms
+ + iniconfig==2.3.0
+ + packaging==26.3
+ + pluggy==1.6.0
+ + pygments==2.21.0
+ + pytest==9.1.1
+ + pytest-asyncio==1.4.0
+ + pytest-mock==3.16.0
+ + typing-extensions==4.16.0
+$ PYTHONPATH=<target>:.:src python -m pytest tests/python/ -q -p no:cacheprovider  (CI: -v)
+.......................................................................  [100%]
+71 passed in 0.62s
+exit=0

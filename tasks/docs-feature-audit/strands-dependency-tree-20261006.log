@@ -1,0 +1,66 @@
+# 2026-10-06T23:25:39Z installed copies (node_modules package.json walk)
+@copilotkit/core: 1.77.0 (node_modules/@copilotkit/core) 
+@copilotkit/shared: 1.77.0 (node_modules/@copilotkit/shared) 
+@copilotkit/runtime: 1.77.0 (node_modules/@copilotkit/runtime) 
+@copilotkit/react-core: 1.77.0 (node_modules/@copilotkit/react-core) 
+@copilotkit/react-ui: 1.77.0 (node_modules/@copilotkit/react-ui) 
+@copilotkit/web-inspector: 1.77.0 (node_modules/@copilotkit/web-inspector) 
+@ag-ui/core: 1.0.1 (node_modules/@ag-ui/core) 
+@ag-ui/client: 1.0.1 (node_modules/@ag-ui/client) 
+@ag-ui/encoder: 1.0.1 (node_modules/@ag-ui/encoder) 
+@ag-ui/proto: 1.0.1 (node_modules/@ag-ui/proto) 
+@ag-ui/langgraph: 0.0.44 (node_modules/@ag-ui/langgraph) 
+@langchain/core: 1.2.14 (node_modules/@langchain/core) 
+next: 15.5.27 (node_modules/next) 
+react: 19.3.0 (node_modules/react) 
+react-dom: 19.3.0 (node_modules/react-dom) 
+openai: 5.9.0 (node_modules/openai) 
+
+$ npm ls @ag-ui/core @ag-ui/client @copilotkit/core --all
+@copilotkit/showcase-strands@0.1.0 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/strands
++-- @ag-ui/client@1.0.1 overridden
+| +-- @ag-ui/core@1.0.1 overridden
+| +-- @ag-ui/encoder@1.0.1
+| | `-- @ag-ui/core@1.0.1 deduped
+| `-- @ag-ui/proto@1.0.1
+|   `-- @ag-ui/core@1.0.1 deduped
++-- @copilotkit/react-core@1.77.0
+| +-- @ag-ui/client@1.0.1 deduped
+| +-- @ag-ui/core@1.0.1 deduped
+| +-- @copilotkit/core@1.77.0
+| | `-- @ag-ui/client@1.0.1 deduped
+| +-- @copilotkit/mcp-apps-renderer@1.77.0
+| | `-- @ag-ui/client@1.0.1 deduped
+| `-- @copilotkit/web-inspector@1.77.0
+|   +-- @ag-ui/client@1.0.1 deduped
+|   `-- @copilotkit/core@1.77.0 deduped
++-- @copilotkit/runtime@1.77.0
+| +-- @ag-ui/a2ui-middleware@0.0.10
+| | `-- @ag-ui/client@1.0.1 deduped
+| +-- @ag-ui/client@1.0.1 deduped
+| +-- @ag-ui/core@1.0.1 deduped
+| +-- @ag-ui/langgraph@0.0.44
+| | +-- @ag-ui/client@1.0.1 deduped
+| | `-- @ag-ui/core@1.0.1 deduped
+| +-- @ag-ui/mcp-apps-middleware@0.1.1
+| | `-- @ag-ui/client@1.0.1 deduped
+| +-- @ag-ui/mcp-middleware@0.0.2
+| | `-- @ag-ui/client@1.0.1 deduped
+| +-- @copilotkit/channels-core@0.11.0
+| | +-- @ag-ui/client@1.0.1 deduped
+| | +-- @ag-ui/core@1.0.1 deduped
+| | `-- @copilotkit/core@1.77.0 deduped
+| `-- @copilotkit/channels-intelligence@0.11.0
+|   +-- @ag-ui/client@1.0.1 deduped
+|   +-- @copilotkit/channels-slack@0.11.0
+|   | +-- @ag-ui/client@1.0.1 deduped
+|   | +-- @ag-ui/core@1.0.1 deduped
+|   | `-- @copilotkit/core@1.77.0 deduped
+|   `-- @copilotkit/channels-teams@0.11.0
+|     +-- @ag-ui/client@1.0.1 deduped
+|     +-- @ag-ui/core@1.0.1 deduped
+|     `-- @copilotkit/core@1.77.0 deduped
+`-- @copilotkit/shared@1.77.0
+  +-- @ag-ui/client@1.0.1 deduped
+  `-- @ag-ui/core@1.0.1 deduped
+
