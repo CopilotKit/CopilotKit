@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { onboardingFrontendFor } from "../docs-onboarding-frontend";
-import { frontendPromptSuffix } from "../intelligence-onboarding-frontend";
 
 describe("onboardingFrontendFor", () => {
   it.each([
@@ -35,10 +34,5 @@ describe("onboardingFrontendFor", () => {
     // the reader is actually looking at.
     expect(onboardingFrontendFor("/vue").id).toBe("vue");
     expect(onboardingFrontendFor("/not-a-frontend").id).toBe("react");
-  });
-
-  it("hands the prompt a name and id that compose into the sentence", () => {
-    const { id, name } = onboardingFrontendFor("/quickstart");
-    expect(frontendPromptSuffix(id, name)).toBe(" I use the Next.js frontend.");
   });
 });

@@ -57,6 +57,7 @@
       "defaultOpen": true,
       "pages": [
         "threads",
+        "intelligence/bring-your-own-thread-system",
         "threads-import",
         "threads-lifecycle",
         "intelligence/threads-explained"
