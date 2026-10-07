@@ -6,9 +6,13 @@
   "pages": [
     "overview",
     "quickstart",
+    "bring-your-own-thread-system",
     "intelligence-platform",
     "memories",
     "learned-skills",
+    "capture-interactions",
+    "standalone-collector",
+    "captured-data",
     "analytics",
     "channels",
     "managed-intelligence-platform",

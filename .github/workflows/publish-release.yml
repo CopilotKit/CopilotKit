@@ -48,15 +48,17 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: "What to release ('all' is prerelease-only: every scope under one shared canary id)"
+        description: "What to release (all and learning-preview are prerelease-only compositions)"
         required: true
         type: choice
         options:
           - monorepo
+          - learning
           - angular
           - channels
           - intelligence-langgraph
           - intelligence-mastra
+          - learning-preview
           # Sentinel, not a scope (see ALL_SCOPES in scripts/release/lib/config.ts).
           # PRERELEASE ONLY — rejected for mode=stable by the "Determine scope and
           # mode" guard below, since a stable release derives its tag, release
@@ -140,8 +142,8 @@ jobs:
           # A stable release cannot be multi-scope — the tag (`<scope>/v<version>`),
           # the release branch, and the notify job's npm URL each assume ONE scope,
           # and the scopes carry independent version lines.
-          if [ "$SCOPE" = "all" ] && [ "$MODE" != "prerelease" ]; then
-            echo "::error::scope=all is only valid with mode=prerelease (canary). Release each scope separately via the 'release / create-pr' workflow."
+          if { [ "$SCOPE" = "all" ] || [ "$SCOPE" = "learning-preview" ]; } && [ "$MODE" != "prerelease" ]; then
+            echo "::error::scope=$SCOPE is only valid with mode=prerelease (canary). Release each scope separately via the 'release / create-pr' workflow."
             exit 1
           fi
           echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
@@ -256,6 +258,15 @@ jobs:
       - name: Build packages
         run: pnpm run build
 
+      # Community packages (community/<name>/) are not pnpm workspace members,
+      # so the nx build above never reaches them and `pnpm pack` would publish
+      # them without a dist. Install and build the ones in this scope inside
+      # their own folders. A no-op for a scope without community packages.
+      - name: Build community packages
+        env:
+          SCOPE: ${{ steps.meta.outputs.scope }}
+        run: pnpm tsx scripts/release/build-community-packages.ts --scope "$SCOPE"
+
       # Strip caches and pack the workspace into a single tarball before
       # upload. upload-artifact's path filters are post-walk: it still
       # descends into every node_modules and stats every file (~6.4M for
@@ -268,7 +279,7 @@ jobs:
           tar -czf /tmp/workspace.tgz .
 
       - name: Upload workspace
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: workspace
           path: /tmp/workspace.tgz
@@ -318,15 +329,15 @@ jobs:
           # Same guard as the build job (this job re-derives scope/mode from the
           # event rather than inheriting them). Defense in depth: nothing may reach
           # the tag/GH-Release/notify path with the multi-scope sentinel.
-          if [ "$SCOPE" = "all" ] && [ "$MODE" != "prerelease" ]; then
-            echo "::error::scope=all is only valid with mode=prerelease (canary)."
+          if { [ "$SCOPE" = "all" ] || [ "$SCOPE" = "learning-preview" ]; } && [ "$MODE" != "prerelease" ]; then
+            echo "::error::scope=$SCOPE is only valid with mode=prerelease (canary)."
             exit 1
           fi
           echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
           echo "mode=$MODE"   >> "$GITHUB_OUTPUT"
 
       - name: Download workspace
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: workspace
 
@@ -582,7 +593,7 @@ jobs:
             echo ""
             echo "**Scope:** ${{ steps.meta.outputs.scope }}"
             # `versions` lists every published scope (`<scope>@<version>`), which is
-            # the whole story for scope=all; `version` alone names only the first.
+            # the whole story for compositions; `version` alone names only the first.
             echo "**Versions:** ${{ steps.publish.outputs.versions || steps.publish.outputs.version }}"
             echo "**Tag:** (prerelease — no tag created)"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -702,7 +713,7 @@ jobs:
 
       - name: Upload Python build artifacts
         if: steps.detect.outputs.should_publish == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: py-build-artifacts
           path: sdk-python/dist/
@@ -747,7 +758,7 @@ jobs:
           version: ">=0.8.0"
 
       - name: Download Python build artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: py-build-artifacts
           path: sdk-python/dist
@@ -897,7 +908,7 @@ jobs:
 
       - name: Upload distributions and release plan
         if: steps.plan.outputs.should_publish == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: intelligence-python-release-artifacts
           path: |
@@ -929,7 +940,7 @@ jobs:
           enable-cache: false
 
       - name: Download distributions and release plan
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: intelligence-python-release-artifacts
 
@@ -959,7 +970,7 @@ jobs:
           enable-cache: false
 
       - name: Download distributions and release plan
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: intelligence-python-release-artifacts
 
@@ -989,7 +1000,7 @@ jobs:
           enable-cache: false
 
       - name: Download distributions and release plan
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: intelligence-python-release-artifacts
 
@@ -1185,6 +1196,9 @@ jobs:
         run: |
           set -euo pipefail
           case "$SCOPE" in
+            learning)
+              NPM_URL="https://www.npmjs.com/package/@copilotkit/learning"
+              ;;
             angular)
               NPM_URL="https://www.npmjs.com/package/@copilotkit/angular"
               ;;

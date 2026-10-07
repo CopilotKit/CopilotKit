@@ -59,6 +59,7 @@ on:
           - crewai-conversational-flows
           - pydantic-ai
           - google-adk
+          - google-antigravity
           - ag2
           - agno
           - llamaindex
@@ -160,6 +161,8 @@ jobs:
               - 'showcase/integrations/pydantic-ai/**'
             google_adk:
               - 'showcase/integrations/google-adk/**'
+            google_antigravity:
+              - 'showcase/integrations/google-antigravity/**'
             ag2:
               - 'showcase/integrations/ag2/**'
             agno:
@@ -291,6 +294,7 @@ jobs:
             {"dispatch_name":"crewai-conversational-flows","filter_key":"crewai_conversational_flows","context":"showcase/integrations/crewai-conversational-flows","image":"showcase-crewai-conversational-flows","railway_id":"11859593-da4e-486c-a810-6cdffeff9750","timeout":25,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/integrations/pydantic-ai","image":"showcase-pydantic-ai","railway_id":"0a106173-2282-4887-a994-0ca276a99d69","timeout":25,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"google-adk","filter_key":"google_adk","context":"showcase/integrations/google-adk","image":"showcase-google-adk","railway_id":"87f60507-5a3d-4b8a-9e23-2b1de85d939c","timeout":25,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"google-antigravity","filter_key":"google_antigravity","context":"showcase/integrations/google-antigravity","image":"showcase-google-antigravity","railway_id":"6441783f-3e93-40cf-b75d-872c6713d7f2","timeout":30,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"ag2","filter_key":"ag2","context":"showcase/integrations/ag2","image":"showcase-ag2","railway_id":"4a37481b-f264-4eb7-a9cd-0a9ebb9ac05c","timeout":25,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"agno","filter_key":"agno","context":"showcase/integrations/agno","image":"showcase-agno","railway_id":"32cab80b-e329-45bd-9c73-c4e1ddc94305","timeout":25,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"llamaindex","filter_key":"llamaindex","context":"showcase/integrations/llamaindex","image":"showcase-llamaindex","railway_id":"285386e8-492d-4cb8-b632-0a7d4607378f","timeout":25,"build_args":"","dockerfile":"","health_path":"/api/health"},
@@ -457,7 +461,7 @@ jobs:
 
       - name: Upload canonical Angular browser artifact
         if: needs.detect-changes.outputs.needs_angular == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: showcase-angular-browser-${{ github.sha }}
           path: showcase/angular/dist/showcase-angular/browser
@@ -500,7 +504,7 @@ jobs:
 
       - name: Download canonical Angular browser artifact
         if: startsWith(matrix.service.context, 'showcase/integrations/')
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: showcase-angular-browser-${{ github.sha }}
           path: ${{ runner.temp }}/showcase-angular-browser
@@ -665,7 +669,7 @@ jobs:
 
       - name: Upload per-slot build-result artifact
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           # Canonical per-slot name (see buildResultArtifactName in
           # showcase/scripts/lib/build-outputs.ts). The aggregator
@@ -881,7 +885,7 @@ jobs:
 
       - name: Upload per-slot starter build-result artifact
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           # Distinct `starter-build-result-*` prefix so this never matches the
           # aggregator's `build-result-*` download pattern.
@@ -893,7 +897,9 @@ jobs:
   aggregate-build-results:
     name: Aggregate build results
     needs: [detect-changes, build]
-    if: ${{ !cancelled() && needs.detect-changes.outputs.has_changes == 'true' }}
+    # An upstream gate can skip the entire matrix, leaving no artifacts to
+    # collect. Still aggregate failed/cancelled matrices for partial successes.
+    if: ${{ !cancelled() && needs.detect-changes.outputs.has_changes == 'true' && needs.build.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
     permissions:
@@ -925,7 +931,7 @@ jobs:
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Download all per-slot build-result artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           # `pattern` matches every per-slot artifact emitted by the
           # build matrix. `merge-multiple: false` keeps each artifact
@@ -953,7 +959,7 @@ jobs:
           npx tsx showcase/scripts/aggregate-build-results.ts
 
       - name: Upload aggregated build-results artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: build-results
           path: ${{ runner.temp }}/build-results-out/results.json
@@ -1190,7 +1196,7 @@ jobs:
         # Net effect: trades the (already-closed) false-green risk for a
         # false-red on every non-buildable push. Don't do it.
         if: steps.changed.outputs.services != ''
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           # Artifact name MUST stay `redeploy-summary`: showcase_deploy.yml's
           # `resolve-matrix` job downloads it by this exact name and reads
@@ -1286,7 +1292,7 @@ jobs:
         # build-starters; before this job they were write-only.
         # merge-multiple:false keeps each slot in its own subdirectory so the
         # find below reads them deterministically.
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: starter-build-result-*
           path: ${{ runner.temp }}/starter-build-results-in
@@ -1426,8 +1432,8 @@ jobs:
     # redeploy fix uses) is the authoritative "nothing built" check, so we fire
     # on it directly. The `!= 'skipped'` clause still guards the case where the
     # build job was SKIPPED (e.g. verify-image-refs failed upstream, so the
-    # matrix never executed) — the aggregator would report `any_success=false`
-    # for an empty run, and the sibling `notify` job already covers that
+    # matrix never executed) — the aggregator is also skipped in that case,
+    # and the sibling `notify` job already covers that
     # upstream red, so firing here too would be a misleading "all builds
     # failed" alert. `!cancelled()` keeps a user-cancelled RUN silent.
     runs-on: ubuntu-latest

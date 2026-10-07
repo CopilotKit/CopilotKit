@@ -26,7 +26,7 @@ The following prerequisites and commands apply only to that historical import. U
 
 ## Prerequisites
 
-- A CopilotKit app with CopilotKit Intelligence enabled.
+- An existing CopilotKit app with Intelligence connected.
 - Persisted ADK sessions. In-memory ADK sessions cannot be exported.
 - ADK source credentials in environment variables.
 - An agent map from ADK `app_name` values to your live CopilotKit `agentId`s.
@@ -37,9 +37,9 @@ The following prerequisites and commands apply only to that historical import. U
 
 ## Confirm the target project
 
-The importer targets the CopilotKit Intelligence project selected when you created the app with the CopilotKit CLI. If that is the project that should receive the ADK sessions, continue to source configuration.
+Choose the Intelligence project that will receive the history. Its app-api URL and project-scoped runtime key select the destination. You will export those values before importing.
 
-To target a different cloud-hosted project, select it before the dry run:
+For a CLI-created app, you can select a cloud-hosted project:
 
 ```bash title="Terminal"
 npx copilotkit@latest project select
@@ -141,11 +141,11 @@ npx copilotkit@latest import \
   --yes
 ```
 
-ADK user attribution defaults to `session.user_id`. Sessions without a recoverable user are omitted by default; use `--unrecoverable imported-unknown` only when you intentionally want to place those sessions under an imported fallback user.
+ADK user attribution defaults to `session.user_id`. This value must match the application user ID returned by your runtime's `identifyUser`. Sessions without a recoverable user are omitted by default; use `--unrecoverable imported-unknown` only when you intentionally want to place those sessions under an imported fallback user.
 
 ## Verify the imported sessions
 
-Open the Threads Drawer, select an imported ADK conversation, and confirm that its session history appears in the chat.
+Sign in as the application user whose ID you imported. Open the conversation from the Threads Drawer and make sure that its earlier messages appear. Send a message and make sure that ADK updates the same native session.
 
 ## Re-run or replace
 

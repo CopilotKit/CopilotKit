@@ -1,0 +1,78 @@
+/* Skills tab: the shared Learning notice with the label and switch inline. */
+.label {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.label > h2 {
+  margin: 0;
+}
+
+/* Settings: the switch sits in the Card header action. */
+.heading {
+  font: inherit;
+  margin: 0;
+}
+.cardBody {
+  display: grid;
+  gap: 16px;
+}
+.cardBody > div:has(> button) {
+  display: flex;
+}
+
+.control {
+  display: inline-flex;
+}
+/* An unknown setting must not show an off-position thumb. */
+.control[data-unknown] input + span {
+  visibility: hidden;
+}
+/* Pending writes stay focusable; the save handler blocks repeat activation. */
+.control input[aria-disabled="true"] + span {
+  opacity: 0.56;
+}
+
+.failure {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 4px;
+}
+.failure p {
+  color: var(--foreground);
+  flex-basis: 100%;
+  font-size: var(--text-control);
+  margin: 0;
+}
+
+.setup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cpki-space-3);
+}
+.task {
+  min-width: 0;
+}
+.task summary {
+  color: var(--foreground);
+  cursor: pointer;
+  font-size: var(--text-control);
+  font-weight: 500;
+  padding: var(--cpki-space-2) 0;
+}
+.task pre {
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  font-family: var(--cpki-font-mono);
+  font-size: var(--text-caption);
+  line-height: 1.7;
+  max-height: 320px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  padding: var(--cpki-space-4);
+  white-space: pre-wrap;
+}

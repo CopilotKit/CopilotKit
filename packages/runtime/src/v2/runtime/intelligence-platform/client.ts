@@ -12,6 +12,11 @@ import type {
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import type { GetLearningContainerId } from "../core/learning";
+import {
+  parseTrajectoryConnectionGrant,
+  trajectoryResponseError,
+} from "./trajectories";
+import type { TrajectoryConnectionGrant } from "./trajectories";
 
 import {
   LearnedSkillsError,
@@ -229,6 +234,25 @@ export class PlatformRequestError extends Error {
   ) {
     super(message);
     this.name = "PlatformRequestError";
+  }
+}
+
+/**
+ * Read the platform's `retryable` hint from an error response body. The
+ * platform sends `{ error: { code, message, category, retryable } }`; anything
+ * else (non-JSON, proxies, older platforms) yields `undefined`.
+ */
+function readErrorBodyRetryable(text: string): boolean | undefined {
+  if (!text) return undefined;
+  try {
+    const body: unknown = JSON.parse(text);
+    if (typeof body !== "object" || body === null) return undefined;
+    const error = (body as { error?: unknown }).error;
+    if (typeof error !== "object" || error === null) return undefined;
+    const retryable = (error as { retryable?: unknown }).retryable;
+    return typeof retryable === "boolean" ? retryable : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -499,6 +523,12 @@ export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
   backendThreadId?: string;
   /** Canonical platform run identifier for the acquired lock. */
   runId: string;
+  /**
+   * Seconds the lock remains valid from acquisition, as set by the platform.
+   * The platform may ignore the requested TTL, so callers should trust this
+   * value. Absent on platforms that predate the field.
+   */
+  ttlSeconds?: number;
 }
 
 /**
@@ -632,6 +662,8 @@ export interface RenewThreadLockRequest {
   ttlSeconds: number;
   /** Must match the prefix used when acquiring. */
   lockKeyPrefix?: string;
+  /** Aborts the request, e.g. when the heartbeat gives up on this attempt. */
+  signal?: AbortSignal;
 }
 
 export interface CleanupThreadLockRequest {
@@ -640,7 +672,20 @@ export interface CleanupThreadLockRequest {
 }
 
 export interface RenewThreadLockResponse {
+  /**
+   * Seconds the lock remains valid from now, as set by the platform. The
+   * platform may ignore the requested TTL, so callers should trust this value.
+   * `0` when {@link status} is `"completed"`.
+   */
   ttlSeconds: number;
+  threadId?: string;
+  runId?: string;
+  /**
+   * `"renewed"` when the lock was extended; `"completed"` when the run already
+   * reached a terminal event, so nothing was renewed and none is needed.
+   * Absent on platforms that predate the field.
+   */
+  status?: "renewed" | "completed";
 }
 
 export interface ThreadLockInfo {
@@ -1360,11 +1405,44 @@ export class CopilotKitIntelligence {
     }
   }
 
+  /** Mint a browser capture grant using only the Runtime's project and user. */
+  async ɵconnectTrajectory(params: {
+    trajectoryId: string;
+    user: { id: string; name: string };
+    signal?: AbortSignal;
+  }): Promise<TrajectoryConnectionGrant> {
+    const response = await fetch(`${this.#apiUrl}/api/trajectories/join`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.#apiKey}`,
+        "Content-Type": "application/json",
+      },
+      // Project scope comes from the API key. Containers remain unassigned
+      // until there is a server-side selector with Trajectory context.
+      body: JSON.stringify({
+        trajectoryId: params.trajectoryId,
+        appUserId: params.user.id,
+      }),
+      signal: params.signal,
+      redirect: "error",
+    });
+    const payload: unknown = await response.json().catch(() => undefined);
+    if (!response.ok) {
+      throw trajectoryResponseError(payload, response.status, this.#apiKey);
+    }
+    return parseTrajectoryConnectionGrant(
+      payload,
+      params.trajectoryId,
+      this.ɵgetClientWsUrl(),
+    );
+  }
+
   async #request<T>(
     method: string,
     path: string,
     body?: unknown,
     extraHeaders?: Record<string, string>,
+    signal?: AbortSignal,
   ): Promise<T> {
     const url = `${this.#apiUrl}${path}`;
 
@@ -1378,6 +1456,7 @@ export class CopilotKitIntelligence {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
+      signal,
     });
 
     if (!response.ok) {
@@ -1389,6 +1468,7 @@ export class CopilotKitIntelligence {
       throw new PlatformRequestError(
         `Intelligence platform error ${response.status}: ${text || response.statusText}`,
         response.status,
+        readErrorBodyRetryable(text),
       );
     }
 
@@ -1978,6 +2058,8 @@ export class CopilotKitIntelligence {
           ? { lockKeyPrefix: params.lockKeyPrefix }
           : {}),
       },
+      undefined,
+      params.signal,
     );
   }
 

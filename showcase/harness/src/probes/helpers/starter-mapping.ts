@@ -4,7 +4,7 @@
  * The starter-smoke matrix (`STARTERS` in
  * `showcase/tests/e2e/starter-smoke.spec.ts`) names each starter template by
  * its own slug. The dashboard has one column per
- * `showcase/integrations/<slug>/manifest.yaml` — **21** of them today (22
+ * `showcase/integrations/<slug>/manifest.yaml` — **22** of them today (23
  * directories minus `_shared`) — and the `starter` probe family must write
  * `starter:<dashboard-column-slug>/<level>` rows so the dashboard only ever
  * sees column slugs (mirroring how `CATALOG_TO_D5_KEY` bridges the
@@ -15,7 +15,7 @@
  * (the slug is identical on both sides).
  *
  * A column absent from this map is NOT automatically "unsupported". The
- * remaining 9 columns split three ways, and conflating them is exactly the
+ * remaining 10 columns split three ways, and conflating them is exactly the
  * rot this file grew:
  *
  *   - `strands-typescript`, `claude-sdk-python`, `claude-sdk-typescript` —
@@ -43,6 +43,10 @@
  *     therefore declared in `UNPROBED_STARTER_TO_COLUMN` below and its column in
  *     `STARTER_COLUMNS_UNPROBED` (`live-status.ts`) — the gray `?` chip, never
  *     the 🚫 capability claim.
+ *   - `google-antigravity` — the smoke matrix's `antigravity` starter. It runs
+ *     in the CI smoke matrix, but the showcase package is not deployed yet, so
+ *     no `starter-antigravity` image or Railway service exists. Declared in
+ *     `UNPROBED_STARTER_TO_COLUMN`.
  *   - `ag2`, `built-in-agent`, `langroid`, `ms-agent-harness-dotnet`,
  *     `spring-ai` — genuinely have no starter; these are the only columns that
  *     may render 🚫 "Not supported by this framework".
@@ -113,6 +117,9 @@ export const UNPROBED_STARTER_TO_COLUMN: Readonly<Record<string, string>> = {
   // See the `crewai-conversational-flows` bullet in the module header for the
   // three-surface evidence, and for why nothing probes it.
   "crewai-flows": "crewai-conversational-flows",
+  // In the CI smoke matrix, but no `starter-antigravity` image is built and no
+  // Railway service exists until the showcase package deploys.
+  antigravity: "google-antigravity",
 };
 
 /** The four smoke levels probed per starter, in dashboard sub-row order. */

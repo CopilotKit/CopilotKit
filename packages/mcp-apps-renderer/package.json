@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/mcp-apps-renderer",
-  "version": "1.76.0",
+  "version": "1.77.1",
   "private": false,
   "description": "Framework-agnostic MCP Apps host for CopilotKit - the app<->host protocol (ext-apps AppBridge), sandbox proxy, and shared renderer consumed by the React, Vue, and Angular frontends",
   "keywords": [
@@ -66,7 +66,7 @@
     "zod": ">=3.25"
   },
   "devDependencies": {
-    "@ag-ui/client": "1.0.1",
+    "@ag-ui/client": "1.0.2",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "jsdom": "^26.1.0",
     "tsdown": "^0.20.3",

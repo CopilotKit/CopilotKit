@@ -1,0 +1,268 @@
+.button,
+.linkButton,
+.iconButton {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--cpki-radius-control, 2px);
+  box-sizing: border-box;
+  display: inline-flex;
+  font-family: var(--cpki-font-sans, inherit);
+  font-weight: 500;
+  gap: 0.5rem;
+  justify-content: center;
+  line-height: 1.2;
+  min-height: 2.25rem;
+  min-width: 2.25rem;
+  text-decoration: none;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+  white-space: nowrap;
+}
+
+/* Button, LinkButton, and `buttonVariants()` elements share every variant and
+ * size through the data attributes. */
+:is(.button, .linkButton)[data-variant="outline"] {
+  border-color: var(--cpki-color-control-border, var(--cpki-color-border));
+  background: var(
+    --cpki-color-control-background,
+    var(--cpki-color-background)
+  );
+  color: var(--cpki-color-foreground);
+}
+
+.button[data-variant="outline"]:not(:disabled):hover,
+.linkButton[data-variant="outline"]:not([aria-disabled="true"]):hover {
+  background: var(--cpki-color-control-hover, var(--cpki-color-surface-hover));
+}
+
+/* Quiet: hairline border and muted label on the card surface, for persistent
+ * chrome actions such as the header's engineering help link. */
+:is(.button, .linkButton)[data-variant="quiet"] {
+  border-color: var(--cpki-color-border, #b8c7d1);
+  background: var(--cpki-color-surface, #ffffff);
+  color: var(--cpki-color-muted-foreground, #4f6b7a);
+}
+
+/* Accent: the learning-tinted discovery action, such as Upgrade to Pro. */
+:is(.button, .linkButton)[data-variant="accent"] {
+  border-color: var(--learning-accent, var(--cpki-color-border, #b8c7d1));
+  background: var(--learning, var(--cpki-color-info-muted, #eef0ff));
+  color: var(--learning-foreground, var(--cpki-color-accent, #4d59b3));
+}
+
+/* Quiet hovers like an outline control and lifts its label to full strength;
+ * accent deepens to the stronger learning tint. */
+.button[data-variant="quiet"]:not(:disabled):hover,
+.linkButton[data-variant="quiet"]:not([aria-disabled="true"]):hover {
+  background: var(--cpki-color-control-hover, var(--cpki-color-surface-hover));
+  color: var(--cpki-color-foreground, #023047);
+}
+
+.button[data-variant="accent"]:not(:disabled):hover,
+.linkButton[data-variant="accent"]:not([aria-disabled="true"]):hover {
+  background: var(--learning-accent, var(--cpki-color-lilac-muted, #e0e5ff));
+}
+
+:is(.button, .linkButton)[data-variant="link"] {
+  background: transparent;
+  color: var(--primary-text, var(--cpki-color-accent));
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+:is(.button, .linkButton)[data-size="xs"] {
+  min-height: 1.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+:is(.button, .linkButton):is(
+  [data-size="icon"],
+  [data-size="icon-sm"],
+  [data-size="icon-lg"]
+) {
+  padding: 0;
+}
+
+:is(.button, .linkButton)[data-size="icon"] {
+  width: 2.25rem;
+}
+:is(.button, .linkButton)[data-size="icon-sm"] {
+  min-height: 2rem;
+  min-width: 2rem;
+  width: 2rem;
+}
+:is(.button, .linkButton)[data-size="icon-lg"] {
+  min-height: 2.5rem;
+  width: 2.5rem;
+}
+
+.button,
+.iconButton {
+  cursor: pointer;
+}
+
+.button:focus-visible,
+.linkButton:focus-visible,
+.iconButton:focus-visible {
+  outline: 2px solid var(--cpki-color-focus-ring, #219ebc);
+  outline-offset: 2px;
+}
+
+.button:disabled,
+.iconButton:disabled,
+.linkButton[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.button[data-size="sm"],
+.linkButton[data-size="sm"] {
+  font-size: 0.8125rem;
+  min-height: 2rem;
+  padding: 0.375rem 0.625rem;
+}
+
+.button[data-size="md"],
+.linkButton[data-size="md"] {
+  font-size: 0.875rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.button[data-size="lg"],
+.linkButton[data-size="lg"] {
+  font-size: 0.9375rem;
+  min-height: 2.5rem;
+  padding: 0.625rem 0.875rem;
+}
+
+.iconButton[data-size="sm"] {
+  block-size: 2rem;
+  inline-size: 2rem;
+}
+
+.iconButton[data-size="md"] {
+  block-size: 2.25rem;
+  inline-size: 2.25rem;
+}
+
+.iconButton[data-size="lg"] {
+  block-size: 2.5rem;
+  inline-size: 2.5rem;
+}
+
+.button[data-variant="primary"],
+.button[data-variant="default"],
+.linkButton[data-variant="primary"],
+.linkButton[data-variant="default"],
+.iconButton[data-variant="primary"] {
+  background: var(--cpki-color-primary, #023047);
+  color: var(--cpki-color-primary-foreground, #ffffff);
+}
+
+.button[data-variant="secondary"],
+.linkButton[data-variant="secondary"],
+.iconButton[data-variant="secondary"] {
+  background: var(--cpki-color-surface-subtle, #f7f7f9);
+  color: var(--cpki-color-foreground, #023047);
+}
+
+.button[data-variant="danger"],
+.button[data-variant="destructive"],
+.linkButton[data-variant="danger"],
+.linkButton[data-variant="destructive"],
+.iconButton[data-variant="danger"] {
+  background: var(--cpki-color-danger, #a53b2a);
+  color: var(--cpki-color-danger-foreground, #ffffff);
+}
+
+.button[data-variant="ghost"],
+.linkButton[data-variant="ghost"],
+.iconButton[data-variant="ghost"] {
+  background: transparent;
+  color: var(--cpki-color-foreground, #023047);
+}
+
+.button[data-variant="primary"]:not(:disabled):hover,
+.button[data-variant="default"]:not(:disabled):hover,
+.linkButton[data-variant="primary"]:not([aria-disabled="true"]):hover,
+.linkButton[data-variant="default"]:not([aria-disabled="true"]):hover,
+.iconButton[data-variant="primary"]:not(:disabled):hover {
+  background: var(--cpki-color-primary-hover, #2c3136);
+  color: var(--cpki-color-primary-foreground, #ffffff);
+}
+
+.button[data-variant="secondary"]:not(:disabled):hover,
+.linkButton[data-variant="secondary"]:not([aria-disabled="true"]):hover,
+.iconButton[data-variant="secondary"]:not(:disabled):hover,
+.button[data-variant="ghost"]:not(:disabled):hover,
+.linkButton[data-variant="ghost"]:not([aria-disabled="true"]):hover,
+.iconButton[data-variant="ghost"]:not(:disabled):hover {
+  background: var(--cpki-color-surface-hover, #eef1f5);
+  color: var(--cpki-color-foreground, #181c1f);
+}
+
+.button[data-variant="danger"]:not(:disabled):hover,
+.button[data-variant="destructive"]:not(:disabled):hover,
+.linkButton[data-variant="danger"]:not([aria-disabled="true"]):hover,
+.linkButton[data-variant="destructive"]:not([aria-disabled="true"]):hover,
+.iconButton[data-variant="danger"]:not(:disabled):hover {
+  background: var(--cpki-color-danger-hover, #ff7474);
+  color: var(--cpki-color-danger-foreground, #181c1f);
+}
+
+.buttonGroup {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.visuallyHidden {
+  block-size: 1px;
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  inline-size: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .linkButton,
+  .iconButton {
+    transition-duration: 1ms;
+  }
+}
+
+/* Workspace type scale: controls sit one step below body copy (preview parity).
+ * Icon sizes take the type of their text size, for labels such as page numbers. */
+:global(:root[data-cpki-design="workspace"])
+  :is(.button, .linkButton):is(
+    [data-size="md"],
+    [data-size="icon"],
+    :not([data-size])
+  ) {
+  font-size: var(--text-control);
+}
+
+:global(:root[data-cpki-design="workspace"])
+  :is(.button, .linkButton):is([data-size="sm"], [data-size="icon-sm"]) {
+  font-size: var(--text-control-sm);
+}
+
+:global(:root[data-cpki-design="workspace"])
+  :is(.button, .linkButton):is([data-size="lg"], [data-size="icon-lg"]) {
+  font-size: var(--text-body);
+}
+
+:global(:root[data-cpki-design="workspace"])
+  :is(.button, .linkButton)[data-variant="outline"] {
+  box-shadow: var(--shadow-xs);
+}

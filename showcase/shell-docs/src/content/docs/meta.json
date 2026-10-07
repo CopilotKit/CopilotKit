@@ -57,6 +57,7 @@
       "defaultOpen": true,
       "pages": [
         "threads",
+        "intelligence/bring-your-own-thread-system",
         "threads-import",
         "threads-lifecycle",
         "intelligence/threads-explained"
@@ -65,6 +66,9 @@
     "intelligence/memories",
     "learning",
     "intelligence/learned-skills",
+    "intelligence/capture-interactions",
+    "intelligence/standalone-collector",
+    "intelligence/captured-data",
     "intelligence/analytics",
     "intelligence/channels",
     "intelligence/managed-intelligence-platform",
@@ -77,6 +81,7 @@
     "...deploy",
     "---Other---",
     "...(other)",
+    "community-frameworks",
     {
       "title": "Troubleshooting",
       "pages": [

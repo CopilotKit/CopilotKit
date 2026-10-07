@@ -1,7 +1,12 @@
 "use client";
 
+import { GENERATE_SANDBOXED_UI_DESCRIPTION } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
-import type { CopilotKitMessageFilter, FrontendTool } from "@copilotkit/core";
+import type {
+  CopilotKitMessageFilter,
+  FrontendTool,
+  LearningConfig,
+} from "@copilotkit/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import type React from "react";
 import {
@@ -111,19 +116,6 @@ const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follo
 - Minimal transitions (150ms) for hover/focus states only. No decorative animations.
 - Keep the UI focused and dense — avoid excessive padding. Use compact spacing (8–12px gaps, 10–14px padding in controls).`;
 
-const GENERATE_SANDBOXED_UI_DESCRIPTION =
-  "Generate sandboxed UI. " +
-  "IMPORTANT: The generated code runs in a sandboxed iframe WITHOUT same-origin access. " +
-  "Do NOT use localStorage, sessionStorage, document.cookie, IndexedDB, or fetch/XMLHttpRequest to same-origin URLs. " +
-  "To communicate with the host application, use Websandbox.connection.remote.<functionName>(args) which returns a Promise.\n\n" +
-  "You CAN use external libraries from CDNs by including <script> or <link> tags in the HTML <head> (e.g., Chart.js, D3, Three.js, x-data-spreadsheet, etc.). " +
-  "CDN resources load normally inside the sandbox.\n\n" +
-  "PARAMETER ORDER IS CRITICAL — generate parameters in exactly this order:\n" +
-  "1. initialHeight + placeholderMessages (shown to user while generating)\n" +
-  "2. css (all styles FIRST — the user sees a placeholder until CSS is complete)\n" +
-  "3. html (streams in live — the user watches the UI build as HTML is generated)\n" +
-  "4. jsFunctions (reusable helper functions)\n" +
-  "5. jsExpressions (applied one-by-one — the user sees each expression take effect)";
 // Provider props interface
 export interface CopilotKitProviderProps {
   children: ReactNode;
@@ -235,6 +227,12 @@ export interface CopilotKitProviderProps {
    */
   enableInspector?: boolean;
   /**
+   * Whether to automatically mount the Intelligence indicator in chat.
+   *
+   * @default true
+   */
+  showIntelligenceIndicator?: boolean;
+  /**
    * Error handler called when CopilotKit encounters an error.
    * Fires for all error types (runtime connection failures, agent errors, tool errors).
    */
@@ -299,6 +297,25 @@ export interface CopilotKitProviderProps {
    * Enable debug logging for the client-side event pipeline.
    */
   debug?: DebugConfig;
+  /**
+   * Configures interaction capture (`@copilotkit/learning`). Without a sink,
+   * Core authenticates with the runtime and sends browser events to Intelligence.
+   * A custom sink keeps the standalone collector behavior. Updated settings apply
+   * to the next Trajectory; removing the prop stops capture and cancels startup.
+   * Set `trajectoryId` to start after mount; otherwise call `startTrajectory()`.
+   * Capture stops on unmount, including manually started Trajectories.
+   *
+   * @example
+   * <CopilotKitProvider runtimeUrl="/api/copilotkit" learning={{ trajectoryId }}>
+   */
+  learning?: LearningConfig & {
+    trajectoryId?: string;
+    /**
+     * Used only by explicit custom sinks. Authenticated capture warns and ignores
+     * this option; it does not assign Learning Containers.
+     */
+    learningContainerIds?: string[];
+  };
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -345,11 +362,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   openGenerativeUI,
   enableInspector,
   agentId,
+  showIntelligenceIndicator = true,
   useSingleEndpoint,
   onError,
   a2ui,
   defaultThrottleMs,
   debug,
+  learning,
 }) => {
   // Keep the server render and the first client render identical. The
   // Inspector only runs in local development. Resolve its host and build
@@ -768,6 +787,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       renderActivityMessages: allActivityRenderers,
       renderCustomMessages: renderCustomMessagesList,
       debug,
+      learning,
     });
     // Set initial defaultThrottleMs synchronously so child hooks see the
     // correct value on their first render (before useEffect fires).
@@ -963,6 +983,52 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     debug,
   ]);
 
+  // Start the Trajectory in the commit phase, after the runtime URL is set, so
+  // CopilotKit's own runtime traffic is never captured. Under StrictMode the
+  // start/stop/start sequence installs the capture hooks once.
+  const learningEnabled = learning !== undefined;
+  const trajectoryId = learning?.trajectoryId;
+  const learningContainerIdsRef = useRef(learning?.learningContainerIds);
+  useEffect(() => {
+    copilotkit.setLearningConfig(learning);
+    learningContainerIdsRef.current = learning?.learningContainerIds;
+    // Automatic starts report unsupported options in Core. With manual starts,
+    // the provider's container option is not part of startTrajectory() options.
+    if (
+      learning?.sink === undefined &&
+      learning?.trajectoryId === undefined &&
+      learning?.learningContainerIds !== undefined
+    ) {
+      console.warn(
+        "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture does not assign Learning Containers; remove learningContainerIds from the capture options.",
+      );
+    }
+  }, [copilotkit, learning]);
+
+  useEffect(() => {
+    if (!learningEnabled) return;
+    let disposed = false;
+    if (trajectoryId !== undefined) {
+      void copilotkit
+        .startTrajectory({
+          trajectoryId,
+          learningContainerIds: learningContainerIdsRef.current,
+        })
+        .catch(() => {
+          // Expected authentication/connection failures use LearningConfig.onError.
+          // Consume unexpected rejections without logging credentials or errors from
+          // a previous effect after a new Trajectory has already started.
+          if (!disposed) {
+            console.warn("[CopilotKit] Failed to start interaction capture.");
+          }
+        });
+    }
+    return () => {
+      disposed = true;
+      copilotkit.stopTrajectory();
+    };
+  }, [copilotkit, learningEnabled, trajectoryId]);
+
   // Sync render/tool arrays to the stable instance via setters.
   // On mount, the constructor already receives the correct initial values,
   // so we skip the first invocation. This is critical because child hooks
@@ -1050,8 +1116,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [copilotkit, sandboxFunctionsDescriptors, openGenUIActive]);
 
   const contextValue = useMemo<CopilotKitContextValue>(
-    () => ({ copilotkit, executingToolCallIds }),
-    [copilotkit, executingToolCallIds],
+    () => ({
+      copilotkit,
+      executingToolCallIds,
+      showIntelligenceIndicator,
+    }),
+    [copilotkit, executingToolCallIds, showIntelligenceIndicator],
   );
 
   // License context — driven by server-reported authority via /info endpoint

@@ -53,6 +53,7 @@ from strands.hooks import (
     HookRegistry,
 )
 from strands.models.openai import OpenAIModel
+from strands.types.tools import ToolContext
 
 # Import shared tool implementations (symlinked at project root → ../../shared/python/tools)
 from tools import (
@@ -367,8 +368,36 @@ def query_data(query: str):
     return json.dumps(query_data_impl(query))
 
 
-@tool
-def manage_sales_todos(todos: list[dict]):
+# Native agent state key holding the sales pipeline. A configured Strands
+# SessionManager persists ``agent.state`` with the session and restores it on
+# the next agent built for the same session. The STATE_SNAPSHOT emitted by
+# ``sales_state_from_args`` only carries the list to the UI.
+SALES_TODOS_STATE_KEY = "todos"
+
+
+def _process_sales_todos(todos: list, tool_use_id: str | None) -> list[dict]:
+    """Run the shared impl, giving new items ids derived from the tool call.
+
+    ``sales_state_from_args`` (UI snapshot, emitted before the tool runs) and
+    ``manage_sales_todos`` (native state) process the same arguments
+    separately. Deriving a missing id from the tool call id and position keeps
+    both copies identical instead of each drawing its own random id.
+    """
+    if tool_use_id:
+        todos = [
+            {
+                **todo,
+                "id": str(uuid.uuid5(uuid.NAMESPACE_URL, f"{tool_use_id}/{index}")),
+            }
+            if isinstance(todo, dict) and not todo.get("id")
+            else todo
+            for index, todo in enumerate(todos)
+        ]
+    return [dict(todo) for todo in manage_sales_todos_impl(todos)]
+
+
+@tool(context=True)
+def manage_sales_todos(todos: list[dict], tool_context: ToolContext):
     """Manage the sales pipeline by replacing the entire list of todos.
 
     IMPORTANT: Always provide the entire list, not just new items.
@@ -379,7 +408,8 @@ def manage_sales_todos(todos: list[dict]):
     Returns:
         Success message
     """
-    result = manage_sales_todos_impl(todos)
+    result = _process_sales_todos(todos, tool_context.tool_use.get("toolUseId"))
+    tool_context.agent.state.set(SALES_TODOS_STATE_KEY, result)
     return f"Sales todos updated. Tracking {len(result)} item(s)."
 
 
@@ -1127,8 +1157,8 @@ async def sales_state_from_args(context):
     if not isinstance(todos_data, list):
         return None
 
-    processed = manage_sales_todos_impl(todos_data)
-    return {"todos": [dict(t) for t in processed]}
+    processed = _process_sales_todos(todos_data, getattr(context, "tool_use_id", None))
+    return {"todos": processed}
 
 
 # ---- Loop guard ---------------------------------------------------------
