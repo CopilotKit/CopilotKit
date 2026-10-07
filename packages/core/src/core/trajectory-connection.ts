@@ -329,8 +329,9 @@ export class TrajectoryConnection {
     } finally {
       if (socket) {
         socket.off(connection.socketRefs);
-        // A token is consumed on socket connection. Never let Phoenix reconnect
-        // this socket; a new attempt must first obtain a new Runtime grant.
+        // Phoenix's heartbeat timeout can schedule a reconnect after disconnect
+        // returns. Retire this one-use socket; recovery needs a fresh grant.
+        socket.connect = () => undefined;
         socket.disconnect();
       }
     }

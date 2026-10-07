@@ -8,6 +8,7 @@ type Frame = [string | null, string | null, string, string, unknown];
 // reconnect timers, Core, and browser capture all use their real implementations.
 class BrowserSocket {
   static instances: BrowserSocket[] = [];
+  static closeDelayMs = 0;
   readyState = 0;
   bufferedAmount = 0;
   binaryType = "blob";
@@ -32,9 +33,15 @@ class BrowserSocket {
   }
 
   close(code = 1000) {
-    if (this.readyState === 3) return;
-    this.readyState = 3;
-    this.onclose?.({ code });
+    if (this.readyState >= 2) return;
+    this.readyState = 2;
+    const finish = () => {
+      this.readyState = 3;
+      this.onclose?.({ code });
+    };
+    if (BrowserSocket.closeDelayMs > 0) {
+      setTimeout(finish, BrowserSocket.closeDelayMs);
+    } else finish();
   }
 
   reply(frame: Frame, response: unknown = {}) {
@@ -85,6 +92,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
   BrowserSocket.instances = [];
+  BrowserSocket.closeDelayMs = 0;
   vi.stubGlobal("WebSocket", BrowserSocket);
   history.replaceState(null, "", "/deals");
   document.title = "";
@@ -280,6 +288,77 @@ describe("Trajectory capture with the real Phoenix client", () => {
       "CONNECTION_LOST",
     ]);
   });
+
+  it.each([0, 25])(
+    "never reconnects a consumed-token socket after a heartbeat timeout and stop (close delay %ims)",
+    async (closeDelayMs) => {
+      BrowserSocket.closeDelayMs = closeDelayMs;
+      const first = await start();
+      await vi.advanceTimersByTimeAsync(2_000);
+      acknowledgePage(first, SEQ_BASE);
+
+      // Leave Phoenix's heartbeat unanswered: its timeout calls SDK cleanup
+      // before scheduling its own reconnect, after disconnect() has returned.
+      await vi.advanceTimersByTimeAsync(58_000);
+      expect(first.frame("heartbeat")[2]).toBe("phoenix");
+      expect(core.trajectoryId).toBeNull();
+      expect(onError.mock.calls.map(([error]) => error.code)).toEqual([
+        "CONNECTION_LOST",
+      ]);
+
+      core.stopTrajectory();
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(BrowserSocket.instances).toHaveLength(1);
+      expect(first.readyState).toBe(3);
+      expect(core.trajectoryId).toBeNull();
+      expect(History.prototype.pushState).toBe(nativePushState);
+    },
+  );
+
+  it.each([0, 25])(
+    "recovers from a heartbeat timeout only with a fresh grant and socket (close delay %ims)",
+    async (closeDelayMs) => {
+      BrowserSocket.closeDelayMs = closeDelayMs;
+      const first = await start();
+      await vi.advanceTimersByTimeAsync(2_000);
+      acknowledgePage(first, SEQ_BASE);
+      await vi.advanceTimersByTimeAsync(58_000);
+      expect(first.frame("heartbeat")[2]).toBe("phoenix");
+      expect(core.trajectoryId).toBeNull();
+
+      await vi.advanceTimersByTimeAsync(500);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(BrowserSocket.instances).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(500);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(BrowserSocket.instances).toHaveLength(2);
+      expect(
+        BrowserSocket.instances.map((socket) =>
+          new URL(socket.url).searchParams.get("join_token"),
+        ),
+      ).toEqual(["single-use-one", "single-use-two"]);
+
+      const second = getSocket(1);
+      second.open();
+      second.reply(second.frame("phx_join"));
+      expect(core.trajectoryId).toBe(trajectoryId);
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(second.frame("events")[4]).toMatchObject({
+        events: [{ name: "page", value: { seq: SEQ_BASE + 1 } }],
+        dropped: 0,
+      });
+      acknowledgePage(second, SEQ_BASE + 1);
+
+      core.stopTrajectory();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(BrowserSocket.instances).toHaveLength(2);
+      expect(first.readyState).toBe(3);
+      expect(second.readyState).toBe(3);
+    },
+  );
 
   it("preserves full browser capture through REST authentication and Phoenix batches, then cleans up between sessions", async () => {
     trustBrowserInput();
