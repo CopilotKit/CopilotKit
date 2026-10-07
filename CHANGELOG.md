@@ -16,6 +16,32 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.77.1 - 2026-10-07
+
+### Features
+
+- feat(react-core): add groupMessages to CopilotChatMessageView (#7650) (0143a22)
+- feat(web-inspector): remote HUD copy and destinations (#7667) (b111c24)
+- feat(core): link chat Threads to authenticated Trajectories after a run starts (#7645) (9a0db13)
+- feat(core): let a frontend tool resume its pending calls on reconnect (#7615) (a0480fa)
+
+### Fixes
+
+- fix(runtime): keep MCP resource reads off conversation locks (#7678) (e7c023f)
+- fix(shared): guide generated UI handlers to render results (#7679) (8a458e7)
+- fix(runtime): retry thread-lock renewal within the lock TTL (#7569) (abf8182)
+- fix(runtime): ping Intelligence sockets every 15s so 30s proxy idle timeouts don't drop runs (#7568) (75f5721)
+- fix(runtime): a thread that does not exist yet is not a server error on read (#7430) (b8c331e)
+- fix(opengenui): define the ready-DOM initialization contract (#7662) (d966b88)
+- fix(react-core): wait for thread replay before sending prompts (#7657) (0a2e6d0)
+- fix(runtime): let the v2 runtime start on Cloudflare Workers (#7609) (7f40d35)
+- fix(react-core): make useCoAgent's start, run and stop work, through the v2 core (#7610) (6373ce7)
+- fix(runtime): stop naming a stale middleware version in the MCP Apps policy error (#7612) (f21e006)
+
+### Other Changes
+
+- chore(deps): bump @ag-ui/* to 1.0.2 (PNI-551) (#7648) (d4afb51)
+
 ## 1.77.0 - 2026-10-02
 
 ### Features
