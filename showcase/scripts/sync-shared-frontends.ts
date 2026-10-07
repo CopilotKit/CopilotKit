@@ -11,18 +11,15 @@ import { fileURLToPath } from "node:url";
 const scriptsDir = path.dirname(fileURLToPath(import.meta.url));
 const showcaseRoot = path.resolve(scriptsDir, "..");
 
-const sharedStateReadIntegrations = [
+const selectedReactIntegrations = [
   "strands",
   "langgraph-python",
   "langgraph-typescript",
   "google-adk",
-] as const;
-
-const selectedReactIntegrations = [
-  ...sharedStateReadIntegrations,
   "built-in-agent",
 ] as const;
 
+const sharedStateReadIntegrations = selectedReactIntegrations;
 const sharedStateReadWriteIntegrations = selectedReactIntegrations;
 
 // Every integration whose state-rendering docs resolve to the root guide
