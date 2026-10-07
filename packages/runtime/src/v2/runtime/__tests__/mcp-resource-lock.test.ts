@@ -49,10 +49,14 @@ function fixture() {
   });
   const platform = {
     getThread: vi.fn(async () => ({ id: "thread-1", agentId: "agent" })),
+    ɵgetLearningContainerId: vi.fn(
+      () => undefined as (() => string) | undefined,
+    ),
     getOrCreateThread: vi.fn(async () => ({
       thread: { id: "thread-1", agentId: "agent", name: "Existing" },
       created: false,
     })),
+    updateThread: vi.fn(async () => ({})),
     getThreadMessages: vi.fn(async () => ({ messages: [] })),
     ɵacquireThreadLock: acquire,
     ɵcleanupThreadLock: vi.fn(async () => {
@@ -100,6 +104,7 @@ function fixture() {
     runId: string,
     proxy?: { method: string },
     directResourceRead = true,
+    messages: RunAgentInput["messages"] = [],
   ) =>
     new Request("https://example.test/agent/agent/run", {
       method: "POST",
@@ -107,7 +112,7 @@ function fixture() {
       body: JSON.stringify({
         threadId: "thread-1",
         runId,
-        messages: [],
+        messages,
         tools: [],
         context: [],
         state: {},
@@ -140,6 +145,44 @@ function fixture() {
 }
 
 describe("Intelligence MCP resource reads", () => {
+  it("initializes a first-read thread with its learning container and name", async () => {
+    const f = fixture();
+    f.platform.ɵgetLearningContainerId.mockReturnValue(() => "container-1");
+    f.platform.getOrCreateThread.mockResolvedValueOnce({
+      thread: { id: "thread-1", agentId: "agent", name: "" },
+      created: true,
+    });
+    (
+      f.runtime as CopilotRuntimeLike & { generateThreadNames: boolean }
+    ).generateThreadNames = true;
+
+    const read = handleRunAgent({
+      runtime: f.runtime,
+      agentId: "agent",
+      request: f.request("read", { method: "resources/read" }, true, [
+        { id: "message-1", role: "user", content: "Draw a network diagram" },
+      ]),
+    });
+    await f.readStarted.promise;
+    expect(f.platform.getOrCreateThread).toHaveBeenCalledWith({
+      threadId: "thread-1",
+      userId: "user-1",
+      agentId: "agent",
+      learningContainerId: "container-1",
+    });
+    expect(f.acquire).not.toHaveBeenCalled();
+    f.finishRead.resolve({ result: { contents: [] }, newMessages: [] });
+    expect((await read).status).toBe(200);
+    await vi.waitFor(() => {
+      expect(f.platform.updateThread).toHaveBeenCalledWith({
+        threadId: "thread-1",
+        userId: "user-1",
+        agentId: "agent",
+        updates: { name: "Draw a network diagram" },
+      });
+    });
+  });
+
   it("keeps ordinary MCP resource callers on the realtime protocol", async () => {
     const f = fixture();
     const response = await handleRunAgent({
