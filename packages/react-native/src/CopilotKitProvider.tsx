@@ -198,7 +198,6 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     );
     copilotkit.setHeaders(stableHeaders);
     copilotkit.setCredentials(credentials);
-    copilotkit.setFetch(resolvedFetch);
     copilotkit.setMessageFilter(messageFilter);
     copilotkit.setProperties(stableProperties);
     copilotkit.setDebug(debug);
@@ -207,12 +206,18 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     useSingleEndpoint,
     stableHeaders,
     credentials,
-    resolvedFetch,
     messageFilter,
     stableProperties,
     debug,
     copilotkit,
   ]);
+
+  // Set at construction, so the first `/info` already uses it; this keeps
+  // Core on the current one afterwards. Its own effect, so a change re-applies
+  // nothing else.
+  useEffect(() => {
+    copilotkit.setFetch(resolvedFetch);
+  }, [copilotkit, resolvedFetch]);
 
   // Sync defaultThrottleMs to the core instance on prop changes.
   // Initial value is set synchronously during instance creation (inside the
