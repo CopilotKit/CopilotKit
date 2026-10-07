@@ -21,6 +21,7 @@ import {
 } from "../../core/learning";
 import { getPlatformErrorStatus } from "../shared/intelligence-utils";
 import { startThreadLockHeartbeat } from "../../intelligence-platform/thread-lock-heartbeat";
+import type { ThreadSummary } from "../../intelligence-platform";
 
 /**
  * Builds browser-facing realtime connection metadata owned by the runtime.
@@ -92,6 +93,15 @@ export async function handleIntelligenceRun({
   }
   const userId = user.id;
 
+  const proxyRequest = (
+    input.forwardedProps as Record<string, unknown> | undefined
+  )?.__proxiedMCPRequest;
+  const isDirectResourceRead =
+    input.forwardedProps?.__copilotkitMcpResourceReadOnly === true &&
+    proxyRequest &&
+    typeof proxyRequest === "object" &&
+    (proxyRequest as { method?: unknown }).method === "resources/read";
+
   let learningContainerId: string | undefined;
   try {
     const selector = runtime.intelligence.ɵgetLearningContainerId?.();
@@ -118,13 +128,16 @@ export async function handleIntelligenceRun({
     );
   }
 
+  let thread: ThreadSummary;
   try {
-    const { thread, created } = await runtime.intelligence.getOrCreateThread({
+    const initialized = await runtime.intelligence.getOrCreateThread({
       threadId: input.threadId,
       userId,
       agentId,
       ...(learningContainerId !== undefined ? { learningContainerId } : {}),
     });
+    thread = initialized.thread;
+    const { created } = initialized;
 
     if (created && runtime.generateThreadNames && !thread.name?.trim()) {
       void generateThreadNameForNewThread({
@@ -154,6 +167,40 @@ export async function handleIntelligenceRun({
             : 502,
       },
     );
+  }
+
+  // MCP App resources are presentation data. Initialize the thread through the
+  // usual path, then fetch without claiming its mutation lock so an approval
+  // can continue while the resource server is still answering.
+  if (isDirectResourceRead) {
+    try {
+      if (thread.agentId && thread.agentId !== agentId) {
+        return Response.json(
+          { error: "Thread belongs to another agent" },
+          { status: 403 },
+        );
+      }
+      agent.threadId = thread.id;
+      const run = await agent.runAgent({
+        runId: input.runId,
+        tools: input.tools,
+        context: input.context,
+        forwardedProps: input.forwardedProps,
+      });
+      return Response.json({
+        kind: "mcp-resource-read",
+        threadId: thread.id,
+        runId: input.runId,
+        result: run.result ?? null,
+      });
+    } catch (error) {
+      logger.error("MCP resource read failed:", error);
+      const status = getPlatformErrorStatus(error);
+      return Response.json(
+        { error: "MCP resource read failed" },
+        { status: status && status >= 400 && status < 500 ? status : 502 },
+      );
+    }
   }
 
   let canonicalThreadId = input.threadId;

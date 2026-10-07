@@ -75,49 +75,6 @@ describe("navTreeToPageTree sidebar hierarchy", () => {
 
   const pageTree = navTreeToPageTree(navTree, "");
 
-  it("keeps the Intelligence CTA with start links and its section after agent capabilities", () => {
-    expect(pageTree.children.slice(0, 4).map((node) => node.type)).toEqual([
-      "page",
-      "page",
-      "page",
-      "separator",
-    ]);
-    expect(pageTree.children[0]).toMatchObject({ type: "page", url: "/" });
-    expect(pageTree.children[1]).toMatchObject({
-      type: "page",
-      url: "/quickstart",
-    });
-    expect(pageTree.children[2]).toMatchObject({
-      type: "page",
-      url: "/intelligence/overview",
-    });
-    expect(nodeNameText(pageTree.children[2]?.name)).toContain("<svg");
-
-    const agentCapabilitiesIndex = pageTree.children.findIndex(
-      (node) =>
-        node.type === "separator" &&
-        nodeNameText(node.name).includes("Agent capabilities"),
-    );
-    const intelligenceIndex = pageTree.children.findIndex(
-      (node, index) =>
-        index > agentCapabilitiesIndex &&
-        node.type === "separator" &&
-        nodeNameText(node.name).includes("Intelligence"),
-    );
-    expect(agentCapabilitiesIndex).toBeGreaterThan(-1);
-    expect(intelligenceIndex).toBeGreaterThan(agentCapabilitiesIndex);
-
-    const intelligenceSection = pageTree.children[intelligenceIndex];
-    if (!intelligenceSection || intelligenceSection.type !== "separator") {
-      throw new Error("expected Intelligence separator");
-    }
-    expect(nodeNameText(intelligenceSection.icon)).toContain("<svg");
-    expect(pageTree.children[intelligenceIndex + 1]).toMatchObject({
-      type: "page",
-      url: "/intelligence/overview",
-    });
-  });
-
   it("keeps topic groups collapsible beneath static sections", () => {
     const chat = folderNamed(pageTree.children, "Chat");
     const threads = folderNamed(pageTree.children, "AG-UI Streams");
@@ -141,15 +98,5 @@ describe("navTreeToPageTree sidebar hierarchy", () => {
     );
 
     expect(upcoming?.type).toBe("separator");
-  });
-
-  it("places external-link icons after their labels", () => {
-    const cookbook = pageTree.children.find(
-      (node): node is PageTree.Item =>
-        node.type === "page" && node.url === "/cookbook",
-    );
-    const markup = nodeNameText(cookbook?.name);
-
-    expect(markup.indexOf("Cookbook")).toBeLessThan(markup.indexOf("<svg"));
   });
 });

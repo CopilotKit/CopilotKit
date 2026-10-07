@@ -11,12 +11,69 @@ import {
 } from "@angular/core";
 
 import { Marked } from "marked";
+import DOMPurify, { type DOMPurify as DOMPurifyInstance } from "dompurify";
 import hljs from "highlight.js";
 import * as katex from "katex";
 import { completePartialMarkdown } from "@copilotkit/core";
 import { copyToClipboard } from "@copilotkit/shared";
 import { injectChatLabels } from "../../chat-config";
 import { explicitEffect } from "../../explicit-effect";
+
+const HTML_ESCAPES: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+
+function escapeHtmlText(text: string): string {
+  return text.replace(/[&<>"']/g, (char) => HTML_ESCAPES[char] ?? char);
+}
+
+let privatePurifier: { window: Window; purifier: DOMPurifyInstance } | null =
+  null;
+
+/**
+ * Returns a DOMPurify instance owned by this module, or null when there is no
+ * DOM or the instance reports it cannot sanitize. An unsupported instance
+ * returns its input unchanged from sanitize(), so callers must treat null as
+ * "cannot sanitize" and fail closed. The default export is a global instance
+ * shared with the host app, whose setConfig() overrides our per-call config
+ * and whose hooks would run inside our sanitization, so it is not used here.
+ */
+function getPrivatePurifier(): DOMPurifyInstance | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  if (privatePurifier?.window !== window) {
+    privatePurifier = { window, purifier: DOMPurify(window) };
+  }
+  const { purifier } = privatePurifier;
+  return purifier.isSupported ? purifier : null;
+}
+
+/**
+ * Sanitizes rendered markdown before it is written to the DOM with innerHTML.
+ * KaTeX wraps its MathML in <semantics> and puts the TeX source in an
+ * <annotation>. DOMPurify unwraps both by default but keeps their content, so
+ * the TeX source leaks as visible text and the MathML structure breaks. They
+ * are allowed explicitly; DOMPurify still sanitizes their children and
+ * attributes.
+ * DOMPurify keeps <style> elements by default. This component uses
+ * ViewEncapsulation.None, so a <style> in model output would restyle the whole
+ * host page; it is forbidden. The inline style attribute stays allowed because
+ * KaTeX layout depends on it.
+ */
+function sanitizeRenderedHtml(
+  purifier: DOMPurifyInstance,
+  html: string,
+): string {
+  return purifier.sanitize(html, {
+    ADD_TAGS: ["semantics", "annotation"],
+    FORBID_TAGS: ["style"],
+  });
+}
 
 function processMathEquationsInHtml(html: string): string {
   // First, temporarily replace code blocks with placeholders to protect them from math processing
@@ -245,14 +302,12 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
       // If view is ready, update DOM
       if (this.markdownContainer) {
         this.updateContent();
-        this.renderMathEquations();
       }
     });
   }
 
   ngAfterViewInit(): void {
     this.updateContent();
-    this.renderMathEquations();
   }
 
   private updateContent(): void {
@@ -267,9 +322,6 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
 
   private initializeMarked(): void {
     if (this.markedInstance) return;
-
-    // Store highlighted code blocks temporarily
-    const highlightedBlocks = new Map<string, string>();
 
     // Create a new Marked instance
     this.markedInstance = new Marked();
@@ -296,13 +348,14 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
           // Manually highlight the code
           const language = hljs.getLanguage(lang) ? lang : "plaintext";
           const highlighted = hljs.highlight(rawCode, { language }).value;
-          const codeClass = lang ? `hljs language-${lang}` : "hljs";
+          const safeLang = escapeHtmlText(lang);
+          const codeClass = lang ? `hljs language-${safeLang}` : "hljs";
 
           // Create the full HTML with header and highlighted code
           const fullHtml = `
             <div class="code-block-container">
               <div class="code-block-header">
-                ${lang ? `<span class="code-block-language">${lang}</span>` : "<span></span>"}
+                ${lang ? `<span class="code-block-language">${safeLang}</span>` : "<span></span>"}
                 <button 
                   class="code-block-copy-button" 
                   data-code-block-id="${blockId}"
@@ -315,9 +368,6 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
             </div>
           `;
 
-          // Store the highlighted HTML
-          highlightedBlocks.set(blockId, fullHtml);
-
           // Change the token to an html token to bypass marked's escaping
           token.type = "html";
           token.text = fullHtml;
@@ -327,6 +377,16 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
   }
 
   private renderMarkdown(content: string): string {
+    // The support check runs on the same instance that sanitizes. When it
+    // cannot run (for example during server rendering, without a DOM), its
+    // sanitize() would return the HTML unchanged, so rendered HTML cannot be
+    // trusted. Emit the escaped markdown source as plain text instead; the
+    // browser replaces it with sanitized markdown when it renders there.
+    const purifier = getPrivatePurifier();
+    if (!purifier) {
+      return escapeHtmlText(content);
+    }
+
     // Initialize marked if not already done
     this.initializeMarked();
 
@@ -339,31 +399,7 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
     // Process math equations
     html = processMathEquationsInHtml(html);
 
-    return html;
-  }
-
-  private renderMathEquations(): void {
-    if (!this.markdownContainer) return;
-
-    const container = this.markdownContainer.nativeElement;
-
-    // Find all math placeholders and render them
-    const mathElements = container.querySelectorAll(".math-placeholder");
-    mathElements.forEach((element) => {
-      const equation = element.getAttribute("data-equation");
-      const displayMode = element.getAttribute("data-display") === "true";
-
-      if (equation) {
-        try {
-          katex.render(equation, element as HTMLElement, {
-            displayMode,
-            throwOnError: false,
-          });
-        } catch (error) {
-          console.error("Failed to render math equation:", error);
-        }
-      }
-    });
+    return sanitizeRenderedHtml(purifier, html);
   }
 
   handleClick(event: MouseEvent): void {
@@ -427,11 +463,5 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
       hash = hash & hash; // Convert to 32-bit integer
     }
     return `code-block-${hash}`;
-  }
-
-  private escapeHtml(text: string): string {
-    const div = document.createElement("div");
-    div.textContent = text;
-    return div.innerHTML;
   }
 }
