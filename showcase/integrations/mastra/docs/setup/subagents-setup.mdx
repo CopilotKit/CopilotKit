@@ -13,10 +13,36 @@ The supervisor's `Memory` enables working memory with the
 enabled with `scope: "thread"` so each conversation has its own delegation
 log. The chat cards come from tool calls and do not depend on the log.
 
+If you add a **New chat** control, clear the frontend's delegation state
+before starting the new thread. The Mastra adapter sends non-empty frontend
+state to working memory before it creates a new local thread, so retaining the
+old log can make the first message fail with `Thread ... not found`. This
+applies to both deployment options below:
+
+```tsx title="New chat control"
+import { useAgent, useCopilotChatConfiguration } from "@copilotkit/react-core/v2";
+
+function NewSubagentsChat() {
+  const { agent } = useAgent({ agentId: "subagentsSupervisorAgent" });
+  const chat = useCopilotChatConfiguration();
+
+  return (
+    <button onClick={() => {
+      agent.setState({});
+      chat?.startNewThread();
+    }}>
+      New chat
+    </button>
+  );
+}
+```
+
+Use `subagents` as the agent ID for the demo's local runtime alias.
+
 When Mastra and your frontend run **in the same process**, use
 `getLocalAgent` in your Copilot Runtime route, as the demo does, and pass the
-same `resourceId` on each run for that user. Each new conversation gets a new
-thread and an empty delegation log.
+same `resourceId` on each run for that user. Give each new conversation a new
+thread ID and clear frontend delegation state as shown above.
 When Mastra runs as a **separate server**, expose a CopilotKit route on that
 server. The generic `MastraAgent.getRemoteAgents` client forwards the sub-agent
 tool calls but does not forward the working-memory state used by the log.
@@ -61,5 +87,5 @@ setContext: async (c, requestContext) => {
 ```
 
 The static `resourceId` above is only a single-user fallback. Confirm the
-three tool cards complete, the log receives state, and a new thread starts
-with an empty log.
+three tool cards complete and the log receives state. After using the New chat
+control, the new conversation should start with an empty log.
