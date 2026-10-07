@@ -75,14 +75,6 @@ function renderChips() {
 }
 
 describe("A2UI Vue ChoicePicker chips", () => {
-  it("are type=button so a chip inside a form does not submit it", async () => {
-    const view = renderChips();
-    const chip = (await view.findByText("Red", {}, { timeout: 5000 })).closest(
-      "button",
-    )!;
-    expect(chip.getAttribute("type")).toBe("button");
-  });
-
   it("expose their selected state with aria-pressed", async () => {
     const view = renderChips();
     const red = (await view.findByText("Red", {}, { timeout: 5000 })).closest(
@@ -102,5 +94,15 @@ describe("A2UI Vue ChoicePicker chips", () => {
     expect(
       view.getByText("Blue").closest("button")!.getAttribute("aria-pressed"),
     ).toBe("false");
+  });
+
+  describe("Vue-specific semantics", () => {
+    it("are type=button so a chip inside a form does not submit it", async () => {
+      const view = renderChips();
+      const chip = (await view.findByText("Red", {}, { timeout: 5000 })).closest(
+        "button",
+      )!;
+      expect(chip.getAttribute("type")).toBe("button");
+    });
   });
 });
