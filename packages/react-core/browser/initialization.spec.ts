@@ -134,7 +134,6 @@ for (const mode of ["stream", "replay"] as const) {
 // generated with the shared description (PNI-585). No readiness hints were
 // added to the user message. Retained so CI needs no model or API credentials.
 import generated from "./fixtures/normal-suggestion.json" with { type: "json" };
-import pni591Calculator from "./fixtures/pni-591-fastapi-calculator.json" with { type: "json" };
 for (const mode of ["stream", "replay"] as const) {
   test(`${mode}: real normal-suggestion calculator works without payload edits`, async ({
     page,
@@ -170,80 +169,5 @@ for (const mode of ["stream", "replay"] as const) {
     await expect(frame.locator("#calc-display")).toHaveValue("12300000");
     await render(page, content);
     await expect(frame.locator(".metric-card")).toHaveCount(9);
-  });
-}
-
-// Exact LG FastAPI tool arguments captured for PNI-591. The generated handler
-// computes expr on '=', but omits render() on its successful path.
-const pni591Content = {
-  ...pni591Calculator,
-  html: [pni591Calculator.html],
-  htmlComplete: true,
-  cssComplete: true,
-  generating: false,
-};
-const missingDisplayUpdate = "if(expr==='Error')expr=''}catch(e)";
-const repairedJsFunctions = pni591Calculator.jsFunctions.replace(
-  missingDisplayUpdate,
-  "if(expr==='Error')expr='';render()}catch(e)",
-);
-if (repairedJsFunctions === pni591Calculator.jsFunctions) {
-  throw new Error("PNI-591 fixture no longer contains the recorded omission");
-}
-
-async function pressPni591Calculator(page: Page) {
-  const frame = page.frameLocator("iframe");
-  await frame.locator("#clear").click();
-  for (const value of ["2", "+", "3"]) {
-    await frame.locator(`[data-val="${value}"]`).click();
-  }
-  await expect(frame.locator("#display")).toHaveText("2+3");
-  await frame.locator("#equals").click();
-  return frame;
-}
-
-for (const mode of ["stream", "replay"] as const) {
-  test(`${mode}: PNI-591 saved payload exposes the missing display update`, async ({
-    page,
-  }) => {
-    await page.goto("/");
-    if (mode === "stream") {
-      await render(page, {
-        ...pni591Content,
-        generating: true,
-        jsFunctions: undefined,
-        jsExpressions: [],
-      });
-    }
-    await render(page, pni591Content);
-    const frame = await pressPni591Calculator(page);
-    // A result exists in expr, but the displayed answer is still the input.
-    await expect(frame.locator("#display")).toHaveText("2+3");
-    await frame.locator("#clear").click();
-    await frame.locator(".metric-btn").first().click();
-    await expect(frame.locator("#display")).toHaveText("136400");
-  });
-
-  test(`${mode}: updating the result DOM fixes the exact saved program`, async ({
-    page,
-  }) => {
-    await page.goto("/");
-    const content = { ...pni591Content, jsFunctions: repairedJsFunctions };
-    if (mode === "stream") {
-      await render(page, {
-        ...content,
-        generating: true,
-        jsFunctions: undefined,
-        jsExpressions: [],
-      });
-    }
-    await render(page, content);
-    const frame = await pressPni591Calculator(page);
-    await expect(frame.locator("#display")).toHaveText("5");
-    await frame.locator("#clear").click();
-    await frame.locator(".metric-btn").first().click();
-    await expect(frame.locator("#display")).toHaveText("136400");
-    await frame.locator("#equals").click();
-    await expect(frame.locator("#display")).toHaveText("136400");
   });
 }

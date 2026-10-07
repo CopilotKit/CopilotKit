@@ -17,13 +17,6 @@ execution, or browser readiness event is mocked. It listens on localhost only.
 
   > Using the generateSandboxedUi tool, build a modern calculator with standard buttons plus labeled metric shortcut buttons that insert their values into the display when clicked. Use sample company data.
 
-- `fixtures/pni-591-fastapi-calculator.json` preserves the exact
-  `generateSandboxedUi` arguments from the October 6 LG FastAPI failure.
-  Its equals handler computes `expr` but leaves `#display` at `2+3`.
-  The browser test reproduces that failure in streamed and replayed rendering,
-  then changes only the missing display update to prove the cause. Metric
-  shortcuts remain interactive in both cases.
-
 Both supported fixtures exercise live expression delivery and saved-content
 replay. Assertions cover arithmetic and metric buttons; the instrumented fixture
 also checks initialization counts, reopening, and denied host/storage access.
@@ -31,4 +24,4 @@ The captured real-model response keeps CI deterministic and credential-free.
 
 The generation contract guides newly generated code, including a visible update
 after each interaction. It cannot prove arbitrary generated JavaScript correct or
-rewrite historical payloads; the PNI-591 fixture remains a negative control.
+rewrite historical payloads.
