@@ -41,7 +41,7 @@ git history (`git show angular/v0.5.0:packages/angular/CHANGELOG.md`).
 
 ### Other Changes
 
-- chore(deps): bump @ag-ui/* to 1.0.2 (PNI-551) (#7648) (d4afb51)
+- chore(deps): bump @ag-ui/\* to 1.0.2 (PNI-551) (#7648) (d4afb51)
 - refactor(angular): make effect dependencies explicit via explicitEffect (#6578) (ff43d80)
 - refactor(shared): reuse attachment and rich UI event transforms (#7272) (928d051)
 
