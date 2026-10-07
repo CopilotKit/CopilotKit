@@ -10,12 +10,13 @@ delegation log reads `agent.state.delegations` from working memory.
 The supervisor's `Memory` enables working memory with the
 `SubagentsAgentState` schema. Its delegation tools call
 `writeDelegationsToWorkingMemory` to update the log. Keep working memory
-enabled and use a consistent `resourceId` for a user's runs. The chat cards
-come from tool calls and do not depend on the working-memory log.
+enabled with `scope: "thread"` so each conversation has its own delegation
+log. The chat cards come from tool calls and do not depend on the log.
 
 When Mastra and your frontend run **in the same process**, use
 `getLocalAgent` in your Copilot Runtime route, as the demo does, and pass the
-same `resourceId` on each run for that user.
+same `resourceId` on each run for that user. Each new conversation gets a new
+thread and an empty delegation log.
 When Mastra runs as a **separate server**, expose a CopilotKit route on that
 server. The generic `MastraAgent.getRemoteAgents` client forwards the sub-agent
 tool calls but does not forward the working-memory state used by the log.
@@ -60,4 +61,5 @@ setContext: async (c, requestContext) => {
 ```
 
 The static `resourceId` above is only a single-user fallback. Confirm the
-three tool cards complete and the delegation log receives state.
+three tool cards complete, the log receives state, and a new thread starts
+with an empty log.

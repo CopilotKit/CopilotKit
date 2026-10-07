@@ -28,6 +28,7 @@ test("renders the Mastra sub-agent helper and server setup for LLM readers", () 
   expect(output).toContain("function logWorkingMemoryFailure");
   expect(output).toContain("registerCopilotKit");
   expect(output).toContain("Keep working memory");
+  expect(output).toContain('scope: "thread"');
   expect(output).not.toContain("Code tab");
   expect(output).not.toContain("@region[working-memory]");
 
