@@ -15,6 +15,7 @@ import type {
 } from "@copilotkit/core";
 import type { DebugConfig, RuntimeLicenseStatus } from "@copilotkit/shared";
 import { createLicenseContextValue } from "@copilotkit/shared";
+import { streamingFetchForPlatform } from "./streaming-fetch";
 
 export interface CopilotKitNativeProviderProps {
   children: ReactNode;
@@ -26,6 +27,22 @@ export interface CopilotKitNativeProviderProps {
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
   credentials?: RequestCredentials;
+  /**
+   * The `fetch` CopilotKit uses for every request it makes to your runtime:
+   * agent runs (which stream), `/info`, threads, suggestions and the rest.
+   * CopilotKit never replaces `globalThis.fetch`; your app keeps its own.
+   *
+   * Leave it unset and CopilotKit picks one: the platform's fetch where it
+   * streams (Expo's `expo/fetch`), else its own XHR-based streaming fetch, used
+   * for CopilotKit's requests only (React Native's built-in fetch buffers the
+   * whole response, so agent runs could not stream through it).
+   *
+   * Pass one to route CopilotKit's traffic through your own client, for
+   * example to add tracing, or `createStreamingFetch({ idleTimeoutMs })` to
+   * tune the stall timeout. It must return a `Response` whose `body` supports
+   * `getReader()`. Same prop, same contract as the web `CopilotKitProvider`.
+   */
+  fetch?: typeof fetch;
   /**
    * Rewrites the message list sent to runtime agents on every run.
    *
@@ -108,6 +125,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   runtimeUrl,
   headers: headersProp,
   credentials,
+  fetch: fetchProp,
   messageFilter,
   useSingleEndpoint,
   properties,
@@ -132,6 +150,14 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     [JSON.stringify(properties)],
   );
 
+  // The app's fetch, else a streaming fetch scoped to CopilotKit when the
+  // platform's cannot stream (`undefined` on Expo: Core uses Expo's fetch).
+  // Memoized so one fallback instance serves the provider's lifetime.
+  const resolvedFetch = useMemo(
+    () => fetchProp ?? streamingFetchForPlatform(),
+    [fetchProp],
+  );
+
   const copilotkitRef = useRef<CopilotKitCoreReactInstance | null>(null);
 
   if (copilotkitRef.current === null) {
@@ -145,6 +171,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
             : "auto",
       headers: stableHeaders,
       credentials,
+      fetch: resolvedFetch,
       messageFilter,
       properties: stableProperties,
       debug,
@@ -171,6 +198,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     );
     copilotkit.setHeaders(stableHeaders);
     copilotkit.setCredentials(credentials);
+    copilotkit.setFetch(resolvedFetch);
     copilotkit.setMessageFilter(messageFilter);
     copilotkit.setProperties(stableProperties);
     copilotkit.setDebug(debug);
@@ -179,6 +207,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     useSingleEndpoint,
     stableHeaders,
     credentials,
+    resolvedFetch,
     messageFilter,
     stableProperties,
     debug,

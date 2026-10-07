@@ -29,6 +29,7 @@ function createMockCore() {
     setCredentials: vi.fn(),
     setProperties: vi.fn(),
     setMessageFilter: vi.fn(),
+    setFetch: vi.fn(),
     setDebug: vi.fn(),
     setDefaultThrottleMs: vi.fn(),
   };
@@ -477,6 +478,139 @@ describe("CopilotKitProvider (React Native)", () => {
 
       expect(onError1).not.toHaveBeenCalled();
       expect(onError2).toHaveBeenCalled();
+    });
+  });
+
+  // ── fetch ─────────────────────────────────────────────────────────────
+
+  describe("fetch", () => {
+    const g = globalThis as unknown as Record<string, unknown>;
+    let saved: Record<string, unknown>;
+
+    beforeEach(() => {
+      saved = { fetch: g.fetch, Response: g.Response, expo: g.expo };
+    });
+
+    afterEach(() => {
+      for (const [key, value] of Object.entries(saved)) {
+        if (value === undefined) delete g[key];
+        else g[key] = value;
+      }
+    });
+
+    /** Bare React Native: whatwg-fetch (`polyfill`), a Response with no body. */
+    function bareReactNative() {
+      const rnFetch = Object.assign(vi.fn(), { polyfill: true });
+      g.fetch = rnFetch;
+      g.Response = class {
+        body = null;
+      };
+      delete g.expo;
+      return rnFetch;
+    }
+
+    /** Expo: `expo/fetch` over React Native's, React Native's Response. */
+    function expo() {
+      const expoFetch = vi.fn();
+      g.fetch = expoFetch;
+      g.Response = class {
+        body = null;
+      };
+      g.expo = { modules: {} };
+      return expoFetch;
+    }
+
+    const coreConfig = () => hoisted.MockCoreConstructor.mock.calls[0]![0];
+
+    it("forwards the fetch prop to Core", () => {
+      const appFetch = vi.fn() as unknown as typeof fetch;
+      render(
+        <CopilotKitProvider runtimeUrl="https://api.test" fetch={appFetch}>
+          <div />
+        </CopilotKitProvider>,
+      );
+
+      expect(coreConfig().fetch).toBe(appFetch);
+      expect(mockCoreInstance.setFetch).toHaveBeenLastCalledWith(appFetch);
+    });
+
+    it("swaps Core's fetch when the prop changes", () => {
+      const first = vi.fn() as unknown as typeof fetch;
+      const second = vi.fn() as unknown as typeof fetch;
+      const { rerender } = render(
+        <CopilotKitProvider runtimeUrl="https://api.test" fetch={first}>
+          <div />
+        </CopilotKitProvider>,
+      );
+      rerender(
+        <CopilotKitProvider runtimeUrl="https://api.test" fetch={second}>
+          <div />
+        </CopilotKitProvider>,
+      );
+
+      expect(mockCoreInstance.setFetch).toHaveBeenLastCalledWith(second);
+    });
+
+    it("gives Core a streaming fetch of its own on bare React Native and leaves the global fetch alone", () => {
+      const rnFetch = bareReactNative();
+      render(
+        <CopilotKitProvider runtimeUrl="https://api.test">
+          <div />
+        </CopilotKitProvider>,
+      );
+
+      expect(typeof coreConfig().fetch).toBe("function");
+      expect(coreConfig().fetch).not.toBe(rnFetch);
+      expect(mockCoreInstance.setFetch).toHaveBeenLastCalledWith(
+        coreConfig().fetch,
+      );
+      expect(g.fetch).toBe(rnFetch);
+    });
+
+    it("keeps the same streaming fetch across re-renders", () => {
+      bareReactNative();
+      const { rerender } = render(
+        <CopilotKitProvider runtimeUrl="https://api.test">
+          <div />
+        </CopilotKitProvider>,
+      );
+      rerender(
+        <CopilotKitProvider runtimeUrl="https://api.test/v2">
+          <div />
+        </CopilotKitProvider>,
+      );
+
+      const scoped = coreConfig().fetch;
+      expect(typeof scoped).toBe("function");
+      expect(mockCoreInstance.setFetch).toHaveBeenCalled();
+      for (const [value] of mockCoreInstance.setFetch.mock.calls) {
+        expect(value).toBe(scoped);
+      }
+    });
+
+    it("lets Core use Expo's fetch, which streams, and leaves it in place", () => {
+      const expoFetch = expo();
+      render(
+        <CopilotKitProvider runtimeUrl="https://api.test">
+          <div />
+        </CopilotKitProvider>,
+      );
+
+      expect(coreConfig().fetch).toBeUndefined();
+      expect(mockCoreInstance.setFetch).toHaveBeenLastCalledWith(undefined);
+      expect(g.fetch).toBe(expoFetch);
+    });
+
+    it("uses the app's fetch over the streaming fallback on bare React Native", () => {
+      bareReactNative();
+      const appFetch = vi.fn() as unknown as typeof fetch;
+      render(
+        <CopilotKitProvider runtimeUrl="https://api.test" fetch={appFetch}>
+          <div />
+        </CopilotKitProvider>,
+      );
+
+      expect(coreConfig().fetch).toBe(appFetch);
     });
   });
 

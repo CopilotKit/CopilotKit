@@ -39,6 +39,12 @@ export type { CopilotKitNativeProviderProps } from "./CopilotKitProvider";
 // Provider props alias (mirrors web's CopilotKitProviderProps)
 export type { CopilotKitNativeProviderProps as CopilotKitProviderProps } from "./CopilotKitProvider";
 
+// XHR-based streaming fetch. The provider already uses it for CopilotKit's own
+// requests where the platform fetch cannot stream; export it for the app's
+// own streaming code, e.g. `new HttpAgent({ url, fetch: createStreamingFetch() })`.
+export { createStreamingFetch } from "./streaming-fetch";
+export type { StreamingFetchOptions } from "./streaming-fetch";
+
 // Re-export context and hooks from react-core (platform-agnostic)
 export {
   useCopilotKit,

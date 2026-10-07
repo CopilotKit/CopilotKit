@@ -111,6 +111,11 @@ const RUNTIME_VALUE_EXPORTS: readonly ValueExport[] = [
     typeOf: "function",
     declaredAs: "declare abstract class, @ag-ui/client",
   },
+  {
+    name: "createStreamingFetch",
+    typeOf: "function",
+    declaredAs: "export function, src/streaming-fetch.ts",
+  },
 ];
 
 const howToFix = (file: string) =>
@@ -165,7 +170,7 @@ describe("react-native entries: runtime values are exported as VALUES", () => {
 });
 
 // ─── §2. The self-extending half ─────────────────────────────────────────────
-// §1 only knows about today's five symbols. This block needs no table: it reads
+// §1 only knows about the symbols it lists. This block needs no table: it reads
 // the entry SOURCE, finds every symbol re-exported type-only, imports the module
 // it came from, and fails if that module has a runtime binding for it. A future
 // contributor who adds a new enum (or class, or const) re-export inside an

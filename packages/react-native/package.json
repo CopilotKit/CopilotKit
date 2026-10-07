@@ -63,6 +63,10 @@
       "import": "./dist/polyfills/location.mjs",
       "require": "./dist/polyfills/location.cjs"
     },
+    "./polyfills/fetch": {
+      "import": "./dist/polyfills/fetch.mjs",
+      "require": "./dist/polyfills/fetch.cjs"
+    },
     "./components": {
       "import": "./dist/components/index.mjs",
       "require": "./dist/components/index.cjs"

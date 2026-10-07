@@ -1,9 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-
-// Mock streaming-fetch to isolate polyfill tests
-vi.mock("../streaming-fetch", () => ({
-  installStreamingFetch: vi.fn(),
-}));
+import { describe, it, expect, afterEach, vi } from "vitest";
 
 // ─── Global save/restore ──────────────────────────────────────────────────────
 
@@ -230,13 +225,51 @@ describe("polyfills", () => {
     });
   });
 
-  // ── streaming fetch integration ─────────────────────────────────────────
+  // ── global fetch ────────────────────────────────────────────────────────
 
-  describe("streaming fetch integration", () => {
-    it("calls installStreamingFetch()", async () => {
+  describe("global fetch", () => {
+    /** Bare React Native: whatwg-fetch (`polyfill`) and a Response with no body. */
+    function reactNativeGlobals() {
+      saveGlobal("fetch");
+      saveGlobal("Response");
+      const rnFetch = Object.assign(vi.fn(), { polyfill: true });
+      (globalThis as any).fetch = rnFetch;
+      (globalThis as any).Response = class {
+        body = null;
+      };
+      return rnFetch;
+    }
+
+    it("is left alone by the barrel, even where it cannot stream", async () => {
+      const rnFetch = reactNativeGlobals();
       await importPolyfills();
-      const { installStreamingFetch } = await import("../streaming-fetch");
-      expect(installStreamingFetch).toHaveBeenCalled();
+      expect(globalThis.fetch).toBe(rnFetch);
+    });
+
+    it("is left alone by importing the package", async () => {
+      const rnFetch = reactNativeGlobals();
+      vi.resetModules();
+      await import("../headless");
+      expect(globalThis.fetch).toBe(rnFetch);
+    }, 20_000);
+
+    it("is replaced only by the opt-in polyfills/fetch entry", async () => {
+      const rnFetch = reactNativeGlobals();
+      vi.resetModules();
+      await import("../polyfills/fetch");
+      expect(globalThis.fetch).not.toBe(rnFetch);
+      expect((globalThis.fetch as any).__originalFetch).toBe(rnFetch);
+    });
+
+    it("is kept by the opt-in entry on Expo, whose fetch streams", async () => {
+      reactNativeGlobals();
+      saveGlobal("expo");
+      const expoFetch = vi.fn();
+      (globalThis as any).fetch = expoFetch;
+      (globalThis as any).expo = { modules: {} };
+      vi.resetModules();
+      await import("../polyfills/fetch");
+      expect(globalThis.fetch).toBe(expoFetch);
     });
   });
 });

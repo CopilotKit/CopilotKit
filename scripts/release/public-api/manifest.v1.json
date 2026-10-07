@@ -1536,6 +1536,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/react-native/polyfills/fetch",
+          "exportKey": "./polyfills/fetch",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/polyfills/fetch.mjs",
+            "require": "./dist/polyfills/fetch.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/react-native/package.json",
+            "selector": "exports[\"./polyfills/fetch\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/react-native/polyfills/location",
           "exportKey": "./polyfills/location",
           "kind": "code",

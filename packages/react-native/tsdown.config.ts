@@ -11,6 +11,7 @@ export default defineConfig({
     "src/polyfills/crypto.ts",
     "src/polyfills/dom.ts",
     "src/polyfills/location.ts",
+    "src/polyfills/fetch.ts",
   ],
   format: ["esm", "cjs"],
   dts: true,

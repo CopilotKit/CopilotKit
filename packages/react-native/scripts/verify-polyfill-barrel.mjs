@@ -1,6 +1,7 @@
 // Verifies that the BUILT polyfill barrel actually installs every polyfill.
 //
-// src/polyfills.ts is five side-effect-only imports plus installStreamingFetch().
+// src/polyfills.ts is five side-effect-only imports. (It no longer installs the
+// streaming fetch: that is the opt-in polyfills/fetch entry, not checked here.)
 // Side-effect-only imports are exactly what a bundler drops when it believes a
 // module is pure, so the barrel can build down to a no-op while every source
 // file and every source-level test stays green. That is not hypothetical:
@@ -91,9 +92,9 @@ function probeSource(cjsBarrel) {
     }
     // React Native defines \`window\`; the location polyfill no-ops without it.
     globalThis.window = {};
-    // Metro defines \`__DEV__\` in every React Native bundle. The streaming-fetch
-    // feature detection reads it on its error path, so a bare realm without it
-    // turns an ordinary fallback into a ReferenceError.
+    // Metro defines \`__DEV__\` in every React Native bundle. Define it here too,
+    // so a module that reads it cannot fail the probe with a ReferenceError
+    // that no React Native app would hit.
     globalThis.__DEV__ = false;
     // The crypto polyfill warns loudly by design. Keep the report readable.
     const realWarn = console.warn;

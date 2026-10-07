@@ -33,6 +33,25 @@ import "@copilotkit/react-native/polyfills/dom";
 import "@copilotkit/react-native/polyfills/location";
 ```
 
+### Streaming fetch
+
+The polyfills do not touch `globalThis.fetch`. Agent runs stream over SSE, which React Native's built-in fetch cannot do, so `CopilotKitProvider` gives CopilotKit its own XHR-based streaming fetch on bare React Native. On Expo it uses Expo's fetch, which already streams. Your app keeps its own fetch either way. To route CopilotKit's requests through a client of your own, pass the provider a `fetch` prop.
+
+If your own code streams through the global fetch (for example an AG-UI `HttpAgent` you create yourself), give it the same transport:
+
+```ts
+import { HttpAgent } from "@ag-ui/client";
+import { createStreamingFetch } from "@copilotkit/react-native";
+
+const agent = new HttpAgent({ url, fetch: createStreamingFetch() });
+```
+
+Or opt back in to replacing the global fetch app-wide (skipped where it already streams):
+
+```js
+import "@copilotkit/react-native/polyfills/fetch";
+```
+
 ## Quick start
 
 ```tsx
