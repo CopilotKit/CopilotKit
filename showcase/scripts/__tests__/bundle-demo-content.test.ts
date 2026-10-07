@@ -143,12 +143,21 @@ describe("Content Bundler", () => {
     const memory = demo.files.find(
       (file: any) => file.filename === "src/mastra/tools/working-memory.ts",
     );
+    const provider = demo.files.find(
+      (file: any) => file.filename === "src/mastra/_header_forwarding.ts",
+    );
 
     expect(tool.content).toContain('from "./working-memory"');
     expect(memory).toMatchObject({ highlighted: true, language: "typescript" });
     expect(memory.content).toContain(
       "export async function writeDelegationsToWorkingMemory",
     );
+    expect(tool.content).toContain('from "@/mastra/_header_forwarding"');
+    expect(provider).toMatchObject({
+      highlighted: true,
+      language: "typescript",
+    });
+    expect(provider.content).toContain("export const openai = createOpenAI");
   });
 
   it("bundles the Strands TypeScript sub-agent documentation regions", () => {

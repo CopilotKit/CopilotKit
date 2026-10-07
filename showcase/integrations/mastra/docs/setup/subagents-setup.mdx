@@ -5,6 +5,12 @@ Save the complete helper below as `src/mastra/tools/working-memory.ts` next to
 file. The three chat cards render from sub-agent tool calls; the separate
 delegation log reads `agent.state.delegations` from working memory.
 
+The demo's `subagents.ts` also imports `@/mastra/_header_forwarding` to pass
+diagnostic headers and safe message IDs to OpenAI. That file is included with
+the demo source. Copy it with the example, or replace its `openai` import in
+`subagents.ts` with `import { openai } from "@ai-sdk/openai";` if your app does
+not need the demo's request handling.
+
 <DemoCode file="src/mastra/tools/working-memory.ts" region="working-memory" title="working-memory.ts - delegation state helper" />
 
 The supervisor's `Memory` enables working memory with the
