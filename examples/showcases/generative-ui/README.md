@@ -110,7 +110,6 @@ useFrontendTool({
 });
 ```
 
-- Try it out: [go.copilotkit.ai/gen-ui-demo](https://go.copilotkit.ai/gen-ui-demo)
 - Docs: [docs.copilotkit.ai/generative-ui](https://docs.copilotkit.ai/generative-ui)
 - Specs hub (overview): [docs.copilotkit.ai/learn/generative-ui/specs](https://docs.copilotkit.ai/learn/generative-ui/specs)
 - Ecosystem (how specs + runtime fit): [copilotkit.ai/generative-ui](https://www.copilotkit.ai/generative-ui)
@@ -205,7 +204,6 @@ The pattern is the same for Open‑JSON‑UI. An agent can respond with an Open�
 
 <img width="1038" height="337" alt="Open-JSON-UI example" src="assets/open-json-ui-card-example.png" />
 
-- Try it out: [go.copilotkit.ai/gen-ui-demo](https://go.copilotkit.ai/gen-ui-demo)
 - Docs: [docs.copilotkit.ai/generative-ui](https://docs.copilotkit.ai/generative-ui)
 - Open‑JSON‑UI Specs (CopilotKit docs): [docs.copilotkit.ai/learn/generative-ui/specs/open-json-ui](https://docs.copilotkit.ai/learn/generative-ui/specs/open-json-ui)
 - A2UI Specs (CopilotKit docs): [docs.copilotkit.ai/learn/generative-ui/specs/a2ui](https://docs.copilotkit.ai/learn/generative-ui/specs/a2ui)
@@ -244,7 +242,6 @@ const agent = new BuiltInAgent({
 );
 ```
 
-- Try it out: [go.copilotkit.ai/gen-ui-demo](https://go.copilotkit.ai/gen-ui-demo)
 - Docs: [docs.copilotkit.ai/generative-ui](https://docs.copilotkit.ai/generative-ui)
 - MCP Apps spec: [docs.copilotkit.ai/learn/generative-ui/specs/mcp-apps](https://docs.copilotkit.ai/learn/generative-ui/specs/mcp-apps)
 - Practical guide (complete integration flow): [Bring MCP Apps into your OWN app with CopilotKit & AG-UI](https://www.copilotkit.ai/blog/bring-mcp-apps-into-your-own-app-with-copilotkit-and-ag-ui)
@@ -253,9 +250,8 @@ const agent = new BuiltInAgent({
 
 ## Generative UI Playground
 
-The Generative UI Playground is a hands-on environment for exploring how all three patterns work in practice and see how agent outputs map to UI in real time.
+The Generative UI Playground source illustrates how all three patterns work in practice and how agent outputs map to UI in real time. The hosted playground is being retired; use the repository setup to run it locally.
 
-- Try it out: [go.copilotkit.ai/gen-ui-demo](https://go.copilotkit.ai/gen-ui-demo)
 - Repo: [go.copilotkit.ai/gen-ui-repo-playground](https://go.copilotkit.ai/gen-ui-repo-playground)
 
 https://github.com/user-attachments/assets/f2f52fae-c9c6-4da5-8d29-dc99b202a7ad
@@ -295,10 +291,6 @@ https://github.com/user-attachments/assets/f2f52fae-c9c6-4da5-8d29-dc99b202a7ad
 Contributions welcome: PRs adding examples (Controlled/Declarative/Open‑ended), improving explanations or adding assets.
 
 [Discord](https://discord.com/invite/6dffbvGU3D) for help and discussions. [GitHub](https://github.com/CopilotKit/CopilotKit) to contribute. [@CopilotKit](https://x.com/copilotkit) for updates.
-
-| Project                  | Preview                                                                                                    | Description                                                         | Links                                                                                           |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Generative UI Playground | <img src="assets/generative-ui-playground-preview.png" alt="Generative UI playground preview" width="300"> | Shows the three Gen UI patterns with runnable, end-to-end examples. | [Repo](https://go.copilotkit.ai/gen-ui-repo-playground)<br>[Demo](go.copilotkit.ai/gen-ui-demo) |
 
 Built something? [Open a PR](https://github.com/CopilotKit/CopilotKit/pulls) or [share it in Discord](https://discord.com/invite/6dffbvGU3D).
 

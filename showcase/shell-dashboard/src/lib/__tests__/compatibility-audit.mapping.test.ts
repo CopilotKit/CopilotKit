@@ -48,6 +48,29 @@ describe("Showcase compatibility mapping", () => {
     );
   });
 
+  it("maps Antigravity to its framework SDK and excludes its AG-UI adapter", () => {
+    expect(
+      COMPATIBILITY_MAPPING.find((item) => item.slug === "google-antigravity"),
+    ).toMatchObject({
+      language: "python",
+      libraries: [
+        {
+          name: "google-antigravity",
+          registry: "pypi",
+          required: true,
+          role: "framework",
+          source: {
+            kind: "requirements",
+            path: "showcase/integrations/google-antigravity/requirements.txt",
+          },
+        },
+      ],
+      excludedLibraries: [
+        { name: "ag-ui-antigravity", reason: expect.any(String) },
+      ],
+    });
+  });
+
   it("keeps historical noncontributing packages explicitly excluded", () => {
     for (const row of COMPATIBILITY_SNAPSHOT.rows) {
       const mapping = COMPATIBILITY_MAPPING.find(

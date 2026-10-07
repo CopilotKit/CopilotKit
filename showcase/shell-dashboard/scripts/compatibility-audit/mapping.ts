@@ -196,7 +196,7 @@ export const COMPATIBILITY_MAPPING: VariantMapping[] = [
         "google-antigravity",
         "pypi",
         requirements("google-antigravity"),
-        "Google Antigravity agent framework SDK",
+        "Google Antigravity agent framework",
       ),
     ],
     excludedLibraries: [adapter("ag-ui-antigravity")],
