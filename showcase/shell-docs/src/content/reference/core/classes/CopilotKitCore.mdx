@@ -38,6 +38,13 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
     Credentials mode for fetch requests (e.g. `"include"` for HTTP-only cookies).
   </PropertyReference>
 
+  <PropertyReference name="fetch" type="typeof fetch">
+    The `fetch` every request Core makes goes through, agent runs included (they
+    stream, so its responses need `body.getReader()`). Defaults to the global
+    `fetch`, looked up per request. See
+    [`CopilotKitCoreConfig`](/reference/core/types/CopilotKitCoreConfig#properties).
+  </PropertyReference>
+
   <PropertyReference name="properties" type="Record<string, unknown>" default="{}">
     Values sent as `forwardedProps` to the AG-UI agent.
   </PropertyReference>
@@ -187,6 +194,10 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
   Replaces the fetch credentials mode and re-applies it to existing agents. Core clears trusted Inspector metadata before refreshing it with the new mode.
 </PropertyReference>
 
+<PropertyReference name="setFetch(fetch: typeof fetch | undefined): void" type="method">
+  Replaces the `fetch` Core's requests go through. Requests already in flight finish on the fetch they started with; every later request, including runs of agents Core already created, uses the new one. Pass `undefined` to go back to the global `fetch`.
+</PropertyReference>
+
 <PropertyReference name="setMessageFilter(messageFilter: CopilotKitMessageFilter | undefined): void" type="method">
   Replaces the filter applied to the outbound message list and re-applies it to existing agents. Agents discovered later pick it up too, so a filter set before `/info` lands is not lost. Pass `undefined` to go back to sending the full thread.
 </PropertyReference>
@@ -249,6 +260,10 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
 
 <PropertyReference name="headers / credentials / properties" type="getter">
   Snapshots of the configured headers, credentials mode, and forwarded properties.
+</PropertyReference>
+
+<PropertyReference name="fetch" type="getter">
+  The configured `fetch`, or `undefined` when Core uses the global one.
 </PropertyReference>
 
 ## Usage

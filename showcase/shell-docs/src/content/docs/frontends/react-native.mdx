@@ -310,7 +310,8 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
                 - **Metro can't resolve modules**: Clear the cache with `npx react-native start --reset-cache`.
-                - **Streaming not working**: Make sure polyfills are imported before any CopilotKit code in your entry point.
+                - **Streaming not working**: Make sure polyfills are imported before any CopilotKit code in your entry point. If you pass your own `fetch` to the provider, it must stream (`response.body.getReader()`); see [Streaming fetch](#streaming-fetch).
+                - **Your own requests stopped streaming after an upgrade**: the polyfills no longer replace the global `fetch`. See [Migrating from the global streaming fetch](#migrating-from-the-global-streaming-fetch).
                 - **No response from the runtime**: Confirm the runtime server is running, `http://localhost:8200/api/copilotkit/info` returns the `default` agent, and the device can reach `runtimeUrl`. For physical devices, use your machine's LAN IP instead of `localhost`.
                 - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
                 - **`Property 'ReadableStream' doesn't exist`** (or the same for `TextEncoder`, `DOMException` or `Headers`): the polyfills did not install. In **1.69.2 and every earlier version** the `polyfills` barrel was published empty — the build dropped all five polyfill imports out of it — so following the setup above installed nothing and the first runtime call failed. Upgrade to the latest version, or, if you are pinned, use the [granular imports](#polyfills), which were never affected. This is the *opposite* of the conflict case below: here you have no polyfill at all, not a competing one.
@@ -334,8 +335,9 @@ Supporting entry points:
 
 | Import | Description |
 |--------|-------------|
-| `@copilotkit/react-native/polyfills` | Barrel that installs every polyfill (streams, encoding, crypto, dom, location) plus the streaming-fetch shim |
+| `@copilotkit/react-native/polyfills` | Barrel that installs every polyfill (streams, encoding, crypto, dom, location). It does not touch `globalThis.fetch` |
 | `@copilotkit/react-native/polyfills/{streams,encoding,crypto,dom,location}` | Granular subpaths for installing a single polyfill |
+| `@copilotkit/react-native/polyfills/fetch` | Opt-in: replaces `globalThis.fetch` with the XHR streaming fetch where the platform's cannot stream. Not in the barrel, and CopilotKit does not need it; see [Streaming fetch](#streaming-fetch) |
 | `@copilotkit/runtime` | Server-side runtime (`CopilotRuntime` / `BuiltInAgent` / `createCopilotNodeListener`) used to host your agent |
 
 <Callout type="warn" title="`CopilotChat` means two different things">
@@ -426,9 +428,9 @@ On Expo, swap in `getDefaultConfig` from `expo/metro-config`; the `resolver` blo
 
 ## Polyfills
 
-Hermes lacks several Web APIs CopilotKit relies on: `ReadableStream` / `WritableStream` / `TransformStream`, `TextEncoder` / `TextDecoder`, `DOMException` and `Headers`, `crypto.getRandomValues`, and `window.location`. It also lacks streaming `fetch` bodies (`response.body.getReader()`), which AG-UI's SSE transport needs.
+Hermes lacks several Web APIs CopilotKit relies on: `ReadableStream` / `WritableStream` / `TransformStream`, `TextEncoder` / `TextDecoder`, `DOMException` and `Headers`, `crypto.getRandomValues`, and `window.location`. React Native's built-in `fetch` also buffers the whole response, so it has no streaming body (`response.body.getReader()`), which AG-UI's SSE transport needs. That one is handled by the provider rather than a polyfill; see [Streaming fetch](#streaming-fetch).
 
-Importing the provider installs these automatically: `/headless` runs the polyfill barrel as its first statement (and the root barrel gets it through `/headless`), also installing an XHR-based streaming-fetch shim on load. The `/components` surface does **not** install them on its own, so it relies on the provider imported alongside it. Each polyfill is skipped if the global it defines already exists, so importing more than once is safe.
+Importing the provider installs the polyfills automatically: `/headless` runs the polyfill barrel as its first statement (and the root barrel gets it through `/headless`). The `/components` surface does **not** install them on its own, so it relies on the provider imported alongside it. Each polyfill is skipped if the global it defines already exists, so importing more than once is safe.
 
 Keep the explicit `import "@copilotkit/react-native/polyfills"` from the quickstart at the top of your entry point anyway. Because every polyfill is **first writer wins**, the entry point is the only place you control what gets installed before CopilotKit's own defaults do — which is what makes the secure-RNG ordering below work.
 
@@ -454,6 +456,61 @@ import "@copilotkit/react-native/polyfills/location";
   This ordering is a hard requirement, not a precaution. Both implementations install only when `crypto.getRandomValues` is undefined, so whichever loads first wins permanently. If any CopilotKit module is evaluated first, the `Math.random` fallback is locked in and `react-native-get-random-values` silently becomes a no-op — no warning, no error, and every ID stays non-cryptographic for the life of the process.
 </Callout>
 
+## Streaming fetch
+
+Agent runs stream over SSE. CopilotKit never replaces `globalThis.fetch` to make that work: `CopilotKitProvider` picks a fetch for CopilotKit's own requests and leaves your app's alone.
+
+| The app's global fetch | What CopilotKit uses for its requests |
+|------|------|
+| `expo/fetch`, which Expo installs as the global fetch | Expo's fetch, which streams |
+| React Native's built-in fetch (bare React Native, or Expo with `EXPO_PUBLIC_USE_RN_FETCH`) | CopilotKit's XHR-based streaming fetch, scoped to CopilotKit |
+| A fetch whose `Response` streams (react-native-web) | That fetch |
+
+The XHR streaming fetch honours `signal` and `credentials` (`"omit"` sends no cookies) and has no limit on a request's total length, so a long agent run is never cut off. It fails a request only after 60 seconds without receiving anything, which catches a stalled connection; CopilotRuntime sends an SSE keep-alive every 15 seconds of silence, well inside that.
+
+To send CopilotKit's requests through a fetch of your own, or to change that timeout, pass the provider's `fetch` prop:
+
+```tsx
+import {
+  CopilotKitProvider,
+  createStreamingFetch,
+} from "@copilotkit/react-native/headless";
+
+// Fail after 2 minutes without data (default 60 s; 0 disables it).
+const copilotFetch = createStreamingFetch({ idleTimeoutMs: 120_000 });
+
+export default function App() {
+  return (
+    <CopilotKitProvider runtimeUrl={runtimeUrl} fetch={copilotFetch}>
+      <ChatScreen />
+    </CopilotKitProvider>
+  );
+}
+```
+
+Whatever you pass must stream: its `Response` needs `body.getReader()`. The web `CopilotKitProvider` takes the same prop.
+
+### Migrating from the global streaming fetch
+
+Earlier versions replaced `globalThis.fetch` with the XHR streaming fetch as soon as `@copilotkit/react-native` was imported, wherever they judged the platform could not stream. On Expo that misfired: every request in the app went through the replacement, which ignored `credentials` and gave up after 60 seconds. Now nothing replaces the global fetch, and CopilotKit's own requests stream as before without any change on your side.
+
+- **Remove any `fetch.__originalFetch` workaround.** Code that put Expo's fetch back after importing CopilotKit is no longer needed. It is harmless if left in, since nothing sets `__originalFetch` any more.
+- **Bare React Native, with your own streaming code.** If your app streams through the global fetch itself, for example an AG-UI `HttpAgent` created without a `fetch` option, give that code the streaming fetch:
+
+  ```ts
+  import { HttpAgent } from "@ag-ui/client";
+  import { createStreamingFetch } from "@copilotkit/react-native/headless";
+
+  const agent = new HttpAgent({ url, fetch: createStreamingFetch() });
+  ```
+
+  Or restore the old app-wide replacement by importing the opt-in entry at the top of your entry point. It is skipped where the platform fetch already streams, and keeps the replaced fetch on `globalThis.fetch.__originalFetch`:
+
+  ```js title="index.js"
+  import "@copilotkit/react-native/polyfills";
+  import "@copilotkit/react-native/polyfills/fetch"; // [!code highlight]
+  ```
+
 ## Provider options
 
 `CopilotKitProvider` is a context-only provider (it renders no view of its own), so it composes cleanly as the outermost wrapper around your app. `runtimeUrl` is the only required prop, but several others are available:
@@ -463,6 +520,7 @@ import "@copilotkit/react-native/polyfills/location";
 | `runtimeUrl` | `string` | URL of the Copilot Runtime endpoint (**required**) |
 | `headers` | `Record<string, string> \| (() => Record<string, string>)` | Custom headers sent with every request. Use this for auth — e.g. an `Authorization` bearer token. A function form is called **when the provider renders**, not per request (see the callout below) |
 | `credentials` | `RequestCredentials` | Fetch credentials mode, e.g. `"include"` to send HTTP-only cookies on cross-origin requests |
+| `fetch` | `typeof fetch` | The fetch CopilotKit's requests go through. Defaults to the platform's fetch where it streams (Expo), else CopilotKit's XHR streaming fetch. See [Streaming fetch](#streaming-fetch) |
 | `properties` | `Record<string, unknown>` | Custom properties forwarded to agents (e.g. a scoped user id) |
 | `onError` | `(event) => void` | Called for all error types (runtime connection, agent, tool). Defaults to `console.error` |
 | `debug` | `DebugConfig` | Enables verbose client-side event logging |

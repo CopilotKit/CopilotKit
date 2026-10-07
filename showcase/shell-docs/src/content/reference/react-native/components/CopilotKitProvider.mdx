@@ -45,7 +45,50 @@ import { CopilotKitProvider } from "@copilotkit/react-native";
 
 <PropertyReference name="credentials" type="RequestCredentials">
   Credentials mode for fetch requests (e.g. `"include"` for HTTP-only cookies
-  in cross-origin requests).
+  in cross-origin requests). `"omit"` sends no cookies; `"include"` and
+  `"same-origin"` send them, as React Native's own fetch does.
+</PropertyReference>
+
+<PropertyReference name="fetch" type="typeof fetch">
+  The `fetch` CopilotKit uses for every request it makes to your runtime: agent
+  runs (which stream), `/info`, threads, suggestions and the rest. CopilotKit
+  never replaces `globalThis.fetch`; your app keeps its own.
+
+Leave it unset and CopilotKit picks one from the app's global fetch:
+
+- **Expo** installs `expo/fetch` as the global fetch. It streams, so CopilotKit
+  uses it.
+- **React Native's built-in fetch** (bare React Native, or Expo with
+  `EXPO_PUBLIC_USE_RN_FETCH`) buffers the whole response, so CopilotKit uses its
+  own XHR-based streaming fetch, for CopilotKit's requests only.
+- **A fetch whose `Response` streams** (react-native-web) is used as is.
+
+Pass one to send CopilotKit's traffic through your own client, or to tune the
+streaming fetch's stall timeout:
+
+```tsx
+import {
+  CopilotKitProvider,
+  createStreamingFetch,
+} from "@copilotkit/react-native";
+
+// Fail a request after 2 minutes without any data (default 60 s; 0 disables).
+const copilotFetch = createStreamingFetch({ idleTimeoutMs: 120_000 });
+
+<CopilotKitProvider
+  runtimeUrl="https://your-server/api/copilotkit"
+  fetch={copilotFetch}
+>
+  <App />
+</CopilotKitProvider>;
+```
+
+Agent runs stream through it, so it must return a `Response` whose `body`
+supports `getReader()`. CopilotKit calls it as `fetch(input, init)`, with
+`headers` and `credentials` already in `init`. Keep the reference stable (create
+it outside the component or memoize it). The web `CopilotKitProvider` takes the
+same prop.
+
 </PropertyReference>
 
 <PropertyReference name="messageFilter" type="(messages: Message[], context: { agentId: string }) => Message[]">

@@ -147,6 +147,34 @@ const handler = createCopilotRuntimeHandler({
 
 </PropertyReference>
 
+<PropertyReference name="fetch" type="typeof fetch">
+The `fetch` CopilotKit uses for every request it makes to your runtime: agent
+runs, `/info`, threads, suggestions, transcription and the rest. Defaults to
+the global `fetch`, looked up per request, so leaving it out changes nothing.
+CopilotKit never replaces `globalThis.fetch`.
+
+Pass one to send CopilotKit's traffic through your own client (tracing, a
+proxy, a test double) without changing the rest of your app. Agent runs stream
+through it, so it must return a `Response` whose `body` supports
+`getReader()`. CopilotKit calls it as `fetch(input, init)`, with `headers` and
+`credentials` already in `init`. Agents you pass in yourself keep their own
+transport.
+
+```tsx
+const loggedFetch: typeof fetch = (input, init) => {
+  console.debug("CopilotKit request", init?.method ?? "GET", String(input));
+  return fetch(input, init);
+};
+
+<CopilotKitProvider runtimeUrl="/api/copilotkit" fetch={loggedFetch}>
+  {children}
+</CopilotKitProvider>;
+```
+
+`<CopilotKitProvider>` in `@copilotkit/react-native` takes the same prop.
+
+</PropertyReference>
+
 <PropertyReference name="showDevConsole" type="boolean"  >
 Whether to show the dev console.
 

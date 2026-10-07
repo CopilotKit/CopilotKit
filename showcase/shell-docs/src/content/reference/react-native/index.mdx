@@ -37,6 +37,8 @@ import "@copilotkit/react-native/polyfills/dom";
 import "@copilotkit/react-native/polyfills/location";
 ```
 
+The polyfills do not replace `globalThis.fetch`. Agent runs stream, which React Native's built-in fetch cannot do, so [`CopilotKitProvider`](/reference/react-native/components/CopilotKitProvider#props) gives CopilotKit's own requests an XHR-based streaming fetch on bare React Native and uses Expo's fetch on Expo. For your own streaming code, use `createStreamingFetch()` or the opt-in `import "@copilotkit/react-native/polyfills/fetch"`; see [Streaming fetch](/frontends/react-native#streaming-fetch).
+
 ## Provider setup
 
 Wrap your app (or a sub-tree) with [`CopilotKitProvider`](/reference/react-native/components/CopilotKitProvider) to configure the runtime connection:

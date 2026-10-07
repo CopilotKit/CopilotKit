@@ -22,6 +22,7 @@ interface CopilotKitCoreConfig {
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
   headers?: Record<string, string>;
   credentials?: RequestCredentials;
+  fetch?: typeof fetch;
   messageFilter?: CopilotKitMessageFilter;
   properties?: Record<string, unknown>;
   tools?: FrontendTool<any>[];
@@ -50,6 +51,18 @@ interface CopilotKitCoreConfig {
 
 <PropertyReference name="credentials" type="RequestCredentials">
   Credentials mode for fetch requests (e.g. `"include"` for HTTP-only cookies).
+</PropertyReference>
+
+<PropertyReference name="fetch" type="typeof fetch">
+  The `fetch` every request Core makes goes through: `/info`, agent runs,
+  connects and stops, suggestions, threads, memories, learning capture and
+  Inspector metadata. Agent runs stream through it, so it must return a
+  `Response` whose `body` supports `getReader()`. Defaults to the global
+  `fetch`, looked up when each request is made; Core never replaces the global.
+  Core calls it as `fetch(input, init)`, with the configured `headers` and
+  `credentials` already in `init`. Agents you pass in yourself keep their own
+  transport. Change it later with `setFetch`. React Native's provider uses it to
+  give Core a streaming fetch where the platform's fetch cannot stream.
 </PropertyReference>
 
 <PropertyReference name="messageFilter" type="CopilotKitMessageFilter">
