@@ -2,31 +2,31 @@ import type {
   AnchorHTMLAttributes,
   ButtonHTMLAttributes,
   ReactNode,
-} from "react";
-import { forwardRef } from "react";
-import { Slot } from "@radix-ui/react-slot";
-import styles from "./actions.module.css";
-import { cx } from "./class-name";
+} from 'react';
+import { forwardRef } from 'react';
+import { Slot } from '@radix-ui/react-slot';
+import styles from './actions.module.css';
+import { cx } from './class-name';
 
 export type ActionVariant =
-  | "accent"
-  | "danger"
-  | "default"
-  | "destructive"
-  | "ghost"
-  | "link"
-  | "outline"
-  | "primary"
-  | "quiet"
-  | "secondary";
+  | 'accent'
+  | 'danger'
+  | 'default'
+  | 'destructive'
+  | 'ghost'
+  | 'link'
+  | 'outline'
+  | 'primary'
+  | 'quiet'
+  | 'secondary';
 export type ActionSize =
-  | "icon"
-  | "icon-lg"
-  | "icon-sm"
-  | "lg"
-  | "md"
-  | "sm"
-  | "xs";
+  | 'icon'
+  | 'icon-lg'
+  | 'icon-sm'
+  | 'lg'
+  | 'md'
+  | 'sm'
+  | 'xs';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   readonly asChild?: boolean;
@@ -37,8 +37,8 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 /** The Button look for an element that is not a Button, such as a pager link. */
 export interface ButtonVariantProps {
   readonly className: string;
-  readonly "data-size": ActionSize;
-  readonly "data-variant": ActionVariant;
+  readonly 'data-size': ActionSize;
+  readonly 'data-variant': ActionVariant;
 }
 
 /**
@@ -50,37 +50,36 @@ export interface ButtonVariantProps {
  * @returns Props for the element.
  */
 export function buttonVariants({
-  size = "md",
-  variant = "secondary",
+  size = 'md',
+  variant = 'secondary',
 }: {
   readonly size?: ActionSize;
   readonly variant?: ActionVariant;
 } = {}): ButtonVariantProps {
   return {
     className: styles.button,
-    "data-size": size,
-    "data-variant": variant,
+    'data-size': size,
+    'data-variant': variant,
   };
 }
 
 /** Variants the icon-only button draws. */
 export type IconButtonVariant = Extract<
   ActionVariant,
-  "danger" | "ghost" | "primary" | "secondary"
+  'danger' | 'ghost' | 'primary' | 'secondary'
 >;
 /** Sizes the icon-only button draws. */
-export type IconButtonSize = Extract<ActionSize, "lg" | "md" | "sm">;
+export type IconButtonSize = Extract<ActionSize, 'lg' | 'md' | 'sm'>;
 
-export interface IconButtonProps extends Omit<
-  ButtonHTMLAttributes<HTMLButtonElement>,
-  "aria-label"
-> {
+export interface IconButtonProps
+  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-label'> {
   readonly label: string;
   readonly size?: IconButtonSize;
   readonly variant?: IconButtonVariant;
 }
 
-export interface LinkButtonProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
+export interface LinkButtonProps
+  extends AnchorHTMLAttributes<HTMLAnchorElement> {
   readonly size?: ActionSize;
   readonly variant?: ActionVariant;
 }
@@ -104,14 +103,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     {
       className,
       asChild = false,
-      size = "md",
-      type = "button",
-      variant = "secondary",
+      size = 'md',
+      type = 'button',
+      variant = 'secondary',
       ...props
     },
     ref,
   ): ReactNode {
-    const Comp = asChild ? Slot : "button";
+    const Comp = asChild ? Slot : 'button';
     const look = buttonVariants({ size, variant });
 
     return (
@@ -133,9 +132,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 export function IconButton({
   className,
   label,
-  size = "md",
-  type = "button",
-  variant = "secondary",
+  size = 'md',
+  type = 'button',
+  variant = 'secondary',
   ...props
 }: IconButtonProps): ReactNode {
   return (
@@ -156,8 +155,8 @@ export function IconButton({
 export function LinkButton({
   children,
   className,
-  size = "md",
-  variant = "secondary",
+  size = 'md',
+  variant = 'secondary',
   ...props
 }: LinkButtonProps): ReactNode {
   return (

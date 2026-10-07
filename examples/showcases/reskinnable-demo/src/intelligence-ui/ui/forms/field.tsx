@@ -1,13 +1,12 @@
-import { useId } from "react";
-import type { ReactNode } from "react";
+import { type ReactNode, useId } from 'react';
 
-import { classNames } from "../class-names";
-import styles from "./field.module.css";
+import { classNames } from '../class-names';
+import styles from './field.module.css';
 
 type FieldControlProps = {
   readonly id: string;
-  readonly "aria-describedby"?: string;
-  readonly "aria-invalid"?: true;
+  readonly 'aria-describedby'?: string;
+  readonly 'aria-invalid'?: true;
   readonly required?: boolean;
 };
 
@@ -40,11 +39,11 @@ export function Field({
   const controlId = id ?? generatedId;
   const descriptionId = description ? `${controlId}-description` : undefined;
   const errorId = error ? `${controlId}-error` : undefined;
-  const describedBy = [descriptionId, errorId].filter(Boolean).join(" ");
+  const describedBy = [descriptionId, errorId].filter(Boolean).join(' ');
   const controlProps: FieldControlProps = {
     id: controlId,
-    "aria-describedby": describedBy || undefined,
-    "aria-invalid": error ? true : undefined,
+    'aria-describedby': describedBy || undefined,
+    'aria-invalid': error ? true : undefined,
     required,
   };
 
@@ -54,7 +53,7 @@ export function Field({
         {label}
         {required ? (
           <span className={styles.requiredMark} aria-hidden="true">
-            {" "}
+            {' '}
             *
           </span>
         ) : null}

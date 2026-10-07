@@ -5,11 +5,7 @@ import { redirect } from "next/navigation";
  * a cited source is a signal, `<trajectoryId>~<eventId>`, so open the
  * trajectory at that exact event.
  */
-export default async function ThreadRedirect({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function ThreadRedirect({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [trajectoryId, eventId] = decodeURIComponent(id).split("~");
   redirect(

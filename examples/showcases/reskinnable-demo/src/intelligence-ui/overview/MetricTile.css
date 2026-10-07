@@ -72,7 +72,7 @@
 }
 
 /* A status in the value slot reads as text, not as a figure. */
-.metric-tile__value[data-compact="true"] {
+.metric-tile__value[data-compact='true'] {
   color: var(--muted-foreground, var(--cpki-color-muted-foreground));
   font-size: 1rem;
   font-weight: 500;

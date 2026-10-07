@@ -1,14 +1,20 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/refs, react-hooks/immutability -- copied verbatim from the Intelligence web app, whose lint config does not enable the React Compiler rules. */
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { ReactNode, RefObject } from "react";
-import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { motion } from "motion/react";
+import {
+  type ReactNode,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { motion } from 'motion/react';
 
-import { useScrollEdges } from "../layout/scroll-area";
-import { useMotionPreference } from "../motion-preference";
-import { getFocusableElements } from "./focus-management";
-import { OverlayPortalContainer } from "./portal-container";
-import styles from "./dialog.module.css";
+import { useScrollEdges } from '../layout/scroll-area';
+import { useMotionPreference } from '../motion-preference';
+import { getFocusableElements } from './focus-management';
+import { OverlayPortalContainer } from './portal-container';
+import styles from './dialog.module.css';
 
 export type DialogProps = {
   readonly open: boolean;
@@ -26,7 +32,7 @@ export type DialogProps = {
   readonly initialFocusRef?: RefObject<HTMLElement | null>;
   /** Use a persistent target when the action removes the original opener. */
   readonly returnFocusRef?: RefObject<HTMLElement | null>;
-  readonly size?: "md" | "lg";
+  readonly size?: 'md' | 'lg';
 };
 
 /** Radix modal with the existing app-facing Dialog contract and Motion exit. */
@@ -39,11 +45,11 @@ export function Dialog({
   children,
   className,
   footer,
-  closeLabel = "Close dialog",
+  closeLabel = 'Close dialog',
   dismissible = true,
   initialFocusRef,
   returnFocusRef,
-  size = "md",
+  size = 'md',
 }: DialogProps): React.JSX.Element {
   const [present, setPresent] = useState(open);
   const reducedMotion = useMotionPreference();
@@ -120,7 +126,7 @@ export function Dialog({
           <div className={styles.positioner}>
             <DialogPrimitive.Content
               {...(description === undefined
-                ? { "aria-describedby": undefined }
+                ? { 'aria-describedby': undefined }
                 : {})}
               aria-modal="true"
               asChild
@@ -142,7 +148,7 @@ export function Dialog({
                   (dialogRef.current
                     ? getFocusableElements(dialogRef.current).find(
                         (element) =>
-                          !element.hasAttribute("data-cpki-dialog-close"),
+                          !element.hasAttribute('data-cpki-dialog-close'),
                       )
                     : undefined) ??
                   dialogRef.current;
@@ -157,7 +163,7 @@ export function Dialog({
                   opacity: open ? 1 : 0,
                   y: open || reducedMotion ? 0 : 4,
                 }}
-                className={[styles.dialog, className].filter(Boolean).join(" ")}
+                className={[styles.dialog, className].filter(Boolean).join(' ')}
                 data-size={size}
                 initial={{ opacity: 0, y: reducedMotion ? 0 : 4 }}
                 onAnimationComplete={() => {
@@ -166,7 +172,7 @@ export function Dialog({
                 ref={assignDialogRef}
                 transition={{
                   duration: reducedMotion ? 0 : 0.18,
-                  ease: "easeOut",
+                  ease: 'easeOut',
                 }}
               >
                 <OverlayPortalContainer.Provider value={portalContainer}>

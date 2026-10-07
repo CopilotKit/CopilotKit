@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import styles from "./learning-notice.module.css";
+import type { ReactNode } from 'react';
+import styles from './learning-notice.module.css';
 
 /** Shared class names for notices whose parts live in other components. */
 export const learningNoticeStyles = styles;
@@ -13,19 +13,19 @@ export const learningNoticeStyles = styles;
  */
 export function LearningNotice(props: {
   readonly action?: ReactNode;
-  readonly "aria-label"?: string;
+  readonly 'aria-label'?: string;
   readonly className?: string;
   readonly description?: ReactNode;
   readonly headingLevel?: 2 | 3;
   readonly title: ReactNode;
-  readonly tone?: "learning" | "muted";
+  readonly tone?: 'learning' | 'muted';
 }): React.JSX.Element {
-  const Title = props.headingLevel ? (`h${props.headingLevel}` as const) : "p";
+  const Title = props.headingLevel ? (`h${props.headingLevel}` as const) : 'p';
   return (
     <section
-      aria-label={props["aria-label"]}
-      className={[styles.notice, props.className].filter(Boolean).join(" ")}
-      data-tone={props.tone ?? "muted"}
+      aria-label={props['aria-label']}
+      className={[styles.notice, props.className].filter(Boolean).join(' ')}
+      data-tone={props.tone ?? 'muted'}
     >
       <div className={styles.text}>
         <Title className={styles.title}>{props.title}</Title>

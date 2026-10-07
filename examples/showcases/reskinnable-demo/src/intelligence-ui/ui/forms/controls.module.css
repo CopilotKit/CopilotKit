@@ -30,7 +30,7 @@
 /* Workspace fields: input border, 8px corners, a hairline lift, soft ring.
  * `:where()` keeps the base specificity, so page layout rules cascade exactly
  * as they do against the base rules, and Ops keeps the base theme above. */
-:global(:where(:root[data-cpki-design="workspace"]))
+:global(:where(:root[data-cpki-design='workspace']))
   :is(.control, .searchField) {
   border-color: var(--input);
   border-radius: var(--radius-control);
@@ -38,7 +38,7 @@
   box-shadow: var(--shadow-xs);
 }
 
-:global(:where(:root[data-cpki-design="workspace"]))
+:global(:where(:root[data-cpki-design='workspace']))
   :is(.control:focus-visible, .searchField:focus-within) {
   border-color: var(--cpki-color-focus-ring);
   outline: none;
@@ -47,8 +47,8 @@
 
 /* An input inside a frame that draws the border and the focus ring itself
  * (SearchField, or a composite such as a one-time key reveal). */
-.control[data-embedded="true"],
-.control[data-embedded="true"]:focus-visible {
+.control[data-embedded='true'],
+.control[data-embedded='true']:focus-visible {
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -79,7 +79,7 @@
 }
 
 /* Flush search row at the top of a popover or menu: divider and underline. */
-.searchField[data-variant="inset"] {
+.searchField[data-variant='inset'] {
   gap: 10px;
   height: 44px;
   padding: 0 14px;
@@ -90,14 +90,14 @@
   box-shadow: none;
 }
 
-.searchField[data-variant="inset"]:focus-within {
+.searchField[data-variant='inset']:focus-within {
   border-color: var(--cpki-color-border, #b8c7d1);
   outline: none;
   box-shadow: inset 0 -2px var(--cpki-color-focus-ring, #219ebc);
 }
 
 /* Programmatic focus on open (caret only); keyboard navigation restores it. */
-.searchField[data-focus-indicator="false"]:focus-within {
+.searchField[data-focus-indicator='false']:focus-within {
   outline: none;
   box-shadow: none;
 }
@@ -107,8 +107,8 @@
   opacity: 0.6;
 }
 
-.control[data-invalid="true"],
-.searchField:has(> .control[data-invalid="true"]) {
+.control[data-invalid='true'],
+.searchField:has(> .control[data-invalid='true']) {
   border-color: var(--cpki-color-danger, #b42318);
 }
 
@@ -143,7 +143,7 @@
   outline-offset: 2px;
 }
 
-.choiceInput[data-invalid="true"] {
+.choiceInput[data-invalid='true'] {
   outline: 2px solid var(--cpki-color-danger, #b42318);
   outline-offset: 2px;
 }
@@ -199,7 +199,7 @@
   border-radius: 50%;
   background: var(--cpki-color-surface, #ffffff);
   box-shadow: 0 1px 2px rgb(24 28 31 / 20%);
-  content: "";
+  content: '';
   transition:
     background-color 140ms ease,
     transform 140ms ease;
@@ -218,7 +218,7 @@
   outline-offset: 2px;
 }
 
-.switchInput[data-invalid="true"] + .switchTrack {
+.switchInput[data-invalid='true'] + .switchTrack {
   background: var(--cpki-color-danger-hover, #ff7474);
 }
 
@@ -240,18 +240,18 @@
 }
 
 /* Workspace fields match control type; 16px below tablet avoids iOS zoom. */
-:global(:root[data-cpki-design="workspace"]) .control {
+:global(:root[data-cpki-design='workspace']) .control {
   font-size: var(--text-control);
 }
 
 @media (max-width: 767px) {
-  :global(:root[data-cpki-design="workspace"]) .control {
+  :global(:root[data-cpki-design='workspace']) .control {
     font-size: 1rem;
   }
 }
 
 /* Read-only values (webhooks, generated codes) read as quiet, copyable text. */
-:global(:root[data-cpki-design="workspace"]) .control:read-only:not(select) {
+:global(:root[data-cpki-design='workspace']) .control:read-only:not(select) {
   background: var(--muted);
   color: var(--muted-foreground);
 }

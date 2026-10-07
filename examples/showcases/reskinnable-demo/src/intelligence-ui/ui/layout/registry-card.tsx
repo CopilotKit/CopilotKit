@@ -1,12 +1,12 @@
-import type { ComponentProps } from "react";
-import { classNames } from "../class-names";
-import styles from "./registry-card.module.css";
+import type { ComponentProps } from 'react';
+import { classNames } from '../class-names';
+import styles from './registry-card.module.css';
 
 /** Generated shadcn Card adapted from Tailwind classes to semantic CSS Modules. */
 export function Card({
   className,
   ...props
-}: ComponentProps<"div">): React.JSX.Element {
+}: ComponentProps<'div'>): React.JSX.Element {
   return (
     <div
       data-slot="card"
@@ -20,7 +20,7 @@ export function Card({
 export function CardHeader({
   className,
   ...props
-}: ComponentProps<"div">): React.JSX.Element {
+}: ComponentProps<'div'>): React.JSX.Element {
   return (
     <div
       data-slot="card-header"
@@ -34,7 +34,7 @@ export function CardHeader({
 export function CardTitle({
   className,
   ...props
-}: ComponentProps<"div">): React.JSX.Element {
+}: ComponentProps<'div'>): React.JSX.Element {
   return (
     <div
       data-slot="card-title"
@@ -48,7 +48,7 @@ export function CardTitle({
 export function CardDescription({
   className,
   ...props
-}: ComponentProps<"div">): React.JSX.Element {
+}: ComponentProps<'div'>): React.JSX.Element {
   return (
     <div
       data-slot="card-description"
@@ -62,7 +62,7 @@ export function CardDescription({
 export function CardAction({
   className,
   ...props
-}: ComponentProps<"div">): React.JSX.Element {
+}: ComponentProps<'div'>): React.JSX.Element {
   return (
     <div
       data-slot="card-action"
@@ -76,7 +76,7 @@ export function CardAction({
 export function CardContent({
   className,
   ...props
-}: ComponentProps<"div">): React.JSX.Element {
+}: ComponentProps<'div'>): React.JSX.Element {
   return (
     <div
       data-slot="card-content"
@@ -90,7 +90,7 @@ export function CardContent({
 export function CardFooter({
   className,
   ...props
-}: ComponentProps<"div">): React.JSX.Element {
+}: ComponentProps<'div'>): React.JSX.Element {
   return (
     <div
       data-slot="card-footer"

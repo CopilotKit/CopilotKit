@@ -33,7 +33,7 @@
   block-size: var(--control-height, 2.25rem);
   color: var(--cpki-color-muted-foreground);
 }
-.link[aria-disabled="true"] {
+.link[aria-disabled='true'] {
   pointer-events: none;
   opacity: 0.45;
 }

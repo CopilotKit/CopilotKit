@@ -16,18 +16,18 @@
 }
 
 /* Settings cards carry a quiet header band (preview `settings-card`). */
-.layout [data-slot="card"] {
+.layout [data-slot='card'] {
   gap: 0;
   min-width: 0;
   overflow: hidden;
   padding-block: 0;
 }
-.layout [data-slot="card-header"] {
+.layout [data-slot='card-header'] {
   background: var(--muted);
   border-bottom: 1px solid var(--border);
   padding-block: 20px;
 }
-.layout [data-slot="card-content"] {
+.layout [data-slot='card-content'] {
   padding-block: 20px 24px;
 }
 .heading {

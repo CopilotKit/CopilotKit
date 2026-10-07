@@ -18,7 +18,7 @@
   color: var(--sidebar-foreground, var(--cpki-color-foreground));
 }
 
-.content[data-side="right"] {
+.content[data-side='right'] {
   inset: 0.5rem 0.5rem 0.5rem auto;
   width: min(31.25rem, calc(100vw - 1rem));
   border: 1px solid var(--cpki-color-border-strong);
@@ -29,7 +29,7 @@
 }
 
 @media (max-width: 760px) {
-  .content[data-side="right"] {
+  .content[data-side='right'] {
     inset: 0;
     width: 100vw;
     border-radius: 0;

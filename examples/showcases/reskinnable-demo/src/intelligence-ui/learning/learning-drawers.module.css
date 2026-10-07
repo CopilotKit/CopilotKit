@@ -136,7 +136,7 @@
   padding: 14px 16px;
 }
 
-.evidenceQuote[data-role="assistant"] {
+.evidenceQuote[data-role='assistant'] {
   background: var(--learning);
 }
 
@@ -211,13 +211,13 @@
 .evidenceDot::before {
   background: var(--cpki-color-border-strong);
   border-radius: var(--cpki-radius-round);
-  content: "";
+  content: '';
   display: block;
   height: 0.375rem;
   width: 1rem;
 }
 
-.evidenceDot[aria-current="true"]::before {
+.evidenceDot[aria-current='true']::before {
   background: var(--cpki-color-accent);
   width: 1.625rem;
 }

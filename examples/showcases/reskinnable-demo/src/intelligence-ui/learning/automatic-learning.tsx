@@ -1,13 +1,13 @@
 /* eslint-disable react/no-unescaped-entities -- copied verbatim from the Intelligence web app, whose lint config does not enable the React Compiler rules. */
-import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
-import type { LearningAutomationReadiness } from "./learning-api";
-import { Button } from "../ui/primitives";
-import { useLearningRequest } from "./use-learning-request";
-import styles from "./learning-page.module.css";
-import { learningNoticeStyles } from "./learning-notice";
-import type { LearningRun } from "./learning-api";
-import { analysisLabel, analysisOutcome } from "./learning-container-state";
+import type { ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { LearningAutomationReadiness } from './learning-api';
+import { Button } from '../ui/primitives';
+import { useLearningRequest } from './use-learning-request';
+import styles from './learning-page.module.css';
+import { learningNoticeStyles } from './learning-notice';
+import type { LearningRun } from './learning-api';
+import { analysisLabel, analysisOutcome } from './learning-container-state';
 
 /**
  * Shows server-owned automatic eligibility independently of manual analysis.
@@ -53,14 +53,14 @@ export function AutomaticLearning(props: {
   useEffect(() => {
     const refreshReadiness = () => setRefresh((value) => value + 1);
     const timer = window.setInterval(refreshReadiness, 60_000);
-    window.addEventListener("focus", refreshReadiness);
+    window.addEventListener('focus', refreshReadiness);
     return () => {
       window.clearInterval(timer);
-      window.removeEventListener("focus", refreshReadiness);
+      window.removeEventListener('focus', refreshReadiness);
     };
   }, []);
   const value =
-    state.status === "ready" || state.status === "empty" ? state.data : null;
+    state.status === 'ready' || state.status === 'empty' ? state.data : null;
   const observedActive = useRef(false);
   useEffect(() => {
     if (!value || !props.runsResolved) return;
@@ -75,21 +75,18 @@ export function AutomaticLearning(props: {
   const unavailable = active ? undefined : props.unavailableNotice;
   const eligible =
     !unavailable &&
-    value?.enabled &&
-    !value.blocked &&
-    !active &&
-    remaining === 0;
+    value?.enabled && !value.blocked && !active && remaining === 0;
   const label = active
-    ? "Analysis in progress"
+    ? 'Analysis in progress'
     : unavailable
       ? unavailable.title
-      : !value?.enabled
-        ? "Automatic analysis is off"
-        : value.blocked
-          ? "Waiting for new Threads after a failed run"
-          : remaining > 0
-            ? `${remaining} more ${remaining === 1 ? "Thread" : "Threads"} needed for automatic learning`
-            : null;
+    : !value?.enabled
+      ? 'Automatic analysis is off'
+      : value.blocked
+        ? 'Waiting for new Threads after a failed run'
+        : remaining > 0
+          ? `${remaining} more ${remaining === 1 ? 'Thread' : 'Threads'} needed for automatic learning`
+          : null;
   const notice = learningNoticeStyles;
   const known = Boolean(value || active);
   // Text and meter change with the read; the facts and the caller's action keep
@@ -113,7 +110,7 @@ export function AutomaticLearning(props: {
         </p>
       ) : null}
     </>
-  ) : state.status === "error" ? (
+  ) : state.status === 'error' ? (
     <p className={notice.description} role="alert">
       Could not check automatic learning.
     </p>
@@ -160,7 +157,7 @@ export function AutomaticLearning(props: {
         />
       </div>
     </div>
-  ) : state.status === "error" ? (
+  ) : state.status === 'error' ? (
     <Button
       onClick={() => setRefresh((value) => value + 1)}
       size="sm"

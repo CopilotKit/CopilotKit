@@ -1,15 +1,15 @@
 /* The selected workspace's inset shell. Routes keep ownership of their page content. */
-.workspace-theme-menu [data-slot="dropdown-menu-radio-item"] {
+.workspace-theme-menu [data-slot='dropdown-menu-radio-item'] {
   min-height: 38px;
   padding: 9px 0.75rem;
 }
 .workspace-theme-menu
-  [data-slot="dropdown-menu-radio-item"]
+  [data-slot='dropdown-menu-radio-item']
   > span:first-child {
   display: none;
 }
 .workspace-theme-menu
-  [data-slot="dropdown-menu-radio-item"][data-state="checked"] {
+  [data-slot='dropdown-menu-radio-item'][data-state='checked'] {
   background: var(--accent);
 }
 
@@ -150,17 +150,17 @@
 .workspace-rail__logo--mark {
   display: none;
 }
-:root[data-cpki-theme="dark"] .workspace-rail__logo--light {
+:root[data-cpki-theme='dark'] .workspace-rail__logo--light {
   display: none;
 }
-:root[data-cpki-theme="dark"] .workspace-rail__logo--dark {
+:root[data-cpki-theme='dark'] .workspace-rail__logo--dark {
   display: block;
 }
 @media (prefers-color-scheme: dark) {
-  :root[data-cpki-theme="system"] .workspace-rail__logo--light {
+  :root[data-cpki-theme='system'] .workspace-rail__logo--light {
     display: none;
   }
-  :root[data-cpki-theme="system"] .workspace-rail__logo--dark {
+  :root[data-cpki-theme='system'] .workspace-rail__logo--dark {
     display: block;
   }
 }
@@ -531,7 +531,9 @@
   height: 40px;
   padding: 0;
 }
-.app-shell--collapsed .workspace-rail__account .account-menu__trigger-content {
+.app-shell--collapsed
+  .workspace-rail__account
+  .account-menu__trigger-content {
   justify-content: center;
 }
 

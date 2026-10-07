@@ -1,16 +1,16 @@
 /* eslint-disable react-hooks/set-state-in-effect -- copied verbatim from the Intelligence web app, whose lint config does not enable the React Compiler rules. */
-import { useEffect, useState } from "react";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { Monitor, Moon, Sun } from 'lucide-react';
 import {
   MenuContent,
   MenuRadioGroup,
   MenuRadioItem,
   MenuRoot,
   MenuTrigger,
-} from "../ui/overlays";
-import { Button } from "../ui/primitives";
+} from '../ui/overlays';
+import { Button } from '../ui/primitives';
 
-import { useWorkspaceTheme } from "./workspace-theme";
+import { useWorkspaceTheme } from './workspace-theme';
 
 /** The selected reference's Sun/Moon menu with Radix radio semantics. */
 export function WorkspaceThemeMenu(): React.JSX.Element {
@@ -19,7 +19,7 @@ export function WorkspaceThemeMenu(): React.JSX.Element {
   // unknown; draw the saved theme's icon from the first client render on.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  const Icon = mounted && resolvedTheme === "dark" ? Moon : Sun;
+  const Icon = mounted && resolvedTheme === 'dark' ? Moon : Sun;
 
   return (
     <MenuRoot modal={false}>
@@ -41,7 +41,7 @@ export function WorkspaceThemeMenu(): React.JSX.Element {
         <MenuRadioGroup
           value={preference}
           onValueChange={(value) => {
-            if (value === "light" || value === "dark" || value === "system") {
+            if (value === 'light' || value === 'dark' || value === 'system') {
               setPreference(value);
             }
           }}

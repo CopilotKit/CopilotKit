@@ -6,7 +6,7 @@ export {
   Skeleton,
   Spinner,
   StatusMessage,
-} from "./feedback";
+} from './feedback';
 export type {
   AlertProps,
   BadgeProps,
@@ -17,4 +17,4 @@ export type {
   SkeletonProps,
   SpinnerProps,
   StatusMessageProps,
-} from "./feedback";
+} from './feedback';

@@ -4,5 +4,5 @@
 export function cx(
   ...classes: readonly (false | null | string | undefined)[]
 ): string {
-  return classes.filter((className) => Boolean(className)).join(" ");
+  return classes.filter((className) => Boolean(className)).join(' ');
 }

@@ -1,16 +1,16 @@
-import { Button } from "../ui/primitives";
-import { useCallback, useId, useState } from "react";
+import { Button } from '../ui/primitives';
+import { useCallback, useId, useState } from 'react';
 
-import { ApiClientError } from "../api-client";
+import { ApiClientError } from '../api-client';
 
 import type {
   LearningInsightEvidence,
   LearningSupportingInsight,
-} from "./learning-api";
-import { EvidenceBrowser } from "./learning-evidence-browser";
-import { ChevronRightIcon } from "./learning-icons";
-import { useLearningRequest } from "./use-learning-request";
-import styles from "./supporting-insights.module.css";
+} from './learning-api';
+import { EvidenceBrowser } from './learning-evidence-browser';
+import { ChevronRightIcon } from './learning-icons';
+import { useLearningRequest } from './use-learning-request';
+import styles from './supporting-insights.module.css';
 
 export type EvidenceLoader = (
   insightId: string,
@@ -32,7 +32,7 @@ function InsightEvidence(props: {
       } catch (error) {
         if (
           error instanceof ApiClientError &&
-          error.code === "LEARNING_INSIGHT_NOT_FOUND"
+          error.code === 'LEARNING_INSIGHT_NOT_FOUND'
         ) {
           return null;
         }
@@ -43,11 +43,11 @@ function InsightEvidence(props: {
   );
   const state = useLearningRequest(load, refresh);
   const evidence =
-    state.status === "ready" || state.status === "empty"
+    state.status === 'ready' || state.status === 'empty'
       ? (state.data ?? [])
       : [];
 
-  if (state.status === "ready" && state.data === null) {
+  if (state.status === 'ready' && state.data === null) {
     return (
       <p className={styles.impact}>
         This Insight was archived or is no longer available.
@@ -63,14 +63,14 @@ function InsightEvidence(props: {
         index={Math.min(index, Math.max(0, evidence.length - 1))}
         onSelect={setIndex}
         state={
-          state.status === "error"
-            ? "error"
-            : state.status === "ready" || state.status === "empty"
-              ? "ready"
-              : "loading"
+          state.status === 'error'
+            ? 'error'
+            : state.status === 'ready' || state.status === 'empty'
+              ? 'ready'
+              : 'loading'
         }
       />
-      {state.status === "error" ? (
+      {state.status === 'error' ? (
         <Button onClick={() => setRefresh((value) => value + 1)}>
           Retry evidence
         </Button>
@@ -127,7 +127,7 @@ export function SupportingInsights(props: {
   if (props.insights.length === 0) {
     return (
       <p className={styles.impact}>
-        {props.emptyMessage ?? "No supporting Insights are available."}
+        {props.emptyMessage ?? 'No supporting Insights are available.'}
       </p>
     );
   }

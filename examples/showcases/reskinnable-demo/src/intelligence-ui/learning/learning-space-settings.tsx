@@ -1,7 +1,6 @@
-import { useId, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
-import { CopyButton } from "../ui/data-display";
-import { Input, Textarea } from "../ui/forms";
+import { useId, useState, type FormEvent, type ReactNode } from 'react';
+import { CopyButton } from '../ui/data-display';
+import { Input, Textarea } from '../ui/forms';
 import {
   Card,
   CardContent,
@@ -9,14 +8,14 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "../ui/layout";
-import { Button } from "../ui/primitives";
+} from '../ui/layout';
+import { Button } from '../ui/primitives';
 import type {
   LearningContainer,
   UpdateLearningContainerInput,
-} from "./learning-api";
-import { SkillDelivery } from "./skill-delivery";
-import styles from "./learning-space-settings.module.css";
+} from './learning-api';
+import { SkillDelivery } from './skill-delivery';
+import styles from './learning-space-settings.module.css';
 
 export interface LearningSpaceSettingsProps {
   /** Optional full-width card below the grid, e.g. agent connection setup. */
@@ -41,11 +40,11 @@ export function LearningSpaceSettings(
   const id = useId();
   const [name, setName] = useState(props.container.name);
   const [promptContext, setPromptContext] = useState(
-    props.container.promptContext ?? "",
+    props.container.promptContext ?? '',
   );
   const [savedValues, setSavedValues] = useState({
     name: props.container.name,
-    promptContext: props.container.promptContext ?? "",
+    promptContext: props.container.promptContext ?? '',
   });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +73,7 @@ export function LearningSpaceSettings(
       setError(
         cause instanceof Error
           ? cause.message
-          : "Could not save the Learning Space settings.",
+          : 'Could not save the Learning Space settings.',
       );
     } finally {
       setPending(false);
@@ -150,15 +149,15 @@ export function LearningSpaceSettings(
           <CardFooter className={styles.cardFoot}>
             <span role="status">
               {saved
-                ? "Changes saved."
-                : "Changes apply to this Learning Space."}
+                ? 'Changes saved.'
+                : 'Changes apply to this Learning Space.'}
             </span>
             <Button
               disabled={pending || !dirty || !name.trim()}
               type="submit"
               variant="primary"
             >
-              {pending ? "Saving changes…" : "Save changes"}
+              {pending ? 'Saving changes…' : 'Save changes'}
             </Button>
           </CardFooter>
         </form>

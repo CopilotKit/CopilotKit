@@ -1,7 +1,6 @@
-import { Fragment } from "react";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from 'react';
 
-import styles from "./data-display.module.css";
+import styles from './data-display.module.css';
 
 export interface DescriptionListItem {
   readonly term: ReactNode;

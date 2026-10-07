@@ -69,7 +69,7 @@
   line-height: 1.5;
 }
 /* A retired revision stays readable but stops competing with current ones. */
-.row[data-status="retired"] .text strong {
+.row[data-status='retired'] .text strong {
   color: var(--muted-foreground);
 }
 

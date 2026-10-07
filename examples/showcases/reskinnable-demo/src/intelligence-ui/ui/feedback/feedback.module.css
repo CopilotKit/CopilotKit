@@ -11,18 +11,18 @@
   white-space: nowrap;
 }
 
-.badge[data-variant="neutral"] {
+.badge[data-variant='neutral'] {
   background: var(--cpki-color-muted, #eaf3f7);
   border-color: var(--cpki-color-border, #78919d);
   color: var(--cpki-color-foreground, #023047);
 }
 
-.badge[data-variant="success"] {
+.badge[data-variant='success'] {
   background: var(--cpki-color-success-muted, #e5f4ed);
   color: var(--success, var(--cpki-color-success, #1d6d4f));
 }
 
-.badge[data-variant="warning"] {
+.badge[data-variant='warning'] {
   background: var(--cpki-color-warning-muted, #fff4cf);
   /* Use the high-contrast warning foreground token, not the vivid warning
    * accent (`--cpki-color-warning` is bright orange and reads too low-contrast
@@ -30,17 +30,17 @@
   color: var(--cpki-color-warning-foreground, #6f4b00);
 }
 
-.badge[data-variant="danger"] {
+.badge[data-variant='danger'] {
   background: var(--cpki-color-danger-muted, #f9e7e3);
   color: var(--cpki-color-danger, #8f2f22);
 }
 
-.badge[data-variant="accent"] {
+.badge[data-variant='accent'] {
   background: var(--learning, var(--cpki-color-info-muted, #eef0ff));
   color: var(--learning-foreground, var(--cpki-color-accent, #4d59b3));
 }
 
-.badge[data-variant="outline"] {
+.badge[data-variant='outline'] {
   background: transparent;
   border-color: var(--cpki-color-border, #78919d);
   color: var(--cpki-color-muted-foreground, #4f6b7a);
@@ -49,13 +49,13 @@
 /* Fill-only chip on the navigation rail, e.g. the account trigger's plan. A
  * hovered rail row takes the chip's fill (`--sidebar-accent`), so inside a
  * hovered link or button the chip takes the rail fill instead. */
-.badge[data-variant="sidebar"] {
+.badge[data-variant='sidebar'] {
   border-width: 0;
   background: var(--sidebar-accent, var(--cpki-color-surface, #ffffff));
   color: var(--cpki-color-muted-foreground, #4f6b7a);
 }
 
-:is(a, button):hover .badge[data-variant="sidebar"] {
+:is(a, button):hover .badge[data-variant='sidebar'] {
   background: var(--sidebar, var(--cpki-color-surface-subtle, #f7f7f9));
 }
 
@@ -83,23 +83,23 @@
   padding: 0.875rem;
 }
 
-.alert[data-variant="info"],
-.statusMessage[data-variant="info"] {
+.alert[data-variant='info'],
+.statusMessage[data-variant='info'] {
   background: var(--cpki-color-info-muted, #f2f7f9);
 }
 
-.alert[data-variant="success"],
-.statusMessage[data-variant="success"] {
+.alert[data-variant='success'],
+.statusMessage[data-variant='success'] {
   background: var(--cpki-color-success-muted, #e5f4ed);
 }
 
-.alert[data-variant="warning"],
-.statusMessage[data-variant="warning"] {
+.alert[data-variant='warning'],
+.statusMessage[data-variant='warning'] {
   background: var(--cpki-color-warning-muted, #fff4cf);
 }
 
-.alert[data-variant="danger"],
-.statusMessage[data-variant="danger"] {
+.alert[data-variant='danger'],
+.statusMessage[data-variant='danger'] {
   background: var(--cpki-color-danger-muted, #f9e7e3);
   border-color: var(--cpki-color-danger-border, #b95c4c);
 }
@@ -195,7 +195,7 @@
     color-mix(in srgb, var(--cpki-color-surface, #ffffff) 70%, transparent),
     transparent
   );
-  content: "";
+  content: '';
   inset: 0;
   position: absolute;
   transform: translateX(-100%);
@@ -219,7 +219,7 @@
   gap: 0.625rem;
 }
 
-:root[data-cpki-design="workspace"] .badge {
+:root[data-cpki-design='workspace'] .badge {
   gap: 0.3125rem;
   min-block-size: 1.25rem;
   padding: 0.125rem 0.5rem;
@@ -228,15 +228,15 @@
   line-height: 1;
 }
 
-:root[data-cpki-design="workspace"] .badge[data-variant="neutral"] {
+:root[data-cpki-design='workspace'] .badge[data-variant='neutral'] {
   background: var(--secondary);
   border-color: transparent;
   color: var(--muted-foreground);
 }
 
 /* Compact tag beside dense copy (the rail's plan label): 18px, 9px type. */
-.badge[data-size="sm"],
-:root[data-cpki-design="workspace"] .badge[data-size="sm"] {
+.badge[data-size='sm'],
+:root[data-cpki-design='workspace'] .badge[data-size='sm'] {
   min-block-size: 1.125rem;
   padding: 0.125rem 0.375rem;
   border-radius: 4px;
@@ -244,17 +244,17 @@
   line-height: 1.4;
 }
 
-:root[data-cpki-design="workspace"] :is(.alert, .statusMessage) {
+:root[data-cpki-design='workspace'] :is(.alert, .statusMessage) {
   border-radius: var(--radius-control);
   font-size: 0.8125rem;
 }
 
-:root[data-cpki-design="workspace"] .emptyState {
+:root[data-cpki-design='workspace'] .emptyState {
   border-radius: var(--radius-surface);
   font-size: 0.8125rem;
 }
 
-:root[data-cpki-design="workspace"] .emptyState[data-variant="embedded"] {
+:root[data-cpki-design='workspace'] .emptyState[data-variant='embedded'] {
   align-items: start;
   background: transparent;
   border: 0;
@@ -264,20 +264,20 @@
   padding: 1rem 0;
 }
 
-:root[data-cpki-design="workspace"]
-  .emptyState[data-variant="embedded"]
+:root[data-cpki-design='workspace']
+  .emptyState[data-variant='embedded']
   .emptyContent {
   gap: 0.375rem;
   grid-column: 2;
 }
 
-:root[data-cpki-design="workspace"]
-  .emptyState[data-variant="embedded"]:not([data-has-icon])
+:root[data-cpki-design='workspace']
+  .emptyState[data-variant='embedded']:not([data-has-icon])
   .emptyContent {
   grid-column: 1 / -1;
 }
 
-:root[data-cpki-design="workspace"] .emptyState[data-variant="collection"] {
+:root[data-cpki-design='workspace'] .emptyState[data-variant='collection'] {
   align-content: center;
   gap: 0.5rem;
   justify-items: center;
@@ -286,24 +286,24 @@
   text-align: center;
 }
 
-:root[data-cpki-design="workspace"]
-  .emptyState[data-variant="collection"]
+:root[data-cpki-design='workspace']
+  .emptyState[data-variant='collection']
   .emptyContent {
   gap: 0.5rem;
   justify-items: center;
 }
 
-:root[data-cpki-design="workspace"]
-  .emptyState[data-variant="collection"]
+:root[data-cpki-design='workspace']
+  .emptyState[data-variant='collection']
   .emptyDescription {
   max-inline-size: 44ch;
 }
 
-:root[data-cpki-design="workspace"] .emptyState[data-variant] .emptyTitle {
+:root[data-cpki-design='workspace'] .emptyState[data-variant] .emptyTitle {
   font-size: 0.875rem;
 }
 
-:root[data-cpki-design="workspace"]
+:root[data-cpki-design='workspace']
   .emptyState[data-variant]
   .emptyDescription {
   font-size: 0.8125rem;
@@ -314,7 +314,7 @@
   display: inline-flex;
 }
 
-:root[data-cpki-design="workspace"] .emptyIcon {
+:root[data-cpki-design='workspace'] .emptyIcon {
   align-items: center;
   background: var(--cpki-color-lilac-subtle);
   border-radius: var(--radius-control);
@@ -324,7 +324,7 @@
   justify-content: center;
 }
 
-:root[data-cpki-design="workspace"] .emptyIcon svg {
+:root[data-cpki-design='workspace'] .emptyIcon svg {
   block-size: 1.125rem;
   inline-size: 1.125rem;
 }

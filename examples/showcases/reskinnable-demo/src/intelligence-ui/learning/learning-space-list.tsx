@@ -1,9 +1,9 @@
-import { Link } from "../shell/router";
-import { Badge } from "../ui/feedback";
-import { FormattedDateTime } from "../ui/datetime";
+import { Link } from '../shell/router';
+import { Badge } from '../ui/feedback';
+import { FormattedDateTime } from '../ui/datetime';
 
-import type { LearningContainer, LearningContainerStats } from "./learning-api";
-import styles from "./learning-directory.module.css";
+import type { LearningContainer, LearningContainerStats } from './learning-api';
+import styles from './learning-directory.module.css';
 
 /**
  * Identifies a listed space; IDs repeat across projects.
@@ -24,7 +24,7 @@ export function spaceKey(space: LearningContainer): string {
  */
 function unrecoverableRunsNote(count: number): string {
   return count === 1
-    ? "1 earlier run could not be recovered because its events are unavailable."
+    ? '1 earlier run could not be recovered because its events are unavailable.'
     : `${count.toLocaleString()} earlier runs could not be recovered because their events are unavailable.`;
 }
 
@@ -68,22 +68,22 @@ export function LearningSpaceList(props: {
                 </span>
                 {projectOf ? (
                   <span className={styles.project}>
-                    {projectOf(item)?.name ?? "—"}
+                    {projectOf(item)?.name ?? '—'}
                   </span>
                 ) : null}
                 <span>
-                  {progress?.threadCount ?? "—"}
-                  {progress?.threadCount === 1 ? " Thread" : " Threads"}
+                  {progress?.threadCount ?? '—'}
+                  {progress?.threadCount === 1 ? ' Thread' : ' Threads'}
                 </span>
                 <span>
                   {progress === undefined ? (
-                    "Evidence unknown"
+                    'Evidence unknown'
                   ) : progress.pendingThreadCount > 0 ? (
                     <Badge variant="accent">
                       {progress.pendingThreadCount} awaiting analysis
                     </Badge>
                   ) : (
-                    "Up to date"
+                    'Up to date'
                   )}
                 </span>
                 <span>
@@ -94,7 +94,7 @@ export function LearningSpaceList(props: {
                       variant="date"
                     />
                   ) : (
-                    "Never analyzed"
+                    'Never analyzed'
                   )}
                   {progress?.unrecoverableRunCount ? (
                     <small className={styles.history}>

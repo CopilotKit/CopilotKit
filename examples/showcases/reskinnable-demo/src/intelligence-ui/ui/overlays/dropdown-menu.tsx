@@ -1,8 +1,15 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
-import type { KeyboardEvent, ReactNode } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react';
 
-import { classNames } from "../class-names";
-import styles from "./dropdown-menu.module.css";
+import { classNames } from '../class-names';
+import styles from './dropdown-menu.module.css';
 
 export interface DropdownMenuItem {
   readonly id: string;
@@ -102,10 +109,10 @@ export function DropdownMenu({
       setOpen(false);
     };
 
-    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener('pointerdown', handlePointerDown);
 
     return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener('pointerdown', handlePointerDown);
     };
   }, [isOpen, setOpen]);
 
@@ -119,50 +126,50 @@ export function DropdownMenu({
   };
 
   const handleTriggerKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (event.key === "ArrowDown") {
+    if (event.key === 'ArrowDown') {
       event.preventDefault();
       setOpen(true, 0);
       return;
     }
 
-    if (event.key === "ArrowUp") {
+    if (event.key === 'ArrowUp') {
       event.preventDefault();
       setOpen(true, Math.max(items.length - 1, 0));
     }
   };
 
   const handleMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape") {
+    if (event.key === 'Escape') {
       event.stopPropagation();
       setOpen(false);
       return;
     }
 
-    if (event.key === "Home") {
+    if (event.key === 'Home') {
       event.preventDefault();
       setActiveIndex(0);
       return;
     }
 
-    if (event.key === "End") {
+    if (event.key === 'End') {
       event.preventDefault();
       setActiveIndex(Math.max(items.length - 1, 0));
       return;
     }
 
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       setActiveIndex((currentIndex) =>
         getNextIndex(
           currentIndex,
           items.length,
-          event.key === "ArrowDown" ? 1 : -1,
+          event.key === 'ArrowDown' ? 1 : -1,
         ),
       );
       return;
     }
 
-    if (event.key === "Enter" || event.key === " ") {
+    if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       const activeItem = items[activeIndex];
 
@@ -176,7 +183,7 @@ export function DropdownMenu({
     <div className={classNames(styles.root, className)} ref={rootRef}>
       <button
         aria-controls={isOpen ? menuId : undefined}
-        aria-expanded={isOpen ? "true" : "false"}
+        aria-expanded={isOpen ? 'true' : 'false'}
         aria-haspopup="menu"
         className={classNames(styles.trigger, triggerClassName)}
         onClick={() => setOpen(!isOpen)}
@@ -196,9 +203,9 @@ export function DropdownMenu({
         >
           {items.map((item, index) => (
             <button
-              aria-disabled={item.disabled ? "true" : undefined}
+              aria-disabled={item.disabled ? 'true' : undefined}
               className={styles.item}
-              data-destructive={item.destructive ? "true" : undefined}
+              data-destructive={item.destructive ? 'true' : undefined}
               key={item.id}
               onClick={() => selectItem(item)}
               ref={(element) => {

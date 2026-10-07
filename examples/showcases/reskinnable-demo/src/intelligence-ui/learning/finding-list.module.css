@@ -94,7 +94,7 @@
 }
 /* The title owns the row's click target without nesting the other actions. */
 .title::after {
-  content: "";
+  content: '';
   inset: 0;
   position: absolute;
   z-index: 1;

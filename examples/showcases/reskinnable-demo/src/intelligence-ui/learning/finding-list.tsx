@@ -1,8 +1,8 @@
-import type { ReactNode } from "react";
-import { Link } from "../shell/router";
-import { FormattedDateTime } from "../ui/datetime";
-import { ChevronRight, Layers, MessagesSquare } from "lucide-react";
-import styles from "./finding-list.module.css";
+import type { ReactNode } from 'react';
+import { Link } from '../shell/router';
+import { FormattedDateTime } from '../ui/datetime';
+import { ChevronRight, Layers, MessagesSquare } from 'lucide-react';
+import styles from './finding-list.module.css';
 
 /**
  * Renders the divider-row list shared by Learning Insights and Product Insights.
@@ -14,13 +14,13 @@ import styles from "./finding-list.module.css";
  * @returns The finding list.
  */
 export function FindingList(props: {
-  readonly "aria-label": string;
+  readonly 'aria-label': string;
   readonly bordered?: boolean;
   readonly children: ReactNode;
 }): React.JSX.Element {
   return (
     <ul
-      aria-label={props["aria-label"]}
+      aria-label={props['aria-label']}
       className={styles.list}
       data-bordered={props.bordered || undefined}
     >
@@ -142,7 +142,7 @@ export function FindingDate(props: {
  * @returns For example "1 cited thread" or "3 cited threads".
  */
 export function citedThreadsLabel(count: number): string {
-  return `${count} cited ${count === 1 ? "thread" : "threads"}`;
+  return `${count} cited ${count === 1 ? 'thread' : 'threads'}`;
 }
 
 /**
@@ -152,5 +152,5 @@ export function citedThreadsLabel(count: number): string {
  * @returns For example "1 reference" or "3 references".
  */
 export function referencesLabel(count: number): string {
-  return `${count} ${count === 1 ? "reference" : "references"}`;
+  return `${count} ${count === 1 ? 'reference' : 'references'}`;
 }

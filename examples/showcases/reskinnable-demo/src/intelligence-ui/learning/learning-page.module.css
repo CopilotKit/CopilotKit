@@ -136,7 +136,7 @@
 }
 /* An analysis in flight is not measuring progress toward the next one, so the
  * bar sweeps instead of reporting a fraction that cannot move. */
-.evidenceTrack[data-analyzing="true"] .evidenceFill {
+.evidenceTrack[data-analyzing='true'] .evidenceFill {
   animation: evidence-scan 1.6s var(--cpki-ease-standard) infinite;
   width: 34% !important;
 }
@@ -458,7 +458,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .evidenceTrack[data-analyzing="true"] .evidenceFill {
+  .evidenceTrack[data-analyzing='true'] .evidenceFill {
     animation: none;
   }
 }

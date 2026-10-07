@@ -1,34 +1,42 @@
 /* eslint-disable react-hooks/set-state-in-effect -- copied verbatim from the Intelligence web app, whose lint config does not enable the React Compiler rules. */
-import { WorkspaceLoading } from "../shell/workspace-loading";
-import { WorkspacePageHeader } from "../shell/workspace-page-header";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
-import { useNavigate, useSearchParams } from "../shell/router";
+import { WorkspaceLoading } from '../shell/workspace-loading';
+import { WorkspacePageHeader } from '../shell/workspace-page-header';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { useNavigate, useSearchParams } from '../shell/router';
 
-import { Button } from "../ui/primitives";
+import { Button } from '../ui/primitives';
 
-import { ContainerWorkspace } from "./container-workspace";
-import { LearningDirectory } from "./learning-directory";
-import { isLegacyUnsupportedContainerStats } from "./learning-api";
+import { ContainerWorkspace } from './container-workspace';
+import { LearningDirectory } from './learning-directory';
+import { isLegacyUnsupportedContainerStats } from './learning-api';
 import type {
   CreateLearningContainerInput,
   LearningApi,
   LearningContainer,
-} from "./learning-api";
-import type { ContainerProgress } from "./learning-container-state";
-import { CreateContainerDialog } from "./learning-dialogs";
-import { LearningMarkIcon } from "./learning-icons";
-import { LearningOnboardingEmptyState } from "./learning-onboarding-empty-state";
+} from './learning-api';
+import type { ContainerProgress } from './learning-container-state';
+import { CreateContainerDialog } from './learning-dialogs';
+import { LearningMarkIcon } from './learning-icons';
+import { LearningOnboardingEmptyState } from './learning-onboarding-empty-state';
 import {
   useLearningRefresh,
   useLearningRefreshSignal,
-} from "./learning-refresh-context";
-import { learningContainerRoute, learningRoute } from "./learning-routes";
-import type { LearningTabSegment } from "./learning-routes";
-import { useLearningRequest } from "./use-learning-request";
-import styles from "./learning-page.module.css";
-import { LocalEvaluationNotice } from "./local-evaluation-notice";
-import type { LocalEvaluationStatus } from "./local-evaluation-notice";
+} from './learning-refresh-context';
+import { learningContainerRoute, learningRoute } from './learning-routes';
+import type { LearningTabSegment } from './learning-routes';
+import { useLearningRequest } from './use-learning-request';
+import styles from './learning-page.module.css';
+import {
+  LocalEvaluationNotice,
+  type LocalEvaluationStatus,
+} from './local-evaluation-notice';
 
 interface LearningPageProps {
   readonly api: LearningApi;
@@ -47,7 +55,7 @@ interface LearningPageProps {
   readonly scheduleCard?: (
     manualAction?: ReactNode,
     renderReadiness?: (nextScheduledRun: ReactNode) => ReactNode,
-    presentation?: "summary" | "trigger" | "embedded" | "readiness",
+    presentation?: 'summary' | 'trigger' | 'embedded' | 'readiness',
   ) => ReactNode;
 }
 
@@ -82,12 +90,12 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
     [],
   );
   useEffect(() => {
-    if (searchParams.get("create") !== "1") return;
+    if (searchParams.get('create') !== '1') return;
     openCreate();
     setSearchParams(
       (previous) => {
         const next = new URLSearchParams(previous);
-        next.delete("create");
+        next.delete('create');
         return next;
       },
       { replace: true },
@@ -128,12 +136,12 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
   const statsState = useLearningRequest(loadStats, readSignal + statsRefresh);
 
   const containerPage =
-    containersState.status === "ready" || containersState.status === "empty"
+    containersState.status === 'ready' || containersState.status === 'empty'
       ? containersState.data
       : { containers: [], nextCursor: null };
   const listedContainers = containerPage.containers;
   const containersResolved =
-    containersState.status === "ready" || containersState.status === "empty";
+    containersState.status === 'ready' || containersState.status === 'empty';
 
   // A Container can be deep-linked from outside the bounded first page, so the
   // route id is resolved on its own rather than assumed missing.
@@ -151,7 +159,7 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
   );
   const requestedState = useLearningRequest(loadRequestedContainer, readSignal);
   const requestedContainer =
-    requestedState.status === "ready" ? requestedState.data : null;
+    requestedState.status === 'ready' ? requestedState.data : null;
 
   const containers =
     requestedContainer !== null &&
@@ -172,10 +180,10 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
   }, [onBreadcrumbLabelChange, selectedName]);
   const isRequestedLookupPending =
     loadRequestedContainer !== null &&
-    (requestedState.status === "idle" || requestedState.status === "loading");
+    (requestedState.status === 'idle' || requestedState.status === 'loading');
 
   const statsResult =
-    statsState.status === "ready" || statsState.status === "empty"
+    statsState.status === 'ready' || statsState.status === 'empty'
       ? statsState.data
       : null;
   const legacyStatsUnsupported =
@@ -189,9 +197,9 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
   // exact-Container fallback returned no row. Either way nothing is still
   // loading, so the copy must not say it is.
   const statsSettled =
-    statsState.status === "ready" || statsState.status === "empty";
+    statsState.status === 'ready' || statsState.status === 'empty';
   const progressUnavailableFor = (id: string): boolean =>
-    statsState.status === "error" ||
+    statsState.status === 'error' ||
     (statsSettled && !legacyStatsUnsupported && progressFor(id) === null);
 
   const hasNoContainers = containersResolved && containers.length === 0;
@@ -204,16 +212,16 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
   const isExistingDataLoading =
     hasNoContainers &&
     loadExistingData !== null &&
-    (existingDataState.status === "idle" ||
-      existingDataState.status === "loading");
+    (existingDataState.status === 'idle' ||
+      existingDataState.status === 'loading');
   const showOnboarding =
     hasNoContainers &&
     !isExistingDataLoading &&
-    existingDataState.status !== "error" &&
+    existingDataState.status !== 'error' &&
     (loadExistingData === null ||
-      ((existingDataState.status === "ready" ||
-        existingDataState.status === "empty") &&
-        !(existingDataState.status === "ready" && existingDataState.data)));
+      ((existingDataState.status === 'ready' ||
+        existingDataState.status === 'empty') &&
+        !(existingDataState.status === 'ready' && existingDataState.data)));
 
   const markChanged = useCallback((): void => {
     refresh();
@@ -232,7 +240,7 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
   );
   // The project schedule applies with or without a space, so every state
   // without one keeps it in the header.
-  const scheduleTrigger = props.scheduleCard?.(undefined, undefined, "trigger");
+  const scheduleTrigger = props.scheduleCard?.(undefined, undefined, 'trigger');
 
   return (
     <section
@@ -250,21 +258,21 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
         className="cpki-visually-hidden"
         role="status"
       >
-        {containersState.status === "loading"
-          ? "Loading Learning Spaces…"
+        {containersState.status === 'loading'
+          ? 'Loading Learning Spaces…'
           : isExistingDataLoading
-            ? "Checking for existing Automatic Learning data…"
+            ? 'Checking for existing Automatic Learning data…'
             : hasNoContainers
-              ? "No Learning Spaces yet."
-              : ""}
+              ? 'No Learning Spaces yet.'
+              : ''}
       </p>
 
-      {containersState.status === "loading" || isExistingDataLoading ? (
+      {containersState.status === 'loading' || isExistingDataLoading ? (
         <div className={styles.onboardingSlot}>
           <WorkspaceLoading />
         </div>
       ) : null}
-      {containersState.status === "error" ? (
+      {containersState.status === 'error' ? (
         <div className={styles.errorState}>
           <p role="alert">{containersState.message}</p>
           <Button
@@ -277,7 +285,7 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
         </div>
       ) : null}
 
-      {hasNoContainers && existingDataState.status === "error" ? (
+      {hasNoContainers && existingDataState.status === 'error' ? (
         <div className={styles.errorState}>
           <p role="alert">{existingDataState.message}</p>
           <Button
@@ -311,7 +319,7 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
       {containersResolved &&
       !showOnboarding &&
       !isExistingDataLoading &&
-      existingDataState.status !== "error" ? (
+      existingDataState.status !== 'error' ? (
         isRequestedLookupPending ? (
           <p className={styles.status} role="status">
             Loading the selected Learning Space…
@@ -328,7 +336,7 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
             schedule={scheduleTrigger}
             stats={stats}
             statsError={
-              statsState.status === "error" ? statsState.message : null
+              statsState.status === 'error' ? statsState.message : null
             }
           />
         ) : selectedContainer !== undefined ? (
@@ -360,7 +368,7 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
                 containerId === null
                   ? undefined
                   : {
-                      label: "Learning spaces",
+                      label: 'Learning spaces',
                       to: learningRoute(props.baseRoute),
                     }
               }
@@ -368,7 +376,7 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
               title="Automatic Learning"
               titleId="learning-landing-title"
             />
-            {requestedState.status === "error" ? (
+            {requestedState.status === 'error' ? (
               // The lookup failed, so we do not know whether this Container
               // exists. Saying it "was not found" would report a server or
               // network fault as a deletion, and the offer to create a new
@@ -399,13 +407,13 @@ export function LearningPage(props: LearningPageProps): React.JSX.Element {
                   </span>
                   <h2>
                     {containerId === null
-                      ? "Choose a Learning Space"
-                      : "That Learning Space was not found"}
+                      ? 'Choose a Learning Space'
+                      : 'That Learning Space was not found'}
                   </h2>
                   <p>
                     {containerId === null
-                      ? "Create a space to review its evidence, analyze new Threads, and manage its Skills."
-                      : "It may have been removed, or it belongs to another project. Choose another from Learning spaces."}
+                      ? 'Create a space to review its evidence, analyze new Threads, and manage its Skills.'
+                      : 'It may have been removed, or it belongs to another project. Choose another from Learning spaces.'}
                   </p>
                   <Button onClick={() => openCreate()}>
                     Create a new space

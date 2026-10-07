@@ -1,9 +1,9 @@
-import { CopyButton } from "../ui/data-display";
+import { CopyButton } from '../ui/data-display';
 
-import styles from "./learning-page.module.css";
+import styles from './learning-page.module.css';
 
 /** The command that adds a Learning model to a local evaluation stack. */
-export const LEARNING_SETUP_COMMAND = "copilotkit local setup";
+export const LEARNING_SETUP_COMMAND = 'copilotkit local setup';
 
 /**
  * Tells the evaluator how to connect a model: the command, what it asks for,

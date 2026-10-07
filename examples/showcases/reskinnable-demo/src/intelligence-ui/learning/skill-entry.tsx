@@ -1,7 +1,6 @@
-import { forwardRef } from "react";
-import type { ReactNode } from "react";
-import { ChevronRight, FileCode2 } from "lucide-react";
-import styles from "./skill-entry.module.css";
+import { forwardRef, type ReactNode } from 'react';
+import { ChevronRight, FileCode2 } from 'lucide-react';
+import styles from './skill-entry.module.css';
 
 /**
  * Renders the bordered card that holds Skill rows with dividers between them.
@@ -10,11 +9,11 @@ import styles from "./skill-entry.module.css";
  * @returns The Skill row list.
  */
 export function SkillEntryList(props: {
-  readonly "aria-label"?: string;
+  readonly 'aria-label'?: string;
   readonly children: ReactNode;
 }): React.JSX.Element {
   return (
-    <ul aria-label={props["aria-label"]} className={styles.list}>
+    <ul aria-label={props['aria-label']} className={styles.list}>
       {props.children}
     </ul>
   );

@@ -5,7 +5,7 @@
  */
 
 /* Tabs: the approved preview's line variant. */
-:root[data-cpki-design="workspace"] [data-slot="tabs-list"] {
+:root[data-cpki-design='workspace'] [data-slot='tabs-list'] {
   display: flex;
   align-items: stretch;
   gap: 1.5rem;
@@ -20,11 +20,11 @@
   scrollbar-width: none;
 }
 
-:root[data-cpki-design="workspace"] [data-slot="tabs-list"]::-webkit-scrollbar {
+:root[data-cpki-design='workspace'] [data-slot='tabs-list']::-webkit-scrollbar {
   display: none;
 }
 
-:root[data-cpki-design="workspace"] [data-slot="tabs-trigger"] {
+:root[data-cpki-design='workspace'] [data-slot='tabs-trigger'] {
   position: relative;
   display: inline-flex;
   flex: 0 0 auto;
@@ -48,58 +48,58 @@
   transition: color var(--motion-fast) var(--ease-out);
 }
 
-:root[data-cpki-design="workspace"] [data-slot="tabs-trigger"]::after {
+:root[data-cpki-design='workspace'] [data-slot='tabs-trigger']::after {
   position: absolute;
   inset-inline: 0;
   inset-block-end: 0;
   block-size: 2px;
   border-radius: 2px 2px 0 0;
   background: var(--foreground);
-  content: "";
+  content: '';
   opacity: 0;
   transition: opacity var(--motion-fast) var(--ease-out);
 }
 
-:root[data-cpki-design="workspace"] [data-slot="tabs-trigger"]:hover {
+:root[data-cpki-design='workspace'] [data-slot='tabs-trigger']:hover {
   background: transparent;
   color: var(--foreground);
 }
 
-:root[data-cpki-design="workspace"]
-  [data-slot="tabs-trigger"]:is(
-    [data-state="active"],
-    [aria-selected="true"],
-    [aria-current="page"]
+:root[data-cpki-design='workspace']
+  [data-slot='tabs-trigger']:is(
+    [data-state='active'],
+    [aria-selected='true'],
+    [aria-current='page']
   ) {
   background: transparent;
   box-shadow: none;
   color: var(--foreground);
 }
 
-:root[data-cpki-design="workspace"]
-  [data-slot="tabs-trigger"]:is(
-    [data-state="active"],
-    [aria-selected="true"],
-    [aria-current="page"]
+:root[data-cpki-design='workspace']
+  [data-slot='tabs-trigger']:is(
+    [data-state='active'],
+    [aria-selected='true'],
+    [aria-current='page']
   )::after {
   opacity: 1;
 }
 
-:root[data-cpki-design="workspace"] [data-slot="tabs-trigger"]:focus-visible {
+:root[data-cpki-design='workspace'] [data-slot='tabs-trigger']:focus-visible {
   border-radius: 4px;
   outline: 2px solid var(--ring);
   outline-offset: -2px;
 }
 
-:root[data-cpki-design="workspace"] [data-slot="tabs-trigger"]:disabled,
-:root[data-cpki-design="workspace"]
-  [data-slot="tabs-trigger"][aria-disabled="true"] {
+:root[data-cpki-design='workspace'] [data-slot='tabs-trigger']:disabled,
+:root[data-cpki-design='workspace']
+  [data-slot='tabs-trigger'][aria-disabled='true'] {
   cursor: not-allowed;
   opacity: 0.5;
 }
 
 /* Keyboard shortcut hint (shadcn Kbd). */
-:root[data-cpki-design="workspace"] [data-slot="kbd"] {
+:root[data-cpki-design='workspace'] [data-slot='kbd'] {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
@@ -121,7 +121,7 @@
  * the brand sans with tabular figures. Mono stays for code, commands, JSON,
  * coding-agent prompt text, and secrets — the same split the CopilotKit
  * website uses. */
-:root[data-cpki-design="workspace"] :is([data-slot="identifier"], kbd) {
+:root[data-cpki-design='workspace'] :is([data-slot='identifier'], kbd) {
   font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
 }
@@ -137,7 +137,7 @@
  * a mask would fade the chrome or the frame. Those rules live with DataTable
  * and Dialog. `:where()` keeps the mask rules at their own specificity.
  */
-:root[data-cpki-design="workspace"] {
+:root[data-cpki-design='workspace'] {
   --scroll-fade-size: 24px;
   --scroll-fade-top: linear-gradient(
     to bottom,
@@ -160,55 +160,55 @@
   );
 }
 
-:root[data-cpki-design="workspace"] {
+:root[data-cpki-design='workspace'] {
   --scroll-edge-shadow: oklch(0.2 0.02 285 / 0.1);
 }
 
-:root[data-cpki-design="workspace"][data-cpki-theme="dark"] {
+:root[data-cpki-design='workspace'][data-cpki-theme='dark'] {
   --scroll-edge-shadow: oklch(0 0 0 / 0.42);
 }
 
 @media (prefers-color-scheme: dark) {
-  :root[data-cpki-design="workspace"][data-cpki-theme="system"] {
+  :root[data-cpki-design='workspace'][data-cpki-theme='system'] {
     --scroll-edge-shadow: oklch(0 0 0 / 0.42);
   }
 }
 
-:where(:root[data-cpki-design="workspace"])
-  [data-slot="scroll-area"][data-scroll-top="true"]
-  > [data-slot="scroll-area-viewport"],
-:where(:root[data-cpki-design="workspace"])
-  [data-scroll-fade][data-scroll-top="true"],
-:where(:root[data-cpki-design="workspace"])
-  [data-scroll-edges][data-scroll-top="true"]
+:where(:root[data-cpki-design='workspace'])
+  [data-slot='scroll-area'][data-scroll-top='true']
+  > [data-slot='scroll-area-viewport'],
+:where(:root[data-cpki-design='workspace'])
+  [data-scroll-fade][data-scroll-top='true'],
+:where(:root[data-cpki-design='workspace'])
+  [data-scroll-edges][data-scroll-top='true']
   :is(.ag-body, .ag-grid-viewport) {
   mask-image: var(--scroll-fade-top);
 }
 
-:where(:root[data-cpki-design="workspace"])
-  [data-slot="scroll-area"][data-scroll-bottom="true"]
-  > [data-slot="scroll-area-viewport"],
-:where(:root[data-cpki-design="workspace"])
-  [data-scroll-fade][data-scroll-bottom="true"],
-:where(:root[data-cpki-design="workspace"])
-  [data-scroll-edges][data-scroll-bottom="true"]
+:where(:root[data-cpki-design='workspace'])
+  [data-slot='scroll-area'][data-scroll-bottom='true']
+  > [data-slot='scroll-area-viewport'],
+:where(:root[data-cpki-design='workspace'])
+  [data-scroll-fade][data-scroll-bottom='true'],
+:where(:root[data-cpki-design='workspace'])
+  [data-scroll-edges][data-scroll-bottom='true']
   :is(.ag-body, .ag-grid-viewport) {
   mask-image: var(--scroll-fade-bottom);
 }
 
-:where(:root[data-cpki-design="workspace"])
-  [data-slot="scroll-area"][data-scroll-top="true"][data-scroll-bottom="true"]
-  > [data-slot="scroll-area-viewport"],
-:where(:root[data-cpki-design="workspace"])
-  [data-scroll-fade][data-scroll-top="true"][data-scroll-bottom="true"],
-:where(:root[data-cpki-design="workspace"])
-  [data-scroll-edges][data-scroll-top="true"][data-scroll-bottom="true"]
+:where(:root[data-cpki-design='workspace'])
+  [data-slot='scroll-area'][data-scroll-top='true'][data-scroll-bottom='true']
+  > [data-slot='scroll-area-viewport'],
+:where(:root[data-cpki-design='workspace'])
+  [data-scroll-fade][data-scroll-top='true'][data-scroll-bottom='true'],
+:where(:root[data-cpki-design='workspace'])
+  [data-scroll-edges][data-scroll-top='true'][data-scroll-bottom='true']
   :is(.ag-body, .ag-grid-viewport) {
   mask-image: var(--scroll-fade-both);
 }
 
 /* Optional count beside a tab label. */
-:root[data-cpki-design="workspace"] [data-slot="tabs-count"] {
+:root[data-cpki-design='workspace'] [data-slot='tabs-count'] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -223,12 +223,12 @@
   font-weight: 500;
 }
 
-:root[data-cpki-design="workspace"]
-  [data-slot="tabs-trigger"]:is(
-    [data-state="active"],
-    [aria-selected="true"],
-    [aria-current="page"]
+:root[data-cpki-design='workspace']
+  [data-slot='tabs-trigger']:is(
+    [data-state='active'],
+    [aria-selected='true'],
+    [aria-current='page']
   )
-  [data-slot="tabs-count"] {
+  [data-slot='tabs-count'] {
   color: var(--foreground);
 }

@@ -1,8 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect -- copied verbatim from the Intelligence web app, whose lint config does not enable the React Compiler rules. */
-import { motion } from "motion/react";
-import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
-import { useMotionPreference } from "../ui";
+import { motion } from 'motion/react';
+import { type ReactNode, useEffect, useState } from 'react';
+import { useMotionPreference } from '../ui';
 
 export interface WorkspaceEntranceProps {
   readonly children: ReactNode;
@@ -36,7 +35,7 @@ export function useWorkspaceEntranceMotion(
     transition: reducedMotion
       ? { duration: 0, delay: 0 }
       : {
-          type: "spring" as const,
+          type: 'spring' as const,
           duration: 0.32,
           bounce: 0.18,
           delay: Math.min(Math.max(order, 0), 4) * 0.035,

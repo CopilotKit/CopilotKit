@@ -29,7 +29,7 @@
   display: inline-flex;
   gap: 7px;
 }
-.steps li[data-state="current"] {
+.steps li[data-state='current'] {
   color: var(--foreground);
   font-weight: 600;
 }
@@ -46,11 +46,11 @@
   justify-content: center;
   width: 20px;
 }
-.steps li[data-state="current"] .stepNumber {
+.steps li[data-state='current'] .stepNumber {
   background: var(--primary);
   color: var(--primary-foreground);
 }
-.steps li[data-state="complete"] .stepNumber {
+.steps li[data-state='complete'] .stepNumber {
   background: var(--learning);
   color: var(--learning-foreground);
 }
@@ -188,7 +188,7 @@
   flex-direction: column;
   min-height: 132px;
 }
-.tableRegion > [data-slot="table-viewport"] {
+.tableRegion > [data-slot='table-viewport'] {
   flex: 1 1 auto;
   min-height: 0;
 }
@@ -392,7 +392,7 @@
   margin: 8px 0 0;
 }
 /* Tool results are JSON payloads, the one place this dialog uses mono. */
-.message[data-role="tool"] p {
+.message[data-role='tool'] p {
   font-family: var(--cpki-font-mono);
   font-size: var(--text-caption);
   line-height: 1.7;
@@ -449,7 +449,7 @@
   margin-bottom: 24px;
 }
 @media (max-width: 1000px) {
-  .browse[data-preview="true"] {
+  .browse[data-preview='true'] {
     flex-direction: column;
   }
   .preview {
@@ -503,12 +503,12 @@
   display: none;
 }
 @media (max-width: 1000px) {
-  .browse[data-preview="true"] .preview {
+  .browse[data-preview='true'] .preview {
     flex: 1;
     min-height: 0;
     border-top: 0;
   }
-  .browse[data-preview="true"] .messages {
+  .browse[data-preview='true'] .messages {
     max-height: none;
   }
 }
@@ -636,10 +636,10 @@
   font-size: var(--text-caption);
 }
 
-.importDialog[data-size="lg"] {
+.importDialog[data-size='lg'] {
   width: min(1120px, 100%);
 }
-.compactDialog[data-size="lg"] {
+.compactDialog[data-size='lg'] {
   width: min(600px, 100%);
 }
 /* The shared header stays; the body is a flex column so only the Select body

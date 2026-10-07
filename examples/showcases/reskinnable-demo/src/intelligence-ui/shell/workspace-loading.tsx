@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
-import { motion } from "motion/react";
-import { useMotionPreference } from "../ui";
-import { Skeleton } from "../ui/feedback";
+import { useEffect, useState, type ReactNode } from 'react';
+import { motion } from 'motion/react';
+import { useMotionPreference } from '../ui';
+import { Skeleton } from '../ui/feedback';
 
 /**
  * Announces pending work immediately, but only paints a placeholder for slow
@@ -28,7 +27,7 @@ export function WorkspaceLoading({
     <div
       aria-hidden={label ? undefined : true}
       aria-label={label}
-      role={label ? "status" : undefined}
+      role={label ? 'status' : undefined}
     >
       {label ? <span className="cpki-visually-hidden">{label}</span> : null}
       {showPlaceholder ? (

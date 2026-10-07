@@ -1,8 +1,7 @@
-import { useRef } from "react";
-import type { KeyboardEvent, ReactNode } from "react";
+import { useRef, type KeyboardEvent, type ReactNode } from 'react';
 
-import { useScrollEdges } from "../layout/scroll-area";
-import styles from "./data-display.module.css";
+import { useScrollEdges } from '../layout/scroll-area';
+import styles from './data-display.module.css';
 
 export interface DataTableColumn<Row extends Record<string, unknown>> {
   readonly id: string;
@@ -16,7 +15,7 @@ export interface DataTableColumn<Row extends Record<string, unknown>> {
   readonly label?: string;
   readonly accessor?: keyof Row;
   readonly cell?: (row: Row) => ReactNode;
-  readonly align?: "start" | "center" | "end";
+  readonly align?: 'start' | 'center' | 'end';
 }
 
 export interface DataTableProps<Row extends Record<string, unknown>> {
@@ -35,20 +34,20 @@ export interface DataTableProps<Row extends Record<string, unknown>> {
    * `comfortable` gives resource lists with row actions (API keys, projects)
    * a fixed 40px header, 52px minimum rows, and a 36rem minimum width.
    */
-  readonly density?: "comfortable" | "default";
+  readonly density?: 'comfortable' | 'default';
   /** Layout hook for the scrolling frame; do not restyle cells from a page. */
   readonly className?: string;
 }
 
 /** Resolves the CSS class for a table cell alignment. */
 function getAlignmentClass(
-  align: DataTableColumn<Record<string, unknown>>["align"],
+  align: DataTableColumn<Record<string, unknown>>['align'],
 ): string {
-  if (align === "center") {
+  if (align === 'center') {
     return styles.alignCenter;
   }
 
-  if (align === "end") {
+  if (align === 'end') {
     return styles.alignEnd;
   }
 
@@ -94,7 +93,7 @@ function handleRowKeyDown<Row extends Record<string, unknown>>(
     return;
   }
 
-  if (event.key !== "Enter" && event.key !== " ") {
+  if (event.key !== 'Enter' && event.key !== ' ') {
     return;
   }
 
@@ -109,12 +108,12 @@ export function DataTable<Row extends Record<string, unknown>>({
   caption,
   captionHidden = false,
   ariaLabel,
-  emptyMessage = "No data available",
+  emptyMessage = 'No data available',
   rowKey,
   rowClassName,
   onRowClick,
   scrollRegionLabel,
-  density = "default",
+  density = 'default',
   className,
 }: DataTableProps<Row>): ReactNode {
   const tableLabel =
@@ -125,11 +124,11 @@ export function DataTable<Row extends Record<string, unknown>>({
   return (
     <div
       aria-label={scrollRegionLabel}
-      className={[styles.tableViewport, className].filter(Boolean).join(" ")}
+      className={[styles.tableViewport, className].filter(Boolean).join(' ')}
       data-density={density}
       data-slot="table-viewport"
       ref={viewportRef}
-      role={scrollRegionLabel ? "region" : undefined}
+      role={scrollRegionLabel ? 'region' : undefined}
       tabIndex={scrollRegionLabel ? 0 : undefined}
     >
       <table className={styles.table} aria-label={tableLabel}>
@@ -165,7 +164,7 @@ export function DataTable<Row extends Record<string, unknown>>({
               <tr
                 className={[styles.row, rowClassName?.(row, rowIndex)]
                   .filter(Boolean)
-                  .join(" ")}
+                  .join(' ')}
                 key={rowKey?.(row, rowIndex) ?? String(rowIndex)}
                 onClick={
                   onRowClick === undefined
@@ -184,7 +183,7 @@ export function DataTable<Row extends Record<string, unknown>>({
                     className={`${styles.cell} ${getAlignmentClass(column.align)}`}
                     data-label={
                       column.label ??
-                      (typeof column.header === "string"
+                      (typeof column.header === 'string'
                         ? column.header
                         : undefined)
                     }

@@ -1,15 +1,15 @@
-import type { HTMLAttributes, ReactNode } from "react";
-import { cx } from "../primitives/class-name";
-import styles from "./typography.module.css";
+import type { HTMLAttributes, ReactNode } from 'react';
+import { cx } from '../primitives/class-name';
+import styles from './typography.module.css';
 
 export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
-export type HeadingSize = "display" | "page" | "section" | "subsection";
-export type TextElement = "div" | "p" | "span";
-export type TextSize = "body" | "caption" | "lead" | "small";
-export type TextTone = "danger" | "default" | "muted";
-export type MonoTextElement = "code" | "p" | "span";
-export type MonoTextTone = "accent" | "default" | "muted";
-export type MonoTextTransform = "none" | "uppercase";
+export type HeadingSize = 'display' | 'page' | 'section' | 'subsection';
+export type TextElement = 'div' | 'p' | 'span';
+export type TextSize = 'body' | 'caption' | 'lead' | 'small';
+export type TextTone = 'danger' | 'default' | 'muted';
+export type MonoTextElement = 'code' | 'p' | 'span';
+export type MonoTextTone = 'accent' | 'default' | 'muted';
+export type MonoTextTransform = 'none' | 'uppercase';
 
 export interface HeadingProps extends HTMLAttributes<HTMLHeadingElement> {
   readonly children: ReactNode;
@@ -42,12 +42,12 @@ export function Heading({
   children,
   className,
   level = 2,
-  size = "section",
+  size = 'section',
   ...props
 }: HeadingProps): ReactNode {
   const headingProps = {
     className: cx(styles.heading, className),
-    "data-size": size,
+    'data-size': size,
     ...props,
   };
 
@@ -71,25 +71,25 @@ export function Heading({
  * Renders branded prose, helper, and caption text.
  */
 export function Text({
-  as = "p",
+  as = 'p',
   children,
   className,
-  size = "body",
-  tone = "default",
+  size = 'body',
+  tone = 'default',
   ...props
 }: TextProps): ReactNode {
   const textProps = {
     className: cx(styles.text, className),
-    "data-size": size,
-    "data-tone": tone,
+    'data-size': size,
+    'data-tone': tone,
     ...props,
   };
 
-  if (as === "span") {
+  if (as === 'span') {
     return <span {...textProps}>{children}</span>;
   }
 
-  if (as === "div") {
+  if (as === 'div') {
     return <div {...textProps}>{children}</div>;
   }
 
@@ -100,25 +100,25 @@ export function Text({
  * Renders short Spline Sans Mono details for labels, pills, and technical metadata.
  */
 export function MonoText({
-  as = "span",
+  as = 'span',
   children,
   className,
-  tone = "muted",
-  transform = "uppercase",
+  tone = 'muted',
+  transform = 'uppercase',
   ...props
 }: MonoTextProps): ReactNode {
   const monoProps = {
     className: cx(styles.monoText, className),
-    "data-tone": tone,
-    "data-transform": transform,
+    'data-tone': tone,
+    'data-transform': transform,
     ...props,
   };
 
-  if (as === "code") {
+  if (as === 'code') {
     return <code {...monoProps}>{children}</code>;
   }
 
-  if (as === "p") {
+  if (as === 'p') {
     return <p {...monoProps}>{children}</p>;
   }
 

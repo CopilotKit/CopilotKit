@@ -1,4 +1,4 @@
-import styles from "./local-evaluation-notice.module.css";
+import styles from './local-evaluation-notice.module.css';
 
 export interface LocalEvaluationStatus {
   readonly modelConfigured: boolean;
@@ -16,7 +16,7 @@ export function LocalEvaluationNotice(props: {
         <h2>Local evaluation expired</h2>
         <p>
           New licensed runs are blocked. Saved Threads and Learning results
-          remain available. Renew this installation with{" "}
+          remain available. Renew this installation with{' '}
           <code>copilotkit local renew</code>, then reload this page.
         </p>
       </section>
@@ -39,7 +39,7 @@ export function LocalEvaluationNotice(props: {
       <h2>No AI model connected</h2>
       <p>
         Automatic Learning uses a model from your own provider. No model or
-        model credentials are bundled. Connect one with{" "}
+        model credentials are bundled. Connect one with{' '}
         <code>copilotkit local setup</code>, then reload this page. Your saved
         data remains available.
       </p>

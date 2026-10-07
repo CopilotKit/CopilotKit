@@ -1,13 +1,13 @@
-import type { ComponentProps } from "react";
-import * as DropdownPrimitive from "@radix-ui/react-dropdown-menu";
-import { Circle } from "lucide-react";
-import { motion } from "motion/react";
+import type { ComponentProps } from 'react';
+import * as DropdownPrimitive from '@radix-ui/react-dropdown-menu';
+import { Circle } from 'lucide-react';
+import { motion } from 'motion/react';
 
-import { useMotionPreference } from "../motion-preference";
-import { useOverlayPortalContainer } from "./portal-container";
+import { useMotionPreference } from '../motion-preference';
+import { useOverlayPortalContainer } from './portal-container';
 
-import { classNames } from "../class-names";
-import styles from "./registry-dropdown-menu.module.css";
+import { classNames } from '../class-names';
+import styles from './registry-dropdown-menu.module.css';
 
 /** Generated shadcn DropdownMenu root, adapted to the repository's Radix package. */
 export function MenuRoot(
@@ -45,7 +45,7 @@ export function MenuContent({
         className={classNames(styles.content, className)}
         data-slot="dropdown-menu-content"
         initial={{ opacity: 0, y: reducedMotion ? 0 : -2 }}
-        transition={{ duration: reducedMotion ? 0 : 0.14, ease: "easeOut" }}
+        transition={{ duration: reducedMotion ? 0 : 0.14, ease: 'easeOut' }}
       >
         {children}
       </motion.div>

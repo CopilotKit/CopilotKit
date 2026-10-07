@@ -1,27 +1,27 @@
-import { ApiClientError } from "../api-client";
-import { useId, useRef, useState } from "react";
-import type { FormEvent, ReactNode, RefObject } from "react";
-import { Dialog } from "../ui/overlays";
-import { Input, Textarea } from "../ui/forms";
-import { Button } from "../ui/primitives";
-import { TriangleAlert } from "lucide-react";
+import { ApiClientError } from '../api-client';
+import { useId, useRef, useState } from 'react';
+import type { FormEvent, ReactNode, RefObject } from 'react';
+import { Dialog } from '../ui/overlays';
+import { Input, Textarea } from '../ui/forms';
+import { Button } from '../ui/primitives';
+import { TriangleAlert } from 'lucide-react';
 
 import type {
   CreateLearningContainerInput,
   LearningContainerStats,
-} from "./learning-api";
+} from './learning-api';
 import {
   containerState,
   learningTimestamp,
   readyThreadTarget,
-} from "./learning-container-state";
-import styles from "./learning-dialogs.module.css";
+} from './learning-container-state';
+import styles from './learning-dialogs.module.css';
 
 /** Lifecycle of one dialog submit, so pending and failed states cannot overlap. */
 type DialogSubmission =
-  | { readonly status: "idle" }
-  | { readonly status: "pending" }
-  | { readonly message: string; readonly status: "error" };
+  | { readonly status: 'idle' }
+  | { readonly status: 'pending' }
+  | { readonly message: string; readonly status: 'error' };
 
 /**
  * Turns a container name into a candidate stable id.
@@ -35,14 +35,14 @@ type DialogSubmission =
  * route to User Memories for the rest of its life, so it is refused at the
  * point of naming rather than created and then unreachable.
  */
-const routeReservedContainerIds: ReadonlySet<string> = new Set(["memories"]);
+const routeReservedContainerIds: ReadonlySet<string> = new Set(['memories']);
 
 function slugifyContainerId(value: string): string {
   return value
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9]+/gu, "-")
-    .replace(/^-+|-+$/gu, "");
+    .replace(/[^a-z0-9]+/gu, '-')
+    .replace(/^-+|-+$/gu, '');
 }
 
 /**
@@ -60,7 +60,7 @@ function submissionMessage(error: unknown, fallback: string): string {
 
 /** Copy for app-api's refusal to start a run on a local stack with no model. */
 export const LEARNING_MODEL_NOT_CONFIGURED_MESSAGE =
-  "No Learning model is configured for this installation. Run `copilotkit local setup` to add one.";
+  'No Learning model is configured for this installation. Run `copilotkit local setup` to add one.';
 
 /**
  * Reads a failed analysis start as reader-facing copy.
@@ -70,9 +70,9 @@ export const LEARNING_MODEL_NOT_CONFIGURED_MESSAGE =
  */
 function analysisStartMessage(error: unknown): string {
   return error instanceof ApiClientError &&
-    error.code === "LEARNING_MODEL_NOT_CONFIGURED"
+    error.code === 'LEARNING_MODEL_NOT_CONFIGURED'
     ? LEARNING_MODEL_NOT_CONFIGURED_MESSAGE
-    : submissionMessage(error, "Could not start the analysis.");
+    : submissionMessage(error, 'Could not start the analysis.');
 }
 
 /**
@@ -85,12 +85,12 @@ function analysisStartMessage(error: unknown): string {
  * @returns One short value for the summary cell.
  */
 function lastAnalysisValue(progress: LearningContainerStats | null): string {
-  if (progress === null) return "Unknown";
-  if (containerState(progress) === "analyzing") {
-    return "In progress";
+  if (progress === null) return 'Unknown';
+  if (containerState(progress) === 'analyzing') {
+    return 'In progress';
   }
   if (progress.lastSucceededAt === null) {
-    return "Never";
+    return 'Never';
   }
   return learningTimestamp(progress.lastSucceededAt);
 }
@@ -135,7 +135,7 @@ function LearningDialogFrame(
       footer={props.footer(formId)}
       initialFocusRef={props.initialFocusRef}
       returnFocusRef={props.returnFocusRef}
-      size={props.wide ? "lg" : "md"}
+      size={props.wide ? 'lg' : 'md'}
     >
       <form className={styles.dialogForm} id={formId} onSubmit={props.onSubmit}>
         {props.children}
@@ -204,14 +204,14 @@ function CreateContainerForm(
   const focusId = `${fieldId}-focus`;
   const focusHintId = `${focusId}-hint`;
   const nameRef = useRef<HTMLInputElement>(null);
-  const [name, setName] = useState("");
-  const [containerId, setContainerId] = useState("");
+  const [name, setName] = useState('');
+  const [containerId, setContainerId] = useState('');
   const [isContainerIdEdited, setIsContainerIdEdited] = useState(false);
-  const [promptContext, setPromptContext] = useState("");
+  const [promptContext, setPromptContext] = useState('');
   const [submission, setSubmission] = useState<DialogSubmission>({
-    status: "idle",
+    status: 'idle',
   });
-  const isPending = submission.status === "pending";
+  const isPending = submission.status === 'pending';
 
   const changeName = (value: string): void => {
     setName(value);
@@ -237,7 +237,7 @@ function CreateContainerForm(
     if (routeReservedContainerIds.has(trimmedId)) {
       setSubmission({
         message: `The space ID ${trimmedId} is reserved by a Learning URL. Choose another ID.`,
-        status: "error",
+        status: 'error',
       });
       return;
     }
@@ -245,12 +245,12 @@ function CreateContainerForm(
     if (props.reservedIds.includes(trimmedId)) {
       setSubmission({
         message: `The space ID ${trimmedId} is already in use. Choose another ID.`,
-        status: "error",
+        status: 'error',
       });
       return;
     }
 
-    setSubmission({ status: "pending" });
+    setSubmission({ status: 'pending' });
     try {
       await props.onCreate({
         id: trimmedId,
@@ -261,9 +261,9 @@ function CreateContainerForm(
       setSubmission({
         message: submissionMessage(
           error,
-          "Could not create the Learning Space.",
+          'Could not create the Learning Space.',
         ),
-        status: "error",
+        status: 'error',
       });
     }
   };
@@ -281,7 +281,7 @@ function CreateContainerForm(
             type="submit"
             variant="primary"
           >
-            {isPending ? "Creating space…" : "Create space"}
+            {isPending ? 'Creating space…' : 'Create space'}
           </Button>
         </>
       )}
@@ -336,7 +336,7 @@ function CreateContainerForm(
           Threads.
         </span>
       </div>
-      {submission.status === "error" ? (
+      {submission.status === 'error' ? (
         <p className={styles.dialogError} role="alert">
           {submission.message}
         </p>
@@ -394,30 +394,30 @@ function AnalyzeThreadsForm(props: AnalyzeThreadsFormProps): React.JSX.Element {
   const headingId = `${fieldId}-heading`;
   const confirmRef = useRef<HTMLButtonElement>(null);
   const [submission, setSubmission] = useState<DialogSubmission>({
-    status: "idle",
+    status: 'idle',
   });
-  const isPending = submission.status === "pending";
+  const isPending = submission.status === 'pending';
   const pendingThreadCount = props.progress?.pendingThreadCount ?? null;
   const hasLimitedEvidence =
     pendingThreadCount !== null && pendingThreadCount < readyThreadTarget;
-  const pendingThreadWord = pendingThreadCount === 1 ? "Thread" : "Threads";
+  const pendingThreadWord = pendingThreadCount === 1 ? 'Thread' : 'Threads';
 
   const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
-    setSubmission({ status: "pending" });
+    setSubmission({ status: 'pending' });
     try {
       await props.onConfirm();
     } catch (error: unknown) {
       setSubmission({
         message: analysisStartMessage(error),
-        status: "error",
+        status: 'error',
       });
     }
   };
 
   const confirmLabel = hasLimitedEvidence
-    ? "Analyze anyway"
-    : "Start manual run now";
+    ? 'Analyze anyway'
+    : 'Start manual run now';
 
   return (
     <LearningDialogFrame
@@ -433,7 +433,7 @@ function AnalyzeThreadsForm(props: AnalyzeThreadsFormProps): React.JSX.Element {
             type="submit"
             variant="primary"
           >
-            {isPending ? "Starting analysis…" : confirmLabel}
+            {isPending ? 'Starting analysis…' : confirmLabel}
           </Button>
         </>
       )}
@@ -448,11 +448,11 @@ function AnalyzeThreadsForm(props: AnalyzeThreadsFormProps): React.JSX.Element {
       <dl className={styles.runSummary}>
         <div>
           <dt>New {pendingThreadWord}</dt>
-          <dd>{pendingThreadCount?.toLocaleString() ?? "—"}</dd>
+          <dd>{pendingThreadCount?.toLocaleString() ?? '—'}</dd>
         </div>
         <div>
           <dt>Threads in space</dt>
-          <dd>{props.progress?.threadCount.toLocaleString() ?? "—"}</dd>
+          <dd>{props.progress?.threadCount.toLocaleString() ?? '—'}</dd>
         </div>
         <div>
           <dt>Last analysis</dt>
@@ -476,7 +476,7 @@ function AnalyzeThreadsForm(props: AnalyzeThreadsFormProps): React.JSX.Element {
           </div>
         </div>
       ) : null}
-      {submission.status === "error" ? (
+      {submission.status === 'error' ? (
         <p className={styles.dialogError} role="alert">
           {submission.message}
         </p>

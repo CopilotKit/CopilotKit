@@ -1,6 +1,6 @@
-import { createContext, useContext } from "react";
-import type { ReactElement, ReactNode } from "react";
-import { Tooltip } from "../ui/overlays";
+import { createContext, useContext } from 'react';
+import type { ReactElement, ReactNode } from 'react';
+import { Tooltip } from '../ui/overlays';
 
 /** True while the desktop rail shows icons only. */
 export const WorkspaceRailCollapsedContext = createContext(false);
@@ -22,7 +22,7 @@ export function useWorkspaceRailCollapsed(): boolean {
  * @returns The control, wrapped in a tooltip while the rail is collapsed.
  */
 export function WorkspaceRailTooltip(props: {
-  readonly children: ReactElement<{ readonly "aria-describedby"?: string }>;
+  readonly children: ReactElement<{ readonly 'aria-describedby'?: string }>;
   readonly content: ReactNode;
 }): React.JSX.Element {
   const collapsed = useWorkspaceRailCollapsed();

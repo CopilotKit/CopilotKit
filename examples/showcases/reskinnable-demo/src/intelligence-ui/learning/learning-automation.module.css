@@ -143,7 +143,7 @@
   border-radius: var(--cpki-radius-panel);
   background: var(--cpki-color-background);
 }
-.projectSchedule[data-presentation="embedded"] {
+.projectSchedule[data-presentation='embedded'] {
   background: transparent;
   border: 0;
   margin: 0;
@@ -216,7 +216,7 @@
 .scheduleControls > button {
   flex-shrink: 0;
 }
-.confirmationTabs > [role="tablist"] {
+.confirmationTabs > [role='tablist'] {
   display: none;
 }
 .scopeChoices {
@@ -325,7 +325,7 @@
   margin: 0 0 16px;
   padding: 10px 14px;
 }
-.pausedNotice > [data-slot="badge"] {
+.pausedNotice > [data-slot='badge'] {
   flex: 0 0 auto;
   margin-top: 2px;
 }

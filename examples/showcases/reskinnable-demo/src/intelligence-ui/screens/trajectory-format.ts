@@ -9,11 +9,7 @@ export const fmtTime = (ms: number): string => {
 };
 
 export const fmtDate = (ms: number): string =>
-  new Date(ms).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 export const fmtDur = (ms: number): string => {
   const s = Math.max(0, Math.round(ms / 1000));
@@ -21,15 +17,10 @@ export const fmtDur = (ms: number): string => {
 };
 
 export function outcomeText(outcome: TrajectoryOutcome): string {
-  if (outcome === "agent_failed_user_completed")
-    return "Agent failed · user completed";
+  if (outcome === "agent_failed_user_completed") return "Agent failed · user completed";
   if (outcome === "agent_succeeded") return "Agent succeeded";
   return "In progress";
 }
 
 export const surfaceName = (surface: string): string =>
-  surface === "chatgpt"
-    ? "ChatGPT"
-    : surface === "in_app"
-      ? "In-app agent"
-      : "Manual";
+  surface === "chatgpt" ? "ChatGPT" : surface === "in_app" ? "In-app agent" : "Manual";

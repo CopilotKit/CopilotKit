@@ -4,9 +4,9 @@
  * unchanged. The hosted adapter is left out; `../ledgerline-learning-api.ts`
  * implements `LearningApi` over this demo's /api/learning/v1 instead.
  */
-import { z } from "zod";
-import type { LearningThreadBindingApi } from "./learning-thread-binding-api";
-import type { LearningMembershipApi } from "./learning-membership-api";
+import { z } from 'zod';
+import type { LearningThreadBindingApi } from './learning-thread-binding-api';
+import type { LearningMembershipApi } from './learning-membership-api';
 
 /** Inlined from @cpki/app-api-contracts learning-automation.ts (same commit). */
 export const learningAutomationReadinessSchema = z.object({
@@ -43,13 +43,13 @@ const learningContainerPageSchema = z.object({
 });
 
 const learningRunStatusSchema = z.enum([
-  "queued",
-  "freezing",
-  "batching",
-  "reducing",
-  "finalizing",
-  "succeeded",
-  "failed",
+  'queued',
+  'freezing',
+  'batching',
+  'reducing',
+  'finalizing',
+  'succeeded',
+  'failed',
 ]);
 
 const learningContainerStatsSchema = z.object({
@@ -76,7 +76,7 @@ const evidenceReferenceSchema = z.object({
 const learningEvidenceMessageSchema = z.object({
   content: z.string(),
   id: z.string().min(1),
-  role: z.enum(["assistant", "tool", "user"]),
+  role: z.enum(['assistant', 'tool', 'user']),
 });
 
 const learningInsightEvidenceSchema = z.object({
@@ -87,7 +87,7 @@ const learningInsightEvidenceSchema = z.object({
   // False once the cited Thread has left the project, which is what stops the
   // drawer offering a link to a Thread that is no longer there.
   threadPresent: z.boolean(),
-  unavailable: z.enum(["snapshot-missing", "snapshot-unreadable"]).nullable(),
+  unavailable: z.enum(['snapshot-missing', 'snapshot-unreadable']).nullable(),
 });
 
 const learningInsightSchema = z.object({
@@ -117,7 +117,7 @@ const learningSkillSchema = z.object({
   skillMd: z.string().min(1),
   sourceInsightId: z.string().uuid(),
   supportingInsights: z.array(supportingInsightSchema).optional(),
-  status: z.enum(["published", "retired"]),
+  status: z.enum(['published', 'retired']),
   updatedAt: z.string(),
 });
 
@@ -135,7 +135,7 @@ const learningRunSchema = z.object({
   projectId: z.number().int().positive(),
   startedAt: z.string().nullable(),
   status: learningRunStatusSchema,
-  triggerSource: z.enum(["manual", "automatic"]).default("manual"),
+  triggerSource: z.enum(['manual', 'automatic']).default('manual'),
   updatedAt: z.string(),
 });
 
@@ -155,14 +155,14 @@ const learningCandidateSchema = z.object({
   createdAt: z.string(),
   description: z.string().min(1),
   id: z.string().uuid(),
-  operation: z.enum(["add", "update", "remove"]),
+  operation: z.enum(['add', 'update', 'remove']),
   publishedRegistryRevision: z.number().int().positive().nullable(),
   publishedSkillId: z.string().uuid().nullable(),
   reason: z.string().min(1),
   registryBaseRevision: z.number().int().nonnegative(),
   reviewedAt: z.string().nullable(),
   runId: z.string().uuid(),
-  status: z.enum(["pending_review", "approved", "rejected"]),
+  status: z.enum(['pending_review', 'approved', 'rejected']),
   subjectSha256: z.string().regex(/^[a-f0-9]{64}$/u),
   targetSkillId: z.string().uuid().nullable(),
   targetSkillRevision: z.number().int().positive().nullable(),
@@ -178,7 +178,7 @@ const learningCandidateReviewSchema = z.object({
   candidateId: z.string().uuid(),
   publishedRegistryRevision: z.number().int().positive().nullable(),
   publishedSkillId: z.string().uuid().nullable(),
-  status: z.enum(["approved", "rejected"]),
+  status: z.enum(['approved', 'rejected']),
 });
 
 export type LearningContainer = z.infer<typeof learningContainerSchema>;
@@ -189,12 +189,12 @@ export type LearningContainerStats = z.infer<
 
 /** Marker returned when an older app-api has no Container stats route. */
 export interface LegacyUnsupportedContainerStats {
-  readonly status: "legacy-unsupported";
+  readonly status: 'legacy-unsupported';
 }
 
 /** Singleton result for an app-api version that predates Container stats. */
 export const LEGACY_UNSUPPORTED_CONTAINER_STATS: LegacyUnsupportedContainerStats =
-  { status: "legacy-unsupported" };
+  { status: 'legacy-unsupported' };
 
 /** Container stats rows, or an explicit marker for an older app-api. */
 export type LearningContainerStatsResult =

@@ -1,29 +1,28 @@
 /* eslint-disable react-hooks/set-state-in-effect -- copied verbatim from the Intelligence web app, whose lint config does not enable the React Compiler rules. */
-import { motion } from "motion/react";
-import { useWorkspaceEntranceMotion } from "../shell/workspace-entrance";
-import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
-import { Link } from "../shell/router";
-import { ArrowRight, Layers, Plus } from "lucide-react";
-import { CollectionPagination } from "../ui/data-display";
-import { EmptyState } from "../ui/feedback";
-import { MenuRadioGroup, MenuRadioItem } from "../ui/overlays";
-import { Button } from "../ui/primitives";
+import { motion } from 'motion/react';
+import { useWorkspaceEntranceMotion } from '../shell/workspace-entrance';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Link } from '../shell/router';
+import { ArrowRight, Layers, Plus } from 'lucide-react';
+import { CollectionPagination } from '../ui/data-display';
+import { EmptyState } from '../ui/feedback';
+import { MenuRadioGroup, MenuRadioItem } from '../ui/overlays';
+import { Button } from '../ui/primitives';
 
-import { useCollectionPage } from "../shell/workspace-collection-page";
-import { WorkspaceCollectionToolbar } from "../shell/workspace-collection-toolbar";
-import { WorkspacePageHeader } from "../shell/workspace-page-header";
-import { LearningNotice } from "./learning-notice";
-import { LearningSpaceList, spaceKey } from "./learning-space-list";
+import { useCollectionPage } from '../shell/workspace-collection-page';
+import { WorkspaceCollectionToolbar } from '../shell/workspace-collection-toolbar';
+import { WorkspacePageHeader } from '../shell/workspace-page-header';
+import { LearningNotice } from './learning-notice';
+import { LearningSpaceList, spaceKey } from './learning-space-list';
 import type {
   LearningApi,
   LearningContainer,
   LearningContainerPage,
   LearningContainerStats,
-} from "./learning-api";
-import { containerState } from "./learning-container-state";
-import { learningContainerRoute } from "./learning-routes";
-import styles from "./learning-directory.module.css";
+} from './learning-api';
+import { containerState } from './learning-container-state';
+import { learningContainerRoute } from './learning-routes';
+import styles from './learning-directory.module.css';
 
 /**
  * Lists spaces from several projects (the All projects scope). Space IDs are
@@ -102,9 +101,9 @@ export function LearningDirectory(
 ): React.JSX.Element {
   const entrance = useWorkspaceEntranceMotion(2);
   const toolbarEntrance = useWorkspaceEntranceMotion(1);
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState("all");
-  const [sort, setSort] = useState("recent");
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [sort, setSort] = useState('recent');
   const [extra, setExtra] = useState<readonly LearningContainer[]>([]);
   const [cursor, setCursor] = useState(props.initialPage.nextCursor);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -139,14 +138,14 @@ export function LearningDirectory(
     learningContainerRoute(
       scope?.projectOf(item)?.baseRoute ?? props.baseRoute,
       item.id,
-      containerState(statsOf(item) ?? null) === "analyzing"
-        ? "analysis-results"
-        : "insights",
+      containerState(statsOf(item) ?? null) === 'analyzing'
+        ? 'analysis-results'
+        : 'insights',
     );
   const visible = all
     .filter((item) => {
       if (scope?.matches && !scope.matches(item)) return false;
-      const projectName = scope?.projectOf(item)?.name ?? "";
+      const projectName = scope?.projectOf(item)?.name ?? '';
       if (
         !`${item.name} ${projectName}`
           .toLowerCase()
@@ -155,13 +154,13 @@ export function LearningDirectory(
         return false;
       const pending = statsOf(item)?.pendingThreadCount;
       return (
-        filter === "all" ||
+        filter === 'all' ||
         (pending !== undefined &&
-          (filter === "awaiting" ? pending > 0 : pending === 0))
+          (filter === 'awaiting' ? pending > 0 : pending === 0))
       );
     })
     .sort((left, right) =>
-      sort === "name"
+      sort === 'name'
         ? left.name.localeCompare(right.name)
         : right.updatedAt.localeCompare(left.updatedAt) ||
           left.name.localeCompare(right.name),
@@ -203,7 +202,7 @@ export function LearningDirectory(
       );
       if (controller.signal.aborted) return;
       if (next.nextCursor !== null && next.nextCursor === cursor)
-        throw new Error("The next page repeated its cursor.");
+        throw new Error('The next page repeated its cursor.');
       setExtra((current) => [...current, ...next.containers]);
       setCursor(next.nextCursor);
     } catch (error) {
@@ -211,7 +210,7 @@ export function LearningDirectory(
         setMoreError(
           error instanceof Error
             ? error.message
-            : "More Learning Spaces could not be loaded.",
+            : 'More Learning Spaces could not be loaded.',
         );
     } finally {
       if (!controller.signal.aborted) setLoadingMore(false);
@@ -265,7 +264,7 @@ export function LearningDirectory(
             className={styles.nextStep}
             description={readyDescription(
               statsOf(readySpace)?.pendingThreadCount ?? 0,
-              `${readySpace.name}${readyProject ? ` (${readyProject.name})` : ""}`,
+              `${readySpace.name}${readyProject ? ` (${readyProject.name})` : ''}`,
             )}
             headingLevel={2}
             title="Find what your agent can do better"
@@ -316,8 +315,8 @@ export function LearningDirectory(
       </div>
       <motion.div
         {...entrance}
-        className={`${styles.results} ${visible.length === 0 ? styles.resultsEmpty : ""}`}
-        data-columns={scope ? "project" : undefined}
+        className={`${styles.results} ${visible.length === 0 ? styles.resultsEmpty : ''}`}
+        data-columns={scope ? 'project' : undefined}
       >
         {visible.length > 0 ? (
           <LearningSpaceList
@@ -331,8 +330,8 @@ export function LearningDirectory(
             action={
               <Button
                 onClick={() => {
-                  setQuery("");
-                  setFilter("all");
+                  setQuery('');
+                  setFilter('all');
                   scope?.onClearFilters?.();
                   resetPage();
                   searchRef.current?.focus();
@@ -344,8 +343,8 @@ export function LearningDirectory(
             }
             description={
               scope
-                ? "Try another name, or change the status or project filter."
-                : "Try another name or change the status filter."
+                ? 'Try another name, or change the status or project filter.'
+                : 'Try another name or change the status filter.'
             }
             headingLevel={3}
             icon={<Layers />}
@@ -366,19 +365,19 @@ export function LearningDirectory(
       ) : null}
       {moreError ? (
         <p role="alert">
-          {moreError}{" "}
+          {moreError}{' '}
           <Button onClick={loadMore} size="sm" variant="outline">
             Retry
           </Button>
         </p>
       ) : cursor !== null ? (
         <Button disabled={loadingMore} onClick={loadMore} variant="outline">
-          {loadingMore ? "Loading more…" : "Load more Learning Spaces"}
+          {loadingMore ? 'Loading more…' : 'Load more Learning Spaces'}
         </Button>
       ) : null}
       <p className="cpki-visually-hidden" role="status">
         Showing {visible.length} loaded Learning Spaces
-        {cursor !== null ? "; more may be available" : ""}.
+        {cursor !== null ? '; more may be available' : ''}.
       </p>
     </section>
   );

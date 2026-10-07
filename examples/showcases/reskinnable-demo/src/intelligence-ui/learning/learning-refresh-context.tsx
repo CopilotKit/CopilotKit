@@ -4,8 +4,8 @@ import {
   useContext,
   useMemo,
   useState,
-} from "react";
-import type { ReactNode } from "react";
+} from 'react';
+import type { ReactNode } from 'react';
 
 /**
  * Shared invalidation counter for the Learning surfaces.

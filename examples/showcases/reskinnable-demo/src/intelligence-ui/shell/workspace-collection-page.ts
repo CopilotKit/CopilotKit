@@ -1,4 +1,4 @@
-import { useLocation, useSearchParams } from "./router";
+import { useLocation, useSearchParams } from './router';
 
 /** The URL-backed page of a collection paged in the browser. */
 export interface CollectionPage {
@@ -27,11 +27,11 @@ export function useCollectionPage(
 ): CollectionPage {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const requested = Number(searchParams.get("page") ?? "1");
+  const requested = Number(searchParams.get('page') ?? '1');
   const withPage = (page: number): URLSearchParams => {
     const params = new URLSearchParams(searchParams);
-    if (page <= 1) params.delete("page");
-    else params.set("page", String(page));
+    if (page <= 1) params.delete('page');
+    else params.set('page', String(page));
     return params;
   };
   return {
@@ -42,7 +42,7 @@ export function useCollectionPage(
     },
     hrefForPage: (page) => {
       const params = withPage(page);
-      return `${location.pathname}${params.size ? `?${params}` : ""}${location.hash}`;
+      return `${location.pathname}${params.size ? `?${params}` : ''}${location.hash}`;
     },
     page: Math.min(
       Math.max(1, Math.ceil(total / pageSize)),

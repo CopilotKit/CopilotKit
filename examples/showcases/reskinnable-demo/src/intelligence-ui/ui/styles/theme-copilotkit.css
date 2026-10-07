@@ -1,6 +1,6 @@
 :root,
-[data-cpki-theme="light"],
-[data-cpki-theme="system"] {
+[data-cpki-theme='light'],
+[data-cpki-theme='system'] {
   color-scheme: light;
 
   --imperial-blue: #757cf2;
@@ -78,7 +78,7 @@
   --cpki-chart-series-6: var(--cpki-brand-eerie-black);
 }
 
-[data-cpki-theme="dark"] {
+[data-cpki-theme='dark'] {
   color-scheme: dark;
 
   --imperial-blue: #757cf2;
@@ -157,8 +157,8 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-cpki-theme="light"]),
-  [data-cpki-theme="system"] {
+  :root:not([data-cpki-theme='light']),
+  [data-cpki-theme='system'] {
     color-scheme: dark;
 
     --cpki-brand-gradient-glass:

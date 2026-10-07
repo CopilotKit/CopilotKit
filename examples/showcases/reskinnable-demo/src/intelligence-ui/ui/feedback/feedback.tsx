@@ -1,17 +1,16 @@
-import { useId } from "react";
-import type { CSSProperties, ReactNode } from "react";
-import { cx } from "../primitives/class-name";
-import styles from "./feedback.module.css";
+import { useId, type CSSProperties, type ReactNode } from 'react';
+import { cx } from '../primitives/class-name';
+import styles from './feedback.module.css';
 
-export type FeedbackVariant = "danger" | "info" | "success" | "warning";
+export type FeedbackVariant = 'danger' | 'info' | 'success' | 'warning';
 export type BadgeVariant =
-  | "accent"
-  | "danger"
-  | "neutral"
-  | "outline"
-  | "sidebar"
-  | "success"
-  | "warning";
+  | 'accent'
+  | 'danger'
+  | 'neutral'
+  | 'outline'
+  | 'sidebar'
+  | 'success'
+  | 'warning';
 
 export interface BadgeProps {
   readonly children: ReactNode;
@@ -19,7 +18,7 @@ export interface BadgeProps {
   /** Leading status dot for lifecycle/health states; omit for categories. */
   readonly dot?: boolean;
   /** `sm` is the compact tag for dense rows such as the account trigger. */
-  readonly size?: "md" | "sm";
+  readonly size?: 'md' | 'sm';
   readonly variant?: BadgeVariant;
 }
 
@@ -43,7 +42,7 @@ export interface SpinnerProps {
 }
 
 export interface LoadingPageProps {
-  readonly as?: "div" | "main" | "section";
+  readonly as?: 'div' | 'main' | 'section';
   readonly className?: string;
   readonly label: ReactNode;
 }
@@ -63,7 +62,7 @@ export interface EmptyStateProps {
   readonly icon?: ReactNode;
   readonly title: ReactNode;
   /** Workspace-only layouts. The default keeps legacy consumers unchanged. */
-  readonly variant?: "embedded" | "collection";
+  readonly variant?: 'embedded' | 'collection';
 }
 
 /**
@@ -73,8 +72,8 @@ export function Badge({
   children,
   className,
   dot = false,
-  size = "md",
-  variant = "neutral",
+  size = 'md',
+  variant = 'neutral',
 }: BadgeProps): ReactNode {
   return (
     <span
@@ -96,10 +95,10 @@ export function Alert({
   children,
   className,
   title,
-  variant = "info",
+  variant = 'info',
 }: AlertProps): ReactNode {
   const titleId = useId();
-  const role = variant === "danger" ? "alert" : "status";
+  const role = variant === 'danger' ? 'alert' : 'status';
 
   return (
     <div
@@ -123,10 +122,10 @@ export function StatusMessage({
   children,
   className,
   title,
-  variant = "info",
+  variant = 'info',
 }: StatusMessageProps): ReactNode {
   const titleId = useId();
-  const role = variant === "danger" ? "alert" : "status";
+  const role = variant === 'danger' ? 'alert' : 'status';
 
   return (
     <div
@@ -171,7 +170,7 @@ export function Spinner({ className, label }: SpinnerProps): ReactNode {
  * Renders a full-surface loading bridge with centered progress and concise text.
  */
 export function LoadingPage({
-  as: Component = "main",
+  as: Component = 'main',
   className,
   label,
 }: LoadingPageProps): ReactNode {
@@ -241,7 +240,7 @@ export function EmptyState({
     <section
       aria-labelledby={titleId}
       className={cx(styles.emptyState, className)}
-      data-has-icon={icon ? "true" : undefined}
+      data-has-icon={icon ? 'true' : undefined}
       data-variant={variant}
     >
       {icon ? (

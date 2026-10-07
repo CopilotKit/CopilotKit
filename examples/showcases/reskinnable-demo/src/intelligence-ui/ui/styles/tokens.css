@@ -11,10 +11,10 @@
   --cpki-color-lilac-muted: #bec2ff33;
   --cpki-color-lilac-subtle: #bec2ff1a;
   --cpki-font-sans:
-    "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif;
+    'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --cpki-font-mono:
-    "Spline Sans Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo,
+    'Spline Sans Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo,
     monospace;
 
   --cpki-font-size-0: 0.75rem;

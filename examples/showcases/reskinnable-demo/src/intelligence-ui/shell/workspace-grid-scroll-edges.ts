@@ -1,5 +1,4 @@
-import { useLayoutEffect } from "react";
-import type { RefObject } from "react";
+import { useLayoutEffect, type RefObject } from 'react';
 
 /**
  * Mirror an AG Grid body's hidden scroll edges onto its card.
@@ -23,8 +22,8 @@ export function useGridScrollEdges(
     const update = (): void => {
       frame = 0;
       if (!viewport) {
-        card.dataset.scrollTop = "false";
-        card.dataset.scrollBottom = "false";
+        card.dataset.scrollTop = 'false';
+        card.dataset.scrollBottom = 'false';
         return;
       }
       card.dataset.scrollTop = String(viewport.scrollTop > 1);
@@ -37,31 +36,31 @@ export function useGridScrollEdges(
     };
     const attach = (): void => {
       const next =
-        card.querySelector<HTMLElement>(".ag-body-vertical-scroll-viewport") ??
-        card.querySelector<HTMLElement>(".ag-body-viewport");
+        card.querySelector<HTMLElement>('.ag-body-vertical-scroll-viewport') ??
+        card.querySelector<HTMLElement>('.ag-body-viewport');
       if (next !== viewport) {
-        viewport?.removeEventListener("scroll", schedule);
+        viewport?.removeEventListener('scroll', schedule);
         viewport = next;
-        viewport?.addEventListener("scroll", schedule, { passive: true });
+        viewport?.addEventListener('scroll', schedule, { passive: true });
       }
       schedule();
     };
 
     attach();
     const mutations =
-      typeof MutationObserver === "undefined"
+      typeof MutationObserver === 'undefined'
         ? null
         : new MutationObserver(attach);
     mutations?.observe(card, { childList: true, subtree: true });
     const resize =
-      typeof ResizeObserver === "undefined"
+      typeof ResizeObserver === 'undefined'
         ? null
         : new ResizeObserver(schedule);
     resize?.observe(card);
 
     return () => {
       if (frame !== 0) cancelAnimationFrame(frame);
-      viewport?.removeEventListener("scroll", schedule);
+      viewport?.removeEventListener('scroll', schedule);
       mutations?.disconnect();
       resize?.disconnect();
     };

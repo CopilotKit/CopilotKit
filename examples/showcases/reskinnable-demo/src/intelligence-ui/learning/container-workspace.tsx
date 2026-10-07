@@ -1,57 +1,57 @@
 /* eslint-disable react/no-unescaped-entities, react-hooks/refs -- copied verbatim from the Intelligence web app, whose lint config does not enable the React Compiler rules. */
-import { ThreadImportEntry } from "./thread-import-entry";
-import importStyles from "./learning-thread-binding.module.css";
-import { LearningThreadBinding } from "./learning-thread-binding";
-import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "../shell/router";
-import { MoreHorizontal } from "lucide-react";
-import { motion } from "motion/react";
-import { useWorkspaceEntranceMotion } from "../shell/workspace-entrance";
-import { WorkspacePageHeader } from "../shell/workspace-page-header";
+import { ThreadImportEntry } from './thread-import-entry';
+import importStyles from './learning-thread-binding.module.css';
+import { LearningThreadBinding } from './learning-thread-binding';
+import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from '../shell/router';
+import { MoreHorizontal } from 'lucide-react';
+import { motion } from 'motion/react';
+import { useWorkspaceEntranceMotion } from '../shell/workspace-entrance';
+import { WorkspacePageHeader } from '../shell/workspace-page-header';
 
-import { Button } from "../ui/primitives";
+import { Button } from '../ui/primitives';
 import {
   MenuContent,
   MenuItem,
   MenuRoot,
   MenuSeparator,
   MenuTrigger,
-} from "../ui/overlays";
+} from '../ui/overlays';
 
-import { CandidatesList } from "./candidates-list";
-import { ContainerConnectCard } from "./container-connect-card";
-import { InsightsList } from "./insights-list";
+import { CandidatesList } from './candidates-list';
+import { ContainerConnectCard } from './container-connect-card';
+import { InsightsList } from './insights-list';
 import {
   canAnalyze,
   containerState,
   isActiveRunStatus,
   learningTimestampWithZone,
-} from "./learning-container-state";
-import type { ContainerProgress } from "./learning-container-state";
-import { AnalyzeThreadsDialog } from "./learning-dialogs";
-import { InsightDrawer, SkillDrawer } from "./learning-drawers";
-import { PlayIcon } from "./learning-icons";
+} from './learning-container-state';
+import type { ContainerProgress } from './learning-container-state';
+import { AnalyzeThreadsDialog } from './learning-dialogs';
+import { InsightDrawer, SkillDrawer } from './learning-drawers';
+import { PlayIcon } from './learning-icons';
 import type {
   LearningApi,
   LearningContainer,
   LearningInsight,
   LearningInsightEvidence,
   LearningSkill,
-} from "./learning-api";
-import { learningContainerRoute } from "./learning-routes";
-import type { LearningTabSegment } from "./learning-routes";
-import { AnalysisResultsList } from "./runs-list";
-import { LatestAnalysis } from "./latest-analysis";
-import { SkillsList } from "./skills-list";
-import { LearningSpaceSettings } from "./learning-space-settings";
-import { LearningSpaceTabs } from "./learning-space-tabs";
-import { AutomaticLearning } from "./automatic-learning";
-import { useLearningRequest } from "./use-learning-request";
-import { learningNoticeStyles } from "./learning-notice";
-import styles from "./learning-page.module.css";
-import type { LocalEvaluationStatus } from "./local-evaluation-notice";
-import { LearningModelMissingHint } from "./learning-model-missing";
+} from './learning-api';
+import { learningContainerRoute } from './learning-routes';
+import type { LearningTabSegment } from './learning-routes';
+import { AnalysisResultsList } from './runs-list';
+import { LatestAnalysis } from './latest-analysis';
+import { SkillsList } from './skills-list';
+import { LearningSpaceSettings } from './learning-space-settings';
+import { LearningSpaceTabs } from './learning-space-tabs';
+import { AutomaticLearning } from './automatic-learning';
+import { useLearningRequest } from './use-learning-request';
+import { learningNoticeStyles } from './learning-notice';
+import styles from './learning-page.module.css';
+import type { LocalEvaluationStatus } from './local-evaluation-notice';
+import { LearningModelMissingHint } from './learning-model-missing';
 
 /** Owns each tab body's first fade without moving its collection frame. */
 function LearningTabPanel(props: {
@@ -78,7 +78,7 @@ interface ContainerWorkspaceProps {
   readonly scheduleCard?: (
     manualAction?: ReactNode,
     renderReadiness?: (nextScheduledRun: ReactNode) => ReactNode,
-    presentation?: "summary" | "trigger" | "embedded" | "readiness",
+    presentation?: 'summary' | 'trigger' | 'embedded' | 'readiness',
   ) => ReactNode;
   readonly baseRoute: string;
   readonly container: LearningContainer;
@@ -222,30 +222,30 @@ export function ContainerWorkspace(
   );
 
   const insights =
-    insightsState.status === "ready" || insightsState.status === "empty"
+    insightsState.status === 'ready' || insightsState.status === 'empty'
       ? insightsState.data
       : [];
   const skills =
-    skillsState.status === "ready" || skillsState.status === "empty"
+    skillsState.status === 'ready' || skillsState.status === 'empty'
       ? skillsState.data
       : [];
   const runs =
-    runsState.status === "ready" || runsState.status === "empty"
+    runsState.status === 'ready' || runsState.status === 'empty'
       ? runsState.data
       : [];
   const candidates =
-    candidatesState.status === "ready" || candidatesState.status === "empty"
+    candidatesState.status === 'ready' || candidatesState.status === 'empty'
       ? candidatesState.data
       : [];
   const pendingCandidates = candidates.filter(
-    (candidate) => candidate.status === "pending_review",
+    (candidate) => candidate.status === 'pending_review',
   );
 
   const activeRun = runs.find((run) => isActiveRunStatus(run.status));
   const state = containerState(props.progress);
-  const displayState = activeRun !== undefined ? "analyzing" : state;
+  const displayState = activeRun !== undefined ? 'analyzing' : state;
   const runsResolved =
-    runsState.status === "ready" || runsState.status === "empty";
+    runsState.status === 'ready' || runsState.status === 'empty';
 
   useEffect(() => {
     if (!runsResolved) {
@@ -288,15 +288,15 @@ export function ContainerWorkspace(
   // when no active run was observed, including when returning to the page.
   useEffect(() => {
     const refreshRuns = (): void => {
-      if (document.visibilityState !== "hidden") {
+      if (document.visibilityState !== 'hidden') {
         setRunPollRefresh((current) => current + 1);
       }
     };
     const timer = window.setInterval(refreshRuns, 60_000);
-    window.addEventListener("focus", refreshRuns);
+    window.addEventListener('focus', refreshRuns);
     return () => {
       window.clearInterval(timer);
-      window.removeEventListener("focus", refreshRuns);
+      window.removeEventListener('focus', refreshRuns);
     };
   }, []);
 
@@ -339,7 +339,7 @@ export function ContainerWorkspace(
     // The analysis is the thing worth watching now, and Insights cannot change
     // until it finishes, so the reader is taken to where its progress shows.
     navigate(
-      learningContainerRoute(props.baseRoute, containerId, "analysis-results"),
+      learningContainerRoute(props.baseRoute, containerId, 'analysis-results'),
     );
   }, [api, containerId, navigate, projectId, props]);
 
@@ -367,13 +367,13 @@ export function ContainerWorkspace(
   const tabCount = (
     state: { readonly status: string },
     rows: readonly unknown[],
-  ): string => (state.status === "error" ? "—" : String(rows.length));
+  ): string => (state.status === 'error' ? '—' : String(rows.length));
 
   const historyResolved =
-    (insightsState.status === "ready" || insightsState.status === "empty") &&
-    (skillsState.status === "ready" || skillsState.status === "empty") &&
-    (runsState.status === "ready" || runsState.status === "empty") &&
-    (candidatesState.status === "ready" || candidatesState.status === "empty");
+    (insightsState.status === 'ready' || insightsState.status === 'empty') &&
+    (skillsState.status === 'ready' || skillsState.status === 'empty') &&
+    (runsState.status === 'ready' || runsState.status === 'empty') &&
+    (candidatesState.status === 'ready' || candidatesState.status === 'empty');
   const hasRetainedHistory =
     insights.length > 0 ||
     skills.length > 0 ||
@@ -385,15 +385,15 @@ export function ContainerWorkspace(
    * Container has no retained Learning data.
    */
   const isSetup =
-    displayState === "setup" && historyResolved && !hasRetainedHistory;
-  const showSetup = isSetup && props.tab === "insights";
+    displayState === 'setup' && historyResolved && !hasRetainedHistory;
+  const showSetup = isSetup && props.tab === 'insights';
   // Settings carries its own connect card and schedule, and the setup surface
   // its own schedule, so neither repeats in the header or above the tab body.
   const showConnectReminder =
     !isSetup &&
     props.progress?.hasRuntimeThreads === false &&
-    props.tab !== "settings";
-  const showScheduleTrigger = !showSetup && props.tab !== "settings";
+    props.tab !== 'settings';
+  const showScheduleTrigger = !showSetup && props.tab !== 'settings';
 
   const tabs: readonly {
     readonly count: string;
@@ -402,32 +402,32 @@ export function ContainerWorkspace(
   }[] = [
     {
       count: tabCount(insightsState, insights),
-      label: "Insights",
-      segment: "insights",
+      label: 'Insights',
+      segment: 'insights',
     },
     {
       count: tabCount(skillsState, skills),
-      label: "Skills",
-      segment: "skills",
+      label: 'Skills',
+      segment: 'skills',
     },
     {
       count: tabCount(runsState, runs),
-      label: "Analysis results",
-      segment: "analysis-results",
+      label: 'Analysis results',
+      segment: 'analysis-results',
     },
-    { count: "", label: "Settings", segment: "settings" },
+    { count: '', label: 'Settings', segment: 'settings' },
   ];
 
   /** Why analysis cannot start now, or `null` when it can. */
   const analyzeBlockedReason = modelMissing
     ? null
-    : displayState === "analyzing"
-      ? "Analysis in progress"
+    : displayState === 'analyzing'
+      ? 'Analysis in progress'
       : analyzable
         ? null
         : props.progress === null
-          ? "Analyze unavailable"
-          : "No new Threads";
+          ? 'Analyze unavailable'
+          : 'No new Threads';
 
   // Without a model nothing can run; the readiness card explains why instead.
   const manualAction = modelMissing ? null : (
@@ -440,7 +440,7 @@ export function ContainerWorkspace(
         variant="primary"
       >
         <PlayIcon />
-        {analyzeBlockedReason ?? "Start manual run now"}
+        {analyzeBlockedReason ?? 'Start manual run now'}
       </Button>
     </section>
   );
@@ -458,14 +458,14 @@ export function ContainerWorkspace(
   ): ReactNode => (
     <AutomaticLearning
       action={action}
-      active={displayState === "analyzing"}
+      active={displayState === 'analyzing'}
       facts={
         <dl className={`${learningNoticeStyles.captions} ${styles.runFacts}`}>
           <div>
             <dt>Threads collected</dt>
             <dd>
               {props.progress === null
-                ? "—"
+                ? '—'
                 : props.progress.threadCount.toLocaleString()}
             </dd>
           </div>
@@ -473,7 +473,7 @@ export function ContainerWorkspace(
             <dt>Last analysis</dt>
             <dd>
               {props.progress === null
-                ? "—"
+                ? '—'
                 : learningTimestampWithZone(props.progress.lastSucceededAt)}
             </dd>
           </div>
@@ -494,7 +494,7 @@ export function ContainerWorkspace(
       unavailableNotice={
         modelMissing
           ? {
-              title: "No AI model connected",
+              title: 'No AI model connected',
               description: (
                 <>
                   <p>
@@ -542,12 +542,12 @@ export function ContainerWorkspace(
   const latestAnalysis = (
     <LatestAnalysis
       run={runs[0]}
-      isLoading={runsState.status === "loading"}
-      error={runsState.status === "error" ? runsState.message : null}
+      isLoading={runsState.status === 'loading'}
+      error={runsState.status === 'error' ? runsState.message : null}
       historyRoute={learningContainerRoute(
         props.baseRoute,
         containerId,
-        "analysis-results",
+        'analysis-results',
       )}
       onRetry={onRunDetected}
     />
@@ -564,7 +564,7 @@ export function ContainerWorkspace(
           actions={
             <>
               {showScheduleTrigger
-                ? props.scheduleCard?.(undefined, undefined, "trigger")
+                ? props.scheduleCard?.(undefined, undefined, 'trigger')
                 : null}
               <MenuRoot modal={false}>
                 <MenuTrigger asChild>
@@ -587,8 +587,8 @@ export function ContainerWorkspace(
                     onSelect={() => openAnalyze(threadBindingTrigger.current)}
                   >
                     {modelMissing
-                      ? "Analyze Threads (no AI model connected)"
-                      : (analyzeBlockedReason ?? "Analyze Threads")}
+                      ? 'Analyze Threads (no AI model connected)'
+                      : (analyzeBlockedReason ?? 'Analyze Threads')}
                   </MenuItem>
                   <MenuSeparator />
                   <MenuItem
@@ -597,7 +597,7 @@ export function ContainerWorkspace(
                         learningContainerRoute(
                           props.baseRoute,
                           containerId,
-                          "settings",
+                          'settings',
                         ),
                       )
                     }
@@ -616,14 +616,14 @@ export function ContainerWorkspace(
             </>
           }
           backLink={{
-            label: "Learning spaces",
+            label: 'Learning spaces',
             to: `${props.baseRoute}/learning`,
           }}
           description={
             props.progress === null ||
-            typeof props.progress.threadCount !== "number"
-              ? "Thread count unavailable"
-              : `${props.progress.threadCount} ${props.progress.threadCount === 1 ? "conversation" : "conversations"} in this Learning Space`
+            typeof props.progress.threadCount !== 'number'
+              ? 'Thread count unavailable'
+              : `${props.progress.threadCount} ${props.progress.threadCount === 1 ? 'conversation' : 'conversations'} in this Learning Space`
           }
           title={container.name}
           titleId="learning-container-name"
@@ -654,7 +654,7 @@ export function ContainerWorkspace(
 
       {!threadBindingOpen ? (
         <LearningTabPanel
-          className={`${styles.tabPanel} ${props.tab === "analysis-results" ? styles.analysisTabPanel : ""}`}
+          className={`${styles.tabPanel} ${props.tab === 'analysis-results' ? styles.analysisTabPanel : ''}`}
           key={props.tab}
           skipEntrance={lastVisibleTabRef.current === props.tab}
         >
@@ -685,10 +685,10 @@ export function ContainerWorkspace(
             </details>
           ) : null}
           {!showSetup &&
-          (props.tab === "insights" || props.tab === "analysis-results") ? (
+          (props.tab === 'insights' || props.tab === 'analysis-results') ? (
             <section
               className={
-                props.tab === "analysis-results"
+                props.tab === 'analysis-results'
                   ? styles.analysisAutomation
                   : undefined
               }
@@ -700,22 +700,22 @@ export function ContainerWorkspace(
                   renderReadiness(
                     nextScheduledRun,
                     // While a run is in progress the notice already says so.
-                    displayState === "analyzing" ? undefined : manualAction,
+                    displayState === 'analyzing' ? undefined : manualAction,
                   ),
-                "readiness",
+                'readiness',
               ) ?? renderReadiness()}
             </section>
           ) : null}
-          {!showSetup && props.tab === "insights" ? (
+          {!showSetup && props.tab === 'insights' ? (
             <>
               <InsightsList
                 error={
-                  insightsState.status === "error"
+                  insightsState.status === 'error'
                     ? insightsState.message
                     : null
                 }
                 insights={insights}
-                isLoading={insightsState.status === "loading"}
+                isLoading={insightsState.status === 'loading'}
                 lastSucceededAt={props.progress?.lastSucceededAt}
                 onOpenInsight={(insight, opener) => {
                   insightOpenerRef.current = opener;
@@ -728,7 +728,7 @@ export function ContainerWorkspace(
               {latestAnalysis}
             </>
           ) : null}
-          {props.tab === "skills" ? (
+          {props.tab === 'skills' ? (
             <>
               <SkillsList
                 onLoadDelivery={loadDelivery}
@@ -752,7 +752,7 @@ export function ContainerWorkspace(
                     }}
                     reviewFallbackRef={reviewFallbackRef}
                     review={(candidateId, action) =>
-                      action === "approve"
+                      action === 'approve'
                         ? api.approveCandidate(
                             projectId,
                             containerId,
@@ -767,15 +767,15 @@ export function ContainerWorkspace(
                   />
                 )}
                 candidatesError={
-                  candidatesState.status === "error"
+                  candidatesState.status === 'error'
                     ? candidatesState.message
                     : null
                 }
                 containerId={container.id}
                 error={
-                  skillsState.status === "error" ? skillsState.message : null
+                  skillsState.status === 'error' ? skillsState.message : null
                 }
-                isLoading={skillsState.status === "loading"}
+                isLoading={skillsState.status === 'loading'}
                 onOpenSkill={(skill) => {
                   setLinkedSkillOpen(false);
                   setOpenSkill(skill);
@@ -786,10 +786,10 @@ export function ContainerWorkspace(
               {latestAnalysis}
             </>
           ) : null}
-          {props.tab === "analysis-results" ? (
+          {props.tab === 'analysis-results' ? (
             <AnalysisResultsList
-              error={runsState.status === "error" ? runsState.message : null}
-              isLoading={runsState.status === "loading"}
+              error={runsState.status === 'error' ? runsState.message : null}
+              isLoading={runsState.status === 'loading'}
               isRefreshing={runRefreshPending}
               onRetry={() => {
                 if (runRefreshPending) return;
@@ -800,7 +800,7 @@ export function ContainerWorkspace(
               state={state}
             />
           ) : null}
-          {props.tab === "settings" ? (
+          {props.tab === 'settings' ? (
             <LearningSpaceSettings
               connect={
                 props.progress?.hasRuntimeThreads === false ? (
@@ -817,7 +817,7 @@ export function ContainerWorkspace(
               onSetDelivery={(enabled) =>
                 api.setSkillDelivery(projectId, containerId, enabled)
               }
-              schedule={props.scheduleCard?.(undefined, undefined, "embedded")}
+              schedule={props.scheduleCard?.(undefined, undefined, 'embedded')}
             />
           ) : null}
         </LearningTabPanel>

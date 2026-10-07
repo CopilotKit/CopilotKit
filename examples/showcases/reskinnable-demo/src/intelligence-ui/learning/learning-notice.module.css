@@ -15,7 +15,7 @@
   min-width: 0;
   padding: 16px 20px;
 }
-.notice[data-tone="learning"] {
+.notice[data-tone='learning'] {
   background: var(--learning-prompt);
   border-color: var(--learning-prompt-border);
 }

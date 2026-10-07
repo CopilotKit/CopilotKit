@@ -1,11 +1,11 @@
 /* eslint-disable react-hooks/set-state-in-effect -- copied verbatim from the Intelligence web app, whose lint config does not enable the React Compiler rules. */
-import { animate } from "motion/react";
-import { useEffect, useRef, useState } from "react";
-import type { ReactNode, RefObject } from "react";
-import { useLocation } from "./router";
-import { useMotionPreference } from "../ui";
-import { Sheet } from "../ui/overlays";
-import { WorkspaceRailCollapsedContext } from "./workspace-rail-tooltip";
+import { animate } from 'motion/react';
+import { useEffect, useRef, useState } from 'react';
+import type { ReactNode, RefObject } from 'react';
+import { useLocation } from './router';
+import { useMotionPreference } from '../ui';
+import { Sheet } from '../ui/overlays';
+import { WorkspaceRailCollapsedContext } from './workspace-rail-tooltip';
 
 interface WorkspaceShellFrameProps {
   readonly children: ReactNode;
@@ -26,8 +26,8 @@ export function WorkspaceShellFrame(
   const [isMobile, setIsMobile] = useState(
     // Demo: Next renders this on the server first, where there is no window.
     () =>
-      typeof window !== "undefined" &&
-      (window.matchMedia?.("(max-width: 767px)").matches ?? false),
+      typeof window !== 'undefined' &&
+      (window.matchMedia?.('(max-width: 767px)').matches ?? false),
   );
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -42,19 +42,19 @@ export function WorkspaceShellFrame(
     if (reducedMotion || isMobile) {
       railWidthRef.current = target;
       shellRef.current?.style.setProperty(
-        "--workspace-rail-width",
+        '--workspace-rail-width',
         `${target}px`,
       );
       return undefined;
     }
     const control = animate(start, target, {
-      type: "spring",
+      type: 'spring',
       duration: 0.22,
       bounce: 0.18,
       onUpdate: (value) => {
         railWidthRef.current = value;
         shellRef.current?.style.setProperty(
-          "--workspace-rail-width",
+          '--workspace-rail-width',
           `${value}px`,
         );
       },
@@ -63,15 +63,15 @@ export function WorkspaceShellFrame(
   }, [collapsed, isMobile, reducedMotion]);
 
   useEffect(() => {
-    const media = window.matchMedia?.("(max-width: 767px)");
+    const media = window.matchMedia?.('(max-width: 767px)');
     if (!media) return undefined;
     const onChange = (event: MediaQueryListEvent): void => {
       setIsMobile(event.matches);
       setNavigationOpen(false);
       if (event.matches) setCollapsed(false);
     };
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
   }, []);
 
   useEffect(() => {
@@ -82,7 +82,7 @@ export function WorkspaceShellFrame(
 
   return (
     <div
-      className={`app-shell app-shell--workspace${collapsed ? " app-shell--collapsed" : ""}${rail === null ? " app-shell--no-sidebar" : ""}`}
+      className={`app-shell app-shell--workspace${collapsed ? ' app-shell--collapsed' : ''}${rail === null ? ' app-shell--no-sidebar' : ''}`}
       ref={shellRef}
     >
       {props.header({
@@ -95,7 +95,7 @@ export function WorkspaceShellFrame(
         },
       })}
       <div
-        className={`shell-layout${rail === null ? " shell-layout--organization" : ""}`}
+        className={`shell-layout${rail === null ? ' shell-layout--organization' : ''}`}
       >
         {isMobile ? (
           rail ? (

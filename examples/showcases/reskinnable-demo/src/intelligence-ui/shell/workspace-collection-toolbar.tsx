@@ -1,15 +1,14 @@
 /* eslint-disable react-hooks/immutability -- copied verbatim from the Intelligence web app, whose lint config does not enable the React Compiler rules. */
-import { useEffect, useRef } from "react";
-import type { ReactNode, RefObject } from "react";
-import { motion } from "motion/react";
-import { useWorkspaceEntranceMotion } from "./workspace-entrance";
+import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
+import { motion } from 'motion/react';
+import { useWorkspaceEntranceMotion } from './workspace-entrance';
 import {
   ArrowDownWideNarrow,
   MoreHorizontal,
   RefreshCw,
   SlidersHorizontal,
-} from "lucide-react";
-import { SearchField } from "../ui/forms";
+} from 'lucide-react';
+import { SearchField } from '../ui/forms';
 import {
   MenuContent,
   MenuItem,
@@ -17,9 +16,9 @@ import {
   MenuRoot,
   MenuSeparator,
   MenuTrigger,
-} from "../ui/overlays";
-import { Button } from "../ui/primitives";
-import styles from "./workspace-collection-toolbar.module.css";
+} from '../ui/overlays';
+import { Button } from '../ui/primitives';
+import styles from './workspace-collection-toolbar.module.css';
 
 export interface WorkspaceCollectionToolbarProps {
   readonly label: string;
@@ -49,13 +48,13 @@ export function WorkspaceCollectionToolbar(
     const focusSearch = (event: KeyboardEvent): void => {
       const target = event.target as HTMLElement;
       if (
-        event.key !== "/" ||
+        event.key !== '/' ||
         // A decorative copy, such as an onboarding preview, cannot take focus.
-        searchRef.current?.closest("[inert]") ||
+        searchRef.current?.closest('[inert]') ||
         event.metaKey ||
         event.ctrlKey ||
         event.altKey ||
-        ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) ||
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) ||
         target.isContentEditable ||
         document.querySelector(
           '[role="dialog"], [role="menu"], [data-slot="popover-content"][data-state="open"]',
@@ -65,8 +64,8 @@ export function WorkspaceCollectionToolbar(
       event.preventDefault();
       searchRef.current?.focus();
     };
-    window.addEventListener("keydown", focusSearch);
-    return () => window.removeEventListener("keydown", focusSearch);
+    window.addEventListener('keydown', focusSearch);
+    return () => window.removeEventListener('keydown', focusSearch);
   }, []);
 
   return (

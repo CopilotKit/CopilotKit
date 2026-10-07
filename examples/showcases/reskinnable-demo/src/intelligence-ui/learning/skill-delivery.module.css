@@ -30,7 +30,7 @@
   visibility: hidden;
 }
 /* Pending writes stay focusable; the save handler blocks repeat activation. */
-.control input[aria-disabled="true"] + span {
+.control input[aria-disabled='true'] + span {
   opacity: 0.56;
 }
 

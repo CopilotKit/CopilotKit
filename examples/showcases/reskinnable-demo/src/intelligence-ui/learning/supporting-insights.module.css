@@ -44,7 +44,7 @@
   margin-top: 0.2em;
 }
 
-.disclosure[aria-expanded="true"] .chevron {
+.disclosure[aria-expanded='true'] .chevron {
   transform: rotate(90deg);
 }
 

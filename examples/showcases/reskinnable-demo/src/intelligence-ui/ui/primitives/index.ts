@@ -5,7 +5,7 @@ export {
   IconButton,
   LinkButton,
   VisuallyHidden,
-} from "./actions";
+} from './actions';
 export type {
   ActionSize,
   ActionVariant,
@@ -17,4 +17,4 @@ export type {
   IconButtonVariant,
   LinkButtonProps,
   VisuallyHiddenProps,
-} from "./actions";
+} from './actions';

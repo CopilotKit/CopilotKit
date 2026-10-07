@@ -1,9 +1,9 @@
-import type { ReactNode } from "react";
-import { ArrowLeft } from "lucide-react";
-import { motion } from "motion/react";
-import { Link } from "./router";
-import { useWorkspaceEntranceMotion } from "./workspace-entrance";
-import styles from "./workspace-page-header.module.css";
+import type { ReactNode } from 'react';
+import { ArrowLeft } from 'lucide-react';
+import { motion } from 'motion/react';
+import { Link } from './router';
+import { useWorkspaceEntranceMotion } from './workspace-entrance';
+import styles from './workspace-page-header.module.css';
 
 /** Parent collection link shown above a detail page title. */
 export interface WorkspacePageBackLink {
@@ -39,7 +39,7 @@ export interface WorkspacePageHeaderProps {
 export function WorkspacePageHeader(
   props: WorkspacePageHeaderProps,
 ): React.JSX.Element {
-  const Heading = props.headingLevel === 2 ? "h2" : "h1";
+  const Heading = props.headingLevel === 2 ? 'h2' : 'h1';
   const entrance = useWorkspaceEntranceMotion();
   const header = (
     <header className="shell-page__header managed-page-header">

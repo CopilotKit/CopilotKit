@@ -43,11 +43,11 @@
 }
 
 /* Workspace card type: 14px/600 section title, 11px supporting copy (preview parity). */
-:global(:root[data-cpki-design="workspace"]) .title {
+:global(:root[data-cpki-design='workspace']) .title {
   font-size: var(--text-section);
   line-height: 1.4;
 }
-:global(:root[data-cpki-design="workspace"]) .description {
+:global(:root[data-cpki-design='workspace']) .description {
   font-size: var(--text-caption);
   line-height: 1.6;
 }

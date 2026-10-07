@@ -6,10 +6,5 @@ export default async function LearningContainerPage({
   params: Promise<{ container: string; tab?: string[] }>;
 }) {
   const { container, tab } = await params;
-  return (
-    <LearningScreen
-      containerId={decodeURIComponent(container)}
-      tab={tab?.[0] ?? null}
-    />
-  );
+  return <LearningScreen containerId={decodeURIComponent(container)} tab={tab?.[0] ?? null} />;
 }

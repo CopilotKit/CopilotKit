@@ -2,7 +2,7 @@
  * Scoped to Intelligence so existing Ops and public UI styles keep their contract.
  * Source: .context/intelligence-design-proposals/workspace/shadcn/tokens.json
  */
-:root[data-cpki-design="workspace"] {
+:root[data-cpki-design='workspace'] {
   --cpki-color-overlay-scrim: rgb(0 0 0 / 48%);
   --radius: 0.5rem;
   --background: oklch(1 0 0);
@@ -44,8 +44,8 @@
   --warning: oklch(0.43 0.075 70);
   --warning-subtle: oklch(0.966 0.033 80);
   --danger-subtle: oklch(0.965 0.021 20);
-  --font-sans: "Plus Jakarta Sans", sans-serif;
-  --font-mono: "Spline Sans Mono", monospace;
+  --font-sans: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'Spline Sans Mono', monospace;
   --radius-control: 8px;
   --radius-surface: 12px;
   /* Type scale from the approved preview: controls are one step below body. */
@@ -159,7 +159,7 @@
   --cpki-chart-series-6: var(--muted-foreground);
 }
 
-:root[data-cpki-design="workspace"][data-cpki-theme="dark"] {
+:root[data-cpki-design='workspace'][data-cpki-theme='dark'] {
   --radius: 0.5rem;
   --background: oklch(0.185 0.012 285);
   --foreground: oklch(0.91 0.007 285);
@@ -212,8 +212,8 @@
   --warning: oklch(0.85 0.09 80);
   --warning-subtle: oklch(0.28 0.04 80);
   --danger-subtle: oklch(0.29 0.04 20);
-  --font-sans: "Plus Jakarta Sans", sans-serif;
-  --font-mono: "Spline Sans Mono", monospace;
+  --font-sans: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'Spline Sans Mono', monospace;
   --radius-control: 8px;
   --radius-surface: 12px;
   --destructive-foreground: oklch(0.19 0.025 20);
@@ -255,7 +255,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root[data-cpki-design="workspace"][data-cpki-theme="system"] {
+  :root[data-cpki-design='workspace'][data-cpki-theme='system'] {
     --radius: 0.5rem;
     --background: oklch(0.185 0.012 285);
     --foreground: oklch(0.91 0.007 285);
@@ -312,8 +312,8 @@
     --warning: oklch(0.85 0.09 80);
     --warning-subtle: oklch(0.28 0.04 80);
     --danger-subtle: oklch(0.29 0.04 20);
-    --font-sans: "Plus Jakarta Sans", sans-serif;
-    --font-mono: "Spline Sans Mono", monospace;
+    --font-sans: 'Plus Jakarta Sans', sans-serif;
+    --font-mono: 'Spline Sans Mono', monospace;
     --radius-control: 8px;
     --radius-surface: 12px;
     --destructive-foreground: oklch(0.19 0.025 20);
@@ -358,7 +358,7 @@
 /* The dark blocks do not redeclare the motion tokens, so this override reaches
  * every theme. */
 @media (prefers-reduced-motion: reduce) {
-  :root[data-cpki-design="workspace"] {
+  :root[data-cpki-design='workspace'] {
     --motion-fast: 1ms;
     --motion-panel: 1ms;
   }

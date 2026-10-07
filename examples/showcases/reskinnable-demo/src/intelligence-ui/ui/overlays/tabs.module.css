@@ -31,13 +31,13 @@
   color: var(--cpki-color-foreground, #023047);
 }
 
-.tab[aria-selected="true"] {
+.tab[aria-selected='true'] {
   background: var(--cpki-color-surface, #ffffff);
   color: var(--cpki-color-foreground, #023047);
   box-shadow: inset 0 -2px 0 var(--cpki-color-primary, #219ebc);
 }
 
-.tab[aria-disabled="true"],
+.tab[aria-disabled='true'],
 .tab:disabled {
   cursor: not-allowed;
   opacity: 0.55;
@@ -66,6 +66,6 @@
 
 /* Workspace tab visuals live in styles/workspace-components.css (data-slot). */
 
-:global(:root[data-cpki-design="workspace"]) .root {
+:global(:root[data-cpki-design='workspace']) .root {
   gap: 1.5rem;
 }

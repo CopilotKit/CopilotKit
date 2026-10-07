@@ -1,21 +1,19 @@
 /* eslint-disable react-hooks/refs, react-hooks/set-state-in-effect -- copied verbatim from the Intelligence web app, whose lint config does not enable the React Compiler rules. */
-import { useEffect, useRef, useState } from "react";
-import type { RefObject } from "react";
-import { CodeBlock } from "../ui/data-display";
-import { Badge } from "../ui/feedback";
-import { ScrollArea } from "../ui/layout";
-import { Sheet } from "../ui/overlays";
-import { Button } from "../ui/primitives";
+import { useEffect, useRef, useState, type RefObject } from 'react';
+import { CodeBlock } from '../ui/data-display';
+import { Badge } from '../ui/feedback';
+import { ScrollArea } from '../ui/layout';
+import { Sheet } from '../ui/overlays';
+import { Button } from '../ui/primitives';
 import type {
   LearningCandidate,
   LearningCandidateDetail,
   LearningCandidateReview,
-} from "./learning-api";
-import { learningTimestamp } from "./learning-container-state";
-import { SkillEntry, SkillEntryList } from "./skill-entry";
-import { SupportingInsights } from "./supporting-insights";
-import type { EvidenceLoader } from "./supporting-insights";
-import styles from "./candidates-list.module.css";
+} from './learning-api';
+import { learningTimestamp } from './learning-container-state';
+import { SkillEntry, SkillEntryList } from './skill-entry';
+import { SupportingInsights, type EvidenceLoader } from './supporting-insights';
+import styles from './candidates-list.module.css';
 
 interface CandidateItemProps {
   readonly baseRoute: string;
@@ -25,16 +23,16 @@ interface CandidateItemProps {
   /** Receives the review's outcome sentence once the review Sheet closes. */
   readonly onReviewed: (outcome: string) => void;
   readonly review: (
-    action: "approve" | "reject",
+    action: 'approve' | 'reject',
   ) => Promise<LearningCandidateReview>;
   readonly reviewFallbackRef?: RefObject<HTMLElement | null>;
 }
 
 /** Names each real candidate operation without implying removal publishes a Skill. */
-function operationLabel(operation: LearningCandidate["operation"]): string {
-  if (operation === "add") return "Create Skill";
-  if (operation === "remove") return "Retire Skill";
-  return "Update Skill";
+function operationLabel(operation: LearningCandidate['operation']): string {
+  if (operation === 'add') return 'Create Skill';
+  if (operation === 'remove') return 'Retire Skill';
+  return 'Update Skill';
 }
 
 /**
@@ -48,8 +46,8 @@ function reviewOutcome(
   candidate: LearningCandidate,
   result: LearningCandidateReview,
 ): string {
-  if (result.status === "rejected") return `Rejected ${candidate.title}.`;
-  return candidate.operation === "remove"
+  if (result.status === 'rejected') return `Rejected ${candidate.title}.`;
+  return candidate.operation === 'remove'
     ? `Retired ${candidate.title}.`
     : `Published ${candidate.title}.`;
 }
@@ -63,7 +61,7 @@ function CandidateItem(props: CandidateItemProps): React.JSX.Element {
   const [pending, setPending] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const reviewed = useRef(false);
-  const outcome = useRef("");
+  const outcome = useRef('');
   const opener = useRef<HTMLButtonElement>(null);
   const loadRef = useRef(props.load);
   loadRef.current = props.load;
@@ -81,7 +79,7 @@ function CandidateItem(props: CandidateItemProps): React.JSX.Element {
           setLoadError(
             cause instanceof Error
               ? cause.message
-              : "Could not load candidate.",
+              : 'Could not load candidate.',
           );
       },
     );
@@ -89,7 +87,7 @@ function CandidateItem(props: CandidateItemProps): React.JSX.Element {
   }, [detail, loadAttempt, open]);
 
   /** Sends the authoritative review mutation once and keeps failures actionable. */
-  const review = async (action: "approve" | "reject"): Promise<void> => {
+  const review = async (action: 'approve' | 'reject'): Promise<void> => {
     if (pending) return;
     setPending(true);
     setReviewError(null);
@@ -101,21 +99,21 @@ function CandidateItem(props: CandidateItemProps): React.JSX.Element {
       reviewed.current = true;
       setOpen(false);
     } catch (cause) {
-      setReviewError(cause instanceof Error ? cause.message : "Review failed.");
+      setReviewError(cause instanceof Error ? cause.message : 'Review failed.');
     } finally {
       setPending(false);
     }
   };
 
   const proposedFile = detail?.bundle.files.find(
-    (file) => file.path === "SKILL.md",
+    (file) => file.path === 'SKILL.md',
   );
   return (
     <li>
       <SkillEntry
         detail={
           <>
-            {operationLabel(props.candidate.operation)} · Proposed{" "}
+            {operationLabel(props.candidate.operation)} · Proposed{' '}
             {learningTimestamp(props.candidate.createdAt)}
           </>
         }
@@ -182,8 +180,8 @@ function CandidateItem(props: CandidateItemProps): React.JSX.Element {
                 <SupportingInsights
                   baseRoute={props.baseRoute}
                   emptyMessage={
-                    detail.operation === "remove"
-                      ? "This removal has no supporting Insights. Review the reason above."
+                    detail.operation === 'remove'
+                      ? 'This removal has no supporting Insights. Review the reason above.'
                       : undefined
                   }
                   insights={detail.supportingInsights}
@@ -214,21 +212,21 @@ function CandidateItem(props: CandidateItemProps): React.JSX.Element {
           </Button>
           <Button
             disabled={pending || !detail}
-            onClick={() => review("reject")}
+            onClick={() => review('reject')}
             variant="outline"
           >
             Reject
           </Button>
           <Button
             disabled={pending || !detail}
-            onClick={() => review("approve")}
+            onClick={() => review('approve')}
             variant="primary"
           >
             {pending
-              ? "Saving review…"
-              : props.candidate.operation === "remove"
-                ? "Approve retirement"
-                : "Approve Skill"}
+              ? 'Saving review…'
+              : props.candidate.operation === 'remove'
+                ? 'Approve retirement'
+                : 'Approve Skill'}
           </Button>
         </div>
       </Sheet>
@@ -249,7 +247,7 @@ export function CandidatesList(props: {
   readonly onReviewed: (outcome: string) => void;
   readonly review: (
     candidateId: string,
-    action: "approve" | "reject",
+    action: 'approve' | 'reject',
   ) => Promise<LearningCandidateReview>;
   readonly reviewFallbackRef?: RefObject<HTMLElement | null>;
 }): React.JSX.Element {

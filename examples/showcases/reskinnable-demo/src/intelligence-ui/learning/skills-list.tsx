@@ -1,17 +1,16 @@
-import { useRef, useState } from "react";
-import type { ReactNode, RefObject } from "react";
-import { Download, FileCode2 } from "lucide-react";
-import { Badge, EmptyState } from "../ui/feedback";
+import { useRef, useState, type ReactNode, type RefObject } from 'react';
+import { Download, FileCode2 } from 'lucide-react';
+import { Badge, EmptyState } from '../ui/feedback';
 
-import { CopyButton } from "../ui/data-display";
-import { Dialog } from "../ui/overlays";
-import { Button } from "../ui/primitives";
+import { CopyButton } from '../ui/data-display';
+import { Dialog } from '../ui/overlays';
+import { Button } from '../ui/primitives';
 
-import type { LearningSkill } from "./learning-api";
-import { learningTimestamp } from "./learning-container-state";
-import { SkillDelivery } from "./skill-delivery";
-import { SkillEntry, SkillEntryList } from "./skill-entry";
-import styles from "./learning-page.module.css";
+import type { LearningSkill } from './learning-api';
+import { learningTimestamp } from './learning-container-state';
+import { SkillDelivery } from './skill-delivery';
+import { SkillEntry, SkillEntryList } from './skill-entry';
+import styles from './learning-page.module.css';
 
 interface SkillsListProps {
   /**
@@ -45,7 +44,7 @@ interface SkillsListProps {
 export function SkillsList(props: SkillsListProps): React.JSX.Element {
   const command = `copilotkit skills download ${props.containerId} --output ./learned-skills`;
   const [downloadOpen, setDownloadOpen] = useState(false);
-  const [reviewOutcome, setReviewOutcome] = useState("");
+  const [reviewOutcome, setReviewOutcome] = useState('');
   const publishedHeadingRef = useRef<HTMLHeadingElement>(null);
 
   return (
@@ -105,7 +104,7 @@ export function SkillsList(props: SkillsListProps): React.JSX.Element {
             on the heading above once the reviewed row leaves the list. */}
         <p
           className={
-            reviewOutcome ? styles.sectionHint : "cpki-visually-hidden"
+            reviewOutcome ? styles.sectionHint : 'cpki-visually-hidden'
           }
           role="status"
         >
@@ -135,11 +134,11 @@ export function SkillsList(props: SkillsListProps): React.JSX.Element {
                   <SkillEntry
                     dataStatus={skill.status}
                     detail={`Revision ${skill.revision} · ${
-                      skill.status === "published" ? "Published" : "Retired"
+                      skill.status === 'published' ? 'Published' : 'Retired'
                     } ${learningTimestamp(skill.updatedAt)}`}
                     onClick={() => props.onOpenSkill(skill)}
                     status={
-                      skill.status === "published" ? (
+                      skill.status === 'published' ? (
                         <Badge dot variant="success">
                           Published
                         </Badge>

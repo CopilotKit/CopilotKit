@@ -1,11 +1,11 @@
-import type { ComponentProps } from "react";
-import * as PopoverPrimitive from "@radix-ui/react-popover";
-import { motion } from "motion/react";
+import type { ComponentProps } from 'react';
+import * as PopoverPrimitive from '@radix-ui/react-popover';
+import { motion } from 'motion/react';
 
-import { classNames } from "../class-names";
-import { useMotionPreference } from "../motion-preference";
-import { useOverlayPortalContainer } from "./portal-container";
-import styles from "./registry-popover.module.css";
+import { classNames } from '../class-names';
+import { useMotionPreference } from '../motion-preference';
+import { useOverlayPortalContainer } from './portal-container';
+import styles from './registry-popover.module.css';
 
 /** Generated shadcn Popover root, backed by the direct Radix package. */
 export function PopoverRoot(
@@ -23,7 +23,7 @@ export function PopoverTrigger(
 
 /** Portal surface with a short Motion entrance. */
 export function PopoverContent({
-  align = "center",
+  align = 'center',
   children,
   className,
   portalContainer,
@@ -47,7 +47,7 @@ export function PopoverContent({
           className={classNames(styles.content, className)}
           data-slot="popover-content"
           initial={{ opacity: 0, y: reducedMotion ? 0 : -2 }}
-          transition={{ duration: reducedMotion ? 0 : 0.14, ease: "easeOut" }}
+          transition={{ duration: reducedMotion ? 0 : 0.14, ease: 'easeOut' }}
         >
           {children}
         </motion.div>

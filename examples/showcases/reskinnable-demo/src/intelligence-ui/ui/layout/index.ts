@@ -1,6 +1,6 @@
-export { Cluster, Inline, Panel, Separator, Stack, Toolbar } from "./layout";
-export { ScrollArea, useScrollEdges } from "./scroll-area";
-export type { ScrollAreaProps } from "./scroll-area";
+export { Cluster, Inline, Panel, Separator, Stack, Toolbar } from './layout';
+export { ScrollArea, useScrollEdges } from './scroll-area';
+export type { ScrollAreaProps } from './scroll-area';
 export {
   Card,
   CardAction,
@@ -9,7 +9,7 @@ export {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "./registry-card";
+} from './registry-card';
 export type {
   FlexibleLayoutProps,
   LayoutAlign,
@@ -18,4 +18,4 @@ export type {
   PanelProps,
   SeparatorProps,
   ToolbarProps,
-} from "./layout";
+} from './layout';

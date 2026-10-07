@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect -- copied verbatim from the Intelligence web app, whose lint config does not enable the React Compiler rules. */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /** Writes text to the clipboard; rejects or throws when the write fails. */
 export type ClipboardWriter = (value: string) => Promise<void>;
@@ -10,10 +10,10 @@ export type ClipboardWriter = (value: string) => Promise<void>;
  * attempted and threw or rejected.
  */
 export type CopyToClipboardStatus =
-  | "copied"
-  | "failed"
-  | "idle"
-  | "unavailable";
+  | 'copied'
+  | 'failed'
+  | 'idle'
+  | 'unavailable';
 
 /** How long a successful copy is confirmed before the control returns to idle. */
 export const COPY_CONFIRMATION_MS = 2_000;
@@ -53,7 +53,7 @@ interface CopyState {
   readonly status: CopyToClipboardStatus;
 }
 
-const IDLE: CopyState = { announcedStatus: "idle", status: "idle" };
+const IDLE: CopyState = { announcedStatus: 'idle', status: 'idle' };
 
 /**
  * Starts a clipboard write with the given writer, or with the browser
@@ -120,9 +120,9 @@ export function useCopyToClipboard(
       const token = tokenRef.current;
       clearTimer();
       setState((current) =>
-        current.announcedStatus === "idle"
+        current.announcedStatus === 'idle'
           ? current
-          : { announcedStatus: "idle", status: current.status },
+          : { announcedStatus: 'idle', status: current.status },
       );
 
       /**
@@ -142,7 +142,7 @@ export function useCopyToClipboard(
             return;
           }
           setState({ announcedStatus: status, status });
-          if (status === "copied") {
+          if (status === 'copied') {
             timerRef.current = setTimeout(() => {
               timerRef.current = null;
               if (tokenRef.current === token) {
@@ -157,21 +157,21 @@ export function useCopyToClipboard(
       try {
         request = startWrite(text, writeText);
       } catch (error: unknown) {
-        console.error("Clipboard copy failed", error);
-        settle("failed");
+        console.error('Clipboard copy failed', error);
+        settle('failed');
         return;
       }
       if (request === undefined) {
-        settle("unavailable");
+        settle('unavailable');
         return;
       }
       request.then(
         () => {
-          settle("copied");
+          settle('copied');
         },
         (error: unknown) => {
-          console.error("Clipboard copy failed", error);
-          settle("failed");
+          console.error('Clipboard copy failed', error);
+          settle('failed');
         },
       );
     },

@@ -1,10 +1,10 @@
-import { formatDateTime, parseIsoInstant } from "../ui/datetime";
+import { formatDateTime, parseIsoInstant } from '../ui/datetime';
 
 import type {
   LearningContainerStats,
   LearningRun,
   LearningRunStatus,
-} from "./learning-api";
+} from './learning-api';
 
 /**
  * New Threads a Container should collect before an analysis is worth running.
@@ -16,11 +16,11 @@ import type {
 export const readyThreadTarget = 15;
 
 const activeRunStatuses = new Set<LearningRunStatus>([
-  "queued",
-  "freezing",
-  "batching",
-  "reducing",
-  "finalizing",
+  'queued',
+  'freezing',
+  'batching',
+  'reducing',
+  'finalizing',
 ]);
 
 /** Whether a run is still working, under any of its internal phase names. */
@@ -35,10 +35,10 @@ export function isActiveRunStatus(status: LearningRunStatus): boolean {
  * problem rather than a slow one, so it reads differently from `collecting`.
  */
 export type LearningContainerState =
-  | "analyzing"
-  | "collecting"
-  | "ready"
-  | "setup";
+  | 'analyzing'
+  | 'collecting'
+  | 'ready'
+  | 'setup';
 
 /**
  * Evidence progress for one Container, or `null` while stats are unresolved.
@@ -67,12 +67,12 @@ export function containerState(
     progress.lastRunStatus !== null &&
     isActiveRunStatus(progress.lastRunStatus)
   ) {
-    return "analyzing";
+    return 'analyzing';
   }
-  if (progress.threadCount === 0) return "setup";
+  if (progress.threadCount === 0) return 'setup';
   return progress.pendingThreadCount >= readyThreadTarget
-    ? "ready"
-    : "collecting";
+    ? 'ready'
+    : 'collecting';
 }
 
 /**
@@ -88,16 +88,16 @@ export function containerStateDetail(
   const state = containerState(progress);
   if (progress === null || state === null) {
     return options?.unavailable === true
-      ? "Evidence progress could not be loaded"
-      : "Loading evidence progress…";
+      ? 'Evidence progress could not be loaded'
+      : 'Loading evidence progress…';
   }
-  if (state === "analyzing") {
-    return `Analyzing ${progress.pendingThreadCount === 1 ? "1 new Thread" : `${progress.pendingThreadCount} new Threads`}`;
+  if (state === 'analyzing') {
+    return `Analyzing ${progress.pendingThreadCount === 1 ? '1 new Thread' : `${progress.pendingThreadCount} new Threads`}`;
   }
-  if (state === "setup") {
-    return "Assign this space ID in your Runtime to start collecting Threads";
+  if (state === 'setup') {
+    return 'Assign this space ID in your Runtime to start collecting Threads';
   }
-  if (state === "ready") {
+  if (state === 'ready') {
     return `${progress.pendingThreadCount} new Threads available`;
   }
   return `Suggested target: ${readyThreadTarget} new Threads`;
@@ -122,18 +122,18 @@ export function evidenceProgress(progress: ContainerProgress): number {
  * analysis is distinguishable from a healthy one.
  */
 export type AnalysisDisplayStatus =
-  | "analyzing"
-  | "complete"
-  | "failed"
-  | "retrying";
+  | 'analyzing'
+  | 'complete'
+  | 'failed'
+  | 'retrying';
 
 /** Maps one run onto its reader-facing status. */
 export function analysisDisplayStatus(
-  run: Pick<LearningRun, "failureCode" | "status">,
+  run: Pick<LearningRun, 'failureCode' | 'status'>,
 ): AnalysisDisplayStatus {
-  if (run.status === "succeeded") return "complete";
-  if (run.status === "failed") return "failed";
-  return run.failureCode === null ? "analyzing" : "retrying";
+  if (run.status === 'succeeded') return 'complete';
+  if (run.status === 'failed') return 'failed';
+  return run.failureCode === null ? 'analyzing' : 'retrying';
 }
 
 /**
@@ -159,29 +159,29 @@ export function analysisLabel(runId: string): string {
 export function analysisOutcome(
   run: Pick<
     LearningRun,
-    "candidateCount" | "failureCode" | "insightCount" | "status"
+    'candidateCount' | 'failureCode' | 'insightCount' | 'status'
   >,
 ): string {
-  if (run.status === "failed") {
-    return run.failureCode ?? "Analysis failed";
+  if (run.status === 'failed') {
+    return run.failureCode ?? 'Analysis failed';
   }
   // A run that is still working has no counts yet, which is why absent counts
   // normally read as work in progress. Once it has succeeded that reading is
   // wrong: the counts are absent because this run's stored result predates
   // them, not because it is still going. Say we do not know.
   if (run.insightCount === null || run.candidateCount === null) {
-    return run.status === "succeeded"
-      ? "Outcome unavailable"
-      : "Finding repeated patterns";
+    return run.status === 'succeeded'
+      ? 'Outcome unavailable'
+      : 'Finding repeated patterns';
   }
   if (run.insightCount === 0 && run.candidateCount === 0) {
-    return "No new Insights or Skill candidates";
+    return 'No new Insights or Skill candidates';
   }
   const insights =
-    run.insightCount === 1 ? "1 Insight" : `${run.insightCount} Insights`;
+    run.insightCount === 1 ? '1 Insight' : `${run.insightCount} Insights`;
   const candidates =
     run.candidateCount === 1
-      ? "1 Skill candidate"
+      ? '1 Skill candidate'
       : `${run.candidateCount} Skill candidates`;
   return `${insights} · ${candidates}`;
 }
@@ -200,7 +200,7 @@ export function canAnalyze(progress: ContainerProgress): boolean {
   return (
     progress !== null &&
     progress.pendingThreadCount > 0 &&
-    containerState(progress) !== "analyzing"
+    containerState(progress) !== 'analyzing'
   );
 }
 
@@ -219,7 +219,7 @@ export function canAnalyze(progress: ContainerProgress): boolean {
  */
 export function learningTimestamp(
   value: string | null,
-  absentLabel = "Never",
+  absentLabel = 'Never',
 ): string {
   return value === null ? absentLabel : formatDateTime(value);
 }
@@ -229,20 +229,20 @@ export function learningTimestampWithZone(
   value: string | null,
   timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone,
 ): string {
-  if (value === null) return "Never";
+  if (value === null) return 'Never';
   const parsed = parseIsoInstant(value);
   if (parsed === null) return formatDateTime(value);
   const zone = new Intl.DateTimeFormat(undefined, {
     timeZone,
-    timeZoneName: "short",
+    timeZoneName: 'short',
   })
     .formatToParts(parsed)
-    .find((part) => part.type === "timeZoneName")?.value;
+    .find((part) => part.type === 'timeZoneName')?.value;
   return `${formatDateTime(value, { timeZone })} ${zone}`;
 }
 
 /** Describes only the evidence frozen for this run, never current container totals. */
 export function analysisEvidence(run: LearningRun): string {
-  if (run.evidenceThreadCount == null) return "Evidence count unavailable";
-  return `${run.evidenceThreadCount.toLocaleString()} ${run.evidenceThreadCount === 1 ? "Thread" : "Threads"} in this analysis`;
+  if (run.evidenceThreadCount == null) return 'Evidence count unavailable';
+  return `${run.evidenceThreadCount.toLocaleString()} ${run.evidenceThreadCount === 1 ? 'Thread' : 'Threads'} in this analysis`;
 }

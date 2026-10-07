@@ -1,10 +1,16 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react';
 
-import { classNames } from "../class-names";
-import { Button } from "../primitives/actions";
-import styles from "./calendar.module.css";
+import { classNames } from '../class-names';
+import { Button } from '../primitives/actions';
+import styles from './calendar.module.css';
 
 /**
  * An inclusive range of local calendar days. `to` is absent while the reader
@@ -27,7 +33,7 @@ export interface CalendarDisabledDays {
 /** Props for {@link Calendar}. */
 export interface CalendarProps {
   /** Accessible name for the whole calendar group. */
-  readonly "aria-label"?: string;
+  readonly 'aria-label'?: string;
   readonly className?: string;
   /** First visible month when the calendar mounts. Defaults to `today`. */
   readonly defaultMonth?: Date;
@@ -144,9 +150,9 @@ function dayNumber(date: Date): number {
  * @returns The local calendar date string.
  */
 function dayKey(date: Date): string {
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${String(date.getFullYear()).padStart(4, "0")}-${month}-${day}`;
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${String(date.getFullYear()).padStart(4, '0')}-${month}-${day}`;
 }
 
 /**
@@ -280,7 +286,7 @@ function daySelection(
 export function Calendar(props: CalendarProps): React.JSX.Element {
   const numberOfMonths = Math.max(1, Math.floor(props.numberOfMonths ?? 1));
   const weekStartsOn = props.weekStartsOn ?? 0;
-  const locale = props.locale ?? "en-US";
+  const locale = props.locale ?? 'en-US';
   const showOutsideDays = props.showOutsideDays ?? true;
   const today = useMemo(
     () => startOfDay(props.today ?? new Date()),
@@ -324,17 +330,17 @@ export function Calendar(props: CalendarProps): React.JSX.Element {
   const formatters = useMemo(
     () => ({
       caption: new Intl.DateTimeFormat(locale, {
-        month: "long",
-        year: "numeric",
+        month: 'long',
+        year: 'numeric',
       }),
       day: new Intl.DateTimeFormat(locale, {
-        day: "numeric",
-        month: "long",
-        weekday: "long",
-        year: "numeric",
+        day: 'numeric',
+        month: 'long',
+        weekday: 'long',
+        year: 'numeric',
       }),
-      weekday: new Intl.DateTimeFormat(locale, { weekday: "short" }),
-      weekdayLong: new Intl.DateTimeFormat(locale, { weekday: "long" }),
+      weekday: new Intl.DateTimeFormat(locale, { weekday: 'short' }),
+      weekdayLong: new Intl.DateTimeFormat(locale, { weekday: 'long' }),
     }),
     [locale],
   );
@@ -462,25 +468,25 @@ export function Calendar(props: CalendarProps): React.JSX.Element {
     day: Date,
   ): { readonly target: Date; readonly step: number } | undefined {
     switch (event.key) {
-      case "ArrowLeft":
+      case 'ArrowLeft':
         return { target: addDays(day, -1), step: -1 };
-      case "ArrowRight":
+      case 'ArrowRight':
         return { target: addDays(day, 1), step: 1 };
-      case "ArrowUp":
+      case 'ArrowUp':
         return { target: addDays(day, -DAYS_PER_WEEK), step: -DAYS_PER_WEEK };
-      case "ArrowDown":
+      case 'ArrowDown':
         return { target: addDays(day, DAYS_PER_WEEK), step: DAYS_PER_WEEK };
-      case "Home":
+      case 'Home':
         return { target: startOfWeek(day, weekStartsOn), step: 1 };
-      case "End":
+      case 'End':
         return {
           target: addDays(startOfWeek(day, weekStartsOn), DAYS_PER_WEEK - 1),
           step: -1,
         };
-      case "PageUp":
+      case 'PageUp':
         // A month or year back; if that day is disabled, walk toward `day`.
         return { target: addMonths(day, event.shiftKey ? -12 : -1), step: 1 };
-      case "PageDown":
+      case 'PageDown':
         return { target: addMonths(day, event.shiftKey ? 12 : 1), step: -1 };
       default:
         return undefined;
@@ -497,7 +503,7 @@ export function Calendar(props: CalendarProps): React.JSX.Element {
     event: KeyboardEvent<HTMLButtonElement>,
     day: Date,
   ): void {
-    if (event.key === "Enter" || event.key === " ") {
+    if (event.key === 'Enter' || event.key === ' ') {
       // Handle activation here, not through the native click, so Space and
       // Enter behave the same in every browser and never pick twice.
       event.preventDefault();
@@ -508,7 +514,7 @@ export function Calendar(props: CalendarProps): React.JSX.Element {
     const move = keyTarget(event, day);
     if (move === undefined) return;
     event.preventDefault();
-    const isPage = event.key === "PageUp" || event.key === "PageDown";
+    const isPage = event.key === 'PageUp' || event.key === 'PageDown';
     const next = findFocusable(move.target, move.step);
     if (next === undefined) return;
     // A page move that walked back past the starting day found nothing new.
@@ -522,11 +528,11 @@ export function Calendar(props: CalendarProps): React.JSX.Element {
 
   return (
     <div
-      aria-label={props["aria-label"]}
+      aria-label={props['aria-label']}
       className={classNames(styles.calendar, props.className)}
       data-slot="calendar"
       ref={rootRef}
-      role={props["aria-label"] === undefined ? undefined : "group"}
+      role={props['aria-label'] === undefined ? undefined : 'group'}
     >
       <div className={styles.nav}>
         <Button
@@ -604,21 +610,21 @@ export function Calendar(props: CalendarProps): React.JSX.Element {
                           <td
                             aria-selected={selection.selected}
                             className={styles.day}
-                            data-disabled={disabled ? "true" : undefined}
-                            data-outside={outside ? "true" : undefined}
-                            data-range-end={selection.end ? "true" : undefined}
+                            data-disabled={disabled ? 'true' : undefined}
+                            data-outside={outside ? 'true' : undefined}
+                            data-range-end={selection.end ? 'true' : undefined}
                             data-range-middle={
-                              selection.middle ? "true" : undefined
+                              selection.middle ? 'true' : undefined
                             }
                             data-range-start={
-                              selection.start ? "true" : undefined
+                              selection.start ? 'true' : undefined
                             }
-                            data-today={isToday ? "true" : undefined}
+                            data-today={isToday ? 'true' : undefined}
                             key={key}
                             role="gridcell"
                           >
                             <button
-                              aria-current={isToday ? "date" : undefined}
+                              aria-current={isToday ? 'date' : undefined}
                               aria-label={isToday ? `Today, ${label}` : label}
                               className={styles.dayButton}
                               data-day={outside ? undefined : key}

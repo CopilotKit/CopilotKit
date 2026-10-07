@@ -59,7 +59,7 @@
   border-radius: 0;
   padding: 0;
 }
-.metrics :global(.metric-tile__value:not([data-compact="true"])) {
+.metrics :global(.metric-tile__value:not([data-compact='true'])) {
   font-size: 29px;
   font-weight: 500;
   line-height: 1.2;
@@ -126,7 +126,7 @@
   grid-template-columns: minmax(0, 1.55fr) minmax(290px, 0.9fr);
   margin-top: 24px;
 }
-.spotlightGrid[data-single="true"] {
+.spotlightGrid[data-single='true'] {
   grid-template-columns: minmax(0, 1fr);
 }
 .eventVolume {
@@ -198,21 +198,21 @@
   align-items: start;
   margin-top: 32px;
 }
-.activityGrid[data-stretch="true"] {
+.activityGrid[data-stretch='true'] {
   align-items: stretch;
 }
-.activityGrid[data-stretch="true"] > .activitySection {
+.activityGrid[data-stretch='true'] > .activitySection {
   display: flex;
   flex-direction: column;
 }
-.activityGrid[data-stretch="true"] > .activitySection > :last-child {
+.activityGrid[data-stretch='true'] > .activitySection > :last-child {
   flex: 1 1 auto;
 }
-.tableFrame[data-stretch="true"] {
+.tableFrame[data-stretch='true'] {
   display: flex;
   flex-direction: column;
 }
-.tableFrame[data-stretch="true"] > :global([data-slot="table-viewport"]) {
+.tableFrame[data-stretch='true'] > :global([data-slot='table-viewport']) {
   flex: 1 1 auto;
 }
 
@@ -220,22 +220,22 @@
 .tableFrame :global(table) {
   table-layout: fixed;
 }
-.tableFrame[data-columns="threads"] :global(th:nth-child(2)) {
+.tableFrame[data-columns='threads'] :global(th:nth-child(2)) {
   width: 18%;
 }
-.tableFrame[data-columns="threads"] :global(th:nth-child(3)) {
+.tableFrame[data-columns='threads'] :global(th:nth-child(3)) {
   width: 17%;
 }
-.tableFrame[data-columns="threads"] :global(th:nth-child(4)) {
+.tableFrame[data-columns='threads'] :global(th:nth-child(4)) {
   width: 11.75rem;
 }
-.tableFrame[data-columns="learning"] :global(th:nth-child(2)) {
+.tableFrame[data-columns='learning'] :global(th:nth-child(2)) {
   width: 5rem;
 }
-.tableFrame[data-columns="learning"] :global(th:nth-child(3)) {
+.tableFrame[data-columns='learning'] :global(th:nth-child(3)) {
   width: 6.75rem;
 }
-.tableFrame[data-columns="learning"] :global(th:nth-child(4)) {
+.tableFrame[data-columns='learning'] :global(th:nth-child(4)) {
   width: 11rem;
 }
 .tableFrame :global(td) {
@@ -300,7 +300,7 @@
   .metrics {
     gap: 16px 8px;
   }
-  .metrics :global(.metric-tile__value:not([data-compact="true"])) {
+  .metrics :global(.metric-tile__value:not([data-compact='true'])) {
     font-size: 22px;
   }
   .eventVolume {

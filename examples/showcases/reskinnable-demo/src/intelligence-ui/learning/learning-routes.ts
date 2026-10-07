@@ -6,15 +6,15 @@
  * the run is the machinery underneath it.
  */
 export const learningTabSegments = [
-  "insights",
-  "skills",
-  "analysis-results",
-  "settings",
+  'insights',
+  'skills',
+  'analysis-results',
+  'settings',
 ] as const;
 
 export type LearningTabSegment = (typeof learningTabSegments)[number];
 
-const defaultTab: LearningTabSegment = "insights";
+const defaultTab: LearningTabSegment = 'insights';
 
 /**
  * Resolves a URL segment to a Container view.

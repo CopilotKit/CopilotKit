@@ -1,4 +1,4 @@
-import { useCopyToClipboard } from "../ui/data-display";
+import { useCopyToClipboard } from '../ui/data-display';
 import {
   Card,
   CardAction,
@@ -6,12 +6,12 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../ui/layout";
-import { Button } from "../ui/primitives";
+} from '../ui/layout';
+import { Button } from '../ui/primitives';
 
-import { LearningNotice } from "./learning-notice";
-import styles from "./learning-page.module.css";
-import importStyles from "./learning-thread-binding.module.css";
+import { LearningNotice } from './learning-notice';
+import styles from './learning-page.module.css';
+import importStyles from './learning-thread-binding.module.css';
 
 /**
  * Builds the Runtime wiring prompt for one Container.
@@ -53,10 +53,10 @@ export function ContainerConnectCard(props: {
   const promptCopy = useCopyToClipboard({ resetKey: prompt });
   // An unavailable clipboard gets the same select-the-text fallback.
   const copyFailed =
-    promptCopy.status === "failed" || promptCopy.status === "unavailable";
+    promptCopy.status === 'failed' || promptCopy.status === 'unavailable';
   const announced =
-    promptCopy.announcedStatus === "unavailable"
-      ? "failed"
+    promptCopy.announcedStatus === 'unavailable'
+      ? 'failed'
       : promptCopy.announcedStatus;
 
   const copy = (): void => {
@@ -67,14 +67,14 @@ export function ContainerConnectCard(props: {
     <p
       role="status"
       className={
-        announced === "idle" ? "cpki-visually-hidden" : importStyles.copyStatus
+        announced === 'idle' ? 'cpki-visually-hidden' : importStyles.copyStatus
       }
     >
-      {announced === "copied"
-        ? "Integration prompt copied."
-        : announced === "failed"
-          ? "Copy failed. Open the integration prompt below and select the text."
-          : ""}
+      {announced === 'copied'
+        ? 'Integration prompt copied.'
+        : announced === 'failed'
+          ? 'Copy failed. Open the integration prompt below and select the text.'
+          : ''}
     </p>
   );
   const promptDetails = (
@@ -223,15 +223,15 @@ export function ContainerConnectCard(props: {
         </Button>
         <p
           className={
-            announced === "idle" ? "cpki-visually-hidden" : styles.help
+            announced === 'idle' ? 'cpki-visually-hidden' : styles.help
           }
           role="status"
         >
-          {announced === "copied"
-            ? "Integration prompt copied."
-            : announced === "failed"
-              ? "Copy failed. Select the text instead."
-              : ""}
+          {announced === 'copied'
+            ? 'Integration prompt copied.'
+            : announced === 'failed'
+              ? 'Copy failed. Select the text instead.'
+              : ''}
         </p>
       </section>
     </div>

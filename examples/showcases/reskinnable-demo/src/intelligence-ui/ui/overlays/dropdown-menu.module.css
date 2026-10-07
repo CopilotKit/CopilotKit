@@ -68,12 +68,12 @@
   border-color: var(--cpki-color-focus-ring, #219ebc);
 }
 
-.item[aria-disabled="true"] {
+.item[aria-disabled='true'] {
   cursor: not-allowed;
   opacity: 0.55;
 }
 
-.item[data-destructive="true"] {
+.item[data-destructive='true'] {
   color: var(--cpki-color-danger, #b42318);
 }
 

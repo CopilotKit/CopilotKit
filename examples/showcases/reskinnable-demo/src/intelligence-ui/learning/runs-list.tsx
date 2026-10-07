@@ -1,23 +1,25 @@
-import { History, RefreshCw } from "lucide-react";
-import { useLocation, useSearchParams } from "../shell/router";
+import { History, RefreshCw } from 'lucide-react';
+import { useLocation, useSearchParams } from '../shell/router';
 
-import { CollectionPagination, DataTable } from "../ui/data-display";
-import type { DataTableColumn } from "../ui/data-display";
-import { Badge, EmptyState } from "../ui/feedback";
-import type { BadgeVariant } from "../ui/feedback";
-import { Button } from "../ui/primitives";
+import {
+  CollectionPagination,
+  DataTable,
+  type DataTableColumn,
+} from '../ui/data-display';
+import { Badge, EmptyState, type BadgeVariant } from '../ui/feedback';
+import { Button } from '../ui/primitives';
 
-import type { LearningRun } from "./learning-api";
+import type { LearningRun } from './learning-api';
 import type {
   AnalysisDisplayStatus,
   LearningContainerState,
-} from "./learning-container-state";
+} from './learning-container-state';
 import {
   analysisDisplayStatus,
   analysisLabel,
   learningTimestamp,
-} from "./learning-container-state";
-import styles from "./learning-page.module.css";
+} from './learning-container-state';
+import styles from './learning-page.module.css';
 
 interface AnalysisResultsListProps {
   readonly error: string | null;
@@ -37,10 +39,10 @@ const statusBadge: Readonly<
     { readonly label: string; readonly variant: BadgeVariant }
   >
 > = {
-  analyzing: { label: "Analyzing", variant: "warning" },
-  complete: { label: "Completed", variant: "success" },
-  failed: { label: "Failed", variant: "danger" },
-  retrying: { label: "Retrying", variant: "warning" },
+  analyzing: { label: 'Analyzing', variant: 'warning' },
+  complete: { label: 'Completed', variant: 'success' },
+  failed: { label: 'Failed', variant: 'danger' },
+  retrying: { label: 'Retrying', variant: 'warning' },
 };
 
 /** One table row; a type alias so it satisfies the DataTable row contract. */
@@ -48,7 +50,7 @@ type AnalysisRow = { readonly run: LearningRun };
 
 /** Formats a nullable server count, or an em dash when none was recorded. */
 function countCell(value: number | null | undefined): string {
-  return value == null ? "—" : value.toLocaleString();
+  return value == null ? '—' : value.toLocaleString();
 }
 
 /** Columns read only fields the analysis record returns. */
@@ -58,12 +60,12 @@ const columns: readonly DataTableColumn<AnalysisRow>[] = [
       <span className={styles.analysisName}>
         <span title={run.id}>{analysisLabel(run.id)}</span>
         <Badge variant="outline">
-          {run.triggerSource === "automatic" ? "Automatic" : "Manual"}
+          {run.triggerSource === 'automatic' ? 'Automatic' : 'Manual'}
         </Badge>
       </span>
     ),
-    header: "Analysis",
-    id: "analysis",
+    header: 'Analysis',
+    id: 'analysis',
   },
   {
     cell: ({ run }) => {
@@ -73,36 +75,36 @@ const columns: readonly DataTableColumn<AnalysisRow>[] = [
           <Badge dot variant={status.variant}>
             {status.label}
           </Badge>
-          {run.status === "failed" && run.failureCode !== null ? (
+          {run.status === 'failed' && run.failureCode !== null ? (
             <code data-slot="identifier">{run.failureCode}</code>
           ) : null}
         </span>
       );
     },
-    header: "Status",
-    id: "status",
+    header: 'Status',
+    id: 'status',
   },
   {
     cell: ({ run }) => countCell(run.evidenceThreadCount),
-    header: "Threads",
-    id: "threads",
+    header: 'Threads',
+    id: 'threads',
   },
   {
     cell: ({ run }) => countCell(run.insightCount),
-    header: "Insights",
-    id: "insights",
+    header: 'Insights',
+    id: 'insights',
   },
   {
     cell: ({ run }) => countCell(run.candidateCount),
-    header: "Skill candidates",
-    id: "candidates",
+    header: 'Skill candidates',
+    id: 'candidates',
   },
   {
     cell: ({ run }) => (
       <time dateTime={run.createdAt}>{learningTimestamp(run.createdAt)}</time>
     ),
-    header: "Created",
-    id: "created",
+    header: 'Created',
+    id: 'created',
   },
   {
     cell: ({ run }) =>
@@ -111,10 +113,10 @@ const columns: readonly DataTableColumn<AnalysisRow>[] = [
           {learningTimestamp(run.completedAt)}
         </time>
       ) : (
-        "—"
+        '—'
       ),
-    header: "Finished",
-    id: "finished",
+    header: 'Finished',
+    id: 'finished',
   },
 ];
 
@@ -129,31 +131,31 @@ export function AnalysisResultsList(
 ): React.JSX.Element {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const parsedPage = Number(searchParams.get("analysisPage"));
+  const parsedPage = Number(searchParams.get('analysisPage'));
   const requestedPage =
     Number.isSafeInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
   const pageCount = Math.max(1, Math.ceil(props.runs.length / pageSize));
   const page = Math.min(requestedPage, pageCount);
   const paramsForPage = (nextPage: number): URLSearchParams => {
     const next = new URLSearchParams(searchParams);
-    if (nextPage <= 1) next.delete("analysisPage");
-    else next.set("analysisPage", String(nextPage));
+    if (nextPage <= 1) next.delete('analysisPage');
+    else next.set('analysisPage', String(nextPage));
     return next;
   };
   const hrefForPage = (nextPage: number): string => {
     const query = paramsForPage(nextPage).toString();
-    return `${location.pathname}${query ? `?${query}` : ""}${location.hash}`;
+    return `${location.pathname}${query ? `?${query}` : ''}${location.hash}`;
   };
 
   if (!props.isLoading && props.error === null && props.runs.length === 0) {
     return (
       <EmptyState
         description={
-          props.state === "setup"
-            ? "Assign this space ID in your Runtime, then analyze the Threads it collects."
-            : props.state === "ready" || props.state === "collecting"
-              ? "Analyze the collected Threads when you are ready, and each analysis will appear here with what it found."
-              : "Completed analyses appear here with what each one found."
+          props.state === 'setup'
+            ? 'Assign this space ID in your Runtime, then analyze the Threads it collects.'
+            : props.state === 'ready' || props.state === 'collecting'
+              ? 'Analyze the collected Threads when you are ready, and each analysis will appear here with what it found.'
+              : 'Completed analyses appear here with what each one found.'
         }
         headingLevel={2}
         icon={<History />}

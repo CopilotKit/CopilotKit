@@ -1,11 +1,11 @@
 /* eslint-disable react-hooks/set-state-in-effect -- copied verbatim from the Intelligence web app, whose lint config does not enable the React Compiler rules. */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from 'react';
 
-export type WorkspaceThemePreference = "light" | "dark" | "system";
+export type WorkspaceThemePreference = 'light' | 'dark' | 'system';
 
-const storageKey = "workspace-theme-preference";
-const darkQuery = "(prefers-color-scheme: dark)";
-const themeChangeEvent = "cpki-workspace-theme-change";
+const storageKey = 'workspace-theme-preference';
+const darkQuery = '(prefers-color-scheme: dark)';
+const themeChangeEvent = 'cpki-workspace-theme-change';
 let inMemoryPreference: WorkspaceThemePreference | null = null;
 let storageWriteDenied = false;
 
@@ -13,13 +13,13 @@ let storageWriteDenied = false;
 export function readWorkspaceThemePreference(): WorkspaceThemePreference {
   try {
     const saved = window.localStorage.getItem(storageKey);
-    return saved === "light" || saved === "dark"
+    return saved === 'light' || saved === 'dark'
       ? saved
       : storageWriteDenied
-        ? (inMemoryPreference ?? "system")
-        : "system";
+        ? (inMemoryPreference ?? 'system')
+        : 'system';
   } catch {
-    return inMemoryPreference ?? "system";
+    return inMemoryPreference ?? 'system';
   }
 }
 
@@ -27,19 +27,19 @@ export function readWorkspaceThemePreference(): WorkspaceThemePreference {
 export function applyWorkspaceThemePreference(
   preference: WorkspaceThemePreference,
 ): void {
-  document.documentElement.setAttribute("data-cpki-theme", preference);
-  document.documentElement.setAttribute("data-cpki-design", "workspace");
-  document.body.removeAttribute("data-cpki-theme");
-  document.body.removeAttribute("data-cpki-design");
+  document.documentElement.setAttribute('data-cpki-theme', preference);
+  document.documentElement.setAttribute('data-cpki-design', 'workspace');
+  document.body.removeAttribute('data-cpki-theme');
+  document.body.removeAttribute('data-cpki-design');
   document
-    .querySelector("cpki-intelligence-root")
-    ?.removeAttribute("data-cpki-theme");
+    .querySelector('cpki-intelligence-root')
+    ?.removeAttribute('data-cpki-theme');
 }
 
 /** Keep the icon current when the OS theme changes while System is selected. */
 export function useWorkspaceTheme(): {
   readonly preference: WorkspaceThemePreference;
-  readonly resolvedTheme: "light" | "dark";
+  readonly resolvedTheme: 'light' | 'dark';
   readonly setPreference: (value: WorkspaceThemePreference) => void;
 } {
   const [preference, setPreferenceState] = useState(
@@ -48,7 +48,7 @@ export function useWorkspaceTheme(): {
   const [systemDark, setSystemDark] = useState(
     // Demo: Next renders this on the server first, where there is no window.
     () =>
-      typeof window !== "undefined" &&
+      typeof window !== 'undefined' &&
       (window.matchMedia?.(darkQuery).matches ?? false),
   );
 
@@ -74,8 +74,8 @@ export function useWorkspaceTheme(): {
       setSystemDark(event.matches);
     };
     setSystemDark(media.matches);
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
   }, []);
 
   const setPreference = useCallback((value: WorkspaceThemePreference): void => {
@@ -98,7 +98,7 @@ export function useWorkspaceTheme(): {
   return {
     preference,
     resolvedTheme:
-      preference === "system" ? (systemDark ? "dark" : "light") : preference,
+      preference === 'system' ? (systemDark ? 'dark' : 'light') : preference,
     setPreference,
   };
 }
@@ -109,6 +109,6 @@ export function useWorkspaceTheme(): {
  * its own look after a client-side navigation.
  */
 export function clearWorkspaceTheme(): void {
-  document.documentElement.removeAttribute("data-cpki-theme");
-  document.documentElement.removeAttribute("data-cpki-design");
+  document.documentElement.removeAttribute('data-cpki-theme');
+  document.documentElement.removeAttribute('data-cpki-design');
 }

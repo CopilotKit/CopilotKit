@@ -1,28 +1,27 @@
-import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
-import { motion } from "motion/react";
-import type { ComponentType } from "react";
-import { useWorkspaceEntranceMotion } from "../shell/workspace-entrance";
-import { Badge } from "../ui/feedback";
-import type { BadgeVariant } from "../ui/feedback";
-import { VisuallyHidden } from "../ui/primitives";
+import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
+import { motion } from 'motion/react';
+import type { ComponentType } from 'react';
+import { useWorkspaceEntranceMotion } from '../shell/workspace-entrance';
+import { Badge, type BadgeVariant } from '../ui/feedback';
+import { VisuallyHidden } from '../ui/primitives';
 
-import "./MetricTile.css";
+import './MetricTile.css';
 
 /**
  * Health signal a {@link MetricTile} is reporting for its metric, driving
  * which token-based color modifier class the tile renders with.
  */
-export type MetricTileState = "good" | "neutral" | "warn";
+export type MetricTileState = 'good' | 'neutral' | 'warn';
 
 /** Which way a metric moved over the period. */
-export type MetricTrendDirection = "up" | "down" | "flat";
+export type MetricTrendDirection = 'up' | 'down' | 'flat';
 
 /**
  * Whether a metric's movement is good, bad, or neither for this metric —
  * decoupled from {@link MetricTrendDirection} because "up" is good for active
  * users but bad for error rate. Drives the delta pill's semantic color.
  */
-export type MetricTrendTone = "positive" | "negative" | "neutral";
+export type MetricTrendTone = 'positive' | 'negative' | 'neutral';
 
 /** The period-over-period change shown as a colored delta pill on a tile. */
 export interface MetricTileTrend {
@@ -87,9 +86,9 @@ const TREND_ICON: Record<
 
 /** The shared Badge variant for each trend tone. */
 const TREND_BADGE: Record<MetricTrendTone, BadgeVariant> = {
-  negative: "danger",
-  neutral: "neutral",
-  positive: "success",
+  negative: 'danger',
+  neutral: 'neutral',
+  positive: 'success',
 };
 
 /**
@@ -126,10 +125,10 @@ export function MetricTile(props: MetricTileProps): React.JSX.Element {
         className="metric-tile__value"
         data-compact={
           (metric.compactValue ?? !/\d/u.test(metric.value))
-            ? "true"
+            ? 'true'
             : undefined
         }
-        data-placeholder={metric.valueLabel ? "true" : undefined}
+        data-placeholder={metric.valueLabel ? 'true' : undefined}
       >
         {metric.valueLabel ? (
           <>

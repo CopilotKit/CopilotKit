@@ -1,10 +1,10 @@
-import type { ReactNode } from "react";
+import type { ReactNode } from 'react';
 
 export type DateTimeInput = Date | number | string | null | undefined;
 
-export type DateTimeGranularity = "minute" | "hour" | "day" | "week" | "month";
+export type DateTimeGranularity = 'minute' | 'hour' | 'day' | 'week' | 'month';
 
-export type DateTimeZone = "local" | "UTC" | string;
+export type DateTimeZone = 'local' | 'UTC' | string;
 
 export interface DateFormatOptions {
   readonly locale?: string;
@@ -18,11 +18,11 @@ export interface TimeBucketFormatOptions extends DateFormatOptions {
 
 export interface FormattedDateTimeProps extends DateFormatOptions {
   readonly value: DateTimeInput;
-  readonly variant?: "date" | "dateTime" | "timeBucket";
+  readonly variant?: 'date' | 'dateTime' | 'timeBucket';
   readonly granularity?: DateTimeGranularity;
 }
 
-const DEFAULT_INVALID_FALLBACK = "-";
+const DEFAULT_INVALID_FALLBACK = '-';
 
 const ISO_DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
 const ISO_OFFSET_PATTERN = /(Z|[+-]\d{2}:\d{2})$/u;
@@ -31,7 +31,7 @@ const ISO_OFFSET_PATTERN = /(Z|[+-]\d{2}:\d{2})$/u;
 function resolveTimeZone(
   timeZone: DateTimeZone | undefined,
 ): string | undefined {
-  return timeZone === "local" ? undefined : timeZone;
+  return timeZone === 'local' ? undefined : timeZone;
 }
 
 /** Checks whether a Date instance carries a finite timestamp. */
@@ -52,7 +52,7 @@ function parseDateValue(
     return isValidDate(value) ? value : null;
   }
 
-  if (typeof value === "number") {
+  if (typeof value === 'number') {
     const parsed = new Date(value);
     return isValidDate(parsed) ? parsed : null;
   }
@@ -91,7 +91,7 @@ export function formatDate(
   }
 
   return new Intl.DateTimeFormat(options.locale, {
-    dateStyle: "medium",
+    dateStyle: 'medium',
     timeZone: resolveTimeZone(options.timeZone),
   }).format(parsed);
 }
@@ -107,8 +107,8 @@ export function formatDateTime(
   }
 
   return new Intl.DateTimeFormat(options.locale, {
-    dateStyle: "medium",
-    timeStyle: "short",
+    dateStyle: 'medium',
+    timeStyle: 'short',
     timeZone: resolveTimeZone(options.timeZone),
   }).format(parsed);
 }
@@ -123,50 +123,50 @@ export function formatTimeBucket(
     return options.invalidFallback ?? DEFAULT_INVALID_FALLBACK;
   }
 
-  const timeZone = resolveTimeZone(options.timeZone ?? "UTC");
+  const timeZone = resolveTimeZone(options.timeZone ?? 'UTC');
 
-  if (options.granularity === "minute") {
+  if (options.granularity === 'minute') {
     return new Intl.DateTimeFormat(options.locale, {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
       timeZone,
-      timeZoneName: "short",
+      timeZoneName: 'short',
     }).format(parsed);
   }
 
-  if (options.granularity === "hour") {
+  if (options.granularity === 'hour') {
     return new Intl.DateTimeFormat(options.locale, {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
       timeZone,
-      timeZoneName: "short",
+      timeZoneName: 'short',
     }).format(parsed);
   }
 
-  if (options.granularity === "week") {
+  if (options.granularity === 'week') {
     return `Week of ${new Intl.DateTimeFormat(options.locale, {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
       timeZone,
     }).format(parsed)}`;
   }
 
-  if (options.granularity === "month") {
+  if (options.granularity === 'month') {
     return new Intl.DateTimeFormat(options.locale, {
-      month: "short",
-      year: "numeric",
+      month: 'short',
+      year: 'numeric',
       timeZone,
     }).format(parsed);
   }
 
   return new Intl.DateTimeFormat(options.locale, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
     timeZone,
   }).format(parsed);
 }
@@ -174,17 +174,17 @@ export function formatTimeBucket(
 /** Renders a formatted date, date-time, or temporal bucket with invalid fallback text. */
 export function FormattedDateTime({
   value,
-  variant = "dateTime",
-  granularity = "day",
+  variant = 'dateTime',
+  granularity = 'day',
   locale,
   timeZone,
   invalidFallback,
 }: FormattedDateTimeProps): ReactNode {
-  if (variant === "date") {
+  if (variant === 'date') {
     return formatDate(value, { locale, timeZone, invalidFallback });
   }
 
-  if (variant === "timeBucket") {
+  if (variant === 'timeBucket') {
     return formatTimeBucket(value, {
       granularity,
       locale,

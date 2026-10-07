@@ -1,16 +1,16 @@
-import { Link } from "../shell/router";
-import { ArrowRight } from "lucide-react";
-import { Badge } from "../ui/feedback";
-import { Button } from "../ui/primitives";
-import type { LearningRun } from "./learning-api";
+import { Link } from '../shell/router';
+import { ArrowRight } from 'lucide-react';
+import { Badge } from '../ui/feedback';
+import { Button } from '../ui/primitives';
+import type { LearningRun } from './learning-api';
 import {
   analysisDisplayStatus,
   analysisEvidence,
   analysisOutcome,
   learningTimestampWithZone,
-} from "./learning-container-state";
-import { learningNoticeStyles } from "./learning-notice";
-import styles from "./latest-analysis.module.css";
+} from './learning-container-state';
+import { learningNoticeStyles } from './learning-notice';
+import styles from './latest-analysis.module.css';
 
 /**
  * Makes the latest run visible from the default Learning view, as the same
@@ -34,21 +34,21 @@ export function LatestAnalysis(props: {
   const status = run ? analysisDisplayStatus(run) : null;
   const timestamp = run?.completedAt ?? run?.startedAt ?? run?.createdAt;
   const title =
-    status === "failed"
-      ? "Analysis failed"
-      : status === "analyzing"
-        ? "Analysis in progress"
-        : status === "retrying"
-          ? "Retrying analysis"
-          : "Latest analysis";
+    status === 'failed'
+      ? 'Analysis failed'
+      : status === 'analyzing'
+        ? 'Analysis in progress'
+        : status === 'retrying'
+          ? 'Retrying analysis'
+          : 'Latest analysis';
   const announcement =
     props.error !== null
-      ? "Could not load the latest analysis."
+      ? 'Could not load the latest analysis.'
       : props.isLoading
-        ? "Loading latest analysis…"
+        ? 'Loading latest analysis…'
         : run
           ? `${title}. ${analysisOutcome(run)}`
-          : "No analyses yet";
+          : 'No analyses yet';
   const notice = learningNoticeStyles;
   return (
     <>
@@ -68,14 +68,14 @@ export function LatestAnalysis(props: {
               <div className={styles.heading}>
                 <h2 className={notice.title}>{title}</h2>
                 <Badge variant="outline">
-                  {run.triggerSource === "automatic" ? "Automatic" : "Manual"}
+                  {run.triggerSource === 'automatic' ? 'Automatic' : 'Manual'}
                 </Badge>
                 <span className={styles.meta}>
                   {run.completedAt
-                    ? "Finished "
+                    ? 'Finished '
                     : run.startedAt
-                      ? "Started "
-                      : "Queued "}
+                      ? 'Started '
+                      : 'Queued '}
                   <time dateTime={timestamp}>
                     {learningTimestampWithZone(timestamp ?? null)}
                   </time>

@@ -1,15 +1,14 @@
-import type { ComponentProps, MouseEvent } from "react";
-import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
-import { buttonVariants } from "../primitives/actions";
-import type { ActionSize } from "../primitives/actions";
-import { classNames } from "../class-names";
-import styles from "./registry-pagination.module.css";
+import type { ComponentProps, MouseEvent } from 'react';
+import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
+import { buttonVariants, type ActionSize } from '../primitives/actions';
+import { classNames } from '../class-names';
+import styles from './registry-pagination.module.css';
 
 /** Generated shadcn Pagination root with the collection's accessible label. */
 export function Pagination({
   className,
   ...props
-}: ComponentProps<"nav">): React.JSX.Element {
+}: ComponentProps<'nav'>): React.JSX.Element {
   return (
     <nav
       aria-label="pagination"
@@ -25,7 +24,7 @@ export function Pagination({
 export function PaginationContent({
   className,
   ...props
-}: ComponentProps<"ul">): React.JSX.Element {
+}: ComponentProps<'ul'>): React.JSX.Element {
   return (
     <ul
       className={classNames(styles.content, className)}
@@ -36,11 +35,11 @@ export function PaginationContent({
 }
 
 /** List item wrapper for each page control. */
-export function PaginationItem(props: ComponentProps<"li">): React.JSX.Element {
+export function PaginationItem(props: ComponentProps<'li'>): React.JSX.Element {
   return <li data-slot="pagination-item" {...props} />;
 }
 
-export interface PaginationLinkProps extends ComponentProps<"a"> {
+export interface PaginationLinkProps extends ComponentProps<'a'> {
   readonly isActive?: boolean;
   readonly size?: ActionSize;
 }
@@ -50,17 +49,17 @@ export function PaginationLink({
   children,
   className,
   isActive,
-  size = "icon",
+  size = 'icon',
   ...props
 }: PaginationLinkProps): React.JSX.Element {
   const look = buttonVariants({
     size,
-    variant: isActive ? "outline" : "ghost",
+    variant: isActive ? 'outline' : 'ghost',
   });
   return (
     <a
       {...look}
-      aria-current={isActive ? "page" : undefined}
+      aria-current={isActive ? 'page' : undefined}
       className={classNames(look.className, styles.link, className)}
       data-active={isActive}
       data-slot="pagination-link"
@@ -111,7 +110,7 @@ export function PaginationNext({
 export function PaginationEllipsis({
   className,
   ...props
-}: ComponentProps<"span">): React.JSX.Element {
+}: ComponentProps<'span'>): React.JSX.Element {
   return (
     <span
       aria-hidden="true"
@@ -146,9 +145,9 @@ export function CursorCollectionPagination(
 ): React.JSX.Element | null {
   const current = Math.max(1, props.page);
   if (current === 1 && !props.hasNext) return null;
-  const edge = buttonVariants({ size: "md", variant: "ghost" });
-  const page = buttonVariants({ size: "icon", variant: "ghost" });
-  const currentPage = buttonVariants({ size: "icon", variant: "outline" });
+  const edge = buttonVariants({ size: 'md', variant: 'ghost' });
+  const page = buttonVariants({ size: 'icon', variant: 'ghost' });
+  const currentPage = buttonVariants({ size: 'icon', variant: 'outline' });
   return (
     <Pagination aria-label={`${props.label} pagination`}>
       <PaginationContent>

@@ -1,9 +1,11 @@
-import type { LearningInsight, LearningSkill } from "./learning-api";
-import { Button } from "../ui/primitives";
-import { Badge, EmptyState } from "../ui/feedback";
-import { Lightbulb } from "lucide-react";
-import { learningTimestamp } from "./learning-container-state";
-import type { LearningContainerState } from "./learning-container-state";
+import type { LearningInsight, LearningSkill } from './learning-api';
+import { Button } from '../ui/primitives';
+import { Badge, EmptyState } from '../ui/feedback';
+import { Lightbulb } from 'lucide-react';
+import {
+  learningTimestamp,
+  type LearningContainerState,
+} from './learning-container-state';
 import {
   citedThreadsLabel,
   FindingDate,
@@ -11,8 +13,8 @@ import {
   FindingList,
   FindingRow,
   referencesLabel,
-} from "./finding-list";
-import styles from "./learning-page.module.css";
+} from './finding-list';
+import styles from './learning-page.module.css';
 
 /**
  * Counts the evidence behind one Insight.
@@ -88,11 +90,11 @@ export function InsightsList(props: InsightsListProps): React.JSX.Element {
     return (
       <EmptyState
         description={
-          props.state === "setup"
-            ? "Assign this space ID in your Runtime, then analyze the Threads it collects."
-            : props.state === "analyzing"
-              ? "The analysis in progress will add any repeated patterns it finds."
-              : "Analyze the collected Threads to find repeated patterns."
+          props.state === 'setup'
+            ? 'Assign this space ID in your Runtime, then analyze the Threads it collects.'
+            : props.state === 'analyzing'
+              ? 'The analysis in progress will add any repeated patterns it finds.'
+              : 'Analyze the collected Threads to find repeated patterns.'
         }
         headingLevel={2}
         icon={<Lightbulb />}
@@ -110,7 +112,7 @@ export function InsightsList(props: InsightsListProps): React.JSX.Element {
         </p>
         <p>
           {props.insights.length === 1
-            ? "1 Insight"
+            ? '1 Insight'
             : `${props.insights.length} Insights`}
         </p>
       </div>

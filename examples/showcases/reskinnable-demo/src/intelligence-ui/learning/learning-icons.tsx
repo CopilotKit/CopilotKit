@@ -5,11 +5,11 @@
  */
 
 const strokeProps = {
-  fill: "none",
-  stroke: "currentColor",
-  strokeLinecap: "round",
-  strokeLinejoin: "round",
-  viewBox: "0 0 24 24",
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+  viewBox: '0 0 24 24',
 } as const;
 
 /** Marks the Learning surface itself: a node with radiating connections. */

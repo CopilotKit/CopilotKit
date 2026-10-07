@@ -1,9 +1,9 @@
-import { useLayoutEffect, useRef } from "react";
-import { Link } from "../shell/router";
+import { useLayoutEffect, useRef } from 'react';
+import { Link } from '../shell/router';
 
-import { learningContainerRoute } from "./learning-routes";
-import type { LearningTabSegment } from "./learning-routes";
-import styles from "./learning-page.module.css";
+import { learningContainerRoute } from './learning-routes';
+import type { LearningTabSegment } from './learning-routes';
+import styles from './learning-page.module.css';
 
 interface LearningSpaceTab {
   readonly count: string;
@@ -46,13 +46,13 @@ export function LearningSpaceTabs(
     };
 
     reveal();
-    window.addEventListener("resize", reveal);
+    window.addEventListener('resize', reveal);
     const observer =
-      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(reveal);
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(reveal);
     observer?.observe(strip);
     observer?.observe(active);
     return () => {
-      window.removeEventListener("resize", reveal);
+      window.removeEventListener('resize', reveal);
       observer?.disconnect();
     };
   }, [props.selected]);
@@ -66,7 +66,7 @@ export function LearningSpaceTabs(
     >
       {props.tabs.map((tab) => (
         <Link
-          aria-current={props.selected === tab.segment ? "page" : undefined}
+          aria-current={props.selected === tab.segment ? 'page' : undefined}
           data-slot="tabs-trigger"
           key={tab.segment}
           to={learningContainerRoute(
