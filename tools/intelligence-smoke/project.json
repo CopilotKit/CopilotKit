@@ -1,0 +1,23 @@
+{
+  "name": "intelligence-smoke",
+  "root": "tools/intelligence-smoke",
+  "projectType": "library",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node --test tools/intelligence-smoke/*.test.mjs"
+      },
+      "cache": false
+    },
+    "run": {
+      "executor": "nx:run-commands",
+      "options": { "command": "node tools/intelligence-smoke/run.mjs" },
+      "cache": false
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": { "command": "oxlint tools/intelligence-smoke" }
+    }
+  }
+}
