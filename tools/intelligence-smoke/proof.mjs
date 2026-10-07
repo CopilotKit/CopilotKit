@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
+import { expectedCitationIds } from "./model.mjs";
 
 const nonempty = (value) =>
   typeof value === "string" && value.trim().length > 0;
@@ -291,7 +292,8 @@ export async function verifyLearning({
             reference.sourceRunId === sourceRunId &&
             uuid(reference.snapshotId) &&
             Array.isArray(reference.messageIds) &&
-            reference.messageIds.length > 0 &&
+            JSON.stringify(reference.messageIds) ===
+              JSON.stringify(expectedCitationIds(reference.snapshotId)) &&
             reference.messageIds.every(
               (id) =>
                 typeof id === "string" &&

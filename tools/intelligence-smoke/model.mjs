@@ -6,6 +6,14 @@ const fixture = JSON.parse(
 );
 export const scenario = Object.freeze(fixture.scenario);
 
+/** Bind the final model fixture's complete citation list to its harvested snapshot. */
+export function expectedCitationIds(snapshotId) {
+  const final = fixture.phases.find((phase) => phase.id === "reduce");
+  return final.response.toolCalls[0].arguments.operations[0].evidenceRefs[0].messageIds.map(
+    (id) => id.replace(`${scenario.threadId}:`, `${snapshotId}:`),
+  );
+}
+
 /** Flatten only text sent to the model, including JSON-encoded Flue tool output. */
 function textOf(request, role) {
   return request.messages

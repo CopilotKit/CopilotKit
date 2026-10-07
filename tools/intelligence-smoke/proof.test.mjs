@@ -356,6 +356,15 @@ for (const [name, change] of [
   ["missing snapshot", { snapshotId: undefined }],
   ["wrong snapshot citation", { messageIds: [`${operationId}:message:1`] }],
   ["old thread citation", { messageIds }],
+  ["omitted assistant citation", { messageIds: [snapshotMessageIds[0]] }],
+  [
+    "duplicated user citation",
+    { messageIds: [snapshotMessageIds[0], snapshotMessageIds[0]] },
+  ],
+  [
+    "extra duplicate citation",
+    { messageIds: [...snapshotMessageIds, snapshotMessageIds[1]] },
+  ],
   ["noncanonical position", { messageIds: [`${snapshotId}:message:01`] }],
 ])
   test(`Learning rejects ${name}`, async () => {
