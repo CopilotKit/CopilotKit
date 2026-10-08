@@ -16,6 +16,7 @@ import {
   snapshotDirectory,
   createNativeReader,
 } from "../row6/native.mjs";
+import { createBuiltImporter } from "../row6/importer.mjs";
 import { runImporter } from "../row6/command.mjs";
 import { createDestinationReader } from "../row6/destination.mjs";
 
@@ -208,4 +209,110 @@ test("real importer subprocess is terminated when its run is aborted", async (t)
     }),
     /owned run cancelled/,
   );
+});
+
+async function importerCase(
+  t,
+  { exitCode = 0, conflict = false, databaseFailure = false } = {},
+) {
+  const root = await directory(t);
+  const cli = join(root, "cli.mjs");
+  await writeFile(cli, `process.exit(${exitCode});`);
+  const sources = [
+    { importSourceId: "selected", role: "selected" },
+    ...(conflict
+      ? [{ importSourceId: "connected", role: "connected-collision" }]
+      : []),
+  ];
+  const pool = {
+    async query(sql) {
+      if (sql.includes("MAX(id)")) return { rows: [{ id: 4 }] };
+      if (databaseFailure) throw new Error("database read unavailable");
+      if (sql.includes("FROM cpki.thread_imports"))
+        return {
+          rows: [
+            {
+              id: 5,
+              source: "mastra",
+              status: conflict ? "partial" : "completed",
+            },
+          ],
+        };
+      if (sql.includes("FROM cpki.thread_import_items"))
+        return {
+          rows: [
+            {
+              source_thread_id: "selected",
+              outcome: "skipped",
+              reason: "already_imported",
+              thread_id: null,
+            },
+            ...(conflict
+              ? [
+                  {
+                    source_thread_id: "connected",
+                    outcome: "failed",
+                    reason: "IMPORT_NATIVE_ID_CONFLICT: reserved",
+                  },
+                ]
+              : []),
+          ],
+        };
+      if (sql.includes("FROM cpki.threads"))
+        return {
+          rows: [
+            {
+              thread_id: "destination",
+              import_metadata: { source_thread_id: "selected" },
+            },
+          ],
+        };
+      throw new Error(`Unexpected query: ${sql}`);
+    },
+  };
+  return {
+    root,
+    run: createBuiltImporter({
+      pool,
+      scope: {
+        organizationId: "owned-org",
+        projectId: 6,
+        apiUrl: "http://localhost:1",
+        credentials: { apiKey: "private-key" },
+      },
+      cli,
+      framework: "mastra",
+      sources,
+      importEnv: {},
+      agentMap: {},
+      outputDir: root,
+    }),
+  };
+}
+
+test("CLI adapter resolves skipped destination and separates expected mixed-store conflict", async (t) => {
+  const { root, run } = await importerCase(t, { exitCode: 1, conflict: true });
+  const result = await run();
+  assert.equal(result.results[0].destinationId, "destination");
+  assert.equal(result.results[0].status, "skipped");
+  assert.equal(result.results[1].status, "conflict");
+  const receipt = JSON.parse(
+    await readFile(join(root, "row6-import-1-receipt.json"), "utf8"),
+  );
+  assert.equal(receipt.items.length, 2);
+  assert.equal(receipt.buildIdentity.length, 64);
+});
+
+test("expected conflict cannot mask another CLI exit code", async (t) => {
+  const { run } = await importerCase(t, { exitCode: 2, conflict: true });
+  await assert.rejects(run(), /exit 2/);
+});
+
+test("CLI receipt survives a post-command database outage", async (t) => {
+  const { root, run } = await importerCase(t, { databaseFailure: true });
+  await assert.rejects(run(), /database read unavailable/);
+  const receipt = JSON.parse(
+    await readFile(join(root, "row6-import-1-receipt.json"), "utf8"),
+  );
+  assert.equal(receipt.failure.message, "database read unavailable");
 });
