@@ -2,7 +2,7 @@ import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { RunAgentInputSchema } from "@ag-ui/core";
+import type { RunAgentInput } from "@ag-ui/core";
 import { Agent, FileStorage, Model, SessionManager } from "@strands-agents/sdk";
 import type {
   BaseModelConfig,
@@ -64,7 +64,7 @@ test("delivers current context across eight native session reloads without persi
       });
       const prompt = `Show my current preferences, turn ${turn}.`;
       prompts.push(prompt);
-      const input = RunAgentInputSchema.parse({
+      const input: RunAgentInput = {
         threadId: "context-thread",
         runId: `run-${turn}`,
         messages: [{ id: `user-${turn}`, role: "user", content: prompt }],
@@ -75,7 +75,7 @@ test("delivers current context across eight native session reloads without persi
         },
         tools: [],
         forwardedProps: {},
-      });
+      };
       const events = [];
       for await (const event of adapter.run(input)) events.push(event);
       expect(events.filter((event) => event.type === "RUN_ERROR")).toEqual([]);
