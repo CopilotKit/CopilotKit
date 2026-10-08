@@ -53,6 +53,7 @@
     "@ag-ui/encoder": "0.0.59",
     "@ag-ui/proto": "0.0.59",
     "@mastra/loggers": "1.2.0",
-    "@mastra/deployer": "1.41.0"
+    "@mastra/deployer": "1.41.0",
+    "@ag-ui/mcp-apps-middleware": "0.1.1"
   }
 }

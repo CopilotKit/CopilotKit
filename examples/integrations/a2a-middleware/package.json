@@ -47,6 +47,7 @@
   },
   "overrides": {
     "@ag-ui/client": "0.0.59",
-    "@ag-ui/core": "0.0.59"
+    "@ag-ui/core": "0.0.59",
+    "@ag-ui/mcp-apps-middleware": "0.1.1"
   }
 }

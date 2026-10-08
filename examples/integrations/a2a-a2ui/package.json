@@ -38,5 +38,8 @@
     "postcss": "^8.4.49",
     "tailwindcss": "^4.1.13",
     "typescript": "5.9.2"
+  },
+  "overrides": {
+    "@ag-ui/mcp-apps-middleware": "0.1.1"
   }
 }
