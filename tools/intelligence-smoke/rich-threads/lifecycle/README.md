@@ -50,6 +50,13 @@ supply installable digest-pinned images of the real Showcase/API services:
 }
 ```
 
+For a locally built development image, `image` may be its immutable
+`sha256:<config digest>` from the source build receipt. Mutable tags are rejected.
+`config.files: [{store, path, contents}]` writes private runtime configuration into
+an owned mounted store using exclusive mode-0600 files. Use a dedicated config
+store, separate from the native data roots checked for absence. For capture files,
+`scope.capture.store` resolves to `scope.capture.directory` on the host.
+
 Every required role must be configured: `database`, `cache`, `intelligence-api`,
 `intelligence-gateway`, `application-runtime`, `native-backend` for each framework,
 and `application`. Service names are network aliases; container peers use those
