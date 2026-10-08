@@ -7,6 +7,46 @@ catalog includes all seven implementations, four media discriminators and three
 source variants, generated UI, tools/MCP, shared state, and separate pending and
 completed frontend/native interactions. Missing applicable coverage is unvalidated.
 
+## Showcase service
+
+`services.mjs` exports `createServices` for the common bootstrap. It drives the
+shared browser actions, captures the original framework boundary, and reads the
+actual backend stores. It requires a passed lifecycle clean-scope receipt and
+checks that every native path belongs to that lifecycle's backend mount. The
+browser must await `newThread({ beforeRun(input) })` before sending its first
+framework run; observing a request after it was sent cannot prove native absence.
+
+The common scenario inventory is supplied as `scope.scenarios` (each has `id`,
+`categories`, and `steps`). `toolCategories` associates actual tool names with
+rich categories. `control` specifies `kind`, `status`, and `toolName`; Mastra
+suspend and requireApproval require distinct scenarios. Missing witnesses stay
+unvalidated. The capture client supplies `frameworkRuns: [{ input, events }]`;
+runtime ingestion alone is insufficient because middleware may create items the
+framework never received.
+
+Backend launch options for owned environments:
+
+- Mastra: `MASTRA_WORKING_MEMORY_URL=file:/owned/memory.db` and
+  `MASTRA_WORKFLOW_STORAGE_URL=file:/owned/workflows.db`. Supply both host paths
+  as `scope.native.location` and `workflowLocation` to the native reader.
+- Strands TypeScript: `STRANDS_SESSION_DIRECTORY=/owned/sessions` enables the
+  shared session wrapper on the real main, reasoning, and interrupt agents.
+  Each mounted adapter uses a subdirectory named after the adapter; pass that
+  host subdirectory and its actual SDK `agentId` to the reader. An explicitly
+  supplied session manager takes precedence.
+
+The service keeps original store envelopes, independent framework captures,
+browser snapshots, derived comparisons, and JSON pointers back to native values.
+Resource-scoped memory may be shared between scenarios after lifecycle verifies
+the initial empty scope; thread/message/run identities must still be absent
+before each fresh conversation. Original resource before/after values remain in
+the evidence. No store is reset by this row.
+
+These modules do not establish live acceptance by themselves. The common
+bootstrap, approved hosting/access decision, source/build/model manifest, real
+two-framework execution and verified cleanup are required. `local-fixture.mjs`
+below remains supplemental adapter coverage and cannot stand in for Showcase.
+
 ## Run
 
 Use the common runner (provided by PNI-596):

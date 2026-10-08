@@ -144,6 +144,17 @@ export function nativeInterruptObservations({
       (checkpoint) => checkpoint.run_id === event.runId,
     );
     const base = `/${index}/snapshot`;
+    const payload = interrupt.metadata.mastra;
+    const approval = payload.type === "mastra_tool_approval";
+    const checkpoint = snapshot.records.checkpoints[index]?.snapshot;
+    const step =
+      Object.entries(checkpoint?.context ?? {}).find(([, value]) =>
+        approval
+          ? value.suspendPayload?.requireToolApproval?.toolCallId ===
+            interrupt.toolCallId
+          : value.suspendPayload?.toolCallId === interrupt.toolCallId,
+      )?.[0] ?? "executionWorkflow";
+    const suspend = `${base}/context/${step.replaceAll("~", "~0").replaceAll("/", "~1")}/suspendPayload`;
     return [
       observation(
         "run-identity",
@@ -152,16 +163,39 @@ export function nativeInterruptObservations({
         event.runId,
       ),
       observation("suspended", "checkpoints", `${base}/status`, "suspended"),
-      observation(
-        "approval-payload",
-        "checkpoints",
-        `${base}/context/executionWorkflow/suspendPayload/requireToolApproval`,
-        {
-          toolCallId: interrupt.toolCallId,
-          toolName: interrupt.metadata.mastra.toolName,
-          args: interrupt.metadata.mastra.args,
-        },
-      ),
+      ...(approval
+        ? [
+            observation(
+              "approval-payload",
+              "checkpoints",
+              `${suspend}/requireToolApproval`,
+              {
+                toolCallId: interrupt.toolCallId,
+                toolName: interrupt.metadata.mastra.toolName,
+                args: interrupt.metadata.mastra.args,
+              },
+            ),
+          ]
+        : [
+            observation(
+              "suspend-call-id",
+              "checkpoints",
+              `${suspend}/toolCallId`,
+              interrupt.toolCallId,
+            ),
+            observation(
+              "suspend-tool-name",
+              "checkpoints",
+              `${suspend}/toolName`,
+              payload.toolName,
+            ),
+            observation(
+              "suspend-payload",
+              "checkpoints",
+              `${suspend}/toolCallSuspended`,
+              payload.suspendPayload,
+            ),
+          ]),
     ];
   }
   const record = Object.keys(snapshot.records)[0];
