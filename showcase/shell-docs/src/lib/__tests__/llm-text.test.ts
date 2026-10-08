@@ -9,6 +9,31 @@ import {
   rewriteScopedDocsLinks,
 } from "../llm-text";
 
+test("includes JSON Render wiring in framework Markdown exports", () => {
+  const doc = loadDoc("generative-ui/json-render");
+  expect(doc).not.toBeNull();
+
+  for (const framework of ["google-adk", "strands-typescript"]) {
+    const output = renderPageToLlmText({
+      url: `${framework}/generative-ui/json-render`,
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+      loadSlug: "generative-ui/json-render",
+      framework,
+    });
+
+    expect(output).toContain(
+      "JsonRenderAssistantMessage as unknown as typeof CopilotChatAssistantMessage",
+    );
+    expect(output).toContain("<JSONUIProvider registry={registry}>");
+    expect(output).toContain("registry={registry}");
+    expect(output).toContain("defineRegistry(catalog, {");
+    expect(output).toContain("defineCatalog(schema, {");
+    expect(output).not.toContain("snippet skipped");
+  }
+});
+
 test("expands Intelligence capability cards into readable Markdown links", () => {
   const page = getAllLlmPages().find(
     (entry) => entry.url === "intelligence/overview",
