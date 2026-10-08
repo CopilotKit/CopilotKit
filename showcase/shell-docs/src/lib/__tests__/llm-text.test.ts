@@ -9,6 +9,41 @@ import {
   rewriteScopedDocsLinks,
 } from "../llm-text";
 
+test("Hashbrown guide exports the Strands TypeScript source and a valid UI envelope", () => {
+  const doc = loadDoc("generative-ui/hashbrown");
+  expect(doc).not.toBeNull();
+
+  const output = renderPageToLlmText({
+    url: "strands-typescript/generative-ui/hashbrown",
+    title: doc!.fm.title,
+    filePath: doc!.filePath,
+    loadSlug: "generative-ui/hashbrown",
+    framework: "strands-typescript",
+  });
+
+  expect(output).toContain("HashBrownDashboard");
+  expect(output).toContain("HashBrownRenderMessage");
+  expect(output).toContain("useUiKit({");
+  expect(output).toContain("useJsonParser(content, kit.schema)");
+  expect(output).toContain("kit.render(value)");
+  expect(output).not.toContain("<!-- snippet skipped:");
+  expect(output).not.toContain("useUiKit({ catalog, value:");
+
+  const example = output.match(
+    /```json title="example assistant message"\n([\s\S]*?)\n```/,
+  );
+  expect(example).not.toBeNull();
+  const message = JSON.parse(example![1]) as {
+    ui: Array<Record<string, { props: Record<string, unknown> }>>;
+  };
+  expect(message.ui.map((component) => Object.keys(component)[0])).toEqual([
+    "metric",
+    "pieChart",
+  ]);
+  const chartData = message.ui[1].pieChart.props.data;
+  expect(JSON.parse(chartData as string)).toHaveLength(3);
+});
+
 test("expands Intelligence capability cards into readable Markdown links", () => {
   const page = getAllLlmPages().find(
     (entry) => entry.url === "intelligence/overview",
