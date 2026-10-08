@@ -11,12 +11,22 @@ const kinds = [
   "native-pending",
   "native-completed",
 ];
-const roles = ["intelligence-api", "intelligence-gateway", "application-runtime", "native-backend"];
+const roles = [
+  "intelligence-api",
+  "intelligence-gateway",
+  "application-runtime",
+  "native-backend",
+];
 const stores = ["intelligence", "native"];
 const copy = (value) => structuredClone(value);
 
 export function assertSnapshot(snapshot) {
-  for (const key of ["intelligenceThreadId", "nativeThreadId", "userId", "agentId"])
+  for (const key of [
+    "intelligenceThreadId",
+    "nativeThreadId",
+    "userId",
+    "agentId",
+  ])
     assert.ok(
       typeof snapshot.identity?.[key] === "string" && snapshot.identity[key],
       `Missing identity ${key}`,
@@ -26,10 +36,20 @@ export function assertSnapshot(snapshot) {
       Array.isArray(snapshot[store]?.items) && snapshot[store].items.length,
       `${store}: empty history`,
     );
-    assert.ok(snapshot[store].state !== undefined, `${store}: state was not inspected`);
-    assert.ok(Array.isArray(snapshot[store].controls), `${store}: controls were not inspected`);
+    assert.ok(
+      snapshot[store].state !== undefined,
+      `${store}: state was not inspected`,
+    );
+    assert.ok(
+      Array.isArray(snapshot[store].controls),
+      `${store}: controls were not inspected`,
+    );
     const ids = snapshot[store].controls.map((control) => control.id);
-    assert.equal(new Set(ids).size, ids.length, `${store}: duplicate control IDs`);
+    assert.equal(
+      new Set(ids).size,
+      ids.length,
+      `${store}: duplicate control IDs`,
+    );
   }
 }
 
@@ -43,7 +63,10 @@ export function assertSurvives(before, after) {
 }
 
 export function assertRestarts(receipts, owner) {
-  assert.ok(typeof owner === "string" && owner, "Explicit resource owner required");
+  assert.ok(
+    typeof owner === "string" && owner,
+    "Explicit resource owner required",
+  );
   assert.ok(Array.isArray(receipts), "Restart receipts required");
   for (const role of roles)
     assert.ok(
@@ -52,8 +75,15 @@ export function assertRestarts(receipts, owner) {
     );
   const names = new Set();
   for (const entry of receipts) {
-    assert.equal(entry.owner, owner, "Refusing restart evidence from another resource owner");
-    assert.ok(entry.service && !names.has(entry.service), "Duplicate/missing restart service");
+    assert.equal(
+      entry.owner,
+      owner,
+      "Refusing restart evidence from another resource owner",
+    );
+    assert.ok(
+      entry.service && !names.has(entry.service),
+      "Duplicate/missing restart service",
+    );
     names.add(entry.service);
     assert.ok(
       entry.before?.instance && entry.after?.instance,
@@ -73,19 +103,34 @@ export function assertRestarts(receipts, owner) {
       entry.before.store,
       `${entry.service}: changed durable store`,
     );
-    assert.equal(entry.ready, true, `${entry.service}: not ready after restart`);
+    assert.equal(
+      entry.ready,
+      true,
+      `${entry.service}: not ready after restart`,
+    );
   }
 }
 
 function controlIn(snapshot, store, scenario, status) {
-  const found = snapshot[store].controls.find((entry) => entry.id === scenario.interactionId);
-  assert.ok(found, `${store}: original interaction missing ${scenario.interactionId}`);
+  const found = snapshot[store].controls.find(
+    (entry) => entry.id === scenario.interactionId,
+  );
+  assert.ok(
+    found,
+    `${store}: original interaction missing ${scenario.interactionId}`,
+  );
   assert.equal(found.kind, scenario.kind.split("-")[0]);
   assert.equal(found.status, status, `${store}: wrong interaction status`);
-  assert.ok(found.payload !== undefined, `${store}: missing interaction payload`);
+  assert.ok(
+    found.payload !== undefined,
+    `${store}: missing interaction payload`,
+  );
   if (status === "completed") {
     assert.ok(found.result !== undefined, `${store}: completed result missing`);
-    assert.ok(found.finalResponse, `${store}: resumed assistant response missing`);
+    assert.ok(
+      found.finalResponse,
+      `${store}: resumed assistant response missing`,
+    );
   }
   return found;
 }
@@ -117,7 +162,11 @@ export function assertContinued(before, after, expected) {
       added.some((item) => isDeepStrictEqual(item, expected.assistantItem)),
       `${store}: follow-up assistant item missing`,
     );
-    assert.deepEqual(after[store].state, expected.state, `${store}: follow-up state mismatch`);
+    assert.deepEqual(
+      after[store].state,
+      expected.state,
+      `${store}: follow-up state mismatch`,
+    );
     assert.deepEqual(
       after[store].controls,
       before[store].controls,
@@ -128,11 +177,19 @@ export function assertContinued(before, after, expected) {
 
 export function assertResumed(before, after, scenario) {
   assertSnapshot(after);
-  assert.deepEqual(after.identity, before.identity, "Resume switched original identity");
+  assert.deepEqual(
+    after.identity,
+    before.identity,
+    "Resume switched original identity",
+  );
   for (const store of stores) {
     const pending = controlIn(before, store, scenario, "pending");
     const completed = controlIn(after, store, scenario, "completed");
-    assert.deepEqual(completed.payload, pending.payload, `${store}: resumed a different payload`);
+    assert.deepEqual(
+      completed.payload,
+      pending.payload,
+      `${store}: resumed a different payload`,
+    );
     assert.deepEqual(
       after[store].state,
       before[store].state,
@@ -148,7 +205,9 @@ export function assertResumed(before, after, scenario) {
       `${store}: resume emitted no saved activity`,
     );
     assert.ok(
-      after[store].items.some((item) => isDeepStrictEqual(item, completed.finalResponse)),
+      after[store].items.some((item) =>
+        isDeepStrictEqual(item, completed.finalResponse),
+      ),
       `${store}: final response not in history`,
     );
     for (const previous of before[store].controls.filter(
@@ -170,13 +229,24 @@ export function assertResumed(before, after, scenario) {
 async function browserCheck(api, scenario, snapshot, phase, write) {
   const visible = await api.open(scenario, { reload: true, phase });
   await write(`${scenario.id}-${phase}-browser.json`, visible);
-  assert.deepEqual(visible.identity, snapshot.identity, "Browser reopened the wrong thread");
+  assert.deepEqual(
+    visible.identity,
+    snapshot.identity,
+    "Browser reopened the wrong thread",
+  );
   assert.ok(visible.evidence?.length, "Visible browser evidence required");
   // The renderer projection must be declared by the fixture, not derived from the DOM under test.
   const expected = await api.expectedBrowser(scenario, snapshot, phase);
   for (const key of ["items", "state", "controls"]) {
-    assert.ok(expected[key] !== undefined, `Browser expectation missing ${key}`);
-    assert.deepEqual(visible[key], expected[key], `Browser ${key} differs after ${phase}`);
+    assert.ok(
+      expected[key] !== undefined,
+      `Browser expectation missing ${key}`,
+    );
+    assert.deepEqual(
+      visible[key],
+      expected[key],
+      `Browser ${key} differs after ${phase}`,
+    );
   }
 }
 
@@ -195,10 +265,17 @@ export const row = {
       "respond",
       "followup",
     ])
-      assert.equal(typeof api[method], "function", `Missing row5 service ${method}`);
+      assert.equal(
+        typeof api[method],
+        "function",
+        `Missing row5 service ${method}`,
+      );
     const write = (name, value) => context.writeArtifact(name, copy(value));
     const scenarios = await api.prepare();
-    assert.ok(Array.isArray(scenarios) && scenarios.length, "No restart scenarios prepared");
+    assert.ok(
+      Array.isArray(scenarios) && scenarios.length,
+      "No restart scenarios prepared",
+    );
     await write("scenarios.json", scenarios);
     const ids = new Set();
     for (const scenario of scenarios) {
@@ -206,13 +283,20 @@ export const row = {
       assert.ok(!ids.has(scenario.id), "Duplicate scenario ID");
       ids.add(scenario.id);
       assert.ok(scenario.provenance, "Fixture provenance required");
-      assert.ok(["fresh", "imported"].includes(scenario.origin), "Invalid scenario origin");
+      assert.ok(
+        ["fresh", "imported"].includes(scenario.origin),
+        "Invalid scenario origin",
+      );
       assert.ok(kinds.includes(scenario.kind), "Invalid scenario kind");
     }
     const limitations = [];
     for (const origin of ["fresh", "imported"]) {
       for (const kind of kinds) {
-        if (!scenarios.some((scenario) => scenario.origin === origin && scenario.kind === kind))
+        if (
+          !scenarios.some(
+            (scenario) => scenario.origin === origin && scenario.kind === kind,
+          )
+        )
           limitations.push(`${origin}: ${kind} control unvalidated`);
       }
       for (const item of requiredItems) {
@@ -220,9 +304,16 @@ export const row = {
           .filter((scenario) => scenario.origin === origin)
           .flatMap((scenario) => scenario.coverage ?? [])
           .filter((entry) => entry.item === item);
-        if (!coverage.some((entry) => entry.status === "exercised" && entry.evidence?.length)) {
+        if (
+          !coverage.some(
+            (entry) => entry.status === "exercised" && entry.evidence?.length,
+          )
+        ) {
           const excluded = coverage.find(
-            (entry) => entry.status === "not-applicable" && entry.evidence?.length && entry.detail,
+            (entry) =>
+              entry.status === "not-applicable" &&
+              entry.evidence?.length &&
+              entry.detail,
           );
           if (!excluded) limitations.push(`${origin}: ${item} unvalidated`);
         }
@@ -244,7 +335,13 @@ export const row = {
       }
       before.set(scenario.id, snapshot);
       await write(`${scenario.id}-before.json`, snapshot);
-      await browserCheck(api, scenario, snapshot, "reload-before-restart", write);
+      await browserCheck(
+        api,
+        scenario,
+        snapshot,
+        "reload-before-restart",
+        write,
+      );
       const reloaded = copy(await api.read(scenario));
       await write(`${scenario.id}-reloaded.json`, reloaded);
       assertSurvives(snapshot, reloaded);
