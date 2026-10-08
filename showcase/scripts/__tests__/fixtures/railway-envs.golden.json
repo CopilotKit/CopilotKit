@@ -307,6 +307,24 @@
       "repoName": "showcase-intelligence-gateway-proxy"
     }
   },
+  "showcase-intelligence-postgres": {
+    "staging": {
+      "instanceId": "66e32c98-00ad-42e3-83a2-eba4ba6c1be2",
+      "domain": null,
+      "probe": false,
+      "driver": "shell",
+      "repoName": "showcase-intelligence-postgres"
+    }
+  },
+  "showcase-intelligence-redis": {
+    "staging": {
+      "instanceId": "4695150f-0de8-4b3b-b302-7a377621a200",
+      "domain": null,
+      "probe": false,
+      "driver": "shell",
+      "repoName": "showcase-intelligence-redis"
+    }
+  },
   "showcase-langgraph-fastapi": {
     "prod": {
       "instanceId": "105b7e01-acd0-48e2-9a09-541e2103e8d2",

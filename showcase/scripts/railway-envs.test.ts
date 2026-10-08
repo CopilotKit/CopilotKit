@@ -109,7 +109,7 @@ describe("railway-envs SSOT", () => {
 
   it("contains 43 managed services plus four staging-only Intelligence services", () => {
     const names = listServiceNames();
-    expect(names.length).toBe(47);
+    expect(names.length).toBe(49);
   });
 
   it("models CrewAI conversational flows as a dual-environment showcase deployment", () => {

@@ -1542,12 +1542,11 @@ export const SERVICES: Record<
     },
   },
   // Staging-only Intelligence stack, deployed outside showcase_build.yml.
-  // These four services use pinned Intelligence/Caddy images rather than the
-  // Showcase staging :latest convention. Keep them in the SSOT so the image
-  // gate recognizes their Railway names, but do not build, probe, validate
-  // image shape, or promote them through the Showcase pipeline. The three
-  // superseded Intelligence services (init, postgres, redis) are intentionally
-  // absent here and should be deleted from Railway.
+  // These six services use pinned Intelligence/Caddy/database images rather
+  // than the Showcase staging :latest convention. Keep them in the SSOT so
+  // the image gate recognizes their Railway names, but do not build, probe,
+  // validate image shape, or promote them through the Showcase pipeline.
+  // The superseded init service is intentionally absent: Composite runs migrations.
   "showcase-intelligence-api": {
     serviceId: "2cf17267-31c4-4e92-8270-5ad92bd7ad19",
     autoUpdates: { staging: "unmanaged" },
@@ -1600,6 +1599,34 @@ export const SERVICES: Record<
     environments: {
       staging: {
         instanceId: "1ee4af98-0935-4b3e-a434-a7f023e506b9",
+        probe: false,
+      },
+    },
+  },
+  "showcase-intelligence-postgres": {
+    serviceId: "6c2d2998-e7ae-413d-997d-7277f9fd6e07",
+    autoUpdates: { staging: "unmanaged" },
+    ciBuilt: false,
+    gateValidated: false,
+    gateIgnore: true,
+    probeDriver: "shell", // inert: staging probe is disabled
+    environments: {
+      staging: {
+        instanceId: "66e32c98-00ad-42e3-83a2-eba4ba6c1be2",
+        probe: false,
+      },
+    },
+  },
+  "showcase-intelligence-redis": {
+    serviceId: "7b99fa95-2124-4d19-838a-652464e351da",
+    autoUpdates: { staging: "unmanaged" },
+    ciBuilt: false,
+    gateValidated: false,
+    gateIgnore: true,
+    probeDriver: "shell", // inert: staging probe is disabled
+    environments: {
+      staging: {
+        instanceId: "4695150f-0de8-4b3b-b302-7a377621a200",
         probe: false,
       },
     },

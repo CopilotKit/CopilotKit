@@ -661,6 +661,50 @@
       }
     },
     {
+      "name": "showcase-intelligence-postgres",
+      "serviceId": "6c2d2998-e7ae-413d-997d-7277f9fd6e07",
+      "prodInstanceId": "6c2d2998-e7ae-413d-997d-7277f9fd6e07",
+      "stagingInstanceId": "66e32c98-00ad-42e3-83a2-eba4ba6c1be2",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "onlyEnvironment": "staging",
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "unmanaged"
+      }
+    },
+    {
+      "name": "showcase-intelligence-redis",
+      "serviceId": "7b99fa95-2124-4d19-838a-652464e351da",
+      "prodInstanceId": "7b99fa95-2124-4d19-838a-652464e351da",
+      "stagingInstanceId": "4695150f-0de8-4b3b-b302-7a377621a200",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "onlyEnvironment": "staging",
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "unmanaged"
+      }
+    },
+    {
       "name": "showcase-langgraph-fastapi",
       "serviceId": "06cccb5c-59f4-46b5-8adc-7113e77011a4",
       "prodInstanceId": "105b7e01-acd0-48e2-9a09-541e2103e8d2",
@@ -1729,6 +1773,14 @@
       },
       {
         "name": "showcase-intelligence-gateway-proxy",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      },
+      {
+        "name": "showcase-intelligence-postgres",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      },
+      {
+        "name": "showcase-intelligence-redis",
         "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
       }
     ]
