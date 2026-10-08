@@ -785,6 +785,7 @@ describe("TanStack AI converter — reasoning", () => {
 // Shapes emitted by @tanstack/ai's normalizeStreamChunk for openai-base's
 // Responses adapter: reasoning message IDs and thinking step IDs are distinct.
 const responsesSignature = ' {"id":"ri-A","encrypted_content":"opaque+/= A"} ';
+/** Builds normalized or legacy thinking-step chunks for alias regressions. */
 function thinkingStep(stepId: string, legacy = false) {
   return {
     type: "STEP_STARTED",
@@ -794,6 +795,7 @@ function thinkingStep(stepId: string, legacy = false) {
       : { metadata: { tanstack: { stepId, stepType: "thinking" } } }),
   };
 }
+/** Builds an opaque signature update with stable metadata for stream assertions. */
 function encryptedReasoning(
   entityId: string,
   encryptedValue = responsesSignature,
@@ -807,6 +809,7 @@ function encryptedReasoning(
     metadata: { provider: "fixture" },
   };
 }
+/** Collects real converter output and verifies each event against the AG-UI schema. */
 async function reasoningEvents(chunks: Record<string, unknown>[]) {
   const events = await collectEvents(
     createAgent("tanstack", chunks).run(createDefaultInput()),
@@ -1145,6 +1148,70 @@ describe("TanStack AI converter — encrypted reasoning", () => {
         },
       ]);
       expect(replay.systemPrompts).toEqual([]);
+    },
+  );
+
+  it.each([false, true])(
+    "replaces empty reasoning IDs with a shared generated identity (explicitEnd=%s)",
+    async (explicitEnd) => {
+      const agent = createAgent("tanstack", [
+        encryptedReasoning("step-empty"),
+        { type: "REASONING_START", messageId: "" },
+        thinkingStep("step-empty"),
+        { type: "REASONING_MESSAGE_START", messageId: "" },
+        ...(explicitEnd
+          ? [
+              { type: "REASONING_MESSAGE_END", messageId: "" },
+              { type: "REASONING_END", messageId: "" },
+            ]
+          : []),
+      ]);
+      const events: BaseEvent[] = [];
+      await agent.runAgent(
+        { runId: "offline-empty-reasoning-ids" },
+        {
+          onEvent: ({ event }) => {
+            events.push(event);
+          },
+        },
+      );
+
+      expectLifecycleWrapped(events);
+      const start = events.find((e) => e.type === EventType.REASONING_START)!;
+      const generatedId = eventField<string>(start, "messageId");
+      expect(generatedId).toEqual(expect.any(String));
+      expect(generatedId).not.toBe("");
+      for (const type of [
+        EventType.REASONING_MESSAGE_START,
+        EventType.REASONING_MESSAGE_END,
+        EventType.REASONING_END,
+      ]) {
+        const event = events.find((e) => e.type === type)!;
+        expect(eventField(event, "messageId")).toBe(generatedId);
+      }
+      expect(
+        events.filter((e) => e.type === EventType.REASONING_ENCRYPTED_VALUE),
+      ).toEqual([
+        { ...encryptedReasoning("step-empty"), entityId: generatedId },
+      ]);
+      expect(agent.messages).toEqual([
+        {
+          id: generatedId,
+          role: "reasoning",
+          content: "",
+          encryptedValue: responsesSignature,
+        },
+      ]);
+      const replay = convertInputToTanStackAI(
+        createDefaultInput({ messages: agent.messages }),
+      );
+      expect(replay.messages).toEqual([
+        {
+          role: "assistant",
+          content: null,
+          thinking: [{ content: "", signature: responsesSignature }],
+        },
+      ]);
     },
   );
 
