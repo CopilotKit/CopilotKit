@@ -1,9 +1,10 @@
-import os
 from typing import Annotated
 
 from llama_index.core.base.llms.types import MessageRole, TextBlock
 from llama_index.llms.openai import OpenAI
 from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+
+from src.model import create_llm
 
 
 class StarterOpenAI(OpenAI):
@@ -132,16 +133,11 @@ async def get_weather(
     return f"The weather in {location} is sunny and 70 degrees."
 
 
-# LlamaIndex's OpenAI LLM resolves its base URL from OPENAI_API_BASE only, so the
-# conventional OPENAI_BASE_URL (used by the OpenAI SDKs and by our aimock-backed
-# docker-compose.test.yml) is ignored and requests go to api.openai.com. Forward it
-# explicitly as api_base.
-_openai_kwargs = {}
-if os.environ.get("OPENAI_BASE_URL"):
-    _openai_kwargs["api_base"] = os.environ["OPENAI_BASE_URL"]
-
 agentic_chat_router = get_ag_ui_workflow_router(
-    llm=StarterOpenAI(model="gpt-5-mini", **_openai_kwargs),
+    # COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this;
+    # unset, the agent uses gpt-5-mini. The OpenAI provider keeps StarterOpenAI
+    # and its tool-exchange repair.
+    llm=create_llm("openai:gpt-5-mini", openai_class=StarterOpenAI),
     # Tools that are executed in the frontend client
     frontend_tools=[change_theme_color, add_proverb],
     # Tools that are executed in the backend server
