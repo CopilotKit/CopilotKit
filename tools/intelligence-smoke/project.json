@@ -30,6 +30,13 @@
       },
       "cache": false
     },
+    "rich-threads-test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node --test tools/intelligence-smoke/rich-threads/*.test.mjs tools/intelligence-smoke/rich-threads/rows/*.test.mjs"
+      },
+      "cache": false
+    },
     "format": {
       "executor": "nx:run-commands",
       "options": {
