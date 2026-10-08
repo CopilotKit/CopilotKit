@@ -1,27 +1,27 @@
 ---
 title: JSON Render
-description: Bring your own component library. Have the agent emit a JSON spec and let json-render render it against a Zod-validated catalog of React components.
+description: Bring your own component library. Have the agent emit a JSON spec and render allowed component types through a typed React registry.
 icon: "lucide/Component"
 snippet_cell: declarative-json-render
 ---
 
-<InlineDemo demo="declarative-json-render" />
+<InlineDemo demo="declarative-json-render" showAllFiles />
 
-You have a chat surface and you want the agent to draw a dashboard from a typed JSON spec. By the end of this guide, the agent will emit a `{ root, elements }` object, [`@json-render/react`](https://www.npmjs.com/package/@json-render/react) will validate it against a Zod-described catalog, and the user sees the dashboard render as a single React tree.
+You have a chat surface and you want the agent to draw a dashboard from a typed JSON spec. By the end of this guide, the agent will emit a `{ root, elements }` object, and [`@json-render/react`](https://www.npmjs.com/package/@json-render/react) will render it through your React component registry.
 
 ## When to use this
 
-- **Structured UI with a typed contract** where the agent's output is validated against a known schema before it touches the DOM.
+- **Structured UI with a typed contract** where the renderer accepts known component types.
 - **Tolerance for prose preamble + code fences** in the agent's output (json-render's parser handles them).
-- **Cases where you already use json-render** elsewhere or prefer Zod-validated catalogs.
+- **Cases where you already use json-render** elsewhere or prefer a Zod-described catalog.
 
-If you'd rather have a streaming progressive render rather than a one-shot validated render, see the sibling page [Hashbrown](/generative-ui/hashbrown) for the same scenario with `@hashbrownai/react`.
+If you'd rather have a streaming progressive render than a one-shot JSON render, see the sibling page [Hashbrown](/generative-ui/hashbrown) for the same scenario with `@hashbrownai/react`.
 
 ## Frontend
 
-The integration point is `<CopilotChat>`'s `messageView.assistantMessage` slot. Use the **Code** tab above for the complete, framework-specific files. These demos pin `@json-render/react` and `@json-render/core` to `0.18.0`; use the same versions when copying their code. `page.tsx` provides `<CopilotKit>`, `chat.tsx` installs `JsonRenderAssistantMessage` in the chat slot, and `json-render-renderer.tsx` parses the assistant content. The runtime route differs between Strands TypeScript and Google ADK; the Code tab shows the route for the selected framework.
+The integration point is `<CopilotChat>`'s `messageView.assistantMessage` slot. Use the **Code** tab above for the complete, framework-specific files. The demos currently pin `@json-render/react` and `@json-render/core` to `0.18.0`; check the selected demo's `package.json` when copying its code. `page.tsx` provides `<CopilotKit>`, `chat.tsx` installs `JsonRenderAssistantMessage` in the chat slot, and `json-render-renderer.tsx` parses the assistant content. The Code tab shows the runtime route for the selected framework.
 
-The renderer imports `registry` from `registry.tsx`, wraps `<Renderer spec={spec} registry={registry} />` in `<JSONUIProvider registry={registry}>`, and falls back to the normal assistant message until a valid spec arrives. `catalog.ts` defines component names and Zod prop schemas with `defineCatalog`; `registry.tsx` uses `defineRegistry(catalog, …)` to bind those names to React components. Copy both files with the renderer. The catalog and registry allow only the components the application has registered.
+The renderer imports `registry` from `registry.tsx`, wraps `<Renderer spec={spec} registry={registry} />` in `<JSONUIProvider registry={registry}>`, and falls back to the normal assistant message until it can parse a spec. `catalog.ts` defines component names and Zod prop schemas with `defineCatalog`; `registry.tsx` uses `defineRegistry(catalog, …)` to bind those names to React components. Copy both files with the renderer. The demo's `parseSpec` allowlists component types and checks the basic object shape, but does **not** validate emitted props against the Zod schemas at runtime. Validate props before rendering if you rely on that guarantee.
 
 ## Backend
 
@@ -51,7 +51,7 @@ The agent emits a `{ root, elements }` JSON object as the assistant message cont
 }
 ```
 
-The example uses a `MetricCard` root because the registered components are `MetricCard`, `BarChart`, and `PieChart`; there is no `Stack` component. The renderer tolerates a prose preamble or code fence around the JSON, but the agent prompts ask for plain JSON. Google ADK's shared BYOC agent also emits a `ui` array for its Hashbrown demo; the JSON Render renderer reads `root` and `elements` from the same response.
+The example uses a `MetricCard` root and its registered `BarChart` child. The renderer tolerates a prose preamble or code fence around the JSON, but the agent prompts ask for plain JSON.
 
 ## Comparing the two patterns
 
