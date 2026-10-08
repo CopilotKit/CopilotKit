@@ -30,6 +30,10 @@ A showcase "cell" is one (integration × feature) pair. The core invariant: **a 
 
 ### Value-test before merge (mandatory)
 
+This requirement applies to integration behavior, shared feature frontends,
+fixtures, and probes. For changes confined to the dashboard or to instructions,
+follow the [verification scope in AGENTS.md](./AGENTS.md#verification-scope-for-dashboard-changes).
+
 Run the real probe surface, not unit tests against fakes:
 
 ```

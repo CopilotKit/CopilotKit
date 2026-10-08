@@ -149,7 +149,7 @@ class TestSubagentDelegations:
             f"http://aimock.test/v1beta/models/{subagents.MODEL}:generateContent"
         )
         assert request["headers"] == {
-            "X-AIMock-Context": "google-antigravity",
+            "x-aimock-context": "google-antigravity",
             "x-goog-api-key": "fake-gemini-key",
         }
         assert request["json"]["contents"] == [

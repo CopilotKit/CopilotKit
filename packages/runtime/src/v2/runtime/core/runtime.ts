@@ -288,6 +288,12 @@ interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOption
   maxReconnectMs?: number;
   /** Max delay (ms) for channel rejoin backoff. @default 30_000 */
   maxRejoinMs?: number;
+  /**
+   * Interval (ms) between Phoenix heartbeats on the runner WebSocket. Keep it
+   * below the idle timeout of any proxy between the runtime and Intelligence.
+   * @default 15_000
+   */
+  heartbeatIntervalMs?: number;
   /** Lock TTL in seconds. Clamped to a maximum of 3600 (1 hour). @default 20 */
   lockTtlSeconds?: number;
   /** Custom Redis key prefix for the thread lock. */
@@ -655,6 +661,7 @@ export class CopilotIntelligenceRuntime
         authToken: options.intelligence.ɵgetRunnerAuthToken(),
         maxReconnectMs: options.maxReconnectMs,
         maxRejoinMs: options.maxRejoinMs,
+        heartbeatIntervalMs: options.heartbeatIntervalMs,
       }),
     );
     this.intelligence = options.intelligence;

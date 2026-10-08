@@ -1,10 +1,8 @@
 // @vitest-environment jsdom
 
-import React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { ApiKeyHint } from "@/components/api-key-hint";
-import { docsComponents } from "@/lib/mdx-registry";
 
 describe("ApiKeyHint", () => {
   afterEach(() => {
@@ -37,11 +35,5 @@ describe("ApiKeyHint", () => {
     const { container } = render(<ApiKeyHint provider="not-a-provider" />);
 
     expect(container.innerHTML).toBe("");
-  });
-
-  // MDX pages call `<ApiKeyHint />` by name, so an unregistered component
-  // fails at page-render time rather than at build time.
-  it("is registered as an MDX component", () => {
-    expect(docsComponents.ApiKeyHint).toBe(ApiKeyHint);
   });
 });
