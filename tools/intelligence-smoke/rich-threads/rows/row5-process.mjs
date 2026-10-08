@@ -26,7 +26,7 @@ export function ownedProcess({
   async function stop() {
     if (!child) return;
     const owned = child;
-    if (owned.exitCode === null && owned.signalCode === null) {
+    if (owned.pid && owned.exitCode === null && owned.signalCode === null) {
       await new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
           // Only the exact spawned child is signaled; never a discovered PID.
@@ -62,7 +62,22 @@ export function ownedProcess({
           child.exitCode === null && child.signalCode === null,
           `${service}: process exited before readiness`,
         );
-        if (await ready()) return identity();
+        let readinessTimer;
+        let healthy;
+        try {
+          healthy = await Promise.race([
+            ready({ pid: child.pid, instance: incarnation }),
+            new Promise((_, reject) => {
+              readinessTimer = setTimeout(
+                () => reject(new Error(`${service}: readiness timed out`)),
+                Math.max(1, deadline - Date.now()),
+              );
+            }),
+          ]);
+        } finally {
+          clearTimeout(readinessTimer);
+        }
+        if (healthy) return identity();
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
       throw new Error(`${service}: readiness timed out`);
