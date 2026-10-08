@@ -1,29 +1,9 @@
 import assert from "node:assert/strict";
+import { categories, aggregate, statuses } from "../contract.mjs";
 
 // No framework-specific normalization: fixture adapters must return the complete
 // durable logical record, including native sidecars and pending metadata.
 const copy = (value) => structuredClone(value);
-const categories = [
-  "text",
-  "reasoning",
-  "pie-chart",
-  "bar-chart",
-  "image",
-  "document",
-  "audio",
-  "video",
-  "flight-cards",
-  "a2ui",
-  "open-genui",
-  "tools",
-  "mcp",
-  "mcp-app",
-  "shared-state",
-  "frontend-completed",
-  "frontend-pending",
-  "native-completed",
-  "native-pending",
-];
 
 function unique(items, key, label) {
   assert(Array.isArray(items), `${label} must be an array`);
@@ -98,6 +78,16 @@ function outcomes(result, ids, status) {
   }
 }
 
+const summary = (snapshot) => ({
+  nativeSources: snapshot.native.map((item) => item.sourceId),
+  threads: snapshot.destination.threads.map((thread) => ({
+    id: thread.id,
+    sourceId: thread.sourceId,
+    messages: thread.messages.length,
+    events: thread.events.length,
+  })),
+});
+
 export const row = {
   id: 6,
   title: "Repeat-import deduplication and native-source safety",
@@ -115,6 +105,12 @@ export const row = {
       ids.length,
       "Duplicate selected source IDs",
     );
+    const nativeIds = fixture.nativeThreadIds;
+    assert(
+      nativeIds &&
+        ids.every((id) => typeof nativeIds[id] === "string" && nativeIds[id]),
+      "Original native thread IDs required for absence proof",
+    );
     const checks = [];
     const limitations = [];
     const capture = async (name) => {
@@ -128,10 +124,15 @@ export const row = {
     const check = (name, detail, evidence) =>
       checks.push({ name, status: "passed", detail, evidence });
     const before = await capture("before-import");
+
+    const counts = { before: summary(before) };
     for (const id of ids)
       assert(
         !before.destination.threads.some(
-          (thread) => thread.sourceId === id || thread.id === id,
+          (thread) =>
+            thread.sourceId === id ||
+            thread.id === id ||
+            thread.id === nativeIds[id],
         ),
         `Source already connected: ${id}`,
       );
@@ -197,6 +198,7 @@ export const row = {
           "Repeat changed destination identity",
         );
       const after = await capture(`after-${label}`);
+      counts[label] = summary(after);
       assert.deepEqual(
         after.native,
         baseline.native,
@@ -213,8 +215,16 @@ export const row = {
         [`${label}-import.json`, `after-${label}.json`],
       );
     };
+    counts.initial = summary(initial);
     await repeat(initial, "repeat");
     if (service.continueImported) {
+      const expectedContinued = fixture.continuationSourceIds;
+      assert(
+        Array.isArray(expectedContinued) &&
+          expectedContinued.length &&
+          expectedContinued.every((id) => ids.includes(id)),
+        "Declare selected rich continuation source IDs",
+      );
       await service.continueImported();
       const continued = await capture("after-continuation");
       assert.deepEqual(
@@ -222,7 +232,7 @@ export const row = {
         initial.destination.threads.map((thread) => thread.id),
         "Continuation changed thread identities",
       );
-      let changed = 0;
+      const changed = new Set();
       for (const old of initial.destination.threads) {
         const current = continued.destination.threads.find(
           (thread) => thread.id === old.id,
@@ -253,11 +263,11 @@ export const row = {
             initial.native.find((item) => item.sourceId === old.sourceId),
             "Continuation did not reach original native source",
           );
-          changed += 1;
+          changed.add(old.sourceId);
         }
       }
       assert(
-        changed > 0,
+        expectedContinued.every((id) => changed.has(id)),
         "No imported conversation continued with user and assistant messages",
       );
       // Intentional continuation is the new baseline, never an import mutation.
@@ -267,23 +277,47 @@ export const row = {
         "Post-continuation repeat not exercised: no continuation adapter",
       );
     const coverage = fixture.importSafetyCoverage ?? [];
+    unique(coverage, "category", "coverage");
     for (const category of categories) {
       const item = coverage.find((entry) => entry.category === category);
-      if (
-        !item ||
-        !["passed", "not-applicable"].includes(item.status) ||
-        !item.evidence?.length ||
-        !item.detail
-      )
+      if (item)
+        assert(
+          statuses.includes(item.status),
+          `Unknown coverage status: ${item.status}`,
+        );
+      const complete =
+        item &&
+        ["passed", "not-applicable"].includes(item.status) &&
+        item.evidence?.length &&
+        item.detail;
+      if (!complete)
         limitations.push(`${category}: applicable coverage not established`);
+      checks.push({
+        name: `coverage: ${category}`,
+        status: complete
+          ? item.status
+          : ["failed", "blocked"].includes(item?.status)
+            ? item.status
+            : "unvalidated",
+        evidence: item?.evidence ?? [],
+        detail: item?.detail ?? "Missing source coverage evidence",
+      });
     }
+    if (!service.continueImported)
+      checks.push({
+        name: "post-continuation repeat",
+        status: "unvalidated",
+        evidence: [],
+        detail: "No real continuation adapter supplied",
+      });
+    await writeArtifact("counts.json", counts);
     await writeArtifact("coverage.json", {
       coverage,
       provenance: fixture.provenance,
       baseline: context.baseline,
     });
     return {
-      status: limitations.length ? "unvalidated" : "passed",
+      status: aggregate(checks),
       checks,
       limitations,
     };

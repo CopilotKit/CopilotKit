@@ -18,7 +18,11 @@ function context(mutate = () => {}) {
   let imports = 0;
   const artifacts = {};
   return {
-    fixture: { sourceIds: ["native-a"] },
+    fixture: {
+      sourceIds: ["native-a"],
+      nativeThreadIds: { "native-a": "native-a" },
+      continuationSourceIds: ["native-a"],
+    },
     writeArtifact: async (name, value) => {
       artifacts[name] = structuredClone(value);
     },
@@ -72,7 +76,10 @@ test("compares initial, repeat and continued baselines; missing coverage stays u
   const input = context();
   const result = await row.run(input);
   assert.equal(result.status, "unvalidated");
-  assert.equal(result.checks.length, 4);
+  assert.equal(
+    result.checks.filter((check) => check.status === "passed").length,
+    4,
+  );
   assert.equal(
     input.artifacts["before-import.json"].destination.threads.length,
     0,
@@ -197,4 +204,64 @@ test("mixed-store collision remains separately recorded", async () => {
     input.artifacts["repeat-import.json"].results[1].status,
     "conflict",
   );
+});
+
+test("absence checks original native ID even without import metadata", async () => {
+  const input = context();
+  input.fixture.nativeThreadIds["native-a"] = "original-session";
+  input.services.importSafety.snapshotDestination = async () => ({
+    threads: [
+      {
+        id: "original-session",
+        sourceId: "connected-source",
+        messages: [],
+        events: [],
+        state: {},
+      },
+    ],
+  });
+  await assert.rejects(row.run(input), /Source already connected/);
+});
+
+test("shared runner preserves incomplete coverage verdict", async () => {
+  const { aggregate } = await import("../contract.mjs");
+  const input = context();
+  delete input.services.importSafety.continueImported;
+  const result = await row.run(input);
+  assert.equal(aggregate(result.checks), "unvalidated");
+  assert.equal(result.status, aggregate(result.checks));
+});
+
+test("rejects continuation that writes a different native session", async () => {
+  const input = context();
+  const original = input.services.importSafety.snapshotSource;
+  const frozen = structuredClone(await original());
+  input.services.importSafety.snapshotSource = async () => frozen;
+  await assert.rejects(
+    row.run(input),
+    /Continuation did not reach original native source/,
+  );
+});
+
+test("requires every declared rich source to continue", async () => {
+  const input = context();
+  input.fixture.continuationSourceIds = ["unknown"];
+  await assert.rejects(
+    row.run(input),
+    /Declare selected rich continuation source IDs/,
+  );
+});
+
+test("does not downgrade a demonstrated category failure to missing coverage", async () => {
+  const input = context();
+  input.fixture.importSafetyCoverage = [
+    {
+      category: "audio:data",
+      status: "failed",
+      evidence: ["native.json"],
+      detail: "Native audio payload is missing",
+    },
+  ];
+  const result = await row.run(input);
+  assert.equal(result.status, "failed");
 });
