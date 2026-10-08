@@ -170,6 +170,25 @@ class StableApiTests(unittest.TestCase):
             client = self.build_chat_client()
         self.assertIsInstance(client, OpenAIChatClient)
 
+    def test_compatible_base_url_uses_chat_completions(self) -> None:
+        cases = (
+            (None, OpenAIChatClient),
+            ("https://openrouter.ai/api/v1", OpenAIChatCompletionClient),
+            ("https://api.openai.com/v1", OpenAIChatClient),
+            ("not a url", OpenAIChatClient),
+        )
+        for agent_model in (None, "openai:meta-llama/llama-3.3-70b"):
+            for base_url, expected in cases:
+                env = {"OPENAI_API_KEY": "test-key"}
+                if base_url:
+                    env["OPENAI_BASE_URL"] = base_url
+                if agent_model:
+                    env["COPILOTKIT_AGENT_MODEL"] = agent_model
+                with self.subTest(base_url=base_url, agent_model=agent_model):
+                    with patch.dict(os.environ, env, clear=True):
+                        client = self.build_chat_client()
+                    self.assertIs(type(client), expected)
+
     def test_missing_credentials_has_actionable_error(self) -> None:
         with (
             patch.dict(os.environ, {}, clear=True),
