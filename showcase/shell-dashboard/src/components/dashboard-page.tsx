@@ -88,7 +88,6 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
   // live-status changes OR the 60s `tick` fires, so chips and stats agree on
   // which green rows are stale instead of each defaulting to its own
   // `Date.now()` that may have crossed a window boundary milliseconds later.
-  // Mirrors the single-`now` discipline in cell-matrix.tsx.
   const now = useMemo(() => {
     void liveStatus;
     void tick;

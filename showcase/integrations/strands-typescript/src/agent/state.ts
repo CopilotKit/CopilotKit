@@ -1,7 +1,7 @@
 /**
  * Shared-state plumbing for the Strands showcase agent.
  *
- * Mirrors the Python sibling's `build_state_prompt` + `*_state_from_args` /
+ * Mirrors the Python sibling's `with_state_context` + `*_state_from_args` /
  * `*_state_from_result` hooks: the UI owns certain state slots (preferences,
  * notes, steps, sales todos, delegations) and the adapter emits
  * `StateSnapshotEvent`s the moment a tool fires so the corresponding panel
@@ -29,7 +29,7 @@ function parseToolInput(raw: unknown): unknown {
   return raw;
 }
 
-// ---- stateContextBuilder -------------------------------------------------
+// ---- transient request context -------------------------------------------------
 
 function formatPreferencesBlock(prefs: unknown): string | null {
   if (!prefs || typeof prefs !== "object") return null;
@@ -50,73 +50,30 @@ function formatPreferencesBlock(prefs: unknown): string | null {
   );
 }
 
-/**
- * Format the AG-UI `context` array into a prompt block.
- *
- * `RunAgentInput.context` is populated by the frontend's `useAgentContext`
- * (readonly-state-agent-context), by `openGenerativeUI.designSkill`, and by
- * sandbox-function descriptors (open-gen-ui / advanced). The Strands adapter
- * does NOT surface `context` to the model on its own, so without lifting it
- * here the agent never sees readonly context ("Who am I?") nor the
- * open-gen-ui design skill / "call generateSandboxedUi" guidance. Mirrors
- * langgraph's lift-context-into-prompt pattern; the Python sibling does the
- * same in `build_state_prompt`.
- */
+/** Keep application context transient; never rewrite persisted user messages. */
 // @region[agent-config-context-builder]
-function formatContextBlock(context: unknown): string | null {
-  if (!Array.isArray(context) || context.length === 0) return null;
-  const lines: string[] = [];
-  for (const item of context) {
-    if (!item || typeof item !== "object") continue;
-    const c = item as Record<string, unknown>;
-    if (c.description == null || c.value == null) continue;
-    lines.push(`- ${String(c.description)}: ${String(c.value)}`);
+export function withStateContext(inputData: RunAgentInput): RunAgentInput {
+  const state =
+    inputData.state && typeof inputData.state === "object"
+      ? (inputData.state as Record<string, unknown>)
+      : {};
+  const context = [...inputData.context];
+  const preferences = formatPreferencesBlock(state.preferences);
+  if (preferences) {
+    context.push({
+      description: "Current user preferences",
+      value: preferences,
+    });
   }
-  if (lines.length === 0) return null;
-  return (
-    "Context for this conversation (treat as authoritative — use it to answer questions about the user and follow any instructions it contains):\n" +
-    lines.join("\n")
-  );
-}
-
-export function buildAgentContextPrompt(
-  inputData: { context?: unknown },
-  prompt: string,
-): string {
-  const contextBlock = formatContextBlock(inputData.context);
-  if (!contextBlock) return prompt;
-  return `${contextBlock}\n\nUser request: ${prompt}`;
+  if ("todos" in state) {
+    context.push({
+      description: "Current sales pipeline",
+      value: JSON.stringify(state.todos, null, 2),
+    });
+  }
+  return { ...inputData, context };
 }
 // @endregion[agent-config-context-builder]
-
-/**
- * Inject UI-owned shared-state slots and AG-UI context into the outgoing
- * prompt. Degrades to the original prompt when no relevant slot is present.
- */
-export function buildStatePrompt(
-  inputData: RunAgentInput,
-  prompt: string,
-): string {
-  const state = (inputData.state ?? {}) as Record<string, unknown>;
-
-  const blocks: string[] = [];
-  if (state && typeof state === "object") {
-    const prefsBlock = formatPreferencesBlock(state.preferences);
-    if (prefsBlock) blocks.push(prefsBlock);
-    if ("todos" in state) {
-      blocks.push(
-        `Current sales pipeline:\n${JSON.stringify(state.todos, null, 2)}`,
-      );
-    }
-  }
-  const contextPrompt = buildAgentContextPrompt(inputData, prompt);
-
-  if (blocks.length === 0) return contextPrompt;
-  if (contextPrompt === prompt) {
-    return `${blocks.join("\n\n")}\n\nUser request: ${prompt}`;
-  }
-  return `${blocks.join("\n\n")}\n\n${contextPrompt}`;
-}
 
 // ---- state-from-args hooks -----------------------------------------------
 
