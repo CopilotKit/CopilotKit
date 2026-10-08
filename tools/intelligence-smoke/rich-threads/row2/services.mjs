@@ -164,7 +164,16 @@ export async function createServices({
               thread.threadId,
               "Browser/framework identity changed",
             );
-            identity.runIds = source.runIds;
+            identity.runIds = [
+              ...new Set([
+                ...source.runIds,
+                ...source.events.flatMap((event) =>
+                  (event.outcome?.interrupts ?? [])
+                    .map((interrupt) => interrupt.metadata?.mastra?.runId)
+                    .filter(Boolean),
+                ),
+              ]),
+            ];
             const after = await read(identity);
             const visible = await browser.snapshot(thread);
             await write(`${scenario.id}-browser.json`, visible);
@@ -229,6 +238,20 @@ export async function createServices({
                   event.outcome?.type === "interrupt",
               );
               const nativeCall = interrupt?.outcome.interrupts[0];
+              if (
+                scenario.control.kind === "native" &&
+                framework === "mastra"
+              ) {
+                const expectedType =
+                  scenario.control.mechanism === "requireApproval"
+                    ? "mastra_tool_approval"
+                    : "mastra_suspend";
+                assert.equal(
+                  nativeCall?.metadata?.mastra?.type,
+                  expectedType,
+                  "Scenario did not exercise the requested Mastra native mechanism",
+                );
+              }
               const callId = emittedCall?.id ?? nativeCall?.toolCallId;
               assert.ok(
                 callId,
@@ -243,6 +266,27 @@ export async function createServices({
                   result,
                   "Completed control has no source tool result",
                 );
+              if (scenario.control.status === "completed") {
+                const terminal = source.events.findLast((event) =>
+                  ["RUN_FINISHED", "RUN_ERROR"].includes(event.type),
+                );
+                assert.ok(
+                  terminal?.type === "RUN_FINISHED" &&
+                    terminal.outcome?.type !== "interrupt",
+                  "Completed control must finish without another pending interrupt",
+                );
+                assert.ok(
+                  source.messages
+                    .slice(source.messages.indexOf(result) + 1)
+                    .some(
+                      (message) =>
+                        message.role === "assistant" &&
+                        typeof message.content === "string" &&
+                        message.content.trim(),
+                    ),
+                  "Completed control lacks final framework assistant response",
+                );
+              }
               const envelopes =
                 framework === "mastra"
                   ? (after.records.messages ?? []).map((value, index) => ({

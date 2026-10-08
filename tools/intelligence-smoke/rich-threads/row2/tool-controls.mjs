@@ -139,12 +139,22 @@ export function nativeInterruptObservations({
   });
   if (framework === "mastra") {
     if (!pending)
-      return [observation("cleared-checkpoint", "checkpoints", "", [])];
+      return snapshot.records.checkpoints.length
+        ? snapshot.records.checkpoints.map((_, index) =>
+            observation(
+              `completed-checkpoint-${index}`,
+              "checkpoints",
+              `/${index}/snapshot/status`,
+              "success",
+            ),
+          )
+        : [observation("cleared-checkpoint", "checkpoints", "", [])];
+    const payload = interrupt.metadata.mastra;
+    const nativeRunId = payload.runId ?? event.runId;
     const index = snapshot.records.checkpoints.findIndex(
-      (checkpoint) => checkpoint.run_id === event.runId,
+      (checkpoint) => checkpoint.run_id === nativeRunId,
     );
     const base = `/${index}/snapshot`;
-    const payload = interrupt.metadata.mastra;
     const approval = payload.type === "mastra_tool_approval";
     const checkpoint = snapshot.records.checkpoints[index]?.snapshot;
     const step =
@@ -160,7 +170,7 @@ export function nativeInterruptObservations({
         "run-identity",
         "checkpoints",
         `/${index}/run_id`,
-        event.runId,
+        nativeRunId,
       ),
       observation("suspended", "checkpoints", `${base}/status`, "suspended"),
       ...(approval
