@@ -55,5 +55,10 @@
     "@mastra/loggers": "1.2.0",
     "@mastra/deployer": "1.41.0",
     "@ag-ui/mcp-apps-middleware": "0.1.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "@ag-ui/mcp-apps-middleware": "0.1.1"
+    }
   }
 }

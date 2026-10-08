@@ -59,5 +59,10 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@ag-ui/mcp-apps-middleware": "0.1.1"
+    }
   }
 }

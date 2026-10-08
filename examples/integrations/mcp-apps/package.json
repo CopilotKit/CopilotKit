@@ -45,5 +45,10 @@
     "@copilotkit/runtime": {
       "@ag-ui/mcp-apps-middleware": "0.1.1"
     }
+  },
+  "pnpm": {
+    "overrides": {
+      "@copilotkit/runtime>@ag-ui/mcp-apps-middleware": "0.1.1"
+    }
   }
 }
