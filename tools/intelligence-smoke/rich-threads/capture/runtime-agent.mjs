@@ -1,6 +1,66 @@
 import assert from "node:assert/strict";
 import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { randomUUID } from "node:crypto";
+
+/** Wrap the native HttpAgent.run boundary, before runtime middleware. */
+export function captureFramework({ agent, directory, tap }) {
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  const path = join(directory, "framework.jsonl");
+  const original = agent.run;
+  agent.run = function (input) {
+    const invocationId = randomUUID();
+    const write = (record) =>
+      appendFileSync(path, JSON.stringify({ invocationId, ...record }) + "\n", {
+        mode: 0o600,
+      });
+    write({ kind: "input", input });
+    return original.call(this, input).pipe(
+      tap({
+        next(event) {
+          write({ kind: "event", event });
+        },
+        error(error) {
+          write({ kind: "error", error: String(error) });
+        },
+        complete() {
+          write({ kind: "complete" });
+        },
+      }),
+    );
+  };
+  return agent;
+}
+
+export function readFrameworkCapture(directory, threadId) {
+  let contents;
+  try {
+    contents = readFileSync(join(directory, "framework.jsonl"), "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  }
+  assert.ok(
+    !contents || contents.endsWith("\n"),
+    "Incomplete framework capture",
+  );
+  const runs = new Map();
+  for (const line of contents.split("\n").filter(Boolean)) {
+    const record = JSON.parse(line);
+    if (record.kind === "input")
+      runs.set(record.invocationId, {
+        input: record.input,
+        events: [],
+        complete: false,
+      });
+    const run = runs.get(record.invocationId);
+    assert.ok(run, "Framework event precedes its input");
+    if (record.kind === "event") run.events.push(record.event);
+    if (record.kind === "complete") run.complete = true;
+    if (record.kind === "error") run.error = record.error;
+  }
+  return [...runs.values()].filter((run) => run.input.threadId === threadId);
+}
 
 /** Install only in the owned test runtime, before constructing its runner.
  * Socket must be the SAME Phoenix export resolved by that runtime package.
@@ -65,7 +125,12 @@ export function readCapture(directory, threadId) {
   try {
     contents = readFileSync(join(directory, "ingestion.jsonl"), "utf8");
   } catch (error) {
-    if (error.code === "ENOENT") return { attempts: [], events: [] };
+    if (error.code === "ENOENT")
+      return {
+        attempts: [],
+        events: [],
+        frameworkRuns: readFrameworkCapture(directory, threadId),
+      };
     throw error;
   }
   assert.ok(!contents || contents.endsWith("\n"), "Incomplete capture record");
@@ -88,5 +153,9 @@ export function readCapture(directory, threadId) {
       else unique.set(key, event);
     }
   }
-  return { attempts, events: [...unique.values()] };
+  return {
+    attempts,
+    events: [...unique.values()],
+    frameworkRuns: readFrameworkCapture(directory, threadId),
+  };
 }
