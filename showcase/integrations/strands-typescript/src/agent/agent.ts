@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { Agent, tool } from "@strands-agents/sdk";
 import { z } from "zod";
 import type { RunAgentInput } from "@ag-ui/core";
-import { StrandsAgent } from "@ag-ui/aws-strands";
+import { PersistentStrandsAgent as StrandsAgent } from "./persistence";
 import type { StrandsAgentConfig } from "@ag-ui/aws-strands";
 import {
   A2UI_OPERATIONS_KEY,
