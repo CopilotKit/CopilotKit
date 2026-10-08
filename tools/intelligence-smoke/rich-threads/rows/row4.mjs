@@ -412,7 +412,14 @@ export const row = {
     if (!api)
       return {
         status: "blocked",
-        checks: [],
+        checks: [
+          {
+            name: "continuation-bootstrap",
+            status: "blocked",
+            evidence: [],
+            detail: "No continuation fixture/service supplied",
+          },
+        ],
         limitations: ["No continuation fixture/service supplied"],
       };
     const checks = [];
@@ -526,6 +533,17 @@ export const row = {
     }
     if (!modes.size)
       limitations.push("No valid rich source continued successfully");
+    if (!stateUpdated)
+      limitations.push("No requested state update verified in both stores");
+    if (!resultSaved)
+      limitations.push("No new tool result verified in both stores");
+    for (const [index, detail] of limitations.entries())
+      checks.push({
+        name: `coverage-${index}`,
+        status: "unvalidated",
+        evidence: [],
+        detail,
+      });
     return {
       status: checks.some((c) => c.status === "failed")
         ? "failed"

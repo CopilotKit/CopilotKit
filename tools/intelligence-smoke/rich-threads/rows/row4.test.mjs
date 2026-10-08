@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { aggregate } from "../contract.mjs";
 import {
   ContinuationUnavailable,
   fromImportedSource,
@@ -381,4 +382,30 @@ test("matching empty before states cannot conceal loss from the original source"
   c.before.native.state = {};
   c.before.intelligence.state = {};
   assert.throws(() => verifyContinuation(c), /Original native state/);
+});
+
+test("partial and absent continuation services agree with runner aggregation", async () => {
+  for (const ctx of [context([capture()]), { services: {} }]) {
+    const report = await row.run(ctx);
+    assert.equal(aggregate(report.checks), report.status);
+  }
+});
+test("coverage requires a new tool result and requested state mutation", async () => {
+  const c = capture();
+  c.source.stateChanges = [];
+  c.action.state = structuredClone(c.before.native.state);
+  c.after.native.state = structuredClone(c.action.state);
+  c.after.intelligence.state = structuredClone(c.action.state);
+  const report = await row.run(context([c]));
+  assert.ok(
+    report.checks.some(
+      (check) =>
+        check.detail === "No requested state update verified in both stores",
+    ),
+  );
+  assert.ok(
+    report.checks.some(
+      (check) => check.detail === "No new tool result verified in both stores",
+    ),
+  );
 });
