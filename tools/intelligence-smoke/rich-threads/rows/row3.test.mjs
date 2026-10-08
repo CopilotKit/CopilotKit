@@ -276,3 +276,23 @@ test("environment refusal is blocked with evidence, not a product mismatch", asy
   assert.equal(artifacts[0].value.failureClass, "setup");
   assert.ok(report.checks.some((check) => check.status === "unvalidated"));
 });
+
+test("native readers cannot mutate expected source data into a false pass", async () => {
+  const f = fixture();
+  await assert.rejects(
+    row.run({
+      fixture: {},
+      services: {
+        importReplay: {
+          sources: async () => [f.source],
+          inspectNative: async (source) => {
+            source.expected.items[0].payload = "corrupted";
+            return { ...f.native, items: source.expected.items };
+          },
+        },
+      },
+      writeArtifact: async () => {},
+    }),
+    /Fixture disagrees/,
+  );
+});

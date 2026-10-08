@@ -37,15 +37,16 @@ export const row = {
     const limitations = [];
     const covered = new Set();
     for (const source of sources) {
+      const expectedSource = structuredClone(source);
       const evidence = `${source.id}-import-replay.json`;
       const record = {
-        source,
+        source: expectedSource,
         baseline: context.baseline,
         framework: context.framework,
       };
       try {
         record.native = structuredClone(await service.inspectNative(source));
-        validateSource(source, record.native);
+        validateSource(expectedSource, record.native);
         record.before = structuredClone(await service.findImported(source));
         assert.deepEqual(
           record.before,
@@ -68,25 +69,25 @@ export const row = {
         record.imported = structuredClone(
           await service.readImported(source, record.destinations[0]),
         );
-        assertImported(source, record.imported);
+        assertImported(expectedSource, record.imported);
         record.replay = await service.replay(source, record.imported);
-        assertReplay(source, record.imported, record.replay);
+        assertReplay(expectedSource, record.imported, record.replay);
         record.answers = [];
         // Sources with multiple pending interactions need explicit serial expectations.
         assert.ok(
-          source.expected.pending.length <= 1,
+          expectedSource.expected.pending.length <= 1,
           "Use separate source histories for independent pending controls",
         );
-        for (const pending of source.expected.pending) {
+        for (const pending of expectedSource.expected.pending) {
           const answered = await service.answer(
             source,
             record.imported,
-            pending,
+            structuredClone(pending),
           );
           record.answers.push(answered);
-          assertAnswered(source, record.imported, pending, answered);
+          assertAnswered(expectedSource, record.imported, pending, answered);
         }
-        for (const category of source.coverage) {
+        for (const category of expectedSource.coverage) {
           assert.ok(
             categories.includes(category),
             `Unknown category ${category}`,
