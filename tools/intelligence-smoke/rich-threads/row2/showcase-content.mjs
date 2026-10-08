@@ -93,7 +93,9 @@ export function nativeInventory(framework, snapshot) {
           value:
             content.length === 1 && Object.hasOwn(content[0], "text")
               ? jsonValue(content[0].text)
-              : content,
+              : content.length === 1 && Object.hasOwn(content[0], "json")
+                ? content[0].json
+                : content,
         });
       } else {
         const type = ["image", "document", "audio", "video"].find(
@@ -121,11 +123,18 @@ export function nativeInventory(framework, snapshot) {
           );
           const bytes =
             body.source?.bytes ?? body.data ?? body.url ?? body.image;
+          const embeddedMime =
+            typeof bytes === "string"
+              ? /^data:([^;,]+)/.exec(bytes)?.[1]
+              : undefined;
           add({
             kind: "media",
             type: mediaType,
             ...digest(bytes),
             mime,
+            ...(embeddedMime && embeddedMime !== mime
+              ? { mimeConflict: embeddedMime }
+              : {}),
             filename: sidecar?.filename ?? body.filename ?? body.name ?? null,
             reference:
               body.source?.url ??
@@ -154,8 +163,8 @@ export function nativeInventory(framework, snapshot) {
       }
   } else
     for (const [record, value] of Object.entries(snapshot.records)) {
-      // Strands keeps application-visible AG-UI state in appData, independently
-      // from SDK-internal data.state. Preserve both rather than merging them.
+      // SDK snapshots serialize agent.appState as data.state. appData is a
+      // separate extension envelope; preserve both without merging namespaces.
       states.push({
         value: value.appData,
         source: { record, pointer: "/appData" },

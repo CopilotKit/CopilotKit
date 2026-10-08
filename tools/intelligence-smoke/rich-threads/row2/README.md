@@ -35,6 +35,23 @@ Backend launch options for owned environments:
   host subdirectory and its actual SDK `agentId` to the reader. An explicitly
   supplied session manager takes precedence.
 
+Mastra's standalone native transport is `mastra-backend.mjs`. Launch it with
+`node --import tsx tools/intelligence-smoke/rich-threads/row2/mastra-backend.mjs`,
+setting `RICH_THREADS_MASTRA_SOURCE` to the real integration's `src/mastra/index.ts`
+and `TSX_TSCONFIG_PATH` to that integration's tsconfig. It loads registered
+Showcase agents, models, tools and Memory. `/native-suspend` uses `interruptAgent`;
+`/native-approval` uses `weatherAgent` with Mastra's public
+`stream(..., { requireToolApproval: true })` option. This explicit fixture
+variation must be recorded in the baseline. Other routes are `/rich`,
+`/reasoning`, `/state`, and `/media`. Native source readers use resource IDs
+`mastra-<registeredAgentName>`, not the outer runtime's user ID.
+
+`nativeControlScenarios(framework)` in `control-scenarios.mjs` supplies distinct
+pending/completed route descriptors. The common runtime supplies these mode
+names in `scope.routes`; Strands `native-suspend` points to its existing
+`/interrupt` endpoint. The row fails if a Mastra approval scenario actually
+emits a suspend outcome, or vice versa.
+
 The service keeps original store envelopes, independent framework captures,
 browser snapshots, derived comparisons, and JSON pointers back to native values.
 Resource-scoped memory may be shared between scenarios after lifecycle verifies

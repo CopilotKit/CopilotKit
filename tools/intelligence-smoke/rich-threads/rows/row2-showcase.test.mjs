@@ -17,6 +17,7 @@ import { compareCapture } from "../row2/assertions.mjs";
 import { frameworkSource } from "../row2/framework-source.mjs";
 import { nativeInterruptObservations } from "../row2/tool-controls.mjs";
 import { createServices } from "../row2/services.mjs";
+import { withToolApproval } from "../row2/mastra-backend.mjs";
 
 async function ownedDirectory(t) {
   const root = await mkdtemp(join(tmpdir(), "row2-showcase-"));
@@ -521,4 +522,35 @@ test("Showcase service reads native absence before sending and rejects an unveri
   );
   captured.before.records.messages.push({ id: "old-thread-data" });
   assert.throws(() => compareCapture(captured), /absent/);
+});
+
+test("approval fixture preserves registered agent private state and resume behavior without mutating other profiles", () => {
+  class RegisteredAgent {
+    #identity = "actual-showcase-agent";
+    get id() {
+      return this.#identity;
+    }
+    stream(messages, options) {
+      return { id: this.#identity, messages, options };
+    }
+    resumeStream(data, options) {
+      return { id: this.#identity, data, options };
+    }
+  }
+  const registered = new RegisteredAgent();
+  const approval = withToolApproval(registered);
+  assert.equal(approval.id, registered.id);
+  assert.deepEqual(approval.stream(["request"], { memory: { thread: "t" } }), {
+    id: registered.id,
+    messages: ["request"],
+    options: { memory: { thread: "t" }, requireToolApproval: true },
+  });
+  assert.deepEqual(
+    approval.resumeStream({ approved: true }, { runId: "r" }),
+    registered.resumeStream({ approved: true }, { runId: "r" }),
+  );
+  assert.equal(
+    registered.stream([], {}).options.requireToolApproval,
+    undefined,
+  );
 });
