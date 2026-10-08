@@ -214,7 +214,7 @@ function validate(config, frameworks) {
     );
     assert.match(
       s.image,
-      /@sha256:[a-f0-9]{64}$/,
+      /^(?:sha256:[a-f0-9]{64}|[^\s]+@sha256:[a-f0-9]{64})$/,
       "Installable digest-pinned service image required",
     );
     assert.ok(!s.framework || frameworks.includes(s.framework));
@@ -251,6 +251,18 @@ function validate(config, frameworks) {
           port.container > 0 &&
           port.container < 65536,
       );
+  }
+  for (const file of config.files ?? []) {
+    assert.ok(
+      safe(file.store) &&
+        services.some((s) => s.mounts.some((m) => m.store === file.store)),
+      "Private config must use owned mounted storage",
+    );
+    assert.match(
+      file.path,
+      /^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)?(?:\/[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)?)*$/,
+    );
+    assert.equal(typeof file.contents, "string");
   }
   for (const role of roles)
     assert.ok(
@@ -526,6 +538,11 @@ export async function createEnvironment(
       await mkdir(join(directory, store), { mode: 0o700 });
       assert.deepEqual(await readdir(join(directory, store)), []);
     }
+    for (const file of config.files ?? []) {
+      const path = join(directory, file.store, file.path);
+      await mkdir(join(path, ".."), { recursive: true, mode: 0o700 });
+      await writeFile(path, file.contents, { flag: "wx", mode: 0o600 });
+    }
     receipt.storageInitialization = {
       status: "passed",
       method: "exclusive-empty-storage",
@@ -609,6 +626,13 @@ export async function createEnvironment(
         const scope = structuredClone(config.scopes[framework]);
         scope.owner = runId;
         scope.framework = framework;
+        if (scope.capture?.store) {
+          assert.ok(
+            stores.includes(scope.capture.store),
+            "Capture store must be owned",
+          );
+          scope.capture.directory = join(directory, scope.capture.store);
+        }
         scope.native.location = join(
           directory,
           scope.native.store,

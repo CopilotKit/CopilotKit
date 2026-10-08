@@ -65,7 +65,12 @@ async function fixture(t) {
   const networks = new Map();
   const calls = [];
   let next = 0;
-  const state = { failCreateAt: null, failRemove: false, foreign: false };
+  const state = {
+    failCreateAt: null,
+    failRemove: false,
+    foreign: false,
+    failReady: false,
+  };
   const docker = async (command) => {
     assert.deepEqual(command.slice(0, 2), ["--host", config.dockerHost]);
     const args = command.slice(2);
@@ -127,7 +132,10 @@ async function fixture(t) {
       };
       return item.Id;
     }
-    if (args[0] === "exec") return "";
+    if (args[0] === "exec") {
+      if (state.failReady) throw new Error("service is not ready");
+      return "";
+    }
     if (args[0] === "ps") {
       const name = value("--filter").slice("name=^/".length, -1);
       return containers.get(name)?.Id ?? "";
@@ -272,4 +280,44 @@ test("existing directory, hosted acceptance and unpinned images fail before Dock
   await mkdir(join(f.root, "test-run"));
   await assert.rejects(f.create(), /EEXIST/);
   assert.equal(f.calls.length, 0);
+});
+
+test("readiness timeout cleans partial setup and retains failure receipt", async (t) => {
+  const f = await fixture(t);
+  f.config.readinessTimeoutMs = 1;
+  f.state.failReady = true;
+  await assert.rejects(f.create(), /readiness timed out/);
+  assert.equal(f.containers.size, 0);
+  assert.equal(f.networks.size, 0);
+  assert.equal(
+    JSON.parse(await readFile(join(f.outputDir, "environment.json"))).cleanup
+      .status,
+    "passed",
+  );
+});
+
+test("private runtime files are mounted but never copied to public receipts", async (t) => {
+  const f = await fixture(t);
+  f.config.files = [
+    {
+      store: "store-4",
+      path: "config/runtime.json",
+      contents: '{"token":"runtime-config-secret"}',
+    },
+  ];
+  f.config.scopes.mastra.capture = { store: "store-4" };
+  const environment = await f.create();
+  assert.equal(
+    await readFile(
+      join(environment.scopes.mastra.capture.directory, "config/runtime.json"),
+      "utf8",
+    ),
+    f.config.files[0].contents,
+  );
+  assert.ok(
+    !(await readFile(join(f.outputDir, "environment.json"), "utf8")).includes(
+      "runtime-config-secret",
+    ),
+  );
+  await environment.cleanup();
 });
