@@ -64,6 +64,16 @@ modification, including interrupted runs. Fresh physical storage is recorded in
 bootstrap performs logical database, cache/queue, native-memory and media absence
 checks after migrations/bootstrap. Supplying fresh user/thread IDs is insufficient.
 
+Before running rows, call `environment.verifyCleanScope({pool, redis,
+bootstrapTables, nativeBootstrapTables})`. It uses a read-only PostgreSQL
+transaction over all non-system tables, Redis `INFO keyspace` across all databases,
+and complete native-directory/SQLite scans. Bootstrap exceptions must explicitly
+name a table, expected count and reason; conversation, resource-memory, queue and
+media tables cannot be exempted. Unknown files, including media sidecars and Strands
+snapshots, invalidate a clean run. The lifecycle writes the evidence and throws if
+any count is unexpected. The supplied clients must connect to this environment's
+owned database/cache; common configuration must bind those private connections.
+
 ## Failure and recovery
 
 The provider records creation intent before Docker calls. Readiness is bounded;
