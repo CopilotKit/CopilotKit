@@ -372,6 +372,7 @@ export function convertInputToTanStackAI(
   return { messages, systemPrompts, tools };
 }
 
+/** Returns the record-shaped TanStack compatibility metadata, when present. */
 function getTanStackMetadata(value: {
   metadata?: unknown;
 }): Record<string, unknown> | undefined {
@@ -436,6 +437,7 @@ export async function* convertTanStackStream(
   const deliveredEncryptedSequence = new Map<string, number>();
   const normalizeStateEvent = createStateEventNormalizer(initialState);
 
+  /** Closes open message/span pairs while keeping aliases for late signatures. */
   function* closeReasoningIfOpen(): Generator<BaseEvent> {
     pendingThinkingSteps.clear();
     if (reasoningMessageOpen) {
@@ -473,6 +475,7 @@ export async function* convertTanStackStream(
   const startedToolCalls = new Set<string>();
   const endedToolCalls = new Set<string>();
 
+  /** Resolves a materialized message/tool ID, preferring message IDs over aliases. */
   function encryptedTarget(
     event: ReasoningEncryptedValueEvent,
   ): string | undefined {
@@ -485,6 +488,10 @@ export async function* convertTanStackStream(
     return target && reasoningMessages.has(target) ? target : undefined;
   }
 
+  /**
+   * Emits ready updates without regressing the latest value for each target.
+   * Unresolved aliases stay pending unless final delivery preserves their IDs.
+   */
   function* flushEncryptedValues(final = false): Generator<BaseEvent> {
     const unresolved: typeof pendingEncryptedValues = [];
     for (const { event, sequence } of pendingEncryptedValues) {
@@ -699,7 +706,7 @@ export async function* convertTanStackStream(
       // new START), close it cleanly first so MSG_END / END pair correctly.
       yield* closeReasoningIfOpen();
       reasoningRunOpen = true;
-      reasoningSpanId = (raw.messageId as string) ?? randomUUID();
+      reasoningSpanId = getNonEmptyString(raw.messageId) ?? randomUUID();
       reasoningMessageId = reasoningSpanId;
       const startEvt: ReasoningStartEvent = {
         type: EventType.REASONING_START,
