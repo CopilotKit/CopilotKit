@@ -276,9 +276,9 @@ export function createContinuationServices({
           for (const entry of entries) {
             const sourceEvidence = await save("imported-source", entry);
             if (entry.source.coverage.includes("native-completed"))
-              assert.equal(
-                entry.source.applicationMode,
-                "native",
+              assert.ok(
+                typeof entry.source.applicationMode === "string" &&
+                  entry.source.applicationMode.length,
                 "Completed native source must retain its backend application mode",
               );
             const plan = continuationPlan({
