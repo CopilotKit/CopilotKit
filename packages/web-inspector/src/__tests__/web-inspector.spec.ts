@@ -2157,7 +2157,32 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     });
     expect(internals.isOpen).toBe(true);
   });
+  it("closes the inspector when Escape is pressed", async () => {
+    const { inspector, internals } = mount();
+    await inspector.updateComplete;
 
+    internals.openInspector("floating_button");
+    await inspector.updateComplete;
+
+    expect(internals.isOpen).toBe(true);
+
+    const inspectorWindow =
+      inspector.shadowRoot?.querySelector<HTMLElement>(".inspector-window");
+
+    expect(inspectorWindow).not.toBeNull();
+
+    inspectorWindow?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+
+    await inspector.updateComplete;
+
+    expect(internals.isOpen).toBe(false);
+  });
   it("counts one open per open, and nothing for an already-open panel", async () => {
     const { inspector, internals } = mount();
     await inspector.updateComplete;
