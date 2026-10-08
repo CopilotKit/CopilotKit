@@ -4,15 +4,30 @@ import { relative, isAbsolute } from "node:path";
 import { artifactWriter, categories } from "../contract.mjs";
 import { createNativeReader } from "./showcase-store.mjs";
 import { frameworkSource } from "./framework-source.mjs";
-import { inventoryObservations } from "./showcase-content.mjs";
+import { showcaseScenarios } from "./control-scenarios.mjs";
+import { prepareSourceMedia } from "./media-source.mjs";
+import { runtimeMcpLimitation } from "./runtime-source.mjs";
+import { inventoryObservations, surfaceIds } from "./showcase-content.mjs";
 import {
   frontendToolObservations,
   nativeInterruptObservations,
   strandsEnvelopes,
 } from "./tool-controls.mjs";
 
-function witnesses(source, scenario) {
+function witnesses(source, scenario, boundary) {
   const result = [];
+  const mcpCalls = new Set();
+  for (const [index, event] of (boundary.events ?? []).entries()) {
+    if (
+      event.type === "ACTIVITY_SNAPSHOT" &&
+      event.activityType === "mcp-apps"
+    ) {
+      const toolResult = boundary.events
+        .slice(0, index)
+        .findLast((item) => item.type === "TOOL_CALL_RESULT");
+      if (toolResult) mcpCalls.add(toolResult.toolCallId);
+    }
+  }
   for (const [index, message] of source.messages.entries()) {
     const add = (category) =>
       result.push({ category, pointer: `/messages/${index}` });
@@ -27,10 +42,12 @@ function witnesses(source, scenario) {
         if (part.type === "text") add(`${message.role}-text`);
         else if (part.source) add(`${part.type}:${part.source.type}`);
       }
-    for (const call of message.toolCalls ?? [])
+    for (const call of message.toolCalls ?? []) {
+      if (mcpCalls.has(call.id)) add("mcp-tool");
       for (const category of scenario.toolCategories?.[call.function.name] ??
         [])
         add(category);
+    }
   }
   return result.filter(
     (item, index) =>
@@ -61,8 +78,17 @@ export async function createServices({
     environment.receipt.owner,
     "Native scope must belong to lifecycle owner",
   );
+  const inventory =
+    scope.row2?.scenarios ??
+    showcaseScenarios(
+      framework,
+      scope.scenarios ??
+        (await import("../scenarios/row1.mjs")).scenarios({
+          media: scope.media,
+        }),
+    );
   assert.ok(
-    Array.isArray(scope.scenarios) && scope.scenarios.length,
+    Array.isArray(inventory) && inventory.length,
     "Shared Showcase scenario descriptors required",
   );
   for (const method of ["newThread", "send", "upload", "interact", "snapshot"])
@@ -77,7 +103,7 @@ export async function createServices({
     "Framework-boundary capture reader required",
   );
   const fixture = { row2: { coverage: {} } };
-  for (const scenario of scope.scenarios) {
+  for (const scenario of inventory) {
     assert.ok(
       scenario.id && scenario.categories?.length && scenario.steps?.length,
       "Complete Showcase scenario required",
@@ -104,7 +130,7 @@ export async function createServices({
             "native-clean-scope.json",
             environment.receipt.cleanScope,
           );
-          for (const scenario of scope.scenarios) {
+          for (const scenario of inventory) {
             signal?.throwIfAborted();
             const native = { ...scope.native, ...scenario.native };
             for (const location of [
@@ -159,6 +185,27 @@ export async function createServices({
             const boundary = await capture.read(thread.threadId);
             await write(`${scenario.id}-framework-boundary.json`, boundary);
             const source = frameworkSource(boundary.frameworkRuns);
+            const mcpLimitation = scenario.categories.includes("mcp-app")
+              ? runtimeMcpLimitation(boundary)
+              : null;
+            if (mcpLimitation) {
+              await write(
+                `${scenario.id}-runtime-source-limitation.json`,
+                mcpLimitation,
+              );
+              fixture.row2.coverage["mcp-app"] = {
+                ...mcpLimitation,
+                evidence: [
+                  `${scenario.id}-framework-boundary.json`,
+                  `${scenario.id}-runtime-source-limitation.json`,
+                ],
+              };
+            }
+            const originalMedia = await prepareSourceMedia(
+              source,
+              scenario.media ?? [],
+              scenario.id,
+            );
             assert.equal(
               source.threadId,
               thread.threadId,
@@ -183,9 +230,33 @@ export async function createServices({
               snapshot: after,
               messages: source.messages,
               scenarioId: scenario.id,
-              witnesses: witnesses(source, scenario),
+              witnesses: witnesses(source, scenario, boundary),
             });
             const observations = inspection.observations;
+            inspection.projection.sourceMedia = originalMedia.observed;
+            observations.push(...originalMedia.observations);
+            if (scenario.categories.includes("parallel-surfaces")) {
+              const expectedSurfaces = surfaceIds(
+                inspection.sourceItems.map((item) => item.value),
+              );
+              if (expectedSurfaces.length >= 2) {
+                inspection.projection.surfaceIds = surfaceIds(
+                  inspection.projection.items,
+                );
+                source.surfaceIds = expectedSurfaces;
+                observations.push({
+                  name: `${scenario.id}-parallel-surfaces`,
+                  category: "parallel-surfaces",
+                  record: "inspection",
+                  pointer: "/surfaceIds",
+                  expected: expectedSurfaces,
+                  source: {
+                    artifact: `${scenario.id}-source.json`,
+                    pointer: "/surfaceIds",
+                  },
+                });
+              }
+            }
             for (const category of scenario.categories.filter((value) =>
               value.startsWith("shared-state-"),
             )) {

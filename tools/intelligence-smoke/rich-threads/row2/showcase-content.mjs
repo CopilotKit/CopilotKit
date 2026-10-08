@@ -332,3 +332,28 @@ export function inventoryObservations({
     sourceItems: expected,
   };
 }
+
+/** Surface identities repeat in A2UI update operations. This unique identity
+ * inventory supplements (never replaces) exact ordered call/result checks.
+ */
+export function surfaceIds(value) {
+  const found = [];
+  const visit = (current) => {
+    if (typeof current === "string") {
+      const parsed = jsonValue(current);
+      if (typeof parsed === "object" && parsed !== null) visit(parsed);
+    } else if (current && typeof current === "object") {
+      for (const [key, child] of Object.entries(current)) {
+        if (
+          key === "surfaceId" &&
+          typeof child === "string" &&
+          !found.includes(child)
+        )
+          found.push(child);
+        else visit(child);
+      }
+    }
+  };
+  visit(value);
+  return found;
+}

@@ -16,8 +16,10 @@ checks that every native path belongs to that lifecycle's backend mount. The
 browser must await `newThread({ beforeRun(input) })` before sending its first
 framework run; observing a request after it was sent cannot prove native absence.
 
-The common scenario inventory is supplied as `scope.scenarios` (each has `id`,
-`categories`, and `steps`). `toolCategories` associates actual tool names with
+The service consumes the common `scenarios/row1.mjs` / `scope.scenarios` inventory
+and applies native fixture routing. `scope.row2.scenarios` can explicitly select
+descriptors (each has `id`, `categories`, and `steps`) for a partial development run.
+`toolCategories` associates actual tool names with
 rich categories. `control` specifies `kind`, `status`, and `toolName`; Mastra
 suspend and requireApproval require distinct scenarios. Missing witnesses stay
 unvalidated. The capture client supplies `frameworkRuns: [{ input, events }]`;
@@ -31,8 +33,10 @@ Backend launch options for owned environments:
   as `scope.native.location` and `workflowLocation` to the native reader.
 - Strands TypeScript: `STRANDS_SESSION_DIRECTORY=/owned/sessions` enables the
   shared session wrapper on the real main, reasoning, and interrupt agents.
-  Each mounted adapter uses a subdirectory named after the adapter; pass that
-  host subdirectory and its actual SDK `agentId` to the reader. An explicitly
+  Each mounted adapter uses a subdirectory named after the adapter; pass the
+  host session root and its actual SDK `agentId` to the service. Scenario
+  `native.namespace` selects `strands_agent`, `reasoning`, or `interrupt`.
+  An explicitly
   supplied session manager takes precedence.
 
 Mastra's standalone native transport is `mastra-backend.mjs`. Launch it with
@@ -43,8 +47,9 @@ Showcase agents, models, tools and Memory. `/native-suspend` uses `interruptAgen
 `/native-approval` uses `weatherAgent` with Mastra's public
 `stream(..., { requireToolApproval: true })` option. This explicit fixture
 variation must be recorded in the baseline. Other routes are `/rich`,
-`/reasoning`, `/state`, and `/media`. Native source readers use resource IDs
-`mastra-<registeredAgentName>`, not the outer runtime's user ID.
+`/reasoning`, `/state`, and `/media`. `/rich` and `/state` use the real
+`beautifulChatAgent` and its exact `mastra-beautiful-chat` resource ID;
+other profiles use `mastra-<registeredAgentName>`, not the outer runtime user ID.
 
 `nativeControlScenarios(framework)` in `control-scenarios.mjs` supplies distinct
 pending/completed route descriptors. The common runtime supplies these mode
@@ -58,6 +63,15 @@ Resource-scoped memory may be shared between scenarios after lifecycle verifies
 the initial empty scope; thread/message/run identities must still be absent
 before each fresh conversation. Original resource before/after values remain in
 the evidence. No store is reset by this row.
+
+Media descriptors include the original fixture `path`, `type`, `sourceType`,
+and `mimeType`. URL/provider-file descriptors must also specify `sourceValue`
+so original bytes cannot accidentally be associated with a different reference.
+Dropped input/discriminator/name/byte changes are detected source findings,
+never passing expectations. Exact native bytes/MIME/name remain separately
+compared. Runtime-only MCP Apps activities are recorded as source limitations
+only when canonical ingestion contains the resource and the independent
+framework boundary proves it was neither received nor emitted there.
 
 These modules do not establish live acceptance by themselves. The common
 bootstrap, approved hosting/access decision, source/build/model manifest, real
