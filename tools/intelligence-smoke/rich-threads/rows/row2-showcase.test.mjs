@@ -18,6 +18,8 @@ import { frameworkSource } from "../row2/framework-source.mjs";
 import { nativeInterruptObservations } from "../row2/tool-controls.mjs";
 import { createServices } from "../row2/services.mjs";
 import { withToolApproval } from "../row2/mastra-backend.mjs";
+import { prepareSourceMedia } from "../row2/media-source.mjs";
+import { runtimeMcpLimitation } from "../row2/runtime-source.mjs";
 
 async function ownedDirectory(t) {
   const root = await mkdtemp(join(tmpdir(), "row2-showcase-"));
@@ -419,13 +421,15 @@ test("Showcase service reads native absence before sending and rejects an unveri
       workflowLocation: join(root, "native.db"),
       resourceId: "user",
     },
-    scenarios: [
-      {
-        id: "text",
-        categories: ["user-text", "assistant-text"],
-        steps: [{ kind: "send", prompt: "hello" }],
-      },
-    ],
+    row2: {
+      scenarios: [
+        {
+          id: "text",
+          categories: ["user-text", "assistant-text"],
+          steps: [{ kind: "send", prompt: "hello" }],
+        },
+      ],
+    },
   };
   const input = {
     threadId: "fresh",
@@ -552,5 +556,61 @@ test("approval fixture preserves registered agent private state and resume behav
   assert.equal(
     registered.stream([], {}).options.requireToolApproval,
     undefined,
+  );
+});
+
+test("media original bytes and discriminator are checked before native comparison; dropped source input remains a failure", async (t) => {
+  const root = await ownedDirectory(t);
+  const path = join(root, "original.png");
+  await writeFile(path, Buffer.from([1, 2, 3]));
+  const files = [
+    { path, type: "image", sourceType: "data", mimeType: "image/png" },
+  ];
+  const source = {
+    messages: [
+      {
+        id: "u",
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: { type: "data", value: "AQID", mimeType: "image/png" },
+            metadata: { filename: "original.png" },
+          },
+        ],
+      },
+    ],
+  };
+  const good = await prepareSourceMedia(source, files, "media");
+  assert.deepEqual(good.observed[0], good.observations[0].expected);
+  const missing = await prepareSourceMedia({ messages: [] }, files, "media");
+  assert.notDeepEqual(missing.observed[0], missing.observations[0].expected);
+  source.messages[0].content[0].source.type = "url";
+  source.messages[0].content[0].source.value = "https://fixture.invalid/image";
+  await assert.rejects(
+    prepareSourceMedia(source, [{ ...files[0], sourceType: "url" }], "media"),
+    /declared URL/,
+  );
+});
+
+test("runtime-only MCP resources are source limitations only with independent framework-boundary evidence", () => {
+  const activity = {
+    type: "ACTIVITY_SNAPSHOT",
+    activityType: "mcp-apps",
+    content: {
+      resourceUri: "ui://card",
+      result: { content: [{ text: "rendered" }] },
+    },
+  };
+  const boundary = {
+    events: [activity],
+    frameworkRuns: [{ input: { messages: [] }, events: [] }],
+  };
+  assert.equal(runtimeMcpLimitation(boundary).status, "source-limitation");
+  boundary.frameworkRuns[0].events.push(activity);
+  assert.equal(runtimeMcpLimitation(boundary), null);
+  assert.throws(
+    () => runtimeMcpLimitation({ events: [activity] }),
+    /Independent framework/,
   );
 });

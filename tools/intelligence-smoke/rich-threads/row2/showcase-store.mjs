@@ -109,9 +109,16 @@ export async function readMastraStore({
  * sidecars, appData, pending tool execution and interrupt maps. Never substitute
  * Agent.messages, the importer output or the Intelligence history.
  */
-export async function readStrandsStore({ location, threadId, agentId }) {
+export async function readStrandsStore({
+  location,
+  namespace,
+  threadId,
+  agentId,
+}) {
   identifier(threadId, "threadId");
   identifier(agentId, "native agentId");
+  if (namespace)
+    location = join(location, identifier(namespace, "native namespace"));
   if (!location || /:memory:/i.test(location))
     throw new Error("Durable Strands session directory required");
   const file = join(

@@ -5,9 +5,9 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 export const mastraProfiles = Object.freeze({
-  rich: { agent: "weatherAgent" },
+  rich: { agent: "beautifulChatAgent", resourceId: "mastra-beautiful-chat" },
   reasoning: { agent: "reasoningAgent" },
-  state: { agent: "sharedStateReadWriteAgent" },
+  state: { agent: "beautifulChatAgent", resourceId: "mastra-beautiful-chat" },
   media: { agent: "multimodalAgent" },
   "native-suspend": { agent: "interruptAgent" },
   "native-approval": { agent: "weatherAgent", requireToolApproval: true },
@@ -45,7 +45,7 @@ export function createMastraBackend({
         name,
         new MastraAgent({
           agent: profile.requireToolApproval ? withToolApproval(agent) : agent,
-          resourceId: `mastra-${profile.agent}`,
+          resourceId: profile.resourceId ?? `mastra-${profile.agent}`,
         }),
       ];
     }),

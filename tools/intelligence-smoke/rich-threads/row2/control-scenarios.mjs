@@ -52,3 +52,77 @@ export function nativeControlScenarios(framework) {
     })),
   );
 }
+
+/** Apply backend routing to the one shared scenario inventory. */
+export function showcaseScenarios(framework, shared) {
+  const controls = nativeControlScenarios(framework);
+  const ordinary = shared.filter(
+    (scenario) =>
+      !scenario.categories.some((category) => category.startsWith("native-")),
+  );
+  return [
+    ...ordinary.map((scenario) => {
+      const mode =
+        scenario.mode ??
+        (scenario.categories.includes("reasoning")
+          ? "reasoning"
+          : scenario.categories.some((category) =>
+                category.startsWith("shared-state-"),
+              )
+            ? "state"
+            : scenario.media?.length
+              ? "media"
+              : "rich");
+      const registered = {
+        rich: "beautifulChatAgent",
+        reasoning: "reasoningAgent",
+        state: "beautifulChatAgent",
+        media: "multimodalAgent",
+      }[mode];
+      const native =
+        framework === "mastra"
+          ? {
+              resourceId:
+                registered === "beautifulChatAgent"
+                  ? "mastra-beautiful-chat"
+                  : `mastra-${registered}`,
+            }
+          : { namespace: mode === "reasoning" ? "reasoning" : "strands_agent" };
+      const controlCategory = scenario.categories.find((category) =>
+        category.startsWith("frontend-"),
+      );
+      return {
+        ...scenario,
+        mode,
+        native: { ...native, ...scenario.native },
+        toolCategories: {
+          pieChart: ["chart-pie"],
+          barChart: ["chart-bar"],
+          query_data: ["ordinary-tool"],
+          generateSandboxedUi: ["calculator-iframe"],
+          search_flights: ["flight-card"],
+          generate_a2ui: ["dashboard-a2ui"],
+          ...scenario.toolCategories,
+        },
+        ...(controlCategory
+          ? {
+              control: {
+                kind: "frontend",
+                status: controlCategory.slice("frontend-".length),
+                toolName: "scheduleTime",
+              },
+            }
+          : {}),
+      };
+    }),
+    ...controls.map((scenario) => ({
+      ...scenario,
+      native:
+        framework === "mastra"
+          ? {
+              resourceId: `mastra-${scenario.mode === "native-suspend" ? "interruptAgent" : "weatherAgent"}`,
+            }
+          : { namespace: "interrupt" },
+    })),
+  ];
+}
