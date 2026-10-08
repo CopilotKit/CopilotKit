@@ -284,6 +284,8 @@ test("row orchestrates all ten scenarios and captures pre/post evidence", async 
   assert.equal(report.checks.length, 10);
   assert.ok(f.artifacts.has("imported-native-pending-resumed.json"));
   assert.ok(f.artifacts.has("fresh-rich-continued.json"));
+  for (const scenario of f.scenarios)
+    assert.ok(f.artifacts.has(`${scenario.id}-continued.json`));
   assert.ok(f.artifacts.has("restarts.json"));
 });
 
