@@ -36,14 +36,30 @@ export function parseAgentModel(value: string): AgentModelSpec {
 }
 
 /**
+ * Whether `OPENAI_BASE_URL` points at an OpenAI-compatible provider rather
+ * than OpenAI itself. Most compatible providers serve only
+ * `{base}/chat/completions`, not the Responses API that `openai(model)` uses,
+ * so those get the Chat Completions model. OpenAI itself, an unset variable
+ * and an unparseable URL keep the Responses API.
+ */
+export function usesChatCompletions(): boolean {
+  const baseUrl = process.env.OPENAI_BASE_URL;
+  if (!baseUrl) return false;
+  try {
+    return new URL(baseUrl).hostname !== "api.openai.com";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Build the AI SDK language model for one call site.
  *
  * `COPILOTKIT_AGENT_MODEL` overrides EVERY model site in this app when set;
  * when it is unset, each site falls back to its own `defaultSpec`. An
  * OpenAI-compatible provider is `openai:<its model id>` plus
- * `OPENAI_BASE_URL`, which the OpenAI provider reads itself. Note that
- * `openai(model)` calls the Responses API, so the compatible provider must
- * implement `/responses`.
+ * `OPENAI_BASE_URL`, which the OpenAI provider reads itself. On such a host
+ * the model uses Chat Completions (see `usesChatCompletions`).
  *
  * @param defaultSpec - This site's default, e.g. `"openai:gpt-5-mini"`.
  */
@@ -63,6 +79,6 @@ export function createLanguageModel(defaultSpec: string) {
           process.env.GOOGLE_API_KEY,
       })(model);
     case "openai":
-      return openai(model);
+      return usesChatCompletions() ? openai.chat(model) : openai(model);
   }
 }
