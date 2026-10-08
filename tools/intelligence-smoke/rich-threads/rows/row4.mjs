@@ -158,11 +158,9 @@ function validateSnapshot(snapshot, mapping, label) {
     assert.ok(Object.hasOwn(snapshot[store], "state"));
     const ids = snapshot[store].items.map((item) => item.id);
     assert.ok(ids.every(nonempty));
-    assert.equal(
-      new Set(ids).size,
-      ids.length,
-      `${label}: duplicate ${store} item IDs`,
-    );
+    // A native message can contain multiple text/media occurrences with the
+    // same message ID. Full ordered occurrence comparison detects duplication;
+    // tool call/result identities are checked separately by validateSource.
   }
 }
 

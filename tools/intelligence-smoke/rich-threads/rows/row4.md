@@ -15,6 +15,36 @@ pnpm nx run intelligence-smoke:rich-threads -- \
   --output=/new/evidence-directory
 ```
 
+## Concrete driver
+
+`row4/services.mjs` exports the common bootstrap factory `createServices(context)`.
+It composes the row3 `import/services.mjs` source/import/readers with the common
+Showcase browser and framework capture. It provisions no resources. The common
+bootstrap must integrate those sibling modules before this factory can execute.
+The older explicit fixture module option below remains useful for unit controls.
+
+The driver opens the imported destination, checks that historical replay produced
+no new run, sends a history-dependent follow-up or clicks the original control,
+waits for captured terminal events, and rereads both durable stores. SQLite thread
+IDs and Strands session directories are inventoried independently. Capture must
+retain actual framework-bound `runs: [{input, events, messages, state}]`; ingestion
+payloads alone cannot establish which native thread/checkpoint was resumed.
+Frontend answers come from submitted tool results; native answers come from
+actual resume entries and are bound to the pre-action durable checkpoint.
+
+Row3 preparation uses `prepareImportedSources({answerPending:false,namespace:"row4"})`
+and returns `{source,native,imported,plan?}`. A missing plan is derived from native
+history: quote the first original user message without including it in the new
+prompt, and complete an existing pending todo while preserving other state. Native
+pending fixtures must declare their actual control action and expected answer/result.
+Raw checkpoint/import/browser/capture observations are written before comparison.
+
+This implementation has unit and real local store-inventory controls. Integration
+with the evolving common browser/capture and row3 service modules, approved shared
+environment execution, and both-framework acceptance are still required. Local
+unit success is not staging acceptance. Prior temporary reference exposure is
+recorded; subsequent evidence must not be described as blind.
+
 ## Fixture contract
 
 Export `createFixture({framework, outputDir, baseline})`, returning `fixture`,
