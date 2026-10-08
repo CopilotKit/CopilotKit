@@ -28,6 +28,9 @@ const PROVIDER_ALIASES: Record<string, "openai" | "anthropic" | "google"> = {
  * The result is always re-emitted as `provider/model`: the runtime turns the
  * first `/` into its separator, so a model id that itself contains `/`
  * (e.g. `meta-llama/llama-3.3-70b`) survives only in that form.
+ * Chat Completions on an OpenAI-compatible host comes from the runtime itself
+ * (PE-706, CopilotKit #7726) once this starter's @copilotkit/runtime is bumped
+ * past that fix; until then BuiltInAgent calls the Responses API there.
  */
 export function resolveAgentModel(defaultSpec: string): string {
   const value = process.env.COPILOTKIT_AGENT_MODEL || defaultSpec;
