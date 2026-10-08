@@ -437,7 +437,15 @@ demos:
     highlight:
       - src/agents/byoc_agents.py
       - src/app/demos/declarative-json-render/page.tsx
+      - src/app/demos/declarative-json-render/chat.tsx
       - src/app/demos/declarative-json-render/json-render-renderer.tsx
+      - src/app/demos/declarative-json-render/registry.tsx
+      - src/app/demos/declarative-json-render/catalog.ts
+      - src/app/demos/declarative-json-render/metric-card.tsx
+      - src/app/demos/declarative-json-render/charts/bar-chart.tsx
+      - src/app/demos/declarative-json-render/charts/pie-chart.tsx
+      - src/app/demos/declarative-json-render/types.ts
+      - src/app/demos/declarative-json-render/suggestions.ts
       - src/app/api/copilotkit-declarative-json-render/route.ts
   - id: beautiful-chat
     name: Beautiful Chat

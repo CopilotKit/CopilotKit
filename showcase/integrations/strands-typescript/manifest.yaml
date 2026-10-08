@@ -485,6 +485,7 @@ demos:
     highlight:
       - src/agent/agent.ts
       - src/app/demos/declarative-json-render/page.tsx
+      - src/app/demos/declarative-json-render/chat.tsx
       - src/app/demos/declarative-json-render/json-render-renderer.tsx
       - src/app/demos/declarative-json-render/registry.tsx
       - src/app/demos/declarative-json-render/catalog.ts

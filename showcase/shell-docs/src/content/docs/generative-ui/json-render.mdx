@@ -19,87 +19,9 @@ If you'd rather have a streaming progressive render rather than a one-shot valid
 
 ## Frontend
 
-The integration point is `<CopilotChat>`'s `messageView.assistantMessage` slot. Swap the default renderer for a json-render-backed one:
+The integration point is `<CopilotChat>`'s `messageView.assistantMessage` slot. Use the **Code** tab above for the complete, framework-specific files. These demos pin `@json-render/react` and `@json-render/core` to `0.18.0`; use the same versions when copying their code. `page.tsx` provides `<CopilotKit>`, `chat.tsx` installs `JsonRenderAssistantMessage` in the chat slot, and `json-render-renderer.tsx` parses the assistant content. The runtime route differs between Strands TypeScript and Google ADK; the Code tab shows the route for the selected framework.
 
-```tsx title="frontend/src/app/page.tsx"
-import {
-  CopilotKit,
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
-import { JsonRenderAssistantMessage } from "./json-render-renderer";
-
-export default function ByocJsonRenderDemo() {
-  useConfigureSuggestions({
-    suggestions: [
-      { title: "Sales dashboard", message: "Show me a sales dashboard." },
-      { title: "Region breakdown", message: "Break down sales by region." },
-    ],
-    available: "always",
-  });
-
-  return (
-    <CopilotKit runtimeUrl="/api/copilotkit-byoc-json-render" agent="byoc_json_render">
-      <CopilotChat
-        messageView={{ assistantMessage: JsonRenderAssistantMessage }}
-      />
-    </CopilotKit>
-  );
-}
-```
-
-The custom renderer parses the streaming assistant content (tolerating partial tokens, code fences, and prose preamble), validates each element against a Zod-typed catalog, and feeds the resulting spec into `<Renderer />`:
-
-```tsx title="frontend/src/app/json-render-renderer.tsx"
-import { Renderer } from "@json-render/react";
-import { catalog } from "./registry";
-
-export function JsonRenderAssistantMessage({ message }: { message: AssistantMessage }) {
-  const spec = parseSpec(message.content ?? "");
-  if (!spec) return null;
-  return <Renderer spec={spec} catalog={catalog} />;
-}
-
-function parseSpec(content: string) {
-  const cleaned = stripCodeFencesAndPrelude(content);
-  const partial = tolerantJsonParse(cleaned);
-  return validateAgainstCatalog(partial);
-}
-```
-
-The catalog lives next to the renderer and pairs each component with a Zod schema describing its props:
-
-```tsx title="frontend/src/app/registry.tsx"
-import { z } from "zod";
-import { MetricCard } from "./metric-card";
-import { BarChart } from "./charts/bar-chart";
-import { PieChart } from "./charts/pie-chart";
-
-export const catalog = {
-  MetricCard: {
-    component: MetricCard,
-    propsSchema: z.object({
-      title: z.string(),
-      value: z.number(),
-      delta: z.number().optional(),
-    }),
-  },
-  BarChart: {
-    component: BarChart,
-    propsSchema: z.object({
-      data: z.array(z.object({ label: z.string(), value: z.number() })),
-    }),
-  },
-  PieChart: {
-    component: PieChart,
-    propsSchema: z.object({
-      data: z.array(z.object({ label: z.string(), value: z.number() })),
-    }),
-  },
-};
-```
-
-Validation is the safety net: anything the agent emits that doesn't match a registered schema is rejected before it hits React, so the chat can't render arbitrary garbage.
+The renderer imports `registry` from `registry.tsx`, wraps `<Renderer spec={spec} registry={registry} />` in `<JSONUIProvider registry={registry}>`, and falls back to the normal assistant message until a valid spec arrives. `catalog.ts` defines component names and Zod prop schemas with `defineCatalog`; `registry.tsx` uses `defineRegistry(catalog, …)` to bind those names to React components. Copy both files with the renderer. The catalog and registry allow only the components the application has registered.
 
 ## Backend
 
@@ -107,25 +29,29 @@ The agent emits a `{ root, elements }` JSON object as the assistant message cont
 
 ```json title="example agent output"
 {
-  "root": "dashboard",
+  "root": "revenue-card",
   "elements": {
-    "dashboard": {
-      "type": "Stack",
-      "children": ["revenue-card", "by-region"]
-    },
     "revenue-card": {
       "type": "MetricCard",
-      "props": { "title": "Total revenue", "value": 184302 }
+      "props": { "label": "Total revenue", "value": "$184,302", "trend": "+12%" },
+      "children": ["by-region"]
     },
     "by-region": {
       "type": "BarChart",
-      "props": { "data": [...] }
+      "props": {
+        "title": "Revenue by region",
+        "description": null,
+        "data": [
+          { "label": "North America", "value": 112000 },
+          { "label": "EMEA", "value": 72302 }
+        ]
+      }
     }
   }
 }
 ```
 
-Anything else (free-form text, code fences around the JSON, a "Here's your dashboard:" preamble) is stripped by the renderer's tolerant parser before validation. The agent doesn't need to be perfectly clean.
+The example uses a `MetricCard` root because the registered components are `MetricCard`, `BarChart`, and `PieChart`; there is no `Stack` component. The renderer tolerates a prose preamble or code fence around the JSON, but the agent prompts ask for plain JSON. Google ADK's shared BYOC agent also emits a `ui` array for its Hashbrown demo; the JSON Render renderer reads `root` and `elements` from the same response.
 
 ## Comparing the two patterns
 
