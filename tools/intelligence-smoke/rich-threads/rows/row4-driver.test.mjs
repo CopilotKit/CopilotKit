@@ -12,6 +12,7 @@ import {
   observedResume,
   nativeSessions,
   observedMapping,
+  newActivity,
 } from "../row4/observations.mjs";
 
 test("real native inventory detects extra sessions without relying on Intelligence", async () => {
@@ -122,10 +123,16 @@ test("new capture runs are selected by observed run ID, including errors", () =>
     input: { runId: "new", threadId: "native" },
     events: [{ type: "RUN_ERROR" }],
   };
-  assert.deepEqual(newRuns({ runs: [old] }, { runs: [old, fresh] }), [fresh]);
-  assert.throws(() => newRuns({ runs: [old] }, { runs: [old] }), /no new/);
+  assert.deepEqual(
+    newRuns({ frameworkRuns: [old] }, { frameworkRuns: [old, fresh] }),
+    [fresh],
+  );
   assert.throws(
-    () => newRuns({ runs: [] }, { runs: [fresh, fresh] }),
+    () => newRuns({ frameworkRuns: [old] }, { frameworkRuns: [old] }),
+    /no new/,
+  );
+  assert.throws(
+    () => newRuns({ frameworkRuns: [] }, { frameworkRuns: [fresh, fresh] }),
     /Duplicate/,
   );
 });
@@ -369,21 +376,34 @@ test("concrete composition opens imported identity, sends browser input and read
     },
   };
   const capture = {
-    read: async () => ({
-      runs: acted
-        ? [
-            {
-              input: {
-                threadId: "original",
+    project: async () => ({ messages: currentMessages(), state: {} }),
+    read: async (id) => ({
+      events:
+        acted && id === "imported"
+          ? [
+              {
+                type: "RUN_FINISHED",
                 runId: "run",
-                messages: currentMessages(),
+                metadata: { cpki_event_id: "event" },
               },
-              events: [{ type: "RUN_FINISHED", runId: "run" }],
-              messages: currentMessages(),
-              state: {},
-            },
-          ]
-        : [],
+            ]
+          : [],
+      frameworkRuns:
+        acted && id === "original"
+          ? [
+              {
+                complete: true,
+                input: {
+                  threadId: "original",
+                  runId: "run",
+                  messages: currentMessages(),
+                },
+                events: [{ type: "RUN_FINISHED", runId: "run" }],
+                messages: currentMessages(),
+                state: {},
+              },
+            ]
+          : [],
     }),
   };
   try {
@@ -393,6 +413,17 @@ test("concrete composition opens imported identity, sends browser input and read
       browser,
       capture,
       importReplay,
+      intelligence: {
+        read: async () => ({
+          events: [
+            {
+              type: "RUN_FINISHED",
+              runId: "run",
+              metadata: { cpki_event_id: "event" },
+            },
+          ],
+        }),
+      },
       outputDir: join(root, "output"),
     }).services.continuation;
     const [fixture] = await service.sources();
@@ -415,4 +446,44 @@ test("concrete composition opens imported identity, sends browser input and read
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("new activity tolerates native memory loading while rejecting changed or duplicated history", () => {
+  const first = { id: "old", kind: "text", role: "user", payload: "original" };
+  const second = {
+    id: "older",
+    kind: "text",
+    role: "assistant",
+    payload: "prior",
+  };
+  const fresh = { id: "new", kind: "text", role: "user", payload: "followup" };
+  assert.deepEqual(newActivity([first, second], [fresh]), [fresh]);
+  assert.deepEqual(newActivity([first, second], [first, second, fresh]), [
+    fresh,
+  ]);
+  assert.throws(
+    () => newActivity([first, second], [second, first, fresh]),
+    /reordered/,
+  );
+  assert.throws(
+    () => newActivity([first], [{ ...first, payload: "changed" }, fresh]),
+    /changed/,
+  );
+  assert.throws(
+    () => newActivity([first], [first, first, fresh]),
+    /duplicated/,
+  );
+});
+
+test("explicit null arguments stay null", () => {
+  assert.equal(
+    occurrences([
+      {
+        id: "null-call",
+        kind: "call",
+        payload: { name: "tool", arguments: null },
+      },
+    ])[0].payload.arguments,
+    null,
+  );
 });
