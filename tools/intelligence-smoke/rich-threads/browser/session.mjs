@@ -10,8 +10,9 @@ export async function createBrowser({
   outputDir,
   capture,
   signal,
+  instance,
 }) {
-  const browser = await chromium.launch({ headless: true });
+  const browser = instance ?? (await chromium.launch({ headless: true }));
   const threads = new Set();
   async function snapshot(thread) {
     const name = `${thread.scenarioId}/browser-${thread.screenshots.length + 1}.png`;
@@ -230,9 +231,16 @@ export async function createBrowser({
       await thread.page.reload({ waitUntil: "domcontentloaded" });
       return snapshot(thread);
     },
+    async closeThread(thread) {
+      await thread.context.close();
+      threads.delete(thread);
+    },
     async close() {
-      await Promise.all([...threads].map((thread) => thread.context.close()));
-      await browser.close();
+      try {
+        await Promise.all([...threads].map((thread) => thread.context.close()));
+      } finally {
+        if (!instance) await browser.close();
+      }
     },
   };
 }

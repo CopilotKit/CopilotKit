@@ -1,8 +1,7 @@
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { Readable } from "node:stream";
-import { createRequire } from "node:module";
-import { pathToFileURL } from "node:url";
+import { runtimeSocket } from "./capture/socket.mjs";
 import {
   captureFramework,
   captureIngestion,
@@ -16,11 +15,8 @@ const config = JSON.parse(
 const runtimeModule = await import("@copilotkit/runtime/v2");
 const { CopilotRuntime, CopilotKitIntelligence, createCopilotRuntimeHandler } =
   runtimeModule;
-const requireRuntime = createRequire(
+const Socket = await runtimeSocket(
   import.meta.resolve("@copilotkit/runtime/v2"),
-);
-const { Socket } = await import(
-  pathToFileURL(requireRuntime.resolve("phoenix"))
 );
 const { HttpAgent } = await import("@ag-ui/client");
 const { tap } = await import("rxjs");

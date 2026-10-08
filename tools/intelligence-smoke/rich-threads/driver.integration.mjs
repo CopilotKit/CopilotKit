@@ -7,6 +7,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { projectEvents } from "./capture/project.mjs";
 import { createBrowser } from "./browser/session.mjs";
+import { runtimeSocket } from "./capture/socket.mjs";
+import { Socket as EsmSocket } from "./dependencies/node_modules/phoenix/priv/static/phoenix.mjs";
 import { captureFramework, readCapture } from "./capture/runtime-agent.mjs";
 
 const require = createRequire(
@@ -15,6 +17,14 @@ const require = createRequire(
 const { AbstractAgent, HttpAgent } = require("@ag-ui/client");
 const { from, tap } = require("rxjs");
 const { chromium } = require("playwright");
+
+test("ingestion hook selects the runtime's ESM Socket, never the separate CJS class", async () => {
+  const Socket = await runtimeSocket(
+    new URL("./dependencies/package.json", import.meta.url),
+  );
+  assert.equal(Socket, EsmSocket);
+  assert.notEqual(Socket, require("phoenix").Socket);
+});
 
 test("native capture survives the actual HttpAgent clone used by runtimes", async () => {
   const directory = await mkdtemp(join(tmpdir(), "rich-clone-control-"));
@@ -121,9 +131,11 @@ test("real browser awaits native absence hook before POST and retains its screen
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   let browser;
+  const instance = await chromium.launch({ headless: true });
   try {
     browser = await createBrowser({
       chromium,
+      instance,
       scope: {
         agentId: "beautiful-chat",
         applicationUrl: `http://127.0.0.1:${server.address().port}`,
@@ -146,8 +158,17 @@ test("real browser awaits native absence hook before POST and retains its screen
     assert.equal(observed.fresh, true);
     assert.equal(observed.threadId, "thread");
     assert.equal(observed.screenshots.length, 1);
+    await browser.closeThread(thread);
+    assert.equal(instance.contexts().length, 0);
+    await browser.close();
+    assert.equal(
+      instance.isConnected(),
+      true,
+      "Row cleanup must preserve the shared browser",
+    );
   } finally {
     await browser?.close();
+    await instance.close();
     await new Promise((resolve) => server.close(resolve));
     await rm(outputDir, { recursive: true });
   }

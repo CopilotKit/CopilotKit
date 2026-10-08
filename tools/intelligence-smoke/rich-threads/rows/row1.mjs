@@ -279,6 +279,7 @@ export const row = {
           detail: `${proof.events} events and ${proof.messages} messages compared exactly`,
         });
       } catch (error) {
+        evidence.push(...(error.evidence ?? []));
         checks.push({
           name: scenario.id,
           status:

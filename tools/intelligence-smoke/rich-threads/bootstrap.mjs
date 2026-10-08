@@ -3,13 +3,14 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
-import { pathToFileURL } from "node:url";
+import { pathToFileURL, fileURLToPath } from "node:url";
 import { createBrowser } from "./browser/session.mjs";
 import { createIntelligence } from "./storage/intelligence.mjs";
 import { readCapture } from "./capture/runtime-agent.mjs";
 import { runSuite } from "./runner.mjs";
 import { aggregate } from "./contract.mjs";
 import { scenarios } from "./scenarios/row1.mjs";
+import { showcaseScenarios } from "./row2/control-scenarios.mjs";
 
 /** One environment for all selected frameworks; rows and frameworks serialize. */
 export async function runConfiguredSuite({
@@ -31,13 +32,17 @@ export async function runConfiguredSuite({
   // Preflight all modules/dependencies before any environment mutation.
   for (const id of rowIds) {
     rows.push((await import(`./rows/row${id}.mjs`)).row);
-    factories.push((await import(`./row${id}/services.mjs`)).createServices);
+    const modulePath =
+      id === "3" || id === 3
+        ? "./import/services.mjs"
+        : `./row${id}/services.mjs`;
+    factories.push((await import(modulePath)).createServices);
   }
   const require = createRequire(
     join(
       resolve(
         config.dependenciesDirectory ??
-          new URL("./dependencies", import.meta.url).pathname,
+          fileURLToPath(new URL("./dependencies", import.meta.url)),
       ),
       "package.json",
     ),
@@ -99,7 +104,10 @@ export async function runConfiguredSuite({
     for (const framework of frameworks) {
       signal?.throwIfAborted();
       const scope = environment.scopes[framework];
-      scope.scenarios ??= scenarios({ ...scope, framework });
+      scope.scenarios = showcaseScenarios(
+        framework,
+        scope.scenarios ?? scenarios({ ...scope, framework }),
+      );
       assert.ok(
         scope.capture?.directory,
         "Owned pre-ingestion capture directory is required",
@@ -124,6 +132,7 @@ export async function runConfiguredSuite({
                 readCapture(scope.capture.directory, threadId),
             };
             const browsers = [];
+            let browserInstance;
             const fixture = {};
             const services = {};
             const cleanup = async () => {
@@ -131,12 +140,14 @@ export async function runConfiguredSuite({
                 ...browsers.map((browser) => browser.close()),
                 intelligence.close(),
               ]);
+              if (browserInstance) await browserInstance.close();
               const failure = results.find(
                 (result) => result.status === "rejected",
               );
               if (failure) throw failure.reason;
             };
             try {
+              browserInstance = await chromium.launch({ headless: true });
               for (let i = 0; i < rows.length; i++) {
                 const rowOutput = join(frameworkOutput, `row${rows[i].id}`);
                 const browser = await createBrowser({
@@ -145,6 +156,7 @@ export async function runConfiguredSuite({
                   capture,
                   signal,
                   outputDir: rowOutput,
+                  instance: browserInstance,
                 });
                 browsers.push(browser);
                 const rowServices = await factories[i]({
@@ -193,7 +205,15 @@ export async function runConfiguredSuite({
       report.cleanup === "passed" &&
       report.frameworks.length === frameworks.length &&
       report.frameworks.every(
-        (item) => !item.error && item.cleanup === "passed",
+        (item) =>
+          !item.error &&
+          item.cleanup === "passed" &&
+          item.rows.every((row) =>
+            row.checks.every(
+              (check) =>
+                check.status !== "blocked" && check.name !== "execution",
+            ),
+          ),
       );
     await writeFile(
       join(outputDir, "suite.json"),
