@@ -4,7 +4,7 @@ import os
 
 import uvicorn
 from agent_framework import SupportsChatGetResponse
-from agent_framework.openai import OpenAIChatClient
+from agent_framework.openai import OpenAIChatClient, OpenAIChatCompletionClient
 from agent_framework_ag_ui import add_agent_framework_fastapi_endpoint
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
@@ -12,13 +12,46 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from agent import create_agent
+from model import parse_agent_model
 
 load_dotenv()
+
+
+# Chat Completions endpoints that Anthropic and Google serve for OpenAI clients.
+# Agent Framework's own Anthropic and Gemini clients are still prereleases, so
+# the starter reaches those providers through these instead.
+_COMPATIBLE_BASE_URLS = {
+    "anthropic": "https://api.anthropic.com/v1/",
+    "google": "https://generativelanguage.googleapis.com/v1beta/openai/",
+}
+_API_KEY_VARIABLES = {"anthropic": "ANTHROPIC_API_KEY", "google": "GOOGLE_API_KEY"}
 
 
 def _build_chat_client() -> SupportsChatGetResponse:
     azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
     openai_api_key = os.getenv("OPENAI_API_KEY")
+    # COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") picks the
+    # provider and model when Azure OpenAI is not configured; unset, the agent
+    # uses OPENAI_CHAT_MODEL_ID or gpt-4o-mini on OpenAI. An OpenAI-compatible
+    # provider is openai:<its model id> plus OPENAI_BASE_URL, which the OpenAI
+    # client reads itself.
+    agent_model = os.getenv("COPILOTKIT_AGENT_MODEL")
+    if agent_model and not azure_endpoint:
+        provider, model = parse_agent_model(agent_model)
+        if provider != "openai":
+            key_variable = _API_KEY_VARIABLES[provider]
+            api_key = os.getenv(key_variable)
+            if not api_key:
+                raise ValueError(f"Set {key_variable} to use {agent_model}.")
+            return OpenAIChatCompletionClient(
+                model=model,
+                api_key=api_key,
+                base_url=_COMPATIBLE_BASE_URLS[provider],
+            )
+        if not openai_api_key:
+            raise ValueError(f"Set OPENAI_API_KEY to use {agent_model}.")
+        return OpenAIChatClient(model=model, api_key=openai_api_key)
+
     if not azure_endpoint and not openai_api_key:
         raise ValueError(
             "Set AZURE_OPENAI_ENDPOINT (uses az login unless AZURE_OPENAI_API_KEY is set) or OPENAI_API_KEY."
