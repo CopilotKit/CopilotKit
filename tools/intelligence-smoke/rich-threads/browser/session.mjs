@@ -3,6 +3,20 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
+async function selectedThread(page, expected) {
+  await page.waitForFunction(
+    (id) =>
+      document
+        .querySelector('[data-testid="thread-selection"]')
+        ?.getAttribute("data-active-thread-id") === id,
+    expected,
+    { timeout: 30_000 },
+  );
+  return page
+    .getByTestId("thread-selection")
+    .getAttribute("data-active-thread-id");
+}
+
 /** Real Playwright browser interactions shared by all row adapters. */
 export async function createBrowser({
   chromium,
@@ -223,12 +237,20 @@ export async function createBrowser({
       // the actual thread-selection API, not a fabricated conversation store.
       await thread.page.getByTestId("open-thread-id").fill(threadId);
       await thread.page.getByTestId("open-thread").click();
-      thread.threadId = threadId;
+      thread.threadId = await selectedThread(thread.page, threadId);
+      // Preserve the confirmed selection on reload through the real provider's
+      // threadId prop, rather than silently starting a new conversation.
+      await thread.page.evaluate((id) => {
+        const url = new URL(window.location.href);
+        url.searchParams.set("threadId", id);
+        window.history.replaceState(null, "", url);
+      }, thread.threadId);
       thread.fresh = false;
       return thread;
     },
     async reload(thread) {
       await thread.page.reload({ waitUntil: "domcontentloaded" });
+      if (!thread.fresh) await selectedThread(thread.page, thread.threadId);
       return snapshot(thread);
     },
     async closeThread(thread) {

@@ -18,7 +18,7 @@ function ThreadSelection() {
   const [id, setId] = useState("");
   const chat = useCopilotChatConfiguration();
   return (
-    <div>
+    <div data-testid="thread-selection" data-active-thread-id={chat?.threadId}>
       <input
         aria-label="Thread ID"
         data-testid="open-thread-id"
@@ -95,7 +95,10 @@ export default function RichThreadsPage() {
         a2ui={{ catalog: demonstrationCatalog }}
         openGenerativeUI={{}}
       >
-        <CopilotChatConfigurationProvider agentId="beautiful-chat">
+        <CopilotChatConfigurationProvider
+          agentId="beautiful-chat"
+          threadId={query.get("threadId") ?? undefined}
+        >
           <ThreadSelection />
           <div className="flex h-screen">
             {!nativeOnly && (

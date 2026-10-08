@@ -126,7 +126,11 @@ test("real browser awaits native absence hook before POST and retains its screen
     }
     res.setHeader("content-type", "text/html");
     res.end(
-      `<textarea></textarea><script>document.querySelector('textarea').onkeydown=async e=>{if(e.key==='Enter'){e.preventDefault();await fetch('/agent/beautiful-chat/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({threadId:'thread',runId:'run',messages:[{id:'u',role:'user',content:e.target.value}]})});}}</script>`,
+      `<textarea></textarea><div data-testid="thread-selection"></div><input data-testid="open-thread-id"><button data-testid="open-thread">Open thread</button><script>
+      const selected=document.querySelector('[data-testid="thread-selection"]');
+      selected.setAttribute('data-active-thread-id',new URL(location.href).searchParams.get('threadId')??'initial');
+      document.querySelector('button').onclick=()=>setTimeout(()=>selected.setAttribute('data-active-thread-id',document.querySelector('input').value),50);
+      document.querySelector('textarea').onkeydown=async e=>{if(e.key==='Enter'){e.preventDefault();await fetch('/agent/beautiful-chat/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({threadId:'thread',runId:'run',messages:[{id:'u',role:'user',content:e.target.value}]})});}}</script>`,
     );
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -160,6 +164,18 @@ test("real browser awaits native absence hook before POST and retains its screen
     assert.equal(observed.screenshots.length, 1);
     await browser.closeThread(thread);
     assert.equal(instance.contexts().length, 0);
+    const reopened = await browser.openThread("persisted-thread", {
+      scenarioId: "reopen-control",
+    });
+    assert.equal(reopened.threadId, "persisted-thread");
+    await browser.reload(reopened);
+    assert.equal(
+      await reopened.page
+        .getByTestId("thread-selection")
+        .getAttribute("data-active-thread-id"),
+      "persisted-thread",
+    );
+    await browser.closeThread(reopened);
     await browser.close();
     assert.equal(
       instance.isConnected(),
