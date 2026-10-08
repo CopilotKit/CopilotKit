@@ -1,14 +1,19 @@
 ---
 name: copilotkit-cli
 description: "Use for the CopilotKit CLI — `npx copilotkit@latest`. Covers proving a project's wiring with `verify` before debugging anything by hand, scaffolding with `create`, signing in and selecting a hosted Intelligence project, agent-assisted onboarding of an existing app, generating type-safe agent ids, and importing thread history. Reach for `verify` first whenever a CopilotKit app is not working."
-version: 1.0.0
+version: 1.1.0
 ---
 
 # CopilotKit CLI
 
 ```bash
-npx copilotkit@latest <command>
+npx copilotkit@latest <command> --via skill:copilotkit-cli
 ```
+
+Keep `--via skill:copilotkit-cli` on every command you run from this skill. It only tells
+CopilotKit's telemetry that the call came from this skill, and the command ignores it.
+If the CLI reports `Unknown option '--via'`, npx ran an old cached version: run the command
+again without the flag.
 
 `--help` on any command prints its flags. The commands below are the ones worth knowing
 before you start reading someone's project by hand.
@@ -23,7 +28,7 @@ an open-source app fails those checks every time.
   id the runtime registers:
 
   ```bash
-  npx copilotkit@latest verify --expect-runtime oss --round-trip --agent <id> --json
+  npx copilotkit@latest verify --expect-runtime oss --round-trip --agent <id> --json --via skill:copilotkit-cli
   ```
 
   `--round-trip --agent <id>` is required here. Without it the round trip is not attempted
@@ -32,7 +37,7 @@ an open-source app fails those checks every time.
 - **Otherwise:** run the default check.
 
   ```bash
-  npx copilotkit@latest verify --json
+  npx copilotkit@latest verify --json --via skill:copilotkit-cli
   ```
 
 Do not run `login` or `project select` only to make `verify` pass. Those commands set up
@@ -94,7 +99,7 @@ Reach past it only once it is clean.
 ## Starting a project
 
 ```bash
-npx copilotkit@latest init          # `create` is an alias for it
+npx copilotkit@latest init --via skill:copilotkit-cli   # `create` is an alias for it
 ```
 
 Prompts for a name and framework, scaffolds a starter, signs you in when needed, and connects
@@ -106,7 +111,7 @@ To add CopilotKit to an existing app, either follow the [quickstart](/quickstart
 the job to your coding agent:
 
 ```bash
-npx copilotkit@latest onboard start
+npx copilotkit@latest onboard start --via skill:copilotkit-cli
 ```
 
 That runs an agent-guided flow over the repository you are already in, with checkpoints and
@@ -116,11 +121,11 @@ an app that already has CopilotKit.
 ## Signing in and picking a project
 
 ```bash
-npx copilotkit@latest login --json   # agent-readable JSON lines, no browser launch
-npx copilotkit@latest login          # interactive: opens a browser
-npx copilotkit@latest whoami         # who is signed in, and the active organization
-npx copilotkit@latest project select # pick or create a hosted project for this directory
-npx copilotkit@latest project list --json
+npx copilotkit@latest login --json --via skill:copilotkit-cli   # agent-readable JSON lines, no browser launch
+npx copilotkit@latest login --via skill:copilotkit-cli          # interactive: opens a browser
+npx copilotkit@latest whoami --via skill:copilotkit-cli         # who is signed in, and the active organization
+npx copilotkit@latest project select --via skill:copilotkit-cli # pick or create a hosted project for this directory
+npx copilotkit@latest project list --json --via skill:copilotkit-cli
 ```
 
 Use `login --json` when you are driving the CLI. Bare `login` tries to open a browser, which

@@ -1,7 +1,7 @@
 ---
 name: copilotkit
 description: "Use for any CopilotKit question — adding it to an app, chat UI, frontend or server tools, generative UI, shared state, human-in-the-loop, agent frameworks (LangGraph, CrewAI, Mastra, ADK, PydanticAI, and others), the runtime, Intelligence, threads, voice, or diagnosing something that is not working. Do not answer from memory: this skill exists to point you at the current documentation and source, both of which you can read."
-version: 3.1.0
+version: 3.2.0
 ---
 
 # CopilotKit
@@ -96,8 +96,12 @@ always faster than reading the project. Pick the form that matches the app:
 
 - **No Intelligence** (nothing constructs `CopilotKitIntelligence` where the runtime is built,
   and there is no `.copilotkit/project.json`):
-  `npx copilotkit@latest verify --expect-runtime oss --round-trip --agent <id> --json`
-- **Otherwise:** `npx copilotkit@latest verify --json`
+  `npx copilotkit@latest verify --expect-runtime oss --round-trip --agent <id> --json --via skill:copilotkit`
+- **Otherwise:** `npx copilotkit@latest verify --json --via skill:copilotkit`
+
+`--via skill:copilotkit` only tells CopilotKit's telemetry that the call came from this skill.
+If the CLI reports `Unknown option '--via'`, npx ran an old cached version: run the command
+again without the flag.
 
 Do not run `login` or `project select` only to make `verify` pass. Those commands set up
 hosted Intelligence and do not fix an open-source app. See the `copilotkit-cli` skill.
