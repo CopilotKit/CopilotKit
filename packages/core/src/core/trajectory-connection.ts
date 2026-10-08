@@ -42,6 +42,8 @@ const SETUP_HINTS: Record<string, string> = {
     "Trajectories are not enabled for this Intelligence project.",
   TRAJECTORIES_UNAVAILABLE:
     "This Intelligence deployment does not serve Trajectory capture.",
+  TRAJECTORIES_ENTITLEMENT_UNAVAILABLE:
+    "Intelligence could not confirm that Trajectories are enabled for this project; try again later.",
   MARKETPLACE_LICENSE_REQUIRED:
     "Trajectory capture requires a CopilotKit license for this project.",
 };
@@ -123,6 +125,23 @@ function isGrant(value: unknown): value is ConnectionGrant {
     typeof value.realtime.topic === "string" &&
     value.realtime.topic.length > 0
   );
+}
+
+// The Gateway refuses a join with a lowercase reason and no code.
+const JOIN_REFUSAL_CODES: Record<string, string> = {
+  trajectories_unavailable: "TRAJECTORIES_UNAVAILABLE",
+  trajectories_not_enabled: "TRAJECTORIES_NOT_ENABLED",
+  entitlement_unavailable: "TRAJECTORIES_ENTITLEMENT_UNAVAILABLE",
+  marketplace_license_required: "MARKETPLACE_LICENSE_REQUIRED",
+};
+
+function joinErrorCode(value: unknown): string {
+  const reason = isObject(value) ? value.reason : undefined;
+  const code =
+    typeof reason === "string" && Object.hasOwn(JOIN_REFUSAL_CODES, reason)
+      ? JOIN_REFUSAL_CODES[reason]
+      : undefined;
+  return code ?? errorCode(value, "JOIN_FAILED");
 }
 
 function errorCode(value: unknown, fallback: string): string {
@@ -548,7 +567,7 @@ export class TrajectoryConnection {
           }
         })
         .receive("error", (joinError: unknown) =>
-          this.fail(session, connection, errorCode(joinError, "JOIN_FAILED")),
+          this.fail(session, connection, joinErrorCode(joinError)),
         )
         .receive("timeout", () =>
           this.fail(session, connection, "CONNECTION_TIMEOUT"),

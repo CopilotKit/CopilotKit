@@ -747,6 +747,49 @@ describe("Core trajectory connection", () => {
     },
   );
 
+  it.each([
+    ["trajectories_unavailable", "TRAJECTORIES_UNAVAILABLE"],
+    ["trajectories_not_enabled", "TRAJECTORIES_NOT_ENABLED"],
+    ["entitlement_unavailable", "TRAJECTORIES_ENTITLEMENT_UNAVAILABLE"],
+    ["marketplace_license_required", "MARKETPLACE_LICENSE_REQUIRED"],
+    ["unauthorized", "JOIN_FAILED"],
+    ["something_new", "JOIN_FAILED"],
+  ])("names the Gateway's %s join refusal", async (reason, code) => {
+    const core = makeCore();
+    const pending = core.startTrajectory();
+    const channel = await authorize();
+    channel.joined.reply("error", { reason });
+    expect(await pending).toEqual({ status: "error", code });
+    expect(onError).toHaveBeenCalledWith({
+      code,
+      message: `Trajectory capture: ${code}.`,
+    });
+  });
+
+  it("warns with a setup hint when the Gateway refuses an unentitled join", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const core = makeCore({
+      learning: {
+        capture: {
+          clicks: false,
+          navigation: false,
+          inputs: false,
+          network: false,
+        },
+      },
+    });
+    const pending = core.startTrajectory();
+    const channel = await authorize();
+    channel.joined.reply("error", { reason: "entitlement_unavailable" });
+
+    expect(await pending).toEqual({
+      status: "error",
+      code: "TRAJECTORIES_ENTITLEMENT_UNAVAILABLE",
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]![0]).toContain("could not confirm");
+  });
+
   it("pauses on channel loss, obtains a fresh token, and awaits the new join without replaying events", async () => {
     const { core, channel } = await start();
     core.emitTrajectoryEvent("app.uncertain", { id: 1 });
