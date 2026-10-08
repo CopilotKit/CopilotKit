@@ -276,6 +276,36 @@ function toolResultOutput(
   };
 }
 
+/**
+ * Split a model string into provider and model id. The provider is the text
+ * before the FIRST ":" or "/"; everything after it is the model id, unchanged.
+ * So "openai:meta-llama/llama-3.3-70b" keeps the slash in its model id, and
+ * "openai/ft:gpt-4o-mini:org::id" keeps its colons. Empty strings mean the
+ * part is missing.
+ */
+function parseModelSpec(spec: string): { provider: string; model: string } {
+  const trimmed = spec.trim();
+  const separator = trimmed.search(/[:/]/);
+  if (separator === -1) {
+    return { provider: trimmed.toLowerCase(), model: "" };
+  }
+  return {
+    provider: trimmed.slice(0, separator).toLowerCase(),
+    model: trimmed.slice(separator + 1).trim(),
+  };
+}
+
+/** True when `baseURL` is set and points somewhere other than api.openai.com. */
+function isOpenAICompatibleHost(baseURL: string | undefined): boolean {
+  if (!baseURL) return false;
+  try {
+    return new URL(baseURL).hostname !== "api.openai.com";
+  } catch {
+    // Unparseable: keep the default route; the request itself will surface it.
+    return false;
+  }
+}
+
 export function resolveModel(
   spec: ModelSpecifier,
   apiKey?: string,
@@ -285,20 +315,13 @@ export function resolveModel(
     return spec;
   }
 
-  // Normalize "provider/model" or "provider:model" format
-  const normalized = spec.replace("/", ":").trim();
-  const parts = normalized.split(":");
-  const rawProvider = parts[0];
-  const rest = parts.slice(1);
+  const { provider, model } = parseModelSpec(spec);
 
-  if (!rawProvider) {
+  if (!provider) {
     throw new Error(
       `Invalid model string "${spec}". Use "openai/gpt-5", "anthropic/claude-sonnet-4.5", or "google/gemini-3.8-flash".`,
     );
   }
-
-  const provider = rawProvider.toLowerCase();
-  const model = rest.join(":").trim();
 
   if (!model) {
     throw new Error(
@@ -318,8 +341,13 @@ export function resolveModel(
         // (api.openai.com) — fully backward compatible.
         baseURL: process.env.OPENAI_BASE_URL,
       });
-      // Accepts any OpenAI model id, e.g. "gpt-4o", "gpt-4.1-mini", "o3-mini"
-      return openai(model);
+      // Accepts any OpenAI model id, e.g. "gpt-4o", "gpt-4.1-mini", "o3-mini".
+      // `openai(model)` targets the Responses API (`{base}/responses`), which
+      // most OpenAI-compatible hosts do not serve. Off api.openai.com, use
+      // Chat Completions (`{base}/chat/completions`) instead.
+      return isOpenAICompatibleHost(process.env.OPENAI_BASE_URL)
+        ? openai.chat(model)
+        : openai(model);
     }
 
     case "anthropic": {
@@ -374,8 +402,9 @@ export function resolveModel(
  *
  * `resolveModel` above is the only place this runtime builds a provider, so it
  * is the only place that knows the endpoint. Once built, the endpoint is gone:
- * an AI SDK model reports `provider: "openai.responses"` whether it points at
- * api.openai.com, Azure, OpenRouter or a laptop, and its base URL survives
+ * an AI SDK model reports `provider: "openai.responses"` (or `"openai.chat"`
+ * off api.openai.com) whether it points at Azure, OpenRouter or a laptop, and
+ * its base URL survives
  * only inside a closure that the public `LanguageModelV3` type does not
  * expose. Azure's own migration guide tells customers to use that same OpenAI
  * client, so the case we are blindest to is the common one.
@@ -392,7 +421,7 @@ export function classifyModelSpec(spec: ModelSpecifier): ModelHostClass {
   // A pre-built model: the endpoint was decided before it reached us.
   if (typeof spec !== "string") return "unknown";
 
-  const provider = spec.replace("/", ":").trim().split(":")[0]?.toLowerCase();
+  const { provider } = parseModelSpec(spec);
 
   switch (provider) {
     case "openai":
