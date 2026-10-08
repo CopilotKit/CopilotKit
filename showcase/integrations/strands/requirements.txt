@@ -1,5 +1,6 @@
-ag-ui-protocol==0.1.22
-ag_ui_strands==0.4.0
+# PNI-603: replace the source pin when the AG-UI 1.0 adapter is published.
+ag-ui-protocol==1.0.0
+ag_ui_strands @ git+https://github.com/ag-ui-protocol/ag-ui.git@1ee146038810aa8da73de3ba3614ce8f3f5d8a20#subdirectory=integrations/aws-strands/python
 strands-agents[OpenAI]==1.54.0
 strands-agents-tools==0.8.8
 copilotkit==0.1.94

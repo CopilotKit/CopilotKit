@@ -141,13 +141,10 @@ class _MessagesSnapshotWrapper:
             for msg in input_data.messages:
                 msg_id = getattr(msg, "id", None) or str(uuid.uuid4())
                 if msg.role == "user":
-                    content = (
-                        msg.content
-                        if isinstance(msg.content, str)
-                        else str(msg.content)
-                    )
+                    # Preserve typed attachments, their sources, and filenames
+                    # in the replay snapshot just as they arrived on the wire.
                     messages.append(
-                        UserMessage(id=msg_id, role="user", content=content)
+                        UserMessage(id=msg_id, role="user", content=msg.content)
                     )
                 elif msg.role == "assistant":
                     tool_calls_list = None
