@@ -122,8 +122,13 @@ export async function cleanupProbeThreadRequest(
 
   try {
     let deleted = 0;
+    const failures: string[] = [];
     for (const threadId of new Set(payload.threadIds as string[])) {
-      if (await deleteIfEligible(threadId, payload.testId)) deleted++;
+      try {
+        if (await deleteIfEligible(threadId, payload.testId)) deleted++;
+      } catch (error) {
+        failures.push(error instanceof Error ? error.message : String(error));
+      }
     }
     let expired = 0;
     try {
