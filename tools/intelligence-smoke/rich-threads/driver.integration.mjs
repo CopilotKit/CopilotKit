@@ -7,13 +7,46 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { projectEvents } from "./capture/project.mjs";
 import { createBrowser } from "./browser/session.mjs";
+import { captureFramework, readCapture } from "./capture/runtime-agent.mjs";
 
 const require = createRequire(
   new URL("./dependencies/package.json", import.meta.url),
 );
-const { AbstractAgent } = require("@ag-ui/client");
-const { from } = require("rxjs");
+const { AbstractAgent, HttpAgent } = require("@ag-ui/client");
+const { from, tap } = require("rxjs");
 const { chromium } = require("playwright");
+
+test("native capture survives the actual HttpAgent clone used by runtimes", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "rich-clone-control-"));
+  const source = [
+    { type: "RUN_STARTED", threadId: "thread", runId: "run" },
+    { type: "RUN_FINISHED", threadId: "thread", runId: "run" },
+  ];
+  try {
+    const agent = captureFramework({
+      agent: new HttpAgent({
+        url: "http://fixture.invalid",
+        threadId: "thread",
+        fetch: async () =>
+          new Response(
+            source
+              .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+              .join(""),
+            { headers: { "content-type": "text/event-stream" } },
+          ),
+      }),
+      directory,
+      tap,
+    });
+    await agent.clone().runAgent({ runId: "run" });
+    const captured = readCapture(directory, "thread");
+    assert.equal(captured.frameworkRuns.length, 1);
+    assert.deepEqual(captured.frameworkRuns[0].events, source);
+    assert.equal(captured.frameworkRuns[0].complete, true);
+  } finally {
+    await rm(directory, { recursive: true });
+  }
+});
 
 test("source projection consumes real AG-UI text/state streams without a destination reader", async () => {
   const events = [

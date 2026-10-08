@@ -3,11 +3,21 @@ import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 
+const capturedAgents = new WeakSet();
+
 /** Wrap the native HttpAgent.run boundary, before runtime middleware. */
 export function captureFramework({ agent, directory, tap }) {
+  if (capturedAgents.has(agent)) return agent;
+  capturedAgents.add(agent);
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   const path = join(directory, "framework.jsonl");
   const original = agent.run;
+  if (typeof agent.clone === "function") {
+    const clone = agent.clone;
+    agent.clone = function () {
+      return captureFramework({ agent: clone.call(this), directory, tap });
+    };
+  }
   agent.run = function (input) {
     const invocationId = randomUUID();
     const write = (record) =>
