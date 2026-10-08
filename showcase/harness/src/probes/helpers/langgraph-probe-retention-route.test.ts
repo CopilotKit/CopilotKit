@@ -56,6 +56,50 @@ describe("LangGraph probe retention endpoint", () => {
     );
   });
 
+  it("continues after one thread fails, sweeps, and reports the failure", async () => {
+    vi.resetModules();
+    const { cleanupProbeThreadRequest: handle } =
+      await import("../../../../integrations/_shared/ts/langgraph-probe-retention.js");
+    const secondThreadId = "b4b18d3d-766f-4bb2-8cce-f9085232fc37";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async (url, options) => {
+        if (String(url).endsWith("/threads/search")) return Response.json([]);
+        if (String(url).endsWith(`/threads/${threadId}`))
+          return new Response(null, { status: 503 });
+        if (options?.method === "DELETE")
+          return new Response(null, { status: 204 });
+        return Response.json({
+          thread_id: secondThreadId,
+          status: "idle",
+          metadata: { showcase_probe: true, showcase_probe_id: testId },
+        });
+      });
+
+    const response = await handle(
+      new Request("http://localhost/api/probe-threads", {
+        method: "POST",
+        body: JSON.stringify({ testId, threadIds: [threadId, secondThreadId] }),
+      }),
+    );
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({
+      deleted: 1,
+      expired: 0,
+      failures: ["thread read: HTTP 503"],
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://127.0.0.1:8123/threads/${secondThreadId}`,
+      expect.objectContaining({ method: "DELETE" }),
+    );
+    expect(
+      fetchMock.mock.calls.some(([url]) =>
+        String(url).endsWith("/threads/search"),
+      ),
+    ).toBe(true);
+  });
+
   it.each([
     [
       "another probe",

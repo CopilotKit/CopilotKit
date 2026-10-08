@@ -136,6 +136,9 @@ export async function cleanupProbeThreadRequest(
     } catch {
       // Expiry is a fallback; an unavailable search must not undo exact cleanup.
     }
+    if (failures.length > 0) {
+      return Response.json({ deleted, expired, failures }, { status: 502 });
+    }
     return Response.json({ deleted, expired });
   } catch (error) {
     return Response.json(
