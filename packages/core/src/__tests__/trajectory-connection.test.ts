@@ -593,6 +593,128 @@ describe("Core trajectory connection", () => {
     },
   );
 
+  describe("without an onError handler", () => {
+    function makeSilentCore(overrides: Partial<CopilotKitCoreConfig> = {}) {
+      return makeCore({
+        learning: {
+          capture: {
+            clicks: false,
+            navigation: false,
+            inputs: false,
+            network: false,
+          },
+        },
+        ...overrides,
+      });
+    }
+
+    it.each([
+      [
+        503,
+        {
+          code: "CONNECTION_FAILED",
+          message: "Trajectory capture requires an Intelligence runtime",
+        },
+        "CONNECTION_FAILED",
+        "intelligence",
+      ],
+      [
+        401,
+        { code: "IDENTITY_REQUIRED", message: "private detail" },
+        "IDENTITY_REQUIRED",
+        "identifyUser",
+      ],
+      [
+        403,
+        { code: "TRAJECTORIES_NOT_ENABLED", message: "private detail" },
+        "TRAJECTORIES_NOT_ENABLED",
+        "not enabled",
+      ],
+      [
+        404,
+        { code: "TRAJECTORIES_UNAVAILABLE", message: "private detail" },
+        "TRAJECTORIES_UNAVAILABLE",
+        "does not serve",
+      ],
+    ])(
+      "warns once with a fixed hint when a %s start failure ends capture",
+      async (status, body, code, hint) => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const core = makeSilentCore();
+        const pending = core.startTrajectory();
+        requests[0]!.response.resolve(response(body, status));
+
+        expect(await pending).toEqual({ status: "error", code });
+        expect(warn).toHaveBeenCalledTimes(1);
+        const [message] = warn.mock.calls[0]!;
+        expect(message).toContain(
+          `[CopilotKit] Trajectory capture did not start (${code}).`,
+        );
+        expect(message).toContain(hint);
+        expect(message).toContain("learning.onError");
+        expect(JSON.stringify(warn.mock.calls)).not.toContain(body.message);
+      },
+    );
+
+    it("warns that a runtime URL is required, once per Core", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const core = makeSilentCore({ runtimeUrl: undefined });
+
+      // StrictMode replays a provider's start synchronously after its stop.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        expect(await core.startTrajectory()).toEqual({
+          status: "error",
+          code: "RUNTIME_REQUIRED",
+        });
+      }
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]![0]).toContain("runtimeUrl");
+    });
+
+    it("says capture stopped when a started Trajectory ends", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { channel } = await start(makeSilentCore());
+      channel.pushes[0]!.push.reply("error", { reason: "unauthorized" });
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]![0]).toContain(
+        "[CopilotKit] Trajectory capture stopped (UNAUTHORIZED).",
+      );
+    });
+
+    it("stays quiet for stops and recoverable connection loss", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { core, channel } = await start(makeSilentCore());
+      channel.callbacks.get("phx_error")!();
+      await vi.advanceTimersByTimeAsync(1_000);
+      await authorize(1, "single-use-2");
+      join(1);
+      expect(core.trajectoryId).toBe("trajectory-1");
+
+      core.stopTrajectory();
+      const cancelled = core.startTrajectory();
+      core.stopTrajectory();
+      expect(await cancelled).toEqual({ status: "error", code: "CANCELLED" });
+      expect(warn).not.toHaveBeenCalled();
+    });
+  });
+
+  it("leaves terminal start failures to onError when the app handles them", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const core = makeCore();
+    const pending = core.startTrajectory();
+    requests[0]!.response.resolve(
+      response({ code: "IDENTITY_REQUIRED", message: "private detail" }, 401),
+    );
+
+    expect(await pending).toEqual({
+      status: "error",
+      code: "IDENTITY_REQUIRED",
+    });
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it("bounds uncooperative auth and network failure without any browser capture", async () => {
     const core = makeCore();
     const pending = core.startTrajectory();

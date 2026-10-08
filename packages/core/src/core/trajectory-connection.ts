@@ -28,6 +28,24 @@ const byteLength = (value: unknown) =>
   new TextEncoder().encode(JSON.stringify(value)).byteLength;
 const reconnectDelay = phoenixExponentialBackoff(1_000, 10_000);
 
+// Fixed client-side hints. Server messages are never shown in the browser.
+const SETUP_HINTS: Record<string, string> = {
+  RUNTIME_REQUIRED:
+    "Set runtimeUrl: capture connects through the CopilotKit runtime.",
+  INTELLIGENCE_RUNTIME_REQUIRED:
+    "Configure the CopilotRuntime with `intelligence` to accept capture.",
+  CONNECTION_FAILED:
+    "Check that the CopilotRuntime is configured with `intelligence` and valid Intelligence credentials, and check the runtime logs.",
+  IDENTITY_REQUIRED:
+    "The runtime could not identify the user. Configure `identifyUser` on the CopilotRuntime and send the app's session with runtime requests.",
+  TRAJECTORIES_NOT_ENABLED:
+    "Trajectories are not enabled for this Intelligence project.",
+  TRAJECTORIES_UNAVAILABLE:
+    "This Intelligence deployment does not serve Trajectory capture.",
+  MARKETPLACE_LICENSE_REQUIRED:
+    "Trajectory capture requires a CopilotKit license for this project.",
+};
+
 interface PendingPush {
   timer: ReturnType<typeof setTimeout>;
   finish(code?: string, knownRollback?: boolean, flushNext?: boolean): void;
@@ -118,6 +136,7 @@ function errorCode(value: unknown, fallback: string): string {
 /** Owns bounded, connected-only capture batches. Failed batches are never resent. */
 export class TrajectoryConnection {
   private session: Session | undefined;
+  private readonly warned = new Set<string>();
   // Core-scoped high water mark prevents collisions after reconnect or stop/start.
   // Gateway drops a seq it already stored for the Trajectory yet acknowledges it
   // as accepted, and a reload or second tab can reuse the id. Starting at the
@@ -306,8 +325,28 @@ export class TrajectoryConnection {
       window.removeEventListener("offline", session.onOffline);
       window.removeEventListener("online", session.onOnline);
     }
+    if (result.status === "error" && result.code !== "CANCELLED")
+      this.warnEnded(session, result.code);
     session.resolve(result);
     this.onChange();
+  }
+
+  /**
+   * Without an app handler, a capture that ends on its own would otherwise fail
+   * silently. Each outcome warns once per Core, so StrictMode replays and
+   * repeated starts against the same misconfigured Runtime stay quiet.
+   */
+  private warnEnded(session: Session, code: string): void {
+    if (session.config.onError !== undefined) return;
+    const summary = session.started
+      ? `Trajectory capture stopped (${code}).`
+      : `Trajectory capture did not start (${code}).`;
+    if (this.warned.has(summary)) return;
+    this.warned.add(summary);
+    const hint = SETUP_HINTS[code];
+    console.warn(
+      `[CopilotKit] ${summary}${hint === undefined ? "" : ` ${hint}`} Set learning.onError to handle capture errors in the app.`,
+    );
   }
 
   private cleanup(session: Session, connection: Connection): void {
