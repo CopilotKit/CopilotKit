@@ -791,16 +791,19 @@ function expandInlineDemos(
       const sources = llmFiles
         ? llmFiles.split(",").map((file) => ({ file: file.trim() }))
         : [{ region: llmRegion }];
-      const snippets = sources
-        .map((source) =>
-          resolveSnippet(
-            { cell: demoAttr[1], ...source },
-            framework,
-            demoAttr[1],
-          ),
-        )
-        .filter((snippet) => !snippet.startsWith("<!-- snippet skipped:"));
-      return snippets.length ? `${note}\n${snippets.join("\n\n")}\n` : note;
+      const snippets = sources.map((source) =>
+        resolveSnippet(
+          { cell: demoAttr[1], ...source },
+          framework,
+          demoAttr[1],
+        ),
+      );
+      const visible = llmFiles
+        ? snippets
+        : snippets.filter(
+            (snippet) => !snippet.startsWith("<!-- snippet skipped:"),
+          );
+      return visible.length ? `${note}\n${visible.join("\n\n")}\n` : note;
     },
   );
 }
