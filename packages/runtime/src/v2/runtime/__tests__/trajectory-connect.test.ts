@@ -414,19 +414,30 @@ describe.each(["single-route", "multi-route"] as const)(
       },
     );
 
-    it("logs a network failure on the server without the API key", async () => {
+    it("logs only fixed fields for a network failure, never error text", async () => {
       const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
       const { app, upstream } = setup(mode);
-      // Node's fetch keeps the reason in `cause`.
+      // Node's fetch keeps the reason in `cause`, and its messages can carry the
+      // request URL, including any credentials in it.
       upstream.mockRejectedValue(
-        new TypeError("fetch failed", {
-          cause: new Error(`connect ECONNREFUSED using ${apiKey}`),
-        }),
+        new TypeError(
+          "fetch failed https://user:url-secret@intelligence.example",
+          {
+            cause: Object.assign(
+              new Error(`connect ECONNREFUSED url-secret ${apiKey}`),
+              { code: "ECONNREFUSED" },
+            ),
+          },
+        ),
       );
       await app.fetch(connectRequest(mode));
       expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn.mock.calls[0]![0]).toMatchObject({ error: "fetch failed" });
-      expect(JSON.stringify(warn.mock.calls)).toContain("ECONNREFUSED");
+      expect(warn.mock.calls[0]![0]).toEqual({
+        error: "TypeError",
+        causeCode: "ECONNREFUSED",
+        host: "intelligence.example",
+      });
+      expect(JSON.stringify(warn.mock.calls)).not.toContain("url-secret");
       expect(JSON.stringify(warn.mock.calls)).not.toContain(apiKey);
     });
 

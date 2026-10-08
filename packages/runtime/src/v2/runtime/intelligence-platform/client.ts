@@ -1431,17 +1431,15 @@ export class CopilotKitIntelligence {
     } catch (error) {
       // An abort means the browser went away, not that Intelligence is unreachable.
       if (!params.signal?.aborted) {
-        // Node's fetch reports "fetch failed" and keeps the reason in `cause`.
-        const redact = (value: unknown) =>
-          (value instanceof Error ? value.message : String(value)).replaceAll(
-            this.#apiKey,
-            "[redacted]",
-          );
-        const cause = error instanceof Error ? error.cause : undefined;
+        // Error messages can carry the request URL and any credentials in it,
+        // so log only fixed fields. Node's fetch keeps the reason in `cause`.
         logger.warn(
           {
-            error: redact(error),
-            ...(cause === undefined ? {} : { cause: redact(cause) }),
+            error: error instanceof Error ? error.name : typeof error,
+            causeCode: networkErrorCode(
+              error instanceof Error ? error.cause : undefined,
+            ),
+            host: urlHost(this.#apiUrl),
           },
           "Could not reach Intelligence to connect a Trajectory",
         );
@@ -2203,6 +2201,26 @@ function deriveRunnerWsUrl(wsUrl: string): string {
   }
 
   return `${wsUrl}/runner`;
+}
+
+/** A system error code such as ECONNREFUSED, or undefined for anything else. */
+function networkErrorCode(cause: unknown): string | undefined {
+  const code =
+    typeof cause === "object" && cause !== null && "code" in cause
+      ? cause.code
+      : undefined;
+  return typeof code === "string" && /^[A-Z][A-Z0-9_]{0,63}$/.test(code)
+    ? code
+    : undefined;
+}
+
+/** The host of a URL without its credentials, path or query. */
+function urlHost(url: string): string | undefined {
+  try {
+    return new URL(url).host;
+  } catch {
+    return undefined;
+  }
 }
 
 function deriveClientWsUrl(wsUrl: string): string {
