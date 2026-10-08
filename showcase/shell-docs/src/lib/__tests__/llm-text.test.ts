@@ -23,13 +23,18 @@ test("includes JSON Render wiring in framework Markdown exports", () => {
       framework,
     });
 
-    expect(output).toContain(
-      "JsonRenderAssistantMessage as unknown as typeof CopilotChatAssistantMessage",
+    expect(output).toMatch(
+      /\/\/ src\/app\/demos\/declarative-json-render\/chat\.tsx[\s\S]*?assistantMessage:\s*JsonRenderAssistantMessage/,
     );
-    expect(output).toContain("<JSONUIProvider registry={registry}>");
-    expect(output).toContain("registry={registry}");
-    expect(output).toContain("defineRegistry(catalog, {");
-    expect(output).toContain("defineCatalog(schema, {");
+    expect(output).toMatch(
+      /\/\/ src\/app\/demos\/declarative-json-render\/json-render-renderer\.tsx[\s\S]*?<JSONUIProvider registry=\{registry\}>[\s\S]*?<Renderer[\s\S]*?registry=\{registry\}/,
+    );
+    expect(output).toMatch(
+      /\/\/ src\/app\/demos\/declarative-json-render\/catalog\.ts[\s\S]*?defineCatalog\(schema, \{/,
+    );
+    expect(output).toMatch(
+      /\/\/ src\/app\/demos\/declarative-json-render\/registry\.tsx[\s\S]*?defineRegistry\(catalog, \{/,
+    );
     expect(output).not.toContain("snippet skipped");
   }
 });

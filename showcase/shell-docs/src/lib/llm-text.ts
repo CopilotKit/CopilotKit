@@ -788,9 +788,9 @@ function expandInlineDemos(
       const llmFiles = /llmFiles\s*=\s*["']([^"']+)["']/.exec(inner)?.[1];
       if (!demoAttr || (!llmRegion && !llmFiles)) return note;
 
-      const sources = llmFiles
-        ? llmFiles.split(",").map((file) => ({ file: file.trim() }))
-        : [{ region: llmRegion }];
+      const sources = llmRegion
+        ? [{ region: llmRegion }]
+        : llmFiles!.split(",").map((file) => ({ file: file.trim() }));
       const snippets = sources.map((source) =>
         resolveSnippet(
           { cell: demoAttr[1], ...source },
@@ -798,7 +798,7 @@ function expandInlineDemos(
           demoAttr[1],
         ),
       );
-      const visible = llmFiles
+      const visible = !llmRegion
         ? snippets
         : snippets.filter(
             (snippet) => !snippet.startsWith("<!-- snippet skipped:"),

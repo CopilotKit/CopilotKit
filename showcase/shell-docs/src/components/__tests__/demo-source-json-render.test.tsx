@@ -1,18 +1,24 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
-import { DemoSource } from "../demo-source";
+import { loadDoc } from "@/lib/docs-render";
+import { docsComponents } from "@/lib/mdx-registry";
 
-test("JSON Render source tabs include the copyable frontend files", () => {
+test("JSON Render guide opts into complete Code tabs across frameworks", () => {
+  const doc = loadDoc("generative-ui/json-render");
+  const inlineDemo = doc?.source.match(/<InlineDemo\b[\s\S]*?\/>/)?.[0];
+  expect(inlineDemo).toMatch(/\bshowAllFiles\b/);
+
+  const InlineDemo = docsComponents.InlineDemo;
   for (const integration of [
     "google-adk",
     "strands-typescript",
     "langgraph-python",
   ]) {
     const html = renderToStaticMarkup(
-      <DemoSource
+      <InlineDemo
         integration={integration}
         demo="declarative-json-render"
-        onlyHighlighted={false}
+        showAllFiles={Boolean(inlineDemo?.includes("showAllFiles"))}
       />,
     );
 
@@ -27,4 +33,14 @@ test("JSON Render source tabs include the copyable frontend files", () => {
       );
     }
   }
+
+  const defaultHtml = renderToStaticMarkup(
+    <InlineDemo
+      integration="langgraph-python"
+      demo="declarative-json-render"
+    />,
+  );
+  expect(defaultHtml).not.toContain(
+    'title="src/app/demos/declarative-json-render/chat.tsx"',
+  );
 });
