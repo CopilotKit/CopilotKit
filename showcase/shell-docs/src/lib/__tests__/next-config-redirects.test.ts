@@ -49,6 +49,17 @@ describe("next.config redirects", () => {
     );
   });
 
+  it("sends the retired unselected Components as Tools URL to its live guide", async () => {
+    const nextConfig = (await import("../../../next.config")).default;
+    const redirects = (await nextConfig.redirects?.()) ?? [];
+
+    expect(redirects).toContainEqual({
+      source: "/unselected/generative-ui/tool-based",
+      destination: "/generative-ui/tool-based",
+      permanent: true,
+    });
+  });
+
   it("strips the retired built-in-agent prefix to root URLs", async () => {
     vi.stubEnv("NEXT_PUBLIC_BASE_URL", "http://localhost:3003");
     vi.stubEnv("NEXT_PUBLIC_SHELL_URL", "http://localhost:3000");

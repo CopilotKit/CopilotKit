@@ -822,7 +822,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/unselected/generative-ui/tool-based",
-        destination: "/generative-ui/tool-rendering",
+        destination: "/generative-ui/tool-based",
         permanent: true,
       },
       {
