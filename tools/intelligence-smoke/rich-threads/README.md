@@ -59,6 +59,15 @@ one application/runtime/Mastra image. Runtime command:
 `TSX_TSCONFIG_PATH=/app/tsconfig.json`. Use row2's durable-store environment
 bindings. Strands uses its actual Showcase server and durable session wrapper.
 
+`application/package-pins.json` records the public package baseline used for
+the application compile check. It pins the Inspector and its core dependency
+together; pinning only the top-level React packages can install incompatible
+nested versions. This is a development baseline, not evidence that a candidate
+source build ran. Preparation freezes one Git revision for all staged files.
+To inspect the prepared application locally, use
+`rich-threads-app -- --directory=<prepared-directory> --port=<owned-port>` and
+set `RICH_THREADS_RUNTIME_URL` to the owned runtime URL.
+
 Capture records the exact native input/events before runtime middleware and the
 canonical Phoenix payload before ingestion. Exact-ID retries retain a separate
 attempt log. The durable reader independently reads scoped SQL rows and the
@@ -170,3 +179,12 @@ The six-row source/import/continuation composition, URL/file media resolvers,
 and full seven-framework acceptance remain incomplete. Do not label unit or
 driver controls as product parity. Retain live output directories when an owned
 environment can actually run; missing coverage stays visible.
+
+The manual `intelligence-rich-threads.yml` workflow requests Mastra and Strands
+TypeScript with all six rows, serializes runs, and retains ownership receipts
+and results after attempting interrupted-run recovery. It has not been
+dispatched or provisioned. Its `intelligence-rich-threads-development` GitHub
+environment requires a private `RICH_THREADS_CONFIG_JSON` launch manifest.
+The hosting/access/budget decision and complete launch bindings (including
+migrations and missing row service factories) remain prerequisites; the job
+fails instead of substituting fixtures. No periodic schedule is enabled.

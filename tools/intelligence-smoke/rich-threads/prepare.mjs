@@ -22,6 +22,11 @@ assert.ok(
 );
 const output = resolve(values.output);
 const source = resolve(values.source);
+const { stdout: revisionOutput } = await execute("git", ["rev-parse", "HEAD"], {
+  cwd: source,
+});
+const revision = revisionOutput.trim();
+assert.match(revision, /^[a-f0-9]{40}$/);
 const pins = JSON.parse(await readFile(resolve(values.pins), "utf8"));
 for (const [name, version] of Object.entries(pins)) {
   assert.match(name, /^(@[a-z0-9-]+\/)?[a-z0-9-]+$/);
@@ -43,7 +48,7 @@ async function copySource(path, destination) {
   const prefix = relative(source, path);
   const { stdout } = await execute(
     "git",
-    ["ls-tree", "-r", "--name-only", "HEAD", "--", prefix],
+    ["ls-tree", "-r", "--name-only", revision, "--", prefix],
     { cwd: source },
   );
   const files = stdout.trim().split("\n").filter(Boolean);
@@ -54,7 +59,7 @@ async function copySource(path, destination) {
     await mkdir(dirname(target), { recursive: true });
     const { stdout: contents } = await execute(
       "git",
-      ["show", `HEAD:${file}`],
+      ["show", `${revision}:${file}`],
       { cwd: source, encoding: "buffer", maxBuffer: 10 * 1024 * 1024 },
     );
     await writeFile(target, contents);
@@ -75,6 +80,10 @@ for (const directory of [
 ])
   await copySource(join(demo, directory), join(output, directory));
 await copySource(
+  join(demo, "public/copilotkit-logo-mark.svg"),
+  join(output, "public/copilotkit-logo-mark.svg"),
+);
+await copySource(
   join(demo, "src/app/globals.css"),
   join(output, "src/app/globals.css"),
 );
@@ -91,7 +100,7 @@ for (const file of ["page.tsx", "layout.tsx"])
     join(output, "rich-threads/application", file),
     join(output, "src/app", file),
   );
-for (const file of ["next.config.mjs", "Dockerfile"])
+for (const file of ["next.config.mjs", "Dockerfile", ".dockerignore"])
   await cp(join(output, "rich-threads/application", file), join(output, file));
 const manifest = JSON.parse(
   await readFile(join(output, "package.json"), "utf8"),
@@ -133,10 +142,9 @@ await execute(
   ["install", "--package-lock-only", "--ignore-scripts", "--legacy-peer-deps"],
   { cwd: output, timeout: 300_000, maxBuffer: 1024 * 1024 },
 );
-const { stdout } = await execute("git", ["rev-parse", "HEAD"], { cwd: source });
 await writeFile(
   join(output, "source.json"),
-  JSON.stringify({ copilotkit: stdout.trim(), pins }, null, 2),
+  JSON.stringify({ copilotkit: revision, pins }, null, 2),
 );
 console.log(
   `Prepared installable shared application/runtime/native-Mastra context: ${output}`,

@@ -62,6 +62,27 @@
       },
       "cache": false
     },
+    "rich-threads-app": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/intelligence-smoke/rich-threads/application/start.mjs"
+      },
+      "cache": false
+    },
+    "rich-threads-recover": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/intelligence-smoke/rich-threads/recover.mjs"
+      },
+      "cache": false
+    },
+    "rich-threads-browser-system-deps": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/intelligence-smoke/rich-threads/dependencies/node_modules/playwright/cli.js install-deps chromium"
+      },
+      "cache": false
+    },
     "format": {
       "executor": "nx:run-commands",
       "options": {
