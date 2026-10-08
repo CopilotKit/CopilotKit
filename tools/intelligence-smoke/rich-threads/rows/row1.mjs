@@ -92,12 +92,57 @@ export function verifyMedia(capture, media) {
   // URL/file bytes must be read through the saved resolvable reference by the adapter;
   // comparing only URL text would falsely prove resource durability.
   const bytes =
-    media.sourceType === "data" ? part.source.value : media.resolvedBase64;
+    media.sourceType === "data"
+      ? part.source.value
+      : capture.resolvedMedia?.[media.pointer];
   requireText(bytes, "Saved attachment bytes");
   assert.equal(
     createHash("sha256").update(Buffer.from(bytes, "base64")).digest("hex"),
     media.sha256,
     "Attachment bytes changed",
+  );
+}
+
+export function verifyCompletedControl(capture, interaction) {
+  requireText(interaction.toolCallId, "Completed control toolCallId");
+  assert.equal(
+    witnessAt(capture, interaction.callIdPointer),
+    interaction.toolCallId,
+    "Control is associated with the wrong native/frontend call",
+  );
+  const result = witnessAt(capture, interaction.resultPointer);
+  assert.equal(result.role, "tool", "Completed control requires a tool result");
+  assert.equal(
+    result.toolCallId,
+    interaction.toolCallId,
+    "Completed result belongs to another call",
+  );
+  assert.ok(
+    result.content !== undefined &&
+      result.content !== null &&
+      result.content !== "",
+    "Completed result is empty",
+  );
+  const response = witnessAt(capture, interaction.responsePointer);
+  assert.equal(
+    response.role,
+    "assistant",
+    "Completed control requires an assistant response",
+  );
+  assert.ok(
+    response.content !== undefined &&
+      response.content !== null &&
+      response.content !== "",
+    "Completed response is empty",
+  );
+  const index = (pointer) => {
+    const match = /^\/messages\/(\d+)$/.exec(pointer);
+    assert.ok(match, "Result/response pointers must identify whole messages");
+    return Number(match[1]);
+  };
+  assert.ok(
+    index(interaction.resultPointer) < index(interaction.responsePointer),
+    "Assistant response precedes the completed result",
   );
 }
 
@@ -146,13 +191,19 @@ export const row = {
       requireText(scenario.id, "Scenario ID");
       assert.match(scenario.id, /^[a-z0-9-]+$/, "Unsafe scenario ID");
       const evidence = [];
+      let layer = "environment";
       try {
-        const live = await services.row1.runFresh(scenario);
+        const live = structuredClone(await services.row1.runFresh(scenario));
         evidence.push(await writeArtifact(`${scenario.id}/emitted.json`, live));
-        const saved = await services.row1.readSaved(live.emitted);
+        const saved = await services.row1.readSaved(
+          structuredClone(live.emitted),
+        );
         evidence.push(await writeArtifact(`${scenario.id}/saved.json`, saved));
+        layer = "intelligence-persistence";
         const proof = comparePersistence(live.emitted, saved);
+        layer = "rendering";
         await browserProof(live.browser, outputDir);
+        layer = "coverage";
         const witnessed = new Set();
         for (const witness of live.witnesses ?? []) {
           assert.ok(
@@ -160,11 +211,14 @@ export const row = {
             `Unknown category ${witness.category}`,
           );
           witnessAt(live.emitted, witness.pointer);
-          witnessed.add(witness.category);
+          if (!/^(image|document|audio|video):/.test(witness.category))
+            witnessed.add(witness.category);
         }
         for (const media of live.media ?? []) {
+          layer = "intelligence-persistence";
           verifyMedia(saved, media);
           witnessed.add(`${media.type}:${media.sourceType}`);
+          layer = "coverage";
         }
         for (const category of [
           "calculator-iframe",
@@ -188,6 +242,8 @@ export const row = {
               interaction.controlId,
               "Interaction targeted a different control",
             );
+            if (category !== "calculator-iframe")
+              verifyCompletedControl(live.emitted, interaction);
           }
         }
         for (const category of scenario.categories) {
@@ -207,7 +263,13 @@ export const row = {
       } catch (error) {
         checks.push({
           name: scenario.id,
-          status: "failed",
+          status:
+            layer === "environment"
+              ? "blocked"
+              : layer === "coverage"
+                ? "unvalidated"
+                : "failed",
+          layer,
           evidence,
           detail: String(error),
         });
