@@ -106,9 +106,18 @@ export function compareCapture(capture) {
     throw new Error("Row2 requires an identified durable native store");
   if (
     !before?.records ||
-    Object.values(before.records ?? {}).some((value) =>
-      Array.isArray(value) ? value.length > 0 : value !== null,
-    )
+    Object.entries(before.records ?? {}).some(([key, value]) => {
+      // Resource-scoped memory is deliberately shared by fresh conversations
+      // in the same owned application scope. Lifecycle verifies it empty once
+      // before the suite; retain its full before/after records for comparison.
+      if (
+        key === "resources" &&
+        capture.freshness?.cleanScope?.status === "passed" &&
+        capture.freshness?.evidence
+      )
+        return false;
+      return Array.isArray(value) ? value.length > 0 : value !== null;
+    })
   )
     throw new Error("Fresh native identity must be absent before the run");
   if (!Array.isArray(observations) || !observations.length)
