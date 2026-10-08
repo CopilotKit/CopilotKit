@@ -51,7 +51,7 @@ function fixture() {
       completeCheckpoint: true,
     },
     expected,
-    coverage: ["text"],
+    coverage: ["user-text", "assistant-text"],
     replay: [{ name: "chart", value: [1, 2] }],
   };
   const native = {
@@ -114,7 +114,9 @@ test("detects occurrence loss, order, mapping, state and exact media corruption"
   assertImported(f.source, f.imported);
   const mutations = [
     (x) => x.items.pop(),
-    (x) => x.items.reverse(),
+    (x) => {
+      x.items = x.items.toReversed();
+    },
     (x) => x.items.push(x.items[0]),
     (x) => {
       x.nativeIdentity.threadId = "different";
@@ -215,4 +217,62 @@ test("already-connected source fails before CLI runs and retains evidence", asyn
 
 test("missing configured services stay blocked instead of passing", async () => {
   assert.equal((await row.run({ services: {} })).status, "blocked");
+});
+
+test("preserves repeated complete native call occurrences rather than deduplicating", () => {
+  const f = fixture();
+  const completed = [
+    {
+      id: "reused-call",
+      kind: "call",
+      payload: { name: "chart", args: { points: [1, 2] } },
+    },
+    {
+      id: "first-result",
+      kind: "result",
+      callId: "reused-call",
+      payload: { shown: true },
+    },
+    {
+      id: "reused-call",
+      kind: "call",
+      payload: { name: "chart", args: { points: [3, 4] } },
+    },
+    {
+      id: "second-result",
+      kind: "result",
+      callId: "reused-call",
+      payload: { shown: true },
+    },
+  ];
+  f.source.expected.items.unshift(...completed);
+  f.native.items.unshift(...completed);
+  validateSource(f.source, f.native);
+  f.imported.items.unshift(...completed);
+  assertImported(f.source, f.imported);
+  f.imported.items.splice(2, 2);
+  assert.throws(() => assertImported(f.source, f.imported));
+});
+
+test("environment refusal is blocked with evidence, not a product mismatch", async () => {
+  const f = fixture();
+  const artifacts = [];
+  const report = await row.run({
+    fixture: {},
+    services: {
+      importReplay: {
+        sources: async () => [f.source],
+        inspectNative: async () => f.native,
+        findImported: async () => {
+          throw Object.assign(new Error("owned database refused"), {
+            code: "ECONNREFUSED",
+          });
+        },
+      },
+    },
+    writeArtifact: async (name, value) => artifacts.push({ name, value }),
+  });
+  assert.equal(report.status, "blocked");
+  assert.equal(artifacts[0].value.failureClass, "setup");
+  assert.ok(report.checks.some((check) => check.status === "unvalidated"));
 });

@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { commandRunner } from "../../process.mjs";
@@ -30,7 +31,17 @@ export function createImporter({
     const buildIdentity = createHash("sha256")
       .update(await readFile(cli))
       .digest("hex");
-    await run(executable, args, { step, env, timeoutMs: 120_000 });
+    const output = await run(executable, args, {
+      step,
+      env,
+      timeoutMs: 120_000,
+    });
+    const summary = output.match(
+      /Import complete: (\d+) imported, (\d+) skipped, (\d+) failed/,
+    );
+    assert.ok(summary, "Missing built CLI import summary");
+    assert.ok(Number(summary[1]) > 0, "No native sources imported");
+    assert.equal(Number(summary[3]), 0, "CLI reported failed sources");
     return {
       exitCode: 0,
       dryRun: false,

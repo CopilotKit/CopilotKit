@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { aggregate } from "../contract.mjs";
 import {
   categories,
   validateSource,
@@ -15,10 +16,17 @@ export const row = {
     if (!service)
       return {
         status: "blocked",
-        checks: [],
+        checks: [
+          {
+            name: "fixture",
+            status: "blocked",
+            evidence: [],
+            detail: "No native import/replay fixture configured",
+          },
+        ],
         limitations: ["No native import/replay fixture configured"],
       };
-    const sources = await service.sources();
+    const sources = structuredClone(await service.sources());
     assert.ok(sources.length, "At least one native-only source is required");
     assert.equal(
       new Set(sources.map((s) => s.id)).size,
@@ -36,9 +44,9 @@ export const row = {
         framework: context.framework,
       };
       try {
-        record.native = await service.inspectNative(source);
+        record.native = structuredClone(await service.inspectNative(source));
         validateSource(source, record.native);
-        record.before = await service.findImported(source);
+        record.before = structuredClone(await service.findImported(source));
         assert.deepEqual(
           record.before,
           [],
@@ -57,9 +65,8 @@ export const row = {
           1,
           "Expected exactly one imported destination",
         );
-        record.imported = await service.readImported(
-          source,
-          record.destinations[0],
+        record.imported = structuredClone(
+          await service.readImported(source, record.destinations[0]),
         );
         assertImported(source, record.imported);
         record.replay = await service.replay(source, record.imported);
@@ -95,7 +102,28 @@ export const row = {
         });
       } catch (error) {
         record.error = error.message;
-        throw error;
+        const code = error.code ?? error.cause?.code;
+        if (
+          ![
+            "ECONNREFUSED",
+            "ENOTFOUND",
+            "ETIMEDOUT",
+            "EHOSTUNREACH",
+            "ENOSPC",
+            "RICH_IMPORT_SETUP",
+          ].includes(code)
+        )
+          throw error;
+        record.failureClass = "setup";
+        checks.push({
+          name: source.id,
+          status: "blocked",
+          evidence: [evidence],
+          detail: `Setup failure (${code}): ${error.message}`,
+        });
+        limitations.push(
+          `Source ${source.id} could not complete because its configured environment is unavailable`,
+        );
       } finally {
         await context.writeArtifact(evidence, record);
       }
@@ -125,9 +153,7 @@ export const row = {
       }
     }
     return {
-      status: checks.some((c) => c.status === "unvalidated")
-        ? "unvalidated"
-        : "passed",
+      status: aggregate(checks),
       checks,
       limitations,
     };

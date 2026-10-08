@@ -1,32 +1,12 @@
 import assert from "node:assert/strict";
 
-export const categories = [
-  "text",
-  "reasoning",
-  "pie-chart",
-  "bar-chart",
-  "image",
-  "document",
-  "audio",
-  "video",
-  "flight-cards",
-  "a2ui",
-  "calculator",
-  "tools",
-  "mcp",
-  "mcp-app",
-  "state",
-  "frontend-completed",
-  "frontend-pending",
-  "native-completed",
-  "native-pending",
-  "parallel-surfaces",
-];
+export { categories } from "../contract.mjs";
 
 /** These records come from native inspection, never from the importer under test. */
 export function validateSource(source, native) {
   assert.match(source.id, /^[a-zA-Z0-9_-]+$/);
   assert.ok(source.provenance.description, "Source provenance is required");
+  assert.ok(source.replay?.length, "Declare nonempty browser observations");
   for (const field of ["nativeOnly", "durable", "completeCheckpoint"])
     assert.equal(source.provenance[field], true, `Source must be ${field}`);
   assert.ok(
@@ -65,34 +45,37 @@ export function validateSource(source, native) {
   const calls = new Map();
   for (const item of native.items) {
     assert.ok(item.id && item.kind, "Every occurrence needs identity and kind");
-    if (item.kind === "call") {
-      assert.ok(!calls.has(item.id), `Duplicate native call ${item.id}`);
-      calls.set(item.id, false);
-    }
+    if (item.kind === "call") calls.set(item.id, (calls.get(item.id) ?? 0) + 1);
     if (item.kind === "result") {
-      assert.ok(calls.has(item.callId), `Orphan native result ${item.callId}`);
-      assert.equal(
-        calls.get(item.callId),
-        false,
-        `Duplicate result ${item.callId}`,
+      assert.ok(
+        (calls.get(item.callId) ?? 0) > 0,
+        "Orphan native result " + item.callId,
       );
-      calls.set(item.callId, true);
+      calls.set(item.callId, calls.get(item.callId) - 1);
     }
   }
-  for (const [id, completed] of calls)
-    assert.ok(
-      completed || native.pending.some((p) => p.callId === id),
-      `Orphan native call ${id}`,
+  for (const [id, outstanding] of calls)
+    assert.equal(
+      outstanding,
+      native.pending.filter((p) => p.callId === id).length,
+      "Orphan native call " + id,
     );
+  assert.equal(
+    new Set(native.pending.map((p) => p.id)).size,
+    native.pending.length,
+    "Duplicate pending identity",
+  );
   for (const pending of native.pending) {
     assert.ok(["frontend", "native"].includes(pending.kind));
     assert.ok(
-      pending.id && pending.callId && pending.checkpoint,
+      pending.id &&
+        pending.callId &&
+        pending.checkpoint &&
+        Object.keys(pending.checkpoint).length,
       "Complete pending metadata required",
     );
-    assert.equal(
-      calls.get(pending.callId),
-      false,
+    assert.ok(
+      calls.get(pending.callId) > 0,
       "Pending control needs an unanswered native call",
     );
   }
