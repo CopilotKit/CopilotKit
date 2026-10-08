@@ -7,6 +7,7 @@ import {
   assertAnswered,
 } from "../import/assertions.mjs";
 import { row } from "./row3.mjs";
+import { prepareImportedSources } from "../import/prepare.mjs";
 
 function fixture() {
   const identity = { threadId: "native-3", agentId: "agent", userId: "user" };
@@ -94,6 +95,55 @@ function fixture() {
   };
   return { source, native, imported, replay, answered, pending };
 }
+
+test("shared import preparation preserves pending checkpoints for later rows", async () => {
+  const f = fixture();
+  f.source.id = "row4-source";
+  let imported = false;
+  let answered = false;
+  const artifacts = [];
+  const service = {
+    sources: async () => [f.source],
+    inspectNative: async () => f.native,
+    findImported: async () => (imported ? [f.imported] : []),
+    importSource: async () => {
+      imported = true;
+      return {
+        exitCode: 0,
+        dryRun: false,
+        buildIdentity: "cli-sha",
+        command: ["built-cli", "import"],
+        log: "import.log",
+      };
+    },
+    readImported: async () => f.imported,
+    answer: async () => {
+      answered = true;
+    },
+  };
+  const prepared = await prepareImportedSources({
+    service,
+    namespace: "row4",
+    writeArtifact: async (name, record) => artifacts.push({ name, record }),
+  });
+  assert.equal(answered, false);
+  assert.deepEqual(prepared[0].source.expected.pending, [f.pending]);
+  assert.deepEqual(prepared[0].native.rawCheckpoint, f.native.rawCheckpoint);
+  assert.equal(prepared[0].absentBeforeImport, true);
+  assert.deepEqual(artifacts[0].record.before, []);
+  await assert.rejects(
+    prepareImportedSources({
+      service,
+      namespace: "row5",
+      writeArtifact: async () => {},
+    }),
+    /namespace/,
+  );
+  await assert.rejects(
+    prepareImportedSources({ service, namespace: "row4", answerPending: true }),
+    /must not answer/,
+  );
+});
 
 test("rejects malformed native checkpoints before importing", () => {
   const f = fixture();
