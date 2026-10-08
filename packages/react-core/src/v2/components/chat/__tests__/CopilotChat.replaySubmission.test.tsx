@@ -279,6 +279,37 @@ describe.each(["completed", "pending", "ordinary"] as const)(
   },
 );
 
+it("waits for a generic active agent run after history connection resolves", async () => {
+  const { agent, runs, finish, submit, finishRun } = await setupReplay(
+    "ordinary",
+    true,
+  );
+  await finish();
+  // This is the generic HttpAgent lifecycle shape after connect() has already
+  // resolved: a run is active, but the agent has no completion-promise
+  // extension for CopilotChat to await.
+  agent.isRunning = true;
+  expect(agent.isRunning).toBe(true);
+  expect(isRunCompletionAware(agent as unknown)).toBe(false);
+
+  const subscribe = agent.subscribe.bind(agent);
+  let finalizeActiveRun: (() => void) | undefined;
+  vi.spyOn(agent, "subscribe").mockImplementation((observer) => {
+    if (observer.onRunFinalized) {
+      finalizeActiveRun = () => observer.onRunFinalized?.({} as any);
+      return { unsubscribe: vi.fn() } as any;
+    }
+    return subscribe(observer);
+  });
+  await submit("Send after replay");
+  expect(runs).toHaveLength(0);
+
+  await act(async () => finalizeActiveRun?.());
+  await waitFor(() => expect(runs).toHaveLength(1));
+  expect(runs[0]?.messages.at(-1)?.content).toBe("Send after replay");
+  await finishRun();
+});
+
 it("does not dispatch a queued prompt after the chat unmounts", async () => {
   const { runs, submit, unmount } = await setupReplay();
   await submit();
