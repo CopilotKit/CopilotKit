@@ -132,7 +132,9 @@ export function nativeContent(framework, messages, resolved = {}) {
         const payload =
           values.length === 1 &&
           (Object.hasOwn(values[0], "text") || Object.hasOwn(values[0], "json"))
-            ? (values[0].json ?? json(values[0].text))
+            ? Object.hasOwn(values[0], "json")
+              ? values[0].json
+              : json(values[0].text)
             : values;
         items.push(result(part.toolResult.toolUseId, payload));
       } else {
@@ -192,7 +194,7 @@ export function nativeContent(framework, messages, resolved = {}) {
 export function importedContent(messages, resolved = {}) {
   const items = [];
   for (const message of messages) {
-    const encoded = /^native:("(?:[^"\\]|\\.)*"):segment:\d+$/.exec(message.id);
+    const encoded = /^native:("(?:[^"\\]|\\.)*"):segment:0$/.exec(message.id);
     const id = encoded ? JSON.parse(encoded[1]) : message.id;
     if (message.role === "tool") {
       items.push(result(message.toolCallId, message.content));

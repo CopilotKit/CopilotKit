@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 import { seedMastra, seedStrands } from "./native-sources.mjs";
 import { createImporter } from "../cli.mjs";
 import { replayInBrowser } from "../browser.mjs";
+import { importedContent } from "../drivers/content.mjs";
 
 function text(id, payload, role) {
   return { id, kind: "text", role, payload };
@@ -68,35 +69,7 @@ export function inspectStrands(envelope) {
   );
   return { items, state: envelope.data.state, pending: [] };
 }
-export function inspectTranscript(messages) {
-  const items = [];
-  for (const message of messages) {
-    if (message.role === "tool")
-      items.push(result(message.toolCallId, JSON.parse(message.content)));
-    else {
-      if (message.content) {
-        assert.equal(
-          typeof message.content,
-          "string",
-          "Uncovered media must not silently disappear",
-        );
-        const encoded = /^native:("(?:[^"\\]|\\.)*"):segment:0$/.exec(
-          message.id,
-        );
-        items.push(
-          text(
-            encoded ? JSON.parse(encoded[1]) : message.id,
-            message.content,
-            message.role,
-          ),
-        );
-      }
-      for (const tool of message.toolCalls ?? [])
-        items.push(call(tool.id, tool.name, JSON.parse(tool.args)));
-    }
-  }
-  return items;
-}
+export const inspectTranscript = importedContent;
 
 /** Explicit local configuration; no automatic discovery of services, credentials or reference data. */
 export async function createFixture({ framework, outputDir }) {

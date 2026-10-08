@@ -254,3 +254,31 @@ test("application state never falls back to unrelated Strands SDK state", () => 
     { todos: [] },
   );
 });
+
+test("explicit null results and native segment identities cannot be silently changed", () => {
+  const native = nativeContent("strands-typescript", [
+    {
+      trackingId: "native-result",
+      role: "user",
+      content: [
+        { toolResult: { toolUseId: "call", content: [{ json: null }] } },
+      ],
+    },
+  ]);
+  assert.equal(native[0].payload, null);
+  assert.deepEqual(
+    native,
+    importedContent([
+      { id: "result", role: "tool", toolCallId: "call", content: "null" },
+    ]),
+  );
+  const message = {
+    id: 'native:"source-id":segment:0',
+    role: "assistant",
+    content: "Original",
+  };
+  assert.notDeepEqual(
+    importedContent([message]),
+    importedContent([{ ...message, id: 'native:"source-id":segment:1' }]),
+  );
+});
