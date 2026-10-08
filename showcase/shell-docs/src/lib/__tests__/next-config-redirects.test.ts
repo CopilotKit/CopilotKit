@@ -49,15 +49,20 @@ describe("next.config redirects", () => {
     );
   });
 
-  it("sends the retired unselected Components as Tools URL to its live guide", async () => {
+  it("uses the unselected catch-all for the Components as Tools URL", async () => {
     const nextConfig = (await import("../../../next.config")).default;
     const redirects = (await nextConfig.redirects?.()) ?? [];
 
     expect(redirects).toContainEqual({
-      source: "/unselected/generative-ui/tool-based",
-      destination: "/generative-ui/tool-based",
+      source: "/unselected/:path*",
+      destination: "/:path*",
       permanent: true,
     });
+    expect(redirects).not.toContainEqual(
+      expect.objectContaining({
+        source: "/unselected/generative-ui/tool-based",
+      }),
+    );
   });
 
   it("strips the retired built-in-agent prefix to root URLs", async () => {
