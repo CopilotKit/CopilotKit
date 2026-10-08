@@ -53,7 +53,21 @@ Capture pauses while disconnected. Reconnect requests fresh credentials. Develop
 
 Stop cancels pending starts and reconnects. It attempts one final queued batch if no receipt is pending, then disconnects without waiting. Stop is not a guarantee that the last batch was saved. A batch still awaiting its receipt reports `PERSISTENCE_UNKNOWN`, including during a normal stop.
 
-In React, pass the same configuration to `CopilotKitProvider`. Set `learning.trajectoryId` to start automatically, or call the Core methods to control capture.
+If a start or an established capture ends with an error and no `onError` is set, Core logs a console warning with the error code and a setup hint, such as a missing `runtimeUrl`, a Runtime without `intelligence`, or a missing `identifyUser`. Each outcome warns once per Core instance. Server error messages are never shown in the browser. Setting `onError` replaces the warning. Stops and recoverable connection loss do not warn.
+
+### React
+
+Capture needs a Runtime configured with `intelligence` and `identifyUser`, and a project with Trajectories enabled. Then turn capture on in the provider:
+
+```tsx
+<CopilotKitProvider runtimeUrl="/api/copilotkit" learning>
+  {children}
+</CopilotKitProvider>
+```
+
+`learning` or `learning={true}` generates a Trajectory ID and starts capture after mount with the default options. The ID stays the same across rerenders, React StrictMode effect replays, and reconnects. `learning={false}` or removing the prop stops capture. Turning it on again starts a new Trajectory with a new ID. Unmounting the provider stops capture. Read the active ID from `copilotkit.trajectoryId`, or subscribe with `onTrajectoryChanged`.
+
+Pass an object to change the options, such as `onError`. An object starts capture automatically only with `learning.trajectoryId`; without it, call `startTrajectory()` to start.
 
 ## Custom batch sinks
 

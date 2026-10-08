@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import type { AssistantMessage } from "@ag-ui/core";
 import { z } from "zod";
+import { randomUUID } from "@copilotkit/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CopilotKitProvider } from "../CopilotKitProvider";
 import { useCopilotKit } from "../../context";
@@ -400,6 +401,174 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
     });
     expect(warn).not.toHaveBeenCalled();
     expect(stop).toHaveBeenCalledTimes(1);
+  });
+
+  describe("learning={true}", () => {
+    const UUID =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+    // Network capture wraps `fetch` once it starts, so keep the stub itself.
+    let fetchStub: ReturnType<typeof vi.mocked<typeof fetch>>;
+    function connectedIds(): string[] {
+      return fetchStub.mock.calls.map(
+        ([, init]) => JSON.parse(String(init?.body)).params.trajectoryId,
+      );
+    }
+
+    // The shared test setup pins randomUUID; these tests need distinct IDs.
+    beforeEach(() => {
+      fetchStub = vi.mocked(fetch);
+      vi.mocked(randomUUID).mockImplementation(() => crypto.randomUUID());
+    });
+    afterEach(() => {
+      vi.mocked(randomUUID).mockImplementation(() => "mock-thread-id");
+    });
+
+    it("generates a Trajectory ID and starts capture after mount", async () => {
+      render(<App learning />);
+
+      const [id] = connectedIds();
+      expect(id).toMatch(UUID);
+      await authorize(0, id);
+      await join();
+      expect(core.trajectoryId).toBe(id);
+      expect(core.ɵlearningConfigured).toBe(true);
+    });
+
+    it.each([false, undefined])(
+      "keeps capture off for learning=%s",
+      (learning) => {
+        render(<App learning={learning} />);
+
+        expect(fetch).not.toHaveBeenCalled();
+        expect(core.ɵlearningConfigured).toBe(false);
+      },
+    );
+
+    it("keeps the generated ID across rerenders", async () => {
+      const view = render(<App learning />);
+      view.rerender(<App learning />);
+      view.rerender(<App learning={true} />);
+      const [id] = connectedIds();
+      await authorize(0, id);
+      await join();
+      view.rerender(<App learning />);
+
+      expect(connectedIds()).toEqual([id]);
+      expect(core.trajectoryId).toBe(id);
+      expect(transport.sockets).toHaveLength(1);
+    });
+
+    it("reuses the generated ID when root StrictMode replays the effects", async () => {
+      render(<App learning />, { wrapper: StrictMode });
+
+      const [id] = connectedIds();
+      expect(connectedIds()).toEqual([id, id]);
+      await authorize(0, id);
+      await authorize(1, id);
+      await join();
+      expect(transport.sockets).toHaveLength(1);
+      expect(core.trajectoryId).toBe(id);
+    });
+
+    it("keeps the generated ID through connection loss and reconnect", async () => {
+      render(<App learning />);
+      const [id] = connectedIds();
+      await authorize(0, id);
+      await join(0);
+
+      transport.sockets[0].disconnected = true;
+      act(() => core.emitTrajectoryEvent("app.lost", {}));
+      expect(core.trajectoryId).toBeNull();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      await authorize(1, id);
+      await join(1);
+
+      expect(connectedIds()).toEqual([id, id]);
+      expect(core.trajectoryId).toBe(id);
+    });
+
+    it("stops on disable and starts a new Trajectory with a new ID when enabled again", async () => {
+      const view = render(<App learning />);
+      const [first] = connectedIds();
+      await authorize(0, first);
+      await join(0);
+
+      view.rerender(<App learning={false} />);
+      expect(transport.sockets[0].channels[0].left).toBe(true);
+      expect(transport.sockets[0].disconnected).toBe(true);
+      expect(core.trajectoryId).toBeNull();
+      expect(core.ɵlearningConfigured).toBe(false);
+
+      view.rerender(<App learning />);
+      const [, second] = connectedIds();
+      expect(second).toMatch(UUID);
+      expect(second).not.toBe(first);
+      await authorize(1, second);
+      await join(1);
+      expect(core.trajectoryId).toBe(second);
+    });
+
+    it("stops capture on unmount", async () => {
+      const view = render(<App learning />);
+      await authorize(0, connectedIds()[0]);
+      await join();
+
+      view.unmount();
+      expect(transport.sockets[0].channels[0].left).toBe(true);
+      expect(transport.sockets[0].disconnected).toBe(true);
+      expect(History.prototype.pushState).toBe(nativePushState);
+    });
+
+    it("lets a manual start join the generated Trajectory instead of starting another", async () => {
+      render(<App learning />);
+      const manual = core.startTrajectory();
+      const [id] = connectedIds();
+      await authorize(0, id);
+      await join();
+
+      await expect(manual).resolves.toEqual({
+        status: "started",
+        trajectoryId: id,
+      });
+      expect(connectedIds()).toEqual([id]);
+    });
+
+    it("warns when the runtime cannot accept capture", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      render(<App learning />);
+      await act(async () => {
+        pendingAuth[0].resolve(
+          new Response(
+            JSON.stringify({
+              code: "IDENTITY_REQUIRED",
+              message: "Trajectory capture requires an identified user",
+            }),
+            { status: 401 },
+          ),
+        );
+      });
+
+      expect(core.trajectoryId).toBeNull();
+      expect(transport.sockets).toHaveLength(0);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toContain(
+        "[CopilotKit] Trajectory capture did not start (IDENTITY_REQUIRED).",
+      );
+    });
+
+    it("switches between the shorthand and a supplied ID", async () => {
+      const view = render(<App learning />);
+      view.rerender(<App learning={{ trajectoryId: SECOND_ID }} />);
+      await authorize(1, SECOND_ID);
+      await join();
+      expect(core.trajectoryId).toBe(SECOND_ID);
+
+      view.rerender(<App learning={{}} />);
+      expect(core.trajectoryId).toBeNull();
+      expect(connectedIds()).toEqual([expect.stringMatching(UUID), SECOND_ID]);
+    });
   });
 
   it("keeps tool UI mounted through connection loss and reconnect", async () => {
