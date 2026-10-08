@@ -63,7 +63,12 @@ test("controlled native projections retain ordered original calls, result associ
 });
 
 test("API text identity decoding is explicit and rejects changed tracking IDs or segments", () => {
-  const native = { id: "native-tracking", kind: "text", payload: "Original" };
+  const native = {
+    id: "native-tracking",
+    kind: "text",
+    role: "assistant",
+    payload: "Original",
+  };
   const message = {
     id: 'native:"native-tracking":segment:0',
     role: "assistant",
