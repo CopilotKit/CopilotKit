@@ -7,7 +7,15 @@ export const row = {
     if (typeof context.services?.row2?.captureFresh !== "function")
       return {
         status: "blocked",
-        checks: [],
+        checks: [
+          {
+            name: "native-inspection-service",
+            status: "blocked",
+            evidence: [],
+            detail:
+              "Fixture has no row2.captureFresh durable-store inspection service",
+          },
+        ],
         limitations: [
           "Fixture has no row2.captureFresh durable-store inspection service",
         ],

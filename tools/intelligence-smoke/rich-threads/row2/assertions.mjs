@@ -1,27 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
 import { createHash } from "node:crypto";
 
-export const categories = Object.freeze([
-  "text",
-  "reasoning",
-  "ordinary-tools",
-  "pie-chart",
-  "bar-chart",
-  "image",
-  "document",
-  "audio",
-  "video",
-  "flight-card",
-  "a2ui-dashboard",
-  "calculator",
-  "mcp-tools",
-  "mcp-resource",
-  "shared-state",
-  "frontend-completed",
-  "frontend-pending",
-  "native-completed",
-  "native-pending",
-]);
+import { categories } from "../contract.mjs";
+export { categories };
 
 export function atPointer(value, pointer) {
   if (pointer === "") return value;
@@ -67,6 +48,10 @@ function decodeBytes(value, encoding) {
 /** Media pointers share one complete message envelope, including sibling sidecars. */
 export function compareMedia(envelope, observation) {
   const payload = atPointer(envelope, observation.bytes.pointer);
+  if (payload === undefined)
+    throw new Error(
+      `Missing native media bytes at ${observation.bytes.pointer}`,
+    );
   const { bytes, mime: embeddedMime } = decodeBytes(
     payload,
     observation.bytes.encoding,
@@ -87,6 +72,7 @@ export function compareMedia(envelope, observation) {
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   return {
     passed:
+      (embeddedMime === undefined || embeddedMime === mime) &&
       sha256 === observation.expected.sha256 &&
       bytes.length === observation.expected.byteLength &&
       mime === observation.expected.mime &&
@@ -119,7 +105,7 @@ export function compareCapture(capture) {
   )
     throw new Error("Row2 requires an identified durable native store");
   if (
-    !before ||
+    !before?.records ||
     Object.values(before.records ?? {}).some((value) =>
       Array.isArray(value) ? value.length > 0 : value !== null,
     )
@@ -145,7 +131,9 @@ export function compareCapture(capture) {
     let passed = false;
     let detail;
     try {
-      const actual = atPointer(record, observation.pointer);
+      const actual = observation.pointers
+        ? observation.pointers.map((pointer) => atPointer(record, pointer))
+        : atPointer(record, observation.pointer);
       if (observation.media) {
         const comparison = compareMedia(actual, observation.media);
         passed = comparison.passed;
@@ -172,6 +160,19 @@ export function compareCapture(capture) {
 }
 
 export function coverageChecks(coverage, comparisons) {
+  for (const [category, declaration] of Object.entries(coverage ?? {})) {
+    if (!categories.includes(category))
+      throw new Error(`Unknown coverage category: ${category}`);
+    if (
+      declaration.required &&
+      (!Array.isArray(declaration.required) ||
+        declaration.required.some(
+          (name) => typeof name !== "string" || !name.trim(),
+        ) ||
+        new Set(declaration.required).size !== declaration.required.length)
+    )
+      throw new Error(`Invalid required observations: ${category}`);
+  }
   return categories.map((category) => {
     const declared = coverage?.[category];
     const actual = comparisons.filter((check) => check.category === category);

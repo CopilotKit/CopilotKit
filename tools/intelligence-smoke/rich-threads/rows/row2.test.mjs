@@ -11,6 +11,10 @@ import {
   coverageChecks,
 } from "../row2/assertions.mjs";
 import { readNativeJson, readNativeSqlite } from "../row2/native-store.mjs";
+import {
+  strandsEnvelopes,
+  frontendToolObservations,
+} from "../row2/tool-controls.mjs";
 import { row } from "./row2.mjs";
 
 function capture() {
@@ -45,7 +49,7 @@ function capture() {
     observations: [
       {
         name: "ordered-messages",
-        category: "text",
+        category: "user-text",
         record: "session",
         pointer: "/messages",
         expected: [
@@ -139,7 +143,7 @@ test("partial coverage cannot produce a green row; exclusions need evidence", as
   const saved = [];
   const report = await row.run({
     fixture: {
-      row2: { coverage: { text: { required: ["ordered-messages"] } } },
+      row2: { coverage: { "user-text": { required: ["ordered-messages"] } } },
     },
     services: { row2: { captureFresh: async () => [capture()] } },
     writeArtifact: async (...args) => saved.push(args),
@@ -149,7 +153,7 @@ test("partial coverage cannot produce a green row; exclusions need evidence", as
   assert.throws(
     () =>
       coverageChecks(
-        { audio: { status: "source-limitation", reason: "missing" } },
+        { "audio:data": { status: "source-limitation", reason: "missing" } },
         [],
       ),
     /exclusion/,
@@ -215,4 +219,109 @@ test("JSON reader rejects out-of-store paths and keeps the complete session", as
   } finally {
     await rm(root, { recursive: true });
   }
+});
+
+test("Strands pending native calls are inspected inside the interrupt envelope", () => {
+  const snapshot = {
+    records: {
+      session: {
+        data: {
+          messages: [],
+          interrupts: {
+            activated: true,
+            pendingToolExecution: {
+              assistantMessageData: {
+                role: "assistant",
+                content: [
+                  {
+                    toolUse: {
+                      toolUseId: "c1",
+                      name: "approve",
+                      input: { amount: 37 },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+  const envelopes = strandsEnvelopes(snapshot);
+  assert.equal(envelopes.length, 1);
+  assert.match(envelopes[0].pointer, /pendingToolExecution/);
+  const observations = frontendToolObservations({
+    framework: "strands-typescript",
+    envelopes,
+    category: "native-pending",
+    callId: "c1",
+    name: "approve",
+    args: { amount: 37 },
+    eventsFile: "events.json",
+  });
+  const value = capture();
+  value.after.records = snapshot.records;
+  value.observations = observations;
+  assert.ok(compareCapture(value).every((check) => check.status === "passed"));
+  snapshot.records.session.data.interrupts.pendingToolExecution.assistantMessageData.content[0].toolUse.input.amount = 99;
+  assert.ok(compareCapture(value).some((check) => check.status === "failed"));
+});
+
+test("duplicate native calls fail the occurrence check rather than being deduplicated", () => {
+  const snapshot = {
+    records: {
+      session: {
+        data: {
+          messages: [
+            {
+              role: "assistant",
+              content: [
+                { toolUse: { toolUseId: "c1", name: "approve", input: {} } },
+                { toolUse: { toolUseId: "c1", name: "approve", input: {} } },
+              ],
+            },
+          ],
+        },
+      },
+    },
+  };
+  const value = capture();
+  value.after.records = snapshot.records;
+  value.observations = frontendToolObservations({
+    framework: "strands-typescript",
+    envelopes: strandsEnvelopes(snapshot),
+    category: "frontend-pending",
+    callId: "c1",
+    name: "approve",
+    args: {},
+    eventsFile: "events.json",
+  });
+  assert.equal(
+    compareCapture(value).find((check) =>
+      check.name.endsWith("call-occurrences"),
+    ).status,
+    "failed",
+  );
+});
+
+test("conflicting native MIME declarations fail even when bytes and filename match", () => {
+  const bytes = Buffer.from("sample");
+  const envelope = {
+    data: `data:image/png;base64,${bytes.toString("base64")}`,
+    mime: "video/mp4",
+    filename: "sample.mp4",
+  };
+  const result = compareMedia(envelope, {
+    bytes: { pointer: "/data", encoding: "data-uri" },
+    mimePointer: "/mime",
+    filenamePointer: "/filename",
+    expected: {
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+      byteLength: bytes.length,
+      mime: "video/mp4",
+      filename: "sample.mp4",
+    },
+  });
+  assert.equal(result.passed, false);
 });
