@@ -2,13 +2,14 @@
  * absence from a framework which never received/emitted them is a source
  * limitation, separate from persistence of its real MCP tool calls/results.
  */
+const isMcpActivity = (value) =>
+  value && typeof value === "object" && value.activityType === "mcp-apps";
+
 export function runtimeMcpLimitation(boundary) {
   if (!Array.isArray(boundary.frameworkRuns) || !boundary.frameworkRuns.length)
     throw new Error(
       "Independent framework capture required for runtime source classification",
     );
-  const isMcpActivity = (value) =>
-    value && typeof value === "object" && value.activityType === "mcp-apps";
   const contains = (value) => {
     if (!value || typeof value !== "object") return false;
     return isMcpActivity(value) || Object.values(value).some(contains);
