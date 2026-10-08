@@ -37,9 +37,7 @@ const base = () => ({
           },
         ],
         state: {
-          todos: [
-            { id: "todo1", title: "retain", description: "original state" },
-          ],
+          todos: [{ id: "todo1", title: "retain", description: "original state" }],
         },
         controls: [],
       },
@@ -47,26 +45,20 @@ const base = () => ({
   ),
 });
 const receipts = () =>
-  [
-    "intelligence-api",
-    "intelligence-gateway",
-    "application-runtime",
-    "native-backend",
-  ].map((role) => ({
-    service: role,
-    role,
-    owner: "unit",
-    before: { instance: "old", store: "durable-fixture" },
-    after: { instance: "new", store: "durable-fixture" },
-    ready: true,
-  }));
+  ["intelligence-api", "intelligence-gateway", "application-runtime", "native-backend"].map(
+    (role) => ({
+      service: role,
+      role,
+      owner: "unit",
+      before: { instance: "old", store: "durable-fixture" },
+      after: { instance: "new", store: "durable-fixture" },
+      ready: true,
+    }),
+  );
 
 test("restart proof rejects missing roles, unchanged processes, wrong owners and new stores", () => {
   assertRestarts(receipts(), "unit");
-  assert.throws(
-    () => assertRestarts(receipts().slice(1), "unit"),
-    /Missing actual restart/,
-  );
+  assert.throws(() => assertRestarts(receipts().slice(1), "unit"), /Missing actual restart/);
   for (const mutate of [
     (r) => {
       r[0].after.instance = r[0].before.instance;
@@ -128,10 +120,7 @@ test("continuation must save both roles in both stores and retain history and st
     after[store].items.push(expected.userItem, expected.assistantItem);
   assertContinued(before, after, expected);
   after.native.items.pop();
-  assert.throws(
-    () => assertContinued(before, after, expected),
-    /assistant item missing/,
-  );
+  assert.throws(() => assertContinued(before, after, expected), /assistant item missing/);
 });
 
 function pending() {
@@ -185,54 +174,51 @@ test("resume requires original interaction, cleared pending, result and saved fi
   }
 });
 
+const projection = (snapshot) => ({
+  identity: snapshot.identity,
+  ...snapshot.intelligence,
+  evidence: ["unit-browser.json"],
+});
+
 function fixture() {
   const snapshots = new Map();
   const scenarios = ["fresh", "imported"].flatMap((origin) =>
-    [
-      "rich",
-      "frontend-pending",
-      "frontend-completed",
-      "native-pending",
-      "native-completed",
-    ].map((kind) => {
-      const id = `${origin}-${kind}`;
-      const s = base();
-      s.identity.intelligenceThreadId = id;
-      s.identity.nativeThreadId = `native-${id}`;
-      const scenario = {
-        id,
-        origin,
-        kind,
-        interactionId: `${id}-control`,
-        provenance: "unit fixture only",
-        coverage: requiredItems.map((item) => ({
-          item,
-          status: "exercised",
-          evidence: ["unit-only.json"],
-        })),
-      };
-      if (kind !== "rich") {
-        for (const store of ["native", "intelligence"])
-          s[store].controls.push({
-            id: scenario.interactionId,
-            kind: kind.split("-")[0],
-            status: kind.endsWith("pending") ? "pending" : "completed",
-            payload: "approve",
-            ...(kind.endsWith("completed")
-              ? { result: true, finalResponse: { id: "done", text: "done" } }
-              : {}),
-          });
-      }
-      snapshots.set(id, s);
-      return scenario;
-    }),
+    ["rich", "frontend-pending", "frontend-completed", "native-pending", "native-completed"].map(
+      (kind) => {
+        const id = `${origin}-${kind}`;
+        const s = base();
+        s.identity.intelligenceThreadId = id;
+        s.identity.nativeThreadId = `native-${id}`;
+        const scenario = {
+          id,
+          origin,
+          kind,
+          interactionId: `${id}-control`,
+          provenance: "unit fixture only",
+          coverage: requiredItems.map((item) => ({
+            item,
+            status: "exercised",
+            evidence: ["unit-only.json"],
+          })),
+        };
+        if (kind !== "rich") {
+          for (const store of ["native", "intelligence"])
+            s[store].controls.push({
+              id: scenario.interactionId,
+              kind: kind.split("-")[0],
+              status: kind.endsWith("pending") ? "pending" : "completed",
+              payload: "approve",
+              ...(kind.endsWith("completed")
+                ? { result: true, finalResponse: { id: "done", text: "done" } }
+                : {}),
+            });
+        }
+        snapshots.set(id, s);
+        return scenario;
+      },
+    ),
   );
   const artifacts = new Map();
-  const projection = (snapshot) => ({
-    identity: snapshot.identity,
-    ...snapshot.intelligence,
-    evidence: ["unit-browser.json"],
-  });
   return {
     scenarios,
     snapshots,
@@ -286,24 +272,19 @@ test("row orchestrates all ten scenarios and captures pre/post evidence", async 
   assert.ok(f.artifacts.has("restarts.json"));
 });
 
-test("coverage omissions remain unvalidated and missing pending controls fail", async () => {
+test("coverage omissions and missing pending controls remain unvalidated", async () => {
   const f = fixture();
   for (const scenario of f.scenarios) scenario.coverage = [];
   assert.equal((await row.run(f.context)).status, "unvalidated");
   const other = fixture();
   other.scenarios.pop();
-  await assert.rejects(
-    row.run(other.context),
-    /Missing imported native-completed/,
-  );
+  assert.equal((await row.run(other.context)).status, "unvalidated");
 });
 
 test("completed controls cannot reappear pending after restart", async () => {
   const f = fixture();
   f.context.services.row5.restart = async () => {
-    f.snapshots.get(
-      "fresh-frontend-completed",
-    ).intelligence.controls[0].status = "pending";
+    f.snapshots.get("fresh-frontend-completed").intelligence.controls[0].status = "pending";
     return receipts();
   };
   await assert.rejects(row.run(f.context), /changed across reload or restart/);
@@ -327,4 +308,42 @@ test("owned process restarts an actual child and cleans it up", async () => {
   } finally {
     await process.stop();
   }
+});
+
+test("owned process bounds a hung readiness callback and stops its child", async () => {
+  const owned = ownedProcess({
+    owner: "unit",
+    service: "hung",
+    role: "native-backend",
+    store: "fixture-file",
+    file: process.execPath,
+    args: ["-e", "setInterval(()=>{},1000)"],
+    timeoutMs: 100,
+    ready: () => new Promise(() => {}),
+  });
+  await assert.rejects(owned.start(), /readiness timed out/);
+  await owned.stop();
+});
+
+test("owned process reports spawn failure without hanging cleanup", async () => {
+  const owned = ownedProcess({
+    owner: "unit",
+    service: "missing",
+    role: "native-backend",
+    store: "fixture-file",
+    file: "/nonexistent-pni600-executable",
+    timeoutMs: 100,
+    ready: async () => false,
+  });
+  await assert.rejects(owned.start(), /ENOENT/);
+  await owned.stop();
+});
+
+test("row verdict agrees with shared aggregation for incomplete coverage", async () => {
+  const { aggregate } = await import("../contract.mjs");
+  const f = fixture();
+  f.scenarios.splice(0, 1);
+  const result = await row.run(f.context);
+  assert.equal(result.status, aggregate(result.checks));
+  assert.equal(result.status, "unvalidated");
 });
