@@ -146,6 +146,22 @@ export function verifyCompletedControl(capture, interaction) {
   );
 }
 
+export function verifyNativeCompleted(capture, interaction) {
+  const resume = witnessAt(capture, interaction.resumePointer);
+  assert.equal(
+    resume.interruptId,
+    interaction.controlId,
+    "Native resume targets another interrupt",
+  );
+  assert.ok(
+    Object.hasOwn(resume, "value"),
+    "Native resume omitted the decision",
+  );
+  const response = witnessAt(capture, interaction.responsePointer);
+  assert.equal(response.role, "assistant");
+  assert.ok(response.content, "Native resume omitted the assistant response");
+}
+
 async function browserProof(browser, outputDir) {
   assert.ok(
     browser?.fresh === true,
@@ -242,7 +258,9 @@ export const row = {
               interaction.controlId,
               "Interaction targeted a different control",
             );
-            if (category !== "calculator-iframe")
+            if (category === "native-completed")
+              verifyNativeCompleted(live.emitted, interaction);
+            else if (category !== "calculator-iframe")
               verifyCompletedControl(live.emitted, interaction);
           }
         }

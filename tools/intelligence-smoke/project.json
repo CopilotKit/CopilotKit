@@ -37,6 +37,31 @@
       },
       "cache": false
     },
+    "rich-threads-prepare": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/intelligence-smoke/rich-threads/prepare.mjs"
+      },
+      "cache": false
+    },
+    "rich-threads-setup": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "npm ci --ignore-scripts --prefix tools/intelligence-smoke/rich-threads/dependencies",
+          "node tools/intelligence-smoke/rich-threads/dependencies/node_modules/playwright/cli.js install chromium"
+        ],
+        "parallel": false
+      },
+      "cache": false
+    },
+    "rich-threads-driver-test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node --test tools/intelligence-smoke/rich-threads/driver.integration.mjs"
+      },
+      "cache": false
+    },
     "format": {
       "executor": "nx:run-commands",
       "options": {

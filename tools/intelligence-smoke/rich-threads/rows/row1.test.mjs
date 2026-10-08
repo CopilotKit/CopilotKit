@@ -1,7 +1,37 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { comparePersistence, verifyMedia, witnessAt } from "./row1.mjs";
+import {
+  comparePersistence,
+  verifyMedia,
+  witnessAt,
+  verifyNativeCompleted,
+} from "./row1.mjs";
+
+test("native completion requires the original interrupt and captured resume decision", () => {
+  const emitted = {
+    events: [
+      {
+        input: {
+          resume: [{ interruptId: "original", value: { approved: true } }],
+        },
+      },
+    ],
+    messages: [{ role: "assistant", content: "Done" }],
+  };
+  const action = {
+    controlId: "original",
+    resumePointer: "/events/0/input/resume/0",
+    responsePointer: "/messages/0",
+  };
+  verifyNativeCompleted(emitted, action);
+  assert.throws(
+    () => verifyNativeCompleted(emitted, { ...action, controlId: "other" }),
+    /another interrupt/,
+  );
+  delete emitted.events[0].input.resume[0].value;
+  assert.throws(() => verifyNativeCompleted(emitted, action), /decision/);
+});
 
 const capture = () => ({
   threadId: "thread-1",

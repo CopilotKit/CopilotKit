@@ -92,6 +92,7 @@ export function createIntelligence({ scope, pool, fetchImpl = fetch }) {
     };
   }
   return {
+    pool,
     read,
     rawEvents,
     exists: async (threadId) => Boolean(await metadata(threadId)),

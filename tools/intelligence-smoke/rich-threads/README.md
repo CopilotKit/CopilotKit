@@ -5,12 +5,13 @@ interface. The existing Thread/Learning smoke remains separate. A passing unit
 suite is **not** a rich-thread parity verdict.
 
 ```sh
-pnpm nx run intelligence-smoke:test
+pnpm nx run intelligence-smoke:rich-threads-setup
+pnpm nx run intelligence-smoke:rich-threads-test
+pnpm nx run intelligence-smoke:rich-threads-driver-test
 pnpm nx run intelligence-smoke:lint
 pnpm nx run intelligence-smoke:rich-threads -- \
-  --framework=mastra --rows=1 \
-  --fixture=/absolute/path/to/fixture.mjs \
-  --baseline=/absolute/path/to/baseline.json \
+  --framework=mastra,strands-typescript --rows=1,2 \
+  --config=/absolute/path/to/private-environment.json \
   --output=/new/owned/evidence-directory
 ```
 
@@ -18,7 +19,53 @@ Framework IDs are `langgraph-python`, `langgraph-fastapi`, `langgraph-js`, `adk`
 `mastra`, `strands-python`, and `strands-typescript`. Row modules are
 `rows/row1.mjs` through `rows/row6.mjs`. An absent selected module fails; it is
 never silently skipped. Each module exports `row = { id, title, run(context) }`.
-This change supplies row 1; the other rows have separate owners.
+The concrete bootstrap currently supports Mastra and Strands TypeScript; naming
+the other five frameworks in the contract does not implement them.
+
+## Committed browser bootstrap
+
+`--config` loads `bootstrap.mjs`; no external executable fixture is required.
+It creates one lifecycle environment, verifies empty durable stores/queues, runs
+frameworks and rows serially, then cleans up. Config follows
+[`lifecycle/README.md`](lifecycle/README.md), plus `redisUrl`, optional exact
+bootstrap-table allowances, and an optional `dependenciesDirectory` (defaults to
+the locked `dependencies/` folder). Keep this file private: it contains keys and
+database connection strings. Each scope needs `capture.store`, with the runtime
+writing that same mounted directory. `suite.json` reports harness execution
+separately from product verdicts.
+
+`runtime.mjs` reads `RICH_THREADS_RUNTIME_CONFIG`. That private JSON specifies
+`captureDirectory`, `apiUrl`, `gatewayUrl`, `apiKey`, `mcpServers`, and `scopes`.
+Each runtime scope specifies `framework`, `agentId`, `userId`, `injectA2UITool`,
+and `routes`, a map of mode names to native HTTP endpoints. Required modes are
+`rich`, `reasoning`, `state`, `media`, `native-suspend`, plus Mastra
+`native-approval`. Every mode also has a source-only route without Intelligence,
+used to create original native histories before import. Native-only captures
+are never presented as connected persistence evidence.
+
+`application/page.tsx` imports a single existing Beautiful Chat implementation,
+adds the real threads drawer, and renders native interrupt decisions. Browser
+drivers submit through that UI, await `beforeRun(input)` before allowing a POST,
+and retain screenshots plus observed chart/frame/media/control surfaces.
+
+`rich-threads-prepare -- --output=<new-directory> --pins=<pins.json>` stages
+committed Showcase/application sources and generates an installable lockfile.
+Pins map package names to exact registry versions or `{path,sha256}` candidate
+tarballs; tarball bytes are checked before staging. The staged Dockerfile builds
+one application/runtime/Mastra image. Runtime command:
+`node /app/rich-threads/runtime.mjs`. Mastra command:
+`node --import tsx /app/rich-threads/row2/mastra-backend.mjs`, with
+`RICH_THREADS_MASTRA_SOURCE=/app/src/mastra/index.ts` and
+`TSX_TSCONFIG_PATH=/app/tsconfig.json`. Use row2's durable-store environment
+bindings. Strands uses its actual Showcase server and durable session wrapper.
+
+Capture records the exact native input/events before runtime middleware and the
+canonical Phoenix payload before ingestion. Exact-ID retries retain a separate
+attempt log. The durable reader independently reads scoped SQL rows and the
+public transcript API. Only gateway-added `organization_id` and
+`metadata.cpki_ingested` are removed after validation; complete raw rows remain
+in the saved artifact. Message/state projection uses the pinned public AG-UI
+consumer, not the Intelligence transcript implementation.
 
 ## Fixture bootstrap
 
@@ -115,8 +162,11 @@ continuation, restart or repeat-import safety.
 The existing Intelligence smoke workflow invokes `intelligence-smoke:test`, which
 now includes the row-module and runner failure controls. They deliberately alter
 order, counts, tool associations, chart values, state fields, pending IDs and
-media bytes/metadata. The live runner requires a real fixture bootstrap; this
-change does not ship seven complete backend/browser drivers or claim full
-seven-framework E2E coverage. Do not run a synthetic fixture in CI and label its
-result as product parity. Retain live output directories as CI artifacts when a
-real fixture is provisioned. Missing coverage must remain visible.
+media bytes/metadata. The separate driver controls launch real Chromium against
+a small local control page; they validate browser wiring, not Showcase parity.
+Live execution still requires installable candidate images and a complete private
+launch configuration. The approved hosting/access decision remains unresolved.
+The six-row source/import/continuation composition, URL/file media resolvers,
+and full seven-framework acceptance remain incomplete. Do not label unit or
+driver controls as product parity. Retain live output directories when an owned
+environment can actually run; missing coverage stays visible.
