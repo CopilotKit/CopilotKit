@@ -265,3 +265,30 @@ test("does not downgrade a demonstrated category failure to missing coverage", a
   const result = await row.run(input);
   assert.equal(result.status, "failed");
 });
+
+test("rejects already-connected native identity behind a different public ID", async () => {
+  const input = context();
+  input.services.importSafety.snapshotDestination = async () => ({
+    threads: [
+      {
+        id: "public-random",
+        sourceId: "public-random",
+        nativeThreadId: "native-a",
+        messages: [],
+        events: [],
+        state: null,
+      },
+    ],
+  });
+  await assert.rejects(row.run(input), /Source already connected/);
+});
+
+test("requires every declared mixed-store collision outcome and retains after evidence", async () => {
+  const input = context();
+  input.fixture.collisionSourceIds = ["connected-control"];
+  await assert.rejects(
+    row.run(input),
+    /Missing or unexpected connected-collision outcome/,
+  );
+  assert(input.artifacts["after-initial.json"]);
+});
