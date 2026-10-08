@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  ContinuationUnavailable,
   fromImportedSource,
   row,
   validateSource,
@@ -50,7 +51,7 @@ function capture(mode = "followup") {
     absentBeforeImport: true,
     importEvidence: "cli.json",
     nativeValidationEvidence: "native.json",
-    categories: ["text", "pie-chart"],
+    categories: ["user-text", "assistant-text", "chart-pie"],
     nativeItems,
     mapping,
     mode,
@@ -98,6 +99,8 @@ function capture(mode = "followup") {
           },
         ];
   const state = { ...saved.state, note: "after" };
+  source.expectedState = structuredClone(state);
+  source.nativeState = structuredClone(saved.state);
   const action = {
     mapping,
     runId: "run-2",
@@ -163,7 +166,7 @@ const mutations = {
     c.action.mapping.intelligenceId = "other";
   },
   "text only source": (c) => {
-    c.source.categories = ["text"];
+    c.source.categories = ["user-text", "assistant-text"];
   },
   "orphan native call": (c) => {
     c.source.nativeItems.pop();
@@ -267,7 +270,7 @@ test("partial rich source stays unvalidated and retains before/action/after evid
   assert.equal(report.status, "unvalidated");
   assert.equal(report.checks[0].status, "passed");
   assert.ok(
-    report.limitations.includes("Unvalidated applicable category: audio"),
+    report.limitations.includes("Unvalidated applicable category: audio:data"),
   );
   assert.equal(ctx.artifacts.size, 4);
 });
@@ -285,7 +288,7 @@ test("failure retains all snapshots and fails row", async () => {
   c.after.native.items.pop();
   const ctx = context([c]);
   assert.equal((await row.run(ctx)).status, "failed");
-  assert.equal(ctx.artifacts.size, 4);
+  assert.equal(ctx.artifacts.size, 5);
 });
 test("missing fixture is blocked", async () =>
   assert.equal((await row.run({ services: {} })).status, "blocked"));
@@ -306,7 +309,7 @@ test("row3 source contract rejects changed import before row4 starts", () => {
       completeCheckpoint: true,
     },
     nativeIdentity,
-    coverage: ["text", "pie-chart"],
+    coverage: ["user-text", "assistant-text", "chart-pie"],
     expected,
   };
   const native = {
@@ -325,4 +328,57 @@ test("row3 source contract rejects changed import before row4 starts", () => {
   assert.throws(() =>
     fromImportedSource(source, native, { ...imported, state: {} }, plan),
   );
+});
+
+test("setup failure remains blocked with diagnostic evidence", async () => {
+  const ctx = context([capture()]);
+  ctx.services.continuation.read = async () => {
+    throw new ContinuationUnavailable(
+      "setup",
+      "Owned database connection refused",
+    );
+  };
+  const report = await row.run(ctx);
+  assert.equal(report.status, "blocked");
+  assert.equal(report.checks[0].status, "blocked");
+  assert.equal(ctx.artifacts.get("error-0.json").category, "setup");
+});
+test("a generic network-looking assertion failure cannot silently become setup", async () => {
+  const ctx = context([capture()]);
+  ctx.services.continuation.read = async () => {
+    throw new Error("connection metadata missing");
+  };
+  assert.equal((await row.run(ctx)).status, "failed");
+});
+
+test("changing an allowed state path still must match the requested outcome", () => {
+  const c = capture();
+  c.action.state.note = "wrong";
+  c.after.native.state.note = "wrong";
+  c.after.intelligence.state.note = "wrong";
+  assert.throws(() => verifyContinuation(c), /requested outcome/);
+});
+
+test("verified title-generation traffic is not a replacement conversation", () => {
+  const c = capture();
+  c.after.nativeSessionIds.push("title-1");
+  c.after.auxiliarySessions = [
+    {
+      id: "title-1",
+      purpose: "title-generation",
+      parentNativeId: c.source.mapping.nativeId,
+      evidence: "native-title.json",
+      items: [{ role: "assistant", content: "Chart discussion" }],
+    },
+  ];
+  verifyContinuation(c);
+  c.after.auxiliarySessions[0].items = [];
+  assert.throws(() => verifyContinuation(c), /empty native session/);
+});
+
+test("matching empty before states cannot conceal loss from the original source", () => {
+  const c = capture();
+  c.before.native.state = {};
+  c.before.intelligence.state = {};
+  assert.throws(() => verifyContinuation(c), /Original native state/);
 });

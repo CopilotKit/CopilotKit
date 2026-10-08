@@ -4,29 +4,21 @@ import {
   assertImported,
 } from "../import/assertions.mjs";
 
-/** Canonical projections must retain complete payloads; adapters own native decoding. */
-export const continuationCategories = [
-  "text",
-  "reasoning",
-  "pie-chart",
-  "bar-chart",
-  "image",
-  "document",
-  "audio",
-  "video",
-  "flight-cards",
-  "a2ui",
-  "calculator",
-  "tools",
-  "mcp",
-  "mcp-app",
-  "state",
-  "frontend-completed",
-  "frontend-pending",
-  "native-completed",
-  "native-pending",
-  "parallel-surfaces",
-];
+import { categories } from "../contract.mjs";
+
+// Run-error persistence is a row1 case; row4 requires successful continuation.
+export const continuationCategories = categories.filter(
+  (c) => c !== "run-error",
+);
+
+/** Fixture services classify observed infrastructure/model failures explicitly. */
+export class ContinuationUnavailable extends Error {
+  constructor(category, message) {
+    super(message);
+    assert.ok(["setup", "model", "source"].includes(category));
+    this.category = category;
+  }
+}
 const nonempty = (value) =>
   typeof value === "string" && value.trim().length > 0;
 const copy = (value) => structuredClone(value);
@@ -42,13 +34,15 @@ export function fromImportedSource(source, native, imported, plan) {
     id: source.id,
     provenance: source.provenance.description,
     categories: source.coverage,
+    nativeState: native.state,
     nativeItems: native.items,
     mapping: {
       intelligenceId: imported.threadId,
       nativeId: source.nativeIdentity.threadId,
       userId: source.nativeIdentity.userId ?? null,
       appId: source.nativeIdentity.appId ?? null,
-      agentId: source.nativeIdentity.agentId,
+      agentId: imported.agentId ?? source.nativeIdentity.agentId,
+      nativeAgentId: source.nativeIdentity.agentId,
       resourceId: source.nativeIdentity.resourceId ?? null,
     },
     pending: pending && {
@@ -72,14 +66,20 @@ export function validateSource(source) {
     "Native validation evidence is required",
   );
   assert.ok(
-    Array.isArray(source.categories) && source.categories.includes("text"),
+    Array.isArray(source.categories) && source.categories.includes("user-text"),
   );
   assert.ok(
-    source.categories.some((c) => !["text", "reasoning"].includes(c)),
+    source.categories.some(
+      (c) => !["user-text", "assistant-text", "reasoning"].includes(c),
+    ),
     "Text-only history cannot establish rich continuation",
   );
   assert.ok(
     ["followup", "frontend-pending", "native-pending"].includes(source.mode),
+  );
+  assert.ok(
+    source.nativeItems.some((item) => item.kind !== "text"),
+    "Rich source requires actual non-text occurrences",
   );
   const calls = new Map();
   for (const item of source.nativeItems) {
@@ -183,15 +183,53 @@ export function verifyContinuation({ source, before, after, action }) {
   validateSource(source);
   validateSnapshot(before, source.mapping, "before");
   validateSnapshot(after, source.mapping, "after");
+  const added = after.nativeSessionIds.filter(
+    (id) => !before.nativeSessionIds.includes(id),
+  );
+  const auxiliary = after.auxiliarySessions ?? [];
+  for (const session of auxiliary) {
+    assert.equal(
+      session.purpose,
+      "title-generation",
+      "Unexpected auxiliary conversation",
+    );
+    assert.equal(
+      session.parentNativeId,
+      source.mapping.nativeId,
+      "Title traffic belongs to another thread",
+    );
+    assert.ok(
+      nonempty(session.evidence),
+      "Retain native title-generation provenance",
+    );
+    assert.ok(
+      Array.isArray(session.items) && session.items.length > 0,
+      "New empty native session cannot be title traffic",
+    );
+  }
   same(
-    after.nativeSessionIds.toSorted(),
+    added.toSorted(),
+    auxiliary.map((session) => session.id).toSorted(),
+    "Continuation created an unexplained native session",
+  );
+  same(
+    after.nativeSessionIds.filter((id) => !added.includes(id)).toSorted(),
     before.nativeSessionIds.toSorted(),
-    "Continuation created or removed a native session",
+    "Continuation removed an original native session",
   );
   same(
     before.native.items,
     source.nativeItems,
     "Imported source changed before continuation",
+  );
+  assert.ok(
+    Object.hasOwn(source, "nativeState"),
+    "Retain original native source state",
+  );
+  same(
+    before.native.state,
+    source.nativeState,
+    "Original native state changed before continuation",
   );
   same(
     before.intelligence.items,
@@ -301,6 +339,17 @@ export function verifyContinuation({ source, before, after, action }) {
     nativeItems: [...source.nativeItems, ...action.newItems],
   });
   const changed = source.stateChanges ?? [];
+  if (changed.length) {
+    assert.ok(
+      Object.hasOwn(source, "expectedState"),
+      "Changed state needs an independently specified expected outcome",
+    );
+    same(
+      action.state,
+      source.expectedState,
+      "State change differs from the requested outcome",
+    );
+  }
   assert.ok(
     changed.every((p) => Array.isArray(p) && p.length && p.every(nonempty)),
     "State changes require explicit non-root paths",
@@ -370,6 +419,8 @@ export const row = {
     const limitations = [];
     const exercised = new Set();
     const modes = new Set();
+    let stateUpdated = false;
+    let resultSaved = false;
     const sources = await api.sources();
     assert.ok(Array.isArray(sources), "Continuation sources must be an array");
     assert.equal(
@@ -411,6 +462,8 @@ export const row = {
         verifyContinuation({ source, before, after, action });
         source.categories.forEach((c) => exercised.add(c));
         modes.add(source.mode);
+        stateUpdated ||= Boolean(source.stateChanges?.length);
+        resultSaved ||= action.newItems.some((item) => item.kind === "result");
         checks.push({
           name: source.id,
           status: "passed",
@@ -419,11 +472,27 @@ export const row = {
             "Original identities, retained rich history/state and new activity verified in both durable stores",
         });
       } catch (error) {
+        const category =
+          error instanceof ContinuationUnavailable
+            ? error.category
+            : "continuation";
+        const status =
+          category === "setup"
+            ? "blocked"
+            : ["model", "source"].includes(category)
+              ? "unvalidated"
+              : "failed";
+        const errorArtifact = `error-${index}.json`;
+        await writeArtifact(errorArtifact, {
+          category,
+          message: error.message,
+        });
+        evidence.push(errorArtifact);
         checks.push({
           name: source.id,
-          status: "failed",
+          status,
           evidence,
-          detail: error.message,
+          detail: `${category}: ${error.message}`,
         });
       }
     }
@@ -446,7 +515,7 @@ export const row = {
         limitations.push(`Unvalidated applicable category: ${category}`);
     }
     for (const mode of ["followup", "frontend-pending", "native-pending"]) {
-      const category = mode === "followup" ? "text" : mode;
+      const category = mode === "followup" ? "user-text" : mode;
       if (
         !modes.has(mode) &&
         !checks.some(
@@ -455,12 +524,16 @@ export const row = {
       )
         limitations.push(`Missing successful ${mode} source`);
     }
+    if (!modes.size)
+      limitations.push("No valid rich source continued successfully");
     return {
       status: checks.some((c) => c.status === "failed")
         ? "failed"
-        : limitations.length || checks.some((c) => c.status === "unvalidated")
-          ? "unvalidated"
-          : "passed",
+        : checks.some((c) => c.status === "blocked")
+          ? "blocked"
+          : limitations.length || checks.some((c) => c.status === "unvalidated")
+            ? "unvalidated"
+            : "passed",
       checks,
       limitations,
     };
