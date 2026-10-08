@@ -162,3 +162,136 @@ test("URL equality cannot stand in for durable resource bytes", () => {
     /Saved attachment bytes/,
   );
 });
+
+test("missing generation and media coverage stay unvalidated, not persistence failures", async (t) => {
+  const { mkdtemp, writeFile, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { row } = await import("./row1.mjs");
+  const directory = await mkdtemp(join(tmpdir(), "row1-coverage-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  await writeFile(
+    join(directory, "unit-only-screenshot.png"),
+    "unit fixture; not browser evidence",
+  );
+  const emitted = capture();
+  const context = {
+    outputDir: directory,
+    writeArtifact: async (name) => name,
+    fixture: {
+      row1: {
+        scenarios: [{ id: "missing-media", categories: ["image:data"] }],
+      },
+    },
+    services: {
+      row1: {
+        runFresh: async () => ({
+          emitted,
+          browser: {
+            fresh: true,
+            url: "http://example.invalid",
+            screenshots: ["unit-only-screenshot.png"],
+          },
+          witnesses: [
+            { category: "image:data", pointer: "/messages/0/content" },
+          ],
+        }),
+        readSaved: async () => structuredClone(emitted),
+      },
+    },
+  };
+  const result = await row.run(context);
+  assert.equal(result.status, "unvalidated");
+  assert.equal(result.checks[0].layer, "coverage");
+  assert.match(result.checks[0].detail, /never emitted/);
+});
+test("unavailable browser/runtime is a setup blocker", async () => {
+  const { row } = await import("./row1.mjs");
+  const result = await row.run({
+    fixture: {
+      row1: { scenarios: [{ id: "fresh", categories: ["user-text"] }] },
+    },
+    services: {
+      row1: {
+        runFresh: async () => {
+          throw Error("ECONNREFUSED");
+        },
+        readSaved: async () => {
+          throw Error("must not read");
+        },
+      },
+    },
+  });
+  assert.equal(result.status, "blocked");
+  assert.equal(result.checks[0].layer, "environment");
+});
+
+test("faithfully saved repeated source occurrences and wrong model values are not invented persistence loss", () => {
+  const emitted = capture();
+  emitted.events[4].content.values = [999, -2];
+  emitted.events.splice(5, 0, structuredClone(emitted.events[4]));
+  assert.equal(comparePersistence(emitted, structuredClone(emitted)).events, 7);
+});
+
+test("completed approval needs original call result and subsequent assistant response", async () => {
+  const { verifyCompletedControl } = await import("./row1.mjs");
+  const source = capture();
+  source.messages.push({
+    id: "reply-after-approval",
+    role: "assistant",
+    content: "Approval saved",
+  });
+  const interaction = {
+    toolCallId: "pie-1",
+    callIdPointer: "/events/1/toolCallId",
+    resultPointer: "/messages/2",
+    responsePointer: "/messages/3",
+  };
+  verifyCompletedControl(source, interaction);
+  const wrong = structuredClone(source);
+  wrong.messages[2].toolCallId = "another-call";
+  assert.throws(
+    () => verifyCompletedControl(wrong, interaction),
+    /another call/,
+  );
+  assert.throws(
+    () =>
+      verifyCompletedControl(source, {
+        ...interaction,
+        responsePointer: "/messages/0",
+      }),
+    /assistant response/,
+  );
+  const early = structuredClone(source);
+  early.messages.unshift(early.messages.pop());
+  assert.throws(
+    () =>
+      verifyCompletedControl(early, {
+        ...interaction,
+        resultPointer: "/messages/3",
+        responsePointer: "/messages/0",
+      }),
+    /precedes/,
+  );
+});
+
+test("a reader cannot change the source snapshot to hide corruption", async () => {
+  const { row } = await import("./row1.mjs");
+  const result = await row.run({
+    fixture: {
+      row1: { scenarios: [{ id: "mutation", categories: ["user-text"] }] },
+    },
+    writeArtifact: async (name) => name,
+    services: {
+      row1: {
+        runFresh: async () => ({ emitted: capture() }),
+        readSaved: async (emitted) => {
+          emitted.events.splice(2, 1);
+          return emitted;
+        },
+      },
+    },
+  });
+  assert.equal(result.status, "failed");
+  assert.equal(result.checks[0].layer, "intelligence-persistence");
+});
