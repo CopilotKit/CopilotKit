@@ -16,6 +16,12 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.77.2 - 2026-10-08
+
+### Features
+
+- feat(runtime): tell apart Trajectory setup errors at connect (#7699) (8bd4389)
+
 ## 1.77.1 - 2026-10-07
 
 ### Features
