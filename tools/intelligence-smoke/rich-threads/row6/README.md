@@ -65,3 +65,31 @@ variant coverage were not independently established. Full row verdict:
 **unvalidated**, with the initial/repeat controls passing. The separately read
 reference agrees on those controls and contains broader live continuation
 coverage; it is not a substitute for running this row's continuation adapter.
+
+## Concrete adapters (delivery in progress)
+
+`native.mjs` reads all logical SQLite tables/schema and native directory files
+on every phase. It retains nested array ordering, 64-bit integers, blobs, pending
+workflow data and binary sidecars. `destination.mjs` reads every scoped thread,
+run, event, state and available replay projection, plus the actual API transcript.
+`importer.mjs` invokes the built CLI and reads its durable batch/item outcomes;
+`command.mjs` bounds diagnostics, redacts configured credentials and kills its
+owned process group on timeout or run cancellation. Import receipts survive
+post-command validation failures.
+
+`services.mjs` is the common v2 composition entry point. Its row3 preparation and
+row4 continuation bindings are **provisional and not yet integrated**. Required
+inputs are an owned clean-scope lifecycle receipt, scoped PostgreSQL pool,
+built CLI, row3 source set (selected histories and a real connected collision),
+and row4 action on each already-imported rich source. Source entries retain
+original native IDs, full checkpoint provenance and continuation plans. The
+factory does not provision resources. `collisionSourceIds` requires exactly
+those separate conflicts on every import attempt.
+
+The follow-up adapter tests use real temporary SQLite/filesystem stores and
+child processes; the destination SQL control uses a test pool. These tests are
+supplemental, not Mastra/Strands live acceptance. No fresh coordinated live run
+has occurred. PNI-598/599 driver integration and the approved PNI-605 environment
+remain required; hosting/access is TBD. Subsequent execution is not blind because
+the author has already read the temporary validation reference. Keep the PR draft
+until the committed common runner executes both frameworks with full evidence.

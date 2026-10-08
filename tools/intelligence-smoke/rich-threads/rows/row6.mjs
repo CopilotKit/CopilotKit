@@ -32,7 +32,16 @@ function validateSnapshot(source, destination, ids) {
   }
 }
 
-function outcomes(result, ids, status) {
+function outcomes(result, ids, status, collisionIds) {
+  if (collisionIds)
+    assert.deepEqual(
+      result.results
+        .filter((item) => !ids.includes(item.sourceId))
+        .map((item) => item.sourceId)
+        .sort(),
+      [...collisionIds].sort(),
+      "Missing or unexpected connected-collision outcome",
+    );
   assert.equal(
     typeof result.pathIdentity,
     "string",
@@ -132,7 +141,8 @@ export const row = {
           (thread) =>
             thread.sourceId === id ||
             thread.id === id ||
-            thread.id === nativeIds[id],
+            thread.id === nativeIds[id] ||
+            thread.nativeThreadId === nativeIds[id],
         ),
         `Source already connected: ${id}`,
       );
@@ -143,8 +153,8 @@ export const row = {
     );
     const first = copy(await service.import());
     await writeArtifact("initial-import.json", first);
-    outcomes(first, ids, "imported");
     const initial = await capture("after-initial");
+    outcomes(first, ids, "imported", fixture.collisionSourceIds);
     assert.deepEqual(
       initial.native,
       before.native,
@@ -185,7 +195,8 @@ export const row = {
     const repeat = async (baseline, label) => {
       const result = copy(await service.import());
       await writeArtifact(`${label}-import.json`, result);
-      outcomes(result, ids, "skipped");
+      const after = await capture(`after-${label}`);
+      outcomes(result, ids, "skipped", fixture.collisionSourceIds);
       assert.equal(
         result.pathIdentity,
         first.pathIdentity,
@@ -197,7 +208,6 @@ export const row = {
           first.results.find((item) => item.sourceId === id).destinationId,
           "Repeat changed destination identity",
         );
-      const after = await capture(`after-${label}`);
       counts[label] = summary(after);
       assert.deepEqual(
         after.native,
