@@ -12,6 +12,7 @@ import { basename, isAbsolute, join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { validateBaseline } from "../contract.mjs";
+import { verifyCleanScope } from "./clean-scope.mjs";
 
 const execute = promisify(execFile);
 const label = "copilotkit.rich-threads.owner";
@@ -271,13 +272,28 @@ function validate(config, frameworks) {
         scope.projectId,
       "Tenant scope required",
     );
-    for (const field of [
-      "applicationUrl",
-      "runtimeUrl",
-      "apiUrl",
-      "gatewayUrl",
-    ])
-      assert.ok(new URL(scope[field]));
+    for (const [field, role] of Object.entries({
+      applicationUrl: "application",
+      runtimeUrl: "application-runtime",
+      apiUrl: "intelligence-api",
+      gatewayUrl: "intelligence-gateway",
+    })) {
+      const url = new URL(scope[field]);
+      assert.ok(
+        ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) &&
+          ["http:", "https:", "ws:", "wss:"].includes(url.protocol),
+        "Development scope must address owned loopback services",
+      );
+      assert.ok(
+        services.some(
+          (s) =>
+            s.role === role &&
+            (!s.framework || s.framework === framework) &&
+            s.ports?.some((p) => p.host === Number(url.port)),
+        ),
+        `${field} must use an owned service port`,
+      );
+    }
     assert.ok(safe(scope.native?.store), "Native store name required");
     assert.ok(
       services.some(
@@ -292,7 +308,7 @@ function validate(config, frameworks) {
       if (scope.native[field])
         assert.match(
           scope.native[field],
-          /^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)?$/,
+          /^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)?(?:\/[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)?)*$/,
           "Native filename must stay inside its owned store",
         );
     if (scope.native.workflowStore)
@@ -466,6 +482,11 @@ export async function createEnvironment(
       }
       if (!failed.length) {
         try {
+          assert.equal(
+            (await lstat(directory)).isDirectory(),
+            true,
+            "Owned directory was replaced",
+          );
           assert.equal(await readFile(join(directory, "owner"), "utf8"), owner);
           await rm(directory, { recursive: true });
         } catch {
@@ -613,6 +634,40 @@ export async function createEnvironment(
       baseline: structuredClone(config.baseline),
       scopes,
       receipt,
+      async verifyCleanScope({
+        pool,
+        redis,
+        bootstrapTables,
+        nativeBootstrapTables,
+      }) {
+        assert.equal(
+          receipt.status,
+          "ready",
+          "Verify clean scope before scenario execution",
+        );
+        signal?.throwIfAborted();
+        const nativeRoots = [
+          ...new Set(
+            config.services
+              .filter((s) => s.role === "native-backend")
+              .flatMap((s) => s.mounts.map((m) => join(directory, m.store))),
+          ),
+        ];
+        receipt.cleanScope = await verifyCleanScope({
+          pool,
+          redis,
+          nativeRoots,
+          bootstrapTables,
+          nativeBootstrapTables,
+        });
+        await persist();
+        assert.equal(
+          receipt.cleanScope.status,
+          "passed",
+          "Environment contains persisted data; see clean-scope receipt",
+        );
+        return structuredClone(receipt.cleanScope);
+      },
       restart(role, framework) {
         const operation = restarting.then(async () => {
           assert.ok(!shuttingDown, "Environment is shutting down");
@@ -667,10 +722,12 @@ export async function createEnvironment(
     try {
       await cleanup();
     } catch (cleanupError) {
+      // Both original failures are retained in AggregateError.errors.
+      // eslint-disable-next-line preserve-caught-error
       throw new AggregateError(
         [error, cleanupError],
         "Environment setup and cleanup failed",
-        { cause: error },
+        { cause: cleanupError },
       );
     }
     throw error;
