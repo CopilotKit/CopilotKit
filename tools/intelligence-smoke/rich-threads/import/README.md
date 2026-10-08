@@ -87,6 +87,14 @@ Rows 4–6 can reuse the native generators and import wrapper with independent
 namespaces. They must retain the original IDs and full pending metadata and must
 not reuse a source after row3 has already answered its pending interaction.
 
+`prepare.mjs` now implements the shared onboarding transaction used by row3.
+`prepareImportedSources({service,namespace,answerPending:false,writeArtifact})`
+returns `{source,native,imported,absentBeforeImport,importEvidence,evidence}`
+entries. It validates the source, proves absence, invokes the built CLI, checks
+the unique destination and exact imported snapshot, and saves intermediate
+evidence even on failure. It never opens or answers pending controls. The
+concrete source fixture must allocate a fresh namespace for each consuming row.
+
 API-generated transport message IDs can differ from native tracking IDs. The
 completed Strands adapter decodes only the explicit single-block
 `native:<JSON tracking ID>:segment:0` representation. Other segment IDs still
@@ -115,8 +123,8 @@ The completed-source fixture uses this API projection as well.
 These modules are **not full row acceptance**. The common lifecycle must supply
 durable native stores and explicit direct endpoints; row2's reader must be
 integrated. The shared browser action/snapshot contract, full source catalogue,
-real pending response service and reusable `prepareImportedSources` integration
-are still outstanding. Do not treat the planned `import/services.mjs` factory
+real pending response service and full source-factory integration are still
+outstanding. Do not treat the planned `import/services.mjs` factory
 as implemented. No new staging run has exercised these modules yet.
 
 PNI-605 owns the unresolved approved hosting/access target. PNI-606 owns the

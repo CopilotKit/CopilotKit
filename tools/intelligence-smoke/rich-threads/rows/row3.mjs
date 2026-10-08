@@ -2,11 +2,10 @@ import assert from "node:assert/strict";
 import { aggregate } from "../contract.mjs";
 import {
   categories,
-  validateSource,
-  assertImported,
   assertReplay,
   assertAnswered,
 } from "../import/assertions.mjs";
+import { prepareImport } from "../import/prepare.mjs";
 
 export const row = {
   id: 3,
@@ -45,31 +44,7 @@ export const row = {
         framework: context.framework,
       };
       try {
-        record.native = structuredClone(await service.inspectNative(source));
-        validateSource(expectedSource, record.native);
-        record.before = structuredClone(await service.findImported(source));
-        assert.deepEqual(
-          record.before,
-          [],
-          "Source already exists in Intelligence before import",
-        );
-        record.cli = await service.importSource(source);
-        assert.equal(record.cli.exitCode, 0, "Built import CLI failed");
-        assert.equal(record.cli.dryRun, false, "Dry run is not an import");
-        assert.ok(
-          record.cli.buildIdentity && record.cli.command && record.cli.log,
-          "Retain built CLI identity/command/log",
-        );
-        record.destinations = await service.findImported(source);
-        assert.equal(
-          record.destinations.length,
-          1,
-          "Expected exactly one imported destination",
-        );
-        record.imported = structuredClone(
-          await service.readImported(source, record.destinations[0]),
-        );
-        assertImported(expectedSource, record.imported);
+        await prepareImport(service, source, record);
         record.replay = await service.replay(source, record.imported);
         assertReplay(expectedSource, record.imported, record.replay);
         record.answers = [];
