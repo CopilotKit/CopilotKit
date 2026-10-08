@@ -366,13 +366,13 @@ export const row = {
         final = copy(await api.read(scenario));
         await write(`${scenario.id}-resumed.json`, final);
         assertResumed(restarted, final, scenario);
-      } else if (scenario.kind === "rich") {
-        const expected = await api.followup(scenario);
-        await write(`${scenario.id}-followup-expected.json`, expected);
-        final = copy(await api.read(scenario));
-        await write(`${scenario.id}-continued.json`, final);
-        assertContinued(restarted, final, expected);
       }
+      const beforeFollowup = copy(final);
+      const expected = await api.followup(scenario);
+      await write(`${scenario.id}-followup-expected.json`, expected);
+      final = copy(await api.read(scenario));
+      await write(`${scenario.id}-continued.json`, final);
+      assertContinued(beforeFollowup, final, expected);
       await browserCheck(api, scenario, final, "final-reload", write);
       const finalReload = copy(await api.read(scenario));
       await write(`${scenario.id}-final.json`, finalReload);
