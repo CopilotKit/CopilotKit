@@ -1411,21 +1411,41 @@ export class CopilotKitIntelligence {
     user: { id: string; name: string };
     signal?: AbortSignal;
   }): Promise<TrajectoryConnectionGrant> {
-    const response = await fetch(`${this.#apiUrl}/api/trajectories/join`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.#apiKey}`,
-        "Content-Type": "application/json",
-      },
-      // Project scope comes from the API key. Containers remain unassigned
-      // until there is a server-side selector with Trajectory context.
-      body: JSON.stringify({
-        trajectoryId: params.trajectoryId,
-        appUserId: params.user.id,
-      }),
-      signal: params.signal,
-      redirect: "error",
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.#apiUrl}/api/trajectories/join`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.#apiKey}`,
+          "Content-Type": "application/json",
+        },
+        // Project scope comes from the API key. Containers remain unassigned
+        // until there is a server-side selector with Trajectory context.
+        body: JSON.stringify({
+          trajectoryId: params.trajectoryId,
+          appUserId: params.user.id,
+        }),
+        signal: params.signal,
+        redirect: "error",
+      });
+    } catch (error) {
+      // An abort means the browser went away, not that Intelligence is unreachable.
+      if (!params.signal?.aborted) {
+        // Error messages can carry the request URL and any credentials in it,
+        // so log only fixed fields. Node's fetch keeps the reason in `cause`.
+        logger.warn(
+          {
+            error: error instanceof Error ? error.name : typeof error,
+            causeCode: networkErrorCode(
+              error instanceof Error ? error.cause : undefined,
+            ),
+            host: urlHost(this.#apiUrl),
+          },
+          "Could not reach Intelligence to connect a Trajectory",
+        );
+      }
+      throw error;
+    }
     const payload: unknown = await response.json().catch(() => undefined);
     if (!response.ok) {
       throw trajectoryResponseError(payload, response.status, this.#apiKey);
@@ -2181,6 +2201,26 @@ function deriveRunnerWsUrl(wsUrl: string): string {
   }
 
   return `${wsUrl}/runner`;
+}
+
+/** A system error code such as ECONNREFUSED, or undefined for anything else. */
+function networkErrorCode(cause: unknown): string | undefined {
+  const code =
+    typeof cause === "object" && cause !== null && "code" in cause
+      ? cause.code
+      : undefined;
+  return typeof code === "string" && /^[A-Z][A-Z0-9_]{0,63}$/.test(code)
+    ? code
+    : undefined;
+}
+
+/** The host of a URL without its credentials, path or query. */
+function urlHost(url: string): string | undefined {
+  try {
+    return new URL(url).host;
+  } catch {
+    return undefined;
+  }
 }
 
 function deriveClientWsUrl(wsUrl: string): string {
