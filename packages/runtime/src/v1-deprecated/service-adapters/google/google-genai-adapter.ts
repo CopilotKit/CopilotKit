@@ -30,7 +30,7 @@
  *
  * const copilotKit = new CopilotRuntime();
  *
- * return new GoogleGenerativeAIAdapter({ model: "gemini-2.5-flash", apiVersion: "v1" });
+ * return new GoogleGenerativeAIAdapter({ model: "gemini-3.8-flash", apiVersion: "v1" });
  * ```
  */
 import { LangChainAdapter } from "../langchain/langchain-adapter";
