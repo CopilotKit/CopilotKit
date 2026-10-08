@@ -92,3 +92,35 @@ completed Strands adapter decodes only the explicit single-block
 `native:<JSON tracking ID>:segment:0` representation. Other segment IDs still
 fail comparison; raw native envelopes and raw API messages remain in evidence.
 This is not a general multi-part message projection.
+
+## Shared-environment driver implementation
+
+`drivers/native-run.mjs` exports `captureNativeRun`. It invokes the actual
+Showcase native AG-UI endpoint from `scope.native.endpoints[route]`, using the
+complete framework-bound input (including registered frontend tools/context),
+and reads the durable store before and after through row2's
+`createNativeReader`. It retains original request, raw SSE events, both native
+snapshots and errors. A truncated stream, changed thread/run identity or native
+run error fails. A genuine interrupted `RUN_FINISHED` is retained unchanged.
+This path bypasses Intelligence; it is distinct from the SDK-only builders.
+
+`drivers/content.mjs` independently projects native Mastra parts and complete
+Strands messages, then compares them with the Intelligence API wire format.
+Text roles, tool arguments/results, repeated occurrences, reasoning, media
+bytes/MIME/names and application state remain explicit. Unknown content fails.
+Referenced URL/file media requires independently captured bytes; this module
+does not fetch native URLs or fill missing names from destination metadata.
+The completed-source fixture uses this API projection as well.
+
+These modules are **not full row acceptance**. The common lifecycle must supply
+durable native stores and explicit direct endpoints; row2's reader must be
+integrated. The shared browser action/snapshot contract, full source catalogue,
+real pending response service and reusable `prepareImportedSources` integration
+are still outstanding. Do not treat the planned `import/services.mjs` factory
+as implemented. No new staging run has exercised these modules yet.
+
+PNI-605 owns the unresolved approved hosting/access target. PNI-606 owns the
+single shared bootstrap, installable dependencies and CI command. Local unit
+tests and SDK fixtures do not substitute for staging acceptance. The author has
+already seen the temporary comparison reference; subsequent evidence must
+disclose that exposure and be collected independently before comparison.
