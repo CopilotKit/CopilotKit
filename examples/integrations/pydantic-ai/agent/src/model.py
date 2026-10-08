@@ -5,11 +5,12 @@ overrides the model; when it is unset the agent uses its default. Providers:
 ``openai``, ``anthropic``, ``google`` (``gemini`` and ``google-gemini`` are
 aliases of ``google``). An OpenAI-compatible provider is
 ``openai:<its model id>`` plus ``OPENAI_BASE_URL``, which Pydantic AI's OpenAI
-provider reads itself.
+provider reads itself; on such a host the agent uses Chat Completions.
 """
 
 import os
 import re
+from urllib.parse import urlparse
 
 _PROVIDER_ALIASES = {
     "openai": "openai",
@@ -34,12 +35,30 @@ def parse_agent_model(value: str) -> tuple[str, str]:
 
 
 # Our provider ids -> Pydantic AI model-string prefixes. OpenAI keeps the
-# Responses API this starter has always used.
+# Responses API this starter has always used (but see uses_chat_completions).
 _PYDANTIC_AI_PREFIXES = {
     "openai": "openai-responses",
     "anthropic": "anthropic",
     "google": "google",
 }
+
+
+def uses_chat_completions() -> bool:
+    """Whether ``OPENAI_BASE_URL`` points at an OpenAI-compatible provider.
+
+    Most compatible providers serve only ``{base}/chat/completions``, not the
+    Responses API, so those get Pydantic AI's Chat Completions model
+    (``openai-chat``). OpenAI itself, an unset variable and an unparseable URL
+    keep the Responses API.
+    """
+    base_url = os.getenv("OPENAI_BASE_URL")
+    if not base_url:
+        return False
+    try:
+        hostname = urlparse(base_url).hostname
+    except ValueError:
+        return False
+    return bool(hostname) and hostname != "api.openai.com"
 
 
 def resolve_model(default_spec: str) -> str:
@@ -51,4 +70,7 @@ def resolve_model(default_spec: str) -> str:
     provider, model = parse_agent_model(
         os.getenv("COPILOTKIT_AGENT_MODEL") or default_spec
     )
-    return f"{_PYDANTIC_AI_PREFIXES[provider]}:{model}"
+    prefix = _PYDANTIC_AI_PREFIXES[provider]
+    if provider == "openai" and uses_chat_completions():
+        prefix = "openai-chat"
+    return f"{prefix}:{model}"
