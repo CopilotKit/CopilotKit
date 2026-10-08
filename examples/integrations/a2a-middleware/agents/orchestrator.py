@@ -18,7 +18,7 @@ from google.adk.agents import LlmAgent
 
 orchestrator_agent = LlmAgent(
     name="OrchestratorAgent",
-    model="gemini-2.5-pro",
+    model="gemini-3.8-flash",
     instruction="""
     You are an orchestrator agent that coordinates research and analysis tasks.
 
