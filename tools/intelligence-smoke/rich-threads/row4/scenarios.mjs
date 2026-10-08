@@ -4,13 +4,20 @@ import assert from "node:assert/strict";
  * its first user message exercises history retrieval without supplying the answer.
  * Existing todos are changed by ID with an exact independently computed outcome.
  */
-export function continuationPlan({ source, native, imported, plan }) {
+export function continuationPlan({
+  source,
+  native,
+  imported,
+  plan,
+  absentBeforeImport,
+  evidence,
+}) {
   if (plan) return structuredClone(plan);
   const pending = native.pending ?? [];
   const common = {
-    absentBeforeImport: imported.absentBeforeImport,
-    importEvidence: imported.importEvidence,
-    nativeValidationEvidence: native.evidence,
+    absentBeforeImport: absentBeforeImport ?? imported.absentBeforeImport,
+    importEvidence: evidence?.[0] ?? imported.importEvidence,
+    nativeValidationEvidence: evidence?.[0] ?? native.evidence,
   };
   if (pending.length) {
     assert.equal(

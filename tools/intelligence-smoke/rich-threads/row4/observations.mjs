@@ -36,7 +36,12 @@ export function occurrences(items) {
     const { args, ...rest } = payload;
     return {
       ...item,
-      payload: { ...rest, arguments: payload.arguments ?? args },
+      payload: {
+        ...rest,
+        arguments: Object.hasOwn(payload, "arguments")
+          ? payload.arguments
+          : args,
+      },
     };
   });
 }
@@ -196,11 +201,11 @@ export function observedMapping(imported) {
 /** Select runs not present before the click/send, including genuine error runs. */
 export function newRuns(before, after) {
   assert.ok(
-    Array.isArray(before.runs) && Array.isArray(after.runs),
+    Array.isArray(before.frameworkRuns) && Array.isArray(after.frameworkRuns),
     "Capture must retain per-run inputs and events",
   );
-  const ids = new Set(before.runs.map((run) => run.input.runId));
-  const runs = after.runs.filter((run) => !ids.has(run.input.runId));
+  const ids = new Set(before.frameworkRuns.map((run) => run.input.runId));
+  const runs = after.frameworkRuns.filter((run) => !ids.has(run.input.runId));
   assert.ok(runs.length, "Browser action produced no new framework run");
   assert.equal(
     new Set(runs.map((run) => run.input.runId)).size,
@@ -283,4 +288,40 @@ export function observedResume(beforeNative, runs) {
     checkpointId: original.checkpointId ?? original.checkpoint.id,
     answer: answers[0],
   };
+}
+
+/** Imported history may be supplied in input or loaded by native memory. Only
+ * newly emitted/input occurrences form this turn's suffix; any included historic
+ * occurrence must match exactly. Both stores separately retain the full prefix.
+ */
+export function newActivity(historical, observed) {
+  const remaining = historical.map((item, index) => ({ item, index }));
+  const fresh = [];
+  let previous = -1;
+  for (const item of observed) {
+    const keyMatches = remaining.filter(
+      (entry) => entry.item.id === item.id && entry.item.kind === item.kind,
+    );
+    if (!keyMatches.length) {
+      assert.ok(
+        !historical.some((old) => old.id === item.id && old.kind === item.kind),
+        "Capture duplicated a historical occurrence",
+      );
+      fresh.push(item);
+      continue;
+    }
+    const entry = keyMatches[0];
+    assert.deepEqual(
+      item,
+      entry.item,
+      "Capture changed an original historical occurrence",
+    );
+    assert.ok(
+      entry.index > previous,
+      "Capture reordered historical occurrences",
+    );
+    previous = entry.index;
+    remaining.splice(remaining.indexOf(entry), 1);
+  }
+  return fresh;
 }

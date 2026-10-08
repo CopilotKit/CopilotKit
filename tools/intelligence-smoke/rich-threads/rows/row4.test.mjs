@@ -16,6 +16,7 @@ function capture(mode = "followup") {
     userId: "user",
     appId: "app",
     agentId: "agent",
+    nativeAgentId: "agent",
     resourceId: "resource",
   };
   const pending = {

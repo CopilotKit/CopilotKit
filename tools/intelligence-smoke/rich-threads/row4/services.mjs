@@ -3,7 +3,7 @@ import { continuationPlan } from "./scenarios.mjs";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { artifactWriter } from "../contract.mjs";
-import { fromImportedSource, ContinuationUnavailable } from "../rows/row4.mjs";
+import { fromImportedSource } from "../rows/row4.mjs";
 import {
   occurrences,
   messageOccurrences,
@@ -11,6 +11,7 @@ import {
   observedMapping,
   newRuns,
   observedResume,
+  newActivity,
 } from "./observations.mjs";
 
 /** Concrete row4 composition: row3 owns actual native creation/CLI import and
@@ -18,10 +19,15 @@ import {
  * This factory never provisions services or substitutes an in-memory fixture.
  */
 export async function createServices(context) {
-  const { scope, outputDir } = context;
+  const { scope, outputDir, environment } = context;
   assert.ok(
     scope.owner && scope.native?.location,
     "Owned environment/native store required",
+  );
+  assert.equal(
+    environment.receipt?.cleanScope?.status,
+    "passed",
+    "Verified clean-scope receipt required before import",
   );
   const { createServices: createImportServices } =
     await import("../import/services.mjs");
@@ -29,8 +35,13 @@ export async function createServices(context) {
     ...context,
     outputDir: join(outputDir, "row4-import"),
   });
+  const { projectEvents } = await import("../capture/project.mjs");
   return createContinuationServices({
     ...context,
+    capture: {
+      ...context.capture,
+      project: (events) => projectEvents({ events, ...context.dependencies }),
+    },
     importReplay: prepared.services.importReplay,
   });
 }
@@ -41,6 +52,7 @@ export function createContinuationServices({
   browser,
   capture,
   importReplay,
+  intelligence,
   outputDir,
   signal,
 }) {
@@ -50,14 +62,44 @@ export function createContinuationServices({
   async function save(label, value) {
     return `row4-driver/${await write(`${serial++}-${label}.json`, value)}`;
   }
+  async function readCapture(source) {
+    const [canonical, native] = await Promise.all([
+      capture.read(source.mapping.intelligenceId),
+      capture.read(source.mapping.nativeId),
+    ]);
+    return { events: canonical.events, frameworkRuns: native.frameworkRuns };
+  }
   async function read(source) {
     signal?.throwIfAborted();
     const record = records.get(source.id);
     assert.ok(record, "Continuation source was not prepared in this run");
+    if (record.actionEvents) {
+      const deadline = Date.now() + 30_000;
+      let persisted = false;
+      while (!persisted && Date.now() < deadline) {
+        signal?.throwIfAborted();
+        const saved = await intelligence.read(source.mapping.intelligenceId);
+        await save("durability-poll", saved);
+        const ids = new Set(
+          saved.events.map((event) => event.metadata?.cpki_event_id),
+        );
+        persisted = record.actionEvents.every((event) =>
+          ids.has(event.metadata.cpki_event_id),
+        );
+        if (!persisted) await delay(250, undefined, { signal });
+      }
+      assert.ok(
+        persisted,
+        "Continuation events did not become durable within 30s",
+      );
+    }
     const [native, imported, ids] = await Promise.all([
       importReplay.inspectNative(record.source),
       importReplay.readImported(record.source, record.imported),
-      nativeSessions(framework, scope.native),
+      nativeSessions(framework, {
+        ...scope.native,
+        location: record.native.rawCheckpoint.location ?? scope.native.location,
+      }),
     ]);
     const evidence = await save("stores", {
       native,
@@ -65,6 +107,11 @@ export function createContinuationServices({
       nativeSessionIds: ids,
     });
     assert.ok(native.rawCheckpoint, "Independent native checkpoint missing");
+    assert.equal(
+      native.rawCheckpoint.location,
+      record.native.rawCheckpoint.location,
+      "Continuation changed native storage location",
+    );
     const mapping = observedMapping(imported);
     assert.deepEqual(
       native.identity,
@@ -126,27 +173,35 @@ export function createContinuationServices({
     let terminal = false;
     while (!terminal) {
       signal?.throwIfAborted();
-      captured = await capture.read(source.mapping.intelligenceId);
+      captured = await readCapture(source);
       await save("capture-poll", captured);
       if (
-        captured.runs?.some(
+        captured.frameworkRuns?.some(
           (run) =>
-            !record.captureBefore.runs.some(
+            !record.captureBefore.frameworkRuns.some(
               (old) => old.input.runId === run.input.runId,
             ),
         )
       ) {
         runs = newRuns(record.captureBefore, captured);
-        terminal = runs.every((run) =>
-          run.events.some((event) =>
-            ["RUN_FINISHED", "RUN_ERROR"].includes(event.type),
-          ),
+        for (const run of runs)
+          assert.ok(!run.error, `Framework stream failed: ${run.error}`);
+        terminal = runs.every(
+          (run) =>
+            run.complete &&
+            run.events.some((event) =>
+              ["RUN_FINISHED", "RUN_ERROR"].includes(event.type),
+            ) &&
+            captured.events.some(
+              (event) =>
+                event.runId === run.input.runId &&
+                ["RUN_FINISHED", "RUN_ERROR"].includes(event.type),
+            ),
         );
         if (terminal) break;
       }
       if (Date.now() >= deadline)
-        throw new ContinuationUnavailable(
-          "setup",
+        throw new Error(
           "Timed out retaining terminal framework capture after browser action",
         );
       await delay(500, undefined, { signal });
@@ -169,21 +224,25 @@ export function createContinuationServices({
         "Framework received a replacement native thread",
       );
     const last = runs.at(-1);
-    assert.ok(
-      Array.isArray(last.messages),
-      "Final messages must come from input/framework events capture",
+    const previousEvents = new Set(
+      record.captureBefore.events.map((event) => event.metadata?.cpki_event_id),
     );
-    assert.ok(
-      Object.hasOwn(last, "state"),
-      "Final state must come from framework capture",
+    const events = captured.events.filter(
+      (event) => !previousEvents.has(event.metadata?.cpki_event_id),
     );
-    const emitted = messageOccurrences(last.messages, last.resolvedMedia);
+    assert.ok(events.length, "No new pre-ingestion canonical events captured");
+    assert.ok(
+      events.every((event) => event.metadata?.cpki_event_id),
+      "Canonical event identity missing",
+    );
+    record.actionEvents = structuredClone(events);
+    const projected = await capture.project(events);
+    await save("projected-emission", projected);
+    const emitted = messageOccurrences(
+      projected.messages,
+      projected.resolvedMedia,
+    );
     const historical = occurrences(source.nativeItems);
-    assert.deepEqual(
-      emitted.slice(0, historical.length),
-      historical,
-      "Framework capture did not retain original rich history",
-    );
     const action = {
       mapping: {
         ...observedMapping(
@@ -194,8 +253,8 @@ export function createContinuationServices({
       },
       runId: last.input.runId,
       events: runs.flatMap((run) => run.events),
-      newItems: emitted.slice(historical.length),
-      state: last.state,
+      newItems: newActivity(historical, emitted),
+      state: projected.state,
       browserEvidence,
     };
     if (source.mode !== "followup")
@@ -215,7 +274,17 @@ export function createContinuationServices({
           assert.ok(entries.length, "No rich native sources were prepared");
           const sources = [];
           for (const entry of entries) {
-            const plan = continuationPlan(entry);
+            const sourceEvidence = await save("imported-source", entry);
+            if (entry.source.coverage.includes("native-completed"))
+              assert.equal(
+                entry.source.applicationMode,
+                "native",
+                "Completed native source must retain its backend application mode",
+              );
+            const plan = continuationPlan({
+              ...entry,
+              evidence: [sourceEvidence],
+            });
             const source = fromImportedSource(
               entry.source,
               entry.native,
@@ -226,8 +295,12 @@ export function createContinuationServices({
             if (source.pending)
               source.pending = {
                 ...source.pending,
-                answer: plan.pending?.answer ?? source.pending.answer,
-                result: plan.pending?.result ?? source.pending.result,
+                answer: Object.hasOwn(plan.pending ?? {}, "answer")
+                  ? plan.pending.answer
+                  : source.pending.answer,
+                result: Object.hasOwn(plan.pending ?? {}, "result")
+                  ? plan.pending.result
+                  : source.pending.result,
                 action: plan.pending?.action,
               };
             assert.ok(
@@ -235,7 +308,6 @@ export function createContinuationServices({
               "Duplicate row4 source identity",
             );
             records.set(source.id, entry);
-            await save("imported-source", entry);
             sources.push(source);
           }
           return sources;
@@ -247,13 +319,19 @@ export function createContinuationServices({
             record?.lastSnapshot,
             "Read independent stores before opening the imported thread",
           );
-          const before = await capture.read(source.mapping.intelligenceId);
+          const before = await readCapture(source);
           assert.ok(
-            Array.isArray(before.runs),
+            Array.isArray(before.frameworkRuns),
             "Capture must include actual framework-bound runs",
           );
           record.thread = await browser.openThread(
             source.mapping.intelligenceId,
+            {
+              scenarioId: `row4-${source.id}`,
+              mode:
+                record.source.applicationMode ??
+                (source.mode === "native-pending" ? "native" : "rich"),
+            },
           );
           const visible = await browser.snapshot(record.thread);
           await save("browser-open", visible);
@@ -262,12 +340,10 @@ export function createContinuationServices({
             source.mapping.intelligenceId,
             "Browser did not open imported destination",
           );
-          record.captureBefore = await capture.read(
-            source.mapping.intelligenceId,
-          );
+          record.captureBefore = await readCapture(source);
           assert.deepEqual(
-            record.captureBefore.runs.map((run) => run.input.runId),
-            before.runs.map((run) => run.input.runId),
+            record.captureBefore.frameworkRuns.map((run) => run.input.runId),
+            before.frameworkRuns.map((run) => run.input.runId),
             "Opening imported history reran the agent",
           );
         },

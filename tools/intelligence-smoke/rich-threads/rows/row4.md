@@ -26,9 +26,12 @@ The older explicit fixture module option below remains useful for unit controls.
 The driver opens the imported destination, checks that historical replay produced
 no new run, sends a history-dependent follow-up or clicks the original control,
 waits for captured terminal events, and rereads both durable stores. SQLite thread
-IDs and Strands session directories are inventoried independently. Capture must
-retain actual framework-bound `runs: [{input, events, messages, state}]`; ingestion
-payloads alone cannot establish which native thread/checkpoint was resumed.
+IDs and Strands session directories are inventoried independently. Capture retains actual framework-bound `frameworkRuns: [{input, events, complete}]`
+under the original native ID and canonical ingestion events under the Intelligence
+ID. The driver uses the common public AG-UI projector with the bootstrap's pinned
+`dependencies` to reconstruct messages/state. Ingestion payloads alone cannot
+establish which native thread/checkpoint was resumed. Before reading after stores,
+the driver waits until all captured canonical event IDs are present durably.
 Frontend answers come from submitted tool results; native answers come from
 actual resume entries and are bound to the pre-action durable checkpoint.
 

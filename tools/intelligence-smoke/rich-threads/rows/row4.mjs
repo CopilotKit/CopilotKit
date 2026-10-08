@@ -135,6 +135,7 @@ function validateSnapshot(snapshot, mapping, label) {
     "userId",
     "appId",
     "agentId",
+    "nativeAgentId",
     "resourceId",
   ]) {
     assert.ok(
