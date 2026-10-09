@@ -319,6 +319,13 @@ export const D6_DISCOVERY_FILTER = {
     "showcase-shell-dashboard",
     "showcase-shell-docs",
     "showcase-shell-dojo",
+    // Staging-only Intelligence infrastructure has no Showcase demos.
+    "showcase-intelligence-api",
+    "showcase-intelligence-composite",
+    "showcase-intelligence-gateway",
+    "showcase-intelligence-gateway-proxy",
+    "showcase-intelligence-postgres",
+    "showcase-intelligence-redis",
     // Decommissioned starters.
     "showcase-starter-ag2",
     "showcase-starter-agno",
