@@ -10,6 +10,7 @@ import { expect, test, vi } from "vitest";
 
 import { CpkThreadInspector, WebInspectorElement } from "../index.js";
 import type {
+  ThreadDebuggerMessage,
   ThreadDebuggerMetadata,
   ThreadDebuggerProvider,
 } from "../index.js";
@@ -951,11 +952,22 @@ test("conversation preserves long replies, tool details, and generative UI while
     ).toContain("End of reply.");
     root.querySelector<HTMLElement>(".cpk-td__tool-header")!.click();
     await flushDetail(detail);
+    expect(
+      root.querySelector(".cpk-td__tool-header .cpk-td__tool-name")
+        ?.textContent,
+    ).toBe("Check calendars");
+    expect(
+      root.querySelector(".cpk-td__tool-header .cpk-td__tool-identifier")
+        ?.textContent,
+    ).toBe("(check_calendars)");
     expect(root.querySelector(".cpk-td__tool-body")?.textContent).toContain(
       "Thursday",
     );
     expect(root.querySelector(".cpk-td__tool-body")?.textContent).toContain(
       "available",
+    );
+    expect(root.querySelector(".cpk-td__tool-body")?.textContent).not.toContain(
+      "check_calendars",
     );
     const timelineToggle = requireButton(root, "Show event timeline");
     expect(timelineToggle.closest(".cpk-td__thread-header")).not.toBeNull();
@@ -1223,5 +1235,412 @@ test("Sam's tour uses the new labels while preserving step bodies, storage, navi
     expect(harness.routes()).toEqual(routesBeforeTour);
   } finally {
     await harness.teardown();
+  }
+});
+
+test("tool disclosures distinguish missing, null, and unreadable results", async () => {
+  prepareDom();
+  const getMessages = vi
+    .fn<NonNullable<ThreadDebuggerProvider["getMessages"]>>()
+    .mockResolvedValue([
+      {
+        id: "call",
+        role: "assistant",
+        toolCalls: [{ id: "lookup", name: "lookup", args: { query: "test" } }],
+      },
+    ]);
+  const detail = appendDetail({
+    threadId: "tool-results",
+    provider: { getMessages },
+  });
+  try {
+    await flushDetail(detail);
+    const root = detail.shadowRoot;
+    if (!root) throw new Error("Missing thread detail root");
+    const disclosure = root.querySelector<HTMLButtonElement>(
+      "button.cpk-td__tool-header",
+    );
+    if (!disclosure) throw new Error("Missing tool disclosure button");
+    expect(disclosure.getAttribute("aria-expanded")).toBe("false");
+    expect(disclosure.textContent).toContain("No result recorded");
+    expect(disclosure.querySelector(".cpk-td__tool-name")?.textContent).toBe(
+      "Lookup",
+    );
+    expect(
+      disclosure.querySelector(".cpk-td__tool-identifier")?.textContent,
+    ).toBe("(lookup)");
+    disclosure.click();
+    await flushDetail(detail);
+    expect(disclosure.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      disclosure.querySelector(".cpk-td__tool-identifier")?.textContent,
+    ).toBe("(lookup)");
+    expect(root.querySelector(".cpk-td__tool-body")?.textContent).toContain(
+      "test",
+    );
+
+    getMessages.mockResolvedValue([
+      {
+        id: "call",
+        role: "assistant",
+        toolCalls: [{ id: "lookup", name: "lookup", args: { query: "test" } }],
+      },
+      { id: "result", role: "tool", toolCallId: "lookup", content: "null" },
+    ]);
+    detail.liveMessageVersion += 1;
+    await flushDetail(detail);
+    expect(root.querySelector(".cpk-td__tool-header")?.textContent).toContain(
+      "Result received",
+    );
+    expect(root.querySelector(".cpk-td__tool-body")?.textContent).toContain(
+      "null",
+    );
+    const parseError = vi.spyOn(console, "error").mockImplementation(() => {});
+    getMessages.mockResolvedValue([
+      {
+        id: "call",
+        role: "assistant",
+        toolCalls: [{ id: "lookup", name: "lookup", args: {} }],
+      },
+      { id: "result", role: "tool", toolCallId: "lookup", content: "{broken" },
+    ]);
+    detail.liveMessageVersion += 1;
+    await flushDetail(detail);
+    expect(root.querySelector(".cpk-td__tool-header")?.textContent).toContain(
+      "Result unreadable",
+    );
+    expect(
+      root.querySelector(".cpk-td__tool-header")?.textContent,
+    ).not.toContain("Result received");
+    expect(root.querySelector(".cpk-td__tool-body")?.textContent).toContain(
+      "{broken",
+    );
+    expect(parseError).toHaveBeenCalledOnce();
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("conversation shows run errors and keeps last-good messages when refresh fails", async () => {
+  prepareDom();
+  const getMessages = vi
+    .fn<NonNullable<ThreadDebuggerProvider["getMessages"]>>()
+    .mockResolvedValueOnce([
+      { id: "reply", role: "assistant", content: "Partial answer" },
+    ])
+    .mockRejectedValueOnce(new Error("Network unavailable"))
+    .mockResolvedValue([
+      { id: "reply", role: "assistant", content: "Recovered answer" },
+    ]);
+  const detail = appendDetail({
+    threadId: "failed-run",
+    provider: {
+      getMessages,
+      getEvents: async () => [
+        {
+          type: "RUN_ERROR",
+          timestamp: "2026-09-22T12:00:00Z",
+          payload: { message: "Calendar service unavailable" },
+        },
+      ],
+    },
+  });
+  try {
+    await flushDetail(detail);
+    const root = detail.shadowRoot;
+    if (!root) throw new Error("Missing thread detail root");
+    expect(
+      root.querySelector('[role="tabpanel"]:not([hidden])')?.textContent,
+    ).toContain("Calendar service unavailable");
+    detail.liveMessageVersion += 1;
+    await flushDetail(detail);
+    expect(root.textContent).toContain("Partial answer");
+    expect(root.textContent).toContain(
+      "Could not refresh messages. Showing the last loaded conversation.",
+    );
+    requireButton(root, "Show event timeline").click();
+    await flushDetail(detail);
+    expect(root.querySelector('[role="status"]')?.textContent).toContain(
+      "Could not refresh messages",
+    );
+    requireButton(root, "Show conversation").click();
+    await flushDetail(detail);
+    getMessages.mockImplementationOnce(
+      () => new Promise<ThreadDebuggerMessage[]>(() => {}),
+    );
+    // Exercise a non-silent retry while the prior refresh warning is visible.
+    void detail["fetchMessages"]("failed-run");
+    await flushDetail(detail);
+    expect(root.textContent).toContain("Loading messages…");
+    expect(root.textContent).not.toContain("Could not refresh messages");
+    detail.liveMessageVersion += 1;
+    await flushDetail(detail);
+    expect(root.textContent).toContain("Recovered answer");
+    expect(root.textContent).not.toContain("Could not refresh messages");
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test.each([false, true])(
+  "live refresh replacing the first message request clears loading (failure=%s)",
+  async (fails) => {
+    prepareDom();
+    const getMessages = vi
+      .fn<NonNullable<ThreadDebuggerProvider["getMessages"]>>()
+      .mockImplementationOnce(
+        () => new Promise<ThreadDebuggerMessage[]>(() => {}),
+      );
+    if (fails) getMessages.mockRejectedValue(new Error("Messages unavailable"));
+    else
+      getMessages.mockResolvedValue([
+        { id: "reply", role: "assistant", content: "Latest answer" },
+      ]);
+    const detail = appendDetail({
+      threadId: "loading-refresh",
+      provider: { getMessages },
+    });
+    try {
+      await flushDetail(detail);
+      expect(detail.shadowRoot?.textContent).toContain("Loading messages…");
+      detail.liveMessageVersion += 1;
+      await flushDetail(detail);
+      expect(detail.shadowRoot?.textContent).not.toContain("Loading messages…");
+      expect(detail.shadowRoot?.textContent).toContain(
+        fails ? "Messages unavailable" : "Latest answer",
+      );
+    } finally {
+      detail.remove();
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    }
+  },
+);
+
+test("late errors from a replaced provider cannot erase the new thread data", async () => {
+  prepareDom();
+  const rejectOldRequests: Array<(reason: Error) => void> = [];
+  const pendingRequest = () =>
+    new Promise<never>((_resolve, reject) => {
+      rejectOldRequests.push(reject);
+    });
+  const detail = appendDetail({
+    threadId: "same-thread",
+    provider: {
+      getThreadMetadata: pendingRequest,
+      getMessages: pendingRequest,
+      getEvents: pendingRequest,
+      getState: pendingRequest,
+    },
+  });
+  try {
+    await flushDetail(detail);
+    await selectTab(detail, "State");
+    expect(rejectOldRequests).toHaveLength(4);
+    detail.provider = {
+      getThreadMetadata: async () => ({
+        id: "same-thread",
+        name: "New provider title",
+      }),
+      getMessages: async () => [
+        { id: "reply", role: "assistant", content: "New provider answer" },
+      ],
+      getEvents: async () => [
+        {
+          type: "RUN_ERROR",
+          timestamp: "2026-09-22T12:00:00Z",
+          payload: { message: "New provider run error" },
+        },
+      ],
+      getState: async () => ({ source: "new provider state" }),
+    };
+    await flushDetail(detail);
+    await selectTab(detail, "State");
+    for (const reject of rejectOldRequests)
+      reject(new Error("Old provider failed"));
+    await flushDetail(detail);
+    expect(detail.shadowRoot?.textContent).toContain("new provider state");
+    await selectTab(detail, "Conversation");
+    expect(detail.shadowRoot?.textContent).toContain("New provider title");
+    expect(detail.shadowRoot?.textContent).toContain("New provider answer");
+    expect(detail.shadowRoot?.textContent).toContain("New provider run error");
+    expect(detail.shadowRoot?.textContent).not.toContain("Old provider failed");
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("long conversations place run errors in context without rebuilding on unrelated events", async () => {
+  prepareDom();
+  const messages: ThreadDebuggerMessage[] = Array.from(
+    { length: 200 },
+    (_, index) => ({
+      id: `reply-${index}`,
+      role: "assistant",
+      content: `Answer ${index}`,
+    }),
+  );
+  messages.push({
+    id: "later",
+    role: "assistant",
+    content: "A later run recovered",
+  });
+  const detail = appendDetail({
+    threadId: "long-active-run",
+    provider: { getMessages: async () => messages },
+  });
+  detail.agentEventsInput = [
+    {
+      type: "TEXT_MESSAGE_START",
+      timestamp: 1,
+      payload: { messageId: "reply-199", role: "assistant" },
+    },
+    {
+      type: "RUN_ERROR",
+      timestamp: 2,
+      payload: { message: "Run interrupted" },
+    },
+    {
+      type: "TEXT_MESSAGE_START",
+      timestamp: 3,
+      payload: { messageId: "later", role: "assistant" },
+    },
+  ];
+  try {
+    await flushDetail(detail);
+    const root = detail.shadowRoot;
+    if (!root) throw new Error("Missing thread detail root");
+    const rows = () =>
+      Array.from(
+        root.querySelectorAll(
+          ".cpk-td__bubble, .cpk-td__timeline-item--warning",
+        ),
+        (row) => row.textContent?.trim(),
+      );
+    expect(rows().slice(-3)).toEqual([
+      "Answer 199",
+      expect.stringContaining("Run interrupted"),
+      "A later run recovered",
+    ]);
+    // Instrument the renderer to detect template rebuilds, not just DOM reuse.
+    const renderBubble = vi.fn(detail["renderBubble"].bind(detail));
+    detail["renderBubble"] = renderBubble;
+    for (let index = 0; index < 20; index++) {
+      detail.agentEventsInput = [
+        ...detail.agentEventsInput.map((event) => ({
+          ...event,
+          payload: { ...event.payload },
+        })),
+        { type: "STATE_DELTA", timestamp: index + 4, payload: { delta: [] } },
+      ];
+      await flushDetail(detail);
+    }
+    expect(renderBubble).not.toHaveBeenCalled();
+    detail.agentEventsInput = [
+      ...detail.agentEventsInput,
+      {
+        type: "RUN_ERROR",
+        timestamp: 30,
+        payload: { message: "Second run interrupted" },
+      },
+    ];
+    await flushDetail(detail);
+    expect(rows().slice(-2)).toEqual([
+      "A later run recovered",
+      expect.stringContaining("Second run interrupted"),
+    ]);
+    requireButton(root, "Show details").click();
+    await flushDetail(detail);
+    expect(requireButton(root, "Hide details")).toBeDefined();
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("tool shimmer requires live argument streaming for this thread", async () => {
+  prepareDom();
+  const detail = appendDetail({
+    threadId: "tool-streaming",
+    provider: {
+      getMessages: async () => [
+        {
+          id: "call",
+          role: "assistant",
+          toolCalls: [{ id: "lookup", name: "search_support_cases", args: {} }],
+        },
+      ],
+    },
+  });
+  const start = {
+    type: "TOOL_CALL_START",
+    timestamp: 2,
+    payload: { toolCallId: "lookup" },
+  };
+  const run = {
+    type: "RUN_STARTED",
+    timestamp: 1,
+    payload: { threadId: "tool-streaming" },
+  };
+  try {
+    await flushDetail(detail);
+    const root = detail.shadowRoot!;
+    const streaming = () => root.querySelector(".cpk-td__tool-name--streaming");
+    expect(streaming()).toBeNull();
+    expect(root.querySelector(".cpk-td__tool-name")?.textContent).toBe(
+      "Search support cases",
+    );
+
+    detail.agentEventsInput = [
+      start,
+      { ...run, payload: { threadId: "another-thread" } },
+    ];
+    await flushDetail(detail);
+    expect(streaming()).toBeNull();
+
+    detail.agentEventsInput = [start, run];
+    await flushDetail(detail);
+    expect(streaming()).not.toBeNull();
+    expect(root.querySelector(".cpk-td__tool-status")?.textContent).toContain(
+      "Receiving arguments",
+    );
+
+    // The subscriber wraps TOOL_CALL_END alongside parsed arguments.
+    detail.agentEventsInput = [
+      {
+        type: "TOOL_CALL_END",
+        timestamp: 3,
+        payload: { event: { toolCallId: "lookup" }, toolCallArgs: {} },
+      },
+      start,
+      run,
+    ];
+    await flushDetail(detail);
+    expect(streaming()).toBeNull();
+    expect(root.querySelector(".cpk-td__tool-status")?.textContent).toContain(
+      "No result recorded",
+    );
+
+    detail.agentEventsInput = [start, run];
+    await flushDetail(detail);
+    expect(streaming()).not.toBeNull();
+    detail.agentEventsInput = [
+      { type: "RUN_ERROR", timestamp: 4, payload: { message: "Disconnected" } },
+      start,
+      run,
+    ];
+    await flushDetail(detail);
+    expect(streaming()).toBeNull();
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   }
 });

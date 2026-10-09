@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { AnimatedCard } from "@/components/animated-card";
 import { motion, AnimatePresence } from "motion/react";
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import { ToolCallStatus } from "@copilotkit/react-core/v2";
 
 interface FinancingFormProps {
   onSubmit: (creditScore: string, loanTerm: string) => void;
-  status: RenderFunctionStatus;
+  status: ToolCallStatus;
 }
 
 export function FinancingForm({ onSubmit, status }: FinancingFormProps) {
@@ -51,7 +51,8 @@ export function FinancingForm({ onSubmit, status }: FinancingFormProps) {
       <AnimatePresence>
         {!isSubmitted && (
           <motion.button
-            className="bg-pink-500 hover:bg-pink-700 transition-colors duration-300 text-white px-4 py-2 my-4 rounded-md"
+            className="bg-pink-500 hover:bg-pink-700 disabled:bg-pink-300 disabled:cursor-not-allowed transition-colors duration-300 text-white px-4 py-2 my-4 rounded-md"
+            disabled={status !== ToolCallStatus.Executing}
             onClick={() => {
               setIsSubmitted(true);
               onSubmit(creditScore, loanTerm);

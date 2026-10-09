@@ -6,13 +6,21 @@
   "pages": [
     "overview",
     "quickstart",
-    "managed-intelligence-platform",
-    "connect-your-runtime",
-    "self-hosting",
-    "self-hosting-ecs",
+    "bring-your-own-thread-system",
     "intelligence-platform",
-    "threads-explained",
     "memories",
-    "learned-skills"
+    "learned-skills",
+    "capture-interactions",
+    "standalone-collector",
+    "captured-data",
+    "analytics",
+    "channels",
+    "managed-intelligence-platform",
+    "plans",
+    "self-hosting",
+    "self-hosting-local",
+    "self-hosting-ecs",
+    "self-hosting-observability",
+    "threads-explained"
   ]
 }

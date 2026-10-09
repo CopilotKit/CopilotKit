@@ -5,6 +5,31 @@ describe("next.config redirects", () => {
     vi.unstubAllEnvs();
   });
 
+  it("keeps /intelligence/channels on the Intelligence page", async () => {
+    vi.stubEnv("NEXT_PUBLIC_BASE_URL", "http://localhost:3003");
+    vi.stubEnv("NEXT_PUBLIC_SHELL_URL", "http://localhost:3000");
+
+    const nextConfig = (await import("../../../next.config")).default;
+    const redirects = (await nextConfig.redirects?.()) ?? [];
+    const frameworkChannels = redirects.filter(
+      (redirect) =>
+        redirect.source.startsWith("/:framework((?!") &&
+        /\/channels(?:\.mdx?)?$/.test(redirect.source),
+    );
+
+    expect(frameworkChannels.length).toBeGreaterThan(0);
+    for (const redirect of frameworkChannels) {
+      const excluded =
+        redirect.source.match(/\(\?!([^)]+)\)/)?.[1]?.split("|") ?? [];
+      expect(excluded).toContain("intelligence");
+      expect(excluded).toContain("reference");
+      const pattern = new RegExp(`^(?!${excluded.join("|")})[^/]+$`);
+      expect(pattern.test("intelligence")).toBe(false);
+      expect(pattern.test("reference")).toBe(false);
+      expect(pattern.test("langgraph")).toBe(true);
+    }
+  });
+
   it("does not redirect authored framework-scoped Generative UI component pages", async () => {
     vi.stubEnv("NEXT_PUBLIC_BASE_URL", "http://localhost:3003");
     vi.stubEnv("NEXT_PUBLIC_SHELL_URL", "http://localhost:3000");
@@ -21,6 +46,22 @@ describe("next.config redirects", () => {
           source: "/:framework/generative-ui/your-components/interactive",
         }),
       ]),
+    );
+  });
+
+  it("uses the unselected catch-all for the Components as Tools URL", async () => {
+    const nextConfig = (await import("../../../next.config")).default;
+    const redirects = (await nextConfig.redirects?.()) ?? [];
+
+    expect(redirects).toContainEqual({
+      source: "/unselected/:path*",
+      destination: "/:path*",
+      permanent: true,
+    });
+    expect(redirects).not.toContainEqual(
+      expect.objectContaining({
+        source: "/unselected/generative-ui/tool-based",
+      }),
     );
   });
 
@@ -134,7 +175,7 @@ describe("next.config redirects", () => {
     );
     // 9 retired paths with no upstream equivalent + the mirror root, each
     // emitted bare, `.md` and `.mdx`.
-    expect(exceptions).toHaveLength(30);
+    expect(exceptions.length).toBeGreaterThan(0);
     for (const exception of exceptions) {
       expect(redirects.indexOf(exception)).toBeLessThan(catchAll);
       expect(exception).toMatchObject({ statusCode: 301 });

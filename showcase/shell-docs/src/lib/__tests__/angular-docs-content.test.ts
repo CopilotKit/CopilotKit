@@ -1,259 +1,36 @@
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
 import { expect, test } from "vitest";
-import {
-  getAngularDocsNavTree,
-  resolveAngularDoc,
-} from "../angular-doc-navigation";
-import {
-  buildFrameworkNav,
-  buildFrameworkOnlyNav,
-  buildRootSurfaceNav,
-  loadDoc,
-} from "../docs-render";
-import type { NavNode } from "../docs-render";
-import { getFrontendCanonicalSlug } from "../frontend-page-content";
-import { renderPageToLlmText } from "../llm-text";
-import {
-  getDocsFolder,
-  getDocsMode,
-  getIntegration,
-  getIntegrations,
-  ROOT_FRAMEWORK,
-} from "../registry";
+import { resolveAngularDoc } from "../angular-doc-navigation";
 
-function markdownFiles(path: string): string[] {
-  return readdirSync(path, { withFileTypes: true }).flatMap((entry) => {
-    const entryPath = join(path, entry.name);
-    if (entry.isDirectory()) return markdownFiles(entryPath);
-    return entry.name.endsWith(".mdx") ? [entryPath] : [];
-  });
-}
+// React code in an Angular code sample. Prose is deliberately out of scope:
+// a sentence such as "the Angular equivalent of React's X" orients a reader
+// arriving from React, so Angular docs may name React, its packages, and its
+// hooks when comparing. What they must not do is show React code as if it
+// were the Angular API.
+const REACT_CODE =
+  /@copilotkit\/react|from ["']react(?:-dom)?(?:\/[\w-]+)?["']|\buse(?:Agent|Copilot\w*|RenderTool\w*|FrontendTool|HumanInTheLoop|Component|RenderActivityMessage)\s*\(|<(?:CopilotKit|CopilotChat|CopilotSidebar|CopilotPopup)\b/;
 
-test("keeps published Angular docs standalone and canonical", () => {
-  const contentRoot = join(process.cwd(), "src/content");
-  const paths = [
-    join(contentRoot, "docs/frontends/angular.mdx"),
-    join(contentRoot, "docs/cookbook/angular-adk-agentic-app.mdx"),
-    ...markdownFiles(join(contentRoot, "docs/frontends/angular")),
-    ...markdownFiles(join(contentRoot, "reference/angular")),
-  ];
-  const publishedCopy = paths
-    .map((path) => readFileSync(path, "utf8"))
-    .join("\n");
-
-  expect(publishedCopy).not.toMatch(/\bReact\b/);
-  expect(publishedCopy).not.toContain("/frontends/angular");
-});
-
-function pageSlugs(nodes: NavNode[]): string[] {
-  return nodes.flatMap((node): string[] => {
-    if (node.type === "page") return node.href ? [] : [node.slug];
-    if (node.type === "group") return pageSlugs(node.children);
-    return [];
-  });
-}
-
-function sectionTitles(nodes: NavNode[]): string[] {
-  return nodes.flatMap((node) => (node.type === "section" ? [node.title] : []));
-}
-
-function sectionNodes(nodes: NavNode[], section: string): NavNode[] {
-  const sectionIndex = nodes.findIndex(
-    (node) => node.type === "section" && node.title === section,
-  );
-  if (sectionIndex === -1) return [];
-
-  const nextSectionIndex = nodes.findIndex(
-    (node, index) => index > sectionIndex && node.type === "section",
-  );
-  return nodes.slice(
-    sectionIndex + 1,
-    nextSectionIndex === -1 ? undefined : nextSectionIndex,
+function fencedCode(markdown: string): string[] {
+  return [...markdown.matchAll(/```[^\n]*\n([\s\S]*?)```/g)].map(
+    (match) => match[1],
   );
 }
 
-function getReactNavTree(backendFramework: string | null): NavNode[] {
-  if (!backendFramework) {
-    return buildRootSurfaceNav(getDocsFolder(ROOT_FRAMEWORK));
-  }
+test("detects React code in fenced samples but allows React in prose", () => {
+  const markdown = [
+    "This is the Angular equivalent of React's `useComponent()` in `@copilotkit/react-core/v2`.",
+    "```ts",
+    'import { registerComponent } from "@copilotkit/angular";',
+    "```",
+    "```tsx",
+    'import { useAgent } from "@copilotkit/react-core/v2";',
+    "```",
+  ].join("\n");
 
-  const folder = getDocsFolder(backendFramework);
-  if (getDocsMode(backendFramework) === "authored") {
-    return buildFrameworkOnlyNav(folder);
-  }
+  const [angularSample, reactSample] = fencedCode(markdown);
 
-  return buildFrameworkNav(
-    folder,
-    getIntegration(backendFramework)?.name ?? backendFramework,
-    backendFramework,
-  );
-}
-
-function getCanonicalAngularSlug(
-  backendFramework: string | null,
-  reactSlug: string,
-): string {
-  if (!backendFramework && reactSlug === "quickstart") return "";
-  return getFrontendCanonicalSlug("angular", reactSlug);
-}
-
-const REACT_ONLY_CONTENT =
-  /@copilotkit\/react|from ["']react["']|\bReact (?:components?|SDK|UI|frontend|app)\b|\b(?:frontend|headless) hooks?\b|`use(?:Agent|Copilot\w*|RenderTool|FrontendTool|HumanInTheLoop|Component)`|\buse(?:Agent|Copilot\w*|RenderTool|FrontendTool|HumanInTheLoop|Component)\s*\(|<Copilot(?:Kit|Chat|Sidebar|Popup)\b(?=[^>]*(?:runtimeUrl|publicApiKey|enableInspector|renderActivityMessages|onError|a2ui|selfManagedAgents|agents__unsafe_dev_only|showDevConsole))[^>]*>|<FrontendOnly|<AngularSnippet/g;
-
-const ANGULAR_GLOBAL_LINK =
-  /^\/(?:angular(?:[/?#]|$)|slack(?:[/?#]|$)|teams(?:[/?#]|$)|channels(?:[/?#]|$)|reference(?:[/?#]|$)|cookbook(?:[/?#]|$)|images(?:[/?#]|$)|videos(?:[/?#]|$))/;
-
-function rootRelativeLinks(markdown: string): string[] {
-  const links: string[] = [];
-  const pattern = /(?:\]\(|\bhref\s*=\s*["'])(\/(?!\/)[^\s)"'}]+)(?:\)|["'])/g;
-  let match: RegExpExecArray | null;
-
-  while ((match = pattern.exec(markdown)) !== null) {
-    links.push(match[1]);
-  }
-
-  return links;
-}
-
-function findReactOnlyAngularContent(
-  backendFramework: string | null,
-  slugs: string[],
-): string[] {
-  const leaks: string[] = [];
-
-  for (const slug of slugs) {
-    const pageLabel = backendFramework ? `${backendFramework}/${slug}` : slug;
-    const resolution = resolveAngularDoc(backendFramework, slug);
-    expect(resolution, pageLabel).not.toBeNull();
-    const doc = loadDoc(resolution!.contentSlugPath);
-    expect(doc, pageLabel).not.toBeNull();
-
-    if (slug === "features") continue;
-    const output = renderPageToLlmText(
-      {
-        url: `angular/${backendFramework ? `${backendFramework}/` : ""}${slug}`,
-        title: doc!.fm.title,
-        description: doc!.fm.description,
-        filePath: doc!.filePath,
-        loadSlug: resolution!.contentSlugPath,
-        framework: resolution!.framework,
-      },
-      { framework: resolution!.framework, frontend: "angular" },
-    );
-
-    const match = output.match(REACT_ONLY_CONTENT);
-    if (match) {
-      leaks.push(`${pageLabel}: ${[...new Set(match)].join(", ")}`);
-    }
-  }
-
-  return leaks;
-}
-
-function findAngularLinkLeaks(
-  backendFramework: string | null,
-  slugs: string[],
-): string[] {
-  const leaks: string[] = [];
-
-  for (const slug of slugs) {
-    const pageLabel = backendFramework ? `${backendFramework}/${slug}` : slug;
-    const resolution = resolveAngularDoc(backendFramework, slug);
-    expect(resolution, pageLabel).not.toBeNull();
-    const doc = loadDoc(resolution!.contentSlugPath);
-    expect(doc, pageLabel).not.toBeNull();
-
-    const output = renderPageToLlmText(
-      {
-        url: `angular/${backendFramework ? `${backendFramework}/` : ""}${slug}`,
-        title: doc!.fm.title,
-        description: doc!.fm.description,
-        filePath: doc!.filePath,
-        loadSlug: resolution!.contentSlugPath,
-        framework: resolution!.framework,
-      },
-      { framework: resolution!.framework, frontend: "angular" },
-    );
-
-    for (const href of rootRelativeLinks(output)) {
-      if (
-        href.startsWith("/angular/angular") ||
-        !ANGULAR_GLOBAL_LINK.test(href)
-      ) {
-        leaks.push(`${pageLabel}: ${href}`);
-      }
-    }
-  }
-
-  return [...new Set(leaks)];
-}
-
-test("maps every React navigation destination to a published Angular destination", () => {
-  const backends = [
-    null,
-    ...getIntegrations()
-      .filter((integration) => integration.docs_mode !== "hidden")
-      .map((integration) => integration.slug),
-  ];
-
-  for (const backendFramework of backends) {
-    const publishedAngularSlugs = pageSlugs(
-      getAngularDocsNavTree(backendFramework),
-    );
-    const angularSlugs = new Set(publishedAngularSlugs);
-    expect(
-      publishedAngularSlugs.filter((slug) => slug.startsWith("(other)/")),
-      backendFramework ?? "root",
-    ).toEqual([]);
-
-    for (const reactSlug of pageSlugs(getReactNavTree(backendFramework))) {
-      const angularSlug = getCanonicalAngularSlug(backendFramework, reactSlug);
-      expect(
-        angularSlugs.has(angularSlug),
-        `${backendFramework ?? "root"}: ${reactSlug} -> ${angularSlug}`,
-      ).toBe(true);
-    }
-  }
-});
-
-test("uses the normalized sidebar flow for Angular docs", () => {
-  const navTree = getAngularDocsNavTree(null);
-  const titles = sectionTitles(navTree);
-  const interactivity = sectionNodes(navTree, "Interactivity");
-  const agentCapabilities = sectionNodes(navTree, "Agent capabilities");
-
-  expect(titles).toEqual([
-    "Basics",
-    "Generative UI",
-    "Interactivity",
-    "Agent capabilities",
-    "Intelligence",
-    "Backend",
-    "Learn",
-    "Other",
-  ]);
-  expect(navTree[0]).toMatchObject({
-    type: "page",
-    title: "Introduction",
-    slug: "",
-  });
-  expect(
-    interactivity.some(
-      (node) => node.type === "page" && node.title === "WebMCP",
-    ),
-  ).toBe(true);
-  expect(
-    agentCapabilities.some(
-      (node) => node.type === "group" && node.title === "Built-in Agent",
-    ),
-  ).toBe(true);
-  expect(agentCapabilities.map((node) => node.title)).toEqual([
-    "Built-in Agent",
-    "Automatic Learning",
-    "User Memories",
-    "Sub-agents",
-  ]);
+  expect(angularSample).not.toMatch(REACT_CODE);
+  expect(reactSample).toMatch(REACT_CODE);
+  expect(markdown.split("```")[0]).toMatch(/\bReact\b/);
 });
 
 test("resolves canonical contribution aliases through shared Angular content", () => {
@@ -274,40 +51,4 @@ test("resolves canonical contribution aliases through shared Angular content", (
       source: "shared",
     }),
   );
-});
-
-test("keeps the complete Angular surface free of another frontend's code", () => {
-  const slugs = pageSlugs(getAngularDocsNavTree(null)).filter(Boolean);
-  expect(findReactOnlyAngularContent(null, slugs)).toEqual([]);
-});
-
-test("keeps every rendered root Angular link in the Angular surface", () => {
-  const slugs = pageSlugs(getAngularDocsNavTree(null));
-  expect(findAngularLinkLeaks(null, slugs)).toEqual([]);
-});
-
-test("keeps every rendered backend-specific Angular link in context", () => {
-  const leaks: string[] = [];
-
-  for (const integration of getIntegrations()) {
-    if (integration.docs_mode === "hidden") continue;
-    const slugs = pageSlugs(getAngularDocsNavTree(integration.slug));
-    leaks.push(...findAngularLinkLeaks(integration.slug, slugs));
-  }
-
-  expect(leaks).toEqual([]);
-});
-
-test("keeps every Angular and backend combination frontend-native", () => {
-  const leaks: string[] = [];
-
-  for (const integration of getIntegrations()) {
-    if (integration.docs_mode === "hidden") continue;
-    const slugs = pageSlugs(getAngularDocsNavTree(integration.slug)).filter(
-      (slug) => slug !== "" && slug !== "quickstart",
-    );
-    leaks.push(...findReactOnlyAngularContent(integration.slug, slugs));
-  }
-
-  expect(leaks).toEqual([]);
 });

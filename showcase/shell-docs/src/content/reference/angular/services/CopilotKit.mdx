@@ -63,6 +63,12 @@ All reactive state is exposed as read-only Angular signals. Read a signal by cal
   response. It is `undefined` until the runtime reports the capability.
 </PropertyReference>
 
+<PropertyReference name="audioFileTranscriptionEnabled" type="Signal<boolean>">
+  Whether the connected runtime's `/info` response advertises audio file
+  transcription support. It remains `false` until the runtime reports the
+  capability.
+</PropertyReference>
+
 <PropertyReference name="intelligence" type="Signal<IntelligenceRuntimeInfo | undefined>">
   Intelligence runtime information advertised by `/info`, including the
   realtime WebSocket URL when available.

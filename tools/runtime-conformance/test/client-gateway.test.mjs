@@ -7,7 +7,7 @@ import { WebSocket } from "ws";
 import { createClientGateway } from "../client-gateway.mjs";
 
 /** Give every test an isolated real client gateway and explicit cleanup. */
-async function setup() {
+async function setup(faults = {}) {
   const events = [];
   const locks = new Map();
   const stops = [];
@@ -15,6 +15,7 @@ async function setup() {
   const gateway = createClientGateway({
     events,
     locks,
+    faults,
     stopRun: (...args) => stops.push(args),
   });
   const server = createServer();
@@ -72,6 +73,67 @@ test("client token cannot join another thread", async () => {
       response: { reason: "token_thread_mismatch" },
     });
     assert.equal(client.received.length, 1);
+  } finally {
+    await fixture.teardown();
+  }
+});
+
+test(
+  "network fault closes once after replay and permits fresh credentials",
+  { timeout: 5000 },
+  async () => {
+    const faults = { clientDisconnectAfterReplay: 1 };
+    const fixture = await setup(faults);
+    try {
+      fixture.locks.set("owned", { runId: "active-run" });
+      fixture.gateway.registerToken("first", "owned", "user");
+      const first = await fixture.connect("first");
+      const closed = once(first.socket, "close");
+      first.socket.send(
+        JSON.stringify([
+          "1",
+          "1",
+          "thread:owned",
+          "phx_join",
+          { stream_mode: "connect" },
+        ]),
+      );
+      assert.equal((await closed)[0], 1012);
+      assert.equal(first.received.at(-1)[3], "replay_complete");
+      assert.equal(faults.clientDisconnectAfterReplay, 0);
+      fixture.gateway.registerToken("fresh", "owned", "user");
+      const fresh = await fixture.connect("fresh");
+      fresh.socket.send(
+        JSON.stringify([
+          "2",
+          "2",
+          "thread:owned",
+          "phx_join",
+          { stream_mode: "connect" },
+        ]),
+      );
+      await waitFor(() =>
+        fresh.received.some((frame) => frame[3] === "replay_complete"),
+      );
+      assert.equal(fresh.socket.readyState, WebSocket.OPEN);
+      assert.deepEqual(fixture.stops, []);
+    } finally {
+      await fixture.teardown();
+    }
+  },
+);
+
+test("expired credential fault rejects one unused token before upgrade", async () => {
+  const faults = { clientRejectUnusedTokens: 1, clientTokenAttempts: [] };
+  const fixture = await setup(faults);
+  try {
+    fixture.gateway.registerToken("expired", "owned", "user");
+    await assert.rejects(fixture.connect("expired"), /401/);
+    fixture.gateway.registerToken("fresh", "owned", "user");
+    const fresh = await fixture.connect("fresh");
+    assert.equal(fresh.socket.readyState, WebSocket.OPEN);
+    assert.deepEqual(faults.clientTokenAttempts, ["expired", "fresh"]);
+    assert.equal(faults.clientRejectUnusedTokens, 0);
   } finally {
     await fixture.teardown();
   }

@@ -5,7 +5,11 @@ import {
   loadConfig,
   resolveScopes,
 } from "./config.js";
-import { getPackagesForScope } from "./versions.js";
+import {
+  findCrossScopePins,
+  getCurrentVersion,
+  getPackagesForScope,
+} from "./versions.js";
 import { getScopePathspecs } from "./changes.js";
 
 const CHANNELS_PACKAGES = [
@@ -19,6 +23,50 @@ const CHANNELS_PACKAGES = [
   "@copilotkit/channels-whatsapp",
   "@copilotkit/channels",
 ];
+
+describe("Learning release scope", () => {
+  it("selects only Learning for independent versioning and publishing", () => {
+    expect(resolveScopes("learning")).toEqual(["learning"]);
+    expect(getScopeConfig("learning")).toEqual({
+      packages: ["@copilotkit/learning"],
+      versionSource: "@copilotkit/learning",
+      sharedVersion: false,
+    });
+    const packages = getPackagesForScope("learning");
+    expect(packages.map((pkg) => pkg.name)).toEqual(["@copilotkit/learning"]);
+    expect(getCurrentVersion("learning")).toBe(packages[0].pkg.version);
+    expect(getScopePathspecs("learning")).toEqual(["packages/learning"]);
+    expect(getScopeConfig("monorepo").packages).not.toContain(
+      "@copilotkit/learning",
+    );
+    expect(
+      Object.values(loadConfig().scopes)
+        .flatMap((scope) => scope.packages)
+        .filter((name) => name === "@copilotkit/learning"),
+    ).toHaveLength(1);
+  });
+
+  it("keeps Core's workspace dependency resolvable across independent scopes", () => {
+    const learning = getPackagesForScope("learning")[0];
+    const core = getPackagesForScope("monorepo").find(
+      (pkg) => pkg.name === "@copilotkit/core",
+    );
+    expect(core?.pkg.dependencies[learning.name]).toBe("workspace:*");
+    expect(findCrossScopePins(["monorepo"])).toContainEqual({
+      from: "@copilotkit/core",
+      dep: "@copilotkit/learning",
+      depScope: "learning",
+      resolvesTo: learning.pkg.version,
+      reason: "unpublished-scope",
+    });
+    expect(
+      findCrossScopePins(resolveScopes(ALL_SCOPES)).filter(
+        (pin) => pin.dep === learning.name,
+      ),
+    ).toEqual([]);
+    expect(findCrossScopePins(["learning"])).toEqual([]);
+  });
+});
 
 describe("Channels release scope", () => {
   it("publishes the complete Channels family from one shared scope", () => {

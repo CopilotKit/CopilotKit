@@ -1,8 +1,9 @@
 ---
 title: Inspector
 icon: "lucide/SearchCheck"
-description: Verify your setup, debug agent runs, reproduce issues, and review Rich Threads and Automatic Learning.
+description: Verify your setup, debug agent runs, reproduce issues, and review AG-UI streams and Automatic Learning.
 ---
+
 
 The CopilotKit Inspector is a debugging overlay for the live connection between
 your frontend and agents. Use it while developing to follow a run from the
@@ -92,6 +93,31 @@ Mode](/troubleshooting/debug-mode) to inspect the server-side pipeline. Use
 production observability system should also receive the error. See [Error
 Debugging & Observability](/troubleshooting/error-debugging) for that setup.
 
+## What's New
+
+What's New lists updates that match your stable frontend SDK version and confirmed
+runtime configuration. A single preview beside the launcher highlights an update.
+Read it or close its preview to quiet the updates already available to you. They remain
+in What's New for later reading. Reading a different update does not dismiss the highlight.
+
+New updates can show a preview later. Copy edits to an update you already read stay quiet.
+The Inspector shares recent read and dismissed updates across ports on the current host.
+It keeps the selected update and full history in storage for each origin. Updates load
+once per page and do not poll. If cookies are blocked, read and dismissed updates
+stay on the current origin.
+Production, server rendering, and disabled Inspectors do not fetch notifications.
+
+React, Vue, and Angular set the notification context when they mount Inspector.
+If you mount `<cpk-web-inspector>` yourself, set its `notificationContext`
+property before connecting it to the page. Include `development: true`, your
+`framework`, and the version of that frontend SDK package as `sdkVersion`.
+Without that context, the element leaves notifications off.
+
+The cohort-capable Inspector reads only the versioned notification feed. Older SDK
+releases continue reading the separate legacy `announcements.json` feed. A legacy
+announcement reaches those older clients without cohort targeting; it is not a
+fallback for the updated Inspector when the cohort feed is empty or unavailable.
+
 ## Follow a run from input to result
 
 Send a message in your application, then use these views to answer the next
@@ -103,7 +129,7 @@ debugging question:
 | Which events crossed the AG-UI connection?    | **AG-UI Events**                                                    | [AG-UI protocol](/agentic-protocols/ag-ui)                 |
 | Which browser-side tools are registered?      | **Frontend Tools**                                                  | [Frontend Tools](/frontend-tools)                          |
 | What readable or document context was shared? | **Context**                                                         | [Agent read-only context](/shared-state/agent-readonly)    |
-| What did a saved conversation contain?        | **Rich Threads** → **Conversation**, **AG-UI Events**, or **State** | [Rich Threads](/threads) and [Shared State](/shared-state) |
+| What did a saved conversation contain?        | **Rich Threads** → **Conversation**, **AG-UI Events**, or **State** | [AG-UI Streams](/threads) and [Shared State](/shared-state) |
 
 In an official React `CopilotChat`, open an assistant message's toolbar and
 choose **View in Inspector** to jump directly to that message in its Thread.
@@ -184,7 +210,7 @@ If Threads remains locked, Inspector shows one Rich Threads setup view with
 **Copy setup prompt** and **Talk to an Engineer**. The view is based on Runtime
 Threads capability rather than license metadata. To configure incomplete
 routes, use the Runtime route guide.
-[Enable Rich Threads routes](/backend/runtime-endpoints#enable-rich-threads-routes)
+[Enable AG-UI Streams routes](/backend/runtime-endpoints#enable-rich-threads-routes)
 explains how to configure application-user identity, mount every required HTTP
 method, and verify the capability response.
 
@@ -211,13 +237,14 @@ to the web app to choose it. See [Automatic Learning](/learning) for the complet
 
 Use the option that matches what you are trying to do:
 
-| Goal                                      | Action                                                                                                    |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Close the current view                    | Use the close control; reopen it from the Inspector button                                                |
-| See your application without an overlay   | Use the pop-out control in the Inspector header                                                           |
-| Hide chat message shortcuts until reload  | Open a message's Inspector shortcut menu and choose **Hide this icon**                                    |
-| Hide Inspector temporarily on this domain | Choose **Hide Inspector for a day** from the launcher HUD, or **Hide Inspector for one week** in settings |
-| Disable Inspector for the development app | Set `enableInspector` to `false`                                                                          |
+| Goal                                       | Action                                                                                                    |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| Close the current view                     | Use the close control; reopen it from the Inspector button                                                |
+| See your application without an overlay    | Use the pop-out control in the Inspector header                                                           |
+| Hide chat message shortcuts until reload   | Open a message's Inspector shortcut menu and choose **Hide this icon**                                    |
+| Hide Inspector temporarily on this domain  | Choose **Hide Inspector for a day** from the launcher HUD, or **Hide Inspector for one week** in settings |
+| Hide Inspector indefinitely on this domain | Choose **Always hide Inspector** in settings; see below to bring it back                                  |
+| Disable Inspector for the development app  | Set `enableInspector` to `false`                                                                          |
 
 Pop-out opens the same live Inspector session in a separate browser window and
 hides the overlay and floating button on the application page. Close the extra
@@ -227,6 +254,15 @@ Inspector does not restore pop-out mode after a refresh.
 
 A temporary hide removes the overlay and launcher only on the current domain.
 They return automatically after the selected period.
+
+**Always hide Inspector** keeps the overlay and launcher hidden on the current
+domain until you bring them back. To restore Inspector, run this in the browser
+console on the page where you hid it, then reload:
+
+```js
+document.cookie = "cpk_inspector_dismissed_until=; Path=/; Max-Age=0";
+localStorage.removeItem("cpk:inspector:dismissed_until");
+```
 
 To disable Inspector in a React development build:
 
@@ -239,7 +275,7 @@ To disable Inspector in a React development build:
 </CopilotKit>
 ```
 
-For managed Intelligence, keep `CPK_INTELLIGENCE_API_KEY` on the runtime server.
+For cloud-hosted Intelligence, keep `CPK_INTELLIGENCE_API_KEY` on the runtime server.
 The runtime reports Intelligence access to the browser. Do not expose the project
 API key in a `NEXT_PUBLIC_` environment variable.
 

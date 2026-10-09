@@ -1,3 +1,9 @@
+import { notificationTestId } from "./notification-fixture.js";
+vi.mock("../lib/notification-loader.js", async () => {
+  const { fetchNotificationFixture } =
+    await import("./notification-fixture.js");
+  return { loadNotificationFeed: fetchNotificationFixture };
+});
 import {
   CpkThreadInspector,
   configureWebInspectorElement,
@@ -479,6 +485,58 @@ describe("WebInspectorElement", () => {
     controller.simulateSetState({ counter: 5 });
     await inspector.updateComplete;
     expect(internals.agentStates.get("counter")).toEqual({ counter: 5 });
+  });
+
+  describe("small viewports", () => {
+    const setViewport = (width: number, height: number) => {
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        writable: true,
+        value: width,
+      });
+      Object.defineProperty(window, "innerHeight", {
+        configurable: true,
+        writable: true,
+        value: height,
+      });
+    };
+    const initialViewport = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
+    afterEach(() => setViewport(initialViewport.width, initialViewport.height));
+
+    const openWindow = async () => {
+      const { core } = createMockCore();
+      const inspector = new WebInspectorElement();
+      inspector.core = core as unknown as CopilotKitCore;
+      document.body.appendChild(inspector);
+      await inspector.updateComplete;
+      inspector.openInspector("floating_button");
+      await inspector.updateComplete;
+      return inspector.shadowRoot!.querySelector<HTMLElement>(
+        ".inspector-window",
+      )!;
+    };
+
+    it("zooms the window down so the desktop layout fits the screen", async () => {
+      setViewport(768, 600);
+      const inspectorWindow = await openWindow();
+
+      // On screen: 736x568, the viewport minus its margins, at 0.8 zoom.
+      expect(inspectorWindow.style.zoom).toBe("0.8");
+      expect(inspectorWindow.style.width).toBe("920px");
+      expect(inspectorWindow.style.height).toBe("710px");
+    });
+
+    it("keeps the full-size window when the screen can hold it", async () => {
+      setViewport(1440, 900);
+      const inspectorWindow = await openWindow();
+
+      expect(inspectorWindow.style.zoom).toBe("");
+      expect(inspectorWindow.style.width).toBe("960px");
+      expect(inspectorWindow.style.height).toBe("740px");
+    });
   });
 });
 
@@ -1516,11 +1574,10 @@ describe("CpkThreadInspector provider contract", () => {
 // cannot inflate itself by counting people who opened the Inspector for an
 // unrelated reason, or who arrived before the feed resolved.
 
-const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
+const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/notifications/v1.json";
 
 type OpenTelemetryInternals = {
   isOpen: boolean;
-  announcementTimestamp: string | null;
   fetchAnnouncement: () => Promise<void>;
   openInspector: (source: InspectorOpenSource) => void;
 };
@@ -1539,6 +1596,10 @@ async function openWhatsNew(inspector: WebInspectorElement): Promise<void> {
   await inspector.updateComplete;
   inspector.shadowRoot
     ?.querySelector<HTMLElement>('button[data-inspector-menu-key="whats-new"]')
+    ?.click();
+  await inspector.updateComplete;
+  inspector.shadowRoot
+    ?.querySelector<HTMLButtonElement>(".cpk-notification-row")
     ?.click();
   await inspector.updateComplete;
 }
@@ -1597,6 +1658,11 @@ describe("WebInspectorElement open + What's new telemetry", () => {
         CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     }
     const inspector = new WebInspectorElement();
+    inspector.notificationContext = {
+      development: true,
+      framework: "react",
+      sdkVersion: "1.70.2",
+    };
     document.body.appendChild(inspector);
     inspector.core = harness.core as unknown as WebInspectorElement["core"];
     return {
@@ -1620,6 +1686,211 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     if (!link) throw new Error("Expected announcement link");
     return link;
   };
+  const showHud = async (inspector: WebInspectorElement) => {
+    await inspector.updateComplete;
+    inspector.shadowRoot
+      ?.querySelector(".console-button-wrapper")
+      ?.dispatchEvent(new PointerEvent("pointerenter", { bubbles: true }));
+    await inspector.updateComplete;
+  };
+
+  it("records rendered HUD parts once per presentation and identifies the notification", async () => {
+    const { inspector, internals } = mount();
+    await internals.fetchAnnouncement();
+    await showHud(inspector);
+
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(1);
+    expect(
+      eventsNamed("oss.inspector.hud_notification_viewed")[0]?.properties,
+    ).toMatchObject({
+      banner_id: notificationTestId(timestamp),
+      notification_id: notificationTestId(timestamp),
+      trigger: "user",
+    });
+    expect(
+      eventsNamed("oss.inspector.hud_feature_toggle_viewed").map(
+        (event) => event.properties.feature,
+      ),
+    ).toEqual(["learning"]);
+    expect(eventsNamed("oss.inspector.hud_hide_viewed")).toHaveLength(1);
+    expect(
+      [
+        "hud_viewed",
+        "hud_notification_viewed",
+        "hud_feature_toggle_viewed",
+        "hud_hide_viewed",
+      ].map(
+        (name) => eventsNamed(`oss.inspector.${name}`)[0]?.properties.trigger,
+      ),
+    ).toEqual(["user", "user", "user", "user"]);
+    inspector.requestUpdate();
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(1);
+
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>(".console-button-wrapper")
+      ?.dispatchEvent(new PointerEvent("pointerleave", { bubbles: true }));
+    // Close through the same Escape path a keyboard user has.
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>(".console-button-wrapper")
+      ?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+    await inspector.updateComplete;
+    await showHud(inspector);
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(2);
+  });
+
+  it("labels the automatic page-load preview as an intro, including clicks made during it", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const { inspector } = mount();
+      await inspector.updateComplete;
+      expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(0);
+
+      await vi.advanceTimersByTimeAsync(500);
+      await inspector.updateComplete;
+      expect(
+        eventsNamed("oss.inspector.hud_viewed").map(
+          (event) => event.properties.trigger,
+        ),
+      ).toEqual(["intro"]);
+      expect(
+        eventsNamed("oss.inspector.hud_hide_viewed")[0]?.properties,
+      ).toMatchObject({ trigger: "intro" });
+
+      // Taking over the preview keeps the presentation it started as.
+      await showHud(inspector);
+      inspector.shadowRoot
+        ?.querySelector<HTMLButtonElement>('[data-cpk-hud-toggle="learning"]')
+        ?.click();
+      expect(
+        eventsNamed("oss.inspector.hud_feature_toggle_clicked")[0]?.properties,
+      ).toMatchObject({ feature: "learning", trigger: "intro" });
+      expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("labels a hover after the intro has ended as a user presentation", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const { inspector } = mount();
+      await inspector.updateComplete;
+      await vi.advanceTimersByTimeAsync(500 + 3400);
+      await inspector.updateComplete;
+      expect(
+        inspector.shadowRoot?.querySelector("[data-cpk-launcher-hud]"),
+      ).toBeNull();
+
+      await showHud(inspector);
+      expect(
+        eventsNamed("oss.inspector.hud_viewed").map(
+          (event) => event.properties.trigger,
+        ),
+      ).toEqual(["intro", "user"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("records notification dismissals and feature toggle navigation", async () => {
+    const { inspector, internals } = mount();
+    await internals.fetchAnnouncement();
+    await showHud(inspector);
+    inspector.shadowRoot
+      ?.querySelector<HTMLButtonElement>("[data-cpk-hud-news-dismiss]")
+      ?.click();
+    await inspector.updateComplete;
+    expect(
+      eventsNamed("oss.inspector.hud_notification_clicked")[0]?.properties,
+    ).toMatchObject({
+      banner_id: notificationTestId(timestamp),
+      notification_id: notificationTestId(timestamp),
+      action: "dismiss",
+      trigger: "user",
+    });
+
+    inspector.shadowRoot
+      ?.querySelector<HTMLButtonElement>('[data-cpk-hud-toggle="learning"]')
+      ?.click();
+    expect(
+      eventsNamed("oss.inspector.hud_feature_toggle_clicked")[0]?.properties,
+    ).toMatchObject({ feature: "learning", trigger: "user" });
+    expect(eventsNamed("oss.inspector.hud_feature_clicked")).toHaveLength(0);
+  });
+
+  it("records notification opens", async () => {
+    const { inspector, internals } = mount();
+    await internals.fetchAnnouncement();
+    await showHud(inspector);
+    inspector.shadowRoot
+      ?.querySelector<HTMLButtonElement>("[data-cpk-hud-news]")
+      ?.click();
+    expect(
+      eventsNamed("oss.inspector.hud_notification_clicked")[0]?.properties,
+    ).toMatchObject({
+      banner_id: notificationTestId(timestamp),
+      notification_id: notificationTestId(timestamp),
+      action: "open",
+      trigger: "user",
+    });
+  });
+
+  it("records feature row actions", async () => {
+    const { inspector } = mount();
+    await showHud(inspector);
+    inspector.shadowRoot
+      ?.querySelector<HTMLButtonElement>('[data-cpk-hud-learn-more="learning"]')
+      ?.click();
+    expect(
+      eventsNamed("oss.inspector.hud_feature_clicked").at(-1)?.properties,
+    ).toMatchObject({
+      feature: "learning",
+      control: "learn_more",
+      trigger: "user",
+    });
+  });
+
+  it("records the hide action", async () => {
+    const { inspector } = mount();
+    await showHud(inspector);
+    inspector.shadowRoot
+      ?.querySelector<HTMLButtonElement>('[data-cpk-dismiss-inspector="day"]')
+      ?.click();
+    expect(
+      eventsNamed("oss.inspector.hud_hide_clicked").map(
+        (event) => event.properties.trigger,
+      ),
+    ).toEqual(["user"]);
+  });
+
+  it("holds HUD telemetry until the handshake and drops it on runtime opt-out", async () => {
+    const { inspector, internals, harness } = mount(false, false);
+    await internals.fetchAnnouncement();
+    await showHud(inspector);
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(0);
+    harness.completeHandshake({ telemetryDisabled: true });
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(0);
+  });
+
+  it("flushes a pending HUD impression after an allowed handshake", async () => {
+    const { inspector, internals, harness } = mount(false, false);
+    await internals.fetchAnnouncement();
+    await showHud(inspector);
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(0);
+    harness.completeHandshake({ telemetryDisabled: false });
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(1);
+    expect(
+      eventsNamed("oss.inspector.hud_notification_viewed")[0]?.properties,
+    ).toMatchObject({
+      banner_id: notificationTestId(timestamp),
+      notification_id: notificationTestId(timestamp),
+    });
+  });
 
   it("records one launcher signal presentation when the pulse is rendered", async () => {
     const { inspector, internals } = mount();
@@ -1631,7 +1902,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     const viewed = eventsNamed("oss.inspector.whats_new_signal_viewed");
     expect(viewed).toHaveLength(1);
     expect(viewed[0]!.properties).toMatchObject({
-      banner_id: timestamp,
+      banner_id: notificationTestId(timestamp),
       surface: "launcher",
       presentation: "animated",
       package_name: "@copilotkit/web-inspector",
@@ -1729,7 +2000,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     const viewed = eventsNamed("oss.inspector.whats_new_viewed");
     expect(viewed).toHaveLength(1);
     expect(viewed[0]!.properties).toMatchObject({
-      banner_id: timestamp,
+      banner_id: notificationTestId(timestamp),
       surface: "whats_new",
       package_name: "@copilotkit/web-inspector",
     });
@@ -2212,6 +2483,11 @@ function setupRuntimeDiagnostics() {
 
     localStorage.removeItem("cpk:inspector:state");
     const inspector = new WebInspectorElement();
+    inspector.notificationContext = {
+      development: true,
+      framework: "react",
+      sdkVersion: "1.70.2",
+    };
     document.body.appendChild(inspector);
     inspector.core = core;
     await inspector.updateComplete;
@@ -3616,7 +3892,7 @@ describe("WebInspectorElement memories — view states", () => {
     // through `feature/stop` when a prerequisite is missing, which is why the
     // route beats this pane guessing at one.
     expect(String(writeText.mock.calls[0]?.[0])).toContain(
-      "--intent add-learning",
+      "?intent=add-learning",
     );
     expect(copy?.getAttribute("aria-label")).toContain("Learning");
     expect(internals.selectedMenu).toBe("memories");

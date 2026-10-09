@@ -2,29 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   CHANNEL_ONBOARDING_IDS,
   createChannelsOnboardingAttempt,
-  createChannelsOnboardingPrompt,
   isChannelOnboardingId,
 } from "../channels-onboarding-prompt";
-import { INTELLIGENCE_ONBOARDING_PROMPT } from "../intelligence-onboarding-prompt";
 
 describe("channels onboarding prompt", () => {
-  it("is the same small prompt as every other CTA", () => {
-    expect(createChannelsOnboardingPrompt("abc123abc123")).toBe(
-      INTELLIGENCE_ONBOARDING_PROMPT.replace("<run-id>", "abc123abc123"),
-    );
-  });
-
-  it("does not use --intent or name Slack or Teams", () => {
-    const prompt = createChannelsOnboardingPrompt("abc123abc123");
-    expect(prompt).not.toContain("--intent");
-    expect(prompt).not.toMatch(/slack|teams/i);
-  });
-
-  it("does not name an agent framework", () => {
-    const prompt = createChannelsOnboardingPrompt("abc123abc123");
-    expect(prompt).not.toMatch(/framework|built-in|mastra|langgraph/i);
-  });
-
   it("recognises only Slack and Teams Channel pages", () => {
     for (const id of CHANNEL_ONBOARDING_IDS) {
       expect(isChannelOnboardingId(id)).toBe(true);
@@ -45,6 +26,6 @@ describe("channels onboarding prompt", () => {
 
     expect(first.runId).toMatch(/^[0-9a-f]{12}$/);
     expect(second.runId).not.toBe(first.runId);
-    expect(first.prompt).toContain(`--run ${first.runId}`);
+    expect(first.prompt).toContain(`/onboarding-prompts/${first.runId}`);
   });
 });

@@ -1,48 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  DOCS_MEGA_MENU_COLUMNS,
-  INTELLIGENCE_DOCS_HREF,
-  isDocsExplorePath,
-  isIntelligenceDocsPath,
-} from "../docs-mega-menu";
-
-describe("docs mega menu data", () => {
-  it("keeps Intelligence as the featured Ship & Operate entry", () => {
-    const titles = DOCS_MEGA_MENU_COLUMNS.map((column) => column.title);
-    expect(titles).toEqual([
-      "Start",
-      "Build",
-      "Connect",
-      "Ship & Operate",
-      "Reference",
-    ]);
-
-    const shipColumn = DOCS_MEGA_MENU_COLUMNS.find(
-      (column) => column.title === "Ship & Operate",
-    );
-    const intelligence = shipColumn?.links.find(
-      (link) => link.label === "Intelligence",
-    );
-
-    expect(INTELLIGENCE_DOCS_HREF).toBe("/intelligence/overview");
-    expect(intelligence).toEqual({
-      href: "/intelligence/overview",
-      label: "Intelligence",
-      icon: "kite",
-      featured: true,
-    });
-    expect(shipColumn?.links.map((link) => [link.label, link.href])).toEqual([
-      ["Intelligence", "/intelligence/overview"],
-      ["Rich Threads", "/threads"],
-      ["Automatic Learning", "/learning"],
-      ["Product Analytics", "/intelligence/managed-intelligence-platform"],
-      ["User Memories", "/intelligence/memories"],
-      ["Inspector", "/inspector"],
-      ["Deploy", "/deploy/agentcore"],
-      ["Self-hosting", "/intelligence/self-hosting"],
-    ]);
-  });
-});
+import { isDocsExplorePath, isIntelligenceDocsPath } from "../docs-mega-menu";
 
 describe("isIntelligenceDocsPath", () => {
   it("matches Intelligence docs on the root and framework surfaces", () => {

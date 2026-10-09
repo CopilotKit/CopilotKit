@@ -22,7 +22,7 @@ const FEATURE_COPY = {
     title: "Build agents that get smarter with every use.",
     points: [
       {
-        label: "Rich Threads",
+        label: "AG-UI Streams",
         body: "keep messages, generative UI, and tool activity available across sessions and devices.",
       },
       {
@@ -38,7 +38,7 @@ const FEATURE_COPY = {
     title: "Conversations that never lose context.",
     points: [
       {
-        label: "CopilotKit Intelligence Rich Threads",
+        label: "CopilotKit Intelligence AG-UI Streams",
         body: "keep messages, generative UI, and tool activity available across sessions and devices. Build a new agent or bring one you already have. Any frontend, any backend.",
       },
     ],

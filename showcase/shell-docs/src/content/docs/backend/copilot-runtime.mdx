@@ -5,8 +5,11 @@ icon: "lucide/Server"
 ---
 
 import AgentNameBinding from "@/snippets/agent-name-binding.mdx";
+import RuntimeLanguages from "@/snippets/runtime-languages.mdx";
 
 The Copilot Runtime is the backend layer that connects your frontend application to your AI agents. It's set up during the [quickstart](/quickstart) and is the recommended way to use CopilotKit.
+
+<RuntimeLanguages />
 
 ## Setting up the runtime
 
@@ -96,6 +99,8 @@ The runtime supports multiple agent types. `BuiltInAgent` is the primary agent c
 - **Simple mode:** pass a model string and let CopilotKit handle the rest. Best for quick setup. See [Quickstart](/quickstart).
 - **Factory mode:** bring your own AI SDK, TanStack AI, or custom LLM backend. Best when you need full control. See [Factory Mode](/backend/custom-agent).
 
+To register agent logic you wrote yourself, extend AG-UI's `AbstractAgent`. See [Write your own AG-UI agent](/backend/custom-ag-ui-agent).
+
 <Callout type="warn" title="Wiring an external agent: what to pass, and which URL">
 Two mistakes account for most failures here.
 
@@ -157,7 +162,7 @@ When you register multiple agents, the runtime handles discovery and routing aut
 
 [Threads](/threads), the [inspector](/inspector), and other CopilotKit Intelligence capabilities are provided through the runtime. These give you conversation persistence and debugging without extra setup.
 
-The examples below take `intelligence` and `identifyUser` as given. `intelligence` is a `CopilotKitIntelligence` instance — see [Connect your runtime to Intelligence](/intelligence/connect-your-runtime) for the constructor and where the project API key comes from.
+The examples below take `intelligence` and `identifyUser` as given. `intelligence` is a `CopilotKitIntelligence` instance — see [Connect your runtime to Intelligence](/intelligence/quickstart) for the constructor and where the project API key comes from.
 
 #### Assign Threads to Learning Containers
 
@@ -269,7 +274,7 @@ const runtime = new CopilotRuntime({
 
 Each server entry optionally accepts an `agentId` field to scope that server to a single agent. Without it, the server is available to all agents.
 
-Per-tool filtering belongs to `@ag-ui/mcp-apps-middleware`. The runtime currently pins version `0.0.3`, which does not support `includeTools` or `excludeTools`. Supplying either key raises a configuration error instead of silently ignoring it; use a compatible middleware release when that upstream policy contract is available.
+Per-tool filtering belongs to `@ag-ui/mcp-apps-middleware`. The release the runtime depends on does not support `includeTools` or `excludeTools`. Supplying either key raises a configuration error instead of silently ignoring it. A newer middleware release alone does not change this: the runtime has to adopt the policy first. Follow [#5930](https://github.com/CopilotKit/CopilotKit/issues/5930) for that work.
 
 ## Forwarding request headers to your agent
 

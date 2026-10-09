@@ -8,8 +8,7 @@
 // matcher, kept deliberately free of React, network calls and side
 // effects so it can be read, reviewed and tested as plain data.
 //
-// Rules the data must keep (all enforced by
-// lib/__tests__/intelligence-search-ctas.test.ts):
+// Rules to preserve when editing the recommendations:
 //
 //  - Every destination is an INTERNAL docs route. Never an absolute URL:
 //    the modal navigates through next/router and an external href would
@@ -63,7 +62,7 @@ export const INTELLIGENCE_SEARCH_CTAS: readonly IntelligenceSearchCta[] = [
     // free. What Intelligence adds is the durable, resumable storage
     // behind them, so this must not read as "threads are a paid feature".
     body: "Threads are built into CopilotKit. Intelligence stores them for you, so conversations resume across reloads, sessions and devices without you running a database.",
-    primary: { label: "Read the Rich Threads guide", href: "/threads" },
+    primary: { label: "Read the AG-UI Streams guide", href: "/threads" },
     secondary: [
       {
         label: "How thread persistence works",
@@ -104,23 +103,22 @@ export const INTELLIGENCE_SEARCH_CTAS: readonly IntelligenceSearchCta[] = [
     },
     secondary: [
       { label: "Connect Intelligence", href: "/intelligence/quickstart" },
-      { label: "Rich Threads guide", href: "/threads" },
+      { label: "AG-UI Streams guide", href: "/threads" },
     ],
   },
   {
-    // Analytics has no dedicated docs page yet, so use the overview.
     id: "analytics",
     keywords: ["analytics"],
     specificity: 10,
     title: "See what your agent actually does",
     body: "Intelligence reports on the runs, tool calls and conversations behind your agent, so you can tell what is working in production.",
     primary: {
-      label: "See what Intelligence adds",
-      href: "/intelligence/overview",
+      label: "Open Product Analytics",
+      href: "/intelligence/analytics",
     },
     secondary: [
       { label: "Connect Intelligence", href: "/intelligence/quickstart" },
-      { label: "Rich Threads guide", href: "/threads" },
+      { label: "AG-UI Streams guide", href: "/threads" },
     ],
   },
   {
@@ -130,14 +128,14 @@ export const INTELLIGENCE_SEARCH_CTAS: readonly IntelligenceSearchCta[] = [
     // why "intelligence threads" resolves to the threads entry.
     specificity: 1,
     title: "CopilotKit Intelligence",
-    body: "Rich Threads, Product Analytics, Automatic Learning and production operations on top of the runtime you already run.",
+    body: "AG-UI Streams, Product Analytics, Automatic Learning, and the rest of Intelligence on top of the runtime you already run.",
     primary: {
       label: "See what Intelligence adds",
       href: "/intelligence/overview",
     },
     secondary: [
       { label: "Connect in 5 minutes", href: "/intelligence/quickstart" },
-      { label: "Rich Threads guide", href: "/threads" },
+      { label: "AG-UI Streams guide", href: "/threads" },
       { label: "Self-hosting", href: "/intelligence/self-hosting" },
     ],
   },

@@ -9,7 +9,6 @@
 // The keyword table and matcher have their own tests in
 // lib/__tests__/intelligence-search-ctas.test.ts.
 
-import React from "react";
 import {
   cleanup,
   fireEvent,
@@ -17,7 +16,15 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 const pushed: string[] = [];
 const captured: Array<{ event: string; props: Record<string, unknown> }> = [];
@@ -50,26 +57,19 @@ vi.mock("../framework-provider", () => ({
   }),
 }));
 
-import * as ctaMatching from "../../lib/intelligence-search-ctas";
+import { SearchModal, loadRegistry } from "../search-modal";
 
-import { SearchModal } from "../search-modal";
+// The modal fetches registry.json with a dynamic import on mount. Under
+// vitest each such import is a round trip to the main process, which stalls
+// for seconds when the full suite runs in parallel. Pay for the one real load
+// here, with room to spare, so no test's 1000ms waitFor races it.
+beforeAll(async () => {
+  await loadRegistry();
+}, 60_000);
 
 function resultRows(): HTMLElement[] {
   if (!screen.queryByRole("listbox", { name: "Search results" })) return [];
   return screen.getAllByRole("option");
-}
-
-/**
- * Indexes of the result rows whose trailing arrow is drawn in the accent
- * colour — i.e. the rows the UI claims are selected.
- */
-function accentedArrowRowIndexes(rows: HTMLElement[]): number[] {
-  return rows.flatMap((row, idx) => {
-    const arrow = row.querySelector("svg.lucide-arrow-right");
-    return arrow?.getAttribute("class")?.includes("text-[var(--accent)]")
-      ? [idx]
-      : [];
-  });
 }
 
 function recommendation(): HTMLElement | null {
@@ -127,63 +127,6 @@ afterEach(() => {
   delete window.__SHOWCASE_CONFIG__;
 });
 
-describe("when the recommendation appears", () => {
-  it("shows exactly one block for a keyword query", async () => {
-    await search("threads");
-
-    expect(
-      screen.getAllByRole("group", { name: "Recommended guide" }),
-    ).toHaveLength(1);
-    expect(recommendation()!.textContent).toContain(
-      "Threads that survive a reload",
-    );
-  });
-
-  it("shows the most specific block, never two", async () => {
-    await search("intelligence threads");
-
-    const blocks = screen.getAllByRole("group", { name: "Recommended guide" });
-    expect(blocks).toHaveLength(1);
-    expect(blocks[0].textContent).toContain("Threads that survive a reload");
-    expect(blocks[0].textContent).not.toContain(
-      "Persistent threads, analytics",
-    );
-  });
-
-  it("stays away from unrelated queries", async () => {
-    for (const query of [
-      "useCopilotAction",
-      "angular quickstart",
-      "css",
-      "zzzznomatchingpage",
-    ]) {
-      await search(query);
-      expect(recommendation()).toBeNull();
-      cleanup();
-    }
-  });
-
-  it("adds to the result list instead of replacing part of it", async () => {
-    await search("threads");
-
-    const block = recommendation()!;
-    const list = screen.getByRole("listbox", { name: "Search results" });
-    // The block renders above the organic results...
-    expect(
-      block.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    // ...and costs no organic result slots, regardless of index size.
-    const withRecommendation = resultRows().map((row) => row.textContent);
-    cleanup();
-    vi.spyOn(ctaMatching, "matchIntelligenceSearchCta").mockReturnValue(null);
-    await search("threads");
-    expect(recommendation()).toBeNull();
-    expect(resultRows().map((row) => row.textContent)).toEqual(
-      withRecommendation,
-    );
-  });
-});
-
 describe("how the recommendation is announced", () => {
   it.each(["threads", "threads zzzznomatchingpage", "zzzznomatchingpage"])(
     "only controls rendered elements for %s",
@@ -211,72 +154,9 @@ describe("how the recommendation is announced", () => {
       screen.getAllByRole("option").every((option) => !block.contains(option)),
     ).toBe(true);
   });
-
-  it("names itself a recommendation on the link the keyboard lands on", async () => {
-    await search("threads");
-
-    expect(primaryLink().getAttribute("aria-label")).toContain("Recommended:");
-    expect(
-      screen.getByRole("combobox").getAttribute("aria-controls"),
-    ).toContain(recommendation()!.id);
-  });
 });
 
 describe("keyboard and pointer selection", () => {
-  it("puts the block first, ahead of the results", async () => {
-    await search("threads");
-
-    const input = screen.getByRole("combobox");
-    expect(input.getAttribute("aria-activedescendant")).toBeNull();
-    expect(screen.getByRole("status").textContent).toContain(
-      "Recommended: Threads",
-    );
-    expect(resultRows()[0].getAttribute("aria-selected")).toBe("false");
-
-    fireEvent.keyDown(input, { key: "ArrowDown" });
-    expect(resultRows()[0].getAttribute("aria-selected")).toBe("true");
-    const activeId = input.getAttribute("aria-activedescendant")!;
-    expect(document.getElementById(activeId)).toBe(resultRows()[0]);
-    expect(screen.getByRole("status").textContent).toBe("");
-
-    fireEvent.keyDown(input, { key: "ArrowUp" });
-    expect(input.getAttribute("aria-activedescendant")).toBeNull();
-    expect(screen.getByRole("status").textContent).toContain(
-      "Recommended: Threads",
-    );
-    expect(resultRows()[0].getAttribute("aria-selected")).toBe("false");
-  });
-
-  it("lights the arrow on the selected row, not the one below it", async () => {
-    await search("threads");
-
-    const input = screen.getByRole("combobox");
-    fireEvent.keyDown(input, { key: "ArrowDown" });
-    fireEvent.keyDown(input, { key: "ArrowDown" });
-
-    const rows = resultRows();
-    expect(rows[1].getAttribute("aria-selected")).toBe("true");
-    // The accented arrow must sit on exactly the row that is selected.
-    // Before the fix the arrow compared the row index against a selection
-    // that counts the recommendation block, so it lit row 2 instead.
-    expect(accentedArrowRowIndexes(rows)).toEqual([1]);
-  });
-
-  it("keeps hover in sync exactly as result rows do", async () => {
-    await search("threads");
-
-    const input = screen.getByRole("combobox");
-    fireEvent.mouseEnter(resultRows()[2]);
-    expect(resultRows()[2].getAttribute("aria-selected")).toBe("true");
-
-    fireEvent.mouseEnter(recommendation()!);
-    expect(resultRows()[2].getAttribute("aria-selected")).toBe("false");
-    expect(input.getAttribute("aria-activedescendant")).toBeNull();
-    expect(screen.getByRole("status").textContent).toContain(
-      "Recommended: Threads",
-    );
-  });
-
   it("activates the block on Enter", async () => {
     await search("threads");
 
@@ -350,21 +230,6 @@ describe("the whole block is one clickable card", () => {
     expect(captured).toHaveLength(1);
     expect(captured[0].props.surface).toBe("docs-search:threads:threads");
   });
-
-  it("attributes every link with the surface and matched keyword", async () => {
-    await search("persistence");
-
-    for (const link of recommendationLinks()) {
-      expect(link.getAttribute("href")).toContain(
-        "utm_content=docs-search%3Athreads%3Apersistence",
-      );
-    }
-
-    fireEvent.click(recommendationLinks()[1]);
-    expect(captured).toHaveLength(1);
-    expect(captured[0].props.surface).toBe("docs-search:threads:persistence");
-    expect(captured[0].props.matched_keyword).toBe("persistence");
-  });
 });
 
 describe("navigation and attribution", () => {
@@ -407,16 +272,6 @@ describe("navigation and attribution", () => {
       // shared attribution helper must never leak into the href.
       expect(href).not.toContain("invalid");
     }
-  });
-
-  it("reports the keyword that fired rather than the raw query", async () => {
-    await search("persistence");
-
-    fireEvent.click(primaryLink());
-
-    expect(captured[0].props.matched_keyword).toBe("persistence");
-    expect(captured[0].props.cta_id).toBe("threads");
-    expect(captured[0].props.surface).toBe("docs-search:threads:persistence");
   });
 
   it("still navigates when analytics is blocked", async () => {

@@ -15,6 +15,9 @@
   --accent-hover: #1d4ed8;
   --ok: #059669;
   --amber: #d97706;
+  --compatibility-amber-light: #fde68a;
+  --compatibility-amber-medium: #fbbf24;
+  --compatibility-amber-deep: #d97706;
   --danger: #dc2626;
 }
 
@@ -33,6 +36,9 @@
   --accent-hover: #4a7de8;
   --ok: #34d399;
   --amber: #fbbf24;
+  --compatibility-amber-light: #fcd34d;
+  --compatibility-amber-medium: #f59e0b;
+  --compatibility-amber-deep: #d97706;
   --danger: #f87171;
 }
 
@@ -52,6 +58,9 @@
     --accent-hover: #4a7de8;
     --ok: #34d399;
     --amber: #fbbf24;
+    --compatibility-amber-light: #fcd34d;
+    --compatibility-amber-medium: #f59e0b;
+    --compatibility-amber-deep: #d97706;
     --danger: #f87171;
   }
 }

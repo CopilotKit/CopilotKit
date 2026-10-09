@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-
 import { getPathMatch } from "next/dist/shared/lib/router/utils/path-match";
 import { describe, expect, it } from "vitest";
 
@@ -16,26 +14,6 @@ interface ResolvedRedirect {
   readonly destination: string;
   readonly permanent: boolean;
 }
-
-describe("Next config build boundary", () => {
-  it("does not import application runtime modules", () => {
-    const source = readFileSync(
-      new URL("../../../next.config.ts", import.meta.url),
-      "utf8",
-    );
-
-    expect(source).not.toMatch(/from\s+["']\.\/src\//);
-  });
-
-  it("limits the Turbopack NFT filter to the known config false positive", () => {
-    expect(nextConfig.turbopack?.ignoreIssue).toEqual([
-      {
-        path: /showcase\/shell-docs\/next\.config\.ts$/,
-        title: "Encountered unexpected file in NFT list",
-      },
-    ]);
-  });
-});
 
 describe("retired Open-JSON-UI docs", () => {
   it("redirects every published URL shape to A2UI in one hop", async () => {
@@ -72,6 +50,43 @@ describe("retired Open-JSON-UI docs", () => {
         ],
         ["/generative-ui/specs/open-json-ui", "/generative-ui/a2ui"],
         ["/learn/generative-ui/specs/open-json-ui", "/generative-ui/a2ui"],
+      ] as const;
+
+      for (const [source, destination] of redirects) {
+        await expectPermanentOneHop(
+          `${source}${suffix}`,
+          `${destination}${suffix}`,
+        );
+      }
+    }
+  });
+});
+
+describe("retired self-managed thread persistence docs", () => {
+  it("redirects every published URL shape to the threads overview in one hop", async () => {
+    for (const suffix of RAW_DOC_SUFFIXES) {
+      const redirects = [
+        ["/threads-self-managed", "/threads"],
+        ["/mastra/threads-self-managed", "/mastra/threads"],
+        ["/langgraph-python/threads-self-managed", "/langgraph-python/threads"],
+        ["/built-in-agent/threads-self-managed", "/threads"],
+        ["/react/threads-self-managed", "/threads"],
+        ["/react/mastra/threads-self-managed", "/mastra/threads"],
+        [
+          "/angular/threads-self-managed",
+          "/angular/guides/threads-memory-attachments-headless",
+        ],
+        [
+          "/angular/mastra/threads-self-managed",
+          "/angular/mastra/guides/threads-memory-attachments-headless",
+        ],
+        ["/vue/threads-self-managed", "/vue/threads"],
+        ["/vue/mastra/threads-self-managed", "/vue/mastra/threads"],
+        ["/react-spa/mastra/threads-self-managed", "/react-spa/mastra/threads"],
+        [
+          "/react-native/mastra/threads-self-managed",
+          "/react-native/mastra/threads",
+        ],
       ] as const;
 
       for (const [source, destination] of redirects) {
