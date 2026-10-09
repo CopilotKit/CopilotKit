@@ -761,10 +761,19 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         agentsList.default = new BuiltInAgent({
           model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
         });
+      } else if (serviceAdapter.name === "OpenAIAssistantAdapter") {
+        // Its `process()` needs the OpenAI thread and run ids carried between
+        // requests, and the Assistants API it calls was shut down by OpenAI on
+        // 2026-08-26. Fail clearly rather than run it and fail on the network.
+        throw new CopilotKitMisuseError({
+          message:
+            `OpenAIAssistantAdapter is not supported: OpenAI shut down the Assistants API ` +
+            `on 2026-08-26. Use OpenAIAdapter, or a BuiltInAgent in the runtime's agents.`,
+        });
       } else {
         // Everything else -- LangChainAdapter's `chainFn`, BedrockAdapter
-        // ("bedrock" is not a BuiltInAgent provider), OpenAIAssistantAdapter,
-        // custom adapters -- runs through its own `process()`, as in v1 (#3217).
+        // ("bedrock" is not a BuiltInAgent provider), custom adapters -- runs
+        // through its own `process()`, as in v1 (#3217).
         agentsList.default = new LegacyServiceAdapterAgent(serviceAdapter);
       }
     }

@@ -3,12 +3,16 @@ import { EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import {
   AIMessage,
+  AIMessageChunk,
   HumanMessage,
   SystemMessage,
   ToolMessage,
 } from "@langchain/core/messages";
 import type { BaseMessage } from "@langchain/core/messages";
 import { CopilotRuntime } from "../copilot-runtime";
+import { LegacyServiceAdapterAgent } from "../legacy-service-adapter-agent";
+import type { CopilotServiceAdapter } from "../../../service-adapters/service-adapter";
+import type { RuntimeEventSubject } from "../../../service-adapters/events";
 import { LangChainAdapter } from "../../../service-adapters/langchain/langchain-adapter";
 import { createCopilotEndpointSingleRoute } from "../../../../v2/runtime/endpoints/hono-single";
 
@@ -231,5 +235,193 @@ describe("LangChainAdapter through the v1 endpoint (#3217)", () => {
       message: string;
     } & BaseEvent;
     expect(error?.message).toContain("chain exploded");
+  });
+
+  describe("streaming chainFn (model.bindTools(tools).stream(messages))", () => {
+    /** A LangChain-shaped stream: anything with getReader() is consumed. */
+    const streamOf = (chunks: AIMessageChunk[]) =>
+      new ReadableStream<AIMessageChunk>({
+        start(controller) {
+          for (const chunk of chunks) controller.enqueue(chunk);
+          controller.close();
+        },
+      });
+    const toolChunk = (
+      index: number,
+      fields: { id?: string; name?: string; args: string },
+    ) =>
+      new AIMessageChunk({
+        content: "",
+        tool_call_chunks: [{ index, ...fields, type: "tool_call_chunk" }],
+      });
+    const twoTools = baseInput({
+      tools: ["getWeather", "getHotel"].map((name) => ({
+        name,
+        description: name,
+        parameters: { type: "object", properties: {} },
+      })),
+    });
+
+    it("closes each parallel tool call before opening the next", async () => {
+      const events = await runThroughEndpoint(
+        async () =>
+          streamOf([
+            toolChunk(0, { id: "a", name: "getWeather", args: "" }),
+            toolChunk(0, { args: "{}" }),
+            toolChunk(1, { id: "b", name: "getHotel", args: "" }),
+            toolChunk(1, { args: "{}" }),
+            new AIMessageChunk({ content: "" }),
+          ]) as never,
+        twoTools,
+      );
+
+      const toolEvents = events
+        .filter((e) => e.type.startsWith("TOOL_CALL"))
+        .map((e) => `${e.type}:${(e as { toolCallId?: string }).toolCallId}`);
+      expect(toolEvents).toEqual([
+        "TOOL_CALL_START:a-idx-0",
+        "TOOL_CALL_ARGS:a-idx-0",
+        "TOOL_CALL_END:a-idx-0",
+        "TOOL_CALL_START:b-idx-1",
+        "TOOL_CALL_ARGS:b-idx-1",
+        "TOOL_CALL_END:b-idx-1",
+      ]);
+      expect(types(events).at(-1)).toBe(EventType.RUN_FINISHED);
+    });
+
+    it("closes the open tool call when the stream ends inside it", async () => {
+      const events = await runThroughEndpoint(
+        async () =>
+          streamOf([
+            toolChunk(0, { id: "a", name: "getWeather", args: "" }),
+            toolChunk(0, { args: "{}" }),
+          ]) as never,
+        twoTools,
+      );
+
+      expect(
+        events
+          .filter((e) => e.type === EventType.TOOL_CALL_END)
+          .map((e) => (e as { toolCallId?: string }).toolCallId),
+      ).toEqual(["a-idx-0"]);
+      expect(types(events).at(-1)).toBe(EventType.RUN_FINISHED);
+    });
+  });
+
+  it("hands parallel tool calls to chainFn as one AIMessage followed by its results", async () => {
+    // OpenAI rejects an assistant tool-call message that is not followed by
+    // the results for each of its calls, so N single-call AIMessages in a row
+    // fail the next model call with a 400.
+    const chainFn = vi.fn<ChainFn>(async () => new AIMessage("Both shown."));
+
+    await runThroughEndpoint(
+      chainFn,
+      baseInput({
+        messages: [
+          { id: "u1", role: "user", content: "Show cards for Ada and Grace." },
+          {
+            id: "a1",
+            role: "assistant",
+            content: "",
+            toolCalls: [
+              {
+                id: "call_a",
+                type: "function",
+                function: { name: "showCard", arguments: '{"title":"Ada"}' },
+              },
+              {
+                id: "call_b",
+                type: "function",
+                function: { name: "showCard", arguments: '{"title":"Grace"}' },
+              },
+            ],
+          },
+          { id: "t1", role: "tool", toolCallId: "call_a", content: "Shown." },
+          { id: "t2", role: "tool", toolCallId: "call_b", content: "Shown." },
+        ],
+      }),
+    );
+
+    const { messages } = chainFn.mock.calls[0]![0];
+    expect(messages.map((m) => m.constructor.name)).toEqual([
+      "HumanMessage",
+      "AIMessage",
+      "ToolMessage",
+      "ToolMessage",
+    ]);
+    expect((messages[1] as AIMessage).tool_calls?.map((c) => c.id)).toEqual([
+      "call_a",
+      "call_b",
+    ]);
+  });
+
+  it("streams the text parts of array content (Anthropic-style AIMessage)", async () => {
+    const events = await runThroughEndpoint(
+      async () =>
+        new AIMessage({
+          content: [
+            { type: "text", text: "Checking the weather." },
+            { type: "tool_use", id: "t1", name: "getWeather", input: {} },
+          ],
+          tool_calls: [{ id: "t1", name: "getWeather", args: {} }],
+        }),
+      baseInput({
+        tools: [
+          {
+            name: "getWeather",
+            description: "weather",
+            parameters: { type: "object", properties: {} },
+          },
+        ],
+      }),
+    );
+
+    const content = events.find(
+      (e) => e.type === EventType.TEXT_MESSAGE_CONTENT,
+    ) as { delta: string } & BaseEvent;
+    expect(content?.delta).toBe("Checking the weather.");
+    expect(types(events).at(-1)).toBe(EventType.RUN_FINISHED);
+  });
+});
+
+describe("LegacyServiceAdapterAgent.abortRun", () => {
+  it("stops a run whose adapter stream never finishes", async () => {
+    const process = vi.fn<CopilotServiceAdapter["process"]>(
+      async ({ eventSource }) => {
+        eventSource.stream(async (eventStream$: RuntimeEventSubject) => {
+          eventStream$.sendTextMessageStart({ messageId: "m1" });
+          eventStream$.sendTextMessageContent({
+            messageId: "m1",
+            content: "partial",
+          });
+          // Never completes: a model call the user wants to stop.
+          await new Promise(() => {});
+        });
+        return { threadId: "thread-1" };
+      },
+    );
+    const agent = new LegacyServiceAdapterAgent({ name: "Hanging", process });
+
+    const seen: string[] = [];
+    const finished = new Promise<"complete" | "error">((resolve) => {
+      agent.run(baseInput()).subscribe({
+        next: (event) => {
+          seen.push(event.type);
+          if (event.type === EventType.TEXT_MESSAGE_CONTENT) agent.abortRun();
+        },
+        complete: () => resolve("complete"),
+        error: () => resolve("error"),
+      });
+    });
+    const outcome = await Promise.race([
+      finished,
+      new Promise<"timeout">((resolve) =>
+        setTimeout(() => resolve("timeout"), 1000),
+      ),
+    ]);
+
+    expect(outcome).toBe("complete");
+    expect(seen).not.toContain(EventType.RUN_ERROR);
+    expect(process).toHaveBeenCalledTimes(1);
   });
 });
