@@ -111,6 +111,28 @@ it("real CLI reads explicit empty evidence and emits the shared classifier JSON"
   expect(JSON.parse(result.stdout).excludedServices).toEqual([]);
 });
 
+it("real CLI preserves unknown-service failures in stdout", () => {
+  const records = join(directory, "records.json");
+  writeFileSync(records, JSON.stringify({ schemaVersion: 1, runs: [] }));
+
+  const result = runCli(inventory, records);
+
+  expect(result.error).toBeUndefined();
+  expect(result.status, result.stderr).toBe(0);
+  const output = JSON.parse(result.stdout);
+  expect(output.failures).toEqual([
+    {
+      code: "unknown-service",
+      message: "service has no exact permanent or disposable ownership match",
+      serviceId: temporary.serviceId,
+      environmentId: temporary.environmentId,
+    },
+  ]);
+  expect(output.services).toEqual([
+    { ...temporary, classification: "unknown" },
+  ]);
+});
+
 it("real CLI rejects configured missing evidence visibly with no authorization output", () => {
   const result = runCli(inventory, join(directory, "missing.json"));
   expect(result.status).not.toBe(0);
