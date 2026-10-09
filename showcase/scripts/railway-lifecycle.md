@@ -281,6 +281,13 @@ Classification runs before name filters or service-variable reads. Local
 injection with configured evidence must supply exact service/environment IDs;
 ordinary local injection still needs no Railway credentials or policy file.
 
+With `SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE` configured, discovery and fleet
+catalog enumeration require current evidence and cannot use cached fallback,
+including when inventory fails before evidence can be read. Successful filtered
+results are not cached. Removing the setting does not make previously filtered
+results eligible for fallback. Ordinary unconfigured discovery keeps its existing
+cache fallback.
+
 [Draft #7710's lifecycle contract](https://github.com/CopilotKit/CopilotKit/blob/fa1dbea07ed360b4f400ab4ef49ac9f3431eec3a/tools/intelligence-smoke/rich-threads/lifecycle/README.md)
 implements Docker development only, with Docker IDs, labels, checkpoints, and
 provider-specific recovery checks. Its receipts are not Railway ownership
