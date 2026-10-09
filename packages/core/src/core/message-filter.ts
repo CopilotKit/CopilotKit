@@ -95,6 +95,7 @@ export function ɵrepairToolCallPairs(
 
   const repaired: Message[] = [];
   const emitted = new Set<string>();
+  const expandedMessages = new Set<Message>();
 
   const emit = (message: Message) => {
     if (emitted.has(message.id)) return;
@@ -105,6 +106,8 @@ export function ɵrepairToolCallPairs(
   /** Emit an assistant turn together with every result it is owed. */
   const emitWithResults = (message: Message) => {
     emit(message);
+    if (expandedMessages.has(message)) return;
+    expandedMessages.add(message);
     for (const callId of toolCallIdsOf(message)) {
       const result = callIdToResult.get(callId);
       if (result) emit(result);
