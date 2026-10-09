@@ -350,7 +350,14 @@ const buildAppContextNote = (
     contextNamespace(state, runtimeContext, "ag-ui"),
     contextNamespace(state, runtimeContext, "copilotkit"),
   );
-  const appContext = properties.context;
+  // Forwarded request headers are transport data, never model context.
+  const appContext = isPropertyBag(properties.context)
+    ? Object.fromEntries(
+        Object.entries(properties.context).filter(
+          ([key]) => key !== "copilotkit_forwarded_headers",
+        ),
+      )
+    : properties.context;
 
   const isEmptyContext =
     !appContext ||

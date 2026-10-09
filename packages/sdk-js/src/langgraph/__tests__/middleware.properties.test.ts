@@ -216,6 +216,35 @@ describe("effective AG-UI and CopilotKit properties", () => {
     },
   );
 
+  it.each([
+    ["state", { copilotkit: { context: "CTX" } }, {}],
+    ["a runtime carrier", {}, { context: { copilotkit: { context: "CTX" } } }],
+  ])(
+    "never renders forwarded headers from %s",
+    async (_name, state, runtime) => {
+      const value = {
+        page: "/dashboard",
+        copilotkit_forwarded_headers: { authorization: "Bearer secret" },
+      };
+      const swap = (carrier: object) =>
+        JSON.parse(
+          JSON.stringify(carrier).replace('"CTX"', JSON.stringify(value)),
+        );
+
+      expect(await context(swap(state), swap(runtime))).toBe(
+        "App Context:\n" + JSON.stringify({ page: "/dashboard" }, null, 2),
+      );
+    },
+  );
+
+  it("renders nothing when forwarded headers are the only context", async () => {
+    expect(
+      await context({
+        copilotkit: { context: { copilotkit_forwarded_headers: { a: "b" } } },
+      }),
+    ).toBeUndefined();
+  });
+
   it("keeps serialized context atomic and reads only a namespaced runtime carrier", async () => {
     expect(
       await context({
