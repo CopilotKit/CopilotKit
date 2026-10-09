@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveModel } from "../index";
 
 /**
@@ -26,6 +26,11 @@ describe("resolveModel — model string parsing and OpenAI API route", () => {
   afterEach(() => {
     process.env = originalEnv;
   });
+
+  /** The one method these tests drive on a built model. */
+  type Generates = {
+    doGenerate(options: { prompt: unknown[] }): Promise<unknown>;
+  };
 
   function resolved(spec: string) {
     const model = resolveModel(spec) as { provider: string; modelId: string };
@@ -86,20 +91,51 @@ describe("resolveModel — model string parsing and OpenAI API route", () => {
     expect(() => resolveModel("unknown/model")).toThrow("Unknown provider");
   });
 
-  it("uses chat completions when OPENAI_BASE_URL points at a non-OpenAI host", () => {
-    process.env.OPENAI_BASE_URL = "https://openrouter.ai/api/v1";
+  it.each([
+    // OpenAI's own hosts, in any spelling, keep the Responses API.
+    ["https://api.openai.com/v1", "openai.responses"],
+    ["https://API.OPENAI.COM/v1", "openai.responses"],
+    ["https://api.openai.com:443/v1", "openai.responses"],
+    ["https://eu.api.openai.com/v1", "openai.responses"],
+    // Azure's v1 endpoint serves /responses, so it keeps it too.
+    ["https://myres.openai.azure.com/openai/v1/", "openai.responses"],
+    // A value `new URL` cannot parse keeps the default route.
+    ["not a url", "openai.responses"],
+    // Any other host gets Chat Completions.
+    ["https://openrouter.ai/api/v1", "openai.chat"],
+    ["http://localhost:11434/v1", "openai.chat"],
+  ])("with OPENAI_BASE_URL=%s builds %s", (baseURL, provider) => {
+    process.env.OPENAI_BASE_URL = baseURL;
     expect(resolved("openai/meta-llama/llama-3.3-70b")).toEqual({
-      provider: "openai.chat",
+      provider,
       modelId: "meta-llama/llama-3.3-70b",
     });
   });
 
-  it("keeps the Responses API when OPENAI_BASE_URL is api.openai.com", () => {
-    process.env.OPENAI_BASE_URL = "https://api.openai.com/v1";
-    expect(resolved("openai/gpt-5")).toEqual({
-      provider: "openai.responses",
-      modelId: "gpt-5",
+  it.each([
+    [
+      "https://openrouter.ai/api/v1",
+      "https://openrouter.ai/api/v1/chat/completions",
+    ],
+    ["https://api.openai.com/v1", "https://api.openai.com/v1/responses"],
+  ])("with OPENAI_BASE_URL=%s posts to %s", async (baseURL, expectedUrl) => {
+    process.env.OPENAI_BASE_URL = baseURL;
+    const requested: string[] = [];
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
+      requested.push(String(input instanceof Request ? input.url : input));
+      throw new Error("stop after recording the request");
     });
+    try {
+      const model = resolveModel("openai/gpt-5") as unknown as Generates;
+      await expect(
+        model.doGenerate({
+          prompt: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
+        }),
+      ).rejects.toThrow();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(requested).toEqual([expectedUrl]);
   });
 
   it("keeps the Responses API when OPENAI_BASE_URL is unset", () => {

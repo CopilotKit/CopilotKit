@@ -295,15 +295,29 @@ function parseModelSpec(spec: string): { provider: string; model: string } {
   };
 }
 
-/** True when `baseURL` is set and points somewhere other than api.openai.com. */
-function isOpenAICompatibleHost(baseURL: string | undefined): boolean {
-  if (!baseURL) return false;
+/**
+ * Whether an `OPENAI_BASE_URL` should get Chat Completions instead of the
+ * Responses API. OpenAI's own hosts (including `*.api.openai.com`, such as the
+ * EU data-residency host) and Azure serve `/responses`, so they keep it, as
+ * does an unset value. Any other host gets `/chat/completions`, which is what
+ * most OpenAI-compatible servers implement. The host rule is
+ * `classifyModelHost`, the same one telemetry uses.
+ *
+ * A value `new URL` throws on keeps the Responses route; the request will
+ * fail on that base URL either way. A schemeless value such as
+ * `localhost:11434/v1` does not throw (it parses with scheme `localhost:` and
+ * an empty host), so it classifies as `other` and gets Chat Completions.
+ */
+function usesChatCompletions(baseURL: string | undefined): boolean {
+  const trimmed = baseURL?.trim();
+  if (!trimmed) return false;
   try {
-    return new URL(baseURL).hostname !== "api.openai.com";
+    new URL(trimmed);
   } catch {
-    // Unparseable: keep the default route; the request itself will surface it.
     return false;
   }
+  const host = classifyModelHost(trimmed, "openai");
+  return host !== "openai" && host !== "azure";
 }
 
 export function resolveModel(
@@ -343,9 +357,9 @@ export function resolveModel(
       });
       // Accepts any OpenAI model id, e.g. "gpt-4o", "gpt-4.1-mini", "o3-mini".
       // `openai(model)` targets the Responses API (`{base}/responses`), which
-      // most OpenAI-compatible hosts do not serve. Off api.openai.com, use
-      // Chat Completions (`{base}/chat/completions`) instead.
-      return isOpenAICompatibleHost(process.env.OPENAI_BASE_URL)
+      // most OpenAI-compatible hosts do not serve. Off OpenAI and Azure hosts,
+      // use Chat Completions (`{base}/chat/completions`) instead.
+      return usesChatCompletions(process.env.OPENAI_BASE_URL)
         ? openai.chat(model)
         : openai(model);
     }
@@ -402,9 +416,9 @@ export function resolveModel(
  *
  * `resolveModel` above is the only place this runtime builds a provider, so it
  * is the only place that knows the endpoint. Once built, the endpoint is gone:
- * an AI SDK model reports `provider: "openai.responses"` (or `"openai.chat"`
- * off api.openai.com) whether it points at Azure, OpenRouter or a laptop, and
- * its base URL survives
+ * an AI SDK model's `provider` names only the wire API (`"openai.responses"`
+ * on OpenAI and Azure, `"openai.chat"` on any other host), so it cannot tell
+ * OpenRouter from a laptop, and its base URL survives
  * only inside a closure that the public `LanguageModelV3` type does not
  * expose. Azure's own migration guide tells customers to use that same OpenAI
  * client, so the case we are blindest to is the common one.
