@@ -26,6 +26,18 @@ showcase/bin/railway --help
 
 ## Auth
 
+### Disposable lifecycle records
+
+Set `SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE` to the operator-owned durable JSON
+snapshot described in the [Railway ownership contract](../scripts/railway-lifecycle.md).
+Configured evidence makes `promote` require the source checkout, Node, and
+repository-local `node_modules/.bin/tsx`. Unset evidence grants no disposable
+exemptions and adds no lifecycle subprocess dependency. Invalid evidence refuses
+promotion; lifecycle records never grant deletion authority. The committed image
+approval list starts empty, so disposable services cannot yet be accepted.
+
+### Credentials
+
 The tool reads a Railway API token from (in order):
 
 1. `RAILWAY_TOKEN` environment variable
