@@ -196,11 +196,10 @@ describe("TeamsAdapter.postFile", () => {
   it("sends a PNG as an inline image attachment via a data: URI", async () => {
     const adapter = new TeamsAdapter({});
     const sendActivity = vi.fn().mockResolvedValue({ id: "msg-9" });
-    const deleteActivity = vi.fn().mockResolvedValue(undefined);
     const target = {
       conversationKey: "conv-1",
       reference: {},
-      context: { sendActivity, deleteActivity } as unknown as TurnContext,
+      context: { sendActivity } as unknown as TurnContext,
     };
 
     const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
@@ -211,20 +210,7 @@ describe("TeamsAdapter.postFile", () => {
       altText: "Sev counts",
     });
 
-    // Teams posts the attachment as an activity, so the id it returns is a real
-    // message id — reported as `messageId`, not as a media handle.
-    expect(res).toEqual({
-      ok: true,
-      messageId: "msg-9",
-      fileId: "msg-9",
-      messageRef: {
-        id: "msg-9",
-        conversationKey: "conv-1",
-        context: target.context,
-      },
-    });
-    await adapter.delete(res.messageRef!);
-    expect(deleteActivity).toHaveBeenCalledWith("msg-9");
+    expect(res).toEqual({ ok: true, fileId: "msg-9" });
     const sent = sendActivity.mock.calls[0]![0];
     const attachment = sent.attachments[0];
     expect(attachment.contentType).toBe("image/png");
@@ -232,36 +218,6 @@ describe("TeamsAdapter.postFile", () => {
       `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`,
     );
     expect(attachment.name).toBe("Sev counts");
-  });
-
-  it("deletes a proactively posted image using its saved conversation reference", async () => {
-    const adapter = new TeamsAdapter({ clientId: "app-123" });
-    const sendActivity = vi.fn().mockResolvedValue({ id: "msg-10" });
-    const deleteActivity = vi.fn().mockResolvedValue(undefined);
-    const context = { sendActivity, deleteActivity } as unknown as TurnContext;
-    const continueConversation = vi.fn(
-      async (
-        _appId: string,
-        _reference: unknown,
-        callback: (value: TurnContext) => Promise<void>,
-      ) => callback(context),
-    );
-    (adapter as unknown as { cloud: unknown }).cloud = { continueConversation };
-    const reference = { conversation: { id: "conv-1" } };
-
-    const result = await adapter.postFile(
-      { conversationKey: "conv-1", reference },
-      { bytes: new Uint8Array([1]), filename: "chart.png" },
-    );
-    expect(result).toMatchObject({
-      ok: true,
-      fileId: "msg-10",
-      messageId: "msg-10",
-      messageRef: { id: "msg-10", conversationKey: "conv-1", reference },
-    });
-    await adapter.delete(result.messageRef!);
-    expect(continueConversation).toHaveBeenCalledTimes(2);
-    expect(deleteActivity).toHaveBeenCalledWith("msg-10");
   });
 
   it("returns an error result when there is no context to send on", async () => {
@@ -272,24 +228,6 @@ describe("TeamsAdapter.postFile", () => {
     );
     expect(res.ok).toBe(false);
     expect(res.error).toBeDefined();
-  });
-});
-
-describe("TeamsAdapter.stageFile", () => {
-  it("returns a PNG data URL without posting a message", async () => {
-    const adapter = new TeamsAdapter({});
-    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
-    const res = await adapter.stageFile(
-      { conversationKey: "conv-1", reference: {} },
-      {
-        bytes,
-        filename: "render-hat.png",
-        altText: "Hat",
-      },
-    );
-    expect(res).toEqual({
-      dataUrl: `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`,
-    });
   });
 });
 

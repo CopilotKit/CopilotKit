@@ -6,15 +6,12 @@ import type {
   RunRenderer,
   ConversationStore,
   UserQuery,
-  StageFileArgs,
-  StagedFile,
 } from "@copilotkit/channels-core";
 import type {
   ChannelNode,
   MessageRef,
   ProviderActor,
   ThreadMessage,
-  PostFileResult,
 } from "@copilotkit/channels-ui";
 import type {
   ReplyTarget,
@@ -182,7 +179,7 @@ export class WhatsAppAdapter implements PlatformAdapter {
       title?: string;
       altText?: string;
     },
-  ): Promise<PostFileResult> {
+  ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
     try {
       const mime = guessMime(args.filename);
       const mediaId = await this.client.uploadMedia(
@@ -214,25 +211,10 @@ export class WhatsAppAdapter implements PlatformAdapter {
           (mime.startsWith("image/") ? "[image]" : "[document]"),
         ref,
       );
-      // `mediaId` is the uploaded media handle; `ref.id` is the wamid of the
-      // message that carries it — only the latter is a usable message id.
-      return { ok: true, messageId: ref.id, fileId: mediaId };
+      return { ok: true, fileId: mediaId };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }
-  }
-
-  /**
-   * Upload media without posting a message. The Cloud API media id is what
-   * image / carousel payloads send later as `image.id`.
-   */
-  async stageFile(
-    _target: ReplyTarget,
-    { bytes, filename }: StageFileArgs,
-  ): Promise<StagedFile> {
-    const mime = guessMime(filename);
-    const mediaId = await this.client.uploadMedia(bytes, mime, filename);
-    return { fileId: mediaId };
   }
 
   /** Send agent/freeform text: convert markdown to WhatsApp formatting, split to ≤bodyText chunks. */

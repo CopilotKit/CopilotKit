@@ -17,14 +17,11 @@ import type {
   ProviderActor,
   UserQuery,
   IngressIdentityContext,
-  StageFileArgs,
-  StagedFile,
 } from "@copilotkit/channels-core";
 import type {
   ChannelNode,
   ThreadMessage,
   AgentContentPart,
-  PostFileResult,
 } from "@copilotkit/channels-ui";
 import type { ConversationReference } from "@microsoft/agents-activity";
 import { TeamsConversationStore } from "./conversation-store.js";
@@ -475,20 +472,14 @@ export class TeamsAdapter implements PlatformAdapter {
 
   async delete(ref: MessageRef): Promise<void> {
     const r = ref as TeamsMessageRef;
-    if (!r.id) return;
-    if (r.context) {
-      await r.context.deleteActivity(r.id);
-    } else if (r.reference) {
-      await this.withProactive(r.reference, (context) =>
-        context.deleteActivity(r.id),
-      );
-    }
+    if (!r.context || !r.id) return;
+    await r.context.deleteActivity(r.id);
   }
 
   /**
    * Post a file to the conversation. Teams renders an image inline when it's
    * sent as an attachment whose `contentUrl` is a `data:` URI, so we base64 the
-   * bytes into one — exactly what an image post needs to drop a
+   * bytes into one — exactly what `render_chart`/`render_diagram` need to drop a
    * PNG into the thread (the bot-slack `postFile` parallel). Non-image bytes are
    * still attached with their inferred MIME; whether Teams previews them is up
    * to the client. Sends on the live turn context, or proactively by reference.
@@ -505,7 +496,7 @@ export class TeamsAdapter implements PlatformAdapter {
       title?: string;
       altText?: string;
     },
-  ): Promise<PostFileResult> {
+  ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
     const t = target as TeamsReplyTarget;
     const mime = mimeFromFilename(filename);
     const base64 = Buffer.from(bytes).toString("base64");
@@ -515,65 +506,27 @@ export class TeamsAdapter implements PlatformAdapter {
       name: altText ?? filename,
     });
     try {
-      // Teams posts the attachment as an activity, so the returned id IS the
-      // message id (usable for update/delete) — not a media-storage handle.
       if (t.context) {
         const res = await t.context.sendActivity(activity);
-        const messageId = res?.id;
-        return {
-          ok: true,
-          messageId,
-          fileId: messageId, // Deprecated alias for pre-image-post callers.
-          messageRef: messageId
-            ? {
-                id: messageId,
-                conversationKey: t.conversationKey,
-                context: t.context,
-              }
-            : undefined,
-        };
+        return { ok: true, fileId: res?.id };
       }
       if (this.cloud && t.reference) {
-        let messageId: string | undefined;
+        let fileId: string | undefined;
         const appId = this.opts.clientId ?? process.env.clientId ?? "";
         await this.cloud.continueConversation(
           appId,
           t.reference as Parameters<CloudAdapter["continueConversation"]>[1],
           async (context) => {
             const res = await context.sendActivity(activity);
-            messageId = res?.id;
+            fileId = res?.id;
           },
         );
-        return {
-          ok: true,
-          messageId,
-          fileId: messageId,
-          messageRef: messageId
-            ? {
-                id: messageId,
-                conversationKey: t.conversationKey,
-                reference: t.reference,
-              }
-            : undefined,
-        };
+        return { ok: true, fileId };
       }
       return { ok: false, error: "no live or proactive context to post on" };
     } catch (e) {
       return { ok: false, error: (e as Error).message };
     }
-  }
-
-  /**
-   * Host a PNG as a data URI without posting a channel message. Adaptive Card
-   * `Image.url` accepts `data:` URIs, so this is the Teams `stageFile` path
-   * for `<Render>`.
-   */
-  async stageFile(
-    _target: ReplyTarget,
-    { bytes }: StageFileArgs,
-  ): Promise<StagedFile> {
-    const b64 = Buffer.from(bytes).toString("base64");
-    return { dataUrl: `data:image/png;base64,${b64}` };
   }
 
   createRunRenderer(target: ReplyTarget): RunRenderer {
