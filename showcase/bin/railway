@@ -35,6 +35,7 @@ require "yaml"
 require "io/console"
 require "fileutils"
 require "time"
+require "open3"
 
 module Railway
     VERSION = "0.1.0"
@@ -1513,6 +1514,7 @@ module Railway
             end
 
             capture_snapshots
+            return 1 unless filter_disposable_snapshots!
 
             # When restricted to a single service, narrow PER-SERVICE views
             # of both snapshots BEFORE preflight so per-service checks
@@ -1551,6 +1553,95 @@ module Railway
             end
 
             run_with_preflight_only
+        end
+
+        # Invoke the shared TypeScript validator with identities only. Unset
+        # evidence keeps ordinary static promotion independent of JS tooling.
+        # Filtering precedes both fleet and target views, including all preflight
+        # checks and mutation loops. Never exclude a whole environment.
+        def filter_disposable_snapshots!
+            return true unless ENV.key?("SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE")
+
+            executable = File.expand_path("../../node_modules/.bin/tsx", __dir__)
+            source = File.expand_path("../scripts/classify-railway-lifecycle.ts", __dir__)
+            unless File.executable?(executable) && File.file?(source)
+                puts "REFUSE: lifecycle validator requires repository-local tsx and classifier source."
+                return false
+            end
+            snapshots = [[@staging_snapshot, STAGING_ENV_ID], [@prod_snapshot, PRODUCTION_ENV_ID]]
+            inventory = {
+                "projectId" => PROJECT_ID,
+                "observedEnvironmentIds" => snapshots.map(&:last),
+                "services" => snapshots.flat_map do |snapshot, environment_id|
+                    if (snapshot.key?("project_id") && snapshot["project_id"] != PROJECT_ID) ||
+                       (snapshot.key?("environment") && snapshot.dig("environment", "id") != environment_id)
+                        raise ArgumentError, "snapshot scope mismatch"
+                    end
+                    snapshot.fetch("services").map do |service|
+                        { "name" => service["name"], "serviceId" => service["service_id"],
+                          "environmentId" => environment_id, "image" => service["image"] }
+                    end
+                end,
+            }
+            stdout, stderr, status = Open3.capture3(executable, source, stdin_data: JSON.generate(inventory))
+            unless status.success?
+                # The bridge emits safe typed errors; avoid relaying arbitrary
+                # runtime stderr or snapshot values into promotion logs.
+                codes = stderr.scan(/\b(?:records-unreadable|records-malformed-json|invalid-[a-z-]+|unapproved-image|permanent-collision|duplicate-claim|project-mismatch)\b/).uniq
+                puts "REFUSE: lifecycle validator failed#{codes.empty? ? '' : " (#{codes.join(', ')})"}; no promotion attempted."
+                return false
+            end
+            result = JSON.parse(stdout)
+            unless result.is_a?(Hash) && %w[services excludedServices excludedEnvironments diagnostics failures].all? { |key| result[key].is_a?(Array) }
+                raise ArgumentError, "invalid classifier result"
+            end
+            classified = result.fetch("services")
+            unless classified.length == inventory["services"].length && classified.zip(inventory["services"]).all? do |service, observed|
+                service.is_a?(Hash) && %w[permanent owned-disposable unknown].include?(service["classification"]) &&
+                    observed.all? { |key, value| service[key] == value }
+            end
+                raise ArgumentError, "invalid classified inventory"
+            end
+            owned = classified.select { |service| service["classification"] == "owned-disposable" }
+                .map { |service| [service["environmentId"], service["serviceId"]] }.to_set
+            exclusions = result.fetch("excludedServices").map do |identity|
+                unless identity.is_a?(Hash) && identity.keys.sort == %w[environmentId projectId serviceId] &&
+                       identity["projectId"] == PROJECT_ID &&
+                       inventory["services"].any? { |service| service["serviceId"] == identity["serviceId"] && service["environmentId"] == identity["environmentId"] }
+                    raise ArgumentError, "invalid classifier exclusion"
+                end
+                [identity["environmentId"], identity["serviceId"]]
+            end.to_set
+            raise ArgumentError, "inconsistent classifier exclusions" unless exclusions == owned
+            # Lifecycle/image findings stay separate from permanent fleet
+            # parity. The image gate enforces them; ownership still prevents
+            # promotion of failed or expired disposable services.
+            (result["diagnostics"] + result["failures"]).uniq.each do |issue|
+                unless issue.is_a?(Hash) && issue["code"].is_a?(String) && issue["message"].is_a?(String)
+                    raise ArgumentError, "invalid classifier diagnostic"
+                end
+                puts "LIFECYCLE: #{issue['code']}: #{issue['message']}"
+            end
+            # Unknown identities may remain visible outside a named target,
+            # but cannot enter the selected permanent mutation set. Name-only
+            # parity cannot detect a replaced permanent service ID.
+            unknown_targets = classified.select do |service|
+                service["classification"] == "unknown" &&
+                    (options[:service].nil? || service["name"] == options[:service])
+            end
+            unless unknown_targets.empty?
+                puts "REFUSE: lifecycle inventory contains unknown service identities for promotion: #{unknown_targets.map { |service| service['name'] }.uniq.sort.join(', ')}"
+                return false
+            end
+            @staging_snapshot, @prod_snapshot = snapshots.map do |snapshot, environment_id|
+                snapshot.merge("services" => snapshot.fetch("services").reject do |service|
+                    exclusions.include?([environment_id, service["service_id"]])
+                end)
+            end
+            true
+        rescue JSON::ParserError, ArgumentError, KeyError, TypeError, NoMethodError, SystemCallError, IOError
+            puts "REFUSE: lifecycle validator unavailable or returned invalid data; no promotion attempted."
+            false
         end
 
         # Narrow @staging_snapshot and @prod_snapshot to only the named
