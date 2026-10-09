@@ -1,3 +1,4 @@
+import { logger } from "@copilotkit/shared";
 import { z } from "zod";
 
 export interface TrajectoryConnectionGrant {
@@ -56,6 +57,7 @@ const contractErrorSchema = z.object({
       "RATE_LIMIT_EXCEEDED",
       "INTERNAL_SERVER_ERROR",
       "MARKETPLACE_LICENSE_REQUIRED",
+      "TRAJECTORIES_NOT_ENABLED",
     ]),
     message: z.string().trim().min(1).max(512),
   }),
@@ -87,6 +89,13 @@ export function parseTrajectoryConnectionGrant(
       : undefined,
   );
   if (!result.success) {
+    const joinValid = join.success && join.data.trajectoryId === trajectoryId;
+    logger.warn(
+      { trajectoryIdMatches: joinValid },
+      joinValid
+        ? "Intelligence returned a Trajectory join token, but the Gateway URL is invalid; check the Intelligence wsUrl"
+        : "Intelligence returned an invalid Trajectory join response",
+    );
     throw new TrajectoryConnectionError(
       "CONNECTION_FAILED",
       "Intelligence returned an invalid trajectory connection grant",
@@ -102,12 +111,50 @@ export function parseTrajectoryConnectionGrant(
   };
 }
 
+// Intelligence answers with this code when Trajectory capture is switched off
+// for the deployment, because the join route is then not registered.
+const routeNotFoundSchema = z.object({
+  error: z.object({ code: z.literal("ROUTE_NOT_FOUND") }),
+});
+
+const upstreamCodeSchema = z.object({
+  error: z.object({ code: z.string().regex(/^[A-Z][A-Z0-9_]{0,63}$/) }),
+});
+
 /** Forward only the public contract, never raw platform errors or credentials. */
 export function trajectoryResponseError(
   value: unknown,
   status: number,
   apiKey: string,
 ): TrajectoryConnectionError {
+  const result = contractErrorSchema.safeParse(value);
+  if (result.success && !result.data.error.message.includes(apiKey)) {
+    return new TrajectoryConnectionError(
+      result.data.error.code,
+      result.data.error.message,
+      status,
+    );
+  }
+  if (status === 404 && routeNotFoundSchema.safeParse(value).success) {
+    logger.warn(
+      { status },
+      "Intelligence does not serve Trajectory capture; enable Trajectories for this deployment",
+    );
+    return new TrajectoryConnectionError(
+      "TRAJECTORIES_UNAVAILABLE",
+      "This Intelligence deployment does not serve Trajectory capture",
+      404,
+    );
+  }
+  // The browser only learns that the connection failed. Log the upstream code,
+  // never the message, so the cause is visible to the Runtime's operator.
+  logger.warn(
+    {
+      status,
+      upstreamCode: upstreamCodeSchema.safeParse(value).data?.error.code,
+    },
+    "Intelligence rejected the Trajectory connection request; the browser receives CONNECTION_FAILED",
+  );
   // These failures describe the Runtime's server credentials or tenant setup,
   // not the browser user's identity. Do not expose them as a client auth error.
   if (runtimeConfigurationErrorSchema.safeParse(value).success) {
@@ -115,14 +162,6 @@ export function trajectoryResponseError(
       "CONNECTION_FAILED",
       "Could not connect to Intelligence",
       502,
-    );
-  }
-  const result = contractErrorSchema.safeParse(value);
-  if (result.success && !result.data.error.message.includes(apiKey)) {
-    return new TrajectoryConnectionError(
-      result.data.error.code,
-      result.data.error.message,
-      status,
     );
   }
   return new TrajectoryConnectionError(

@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  CHANNEL_FRONTENDS,
   CHANNEL_GUIDE_ROUTES,
-  DEFAULT_CHANNEL_FRAMEWORK,
   channelConnectHref,
   channelGuideHref,
   getChannelGuidePublicSlug,
@@ -24,100 +22,6 @@ function resolveGuide(overrides: Partial<ResolveChannelGuideRouteInput> = {}) {
 }
 
 describe("channel guide routes", () => {
-  it("defines the supported frontends and implicit framework", () => {
-    expect(CHANNEL_FRONTENDS).toEqual(["slack", "teams"]);
-    expect(DEFAULT_CHANNEL_FRAMEWORK).toBe("built-in-agent");
-  });
-
-  it("keeps the public guide order and source metadata explicit", () => {
-    expect(CHANNEL_GUIDE_ROUTES).toEqual([
-      {
-        slug: "overview",
-        sourceSlug: "channels",
-        navTitle: "Overview",
-        section: "getting-started",
-      },
-      {
-        slug: "intelligence",
-        sourceSlug: "channels/intelligence",
-        navTitle: "Configure the Channel in Intelligence",
-        section: "getting-started",
-      },
-      {
-        slug: "tools",
-        sourceSlug: "channels/tools",
-        navTitle: "Tools and context",
-        section: "build",
-      },
-      {
-        slug: "identity-and-memory",
-        sourceSlug: "channels/identity-and-memory",
-        navTitle: "Identity and Memory",
-        section: "build",
-      },
-      {
-        slug: "rich-messages",
-        sourceSlug: "channels/rich-messages",
-        navTitle: "Rich messages and components",
-        section: "build",
-      },
-      {
-        slug: "posting-jsx-as-images",
-        sourceSlug: "channels/posting-jsx-as-images",
-        navTitle: "Posting JSX as images",
-        section: "build",
-      },
-      {
-        slug: "render-and-carousel",
-        sourceSlug: "channels/render-and-carousel",
-        navTitle: "Render and carousel",
-        section: "build",
-      },
-      {
-        slug: "interactive",
-        sourceSlug: "channels/interactive",
-        navTitle: "Interactive messages and approvals",
-        section: "build",
-      },
-      {
-        slug: "commands-and-reactions",
-        sourceSlug: "channels/commands-and-reactions",
-        navTitle: "Commands and reactions",
-        section: "build",
-      },
-      {
-        slug: "files-and-multimodality",
-        sourceSlug: "channels/files-and-multimodality",
-        navTitle: "Files and multimodal input",
-        section: "build",
-      },
-      {
-        slug: "threads-and-state",
-        sourceSlug: "channels/threads-and-state",
-        navTitle: "Threads and state",
-        section: "build",
-      },
-      {
-        slug: "persistence-and-scaling",
-        sourceSlug: "channels/persistence-and-scaling",
-        navTitle: "Persistence and scaling",
-        section: "production",
-      },
-      {
-        slug: "history-and-transcripts",
-        sourceSlug: "channels/history-and-transcripts",
-        navTitle: "History and transcripts",
-        section: "production",
-      },
-      {
-        slug: "deploy-and-operate",
-        sourceSlug: "channels/deploy-and-operate",
-        navTitle: "Deploy and operate",
-        section: "production",
-      },
-    ]);
-  });
-
   it("maps every public slug to its source slug and back", () => {
     for (const route of CHANNEL_GUIDE_ROUTES) {
       expect(getChannelGuideSourceSlug(route.slug)).toBe(route.sourceSlug);

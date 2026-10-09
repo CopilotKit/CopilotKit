@@ -1,0 +1,19 @@
+.notice {
+  padding: 12px 16px;
+  border: 1px solid var(--cpki-color-border);
+  border-radius: 2px;
+  color: var(--cpki-color-foreground);
+  background: var(--cpki-color-background);
+}
+
+.notice h2 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.notice p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}

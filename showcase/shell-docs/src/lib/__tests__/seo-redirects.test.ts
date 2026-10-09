@@ -2,6 +2,19 @@ import { describe, expect, it } from "vitest";
 import { matchesSeoRedirectSource, seoRedirects } from "../seo-redirects";
 
 describe("seoRedirects", () => {
+  it("keeps Components as Tools reachable in each reported framework", () => {
+    for (const framework of ["mastra", "llamaindex", "agno"]) {
+      expect(
+        matchesSeoRedirectSource(`/${framework}/generative-ui/tool-based`),
+      ).toBe(false);
+      expect(seoRedirects).toContainEqual({
+        id: `S6×${framework}`,
+        source: `/${framework}/generative-ui/backend-tools`,
+        destination: `/${framework}/generative-ui/tool-rendering`,
+      });
+    }
+  });
+
   it("consolidates Conversational Flow URLs under CrewAI", () => {
     expect(seoRedirects).toEqual(
       expect.arrayContaining([

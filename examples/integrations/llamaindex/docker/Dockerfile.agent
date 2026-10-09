@@ -9,11 +9,13 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 COPY main.py ./
 COPY src/ ./src/
+COPY test_message_payload.py ./
 
 # hatchling requires README.md referenced in pyproject.toml
 RUN touch README.md
 
 RUN uv sync
+RUN uv run --frozen python -m unittest test_message_payload.py
 
 EXPOSE 9000
 
