@@ -1598,7 +1598,7 @@ module Railway
             classified = result.fetch("services")
             unless classified.length == inventory["services"].length && classified.zip(inventory["services"]).all? do |service, observed|
                 service.is_a?(Hash) && %w[permanent owned-disposable unknown].include?(service["classification"]) &&
-                    observed.all? { |key, value| service[key] == value }
+                    observed.all? { |key, value| service.key?(key) && service[key] == value }
             end
                 raise ArgumentError, "invalid classified inventory"
             end

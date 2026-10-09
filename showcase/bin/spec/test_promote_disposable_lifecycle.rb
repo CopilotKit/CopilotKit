@@ -112,6 +112,41 @@ class PromoteDisposableLifecycleTest < Minitest::Test
         refute_includes out + err, "private subprocess details"
         assert_empty @gql.pinned_services
     end
+
+    def test_missing_classified_image_refuses_before_mutation
+        [nil, "aimock"].each do |target|
+            cmd = command(target)
+            cmd.instance_variable_get(:@staging_snapshot)["services"].find { |service| service["name"] == "temporary-run" }["image"] = nil
+            bridge = lambda do |*_args, **kwargs|
+                result = JSON.parse(bridge_result(kwargs.fetch(:stdin_data)))
+                disposable = result["services"].find { |service| service["name"] == "temporary-run" }
+                assert disposable.key?("image")
+                assert_nil disposable.delete("image")
+                [JSON.generate(result), "", Struct.new(:success?).new(true)]
+            end
+            rc = nil
+            out, err = Open3.stub(:capture3, bridge) { capture_io { rc = cmd.run } }
+            assert_equal 1, rc, out + err
+            assert_match(/REFUSE:.*lifecycle/i, out + err)
+            assert_empty @gql.pinned_services
+        end
+    end
+
+    def test_explicit_null_classified_image_allows_permanent_promotion
+        [nil, "aimock"].each do |target|
+            cmd = command(target)
+            cmd.instance_variable_get(:@staging_snapshot)["services"].find { |service| service["name"] == "temporary-run" }["image"] = nil
+            rc, out, calls = run_with_bridge(cmd)
+            inventory = JSON.parse(calls.fetch(0).last)
+            disposable = inventory["services"].find { |service| service["name"] == "temporary-run" }
+            assert disposable.key?("image")
+            assert_nil disposable["image"]
+            assert_equal 0, rc, out
+            refute_empty @gql.pinned_services
+            refute @gql.calls.any? { |_, vars| vars[:serviceId] == "svc-temporary-run" }
+        end
+    end
+
     def test_unset_evidence_never_invokes_subprocess
         ENV.delete("SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE")
         cmd = command("aimock", temporary: false)
