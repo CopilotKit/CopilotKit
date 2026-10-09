@@ -1,3 +1,6 @@
+import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, it, test, expect } from "vitest";
 import {
   createD6ServiceEnumerator,
@@ -24,7 +27,9 @@ import {
   DiscoverySourceSchemaError,
 } from "../../probes/discovery/errors.js";
 import type { DiscoverySource } from "../../probes/types.js";
+import { railwayServicesSource } from "../../probes/discovery/railway-services.js";
 import type { RailwayServiceInfo } from "../../probes/discovery/railway-services.js";
+import { withCache } from "../../probes/discovery/caching-source.js";
 import type { EnumerateContext } from "./job-producer.js";
 import type { Logger } from "../../types/index.js";
 import { z } from "zod";
@@ -933,6 +938,97 @@ describe("createServiceEnumerator — Railway-GQL resilience policy", () => {
         (warn) => warn.msg === "fleet.producer.enumerate-failed-using-cache",
       ),
     ).toBe(false);
+  });
+
+  it("rejects stale jobs through both real caches when disposable evidence is enabled", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "catalog-fresh-only-"));
+    try {
+      const recordsFile = join(dir, "records.json");
+      await writeFile(
+        recordsFile,
+        JSON.stringify({ schemaVersion: 1, runs: [] }),
+      );
+      const env: Record<string, string | undefined> = {
+        RAILWAY_TOKEN: "test-token",
+        RAILWAY_PROJECT_ID: "test-project",
+        RAILWAY_ENVIRONMENT_ID: "test-environment",
+      };
+      const projectResponse = {
+        data: {
+          project: {
+            services: {
+              edges: [
+                {
+                  node: {
+                    id: "test-service",
+                    name: "showcase-langgraph-python",
+                    serviceInstances: {
+                      edges: [
+                        {
+                          node: {
+                            environmentId: "test-environment",
+                            source: { image: null },
+                            domains: {
+                              serviceDomains: [{ domain: "backend.test" }],
+                            },
+                          },
+                        },
+                      ],
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        },
+      };
+      let fail = false;
+      let upstreamFailures = 0;
+      const fetchImpl: typeof fetch = async (_url, init) => {
+        if (fail) {
+          upstreamFailures += 1;
+          return new Response("catalog test outage", { status: 503 });
+        }
+        const { query } = JSON.parse(String(init?.body)) as { query: string };
+        return Response.json(
+          query.includes("query project")
+            ? projectResponse
+            : { data: { variables: {} } },
+        );
+      };
+      const enumerate = createD6ServiceEnumerator({
+        source: withCache(railwayServicesSource, {
+          ttlMs: 60_000,
+          now: () => 0,
+        }),
+        env,
+        fetchImpl,
+        logger: SILENT_LOGGER,
+        retrySchedule: [],
+        now: () => 0,
+      });
+      expect(await enumerate(CTX)).toEqual([
+        expect.objectContaining({
+          serviceSlug: "langgraph-python",
+          probeKey: "d6:langgraph-python",
+          driverInputs: expect.objectContaining({
+            backendUrl: "https://backend.test",
+          }),
+        }),
+      ]);
+
+      env.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE = recordsFile;
+      fail = true;
+      const refresh = enumerate(CTX);
+      await expect(refresh).rejects.toBeInstanceOf(DiscoverySourceBackendError);
+      await expect(refresh).rejects.toMatchObject({
+        status: 503,
+        message: expect.stringContaining("catalog test outage"),
+      });
+      expect(upstreamFailures).toBe(1);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it("invalidates an ordinary catalog when the source switches to fresh-only", async () => {
