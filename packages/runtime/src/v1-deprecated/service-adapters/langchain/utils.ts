@@ -128,21 +128,19 @@ export async function streamLangChainResponse({
   // 1. string
 
   if (typeof result === "string") {
-    if (!actionExecution || actionExecution?.returnDirect) {
+    // LangChainAdapter never passes `actionExecution`, so a plain string
+    // reply read `.id` off `undefined` here and the documented string return
+    // type always failed.
+    if (actionExecution) {
+      eventStream$.sendActionExecutionResult({
+        actionExecutionId: actionExecution.id,
+        actionName: actionExecution.name,
+        result: result,
+      });
+    }
+    if (!actionExecution || actionExecution.returnDirect) {
       // Just send one chunk with the string as the content.
-      eventStream$.sendActionExecutionResult({
-        actionExecutionId: actionExecution.id,
-        actionName: actionExecution.name,
-        result: result,
-      });
       eventStream$.sendTextMessage(randomId(), result);
-    } else {
-      // Send as a result
-      eventStream$.sendActionExecutionResult({
-        actionExecutionId: actionExecution.id,
-        actionName: actionExecution.name,
-        result: result,
-      });
     }
   }
 
