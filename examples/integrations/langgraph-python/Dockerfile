@@ -64,6 +64,7 @@ RUN uv pip install --system "ag-ui-langgraph[fastapi]==0.0.44" && \
     "langchain==1.4.0" \
     "langchain-openai==1.1.9" \
     "langchain-anthropic==1.4.1" \
+    "langchain-google-genai==4.4.0" \
     "langgraph==1.2.11" \
     "langsmith==0.7.33" \
     "openai==1.109.1" \

@@ -14,4 +14,5 @@ dependencies = [
   "ag-ui-protocol==0.1.18",
   # uv skips transitive prereleases, and the only stable release was yanked.
   "opentelemetry-resourcedetector-gcp==1.12.0a0",
+  "litellm>=1.84,<2",
 ]
