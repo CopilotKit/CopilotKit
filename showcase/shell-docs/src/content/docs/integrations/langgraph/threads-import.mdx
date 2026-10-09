@@ -79,7 +79,7 @@ Choose the same setup you use in the [LangGraph quickstart](/quickstart): **Lang
     from export_checkpointer import export_thread
 
     async def export_history(graph, thread_ids):
-        with open("history.jsonl", "x", encoding="utf-8") as output:
+        with open("history.jsonl", "w", encoding="utf-8") as output:
             for thread_id in thread_ids:
                 record = await export_thread(
                     graph,
