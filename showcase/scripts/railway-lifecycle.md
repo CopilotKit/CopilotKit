@@ -264,11 +264,14 @@ input or configured evidence prints a diagnostic to stderr and exits 1.
 
 Ruby `promote` invokes the shared CLI via `Open3.capture3` with argv and minimal
 inventory only. With configured evidence, it requires repository-local
-`node_modules/.bin/tsx`, Node, and the classifier source. Missing tooling,
-subprocess failure, or malformed output refuses promotion before mutation.
-Unset evidence adds no lifecycle subprocess dependency. Verified owned services
-leave both fleet and target snapshots before promotion checks; direct disposable
-targets refuse. Lifecycle findings print separately; unknown services stay
+`node_modules/.bin/tsx`, Node, and the classifier source. It checks the five root
+arrays, service inventory fields and classifications, exact exclusions against
+owned services, and diagnostic code/message strings. Missing tooling, subprocess
+failure, invalid JSON, or output that fails these checks refuses promotion before
+mutation. Optional reporting metadata and `excludedEnvironments` entries are
+ignored rather than schema-validated. Unset evidence adds no lifecycle subprocess
+dependency. Verified owned services leave both fleet and target snapshots before
+promotion checks; direct disposable targets refuse. Lifecycle findings print separately; unknown services stay
 visible and cannot enter the selected mutation set.
 
 Harness discovery reads the record path from `ctx.env`, with
