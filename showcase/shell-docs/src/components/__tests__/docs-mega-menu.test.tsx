@@ -20,32 +20,18 @@ import { DocsMegaMenu } from "../docs-mega-menu";
 
 afterEach(cleanup);
 
-test("opens a five-column docs map with Intelligence featured", () => {
+test("opens the docs menu with working guide destinations", () => {
   render(<DocsMegaMenu triggerClassName="shell-docs-nav-link-active" />);
 
   fireEvent.pointerEnter(screen.getByRole("button", { name: "Docs" }));
 
   expect(screen.getByRole("navigation", { name: "Docs" })).toBeTruthy();
-  expect(screen.getByRole("heading", { name: "Start" })).toBeTruthy();
-  expect(screen.getByRole("heading", { name: "Build" })).toBeTruthy();
-  expect(screen.getByRole("heading", { name: "Connect" })).toBeTruthy();
-  expect(screen.getByRole("heading", { name: "Ship & Operate" })).toBeTruthy();
-  expect(screen.getByRole("heading", { name: "Reference" })).toBeTruthy();
 
   const intelligence = screen.getByRole("link", { name: /Intelligence/ });
   expect(intelligence.getAttribute("href")).toBe("/intelligence/overview");
-  expect(intelligence.className).toContain(
-    "shell-docs-mega-menu-link-featured",
-  );
-  expect(intelligence.querySelector("svg")?.getAttribute("viewBox")).toBe(
-    "0 0 24 24",
-  );
-  expect(intelligence.querySelector("svg")?.getAttribute("fill")).toBe(
-    "currentColor",
-  );
-  for (const link of screen.getAllByRole("link", { name: "Rich Threads" })) {
-    expect(link.getAttribute("href")).toBe("/threads");
-  }
+  expect(
+    screen.getByRole("link", { name: "AG-UI Streams" }).getAttribute("href"),
+  ).toBe("/threads");
   expect(
     screen.getByRole("link", { name: "User Memories" }).getAttribute("href"),
   ).toBe("/intelligence/memories");

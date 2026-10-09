@@ -385,6 +385,39 @@ export function createTimelineItems(
 export type ConversationRunError = { after: number; item: TimelineItem };
 
 /**
+ * Tool calls of this thread's current run that have started but not ended.
+ * The live event buffer is newest first and is per agent, so it may contain
+ * other threads; RUN_STARTED scopes it to this thread.
+ */
+export function streamingToolCallIds(
+  events: readonly ApiAgentEvent[],
+  threadId: string | null | undefined,
+): Set<string> {
+  const streaming = new Set<string>();
+  let currentThread = false;
+  for (let i = events.length - 1; i >= 0; i--) {
+    const event = events[i]!;
+    const payload =
+      event.payload.event && typeof event.payload.event === "object"
+        ? (event.payload.event as Record<string, unknown>)
+        : event.payload;
+    if (event.type === "RUN_STARTED") {
+      streaming.clear();
+      currentThread = payload.threadId === threadId;
+    } else if (event.type === "RUN_FINISHED" || event.type === "RUN_ERROR") {
+      streaming.clear();
+      currentThread = false;
+    } else if (currentThread && typeof payload.toolCallId === "string") {
+      if (event.type === "TOOL_CALL_START") streaming.add(payload.toolCallId);
+      if (event.type === "TOOL_CALL_END" || event.type === "TOOL_CALL_RESULT") {
+        streaming.delete(payload.toolCallId);
+      }
+    }
+  }
+  return streaming;
+}
+
+/**
  * Place run errors after the last conversation item their preceding events
  * point at, so a failure shows where it happened in the saved conversation.
  */

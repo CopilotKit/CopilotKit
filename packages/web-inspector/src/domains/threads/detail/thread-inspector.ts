@@ -53,6 +53,7 @@ import {
 } from "./thread-runtime.js";
 import {
   conversationRunErrors,
+  streamingToolCallIds,
   createTimelineItems,
 } from "./timeline-model.js";
 import type { TimelineItem } from "./timeline-model.js";
@@ -687,6 +688,8 @@ export class CpkThreadInspector extends PortableLitElement {
       viewInAppAction: renderViewInAppAction(this),
       panelToggle: this.renderPanelToggle(),
       detailPanel: this.renderDetailPanel(),
+      conversationPanel:
+        !this._showEventTimeline && this._conversation.length > 0,
       renderTabContent: (id) => this.renderTabContent(id),
     });
   }
@@ -728,6 +731,8 @@ export class CpkThreadInspector extends PortableLitElement {
       conversation: this._conversation,
       renderItems: () => groupConversationItems(this._conversation),
       runErrors: (items) => conversationRunErrors(items, this.activeEvents),
+      streamingTools: () =>
+        streamingToolCallIds(this.agentEventsInput, this.threadId),
       expandedTools: this._expandedTools,
       expandedMessages: this._expandedMessages,
       expandedDetails: this._expandedTimelineDetails,

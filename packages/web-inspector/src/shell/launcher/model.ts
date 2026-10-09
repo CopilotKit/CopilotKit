@@ -83,9 +83,18 @@ export type LauncherHudRowId = "threads" | "learning";
 
 export const HUD_INSPECTOR_LABEL = "CopilotKit Inspector";
 export const HUD_ANNOUNCEMENT_TITLE_LIMIT = 80;
-export const HUD_THREADS_LABEL = "Rich Threads";
-export const HUD_LEARNING_LABEL = "Automatic Learning";
-export const HUD_LEARN_MORE_LABEL = "Click to learn more";
+
+/** The HUD's unread notification title, trimmed to the HUD's length cap. */
+export function hudAnnouncementTitle(title: string | undefined): string {
+  const text = title?.trim() || "New in CopilotKit";
+  const titleCharacters = Array.from(text);
+  return titleCharacters.length > HUD_ANNOUNCEMENT_TITLE_LIMIT
+    ? `${titleCharacters
+        .slice(0, HUD_ANNOUNCEMENT_TITLE_LIMIT)
+        .join("")
+        .trimEnd()}...`
+    : text;
+}
 
 export const LAUNCHER_SIGNALS: Readonly<
   Record<LauncherSignalKey, LauncherSignalDefinition>

@@ -14,6 +14,8 @@ type ConversationViewOptions = {
   collapseThreshold: number;
   expandedMessages: Set<string>;
   expandedTools: Set<string>;
+  /** Tool calls of the current run that are still receiving arguments. */
+  streamingTools?: ReadonlySet<string>;
   onToggleMessage: (id: string) => void;
   onToggleTool: (id: string) => void;
 };
@@ -62,11 +64,21 @@ function renderBubble(
   `;
 }
 
+function readableToolName(toolName: string): string {
+  const label = toolName
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ");
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 function renderToolBlock(
   item: ConversationToolCall,
   options: ConversationViewOptions,
 ): TemplateResult {
+  const streaming =
+    (options.streamingTools?.has(item.toolCallId) ?? false) && !item.hasResult;
   const expanded = options.expandedTools.has(item.id);
+  const pending = item.resultUnreadable || (!item.hasResult && !streaming);
   return html`
     <div class="cpk-td__tool-block">
       <button
@@ -84,45 +96,67 @@ function renderToolBlock(
             stroke-linejoin="round"
           />
         </svg>
-        <span class="cpk-td__tool-name">${item.toolName}</span>
-        ${
-          item.resultUnreadable
-            ? html`
-                <span class="cpk-td__tool-status cpk-td__tool-status--pending"
-                  >Result unreadable</span
-                >
-              `
-            : item.hasResult
-              ? html`
-                  <span class="cpk-td__tool-status">Result received</span>
-                `
-              : html`
-                  <span class="cpk-td__tool-status cpk-td__tool-status--pending"
-                    >No result recorded</span
-                  >
-                `
-        }
-        <span class="cpk-td__tool-chevron">${expanded ? "▾" : "▸"}</span>
+        <span class="cpk-td__tool-copy">
+          <span class="cpk-td__tool-title">
+            <span
+              class="cpk-td__tool-name ${
+                streaming ? "cpk-td__tool-name--streaming" : ""
+              }"
+              >${readableToolName(item.toolName)}</span
+            ><code class="cpk-td__tool-identifier">(${item.toolName})</code>
+          </span>
+          <span
+            class="cpk-td__tool-status ${
+              pending ? "cpk-td__tool-status--pending" : ""
+            }"
+            >${
+              streaming
+                ? "Receiving arguments"
+                : item.resultUnreadable
+                  ? "Result unreadable"
+                  : item.hasResult
+                    ? "Result received"
+                    : "No result recorded"
+            }</span
+          >
+        </span>
+        <svg
+          class="cpk-td__tool-chevron"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="m9 6 6 6-6 6"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
       </button>
       ${
         expanded
           ? html`
             <div class="cpk-td__tool-body">
-              <div class="cpk-td__tool-section-label">Arguments</div>
-              ${renderThreadJsonValue(item.arguments)}
-              ${
-                item.hasResult
-                  ? html`
-                    <div
-                      class="cpk-td__tool-section-label"
-                      style="margin-top:8px"
-                    >
-                      Result
-                    </div>
-                    ${renderThreadJsonValue(item.result)}
-                  `
-                  : nothing
-              }
+              <div class="cpk-td__tool-data">
+                <section>
+                  <div class="cpk-td__tool-section-label">Arguments</div>
+                  ${renderThreadJsonValue(item.arguments)}
+                </section>
+                ${
+                  item.hasResult
+                    ? html`
+                      <section class="cpk-td__tool-result">
+                        <div class="cpk-td__tool-section-label">Result</div>
+                        ${renderThreadJsonValue(item.result)}
+                      </section>
+                    `
+                    : nothing
+                }
+              </div>
             </div>
           `
           : nothing

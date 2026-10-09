@@ -10,6 +10,7 @@ import {
   SearchCheck,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { INTELLIGENCE_FEATURES } from "@/lib/intelligence-features";
 
 import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
 import {
@@ -22,44 +23,14 @@ export const INTELLIGENCE_SIZZLE_VIDEO_URL =
 
 const CONNECT_HREF = "/intelligence/quickstart";
 
-const FEATURES = [
-  {
-    title: "Rich Threads",
-    body: "Save the conversation and open it again on another device.",
-    href: "/threads",
-    icon: MessagesSquare,
-  },
-  {
-    title: "User Memories",
-    body: "Keep facts about a person after the conversation ends.",
-    href: "/intelligence/memories",
-    icon: Brain,
-  },
-  {
-    title: "Automatic Learning",
-    body: "Turn real usage into skills you can review and publish.",
-    href: "/learning",
-    icon: Lightbulb,
-  },
-  {
-    title: "Product Analytics",
-    body: "See what people do with your agent.",
-    href: "/intelligence/analytics",
-    icon: BarChart3,
-  },
-  {
-    title: "Channels",
-    body: "Run the same agent in Slack or Microsoft Teams.",
-    href: "/intelligence/channels",
-    icon: Hash,
-  },
-  {
-    title: "Inspector",
-    body: "Watch threads, learning, and tool calls from your app on localhost.",
-    href: "/inspector",
-    icon: SearchCheck,
-  },
-] as const;
+const FEATURE_ICONS = {
+  threads: MessagesSquare,
+  memories: Brain,
+  learning: Lightbulb,
+  analytics: BarChart3,
+  channels: Hash,
+  inspector: SearchCheck,
+} as const;
 
 function SizzleVideo() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -143,15 +114,18 @@ export function IntelligenceFeatureCards() {
       {/* Cards are links; keep them out of the prose link styling. */}
       <div className="not-prose intelligence-accent-cards">
         <Cards>
-          {FEATURES.map((feature) => (
-            <Card
-              key={feature.title}
-              href={feature.href}
-              title={feature.title}
-              description={feature.body}
-              icon={<feature.icon aria-hidden="true" />}
-            />
-          ))}
+          {INTELLIGENCE_FEATURES.map((feature) => {
+            const Icon = FEATURE_ICONS[feature.icon];
+            return (
+              <Card
+                key={feature.title}
+                href={feature.href}
+                title={feature.title}
+                description={feature.body}
+                icon={<Icon aria-hidden="true" />}
+              />
+            );
+          })}
         </Cards>
       </div>
     </section>

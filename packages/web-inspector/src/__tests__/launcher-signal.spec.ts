@@ -1,3 +1,9 @@
+import { notificationTestId } from "./notification-fixture.js";
+vi.mock("../domains/announcements/notification-loader.js", async () => {
+  const { fetchNotificationFixture } =
+    await import("./notification-fixture.js");
+  return { loadNotificationFeed: fetchNotificationFixture };
+});
 // Launcher signal + What's new (OSS-864 / OSS-865)
 //
 // These tests assert externally observable behaviour: whether a dot is
@@ -21,14 +27,15 @@ import { afterEach, expect, test, vi } from "vitest";
 
 import { WebInspectorElement } from "../index.js";
 
-const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
+const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/notifications/v1.json";
 const INSPECTOR_STATE_KEY = "cpk:inspector:state";
 const LEGACY_ANNOUNCEMENT_KEY = "cpk:inspector:announcements";
-const PULSED_SESSION_KEY = "cpk:inspector:pulsed";
-const READ_COOKIE_NAME = "cpk_inspector_announcements";
+const PULSED_SESSION_KEY = "cpk:inspector:notification-pulsed-id";
+const READ_COOKIE_NAME = "cpk_inspector_notifications_v1";
 const DISMISSAL_COOKIE_NAME = "cpk_inspector_dismissed_until";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
+const YEAR_MS = 365 * DAY_MS;
 
 const TIMESTAMP = "2026-08-01T09:00:00.000Z";
 const NEXT_TIMESTAMP = "2026-08-14T09:00:00.000Z";
@@ -198,6 +205,10 @@ async function openWhatsNew(inspector: WebInspectorElement): Promise<void> {
       'button[data-inspector-menu-key="whats-new"]',
     ),
   );
+  const notice = root(inspector).querySelector<HTMLButtonElement>(
+    ".cpk-notification-row",
+  );
+  if (notice) await click(inspector, notice);
 }
 
 /**
@@ -243,6 +254,7 @@ async function setup(options: MountOptions = {}): Promise<Harness> {
   document.documentElement.style.overflowX = "";
   clearDismissalCookie();
   window.localStorage.clear();
+  document.cookie = "cpk_inspector_notifications_v1=; Max-Age=0; Path=/";
   window.sessionStorage.clear();
   if (
     options.persistedMenu !== undefined ||
@@ -265,7 +277,13 @@ async function setup(options: MountOptions = {}): Promise<Harness> {
   }
   if (options.readTimestamp !== undefined) {
     document.cookie = `${READ_COOKIE_NAME}=${encodeURIComponent(
-      JSON.stringify({ timestamp: options.readTimestamp }),
+      JSON.stringify({
+        schemaVersion: 1,
+        eligibleIds: [],
+        activeId: null,
+        readIds: [notificationTestId(options.readTimestamp ?? "")],
+        suppressedIds: [],
+      }),
     )}; Path=/`;
   }
   if (options.legacyReadState !== undefined) {
@@ -324,6 +342,7 @@ async function setup(options: MountOptions = {}): Promise<Harness> {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     window.localStorage.clear();
+    document.cookie = "cpk_inspector_notifications_v1=; Max-Age=0; Path=/";
     window.sessionStorage.clear();
     document.body.replaceChildren();
     document.body.style.marginLeft = "";
@@ -340,6 +359,11 @@ async function setup(options: MountOptions = {}): Promise<Harness> {
     });
     cores.push(core);
     const inspector = new WebInspectorElement();
+    inspector.notificationContext = {
+      development: true,
+      framework: "react",
+      sdkVersion: "1.70.2",
+    };
     inspectors.push(inspector);
     inspector.core = core;
     document.body.appendChild(inspector);
@@ -543,6 +567,7 @@ test("a loading render is not a read, and the clear follows the content", async 
 
   context.resolveFeed();
   await settle(context.inspector);
+  await openWhatsNew(context.inspector);
 
   expect(whatsNewState(context.inspector)).toBe("content");
   expect(navUnreadMarker(context.inspector)).toBeNull();
@@ -577,6 +602,7 @@ test("the read is recorded only after the announcement content is visible", asyn
   try {
     context.resolveFeed();
     await settle(context.inspector);
+    await openWhatsNew(context.inspector);
 
     expect(whatsNewState(context.inspector)).toBe("content");
     expect(stateWhenReadWasRecorded).toBe("content");
@@ -677,7 +703,9 @@ test("the launcher beats once per tab, and again for a new announcement", async 
   const context = await setup();
 
   expect(pulsing(context.inspector)).toBe(true);
-  expect(window.sessionStorage.getItem(PULSED_SESSION_KEY)).toBe(TIMESTAMP);
+  expect(
+    JSON.parse(window.sessionStorage.getItem(PULSED_SESSION_KEY) ?? "[]"),
+  ).toContain(notificationTestId(TIMESTAMP));
 
   // Reloading the app forty times a day must not mean forty interruptions.
   for (let reload = 0; reload < 3; reload += 1) {
@@ -690,9 +718,26 @@ test("the launcher beats once per tab, and again for a new announcement", async 
     announcement({ timestamp: NEXT_TIMESTAMP }),
   );
   expect(pulsing(republished)).toBe(true);
-  expect(window.sessionStorage.getItem(PULSED_SESSION_KEY)).toBe(
-    NEXT_TIMESTAMP,
-  );
+  expect(
+    JSON.parse(window.sessionStorage.getItem(PULSED_SESSION_KEY) ?? "[]"),
+  ).toContain(notificationTestId(NEXT_TIMESTAMP));
+});
+
+test("an unread persisted notification beats once in a new tab", async () => {
+  const context = await setup();
+  expect(pulsing(context.inspector)).toBe(true);
+
+  // A new tab keeps the host's unread notification but gets fresh session state.
+  window.sessionStorage.clear();
+  const newTab = await context.remount();
+  expect(launcherDot(newTab)).not.toBeNull();
+  expect(pulsing(newTab)).toBe(true);
+  expect(
+    JSON.parse(window.sessionStorage.getItem(PULSED_SESSION_KEY) ?? "[]"),
+  ).toContain(notificationTestId(TIMESTAMP));
+
+  const reloaded = await context.remount();
+  expect(pulsing(reloaded)).toBe(false);
 });
 
 test("a feed resolved after unmount cannot consume the announcement beat", async () => {
@@ -706,7 +751,9 @@ test("a feed resolved after unmount cannot consume the announcement beat", async
 
   const reloaded = await context.remount();
   expect(pulsing(reloaded)).toBe(true);
-  expect(window.sessionStorage.getItem(PULSED_SESSION_KEY)).toBe(TIMESTAMP);
+  expect(
+    JSON.parse(window.sessionStorage.getItem(PULSED_SESSION_KEY) ?? "[]"),
+  ).toContain(notificationTestId(TIMESTAMP));
 });
 
 test("an unread announcement waits to beat until the launcher is visible", async () => {
@@ -726,7 +773,9 @@ test("an unread announcement waits to beat until the launcher is visible", async
   );
 
   expect(pulsing(context.inspector)).toBe(true);
-  expect(window.sessionStorage.getItem(PULSED_SESSION_KEY)).toBe(TIMESTAMP);
+  expect(
+    JSON.parse(window.sessionStorage.getItem(PULSED_SESSION_KEY) ?? "[]"),
+  ).toContain(notificationTestId(TIMESTAMP));
 });
 
 // Real timers: the beat is scheduled during mount, so fake timers installed
@@ -744,14 +793,15 @@ test("the beat ends and leaves the resting dot behind", async () => {
 
 // ── The removed surfaces ──────────────────────────────────────────────────
 
-test("nothing is left covering the host application", async () => {
+test("notifications use the existing launcher HUD without a separate preview", async () => {
   const context = await setup();
   const shadowRoot = root(context.inspector);
-
   expect(shadowRoot.querySelector(".announcement-preview")).toBeNull();
-  expect(shadowRoot.textContent).not.toContain("Channels are here");
-  expect(stylesheetText(context.inspector)).not.toContain(
-    ".announcement-preview",
+  expect(shadowRoot.querySelector(".cpk-notification-preview")).toBeNull();
+  await openHud(context.inspector);
+  expect(shadowRoot.querySelectorAll("[data-cpk-hud-news]")).toHaveLength(1);
+  expect(hudNewsButton(context.inspector)?.textContent).toContain(
+    "Channels are here",
   );
 });
 
@@ -774,13 +824,14 @@ test("no announcement card sits above the content of any tab", async () => {
     expect(main.textContent).not.toContain("Dismiss announcement");
   }
 
-  // The one place the announcement does live.
+  // Open the list, then read the notification to render its body.
   await click(
     context.inspector,
     root(context.inspector).querySelector(
       'button[data-inspector-menu-key="whats-new"]',
     ),
   );
+  await openWhatsNew(context.inspector);
   expect(
     requireElement(
       root(context.inspector).querySelector<HTMLElement>("#cpk-main-scroll"),
@@ -851,7 +902,7 @@ test("the pulse sends two water-drop rings outward from the launcher rim", async
     "";
   expect(ripple).toContain("opacity: 0.95");
   expect(ripple).toContain("transform: scale(1)");
-  // On a 51.84px launcher, 1.5 reaches 12.96px past the rim.
+  // On a 34px launcher, 1.5 reaches 8.5px past the rim.
   expect(ripple).toContain("transform: scale(1.5)");
   expect(css).toContain("calc(var(--cpk-launcher-cadence) - 180ms)");
   expect(css).toContain("animation-delay: 180ms");
@@ -888,12 +939,12 @@ test("reduced motion holds the halo instead of animating it", async () => {
   expect(reducedMotion).toContain("animation: none");
 });
 
-test("the launcher scales to a 20% larger desktop cap and keeps the dot on its rim", async () => {
+test("the launcher scales with the viewport up to its desktop cap and keeps the dot on its rim", async () => {
   const context = await setup();
   const css = stylesheetText(context.inspector);
 
   expect(css).toMatch(
-    /--cpk-launcher-size:\s*clamp\(\s*51\.84px,\s*7vw,\s*62\.208px\s*\)/,
+    /--cpk-launcher-size:\s*clamp\(\s*34px,\s*calc\(22px \+ 2\.8vw\),\s*62\.208px\s*\)/,
   );
   expect(css).toContain("width: var(--cpk-launcher-size)");
   expect(css).toContain("height: var(--cpk-launcher-size)");
@@ -997,6 +1048,8 @@ test("the marked navigation entry is the way into What's new", async () => {
   await click(context.inspector, navUnreadMarker(context.inspector));
 
   expect(whatsNewState(context.inspector)).toBe("content");
+  expect(navUnreadMarker(context.inspector)).not.toBeNull();
+  await openWhatsNew(context.inspector);
   expect(navUnreadMarker(context.inspector)).toBeNull();
   expect(launcherDot(context.inspector)).toBeNull();
 });
@@ -1231,6 +1284,36 @@ test("Settings offers the longer one-week dismissal", async () => {
   expect(dismissalDeadline()).toBeLessThanOrEqual(Date.now() + WEEK_MS);
 });
 
+test("Settings offers an always-hide dismissal that never expires", async () => {
+  const context = await setup({ persistedMenu: "threads" });
+  await click(context.inspector, launcherButton(context.inspector));
+  await click(
+    context.inspector,
+    root(context.inspector).querySelector<HTMLButtonElement>(
+      'button[aria-label="Settings"]',
+    ),
+  );
+  const action = requireElement(
+    root(context.inspector).querySelector<HTMLButtonElement>(
+      '[data-cpk-dismiss-inspector="forever"]',
+    ),
+  );
+  expect(action.textContent?.replace(/\s+/g, " ").trim()).toBe(
+    "Always hide Inspector",
+  );
+
+  const clickedAt = Date.now();
+  const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+  await click(context.inspector, action);
+  const delays = setTimeoutSpy.mock.calls.map((call) => Number(call[1] ?? 0));
+  setTimeoutSpy.mockRestore();
+  // A delay above 2^31-1 ms fires immediately and would re-arm in a loop.
+  expect(Math.max(...delays)).toBeLessThanOrEqual(2 ** 31 - 1);
+  expect(root(context.inspector).querySelector(".console-button")).toBeNull();
+  expect(dismissalDeadline()).toBeGreaterThanOrEqual(clickedAt + YEAR_MS);
+  expect(dismissalDeadline()).toBeLessThanOrEqual(Date.now() + YEAR_MS);
+});
+
 test("the HUD omits a read announcement", async () => {
   const context = await setup({ readTimestamp: TIMESTAMP });
 
@@ -1248,7 +1331,7 @@ test("the HUD keeps an unread announcement useful without preview text", async (
   await openHud(context.inspector);
 
   expect(hudNewsButton(context.inspector)?.textContent).toContain(
-    "New in CopilotKit",
+    "CopilotKit update",
   );
 });
 

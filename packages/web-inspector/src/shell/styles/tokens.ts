@@ -17,7 +17,7 @@ export const LAUNCHER_SIGNAL_COLORS: Readonly<
   error: ERROR_SIGNAL_COLOR,
 };
 
-// The launcher keeps its current touch target on compact screens and grows to
-// an exactly 20% larger desktop cap. `box-sizing` makes these OUTER sizes.
-export const LAUNCHER_MIN_SIZE = 51.84;
+// The launcher tracks the viewport width: 34px on phone-width screens, rising
+// linearly to the desktop cap at 1440px. `box-sizing` makes these OUTER sizes.
+export const LAUNCHER_MIN_SIZE = 34;
 export const LAUNCHER_MAX_SIZE = 62.208;

@@ -1,46 +1,46 @@
 import { renderAnnouncementDocument } from "./document.js";
+import { loadNotificationFeed } from "./notification-loader.js";
+import {
+  acknowledgeNotification,
+  compareNotifications,
+  emptyNotificationState,
+  reconcileNotifications,
+} from "./notifications.js";
+import type {
+  CohortNotification,
+  NotificationContext,
+  NotificationFeed,
+  NotificationState,
+} from "./notifications.js";
+import {
+  hasNotificationPulsed,
+  loadNotificationState,
+  migrateAnnouncementReadState,
+  saveNotificationState,
+} from "./storage.js";
 
-export const ANNOUNCEMENT_FEED_URL =
-  "https://cdn.copilotkit.ai/announcements.json";
-
-const ANNOUNCEMENT_READ_COOKIE_NAME = "cpk_inspector_announcements";
-const ANNOUNCEMENT_READ_MIRROR_KEY = "cpk:inspector:announcement_read";
-const LEGACY_ANNOUNCEMENT_READ_KEY = "cpk:inspector:announcements";
-const ANNOUNCEMENT_PULSED_SESSION_KEY = "cpk:inspector:pulsed";
-const ANNOUNCEMENT_READ_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
-
+/** One eligible notification, ready for What's New, Home, and the HUD. */
 export type AnnouncementReady = Readonly<{
-  status: "ready";
-  timestamp: string;
-  markdown: string;
+  id: string;
+  title: string;
+  publishedAt: string;
   documentHtml: string;
   preview: Readonly<{
     title: string;
     text: string;
-    curatedText?: string;
   }>;
-  ctaLabel?: string;
-  shouldArm: boolean;
-  shouldPulse: boolean;
 }>;
 
-export type AnnouncementFeedProjection =
-  | AnnouncementReady
-  | Readonly<{ status: "invalid" }>;
+export type AnnouncementFeedHost = Readonly<{
+  /** Targeting context, including confirmed runtime metadata. */
+  context: () => NotificationContext;
+  isSignalArmed: () => boolean;
+  armSignal: (options: { pulse: boolean }) => void;
+  retireSignal: () => void;
+  requestUpdate: () => void;
+}>;
 
-export type AnnouncementFeedLoadResult =
-  | AnnouncementFeedProjection
-  | Readonly<{ status: "failed" }>;
-
-function isObject(value: unknown): value is object {
-  return typeof value === "object" && value !== null;
-}
-
-function stringProperty(value: object, key: string): string | undefined {
-  const property = Reflect.get(value, key);
-  return typeof property === "string" ? property : undefined;
-}
-
+/** Return a short preview from markdown, without links or headings. */
 export function announcementPreview(markdown: string, maxLength = 140): string {
   const plain = markdown
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
@@ -52,153 +52,159 @@ export function announcementPreview(markdown: string, maxLength = 140): string {
     : `${plain.slice(0, maxLength).trimEnd()}…`;
 }
 
-export function projectAnnouncementFeed(
-  value: unknown,
-): AnnouncementFeedProjection {
-  if (!isObject(value)) return { status: "invalid" };
-
-  const timestamp = stringProperty(value, "timestamp");
-  const markdown = stringProperty(value, "announcement");
-  if (!timestamp || !markdown) return { status: "invalid" };
-
-  const previewText = stringProperty(value, "previewText")?.trim();
-  const ctaLabel = stringProperty(value, "cta_label");
-  const documentHtml = renderAnnouncementDocument(markdown);
-  const heading = markdown.match(/^#{1,3}\s+(.+)$/m)?.[1]?.trim();
-  const ready: AnnouncementReady = {
-    status: "ready",
-    timestamp,
-    markdown,
-    documentHtml,
-    preview: {
-      title: heading || "The latest from CopilotKit",
-      text: previewText || announcementPreview(markdown, 160),
-      ...(previewText ? { curatedText: previewText } : {}),
-    },
-    ...(ctaLabel === undefined ? {} : { ctaLabel }),
-    shouldArm:
-      documentHtml.length > 0 && loadAnnouncementReadTimestamp() !== timestamp,
-    shouldPulse: loadAnnouncementPulsedTimestamp() !== timestamp,
-  };
-  return ready;
-}
-
-export async function loadAnnouncementFeed(
-  fetcher: typeof fetch = fetch,
-): Promise<AnnouncementFeedLoadResult> {
+function renderDocument(markdown: string): string {
   try {
-    const response = await fetcher(ANNOUNCEMENT_FEED_URL, {
-      cache: "no-cache",
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to load announcement (${response.status})`);
-    }
-    const projection = projectAnnouncementFeed(await response.json());
-    if (projection.status === "invalid") {
-      throw new Error("Malformed announcement payload");
-    }
-    return projection;
-  } catch (error) {
-    console.warn("[CopilotKit Inspector] Failed to load announcement", error);
-    return { status: "failed" };
-  }
-}
-
-export function loadAnnouncementReadTimestamp(): string | null {
-  return (
-    parseTimestampPayload(readAnnouncementCookie()) ??
-    parseTimestampPayload(readLocalStorageItem(ANNOUNCEMENT_READ_MIRROR_KEY))
-  );
-}
-
-export function saveAnnouncementReadTimestamp(timestamp: string): void {
-  const payload = JSON.stringify({ timestamp });
-  writeAnnouncementCookie(payload);
-  writeLocalStorageItem(ANNOUNCEMENT_READ_MIRROR_KEY, payload);
-}
-
-export function clearLegacyAnnouncementReadState(): void {
-  removeLocalStorageItem(LEGACY_ANNOUNCEMENT_READ_KEY);
-}
-
-export function loadAnnouncementPulsedTimestamp(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return window.sessionStorage.getItem(ANNOUNCEMENT_PULSED_SESSION_KEY);
+    return renderAnnouncementDocument(markdown);
   } catch {
-    return null;
+    return "";
   }
 }
 
-export function saveAnnouncementPulsedTimestamp(timestamp: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(ANNOUNCEMENT_PULSED_SESSION_KEY, timestamp);
-  } catch {
-    // A lost suppression costs one extra pulse, never correctness.
-  }
-}
+/**
+ * Targeted What's New notifications: the feed, the reader's acknowledgements,
+ * and the notice the Inspector currently highlights.
+ */
+export class AnnouncementFeed {
+  private feed: NotificationFeed | null = null;
+  private state: NotificationState = emptyNotificationState();
+  private documents = new Map<string, string>();
+  private selectedId: string | null = null;
+  /** True once the feed request has settled, with or without a feed. */
+  loaded = false;
+  /** The selected notice, else the highlighted one, else the top eligible one. */
+  current: AnnouncementReady | null = null;
 
-function parseTimestampPayload(raw: string | null): string | null {
-  if (!raw) return null;
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!isObject(parsed)) return null;
-    return stringProperty(parsed, "timestamp") ?? null;
-  } catch {
-    return null;
-  }
-}
+  constructor(private readonly host: AnnouncementFeedHost) {}
 
-function readAnnouncementCookie(): string | null {
-  if (typeof document === "undefined") return null;
-  try {
-    for (const entry of document.cookie.split(";")) {
-      const separator = entry.indexOf("=");
-      if (separator === -1) continue;
-      if (entry.slice(0, separator).trim() !== ANNOUNCEMENT_READ_COOKIE_NAME) {
-        continue;
+  /** Restore this origin's selection and the host-wide acknowledgements. */
+  restore(): void {
+    this.state = loadNotificationState();
+  }
+
+  /** The highlighted notice that drives the launcher signal, if any. */
+  get active(): AnnouncementReady | null {
+    const notice = this.notice(this.state.activeId);
+    return notice ? this.project(notice) : null;
+  }
+
+  get selected(): AnnouncementReady | null {
+    const notice = this.notice(this.selectedId);
+    return notice && this.state.eligibleIds.includes(notice.id)
+      ? this.project(notice)
+      : null;
+  }
+
+  /** Eligible notices in display order. */
+  get notices(): AnnouncementReady[] {
+    return this.eligible().map((notice) => this.project(notice));
+  }
+
+  isRead(id: string): boolean {
+    return this.state.readIds.includes(id);
+  }
+
+  /** Load the feed and its documents, then re-evaluate the highlight. */
+  async fetch(
+    context: Pick<NotificationContext, "framework" | "sdkVersion">,
+    isCurrent: () => boolean = () => true,
+  ): Promise<void> {
+    try {
+      const feed = await loadNotificationFeed(context);
+      // A request that outlived its element must not arm or pulse the signal.
+      if (!isCurrent()) return;
+      if (feed) {
+        this.documents = new Map(
+          feed.notifications.map((notice) => [
+            notice.id,
+            renderDocument(notice.body),
+          ]),
+        );
+        this.feed = feed;
       }
-      return decodeURIComponent(entry.slice(separator + 1).trim());
+    } catch {
+      /* Notification failures cannot disrupt the host. */
     }
-  } catch {
-    // Sandboxed documents can deny cookie access.
+    this.loaded = true;
+    this.refresh();
+    this.host.requestUpdate();
   }
-  return null;
-}
 
-function writeAnnouncementCookie(value: string): void {
-  if (typeof document === "undefined") return;
-  try {
-    document.cookie = `${ANNOUNCEMENT_READ_COOKIE_NAME}=${encodeURIComponent(value)}; Path=/; Max-Age=${ANNOUNCEMENT_READ_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
-  } catch {
-    // The localStorage mirror remains available when cookies are blocked.
+  /** Re-evaluate eligibility, the highlight, and the launcher signal. */
+  refresh(): void {
+    const feed = this.feed;
+    if (!feed) return;
+    this.state = migrateAnnouncementReadState(this.state, feed);
+    const previousActiveId = this.state.activeId;
+    this.state = reconcileNotifications(this.state, feed, this.host.context());
+    saveNotificationState(this.state);
+    if (!this.state.eligibleIds.includes(this.selectedId ?? "")) {
+      this.selectedId = null;
+    }
+    const notice =
+      feed.notifications.find(
+        (n) =>
+          this.state.eligibleIds.includes(n.id) &&
+          n.id === (this.selectedId ?? this.state.activeId),
+      ) ?? this.eligible()[0];
+    this.current = notice ? this.project(notice) : null;
+    const activeId = this.state.activeId;
+    const active = this.notice(activeId);
+    if (activeId && active && this.state.eligibleIds.includes(activeId)) {
+      this.host.armSignal({
+        pulse:
+          (previousActiveId !== activeId || !this.host.isSignalArmed()) &&
+          !hasNotificationPulsed(activeId, active.publishedAt),
+      });
+    } else {
+      this.host.retireSignal();
+    }
+    this.host.requestUpdate();
   }
-}
 
-function readLocalStorageItem(key: string): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
+  /** Open one notice and acknowledge it. */
+  read(id: string): void {
+    this.selectedId = id;
+    this.state = acknowledgeNotification(this.state, id);
+    this.refresh();
   }
-}
 
-function writeLocalStorageItem(key: string, value: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    // Persistence failure must not affect the host application.
+  /** Return What's New to its list without changing the read state. */
+  clearSelection(): void {
+    this.selectedId = null;
+    this.host.requestUpdate();
   }
-}
 
-function removeLocalStorageItem(key: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(key);
-  } catch {
-    // Persistence failure must not affect the host application.
+  /** Close the highlight, which quiets its delivered backlog. */
+  acknowledgeActive(): void {
+    if (!this.state.activeId) return;
+    this.state = acknowledgeNotification(this.state, this.state.activeId);
+    this.refresh();
+  }
+
+  private notice(id: string | null): CohortNotification | undefined {
+    if (!id) return undefined;
+    return this.feed?.notifications.find((notice) => notice.id === id);
+  }
+
+  private eligible(): CohortNotification[] {
+    return (
+      this.feed?.notifications
+        .filter((notice) => this.state.eligibleIds.includes(notice.id))
+        .sort(compareNotifications) ?? []
+    );
+  }
+
+  private project(notice: CohortNotification): AnnouncementReady {
+    const heading = notice.body.match(/^#{1,3}\s+(.+)$/m)?.[1]?.trim();
+    return {
+      id: notice.id,
+      title: notice.title,
+      publishedAt: notice.publishedAt,
+      documentHtml: this.documents.get(notice.id) ?? "",
+      preview: {
+        title: heading || "The latest from CopilotKit",
+        text: notice.title.trim() || announcementPreview(notice.body, 160),
+      },
+    };
   }
 }

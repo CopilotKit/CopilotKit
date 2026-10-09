@@ -135,11 +135,6 @@ const SUBPATH_RENAMES: { specId: string; from: string; to: string }[] = [
     to: "generative-ui/your-components/display-only",
   },
   {
-    specId: "S9",
-    from: "generative-ui/tool-based",
-    to: "generative-ui/tool-rendering",
-  },
-  {
     specId: "S10",
     from: "custom-look-and-feel/bring-your-own-components",
     to: "custom-look-and-feel/slots",
@@ -1024,11 +1019,15 @@ const PREMIUM_URL_FRAMEWORKS: string[] = [
 // ---------------------------------------------------------------------------
 
 const RETIRED_INTELLIGENCE_REDIRECTS: RedirectEntry[] = [
-  {
-    id: "INTEL-connect-runtime",
-    source: "/intelligence/connect-your-runtime",
-    destination: "/intelligence/quickstart",
-  },
+  // Agents fetch the `.md`/`.mdx` variant, and released CLI onboarding
+  // prompts (4.14.0 and older) cite `connect-your-runtime.md`. An exact
+  // entry matches only the path it names, so each variant needs its own
+  // entry or it 404s (PE-328).
+  ...["", ".md", ".mdx"].map((suffix) => ({
+    id: `INTEL-connect-runtime${suffix}`,
+    source: `/intelligence/connect-your-runtime${suffix}`,
+    destination: `/intelligence/quickstart${suffix}`,
+  })),
   // Sources keep the legacy `premium` segment (that is the URL the SEO
   // surface saw); destinations follow the `premium/` → `intelligence/`
   // folder rename (OSS-1078). These are EXACT entries, so middleware

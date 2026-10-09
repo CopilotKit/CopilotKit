@@ -664,7 +664,7 @@ export async function collectModuleGraph({
 
   const inputs = Object.keys(result.metafile.inputs);
   // A graph that does not even contain its own entry means we measured nothing.
-  // esbuild's metafile keys always use forward slashes, including on Windows.
+  // esbuild keys the metafile with forward slashes on every platform.
   const entryKey = path
     .relative(pkgRoot, path.resolve(pkgRoot, entryFile))
     .split(path.sep)

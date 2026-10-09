@@ -89,6 +89,8 @@ export function renderThreadInspectorView(options: {
   viewInAppAction: TemplateResult | typeof nothing;
   panelToggle: TemplateResult;
   detailPanel: TemplateResult;
+  /** The Conversation tab shows chat items, which read best at a capped width. */
+  conversationPanel: boolean;
   renderTabContent: (id: ThreadDetailsTab) => TemplateResult;
 }): TemplateResult {
   return html`
@@ -146,7 +148,11 @@ export function renderThreadInspectorView(options: {
             options.activatedTabs.has(tab.id)
               ? html`<div
                   id=${options.panelDomId(tab.id)}
-                  class="cpk-td__panel"
+                  class="cpk-td__panel ${
+                    tab.id === "timeline" && options.conversationPanel
+                      ? "cpk-td__panel--conversation"
+                      : ""
+                  }"
                   role="tabpanel"
                   aria-labelledby=${options.tabDomId(tab.id)}
                   ?hidden=${
@@ -479,6 +485,7 @@ export function renderConversationPanel(options: {
   conversation: ConversationItem[];
   renderItems: () => ConversationRenderItem[];
   runErrors: (items: ConversationRenderItem[]) => ConversationRunError[];
+  streamingTools: () => ReadonlySet<string>;
   expandedTools: Set<string>;
   expandedMessages: Set<string>;
   expandedDetails: Set<string>;
@@ -520,8 +527,9 @@ export function renderConversationPanel(options: {
   }
   const items = options.renderItems();
   const errors = options.runErrors(items);
+  const streamingTools = options.streamingTools();
   // Event chunks must not rebuild a long conversation. Only the error rows
-  // and their placement are relevant to this panel, not the full event list.
+  // and tool streaming transitions are relevant, not the full event list.
   return options.cache.create(
     "timeline-fallback",
     [
@@ -529,6 +537,7 @@ export function renderConversationPanel(options: {
       options.expandedTools,
       options.expandedMessages,
       JSON.stringify(errors),
+      JSON.stringify([...streamingTools]),
       options.expandedDetails,
     ],
     () => {
@@ -556,6 +565,7 @@ export function renderConversationPanel(options: {
               collapseThreshold: options.collapseThreshold,
               expandedMessages: options.expandedMessages,
               expandedTools: options.expandedTools,
+              streamingTools,
               onToggleMessage: options.onToggleMessage,
               onToggleTool: options.onToggleTool,
             })}${renderErrors(index)}`,

@@ -35,6 +35,8 @@ import {
   MIN_WINDOW_HEIGHT,
   MIN_WINDOW_WIDTH,
   MIN_WINDOW_WIDTH_DOCKED_LEFT,
+  getWindowScale,
+  readRenderedWindowSize,
 } from "./view.js";
 
 const DRAG_THRESHOLD = 6;
@@ -756,13 +758,11 @@ export class WindowController {
       .getRenderRoot()
       .querySelector<HTMLElement>(".inspector-window");
     if (inspectorWindow) {
-      const width = Math.round(Number.parseFloat(inspectorWindow.style.width));
-      const height = Math.round(
-        Number.parseFloat(inspectorWindow.style.height),
+      const size = readRenderedWindowSize(
+        inspectorWindow,
+        getWindowScale(this.isPoppedOut, this.dockMode),
       );
-      if (Number.isFinite(width) && Number.isFinite(height)) {
-        return { width, height };
-      }
+      if (size) return size;
     }
     return this.clampWindowSize(this.contextState.window.size);
   }

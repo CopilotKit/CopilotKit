@@ -276,6 +276,12 @@ export const threadInspectorBaseStyles = css`
     flex-direction: column;
     gap: 12px;
   }
+  .cpk-td__panel--conversation {
+    width: 100%;
+    max-width: 800px;
+    min-width: 0;
+    margin-inline: auto;
+  }
   .cpk-td__panel > * {
     flex-shrink: 0;
   }
@@ -398,126 +404,6 @@ export const threadInspectorBaseStyles = css`
     max-width: 100%;
     padding: 4px 0;
     border: 0;
-  }
-
-  /* ── Tool call blocks ────────────────────────────────────────────── */
-  .cpk-td__tool-block {
-    border: 1px solid #e9e9ef;
-    border-radius: 12px;
-    overflow: hidden;
-  }
-
-  .cpk-td__tool-header {
-    appearance: none;
-    display: flex;
-    width: 100%;
-    align-items: center;
-    gap: 6px;
-    padding: 12px;
-    border: 0;
-    background: #ffffff;
-    color: #71717a;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 11px;
-    text-align: left;
-    user-select: none;
-  }
-
-  .cpk-td__tool-header:focus-visible {
-    outline: 2px solid var(--cpk-primary-color, #7076b3);
-    outline-offset: -2px;
-  }
-
-  .cpk-td__tool-header:hover {
-    background: #fafafa;
-  }
-
-  .cpk-td__tool-name {
-    font-size: 13px;
-    font-weight: 500;
-    color: #18181b;
-    overflow-wrap: anywhere;
-    min-width: 0;
-    flex: 1;
-  }
-
-  .cpk-td__tool-status {
-    font-size: 10px;
-    font-weight: 500;
-    padding: 3px 7px;
-    border-radius: 999px;
-    background: #d1fae5;
-    color: #065f46;
-  }
-
-  .cpk-td__tool-status--pending {
-    background: #fef3c7;
-    color: #8a5900;
-  }
-
-  .cpk-td__tool-chevron {
-    color: #68686e;
-    font-size: 10px;
-  }
-
-  .cpk-td__tool-body {
-    padding: 8px 10px;
-    border-top: 1px solid #e9e9ef;
-    background: #ffffff;
-  }
-
-  .cpk-td__tool-section-label {
-    font-family: "Spline Sans Mono", monospace;
-    font-size: 9px;
-    font-weight: 500;
-    color: #68686e;
-    text-transform: uppercase;
-    margin-bottom: 4px;
-    letter-spacing: 0.3px;
-  }
-
-  .cpk-td__tool-pre {
-    margin: 0;
-    font-family: "Spline Sans Mono", monospace;
-    font-size: 12px;
-    background: #f7f7f9;
-    padding: 10px 12px;
-    border-radius: 6px;
-    overflow-x: auto;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    word-break: normal;
-    color: #010507;
-    line-height: 1.65;
-  }
-
-  /* ── Tool call group ─────────────────────────────────────────────── */
-  .cpk-td__tool-group {
-    border: 1px solid #e9e9ef;
-    border-radius: 7px;
-    overflow: hidden;
-  }
-
-  .cpk-td__tool-group-header {
-    padding: 5px 10px;
-    background: rgba(133, 236, 206, 0.15);
-    font-family: "Spline Sans Mono", monospace;
-    font-size: 10px;
-    color: #087653;
-    text-transform: uppercase;
-    font-weight: 500;
-    border-bottom: 1px solid #e9e9ef;
-  }
-
-  .cpk-td__tool-group .cpk-td__tool-block {
-    border: none;
-    border-bottom: 1px solid #e9e9ef;
-    border-radius: 0;
-  }
-
-  .cpk-td__tool-group .cpk-td__tool-block:last-child {
-    border-bottom: none;
   }
 
   /* ── Inline chips (reasoning / state update) ─────────────────────── */

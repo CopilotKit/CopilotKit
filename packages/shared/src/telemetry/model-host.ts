@@ -1,10 +1,11 @@
 // Which endpoint the runtime sends completions to, as a closed vocabulary.
 //
-// The AI SDK's provider label cannot answer this. `createOpenAI` stamps
-// `openai.responses` on every model it builds, whether the base URL points at
-// api.openai.com, Azure, OpenRouter or a laptop running Ollama — and Azure's
-// own migration guide tells customers to use exactly that client. So the
-// provider field reports the wire protocol, and the host reports the vendor.
+// The AI SDK's provider label cannot answer this. A model built by
+// `createOpenAI` reports only its wire API: `openai.responses` for both
+// api.openai.com and Azure (whose own migration guide tells customers to use
+// exactly that client), and `openai.chat` for OpenRouter and a laptop running
+// Ollama alike. So the provider field reports the wire protocol, and the host
+// reports the vendor.
 //
 // Only the classification travels. A base URL like
 // `myresource.openai.azure.com` carries the customer's Azure resource name,

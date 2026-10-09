@@ -21,6 +21,7 @@ export function renderSettingsPanel(options: {
   telemetryDocsUrl: string;
   renderIcon: (name: SettingsIcon) => unknown;
   onDismissForWeek: () => void;
+  onDismissForever: () => void;
 }): TemplateResult {
   const { optedOut } = options;
   return html`
@@ -111,7 +112,7 @@ export function renderSettingsPanel(options: {
           </span>
           <div>
             <h2 id="inspector-settings-visibility-title">Visibility</h2>
-            <p>Temporarily hide the Inspector on this domain.</p>
+            <p>Hide the Inspector on this domain.</p>
           </div>
         </div>
 
@@ -131,6 +132,27 @@ export function renderSettingsPanel(options: {
           >
             <span aria-hidden="true">${options.renderIcon("Clock")}</span>
             Hide Inspector for one week
+          </button>
+        </div>
+
+        <div class="inspector-settings-visibility">
+          <div>
+            <h3>Hide the Inspector indefinitely</h3>
+            <p>
+              Keep the Inspector hidden on this domain until you bring it back.
+              To restore it, delete the
+              <code>cpk_inspector_dismissed_until</code> cookie and the
+              <code>cpk:inspector:dismissed_until</code> localStorage entry.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="inspector-settings-dismiss"
+            data-cpk-dismiss-inspector="forever"
+            @click=${options.onDismissForever}
+          >
+            <span aria-hidden="true">${options.renderIcon("EyeOff")}</span>
+            Always hide Inspector
           </button>
         </div>
       </section>

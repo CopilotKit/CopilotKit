@@ -2,10 +2,6 @@ import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 
 import type { AnnouncementReady } from "../../domains/announcements/feed.js";
 import {
-  saveAnnouncementPulsedTimestamp,
-  saveAnnouncementReadTimestamp,
-} from "../../domains/announcements/feed.js";
-import {
   trackErrorSignalViewed,
   trackHudFeatureClicked,
   trackHudFeatureToggleClicked,
@@ -26,7 +22,6 @@ import type { MenuKey } from "../navigation/model.js";
 import {
   ERROR_GESTURE_MS,
   EVENT_ERROR_KEYS,
-  HUD_ANNOUNCEMENT_TITLE_LIMIT,
   LAUNCHER_HUD_INTRO_MS,
   LAUNCHER_HUD_WIDTH,
   LAUNCHER_SIGNALS,
@@ -34,6 +29,7 @@ import {
   NEWS_SIGNAL_ID,
   WIRING_ERROR_KEYS,
   eventErrorKeyForCode,
+  hudAnnouncementTitle,
   isErrorSignalKey,
   isEventErrorKey,
   isWiringErrorKey,
@@ -61,7 +57,14 @@ export type LauncherControllerHost = Readonly<{
   isDismissed: () => boolean;
   isConnected: () => boolean;
   activeRoot: () => ParentNode;
+  /** The notice What's New shows; its UUID identifies HUD telemetry. */
   announcement: () => AnnouncementReady | null;
+  /** The highlighted notice behind the news signal. */
+  activeAnnouncement: () => AnnouncementReady | null;
+  markNewsPulsed: () => void;
+  readActiveNews: () => void;
+  acknowledgeNews: () => void;
+  hudLandingMenu: (row: LauncherHudRowId) => MenuKey;
   telemetryDisabled: () => boolean;
   runtimeConnected: () => boolean;
   isWiringErrorBroken: (
@@ -186,13 +189,9 @@ export class LauncherController {
     }
   }
 
-  clearNewsSignal(): void {
-    if (!this.state.newsSignalArmed) return;
+  retireNewsSignal(): void {
     this.state.newsSignalArmed = false;
-    const announcement = this.host.announcement();
-    if (announcement) saveAnnouncementReadTimestamp(announcement.timestamp);
     this.retireSignal(NEWS_SIGNAL_ID);
-    this.host.requestUpdate();
   }
 
   evaluateErrorSignals(): void {
@@ -261,11 +260,8 @@ export class LauncherController {
     this.state.pulsingSignal = key;
     if (isWiringErrorKey(key)) {
       this.state.errorBeatSpent = true;
-    } else {
-      const announcement = this.host.announcement();
-      if (announcement && key === NEWS_SIGNAL_ID) {
-        saveAnnouncementPulsedTimestamp(announcement.timestamp);
-      }
+    } else if (key === NEWS_SIGNAL_ID) {
+      this.host.markNewsPulsed();
     }
     this.beginGestureTail(key);
     this.host.requestUpdate();
@@ -477,7 +473,7 @@ export class LauncherController {
     ) {
       return;
     }
-    const announcement = this.host.announcement();
+    const announcement = this.host.activeAnnouncement();
     if (!announcement) return;
     this.host.recordNewsPulse(
       announcement,
@@ -639,10 +635,14 @@ export class LauncherController {
     };
     const trigger = this.hudTrigger;
     once("hud", () => trackHudViewed({ trigger }));
-    const banner_id = this.host.announcement()?.timestamp;
+    const banner_id = this.host.announcement()?.id;
     if (hud.querySelector("[data-cpk-hud-news]") && banner_id) {
       once(`notification:${banner_id}`, () =>
-        trackHudNotificationViewed({ banner_id, trigger }),
+        trackHudNotificationViewed({
+          banner_id,
+          notification_id: banner_id,
+          trigger,
+        }),
       );
     }
     for (const feature of ["threads", "learning"] as const) {
@@ -730,31 +730,27 @@ export class LauncherController {
         ? trackHudFeatureToggleClicked({ feature: row, trigger })
         : trackHudFeatureClicked({ feature: row, control, trigger }),
     );
-    this.state.hudLandingMenu = row === "threads" ? "threads" : "memories";
+    this.state.hudLandingMenu = this.host.hudLandingMenu(row);
     this.closeHud();
     this.host.openInspector();
   };
 
   getUnreadAnnouncementTitle(): string | null {
     if (!this.state.newsSignalArmed) return null;
-    const title =
-      this.host.announcement()?.preview.curatedText?.trim() ||
-      "New in CopilotKit";
-    const titleCharacters = Array.from(title);
-    return titleCharacters.length > HUD_ANNOUNCEMENT_TITLE_LIMIT
-      ? `${titleCharacters
-          .slice(0, HUD_ANNOUNCEMENT_TITLE_LIMIT)
-          .join("")
-          .trimEnd()}...`
-      : title;
+    return hudAnnouncementTitle(this.host.activeAnnouncement()?.title);
   }
 
   private trackHudNotificationClick(action: "open" | "dismiss"): void {
-    const banner_id = this.host.announcement()?.timestamp;
+    const banner_id = this.host.announcement()?.id;
     if (!banner_id) return;
     const trigger = this.hudTrigger;
     this.queueHudTelemetry(() =>
-      trackHudNotificationClicked({ banner_id, action, trigger }),
+      trackHudNotificationClicked({
+        banner_id,
+        notification_id: banner_id,
+        action,
+        trigger,
+      }),
     );
   }
 
@@ -763,6 +759,7 @@ export class LauncherController {
     event.stopPropagation();
     this.trackHudNotificationClick("open");
     this.state.hudLandingMenu = NEWS_SIGNAL_ID;
+    this.host.readActiveNews();
     this.closeHud();
     this.host.openInspector();
   };
@@ -771,7 +768,7 @@ export class LauncherController {
     event.preventDefault();
     event.stopPropagation();
     this.trackHudNotificationClick("dismiss");
-    this.clearNewsSignal();
+    this.host.acknowledgeNews();
     this.host
       .activeRoot()
       .querySelector<HTMLButtonElement>(".console-button")

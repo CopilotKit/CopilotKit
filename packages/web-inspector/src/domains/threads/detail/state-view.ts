@@ -1,5 +1,6 @@
 import { html } from "lit";
 import type { TemplateResult } from "lit";
+import { renderHostJsonBlock } from "../../../ui/json-viewer/host-renderer.js";
 
 function coerceJsonValue(value: unknown): unknown {
   if (typeof value !== "string") return value;
@@ -25,6 +26,8 @@ export function renderThreadJsonValue(
     clipboard?: Pick<Clipboard, "writeText">;
   } = {},
 ): TemplateResult {
+  const hostBlock = renderHostJsonBlock(value, options);
+  if (hostBlock) return hostBlock;
   return html`<cpk-inspector-json-viewer
     .value=${coerceJsonValue(value)}
     .maxHeight=${options.maxHeight ?? ""}

@@ -1,0 +1,81 @@
+---
+title: Upgrade to AG-UI 1.0
+description: What changes for your app when CopilotKit moves to AG-UI 1.0
+icon: "lucide/RefreshCw"
+---
+
+CopilotKit now uses AG-UI 1.0 (`@ag-ui/core`, `@ag-ui/client`, `@ag-ui/encoder` and `@ag-ui/proto` 1.0.0).
+Most apps need no change. This page lists what keeps working and what you can need to update.
+
+For the protocol-level changes, read the AG-UI guide
+[Migrating to 1.0](https://docs.ag-ui.com/migrating-to-1-0).
+
+## What keeps working
+
+- **Agents built on AG-UI 0.x.** The 1.0 client translates the old event shapes.
+  For example, `THINKING_*` events become `REASONING_*` events.
+- **Older CopilotKit frontends.** The runtime accepts requests from 0.x clients.
+  This includes legacy `binary` attachment parts and the `null` values that 0.x sent for optional fields.
+- **Stored threads.** When a thread replays, CopilotKit translates 0.x history before it shows the messages.
+- **Validators.** `@copilotkit/react-core/v2` and `@copilotkit/vue` still export `EventSchemas`,
+  `RunAgentInputSchema` and the other `*Schema` validators.
+- **An `HttpAgent` from your own `@ag-ui/client` copy.** CopilotKit still applies its headers to it.
+
+## What you can need to change
+
+### If your app depends on `@ag-ui/*` packages directly
+
+Upgrade them to 1.0 at the same time as CopilotKit.
+If you keep 0.x types in your code, TypeScript can report that two `AbstractAgent` or `Message` types do not match.
+
+### Tool results can be content parts
+
+`ToolMessage.content` and `TOOL_CALL_RESULT.content` are now `string | ContentPart[]`.
+If your code reads a tool result as a string, convert it first:
+
+```ts
+import { contentToText } from "@ag-ui/client";
+
+const text = contentToText(toolMessage.content);
+```
+
+The `result` prop of a tool renderer is still a string. CopilotKit converts it for you.
+
+### The finish reason moved into metadata
+
+`RUN_FINISHED` has no `finishReason` field in AG-UI 1.0. CopilotKit now sends it in `metadata`:
+
+```ts
+agent.subscribe({
+  onRunFinishedEvent: ({ event }) => {
+    const finishReason = event.metadata?.finishReason;
+  },
+});
+```
+
+### A stopped run finishes as cancelled
+
+When the user stops a run, a 1.0 client receives `RUN_FINISHED` with `outcome: { type: "cancelled" }`.
+Before, the event had no outcome, which means success. Do not show a cancelled run as a failure.
+
+### Removed names
+
+AG-UI 1.0 removed these names, so CopilotKit no longer exports them:
+
+| Removed | Use instead |
+| --- | --- |
+| `THINKING_*` event types and their `Thinking*Event` types | `REASONING_*` events |
+| `BinaryInputContent` | `image`, `audio`, `video` and `document` parts with a `source` |
+| `SubAgentInfo` | `SubagentInfo` |
+| `BackwardCompatibility_0_0_47` | Not needed. The client translates old shapes by default. |
+
+### Validators moved in `@ag-ui/client`
+
+`@ag-ui/client` no longer exports the zod validators.
+If you import them from `@ag-ui/client` directly, import them from `@ag-ui/core/schemas` instead.
+That subpath needs `zod` 3.25.18 or later, or `zod` 4.
+
+### `RunAgentInput.tools` and `context` are required in TypeScript
+
+If you build a `RunAgentInput` in your own code, set `tools: []` and `context: []` when you have none.
+On the wire, a missing field still means an empty list.

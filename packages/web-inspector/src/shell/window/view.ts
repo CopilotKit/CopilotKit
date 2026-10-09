@@ -1,11 +1,61 @@
 import { html, nothing } from "lit";
 import type { TemplateResult } from "lit";
 
-import type { DockMode } from "../contracts.js";
+import type { DockMode, Size } from "../contracts.js";
+import { DEFAULT_WINDOW_SIZE, EDGE_MARGIN } from "../state.js";
 
 export const MIN_WINDOW_WIDTH = 880;
 export const MIN_WINDOW_WIDTH_DOCKED_LEFT = 640;
 export const MIN_WINDOW_HEIGHT = 480;
+/**
+ * The floating window zooms down with the screen, never below this, once the
+ * viewport can no longer hold the default window at full size.
+ */
+const MIN_WINDOW_SCALE = 0.8;
+
+/**
+ * A window minimum that gives way on screens smaller than it, so the window
+ * (and its close control) never runs past the viewport edge.
+ */
+export const viewportCappedMin = (px: number, unit: "vw" | "vh"): string =>
+  `min(${px}px, calc(100${unit} - ${EDGE_MARGIN * 2}px))`;
+
+/**
+ * Zoom for the floating window: 1 while the viewport holds the default
+ * window, then proportional to the screen down to MIN_WINDOW_SCALE, so a
+ * small screen gets the same layout smaller rather than a cramped one.
+ */
+export function getWindowScale(
+  isPoppedOut: boolean,
+  dockMode: DockMode,
+): number {
+  if (typeof window === "undefined" || isPoppedOut || dockMode !== "floating") {
+    return 1;
+  }
+  const fit = Math.min(
+    window.innerWidth / (DEFAULT_WINDOW_SIZE.width + EDGE_MARGIN * 2),
+    window.innerHeight / (DEFAULT_WINDOW_SIZE.height + EDGE_MARGIN * 2),
+  );
+  // Whole 5% steps, so a viewport a few pixels short of the default window
+  // keeps the full-size window rather than a 0.99 zoom.
+  return Math.min(1, Math.max(MIN_WINDOW_SCALE, Math.round(fit * 20) / 20));
+}
+
+/** Read the on-screen size of a rendered window whose layout box is zoomed. */
+export function readRenderedWindowSize(
+  inspectorWindow: HTMLElement,
+  scale: number,
+): Size | null {
+  const width = Math.round(
+    Number.parseFloat(inspectorWindow.style.width) * scale,
+  );
+  const height = Math.round(
+    Number.parseFloat(inspectorWindow.style.height) * scale,
+  );
+  return Number.isFinite(width) && Number.isFinite(height)
+    ? { width, height }
+    : null;
+}
 
 export type WindowIconName =
   | "PanelLeft"
@@ -33,7 +83,7 @@ export function getDockedWindowStyles(
       bottom: "0",
       width: `${Math.round(size.width)}px`,
       height: "auto",
-      minWidth: `${MIN_WINDOW_WIDTH_DOCKED_LEFT}px`,
+      minWidth: viewportCappedMin(MIN_WINDOW_WIDTH_DOCKED_LEFT, "vw"),
       borderRadius: "0",
     };
   }
@@ -41,8 +91,8 @@ export function getDockedWindowStyles(
   return {
     width: `${Math.round(size.width)}px`,
     height: `${Math.round(size.height)}px`,
-    minWidth: `${MIN_WINDOW_WIDTH}px`,
-    minHeight: `${MIN_WINDOW_HEIGHT}px`,
+    minWidth: viewportCappedMin(MIN_WINDOW_WIDTH, "vw"),
+    minHeight: viewportCappedMin(MIN_WINDOW_HEIGHT, "vh"),
   };
 }
 

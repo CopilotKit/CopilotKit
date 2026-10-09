@@ -303,7 +303,7 @@ export function renderThreadsView(
       </div>
       <div style="display:flex;min-height:0;flex:1;overflow:hidden;">
         <div
-          style="display:${state.threadListCollapsed ? "none" : "flex"};width:${state.threadListWidth}px;flex-shrink:0;overflow:hidden;flex-direction:column;border-right:1px solid #DBDBE5;"
+          style="display:${state.threadListCollapsed ? "none" : "flex"};width:${state.threadListWidth}px;max-width:calc(100% - 160px);flex-shrink:0;overflow:hidden;flex-direction:column;border-right:1px solid #DBDBE5;"
         >
           ${model.ephemeralBanner ?? nothing}
           <cpk-thread-list

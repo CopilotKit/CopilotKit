@@ -11,6 +11,7 @@ import {
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
   trackHomeFeaturePromptClicked,
+  trackLearningSetupPromptClicked,
   trackInspectorOpened,
   trackTalkToEngineerClicked,
   trackThreadsEmptyEnabledViewed,
@@ -481,6 +482,27 @@ it("tracks feature prompt clicks with the onboarding run ID", async () => {
       onboarding_run_id: "21bcf98aa5fd4e6287c0d0b5efc46217",
       group_key: "home",
       leaf_key: "home",
+    },
+  });
+});
+
+it("tracks Learning setup prompt clicks with the onboarding run ID", async () => {
+  trackLearningSetupPromptClicked({
+    outcome: "success",
+    onboarding_run_id: "21bcf98aa5fd4e6287c0d0b5efc46217",
+  });
+  await Promise.resolve();
+
+  const [, init] = fetchMock.mock.calls[0]!;
+  const body = JSON.parse(String(init?.body)) as {
+    event: string;
+    properties: Record<string, unknown>;
+  };
+  expect(body).toMatchObject({
+    event: "oss.inspector.learning_setup_prompt_clicked",
+    properties: {
+      outcome: "success",
+      onboarding_run_id: "21bcf98aa5fd4e6287c0d0b5efc46217",
     },
   });
 });

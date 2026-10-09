@@ -23,9 +23,6 @@ export const threadInspectorDarkStyles = css`
   :host([data-color-scheme="dark"]) .cpk-td__metadata-strip,
   :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
   :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
-  :host([data-color-scheme="dark"]) .cpk-td__tool-block,
-  :host([data-color-scheme="dark"]) .cpk-td__tool-header,
-  :host([data-color-scheme="dark"]) .cpk-td__tool-body,
   :host([data-color-scheme="dark"]) .cpk-td__event,
   :host([data-color-scheme="dark"]) .cpk-td__event-payload,
   :host([data-color-scheme="dark"]) .cpk-td__timeline-item,
@@ -41,7 +38,6 @@ export const threadInspectorDarkStyles = css`
 
   :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
   :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
-  :host([data-color-scheme="dark"]) .cpk-td__tool-block,
   :host([data-color-scheme="dark"]) .cpk-td__event,
   :host([data-color-scheme="dark"]) .cpk-td__genui-card,
   :host([data-color-scheme="dark"]) .cpk-td__timeline-item,
@@ -51,14 +47,8 @@ export const threadInspectorDarkStyles = css`
     background: #191c24;
   }
 
-  :host([data-color-scheme="dark"]) .cpk-td__timeline-header,
-  :host([data-color-scheme="dark"]) .cpk-td__tool-body {
+  :host([data-color-scheme="dark"]) .cpk-td__timeline-header {
     background: #171a22;
-  }
-
-  :host([data-color-scheme="dark"]) .cpk-td__tool-pre {
-    background: #111319;
-    color: #f3f4f8;
   }
 
   :host([data-color-scheme="dark"]) .cpk-td__panel-toggle:hover,
@@ -195,7 +185,6 @@ export const threadInspectorDarkStyles = css`
   :host([data-color-scheme="dark"]) .cpk-td__tab--active,
   :host([data-color-scheme="dark"]) .cpk-td__metadata-value,
   :host([data-color-scheme="dark"]) .cpk-td__tool-name,
-  :host([data-color-scheme="dark"]) .cpk-td__tool-pre,
   :host([data-color-scheme="dark"]) .cpk-td__timeline-title,
   :host([data-color-scheme="dark"]) .cpk-td__timeline-bulk-toggle,
   :host([data-color-scheme="dark"]) .cpk-td__timeline-details-toggle,
@@ -226,21 +215,7 @@ export const threadInspectorDarkStyles = css`
     border-color: #49405f;
   }
 
-  :host([data-color-scheme="dark"]) .cpk-td__tool-header {
-    background: #191c24;
-  }
-
   :host([data-color-scheme="dark"]) .cpk-td__tool-name {
     color: #f4f4f5;
-  }
-
-  :host([data-color-scheme="dark"]) .cpk-td__tool-status {
-    background: #17392e;
-    color: #6ee7b7;
-  }
-
-  :host([data-color-scheme="dark"]) .cpk-td__tool-status--pending {
-    background: #3d3019;
-    color: #fbbf24;
   }
 `;

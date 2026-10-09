@@ -20,6 +20,9 @@ export {
   relevanceBarWidth as ɵrelevanceBarWidth,
 } from "./domains/learning/recall.js";
 
+export { setInspectorJsonRenderer } from "./ui/json-viewer/host-renderer.js";
+export type { InspectorJsonRenderer } from "./ui/json-viewer/host-renderer.js";
+
 export type { InspectorOpenOptions } from "./shell/web-inspector-element.js";
 export { WebInspectorElement } from "./shell/web-inspector-element.js";
 export {

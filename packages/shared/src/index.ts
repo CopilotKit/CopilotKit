@@ -40,6 +40,7 @@ export {
   type FinalizeRunOptions,
   type RunEventFinalizer,
 } from "./finalize-events";
+export { stripIntelligenceRoutingFields } from "./intelligence-routing-fields";
 
 export {
   TranscriptionErrorCode,
@@ -176,3 +177,5 @@ export {
 } from "./a2ui-prompts";
 
 export type { DebugEventEnvelope } from "./debug-event-envelope";
+
+export { GENERATE_SANDBOXED_UI_DESCRIPTION } from "./open-generative-ui-prompts";

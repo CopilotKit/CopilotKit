@@ -308,8 +308,8 @@ describe("WindowController", () => {
     const { controller } = createControllerFixture();
 
     expect(controller.contextState.button.size).toEqual({
-      width: 51.84,
-      height: 51.84,
+      width: 34,
+      height: 34,
     });
   });
 });

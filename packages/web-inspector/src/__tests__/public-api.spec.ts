@@ -97,6 +97,7 @@ describe("web inspector public API", () => {
       "WebInspectorElement",
       "configureWebInspectorElement",
       "defineWebInspector",
+      "setInspectorJsonRenderer",
       "ɵCpkThreadDetails",
       "ɵbuildCapabilityRows",
       "ɵmaxRecallScore",

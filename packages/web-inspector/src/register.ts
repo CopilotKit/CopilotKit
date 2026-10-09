@@ -1,5 +1,7 @@
 import type { CopilotKitCore } from "@copilotkit/core";
 
+import type { NotificationContext } from "./domains/announcements/notifications.js";
+
 import { CpkMemoryList } from "./domains/learning/memory-list.js";
 import { CpkLearningView } from "./domains/learning/snapshot-view.js";
 import {
@@ -13,6 +15,10 @@ import {
   InspectorCopyButtonElement,
 } from "./ui/copy-button/copy-button.js";
 import {
+  INSPECTOR_JSON_BLOCK_TAG,
+  InspectorJsonBlockElement,
+} from "./ui/json-viewer/host-renderer.js";
+import {
   INSPECTOR_JSON_VIEWER_TAG,
   InspectorJsonViewerElement,
 } from "./ui/json-viewer/json-viewer.js";
@@ -25,12 +31,15 @@ export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
  *
  * @param inspector - The Inspector element the host will mount.
  * @param core - The host's CopilotKit core, or null to clear it.
+ * @param notificationContext - Host package identity and development gate.
  */
 export function configureWebInspectorElement(
   inspector: WebInspectorElement,
   core: CopilotKitCore | null,
+  notificationContext: NotificationContext = { development: false },
 ): WebInspectorElement {
   inspector.autoAttachCore = false;
+  inspector.notificationContext = notificationContext;
   inspector.core = core;
   return inspector;
 }
@@ -65,5 +74,10 @@ export function defineWebInspector(
   defineElementOnce(registry, "cpk-thread-details", ɵCpkThreadDetails);
   defineElementOnce(registry, "cpk-memory-list", CpkMemoryList);
   defineElementOnce(registry, "cpk-learning-view", CpkLearningView);
+  defineElementOnce(
+    registry,
+    INSPECTOR_JSON_BLOCK_TAG,
+    InspectorJsonBlockElement,
+  );
   defineElementOnce(registry, WEB_INSPECTOR_TAG, WebInspectorElement);
 }

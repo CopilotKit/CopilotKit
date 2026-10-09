@@ -84,7 +84,7 @@ export const shellBaseStyles = css`
            is the button's sibling, can clear the mark by the same length. */
         --cpk-launcher-size: clamp(
           ${LAUNCHER_MIN_SIZE}px,
-          7vw,
+          calc(22px + 2.8vw),
           ${LAUNCHER_MAX_SIZE}px
         );
       }

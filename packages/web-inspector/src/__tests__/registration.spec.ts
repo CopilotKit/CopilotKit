@@ -62,6 +62,7 @@ describe("defineWebInspector", () => {
       "cpk-thread-details",
       "cpk-memory-list",
       "cpk-learning-view",
+      "cpk-json-block",
       "cpk-web-inspector",
     ]);
 
@@ -100,7 +101,7 @@ describe("defineWebInspector", () => {
       defineWebInspector(frame.window.customElements);
       defineWebInspector(frame.window.customElements);
     }).not.toThrow();
-    expect(define).toHaveBeenCalledTimes(8);
+    expect(define).toHaveBeenCalledTimes(9);
   });
 
   it("does nothing when no registry is available during SSR", () => {

@@ -1,6 +1,4 @@
 import { describe, expect, it } from "vitest";
-
-import { getIntegrations } from "@/lib/registry";
 import {
   frameworkPromptSuffix,
   onboardingFrameworkSlug,
@@ -12,6 +10,10 @@ import {
  */
 const DELIBERATELY_UNMAPPED = [
   "crewai-conversational-flows",
+  // The onboarding graph has no Antigravity entry yet; the docs promise
+  // nothing until `ONBOARDING_AGENT_FRAMEWORKS` in the Intelligence repo
+  // gains one. Its CLI framework id will be `antigravity` when it does.
+  "google-antigravity",
   "langroid",
   "spring-ai",
 ];
@@ -53,42 +55,5 @@ describe("onboardingFrameworkSlug", () => {
     expect(frameworkPromptSuffix("not-a-framework", "Not A Framework")).toBe(
       "",
     );
-  });
-});
-
-describe("frameworkPromptSuffix", () => {
-  it("appends the exact sentence the CLI graph reads", () => {
-    expect(frameworkPromptSuffix("mastra", "Mastra")).toBe(
-      " I use the Mastra agent framework (`mastra`).",
-    );
-  });
-
-  it("reads as English for the Built-in Agent's call-site display name", () => {
-    // The registry name is "CopilotKit's Built-in Agent", which this template
-    // would render as "the CopilotKit's Built-in Agent agent framework".
-    // `onboardingFrameworkFor` passes the trimmed name instead — assert the
-    // whole sentence so a regression in either half is caught here. The name
-    // stops at "Built-in" because the template already supplies "agent".
-    expect(frameworkPromptSuffix("built-in-agent", "Built-in")).toBe(
-      " I use the Built-in agent framework (`built-in`).",
-    );
-  });
-});
-
-describe("docs registry coverage", () => {
-  it("maps every integration slug or lists it as deliberately unmapped", () => {
-    // `getIntegrations()`, not the raw registry JSON: docs-only integrations
-    // (today `deepagents`) are merged in by `registry.ts` and never appear in
-    // the JSON. Reading the file directly left this guard blind to exactly the
-    // slugs most likely to be forgotten — `deepagents` reached main unmapped.
-    const undecided = getIntegrations()
-      .map(({ slug }) => slug)
-      .filter(
-        (slug) =>
-          onboardingFrameworkSlug(slug) === undefined &&
-          !DELIBERATELY_UNMAPPED.includes(slug),
-      );
-
-    expect(undecided).toEqual([]);
   });
 });

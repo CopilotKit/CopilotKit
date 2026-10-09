@@ -64,12 +64,12 @@ export type InspectorErrorSignalSource =
   | InspectorEventErrorSource;
 
 /**
- * Fires when What's new has rendered *with content*. A loading state is not
- * an impression, so the metric cannot inflate itself by counting readers who
- * arrived before the feed resolved.
+ * Fires when What's new has rendered *with content*. A loading state is not an
+ * impression, so readers who arrived before the feed resolved do not count.
  */
 export function trackWhatsNewViewed(props: {
   banner_id: string;
+  notification_id?: string;
   surface: WhatsNewSurface;
   cta_label?: string;
 }): void {
@@ -79,6 +79,7 @@ export function trackWhatsNewViewed(props: {
 /** Fires when the unread launcher signal is presented in a visible tab. */
 export function trackWhatsNewSignalViewed(props: {
   banner_id: string;
+  notification_id?: string;
   surface: "launcher";
   presentation: WhatsNewSignalPresentation;
   cta_label?: string;
@@ -89,10 +90,9 @@ export function trackWhatsNewSignalViewed(props: {
 export type HudFeature = "threads" | "learning";
 
 /**
- * What opened the HUD presentation. `intro` is the automatic preview that
- * plays after every mount, `user` is a pointer or keyboard open. A user who
- * takes over a playing intro keeps `intro`, because the presentation itself
- * was not requested.
+ * What opened the HUD presentation: `intro` is the automatic preview after
+ * every mount, `user` a pointer or keyboard open. Taking over an intro keeps
+ * `intro`, because the presentation itself was not requested.
  */
 export type HudTrigger = "intro" | "user";
 
@@ -101,9 +101,10 @@ export function trackHudViewed(props: { trigger: HudTrigger }): void {
   track(TELEMETRY_EVENTS.hudViewed, props);
 }
 
-/** The timestamp identifies the served announcement without sending its copy. */
+/** The UUID identifies the notification consistently across HUD and article events. */
 export function trackHudNotificationViewed(props: {
   banner_id: string;
+  notification_id: string;
   trigger: HudTrigger;
 }): void {
   track(TELEMETRY_EVENTS.hudNotificationViewed, props);
@@ -111,6 +112,7 @@ export function trackHudNotificationViewed(props: {
 
 export function trackHudNotificationClicked(props: {
   banner_id: string;
+  notification_id: string;
   action: "open" | "dismiss";
   trigger: HudTrigger;
 }): void {
@@ -193,6 +195,7 @@ export function trackErrorSignalViewed(props: {
  */
 export function trackWhatsNewClicked(props: {
   banner_id: string;
+  notification_id?: string;
   cta: "body";
   cta_label?: string;
 }): void {
@@ -534,6 +537,8 @@ export function trackLearningPaneViewed(props: {
 
 export function trackLearningSetupPromptClicked(props: {
   outcome: "success" | "failure";
+  /** The id substituted into the copied prompt, so the click joins its CLI run. */
+  onboarding_run_id: string;
 }): void {
   track(TELEMETRY_EVENTS.learningSetupPromptClicked, props);
 }

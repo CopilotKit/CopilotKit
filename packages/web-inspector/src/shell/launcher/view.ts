@@ -6,12 +6,10 @@ import inspectorLogoKiteUrl from "../../assets/inspector-logo-kite.svg";
 import type { InspectorColorScheme } from "../contracts.js";
 import { LAUNCHER_SIGNAL_COLORS } from "../styles.js";
 import type { LauncherController } from "./controller.js";
+import type { HudContent } from "./hud-config.js";
 import {
   ERROR_GESTURE_MS,
   HUD_INSPECTOR_LABEL,
-  HUD_LEARNING_LABEL,
-  HUD_LEARN_MORE_LABEL,
-  HUD_THREADS_LABEL,
   LAUNCHER_BASE_LABEL,
   LAUNCHER_HUD_INTRO_MS,
   LAUNCHER_SIGNALS,
@@ -41,6 +39,8 @@ export type LauncherViewOptions = Readonly<{
   isDragging: boolean;
   pointerContextIsButton: boolean;
   getHudAvailability: () => LauncherHudAvailability;
+  /** Launcher HUD copy: built-ins until a remote feed rule matches. */
+  hudContent: HudContent;
   renderIcon: (name: LauncherHudIconName) => unknown;
   onPointerDown: (event: PointerEvent) => void;
   onPointerMove: (event: PointerEvent) => void;
@@ -200,7 +200,6 @@ function renderHudRow(
   options: LauncherViewOptions,
   args: Readonly<{
     id: LauncherHudRowId;
-    label: string;
     icon: LauncherHudIconName;
     connected?: boolean;
     introIndex: number;
@@ -209,6 +208,8 @@ function renderHudRow(
   if (args.connected) return nothing;
   const { controller } = options;
   const detailId = `cpk-hud-detail-${args.id}`;
+  // Feed text is bound as text, never as markup.
+  const { label, description } = options.hudContent[args.id];
   return html`
     <li
       class="cpk-launcher-hud__row"
@@ -224,7 +225,7 @@ function renderHudRow(
           type="button"
           class="cpk-launcher-hud__action"
           data-cpk-hud-action
-          aria-label=${`Open ${args.label} in Inspector`}
+          aria-label=${`Open ${label} in Inspector`}
           @click=${(event: Event) =>
             controller.handleHudActionClick(event, args.id, "action")}
           @pointerdown=${(event: Event) => event.stopPropagation()}
@@ -235,10 +236,10 @@ function renderHudRow(
             aria-hidden="true"
             >${options.renderIcon(args.icon)}</span
           >
-          <span class="cpk-launcher-hud__label">${args.label}</span>
+          <span class="cpk-launcher-hud__label">${label}</span>
         </button>
         <span class="cpk-launcher-hud__tooltip" id=${detailId} role="tooltip"
-          >${HUD_LEARN_MORE_LABEL}</span
+          >${description}</span
         >
       </span>
       <span class="cpk-launcher-hud__controls">
@@ -246,7 +247,7 @@ function renderHudRow(
           type="button"
           class="cpk-launcher-hud__learn-more"
           data-cpk-hud-learn-more=${args.id}
-          aria-label=${`Learn more about ${args.label}`}
+          aria-label=${`Learn more about ${label}`}
           aria-describedby=${detailId}
           @click=${(event: Event) =>
             controller.handleHudActionClick(event, args.id, "learn_more")}
@@ -261,8 +262,8 @@ function renderHudRow(
           data-enabled=${args.connected ? "true" : "false"}
           aria-label=${
             args.connected
-              ? `${args.label} is enabled`
-              : `Open ${args.label} in Inspector`
+              ? `${label} is enabled`
+              : `Open ${label} in Inspector`
           }
           ?disabled=${args.connected}
           @click=${(event: Event) =>
@@ -371,14 +372,12 @@ function renderLauncherHud(
         >
           ${renderHudRow(options, {
             id: "threads",
-            label: HUD_THREADS_LABEL,
             icon: "MessageSquare",
             connected: availability.threads,
             introIndex: featureBlockIntroIndex + 1,
           })}
           ${renderHudRow(options, {
             id: "learning",
-            label: HUD_LEARNING_LABEL,
             icon: "Brain",
             connected: availability.learning,
             introIndex: featureBlockIntroIndex + (availability.threads ? 1 : 2),

@@ -9,7 +9,6 @@
 // tree to build the sidebar, and compiles the body through `next-mdx-remote` —
 // none of which the action contract depends on.
 
-import React from "react";
 import {
   cleanup,
   fireEvent,
@@ -37,6 +36,7 @@ vi.mock("@/lib/runtime-config.client", () => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
 const GITHUB_URL =
@@ -53,43 +53,32 @@ function renderRow(onboardingFramework?: { slug: string; name: string }): void {
   );
 }
 
-it("renders one split CTA with copy prompt as its root action", async () => {
-  // The surfaces that omit the prop are `a2a` and `agent-spec`: documented
-  // like frameworks, but absent from the registry, so there is no display
-  // name to put in the prompt. They are docs pages all the same, and the
-  // button's offer holds — the prompt just names no framework and lets the
-  // CLI's graph work the framework out from the repository, which it does
-  // regardless of what the prompt says.
+it("opens page actions with a working source link", () => {
   renderRow();
-
-  expect(screen.getByRole("button", { name: /copy prompt/i })).toBeTruthy();
-  expect(screen.queryByRole("button", { name: /copy page/i })).toBeNull();
-  expect(screen.queryByRole("button", { name: /^open$/i })).toBeNull();
-
   fireEvent.click(screen.getByRole("button", { name: /more page actions/i }));
-
   expect(
-    await screen.findByRole("button", { name: /copy page/i }),
-  ).toBeTruthy();
-  expect(screen.getByRole("separator")).toBeTruthy();
-  expect(screen.getByRole("link", { name: /open in github/i })).toBeTruthy();
-  expect(screen.queryByRole("link", { name: /view as markdown/i })).toBeNull();
+    screen.getByRole("link", { name: /open in github/i }).getAttribute("href"),
+  ).toBe(GITHUB_URL);
 });
 
-it("renders the onboarding button when a framework is passed", () => {
-  renderRow({ slug: "mastra", name: "Mastra" });
-
-  const button = screen.getByRole("button", { name: /copy prompt/i });
-  expect(button.textContent).toContain("Copy Prompt");
-  expect(
-    screen.getByRole("button", { name: "Open in Claude Code" }),
-  ).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Open in Codex" })).toBeTruthy();
+it("fetches and copies page Markdown from the page actions", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
+  const fetchMarkdown = vi
+    .fn()
+    .mockResolvedValue(new Response("# Page content"));
+  vi.stubGlobal("fetch", fetchMarkdown);
+  renderRow();
+  fireEvent.click(screen.getByRole("button", { name: /more page actions/i }));
+  fireEvent.click(screen.getByRole("button", { name: /copy page/i }));
+  await waitFor(() => expect(writeText).toHaveBeenCalledWith("# Page content"));
+  expect(fetchMarkdown).toHaveBeenCalledWith("/mastra/generative-ui.mdx");
 });
 
-it("gives the onboarding button the same .mdx URL as the markdown button", async () => {
-  // The row computes the URL once and hands it to both buttons, so the URL the
-  // prompt names and the URL "Copy Markdown" fetches cannot drift apart.
+it("names the page the markdown button fetches, without its .mdx suffix", async () => {
+  // The row computes the URL once and hands it to both buttons, so the page
+  // the prompt names and the text "Copy Markdown" fetches cannot drift apart.
+  // The prompt names the human page, not the `.mdx` text (PE-309).
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.assign(navigator, { clipboard: { writeText } });
 
@@ -99,7 +88,7 @@ it("gives the onboarding button the same .mdx URL as the markdown button", async
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
   expect(writeText.mock.calls[0][0]).toContain(
-    "https://docs.copilotkit.ai/mastra/generative-ui.mdx",
+    "https://docs.copilotkit.ai/mastra/generative-ui.",
   );
 });
 
@@ -121,26 +110,23 @@ describe("docsMarkdownUrl", () => {
   });
 });
 
-it("includes the quickstart goal with its framework, frontend, and source", async () => {
+// A page with its own `agentPrompt` hands the agent that task instead of the
+// generic onboarding prompt, and still names the page it came from.
+it("copies the page's own prompt when the page supplies one", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.assign(navigator, { clipboard: { writeText } });
   render(
     <DocsPageTools
-      slugPath="quickstart"
-      slugHrefPrefix="/angular/mastra"
+      slugPath="manufact"
+      slugHrefPrefix="/cookbook"
       githubUrl={GITHUB_URL}
-      onboardingFramework={{ slug: "mastra", name: "Mastra" }}
-      onboardingFrontend={{ id: "angular", name: "Angular" }}
-      promptTask="Connect an Angular app to Copilot Runtime."
+      onboardingFramework={{ slug: "built-in-agent", name: "Built-in" }}
+      pagePrompt="Add an mcp-use MCP App to my CopilotKit app."
     />,
   );
   fireEvent.click(screen.getByRole("button", { name: /copy prompt/i }));
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-  const prompt = writeText.mock.calls[0][0];
-  expect(prompt).toContain("Mastra");
-  expect(prompt).toContain("Angular");
-  expect(prompt).toContain("/angular/mastra/quickstart.mdx");
-  expect(prompt).toContain(
-    "My goal for this quickstart is: Connect an Angular app to Copilot Runtime.",
+  expect(writeText.mock.calls[0][0]).toBe(
+    "Add an mcp-use MCP App to my CopilotKit app. I started from this CopilotKit docs page: https://docs.copilotkit.ai/cookbook/manufact.",
   );
 });

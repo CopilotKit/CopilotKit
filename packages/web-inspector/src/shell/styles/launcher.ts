@@ -378,6 +378,8 @@ export const shellLauncherStyles = css`
 
   .cpk-launcher-hud__label {
     min-width: 0;
+    /* Remote copy can be one long word; wrap it inside the row. */
+    overflow-wrap: anywhere;
   }
 
   .cpk-launcher-hud__feature-icon {

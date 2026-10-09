@@ -15,15 +15,13 @@ vi.mock("../../shared/telemetry/privacy.js", () => ({
 import type { AnnouncementReady } from "./feed.js";
 import { AnnouncementTelemetry } from "./telemetry.js";
 
-function announcement(timestamp: string): AnnouncementReady {
+function announcement(id: string): AnnouncementReady {
   return {
-    status: "ready",
-    timestamp,
-    markdown: "Update",
+    id,
+    title: "Update",
+    publishedAt: "2026-08-01T00:00:00.000Z",
     documentHtml: "<p>Update</p>",
     preview: { title: "Update", text: "Update" },
-    shouldArm: true,
-    shouldPulse: true,
   };
 }
 
@@ -76,8 +74,8 @@ describe("AnnouncementTelemetry", () => {
     expect(telemetry.clicked).toHaveBeenCalledTimes(1);
     expect(telemetry.clicked).toHaveBeenCalledWith({
       banner_id: "release-27",
+      notification_id: "release-27",
       cta: "body",
-      cta_label: undefined,
     });
   });
 });

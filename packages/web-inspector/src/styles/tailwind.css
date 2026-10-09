@@ -997,6 +997,12 @@
   cursor: pointer;
 }
 
+.inspector-settings-visibility + .inspector-settings-visibility {
+  margin-top: 22px;
+  border-top: 1px solid #e4e4ec;
+  padding-top: 18px;
+}
+
 .inspector-settings-dismiss:hover {
   border-color: #a69aca;
   background-color: #eee8ff;

@@ -352,7 +352,7 @@ function formatTransitionLine(row: {
  * Shared status row: API / UI / 1P badges (D2 API / D3 UI / D5 Single Pill).
  * QA and HealthDot removed in Phase 3 (3.3 + 3.4). L1 health now in strip.
  * Smoke per-cell badge removed — integration-scoped smoke lives in the strip.
- * Docs rendering removed — handled exclusively by DocsLayer in ComposedCell,
+ * Docs rendering is handled by DocsLayer in UnifiedCell,
  * gated on the `overlays.has("docs")` toggle.
  * Consumes `liveStatus` from `ctx` (spec §5.4 wiring).
  */

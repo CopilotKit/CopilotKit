@@ -1,5 +1,6 @@
 import { LitElement, html, nothing, unsafeCSS } from "lit";
 import type { TemplateResult } from "lit";
+import { renderHostJsonBlock } from "../ui/json-viewer/host-renderer.js";
 import { styleMap } from "lit/directives/style-map.js";
 import tailwindStyles from "../styles/generated.css";
 import inspectorLogoUrl from "../assets/inspector-logo.svg";
@@ -50,6 +51,7 @@ import {
   INSPECTOR_DISMISSAL_MAX_DURATION_MS,
   loadInspectorDismissedUntil,
   loadInspectorState,
+  saveInspectorDismissedForever,
   saveInspectorDismissedUntil,
   saveInspectorState,
 } from "../shared/persistence/inspector-state.js";
@@ -59,6 +61,8 @@ import {
   MIN_WINDOW_HEIGHT,
   MIN_WINDOW_WIDTH,
   getDockedWindowStyles,
+  getWindowScale,
+  viewportCappedMin,
   renderDockResizeHandle,
   renderFloatingResizeHandles,
   renderWindowLayoutMenu,
@@ -100,11 +104,12 @@ import {
   trackHomeStorySelection,
   trackHomeView,
 } from "../domains/home/telemetry.js";
+import { AnnouncementFeed } from "../domains/announcements/feed.js";
+import type { NotificationContext } from "../domains/announcements/notifications.js";
 import {
   clearLegacyAnnouncementReadState,
-  loadAnnouncementFeed,
-} from "../domains/announcements/feed.js";
-import type { AnnouncementReady } from "../domains/announcements/feed.js";
+  saveNotificationPulsedId,
+} from "../domains/announcements/storage.js";
 import {
   announcementLinkFromClick,
   renderAnnouncementPreview,
@@ -115,11 +120,17 @@ import { announcementViewStyles } from "../domains/announcements/view.styles.js"
 import { AnnouncementTelemetry } from "../domains/announcements/telemetry.js";
 import {
   INSPECTOR_GROUPS,
+  INSPECTOR_MENU_KEYS,
   INSPECTOR_NAV_SECTIONS,
   getGroupForMenu,
   isInspectorMenuKey,
   shouldUseIconRail,
 } from "./navigation/model.js";
+import { resolveHudContent } from "./launcher/hud-config.js";
+import type { HudContent, HudFeed } from "./launcher/hud-config.js";
+import { HUD_DEFAULT_CONTENT } from "./launcher/hud-defaults.js";
+import { loadHudFeed } from "./launcher/hud-loader.js";
+import type { LauncherHudRowId } from "./launcher/model.js";
 import type { InspectorNavGroupKey, MenuKey } from "./navigation/model.js";
 import {
   TELEMETRY_DOCS_URL,
@@ -469,6 +480,8 @@ function renderJsonValue(
     clipboard?: Pick<Clipboard, "writeText">;
   } = {},
 ) {
+  const hostBlock = renderHostJsonBlock(value, options);
+  if (hostBlock) return hostBlock;
   const parsed = coerceJsonValue(value);
   return html`<cpk-inspector-json-viewer
     .value=${parsed}
@@ -479,18 +492,23 @@ function renderJsonValue(
   ></cpk-inspector-json-viewer>`;
 }
 
-type InspectorDismissalDuration = "day" | "week";
+type InspectorDismissalDuration = "day" | "week" | "forever";
 
 const INSPECTOR_DISMISSAL_MS: Readonly<
   Record<InspectorDismissalDuration, number>
 > = {
   day: 24 * 60 * 60 * 1000,
-  week: INSPECTOR_DISMISSAL_MAX_DURATION_MS,
+  week: 7 * 24 * 60 * 60 * 1000,
+  // Renewed to a full window on every load; see saveInspectorDismissedForever.
+  forever: INSPECTOR_DISMISSAL_MAX_DURATION_MS,
 };
+// setTimeout fires immediately for delays above 2^31-1 ms (~24.8 days).
+const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
 
 export class WebInspectorElement extends LitElement {
   static properties = {
     core: { attribute: false },
+    notificationContext: { attribute: false },
     autoAttachCore: { type: Boolean, attribute: "auto-attach-core" },
     _capabilitiesVersion: { state: true },
   } as const;
@@ -694,10 +712,21 @@ export class WebInspectorElement extends LitElement {
     this.live.eventColumnResize = value;
   }
 
-  private announcement: AnnouncementReady | null = null;
-  private announcementLoaded = false;
+  /** Host package identity and development gate, set before connecting the element. */
+  notificationContext: NotificationContext = { development: false };
+  private readonly announcements = new AnnouncementFeed({
+    context: () => this.getNotificationContext(),
+    isSignalArmed: () => this.newsSignalArmed,
+    armSignal: (options) => this.launcher.armNewsSignal(options),
+    retireSignal: () => this.launcher.retireNewsSignal(),
+    requestUpdate: () => this.requestUpdate(),
+  });
   private announcementPromise: Promise<void> | null = null;
   private announcementLoadGeneration = 0;
+  private hudFeed: HudFeed | null = null;
+  private hudFeedPromise: Promise<void> | null = null;
+  /** Launcher HUD copy and destinations: built-ins until a feed rule matches. */
+  private hudContent: HudContent = HUD_DEFAULT_CONTENT;
   private hasCompletedFirstUpdate = false;
   /** Host-wide deadline that suppresses both the Inspector and its launcher. */
   private inspectorDismissedUntil: number | null = null;
@@ -709,7 +738,18 @@ export class WebInspectorElement extends LitElement {
     isDismissed: () => this.isInspectorDismissed,
     isConnected: () => this.isConnected,
     activeRoot: () => this.activeRoot,
-    announcement: () => this.announcement,
+    announcement: () => this.announcements.current,
+    activeAnnouncement: () => this.announcements.active,
+    markNewsPulsed: () => {
+      const id = this.announcements.active?.id;
+      if (id) saveNotificationPulsedId(id);
+    },
+    readActiveNews: () => {
+      const id = this.announcements.active?.id;
+      if (id) this.readNotification(id);
+    },
+    acknowledgeNews: () => this.announcements.acknowledgeActive(),
+    hudLandingMenu: (row) => this.getHudLandingMenu(row),
     telemetryDisabled: () => this.core?.telemetryDisabled ?? false,
     runtimeConnected: () =>
       this.runtimeStatus === CopilotKitCoreRuntimeConnectionStatus.Connected,
@@ -1209,6 +1249,7 @@ export class WebInspectorElement extends LitElement {
       value,
       readRuntimeLicense(this._core),
     );
+    this.announcements.refresh();
   }
 
   private attachToCore(core: CopilotKitCore): void {
@@ -1678,15 +1719,17 @@ export class WebInspectorElement extends LitElement {
     const service = this.getHomeFeaturePromptTarget("memory");
     if (!service || !this._core?.runtimeUrl) return;
     const request = ++this.learningSetupCopyRequest;
+    const runId = this.getOnboardingRunId();
     const copied = await this.copyFeaturePromptToClipboard(
       service,
       event,
-      this.getOnboardingRunId(),
+      runId,
     );
     if (request !== this.learningSetupCopyRequest) return;
     if (!this.core?.telemetryDisabled) {
       trackLearningSetupPromptClicked({
         outcome: copied ? "success" : "failure",
+        onboarding_run_id: runId,
       });
     }
     if (!copied) {
@@ -2213,6 +2256,7 @@ export class WebInspectorElement extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
+    this.announcements.restore();
     if (typeof window !== "undefined") {
       this.accountCtaMotionPaused = document.visibilityState !== "visible";
       this.threads.exampleOverviewVideoReducedMotion =
@@ -2251,10 +2295,7 @@ export class WebInspectorElement extends LitElement {
       this.subscribeToSystemColorScheme();
       this.threads.exampleTourDismissed =
         this.readThreadsExampleTourDismissed();
-      // The superseded, origin-scoped read state is discarded rather than
-      // migrated: every existing user is re-armed exactly once so they
-      // discover the surface that replaced the announcement bubble. Deleting
-      // the key rather than leaving it means nothing can fall back to it.
+      // The pre-cookie key is obsolete; migrate the cookie and mirror after loading the feed.
       clearLegacyAnnouncementReadState();
       this.tryAutoAttachCore();
       if (!this.isInspectorDismissed) {
@@ -2320,7 +2361,7 @@ export class WebInspectorElement extends LitElement {
     this.threads.setupPromptCopyState = "idle";
     this.launcher.dispose();
     this.clearInspectorDismissalTimer();
-    if (!this.announcementLoaded) {
+    if (!this.announcements.loaded) {
       this.announcementLoadGeneration += 1;
       this.announcementPromise = null;
     }
@@ -2387,7 +2428,8 @@ export class WebInspectorElement extends LitElement {
       : this.renderButton();
   }
 
-  protected willUpdate(): void {
+  protected willUpdate(changed: Map<PropertyKey, unknown>): void {
+    if (changed.has("notificationContext")) this.refreshHudContent();
     // Before the render that paints the dot: every mutation of the underlying
     // connection / thread state already requests an update, so mirroring the
     // latches here keeps the resting dot in step with the state it reports.
@@ -2396,7 +2438,12 @@ export class WebInspectorElement extends LitElement {
     this.windowShell.syncDockAttribute();
   }
 
-  protected updated(): void {
+  protected updated(changed: Map<PropertyKey, unknown>): void {
+    if (changed.has("notificationContext") || changed.has("core")) {
+      this.ensureAnnouncementLoading();
+      this.announcements.refresh();
+    }
+    // Host shortcuts follow actual Inspector visibility, including dismissals.
     const visible = !this.isInspectorDismissed;
     if (visible !== this.lastReportedInspectorVisibility) {
       this.lastReportedInspectorVisibility = visible;
@@ -2469,6 +2516,7 @@ export class WebInspectorElement extends LitElement {
       anchorVertical: this.contextState.button.anchor.vertical,
       isDragging: this.isDragging,
       pointerContextIsButton: this.pointerContext === "button",
+      hudContent: this.hudContent,
       getHudAvailability: () => {
         const homeModel = this.getHomeModel();
         return {
@@ -2805,7 +2853,9 @@ export class WebInspectorElement extends LitElement {
     const sidebarBounds = sidebar.getBoundingClientRect();
     this.sidebarRailTooltip = {
       label,
-      top: targetBounds.top - sidebarBounds.top + targetBounds.height / 2,
+      top:
+        (targetBounds.top - sidebarBounds.top + targetBounds.height / 2) /
+        getWindowScale(this.isPoppedOut, this.dockMode),
     };
     this.requestUpdate();
   };
@@ -2856,11 +2906,12 @@ export class WebInspectorElement extends LitElement {
 
   private renderHomeView() {
     const model = this.getHomeModel();
+    const activeAnnouncement = this.announcements.active;
     const announcementPreview =
-      this.newsSignalArmed && this.announcement
+      this.newsSignalArmed && this.announcements.loaded && activeAnnouncement
         ? renderAnnouncementPreview(
-            this.announcement,
-            () => this.handleMenuSelect(WHATS_NEW_MENU_KEY),
+            activeAnnouncement,
+            () => this.readNotification(activeAnnouncement.id),
             (name) => this.renderIcon(name),
           )
         : undefined;
@@ -2891,11 +2942,28 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderWhatsNewView() {
-    return renderAnnouncementsView(
-      this.announcement,
-      this.announcementLoaded,
-      this.handleAnnouncementContentClick,
-    );
+    const feed = this.announcements;
+    return renderAnnouncementsView({
+      notices: feed.notices,
+      selected: feed.selected,
+      state: feed.current?.documentHtml
+        ? "content"
+        : feed.loaded
+          ? "empty"
+          : "loading",
+      pending: !feed.loaded && this.notificationContext.development,
+      isRead: (id) => feed.isRead(id),
+      onSelect: (id) => this.readNotification(id),
+      onBack: () => feed.clearSelection(),
+      contentClick: this.handleAnnouncementContentClick,
+      renderIcon: (name) => this.renderIcon(name),
+    });
+  }
+
+  /** Open one What's New notification and acknowledge it. */
+  private readNotification(id: string): void {
+    this.announcements.read(id);
+    this.handleMenuSelect(WHATS_NEW_MENU_KEY);
   }
 
   private renderEventErrorBanner(key: InspectorEventErrorSource) {
@@ -3096,6 +3164,7 @@ export class WebInspectorElement extends LitElement {
     const isTransitioning = this.hasAttribute("data-transitioning");
     const disableDrag = isDocked || isPoppedOut;
 
+    const scale = getWindowScale(isPoppedOut, this.dockMode);
     const windowStyles: Record<string, string> = isPoppedOut
       ? {
           position: "fixed",
@@ -3113,11 +3182,13 @@ export class WebInspectorElement extends LitElement {
             overflowX: "hidden",
           }
         : {
-            width: `${Math.round(windowState.size.width)}px`,
-            height: `${Math.round(windowState.size.height)}px`,
-            minWidth: `${MIN_WINDOW_WIDTH}px`,
-            minHeight: `${MIN_WINDOW_HEIGHT}px`,
+            // `size` is the on-screen size; zoom scales the layout box up to it.
+            width: `${Math.round(windowState.size.width / scale)}px`,
+            height: `${Math.round(windowState.size.height / scale)}px`,
+            minWidth: viewportCappedMin(MIN_WINDOW_WIDTH, "vw"),
+            minHeight: viewportCappedMin(MIN_WINDOW_HEIGHT, "vh"),
             overflowX: "hidden",
+            ...(scale < 1 ? { zoom: String(scale) } : {}),
           };
 
     const hasContextDropdown = this.contextOptions.some(
@@ -3130,7 +3201,7 @@ export class WebInspectorElement extends LitElement {
         : window.innerWidth;
     const automaticallyCollapsed = shouldUseIconRail({
       dockedLeft: this.dockMode === "docked-left",
-      width: viewportWidth,
+      width: viewportWidth / scale,
     });
     const iconRail = this.sidebarCollapsed || automaticallyCollapsed;
     const contextDropdown = hasContextDropdown
@@ -3527,7 +3598,10 @@ export class WebInspectorElement extends LitElement {
   private scheduleInspectorDismissalExpiry(): void {
     this.clearInspectorDismissalTimer();
     if (this.inspectorDismissedUntil === null) return;
-    const delay = Math.max(0, this.inspectorDismissedUntil - Date.now() + 25);
+    const delay = Math.min(
+      MAX_TIMER_DELAY_MS,
+      Math.max(0, this.inspectorDismissedUntil - Date.now() + 25),
+    );
     this.inspectorDismissalTimer = setTimeout(() => {
       this.inspectorDismissalTimer = null;
       this.refreshInspectorDismissalState();
@@ -3563,7 +3637,8 @@ export class WebInspectorElement extends LitElement {
   private dismissInspectorFor(duration: InspectorDismissalDuration): void {
     const now = Date.now();
     const until = now + INSPECTOR_DISMISSAL_MS[duration];
-    saveInspectorDismissedUntil(until, now);
+    if (duration === "forever") saveInspectorDismissedForever(now);
+    else saveInspectorDismissedUntil(until, now);
     this.inspectorDismissedUntil = until;
     this.scheduleInspectorDismissalExpiry();
     this.settingsOpen = false;
@@ -4098,6 +4173,7 @@ export class WebInspectorElement extends LitElement {
       telemetryDocsUrl: TELEMETRY_DOCS_URL,
       renderIcon: (name) => this.renderIcon(name),
       onDismissForWeek: () => this.dismissInspectorFor("week"),
+      onDismissForever: () => this.dismissInspectorFor("forever"),
     });
   }
 
@@ -5711,15 +5787,16 @@ export class WebInspectorElement extends LitElement {
       this.isOpen &&
       !this.settingsOpen &&
       this.selectedMenu === WHATS_NEW_MENU_KEY &&
-      Boolean(this.announcement?.documentHtml)
+      Boolean(this.announcements.selected) &&
+      Boolean(this.announcements.current?.documentHtml)
     );
   }
 
   private maybeCompleteWhatsNewView(): void {
-    if (!this.isAnnouncementVisible() || !this.announcement) return;
-    this.announcementTelemetry.recordView(this.announcement);
+    const announcement = this.announcements.current;
+    if (!this.isAnnouncementVisible() || !announcement) return;
+    this.announcementTelemetry.recordView(announcement);
     this.flushAnnouncementTelemetry();
-    this.launcher.clearNewsSignal();
   }
 
   private flushAnnouncementTelemetry(): void {
@@ -5730,40 +5807,103 @@ export class WebInspectorElement extends LitElement {
     );
   }
 
+  /** Start the development-only remote feeds; neither blocks rendering. */
   private ensureAnnouncementLoading(): void {
     if (
-      this.announcementPromise ||
+      this.isInspectorDismissed ||
+      !this.notificationContext.development ||
+      !this.isConnected ||
       typeof window === "undefined" ||
       typeof fetch === "undefined"
     ) {
       return;
     }
-    const generation = ++this.announcementLoadGeneration;
-    this.announcementPromise = this.fetchAnnouncement(generation);
+    this.announcementPromise ??= this.fetchAnnouncement();
+    this.hudFeedPromise ??= this.fetchHudFeed();
   }
 
-  private async fetchAnnouncement(generation: number): Promise<void> {
-    const projection = await loadAnnouncementFeed();
-    if (generation !== this.announcementLoadGeneration || !this.isConnected) {
-      return;
-    }
-    this.announcementLoaded = true;
-    if (projection.status === "ready") {
-      this.announcement = projection;
-      if (projection.shouldArm) {
-        this.launcher.armNewsSignal({ pulse: projection.shouldPulse });
-      }
-    }
+  private fetchAnnouncement(): Promise<void> {
+    const generation = ++this.announcementLoadGeneration;
+    return this.announcements.fetch(
+      this.notificationContext,
+      () => generation === this.announcementLoadGeneration && this.isConnected,
+    );
+  }
+
+  private async fetchHudFeed(): Promise<void> {
+    this.hudFeed = await loadHudFeed();
+    this.refreshHudContent();
     this.requestUpdate();
+  }
+
+  /** Overlay the matching feed rule on the built-in HUD content. */
+  private refreshHudContent(): void {
+    this.hudContent = resolveHudContent(
+      this.hudFeed,
+      this.notificationContext,
+      {
+        defaults: HUD_DEFAULT_CONTENT,
+        supportedDestinations: INSPECTOR_MENU_KEYS,
+      },
+    );
+  }
+
+  /**
+   * Where a HUD row lands. A known screen can still be hidden (e.g. no
+   * frontend tools); opening it would silently keep the last screen, so use
+   * the built-in row instead.
+   */
+  private getHudLandingMenu(row: LauncherHudRowId): MenuKey {
+    const destination = this.hudContent[row].destination;
+    return isInspectorMenuKey(destination) &&
+      this.menuItems.some((item) => item.key === destination)
+      ? destination
+      : row === "threads"
+        ? "threads"
+        : "memories";
+  }
+
+  /** Resolve only confirmed runtime metadata; missing fields stay unknown. */
+  private getNotificationContext(): NotificationContext {
+    const base = this.notificationContext;
+    const core = this.core;
+    if (
+      !core ||
+      this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected
+    )
+      return base;
+    const mode = core.runtimeMode;
+    const entitlement =
+      core.runtimeEntitlements?.status === "ready"
+        ? core.runtimeEntitlements.entitlement
+        : undefined;
+    return {
+      ...base,
+      intelligence:
+        mode === "intelligence"
+          ? "enabled"
+          : mode === "sse"
+            ? "disabled"
+            : undefined,
+      plan:
+        this.inspectorMetadataProjection.plan?.code ?? entitlement?.planCode,
+      deployment:
+        entitlement?.source === "managedOrgSubscription"
+          ? "managed"
+          : entitlement
+            ? "self-hosted"
+            : undefined,
+    };
   }
 
   private handleAnnouncementContentClick = (event: Event): void => {
     const link = announcementLinkFromClick(event);
-    if (!link || !this.announcement) return;
+    const announcement = this.announcements.current;
+    if (!link || !announcement) return;
     const href = link.getAttribute("href");
     if (href) link.setAttribute("href", this.appendRefParam(href));
     this.announcementTelemetry.recordBodyClick(
-      this.announcement,
+      announcement,
       this.runtimeStatus === CopilotKitCoreRuntimeConnectionStatus.Connected,
       this.core?.telemetryDisabled ?? false,
     );
