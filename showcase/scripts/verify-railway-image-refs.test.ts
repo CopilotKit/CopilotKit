@@ -688,7 +688,10 @@ describe("image gate CLI offline wiring", () => {
         preload,
         `globalThis.fetch = async () => ({ ok: true, json: async () => (${JSON.stringify({ data: permanentInventory() })}) });`,
       );
-      const env = { ...process.env, RAILWAY_TOKEN: "fixture-token" };
+      const env: NodeJS.ProcessEnv = {
+        ...process.env,
+        RAILWAY_TOKEN: "fixture-token",
+      };
       delete env.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE;
       const result = await promisify(execFile)(
         process.execPath,
