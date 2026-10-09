@@ -15,7 +15,7 @@ Redaction runs on the first 16 KiB of a body, before the 4 KiB limit applies. Ev
 
 Use `capture`, `beforeSend`, `ignoreUrls`, and `data-copilotkit-ignore` for your app's exclusions. The deprecated `routes` option no longer masks or transforms paths.
 
-Text edits are combined per field and recorded after a 300 ms pause. Committing or leaving the field, clicking, navigating, emitting a developer event, or stopping capture records the pending edit first. Repeated `input` and `change` events with the same value produce one record. Checkbox and select changes remain immediate. See [Form edit timing](https://docs.copilotkit.ai/intelligence/captured-data#form-edit-timing) for composition and delivery behavior.
+Text edits are combined per field and recorded after a 300 ms pause. Committing or leaving the field, pressing Enter outside input-method composition, clicking, navigating, emitting a developer event, or stopping capture records the pending edit first. Paired `input` and `change` notifications for the same edit produce one record; a later user edit can record the same value again. Checkbox and select changes remain immediate. See [Form edit timing](https://docs.copilotkit.ai/intelligence/captured-data#form-edit-timing) for composition and delivery behavior.
 
 ## Authenticated Trajectories
 

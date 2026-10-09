@@ -242,6 +242,114 @@ describe("Trajectory capture with the real Phoenix client", () => {
     expect(socket.readyState).toBe(3);
   });
 
+  it("flushes pending text in a Phoenix batch before explicit stop closes the socket", async () => {
+    trustBrowserInput();
+    const socket = await start();
+    document.body.innerHTML = '<input name="notes">';
+    const input = document.querySelector("input")!;
+    input.value = "final unsent edit";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(299);
+    expect(socket.frames.some((frame) => frame[3] === "events")).toBe(false);
+
+    core.stopTrajectory();
+
+    const batches = socket.frames.filter((frame) => frame[3] === "events");
+    expect(batches).toHaveLength(1);
+    expect(batches[0]?.[4]).toEqual({
+      events: [
+        expect.objectContaining({
+          name: "page",
+          value: expect.objectContaining({ seq: SEQ_BASE }),
+        }),
+        expect.objectContaining({
+          name: "input",
+          timestamp: NOW + 299,
+          value: expect.objectContaining({
+            seq: SEQ_BASE + 1,
+            target: expect.objectContaining({ value: "final unsent edit" }),
+          }),
+        }),
+      ],
+      dropped: 0,
+    });
+    expect(
+      socket.frames.findIndex((frame) => frame[3] === "phx_leave"),
+    ).toBeGreaterThan(
+      socket.frames.findIndex((frame) => frame[3] === "events"),
+    );
+    expect(socket.readyState).toBe(3);
+    expect(core.trajectoryId).toBeNull();
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(socket.frames.filter((frame) => frame[3] === "events")).toEqual(
+      batches,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a pending edit lost during socket failure once without replaying its text", async () => {
+    trustBrowserInput();
+    const first = await start();
+    await vi.advanceTimersByTimeAsync(2_000);
+    acknowledgePage(first, SEQ_BASE);
+    document.body.innerHTML = '<input name="notes">';
+    const input = document.querySelector("input")!;
+    input.value = "discarded pending edit";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(100);
+
+    first.close(1006);
+
+    expect(core.trajectoryId).toBeNull();
+    expect(first.frames.filter((frame) => frame[3] === "events")).toHaveLength(
+      1,
+    );
+    await vi.advanceTimersByTimeAsync(1_000);
+    const second = getSocket(1);
+    expect(new URL(second.url).searchParams.get("join_token")).toBe(
+      "single-use-two",
+    );
+    second.open();
+    second.reply(second.frame("phx_join"));
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(second.frame("events")[4]).toEqual({
+      events: [
+        expect.objectContaining({
+          name: "page",
+          value: expect.objectContaining({ seq: SEQ_BASE + 1 }),
+        }),
+      ],
+      dropped: 1,
+    });
+    acknowledgePage(second, SEQ_BASE + 1);
+    core.emitTrajectoryEvent("order.recovered", { approved: true });
+    await vi.advanceTimersByTimeAsync(2_000);
+    const batches = second.frames.filter((frame) => frame[3] === "events");
+    expect(batches).toHaveLength(2);
+    expect(batches[1]?.[4]).toEqual({
+      events: [
+        expect.objectContaining({
+          name: "order.recovered",
+          value: { approved: true, seq: SEQ_BASE + 2 },
+        }),
+      ],
+      dropped: 0,
+    });
+    second.reply(batches[1]!, {
+      highestSeq: SEQ_BASE + 2,
+      accepted: 1,
+      rejected: 0,
+    });
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(second.frames.filter((frame) => frame[3] === "events")).toHaveLength(
+      2,
+    );
+    expect(
+      JSON.stringify(BrowserSocket.instances.map((socket) => socket.frames)),
+    ).not.toContain("discarded pending edit");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("obtains a fresh grant after loss and prevents old sockets from rejoining after stop", async () => {
     const first = await start();
     await vi.advanceTimersByTimeAsync(2_000);

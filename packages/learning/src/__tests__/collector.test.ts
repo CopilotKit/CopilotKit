@@ -329,7 +329,13 @@ it.each(["emit", "stop", "pagehide"])(
     input.value = "final text";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     if (action === "emit") collector.emit("app.approved", {});
-    else if (action === "pagehide") window.dispatchEvent(new Event("pagehide"));
+    else if (action === "pagehide") {
+      window.dispatchEvent(new Event("pagehide"));
+      expect(names(batches)).toEqual(["page", "input"]);
+      expect(batches[0]?.events[1]?.value).toMatchObject({
+        target: { value: "final text" },
+      });
+    }
     collector.stop();
     const events = batches.flatMap((batch) => batch.events);
     expect(events.map((event) => event.name)).toEqual([
@@ -343,6 +349,44 @@ it.each(["emit", "stop", "pagehide"])(
     expect(vi.getTimerCount()).toBe(0);
   },
 );
+
+it("network capture does not flush or delay pending text in the batched collector", async () => {
+  const beforeSend = vi.fn<NonNullable<CollectorOptions["beforeSend"]>>(
+    (event) => event,
+  );
+  const { collector, batches } = setup({ beforeSend });
+  document.body.innerHTML = "<input>";
+  collector.start({ trajectoryId: "typeahead-session" });
+  const input = document.querySelector("input")!;
+  input.value = "pending search";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  await vi.advanceTimersByTimeAsync(100);
+
+  await fetch("/typeahead?q=pending");
+  await vi.advanceTimersByTimeAsync(0);
+
+  expect(beforeSend.mock.calls.map(([event]) => event.name)).toEqual([
+    "page",
+    "network",
+  ]);
+  await vi.advanceTimersByTimeAsync(199);
+  expect(beforeSend.mock.calls.map(([event]) => event.name)).toEqual([
+    "page",
+    "network",
+  ]);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(beforeSend.mock.calls.map(([event]) => event.name)).toEqual([
+    "page",
+    "network",
+    "input",
+  ]);
+  expect(beforeSend.mock.calls[2]?.[0]).toMatchObject({
+    timestamp: NOW + 300,
+    value: { seq: 3, target: { value: "pending search" } },
+  });
+  collector.stop();
+  expect(names(batches)).toEqual(["page", "network", "input"]);
+});
 
 it("a reentrant stop/restart during input flush preserves the new batched session", () => {
   const { collector, batches } = setup({

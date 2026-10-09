@@ -402,6 +402,46 @@ it.each(["custom", "click", "navigation", "stop", "pagehide"])(
   },
 );
 
+it("network capture does not flush or delay pending text in the trajectory collector", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = vi.fn(async () => new Response(null, { status: 204 }));
+  const { collector, send } = setup();
+  document.body.innerHTML = "<input>";
+  try {
+    collector.start();
+    const input = document.querySelector("input")!;
+    input.value = "pending search";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(100);
+
+    await fetch("/typeahead?q=pending");
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(send.mock.calls.map(([event]) => event.name)).toEqual([
+      "page",
+      "network",
+    ]);
+    await vi.advanceTimersByTimeAsync(199);
+    expect(send.mock.calls.map(([event]) => event.name)).toEqual([
+      "page",
+      "network",
+    ]);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(send.mock.calls.map(([event]) => event.name)).toEqual([
+      "page",
+      "network",
+      "input",
+    ]);
+    expect(send.mock.calls[2]?.[0]).toMatchObject({
+      timestamp: NOW + 300,
+      value: { target: { value: "pending search" } },
+    });
+  } finally {
+    collector.stop();
+    globalThis.fetch = originalFetch;
+  }
+});
+
 it.each(["emit", "stop"])(
   "a beforeSend stop/restart during %s cannot carry an old event into the new capture",
   (action) => {

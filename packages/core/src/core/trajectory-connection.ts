@@ -648,7 +648,11 @@ export class TrajectoryConnection {
     connection: Connection,
     event: TrajectoryEvent,
   ): void {
-    if (!this.current(session, connection) || !session.ready) return;
+    if (!this.current(session, connection)) return;
+    if (!session.ready) {
+      this.addDropped(session, 1, false);
+      return;
+    }
     if (!this.connected(connection)) {
       this.addDropped(session, 1);
       this.fail(session, connection, "CONNECTION_LOST");

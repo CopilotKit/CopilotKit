@@ -1338,7 +1338,7 @@ it("drains pending collector input before explicit stop flushes and closes trans
   expect(vi.getTimerCount()).toBe(0);
 });
 
-it("discards pending input on failure before it can fill and send a batch, then reconnects cleanly", async () => {
+it("counts discarded pending input once on failure without sending it during recovery", async () => {
   const edit = pendingInputOnStop();
   const { core, channel } = await start();
   for (let i = 0; i < 49; i++) core.emitTrajectoryEvent("queued", { i });
@@ -1350,7 +1350,12 @@ it("discards pending input on failure before it can fill and send a batch, then 
   const recovered = join(1);
   await vi.advanceTimersByTimeAsync(2000);
   expect(names(recovered)).toEqual(["page"]);
-  expect(recovered.pushes[0]?.payload.dropped).toBe(49);
+  expect(recovered.pushes[0]?.payload.dropped).toBe(50);
+  persist(recovered);
+  core.emitTrajectoryEvent("recovered", {});
+  await vi.advanceTimersByTimeAsync(2000);
+  expect(names(recovered)).toEqual(["page", "recovered"]);
+  expect(recovered.pushes[1]?.payload.dropped).toBe(0);
   persist(recovered);
   core.stopTrajectory();
   expect(vi.getTimerCount()).toBe(0);

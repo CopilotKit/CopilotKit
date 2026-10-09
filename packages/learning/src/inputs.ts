@@ -39,8 +39,10 @@ export function installInputCapture(params: {
   } = params;
   let active = true;
   const pending = new Map<Element, Edit>();
-  const lastEmitted = new WeakMap<Element, string>();
-  const composing = new WeakSet<Element>();
+  // A native change can echo a settled input on blur. Consume that one echo;
+  // every fresh trusted input is a new edit, even if its redacted value matches.
+  const changeEcho = new WeakMap<Element, string>();
+  const composing = new WeakMap<Element, boolean>();
 
   const cancel = (element: Element) => {
     clearTimeout(pending.get(element)?.timer);
@@ -54,9 +56,9 @@ export function installInputCapture(params: {
       // A host can reset the live value before making this field sensitive.
       // Drop the old snapshot: mirrored text/attributes may contain its value.
       if (redact.isPassword(element) && edit.state.value !== REDACTED) return;
-      const signature = JSON.stringify(edit.state);
-      if (lastEmitted.get(element) === signature) return;
-      lastEmitted.set(element, signature);
+      if (edit.payload.eventType === "input") {
+        changeEcho.set(element, JSON.stringify(edit.state));
+      }
       edit.payload.url = redact.url(edit.payload.url);
       edit.payload.target.text = redact.url(edit.payload.target.text);
       edit.payload.target.attributes = Object.fromEntries(
@@ -76,7 +78,7 @@ export function installInputCapture(params: {
     for (const [element] of edits) cancel(element);
     for (const [element, edit] of edits) deliver(element, edit);
   };
-  const observe = (element: Element, eventType: string) => {
+  const observe = (element: Element, eventType: string, settle: boolean) => {
     if (pending.size > 0 && !pending.has(element)) flush();
     if (!active) return;
     const described = describeTarget(element, redact);
@@ -93,9 +95,17 @@ export function installInputCapture(params: {
       element.matches('[contenteditable]:not([contenteditable="false"])');
     if (!text) flush();
     const signature = JSON.stringify(state);
-    if (signature === JSON.stringify(pending.get(element)?.state)) return;
+    const echo =
+      eventType === "change" &&
+      (signature === JSON.stringify(pending.get(element)?.state) ||
+        signature === changeEcho.get(element));
+    changeEcho.delete(element);
+    if (echo) {
+      flush();
+      changeEcho.delete(element);
+      return;
+    }
     cancel(element);
-    if (lastEmitted.get(element) === signature) return;
     const edit: Edit = {
       state,
       payload: {
@@ -109,10 +119,12 @@ export function installInputCapture(params: {
       deliver(element, edit);
       return;
     }
-    edit.timer = setTimeout(() => {
-      cancel(element);
-      deliver(element, edit);
-    }, TEXT_DEBOUNCE_MS);
+    if (settle) {
+      edit.timer = setTimeout(() => {
+        cancel(element);
+        deliver(element, edit);
+      }, TEXT_DEBOUNCE_MS);
+    }
     pending.set(element, edit);
   };
   const onEdit = (event: Event) => {
@@ -120,31 +132,48 @@ export function installInputCapture(params: {
       if (!active || !isTrusted(event)) return;
       const [element] = event.composedPath();
       if (!(element instanceof Element)) return;
-      if (
-        event.type === "compositionstart" ||
-        ("isComposing" in event && event.isComposing === true)
-      ) {
-        composing.add(element);
-        cancel(element);
+      if (event.type === "compositionstart") {
+        composing.set(element, true);
+        clearTimeout(pending.get(element)?.timer);
         return;
       }
-      if (event.type === "compositionend") composing.delete(element);
-      if (!composing.has(element)) {
-        observe(
-          element,
-          event.type === "compositionend" ? "input" : event.type,
-        );
-        if (event.type === "change") flush();
-      }
+      if (event.type === "compositionend") composing.set(element, false);
+      // Keep a draft during composition for explicit action/stop flushes. An
+      // end event takes precedence over a late input's stale isComposing flag.
+      const inComposition =
+        composing.get(element) === true ||
+        (composing.get(element) !== false &&
+          "isComposing" in event &&
+          event.isComposing === true);
+      observe(
+        element,
+        event.type === "compositionend" ? "input" : event.type,
+        !inComposition,
+      );
+      if (event.type === "change") flush();
     } catch {
       // Capture must never break an edit in the host app.
     }
   };
   const onAction = (event: Event) => {
-    if (event.type === "pagehide" || isTrusted(event)) flush();
+    if (event.type !== "pagehide" && !isTrusted(event)) return;
+    if (event.type === "keydown") {
+      const [element] = event.composedPath();
+      // Window capture runs before no-form send handlers can reset the control.
+      // IME completion can precede its final keydown, which still reports 229.
+      if (
+        !(event instanceof KeyboardEvent) ||
+        event.key !== "Enter" ||
+        event.isComposing ||
+        event.keyCode === 229 ||
+        (element instanceof Element && composing.get(element) === true)
+      )
+        return;
+    }
+    flush();
   };
   const editTypes = ["input", "change", "compositionstart", "compositionend"];
-  const actionTypes = ["click", "submit", "focusout", "pagehide"];
+  const actionTypes = ["click", "submit", "focusout", "pagehide", "keydown"];
   for (const type of editTypes)
     window.addEventListener(type, onEdit, { capture: true, passive: true });
   for (const type of actionTypes)

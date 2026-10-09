@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { installInputCapture } from "../inputs";
+import { createRedactor } from "../redact";
 
 let uninstall: (() => void) | undefined;
 afterEach(() => {
@@ -85,14 +86,15 @@ function inputFixture(
   vi.useFakeTimers();
   document.body.innerHTML = markup;
   const emit = vi.fn();
-  uninstall = installInputCapture({ emit, isTrusted: () => true });
+  const capture = installInputCapture({ emit, isTrusted: () => true });
+  uninstall = capture;
   const edit = (id: string, value: string, type = "input") => {
     const field = document.getElementById(id) as HTMLInputElement;
     field.value = value;
     field.dispatchEvent(new Event(type, { bubbles: true }));
     return field;
   };
-  return { emit, edit };
+  return { emit, edit, capture };
 }
 
 it("debounces each text field for 300 ms and collapses input/change duplicates", () => {
@@ -221,4 +223,245 @@ it("does not leak a pending snapshot when a host resets and then marks the field
   window.dispatchEvent(new Event("pagehide"));
   expect(JSON.stringify(emit.mock.calls)).not.toContain("original");
   expect(vi.getTimerCount()).toBe(0);
+});
+
+it.each(["text", "password", "checkbox", "select"])(
+  "records a later trusted %s input after the host resets the same value",
+  (type) => {
+    const markup =
+      type === "select"
+        ? '<select id="first"><option value="">Empty</option><option value="same">Same</option></select>'
+        : `<input id="first" type="${type}">`;
+    const { emit, edit } = inputFixture(markup);
+    const field = document.querySelector<HTMLInputElement | HTMLSelectElement>(
+      "#first",
+    )!;
+    for (let occurrence = 0; occurrence < 2; occurrence++) {
+      field.value = "";
+      if (field instanceof HTMLInputElement && type === "checkbox")
+        field.checked = false;
+      if (field instanceof HTMLInputElement && type === "checkbox")
+        field.checked = true;
+      edit("first", "same");
+      vi.advanceTimersByTime(300);
+      edit("first", "same", "change");
+    }
+    expect(emit).toHaveBeenCalledTimes(2);
+    expect(emit.mock.calls.map(([, value]) => value.target.value)).toEqual(
+      type === "password" ? ["[redacted]", "[redacted]"] : ["same", "same"],
+    );
+  },
+);
+
+it.each(["checkbox", "select"])(
+  "does not deduplicate independent %s change events",
+  (type) => {
+    const { emit, edit } = inputFixture(
+      type === "select"
+        ? '<select id="first"><option value="">Empty</option><option value="same">Same</option></select>'
+        : '<input id="first" type="checkbox">',
+    );
+    const field = document.querySelector<HTMLInputElement | HTMLSelectElement>(
+      "#first",
+    )!;
+    for (let occurrence = 0; occurrence < 2; occurrence++) {
+      field.value = "";
+      if (field instanceof HTMLInputElement) field.checked = false;
+      if (field instanceof HTMLInputElement) field.checked = true;
+      edit("first", "same", "change");
+    }
+    expect(emit).toHaveBeenCalledTimes(2);
+    expect(vi.getTimerCount()).toBe(0);
+  },
+);
+
+it("settles redacted input 300 ms after the latest trusted edit", () => {
+  const { emit, edit } = inputFixture('<input id="first" type="password">');
+  edit("first", "first-secret");
+  vi.advanceTimersByTime(200);
+  edit("first", "second-secret");
+  vi.advanceTimersByTime(299);
+  expect(emit).not.toHaveBeenCalled();
+  vi.advanceTimersByTime(1);
+  expect(emit).toHaveBeenCalledOnce();
+  expect(emit.mock.calls[0]?.[1].target.value).toBe("[redacted]");
+  expect(JSON.stringify(emit.mock.calls)).not.toContain("secret");
+});
+
+it.each(["flush", "click", "submit", "focusout", "pagehide"])(
+  "preserves the latest composing input at the %s boundary",
+  (boundary) => {
+    const { emit, capture } = inputFixture();
+    const field = document.querySelector<HTMLInputElement>("#first")!;
+    field.dispatchEvent(
+      new CompositionEvent("compositionstart", { bubbles: true }),
+    );
+    for (const value of ["partial", "latest user text"]) {
+      field.value = value;
+      field.dispatchEvent(
+        new InputEvent("input", { bubbles: true, isComposing: true }),
+      );
+    }
+    vi.advanceTimersByTime(1000);
+    expect(emit).not.toHaveBeenCalled();
+    field.value = "host reset";
+    if (boundary === "flush") capture.flush();
+    else field.dispatchEvent(new Event(boundary, { bubbles: true }));
+    expect(emit.mock.calls.map(([, value]) => value.target.value)).toEqual([
+      "latest user text",
+    ]);
+    expect(vi.getTimerCount()).toBe(0);
+  },
+);
+
+it("does not let a late composing input after compositionend poison the field", () => {
+  const { emit, edit } = inputFixture();
+  const field = document.querySelector<HTMLInputElement>("#first")!;
+  field.dispatchEvent(
+    new CompositionEvent("compositionstart", { bubbles: true }),
+  );
+  field.value = "finished";
+  field.dispatchEvent(
+    new CompositionEvent("compositionend", { bubbles: true }),
+  );
+  field.dispatchEvent(
+    new InputEvent("input", { bubbles: true, isComposing: true }),
+  );
+  vi.advanceTimersByTime(300);
+  expect(emit.mock.calls.map(([, value]) => value.target.value)).toEqual([
+    "finished",
+  ]);
+  edit("first", "next edit");
+  vi.advanceTimersByTime(300);
+  expect(emit.mock.calls.map(([, value]) => value.target.value)).toEqual([
+    "finished",
+    "next edit",
+  ]);
+});
+
+it("flushes trusted Enter before a no-form send handler resets the input", () => {
+  const { emit, edit } = inputFixture();
+  const order: string[] = [];
+  emit.mockImplementation(() => order.push("input"));
+  const field = edit("first", "send this");
+  field.addEventListener("keydown", () => {
+    order.push("send");
+    field.value = "";
+  });
+  field.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+  );
+  expect(order).toEqual(["input", "send"]);
+  expect(emit.mock.calls[0]?.[1].target.value).toBe("send this");
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it.each(["isComposing", "keyCode", "compositionstart"])(
+  "keeps IME Enter from flushing partial text identified by %s",
+  (signal) => {
+    const { emit } = inputFixture();
+    const field = document.querySelector<HTMLInputElement>("#first")!;
+    if (signal === "compositionstart")
+      field.dispatchEvent(
+        new CompositionEvent("compositionstart", { bubbles: true }),
+      );
+    field.value = "partial";
+    field.dispatchEvent(
+      new InputEvent("input", { bubbles: true, isComposing: true }),
+    );
+    field.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        isComposing: signal === "isComposing",
+        keyCode: signal === "keyCode" ? 229 : 13,
+      }),
+    );
+    expect(emit).not.toHaveBeenCalled();
+    field.value = "finished";
+    field.dispatchEvent(
+      new CompositionEvent("compositionend", { bubbles: true }),
+    );
+    vi.advanceTimersByTime(300);
+    expect(emit.mock.calls.map(([, value]) => value.target.value)).toEqual([
+      "finished",
+    ]);
+  },
+);
+
+it("ignores IME keydown 229 even after compositionend", () => {
+  const { emit } = inputFixture();
+  const field = document.querySelector<HTMLInputElement>("#first")!;
+  field.dispatchEvent(
+    new CompositionEvent("compositionstart", { bubbles: true }),
+  );
+  field.value = "finished";
+  field.dispatchEvent(
+    new CompositionEvent("compositionend", { bubbles: true }),
+  );
+  field.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "Enter", keyCode: 229, bubbles: true }),
+  );
+  expect(emit).not.toHaveBeenCalled();
+  vi.advanceTimersByTime(299);
+  expect(emit).not.toHaveBeenCalled();
+  vi.advanceTimersByTime(1);
+  expect(emit.mock.calls.map(([, value]) => value.target.value)).toEqual([
+    "finished",
+  ]);
+});
+
+it.each(["untrusted Enter", "ordinary key"])(
+  "does not flush on %s",
+  (action) => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<input id="first">';
+    const emit = vi.fn();
+    uninstall = installInputCapture({
+      emit,
+      isTrusted: (event) =>
+        event.type !== "keydown" || action === "ordinary key",
+    });
+    const field = document.querySelector<HTMLInputElement>("#first")!;
+    field.value = "pending";
+    field.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    field.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: action === "ordinary key" ? "a" : "Enter",
+        bubbles: true,
+      }),
+    );
+    expect(emit).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(300);
+    expect(emit.mock.calls.map(([, value]) => value.target.value)).toEqual([
+      "pending",
+    ]);
+  },
+);
+
+it("rechecks redaction when explicitly flushing a composing snapshot", () => {
+  vi.useFakeTimers();
+  document.body.innerHTML =
+    '<input id="first" data-copy="new-secret"><input id="password" type="password">';
+  const redact = createRedactor();
+  const emit = vi.fn();
+  const capture = installInputCapture({ emit, redact, isTrusted: () => true });
+  uninstall = capture;
+  const field = document.querySelector<HTMLInputElement>("#first")!;
+  field.dispatchEvent(
+    new CompositionEvent("compositionstart", { bubbles: true }),
+  );
+  field.value = "safe text";
+  field.dispatchEvent(
+    new InputEvent("input", { bubbles: true, isComposing: true }),
+  );
+  const password = document.querySelector<HTMLInputElement>("#password")!;
+  password.value = "new-secret";
+  redact.isPassword(password);
+  capture.flush();
+  expect(emit).toHaveBeenCalledOnce();
+  expect(emit.mock.calls[0]?.[1].target.attributes["data-copy"]).toBe(
+    "[redacted]",
+  );
+  expect(JSON.stringify(emit.mock.calls)).not.toContain("new-secret");
 });
