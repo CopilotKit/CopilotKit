@@ -89,7 +89,9 @@ class StarterOpenAI(OpenAI):
                         None,
                     )
                     if prior_user is not None:
-                        prior_user.blocks.insert(0, TextBlock(text=f"{state}</state>\n\n"))
+                        prior_user.blocks.insert(
+                            0, TextBlock(text=f"{state}</state>\n\n")
+                        )
                 message.blocks = [TextBlock(text=result.removesuffix("\n"))]
             if message.additional_kwargs["tool_call_id"] in restored_tool_ids:
                 message.role = MessageRole.TOOL
