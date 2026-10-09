@@ -179,6 +179,8 @@ const defaultSleep: SleepFn = (ms) =>
  *   3. With NO cache available, re-throw the last error (preserves the
  *      current hard-fail behavior on a fresh boot — without a catalog
  *      there is nothing to enqueue).
+ * Fresh-only sources still retry transient failures, but invalidate previous
+ * catalogs and never store or reuse results as a fallback.
  *
  * The retry+cache wrapper sits OUTSIDE the per-service mapping step
  * (operator slug-scoping + driver-input projection still re-applies on a
@@ -210,6 +212,8 @@ async function enumerateWithRetryAndCache(opts: {
     sleep,
     now,
   } = opts;
+  const allowStale = source.cachePolicy?.(discoveryCtx) !== "fresh-only";
+  if (!allowStale) cache.current = null;
   const retrySchedule = opts.retrySchedule;
   // attempt 0 is the initial try; attempt 1..N are the retries.
   const maxAttempt = retrySchedule.length;
@@ -229,7 +233,7 @@ async function enumerateWithRetryAndCache(opts: {
       const services = await source.enumerate(discoveryCtx, filter);
       // Persist the latest successful catalog so a later transient failure
       // can fall back to it.
-      cache.current = { services, cachedAtMs: now() };
+      if (allowStale) cache.current = { services, cachedAtMs: now() };
       return services;
     } catch (err) {
       lastErr = err;
@@ -246,7 +250,7 @@ async function enumerateWithRetryAndCache(opts: {
   // otherwise re-throw the last transient error so the producer's
   // `enumerate-failed` path runs (current hard-fail behavior — without a
   // catalog there is nothing to enqueue).
-  if (cache.current !== null) {
+  if (allowStale && cache.current !== null) {
     const ageMs = now() - cache.current.cachedAtMs;
     logger.warn("fleet.producer.enumerate-failed-using-cache", {
       driverKind,

@@ -421,6 +421,102 @@ describe("CachingDiscoverySource", () => {
     expect(warnCall!.meta!.errorMessage).toBe("401 Unauthorized");
     expect(warnCall!.meta!.errorSource).toBe("test-src");
   });
+
+  it("invalidates prior fallback when a source requires a fresh result", async () => {
+    let available = true;
+    const source: DiscoverySource<string> = {
+      name: "authoritative",
+      configSchema: z.object({}),
+      cachePolicy: (ctx) =>
+        ctx.env.FRESH === "1" ? "fresh-only" : "stale-on-error",
+      async enumerate() {
+        if (available) return ["previous roster"];
+        throw new DiscoverySourceAuthError("authoritative", "unavailable");
+      },
+    };
+    const tracker = makeTracker();
+    const cached = withCache(source, { ttlMs: TTL, authTracker: tracker });
+    const ordinary = makeCtx();
+    expect(await cached.enumerate(ordinary, {})).toEqual(["previous roster"]);
+    available = false;
+
+    await expect(
+      cached.enumerate({ ...ordinary, env: { FRESH: "1" } }, {}),
+    ).rejects.toBeInstanceOf(DiscoverySourceAuthError);
+    expect(tracker.recordFailure).toHaveBeenLastCalledWith(
+      "authoritative",
+      expect.any(DiscoverySourceAuthError),
+      "no-cache",
+    );
+    await expect(cached.enumerate(ordinary, {})).rejects.toBeInstanceOf(
+      DiscoverySourceAuthError,
+    );
+  });
+
+  it("never makes a fresh-only result available to later stale fallback", async () => {
+    let available = true;
+    const source: DiscoverySource<string> = {
+      name: "authoritative",
+      configSchema: z.object({}),
+      cachePolicy: (ctx) =>
+        ctx.env.FRESH === "1" ? "fresh-only" : "stale-on-error",
+      async enumerate() {
+        if (available) return ["ownership-filtered roster"];
+        throw new DiscoverySourceAuthError("authoritative", "unavailable");
+      },
+    };
+    const tracker = makeTracker();
+    const cached = withCache(source, { ttlMs: TTL, authTracker: tracker });
+    const ordinary = makeCtx();
+    expect(
+      await cached.enumerate({ ...ordinary, env: { FRESH: "1" } }, {}),
+    ).toEqual(["ownership-filtered roster"]);
+    expect(tracker.recordSuccess).toHaveBeenCalledWith("authoritative");
+    available = false;
+
+    await expect(cached.enumerate(ordinary, {})).rejects.toBeInstanceOf(
+      DiscoverySourceAuthError,
+    );
+  });
+
+  it.each(["stale-on-error", "fresh-only"] as const)(
+    "does not join an in-flight %s call when a fresh result is required",
+    async (initialPolicy) => {
+      let finish!: (value: string[]) => void;
+      const error = new DiscoverySourceAuthError(
+        "authoritative",
+        "current failure",
+      );
+      const source: DiscoverySource<string> = {
+        name: "authoritative",
+        configSchema: z.object({}),
+        cachePolicy: (ctx) =>
+          ctx.env.FRESH === "1" ? "fresh-only" : "stale-on-error",
+        async enumerate(ctx) {
+          if (ctx.env.NEXT === "1") throw error;
+          return new Promise<string[]>((resolve) => {
+            finish = resolve;
+          });
+        },
+      };
+      const cached = withCache(source, { ttlMs: TTL });
+      const ctx = makeCtx();
+      const pending = cached.enumerate(
+        {
+          ...ctx,
+          env: { FRESH: initialPolicy === "fresh-only" ? "1" : undefined },
+        },
+        {},
+      );
+      const next = cached.enumerate(
+        { ...ctx, env: { FRESH: "1", NEXT: "1" } },
+        {},
+      );
+      finish(["previous roster"]);
+      await expect(next).rejects.toBe(error);
+      await expect(pending).resolves.toEqual(["previous roster"]);
+    },
+  );
 });
 
 describe("cacheKey", () => {

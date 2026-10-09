@@ -686,6 +686,12 @@ async function buildLocalServices(
 export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
   name: "railway-services",
   configSchema: ConfigSchema,
+  /** Ownership exclusions require current evidence, even when upstream fails first. */
+  cachePolicy(ctx) {
+    return ctx.env.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE === undefined
+      ? "stale-on-error"
+      : "fresh-only";
+  },
   async enumerate(ctx, rawConfig) {
     // `rawConfig` is the filter-contents object the invoker hands us —
     // see ConfigSchema docstring above for why this is flat, not a

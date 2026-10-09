@@ -85,6 +85,9 @@ export function cacheKey(config: unknown, logger?: Logger): string {
  *     bug — no cache serve).
  *   - Concurrent calls with the same config collapse into a single
  *     upstream `enumerate` call; all joiners share the same promise.
+ *   - Fresh-only source calls invalidate that config's cache, never store
+ *     their results, and never join in-flight calls. Error types and auth
+ *     tracking are preserved, but no failure can serve an old roster.
  */
 export function withCache<T>(
   source: DiscoverySource<T>,
@@ -97,20 +100,23 @@ export function withCache<T>(
   return {
     name: source.name,
     configSchema: source.configSchema,
+    cachePolicy: source.cachePolicy,
 
     enumerate(ctx: DiscoveryContext, config: unknown): Promise<T[]> {
       const key = cacheKey(config, opts.logger);
+      const allowStale = source.cachePolicy?.(ctx) !== "fresh-only";
+      if (!allowStale) cache.delete(key);
 
       // Concurrent collapse: if an identical call is already in flight,
       // join it rather than issuing a second upstream request.
-      const existing = inflight.get(key);
+      const existing = allowStale ? inflight.get(key) : undefined;
       if (existing) return existing;
 
       const pipeline = (async () => {
         try {
           const results = await source.enumerate(ctx, config);
           const ts = now();
-          cache.set(key, { results, fetchedAt: ts });
+          if (allowStale) cache.set(key, { results, fetchedAt: ts });
 
           // Eviction sweep: remove entries that are 2x past TTL.
           // The map is small (~10 entries per source) so a full
@@ -141,7 +147,7 @@ export function withCache<T>(
           if (!(err instanceof DiscoverySourceError)) throw err;
 
           const ts = now();
-          const entry = cache.get(key);
+          const entry = allowStale ? cache.get(key) : undefined;
           const hasFreshCache =
             entry != null && ts - entry.fetchedAt < opts.ttlMs;
           const cacheStatus = hasFreshCache
@@ -182,6 +188,8 @@ export function withCache<T>(
           throw err;
         }
       })();
+
+      if (!allowStale) return pipeline;
 
       // Attach cleanup BEFORE storing so every consumer (including the
       // first caller) sees the same promise that self-cleans.

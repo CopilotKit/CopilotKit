@@ -893,4 +893,72 @@ describe("createServiceEnumerator — Railway-GQL resilience policy", () => {
   it("uses ENUMERATE_RETRY_BACKOFF_MS = [1000, 4000, 16000] in production (SSOT pin)", () => {
     expect(ENUMERATE_RETRY_BACKOFF_MS).toEqual([1_000, 4_000, 16_000]);
   });
+
+  it("does not revive an authoritative roster after a schema failure and later outage", async () => {
+    const invalid = new DiscoverySourceSchemaError(
+      "railway-services",
+      "invalid ownership",
+    );
+    const outage = new DiscoverySourceBackendError(
+      "railway-services",
+      "outage",
+      503,
+    );
+    const source = scriptedSource([
+      [svc()],
+      () => {
+        throw invalid;
+      },
+      () => {
+        throw outage;
+      },
+    ]);
+    source.cachePolicy = () => "fresh-only";
+    const { logger, warns } = makeCapturingLogger();
+    const enumerate = createD6ServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger,
+      sleep: INSTANT_SLEEP,
+      retrySchedule: [0],
+    });
+    expect(await enumerate(CTX)).toHaveLength(1);
+    await expect(enumerate(CTX)).rejects.toBe(invalid);
+    await expect(enumerate(CTX)).rejects.toBe(outage);
+    expect(source.calls).toBe(4);
+    expect(
+      warns.some(
+        (warn) => warn.msg === "fleet.producer.enumerate-failed-using-cache",
+      ),
+    ).toBe(false);
+  });
+
+  it("invalidates an ordinary catalog when the source switches to fresh-only", async () => {
+    const outage = new DiscoverySourceBackendError(
+      "railway-services",
+      "outage",
+      503,
+    );
+    const source = scriptedSource([
+      [svc()],
+      () => {
+        throw outage;
+      },
+    ]);
+    let policy: "stale-on-error" | "fresh-only" = "stale-on-error";
+    source.cachePolicy = () => policy;
+    const enumerate = createD6ServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+      retrySchedule: [],
+    });
+    expect(await enumerate(CTX)).toHaveLength(1);
+    policy = "fresh-only";
+    await expect(enumerate(CTX)).rejects.toBe(outage);
+    policy = "stale-on-error";
+    await expect(enumerate(CTX)).rejects.toBe(outage);
+  });
 });

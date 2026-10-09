@@ -16,6 +16,8 @@ import {
 } from "./errors.js";
 import { logger } from "../../logger.js";
 import type { DiscoveryContext } from "../types.js";
+import { withCache } from "./caching-source.js";
+import { createD6ServiceEnumerator } from "../../fleet/control-plane/catalog-enumerator.js";
 
 // Helpers -------------------------------------------------------------------
 
@@ -2032,6 +2034,7 @@ async function withLifecycleEvidence(
     realPolicy?: boolean;
     policy?: unknown;
     unreadablePolicy?: boolean;
+    policyRead?: () => Promise<string>;
     recordRead?: (options: unknown) => Promise<string>;
   } = {},
 ) {
@@ -2045,6 +2048,7 @@ async function withLifecycleEvidence(
     .mockImplementation(async (file, fsOptions) => {
       if (String(file).endsWith("railway-envs.generated.json")) {
         policyReads.push(String(file));
+        if (options.policyRead) return options.policyRead();
         if (options.unreadablePolicy) throw new Error("ENOENT");
         if (!options.realPolicy)
           return JSON.stringify({
@@ -2599,5 +2603,189 @@ it.each(["EACCES", "EIO"])(
           Promise.reject(Object.assign(new Error(code), { code })),
       },
     );
+  },
+);
+
+describe("railwayServicesSource current ownership evidence through withCache", () => {
+  it.each([
+    "missing records",
+    "malformed records",
+    "invalid record schema",
+    "unreadable records",
+    "unreadable policy",
+    "malformed policy",
+    "invalid policy",
+    "missing project",
+    "missing environment",
+    "name-only local inventory",
+    "malformed local inventory",
+  ])("rejects %s after a valid owned exclusion", async (failure) => {
+    const options: NonNullable<Parameters<typeof withLifecycleEvidence>[2]> =
+      {};
+    await withLifecycleEvidence(
+      [lifecycleRun()],
+      async (filePath) => {
+        const { ctx } = lifecycleContext(filePath);
+        const tracker = {
+          recordSuccess: vi.fn(async () => {}),
+          recordFailure: vi.fn(async () => {}),
+        };
+        const cached = withCache(railwayServicesSource, {
+          ttlMs: 86_400_000,
+          authTracker: tracker,
+        });
+        expect(
+          (await cached.enumerate(ctx, {})).map((service) => service.name),
+        ).toEqual(["showcase-permanent"]);
+
+        const next = lifecycleContext(filePath).ctx;
+        if (failure === "missing records") await fsp.unlink(filePath);
+        if (failure === "malformed records") await fsp.writeFile(filePath, "{");
+        if (failure === "invalid record schema")
+          await fsp.writeFile(
+            filePath,
+            JSON.stringify({ schemaVersion: 2, runs: [] }),
+          );
+        if (failure === "unreadable records")
+          options.recordRead = async () => {
+            throw Object.assign(new Error("unreadable fixture"), {
+              code: "EACCES",
+            });
+          };
+        if (failure === "unreadable policy") options.unreadablePolicy = true;
+        if (failure === "malformed policy")
+          options.policyRead = async () => "{";
+        if (failure === "invalid policy") options.policy = {};
+        if (failure === "missing project")
+          next.env = {
+            ...next.env,
+            LOCAL_SERVICES_JSON: "[]",
+            RAILWAY_PROJECT_ID: undefined,
+          };
+        if (failure === "missing environment")
+          next.env = {
+            ...next.env,
+            LOCAL_SERVICES_JSON: "[]",
+            RAILWAY_ENVIRONMENT_ID: undefined,
+          };
+        if (failure === "name-only local inventory")
+          next.env = {
+            ...next.env,
+            LOCAL_SERVICES_JSON: JSON.stringify([
+              {
+                name: "showcase-temporary",
+                publicUrl: "http://localhost:10000",
+              },
+            ]),
+          };
+        if (failure === "malformed local inventory")
+          next.env = { ...next.env, LOCAL_SERVICES_JSON: "{" };
+
+        await expect(cached.enumerate(next, {})).rejects.toBeInstanceOf(
+          DiscoverySourceSchemaError,
+        );
+        expect(tracker.recordFailure).toHaveBeenLastCalledWith(
+          "railway-services",
+          expect.any(DiscoverySourceSchemaError),
+          "no-cache",
+        );
+
+        // A later ordinary outage must not revive the former ownership exclusion.
+        const { fetchImpl } = makeFetch([
+          { status: 503, body: "provider outage" },
+        ]);
+        await expect(
+          cached.enumerate(
+            {
+              ...ctx,
+              fetchImpl,
+              env: {
+                ...ctx.env,
+                SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: undefined,
+              },
+            },
+            {},
+          ),
+        ).rejects.toBeInstanceOf(DiscoverySourceBackendError);
+      },
+      options,
+    );
+  });
+
+  it("rejects upstream failure before current ownership evidence can be read", async () => {
+    await withLifecycleEvidence(
+      [lifecycleRun()],
+      async (filePath, policyReads) => {
+        const { ctx } = lifecycleContext(filePath);
+        const cached = withCache(railwayServicesSource, { ttlMs: 86_400_000 });
+        expect(
+          (await cached.enumerate(ctx, {})).map((service) => service.name),
+        ).toEqual(["showcase-permanent"]);
+        await fsp.writeFile(filePath, "malformed current evidence");
+        const { fetchImpl } = makeFetch([
+          { status: 503, body: "provider outage" },
+        ]);
+        await expect(
+          cached.enumerate({ ...ctx, fetchImpl }, {}),
+        ).rejects.toBeInstanceOf(DiscoverySourceBackendError);
+        expect(policyReads).toHaveLength(1);
+      },
+    );
+  });
+
+  it("preserves ordinary stale fallback when lifecycle evidence is not configured", async () => {
+    const { ctx } = lifecycleContext("/unused/records.json", [
+      permanentObserved,
+    ]);
+    ctx.env = { ...ctx.env, SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: undefined };
+    const cached = withCache(railwayServicesSource, { ttlMs: 86_400_000 });
+    const first = await cached.enumerate(ctx, {});
+    const { fetchImpl } = makeFetch([{ status: 503, body: "provider outage" }]);
+    expect(await cached.enumerate({ ...ctx, fetchImpl }, {})).toEqual(first);
+  });
+});
+
+it.each([
+  "upstream outage",
+  "invalid records then upstream outage",
+  "unset evidence then upstream outage",
+])(
+  "does not emit fleet jobs from old ownership exclusions after %s",
+  async (failure) => {
+    await withLifecycleEvidence([lifecycleRun()], async (filePath) => {
+      const { ctx } = lifecycleContext(filePath);
+      let fetchImpl = ctx.fetchImpl;
+      const env = { ...ctx.env };
+      const enumerate = createD6ServiceEnumerator({
+        source: railwayServicesSource,
+        env,
+        fetchImpl: (...args) => fetchImpl(...args),
+        logger: ctx.logger,
+        retrySchedule: [],
+      });
+      const tick = { triggered: false, runId: "catalog-fixture" };
+      expect((await enumerate(tick)).map((job) => job.serviceSlug)).toEqual([
+        "permanent",
+      ]);
+      if (failure === "invalid records then upstream outage") {
+        await fsp.writeFile(filePath, "malformed current evidence");
+        fetchImpl = lifecycleContext(filePath).ctx.fetchImpl;
+        await expect(enumerate(tick)).rejects.toBeInstanceOf(
+          DiscoverySourceSchemaError,
+        );
+      }
+      if (failure === "unset evidence then upstream outage")
+        env.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE = undefined;
+      fetchImpl = makeFetch([
+        { status: 503, body: "provider outage" },
+      ]).fetchImpl;
+      await expect(enumerate(tick)).rejects.toBeInstanceOf(
+        DiscoverySourceBackendError,
+      );
+      expect(ctx.logger.warn).not.toHaveBeenCalledWith(
+        "fleet.producer.enumerate-failed-using-cache",
+        expect.anything(),
+      );
+    });
   },
 );
