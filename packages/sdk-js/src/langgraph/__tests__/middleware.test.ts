@@ -7,8 +7,9 @@
  *
  * - Frontend tools listed in `state.copilotkit.actions` reach the model
  *   alongside the agent's own tools. Empty actions = no change.
- * - App context from `state.copilotkit.context` (or runtime.context) becomes
- *   a SystemMessage `"App Context:\n<json>"`. Idempotent across re-runs.
+ * - App context from `state.copilotkit.context` (or runtime.context) is
+ *   appended to the leading system message as `"App Context:\n<json>"`.
+ *   The model never sees a second system message.
  * - `afterModel` peels frontend tool calls off the last AIMessage so the
  *   ToolNode does not execute them; `afterAgent` re-attaches them.
  * - The opt-in `exposeState` knob surfaces user state into
@@ -64,7 +65,7 @@ function systemContents(messages: any[]): string[] {
   const out: string[] = [];
   for (const m of messages) {
     if (m._getType?.() === "system") {
-      out.push(typeof m.content === "string" ? m.content : String(m.content));
+      out.push(typeof m.content === "string" ? m.content : m.text);
     }
   }
   return out;
@@ -406,61 +407,90 @@ describe("exposeState", () => {
 });
 
 // ---------------------------------------------------------------------------
-// beforeAgent — App Context injection
+// App Context — folded into the single leading system message
 // ---------------------------------------------------------------------------
 
-describe("beforeAgent", () => {
-  it("returns no update when context is empty", () => {
-    const state = {
-      messages: [new HumanMessage("hi")],
-      copilotkit: { context: [] },
-    };
-    const result = copilotkitMiddleware.beforeAgent(state, {} as any);
-    expect(result).toBeUndefined();
+describe("app context in an agent run", () => {
+  // Anthropic and Gemini accept one leading system instruction only, so the
+  // model must never see a second system message.
+  async function runTurns(turns: number, context: unknown) {
+    const model = new CapturingFakeListChatModel({
+      responses: Array.from({ length: turns }, () => "ok"),
+    });
+    const agent = createAgent({
+      model,
+      tools: [],
+      systemPrompt: "You are a helpful assistant.",
+      middleware: [copilotkitMiddleware],
+    });
+    let messages: any[] = [];
+    for (let turn = 0; turn < turns; turn++) {
+      const result = await agent.invoke({
+        messages: [...messages, new HumanMessage(`turn ${turn}`)],
+        copilotkit: { context },
+      } as any);
+      messages = result.messages;
+    }
+    return { model, messages };
+  }
+
+  it("sends exactly one system message, first, carrying prompt and context", async () => {
+    const { model } = await runTurns(2, [
+      { description: "viewer role", value: "admin" },
+    ]);
+
+    expect(model.receivedMessages).toHaveLength(2);
+    for (const received of model.receivedMessages) {
+      const types = received.map((m) => m._getType());
+      expect(types.filter((t) => t === "system")).toHaveLength(1);
+      expect(types[0]).toBe("system");
+      const [system] = systemContents(received);
+      expect(system.startsWith("You are a helpful assistant.\n\n")).toBe(true);
+      expect(system).toContain("App Context:\n");
+      expect(system).toContain("admin");
+    }
   });
 
-  it("injects an App Context SystemMessage into the message list", () => {
-    const state = {
-      messages: [new HumanMessage("hi")],
-      copilotkit: {
-        context: [{ description: "viewer role", value: "admin" }],
-      },
-    };
+  it("returns the request unchanged when context is empty", async () => {
+    const request = makeRequest({
+      state: { messages: [], copilotkit: { context: [] } },
+    });
 
-    const result = copilotkitMiddleware.beforeAgent(state, {} as any);
+    const { received } = await runWrap(copilotkitMiddleware, request);
 
-    expect(result).toBeDefined();
-    const sys = systemContents(result!.messages);
-    expect(sys.some((s) => s.startsWith("App Context:"))).toBe(true);
-    expect(sys.some((s) => s.includes("admin"))).toBe(true);
+    expect(received.systemPrompt).toBeUndefined();
   });
 
-  it("uses runtime.context when state.copilotkit.context is missing", () => {
-    const state = {
-      messages: [new HumanMessage("hi")],
-      copilotkit: {},
-    };
-    const runtime = { context: "route=/dashboard" };
+  it("uses runtime.context when state.copilotkit.context is missing", async () => {
+    const request = makeRequest({
+      state: { messages: [], copilotkit: {} },
+      runtime: { context: "route=/dashboard" },
+    });
 
-    const result = copilotkitMiddleware.beforeAgent(state, runtime as any);
+    const { received } = await runWrap(copilotkitMiddleware, request);
 
-    const sys = systemContents(result!.messages);
-    expect(sys.some((s) => s.includes("/dashboard"))).toBe(true);
+    expect(systemPromptText(received)).toBe("App Context:\nroute=/dashboard");
   });
 
-  it("does not duplicate the App Context message across re-runs", () => {
-    const state = {
-      messages: [new HumanMessage("hi")],
-      copilotkit: { context: [{ description: "k", value: "v" }] },
-    };
+  it("drops an App Context message that an older release saved in the thread", async () => {
+    const request = makeRequest({
+      messages: [
+        new SystemMessage("App Context:\nstale"),
+        new HumanMessage("hi"),
+      ],
+      state: { messages: [], copilotkit: { context: "fresh" } },
+    });
 
-    const first = copilotkitMiddleware.beforeAgent(state, {} as any) ?? state;
-    const second = copilotkitMiddleware.beforeAgent(first, {} as any) ?? first;
+    const { received } = await runWrap(copilotkitMiddleware, request);
 
-    const appContextMessages = systemContents(second.messages).filter((s) =>
-      s.startsWith("App Context:"),
-    );
-    expect(appContextMessages).toHaveLength(1);
+    expect(systemContents(received.messages)).toEqual([]);
+    expect(systemPromptText(received)).toBe("App Context:\nfresh");
+  });
+
+  it("does not write the context into the thread's messages", async () => {
+    const { messages } = await runTurns(1, "route=/dashboard");
+
+    expect(systemContents(messages)).toEqual([]);
   });
 });
 

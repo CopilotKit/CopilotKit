@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AIMessage, HumanMessage } from "@langchain/core/messages";
+import { AIMessage } from "@langchain/core/messages";
 import { StateGraph, START, END } from "@langchain/langgraph";
 import type { A2UIToolParams } from "@ag-ui/langgraph";
 
@@ -41,11 +41,15 @@ async function wrap(state: object) {
   });
   return received;
 }
-function context(state: object, runtime = {}) {
-  return middleware.beforeAgent(
-    { messages: [new HumanMessage("hello")], ...state },
-    runtime,
-  );
+// The App Context note the model sees, folded into its system prompt.
+async function context(state: object, runtime = {}) {
+  const request = { state, model: {}, tools: [], messages: [], runtime };
+  let received: { systemPrompt?: string } = request;
+  await middleware.wrapModelCall(request, async (req) => {
+    received = req;
+    return new AIMessage("ok");
+  });
+  return received.systemPrompt;
 }
 
 beforeEach(() => {
@@ -109,7 +113,7 @@ describe("effective AG-UI and CopilotKit properties", () => {
     };
     await wrap(state);
     expect(captured[0].defaultCatalogId).toBe("serialized");
-    expect(context(state).messages[0].content).toBe(
+    expect(await context(state)).toBe(
       "App Context:\n" + state["ag-ui"].context,
     );
   });
@@ -129,7 +133,7 @@ describe("effective AG-UI and CopilotKit properties", () => {
     expect(captured[0].defaultCatalogId).toBeUndefined();
   });
 
-  it("merges nested context while preserving conflicting scalar and array leaves", () => {
+  it("merges nested context while preserving conflicting scalar and array leaves", async () => {
     const state = {
       "ag-ui": {
         context: {
@@ -145,8 +149,7 @@ describe("effective AG-UI and CopilotKit properties", () => {
       },
     };
     const before = structuredClone(state);
-    const result = context(state);
-    expect(result.messages[0].content).toBe(
+    expect(await context(state)).toBe(
       "App Context:\n" +
         JSON.stringify(
           {
@@ -167,9 +170,9 @@ describe("effective AG-UI and CopilotKit properties", () => {
 
   it.each([null, false, "", []])(
     "does not resurrect AG-UI or runtime context after an explicit %j override",
-    (value) => {
+    async (value) => {
       expect(
-        context(
+        await context(
           { "ag-ui": { context: "base" }, copilotkit: { context: value } },
           { context: "runtime" },
         ),
@@ -177,14 +180,14 @@ describe("effective AG-UI and CopilotKit properties", () => {
     },
   );
 
-  it("keeps serialized context atomic and preserves the runtime fallback", () => {
+  it("keeps serialized context atomic and preserves the runtime fallback", async () => {
     expect(
-      context({
+      await context({
         "ag-ui": { context: { base: 1 } },
         copilotkit: { context: '{"override":2}' },
-      }).messages[0].content,
+      }),
     ).toBe('App Context:\n{"override":2}');
-    expect(context({}, { context: "runtime" }).messages[0].content).toBe(
+    expect(await context({}, { context: "runtime" })).toBe(
       "App Context:\nruntime",
     );
   });
