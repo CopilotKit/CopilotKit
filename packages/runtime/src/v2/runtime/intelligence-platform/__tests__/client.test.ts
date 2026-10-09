@@ -1026,6 +1026,84 @@ describe("CopilotKitIntelligence", () => {
     });
   });
 
+  describe("getOrCreateThread", () => {
+    const thread = { id: "t-1", name: null };
+    const params = { threadId: "t-1", userId: "user-1", agentId: "agent-1" };
+
+    it("creates a thread its lookup did not find without logging an error", async () => {
+      const loggerError = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => {});
+      const loggerDebug = vi
+        .spyOn(logger, "debug")
+        .mockImplementation(() => {});
+      fetchMock
+        .mockReturnValueOnce(jsonResponse({ code: "THREAD_NOT_FOUND" }, 404))
+        .mockReturnValueOnce(jsonResponse({ thread }));
+
+      const result = await client.getOrCreateThread(params);
+
+      expect(result).toEqual({ thread, created: true });
+      expect(loggerError).not.toHaveBeenCalled();
+      expect(loggerDebug).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 404 }),
+        "Intelligence platform request returned an expected status",
+      );
+      loggerError.mockRestore();
+      loggerDebug.mockRestore();
+    });
+
+    it("reads the thread another request created without logging an error", async () => {
+      const loggerError = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => {});
+      fetchMock
+        .mockReturnValueOnce(jsonResponse({ code: "THREAD_NOT_FOUND" }, 404))
+        .mockReturnValueOnce(jsonResponse({ code: "THREAD_EXISTS" }, 409))
+        .mockReturnValueOnce(jsonResponse({ thread }));
+
+      const result = await client.getOrCreateThread(params);
+
+      expect(result).toEqual({ thread, created: false });
+      expect(loggerError).not.toHaveBeenCalled();
+      loggerError.mockRestore();
+    });
+
+    it("still logs a lookup that fails for another reason as an error", async () => {
+      const loggerError = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => {});
+      fetchMock.mockReturnValueOnce(jsonResponse({ code: "INTERNAL" }, 500));
+
+      await expect(client.getOrCreateThread(params)).rejects.toMatchObject({
+        status: 500,
+      });
+      expect(loggerError).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 500 }),
+        "Intelligence platform request failed",
+      );
+      loggerError.mockRestore();
+    });
+
+    it("still logs a 404 from a direct getThread call as an error", async () => {
+      const loggerError = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => {});
+      fetchMock.mockReturnValueOnce(
+        jsonResponse({ code: "THREAD_NOT_FOUND" }, 404),
+      );
+
+      await expect(
+        client.getThread({ threadId: "t-1", userId: "user-1" }),
+      ).rejects.toMatchObject({ status: 404 });
+      expect(loggerError).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 404 }),
+        "Intelligence platform request failed",
+      );
+      loggerError.mockRestore();
+    });
+  });
+
   describe("getThreadMessages", () => {
     it("sends GET to thread messages endpoint and returns the durable transcript", async () => {
       const payload = {
