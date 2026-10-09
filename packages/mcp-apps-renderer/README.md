@@ -48,6 +48,12 @@ containing block an ancestor establishes, without ever reparenting the iframe;
 `ɵlockBodyScroll()` is the page-wide, ref-counted scroll lock behind a
 fullscreen widget.
 
+Escape exits fullscreen through the dialog's `cancel` event, which the browser
+only fires while focus is on the host side: a key pressed inside the sandboxed
+widget never leaves its iframe. The adapters therefore land focus on the exit
+button when fullscreen opens; once the user has clicked into the widget, the
+button (or the widget's own `requestDisplayMode("inline")`) is the way out.
+
 ## Script-tag / UMD usage
 
 This package also ships a UMD build of the bridge-free `/activity` entry:

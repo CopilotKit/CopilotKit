@@ -44,6 +44,7 @@ import { MCP_APPS_CONFIG } from "./mcp-apps-config";
     >
       @if (fullscreen()) {
         <button
+          #exitButton
           type="button"
           class="copilot-mcp-apps-exit-fullscreen"
           aria-label="Exit fullscreen"
@@ -177,6 +178,8 @@ export class CopilotMCPAppsWidget {
     viewChild.required<ElementRef<HTMLIFrameElement>>("appFrame");
   private readonly surface =
     viewChild.required<ElementRef<HTMLDialogElement>>("surface");
+  private readonly exitButton =
+    viewChild<ElementRef<HTMLButtonElement>>("exitButton");
   protected readonly loading = signal(true);
   protected readonly error = signal("");
   protected readonly contentError = signal("");
@@ -315,6 +318,10 @@ export class CopilotMCPAppsWidget {
         return;
       }
       frame.style.height = "100%";
+      // Escape reaches the modal dialog only while focus is on the host side;
+      // inside the sandboxed widget the key never leaves the iframe. Landing
+      // focus on the exit button makes Escape work from the moment of entry.
+      this.exitButton()?.nativeElement.focus();
       const onResize = () => this.session?.setDisplayMode("fullscreen");
       window.addEventListener("resize", onResize);
       const releaseScrollLock = ɵlockBodyScroll();

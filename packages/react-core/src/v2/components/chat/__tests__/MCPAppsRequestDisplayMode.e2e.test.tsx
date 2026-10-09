@@ -415,6 +415,8 @@ describe("MCP Apps ui/request-display-mode", () => {
       name: "Exit fullscreen",
     });
     expect(closeButton).toBeDefined();
+    // Focus lands on the host's exit button, so Escape works right away.
+    expect(document.activeElement).toBe(closeButton);
 
     await act(async () => {
       fireEvent.click(closeButton);

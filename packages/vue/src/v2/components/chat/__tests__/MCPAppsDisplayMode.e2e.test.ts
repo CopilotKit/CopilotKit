@@ -268,9 +268,9 @@ describe("MCP Apps ui/request-display-mode (Vue surface)", () => {
     const id = await requestMode(iframe, "fullscreen");
 
     expect(responseFor(spy, id)?.result).toEqual({ mode: "fullscreen" });
-    expect(
-      await screen.findByRole("button", { name: "Exit fullscreen" }),
-    ).toBeDefined();
+    const exit = await screen.findByRole("button", { name: "Exit fullscreen" });
+    // Focus lands on the host's exit button, so Escape works right away.
+    expect(document.activeElement).toBe(exit);
     const dialog = iframe.closest("dialog");
     expect(dialog?.getAttribute("data-mcp-app-display-mode")).toBe(
       "fullscreen",

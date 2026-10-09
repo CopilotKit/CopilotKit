@@ -1057,6 +1057,8 @@ test("grants fullscreen: exit button, top-layer dialog, frame filling the surfac
   );
   expect(response?.result).toEqual({ mode: "fullscreen" });
   expect(exitFullscreenButton(fixture)).not.toBeNull();
+  // Focus lands on the host's exit button, so Escape works right away.
+  expect(document.activeElement).toBe(exitFullscreenButton(fixture));
   const dialog = frame.closest("dialog");
   expect(dialog?.getAttribute("data-mcp-app-display-mode")).toBe("fullscreen");
   expect(

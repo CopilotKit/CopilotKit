@@ -67,6 +67,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     // longer forwards them).
     const messageId = (message as { id?: string } | undefined)?.id;
     const containerRef = useRef<HTMLDialogElement>(null);
+    const exitButtonRef = useRef<HTMLButtonElement>(null);
     const iframeRef = useRef<HTMLIFrameElement | null>(null);
     const sessionRef = useRef<McpAppSession | null>(null);
     const [error, setError] = useState<Error | null>(null);
@@ -239,6 +240,10 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     // from the modal <dialog> itself.
     useEffect(() => {
       if (displayMode !== "fullscreen") return;
+      // Escape reaches the modal dialog only while focus is on the host side;
+      // inside the sandboxed widget the key never leaves the iframe. Landing
+      // focus on the exit button makes Escape work from the moment of entry.
+      exitButtonRef.current?.focus();
       const onResize = () => sessionRef.current?.setDisplayMode("fullscreen");
       window.addEventListener("resize", onResize);
       const releaseScrollLock = ɵlockBodyScroll();
@@ -343,6 +348,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       >
         {isFullscreen && (
           <button
+            ref={exitButtonRef}
             type="button"
             aria-label="Exit fullscreen"
             onClick={exitFullscreen}

@@ -75,6 +75,7 @@ export const MCPAppsActivityRenderer = defineComponent({
   setup(props) {
     const { copilotkit } = useCopilotKit();
     const containerRef = ref<HTMLDialogElement | null>(null);
+    const exitButtonRef = ref<HTMLButtonElement | null>(null);
     // UI-only state: plain refs are fine (no agent-bound payload crosses here).
     const error = ref<Error | null>(null);
     // Recoverable: an activity update the content schema rejected, from the
@@ -249,6 +250,10 @@ export const MCPAppsActivityRenderer = defineComponent({
         if (!dialog) return;
         ɵshowDialogForMode(dialog, mode);
         if (mode !== "fullscreen") return;
+        // Escape reaches the modal dialog only while focus is on the host
+        // side; inside the sandboxed widget the key never leaves the iframe.
+        // Landing focus on the exit button makes Escape work from entry on.
+        exitButtonRef.value?.focus();
         const onResize = () => sessionRef.value?.setDisplayMode("fullscreen");
         window.addEventListener("resize", onResize);
         const releaseScrollLock = ɵlockBodyScroll();
@@ -370,6 +375,7 @@ export const MCPAppsActivityRenderer = defineComponent({
             ? h(
                 "button",
                 {
+                  ref: exitButtonRef,
                   type: "button",
                   "aria-label": "Exit fullscreen",
                   onClick: exitFullscreen,
