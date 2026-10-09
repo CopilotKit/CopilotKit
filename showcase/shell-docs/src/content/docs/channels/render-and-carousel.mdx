@@ -39,19 +39,14 @@ Set fonts and styles once on `createChannel({ render })`. See [Posting JSX as im
 
 The Slack example posts this mix with `/carousel` or by asking the bot to show a carousel (`render_carousel` in `examples/slack`).
 
-This works on both paths:
+This feature targets managed Slack and Teams:
 
-- Direct Slack, Teams, Discord, Telegram, and WhatsApp. The local adapter uploads the PNG (or keeps a data URI) and does not post a second file message.
-- Managed Intelligence Slack. The SDK stores the PNG and puts the file handle in `slack_file.id`. Intelligence uploads that file to Slack without sharing it, waits until Slack marks the file as an image, then posts the carousel. Managed Teams uses a data URI, the same as the local Teams adapter.
+- **Slack:** the SDK stores each PNG and puts its file handle in `slack_file.id`. Intelligence stages the image in Slack before posting the native message or carousel. Native buttons keep their action callbacks.
+- **Teams:** the SDK embeds snapshots as data URIs in an Adaptive Card. The complete delivery packet, including all images, text, and actions, must fit the existing **64 KiB** limit. Oversized cards fail with an error explaining the limit. Reduce the snapshot dimensions, use public `<Image url>` images, or post a larger snapshot separately with `thread.post(jsx)`, which uses the managed upload path.
 
-Use `pnpm direct` in `examples/slack` when you want the local Slack adapter. Use `pnpm start` when Intelligence owns Slack.
+Run `pnpm channel` in `examples/slack` for the managed example. Existing direct adapters and Discord, Telegram, and WhatsApp behavior are unchanged.
 
-## Where it lands
-
-| Platform | What you get |
+| Managed platform | Carousel output |
 | --- | --- |
-| Slack | Native carousel |
-| Teams | Adaptive Card carousel |
-| Discord | Media Gallery |
-| Telegram | Album, or a photo plus a keyboard |
-| WhatsApp | Native carousel, or stacked images |
+| Slack | Native carousel with interactive buttons |
+| Teams | Adaptive Card carousel with interactive actions |

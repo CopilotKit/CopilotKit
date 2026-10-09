@@ -1,12 +1,10 @@
 ---
 title: Posting JSX as images
-description: Post any app component, a shadcn card or a dashboard tile, to a thread with thread.post(<X/>). Arbitrary JSX renders to an image via Takumi (no browser); channels-ui JSX keeps rendering natively.
+description: Post static JSX snapshots to managed Slack and Teams while keeping native channel messages interactive.
 icon: "lucide/Component"
 ---
 
-You already have the component. A styled MRR card, a dashboard tile, a shadcn summary block, sitting in your app. You want it in the thread. Today the only way is to screenshot it yourself, because `thread.post` understands the `@copilotkit/channels` JSX vocabulary (`<Message>`, `<Header>`, `<Section>`) and nothing else.
-
-Now `thread.post(<MrrCard/>)` just works. The SDK renders your own React component to a PNG, fonts and compiled CSS included, and uploads it. No wrapper, no extra API. Native channel components keep rendering exactly as before.
+Managed Slack and Teams can post static JSX cards as PNGs with `thread.post(<MrrCard />)`. The SDK uses Takumi to render fonts and compiled CSS without a browser, then uploads through the existing managed file path. Existing native channel components continue to render as Block Kit or Adaptive Cards.
 
 <Callout type="warn" title="Install react first">
   The image path renders through React, which is an **optional peer dependency** of `@copilotkit/channels` (your app owns its React version). It is not pulled in automatically. Takumi, the rasterizer, ships with the package, so you do not install it. Add React first:
@@ -22,27 +20,24 @@ Now `thread.post(<MrrCard/>)` just works. The SDK renders your own React compone
   <Step>
     ### How it's routed
 
-    `thread.post` classifies what you pass by **where it was authored**, not by inspecting it at call time:
+    `thread.post` expands component functions once per operation and classifies their output:
 
-    - A plain React element built in an ordinary app file (react-pragma: `<div>`, a shadcn card, `<MrrCard/>`) goes straight to the **image** path via [Takumi](https://github.com/takumi-rs/takumi) and uploads through the existing `postFile` path. It is not called to peek at its output; a plain element goes to the image renderer as-is.
-    - A `@copilotkit/channels` component (`<Message>`, `<Button>`), or your own component referenced under the channels JSX pragma (or branded as a channels-ui component) that returns channel nodes, renders **natively**, unchanged. An `IssueCard` that returns `<Message>...</Message>` becomes real Block Kit or Adaptive Cards.
+    - Channel components such as `<Message>`, `<Header>`, and `<Button>` stay native, including when wrapped in your own component or a React fragment.
+    - Host markup such as `<div>`, `<span>`, and `<svg>` becomes a PNG through [Takumi](https://github.com/takumi-rs/takumi).
+    - To combine a snapshot with native text or buttons, put the snapshot inside `<Render>`.
 
     ```tsx
-    // Native. Authored under the channels pragma, renders as real Block Kit /
-    // Adaptive Cards.
     await thread.post(
-      <Message accent="#16a34a">
+      <Message>
         <Header>Deploy complete</Header>
-        <Section>Shipped <b>v2.4.0</b> to production.</Section>
+        <Section>Shipped v2.4.0 to production.</Section>
       </Message>,
     );
 
-    // Arbitrary app JSX. A plain React element from an app file, routed to an
-    // image automatically, no wrapper needed.
     await thread.post(<MrrCard value="$48,200" delta={12} />);
     ```
 
-    The "call the component and inspect its output" check runs only for components referenced under the channels pragma. A plain element from an app (react-pragma) file is never called; it goes straight to the image path. An unbranded channels-pragma component that throws during this peek (say it calls a hook) is treated as native rather than crashing the classifier. Each element is peeked **at most once** (the verdict is memoized per element), so passing the same element through more than one call does not re-run your component; on the native path it is then called once more to bind. Components referenced under the channels pragma must therefore be pure and side-effect-free.
+    Use pure presentational components. Top-level component functions are expanded outside React's hook dispatcher, so hooks, browser APIs, and effects are unsupported. A reused native element renders again on each post or update; its output is not cached.
 
     <Callout type="info" title="Image is URL-only">
       `<Image url>` is a public URL image. It does not take children. To put a React snapshot inside native text, buttons, or a carousel, wrap it in `<Render>`. See [Render and carousel](/channels/render-and-carousel).
@@ -58,7 +53,7 @@ Now `thread.post(<MrrCard/>)` just works. The SDK renders your own React compone
     import { readFileSync } from "node:fs";
 
     const bot = createChannel({
-      adapters: [/* ... */],
+      name: "support", // managed channel configured in Intelligence
       agent: (threadId) => /* ... */,
       render: {
         fonts: [
@@ -109,7 +104,7 @@ Now `thread.post(<MrrCard/>)` just works. The SDK renders your own React compone
   <Step>
     ### Override per post
 
-    Every `render` field can be overridden for a single post, handy for a wider dashboard, a taller card, or an extra font just for that message:
+    Canvas dimensions, fonts, and stylesheets can be overridden for a single post, handy for a wider dashboard, a taller card, or an extra font just for that message:
 
     ```tsx
     await thread.post(<WideDashboard data={rows} />, { width: 1200 });
@@ -155,13 +150,13 @@ Now `thread.post(<MrrCard/>)` just works. The SDK renders your own React compone
     Takumi is a static SSR rasterizer. It calls your components with server-render semantics, not a real browser. Keep this in mind:
 
     - **No runtime-JS chart or diagram libraries.** Recharts, Chart.js, and Mermaid measure or paint the live DOM (`useEffect`, canvas, layout measurement), and none of that runs under Takumi. Use your own pure presentational markup instead.
-    - **`update()` and `postEphemeral()` do not accept arbitrary JSX.** An uploaded image cannot be edited in place, so both throw a clear error if you pass a React element (or an unbranded component that returns one). Post a new image instead.
-    - **Image posts are file-backed, and not every platform hands back a message id.** `post()` returns a `MessageRef` holding the id of the *message* the image was posted as, so `delete()`/`react()` work where the platform reports one (Slack via the file's share, Discord, Teams, Telegram, WhatsApp). Platforms that upload media out of band, or the managed transport (which hands the upload to an async outbox), may report no id at all: you get `{ id: "" }` and a warning. The upload itself still succeeded. Never assume a media/file id doubles as a message id, the platform APIs reject it.
+    - **`update()` and `postEphemeral()` do not accept arbitrary JSX.** An uploaded image cannot be edited in place, so both reject host image markup; React wrappers that return native channel components remain supported. Post a new image instead.
+    - **Managed image uploads do not return an addressable message reference.** A successful image post currently returns `{ id: "" }` and warns once. Do not pass this reference to `update()`, `delete()`, or `react()`. Native messages, including messages containing `<Render>`, keep their normal references.
     - **The canvas has a fixed size.** It defaults to 720 by 480. Pass `width`/`height` globally via `render`, or per post, for anything else.
   </Step>
 </Steps>
 
-You have arrived: arbitrary app components render to images alongside your native channel UI, styled with your own fonts and compiled CSS, with no browser anywhere in the process.
+The new image feature targets managed Slack and Teams. Direct adapters and the other integrations are unchanged.
 
 ## See it end to end
 
