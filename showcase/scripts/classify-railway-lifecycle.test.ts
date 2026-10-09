@@ -141,3 +141,61 @@ it("real CLI does not accept exclusions supplied on stdin", () => {
   expect(result.stdout).toBe("");
   expect(result.stderr).toMatch(/Invalid lifecycle inventory fields/);
 });
+
+/** Create an actual hole so in-process validation cannot rely on JSON normalization. */
+function sparseValues(value: unknown, mixed: boolean): unknown[] {
+  const values = mixed ? [value] : [];
+  values.length += 1;
+  return values;
+}
+
+it.each([
+  ["observedEnvironmentIds", false],
+  ["observedEnvironmentIds", true],
+  ["services", false],
+  ["services", true],
+] as const)(
+  "rejects sparse bridge %s with mixed entries %s",
+  async (field, mixed) => {
+    const records = join(directory, "records.json");
+    writeFileSync(records, JSON.stringify({ schemaVersion: 1, runs: [] }));
+    const input =
+      field === "observedEnvironmentIds"
+        ? {
+            ...inventory,
+            observedEnvironmentIds: sparseValues(STAGING_ENV_ID, mixed),
+            services: [],
+          }
+        : { ...inventory, services: sparseValues(temporary, mixed) };
+    await expect(classifyInventoryPayload(input, records, now)).rejects.toThrow(
+      "Invalid lifecycle inventory arrays",
+    );
+  },
+);
+
+it.each([
+  { ...inventory, observedEnvironmentIds: [], services: [] },
+  {
+    ...inventory,
+    services: [
+      { ...temporary, name: "aimock", serviceId: SERVICES.aimock.serviceId },
+    ],
+  },
+])(
+  "preserves dense or empty bridge inventory through JSON round trip %#",
+  async (input) => {
+    const records = join(directory, "records.json");
+    writeFileSync(records, JSON.stringify({ schemaVersion: 1, runs: [] }));
+    const result = await classifyInventoryPayload(input, records, now);
+    expect(result.failures).toEqual([]);
+    expect(result.services).toHaveLength(input.services.length);
+    expect(
+      await classifyInventoryPayload(
+        JSON.parse(JSON.stringify(input)),
+        records,
+        now,
+      ),
+    ).toEqual(result);
+    expect(JSON.parse(JSON.stringify(result))).toEqual(result);
+  },
+);

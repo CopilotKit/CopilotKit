@@ -129,9 +129,18 @@ function string(value: unknown, path: string): string {
   return value;
 }
 
-/** Require an array without coercing missing fields to empty lists. */
+/** Check every array index before map or scope checks can skip missing entries. */
+export function isDenseArray(value: unknown): value is unknown[] {
+  if (!Array.isArray(value)) return false;
+  for (let index = 0; index < value.length; index++) {
+    if (!Object.hasOwn(value, index)) return false;
+  }
+  return true;
+}
+
+/** Require a dense array without coercing missing fields to empty lists. */
 function array(value: unknown, path: string): unknown[] {
-  if (!Array.isArray(value))
+  if (!isDenseArray(value))
     invalid("invalid-array", `${path} must be an array`);
   return value;
 }

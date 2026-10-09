@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import {
   classifyRailwayInventory,
+  isDenseArray,
   parseRailwayLifecyclePolicy,
 } from "../harness/src/shared/railway-lifecycle";
 import type {
@@ -49,8 +50,8 @@ export async function classifyInventoryPayload(
   ]);
   const projectId = identity(data.projectId);
   if (
-    !Array.isArray(data.observedEnvironmentIds) ||
-    !Array.isArray(data.services)
+    !isDenseArray(data.observedEnvironmentIds) ||
+    !isDenseArray(data.services)
   )
     throw new Error("Invalid lifecycle inventory arrays");
   const observedEnvironmentIds = data.observedEnvironmentIds.map(identity);

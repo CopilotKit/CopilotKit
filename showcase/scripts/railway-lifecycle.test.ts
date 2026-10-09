@@ -747,3 +747,117 @@ describe("durable record reader", () => {
     );
   });
 });
+
+/** Add an absent array index without turning it into an explicit undefined entry. */
+function sparseValues(value: unknown, mixed: boolean): unknown[] {
+  const values = mixed ? [value] : [];
+  values.length += 1;
+  return values;
+}
+
+describe("dense arrays at lifecycle parser boundaries", () => {
+  it.each([
+    ["forbiddenEnvironmentIds", false],
+    ["forbiddenEnvironmentIds", true],
+    ["permanentServices", false],
+    ["permanentServices", true],
+    ["approvedImages", false],
+    ["approvedImages", true],
+  ] as const)(
+    "rejects sparse policy %s with mixed entries %s",
+    (field, mixed) => {
+      const input = {
+        ...policy,
+        [field]: sparseValues(policy[field][0], mixed),
+      };
+      expect(parseRailwayLifecyclePolicy(input)).toMatchObject({
+        ok: false,
+        issues: [{ code: "invalid-array" }],
+      });
+    },
+  );
+
+  it.each([
+    ["runs", false],
+    ["runs", true],
+    ["services", false],
+    ["services", true],
+    ["resources", false],
+    ["resources", true],
+  ] as const)(
+    "rejects sparse snapshot %s with mixed entries %s",
+    (field, mixed) => {
+      const run = record();
+      const input = {
+        schemaVersion: 1,
+        runs:
+          field === "runs"
+            ? sparseValues(run, mixed)
+            : [{ ...run, [field]: sparseValues(run[field][0], mixed) }],
+      };
+      expect(parseRunRecordsSnapshot(input, policy, NOW)).toMatchObject({
+        ok: false,
+        issues: [{ code: "invalid-array" }],
+      });
+    },
+  );
+
+  it("rejects a purported valid sparse snapshot before classification can grant ownership", () => {
+    const result = classify({
+      evidence: {
+        status: "valid",
+        snapshot: { schemaVersion: 1, runs: sparseValues(record(), true) },
+      },
+    });
+    expect(result.excludedServices).toEqual([]);
+    expect(result.excludedEnvironments).toEqual([]);
+    expect(result.failures).toContainEqual(
+      expect.objectContaining({ code: "invalid-array" }),
+    );
+  });
+
+  it.each([
+    policy,
+    {
+      ...policy,
+      forbiddenEnvironmentIds: [],
+      permanentServices: [],
+      approvedImages: [],
+    },
+  ])(
+    "preserves accepted dense or empty policy arrays through JSON round trip %#",
+    (input) => {
+      const parsed = parseRailwayLifecyclePolicy(input);
+      expect(parsed.ok).toBe(true);
+      if (parsed.ok) {
+        expect(
+          parseRailwayLifecyclePolicy(JSON.parse(JSON.stringify(parsed.value))),
+        ).toEqual(parsed);
+      }
+    },
+  );
+
+  it.each([
+    { schemaVersion: 1, runs: [] },
+    {
+      schemaVersion: 1,
+      runs: [record({ phase: "setup", services: [], resources: [] })],
+    },
+    { schemaVersion: 1, runs: [record()] },
+  ])(
+    "preserves accepted dense or empty snapshot arrays through JSON round trip %#",
+    (input) => {
+      const parsed = parseRunRecordsSnapshot(input, policy, NOW);
+      expect(parsed.ok).toBe(true);
+      if (parsed.ok) {
+        expect(
+          parseRunRecordsSnapshot(
+            JSON.parse(JSON.stringify(parsed.value)),
+            policy,
+            NOW,
+          ),
+        ).toEqual(parsed);
+      }
+    },
+  );
+});
