@@ -21,6 +21,33 @@ so a CommonJS root would emit a `require()` of an ES module and fail with
 ESM from any module system), and import the bridge-free `/activity` surface for
 synchronous activity registration.
 
+## Display modes
+
+`bindMcpApp` negotiates `ui/request-display-mode` for every frontend:
+
+- The host renders `inline` and `fullscreen` (`HOST_SUPPORTED_DISPLAY_MODES`);
+  `pip` is never granted. A request for an unavailable mode leaves the mode
+  untouched and answers with the mode still applied.
+- A mode the app did not list in `appCapabilities.availableDisplayModes` at
+  `ui/initialize` is refused the same way. `options.hostContext.availableDisplayModes`
+  narrows what the host offers (`inline` always stays).
+- `hostContext` carries `displayMode` and `availableDisplayModes` from
+  construction on, so the `ui/initialize` response already advertises them.
+  Every change, widget-initiated or host-initiated, goes through the same path
+  and reaches the widget as `ui/notifications/host-context-changed`;
+  `fullscreen` also advertises its `containerDimensions`.
+- The adapter renders the mode: `hooks.onDisplayModeChange(mode)` tells it what
+  was granted, `session.setDisplayMode("inline")` is the host-initiated exit
+  (close button, Escape) and `session.getDisplayMode()` reads the current mode.
+
+The bridge-free `/activity` entry ships the pieces the adapters need to render
+the surface without the bridge: `ɵshowDialogForMode(dialog, mode)` opens the
+widget's native `<dialog>` in normal flow for `inline` and in the browser top
+layer (`showModal()`) for `fullscreen`, so it fills the viewport whatever
+containing block an ancestor establishes, without ever reparenting the iframe;
+`ɵlockBodyScroll()` is the page-wide, ref-counted scroll lock behind a
+fullscreen widget.
+
 ## Script-tag / UMD usage
 
 This package also ships a UMD build of the bridge-free `/activity` entry:

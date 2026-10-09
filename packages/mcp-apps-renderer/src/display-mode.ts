@@ -1,0 +1,118 @@
+// Display modes of the MCP Apps host (`ui/request-display-mode`).
+//
+// Bridge-free on purpose: the framework adapters import this surface through
+// the `/activity` entry to render the mode a widget was granted, while the
+// session (root entry) negotiates it with the widget. Keeping the two apart
+// means a `<CopilotKit>` app that never renders an MCP App still does not load
+// the ext-apps bundle.
+
+/** A display mode the ext-apps spec lets a widget request. */
+export type McpAppsDisplayMode = "inline" | "fullscreen" | "pip";
+
+/**
+ * Display modes every CopilotKit frontend renders. `pip` is deliberately
+ * absent: no frontend renders a picture-in-picture surface, so a widget asking
+ * for it keeps its current mode.
+ */
+export const HOST_SUPPORTED_DISPLAY_MODES: readonly McpAppsDisplayMode[] = [
+  "inline",
+  "fullscreen",
+];
+
+/** The surface a widget gets in a mode (host context `containerDimensions`). */
+export interface McpAppContainerDimensions {
+  width: number;
+  height: number;
+}
+
+/**
+ * The modes this host offers a widget: the host-rendered modes, narrowed by
+ * an explicit `hostContext.availableDisplayModes` from the session options.
+ * `inline` is never removed, since every widget starts there.
+ */
+export function resolveHostDisplayModes(
+  configured: unknown,
+): McpAppsDisplayMode[] {
+  const supported = [...HOST_SUPPORTED_DISPLAY_MODES];
+  if (!Array.isArray(configured)) return supported;
+  const narrowed = supported.filter((mode) => configured.includes(mode));
+  return narrowed.includes("inline") ? narrowed : ["inline", ...narrowed];
+}
+
+/**
+ * The surface advertised for a mode when the adapter reports none: the
+ * viewport for `fullscreen`, nothing for `inline`.
+ */
+export function defaultContainerDimensions(
+  mode: McpAppsDisplayMode,
+): McpAppContainerDimensions | undefined {
+  if (mode !== "fullscreen" || typeof window === "undefined") return undefined;
+  return {
+    width: Math.round(window.innerWidth),
+    height: Math.round(window.innerHeight),
+  };
+}
+
+/**
+ * Open the widget's `<dialog>` surface for a mode. `inline` opens it in normal
+ * flow (`show()`); `fullscreen` opens it in the browser top layer
+ * (`showModal()`), which fills the viewport whatever containing block an
+ * ancestor establishes (CopilotKit's chat container uses `container-type`,
+ * which would trap a `position: fixed` overlay inside the chat panel). The
+ * iframe stays inside the dialog across transitions, so switching modes never
+ * reloads the widget.
+ *
+ * The applied mode is recorded on `data-mcp-app-display-mode`, which is also
+ * what tells a later call whether the dialog must be closed and reopened. Where
+ * the top layer is unavailable (jsdom), the dialog is merely marked `open`.
+ */
+export function ɵshowDialogForMode(
+  dialog: HTMLDialogElement,
+  mode: McpAppsDisplayMode,
+): void {
+  const modal = mode === "fullscreen";
+  if (
+    typeof dialog.showModal !== "function" ||
+    typeof dialog.show !== "function"
+  ) {
+    if (!dialog.open) dialog.setAttribute("open", "");
+    dialog.setAttribute("data-mcp-app-display-mode", mode);
+    return;
+  }
+  const wasModal =
+    dialog.getAttribute("data-mcp-app-display-mode") === "fullscreen";
+  if (dialog.open && wasModal !== modal) dialog.close();
+  if (!dialog.open) {
+    if (modal) dialog.showModal();
+    else dialog.show();
+  }
+  dialog.setAttribute("data-mcp-app-display-mode", mode);
+}
+
+// One lock for the whole page: with two widgets in fullscreen at once, the
+// first one to exit must not unlock the page while the second is still open.
+let scrollLockHolders = 0;
+let bodyOverflowBeforeLock = "";
+
+/**
+ * Lock the page scroll behind a fullscreen widget. Returns the release
+ * function; releasing twice is a no-op. The page scrolls again once the last
+ * holder has released.
+ */
+export function ɵlockBodyScroll(): () => void {
+  if (typeof document === "undefined") return () => {};
+  if (scrollLockHolders === 0) {
+    bodyOverflowBeforeLock = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+  }
+  scrollLockHolders += 1;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    scrollLockHolders -= 1;
+    if (scrollLockHolders === 0) {
+      document.body.style.overflow = bodyOverflowBeforeLock;
+    }
+  };
+}
