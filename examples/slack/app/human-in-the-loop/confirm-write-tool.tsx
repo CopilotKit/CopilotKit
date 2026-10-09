@@ -1,13 +1,18 @@
 /**
  * `confirm_write` — the agent-facing write-gate TOOL.
  *
- * The migration kept the {@link ConfirmWrite} JSX card but this tool is what
- * makes the system prompt's contract real: "call the confirm_write tool before
- * any Linear/Notion write". In the new model HITL is a BLOCKING FRONTEND TOOL —
- * the handler calls `await thread.awaitChoice(<ConfirmWrite .../>)`, which posts
- * the picker and BLOCKS until the user clicks Create/Cancel, then resolves to
- * the clicked button's `value` (`{ confirmed: boolean }`). The agent only
- * performs the write once this returns `{ confirmed: true }`.
+ * HITL here is NON-BLOCKING. The handler posts the {@link ConfirmWrite} card and
+ * returns immediately; the buttons carry the behaviour. Clicking one arrives
+ * later as its own interaction turn, which updates the card in place and — on
+ * approval — resumes the agent to perform the write.
+ *
+ * It deliberately does NOT use `thread.awaitChoice`. That helper parks an
+ * in-memory waiter and blocks the turn until a click resolves it, which cannot
+ * work on a managed Channel: each turn is its own bounded delivery, and the
+ * click arrives as a separate delivery that may not even land in this process.
+ * Managed adapters advertise this by reporting `supportsBlockingChoice: false`.
+ * The interaction path below behaves the same on every surface, so there is one
+ * code path rather than one per adapter.
  */
 import { z } from "zod";
 import { defineChannelTool } from "@copilotkit/channels";
@@ -21,7 +26,7 @@ export const confirmWriteSchema = z.object({
     ),
   detail: z
     .string()
-    .optional()
+    .nullish()
     .describe(
       "Optional detail block shown under the prompt, e.g. the drafted title + description/outline",
     ),
@@ -31,16 +36,19 @@ export const confirmWriteTool = defineChannelTool({
   name: "confirm_write",
   description:
     "Ask the user to approve a write before you perform it. Posts a " +
-    "confirm/cancel card and BLOCKS until the user clicks; returns " +
-    "{confirmed: boolean}. You MUST call this before creating or modifying " +
-    "anything in Linear or Notion. Reads never need confirmation.",
+    "confirm/cancel card and returns immediately — it does NOT wait. Stop " +
+    "your turn after calling it: if the user approves, you are resumed " +
+    "automatically with the approval. You MUST call this before creating or " +
+    "modifying anything in Linear or Notion. Reads never need confirmation.",
   parameters: confirmWriteSchema,
   async handler({ action, detail }, { thread }) {
-    const choice = await thread.awaitChoice<{ confirmed?: boolean }>(
-      <ConfirmWrite action={action} detail={detail} />,
+    await thread.post(
+      <ConfirmWrite action={action} detail={detail ?? undefined} />,
     );
-    return choice?.confirmed
-      ? "The user APPROVED the write — proceed."
-      : "The user DECLINED — do not write; acknowledge and stop.";
+    return (
+      `Approval requested for: ${action}. The confirm/cancel card is posted. ` +
+      "Do NOT write anything now and do not ask again in this turn — end your " +
+      "turn here. You will be resumed with the user's decision when they click."
+    );
   },
 });
