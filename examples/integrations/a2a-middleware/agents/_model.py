@@ -37,7 +37,9 @@ def parse_agent_model(value: str) -> tuple[str, str]:
 
 
 def _resolve(default_spec: str) -> tuple[str, str]:
-    return parse_agent_model((os.getenv("COPILOTKIT_AGENT_MODEL") or "").strip() or default_spec)
+    return parse_agent_model(
+        (os.getenv("COPILOTKIT_AGENT_MODEL") or "").strip() or default_spec
+    )
 
 
 def adk_model(default_spec: str):
