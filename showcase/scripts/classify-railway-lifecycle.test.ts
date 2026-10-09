@@ -143,6 +143,79 @@ it("real CLI does not accept exclusions supplied on stdin", () => {
   expect(result.stderr).toMatch(/Invalid lifecycle inventory fields/);
 });
 
+it.each([
+  { label: "undefined", image: undefined },
+  { label: "number", image: 42 },
+  { label: "zero", image: 0 },
+  { label: "object", image: {} },
+  { label: "array", image: [] },
+  { label: "boolean", image: false },
+])(
+  "rejects an inventory image of type $label",
+  async ({ image: inputImage }) => {
+    const records = join(directory, "records.json");
+    writeFileSync(records, JSON.stringify({ schemaVersion: 1, runs: [] }));
+    await expect(
+      classifyInventoryPayload(
+        { ...inventory, services: [{ ...temporary, image: inputImage }] },
+        records,
+        now,
+      ),
+    ).rejects.toThrow("Invalid lifecycle inventory image");
+  },
+);
+
+it("rejects an absent inventory image instead of treating it as null", async () => {
+  const records = join(directory, "records.json");
+  writeFileSync(records, JSON.stringify({ schemaVersion: 1, runs: [] }));
+  await expect(
+    classifyInventoryPayload(
+      {
+        ...inventory,
+        services: [
+          {
+            name: temporary.name,
+            serviceId: temporary.serviceId,
+            environmentId: temporary.environmentId,
+          },
+        ],
+      },
+      records,
+      now,
+    ),
+  ).rejects.toThrow("Invalid lifecycle inventory fields");
+});
+
+it.each([
+  { label: "null", image: null },
+  { label: "empty string", image: "" },
+  { label: "string", image },
+])(
+  "preserves an explicit $label inventory image",
+  async ({ image: inputImage }) => {
+    const records = join(directory, "records.json");
+    writeFileSync(records, JSON.stringify({ schemaVersion: 1, runs: [] }));
+    const service = {
+      ...temporary,
+      name: "aimock",
+      serviceId: SERVICES.aimock.serviceId,
+      image: inputImage,
+    };
+    const result = await classifyInventoryPayload(
+      { ...inventory, services: [service] },
+      records,
+      now,
+    );
+    expect(result).toEqual({
+      services: [{ ...service, classification: "permanent" }],
+      diagnostics: [],
+      failures: [],
+      excludedServices: [],
+      excludedEnvironments: [],
+    });
+  },
+);
+
 /** Create an actual hole so in-process validation cannot rely on JSON normalization. */
 function sparseValues(value: unknown, mixed: boolean): unknown[] {
   const values = mixed ? [value] : [];
