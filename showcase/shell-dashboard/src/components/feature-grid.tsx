@@ -29,7 +29,7 @@ import { GLYPHS } from "@/lib/glyphs";
 import { LevelStrip } from "@/components/level-strip";
 import { OverlayColumnHeader } from "@/components/overlay-column-header";
 import { RefDepthHeader, RefDepthCell } from "@/components/ref-depth-column";
-import { buildCellModel, catalogCellToInput } from "@/lib/cell-model";
+import { tryBuildCellModel, catalogCellToInput } from "@/lib/cell-model";
 import { asParityTier } from "@/lib/page-stats";
 import { getRuntimeConfig } from "@/lib/runtime-config.client";
 import type { CatalogCell } from "@/components/depth-utils";
@@ -112,7 +112,7 @@ export function computeColumnTally(
     );
     const isWired = integration.demos.some((d) => d.id === feature.id);
 
-    const model = buildCellModel(
+    const model = tryBuildCellModel(
       liveStatus,
       {
         slug: integration.slug,
@@ -123,6 +123,7 @@ export function computeColumnTally(
       now,
     );
 
+    if (!model) continue;
     if (model.chipColor === "green") green++;
     else if (model.chipColor === "amber") amber++;
     else if (model.chipColor === "red") red++;
@@ -186,7 +187,7 @@ export function computeColumnTallyDetail(
     );
     const isWired = integration.demos.some((d) => d.id === feature.id);
 
-    const model = buildCellModel(
+    const model = tryBuildCellModel(
       liveStatus,
       {
         slug: integration.slug,
@@ -198,7 +199,7 @@ export function computeColumnTallyDetail(
     );
 
     // Gray → skip (no data / unsupported / unwired)
-    if (model.chipColor === "gray") continue;
+    if (!model || model.chipColor === "gray") continue;
 
     // Derive dimension from model: D4/D5/D6 failures are "health" (live
     // round-trip/conversation/parity checks); D3 failures are "e2e" (page-load).
@@ -359,7 +360,7 @@ const CategorySection = React.memo(
               ? refCellsByFeature.get(feature.id)
               : undefined;
             const refModel = refCell
-              ? buildCellModel(
+              ? tryBuildCellModel(
                   liveStatus,
                   {
                     slug: refCell.integration,
@@ -417,10 +418,13 @@ const CategorySection = React.memo(
                       className="sticky left-[160px] z-10 px-1 py-1 border-r-2 border-r-[#c4b5fd] border-l border-[var(--border)] align-top"
                       style={{ backgroundColor: "#f5f0ff" }}
                     >
-                      {/* Spacer, NOT a status — it has no reference datum.
-                          It used to render `--`, the same glyph the unshipped
-                          depth chip used, so one mark carried two meanings.
-                          An empty cell is the honest rendering. */}
+                      {refCell && !docsOnly && refModel === null && (
+                        <StatusChip
+                          tone="blue"
+                          label={GLYPHS.fault.mark}
+                          title={`Reference cell unavailable: ${feature.id}`}
+                        />
+                      )}
                     </td>
                   ))}
                 {integrations.map((integration) => {
@@ -574,13 +578,13 @@ function StarterSection({
   // is exactly when the four legacy sub-rows must still render.
   const ladder = useMemo(() => {
     if (starterCells.size === 0) return null;
-    const models = new Map<string, ReturnType<typeof buildCellModel>>();
+    const models = new Map<string, ReturnType<typeof tryBuildCellModel>>();
     for (const integration of integrations) {
       const cell = starterCells.get(integration.slug);
       if (!cell) continue;
       models.set(
         integration.slug,
-        buildCellModel(liveStatus, catalogCellToInput(cell), now),
+        tryBuildCellModel(liveStatus, catalogCellToInput(cell), now),
       );
     }
     return models;
@@ -644,6 +648,12 @@ function StarterSection({
                       slug={integration.slug}
                       model={model}
                       declaration={integration.starter_validation}
+                    />
+                  ) : model === null ? (
+                    <StatusChip
+                      tone="blue"
+                      label={GLYPHS.fault.mark}
+                      title={`Starter cell unavailable: ${integration.slug}`}
                     />
                   ) : null}
                 </td>
