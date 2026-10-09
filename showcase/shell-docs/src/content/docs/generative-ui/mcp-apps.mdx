@@ -82,6 +82,25 @@ Use this format to connect to an MCP server that streams events over a persisten
 }
 ```
 
+## Display modes
+
+A widget can ask the host for a display mode through `ui/request-display-mode`.
+CopilotKit renders two modes in React, Vue and Angular: `inline`, the default
+inside the chat, and `fullscreen`, which takes over the viewport with a close
+button and Escape to return inline. `pip` is not rendered: a widget requesting
+it keeps its current mode, and the response carries the mode still applied.
+
+The host announces the current `displayMode` and the `availableDisplayModes`
+it offers in the `hostContext` of the `ui/initialize` response, and every
+change, whether the widget asked for it or the user closed fullscreen, reaches
+the widget as a `ui/notifications/host-context-changed` notification. A widget
+that declares `availableDisplayModes` in its own `appCapabilities` is never
+switched to a mode outside that list.
+
+To keep widgets inline only, narrow the modes on offer through the session
+options, for example `hostContext: { availableDisplayModes: ["inline"] }` in
+Angular's `provideMCPApps()`.
+
 ## Example MCP servers
 
 Try these open-source MCP Apps servers to get started:
