@@ -133,7 +133,7 @@ describe("stageSharedModules() — shared data", () => {
       const value = String(candidate);
       return (
         value.endsWith("/showcase/integrations") ||
-        value.endsWith("/showcase/shared/python/data")
+        value.endsWith("/showcase/shared/python/tools/data")
       );
     });
     readdirSyncMock.mockReturnValue([
@@ -145,7 +145,7 @@ describe("stageSharedModules() — shared data", () => {
     lstatSyncMock.mockImplementation((candidate: unknown) => ({
       isSymbolicLink: () => String(candidate).endsWith("/data"),
     }));
-    readlinkSyncMock.mockReturnValue("../../shared/python/data");
+    readlinkSyncMock.mockReturnValue("../../shared/python/tools/data");
     statSyncMock.mockReturnValue({ isDirectory: () => true });
 
     stageSharedModules();
@@ -154,7 +154,7 @@ describe("stageSharedModules() — shared data", () => {
       expect.stringMatching(/integrations\/crewai-crews\/data$/),
     );
     expect(cpSyncMock).toHaveBeenCalledWith(
-      expect.stringMatching(/showcase\/shared\/python\/data$/),
+      expect.stringMatching(/showcase\/shared\/python\/tools\/data$/),
       expect.stringMatching(/integrations\/crewai-crews\/data$/),
       { recursive: true },
     );
