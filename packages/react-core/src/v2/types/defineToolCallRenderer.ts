@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import type { ReactToolCallRenderer } from "./react-tool-call-renderer";
 import type { ToolCallStatus } from "@copilotkit/core";
+import type { AgentId } from "./copilotkit-types";
 
 /**
  * Helper to define a type-safe tool call renderer entry.
@@ -38,7 +39,7 @@ type RenderProps<T> =
 export function defineToolCallRenderer(def: {
   name: "*";
   render: (props: RenderProps<any>) => React.ReactElement | null;
-  agentId?: string;
+  agentId?: AgentId;
 }): ReactToolCallRenderer<any>;
 
 // Overload for regular tools with args
@@ -48,7 +49,7 @@ export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
   render: (
     props: RenderProps<InferSchemaOutput<S>>,
   ) => React.ReactElement | null;
-  agentId?: string;
+  agentId?: AgentId;
 }): ReactToolCallRenderer<InferSchemaOutput<S>>;
 
 // Implementation
@@ -56,7 +57,7 @@ export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
   name: string;
   args?: S;
   render: (props: any) => React.ReactElement | null;
-  agentId?: string;
+  agentId?: AgentId;
 }): ReactToolCallRenderer<any> {
   // For wildcard tools, default to z.any() if no args provided
   const argsSchema = def.name === "*" && !def.args ? z.any() : def.args;
