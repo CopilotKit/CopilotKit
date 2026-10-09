@@ -341,3 +341,42 @@ This context can then be shared with your LangGraph agent.
         </Steps>
     </TailoredContentOption>
 </TailoredContent>
+
+## Context placement and prompt caching (Python)
+
+By default, Python's `CopilotKitMiddleware` appends App Context to the system
+message. If you enable `expose_state`, its state note is appended there too.
+For agents with frequently changing context, you can keep that system message
+stable by opting into `context_placement="user"`:
+
+```python
+from langchain.agents import create_agent
+from copilotkit import CopilotKitMiddleware
+
+graph = create_agent(
+    model="openai:gpt-5.4",
+    tools=[],
+    system_prompt="You are a helpful assistant.",
+    middleware=[CopilotKitMiddleware(context_placement="user")],
+)
+```
+
+This prepends a labeled application-background block to the latest human message
+for each model request. When `expose_state=True` or an allowlist such as
+`expose_state=["active_tab"]` is configured, both notes share that block. The
+original user messages remain unchanged in graph state and saved checkpoints.
+
+- Multimodal messages keep their existing content parts; the block is added as
+  a text part.
+- If there is no human message, the middleware falls back to adding the notes
+  to the system message so the model still receives the context.
+- During a tool loop, the block remains identical while App Context and exposed
+  state stay unchanged. If a tool changes that state, the next call receives the
+  updated values.
+
+Moving context to a user message changes its role in the prompt, so check your
+agent's behavior before enabling this option. A stable system message can help
+provider prompt caching, but cache hits and cost savings depend on the provider,
+model, and remaining request content. `"system"` remains the default; this option
+applies only to the Python middleware, not the TypeScript middleware or built-in
+agent.
