@@ -1,17 +1,34 @@
 import React from "react";
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
+const hoisted = vi.hoisted(() => ({
+  onChange: undefined as
+    | ((event: { colorScheme: "light" | "dark" | null }) => void)
+    | undefined,
+  colorScheme: "light" as "light" | "dark",
+}));
+
 // Mock react-native since we're in jsdom
-vi.mock("react-native", () => ({
+vi.mock("react-native", async () => ({
+  ...(await vi.importActual<any>("../../__mocks__/react-native")),
   StyleSheet: {
     create: <T extends Record<string, any>>(styles: T): T => styles,
     flatten: (style: any) => style,
   },
   View: "View",
   Text: "Text",
+  Appearance: {
+    getColorScheme: () => hoisted.colorScheme,
+    addChangeListener: (
+      listener: (event: { colorScheme: "light" | "dark" | null }) => void,
+    ) => {
+      hoisted.onChange = listener;
+      return { remove: () => {} };
+    },
+  },
 }));
 
 // Capture the props passed to StreamdownText
@@ -29,13 +46,19 @@ vi.mock("react-native-streamdown", () => ({
 }));
 
 // Import after mocks
-import { CopilotMarkdown, defaultMarkdownStyles } from "../Markdown";
+import {
+  CopilotMarkdown,
+  darkMarkdownStyles,
+  defaultMarkdownStyles,
+} from "../Markdown";
+import { CopilotColorSchemeProvider } from "../theme";
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("CopilotMarkdown", () => {
   beforeEach(() => {
     lastStreamdownProps = null;
+    hoisted.colorScheme = "light";
   });
 
   it("renders without crashing", () => {
@@ -83,6 +106,52 @@ describe("CopilotMarkdown", () => {
     expect(lastStreamdownProps.streamingAnimation).toBe(true);
   });
 
+  it("stays light when the device is in dark mode", () => {
+    hoisted.colorScheme = "dark";
+    render(<CopilotMarkdown content="test" />);
+
+    expect(lastStreamdownProps.markdownStyle).toBe(defaultMarkdownStyles);
+  });
+
+  it("uses the dark styles inside a dark color scheme", () => {
+    render(
+      <CopilotColorSchemeProvider colorScheme="dark">
+        <CopilotMarkdown content="test" />
+      </CopilotColorSchemeProvider>,
+    );
+
+    const styles = lastStreamdownProps.markdownStyle;
+    expect(styles).toBe(darkMarkdownStyles);
+    expect(styles.paragraph.color).toBe("#fafafa");
+    expect(styles.codeBlock.backgroundColor).toBe("#171717");
+  });
+
+  it("follows the device with the system color scheme", () => {
+    const tree = () => (
+      <CopilotColorSchemeProvider colorScheme="system">
+        <CopilotMarkdown content="test" />
+      </CopilotColorSchemeProvider>
+    );
+    render(tree());
+    expect(lastStreamdownProps.markdownStyle).toBe(defaultMarkdownStyles);
+
+    act(() => hoisted.onChange?.({ colorScheme: "dark" }));
+    expect(lastStreamdownProps.markdownStyle).toBe(darkMarkdownStyles);
+  });
+
+  it("merges custom styles over the dark styles", () => {
+    const style = { h1: { fontSize: 30 } };
+    render(
+      <CopilotColorSchemeProvider colorScheme="dark">
+        <CopilotMarkdown content="test" style={style} />
+      </CopilotColorSchemeProvider>,
+    );
+
+    const styles = lastStreamdownProps.markdownStyle;
+    expect(styles.h1).toEqual({ fontSize: 30 });
+    expect(styles.paragraph).toBe(darkMarkdownStyles.paragraph);
+  });
+
   it("allows disabling streamingAnimation", () => {
     render(<CopilotMarkdown content="test" streamingAnimation={false} />);
     expect(lastStreamdownProps.streamingAnimation).toBe(false);
@@ -102,5 +171,12 @@ describe("defaultMarkdownStyles", () => {
     expect(defaultMarkdownStyles.code).toBeDefined();
     expect(defaultMarkdownStyles.codeBlock).toBeDefined();
     expect(defaultMarkdownStyles.list).toBeDefined();
+  });
+
+  it("styles inline code as a translucent foreground tint", () => {
+    expect(defaultMarkdownStyles.code.backgroundColor).toBe(
+      "rgba(10, 10, 10, 0.09)",
+    );
+    expect(defaultMarkdownStyles.code.color).toBe("#0a0a0a");
   });
 });

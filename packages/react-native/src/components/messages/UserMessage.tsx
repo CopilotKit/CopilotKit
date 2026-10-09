@@ -1,11 +1,8 @@
 import React from "react";
-import { View, Text, StyleSheet, type ViewStyle } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
+import type { ViewStyle } from "react-native";
+import { radius, useCopilotTheme } from "../theme";
 import { formatTimestamp } from "./utils";
-
-// ─── Colors ──────────────────────────────────────────────────────────────────
-const USER_BUBBLE_BG = "#0066CC";
-const USER_TEXT_COLOR = "#FFFFFF";
-const TIMESTAMP_COLOR = "#999999";
 
 /**
  * Props for the UserMessage component.
@@ -22,17 +19,23 @@ export interface UserMessageProps {
 /**
  * Right-aligned chat bubble for user messages.
  *
- * Renders plain text (no markdown) with a primary-color background
- * and white text. Optionally displays a subtle timestamp below.
+ * Renders plain text (no markdown), keeping line breaks as typed, on a muted
+ * bubble. Optionally displays a subtle timestamp below.
  */
 export function UserMessage({ content, timestamp, style }: UserMessageProps) {
+  const theme = useCopilotTheme();
+
   return (
     <View style={[styles.container, style]}>
-      <View style={styles.bubble}>
-        <Text style={styles.text}>{content}</Text>
+      <View style={[styles.bubble, { backgroundColor: theme.muted }]}>
+        <Text style={[styles.text, { color: theme.foreground }]}>
+          {content}
+        </Text>
       </View>
       {timestamp && (
-        <Text style={styles.timestamp}>{formatTimestamp(timestamp)}</Text>
+        <Text style={[styles.timestamp, { color: theme.mutedForeground }]}>
+          {formatTimestamp(timestamp)}
+        </Text>
       )}
     </View>
   );
@@ -41,28 +44,21 @@ export function UserMessage({ content, timestamp, style }: UserMessageProps) {
 const styles = StyleSheet.create({
   container: {
     alignItems: "flex-end",
-    marginVertical: 4,
-    paddingHorizontal: 12,
+    paddingTop: 24,
+    paddingBottom: 12,
   },
   bubble: {
-    backgroundColor: USER_BUBBLE_BG,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 4,
-    paddingHorizontal: 12,
+    borderRadius: radius["2xl"],
+    paddingHorizontal: 16,
     paddingVertical: 8,
     maxWidth: "80%",
   },
   text: {
-    color: USER_TEXT_COLOR,
     fontSize: 16,
-    lineHeight: 22,
+    lineHeight: 24,
   },
   timestamp: {
-    color: TIMESTAMP_COLOR,
     fontSize: 11,
-    marginTop: 2,
-    marginRight: 4,
+    marginTop: 4,
   },
 });
