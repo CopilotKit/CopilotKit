@@ -52,7 +52,7 @@ export const mastra = new Mastra({
   },
   storage: new LibSQLStore({
     id: "mastra-storage",
-    url: ":memory:",
+    url: process.env.MASTRA_WORKFLOW_STORAGE_URL ?? ":memory:",
   }),
   // Enables Mastra's BackgroundTaskManager so tools flagged
   // `background: { enabled: true }` (e.g. `run_deep_research`, used by the
