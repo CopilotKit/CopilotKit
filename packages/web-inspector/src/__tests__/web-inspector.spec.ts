@@ -2158,6 +2158,28 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     expect(internals.isOpen).toBe(true);
   });
 
+  it("closes the open inspector when Escape is pressed on the page", async () => {
+    const { inspector, internals } = mount();
+    await inspector.updateComplete;
+
+    internals.openInspector("floating_button");
+    await inspector.updateComplete;
+
+    expect(internals.isOpen).toBe(true);
+
+    document.body.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+
+    await inspector.updateComplete;
+
+    expect(internals.isOpen).toBe(false);
+  });
+
   it("counts one open per open, and nothing for an already-open panel", async () => {
     const { inspector, internals } = mount();
     await inspector.updateComplete;
