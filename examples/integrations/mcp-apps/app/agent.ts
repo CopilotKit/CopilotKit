@@ -22,7 +22,8 @@ const PROVIDER_ALIASES: Record<string, "openai" | "anthropic" | "google"> = {
  * model id that itself contains `/` (e.g. `meta-llama/llama-3.3-70b`) survives.
  * On an OpenAI-compatible host (an `OPENAI_BASE_URL` that is not OpenAI's or
  * Azure's), the runtime calls Chat Completions instead of the Responses API
- * (PE-706, CopilotKit #7726).
+ * (PE-706, CopilotKit #7726). Set `COPILOTKIT_OPENAI_API=responses` (or
+ * `chat`) to choose the API yourself.
  */
 export function resolveAgentModel(defaultSpec: string): string {
   const value = process.env.COPILOTKIT_AGENT_MODEL?.trim() || defaultSpec;
