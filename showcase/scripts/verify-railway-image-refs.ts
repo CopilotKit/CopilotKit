@@ -509,16 +509,22 @@ export async function runRailwayImageGate(input: {
     Object.values(SERVICES).map((entry) => entry.serviceId),
   );
   // Preserve only the established unregistered permanent starter carveout.
-  // Permanent IDs, disposable claims, and invalid evidence cannot use it.
-  const toleratedStarter = (name: string, serviceId: string): boolean =>
+  // Permanent IDs, recorded environments, disposable claims, and invalid evidence cannot use it.
+  const toleratedStarter = (
+    name: string,
+    serviceId: string,
+    environmentId?: string,
+  ): boolean =>
     !Object.hasOwn(SERVICES, name) &&
     !permanentServiceIds.has(serviceId) &&
     isStarterFleetService(name) &&
     evidence.status !== "invalid" &&
-    !runs.some((run) =>
-      run.services.some(
-        (service) => service.name === name || service.serviceId === serviceId,
-      ),
+    !runs.some(
+      (run) =>
+        run.environmentId === environmentId ||
+        run.services.some(
+          (service) => service.name === name || service.serviceId === serviceId,
+        ),
     );
   const lifecycleFailures = lifecycle.failures.filter(
     (issue) =>
@@ -527,7 +533,11 @@ export async function runRailwayImageGate(input: {
         (service) =>
           service.serviceId === issue.serviceId &&
           service.environmentId === issue.environmentId &&
-          toleratedStarter(service.name, service.serviceId),
+          toleratedStarter(
+            service.name,
+            service.serviceId,
+            service.environmentId,
+          ),
       ),
   );
   const violations: Violation[] = [];
@@ -548,11 +558,17 @@ export async function runRailwayImageGate(input: {
     const exactPermanent = entry?.serviceId === service.id;
     if (!exactPermanent) {
       if (
-        !toleratedStarter(service.name, service.id) &&
-        (instances.length === 0 ||
-          instances.some(
-            (instance) => instance.classification !== "owned-disposable",
-          ))
+        instances.length === 0
+          ? !toleratedStarter(service.name, service.id)
+          : instances.some(
+              (instance) =>
+                instance.classification !== "owned-disposable" &&
+                !toleratedStarter(
+                  instance.name,
+                  instance.serviceId,
+                  instance.environmentId,
+                ),
+            )
       )
         untrackedNames.add(service.name);
       continue;

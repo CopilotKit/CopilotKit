@@ -391,7 +391,7 @@ function addService(
   name = "showcase-disposable-api",
   id = "fixture-api",
   environments = ["fixture-env"],
-  image = PIN,
+  image: string | null = PIN,
 ): void {
   data.project!.services.edges.push({
     node: {
@@ -619,7 +619,12 @@ describe("image gate runner lifecycle orchestration", () => {
   it("preserves the starter carveout except for mismatched disposable claims", async () => {
     const data = permanentInventory();
     addService(data, "starter-future", "replacement");
-    expect((await withRecords(data, [])).summary.shouldFail).toBe(false);
+    const ordinary = await withRecords(data, [
+      runRecord({ environmentId: "other-env", phase: "setup", services: [] }),
+    ]);
+    expect(ordinary.summary.shouldFail).toBe(false);
+    expect(ordinary.untracked).toEqual([]);
+    expect(ordinary.lifecycle.failures).toEqual([]);
     const result = await withRecords(data, [
       runRecord({
         services: [
@@ -629,6 +634,66 @@ describe("image gate runner lifecycle orchestration", () => {
     ]);
     expect(result.summary.shouldFail).toBe(true);
     expect(result.untracked).toContain("starter-future");
+    expect(result.lifecycle.failures).toContainEqual(
+      expect.objectContaining({
+        code: "ready-service-missing",
+        serviceId: "recorded",
+      }),
+    );
+    expect(result.missingByEnv).toEqual({ prod: [], staging: [] });
+  });
+
+  it.each([null, PIN])(
+    "rejects an unclaimed recorded-environment starter with image %s even when its ordinary instance is tolerated",
+    async (image) => {
+      const data = permanentInventory();
+      const name = "starter-unrecorded";
+      const serviceId = "unrecorded-id";
+      addService(
+        data,
+        name,
+        serviceId,
+        [ENV_ID_BY_NAME.staging, "fixture-env"],
+        image,
+      );
+      const result = await withRecords(data, [
+        runRecord({ phase: "setup", services: [], resources: [] }),
+      ]);
+
+      expect.soft(result.summary.shouldFail).toBe(true);
+      expect.soft(result.untracked).toEqual([name]);
+      expect.soft(result.lifecycle.failures).toEqual([
+        expect.objectContaining({
+          code: "unknown-service",
+          serviceId,
+          environmentId: "fixture-env",
+        }),
+      ]);
+      expect(result.missingByEnv).toEqual({ prod: [], staging: [] });
+      expect(result.lifecycle.excludedServices).toEqual([]);
+    },
+  );
+
+  it("excludes an exactly recorded valid disposable starter", async () => {
+    const data = permanentInventory();
+    const name = "starter-owned";
+    addService(data, name);
+    const result = await withRecords(data, [
+      runRecord({
+        services: [{ name, serviceId: "fixture-api", expectedImage: PIN }],
+      }),
+    ]);
+
+    expect(result.summary.shouldFail).toBe(false);
+    expect(result.untracked).toEqual([]);
+    expect(result.lifecycle.failures).toEqual([]);
+    expect(result.lifecycle.excludedServices).toEqual([
+      {
+        projectId: PROJECT_ID,
+        environmentId: "fixture-env",
+        serviceId: "fixture-api",
+      },
+    ]);
   });
 
   it("rejects a permanent service ID renamed into the starter carveout", async () => {
