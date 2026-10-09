@@ -180,7 +180,43 @@ describe("effective AG-UI and CopilotKit properties", () => {
     },
   );
 
-  it("keeps serialized context atomic and preserves the runtime fallback", async () => {
+  // Each namespace comes from state, or from its runtime carrier when state has
+  // none, before CopilotKit merges over AG-UI (the Python resolution order).
+  it.each([
+    [
+      "an AG-UI state value loses to a CopilotKit runtime carrier",
+      { "ag-ui": { context: "page" } },
+      { copilotkit: { context: "fresh" } },
+      "fresh",
+    ],
+    [
+      "an undefined state value counts as absent",
+      { "ag-ui": { context: "page" }, copilotkit: { context: undefined } },
+      { copilotkit: { context: "fresh" } },
+      "fresh",
+    ],
+    [
+      "interception bookkeeping alone counts as absent",
+      { copilotkit: { interceptedToolCalls: [], originalAIMessageId: "m" } },
+      { copilotkit: { context: "fresh" } },
+      "fresh",
+    ],
+    [
+      "a CopilotKit state namespace keeps its runtime carrier out",
+      { copilotkit: { actions: [] } },
+      { copilotkit: { context: "fresh" } },
+      undefined,
+    ],
+  ])(
+    "resolves context per namespace: %s",
+    async (_name, state, carrier, note) => {
+      expect(await context(state, { context: carrier })).toBe(
+        note && "App Context:\n" + note,
+      );
+    },
+  );
+
+  it("keeps serialized context atomic and reads only a namespaced runtime carrier", async () => {
     expect(
       await context({
         "ag-ui": { context: { base: 1 } },

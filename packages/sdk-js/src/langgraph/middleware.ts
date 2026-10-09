@@ -314,20 +314,42 @@ const runtimeCarrierProperties = (
   return {};
 };
 
+// Interception bookkeeping alone does not make a state namespace present.
+const BOOKKEEPING_KEYS = new Set([
+  "interceptedToolCalls",
+  "originalAIMessageId",
+]);
+
+const definedProperties = (value: unknown): Record<string, unknown> =>
+  isPropertyBag(value)
+    ? Object.fromEntries(
+        Object.entries(value).filter(([, entry]) => entry !== undefined),
+      )
+    : {};
+
+// Each namespace comes from state, or from its runtime carrier when state has
+// none of it. CopilotKit then merges over AG-UI, as in the Python middleware.
+const contextNamespace = (
+  state: unknown,
+  runtimeContext: unknown,
+  namespace: "ag-ui" | "copilotkit",
+): Record<string, unknown> => {
+  const fromState = definedProperties(
+    isPropertyBag(state) ? state[namespace] : undefined,
+  );
+  return Object.keys(fromState).some((key) => !BOOKKEEPING_KEYS.has(key))
+    ? fromState
+    : definedProperties(runtimeCarrierProperties(runtimeContext, namespace));
+};
+
 const buildAppContextNote = (
   state: unknown,
   runtimeContext: unknown,
 ): string | null => {
-  const stateProperties = effectiveProperties(state);
-  const properties = Object.prototype.hasOwnProperty.call(
-    stateProperties,
-    "context",
-  )
-    ? stateProperties
-    : mergeProperties(
-        runtimeCarrierProperties(runtimeContext, "ag-ui"),
-        runtimeCarrierProperties(runtimeContext, "copilotkit"),
-      );
+  const properties = mergeProperties(
+    contextNamespace(state, runtimeContext, "ag-ui"),
+    contextNamespace(state, runtimeContext, "copilotkit"),
+  );
   const appContext = properties.context;
 
   const isEmptyContext =
