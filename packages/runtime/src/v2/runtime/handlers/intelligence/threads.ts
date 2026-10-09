@@ -91,11 +91,21 @@ export async function handleListThreads({
         return errorResponse("Valid agentId query param is required", 400);
       }
 
+      // `limit` arrives as a raw query string, so `Number(limitParam)` yields
+      // NaN for input like `?limit=abc`. NaN JSON-serializes to `null`, so the
+      // corrupted value would silently reach the platform instead of failing
+      // here. Validate it the same way `parseRecallBody` validates the `limit`
+      // in the memories handler. An absent or empty param stays "no limit".
+      const limit = limitParam ? Number(limitParam) : undefined;
+      if (limit !== undefined && !(Number.isInteger(limit) && limit > 0)) {
+        return errorResponse("Valid limit query param is required", 400);
+      }
+
       const data = await runtime.intelligence.listThreads({
         userId: user.id,
         agentId,
         ...(includeArchived ? { includeArchived: true } : {}),
-        ...(limitParam ? { limit: Number(limitParam) } : {}),
+        ...(limit !== undefined ? { limit } : {}),
         ...(cursor ? { cursor } : {}),
       });
 
