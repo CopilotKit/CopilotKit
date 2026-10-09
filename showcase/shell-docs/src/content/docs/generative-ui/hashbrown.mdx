@@ -2,16 +2,13 @@
 title: Hashbrown
 description: Stream a structured sales dashboard through Hashbrown's UI kit and progressive JSON parser.
 icon: "lucide/Component"
+snippet_framework: built-in-agent
 snippet_cell: declarative-hashbrown
 ---
 
 <InlineDemo demo="declarative-hashbrown" />
 
-Hashbrown renders a dashboard while the assistant streams JSON. The example below uses the Strands TypeScript showcase and its pinned `@hashbrownai/core` and `@hashbrownai/react` version, `0.5.0-beta.4`. Copy the complete files from the demo's **Code** tab, including the chart and metric components. If you install a different Hashbrown version, check its API before reusing this code.
-
-```bash
-npm install @hashbrownai/core@0.5.0-beta.4 @hashbrownai/react@0.5.0-beta.4
-```
+Hashbrown renders a dashboard while the assistant streams JSON. The examples below come from the selected framework's showcase demo, so the page, chat, renderer, and Code tab stay in sync with runnable source. The bundled demos pin `@hashbrownai/core` and `@hashbrownai/react` to `0.5.0-beta.4`; the chart components also need `recharts` and `zod`. Use the versions in your selected integration's `package.json` when copying the files.
 
 ## When to use this
 
@@ -25,15 +22,15 @@ For a validated `{ root, elements }` spec that renders as one tree, see [JSON Re
 
 The page wraps the chat in `HashBrownDashboard`. That provider creates the UI kit once and shares it with the assistant-message renderer. The chat registers `HashBrownRenderMessage` in the `assistantMessage` slot:
 
-<Snippet framework="strands-typescript" file="src/app/demos/declarative-hashbrown/page.tsx" />
+<Snippet file="src/app/demos/declarative-hashbrown/page.tsx" />
 
-<Snippet framework="strands-typescript" file="src/app/demos/declarative-hashbrown/chat.tsx" />
+<Snippet file="src/app/demos/declarative-hashbrown/chat.tsx" />
 
 The renderer exposes `metric`, `pieChart`, `barChart`, `dealCard`, and Markdown with their prop schemas. It passes `kit.schema` to `useJsonParser`, reads the parser's `value`, and calls `kit.render(value)`. Chart `data` is a JSON-encoded **string**; the chart wrappers parse it before passing an array to the chart components. This is the complete source for the kit, provider, and message renderer:
 
-<Snippet framework="strands-typescript" file="src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx" />
+<Snippet file="src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx" />
 
-The Code tab also includes the imported `metric-card.tsx`, chart components, `types.ts`, suggestion setup, runtime route, and agent source. Use those files together with the page, chat, and renderer above.
+The Code tab includes the imported `metric-card.tsx`, chart components, `types.ts`, suggestion setup, runtime route, and agent source.
 
 ## Backend
 
@@ -55,10 +52,6 @@ The agent sends **one JSON object** as the assistant message, without a Markdown
 }
 ```
 
-The Strands TypeScript agent prompt defines this envelope and its component names. The parser can render finished parts of `ui` while the rest of the JSON is still streaming. The old `{ "type": "MetricCard" }` example is a different contract and cannot be passed to this UI kit.
-
-## Comparing the two patterns
-
-Hashbrown uses a `ui` array, `useJsonParser(content, kit.schema)`, and `kit.render(value)` for progressive rendering. [JSON Render](/generative-ui/json-render) uses a `{ root, elements }` spec and a separate catalog and registry. Use the contract for the library you chose.
+The selected integration's agent uses this envelope and the same component names. The parser can render finished parts of `ui` while the rest of the JSON is still streaming.
 
 <IntegrationGrid path="declarative-hashbrown" />

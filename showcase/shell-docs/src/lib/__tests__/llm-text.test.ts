@@ -9,26 +9,66 @@ import {
   rewriteScopedDocsLinks,
 } from "../llm-text";
 
-test("Hashbrown guide exports the Strands TypeScript source and a valid UI envelope", () => {
+test("Hashbrown guide exports each bundled framework's complete source", () => {
   const doc = loadDoc("generative-ui/hashbrown");
   expect(doc).not.toBeNull();
+  const bundle = JSON.parse(
+    fs.readFileSync(
+      path.join(process.cwd(), "src/data/demo-content.json"),
+      "utf8",
+    ),
+  ) as {
+    demos: Record<
+      string,
+      {
+        files: Array<{
+          filename: string;
+          content: string;
+          highlighted?: boolean;
+        }>;
+      }
+    >;
+  };
+  const entries = Object.entries(bundle.demos).filter(([key]) =>
+    key.endsWith("::declarative-hashbrown"),
+  );
+  expect(entries.length).toBeGreaterThanOrEqual(15);
+
+  for (const [key, demo] of entries) {
+    const framework = key.split("::")[0];
+    const output = renderPageToLlmText({
+      url: `${framework}/generative-ui/hashbrown`,
+      title: doc!.fm.title,
+      filePath: doc!.filePath,
+      loadSlug: "generative-ui/hashbrown",
+      framework,
+    });
+    const demoFiles = demo.files.filter((file) =>
+      file.filename.startsWith("src/app/demos/declarative-hashbrown/"),
+    );
+    expect(
+      demoFiles.every((file) => file.highlighted),
+      key,
+    ).toBe(true);
+    for (const name of ["page.tsx", "chat.tsx", "hashbrown-renderer.tsx"]) {
+      const source = demoFiles.find((file) =>
+        file.filename.endsWith(`/${name}`),
+      );
+      expect(source, `${key}: ${name}`).toBeDefined();
+      expect(output, `${key}: ${name}`).toContain(source!.content.trimEnd());
+    }
+    expect(output, key).not.toContain("<!-- snippet skipped:");
+    expect(output, key).not.toContain("useUiKit({ catalog, value:");
+  }
 
   const output = renderPageToLlmText({
-    url: "strands-typescript/generative-ui/hashbrown",
+    url: "generative-ui/hashbrown",
     title: doc!.fm.title,
     filePath: doc!.filePath,
     loadSlug: "generative-ui/hashbrown",
-    framework: "strands-typescript",
   });
-
-  expect(output).toContain("HashBrownDashboard");
-  expect(output).toContain("HashBrownRenderMessage");
-  expect(output).toContain("useUiKit({");
   expect(output).toContain("useJsonParser(content, kit.schema)");
-  expect(output).toContain("kit.render(value)");
   expect(output).not.toContain("<!-- snippet skipped:");
-  expect(output).not.toContain("useUiKit({ catalog, value:");
-
   const example = output.match(
     /```json title="example assistant message"\n([\s\S]*?)\n```/,
   );
@@ -41,7 +81,10 @@ test("Hashbrown guide exports the Strands TypeScript source and a valid UI envel
     "pieChart",
   ]);
   const chartData = message.ui[1].pieChart.props.data;
-  expect(JSON.parse(chartData as string)).toHaveLength(3);
+  expect(typeof chartData).toBe("string");
+  if (typeof chartData !== "string")
+    throw new Error("chart data is not a string");
+  expect(JSON.parse(chartData)).toHaveLength(3);
 });
 
 test("expands Intelligence capability cards into readable Markdown links", () => {
