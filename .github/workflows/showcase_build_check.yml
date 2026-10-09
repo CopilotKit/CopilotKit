@@ -357,3 +357,5 @@ jobs:
           platforms: linux/amd64
           push: false
           build-args: ${{ steps.build-args.outputs.args }}
+          # Avoid Docker Hub pull limits for docs CI without changing its base image.
+          build-contexts: ${{ matrix.service.filter_key == 'shell_docs' && 'node:20-slim=docker-image://public.ecr.aws/docker/library/node:20-slim' || '' }}
