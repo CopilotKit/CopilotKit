@@ -419,8 +419,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     // GraphQL path (`lib/copilot-task.ts`), which reads it from inside
     // `CopilotTask.run()` — not during render. Verified with a
     // `packages/`-wide (non-test) grep for `copilotApiConfig.headers` and
-    // for any full-object spread/read of `copilotApiConfig` at fix round 1
-    // of #1937: that grep also caught (and fixed) a SECOND, unrelated
+    // for any full-object spread/read of `copilotApiConfig` during #1937:
+    // that grep also caught (and fixed) a SECOND, unrelated
     // render-time read in `react-textarea`'s
     // `useMakeStandardAutosuggestionFunction`, which had nothing to do with
     // `CopilotTask` — a reminder that a NEW consumer of

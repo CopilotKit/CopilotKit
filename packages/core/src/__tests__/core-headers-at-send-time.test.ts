@@ -128,7 +128,7 @@ describe("headers at send time", () => {
   });
 
   it("the public applyHeadersToAgent never calls the headers builder, even one that throws — for a plain HttpAgent or a proxied agent", () => {
-    // Fix round 1, finding 2: `applyHeadersToAgent` is reachable from
+    // `applyHeadersToAgent` is reachable from
     // anywhere (a dev-only registration helper, a React effect that re-runs
     // on every render), so it must never invoke a user-supplied builder — a
     // sync throw there would propagate out of the caller, and an async

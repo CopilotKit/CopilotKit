@@ -3881,7 +3881,7 @@ describe("WebInspectorElement memories — view states", () => {
       resolveHeaders: () => ({}),
     });
 
-  // #1937 fix round 1: the Learning request used to ALSO pass a separately
+  // #1937: the Learning request used to ALSO pass a separately
   // resolved `headers:` snapshot alongside `fetch: core.ɵruntimeFetch`,
   // which already resolves and overlays current headers at send time. That
   // called the header builder twice per request and could let a header the

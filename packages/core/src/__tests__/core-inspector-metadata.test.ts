@@ -839,7 +839,7 @@ test("auth context changes clear loaded metadata before stalled refreshes settle
 });
 
 test("a superseded async-builder refresh cannot send a stale request or overwrite the newer controller", async () => {
-  // Fix round 1, finding 2: `refreshInspectorMetadata` resolves headers
+  // `refreshInspectorMetadata` resolves headers
   // before creating its AbortController. Without a generation check right
   // after that resolve, a slower, superseded call (A) can still send a
   // request with its own (stale) headers and clobber the newer call's (B)

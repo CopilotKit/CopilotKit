@@ -347,7 +347,7 @@ export function useAgent(props: UseAgentProps = {}) {
   // Keyed on `ɵheadersGeneration`, not header VALUES: a builder's returned
   // token can change on every resolution without a new source ever being
   // set (a run refreshing the snapshot), and this must not re-run
-  // `resolveAgent` (and force-trigger `agent`) on that (#1937 fix round 1).
+  // `resolveAgent` (and force-trigger `agent`) on that (#1937).
   // A genuine source change (a real `setHeaders()` call) still re-runs it,
   // refreshing a cached provisional's headers via the branches above.
   //
@@ -394,7 +394,7 @@ export function useAgent(props: UseAgentProps = {}) {
 
   // Keyed on `ɵheadersGeneration`, not header VALUES: a builder's returned
   // token can change on every resolution without a new source ever being set,
-  // and this watcher must not re-fire on that (see #1937 learnings).
+  // and this watcher must not re-fire on that (see #1937).
   watch(
     [subscriptionAgent, () => copilotkit.value.ɵheadersGeneration],
     ([currentAgent]) => {

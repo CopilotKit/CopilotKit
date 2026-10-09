@@ -136,7 +136,7 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
   // Keyed on the source's generation, not on header VALUES: a builder's
   // returned token can change on every resolution without a new source ever
   // being set, and this must not re-dispatch the thread context on that (see
-  // #1937 learnings).
+  // #1937).
   const headersKey = computed(() => copilotkit.value.ɵheadersGeneration);
 
   const threads = ref<Thread[]>([]);

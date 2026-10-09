@@ -1,8 +1,7 @@
 /**
  * #1937: the headers builder is evaluated when a request is SENT, not during
  * render. A provider that never re-renders (only a child does, e.g. after a
- * Clerk token refresh) must still send the current token. See
- * `implementer-rules.md` and `task-5-brief.md` for the contract this guards.
+ * Clerk token refresh) must still send the current token.
  */
 import { act, render, waitFor } from "@testing-library/react";
 import React, { useEffect, useState } from "react";
@@ -390,6 +389,20 @@ describe("CopilotKitProvider — headers builder evaluated at send time (#1937)"
     token = "tok-2";
     act(() => bumpChild());
 
+    // Send a request so the builder runs and the resolved headers change,
+    // then re-render so `useThreads` reads them. Without both, nothing reads
+    // the new token and the assertion below passes no matter what
+    // `useThreads` keys on.
+    const callsBeforeRun = calls.length;
+    const agent = core.getAgent("default")!;
+    await act(async () => {
+      await core.runAgent({ agent }).catch(() => {});
+    });
+    const runCalls = calls.slice(callsBeforeRun);
+    expect(runCalls.length).toBeGreaterThan(0);
+    expect(runCalls.every((c) => c.auth === "Bearer tok-2")).toBe(true);
+    act(() => bumpChild());
+
     await pollFor(() => false, 50);
 
     expect(setContextSpy).toHaveBeenCalledTimes(0);
@@ -514,7 +527,7 @@ describe("CopilotKitProvider — headers builder evaluated at send time (#1937)"
   });
 
   it("a child effect firing in the same commit as a token bump reads the new token, not the previous commit's closure", async () => {
-    // Controller ruling (fix round 1): `headersRef.current` is assigned
+    // `headersRef.current` is assigned
     // during render, not in a passive `useEffect`. React fires a CHILD's
     // effects before the PARENT's own effects (bottom-up), so if the
     // provider only updated the ref from its own effect, a child effect that

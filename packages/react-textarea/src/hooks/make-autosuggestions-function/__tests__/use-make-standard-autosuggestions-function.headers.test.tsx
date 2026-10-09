@@ -1,5 +1,5 @@
 /**
- * #1937 fix round 1: `useMakeStandardAutosuggestionFunction` used to read
+ * #1937: `useMakeStandardAutosuggestionFunction` used to read
  * `copilotApiConfig.headers` directly in its render body (building a
  * `headers` local that was itself dead — the actual GraphQL request is
  * commented out, and `runtimeClient` is a stub; that local's only mention
@@ -36,7 +36,7 @@ function Probe() {
   return null;
 }
 
-describe("useMakeStandardAutosuggestionFunction — async headers builder (#1937 fix round 1)", () => {
+describe("useMakeStandardAutosuggestionFunction — async headers builder (#1937)", () => {
   it("never calls an async headers builder during render, across repeated renders", () => {
     let builderCalls = 0;
 

@@ -374,7 +374,7 @@ export class ThreadsStore implements InjectThreadsResult {
       // Keyed on the generation, not header VALUES: a builder's returned
       // token can change on every resolution without a new source ever being
       // set (e.g. a run refreshing the snapshot), and this must not
-      // re-dispatch the thread context on that (#1937 learnings). A real
+      // re-dispatch the thread context on that (#1937). A real
       // `setHeaders()` call still re-runs this effect: `ɵheadersGeneration`
       // is set from `onHeadersChanged`, which fires only then.
       const headersGeneration = this.#copilotkit.ɵheadersGeneration();

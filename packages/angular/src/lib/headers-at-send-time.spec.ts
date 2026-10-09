@@ -4,8 +4,6 @@
  * `react-core/src/v2/providers/__tests__/CopilotKitProvider.headersAtSendTime.test.tsx`
  * and
  * `vue/src/v2/providers/__tests__/CopilotKitProvider.headersAtSendTime.test.ts`.
- * See `implementer-rules.md` and `task-7-brief.md` for the contract this
- * guards.
  */
 import { Component } from "@angular/core";
 import { TestBed } from "@angular/core/testing";

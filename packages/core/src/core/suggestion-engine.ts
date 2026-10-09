@@ -281,6 +281,13 @@ export class SuggestionEngine {
         // token rides along on this stateless request, applied right before
         // the request is sent (#1937).
         statelessAgent.headers = { ...(await this.core.resolveHeaders()) };
+      } else {
+        // A clone of a plain `HttpAgent` carries the source agent's headers
+        // from its last run, so apply fresh ones the way a normal run does.
+        // A proxied runtime agent adds core headers at send time instead.
+        await (
+          this.core as unknown as CopilotKitCoreFriendsAccess
+        ).prepareAgentHeadersForRun(suggestionAgent);
       }
 
       // `clearSuggestions`/`abortRun` may have run while the header

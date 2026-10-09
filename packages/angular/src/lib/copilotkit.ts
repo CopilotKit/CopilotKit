@@ -130,7 +130,7 @@ export class CopilotKit {
    * never when a builder merely resolves a new token. Set from
    * `onHeadersChanged`, which fires only from a real `setHeaders()` call, so
    * subscribers can key thread-context dispatch and agent header refresh on
-   * this signal instead of on header VALUES (see #1937 learnings).
+   * this signal instead of on header VALUES (see #1937).
    */
   readonly ɵheadersGeneration = this.#headersGeneration.asReadonly();
   readonly #credentials = signal<RequestCredentials | undefined>(undefined);

@@ -574,7 +574,7 @@ watch(
     // change lands: `ɵheadersGeneration` is a plain property read, not a
     // ref/reactive value, so `headersKey` (use-threads.ts) and the
     // HttpAgent watcher (use-agent.ts) only re-read it when SOME OTHER
-    // trigger happens to fire around the same time (#1937 fix round 1).
+    // trigger happens to fire around the same time (#1937).
     const sub6 = core.subscribe({
       onHeadersChanged: () => {
         triggerRef(copilotkit);
@@ -619,7 +619,7 @@ watch([allRenderActivityMessages], ([renderActivityMessages]) => {
 // addition to the constructor already having applied this same value.
 // `HeaderSourceResolver.setSource` itself is a no-op both for an identical
 // function reference and for a record whose normalized values equal the
-// currently applied record's (see #1937 fix round 2), so this reference
+// currently applied record's (see #1937), so this reference
 // check is now a cheap pre-filter rather than the only thing preventing a
 // spurious `onHeadersChanged`. It still avoids the `setHeaders` call (and
 // its normalize + shallow-equal work) entirely on the common path where

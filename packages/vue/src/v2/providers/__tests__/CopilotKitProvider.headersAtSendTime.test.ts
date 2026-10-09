@@ -2,8 +2,6 @@
  * #1937: the headers builder is evaluated when a request is SENT, not during
  * render/setup. Mirrors
  * `react-core/src/v2/providers/__tests__/CopilotKitProvider.headersAtSendTime.test.tsx`.
- * See `implementer-rules.md` and `task-6-brief.md` for the contract this
- * guards.
  */
 import { mount } from "@vue/test-utils";
 import { defineComponent, h, nextTick } from "vue";
@@ -484,7 +482,7 @@ describe("CopilotKitProvider — headers builder evaluated at send time (#1937)"
     expect(agentRef.headers?.Authorization).toBe("Bearer static-2");
   });
 
-  it("changing the headers prop re-dispatches the thread context exactly once (onHeadersChanged -> triggerRef, fix round 1)", async () => {
+  it("changing the headers prop re-dispatches the thread context exactly once (onHeadersChanged -> triggerRef)", async () => {
     // The provider subscribes to core's `onHeadersChanged` and calls
     // `triggerRef(copilotkit)` so Vue's reactivity actually re-reads
     // `ɵheadersGeneration`-keyed dependents (`headersKey` in use-threads.ts,
@@ -544,7 +542,7 @@ describe("CopilotKitProvider — headers builder evaluated at send time (#1937)"
     expect(setContextSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("resolveAgent does not re-run after a builder token rotation + a run + a forced copilotkit trigger (fix round 1)", async () => {
+  it("resolveAgent does not re-run after a builder token rotation + a run + a forced copilotkit trigger", async () => {
     // `resolveAgent`'s watch used to key one of its sources on
     // `JSON.stringify(...headers...)`. A run resolves the builder's CURRENT
     // token and changes that snapshot; the next time ANYTHING pokes Vue's

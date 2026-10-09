@@ -11,6 +11,7 @@
  * needing a live WebSocket.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { HttpAgent } from "@ag-ui/client";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { MockChannel } from "./test-utils";
 import {
@@ -480,6 +481,91 @@ async function inspectorMetadataRow(): Promise<string | null | undefined> {
   });
 }
 
+async function clonedHttpAgentSuggestRow(): Promise<string | null | undefined> {
+  let token = "stale";
+  const agentCalls: Call[] = [];
+  global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input.toString();
+    agentCalls.push({ url, auth: authOf(init) });
+    return sseResponse([]);
+  }) as unknown as typeof fetch;
+
+  const core = new CopilotKitCore({
+    headers: () => ({ Authorization: token }),
+  });
+  const providerAgent = new HttpAgent({
+    agentId: "default",
+    url: "https://agent.example/run",
+  });
+  const consumerAgent = new MockAgent({
+    agentId: "consumer",
+    messages: [createMessage({ content: "hi" })],
+  });
+  core.addAgent__unsafe_dev_only({ id: "default", agent: providerAgent });
+  core.addAgent__unsafe_dev_only({
+    id: "consumer",
+    agent: consumerAgent as unknown as AbstractAgent,
+  });
+  // A previous run left the stale token on the provider agent, which a
+  // clone copies.
+  await core.resolveHeaders();
+  core.applyHeadersToAgent(providerAgent);
+  expect(providerAgent.headers.Authorization).toBe("stale");
+
+  core.addSuggestionsConfig(
+    createSuggestionsConfig({
+      providerAgentId: "default",
+      consumerAgentId: "consumer",
+    }),
+  );
+  token = "fresh";
+  core.reloadSuggestions("consumer");
+
+  await vi.waitFor(() => expect(agentCalls.length).toBeGreaterThan(0));
+  return agentCalls[0]?.auth;
+}
+
+async function trajectoryConnectRow(): Promise<string | null | undefined> {
+  let token = "stale";
+  const calls: Call[] = [];
+  vi.stubGlobal("window", new EventTarget());
+  vi.stubGlobal("location", new URL("https://app.invalid/"));
+  vi.stubGlobal("navigator", { onLine: true });
+  vi.stubGlobal("document", { title: "Synthetic app", referrer: "" });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input.toString();
+      calls.push({ url, auth: authOf(init) });
+      return new Response("no", { status: 401 });
+    }),
+  );
+  try {
+    const core = new CopilotKitCore({
+      runtimeUrl: "https://rt.test/api",
+      runtimeTransport: "single",
+      deferInitialConnection: true,
+      headers: () => ({ Authorization: token }),
+      learning: {
+        capture: {
+          clicks: false,
+          navigation: false,
+          inputs: false,
+          network: false,
+        },
+      },
+    });
+    // An earlier request left the stale token as the last resolved value.
+    await core.resolveHeaders();
+    token = "fresh";
+    await core.startTrajectory({ trajectoryId: "trajectory-1" });
+    core.stopTrajectory();
+    return calls[0]?.auth;
+  } finally {
+    vi.unstubAllGlobals();
+  }
+}
+
 const rows: Array<[string, () => Promise<string | null | undefined>]> = [
   ["/info discovery", infoDiscoveryRow],
   ["inspector metadata", inspectorMetadataRow],
@@ -490,6 +576,8 @@ const rows: Array<[string, () => Promise<string | null | undefined>]> = [
   ["stop", stopRow],
   ["stateless /suggest", statelessSuggestRow],
   ["IntelligenceAgent mid-run reconnect", intelligenceReconnectRow],
+  ["suggestions from a cloned HttpAgent", clonedHttpAgentSuggestRow],
+  ["trajectory connect", trajectoryConnectRow],
 ];
 
 describe("core-owned requests carry the current token at send time (#1937)", () => {

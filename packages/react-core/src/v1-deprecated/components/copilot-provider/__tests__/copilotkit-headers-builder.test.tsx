@@ -316,8 +316,8 @@ describe("v1 <CopilotKit> — headers builder evaluated at send time (#1937)", (
         await Promise.resolve();
       });
 
-      // The v1-internal getter's OWN call to the same (rejecting) builder —
-      // this is the discarded promise fix round 1 landed.
+      // The v1-internal getter's OWN call to the same (rejecting) builder:
+      // the discarded promise that must not surface as unhandled.
       readHeaders();
 
       // Discriminating assertion FIRST: Node's `unhandledRejection` check
