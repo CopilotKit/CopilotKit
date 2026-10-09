@@ -7,8 +7,9 @@
  *
  * - Frontend tools listed in `state.copilotkit.actions` reach the model
  *   alongside the agent's own tools. Empty actions = no change.
- * - App context from `state.copilotkit.context` (or runtime.context) is
- *   appended to the leading system message as `"App Context:\n<json>"`.
+ * - App context from `state.copilotkit.context` (or a namespaced
+ *   runtime.context carrier, never the raw runtime.context) is appended to
+ *   the leading system message as `"App Context:\n<json>"`.
  *   The model never sees a second system message.
  * - `afterModel` peels frontend tool calls off the last AIMessage so the
  *   ToolNode does not execute them; `afterAgent` re-attaches them.
@@ -487,16 +488,41 @@ describe("app context in an agent run", () => {
     expect(received.systemPrompt).toBeUndefined();
   });
 
-  it("uses runtime.context when state.copilotkit.context is missing", async () => {
-    const request = makeRequest({
-      state: { messages: [], copilotkit: {} },
-      runtime: { context: "route=/dashboard" },
-    });
+  it("never puts a raw runtime.context into the prompt", async () => {
+    // LangGraph runtime context carries trusted run configuration (thread,
+    // tenant and user ids); it must not reach the model. See #7077.
+    for (const context of [
+      "route=/dashboard",
+      { thread_id: "t-1", user_id: "u-1" },
+    ]) {
+      const request = makeRequest({
+        state: { messages: [], copilotkit: {} },
+        runtime: { context },
+      });
 
-    const { received } = await runWrap(copilotkitMiddleware, request);
+      const { received } = await runWrap(copilotkitMiddleware, request);
 
-    expect(systemPromptText(received)).toBe("App Context:\nroute=/dashboard");
+      expect(received.systemPrompt).toBeUndefined();
+    }
   });
+
+  it.each([
+    ["copilotkit", { copilotkit: { context: "route=/dashboard" } }],
+    ["ag-ui", { "ag-ui": { context: "route=/dashboard" } }],
+    ["legacy unnamespaced", { context: "route=/dashboard", user_id: "u-1" }],
+  ])(
+    "reads context from a %s runtime.context carrier when state has none",
+    async (_name, context) => {
+      const request = makeRequest({
+        state: { messages: [] },
+        runtime: { context },
+      });
+
+      const { received } = await runWrap(copilotkitMiddleware, request);
+
+      expect(systemPromptText(received)).toBe("App Context:\nroute=/dashboard");
+    },
+  );
 
   it("drops an App Context message that an older release saved in the thread", async () => {
     const request = makeRequest({

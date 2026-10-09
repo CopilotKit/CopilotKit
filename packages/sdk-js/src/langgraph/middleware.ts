@@ -295,14 +295,40 @@ const applyStateNote = (request: any, expose: ExposeStateOption): any => {
 
 const APP_CONTEXT_PREFIX = "App Context:\n";
 
+// LangGraph runtime context carries trusted run configuration (thread, tenant
+// and user ids) that must never reach the model, so only a CopilotKit carrier
+// inside it counts: an "ag-ui" or "copilotkit" namespace, or a legacy
+// unnamespaced carrier with an actions or context key. See #7077.
+const runtimeCarrierProperties = (
+  carrier: unknown,
+  namespace: "ag-ui" | "copilotkit",
+): Record<string, unknown> => {
+  if (!isPropertyBag(carrier)) return {};
+  const nested = carrier[namespace];
+  if (isPropertyBag(nested) && Object.keys(nested).length > 0) return nested;
+  if (
+    namespace === "copilotkit" &&
+    ("actions" in carrier || "context" in carrier)
+  )
+    return carrier;
+  return {};
+};
+
 const buildAppContextNote = (
   state: unknown,
   runtimeContext: unknown,
 ): string | null => {
-  const properties = effectiveProperties(state);
-  const appContext = Object.prototype.hasOwnProperty.call(properties, "context")
-    ? properties.context
-    : runtimeContext;
+  const stateProperties = effectiveProperties(state);
+  const properties = Object.prototype.hasOwnProperty.call(
+    stateProperties,
+    "context",
+  )
+    ? stateProperties
+    : mergeProperties(
+        runtimeCarrierProperties(runtimeContext, "ag-ui"),
+        runtimeCarrierProperties(runtimeContext, "copilotkit"),
+      );
+  const appContext = properties.context;
 
   const isEmptyContext =
     !appContext ||

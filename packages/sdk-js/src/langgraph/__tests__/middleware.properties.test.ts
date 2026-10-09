@@ -174,7 +174,7 @@ describe("effective AG-UI and CopilotKit properties", () => {
       expect(
         await context(
           { "ag-ui": { context: "base" }, copilotkit: { context: value } },
-          { context: "runtime" },
+          { context: { copilotkit: { context: "runtime" } } },
         ),
       ).toBeUndefined();
     },
@@ -187,9 +187,10 @@ describe("effective AG-UI and CopilotKit properties", () => {
         copilotkit: { context: '{"override":2}' },
       }),
     ).toBe('App Context:\n{"override":2}');
-    expect(await context({}, { context: "runtime" })).toBe(
-      "App Context:\nruntime",
-    );
+    expect(
+      await context({}, { context: { copilotkit: { context: "runtime" } } }),
+    ).toBe("App Context:\nruntime");
+    expect(await context({}, { context: "runtime" })).toBeUndefined();
   });
 
   it.each(["ag-ui", "copilotkit"])(
