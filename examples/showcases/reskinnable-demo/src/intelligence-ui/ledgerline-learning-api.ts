@@ -27,6 +27,7 @@ import {
 import type {
   DemoInsight,
   DemoSkill,
+  TraceStep,
   TrajectoryDetail,
   TrajectoryEvent,
 } from "./data/contract";
@@ -38,6 +39,7 @@ import type {
   LearningContainerStats,
   LearningContainerStatsResult,
   LearningInsight,
+  LearningEvidenceStep,
   LearningInsightEvidence,
   LearningRun,
   LearningSkill,
@@ -241,6 +243,187 @@ function eventLabel(event: TrajectoryEvent | undefined): string {
   }
 }
 
+/** Markdown emphasis and code ticks, which the cited quote never carries. */
+const plainText = (text: string): string =>
+  text.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/`([^`]+)`/g, "$1");
+
+/** Whether `source` says `quote` (a quote is cut from its source, never the other way). */
+const saysQuote = (source: string, quote: string): boolean => {
+  const norm = (x: string) => plainText(x).replace(/\s+/g, " ").trim();
+  const needle = norm(quote);
+  return needle.length > 0 && norm(source).includes(needle);
+};
+
+interface QuoteStep {
+  readonly step: LearningEvidenceStep;
+  /** The product event the quote was taken from, so it is not listed twice. */
+  readonly eventId: string | null;
+}
+
+/** "POST /policies/per-diem/overrides: ..." names the network call it describes. */
+const QUOTED_CALL = /^(GET|POST|PUT|PATCH|DELETE) (\S+?):?(?:\s|$)/;
+
+/**
+ * Finds the trajectory step a quote was taken from: a chat message, a tool
+ * call whose result or refusal says it, or a product moment it describes.
+ * The drawer then draws the quote the way the trajectory view draws that step.
+ */
+function stepForQuote(
+  detail: TrajectoryDetail,
+  quote: string,
+): QuoteStep | undefined {
+  const text = plainText(quote).trim();
+  for (const thread of detail.threads) {
+    const message = thread.messages.find((m) => saysQuote(m.text, quote));
+    if (message)
+      return {
+        eventId: null,
+        step: {
+          kind: "message",
+          role: message.role,
+          surface: thread.surface,
+          who:
+            message.role === "user"
+              ? detail.trajectory.user.name
+              : "Ledgerline agent",
+          text,
+          at: message.at,
+        },
+      };
+  }
+  for (const thread of detail.threads) {
+    const call = thread.agentTrace.find(
+      (x) =>
+        x.kind === "tool.call" &&
+        saysQuote(
+          typeof x.result === "string"
+            ? x.result
+            : JSON.stringify(x.result ?? ""),
+          quote,
+        ),
+    );
+    if (call) return { eventId: null, step: toolStep(call, quote) };
+  }
+  // The moment's own label, or that label followed by what the screen showed
+  // ("Per diem: default $75, Add event override").
+  const labelled = detail.events.find(
+    (x) =>
+      saysQuote(eventLabel(x), quote) ||
+      (x.event.name === "screen.context" &&
+        text.startsWith(`${eventLabel(x)}:`)),
+  );
+  if (labelled) {
+    const step = stepForEvent(labelled);
+    const label = eventLabel(labelled);
+    return {
+      eventId: labelled.eventId,
+      step:
+        step.kind === "screen" && !step.detail && text.length > label.length
+          ? { ...step, detail: text.slice(label.length + 1).trim() }
+          : step,
+    };
+  }
+  const call = QUOTED_CALL.exec(text);
+  const network = call
+    ? detail.events.find(
+        (x) =>
+          x.event.name === "network" &&
+          String(x.event.value.method) === call[1] &&
+          String(x.event.value.route).endsWith(call[2]),
+      )
+    : undefined;
+  return network
+    ? { eventId: network.eventId, step: stepForEvent(network) }
+    : undefined;
+}
+
+function toolStep(call: TraceStep, summary: string): LearningEvidenceStep {
+  const r =
+    call.result && typeof call.result === "object"
+      ? (call.result as Record<string, unknown>)
+      : {};
+  const error =
+    call.status === "error"
+      ? call.code ||
+        [r.error, r.code].filter(Boolean).map(String).join(" ") ||
+        "error"
+      : null;
+  return {
+    kind: "tool",
+    name: call.name ?? "tool",
+    summary: plainText(summary),
+    error,
+    durationMs: call.durationMs ?? null,
+    at: call.at,
+  };
+}
+
+/** One product event as the trajectory view's row for it (see its adapter.js). */
+function stepForEvent(event: TrajectoryEvent): LearningEvidenceStep {
+  const v = event.event.value;
+  const at = event.event.timestamp;
+  switch (event.event.name) {
+    case "click":
+      return {
+        kind: "interaction",
+        verb: "Clicked",
+        target: String(v.action),
+        tag: String(v.tag ?? v.role ?? ""),
+        at,
+      };
+    case "network":
+      return {
+        kind: "network",
+        method: String(v.method),
+        path: String(v.route),
+        status: Number(v.status),
+        durationMs: v.durationMs === undefined ? null : Number(v.durationMs),
+        summary: String(v.summary ?? ""),
+        at,
+      };
+    case "screen.context": {
+      const label = String(v.label ?? "Screen context");
+      // A long label ("Policy panel: <the rule>") keeps its head as the title.
+      const split = label.length > 40 && label.includes(":");
+      return {
+        kind: "screen",
+        title: split ? label.slice(0, label.indexOf(":")) : label,
+        detail: split ? label.slice(label.indexOf(":") + 1).trim() : null,
+        how: "Screen context",
+        route: String(v.route ?? ""),
+        at,
+      };
+    }
+    case "page":
+      return {
+        kind: "screen",
+        title: `Opened ${String(v.title ?? v.route)}`,
+        detail: null,
+        how: "Page view",
+        route: String(v.route ?? ""),
+        at,
+      };
+    case "navigation":
+      return {
+        kind: "screen",
+        title: `Navigated to ${String(v.to)}`,
+        detail: null,
+        how: "Navigation",
+        route: String(v.to ?? ""),
+        at,
+      };
+    default:
+      // Semantic product events (recon.validated, thread.linked, ...).
+      return {
+        kind: "interaction",
+        verb: "Recorded",
+        target: eventLabel(event),
+        tag: event.event.name,
+        at,
+      };
+  }
+}
+
 async function trajectoryDetails(
   ids: readonly string[],
 ): Promise<Map<string, TrajectoryDetail | null>> {
@@ -413,22 +596,34 @@ export const ledgerlineLearningApi: LearningApi = {
         detail?.events.find((x) => x.eventId === id),
       );
       const agentSide = events.some((x) => x?.event.name === "thread.linked");
+      const quoted = detail ? stepForQuote(detail, e.quote) : undefined;
+      const quoteStep = quoted?.step;
       return {
         cited: [
           {
             content: e.quote,
             id: `${e.trajectoryId}:${e.eventIds.join(",")}`,
-            role: agentSide ? "tool" : "user",
+            role:
+              quoteStep?.kind === "message"
+                ? quoteStep.role
+                : agentSide
+                  ? "tool"
+                  : "user",
+            ...(quoteStep ? { step: quoteStep } : {}),
           },
           ...events
             .filter(
               (x): x is TrajectoryEvent =>
-                Boolean(x) && eventLabel(x) !== e.quote,
+                // The quote is often taken from one of these moments; show it once.
+                x !== undefined &&
+                x.eventId !== quoted?.eventId &&
+                eventLabel(x) !== e.quote,
             )
             .map((x) => ({
               content: `Signal: ${eventLabel(x)}`,
               id: x.eventId,
               role: "user" as const,
+              step: stepForEvent(x),
             })),
         ],
         messageCount: e.eventIds.length,

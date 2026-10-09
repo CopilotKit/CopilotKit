@@ -1,12 +1,17 @@
-import { IconButton } from '../ui/primitives';
-import { Link } from '../shell/router';
+import { IconButton } from "../ui/primitives";
+import { Link } from "../shell/router";
 
-import type { LearningInsightEvidence } from './learning-api';
-import styles from './learning-drawers.module.css';
+import {
+  EvidenceStep,
+  EvidenceSymbols,
+  EvidenceTimeline,
+} from "./evidence-step";
+import type { LearningInsightEvidence } from "./learning-api";
+import styles from "./learning-drawers.module.css";
 
 /** Renders a directional chevron for the evidence pager. */
 function ChevronIcon(props: {
-  readonly direction: 'next' | 'previous';
+  readonly direction: "next" | "previous";
 }): React.JSX.Element {
   return (
     <svg
@@ -19,7 +24,7 @@ function ChevronIcon(props: {
       width="16"
     >
       <path
-        d={props.direction === 'next' ? 'm10 6 6 6-6 6' : 'm14 6-6 6 6 6'}
+        d={props.direction === "next" ? "m10 6 6 6-6 6" : "m14 6-6 6 6 6"}
       />
     </svg>
   );
@@ -32,11 +37,11 @@ function ChevronIcon(props: {
  * @returns Copy naming how many messages were cited and why they are not shown.
  */
 function evidenceGapCopy(entry: LearningInsightEvidence): string {
-  const cited = `${entry.messageCount} cited ${entry.messageCount === 1 ? 'message' : 'messages'}`;
-  if (entry.unavailable === 'snapshot-missing') {
+  const cited = `${entry.messageCount} cited ${entry.messageCount === 1 ? "message" : "messages"}`;
+  if (entry.unavailable === "snapshot-missing") {
     return `${cited}. The frozen transcript for this analysis is no longer stored, so the text cannot be shown.`;
   }
-  if (entry.unavailable === 'snapshot-unreadable') {
+  if (entry.unavailable === "snapshot-unreadable") {
     return `${cited}. The frozen transcript could not be read, so the text cannot be shown.`;
   }
   return `${cited}. None of them resolved inside the frozen transcript for this analysis.`;
@@ -53,11 +58,11 @@ export function EvidenceBrowser(props: {
   readonly evidence: readonly LearningInsightEvidence[];
   readonly index: number;
   readonly onSelect: (index: number) => void;
-  readonly state: 'error' | 'loading' | 'ready';
+  readonly state: "error" | "loading" | "ready";
 }): React.JSX.Element {
   const total = props.evidence.length;
 
-  if (props.state === 'loading') {
+  if (props.state === "loading") {
     return (
       <p className={styles.evidenceEmpty} role="status">
         Loading the cited messages…
@@ -65,7 +70,7 @@ export function EvidenceBrowser(props: {
     );
   }
 
-  if (props.state === 'error') {
+  if (props.state === "error") {
     return (
       <p className={styles.evidenceEmpty} role="alert">
         The cited messages could not be read. The Insight still cites its
@@ -119,6 +124,31 @@ export function EvidenceBrowser(props: {
             <p className={styles.evidenceMessageCount}>
               {evidenceGapCopy(entry)}
             </p>
+          ) : entry.cited.some((message) => message.step) ? (
+            // Demo: steps of a recorded trajectory, drawn as the trajectory view draws them.
+            <>
+              <EvidenceSymbols />
+              <EvidenceTimeline>
+                {entry.cited.map((message) =>
+                  message.step ? (
+                    <EvidenceStep key={message.id} step={message.step} />
+                  ) : (
+                    <li key={message.id}>
+                      <blockquote
+                        className={styles.evidenceQuote}
+                        data-role={message.role}
+                      >
+                        <span className={styles.evidenceRole}>
+                          {message.role.charAt(0).toUpperCase() +
+                            message.role.slice(1)}
+                        </span>
+                        <p>{message.content}</p>
+                      </blockquote>
+                    </li>
+                  ),
+                )}
+              </EvidenceTimeline>
+            </>
           ) : (
             entry.cited.map((message) => (
               <blockquote
@@ -136,7 +166,9 @@ export function EvidenceBrowser(props: {
         </div>
         <div className={styles.evidenceFoot}>
           <div className={styles.evidenceSource}>
-            <span className={styles.evidenceSourceLabel}>Source trajectory</span>
+            <span className={styles.evidenceSourceLabel}>
+              Source trajectory
+            </span>
             <span className={styles.evidenceSourceName}>{threadLabel}</span>
           </div>
           {/* An Insight outlives the Threads it cites, and a link to one that
@@ -160,7 +192,7 @@ export function EvidenceBrowser(props: {
         >
           {props.evidence.map((reference, index) => (
             <button
-              aria-current={index === props.index ? 'true' : undefined}
+              aria-current={index === props.index ? "true" : undefined}
               aria-label={`Evidence ${index + 1}`}
               className={styles.evidenceDot}
               key={`${reference.threadId}:${index}`}
