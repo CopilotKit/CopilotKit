@@ -25,6 +25,13 @@ describe("package exports", () => {
     expect(typeof VuePackage.A2UISurfaceActivityRenderer).toBe("object");
   });
 
+  it("exports the default A2UI catalog for the catalog-on-provider path", () => {
+    // Users pass this to `a2ui.catalog` to enable A2UI from the provider.
+    // Guards against the library build tree-shaking the re-export away.
+    expect(VuePackage.vueBasicCatalog).toBeDefined();
+    expect(VuePackage.vueBasicCatalog.components.size).toBeGreaterThan(0);
+  });
+
   it("exports the vue stylesheet entrypoint", () => {
     const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as {
       exports?: Record<string, unknown>;

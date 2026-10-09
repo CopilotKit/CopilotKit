@@ -13,20 +13,18 @@
  *
  * Runtime: this cell uses its own dedicated runtime endpoint
  * (`/api/copilotkit-beautiful-chat`) so it can enable `openGenerativeUI`,
- * `a2ui` with `injectA2UITool: false`, and `mcpApps` simultaneously — the
+ * `a2ui` with `injectA2UITool: true`, and `mcpApps` simultaneously — the
  * same combined-runtime shape the canonical starter uses — without bleeding
  * those global flags into other cells sharing the main `/api/copilotkit`
  * endpoint. The backend graph is `beautiful_chat` (src/agents/beautiful_chat.py).
  */
 
 import React from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
-import { ExampleLayout } from "./components/example-layout";
-import { ExampleCanvas } from "./components/example-canvas";
-import { useGenerativeUIExamples, useExampleSuggestions } from "./hooks";
 import { ThemeProvider } from "./hooks/use-theme";
 import { demonstrationCatalog } from "./declarative-generative-ui/renderers";
+import { HomePage } from "./home-page";
 
 export default function BeautifulChatPage() {
   return (
@@ -49,19 +47,5 @@ export default function BeautifulChatPage() {
         <HomePage />
       </CopilotKit>
     </ThemeProvider>
-  );
-}
-
-function HomePage() {
-  useGenerativeUIExamples();
-  useExampleSuggestions();
-
-  return (
-    <ExampleLayout
-      chatContent={
-        <CopilotChat input={{ disclaimer: () => null, className: "pb-6" }} />
-      }
-      appContent={<ExampleCanvas />}
-    />
   );
 }

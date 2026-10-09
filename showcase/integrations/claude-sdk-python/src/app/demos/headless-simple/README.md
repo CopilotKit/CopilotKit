@@ -20,7 +20,7 @@ Asking for a card triggers the `show_card` component, which renders as a titled 
 
 ## Technical Details
 
-- `CopilotKit` wires the page with `runtimeUrl="/api/copilotkit"` and `agent="headless-simple"`, backed by the default `graph` in `src/agents/main.py`
+- `CopilotKit` wires the page with `runtimeUrl="/api/copilotkit"` and `agent="headless-simple"`, backed by the shared Claude Agent SDK backend
 - `useAgent({ agentId: "headless-simple" })` exposes `agent.messages`, `agent.isRunning`, and `agent.addMessage`; `useCopilotKit` exposes `copilotkit.runAgent` for triggering a run
 - `useComponent` registers the `show_card` component (title + body, zod-typed) and `useRenderToolCall` returns a renderer that turns tool calls into React
 - Calling `copilotkit.runAgent({ agent })` (not `agent.runAgent()` directly) is required so that frontend-registered components are forwarded to the agent

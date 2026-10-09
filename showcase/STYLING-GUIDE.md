@@ -1,5 +1,10 @@
 # Showcase Integration Package — Styling Guide
 
+Tagline: Tailwind v4 purging traps, CopilotKit class overrides, chat layout
+wrapper pattern, theme tokens, and Docker-image CSS verification recipe.
+Externally referenced from per-demo READMEs — preserve path at
+`showcase/STYLING-GUIDE.md`.
+
 When building demo pages for integration packages, follow these rules to avoid common pitfalls.
 
 ## Tailwind v4 Purging

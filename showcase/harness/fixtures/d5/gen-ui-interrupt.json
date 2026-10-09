@@ -27,6 +27,15 @@
     {
       "match": {
         "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_schedule_sales_001__cancelled"
+      },
+      "response": {
+        "content": "Denied — the sales intro call was not booked because no time slot was selected."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "intro call with the sales team",
         "toolCallId": "call_d5_schedule_sales_001"
       },
       "response": {
@@ -54,6 +63,15 @@
             }
           }
         ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001__cancelled"
+      },
+      "response": {
+        "content": "Denied — the 1:1 with Alice was not scheduled because no time slot was selected."
       }
     },
     {

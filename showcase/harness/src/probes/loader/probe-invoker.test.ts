@@ -24,7 +24,12 @@ function mkWriter(): {
         transition: "first",
         firstFailureAt: null,
         failCount: 0,
+        persisted: true,
       };
+    },
+    // H1 overlay path — unused by the invoker; present to satisfy StatusWriter.
+    async writeOverlay() {
+      return { applied: false, state: null };
     },
   };
   return { writer, writes };
@@ -509,6 +514,32 @@ describe("buildProbeInvoker", () => {
     // timeout ProbeResult as soon as the AbortController fires, rather
     // than waiting for the driver's promise to settle. This is the
     // load-bearing contract: a misbehaved driver cannot stall the tick.
+    //
+    // DETERMINISM (was a wall-clock flake): the prior version measured
+    // `Date.now()` around `await invoker()` and asserted
+    // `elapsed < 100ms`, on the theory that a regression awaiting the
+    // driver's full 80ms sleep would blow past the bound. But the driver
+    // sleep (80ms) and the bound (100ms) were only 20ms apart, so on a
+    // loaded host the harness/promise-settle overhead alone pushed
+    // `elapsed` to 100-150ms and the assertion failed INTERMITTENTLY even
+    // though the timeout LOGIC was correct (the synthetic timeout result
+    // was returned and the slow driver never resolved). Real wall-clock
+    // duration is not the invariant under test.
+    //
+    // We now drive the timeout with FAKE timers and assert the BEHAVIOR
+    // directly: advance fake time to exactly the timeout boundary
+    // (timeout_ms=20) — NOT to the driver's 80ms sleep — and confirm the
+    // invoker returns a synthetic timeout `error` result WITHOUT the slow
+    // driver ever having resolved. That proves the invoker times out fast
+    // (does not await the driver) with zero dependence on real-clock
+    // overhead. The driver's 80ms timer is left pending: a regression that
+    // awaited `driverPromise` instead would never settle while only 20ms
+    // of fake time has elapsed, so `await invocation` would hang to the
+    // per-test timeout — the exact failure mode we want to catch.
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     const inputSchema = z.object({ key: z.string() }).passthrough();
     let driverResolved = false;
     const driver: ProbeDriver = {
@@ -534,28 +565,27 @@ describe("buildProbeInvoker", () => {
       targets: [{ key: "smoke:ignores-abort" }],
     };
     const { writer, writes } = mkWriter();
-    const start = Date.now();
-    await buildProbeInvoker(cfg, {
+    const invocation = buildProbeInvoker(cfg, {
       driver,
       schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       ...BASE_DEPS,
     })();
-    const elapsed = Date.now() - start;
+    // Advance fake time to the timeout boundary (20ms) — well short of
+    // the driver's 80ms sleep. `advanceTimersByTimeAsync` flushes the
+    // microtask queue between timer fires so the invoker's Promise.race
+    // resolves on the timeout branch and the invocation settles
+    // deterministically.
+    await vi.advanceTimersByTimeAsync(cfg.timeout_ms!);
+    await invocation;
     expect(writes).toHaveLength(1);
     expect(writes[0]!.state).toBe("error");
-    // The invoker must return promptly on timeout — NOT wait for the
-    // driver's 80ms sleep to complete. Allow ample slack for CI jitter:
-    // we care that the invoker isn't blocking on the driver's full
-    // 80ms sleep, not that it returns inside any particular tight bound.
-    // 100ms is well under the 80ms+race-settle absolute lower bound for
-    // a regression where the invoker awaited driverPromise instead.
-    expect(elapsed).toBeLessThan(100);
-    // The slow driver has NOT fired its setTimeout callback yet at the
-    // time the invoker returned (timeout_ms=20 < driver-sleep=80), so
-    // this assertion is deterministic: we read driverResolved
-    // synchronously after `await invoker()` returns.
+    // The slow driver's 80ms timer never fired (we advanced only 20ms of
+    // fake time before the invoker returned), so its body — which sets
+    // `driverResolved = true` — never ran. This is the load-bearing
+    // invariant: the invoker returned on TIMEOUT, not by awaiting the
+    // driver's full sleep.
     expect(driverResolved).toBe(false);
   });
 
@@ -1456,7 +1486,11 @@ describe("buildProbeInvoker", () => {
           transition: "first",
           firstFailureAt: null,
           failCount: 0,
+          persisted: true,
         };
+      },
+      async writeOverlay() {
+        return { applied: false, state: null };
       },
     };
     await buildProbeInvoker(cfg, {
@@ -2428,6 +2462,10 @@ describe("buildProbeInvoker", () => {
   function fakeRunWriter(): {
     writer: ProbeRunWriter;
     starts: Array<{ probeId: string; startedAt: number; triggered: boolean }>;
+    updates: Array<{
+      id: string;
+      summary: { total: number; passed: number; failed: number } | null;
+    }>;
     finishes: Array<{
       id: string;
       finishedAt: number;
@@ -2440,6 +2478,10 @@ describe("buildProbeInvoker", () => {
       startedAt: number;
       triggered: boolean;
     }> = [];
+    const updates: Array<{
+      id: string;
+      summary: { total: number; passed: number; failed: number } | null;
+    }> = [];
     const finishes: Array<{
       id: string;
       finishedAt: number;
@@ -2451,6 +2493,22 @@ describe("buildProbeInvoker", () => {
       async start(opts) {
         starts.push(opts);
         return { id: `run-${nextId++}` };
+      },
+      async findByJobId() {
+        return null;
+      },
+      async update(opts) {
+        updates.push({
+          id: opts.id,
+          summary:
+            opts.summary === null
+              ? null
+              : {
+                  total: opts.summary.total,
+                  passed: opts.summary.passed,
+                  failed: opts.summary.failed,
+                },
+        });
       },
       async finish(opts) {
         finishes.push({
@@ -2471,7 +2529,7 @@ describe("buildProbeInvoker", () => {
         return [];
       },
     };
-    return { writer, starts, finishes };
+    return { writer, starts, updates, finishes };
   }
 
   it("registers a ProbeRunTracker on the scheduler entry while the handler runs and clears it after", async () => {
@@ -2735,6 +2793,152 @@ describe("buildProbeInvoker", () => {
   });
 
   // ---------------------------------------------------------------------
+  // Partial-rollup-on-abort: incrementally persist the partial summary to
+  // the probe_runs row as each target completes. Without this, a run that
+  // dies mid-flight (orchestrator process killed during a pool-churn
+  // burst) leaves a bare `running` row carrying NO partial counts — the
+  // boot-time sweep then has nothing to preserve and the dashboard shows
+  // `failed / total:0` even though dozens of features actually passed.
+  // ---------------------------------------------------------------------
+  it("incrementally persists partial summary via runWriter.update as targets complete", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        const key = (input as { key: string }).key;
+        return {
+          key,
+          state: key.endsWith("bad") ? "red" : "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      // Serialize so the update sequence is deterministic.
+      max_concurrency: 1,
+      targets: [{ key: "smoke:a" }, { key: "smoke:b" }, { key: "smoke:bad" }],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    const rw = fakeRunWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler: sched.scheduler,
+      runWriter: rw.writer,
+      ...BASE_DEPS,
+    })();
+    // One update per completed target, each carrying the running partial
+    // tally so an orphaned row reflects real progress.
+    expect(rw.updates.map((u) => u.summary)).toEqual([
+      { total: 3, passed: 1, failed: 0 },
+      { total: 3, passed: 2, failed: 0 },
+      { total: 3, passed: 2, failed: 1 },
+    ]);
+    // All updates target the same row created by start().
+    expect(rw.updates.every((u) => u.id === "run-1")).toBe(true);
+    // The final summary still lands via finish().
+    expect(rw.finishes[0]).toMatchObject({
+      state: "completed",
+      summary: { total: 3, passed: 2, failed: 1 },
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // Orphan-window guard: the per-target partial-rollup `runWriter.update`
+  // (which advances the durable `probe_runs.summary` counters) must NOT run
+  // before the `writer.write(result)` that commits the corresponding
+  // `status`/`status_history` detail row. The old ordering bumped the run-row
+  // counters first and then swallowed a `writer.write` failure — leaving a
+  // `probe_runs` row reporting `failed: N` for a target whose detail row was
+  // never durably written (the "run-row-orphan" / stale-red ingestion
+  // artifact). The detail write must be committed FIRST so the counter never
+  // outruns its backing detail row.
+  // ---------------------------------------------------------------------
+  it("commits the detail write before advancing the run-row counter (no orphan window)", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      // Serialize so the interleaving of write/update is deterministic.
+      max_concurrency: 1,
+      targets: [{ key: "smoke:a" }, { key: "smoke:b" }],
+    };
+
+    // Record the global ordering of detail-writes and counter-updates.
+    const order: Array<"write" | "update"> = [];
+    const writer: StatusWriter = {
+      async write() {
+        order.push("write");
+        return {
+          previousState: null,
+          newState: "green",
+          transition: "first",
+          firstFailureAt: null,
+          failCount: 0,
+          persisted: true,
+        };
+      },
+      async writeOverlay() {
+        return { applied: false, state: null };
+      },
+    };
+    const updates: Array<{ id: string }> = [];
+    const runWriter: ProbeRunWriter = {
+      async start() {
+        return { id: "run-1" };
+      },
+      async findByJobId() {
+        return null;
+      },
+      async update(opts) {
+        order.push("update");
+        updates.push({ id: opts.id });
+      },
+      async finish() {},
+      async recent() {
+        return [];
+      },
+    };
+
+    const sched = fakeScheduler();
+    await buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler: sched.scheduler,
+      runWriter,
+      ...BASE_DEPS,
+    })();
+
+    // Two targets → two write/update pairs. For EACH target the detail
+    // `write` must precede the run-row `update`, i.e. the sequence is
+    // write, update, write, update — never update, write.
+    expect(order).toEqual(["write", "update", "write", "update"]);
+  });
+
+  // ---------------------------------------------------------------------
   // R3-A.3: orphan-risk warn log when runWriter.start fails
   // ---------------------------------------------------------------------
   // When PB's `start()` fails after the row may have been created at the PB
@@ -2769,6 +2973,8 @@ describe("buildProbeInvoker", () => {
     const sched = fakeScheduler();
     const failingWriter: ProbeRunWriter = {
       start: vi.fn().mockRejectedValue(new Error("network blip")),
+      findByJobId: vi.fn().mockResolvedValue(null),
+      update: vi.fn().mockResolvedValue(undefined),
       finish: vi.fn().mockResolvedValue(undefined),
       recent: vi.fn().mockResolvedValue([]),
     };
@@ -2829,6 +3035,8 @@ describe("buildProbeInvoker", () => {
     const sched = fakeScheduler();
     const failingWriter: ProbeRunWriter = {
       start: vi.fn().mockRejectedValue(new Error("PB down")),
+      findByJobId: vi.fn().mockResolvedValue(null),
+      update: vi.fn().mockResolvedValue(undefined),
       finish: vi.fn().mockResolvedValue(undefined),
       recent: vi.fn().mockResolvedValue([]),
     };
@@ -2872,6 +3080,8 @@ describe("buildProbeInvoker", () => {
     const sched = fakeScheduler();
     const failingFinish: ProbeRunWriter = {
       start: vi.fn().mockResolvedValue({ id: "run-x" }),
+      findByJobId: vi.fn().mockResolvedValue(null),
+      update: vi.fn().mockResolvedValue(undefined),
       finish: vi.fn().mockRejectedValue(new Error("PB down")),
       recent: vi.fn().mockResolvedValue([]),
     };
@@ -3705,5 +3915,120 @@ describe("buildProbeInvoker", () => {
     const persisted = rw.finishes[0]!.summary!;
     expect(persisted.total).toBe(persisted.passed + persisted.failed);
     expect(persisted.failed).toBeGreaterThanOrEqual(1);
+  });
+
+  // ----------------------------------------------------------------------
+  // Service-startup stagger — protects against the d6 Chromium-spawn
+  // thundering herd that crashes the BrowserPool when many services fan
+  // out into pool.acquire() in the same JS tick. The stagger spaces
+  // worker-zero..N-1's FIRST pull over `(N-1)*staggerMs`, so per-Chromium
+  // thread-spawn bursts don't trip the container's PID/thread ceiling.
+  // ----------------------------------------------------------------------
+  it("staggers worker first-pull start times across the fan-out", async () => {
+    const inputSchema = z.object({ key: z.string() });
+    const startTimes: number[] = [];
+    // Each driver run hangs long enough that every worker's FIRST pull
+    // happens before any of them finish — that's the regime where the
+    // stagger actually matters (it spaces the per-service Chromium
+    // launches, not the steady-state cursor draining).
+    const HOLD_MS = 500;
+    const driver: ProbeDriver<z.infer<typeof inputSchema>, { ok: true }> = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        startTimes.push(Date.now());
+        await new Promise((r) => setTimeout(r, HOLD_MS));
+        return {
+          key: input.key,
+          state: "green",
+          signal: { ok: true },
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const targets = Array.from({ length: 4 }, (_, i) => ({
+      key: `smoke:t${i}`,
+    }));
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke-stagger",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets,
+    };
+    const { writer, writes } = mkWriter();
+    const STAGGER = 50;
+    const invoker = buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      ...BASE_DEPS,
+      // Override the default 300ms to keep the test fast; uses real timers
+      // so a small positive value is enough to assert ordering.
+      env: { SERVICE_STARTUP_STAGGER_MS: String(STAGGER) } as Readonly<
+        Record<string, string | undefined>
+      >,
+    });
+    await invoker();
+    expect(writes).toHaveLength(4);
+    expect(startTimes).toHaveLength(4);
+    // Worker 0 starts immediately; workers 1..N-1 each delayed by their
+    // index * stagger. Assert monotonic non-decreasing start times and a
+    // spread between first and last that is at least (N-1) * stagger
+    // less a small jitter margin. Use a generous lower bound so this is
+    // not flaky under CI scheduling jitter.
+    for (let i = 1; i < startTimes.length; i++) {
+      expect(startTimes[i]!).toBeGreaterThanOrEqual(startTimes[i - 1]!);
+    }
+    const totalSpread = startTimes[3]! - startTimes[0]!;
+    // (4 workers - 1) * 50ms = 150ms expected spread; allow 60% floor for
+    // CI scheduling jitter on slow runners.
+    expect(totalSpread).toBeGreaterThanOrEqual(Math.floor(3 * STAGGER * 0.6));
+  });
+
+  it("disables stagger when SERVICE_STARTUP_STAGGER_MS=0", async () => {
+    const inputSchema = z.object({ key: z.string() });
+    const startTimes: number[] = [];
+    const driver: ProbeDriver<z.infer<typeof inputSchema>, { ok: true }> = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        startTimes.push(Date.now());
+        return {
+          key: input.key,
+          state: "green",
+          signal: { ok: true },
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const targets = Array.from({ length: 4 }, (_, i) => ({
+      key: `smoke:t${i}`,
+    }));
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke-no-stagger",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets,
+    };
+    const { writer } = mkWriter();
+    const invoker = buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      ...BASE_DEPS,
+      env: { SERVICE_STARTUP_STAGGER_MS: "0" } as Readonly<
+        Record<string, string | undefined>
+      >,
+    });
+    await invoker();
+    // With stagger=0 every worker pulls its first input in the same
+    // microtask flush — the spread is bounded by JS scheduling latency
+    // for sibling promises, well under any meaningful stagger value.
+    const totalSpread = startTimes[3]! - startTimes[0]!;
+    expect(totalSpread).toBeLessThan(50);
   });
 });

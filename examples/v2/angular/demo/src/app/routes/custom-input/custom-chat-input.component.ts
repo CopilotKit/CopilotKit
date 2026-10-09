@@ -1,29 +1,29 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  Input,
   inject,
+  input,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { FormsModule } from "@angular/forms";
 import { injectChatState } from "@copilotkit/angular";
 
 @Component({
   selector: "nextgen-custom-input",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <form
       class="ck-input-wrapper"
       (ngSubmit)="submit()"
-      [class.ck-disabled]="inProgress"
+      [class.ck-disabled]="inProgress()"
       novalidate
       autocomplete="off"
     >
       <button
         type="button"
         class="ck-icon"
-        [disabled]="inProgress"
+        [disabled]="inProgress()"
         title="Add attachment"
       >
         ＋
@@ -37,7 +37,7 @@ import { injectChatState } from "@copilotkit/angular";
         type="text"
         [(ngModel)]="value"
         (ngModelChange)="chatState.changeInput($event)"
-        [disabled]="inProgress"
+        [disabled]="inProgress()"
         placeholder="Ask anything…"
         autocapitalize="sentences"
         autocomplete="off"
@@ -51,7 +51,7 @@ import { injectChatState } from "@copilotkit/angular";
       <button
         type="submit"
         class="ck-send"
-        [disabled]="inProgress || !canSend"
+        [disabled]="inProgress() || !canSend"
         [attr.aria-label]="'Send message'"
       >
         ↑
@@ -74,6 +74,17 @@ import { injectChatState } from "@copilotkit/angular";
       .ck-input-wrapper.ck-disabled {
         opacity: 0.7;
         pointer-events: none;
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
       }
       .ck-icon {
         width: 36px;
@@ -125,8 +136,8 @@ import { injectChatState } from "@copilotkit/angular";
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CustomChatInputComponent {
-  @Input() inProgress = false;
-  @Input() inputClass?: string;
+  readonly inProgress = input(false);
+  readonly inputClass = input<string>();
 
   value = "";
   composing = false;
@@ -141,7 +152,7 @@ export class CustomChatInputComponent {
   }
 
   async submit(): Promise<void> {
-    if (this.inProgress) return;
+    if (this.inProgress()) return;
     if (!this.canSend) return;
     this.chatState.submitInput(this.valueTrimmed);
     this.value = "";

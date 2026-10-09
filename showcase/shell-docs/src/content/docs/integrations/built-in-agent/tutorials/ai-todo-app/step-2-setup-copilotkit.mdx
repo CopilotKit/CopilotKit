@@ -30,7 +30,7 @@ npm install @copilotkit/react-core @copilotkit/react-ui
 <TailoredContentOption
   id="copilot-cloud"
   title="Copilot Cloud (Recommended)"
-  description="Use our hosted backend endpoint to get started quickly."
+  description="Use the cloud-hosted service to get started quickly."
   icon={<FaCloud />}
 >
 In order to use CopilotKit, we'll need to configure the `CopilotKit` provider.
@@ -73,9 +73,9 @@ In this tutorial, we'll use the `<CopilotPopup/>` component to display the chat 
 
 import { TasksList } from "@/components/TasksList";
 import { TasksProvider } from "@/lib/hooks/use-tasks";
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 import { CopilotPopup } from "@copilotkit/react-core/v2"; // [!code highlight]
-import "@copilotkit/react-ui/v2/styles.css"; // [!code highlight]
+import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
 
 export default function Home() {
   return (

@@ -4,6 +4,10 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { createOguiAgent } from "@/lib/factory/ogui-factory";
+// Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
+// into ALS for the factory's `forwardingFetch` to re-attach on outbound
+// LLM calls. See @/lib/header-forwarding for the full rationale.
+import { withForwardedHeaders } from "@/lib/header-forwarding";
 
 // Dedicated runtime for the Open Generative UI demo.
 //
@@ -21,10 +25,13 @@ import { createOguiAgent } from "@/lib/factory/ogui-factory";
 // @region[minimal-runtime-flag]
 // @region[advanced-runtime-config]
 const runtime = new CopilotRuntime({
-  agents: { default: createOguiAgent() },
+  agents: {
+    "open-gen-ui": createOguiAgent(),
+    "open-gen-ui-advanced": createOguiAgent(),
+  },
   runner: new InMemoryAgentRunner(),
   openGenerativeUI: {
-    agents: ["default"],
+    agents: ["open-gen-ui", "open-gen-ui-advanced"],
   },
 });
 // @endregion[advanced-runtime-config]
@@ -45,6 +52,9 @@ async function withProbeCompat(req: Request): Promise<Response> {
   return res;
 }
 
-export const GET = (req: Request) => handler(req);
-export const POST = (req: Request) => withProbeCompat(req);
-export const OPTIONS = (req: Request) => handler(req);
+export const GET = (req: Request) =>
+  withForwardedHeaders(req, () => handler(req));
+export const POST = (req: Request) =>
+  withForwardedHeaders(req, () => withProbeCompat(req));
+export const OPTIONS = (req: Request) =>
+  withForwardedHeaders(req, () => handler(req));

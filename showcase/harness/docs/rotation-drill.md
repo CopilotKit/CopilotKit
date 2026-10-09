@@ -1,5 +1,9 @@
 # SHARED_SECRET rotation drill
 
+Tagline: zero-downtime procedure to rotate the HMAC shared secret between
+`showcase_deploy.yml` (signer) and `showcase-harness` (verifier). Two-secret
+overlap window via `SHARED_SECRET_PREV` makes the rotation safe.
+
 This runbook walks through how to swap the shared password that
 `showcase-harness` uses to check that deploy-result webhooks are really
 coming from our own `showcase_deploy.yml` workflow (spec §4.5).

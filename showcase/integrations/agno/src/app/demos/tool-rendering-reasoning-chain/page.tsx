@@ -5,18 +5,12 @@
 // A single cell that composes two previously-separate patterns:
 //
 //   1. Reasoning tokens rendered via a custom `reasoningMessage` slot —
-//      the same approach used by the `agentic-chat-reasoning` cell.
+//      the same approach used by the `reasoning-custom` cell.
 //   2. Sequential tool calls rendered with:
 //        get_weather     → <WeatherCard />
 //        search_flights  → <FlightListCard />
 //        *               → <CustomCatchallRenderer />
 //      mirroring the `tool-rendering` (primary) cell.
-//
-// Backend: `reasoning_agent` (src/agents/reasoning_agent.py) at
-// /reasoning/agui. Has `reasoning=True` so reasoning steps surface via
-// AG-UI REASONING_MESSAGE_* events, plus the shared tools
-// (get_weather / search_flights / get_stock_price / roll_dice) so the
-// agent can produce full reasoning → tool → reasoning → tool chains.
 
 import React from "react";
 import {
@@ -35,6 +29,7 @@ import {
   CustomCatchallRenderer,
   type CatchallToolStatus,
 } from "./custom-catchall-renderer";
+import { parseJsonResult } from "../_shared/parse-json-result";
 
 interface WeatherResult {
   city?: string;
@@ -44,13 +39,10 @@ interface WeatherResult {
   conditions?: string;
 }
 
-function parseJsonResult<T>(result: unknown): T {
-  if (!result) return {} as T;
-  try {
-    return (typeof result === "string" ? JSON.parse(result) : result) as T;
-  } catch {
-    return {} as T;
-  }
+interface FlightSearchResult {
+  origin?: string;
+  destination?: string;
+  flights?: Flight[];
 }
 
 export default function ToolRenderingReasoningChainDemo() {
@@ -73,19 +65,13 @@ function Chat() {
     {
       name: "get_weather",
       parameters: z.object({ location: z.string() }),
-      render: (props) => {
-        const { result, status } = props;
+      render: ({ parameters, result, status }) => {
         const loading = status !== "complete";
         const parsed = parseJsonResult<WeatherResult>(result);
-        const location =
-          (props as { parameters?: { location?: string } }).parameters
-            ?.location ??
-          parsed.city ??
-          "";
         return (
           <WeatherCard
             loading={loading}
-            location={location}
+            location={parameters?.location ?? parsed.city ?? ""}
             temperature={parsed.temperature}
             humidity={parsed.humidity}
             windSpeed={parsed.wind_speed}
@@ -97,37 +83,22 @@ function Chat() {
     [],
   );
 
-  // Agno's `search_flights(flights: list[dict])` accepts the full list as
-  // the argument (the model generates the flights); the tool call's
-  // `parameters.flights` is the rendering source while streaming.
   useRenderTool(
     {
       name: "search_flights",
       parameters: z.object({
-        flights: z.array(z.record(z.unknown())).optional(),
+        origin: z.string(),
+        destination: z.string(),
       }),
-      render: (props) => {
-        const { status } = props;
+      render: ({ parameters, result, status }) => {
         const loading = status !== "complete";
-        const flights = ((props as { parameters?: { flights?: Flight[] } })
-          .parameters?.flights ?? []) as Flight[];
-        return <FlightListCard loading={loading} flights={flights} />;
-      },
-    },
-    [],
-  );
-
-  useDefaultRenderTool(
-    {
-      render: (props) => {
-        const { name, status, result } = props;
-        const params = (props as { parameters?: unknown }).parameters;
+        const parsed = parseJsonResult<FlightSearchResult>(result);
         return (
-          <CustomCatchallRenderer
-            name={name}
-            parameters={params}
-            status={status as CatchallToolStatus}
-            result={result as string | undefined}
+          <FlightListCard
+            loading={loading}
+            origin={parameters?.origin ?? parsed.origin ?? ""}
+            destination={parameters?.destination ?? parsed.destination ?? ""}
+            flights={parsed.flights ?? []}
           />
         );
       },
@@ -135,17 +106,33 @@ function Chat() {
     [],
   );
 
+  useDefaultRenderTool(
+    {
+      render: ({ name, parameters, status, result }) => (
+        <CustomCatchallRenderer
+          name={name}
+          parameters={parameters}
+          status={status as CatchallToolStatus}
+          result={result}
+        />
+      ),
+    },
+    [],
+  );
+
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather in Tokyo",
-        message: "What's the weather in Tokyo?",
+        title: "Compare two stocks",
+        message: "Compare AAPL and MSFT stocks for me.",
       },
-      { title: "Compare two stocks", message: "How is AAPL doing?" },
-      { title: "Chain of dice rolls", message: "Roll a 20-sided die for me." },
       {
-        title: "Flights SFO → JFK",
-        message: "Find flights from SFO to JFK.",
+        title: "Chain of dice rolls",
+        message: "Roll a 20-sided die for me and compare it to a smaller one.",
+      },
+      {
+        title: "Flights + destination weather",
+        message: "Find flights from SFO to JFK and show me the weather there.",
       },
     ],
     available: "always",

@@ -58,7 +58,7 @@ test.describe("Authentication", () => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
 
     const input = page.getByPlaceholder("Type a message");
-    await input.fill("Hello");
+    await input.fill("Say hello in one short sentence");
     await input.press("Enter");
 
     await expect(
@@ -109,7 +109,7 @@ test.describe("Authentication", () => {
     // After sign-out, the next send must surface the rejection — not
     // produce an assistant response and not white-screen the page.
     const input = page.getByPlaceholder("Type a message");
-    await input.fill("Hello again");
+    await input.fill("Tell me a one-line joke");
     await input.press("Enter");
 
     const errorSurface = page.locator('[data-testid="auth-demo-error"]');
@@ -144,7 +144,7 @@ test.describe("Authentication", () => {
 
     // Chat is responsive again.
     const input = page.getByPlaceholder("Type a message");
-    await input.fill("Hello again");
+    await input.fill("Give me a fun fact");
     await input.press("Enter");
     await expect(
       page.locator('[data-testid="copilot-assistant-message"]').first(),

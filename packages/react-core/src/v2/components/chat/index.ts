@@ -7,6 +7,7 @@ export {
 export {
   default as CopilotChatAssistantMessage,
   type CopilotChatAssistantMessageProps,
+  type CopilotChatFeedbackMessage,
 } from "./CopilotChatAssistantMessage";
 
 export {
@@ -37,7 +38,12 @@ export {
 
 export {
   default as CopilotChatMessageView,
+  messageGroup,
+  messageRow,
   type CopilotChatMessageViewProps,
+  type MessageGroup,
+  type MessageGroupWrapperProps,
+  type MessageRow,
 } from "./CopilotChatMessageView";
 
 export {
@@ -77,6 +83,12 @@ export {
 export { CopilotSidebar, type CopilotSidebarProps } from "./CopilotSidebar";
 
 export { CopilotPopup, type CopilotPopupProps } from "./CopilotPopup";
+
+export {
+  CopilotThreadsDrawer,
+  type CopilotThreadsDrawerProps,
+  type CopilotThreadsDrawerRowRenderer,
+} from "./CopilotThreadsDrawer";
 
 export { CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue";
 export { CopilotChatAttachmentRenderer } from "./CopilotChatAttachmentRenderer";

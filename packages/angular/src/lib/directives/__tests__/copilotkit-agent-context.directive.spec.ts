@@ -1,4 +1,4 @@
-import { Component } from "@angular/core";
+import { Component, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CopilotKitAgentContext } from "../copilotkit-agent-context";
@@ -23,14 +23,13 @@ describe("CopilotKitAgentContext", () => {
 
   it("adds and removes context for separate description/value inputs", () => {
     @Component({
-      standalone: true,
       imports: [CopilotKitAgentContext],
       template: `
-        <div copilotkitAgentContext [description]="description" [value]="value"></div>
+        <div copilotkitAgentContext [description]="description()" [value]="value"></div>
       `,
     })
     class HostComponent {
-      description = "Initial";
+      description = signal("Initial");
       value = { foo: "bar" };
     }
 
@@ -43,7 +42,7 @@ describe("CopilotKitAgentContext", () => {
       value: { foo: "bar" },
     });
 
-    fixture.componentInstance.description = "Updated";
+    fixture.componentInstance.description.set("Updated");
     fixture.detectChanges();
 
     expect(core.removeContext).toHaveBeenCalledWith("ctx-1");
@@ -58,7 +57,6 @@ describe("CopilotKitAgentContext", () => {
 
   it("supports passing full context object via directive binding", () => {
     @Component({
-      standalone: true,
       imports: [CopilotKitAgentContext],
       template: `
         <div [copilotkitAgentContext]="context"></div>

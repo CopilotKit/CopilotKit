@@ -1,0 +1,456 @@
+import assert from "node:assert/strict";
+import { isDeepStrictEqual } from "node:util";
+const url = process.env.PB_TEST_URL ?? "http://127.0.0.1:43120";
+let token;
+async function request(path, method = "GET", body, auth = true) {
+  const response = await fetch(url + path, {
+    method,
+    headers: {
+      "content-type": "application/json",
+      ...(auth && token ? { Authorization: token } : {}),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  const data = await response.json();
+  return { status: response.status, data };
+}
+async function ok(path, method, body) {
+  const r = await request(path, method, body);
+  assert.ok(r.status < 300, JSON.stringify(r));
+  return r.data;
+}
+token = (
+  await ok("/api/admins/auth-with-password", "POST", {
+    identity: "local-proof@example.test",
+    password: "local-proof-password-only",
+  })
+).token;
+const collection = (name) => `/api/collections/${name}/records`;
+const key = `d5:transaction-proof/${Date.now()}`;
+const observed_at = new Date().toISOString();
+const values = {
+  key,
+  dimension: "d5",
+  state: "red",
+  signal: { proof: true },
+  observed_at,
+  transitioned_at: observed_at,
+  fail_count: 1,
+  first_failure_at: observed_at,
+  written_by: "transaction-proof",
+  state_written_at: observed_at,
+};
+const job = await ok(collection("probe_jobs"), "POST", {
+  probe_key: key,
+  status: "done",
+  result: { proof: "immutable" },
+});
+const history = {
+  key,
+  dimension: "d5",
+  state: "red",
+  transition: "first",
+  signal: { proof: true },
+  observed_at,
+};
+const outcome = {
+  kind: "write",
+  value: {
+    previousState: null,
+    newState: "red",
+    transition: "first",
+    firstFailureAt: observed_at,
+    failCount: 1,
+    persisted: true,
+  },
+};
+const input = {
+  jobId: job.id,
+  key,
+  fingerprint: "a".repeat(64),
+  route: "write",
+  basis: null,
+  status: { mode: "upsert", values },
+  history,
+  outcome,
+};
+const apply = (body) => request("/api/fleet/observations/apply", "POST", body);
+const list = async (name, observationKey = key) =>
+  (
+    await ok(
+      collection(name) +
+        "?filter=" +
+        encodeURIComponent(`key = "${observationKey}"`),
+    )
+  ).items;
+const invalidHistory = {
+  ...input,
+  history: { ...history, transition: "INVALID" },
+};
+const failed = await apply(invalidHistory);
+const afterFailure = {
+  status: await list("status"),
+  history: await list("status_history"),
+  job: await ok(collection("probe_jobs") + "/" + job.id),
+};
+console.log(
+  JSON.stringify({
+    case: "history failure rolls back attempted status",
+    failed,
+    afterFailure,
+  }),
+);
+assert.ok(failed.status >= 400);
+assert.equal(
+  afterFailure.status.length,
+  0,
+  "history failure must roll back status",
+);
+assert.equal(afterFailure.history.length, 0);
+assert.ok(!afterFailure.job.result_observation_receipts?.[key]);
+console.log("PASS history failure atomic rollback");
+const unauthenticated = await request(
+  "/api/fleet/observations/apply",
+  "POST",
+  input,
+  false,
+);
+assert.equal(unauthenticated.status, 401);
+assert.equal((await apply({ ...input, jobId: "missingjob00000" })).status, 404);
+const snapshot = async (jobId = job.id, observationKey = key) => ({
+  status: await list("status", observationKey),
+  history: await list("status_history", observationKey),
+  job: await ok(collection("probe_jobs") + "/" + jobId),
+});
+
+// PB's JSON field accepts scalar values. A malformed receipt map must fail
+// before any status/history write, including values that JavaScript finds falsy.
+const malformedReceipts = [];
+for (const receipts of [false, 0, "", true, 1, "not-a-map", []]) {
+  const malformedKey = key + "-malformed-" + malformedReceipts.length;
+  const malformedJob = await ok(collection("probe_jobs"), "POST", {
+    probe_key: malformedKey,
+    status: "done",
+    result: { proof: "immutable" },
+    result_observation_receipts: receipts,
+  });
+  assert.deepEqual(malformedJob.result_observation_receipts, receipts);
+  const before = await snapshot(malformedJob.id, malformedKey);
+  const failure = await apply({
+    ...input,
+    jobId: malformedJob.id,
+    key: malformedKey,
+    status: { mode: "upsert", values: { ...values, key: malformedKey } },
+    history: { ...history, key: malformedKey },
+  });
+  malformedReceipts.push({
+    receipts,
+    status: failure.status,
+    code: failure.data.data?.code,
+    unchanged: isDeepStrictEqual(
+      await snapshot(malformedJob.id, malformedKey),
+      before,
+    ),
+  });
+}
+console.log(
+  JSON.stringify({ case: "malformed receipt maps", malformedReceipts }),
+);
+assert.deepEqual(
+  malformedReceipts,
+  [false, 0, "", true, 1, "not-a-map", []].map((receipts) => ({
+    receipts,
+    status: 500,
+    code: "persistence_failure",
+    unchanged: true,
+  })),
+);
+console.log(
+  "PASS malformed receipt maps reject without status/history/job effects",
+);
+// Only the selected entry is replay evidence. Reject corrupt durable entries
+// before acknowledgement, using the same route/outcome contract as new plans.
+const completeReceipt = {
+  fingerprint: input.fingerprint,
+  route: "write",
+  outcome,
+};
+const malformedEntries = [
+  ...[null, false, 0, "", true, 1, "not-an-entry", [], {}].map((receipt) => [
+    "shape " + JSON.stringify(receipt),
+    receipt,
+  ]),
+  ["fingerprint only", { fingerprint: input.fingerprint }],
+  ["missing route", { fingerprint: input.fingerprint, outcome }],
+  ["missing outcome", { fingerprint: input.fingerprint, route: "write" }],
+  ["invalid fingerprint", { ...completeReceipt, fingerprint: "invalid" }],
+  ["invalid route", { ...completeReceipt, route: "invalid" }],
+  ...[null, false, 0, "", [], {}, { kind: "write", value: [] }].map(
+    (badOutcome) => [
+      "outcome " + JSON.stringify(badOutcome),
+      { ...completeReceipt, outcome: badOutcome },
+    ],
+  ),
+  ["route/kind mismatch", { ...completeReceipt, route: "overlay" }],
+  [
+    "oversize outcome",
+    {
+      ...completeReceipt,
+      outcome: { kind: "write", value: { padding: "x".repeat(1024) } },
+    },
+  ],
+];
+const entryResults = [];
+for (const [name, receipt] of malformedEntries) {
+  const entryKey = key + "-entry-" + entryResults.length;
+  const entryJob = await ok(collection("probe_jobs"), "POST", {
+    probe_key: entryKey,
+    status: "done",
+    result: { proof: "immutable" },
+    result_observation_receipts: { [entryKey]: receipt },
+  });
+  const before = await snapshot(entryJob.id, entryKey);
+  const failure = await apply({
+    ...input,
+    jobId: entryJob.id,
+    key: entryKey,
+    status: { mode: "upsert", values: { ...values, key: entryKey } },
+    history: { ...history, key: entryKey },
+  });
+  entryResults.push({
+    name,
+    status: failure.status,
+    code: failure.data.data?.code,
+    replay: failure.data.replay === true,
+    unchanged: isDeepStrictEqual(await snapshot(entryJob.id, entryKey), before),
+  });
+}
+console.log(
+  JSON.stringify({ case: "malformed selected receipt entries", entryResults }),
+);
+assert.deepEqual(
+  entryResults,
+  malformedEntries.map(([name]) => ({
+    name,
+    status: 500,
+    code: "persistence_failure",
+    replay: false,
+    unchanged: true,
+  })),
+);
+console.log(
+  "PASS malformed selected receipt entries fail loudly without acknowledgement or effects",
+);
+for (const route of ["write", "overlay", "history"]) {
+  const replayKey = key + "-opaque-" + route;
+  const opaqueOutcome = {
+    kind: route === "overlay" ? "overlay" : "write",
+    value: { opaque: [null, false, { future: "preserved" }] },
+  };
+  const replayJob = await ok(collection("probe_jobs"), "POST", {
+    probe_key: replayKey,
+    status: "done",
+    result_observation_receipts: {
+      [replayKey]: {
+        fingerprint: input.fingerprint,
+        route,
+        outcome: opaqueOutcome,
+      },
+      padding: "irrelevant entry",
+    },
+  });
+  const before = await snapshot(replayJob.id, replayKey);
+  const replay = await apply({
+    jobId: replayJob.id,
+    key: replayKey,
+    fingerprint: input.fingerprint,
+  });
+  assert.equal(replay.status, 200, JSON.stringify(replay));
+  assert.deepEqual(replay.data, { replay: true, outcome: opaqueOutcome });
+  assert.deepEqual(await snapshot(replayJob.id, replayKey), before);
+}
+console.log(
+  "PASS complete receipts replay opaque outcomes for every route without effects",
+);
+assert.equal(job.result_observation_receipts, null);
+const success = await apply(input);
+assert.equal(success.status, 200, JSON.stringify(success));
+assert.deepEqual(success.data, { replay: false, outcome });
+console.log("PASS null receipt map admits a new observation");
+const committed = await snapshot();
+assert.equal(committed.history.length, 1);
+assert.deepEqual(committed.job.result, { proof: "immutable" });
+assert.deepEqual((await apply(input)).data, { replay: true, outcome });
+assert.deepEqual(await snapshot(), committed);
+assert.equal(
+  (await apply({ ...input, fingerprint: "b".repeat(64) })).data.data.code,
+  "identity_conflict",
+);
+console.log(
+  "PASS replay is durable and preserves raw worker result; conflicting identity rejects",
+);
+const statusFields = [
+  "key",
+  "dimension",
+  "state",
+  "signal",
+  "observed_at",
+  "transitioned_at",
+  "fail_count",
+  "first_failure_at",
+  "written_by",
+  "state_written_at",
+];
+const basisOf = (row) => ({
+  id: row.id,
+  fields: Object.fromEntries(statusFields.map((field) => [field, row[field]])),
+  updated: row.updated,
+});
+const secondJob = await ok(collection("probe_jobs"), "POST", {
+  probe_key: key,
+  status: "done",
+});
+const second = {
+  ...input,
+  jobId: secondJob.id,
+  basis: basisOf(committed.status[0]),
+  status: { mode: "upsert", values: { ...values, fail_count: 2 } },
+  history: { ...history, transition: "sustained_red" },
+  outcome: {
+    kind: "write",
+    value: {
+      ...outcome.value,
+      previousState: "red",
+      transition: "sustained_red",
+      failCount: 2,
+    },
+  },
+};
+const concurrent = await Promise.all(
+  Array.from({ length: 8 }, () => apply(second)),
+);
+assert.ok(
+  concurrent.every((r) => r.status === 200),
+  JSON.stringify(concurrent),
+);
+assert.equal(concurrent.filter((r) => !r.data.replay).length, 1);
+assert.equal((await list("status"))[0].fail_count, 2);
+assert.equal((await list("status_history")).length, 2);
+console.log(
+  "PASS 8 concurrent same-observation requests commit once; new job with same timestamp increments once",
+);
+const afterNew = await snapshot();
+assert.deepEqual((await apply(input)).data, { replay: true, outcome });
+assert.deepEqual(await snapshot(), afterNew);
+console.log("PASS old replay after newer job changes nothing");
+const thirdJob = await ok(collection("probe_jobs"), "POST", {
+  probe_key: key,
+  status: "done",
+});
+const third = { ...second, jobId: thirdJob.id };
+const beforeStale = await snapshot(thirdJob.id);
+assert.equal((await apply(third)).data.data.code, "basis_conflict");
+assert.deepEqual(await snapshot(thirdJob.id), beforeStale);
+console.log("PASS stale prepared basis rejects without effects");
+// An absent-row history fallback is an observation in its own right. A later
+// status row must not make its replay take the now-available overlay route.
+const fallbackKey = key + "-fallback";
+const fallbackJob = await ok(collection("probe_jobs"), "POST", {
+  probe_key: fallbackKey,
+  status: "done",
+});
+const fallbackOutcome = {
+  kind: "write",
+  value: {
+    previousState: null,
+    newState: "error",
+    errorStatePrev: null,
+    transition: "error",
+    firstFailureAt: null,
+    failCount: 0,
+    persisted: false,
+  },
+};
+const fallback = {
+  ...input,
+  jobId: fallbackJob.id,
+  key: fallbackKey,
+  route: "history",
+  status: null,
+  history: { ...history, key: fallbackKey, transition: "error" },
+  outcome: fallbackOutcome,
+};
+assert.equal((await apply(fallback)).status, 200);
+const later = await ok(collection("status"), "POST", {
+  ...values,
+  key: fallbackKey,
+});
+const beforeFallbackReplay = await ok(collection("status") + "/" + later.id);
+assert.deepEqual(
+  (
+    await apply({
+      ...fallback,
+      route: "overlay",
+      status: { mode: "patch", values: { signal: { changed: true } } },
+      outcome: {
+        kind: "overlay",
+        value: { applied: true, state: "red", historyPersisted: true },
+      },
+    })
+  ).data,
+  { replay: true, outcome: fallbackOutcome },
+);
+assert.deepEqual(
+  await ok(collection("status") + "/" + later.id),
+  beforeFallbackReplay,
+);
+console.log(
+  "PASS history fallback replay preserves original outcome after baseline appears",
+);
+// Different keys of the same job append against the transaction's current row.
+const multiJob = await ok(collection("probe_jobs"), "POST", {
+  probe_key: key,
+  status: "done",
+});
+const multiInputs = [0, 1].map((n) => ({
+  ...input,
+  jobId: multiJob.id,
+  key: key + "-multi" + n,
+  status: { mode: "upsert", values: { ...values, key: key + "-multi" + n } },
+  history: { ...history, key: key + "-multi" + n },
+}));
+assert.ok(
+  (await Promise.all(multiInputs.map(apply))).every((r) => r.status === 200),
+);
+assert.equal(
+  Object.keys(
+    (await ok(collection("probe_jobs") + "/" + multiJob.id))
+      .result_observation_receipts,
+  ).length,
+  2,
+);
+console.log("PASS concurrent different keys preserve both job receipts");
+// Fill the actual 2 MiB field near its cap on this private job. The next
+// legitimate receipt must fail validation and roll back status/history.
+const schema = await ok("/api/collections/probe_jobs");
+assert.equal(
+  schema.schema.find((f) => f.name === "result_observation_receipts").options
+    .maxSize,
+  2097152,
+);
+await ok(collection("probe_jobs") + "/" + thirdJob.id, "PATCH", {
+  result_observation_receipts: { padding: "x".repeat(2097050) },
+});
+const current = (await list("status"))[0];
+const capInput = {
+  ...third,
+  basis: basisOf(current),
+  status: { mode: "upsert", values: { ...values, fail_count: 3 } },
+};
+const beforeCap = await snapshot(thirdJob.id);
+assert.equal((await apply(capInput)).status, 500);
+assert.deepEqual(await snapshot(thirdJob.id), beforeCap);
+console.log(
+  "PASS actual 2 MiB receipt schema validation failure rolls back all effects",
+);
+console.log("ALL REAL POCKETBASE TRANSACTION CHECKS PASSED");

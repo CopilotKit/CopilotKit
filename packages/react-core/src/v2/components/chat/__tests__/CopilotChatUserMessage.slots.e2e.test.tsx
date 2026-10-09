@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from "vitest";
 import { CopilotChatUserMessage } from "../CopilotChatUserMessage";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { UserMessage } from "@ag-ui/core";
+import type { UserMessage } from "@ag-ui/core";
 
 // Wrapper to provide required context
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -129,11 +129,16 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
     describe("messageRenderer slot", () => {
       it("should pass custom props to messageRenderer", () => {
         const message = createUserMessage("Hello");
+        const messageRendererProps: Partial<
+          React.ComponentProps<typeof CopilotChatUserMessage.MessageRenderer>
+        > & { "data-testid": string } = {
+          "data-testid": "custom-message-renderer",
+        };
         render(
           <TestWrapper>
             <CopilotChatUserMessage
               message={message}
-              messageRenderer={{ "data-testid": "custom-message-renderer" }}
+              messageRenderer={messageRendererProps}
             />
           </TestWrapper>,
         );
@@ -147,12 +152,10 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
       it("should pass custom onClick to toolbar", () => {
         const onClick = vi.fn();
         const message = createUserMessage("Hello");
+        const toolbarProps = { onClick, "data-testid": "custom-toolbar" };
         render(
           <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              toolbar={{ onClick, "data-testid": "custom-toolbar" }}
-            />
+            <CopilotChatUserMessage message={message} toolbar={toolbarProps} />
           </TestWrapper>,
         );
 
@@ -248,6 +251,9 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
       it("should pass custom props to branchNavigation", () => {
         const onSwitchToBranch = vi.fn();
         const message = createUserMessage("Hello");
+        const branchNavigationProps: Partial<
+          React.ComponentProps<typeof CopilotChatUserMessage.BranchNavigation>
+        > & { "data-testid": string } = { "data-testid": "custom-branch-nav" };
         render(
           <TestWrapper>
             <CopilotChatUserMessage
@@ -255,7 +261,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
               branchIndex={1}
               numberOfBranches={3}
               onSwitchToBranch={onSwitchToBranch}
-              branchNavigation={{ "data-testid": "custom-branch-nav" }}
+              branchNavigation={branchNavigationProps}
             />
           </TestWrapper>,
         );
@@ -440,7 +446,13 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
 
     it("should pass message and branch info through children render function", () => {
       const message = createUserMessage("Test message");
-      const childrenFn = vi.fn(() => <div />);
+      const childrenFn = vi.fn(
+        (_props: {
+          message?: UserMessage;
+          branchIndex?: number;
+          numberOfBranches?: number;
+        }) => <div />,
+      );
 
       render(
         <TestWrapper>

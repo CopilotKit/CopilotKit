@@ -1,5 +1,6 @@
 import { Cron } from "croner";
 import type { Logger } from "../types/index.js";
+import { formatCvdiag } from "../probes/helpers/cv-diag.js";
 // B7: bind the in-flight tracker slot to the real ProbeRunTracker class
 // (was a structural placeholder until B2 landed). The scheduler still
 // never reads tracker fields itself — it just stores whatever the
@@ -265,6 +266,18 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
   ): Promise<void> {
     const startedAt = Date.now();
     e.lastRunStartedAt = startedAt;
+    // CVDIAG: scheduler tick START — the in-process analogue of a worker
+    // claiming a job. `id` is the scheduler entry (probe:<slug> / rule-cron /
+    // internal:* / fleet producer); `triggeredRun` distinguishes a manual
+    // trigger from a cron tick. Surfaces whether ticks actually fire live.
+    console.log(
+      formatCvdiag({
+        component: `harness-scheduler:tick-start:${id}`,
+        boundary: "inbound",
+        status: "ok",
+        error: `triggered=${e.triggeredRun}`,
+      }),
+    );
     let summary: RunSummary | null = null;
     // CR-A1.3: track whether the handler threw. When it does, the
     // previous successful run's `lastRunSummary` becomes stale —
@@ -283,6 +296,17 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
           id,
           err: String(err),
         });
+        // CVDIAG: the handler threw — surface the swallowed (warn-and-continue)
+        // error so a failed probe/producer tick is greppable, not just buried
+        // in the structured log.
+        console.log(
+          formatCvdiag({
+            component: `harness-scheduler:handler-error:${id}`,
+            boundary: "inbound",
+            status: "error",
+            error: String(err),
+          }),
+        );
       }
     })();
     e.inflight.add(p);
@@ -302,6 +326,25 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
       } else if (summary !== null) {
         e.lastRunSummary = summary;
       }
+      // CVDIAG: scheduler tick FINISH — the in-process analogue of a worker
+      // releasing a claimed job. Carries the wall-clock duration + pass/fail
+      // rollup (when the handler returned one) so the live fleet shows ticks
+      // completing, not just starting.
+      // `summary` is only assigned inside the IIFE closure above, so a
+      // truthiness guard here narrows it to `never`. Read it back through the
+      // entry's stored summary (set just above on the success path) — a typed
+      // `RunSummary | null` — so the rollup property reads stay valid.
+      const finishSummary = e.lastRunSummary;
+      console.log(
+        formatCvdiag({
+          component: `harness-scheduler:tick-finish:${id}`,
+          boundary: "inbound",
+          status: handlerThrew ? "error" : "ok",
+          error: finishSummary
+            ? `durMs=${e.lastRunDurationMs} total=${finishSummary.total} passed=${finishSummary.passed} failed=${finishSummary.failed}`
+            : `durMs=${e.lastRunDurationMs}`,
+        }),
+      );
     }
   }
 
@@ -333,6 +376,17 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
             startedAt !== null ? new Date(startedAt).toISOString() : null,
           elapsedMs: startedAt !== null ? Date.now() - startedAt : null,
         });
+        // CVDIAG: a cron tick was SKIPPED because a prior run is still inflight
+        // — surfaces a stuck/overlong handler (e.g. a wedged probe holding the
+        // slot) that would otherwise only show as a quiet warn.
+        console.log(
+          formatCvdiag({
+            component: `harness-scheduler:skip-overlap:${id}`,
+            boundary: "inbound",
+            status: "error",
+            error: `inflight=${e.inflight.size} elapsedMs=${startedAt !== null ? Date.now() - startedAt : "null"}`,
+          }),
+        );
         return;
       }
       // Scheduled tick: triggeredRun stays false. (A prior manual trigger

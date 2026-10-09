@@ -155,7 +155,9 @@ describe("d5-agentic-chat script", () => {
     // Assistant replied without recalling the goldfish's name. The
     // context-retention check must throw to surface this regression.
     const page = makePageReturning("I don't recall what we discussed earlier.");
-    await expect(turn3.assertions!(page)).rejects.toThrow(/turn 3/);
+    await expect(
+      turn3.assertions!(page, { bubbleIndex: 0, text: "" }),
+    ).rejects.toThrow(/turn 3/);
   });
 
   it("turn-3 assertion passes a present-name response (case-insensitive)", async () => {
@@ -171,7 +173,9 @@ describe("d5-agentic-chat script", () => {
     const page = makePageReturning(
       "We named the goldfish BUBBLES, and the tank The Bubble Bowl.",
     );
-    await expect(turn3.assertions!(page)).resolves.toBeUndefined();
+    await expect(
+      turn3.assertions!(page, { bubbleIndex: 0, text: "" }),
+    ).resolves.toBeUndefined();
   });
 
   it("turn-1 assertion fails on an empty assistant response", async () => {
@@ -184,6 +188,8 @@ describe("d5-agentic-chat script", () => {
     // Whitespace-only transcript — this is the common runtime-bug
     // signature the assertion is designed to surface.
     const page = makePageReturning("   ");
-    await expect(turn1.assertions!(page)).rejects.toThrow(/turn 1/);
+    await expect(
+      turn1.assertions!(page, { bubbleIndex: 0, text: "" }),
+    ).rejects.toThrow(/turn 1/);
   });
 });

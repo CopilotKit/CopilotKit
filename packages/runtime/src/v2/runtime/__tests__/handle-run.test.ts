@@ -1,16 +1,14 @@
-import { Observable } from "rxjs";
+import { EMPTY, Observable } from "rxjs";
 import { describe, it, expect, vi } from "vitest";
-import {
-  AbstractAgent,
-  BaseEvent,
-  EventType,
-  HttpAgent,
-  RunAgentInput,
-} from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput, RunAgentResult } from "@ag-ui/client";
+import { AbstractAgent, EventType, HttpAgent } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../core/runtime";
+import type { CopilotRuntimeMemoryConfig } from "../core/runtime";
+import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
+import { PlatformRequestError } from "../intelligence-platform/client";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 
 describe("handleRunAgent", () => {
@@ -22,7 +20,8 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
-    } as CopilotRuntime;
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+    } as unknown as CopilotRuntime;
   };
 
   const createMockRequest = (): Request => {
@@ -58,7 +57,8 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
-    } as CopilotRuntime;
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+    } as unknown as CopilotRuntime;
     const request = createMockRequest();
     const agentId = "test-agent";
 
@@ -91,7 +91,7 @@ describe("handleRunAgent", () => {
         this.headers = initialHeaders;
       }
 
-      clone(): AbstractAgent {
+      clone(): HttpAgent {
         return new RecordingHttpAgent({});
       }
     }
@@ -113,6 +113,7 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: {
         run: ({ agent }: { agent: AbstractAgent }) =>
           new Observable<BaseEvent>((subscriber) => {
@@ -127,7 +128,7 @@ describe("handleRunAgent", () => {
         isRunning: async () => false,
         stop: async () => false,
       },
-    } as CopilotRuntime;
+    } as unknown as CopilotRuntime;
 
     const requestBody = {
       threadId: "thread-1",
@@ -166,6 +167,130 @@ describe("handleRunAgent", () => {
     });
     expect(recordedHeaders[0]).not.toHaveProperty("origin");
     expect(recordedHeaders[0]).not.toHaveProperty("content-type");
+  });
+
+  it("keeps authorization request-local across concurrent runs on one thread", async () => {
+    const registeredAgent = new HttpAgent({
+      url: "https://runtime.example/agent",
+      headers: { "X-Server": "registered" },
+    });
+    const identities: string[] = [];
+    const requestAgents: HttpAgent[] = [];
+    const pendingRuns: Array<() => void> = [];
+    const usersByAuthorization: Record<string, string> = {
+      "Bearer request-a": "user-a",
+      "Bearer request-b": "user-b",
+    };
+    const runtime = {
+      agents: Promise.resolve({ "test-agent": registeredAgent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+      runner: {
+        run: ({ agent }: { agent: AbstractAgent }) =>
+          new Observable<BaseEvent>((subscriber) => {
+            const requestAgent = agent as HttpAgent;
+            requestAgents.push(requestAgent);
+            const authorization = Object.entries(requestAgent.headers).find(
+              ([name]) => name.toLowerCase() === "authorization",
+            )?.[1];
+
+            pendingRuns.push(() => {
+              const identity = authorization
+                ? usersByAuthorization[authorization]
+                : undefined;
+              if (!identity) {
+                subscriber.error(new Error("Authentication required"));
+                return;
+              }
+              identities.push(identity);
+              subscriber.next({
+                type: EventType.CUSTOM,
+                name: "auth_identity",
+                value: { userId: identity },
+              } as BaseEvent);
+              subscriber.complete();
+            });
+
+            if (pendingRuns.length === 3) {
+              for (const release of pendingRuns.splice(0).toReversed())
+                release();
+            }
+          }),
+        connect: () => EMPTY,
+        isRunning: async () => false,
+        stop: async () => false,
+      },
+    } as unknown as CopilotRuntime;
+
+    const run = async (runId: string, authorization: string) => {
+      const response = await handleRunAgent({
+        runtime,
+        request: new Request("https://example.com/agent/test-agent/run", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: authorization,
+          },
+          body: JSON.stringify({
+            threadId: "shared-thread",
+            runId,
+            state: {},
+            messages: [],
+            tools: [],
+            context: [],
+            forwardedProps: {},
+          }),
+        }),
+        agentId: "test-agent",
+      });
+
+      expect(response.status).toBe(200);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      let output = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        output +=
+          typeof value === "string"
+            ? value
+            : decoder.decode(value, { stream: true });
+      }
+      return output + decoder.decode();
+    };
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const [firstOutput, secondOutput, failedOutput] = await Promise.all([
+        run("run-a", "Bearer request-a"),
+        run("run-b", "Bearer request-b"),
+        run("run-invalid", "Bearer raw-secret"),
+      ]);
+
+      expect(requestAgents).toHaveLength(3);
+      expect(new Set(requestAgents).size).toBe(3);
+      expect(requestAgents).not.toContain(registeredAgent);
+      expect(registeredAgent.headers).toEqual({ "X-Server": "registered" });
+      expect([...identities].sort()).toEqual(["user-a", "user-b"]);
+      expect(firstOutput).toContain("user-a");
+      expect(firstOutput).not.toContain("user-b");
+      expect(secondOutput).toContain("user-b");
+      expect(secondOutput).not.toContain("user-a");
+
+      const clientVisibleOutput = [
+        firstOutput,
+        secondOutput,
+        failedOutput,
+      ].join("\n");
+      expect(clientVisibleOutput).not.toMatch(/request-a|request-b|raw-secret/);
+      expect(errorSpy.mock.calls.flat().map(String).join("\n")).not.toContain(
+        "raw-secret",
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   const createMockAgentWithUse = () => {
@@ -213,6 +338,7 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: createMockRunner(),
       a2ui: { enabled: true, injectA2UITool: true },
     } as unknown as CopilotRuntime;
@@ -238,6 +364,7 @@ describe("handleRunAgent", () => {
         transcriptionService: undefined,
         beforeRequestMiddleware: undefined,
         afterRequestMiddleware: undefined,
+        forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
         runner: createMockRunner(),
         a2ui: { enabled: true, agents: ["my-agent"] },
       }) as unknown as CopilotRuntime;
@@ -280,6 +407,179 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+      runner: createMockRunner(),
+    } as unknown as CopilotRuntime;
+
+    await handleRunAgent({
+      runtime,
+      request: createRunRequest(),
+      agentId: "my-agent",
+    });
+
+    expect(useSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not apply A2UIMiddleware when a2ui.enabled is false", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
+
+    const runtime = {
+      agents: Promise.resolve({ "my-agent": agent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+      runner: createMockRunner(),
+      // Config object present but explicitly disabled — the run path must
+      // honor the opt-out, not just `!!runtime.a2ui`.
+      a2ui: { enabled: false, injectA2UITool: true },
+    } as unknown as CopilotRuntime;
+
+    await handleRunAgent({
+      runtime,
+      request: createRunRequest(),
+      agentId: "my-agent",
+    });
+
+    expect(useSpy).not.toHaveBeenCalled();
+  });
+
+  // A run request whose forwardedProps signal that the React provider was
+  // given an A2UI catalog (`<CopilotKit a2ui={{ catalog }}>`). This is the
+  // signal that lets a catalog alone turn A2UI on end-to-end.
+  const createCatalogRunRequest = () =>
+    new Request("https://example.com/agent/my-agent/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        threadId: "thread-1",
+        runId: "run-1",
+        state: {},
+        messages: [],
+        tools: [],
+        context: [],
+        forwardedProps: { a2uiCatalogAvailable: true },
+      }),
+    });
+
+  const getAppliedA2UIMiddleware = (useSpy: ReturnType<typeof vi.fn>) => {
+    const call = useSpy.mock.calls.find((c) => c[0] instanceof A2UIMiddleware);
+    return call?.[0] as A2UIMiddleware | undefined;
+  };
+
+  it("applies A2UIMiddleware with tool injection when a catalog is forwarded and the runtime has no a2ui config", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
+
+    const runtime = {
+      agents: Promise.resolve({ "my-agent": agent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+      runner: createMockRunner(),
+      // No `a2ui` config at all — the provider's catalog alone must enable it.
+    } as unknown as CopilotRuntime;
+
+    await handleRunAgent({
+      runtime,
+      request: createCatalogRunRequest(),
+      agentId: "my-agent",
+    });
+
+    const middleware = getAppliedA2UIMiddleware(useSpy);
+    expect(middleware).toBeInstanceOf(A2UIMiddleware);
+    expect(
+      (middleware as unknown as { config: { injectA2UITool?: unknown } }).config
+        .injectA2UITool,
+    ).toBe(true);
+  });
+
+  it("respects an explicit injectA2UITool: false even when a catalog is forwarded", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
+
+    const runtime = {
+      agents: Promise.resolve({ "my-agent": agent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+      runner: createMockRunner(),
+      // Deeper, explicit opt-out — the catalog default must NOT override it.
+      a2ui: { enabled: true, injectA2UITool: false },
+    } as unknown as CopilotRuntime;
+
+    await handleRunAgent({
+      runtime,
+      request: createCatalogRunRequest(),
+      agentId: "my-agent",
+    });
+
+    const middleware = getAppliedA2UIMiddleware(useSpy);
+    expect(middleware).toBeInstanceOf(A2UIMiddleware);
+    expect(
+      (middleware as unknown as { config: { injectA2UITool?: unknown } }).config
+        .injectA2UITool,
+    ).toBe(false);
+  });
+
+  it("does not apply A2UIMiddleware when a catalog is forwarded but a2ui.enabled is false", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
+
+    const runtime = {
+      agents: Promise.resolve({ "my-agent": agent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+      runner: createMockRunner(),
+      a2ui: { enabled: false },
+    } as unknown as CopilotRuntime;
+
+    await handleRunAgent({
+      runtime,
+      request: createCatalogRunRequest(),
+      agentId: "my-agent",
+    });
+
+    expect(useSpy).not.toHaveBeenCalled();
+  });
+
+  it("defaults injectA2UITool to true when a catalog is forwarded and a2ui is enabled without an explicit flag", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
+
+    const runtime = {
+      agents: Promise.resolve({ "my-agent": agent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+      runner: createMockRunner(),
+      a2ui: { enabled: true },
+    } as unknown as CopilotRuntime;
+
+    await handleRunAgent({
+      runtime,
+      request: createCatalogRunRequest(),
+      agentId: "my-agent",
+    });
+
+    const middleware = getAppliedA2UIMiddleware(useSpy);
+    expect(middleware).toBeInstanceOf(A2UIMiddleware);
+    expect(
+      (middleware as unknown as { config: { injectA2UITool?: unknown } }).config
+        .injectA2UITool,
+    ).toBe(true);
+  });
+
+  it("does not apply A2UIMiddleware when neither a catalog is forwarded nor a2ui is configured", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
+
+    const runtime = {
+      agents: Promise.resolve({ "my-agent": agent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: createMockRunner(),
     } as unknown as CopilotRuntime;
 
@@ -310,6 +610,19 @@ describe("handleRunAgent", () => {
         ) =>
           | { id: string; name: string }
           | Promise<{ id: string; name: string }>;
+        learning?: {
+          containerId:
+            | string
+            | ((input: {
+                surface: "web";
+                request: Request;
+                threadId: string;
+                runId: string;
+                agentId: string;
+                userId: string;
+              }) => string | null | Promise<string | null>);
+        };
+        memory?: CopilotRuntimeMemoryConfig;
       },
     ) => {
       const runner = Object.create(IntelligenceAgentRunner.prototype);
@@ -324,6 +637,7 @@ describe("handleRunAgent", () => {
         transcriptionService: undefined,
         beforeRequestMiddleware: undefined,
         afterRequestMiddleware: undefined,
+        forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
         runner,
         mode: "intelligence",
         generateThreadNames: options?.generateThreadNames ?? false,
@@ -337,6 +651,8 @@ describe("handleRunAgent", () => {
         identifyUser:
           options?.identifyUser ??
           vi.fn().mockResolvedValue({ id: "user-1", name: "User One" }),
+        learning: options?.learning,
+        memory: options?.memory,
       } as unknown as CopilotRuntime;
     };
 
@@ -405,6 +721,7 @@ describe("handleRunAgent", () => {
         agentId: "my-agent",
       });
       expect(platform.ɵacquireThreadLock).toHaveBeenCalledWith({
+        supportsBackendThreadId: true,
         threadId: "thread-1",
         runId: "run-1",
         userId: "user-1",
@@ -413,7 +730,113 @@ describe("handleRunAgent", () => {
       });
       expect(platform.getThreadMessages).toHaveBeenCalledWith({
         threadId: "thread-1",
+        userId: "user-1",
       });
+    });
+
+    /**
+     * The run-level regression for a Memory policy that grants nothing.
+     *
+     * `attachIntelligenceEnterpriseLearning` is covered directly in
+     * handlers/shared/__tests__, but the bug was only ever visible from here:
+     * the 403 that policy produced was returned as the response to
+     * `POST /agent/:id/run`, so a tenant with Memory switched off could not
+     * hold a conversation at all. Asserting on the handler keeps that whole
+     * path honest — the thread lock is taken, the runner starts, and the
+     * caller gets its join credentials, exactly as it would with no Memory
+     * policy configured.
+     *
+     * Both spellings of "nothing" are one outcome, so both run.
+     */
+    it.each([
+      ["a null grant", () => null],
+      ["an explicit all-none grant", () => ({ user: "none", project: "none" })],
+    ])(
+      "starts the run when the Memory policy returns %s",
+      async (_label, access) => {
+        const agent = createAgentForIntelligence();
+        const platform = {
+          getOrCreateThread: vi.fn().mockResolvedValue({
+            thread: { id: "thread-1", name: null },
+            created: false,
+          }),
+          getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+          ɵacquireThreadLock: vi.fn().mockResolvedValue({
+            threadId: "thread-1",
+            runId: "run-1",
+            joinToken: "jt-123",
+          }),
+          ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
+        };
+        const runtime = createIntelligenceRuntime(agent, platform, {
+          memory: { access } as CopilotRuntimeMemoryConfig,
+        });
+
+        const response = await handleRunAgent({
+          runtime,
+          request: createRunRequest(),
+          agentId: "my-agent",
+        });
+
+        expect(response.status).toBe(200);
+        const body = await response.json();
+        expect(body).toMatchObject({
+          threadId: "thread-1",
+          runId: "run-1",
+          joinToken: "jt-123",
+        });
+        expect(runtime.runner.run).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it("resolves one Learning Container ID and uses it for create and lock", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: { id: "thread-1", name: null },
+          created: true,
+        }),
+        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵacquireThreadLock: vi.fn().mockResolvedValue({
+          threadId: "thread-1",
+          runId: "run-1",
+          joinToken: "jt-123",
+        }),
+        ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
+      };
+      const containerId = vi.fn().mockResolvedValue("support-quality");
+      const runtime = createIntelligenceRuntime(agent, platform, {
+        learning: { containerId },
+      });
+      const request = createRunRequest();
+
+      const response = await handleRunAgent({
+        runtime,
+        request,
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(200);
+      expect(containerId).toHaveBeenCalledOnce();
+      expect(containerId).toHaveBeenCalledWith({
+        surface: "web",
+        request,
+        threadId: "thread-1",
+        runId: "run-1",
+        agentId: "my-agent",
+        userId: "user-1",
+      });
+      expect(platform.getOrCreateThread).toHaveBeenCalledWith({
+        threadId: "thread-1",
+        userId: "user-1",
+        agentId: "my-agent",
+        learningContainerId: "support-quality",
+      });
+      expect(platform.ɵacquireThreadLock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          learningContainerId: "support-quality",
+        }),
+      );
     });
 
     it("uses identifyUser instead of a conflicting X-User-Id header", async () => {
@@ -454,6 +877,7 @@ describe("handleRunAgent", () => {
         agentId: "my-agent",
       });
       expect(platform.ɵacquireThreadLock).toHaveBeenCalledWith({
+        supportsBackendThreadId: true,
         threadId: "thread-1",
         runId: "run-1",
         userId: "resolved-user",
@@ -556,7 +980,7 @@ describe("handleRunAgent", () => {
       expect(runtime.runner.run).not.toHaveBeenCalled();
     });
 
-    it("returns 409 when thread lock is denied", async () => {
+    it("returns 502 when a statusless thread lock request fails", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
         getOrCreateThread: vi.fn().mockResolvedValue({
@@ -576,9 +1000,61 @@ describe("handleRunAgent", () => {
         agentId: "my-agent",
       });
 
-      expect(response.status).toBe(409);
+      expect(response.status).toBe(502);
       const body = await response.json();
       expect(body.error).toBe("Thread lock denied");
+    });
+
+    it("forwards a platform 404 when the Learning Container is unknown", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        getOrCreateThread: vi.fn().mockRejectedValue(
+          Object.assign(new Error("Learning Container not found"), {
+            status: 404,
+          }),
+        ),
+        ɵacquireThreadLock: vi.fn(),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform, {
+        learning: { containerId: "missing-container" },
+      });
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(404);
+      expect(platform.ɵacquireThreadLock).not.toHaveBeenCalled();
+      expect(runtime.runner.run).not.toHaveBeenCalled();
+    });
+
+    it("forwards a platform 409 when an existing Thread has another Container", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: { id: "thread-1", name: null },
+          created: false,
+        }),
+        ɵacquireThreadLock: vi.fn().mockRejectedValue(
+          Object.assign(new Error("Thread Container conflict"), {
+            status: 409,
+          }),
+        ),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform, {
+        learning: { containerId: "support-quality" },
+      });
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(409);
+      expect(runtime.runner.run).not.toHaveBeenCalled();
     });
 
     it("cleans up the canonical lock and returns 502 when runner start fails immediately", async () => {
@@ -647,10 +1123,11 @@ describe("handleRunAgent", () => {
         ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
       };
       const runtime = createIntelligenceRuntime(agent, platform);
-      runtime.runner.runWithStartupBoundary = vi.fn(() => ({
-        events: new Observable<BaseEvent>(() => {}),
-        startup,
-      }));
+      (runtime.runner as IntelligenceAgentRunner).runWithStartupBoundary =
+        vi.fn(() => ({
+          events: new Observable<BaseEvent>(() => {}),
+          startup,
+        }));
       let settled = false;
 
       const responsePromise = handleRunAgent({
@@ -670,7 +1147,9 @@ describe("handleRunAgent", () => {
       const response = await responsePromise;
 
       expect(response.status).toBe(200);
-      expect(runtime.runner.runWithStartupBoundary).toHaveBeenCalledWith(
+      expect(
+        (runtime.runner as IntelligenceAgentRunner).runWithStartupBoundary,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           threadId: "canonical-thread",
           input: expect.objectContaining({
@@ -697,10 +1176,11 @@ describe("handleRunAgent", () => {
         ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
       };
       const runtime = createIntelligenceRuntime(agent, platform);
-      runtime.runner.runWithStartupBoundary = vi.fn(() => ({
-        events: new Observable<BaseEvent>(() => {}),
-        startup: Promise.reject(new Error("Failed to join channel: denied")),
-      }));
+      (runtime.runner as IntelligenceAgentRunner).runWithStartupBoundary =
+        vi.fn(() => ({
+          events: new Observable<BaseEvent>(() => {}),
+          startup: Promise.reject(new Error("Failed to join channel: denied")),
+        }));
 
       const response = await handleRunAgent({
         runtime,
@@ -752,7 +1232,9 @@ describe("handleRunAgent", () => {
           runId: "canonical-run",
           joinToken: "jt-123",
         }),
-        ɵrenewThreadLock: vi.fn().mockRejectedValue(new Error("lost lock")),
+        ɵrenewThreadLock: vi
+          .fn()
+          .mockRejectedValue(new PlatformRequestError("lost lock", 409, false)),
       };
       const runtime = createIntelligenceRuntime(baseAgent, platform, {
         lockHeartbeatIntervalSeconds: 1,
@@ -774,6 +1256,7 @@ describe("handleRunAgent", () => {
           threadId: "canonical-thread",
           runId: "canonical-run",
           ttlSeconds: 5,
+          signal: expect.any(AbortSignal),
         });
         expect(runningAgent.abortRun).toHaveBeenCalledTimes(1);
       } finally {
@@ -913,6 +1396,7 @@ describe("handleRunAgent", () => {
         agentId: "my-agent",
       });
       expect(platform.ɵacquireThreadLock).toHaveBeenCalledWith({
+        supportsBackendThreadId: true,
         threadId: "thread-1",
         runId: "run-1",
         userId: "user-1",
@@ -934,6 +1418,11 @@ describe("handleRunAgent", () => {
               id: "assistant-1",
               role: "assistant",
               content: '{"title":"**Order refund** status"}',
+            },
+            {
+              id: "tool-1",
+              role: "tool",
+              content: '{"timezone":"UTC","iso":"2026-06-01T00:00:00Z"}',
             },
           ],
         }),
@@ -1073,95 +1562,127 @@ describe("handleRunAgent", () => {
       expect(platform.updateThread).not.toHaveBeenCalled();
     });
 
-    it("retries thread naming three times and falls back to Untitled", async () => {
-      const namingAgent = {
-        clone: vi.fn(),
-        setMessages: vi.fn(),
-        setState: vi.fn(),
-        threadId: undefined,
-        headers: {},
-        runAgent: vi.fn().mockRejectedValue(new Error("naming failed")),
-      } as unknown as AbstractAgent;
-      const baseAgent = {
-        clone: vi
-          .fn()
-          .mockReturnValueOnce({
-            clone: vi.fn(),
-            setMessages: vi.fn(),
-            setState: vi.fn(),
-            threadId: undefined,
-            headers: {},
-            runAgent: vi.fn().mockResolvedValue(undefined),
-          })
-          .mockReturnValueOnce(namingAgent)
-          .mockReturnValueOnce(namingAgent)
-          .mockReturnValueOnce(namingAgent),
-        setMessages: vi.fn(),
-        setState: vi.fn(),
-        threadId: undefined,
-        headers: {},
-        runAgent: vi.fn().mockResolvedValue(undefined),
-      } as unknown as AbstractAgent;
-      const platform = {
-        getOrCreateThread: vi.fn().mockResolvedValue({
-          thread: { id: "thread-1", name: null },
-          created: true,
-        }),
-        updateThread: vi.fn(),
-        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
-        ɵacquireThreadLock: vi.fn().mockResolvedValue({
-          threadId: "thread-1",
-          runId: "run-1",
-          joinToken: "jt-created",
-        }),
-      };
-      const runtime = createIntelligenceRuntime(baseAgent, platform, {
-        generateThreadNames: true,
-      });
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-      try {
-        const response = await handleRunAgent({
-          runtime,
-          request: new Request("https://example.com/agent/my-agent/run", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              threadId: "thread-1",
-              runId: "run-1",
-              state: {},
-              messages: [
-                {
-                  id: "user-1",
-                  role: "user",
-                  content: "Please help me name this failed thread.",
-                },
-              ],
-              tools: [],
-              context: [],
-              forwardedProps: {},
-            }),
+    it.each([
+      {
+        scenario: "uses the first usable user message",
+        contents: [
+          "Please help me name this failed thread from the first user message.",
+        ],
+        expectedTitle: "Please help me name this failed thread from",
+      },
+      {
+        scenario: "skips user messages that clean to empty",
+        contents: ["***", "   ", "Help debug this deployment", "A later topic"],
+        expectedTitle: "Help debug this deployment",
+      },
+      {
+        scenario: "uses Untitled when no user message has usable text",
+        contents: ["***", "   ", "__"],
+        expectedTitle: "Untitled",
+      },
+    ])(
+      "falls back after three invalid generated titles: $scenario",
+      async ({ contents, expectedTitle }) => {
+        const namingAgent = {
+          clone: vi.fn(),
+          setMessages: vi.fn(),
+          setState: vi.fn(),
+          threadId: undefined,
+          headers: {},
+          runAgent: vi.fn().mockResolvedValue({
+            newMessages: [
+              {
+                id: "assistant-1",
+                role: "assistant",
+                content:
+                  "Incident triage result: sev3. File a ticket for the next working day.",
+              },
+            ],
           }),
-          agentId: "my-agent",
-        });
-
-        expect(response.status).toBe(200);
-        await vi.waitFor(() =>
-          expect(platform.updateThread).toHaveBeenCalledWith({
+        } as unknown as AbstractAgent;
+        const baseAgent = {
+          clone: vi
+            .fn()
+            .mockReturnValueOnce({
+              clone: vi.fn(),
+              setMessages: vi.fn(),
+              setState: vi.fn(),
+              threadId: undefined,
+              headers: {},
+              runAgent: vi.fn().mockResolvedValue(undefined),
+            })
+            .mockReturnValueOnce(namingAgent)
+            .mockReturnValueOnce(namingAgent)
+            .mockReturnValueOnce(namingAgent),
+          setMessages: vi.fn(),
+          setState: vi.fn(),
+          threadId: undefined,
+          headers: {},
+          runAgent: vi.fn().mockResolvedValue(undefined),
+        } as unknown as AbstractAgent;
+        const platform = {
+          getOrCreateThread: vi.fn().mockResolvedValue({
+            thread: { id: "thread-1", name: null },
+            created: true,
+          }),
+          updateThread: vi.fn(),
+          getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+          ɵacquireThreadLock: vi.fn().mockResolvedValue({
             threadId: "thread-1",
-            userId: "user-1",
-            agentId: "my-agent",
-            updates: { name: "Untitled" },
+            runId: "run-1",
+            joinToken: "jt-created",
           }),
-        );
-        expect(namingAgent.runAgent).toHaveBeenCalledTimes(3);
-        expect(runtime.runner.run).toHaveBeenCalledTimes(1);
-      } finally {
-        errorSpy.mockRestore();
-      }
-    });
+        };
+        const runtime = createIntelligenceRuntime(baseAgent, platform, {
+          generateThreadNames: true,
+        });
+        const errorSpy = vi
+          .spyOn(console, "error")
+          .mockImplementation(() => {});
+
+        try {
+          const response = await handleRunAgent({
+            runtime,
+            request: new Request("https://example.com/agent/my-agent/run", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                threadId: "thread-1",
+                runId: "run-1",
+                state: {},
+                messages: contents.map((content, index) => ({
+                  id: `user-${index + 1}`,
+                  role: "user",
+                  content,
+                })),
+                tools: [],
+                context: [],
+                forwardedProps: {},
+              }),
+            }),
+            agentId: "my-agent",
+          });
+
+          expect(response.status).toBe(200);
+          await vi.waitFor(() =>
+            expect(platform.updateThread).toHaveBeenCalledWith({
+              threadId: "thread-1",
+              userId: "user-1",
+              agentId: "my-agent",
+              updates: {
+                name: expectedTitle,
+              },
+            }),
+          );
+          expect(namingAgent.runAgent).toHaveBeenCalledTimes(3);
+          expect(runtime.runner.run).toHaveBeenCalledTimes(1);
+        } finally {
+          errorSpy.mockRestore();
+        }
+      },
+    );
 
     it("returns 400 when identifyUser returns an invalid id", async () => {
       const agent = createAgentForIntelligence();
@@ -1311,10 +1832,14 @@ describe("handleRunAgent", () => {
      * runner records the registry key, NOT "default".
      */
     class TaggingTestAgent extends AbstractAgent {
+      run(_input: RunAgentInput): Observable<BaseEvent> {
+        return EMPTY;
+      }
+
       async runAgent(
         _input: RunAgentInput,
         options: { onEvent: (event: { event: BaseEvent }) => void },
-      ): Promise<void> {
+      ): Promise<RunAgentResult> {
         // Emit a single TEXT_MESSAGE_END event so the run produces at least
         // one event and gets persisted to historicRuns. RUN_STARTED /
         // RUN_FINISHED are appended by the runner itself.
@@ -1324,6 +1849,7 @@ describe("handleRunAgent", () => {
             messageId: "msg-1",
           } as BaseEvent,
         });
+        return { result: undefined, newMessages: [] };
       }
 
       clone(): AbstractAgent {
@@ -1357,7 +1883,7 @@ describe("handleRunAgent", () => {
       });
 
       // Use a unique threadId so this test does not collide with other
-      // tests that share the InMemoryAgentRunner GLOBAL_STORE.
+      // tests that share the InMemoryAgentRunner sharedStore.
       const threadId = `thread-tagged-${Date.now()}-${Math.random()}`;
 
       const response = await handleRunAgent({

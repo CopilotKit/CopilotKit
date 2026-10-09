@@ -1,12 +1,7 @@
-"""Multimodal LlamaIndex agent — accepts image + document (PDF) attachments.
+"""Multimodal LlamaIndex agent for AG-UI text and attachment turns.
 
-Vision-capable router scoped to the `/demos/multimodal` cell. Uses gpt-4o so
-image content parts are consumed natively. PDF documents forwarded as
-`{type: "document"}` content parts are passed through to the underlying
-LLM; the LlamaIndex AG-UI router normalizes them via the OpenAI `input_file`
-path when running against gpt-4o.
-
-Mirrors `langgraph-python/src/agents/multimodal_agent.py`.
+`llama-index-protocols-ag-ui==0.4.1` converts AG-UI text, image, and document
+content parts into the corresponding LlamaIndex blocks for the workflow router.
 """
 
 from __future__ import annotations
@@ -30,7 +25,7 @@ if os.environ.get("OPENAI_BASE_URL"):
 
 
 multimodal_router = get_ag_ui_workflow_router(
-    llm=OpenAI(model="gpt-4o", temperature=0.2, **_openai_kwargs),
+    llm=OpenAI(model="gpt-5-mini", temperature=0.2, **_openai_kwargs),
     frontend_tools=[],
     backend_tools=[],
     system_prompt=SYSTEM_PROMPT,

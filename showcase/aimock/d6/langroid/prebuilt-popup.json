@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langroid / prebuilt-popup",
+    "sourceScript": "d5-prebuilt-popup.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "prebuilt-popup turn — the D5 probe sends this exact prompt and asserts the response lands inside .copilotKitPopup.",
+      "match": {
+        "userMessage": "hi from the popup test",
+        "context": "langroid"
+      },
+      "response": {
+        "content": "Hello from the popup — the CopilotPopup prebuilt component is wired up and reachable. The launcher floats in the corner and the chat sits in an overlay panel."
+      }
+    }
+  ]
+}

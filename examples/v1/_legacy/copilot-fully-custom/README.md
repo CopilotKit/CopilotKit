@@ -32,7 +32,7 @@ First, make a `.env` file in the root of the project.
 touch .env
 ```
 
-Now, you can either provide your [Copilot Cloud public API key](https://cloud.copilotkit.ai) or [OpenAI API key](https://platform.openai.com/api-keys).
+Now, you can either provide your [Copilot Cloud public API key](https://dashboard.operations.copilotkit.ai) or [OpenAI API key](https://platform.openai.com/api-keys).
 
 > **Note:** Copilot Cloud will provide you some free OpenAI API credits to get you started!
 

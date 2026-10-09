@@ -1,8 +1,15 @@
+import { vi } from "vitest";
+import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 import {
   copilotkitCustomizeConfig,
+  copilotkitEmitToolCall,
   convertActionsToDynamicStructuredTools,
   convertActionToDynamicStructuredTool,
 } from "../utils";
+
+vi.mock("@langchain/core/callbacks/dispatch", () => ({
+  dispatchCustomEvent: vi.fn().mockResolvedValue(undefined),
+}));
 
 describe("copilotkitCustomizeConfig", () => {
   it("returns config unchanged when no options provided", () => {
@@ -249,6 +256,108 @@ describe("convertActionsToDynamicStructuredTools", () => {
     ];
     expect(() => convertActionsToDynamicStructuredTools(actions)).toThrow(
       "index 1",
+    );
+  });
+});
+
+describe("copilotkitEmitToolCall", () => {
+  const mockConfig = { metadata: {} } as any;
+  const mockedDispatch = vi.mocked(dispatchCustomEvent);
+
+  beforeEach(() => {
+    mockedDispatch.mockClear();
+  });
+
+  it("returns a generated id when no id is provided", async () => {
+    const result = await copilotkitEmitToolCall(mockConfig, "SearchTool", {
+      steps: 10,
+    });
+
+    expect(typeof result).toBe("string");
+    expect(result.length).toBeGreaterThan(0);
+    expect(mockedDispatch).toHaveBeenCalledWith(
+      "copilotkit_manually_emit_tool_call",
+      { name: "SearchTool", args: { steps: 10 }, id: result },
+      mockConfig,
+    );
+  });
+
+  it("uses caller-provided toolCallId verbatim", async () => {
+    const result = await copilotkitEmitToolCall(
+      mockConfig,
+      "SearchTool",
+      { steps: 10 },
+      { toolCallId: "custom-abc" },
+    );
+
+    expect(result).toBe("custom-abc");
+    expect(mockedDispatch).toHaveBeenCalledWith(
+      "copilotkit_manually_emit_tool_call",
+      { name: "SearchTool", args: { steps: 10 }, id: "custom-abc" },
+      mockConfig,
+    );
+  });
+
+  it("treats undefined options the same as omitted", async () => {
+    const result = await copilotkitEmitToolCall(
+      mockConfig,
+      "SearchTool",
+      {},
+      undefined,
+    );
+
+    expect(typeof result).toBe("string");
+    expect(result.length).toBeGreaterThan(0);
+    expect(mockedDispatch).toHaveBeenCalledWith(
+      "copilotkit_manually_emit_tool_call",
+      { name: "SearchTool", args: {}, id: result },
+      mockConfig,
+    );
+  });
+
+  it("throws on empty string toolCallId", async () => {
+    await expect(
+      copilotkitEmitToolCall(mockConfig, "SearchTool", {}, { toolCallId: "" }),
+    ).rejects.toThrow("non-empty string");
+  });
+
+  it("throws on whitespace-only toolCallId", async () => {
+    await expect(
+      copilotkitEmitToolCall(
+        mockConfig,
+        "SearchTool",
+        {},
+        { toolCallId: "   " },
+      ),
+    ).rejects.toThrow("non-empty string");
+  });
+
+  it("throws on whitespace-only name", async () => {
+    await expect(copilotkitEmitToolCall(mockConfig, "   ", {})).rejects.toThrow(
+      "non-empty string",
+    );
+  });
+
+  it("throws on undefined args", async () => {
+    await expect(
+      copilotkitEmitToolCall(mockConfig, "SearchTool", undefined),
+    ).rejects.toThrow("required");
+  });
+
+  it("throws on non-JSON-serializable args", async () => {
+    const circular: any = {};
+    circular.self = circular;
+    await expect(
+      copilotkitEmitToolCall(mockConfig, "SearchTool", circular),
+    ).rejects.toThrow("not JSON-serializable");
+  });
+
+  it("propagates dispatch errors with tool-call context", async () => {
+    mockedDispatch.mockRejectedValueOnce(new Error("transport closed"));
+    await expect(
+      copilotkitEmitToolCall(mockConfig, "SearchTool", {}),
+    ).rejects.toThrow(
+      /copilotkitEmitToolCall dispatch failed.*SearchTool.*transport closed/,
     );
   });
 });

@@ -4,6 +4,8 @@ icon: "lucide/Play"
 description: Decide which state properties are received and returned to the frontend.
 ---
 
+import AngularStateWorkflow from "@/snippets/shared/angular/shared-state-workflow.mdx";
+
 ## What is this?
 
 Not all state properties are relevant for frontend-backend sharing.
@@ -92,7 +94,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
 
     agent = LlmAgent(
         name="my_agent",
-        model="gemini-2.5-flash",
+        model="gemini-3.8-flash",
         instruction="""
         You are a helpful assistant. When answering questions:
         1. Use add_resource to track any sources you reference (internal use)
@@ -126,6 +128,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
     - **answer**: Read from the agent's response
     - **resources**: Not accessible to the UI (internal agent use only)
 
+    <FrontendOnly frontend="react">
     ```tsx title="ui/app/page.tsx"
     "use client";
 
@@ -211,6 +214,11 @@ In addition, some state properties contain a lot of information. Syncing them ba
       );
     }
     ```
+    </FrontendOnly>
+
+    <FrontendOnly frontend="angular">
+      <AngularStateWorkflow />
+    </FrontendOnly>
 
     <Callout type="warn" title="Important">
       The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).

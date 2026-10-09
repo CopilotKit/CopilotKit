@@ -1,8 +1,10 @@
-import { AbstractAgent, ToolCall } from "@ag-ui/client";
+import type { AbstractAgent, ToolCall } from "@ag-ui/client";
 import type {
+  InspectorMetadataV1,
   IntelligenceRuntimeInfo,
   RuntimeMode,
   RuntimeLicenseStatus,
+  ThreadEndpointRuntimeInfo,
 } from "@copilotkit/shared";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
 
@@ -16,27 +18,105 @@ export enum ToolCallStatus {
 }
 
 export type CopilotRuntimeTransport = "rest" | "single" | "auto";
-export type { RuntimeMode, IntelligenceRuntimeInfo, RuntimeLicenseStatus };
+export type {
+  InspectorMetadataV1,
+  RuntimeMode,
+  IntelligenceRuntimeInfo,
+  RuntimeLicenseStatus,
+  ThreadEndpointRuntimeInfo,
+};
 
 /**
  * Context passed to a frontend tool handler
  */
 export type FrontendToolHandlerContext = {
   toolCall: ToolCall;
-  agent: AbstractAgent;
+  /**
+   * The agent that invoked the tool. Absent when the tool is invoked through
+   * the WebMCP browser API (`document.modelContext`), which has no agent.
+   */
+  agent?: AbstractAgent;
   /** Aborted when `stopAgent()` is called. Handlers can check `signal.aborted`
    *  or pass the signal to fetch/setTimeout to cooperatively cancel. */
   signal?: AbortSignal;
+  /**
+   * True when CopilotKit runs this call while restoring a thread's history on
+   * connect, for a call that a previous page or client left without a result.
+   * Absent for a call made by a live run. See `reconnectBehavior`.
+   */
+  isReplay?: boolean;
+};
+
+/**
+ * What a frontend tool does with its own calls that are still unanswered when
+ * a thread's history is restored (a reload, a remount, or a thread switch).
+ *
+ * - `"passive"` (default) — show the call, but do not run the handler. Nothing
+ *   the handler did runs twice.
+ * - `"resume-pending"` — run the handler for each call that has no result,
+ *   with `isReplay: true` in its context, then continue the run as usual
+ *   (follow-up included, unless `followUp` is false).
+ *
+ * Use `"resume-pending"` only for a handler that is safe to run more than
+ * once. A call does not start twice at the same time in one CopilotKit
+ * instance, but it can run again after a stop or a thread switch if its result
+ * never reached the agent, and two tabs or devices that restore the same
+ * thread can each run it.
+ *
+ * If one assistant message also calls a tool that stays passive, the follow-up
+ * run sends that call without a result, which some model providers reject.
+ * Opt in every tool the agent calls together, or set `followUp: false`.
+ */
+export type FrontendToolReconnectBehavior = "passive" | "resume-pending";
+
+/**
+ * Annotations for a WebMCP tool, passed through to
+ * `document.modelContext.registerTool`. Mirrors the WebMCP spec's tool
+ * annotations. These are hints for browser agents only — they do not enforce
+ * any policy on their own.
+ */
+export type WebMCPToolAnnotations = {
+  /**
+   * Hint that the tool does not modify state. Defaults to false.
+   * Set it for read-only tools (search, status lookup, ...).
+   */
+  readOnlyHint?: boolean;
+  /**
+   * Hint that the tool's output may contain untrusted content
+   * (e.g. user-generated or external content). Defaults to false.
+   */
+  untrustedContentHint?: boolean;
+};
+
+/**
+ * WebMCP registration options for a frontend tool.
+ */
+export type WebMCPToolConfig = {
+  /** Hints that tell browser agents how the tool behaves. */
+  annotations?: WebMCPToolAnnotations;
 };
 
 export type FrontendTool<
   T extends Record<string, unknown> = Record<string, unknown>,
 > = {
+  /**
+   * @internal Classifies local execution. Omitted means an ordinary frontend
+   * tool. Human-in-the-loop handlers are always restored from history replay;
+   * other tools only with `reconnectBehavior: "resume-pending"`.
+   * This field is not sent to the agent as part of the tool schema.
+   */
+  type?: "frontend" | "human-in-the-loop";
   name: string;
   description?: string;
   parameters?: StandardSchemaV1<any, T>;
   handler?: (args: T, context: FrontendToolHandlerContext) => Promise<unknown>;
   followUp?: boolean;
+  /**
+   * Whether to run the handler again for a call that is still unanswered when
+   * the thread's history is restored. Defaults to `"passive"`. See
+   * {@link FrontendToolReconnectBehavior}.
+   */
+  reconnectBehavior?: FrontendToolReconnectBehavior;
   /**
    * Optional agent ID to constrain this tool to a specific agent.
    * If specified, this tool will only be available to the specified agent.
@@ -48,6 +128,19 @@ export type FrontendTool<
    * Defaults to true when not specified.
    */
   available?: boolean;
+  /**
+   * Also expose this tool to browser agents through the WebMCP API
+   * (`document.modelContext`) while keeping the normal agent registration.
+   *
+   * - `true` — register with default annotations.
+   * - `{ annotations }` — register with the given WebMCP annotations.
+   * - `false` / `undefined` — do not register.
+   *
+   * The tool's `handler` runs when a browser agent calls the tool; the handler
+   * context then has no `agent`. No-op in environments without WebMCP support
+   * (e.g. React Native, or browsers without the API enabled).
+   */
+  webmcp?: boolean | WebMCPToolConfig;
 };
 
 export type Suggestion = {

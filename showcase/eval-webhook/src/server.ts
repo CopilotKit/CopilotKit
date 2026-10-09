@@ -35,7 +35,14 @@ function getOctokit(): Octokit {
   });
 }
 
+// Health endpoints. The verify-deploy probe and every other API-shaped
+// showcase backend (agent, eval, pocketbase, plus the webhooks driver
+// in showcase/scripts/verify-deploy.drivers.*.ts) standardize on
+// `/api/health`. `/health` is retained for back-compat with any
+// pre-existing callers; both return the same body, so a flip between
+// paths is a no-op for clients.
 app.get("/health", (c) => c.json({ ok: true }));
+app.get("/api/health", (c) => c.json({ ok: true }));
 
 app.post("/webhooks/github", async (c) => {
   const body = await c.req.text();

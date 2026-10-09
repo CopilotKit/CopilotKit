@@ -22,7 +22,7 @@ async function makeRepo(root: string) {
   );
   await writeFile(
     join(pkgRoot, "runtime/skills/runtime/references/setup-endpoint.md"),
-    "# Setup\n",
+    "# CLI\n",
   );
   await mkdir(join(pkgRoot, "a2ui-renderer/skills/a2ui-renderer"), {
     recursive: true,
@@ -31,11 +31,11 @@ async function makeRepo(root: string) {
     join(pkgRoot, "a2ui-renderer/skills/a2ui-renderer/SKILL.md"),
     "---\nname: a2ui-renderer\n---\n# A2UI\n",
   );
-  // Pre-existing lifecycle skill at the mirror root — must be left alone.
-  await mkdir(join(root, "skills/0-to-working-chat"), { recursive: true });
+  // Pre-existing standalone skill at the mirror root — must be left alone.
+  await mkdir(join(root, "skills/copilotkit-cli"), { recursive: true });
   await writeFile(
-    join(root, "skills/0-to-working-chat/SKILL.md"),
-    "---\nname: 0-to-working-chat\n---\n# Lifecycle\n",
+    join(root, "skills/copilotkit-cli/SKILL.md"),
+    "---\nname: copilotkit-cli\n---\n# CLI\n",
   );
 }
 
@@ -65,7 +65,7 @@ describe("syncPluginSkills", () => {
       join(repo, "skills/runtime/references/setup-endpoint.md"),
       "utf8",
     );
-    expect(runtimeRef).toBe("# Setup\n");
+    expect(runtimeRef).toBe("# CLI\n");
 
     const a2uiSkill = await readFile(
       join(repo, "skills/a2ui-renderer/SKILL.md"),
@@ -74,23 +74,23 @@ describe("syncPluginSkills", () => {
     expect(a2uiSkill).toBe("---\nname: a2ui-renderer\n---\n# A2UI\n");
   });
 
-  it("does not modify pre-existing lifecycle skills", async () => {
+  it("does not modify pre-existing standalone skills", async () => {
     await makeRepo(repo);
     await syncPluginSkills({ cwd: repo, mode: "write" });
-    const lifecycle = await readFile(
-      join(repo, "skills/0-to-working-chat/SKILL.md"),
+    const standalone = await readFile(
+      join(repo, "skills/copilotkit-cli/SKILL.md"),
       "utf8",
     );
-    expect(lifecycle).toBe("---\nname: 0-to-working-chat\n---\n# Lifecycle\n");
+    expect(standalone).toBe("---\nname: copilotkit-cli\n---\n# CLI\n");
   });
 
   it("errors with exit code 2 if a package skill collides with a reserved lifecycle slug", async () => {
     const pkgRoot = join(repo, "packages");
-    await mkdir(join(pkgRoot, "rogue/skills/0-to-working-chat"), {
+    await mkdir(join(pkgRoot, "rogue/skills/copilotkit-cli"), {
       recursive: true,
     });
     await writeFile(
-      join(pkgRoot, "rogue/skills/0-to-working-chat/SKILL.md"),
+      join(pkgRoot, "rogue/skills/copilotkit-cli/SKILL.md"),
       "collision\n",
     );
     const result = await syncPluginSkills({ cwd: repo, mode: "write" });
@@ -119,6 +119,55 @@ describe("syncPluginSkills", () => {
     expect(result.message).toContain("skills/runtime/SKILL.md");
   });
 
+  it("write mode syncs package skill versions before mirroring", async () => {
+    await makeRepo(repo);
+    await writeFile(
+      join(repo, "packages/runtime/package.json"),
+      JSON.stringify({ name: "@copilotkit/runtime", version: "1.68.0" }),
+    );
+    await writeFile(
+      join(repo, "packages/runtime/skills/runtime/SKILL.md"),
+      '---\nname: runtime\nlibrary_version: "1.67.1"\n---\n# Runtime\n',
+    );
+
+    const result = await syncPluginSkills({ cwd: repo, mode: "write" });
+
+    expect(result.exitCode).toBe(0);
+    expect(
+      await readFile(
+        join(repo, "packages/runtime/skills/runtime/SKILL.md"),
+        "utf8",
+      ),
+    ).toContain('library_version: "1.68.0"');
+    expect(
+      await readFile(join(repo, "skills/runtime/SKILL.md"), "utf8"),
+    ).toContain('library_version: "1.68.0"');
+  });
+
+  it("check mode detects stale package skill versions", async () => {
+    await makeRepo(repo);
+    await writeFile(
+      join(repo, "packages/runtime/package.json"),
+      JSON.stringify({ name: "@copilotkit/runtime", version: "1.68.0" }),
+    );
+    await writeFile(
+      join(repo, "packages/runtime/skills/runtime/SKILL.md"),
+      '---\nname: runtime\nlibrary_version: "1.67.1"\n---\n# Runtime\n',
+    );
+    await mkdir(join(repo, "skills/runtime"), { recursive: true });
+    await writeFile(
+      join(repo, "skills/runtime/SKILL.md"),
+      '---\nname: runtime\nlibrary_version: "1.67.1"\n---\n# Runtime\n',
+    );
+
+    const result = await syncPluginSkills({ cwd: repo, mode: "check" });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.message).toContain(
+      "packages/runtime/skills/runtime/SKILL.md",
+    );
+  });
+
   it("check mode flags orphan files in the mirror (e.g., skill deleted from source)", async () => {
     await makeRepo(repo);
     await syncPluginSkills({ cwd: repo, mode: "write" });
@@ -130,9 +179,22 @@ describe("syncPluginSkills", () => {
   });
 
   it("exports the reserved lifecycle slug set", () => {
-    expect(RESERVED_LIFECYCLE_SLUGS).toContain("0-to-working-chat");
-    expect(RESERVED_LIFECYCLE_SLUGS).toContain("v1-to-v2-migration");
-    expect(RESERVED_LIFECYCLE_SLUGS.size).toBe(6);
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("copilotkit-cli");
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("copilotkit");
+    // A standalone skill MUST be listed here. It is not generated from
+    // packages/*/skills, so without an entry the sync treats it as an orphan and
+    // deletes it.
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("copilotkit-channels");
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("setup-slack-channel");
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("channels-setup");
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("inspector-docs");
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("inspector-workbench");
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("intelligence-docs");
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("intelligence-vocabulary");
+    // Pinned deliberately: the nine knowledge skills that used to sit here were
+    // replaced by the two entry points, and a slug reappearing without a
+    // decision is what this number catches.
+    expect(RESERVED_LIFECYCLE_SLUGS.size).toBe(9);
   });
 
   // Version sync — the plugin version tracks packages/runtime/package.json.
@@ -164,6 +226,7 @@ describe("syncPluginSkills", () => {
       JSON.stringify(
         {
           name: "copilotkit",
+          metadata: { version: initialPluginVersion },
           plugins: [
             { name: "copilotkit", source: "./", version: initialPluginVersion },
           ],
@@ -186,6 +249,30 @@ describe("syncPluginSkills", () => {
     );
     expect(plugin.version).toBe("1.56.2");
     expect(market.plugins[0].version).toBe("1.56.2");
+    // metadata.version tracks the runtime package too — both marketplace fields
+    // must move together so neither rots independently.
+    expect(market.metadata.version).toBe("1.56.2");
+  });
+
+  it("write mode re-syncs marketplace.json metadata.version when it lags plugins[0].version", async () => {
+    await makeRepo(repo);
+    await addVersionFixtures(repo, "1.56.2", "1.56.2");
+    // Simulate the historical drift: plugins[0] was bumped by an earlier sync
+    // but metadata.version was left behind because it was unmanaged.
+    const marketPath = join(repo, ".claude-plugin/marketplace.json");
+    const market = JSON.parse(await readFile(marketPath, "utf8"));
+    market.metadata.version = "1.55.0";
+    await writeFile(marketPath, JSON.stringify(market, null, 2) + "\n");
+
+    const drift = await syncPluginSkills({ cwd: repo, mode: "check" });
+    expect(drift.exitCode).toBe(1);
+    expect(drift.message).toMatch(/metadata\.version/i);
+    expect(drift.message).toContain("1.55.0");
+
+    await syncPluginSkills({ cwd: repo, mode: "write" });
+    const fixed = JSON.parse(await readFile(marketPath, "utf8"));
+    expect(fixed.metadata.version).toBe("1.56.2");
+    expect(fixed.plugins[0].version).toBe("1.56.2");
   });
 
   it("check mode detects plugin.json version drift", async () => {

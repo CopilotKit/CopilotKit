@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
+    <!-- Run on a newer major runtime when .NET 9 is absent (e.g. a .NET 10-only machine). -->
+    <RollForward>Major</RollForward>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>sales-agent-12345678-1234-1234-1234-123456789abc</UserSecretsId>
@@ -13,6 +15,17 @@
     <Content Remove="tests/**/*" />
     <None Remove="tests/**/*" />
     <EmbeddedResource Remove="tests/**/*" />
+  </ItemGroup>
+
+  <!-- CVDIAG shared binding (plan unit L1-F). Source-include the single-source
+       _shared/dotnet/ emitter rather than a ProjectReference: _shared/ has no
+       production .csproj (L0-D). The `..\_shared\dotnet\` path resolves both
+       locally (agent/ -> integration-root _shared symlink -> ../_shared) and in
+       Docker (the agent-build stage COPYs _shared/dotnet to /_shared/dotnet, and
+       the csproj at /agent resolves ..\_shared\dotnet there). -->
+  <ItemGroup>
+    <Compile Include="..\_shared\dotnet\CvdiagSchema.cs" />
+    <Compile Include="..\_shared\dotnet\CvdiagEmitter.cs" />
   </ItemGroup>
 
   <ItemGroup>

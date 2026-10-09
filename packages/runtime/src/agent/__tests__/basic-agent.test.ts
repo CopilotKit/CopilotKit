@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { z } from "zod";
-import { BasicAgent, defineTool, type ToolDefinition } from "../index";
-import {
-  EventType,
-  type BaseEvent,
-  type ReasoningStartEvent,
-  type RunAgentInput,
+import { BasicAgent, defineTool } from "../index";
+import { EventType } from "@ag-ui/client";
+import type {
+  BaseEvent,
+  ReasoningStartEvent,
+  RunAgentInput,
 } from "@ag-ui/client";
 import { streamText } from "ai";
+import type * as AISDK from "ai";
 import {
   mockStreamTextResponse,
   textStart,
@@ -20,13 +21,15 @@ import {
   toolCallDelta,
   toolCall,
   toolResult,
+  toolError,
   reasoningStart,
   reasoningDelta,
   reasoningEnd,
 } from "./test-helpers";
 
 // Mock the ai module
-vi.mock("ai", () => ({
+vi.mock("ai", async (importOriginal) => ({
+  ...(await importOriginal<typeof AISDK>()),
   streamText: vi.fn(),
   tool: vi.fn((config) => config),
 }));
@@ -275,6 +278,83 @@ describe("BasicAgent", () => {
         toolCallId: "call1",
       });
     });
+
+    it("should emit a visible tool result when execution throws", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          toolCall("call-error", "getCats", { limit: 1 }),
+          toolError("call-error", "getCats", new Error("Missing API key")),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+      const resultEvent = events.find(
+        (event) => event.type === EventType.TOOL_CALL_RESULT,
+      );
+
+      expect(resultEvent).toMatchObject({
+        type: EventType.TOOL_CALL_RESULT,
+        toolCallId: "call-error",
+        content: "Error: Missing API key",
+      });
+      expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(
+        false,
+      );
+    });
+
+    it("should warn once and keep running on an unknown stream part", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          { type: "future-part" },
+          textDelta("still here"),
+          { type: "future-part" },
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(
+        false,
+      );
+      expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
+      expect(
+        warn.mock.calls.filter((call) =>
+          String(call[0]).includes("future-part"),
+        ),
+      ).toEqual([
+        ["[BuiltInAgent] Ignoring unhandled AI SDK stream part: future-part"],
+      ]);
+      warn.mockRestore();
+    });
   });
 
   describe("Prompt Building", () => {
@@ -423,11 +503,12 @@ describe("BasicAgent", () => {
       expect(systemMessage.content).toContain("Application State");
 
       // Check order: prompt, then context, then state
-      const promptIndex = systemMessage.content.indexOf("You are helpful.");
-      const contextIndex = systemMessage.content.indexOf(
+      const systemContent = systemMessage.content as string;
+      const promptIndex = systemContent.indexOf("You are helpful.");
+      const contextIndex = systemContent.indexOf(
         "Context from the application",
       );
-      const stateIndex = systemMessage.content.indexOf("Application State");
+      const stateIndex = systemContent.indexOf("Application State");
 
       expect(promptIndex).toBeLessThan(contextIndex);
       expect(contextIndex).toBeLessThan(stateIndex);
@@ -1340,6 +1421,38 @@ describe("BasicAgent", () => {
 
       // Stream still completes with RUN_FINISHED
       expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
+    });
+
+    it("declares its protocol version and finishes an aborted run as cancelled for a 1.0 client", async () => {
+      const agent = new BasicAgent({ model: "openai/gpt-4o" });
+      const runWith = async (protocolVersion?: string) => {
+        vi.mocked(streamText).mockReturnValue(
+          mockStreamTextResponse([abort()]),
+        );
+        const events = await collectEvents(
+          agent["run"]({
+            threadId: "thread1",
+            runId: "run1",
+            messages: [],
+            tools: [],
+            context: [],
+            state: {},
+            ...(protocolVersion ? { protocolVersion } : {}),
+          }),
+        );
+        return {
+          started: events.find((e) => e.type === EventType.RUN_STARTED),
+          finished: events.find((e) => e.type === EventType.RUN_FINISHED),
+        };
+      };
+
+      const modern = await runWith("1.0");
+      expect(modern.started).toMatchObject({ protocolVersion: "1.0" });
+      expect(modern.finished).toMatchObject({ outcome: { type: "cancelled" } });
+
+      // A 0.x client declares no version and cannot parse the cancelled outcome.
+      const legacy = await runWith(undefined);
+      expect(legacy.finished).not.toHaveProperty("outcome");
     });
 
     it("should auto-close reasoning when stream errors mid-reasoning", async () => {

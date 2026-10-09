@@ -1,0 +1,43 @@
+# Drops the `bun` export condition from eventsource.
+#
+# Upstream defect: eventsource maps its `bun` condition to the ESM build
+# (dist/index.js). Bun resolves `bun` BEFORE `require`, so when a CJS consumer
+# does require("eventsource") under Bun it receives an async ESM module and
+# throws:
+#
+#   TypeError: require() async module ".../eventsource/dist/index.js" is
+#   unsupported. use "await import()" instead.
+#
+# The package ships a real CJS build (dist/index.cjs) behind `require`, but Bun
+# never reaches it. Two CJS consumers in our graph hit this — the MCP SDK's own
+# dist/cjs/client/sse.js, and @ag-ui/mcp-apps-middleware, which requires that
+# SDK path unconditionally at module load. It surfaces as an intermittent
+# failure of the runtime bun integration test, intermittent because it is a
+# load-order race: if the ESM graph evaluates eventsource first, the later CJS
+# require can be served synchronously and the run passes.
+#
+# Removing `bun` makes Bun fall through to `import` for ESM consumers (same
+# dist/index.js as before, so no behaviour change) and to `require` for CJS
+# consumers (dist/index.cjs, which is what they actually need). Only the `bun`
+# key is touched; deno/source/import/require/default are left alone.
+#
+# A version bump is NOT an alternative: eventsource 4.1.0 still ships the same
+# `bun` -> ESM mapping.
+#
+# DELETE THIS PATCH WHEN: eventsource drops the `bun` condition or points it at
+# dist/index.cjs, OR Bun stops preferring `bun` over `require` for CJS requires.
+# To verify it is still needed, remove the patch and run, from packages/runtime:
+#   bun test src/v2/runtime/__tests__/integration/bun/bun-servers.integration.test.ts
+# repeatedly (it is a race, so a single green run proves nothing -- 20 runs).
+diff --git a/package.json b/package.json
+index 351e4e135068ea7611fa3f5f025b7a4a90b886bf..e21929c7a49ae1e2e5dc6e743d291e9c595bd78d 100644
+--- a/package.json
++++ b/package.json
+@@ -10,7 +10,6 @@
+   "exports": {
+     ".": {
+       "deno": "./dist/index.js",
+-      "bun": "./dist/index.js",
+       "source": "./src/index.ts",
+       "import": "./dist/index.js",
+       "require": "./dist/index.cjs",

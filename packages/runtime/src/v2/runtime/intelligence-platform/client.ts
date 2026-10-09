@@ -1,19 +1,220 @@
-import { logger } from "@copilotkit/shared";
+import {
+  logger,
+  parseInspectorLearningSnapshotV1,
+  parseInspectorMetadataV1,
+} from "@copilotkit/shared";
+import type {
+  InspectorLearningRequestV1,
+  InspectorLearningSnapshotV1,
+  InspectorMetadataV1,
+  RuntimeEntitlementResponse,
+} from "@copilotkit/shared";
+import { randomUUID } from "crypto";
+import { z } from "zod";
+import type { GetLearningContainerId } from "../core/learning";
+import {
+  parseTrajectoryConnectionGrant,
+  trajectoryResponseError,
+} from "./trajectories";
+import type { TrajectoryConnectionGrant } from "./trajectories";
+
+import {
+  LearnedSkillsError,
+  learnedSkillsResponseError,
+  parseLearnedSkillsBatch,
+} from "./learned-skills";
+import type {
+  GetLearnedSkillsSnapshotRequest,
+  GetLearnedSkillsSnapshotsRequest,
+  LearnedSkillsBatchResult,
+  LearnedSkillsSnapshotResult,
+} from "./learned-skills";
+
+/** Let a confirmed HTTP denial survive an error body that never completes. */
+async function learnedSkillsErrorBody(
+  response: Response,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  if (!signal) return response.json();
+  let onAbort: (() => void) | undefined;
+  try {
+    return await new Promise((resolve, reject) => {
+      onAbort = () => reject(signal.reason);
+      signal.addEventListener("abort", onAbort, { once: true });
+      if (signal.aborted) onAbort();
+      else response.json().then(resolve, reject);
+    });
+  } finally {
+    if (onAbort) signal.removeEventListener("abort", onAbort);
+  }
+}
+
+const RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS = 1_500;
+const RUNTIME_ENTITLEMENTS_SUCCESS_TTL_MS = 30_000;
+const RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS = 5_000;
+
+interface RuntimeEntitlementCacheEntry {
+  readonly expiresAt: number;
+  readonly response: RuntimeEntitlementResponse;
+}
+
+interface RuntimeEntitlementFailureEntry {
+  readonly error: unknown;
+  readonly expiresAt: number;
+}
+
+/** Whether a response grants Runtime access and therefore cannot be served stale. */
+function grantsRuntimeAccess(response: RuntimeEntitlementResponse): boolean {
+  return response.status === "ready" && response.entitlement.active;
+}
+
+/** Whether an HTTP status can recover without changing Runtime configuration. */
+function isRetryableRuntimeEntitlementStatus(status: number): boolean {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+const runtimeEntitlementSchema = z
+  .object({
+    active: z.boolean(),
+    source: z.enum([
+      "managedOrgSubscription",
+      "selfHostedDeploymentLicense",
+      "awsMarketplaceDeploymentLicense",
+    ]),
+    features: z.record(z.string(), z.boolean()),
+    limits: z.record(z.string(), z.number()),
+    planCode: z.string().optional(),
+    entitlementSource: z.string().optional(),
+  })
+  .strict();
+
+const runtimeEntitlementResponseSchema = z.discriminatedUnion("status", [
+  z
+    .object({
+      status: z.literal("ready"),
+      entitlement: runtimeEntitlementSchema,
+    })
+    .strict(),
+  z
+    .object({
+      status: z.enum(["degraded", "misconfigured", "unavailable"]),
+      error: z
+        .object({
+          code: z.string(),
+          message: z.string(),
+          retryable: z.boolean(),
+          requestId: z.string().optional(),
+          traceId: z.string().optional(),
+        })
+        .strict(),
+    })
+    .strict(),
+]);
+
+const legacyRuntimeEntitlementTransportSchema = runtimeEntitlementSchema.extend(
+  {
+    organizationId: z.string(),
+  },
+);
+
+/** Check the published App API response union without widening its type. */
+function isPublishedRuntimeEntitlementResponse(
+  value: unknown,
+): value is RuntimeEntitlementResponse {
+  return runtimeEntitlementResponseSchema.safeParse(value).success;
+}
+
+/**
+ * Validate the published App API response union, with flat-response support
+ * during mixed-version rollouts.
+ */
+function normalizeRuntimeEntitlementTransport(
+  value: unknown,
+): RuntimeEntitlementResponse | undefined {
+  if (isPublishedRuntimeEntitlementResponse(value)) {
+    return value;
+  }
+
+  const legacyResponse =
+    legacyRuntimeEntitlementTransportSchema.safeParse(value);
+  if (!legacyResponse.success) {
+    return undefined;
+  }
+
+  const transport = legacyResponse.data;
+  return {
+    status: "ready",
+    entitlement: {
+      active: transport.active,
+      source: transport.source,
+      features: transport.features,
+      limits: transport.limits,
+      ...(transport.planCode !== undefined
+        ? { planCode: transport.planCode }
+        : {}),
+      ...(transport.entitlementSource !== undefined
+        ? { entitlementSource: transport.entitlementSource }
+        : {}),
+    },
+  };
+}
 
 /**
  * Header name carrying the per-call end-user identity that the CopilotKit
- * Intelligence `/mcp` endpoint requires. Internal CopilotKit machinery — the
- * runtime stamps this onto `agent.headers` after `identifyUser` resolves,
- * and the auto-attach in `configureAgentForRequest` reads it back to gate
- * MCP-server attachment and to populate the outbound `X-Cpki-User-Id`
- * header on every MCP request. Not part of the public user API.
+ * Intelligence `/mcp` endpoint requires. Internal CopilotKit machinery —
+ * `attachIntelligenceEnterpriseLearning` resolves the user via `identifyUser`
+ * and bakes this header onto the `MCPMiddleware`'s transport config, so every
+ * outbound MCP request stamps `X-Cpki-User-Id: <userId>`. Not part of the
+ * public user API.
  *
  * @internal
  */
 export const INTELLIGENCE_USER_ID_HEADER = "x-cpki-user-id";
+/** Immutable user/project Memory grant forwarded to Intelligence. */
+export const INTELLIGENCE_MEMORY_GRANT_HEADER = "x-cpki-memory-grant";
+
+interface RuntimeMemoryGrant {
+  readonly user: "none" | "read" | "read-write";
+  readonly project: "none" | "read" | "read-write";
+}
+
+const memoryRequestHeaders = (
+  userId: string,
+  grant?: RuntimeMemoryGrant,
+): Record<string, string> => ({
+  [INTELLIGENCE_USER_ID_HEADER]: userId,
+  ...(grant
+    ? { [INTELLIGENCE_MEMORY_GRANT_HEADER]: JSON.stringify(grant) }
+    : {}),
+});
 
 /**
- * Error thrown when an Intelligence platform HTTP request returns a non-2xx
+ * REST base URL of cloud-hosted CopilotKit Intelligence — the default
+ * when {@link CopilotKitIntelligenceConfig.apiUrl} is omitted.
+ */
+const MANAGED_INTELLIGENCE_API_URL = "https://api.intelligence.copilotkit.ai";
+
+/**
+ * Websocket base URL of cloud-hosted CopilotKit Intelligence — the
+ * default when {@link CopilotKitIntelligenceConfig.wsUrl} is omitted.
+ *
+ * A different host from {@link MANAGED_INTELLIGENCE_API_URL}: the API and
+ * realtime planes are deployed separately.
+ */
+const MANAGED_INTELLIGENCE_WS_URL = "wss://realtime.intelligence.copilotkit.ai";
+
+/** Maximum time spent on the optional Inspector metadata provider request. */
+const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
+const INSPECTOR_LEARNING_REQUEST_TIMEOUT_MS = 5_000;
+
+/** A 404 the caller expects: a thread lookup made before the thread exists. */
+const NOT_FOUND: ReadonlySet<number> = new Set([404]);
+
+/** A 409 the caller expects: another request created the thread first. */
+const CONFLICT: ReadonlySet<number> = new Set([409]);
+
+/**
+ * Error thrown when a CopilotKit Intelligence HTTP request returns a non-2xx
  * status. Carries the HTTP {@link status} code so callers can branch on
  * specific failures (e.g. 404 for "not found", 409 for "conflict") without
  * parsing the error message string.
@@ -21,7 +222,7 @@ export const INTELLIGENCE_USER_ID_HEADER = "x-cpki-user-id";
  * @example
  * ```ts
  * try {
- *   await intelligence.getThread({ threadId });
+ *   await intelligence.getThread({ threadId, userId });
  * } catch (error) {
  *   if (error instanceof PlatformRequestError && error.status === 404) {
  *     // thread does not exist yet
@@ -34,6 +235,8 @@ export class PlatformRequestError extends Error {
     message: string,
     /** The HTTP status code returned by the platform (e.g. 404, 409, 500). */
     public readonly status: number,
+    /** Whether retrying may succeed without changing client configuration. */
+    public readonly retryable?: boolean,
   ) {
     super(message);
     this.name = "PlatformRequestError";
@@ -41,26 +244,56 @@ export class PlatformRequestError extends Error {
 }
 
 /**
- * Client for the CopilotKit Intelligence Platform REST API.
- *
- * Construct the client once and pass it to any consumers that need it
- * (e.g. `CopilotRuntime`, `IntelligenceAgentRunner`):
- *
- * ```ts
- * import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
- *
- * const intelligence = new CopilotKitIntelligence({
- *   apiUrl: "https://api.copilotkit.ai",
- *   wsUrl: "wss://api.copilotkit.ai",
- *   apiKey: process.env.COPILOTKIT_API_KEY!,
- * });
- *
- * const runtime = new CopilotRuntime({
- *   agents,
- *   intelligence,
- * });
- * ```
+ * Read the platform's `retryable` hint from an error response body. The
+ * platform sends `{ error: { code, message, category, retryable } }`; anything
+ * else (non-JSON, proxies, older platforms) yields `undefined`.
  */
+function readErrorBodyRetryable(text: string): boolean | undefined {
+  if (!text) return undefined;
+  try {
+    const body: unknown = JSON.parse(text);
+    if (typeof body !== "object" || body === null) return undefined;
+    const error = (body as { error?: unknown }).error;
+    if (typeof error !== "object" || error === null) return undefined;
+    const retryable = (error as { retryable?: unknown }).retryable;
+    return typeof retryable === "boolean" ? retryable : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Copy a public Runtime entitlement so callers cannot mutate cached authority. */
+function cloneRuntimeEntitlementResponse(
+  response: RuntimeEntitlementResponse,
+): RuntimeEntitlementResponse {
+  if (response.status === "ready") {
+    return {
+      status: "ready",
+      entitlement: {
+        ...response.entitlement,
+        features: { ...response.entitlement.features },
+        limits: { ...response.entitlement.limits },
+      },
+    };
+  }
+
+  return {
+    status: response.status,
+    error: { ...response.error },
+  };
+}
+
+/** Copy a cached Error while preserving its concrete type and own fields. */
+function cloneRuntimeEntitlementError(error: unknown): unknown {
+  if (!(error instanceof Error)) {
+    return error;
+  }
+
+  return Object.create(
+    Object.getPrototypeOf(error),
+    Object.getOwnPropertyDescriptors(error),
+  ) as Error;
+}
 
 /** Payload passed to `onThreadDeleted` listeners. */
 export interface ThreadDeletedPayload {
@@ -70,25 +303,52 @@ export interface ThreadDeletedPayload {
 }
 
 export interface CopilotKitIntelligenceConfig {
-  /** Base URL of the intelligence platform API, e.g. "https://api.copilotkit.ai" */
-  apiUrl: string;
-  /** Intelligence websocket base URL. Runner and client socket URLs are derived from this. */
-  wsUrl: string;
-  /** API key for authenticating with the intelligence platform */
+  /**
+   * Base URL of the CopilotKit Intelligence API.
+   *
+   * Defaults to CopilotKit's managed platform,
+   * `https://api.intelligence.copilotkit.ai`. Set it only when pointing at a
+   * self-hosted or non-production deployment — and set {@link wsUrl} with it.
+   */
+  apiUrl?: string;
+  /**
+   * Intelligence websocket base URL. Runner and client socket URLs are derived
+   * from this by appending `/runner` or `/client`, so pass the bare base.
+   *
+   * Defaults to CopilotKit's managed platform,
+   * `wss://realtime.intelligence.copilotkit.ai`.
+   *
+   * This is a DIFFERENT host from {@link apiUrl} — the API and realtime planes are
+   * deployed separately — so it cannot be derived by scheme-swapping `apiUrl`.
+   * Overriding one without the other therefore points the two planes at
+   * different deployments, which logs a warning.
+   */
+  wsUrl?: string;
+  /** API key for authenticating with CopilotKit Intelligence */
   apiKey: string;
   /**
-   * Enable the Intelligence platform's MCP server (bash + thread tools) on
-   * every `BuiltInAgent` run that resolves a user. The auto-attach is
-   * implemented in `configureAgentForRequest`: when this flag is `true`
-   * AND the runtime's `identifyUser` callback has placed a user-id onto
-   * the agent's forwarded headers AND the user has not already configured
-   * an MCP server pointing at the same URL, the server is appended to the
-   * agent's effective MCP server list for that run.
-   *
-   * Defaults to `false` — opt-in. Existing intelligence setups continue to
-   * work without the bash MCP server unless they flip this flag.
+   * Chooses the stable Learning Container ID for each Intelligence run.
+   * The callback receives the resolved application user and AG-UI run input.
+   * It must return the same ID for every run on one Thread because a Thread
+   * cannot move between Learning Containers after its first assignment.
+   * Return `null` or `undefined` to leave the Thread unassigned.
    */
-  mcpServer?: boolean;
+  getLearningContainerId?: GetLearningContainerId;
+  /**
+   * Enable Enterprise Learning — expose CopilotKit Intelligence's
+   * built-in tools (bash + thread/memory tools) to agent runs on an
+   * intelligence runtime that resolve a user. Attached uniformly across
+   * agent frameworks by `attachIntelligenceEnterpriseLearning` via
+   * `@ag-ui/mcp-middleware`, with the resolved user-id and project apiKey
+   * baked into the transport headers for that request's clone.
+   *
+   * Defaults to `false` — opt-in. Existing intelligence setups continue
+   * to work without these tools unless they flip this flag.
+   *
+   * @deprecated Configure `memory.access` on `CopilotRuntime` so each web
+   * request receives an explicit agent or client Memory grant.
+   */
+  enableEnterpriseLearning?: boolean;
   /**
    * Initial listener invoked after a thread is created.
    * Prefer {@link CopilotKitIntelligence.onThreadCreated} for multiple listeners.
@@ -149,6 +409,49 @@ export interface ListThreadsResponse {
 }
 
 /**
+ * A single memory as returned by the platform's list endpoint. Mirrors the
+ * public projection the client memory store consumes (tenant ids stripped).
+ */
+export interface MemorySummary {
+  /** Platform-assigned unique identifier. */
+  id: string;
+  /** Memory kind, e.g. `"topical"`, `"episodic"`, `"operational"`. */
+  kind: string;
+  /** Memory scope: `"user"` (private) or `"project"` (shared). */
+  scope: string;
+  /** The remembered fact, preference, or procedure. */
+  content: string;
+  /** Ids of the threads this memory was learned from. */
+  sourceThreadIds: string[];
+  /** ISO-8601 timestamp when the memory was retired, or `null` if live. */
+  invalidatedAt: string | null;
+  /** Relevance score from a `recall` (hybrid RAG) query. Present only on recall responses. */
+  score?: number;
+}
+
+/** Response from {@link CopilotKitIntelligence.listMemories}. */
+export interface ListMemoriesResponse {
+  memories: MemorySummary[];
+}
+
+/** Response from {@link CopilotKitIntelligence.recallMemories}. */
+export interface RecallMemoriesResponse {
+  memories: MemorySummary[];
+}
+
+/**
+ * Response from a create ({@link CopilotKitIntelligence.createMemory}) or
+ * supersede ({@link CopilotKitIntelligence.updateMemory}) call: the stored
+ * memory, plus the operation-specific marker the client store consumes.
+ */
+export interface SaveMemoryResponse extends MemorySummary {
+  /** Create only: content was merged into a near-duplicate, not inserted new. */
+  absorbed?: boolean;
+  /** Supersede only: the id of the memory retired by this call. */
+  retiredId?: string;
+}
+
+/**
  * Fields that can be updated on a thread via {@link CopilotKitIntelligence.updateThread}.
  *
  * Additional platform-specific fields can be passed as extra keys and will be
@@ -170,6 +473,8 @@ export interface CreateThreadRequest {
   agentId: string;
   /** Optional initial display name. If omitted, the thread is unnamed until explicitly renamed. */
   name?: string;
+  /** Developer-set stable ID of the Learning Container for this Thread. */
+  learningContainerId?: string;
 }
 
 /** Credentials returned when locking or joining a thread's realtime channel. */
@@ -192,11 +497,91 @@ export interface SubscribeToThreadsResponse {
   joinToken: string;
 }
 
+export interface SubscribeToMemoriesRequest {
+  userId: string;
+  memoryGrant?: RuntimeMemoryGrant;
+}
+
+/**
+ * Memory subscribe returns both the token and the join code, unlike threads
+ * (whose join code reaches the client via the thread-list response). Memory has
+ * no list-borne code, so the code is delivered here and used to build the
+ * `user_meta:memories:<joinCode>` channel topic.
+ */
+export interface SubscribeToMemoriesResponse {
+  joinToken?: string;
+  joinCode?: string;
+  /**
+   * Project-scoped realtime credentials, minted by the platform only when the
+   * caller's API key resolves to a project scope. Absent when project scope is
+   * unavailable — a silent-degrade contract: the client then opens only the
+   * user channel. When present, the client builds the second
+   * `project_meta:memories:<projectJoinCode>` channel topic from them.
+   */
+  projectJoinToken?: string;
+  projectJoinCode?: string;
+}
+
 export type ConnectThreadResponse = ThreadConnectionResponse | null;
 
 export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
+  /** Server-owned native ID for backend execution; public identity remains threadId. */
+  backendThreadId?: string;
   /** Canonical platform run identifier for the acquired lock. */
   runId: string;
+  /**
+   * Seconds the lock remains valid from acquisition, as set by the platform.
+   * The platform may ignore the requested TTL, so callers should trust this
+   * value. Absent on platforms that predate the field.
+   */
+  ttlSeconds?: number;
+}
+
+/**
+ * Parameters for annotating a thread event via
+ * {@link CopilotKitIntelligence.annotate}. The runtime resolves `userId`
+ * from the customer's BFF auth before calling this; the platform prefixes
+ * it with the project id at write time.
+ *
+ * `payload` is the type-specific JSON blob for the annotation (for example, a
+ * `"user_action"` event carries the recorded fields). The exact
+ * shape per type is validated by the Intelligence backend; canonical shapes
+ * are documented on the Intelligence react-core side.
+ */
+export interface AnnotateParams {
+  /** The user the annotation belongs to. */
+  userId: string;
+  /** The thread the annotation is associated with. May be unknown to the platform. */
+  threadId: string;
+  /**
+   * Discriminator identifying the annotation type.
+   * Must match a type known to CopilotKit Intelligence
+   * (for example, `"user_action"`).
+   */
+  type: string;
+  /** Type-specific payload. Shape varies by `type`. */
+  payload?: unknown;
+  /**
+   * Caller-supplied idempotency key (any RFC-compliant UUID). When omitted,
+   * a UUID is auto-generated. Every call hits the platform's idempotent
+   * `PUT /connector/annotate/:clientEventId` endpoint; a retry with the
+   * same id collapses to the original row.
+   */
+  clientEventId?: string;
+  /** ISO-8601 client-asserted timestamp. Defaults to server NOW() when absent. */
+  occurredAt?: string;
+}
+
+/** Response from {@link CopilotKitIntelligence.annotate}. */
+export interface AnnotateResponse {
+  /** Database id of the annotation row (BIGINT, returned as a string). */
+  id: string;
+  /**
+   * True when the platform recognized the `clientEventId` as a retry of
+   * a previous call and returned the original row id instead of inserting
+   * a new one.
+   */
+  duplicate: boolean;
 }
 
 /** A single message within a thread's persisted history. */
@@ -205,8 +590,10 @@ export interface ThreadMessage {
   id: string;
   /** Message role, e.g. `"user"`, `"assistant"`, `"tool"`. */
   role: string;
-  /** Text content of the message. May be absent for tool-call-only messages. */
-  content?: string;
+  /** Structured AG-UI content. May be absent for tool-call-only messages. */
+  content?: unknown;
+  /** Standard AG-UI activity type when `role` is `"activity"`. */
+  activityType?: string;
   /** Tool calls initiated by this message (assistant role only). */
   toolCalls?: Array<{
     id: string;
@@ -258,10 +645,16 @@ export type ThreadStateResponse =
   | { kind: "snapshot"; state: unknown; skippedDeltas: number };
 
 export interface AcquireThreadLockRequest {
+  /** Caller can forward a server-owned native ID while retaining public ownership. */
+  supportsBackendThreadId?: boolean;
   threadId: string;
   runId: string;
   userId: string;
   agentId: string;
+  /** Developer-set stable ID to assign before the run lock is acquired. */
+  learningContainerId?: string;
+  /** Internal managed-Channel delivery context for shared Thread access. */
+  channelDeliveryId?: string;
   /** Custom Redis key prefix for the lock (default: "thread"). */
   lockKeyPrefix?: string;
   /** Lock TTL in seconds. When set, the lock auto-expires after this duration. */
@@ -275,6 +668,8 @@ export interface RenewThreadLockRequest {
   ttlSeconds: number;
   /** Must match the prefix used when acquiring. */
   lockKeyPrefix?: string;
+  /** Aborts the request, e.g. when the heartbeat gives up on this attempt. */
+  signal?: AbortSignal;
 }
 
 export interface CleanupThreadLockRequest {
@@ -283,7 +678,20 @@ export interface CleanupThreadLockRequest {
 }
 
 export interface RenewThreadLockResponse {
+  /**
+   * Seconds the lock remains valid from now, as set by the platform. The
+   * platform may ignore the requested TTL, so callers should trust this value.
+   * `0` when {@link status} is `"completed"`.
+   */
   ttlSeconds: number;
+  threadId?: string;
+  runId?: string;
+  /**
+   * `"renewed"` when the lock was extended; `"completed"` when the run already
+   * reached a terminal event, so nothing was renewed and none is needed.
+   * Absent on platforms that predate the field.
+   */
+  status?: "renewed" | "completed";
 }
 
 export interface ThreadLockInfo {
@@ -295,24 +703,84 @@ interface ThreadEnvelope {
   thread: ThreadSummary;
 }
 
+/**
+ * Client for the CopilotKit Intelligence REST API.
+ *
+ * Construct the client once and pass it to any consumers that need it
+ * (e.g. `CopilotRuntime`, `IntelligenceAgentRunner`):
+ *
+ * ```ts
+ * import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
+ *
+ * const intelligence = new CopilotKitIntelligence({
+ *   apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+ * });
+ *
+ * const runtime = new CopilotRuntime({
+ *   agents,
+ *   intelligence,
+ * });
+ * ```
+ *
+ * `apiUrl` and `wsUrl` default to cloud-hosted CopilotKit Intelligence —
+ * `https://api.intelligence.copilotkit.ai` and
+ * `wss://realtime.intelligence.copilotkit.ai`. Those are the values for the
+ * managed service; leaving both unset is always correct against it.
+ *
+ * Override both together to target a non-production or future self-hosted
+ * deployment (the hosts below are placeholders — substitute your own):
+ *
+ * ```ts
+ * const intelligence = new CopilotKitIntelligence({
+ *   apiUrl: "https://api.intelligence.example.com",
+ *   wsUrl: "wss://realtime.intelligence.example.com",
+ *   apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+ * });
+ * ```
+ */
 export class CopilotKitIntelligence {
   #apiUrl: string;
   #runnerWsUrl: string;
   #clientWsUrl: string;
+  #channelsWsUrl: string;
   #apiKey: string;
-  #mcpServerEnabled: boolean;
+  #enterpriseLearningEnabled: boolean;
+  #getLearningContainerId?: GetLearningContainerId;
+  #runtimeEntitlementsCache?: RuntimeEntitlementCacheEntry;
+  #runtimeEntitlementsFailure?: RuntimeEntitlementFailureEntry;
+  #runtimeEntitlementsInFlight?: Promise<RuntimeEntitlementResponse>;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadUpdatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadDeletedListeners = new Set<(params: ThreadDeletedPayload) => void>();
 
   constructor(config: CopilotKitIntelligenceConfig) {
-    const intelligenceWsUrl = normalizeIntelligenceWsUrl(config.wsUrl);
+    if (
+      config.getLearningContainerId !== undefined &&
+      typeof config.getLearningContainerId !== "function"
+    ) {
+      throw new Error(
+        "CopilotKitIntelligence `getLearningContainerId` must be a callback",
+      );
+    }
+    assertConfiguredApiKey(config.apiKey);
+    const configuredApiUrl = configuredUrl(config.apiUrl);
+    const configuredWsUrl = configuredUrl(config.wsUrl);
+    warnOnPartialHostOverride(configuredApiUrl, configuredWsUrl);
 
-    this.#apiUrl = config.apiUrl.replace(/\/$/, "");
+    const intelligenceWsUrl = normalizeIntelligenceWsUrl(
+      configuredWsUrl ?? MANAGED_INTELLIGENCE_WS_URL,
+    );
+
+    this.#apiUrl = (configuredApiUrl ?? MANAGED_INTELLIGENCE_API_URL).replace(
+      /\/$/,
+      "",
+    );
     this.#runnerWsUrl = deriveRunnerWsUrl(intelligenceWsUrl);
     this.#clientWsUrl = deriveClientWsUrl(intelligenceWsUrl);
+    this.#channelsWsUrl = deriveChannelsWsUrl(intelligenceWsUrl);
     this.#apiKey = config.apiKey;
-    this.#mcpServerEnabled = config.mcpServer ?? false;
+    this.#enterpriseLearningEnabled = config.enableEnterpriseLearning ?? false;
+    this.#getLearningContainerId = config.getLearningContainerId;
 
     if (config.onThreadCreated) {
       this.onThreadCreated(config.onThreadCreated);
@@ -397,43 +865,652 @@ export class CopilotKitIntelligence {
     return this.#clientWsUrl;
   }
 
+  ɵgetChannelsWsUrl(): string {
+    return this.#channelsWsUrl;
+  }
+
   ɵgetRunnerAuthToken(): string {
     return this.#apiKey;
   }
 
-  /** @internal Used by the runtime's auto-attach to populate `Authorization`. */
+  /** @internal Used by `attachIntelligenceEnterpriseLearning` to populate `Authorization`. */
   ɵgetApiKey(): string {
     return this.#apiKey;
   }
 
-  /** @internal Used by the runtime's auto-attach to gate MCP attachment. */
-  ɵisMcpServerEnabled(): boolean {
-    return this.#mcpServerEnabled;
+  /** @internal Used by the Intelligence runtime to assign Learning Containers. */
+  ɵgetLearningContainerId(): GetLearningContainerId | undefined {
+    return this.#getLearningContainerId;
   }
 
-  async #request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  /** @internal Used by `attachIntelligenceEnterpriseLearning` to gate MCP attachment. */
+  ɵisEnterpriseLearningEnabled(): boolean {
+    return this.#enterpriseLearningEnabled;
+  }
+
+  /**
+   * Fetch one authorized learned-skills ZIP with this client's project key.
+   * No retries, archive parsing, or cache. A caller signal bounds the request
+   * and body read. Native cancellation is preserved; deadline failures use
+   * {@link LearnedSkillsError} with code `TIMEOUT`.
+   */
+  async getLearnedSkillsSnapshot(
+    params: GetLearnedSkillsSnapshotRequest,
+  ): Promise<LearnedSkillsSnapshotResult> {
+    try {
+      params.signal?.throwIfAborted();
+      if (
+        typeof params.containerId !== "string" ||
+        !params.containerId.trim() ||
+        (params.revision !== undefined &&
+          (typeof params.revision !== "string" || !params.revision.length)) ||
+        (params.ifNoneMatch !== undefined &&
+          (typeof params.ifNoneMatch !== "string" ||
+            !params.ifNoneMatch.length ||
+            /[\r\n]/.test(params.ifNoneMatch)))
+      ) {
+        throw new LearnedSkillsError("INVALID_CONFIG", false);
+      }
+      let url: URL;
+      try {
+        url = new URL(
+          `${this.#apiUrl}/api/v1/learning/containers/${encodeURIComponent(params.containerId)}/skills`,
+        );
+        if (
+          !["http:", "https:"].includes(url.protocol) ||
+          url.username ||
+          url.password
+        ) {
+          throw new Error("Invalid API URL");
+        }
+        if (params.revision !== undefined)
+          url.searchParams.set("revision", params.revision);
+      } catch {
+        throw new LearnedSkillsError("INVALID_CONFIG", false);
+      }
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.#apiKey}`,
+          Accept: "application/zip",
+          ...(params.ifNoneMatch !== undefined
+            ? { "If-None-Match": params.ifNoneMatch }
+            : {}),
+        },
+        signal: params.signal,
+        redirect: "error",
+      });
+      if (response.status === 401) {
+        void response.body?.cancel().catch(() => {});
+        throw new LearnedSkillsError("AUTHENTICATION_FAILED", false);
+      }
+      if (response.status !== 403) params.signal?.throwIfAborted();
+      if (response.status !== 200 && response.status !== 304) {
+        const denialCode =
+          response.status === 403 ? "AUTHORIZATION_FAILED" : undefined;
+        let body: unknown;
+        try {
+          body = await learnedSkillsErrorBody(response, params.signal);
+        } catch (error) {
+          if (denialCode) {
+            throw new LearnedSkillsError(
+              denialCode,
+              false,
+              error instanceof SyntaxError ? undefined : error,
+            );
+          }
+          params.signal?.throwIfAborted();
+          if (!(error instanceof SyntaxError)) throw error;
+        }
+        const responseError = learnedSkillsResponseError(body);
+        // An HTTP denial must never become a transient failure that permits
+        // consumers to keep serving a previously authorized snapshot.
+        if (
+          response.status === 403 &&
+          ![
+            "AUTHENTICATION_FAILED",
+            "AUTHORIZATION_FAILED",
+            "ENTITLEMENT_REQUIRED",
+            "DELIVERY_DISABLED",
+            "CONTAINER_NOT_FOUND",
+            "REVISION_NOT_FOUND",
+            "REVISION_REVOKED",
+          ].includes(responseError.code)
+        ) {
+          throw new LearnedSkillsError(denialCode!, false);
+        }
+        throw responseError;
+      }
+      const revision = response.headers.get("X-CopilotKit-Skills-Revision");
+      const etag = response.headers.get("ETag");
+      if (
+        !revision ||
+        !etag ||
+        !/^"[a-f0-9]{64}"$/.test(etag) ||
+        (params.revision !== undefined && revision !== params.revision)
+      ) {
+        throw new LearnedSkillsError("INVALID_SNAPSHOT", false);
+      }
+      if (response.status === 304) {
+        if (params.ifNoneMatch === undefined)
+          throw new LearnedSkillsError("INVALID_SNAPSHOT", false);
+        return { status: "unchanged", revision, etag };
+      }
+      const contentType = response.headers.get("Content-Type");
+      if (
+        !contentType ||
+        contentType.split(";", 1)[0].trim().toLowerCase() !== "application/zip"
+      ) {
+        throw new LearnedSkillsError("INVALID_SNAPSHOT", false);
+      }
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      params.signal?.throwIfAborted();
+      return { status: "snapshot", bytes, revision, etag, contentType };
+    } catch (error) {
+      if (error instanceof LearnedSkillsError) throw error;
+      const cause = params.signal?.aborted ? params.signal.reason : error;
+      if (cause instanceof Error && cause.name === "TimeoutError") {
+        throw new LearnedSkillsError("TIMEOUT", true, cause);
+      }
+      if (
+        params.signal?.aborted ||
+        (cause instanceof Error && cause.name === "AbortError")
+      ) {
+        throw cause;
+      }
+      throw new LearnedSkillsError("NETWORK_ERROR", true, error);
+    }
+  }
+
+  /** Fetch all requested containers in one authorized request, without retries. */
+  async getLearnedSkillsSnapshots(
+    params: GetLearnedSkillsSnapshotsRequest,
+  ): Promise<LearnedSkillsBatchResult[]> {
+    try {
+      params.signal?.throwIfAborted();
+      const containers = params.containers;
+      if (
+        !Array.isArray(containers) ||
+        containers.length < 1 ||
+        containers.length > 50 ||
+        new Set(containers.map((item) => item?.containerId)).size !==
+          containers.length
+      )
+        throw new LearnedSkillsError("INVALID_CONFIG", false);
+      for (const item of containers) {
+        if (
+          !item ||
+          typeof item.containerId !== "string" ||
+          !item.containerId.trim() ||
+          // Reject control characters in caller-provided container IDs.
+          // eslint-disable-next-line no-control-regex
+          /[\u0000-\u001f\u007f]/.test(item.containerId) ||
+          (item.revision !== undefined &&
+            (typeof item.revision !== "string" || !item.revision.trim())) ||
+          (item.ifNoneMatch !== undefined &&
+            (typeof item.ifNoneMatch !== "string" ||
+              !/^"[a-f0-9]{64}"$/.test(item.ifNoneMatch)))
+        )
+          throw new LearnedSkillsError("INVALID_CONFIG", false);
+        try {
+          encodeURIComponent(item.containerId);
+        } catch {
+          throw new LearnedSkillsError("INVALID_CONFIG", false);
+        }
+      }
+      let url: URL;
+      try {
+        url = new URL(`${this.#apiUrl}/api/v1/learning/skills/batch`);
+        if (
+          !["http:", "https:"].includes(url.protocol) ||
+          url.username ||
+          url.password
+        )
+          throw new Error();
+      } catch {
+        throw new LearnedSkillsError("INVALID_CONFIG", false);
+      }
+      const response = await fetch(url.toString(), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.#apiKey}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          containers: containers.map(
+            ({ containerId, revision, ifNoneMatch }) => ({
+              containerId,
+              ...(revision !== undefined ? { revision } : {}),
+              ...(ifNoneMatch !== undefined ? { ifNoneMatch } : {}),
+            }),
+          ),
+        }),
+        signal: params.signal,
+        redirect: "error",
+      });
+      if (response.status === 401) {
+        void response.body?.cancel().catch(() => {});
+        throw new LearnedSkillsError("AUTHENTICATION_FAILED", false);
+      }
+      if (response.status !== 403) params.signal?.throwIfAborted();
+      if (response.status !== 200) {
+        let body: unknown;
+        try {
+          body = await learnedSkillsErrorBody(response, params.signal);
+        } catch (error) {
+          if (response.status === 403)
+            throw new LearnedSkillsError("AUTHORIZATION_FAILED", false);
+          params.signal?.throwIfAborted();
+          if (!(error instanceof SyntaxError)) throw error;
+        }
+        const error = learnedSkillsResponseError(body);
+        if (
+          response.status === 403 &&
+          ![
+            "AUTHENTICATION_FAILED",
+            "AUTHORIZATION_FAILED",
+            "ENTITLEMENT_REQUIRED",
+            "DELIVERY_DISABLED",
+            "CONTAINER_NOT_FOUND",
+            "REVISION_NOT_FOUND",
+            "REVISION_REVOKED",
+          ].includes(error.code)
+        )
+          throw new LearnedSkillsError("AUTHORIZATION_FAILED", false);
+        throw error;
+      }
+      if (
+        response.headers
+          .get("Content-Type")
+          ?.split(";", 1)[0]
+          .trim()
+          .toLowerCase() !== "application/json"
+      )
+        throw new LearnedSkillsError("INVALID_SNAPSHOT", false);
+      let body: unknown;
+      try {
+        body = await learnedSkillsErrorBody(response, params.signal);
+      } catch (error) {
+        if (error instanceof SyntaxError)
+          throw new LearnedSkillsError("INVALID_SNAPSHOT", false);
+        throw error;
+      }
+      params.signal?.throwIfAborted();
+      return parseLearnedSkillsBatch(body, containers);
+    } catch (error) {
+      if (error instanceof LearnedSkillsError) throw error;
+      const cause = params.signal?.aborted ? params.signal.reason : error;
+      if (cause instanceof Error && cause.name === "TimeoutError")
+        throw new LearnedSkillsError("TIMEOUT", true, cause);
+      if (
+        params.signal?.aborted ||
+        (cause instanceof Error && cause.name === "AbortError")
+      )
+        throw cause;
+      throw new LearnedSkillsError("NETWORK_ERROR", true, error);
+    }
+  }
+
+  /**
+   * Fetch trusted Inspector metadata for this runtime's Intelligence project.
+   *
+   * The request always uses the server-configured Intelligence API key. A 404
+   * is treated as compatible absence so runtimes can work with older App API
+   * deployments that do not expose this endpoint yet.
+   *
+   * @returns Sanitized V1 metadata, or `undefined` when the provider has no
+   *   supported metadata.
+   * @throws {@link PlatformRequestError} for provider failures other than 404.
+   */
+  async getInspectorMetadata(): Promise<InspectorMetadataV1 | undefined> {
+    const path = "/api/inspector/metadata";
+    const abortController = new AbortController();
+    const timeoutError = new Error(
+      "Intelligence inspector metadata request timed out",
+    );
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(timeoutError);
+        abortController.abort(timeoutError);
+      }, INSPECTOR_METADATA_REQUEST_TIMEOUT_MS);
+    });
+
+    try {
+      const response = await Promise.race([
+        fetch(`${this.#apiUrl}${path}`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${this.#apiKey}` },
+          signal: abortController.signal,
+        }),
+        timeout,
+      ]);
+
+      if (response.status === 204 || response.status === 404) {
+        return undefined;
+      }
+
+      if (!response.ok) {
+        logger.error(
+          { status: response.status, path },
+          "Intelligence platform request failed",
+        );
+        throw new PlatformRequestError(
+          `Intelligence platform error ${response.status}`,
+          response.status,
+        );
+      }
+
+      const body = await Promise.race([response.text(), timeout]);
+      const decoded: unknown = JSON.parse(body);
+      return parseInspectorMetadataV1(decoded);
+    } catch (error) {
+      if (error === timeoutError) {
+        logger.warn(
+          { path, timeoutMs: INSPECTOR_METADATA_REQUEST_TIMEOUT_MS },
+          "Intelligence inspector metadata request timed out",
+        );
+      }
+      throw error;
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    }
+  }
+
+  /** Fetches one credential-scoped, bounded Learning projection for Inspector. */
+  async getInspectorLearning(
+    request: InspectorLearningRequestV1 & {
+      readonly runtimeContainerId?: string;
+    },
+  ): Promise<InspectorLearningSnapshotV1> {
+    const path = "/api/inspector/learning";
+    const url = new URL(`${this.#apiUrl}${path}`);
+    if (request.agentId) url.searchParams.set("agentId", request.agentId);
+    if (request.skillsPage)
+      url.searchParams.set("skillsPage", String(request.skillsPage));
+    if (request.insightsPage) {
+      url.searchParams.set("insightsPage", String(request.insightsPage));
+    }
+    if (request.runtimeContainerId) {
+      url.searchParams.set("runtimeContainerId", request.runtimeContainerId);
+    }
+    const controller = new AbortController();
+    const timeoutError = new Error(
+      "Intelligence Inspector Learning request timed out",
+    );
+    const timeout = setTimeout(
+      () => controller.abort(timeoutError),
+      INSPECTOR_LEARNING_REQUEST_TIMEOUT_MS,
+    );
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${this.#apiKey}` },
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new PlatformRequestError(
+          `Intelligence platform error ${response.status}`,
+          response.status,
+          response.status === 429 || response.status >= 500,
+        );
+      }
+      const snapshot = parseInspectorLearningSnapshotV1(await response.json());
+      if (!snapshot) {
+        throw new PlatformRequestError(
+          "Invalid Inspector Learning response",
+          502,
+          true,
+        );
+      }
+      return snapshot;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  /**
+   * Resolve the Runtime entitlement projection for this project.
+   *
+   * Concurrent calls share one request. Active grants cache for 30 seconds;
+   * inactive results and failures cache for 5 seconds. Callers receive copies
+   * so they cannot mutate cached authority.
+   */
+  async getRuntimeEntitlements(): Promise<RuntimeEntitlementResponse> {
+    const now = Date.now();
+    if (
+      this.#runtimeEntitlementsCache &&
+      now < this.#runtimeEntitlementsCache.expiresAt
+    ) {
+      return cloneRuntimeEntitlementResponse(
+        this.#runtimeEntitlementsCache.response,
+      );
+    }
+    if (
+      this.#runtimeEntitlementsFailure &&
+      now < this.#runtimeEntitlementsFailure.expiresAt
+    ) {
+      throw cloneRuntimeEntitlementError(
+        this.#runtimeEntitlementsFailure.error,
+      );
+    }
+
+    const request =
+      this.#runtimeEntitlementsInFlight ??
+      this.#fetchRuntimeEntitlements()
+        .then((response) => {
+          this.#runtimeEntitlementsFailure = undefined;
+          this.#runtimeEntitlementsCache = {
+            response,
+            expiresAt:
+              Date.now() +
+              (grantsRuntimeAccess(response)
+                ? RUNTIME_ENTITLEMENTS_SUCCESS_TTL_MS
+                : RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS),
+          };
+          return response;
+        })
+        .catch((error: unknown) => {
+          this.#runtimeEntitlementsFailure = {
+            error,
+            expiresAt: Date.now() + RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS,
+          };
+          throw error;
+        });
+    this.#runtimeEntitlementsInFlight = request;
+    try {
+      return cloneRuntimeEntitlementResponse(await request);
+    } catch (error) {
+      throw cloneRuntimeEntitlementError(error);
+    } finally {
+      if (this.#runtimeEntitlementsInFlight === request) {
+        this.#runtimeEntitlementsInFlight = undefined;
+      }
+    }
+  }
+
+  /** Perform one bounded Runtime entitlement request without caching. */
+  async #fetchRuntimeEntitlements(): Promise<RuntimeEntitlementResponse> {
+    const path = "/api/entitlements/runtime";
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS,
+    );
+
+    try {
+      const response = await fetch(`${this.#apiUrl}${path}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.#apiKey}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        await response.body?.cancel();
+        logger.error(
+          { status: response.status, path },
+          "Runtime entitlement request failed",
+        );
+        throw new PlatformRequestError(
+          `Runtime entitlement request failed with status ${response.status}`,
+          response.status,
+          isRetryableRuntimeEntitlementStatus(response.status),
+        );
+      }
+
+      let payload: unknown;
+      try {
+        payload = await response.json();
+      } catch (error) {
+        if (controller.signal.aborted) {
+          throw error;
+        }
+        throw new PlatformRequestError(
+          "Runtime entitlement response was malformed",
+          502,
+          false,
+        );
+      }
+
+      const normalized = normalizeRuntimeEntitlementTransport(payload);
+      if (!normalized) {
+        throw new PlatformRequestError(
+          "Runtime entitlement response was malformed",
+          502,
+          false,
+        );
+      }
+      return normalized;
+    } catch (error) {
+      if (error instanceof PlatformRequestError) {
+        throw error;
+      }
+      if (
+        controller.signal.aborted ||
+        (error instanceof DOMException && error.name === "AbortError")
+      ) {
+        throw new PlatformRequestError(
+          "Runtime entitlement request timed out",
+          504,
+          true,
+        );
+      }
+      throw new PlatformRequestError(
+        "Runtime entitlement request failed",
+        502,
+        true,
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  /** Mint a browser capture grant using only the Runtime's project and user. */
+  async ɵconnectTrajectory(params: {
+    trajectoryId: string;
+    user: { id: string; name: string };
+    signal?: AbortSignal;
+  }): Promise<TrajectoryConnectionGrant> {
+    let response: Response;
+    try {
+      response = await fetch(`${this.#apiUrl}/api/trajectories/join`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.#apiKey}`,
+          "Content-Type": "application/json",
+        },
+        // Project scope comes from the API key. Containers remain unassigned
+        // until there is a server-side selector with Trajectory context.
+        body: JSON.stringify({
+          trajectoryId: params.trajectoryId,
+          appUserId: params.user.id,
+        }),
+        signal: params.signal,
+        redirect: "error",
+      });
+    } catch (error) {
+      // An abort means the browser went away, not that Intelligence is unreachable.
+      if (!params.signal?.aborted) {
+        // Error messages can carry the request URL and any credentials in it,
+        // so log only fixed fields. Node's fetch keeps the reason in `cause`.
+        logger.warn(
+          {
+            error: error instanceof Error ? error.name : typeof error,
+            causeCode: networkErrorCode(
+              error instanceof Error ? error.cause : undefined,
+            ),
+            host: urlHost(this.#apiUrl),
+          },
+          "Could not reach Intelligence to connect a Trajectory",
+        );
+      }
+      throw error;
+    }
+    const payload: unknown = await response.json().catch(() => undefined);
+    if (!response.ok) {
+      throw trajectoryResponseError(payload, response.status, this.#apiKey);
+    }
+    return parseTrajectoryConnectionGrant(
+      payload,
+      params.trajectoryId,
+      this.ɵgetClientWsUrl(),
+    );
+  }
+
+  /**
+   * Sends one request to the platform and parses its JSON body.
+   *
+   * @param expectedStatuses - Non-2xx statuses the caller handles as a normal
+   *   outcome, such as the 404 of a thread that does not exist yet. They are
+   *   logged at debug instead of error, and still throw.
+   * @throws {@link PlatformRequestError} on every non-2xx response.
+   */
+  async #request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    extraHeaders?: Record<string, string>,
+    signal?: AbortSignal,
+    expectedStatuses?: ReadonlySet<number>,
+  ): Promise<T> {
     const url = `${this.#apiUrl}${path}`;
 
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.#apiKey}`,
       "Content-Type": "application/json",
+      ...extraHeaders,
     };
 
     const response = await fetch(url, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
+      signal,
     });
 
     if (!response.ok) {
       const text = await response.text().catch(() => "");
-      logger.error(
-        { status: response.status, body: text, path },
-        "Intelligence platform request failed",
-      );
+      if (expectedStatuses?.has(response.status)) {
+        logger.debug(
+          { status: response.status, path },
+          "Intelligence platform request returned an expected status",
+        );
+      } else {
+        logger.error(
+          { status: response.status, body: text, path },
+          "Intelligence platform request failed",
+        );
+      }
       throw new PlatformRequestError(
         `Intelligence platform error ${response.status}: ${text || response.statusText}`,
         response.status,
+        readErrorBodyRetryable(text),
       );
     }
 
@@ -494,6 +1571,131 @@ export class CopilotKitIntelligence {
     return this.#request<ListThreadsResponse>("GET", `/api/threads?${qs}`);
   }
 
+  /**
+   * List the given user's long-term memories, newest first.
+   *
+   * The platform scopes by the opaque app user supplied in the
+   * `x-cpki-user-id` header (resolved by the runtime via `identifyUser`),
+   * not a query param. Pass `includeInvalidated` to also return retired rows.
+   *
+   * @returns The `{ memories }` envelope the client memory store consumes.
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async listMemories(params: {
+    userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
+    includeInvalidated?: boolean;
+  }): Promise<ListMemoriesResponse> {
+    const qs = params.includeInvalidated ? "?includeInvalidated=true" : "";
+    return this.#request<ListMemoriesResponse>(
+      "GET",
+      `/api/memories${qs}`,
+      undefined,
+      memoryRequestHeaders(params.userId, params.memoryGrant),
+    );
+  }
+
+  /**
+   * Create a memory for the given user (platform `POST /api/memories`).
+   * @returns The stored memory; `absorbed` is true if the content was merged
+   *   into a near-duplicate rather than inserted as a new row.
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async createMemory(params: {
+    userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
+    content: string;
+    kind: string;
+    /** Optional: when omitted, the platform applies its default (`"user"`). */
+    scope?: string;
+    sourceThreadIds?: string[];
+  }): Promise<SaveMemoryResponse> {
+    return this.#request<SaveMemoryResponse>(
+      "POST",
+      `/api/memories`,
+      {
+        content: params.content,
+        kind: params.kind,
+        ...(params.scope !== undefined ? { scope: params.scope } : {}),
+        sourceThreadIds: params.sourceThreadIds ?? [],
+      },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
+    );
+  }
+
+  /**
+   * Supersede an existing memory (platform `PATCH /api/memories/:id`). The
+   * `:id` row is retired and a new memory with the supplied content is
+   * inserted atomically.
+   * @returns The new memory plus `retiredId` (the id of the retired row).
+   * @throws {@link PlatformRequestError} on non-2xx responses (e.g. 404 when
+   *   `:id` is not a live, same-scope memory for this user).
+   */
+  async updateMemory(params: {
+    userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
+    id: string;
+    content: string;
+    kind: string;
+    /** Optional: when omitted, the platform applies its default (`"user"`). */
+    scope?: string;
+    sourceThreadIds?: string[];
+  }): Promise<SaveMemoryResponse> {
+    return this.#request<SaveMemoryResponse>(
+      "PATCH",
+      `/api/memories/${encodeURIComponent(params.id)}`,
+      {
+        content: params.content,
+        kind: params.kind,
+        ...(params.scope !== undefined ? { scope: params.scope } : {}),
+        sourceThreadIds: params.sourceThreadIds ?? [],
+      },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
+    );
+  }
+
+  /**
+   * Non-lossily retire (forget) a memory (platform `DELETE /api/memories/:id`).
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async removeMemory(params: {
+    userId: string;
+    id: string;
+    memoryGrant?: RuntimeMemoryGrant;
+  }): Promise<void> {
+    await this.#request<void>(
+      "DELETE",
+      `/api/memories/${encodeURIComponent(params.id)}`,
+      undefined,
+      memoryRequestHeaders(params.userId, params.memoryGrant),
+    );
+  }
+
+  /**
+   * Semantically recall the given user's memories (platform `POST
+   * /api/memories/recall`, hybrid RAG). Each returned memory carries a
+   * relevance `score`. `scope` narrows to `"user"`/`"project"`; omitted → platform default.
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async recallMemories(params: {
+    userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
+    query: string;
+    limit?: number;
+    scope?: string;
+  }): Promise<RecallMemoriesResponse> {
+    return this.#request<RecallMemoriesResponse>(
+      "POST",
+      `/api/memories/recall`,
+      {
+        query: params.query,
+        ...(params.limit !== undefined ? { limit: params.limit } : {}),
+        ...(params.scope !== undefined ? { scope: params.scope } : {}),
+      },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
+    );
+  }
+
   async ɵsubscribeToThreads(
     params: SubscribeToThreadsRequest,
   ): Promise<SubscribeToThreadsResponse> {
@@ -507,7 +1709,38 @@ export class CopilotKitIntelligence {
   }
 
   /**
+   * Mint memory-realtime join credentials (platform `POST
+   * /api/memories/subscribe`). Returns both the single-use `joinToken` and the
+   * per-user `joinCode` the client needs to build the
+   * `user_meta:memories:<joinCode>` channel topic. When the platform also
+   * resolves a project scope it returns optional `projectJoinToken` /
+   * `projectJoinCode`; both are passed through verbatim (omitted when absent,
+   * the silent-degrade contract).
+   *
+   * The user is supplied via the `x-cpki-user-id` header — the same way every
+   * other memory endpoint (`listMemories`/`createMemory`/…) identifies the app
+   * user — because the platform's memory routes resolve identity from that
+   * header, not the body. (This differs from `ɵsubscribeToThreads`, whose
+   * platform endpoint reads `userId` from the body.)
+   *
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async ɵsubscribeToMemories(
+    params: SubscribeToMemoriesRequest,
+  ): Promise<SubscribeToMemoriesResponse> {
+    return this.#request<SubscribeToMemoriesResponse>(
+      "POST",
+      "/api/memories/subscribe",
+      undefined,
+      memoryRequestHeaders(params.userId, params.memoryGrant),
+    );
+  }
+
+  /**
    * Update thread metadata (e.g. name).
+   *
+   * Fields in updates take precedence, preserving the server-side SDK contract.
+   * HTTP handlers must remove untrusted identity fields before calling this method.
    *
    * Triggers the `onThreadUpdated` lifecycle callback on success.
    *
@@ -543,6 +1776,17 @@ export class CopilotKitIntelligence {
    *   same `threadId` already exists.
    */
   async createThread(params: CreateThreadRequest): Promise<ThreadSummary> {
+    return this.#createThread(params);
+  }
+
+  /**
+   * Creates a thread. {@link getOrCreateThread} passes 409 as expected,
+   * because there it means another request created the thread first.
+   */
+  async #createThread(
+    params: CreateThreadRequest,
+    expectedStatuses?: ReadonlySet<number>,
+  ): Promise<ThreadSummary> {
     const response = await this.#request<ThreadEnvelope>(
       "POST",
       `/api/threads`,
@@ -551,7 +1795,13 @@ export class CopilotKitIntelligence {
         userId: params.userId,
         agentId: params.agentId,
         ...(params.name !== undefined ? { name: params.name } : {}),
+        ...(params.learningContainerId !== undefined
+          ? { learningContainerId: params.learningContainerId }
+          : {}),
       },
+      undefined,
+      undefined,
+      expectedStatuses,
     );
     this.#invokeLifecycleCallback("onThreadCreated", response.thread);
     return response.thread;
@@ -564,10 +1814,29 @@ export class CopilotKitIntelligence {
    * @throws {@link PlatformRequestError} with status 404 if the thread does
    *   not exist.
    */
-  async getThread(params: { threadId: string }): Promise<ThreadSummary> {
+  async getThread(params: {
+    threadId: string;
+    userId: string;
+  }): Promise<ThreadSummary> {
+    return this.#getThread(params);
+  }
+
+  /**
+   * Fetches a thread. {@link getOrCreateThread} passes 404 as expected,
+   * because there it means the thread is about to be created (PE-678).
+   */
+  async #getThread(
+    params: { threadId: string; userId: string },
+    expectedStatuses?: ReadonlySet<number>,
+  ): Promise<ThreadSummary> {
+    const qs = new URLSearchParams({ userId: params.userId }).toString();
     const response = await this.#request<ThreadEnvelope>(
       "GET",
-      `/api/threads/${encodeURIComponent(params.threadId)}`,
+      `/api/threads/${encodeURIComponent(params.threadId)}?${qs}`,
+      undefined,
+      undefined,
+      undefined,
+      expectedStatuses,
     );
     return response.thread;
   }
@@ -591,7 +1860,10 @@ export class CopilotKitIntelligence {
     params: CreateThreadRequest,
   ): Promise<{ thread: ThreadSummary; created: boolean }> {
     try {
-      const thread = await this.getThread({ threadId: params.threadId });
+      const thread = await this.#getThread(
+        { threadId: params.threadId, userId: params.userId },
+        NOT_FOUND,
+      );
       return { thread, created: false };
     } catch (error) {
       if (!(error instanceof PlatformRequestError && error.status === 404)) {
@@ -600,12 +1872,15 @@ export class CopilotKitIntelligence {
     }
 
     try {
-      const thread = await this.createThread(params);
+      const thread = await this.#createThread(params, CONFLICT);
       return { thread, created: true };
     } catch (error) {
       // Another request created the thread between our get and create — retry get.
       if (error instanceof PlatformRequestError && error.status === 409) {
-        const thread = await this.getThread({ threadId: params.threadId });
+        const thread = await this.getThread({
+          threadId: params.threadId,
+          userId: params.userId,
+        });
         return { thread, created: false };
       }
       throw error;
@@ -620,11 +1895,41 @@ export class CopilotKitIntelligence {
    */
   async getThreadMessages(params: {
     threadId: string;
+    userId: string;
+    /** Internal managed-Channel delivery context for shared Thread access. */
+    channelDeliveryId?: string;
   }): Promise<ThreadMessagesResponse> {
+    const qs = new URLSearchParams({ userId: params.userId }).toString();
     return this.#request<ThreadMessagesResponse>(
       "GET",
-      `/api/threads/${encodeURIComponent(params.threadId)}/messages`,
+      `/api/threads/${encodeURIComponent(params.threadId)}/messages?${qs}`,
+      undefined,
+      params.channelDeliveryId
+        ? { "X-Cpki-Channel-Delivery-Id": params.channelDeliveryId }
+        : undefined,
     );
+  }
+
+  /** @internal Fetches one authorized managed Channel asset for history hydration. */
+  async ɵgetManagedChannelAsset(assetId: string): Promise<{
+    bytes: Uint8Array;
+    mimeType?: string;
+  }> {
+    const path = `/api/channels/files/${encodeURIComponent(assetId)}`;
+    const response = await fetch(`${this.#apiUrl}${path}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${this.#apiKey}` },
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new PlatformRequestError(
+        `Intelligence platform error ${response.status}: ${text || response.statusText}`,
+        response.status,
+      );
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const mimeType = response.headers.get("content-type") ?? undefined;
+    return { bytes, ...(mimeType ? { mimeType } : {}) };
   }
 
   /**
@@ -707,10 +2012,69 @@ export class CopilotKitIntelligence {
       "DELETE",
       `/api/threads/${encodeURIComponent(params.threadId)}`,
       {
+        userId: params.userId,
+        agentId: params.agentId,
         reason: `Deleted via CopilotKit runtime (userId=${params.userId}, agentId=${params.agentId})`,
       },
     );
     this.#invokeLifecycleCallback("onThreadDeleted", params);
+  }
+
+  /**
+   * Annotate a thread event on CopilotKit Intelligence's general annotation
+   * endpoint (`PUT /connector/annotate/:clientEventId`).
+   *
+   * This is the generalized replacement for the old
+   * `PUT /connector/user-actions/record/:clientEventId` endpoint. It supports
+   * multiple annotation types via the `type` discriminator. The
+   * `"user_action"` type records a user UI interaction for the self-learning
+   * loop.
+   *
+   * `userId` must be resolved on the runtime side before calling this — the
+   * platform prefixes it with the project id from the API key.
+   *
+   * Always hits the idempotent `PUT /connector/annotate/:clientEventId`
+   * endpoint. A retry with the same `clientEventId` returns
+   * `{ id: <original>, duplicate: true }` instead of creating a new row.
+   * When `clientEventId` is omitted, a UUID is auto-generated for this call.
+   *
+   * @throws {@link PlatformRequestError} on non-2xx responses, OR when the
+   *   platform returns an empty 2xx body (which would otherwise corrupt the
+   *   caller's typed result).
+   */
+  async annotate(params: AnnotateParams): Promise<AnnotateResponse> {
+    const clientEventId = params.clientEventId ?? randomUUID();
+    const path = `/connector/annotate/${encodeURIComponent(clientEventId)}`;
+    const body: Record<string, unknown> = {
+      type: params.type,
+      userId: params.userId,
+      threadId: params.threadId,
+    };
+    if (params.payload !== undefined) {
+      body.payload = params.payload;
+    }
+    if (params.occurredAt !== undefined) {
+      body.occurredAt = params.occurredAt;
+    }
+    const response = await this.#request<AnnotateResponse | null | undefined>(
+      "PUT",
+      path,
+      body,
+    );
+    // `== null` catches both `undefined` (empty body from `#request`)
+    // and JSON `null` (which would otherwise corrupt the typed result
+    // and surface as a `TypeError` deep in caller code).
+    if (response == null) {
+      logger.error(
+        { path },
+        "annotate: Intelligence platform returned 200 with empty or null body",
+      );
+      throw new PlatformRequestError(
+        "annotate: empty or null response body from Intelligence platform",
+        502,
+      );
+    }
+    return response;
   }
 
   async ɵacquireThreadLock(
@@ -723,6 +2087,12 @@ export class CopilotKitIntelligence {
         runId: params.runId,
         userId: params.userId,
         agentId: params.agentId,
+        ...(params.supportsBackendThreadId === undefined
+          ? {}
+          : { supportsBackendThreadId: params.supportsBackendThreadId }),
+        ...(params.learningContainerId !== undefined
+          ? { learningContainerId: params.learningContainerId }
+          : {}),
         ...(params.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: params.lockKeyPrefix }
           : {}),
@@ -730,6 +2100,9 @@ export class CopilotKitIntelligence {
           ? { ttlSeconds: params.ttlSeconds }
           : {}),
       },
+      params.channelDeliveryId
+        ? { "X-Cpki-Channel-Delivery-Id": params.channelDeliveryId }
+        : undefined,
     );
   }
 
@@ -756,6 +2129,8 @@ export class CopilotKitIntelligence {
           ? { lockKeyPrefix: params.lockKeyPrefix }
           : {}),
       },
+      undefined,
+      params.signal,
     );
   }
 
@@ -789,6 +2164,76 @@ export class CopilotKitIntelligence {
   }
 }
 
+/**
+ * Normalize a configured URL to "provided" or "not provided". A blank string
+ * counts as not provided: these URLs are typically wired from environment
+ * variables, and a declared-but-empty variable (`COPILOTKIT_INTELLIGENCE_URL=`,
+ * common in generated `.env` files and container configs) arrives as `""`. Left
+ * as-is it would produce host-relative requests instead of falling back to the
+ * managed platform.
+ */
+function configuredUrl(url: string | undefined): string | undefined {
+  const trimmed = url?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+/**
+ * Reject an Intelligence project API key that carries no credential.
+ *
+ * `apiKey` is required on the config type, so TypeScript catches an absent
+ * property. It does not catch an empty one, and the common shape is a
+ * `process.env` read that TypeScript is told to trust — `?? ""` in the starter
+ * wiring block, `!` in this file's own examples. When the variable is unset,
+ * both produce a blank key that is sent verbatim as `Authorization: Bearer `
+ * and fails much later as a 401 that points at nothing.
+ *
+ * A runtime with no credential cannot serve managed Intelligence, so this
+ * throws at construction: callers build the client during boot, which puts the
+ * error at startup rather than on a user's first message.
+ */
+function assertConfiguredApiKey(apiKey: string): void {
+  if (typeof apiKey === "string" && apiKey.trim() !== "") {
+    return;
+  }
+  // The whole key is a `cpk-…` secret, so name the variable that carries it
+  // and echo none of the value — the same rule `parseProjectIdFromApiKey`
+  // follows for a malformed key.
+  throw new Error(
+    "CopilotKitIntelligence `apiKey` is required and cannot be blank. It is " +
+      "the CopilotKit Intelligence project API key, normally read from the " +
+      "CPK_INTELLIGENCE_API_KEY environment variable. Run `copilotkit " +
+      "project select` to provision one for your project.",
+  );
+}
+
+/**
+ * Warn when exactly one of `apiUrl`/`wsUrl` is configured. The API and realtime
+ * planes are separate hosts, so a lone override silently leaves the other plane
+ * on CopilotKit's managed platform — a self-hosted API paired with the managed
+ * gateway (or vice versa), which fails as a hang rather than an error.
+ */
+function warnOnPartialHostOverride(
+  apiUrl: string | undefined,
+  wsUrl: string | undefined,
+): void {
+  if (apiUrl && !wsUrl) {
+    logger.warn(
+      `CopilotKitIntelligence: apiUrl is set to "${apiUrl}" but wsUrl is not, ` +
+        `so wsUrl falls back to the managed default "${MANAGED_INTELLIGENCE_WS_URL}". ` +
+        `The API and realtime planes are separate hosts — set both when pointing at a self-hosted deployment.`,
+    );
+    return;
+  }
+
+  if (wsUrl && !apiUrl) {
+    logger.warn(
+      `CopilotKitIntelligence: wsUrl is set to "${wsUrl}" but apiUrl is not, ` +
+        `so apiUrl falls back to the managed default "${MANAGED_INTELLIGENCE_API_URL}". ` +
+        `The API and realtime planes are separate hosts — set both when pointing at a self-hosted deployment.`,
+    );
+  }
+}
+
 function normalizeIntelligenceWsUrl(wsUrl: string): string {
   return wsUrl.replace(/\/$/, "");
 }
@@ -802,7 +2247,31 @@ function deriveRunnerWsUrl(wsUrl: string): string {
     return `${wsUrl.slice(0, -"/client".length)}/runner`;
   }
 
+  if (wsUrl.endsWith("/channels")) {
+    return `${wsUrl.slice(0, -"/channels".length)}/runner`;
+  }
+
   return `${wsUrl}/runner`;
+}
+
+/** A system error code such as ECONNREFUSED, or undefined for anything else. */
+function networkErrorCode(cause: unknown): string | undefined {
+  const code =
+    typeof cause === "object" && cause !== null && "code" in cause
+      ? cause.code
+      : undefined;
+  return typeof code === "string" && /^[A-Z][A-Z0-9_]{0,63}$/.test(code)
+    ? code
+    : undefined;
+}
+
+/** The host of a URL without its credentials, path or query. */
+function urlHost(url: string): string | undefined {
+  try {
+    return new URL(url).host;
+  } catch {
+    return undefined;
+  }
 }
 
 function deriveClientWsUrl(wsUrl: string): string {
@@ -814,5 +2283,20 @@ function deriveClientWsUrl(wsUrl: string): string {
     return `${wsUrl.slice(0, -"/runner".length)}/client`;
   }
 
+  if (wsUrl.endsWith("/channels")) {
+    return `${wsUrl.slice(0, -"/channels".length)}/client`;
+  }
+
   return `${wsUrl}/client`;
+}
+
+function deriveChannelsWsUrl(wsUrl: string): string {
+  if (wsUrl.endsWith("/channels")) return wsUrl;
+  if (wsUrl.endsWith("/runner")) {
+    return `${wsUrl.slice(0, -"/runner".length)}/channels`;
+  }
+  if (wsUrl.endsWith("/client")) {
+    return `${wsUrl.slice(0, -"/client".length)}/channels`;
+  }
+  return `${wsUrl}/channels`;
 }

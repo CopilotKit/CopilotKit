@@ -19,8 +19,10 @@ schema is ``{tone, expertise, responseLength}`` with values
 from __future__ import annotations
 
 import logging
+import json
 from typing import Optional
 
+from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.models.llm_request import LlmRequest
@@ -47,12 +49,23 @@ _RESPONSE_LENGTH_OPTIONS = {"concise", "detailed"}
 _DEFAULT_TONE = "professional"
 _DEFAULT_EXPERTISE = "intermediate"
 _DEFAULT_RESPONSE_LENGTH = "concise"
+_CONFIG_KEYS = ("tone", "expertise", "responseLength")
 
 
 def _coerce(value: object, allowed: set[str], default: str) -> str:
     if isinstance(value, str) and value in allowed:
         return value
     return default
+
+
+def _parse_context_value(value: object) -> dict | None:
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return None
+        return parsed if isinstance(parsed, dict) else None
+    return value if isinstance(value, dict) else None
 
 
 def _extract_agent_config(state: dict | None) -> dict | None:
@@ -77,10 +90,10 @@ def _extract_agent_config(state: dict | None) -> dict | None:
     for entry in reversed(entries):
         if not isinstance(entry, dict):
             continue
-        value = entry.get("value")
-        if not isinstance(value, dict):
+        value = _parse_context_value(entry.get("value"))
+        if value is None:
             continue
-        if any(k in value for k in ("tone", "expertise", "responseLength")):
+        if any(k in value for k in _CONFIG_KEYS):
             return value
     return None
 
@@ -191,11 +204,13 @@ _INSTRUCTION = (
     "user — just apply them."
 )
 
+# @region[agent-config-setup]
 agent_config_agent = LlmAgent(
     name="AgentConfigAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
-    tools=[],
+    tools=[AGUIToolset()],
     before_model_callback=_inject_config,
     after_model_callback=stop_on_terminal_text,
 )
+# @endregion[agent-config-setup]

@@ -35,6 +35,7 @@ import { SuggestionBar } from "./suggestion-bar";
 import { TypingIndicator } from "./typing-indicator";
 
 export function Chat({ agentId }: { agentId: string }) {
+  // @region[page-send-message]
   const { agent } = useAgent({ agentId });
   const { copilotkit } = useCopilotKit();
 
@@ -110,6 +111,7 @@ export function Chat({ agentId }: { agentId: string }) {
     setInput("");
     stickRef.current = true;
   }, [agent]);
+  // @endregion[page-send-message]
 
   const showTypingIndicator = useTypingIndicator(messages, agent.isRunning);
 

@@ -1,6 +1,5 @@
 "use client";
 
-// @region[voice-page]
 import { CopilotKit } from "@copilotkit/react-core/v2";
 import { VoiceChat } from "./voice-chat";
 
@@ -23,4 +22,3 @@ export default function VoiceDemoPage() {
     </CopilotKit>
   );
 }
-// @endregion[voice-page]

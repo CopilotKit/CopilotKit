@@ -2,10 +2,44 @@ name: test / integration / docs
 on:
   pull_request:
     branches: [main]
-    paths: ["docs/**"]
+    paths:
+      - "showcase/shell-docs/src/content/**"
+      - "scripts/validate-docs-deprecated-imports.mjs"
+      - "scripts/__tests__/validate-docs-deprecated-imports.test.mjs"
+      - "scripts/docs-deprecated-imports-baseline.json"
+      - "scripts/deprecations/**"
+      - "showcase/shell-docs/model-allowlist.json"
+      - "packages/runtime/package.json"
+      - "showcase/integrations/*/docs/setup/**"
+      - "showcase/integrations/*/manifest.yaml"
+      - "showcase/scripts/bundle-setup-content.ts"
+      - "showcase/shell-docs/package.json"
+      - "showcase/shell-docs/package-lock.json"
+      - "scripts/validate-doc-model-names.ts"
+      - "scripts/__tests__/validate-doc-model-names.test.ts"
+      - "scripts/doc-tests/**"
+      - "tools/learned-skill-conformance/workspace-artifacts*.mjs"
+      - ".github/workflows/test_integration-docs.yml"
   push:
     branches: [main]
-    paths: ["docs/**"]
+    paths:
+      - "showcase/shell-docs/src/content/**"
+      - "scripts/validate-docs-deprecated-imports.mjs"
+      - "scripts/__tests__/validate-docs-deprecated-imports.test.mjs"
+      - "scripts/docs-deprecated-imports-baseline.json"
+      - "scripts/deprecations/**"
+      - "showcase/shell-docs/model-allowlist.json"
+      - "packages/runtime/package.json"
+      - "showcase/integrations/*/docs/setup/**"
+      - "showcase/integrations/*/manifest.yaml"
+      - "showcase/scripts/bundle-setup-content.ts"
+      - "showcase/shell-docs/package.json"
+      - "showcase/shell-docs/package-lock.json"
+      - "scripts/validate-doc-model-names.ts"
+      - "scripts/__tests__/validate-doc-model-names.test.ts"
+      - "scripts/doc-tests/**"
+      - "tools/learned-skill-conformance/workspace-artifacts*.mjs"
+      - ".github/workflows/test_integration-docs.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
 permissions:
@@ -20,16 +54,23 @@ jobs:
       # id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
       id-token: write
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The validator's own tests. Until PE-418 nothing in CI ran them.
+      - run: pnpm exec vitest run scripts/__tests__/validate-doc-model-names.test.ts
       - run: pnpm tsx scripts/validate-doc-model-names.ts
+      # Fails when a page teaches a deprecated v1 symbol it did not teach
+      # before. v1 is still supported and documented on purpose, so this is a
+      # ratchet against a baseline rather than a ban — see the validator's
+      # header for why a ban reports 184 findings on a clean tree.
+      - run: pnpm nx run repo-scripts:validate-docs-deprecated-imports
 
   doc-tests:
     runs-on: depot-ubuntu-24.04-4
@@ -40,26 +81,28 @@ jobs:
       # id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
       id-token: write
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: pnpm
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - run: pnpm install --frozen-lockfile
-      - name: Install and start aimock
+      - name: Start aimock
         run: |
-          npm install -g @copilotkit/aimock@1.24.1
-          AIMOCK_BIN=$(npm root -g)/../bin/aimock
-          echo "aimock binary: $AIMOCK_BIN"
-          ls -la "$AIMOCK_BIN" || echo "binary not found at expected path"
-          which aimock || echo "aimock not on PATH"
-          nohup node $(npm root -g)/@copilotkit/aimock/dist/cli.js --fixtures scripts/doc-tests/fixtures --validate-on-load > /tmp/aimock.log 2>&1 &
+          # aimock is pinned as a workspace dependency (@copilotkit/showcase-scripts)
+          # and installed from the frozen lockfile above — no ad-hoc `npm install -g`.
+          # The `llmock` bin is aimock's fixtures-based CLI (the package also ships an
+          # `aimock` bin, which is the newer config-only CLI that does NOT accept
+          # --fixtures). Invoke the workspace-installed bin directly from the repo
+          # root so the root-relative --fixtures path resolves correctly (a
+          # `pnpm --filter exec` would run inside showcase/scripts and break the path).
+          nohup ./showcase/scripts/node_modules/.bin/llmock --fixtures scripts/doc-tests/fixtures --validate-on-load > /tmp/aimock.log 2>&1 &
           for i in $(seq 1 60); do
             if curl -sf http://localhost:4010/health; then
               echo "aimock ready"
@@ -71,4 +114,8 @@ jobs:
           cat /tmp/aimock.log
           exit 1
       - run: pnpm tsx scripts/doc-tests/extract.ts
+      - name: Build checkout Runtime packages for JavaScript snippets
+        run: pnpm nx run @copilotkit/runtime:build
+      - name: Test docs dependency installation
+        run: pnpm nx run learned-skill-conformance:test-doc-dependencies
       - run: pnpm tsx scripts/doc-tests/run.ts

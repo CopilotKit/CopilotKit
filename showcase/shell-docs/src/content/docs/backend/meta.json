@@ -1,4 +1,16 @@
 {
   "title": "Runtime",
-  "pages": ["copilot-runtime", "custom-agent", "ag-ui"]
+  "frontend": {
+    "kind": "universal"
+  },
+  "pages": [
+    "copilot-runtime",
+    "runtime-endpoints",
+    "custom-agent",
+    "custom-ag-ui-agent",
+    "agent-runner",
+    "message-history",
+    "self-managed-agents",
+    "ag-ui"
+  ]
 }

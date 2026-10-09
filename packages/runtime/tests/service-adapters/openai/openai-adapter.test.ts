@@ -5,55 +5,58 @@ vi.mock("openai", () => {
 });
 
 // Mock the OpenAIAdapter class to avoid the "new OpenAI()" issue
-vi.mock("../../../src/service-adapters/openai/openai-adapter", () => {
-  class MockOpenAIAdapter {
-    _openai: any;
-    model: string = "gpt-4o";
-    keepSystemRole: boolean = false;
-    disableParallelToolCalls: boolean = false;
+vi.mock(
+  "../../../src/v1-deprecated/service-adapters/openai/openai-adapter",
+  () => {
+    class MockOpenAIAdapter {
+      _openai: any;
+      model: string = "gpt-4o";
+      keepSystemRole: boolean = false;
+      disableParallelToolCalls: boolean = false;
 
-    constructor() {
-      this._openai = {
-        beta: {
-          chat: {
-            completions: {
-              stream: vi.fn(),
+      constructor() {
+        this._openai = {
+          beta: {
+            chat: {
+              completions: {
+                stream: vi.fn(),
+              },
             },
           },
-        },
-      };
+        };
+      }
+
+      get openai() {
+        return this._openai;
+      }
+
+      async process(request: any) {
+        // Mock implementation that calls our event source but doesn't do the actual processing
+        request.eventSource.stream(async (stream: any) => {
+          stream.complete();
+          return Promise.resolve();
+        });
+
+        return { threadId: request.threadId || "mock-thread-id" };
+      }
     }
 
-    get openai() {
-      return this._openai;
-    }
-
-    async process(request: any) {
-      // Mock implementation that calls our event source but doesn't do the actual processing
-      request.eventSource.stream(async (stream: any) => {
-        stream.complete();
-        return Promise.resolve();
-      });
-
-      return { threadId: request.threadId || "mock-thread-id" };
-    }
-  }
-
-  return { OpenAIAdapter: MockOpenAIAdapter };
-});
+    return { OpenAIAdapter: MockOpenAIAdapter };
+  },
+);
 
 // Mock the Message classes since they use TypeGraphQL decorators
-vi.mock("../../../src/graphql/types/converted", () => {
+vi.mock("../../../src/v1-deprecated/graphql/types/converted", () => {
   // Create minimal implementations of the message classes
   class MockTextMessage {
     content: string;
     role: string;
     id: string;
 
-    constructor(role: string, content: string) {
-      this.role = role;
-      this.content = content;
-      this.id = "mock-text-" + Math.random().toString(36).substring(7);
+    constructor(options: { role: string; content: string }) {
+      this.role = options.role;
+      this.content = options.content;
+      this.id = "mock-text-" + Math.random().toString(36).slice(7);
     }
 
     isTextMessage() {
@@ -103,7 +106,7 @@ vi.mock("../../../src/graphql/types/converted", () => {
     constructor(params: { actionExecutionId: string; result: string }) {
       this.actionExecutionId = params.actionExecutionId;
       this.result = params.result;
-      this.id = "mock-result-" + Math.random().toString(36).substring(7);
+      this.id = "mock-result-" + Math.random().toString(36).slice(7);
     }
 
     isTextMessage() {
@@ -124,16 +127,24 @@ vi.mock("../../../src/graphql/types/converted", () => {
     TextMessage: MockTextMessage,
     ActionExecutionMessage: MockActionExecutionMessage,
     ResultMessage: MockResultMessage,
+    Role: {
+      assistant: "assistant",
+      developer: "developer",
+      system: "system",
+      tool: "tool",
+      user: "user",
+    },
   };
 });
 
 // Now import the modules (vi.mock is hoisted above imports, so these get the mocked versions)
-import { OpenAIAdapter } from "../../../src/service-adapters/openai/openai-adapter";
+import { OpenAIAdapter } from "../../../src/v1-deprecated/service-adapters/openai/openai-adapter";
 import {
   TextMessage,
   ActionExecutionMessage,
   ResultMessage,
-} from "../../../src/graphql/types/converted";
+  Role,
+} from "../../../src/v1-deprecated/graphql/types/converted";
 
 describe("OpenAIAdapter", () => {
   let adapter: OpenAIAdapter;
@@ -161,8 +172,14 @@ describe("OpenAIAdapter", () => {
   describe("Tool ID handling", () => {
     it("should filter out tool_result messages that don't have corresponding tool_call IDs", async () => {
       // Create messages including one valid pair and one invalid tool_result
-      const systemMessage = new TextMessage("system", "System message");
-      const userMessage = new TextMessage("user", "User message");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
+      const userMessage = new TextMessage({
+        role: Role.user,
+        content: "User message",
+      });
 
       // Valid tool execution message
       const validToolExecution = new ActionExecutionMessage({
@@ -210,7 +227,10 @@ describe("OpenAIAdapter", () => {
 
     it("should handle duplicate tool IDs by only using each once", async () => {
       // Create messages including duplicate tool results for the same ID
-      const systemMessage = new TextMessage("system", "System message");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
 
       // Valid tool execution message
       const toolExecution = new ActionExecutionMessage({
@@ -256,8 +276,14 @@ describe("OpenAIAdapter", () => {
 
     it("should call the stream method on eventSource", async () => {
       // Create messages
-      const systemMessage = new TextMessage("system", "System message");
-      const userMessage = new TextMessage("user", "User message");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
+      const userMessage = new TextMessage({
+        role: Role.user,
+        content: "User message",
+      });
 
       await adapter.process({
         threadId: "test-thread",
@@ -274,7 +300,10 @@ describe("OpenAIAdapter", () => {
 
     it("should return the provided threadId", async () => {
       // Create a message
-      const systemMessage = new TextMessage("system", "System message");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
 
       const result = await adapter.process({
         threadId: "test-thread",

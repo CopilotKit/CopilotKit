@@ -24,66 +24,83 @@
 // additively. An operator can add staging / preview origins without a
 // code change; removing the prod default still requires editing this
 // file (env var cannot retire it).
+//
+// ─────────────────────────────────────────────────────────────────────
+// TWO PB-0.22 JSVM CONSTRAINTS THIS FILE OBEYS (both verified by booting
+// the built image against a real PB 0.22.21 binary — see the PR notes):
+//
+// 1. Registration hook. `onBeforeServe(...)` is NOT a global JSVM function
+//    in 0.22.x — only `$app.onBeforeServe()` exists (a Go method returning
+//    a Hook). Calling the bare `onBeforeServe(...)` identifier throws
+//    `ReferenceError: onBeforeServe is not defined` at hook load, which
+//    crash-loops the server (every request 502s). The documented global
+//    entry point for router middleware is `routerUse((next) => (c) => …)`
+//    (echo v5 middleware shape — outer fn takes the next handler, returns
+//    a `(c) => error` handler).
+//
+// 2. Self-contained closure. The per-request middleware closure runs in
+//    PocketBase's pooled goja runtime, where top-level helper functions
+//    and `const`s declared in this file are NOT in scope at request time.
+//    Referencing an out-of-closure helper throws a ReferenceError per
+//    request, which the router turns into an HTTP 400 on EVERY route
+//    (health, collection reads, everything). So ALL logic — the origin
+//    allowlist, the env-var augmentation, and the match — is inlined
+//    inside the returned `(c) => …` handler. Do not refactor the body out
+//    into module-level helpers; it will silently 400 every request.
+// ─────────────────────────────────────────────────────────────────────
+routerUse((next) => {
+  return (c) => {
+    // Built-in prod origin baked in so a fresh Railway volume is
+    // immediately reachable from the production dashboard without operator
+    // env-var configuration. If prod ever moves off
+    // dashboard.showcase.copilotkit.ai, change this default — the env var
+    // alone won't retire the stale origin. PB_CORS_ORIGINS (comma-
+    // separated) augments this list additively for staging / preview.
+    const allowlist = ["https://dashboard.showcase.copilotkit.ai"].concat(
+      ($os.getenv("PB_CORS_ORIGINS") || "")
+        .split(",")
+        .map(function (s) {
+          return s.trim();
+        })
+        .filter(function (s) {
+          return s.length > 0;
+        }),
+    );
 
-// Built-in prod origin baked in so a fresh Railway volume is immediately
-// reachable from the production dashboard without requiring operator
-// env-var configuration. If prod ever moves off
-// dashboard.showcase.copilotkit.ai, change this default — env var alone
-// won't retire the stale origin.
-const CORS_DEFAULT_ORIGINS = ["https://dashboard.showcase.copilotkit.ai"];
-
-function corsAllowedOrigins() {
-  const extra = ($os.getenv("PB_CORS_ORIGINS") || "")
-    .split(",")
-    .map(function (s) {
-      return s.trim();
-    })
-    .filter(function (s) {
-      return s.length > 0;
-    });
-  return CORS_DEFAULT_ORIGINS.concat(extra);
-}
-
-function originAllowed(origin, allowlist) {
-  if (!origin) return false;
-  for (let i = 0; i < allowlist.length; i++) {
-    if (allowlist[i] === origin) return true;
-  }
-  return false;
-}
-
-// Middleware registered at Pre so CORS runs before auth short-circuits
-// OPTIONS preflights. PB 0.22 exposes `e.router.use(...)` on the echo
-// router inside `onBeforeServe`; the callback receives the echo context
-// as its argument.
-onBeforeServe((e) => {
-  e.router.use((next) => {
-    return (c) => {
-      const origin = c.request().header.get("Origin");
-      const allowlist = corsAllowedOrigins();
-      if (originAllowed(origin, allowlist)) {
-        c.response().header().set("Access-Control-Allow-Origin", origin);
-        c.response().header().set("Vary", "Origin");
-        c.response()
-          .header()
-          .set(
-            "Access-Control-Allow-Methods",
-            "GET, POST, PATCH, DELETE, OPTIONS",
-          );
-        c.response()
-          .header()
-          .set(
-            "Access-Control-Allow-Headers",
-            "Content-Type, Authorization, X-Requested-With",
-          );
-        c.response().header().set("Access-Control-Max-Age", "600");
+    const origin = c.request().header.get("Origin");
+    let allowed = false;
+    if (origin) {
+      for (let i = 0; i < allowlist.length; i++) {
+        if (allowlist[i] === origin) {
+          allowed = true;
+          break;
+        }
       }
-      // Short-circuit preflight so downstream handlers (auth, routing)
-      // don't reject OPTIONS with 401/404.
-      if (c.request().method === "OPTIONS") {
-        return c.noContent(204);
-      }
-      return next(c);
-    };
-  });
+    }
+
+    if (allowed) {
+      c.response().header().set("Access-Control-Allow-Origin", origin);
+      c.response().header().set("Vary", "Origin");
+      c.response()
+        .header()
+        .set(
+          "Access-Control-Allow-Methods",
+          "GET, POST, PATCH, DELETE, OPTIONS",
+        );
+      c.response()
+        .header()
+        .set(
+          "Access-Control-Allow-Headers",
+          "Content-Type, Authorization, X-Requested-With",
+        );
+      c.response().header().set("Access-Control-Max-Age", "600");
+    }
+
+    // Short-circuit preflight so downstream handlers (auth, routing)
+    // don't reject OPTIONS with 401/404.
+    if (c.request().method === "OPTIONS") {
+      return c.noContent(204);
+    }
+    return next(c);
+  };
 });

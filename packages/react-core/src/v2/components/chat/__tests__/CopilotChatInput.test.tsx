@@ -30,6 +30,11 @@ const getSendButton = (container: HTMLElement) =>
     .querySelector("svg.lucide-arrow-up")
     ?.closest("button") as HTMLButtonElement | null;
 
+const getStopButton = (container: HTMLElement) =>
+  container
+    .querySelector("svg.lucide-square")
+    ?.closest("button") as HTMLButtonElement | null;
+
 const getAddMenuButton = (container: HTMLElement) =>
   container
     .querySelector("svg.lucide-plus")
@@ -781,6 +786,37 @@ describe("CopilotChatInput", () => {
     expect(handleCustom).toHaveBeenCalledTimes(1);
   });
 
+  it("uses the configured add button label for the add menu tooltip", async () => {
+    const { container } = render(
+      <CopilotChatConfigurationProvider
+        threadId={TEST_THREAD_ID}
+        labels={{ chatInputToolbarAddButtonLabel: "Upload attachment" }}
+      >
+        <CopilotChatInput
+          onAddFile={vi.fn()}
+          onSubmitMessage={mockOnSubmitMessage}
+        />
+      </CopilotChatConfigurationProvider>,
+    );
+
+    const addButton = getAddMenuButton(container);
+    expect(addButton).not.toBeNull();
+
+    // Radix tooltips are mocked to a passthrough in this suite (see
+    // src/v2/__tests__/setup.ts), so the content renders without hovering.
+    const tooltipContent = addButton
+      ?.closest('[data-slot="tooltip"]')
+      ?.querySelector('[data-slot="tooltip-content"]');
+    expect(tooltipContent).not.toBeNull();
+
+    expect(tooltipContent?.textContent).toContain("Upload attachment");
+    expect(tooltipContent?.textContent).not.toContain("Add attachments");
+    // The "/" shortcut hint is a key glyph, not prose, so it stays as-is.
+    expect(tooltipContent?.querySelector("code")?.textContent?.trim()).toBe(
+      "/",
+    );
+  });
+
   // Controlled component tests
   describe("Controlled component behavior", () => {
     it("displays the provided value prop", () => {
@@ -1025,8 +1061,53 @@ describe("CopilotChatInput", () => {
     });
   });
 
+  // Pins the intentional Enter-vs-button divergence while a run is in flight.
+  // These two routes diverge on purpose (today only a comment binds them):
+  //   - Enter with sendable text => SEND a new message (not stop). This is what
+  //     unblocks consecutive interrupt pills (#5195): a non-empty composer is
+  //     unambiguous "send" intent even mid-run.
+  //   - The send/stop button while running => ALWAYS STOP, regardless of
+  //     composer contents (it renders as a Stop/Square affordance).
+  // Asserting BOTH together means a future refactor can't silently re-converge
+  // them (e.g. making the button also send, or Enter also stop) without a RED.
+  describe("Enter-vs-button routing while running (contract)", () => {
+    it("routes Enter to SEND but the button to STOP when a run is in flight with sendable text", () => {
+      const onSubmitMessage = vi.fn();
+      const onStop = vi.fn();
+
+      const { container } = renderWithProvider(
+        <CopilotChatInput
+          value="a brand new message"
+          onChange={vi.fn()}
+          onSubmitMessage={onSubmitMessage}
+          onStop={onStop}
+          isRunning
+        />,
+      );
+
+      // While running, the send/stop button renders as a Stop (Square) control.
+      const stopButton = getStopButton(container);
+      expect(stopButton).not.toBeNull();
+
+      // Enter with sendable text during a run => SEND (not stop).
+      const input = screen.getByRole("textbox");
+      fireEvent.keyDown(input, { key: "Enter", shiftKey: false });
+      expect(onSubmitMessage).toHaveBeenCalledWith("a brand new message");
+      expect(onStop).not.toHaveBeenCalled();
+
+      onSubmitMessage.mockClear();
+
+      // The button during a run => STOP, even though the composer holds
+      // sendable text (the divergence from Enter).
+      fireEvent.click(stopButton!);
+      expect(onStop).toHaveBeenCalledTimes(1);
+      expect(onSubmitMessage).not.toHaveBeenCalled();
+    });
+  });
+
   describe("Container dimension cache", () => {
     const OriginalResizeObserver = globalThis.ResizeObserver;
+    const OriginalMatchMedia = window.matchMedia;
 
     class MockResizeObserver {
       static instances: MockResizeObserver[] = [];
@@ -1095,7 +1176,33 @@ describe("CopilotChatInput", () => {
     afterEach(() => {
       vi.restoreAllMocks();
       globalThis.ResizeObserver = OriginalResizeObserver;
+      if (OriginalMatchMedia) {
+        Object.defineProperty(window, "matchMedia", {
+          configurable: true,
+          writable: true,
+          value: OriginalMatchMedia,
+        });
+      } else {
+        Reflect.deleteProperty(window, "matchMedia");
+      }
     });
+
+    const mockMobileViewport = () => {
+      Object.defineProperty(window, "matchMedia", {
+        configurable: true,
+        writable: true,
+        value: vi.fn().mockImplementation((query: string) => ({
+          matches: query === "(max-width: 767px)",
+          media: query,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        })),
+      });
+    };
 
     /**
      * Extends mockLayoutMetrics with getComputedStyle mocks so that
@@ -1485,6 +1592,53 @@ describe("CopilotChatInput", () => {
 
       // Cache was invalidated, so updateContainerCache called getBoundingClientRect
       expect(addRectSpy).toHaveBeenCalled();
+    });
+
+    it("does not re-measure textarea value on mobile after measurements are warm", async () => {
+      mockMobileViewport();
+
+      const valueDescriptor = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value",
+      );
+      const valueSetterSpy = vi
+        .spyOn(HTMLTextAreaElement.prototype, "value", "set")
+        .mockImplementation(function (
+          this: HTMLTextAreaElement,
+          nextValue: string,
+        ) {
+          valueDescriptor?.set?.call(this, nextValue);
+        });
+
+      const { container } = renderWithProvider(
+        <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
+      );
+      setupMocksAndInvalidateCache(container, DEFAULT_LAYOUT_OPTIONS);
+
+      const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+      fireEvent.change(textarea, { target: { value: "ABCD" } });
+
+      await waitFor(() => {
+        expect(getLayoutGrid(textarea).getAttribute("data-layout")).toBe(
+          "expanded",
+        );
+      });
+
+      valueSetterSpy.mockClear();
+      textarea.setSelectionRange(1, 1);
+
+      fireEvent.change(textarea, {
+        target: { value: "AEBCD", selectionStart: 2, selectionEnd: 2 },
+      });
+      triggerResizeForTargets(textarea);
+
+      await waitFor(() => {
+        expect(getLayoutGrid(textarea).getAttribute("data-layout")).toBe(
+          "expanded",
+        );
+      });
+
+      expect(valueSetterSpy).not.toHaveBeenCalledWith("");
     });
 
     it("keeps cache warm during layout toggle (ignoreResizeRef path)", async () => {

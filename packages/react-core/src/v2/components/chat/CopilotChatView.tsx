@@ -9,6 +9,7 @@ import { ScrollElementContext } from "./scroll-element-context";
 import type { WithSlots, SlotValue } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
 import CopilotChatMessageView from "./CopilotChatMessageView";
+import type { IntelligenceIndicatorView } from "../intelligence-indicator";
 import type {
   CopilotChatInputProps,
   CopilotChatInputMode,
@@ -35,6 +36,7 @@ import {
   CopilotChatDefaultLabels,
 } from "../../providers/CopilotChatConfigurationProvider";
 import { useKeyboardHeight } from "../../hooks/use-keyboard-height";
+import { ScrollPinnedContext } from "./scroll-pinned-context";
 import { normalizeAutoScroll } from "./normalize-auto-scroll";
 import type { AutoScrollMode } from "./normalize-auto-scroll";
 import { usePinToSend } from "../../hooks/use-pin-to-send";
@@ -108,7 +110,13 @@ export type CopilotChatViewProps = WithSlots<
      * ```
      */
     disclaimer?: SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>;
-  } & React.HTMLAttributes<HTMLDivElement>
+    /**
+     * Slot for the "Using CopilotKit Intelligence" indicator. Pass-through
+     * to `CopilotChatMessageView`'s `intelligenceIndicator` slot — accepts a
+     * className string, a props object, or a replacement component.
+     */
+    intelligenceIndicator?: SlotValue<typeof IntelligenceIndicatorView>;
+  } & Omit<React.HTMLAttributes<HTMLDivElement>, "inputMode">
 >;
 
 function DropOverlay() {
@@ -163,6 +171,8 @@ export function CopilotChatView({
   hasExplicitThreadId = false,
   // Deprecated — forwarded to input slot
   disclaimer,
+  // Pass-through to CopilotChatMessageView's intelligenceIndicator slot
+  intelligenceIndicator,
   children,
   className,
   ...props
@@ -239,6 +249,7 @@ export function CopilotChatView({
   const BoundMessageView = renderSlot(messageView, CopilotChatMessageView, {
     messages,
     isRunning,
+    intelligenceIndicator,
   });
 
   const BoundInput = renderSlot(input, CopilotChatInput, {
@@ -296,7 +307,7 @@ export function CopilotChatView({
         <div className="cpk:max-w-3xl cpk:mx-auto">
           {BoundMessageView}
           {hasSuggestions ? (
-            <div className="cpk:pl-0 cpk:pr-4 cpk:sm:px-0 cpk:mt-4">
+            <div className="cpk:pl-0 cpk:pr-4 cpk:@3xl:px-0 cpk:mt-4">
               {BoundSuggestionView}
             </div>
           ) : null}
@@ -372,7 +383,7 @@ export function CopilotChatView({
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         className={cn(
-          "copilotKitChat cpk:relative cpk:h-full cpk:flex cpk:flex-col",
+          "copilotKitChat cpk:@container cpk:relative cpk:h-full cpk:flex cpk:flex-col",
           className,
         )}
         {...props}
@@ -405,7 +416,7 @@ export function CopilotChatView({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       className={cn(
-        "copilotKitChat cpk:relative cpk:h-full cpk:flex cpk:flex-col",
+        "copilotKitChat cpk:@container cpk:relative cpk:h-full cpk:flex cpk:flex-col",
         className,
       )}
       {...props}
@@ -450,7 +461,8 @@ export namespace CopilotChatView {
     inputContainerHeight,
     isResizing,
   }) => {
-    const { isAtBottom, scrollToBottom, scrollRef } = useStickToBottomContext();
+    const { isAtBottom, scrollToBottom, scrollRef, state } =
+      useStickToBottomContext();
 
     // Capture the scroll element in state so the context value is reactive —
     // consumers re-render when the element is first set rather than reading a
@@ -469,36 +481,60 @@ export namespace CopilotChatView {
       // useVirtualizer's getScrollElement. Using state (not the raw ref) means
       // the context value updates reactively when the element mounts.
       <ScrollElementContext.Provider value={scrollEl}>
-        <>
-          <StickToBottom.Content
-            className="cpk:overflow-y-auto cpk:overflow-x-hidden"
-            style={{ flex: "1 1 0%", minHeight: 0 }}
-          >
-            <div className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
-              {children}
-            </div>
-          </StickToBottom.Content>
+        {/* While the pin is following the bottom it is the sole owner of the
+            scroll position; the virtualizer stands down (see
+            ScrollPinnedContext).
 
-          {BoundFeather}
+            `state.isAtBottom`, not the context's `isAtBottom`: the latter is
+            `isAtBottom || isNearBottom`. Scrolling up a little — still inside
+            the near-bottom band — clears `state.isAtBottom`, which is what the
+            pin's animation loop checks before it moves anything, while the
+            combined flag stays true. Using the combined flag would stand the
+            virtualizer down in a window where nothing owns the scroll
+            position.
 
-          {/* Scroll to bottom button - hidden during resize */}
-          {!isAtBottom && !isResizing && (
-            <div
-              className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
-              style={{
-                bottom: `${inputContainerHeight + SCROLL_BUTTON_OFFSET}px`,
-              }}
+            `state` is a stable object, so this is only read again when
+            something re-renders us. Every transition *out* of the pin sets
+            `escapedFromLock` in the same breath, and that is one of the deps
+            of the memo behind this context, so the re-render is there for the
+            case that matters. The way back in can lag a render, which leaves
+            the virtualizer compensating slightly longer than it needs to —
+            the harmless direction, and what it does by default anyway.
+
+            The scroll-to-bottom button keeps the combined flag: it should
+            stay hidden anywhere in the near-bottom band. */}
+        <ScrollPinnedContext.Provider value={state.isAtBottom}>
+          <>
+            <StickToBottom.Content
+              className="cpk:overflow-y-auto cpk:overflow-x-hidden"
+              style={{ flex: "1 1 0%", minHeight: 0 }}
             >
-              {renderSlot(
-                scrollToBottomButton,
-                CopilotChatView.ScrollToBottomButton,
-                {
-                  onClick: () => scrollToBottom(),
-                },
-              )}
-            </div>
-          )}
-        </>
+              <div className="cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
+                {children}
+              </div>
+            </StickToBottom.Content>
+
+            {BoundFeather}
+
+            {/* Scroll to bottom button - hidden during resize */}
+            {!isAtBottom && !isResizing && (
+              <div
+                className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
+                style={{
+                  bottom: `${inputContainerHeight + SCROLL_BUTTON_OFFSET}px`,
+                }}
+              >
+                {renderSlot(
+                  scrollToBottomButton,
+                  CopilotChatView.ScrollToBottomButton,
+                  {
+                    onClick: () => scrollToBottom(),
+                  },
+                )}
+              </div>
+            )}
+          </>
+        </ScrollPinnedContext.Provider>
       </ScrollElementContext.Provider>
     );
   };
@@ -507,7 +543,7 @@ export namespace CopilotChatView {
   const PinToSendScrollContainer: React.FC<
     React.HTMLAttributes<HTMLDivElement> & {
       scrollRef: React.MutableRefObject<HTMLElement | null>;
-      contentRef: React.MutableRefObject<HTMLElement | null>;
+      contentRef: React.MutableRefObject<HTMLDivElement | null>;
       scrollToBottom: () => void;
       scrollToBottomButton?: SlotValue<
         React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>>
@@ -565,7 +601,7 @@ export namespace CopilotChatView {
           >
             <div
               ref={contentRef}
-              className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
+              className="cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
             >
               {children}
             </div>
@@ -626,7 +662,7 @@ export namespace CopilotChatView {
     // behavior to these refs and fight pin-to-send. The "pin-to-bottom" path
     // gets its refs via <StickToBottom> below, scoped to that branch only.
     const scrollRef = useRef<HTMLElement | null>(null);
-    const contentRef = useRef<HTMLElement | null>(null);
+    const contentRef = useRef<HTMLDivElement | null>(null);
     const scrollToBottom = useCallback(() => {
       const el = scrollRef.current;
       if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
@@ -658,7 +694,7 @@ export namespace CopilotChatView {
     useEffect(() => {
       if (mode === "pin-to-bottom") return; // Skip for autoscroll mode
 
-      const scrollElement = scrollRef.current;
+      const scrollElement = nonAutoScrollEl;
       if (!scrollElement) return;
 
       const checkScroll = () => {
@@ -681,12 +717,12 @@ export namespace CopilotChatView {
         scrollElement.removeEventListener("scroll", checkScroll);
         resizeObserver.disconnect();
       };
-    }, [scrollRef, mode]);
+    }, [nonAutoScrollEl, mode]);
 
     if (!hasMounted) {
       return (
         <div className="cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden">
-          <div className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
+          <div className="cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
             {children}
           </div>
         </div>
@@ -710,7 +746,7 @@ export namespace CopilotChatView {
           >
             <div
               ref={contentRef}
-              className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
+              className="cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
             >
               {children}
             </div>

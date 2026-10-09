@@ -1,0 +1,37 @@
+---
+title: Chart
+description: Render Teams chart extensions with a portable Channels chart node and a Slack-safe fallback.
+---
+
+`Chart` describes a small numeric series.
+
+```tsx
+import { Chart, Message, Section } from "@copilotkit/channels/ui";
+
+<Message>
+  <Section>Checkout latency rose 28% this week.</Section>
+  <Chart
+    type="line"
+    title="p95 latency"
+    yAxisTitle="milliseconds"
+    data={[
+      { label: "Mon", value: 780 },
+      { label: "Fri", value: 998 },
+    ]}
+  />
+</Message>;
+```
+
+## Props
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `type` | `"verticalBar" \| "horizontalBar" \| "line" \| "pie" \| "donut"` | Chart kind. Defaults to `verticalBar`. |
+| `title` | `string` | Optional chart title. |
+| `xAxisTitle` | `string` | Cartesian x-axis title. |
+| `yAxisTitle` | `string` | Cartesian y-axis title. |
+| `data` | `{ label: string; value: number }[]` | Required data points. |
+
+Managed Teams renders Teams chart extensions in clients that support them.
+Managed Slack currently omits `Chart` entirely. Always include the important
+result in a `Section`, `Fields`, or `Table`, as the example does.

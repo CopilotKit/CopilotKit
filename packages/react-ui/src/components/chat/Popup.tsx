@@ -1,3 +1,22 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/react-ui — CopilotPopup:
+ *   V2 import and usage:
+ *     import { CopilotPopup } from "@copilotkit/react-core/v2";
+ *     <CopilotPopup />;
+ *   V2 replacement source: packages/react-core/src/v2/components/chat/CopilotPopup.tsx
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2/components/CopilotPopup
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 /**
  * <br/>
  * <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/CopilotPopup.gif" width="500" />
@@ -31,10 +50,9 @@
  * ### With Observability Hooks
  *
  * To monitor user interactions, provide the `observabilityHooks` prop.
- * **Note:** This requires a `publicApiKey` in the `<CopilotKit>` provider.
  *
  * ```tsx
- * <CopilotKit publicApiKey="YOUR_PUBLIC_API_KEY">
+ * <CopilotKit>
  *   <CopilotPopup
  *     observabilityHooks={{
  *       onChatExpanded: () => {
@@ -66,7 +84,8 @@
  * For more information about how to customize the styles, check out the [Customize Look & Feel](/guides/custom-look-and-feel/customize-built-in-ui-components) guide.
  */
 
-import { CopilotModal, CopilotModalProps } from "./Modal";
+import type { CopilotModalProps } from "./Modal";
+import { CopilotModal } from "./Modal";
 
 export function CopilotPopup(props: CopilotModalProps) {
   props = {

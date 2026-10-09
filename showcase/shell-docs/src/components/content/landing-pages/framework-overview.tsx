@@ -1,462 +1,268 @@
 "use client";
 
-import { ArrowRight, Copy, Check, ExternalLink } from "lucide-react";
+import { ArrowRight, ExternalLink } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
-import { useState } from "react";
 import type { ReactNode } from "react";
-
+import { usePostHog } from "posthog-js/react";
 import { customIcons } from "@/components/icons";
 import type { IconKey } from "@/components/icons";
+import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
+import {
+  HeroStartActions,
+  QuickstartLinkButton,
+} from "@/components/hero-start-commands";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
-import type {
-  FrameworkOverviewData,
-  OpsPlatformCTAData,
-} from "@/data/frameworks/types";
+import type { FrameworkOverviewData } from "@/data/frameworks/types";
+import type { FrontendId } from "@/lib/frontend-options";
+import type { PartnerShowcaseDemo } from "@/lib/partner-showcase-demos";
+import { PartnerFeatureExplorer } from "./partner-feature-explorer";
 
 export interface FrameworkOverviewProps {
   data: FrameworkOverviewData;
-  /**
-   * The framework slug from the current URL (e.g. "langgraph-typescript").
-   * Used to rewrite the data record's links so they stay within the user's
-   * selected variant — without this, langgraph-typescript users clicking
-   * "Quickstart" land on langgraph-python's quickstart via SLUG_RENAMES,
-   * because the data record's `guideLink` embeds the primary variant's slug.
-   */
   currentFramework: string;
-  /**
-   * Optional slot rendered between the supported-features section and the
-   * architecture section. When supplied, this takes precedence over `data.cta`
-   * (which is the structured fallback). Routes that pre-render
-   * `after-features.mdx` should pass the compiled MDX here.
-   */
+  hrefPrefix?: string;
+  frontendOverride?: FrontendId;
   afterFeatures?: ReactNode;
-  /**
-   * Optional override for the framework icon. Takes precedence over the
-   * `iconKey` lookup in `data.iconKey`. Used by the MDX adapter
-   * (`MdxFrameworkOverview`) so authored `index.mdx` files can pass a
-   * concrete `<XIcon />` JSX node instead of having to use a registered
-   * iconKey. When supplied, `data.iconKey` is ignored.
-   */
+  connectSnippet?: ReactNode;
   iconOverride?: ReactNode;
+  showcaseDemos?: PartnerShowcaseDemo[];
+  setupContent?: ReactNode;
 }
 
-/**
- * Swap the framework slug embedded in a URL for the user's currently selected
- * variant. Applied to both in-app internal paths and feature-viewer external
- * URLs (which encode the framework slug as a path segment).
- */
-function rewriteHref(href: string, fromSlug: string, toSlug: string): string {
-  if (!fromSlug || fromSlug === toSlug) return href;
-  if (href === `/${fromSlug}`) return `/${toSlug}`;
-  if (href.startsWith(`/${fromSlug}/`)) {
-    return `/${toSlug}${href.slice(fromSlug.length + 1)}`;
+/** Preserve frontend/backend context for authored aliases and shared guides. */
+export function frameworkLandingHref(
+  href: string,
+  fromSlug: string,
+  currentFramework: string,
+  hrefPrefix = `/${currentFramework}`,
+): string {
+  if (!href.startsWith("/") || href.startsWith("//")) return href;
+  for (const slug of [fromSlug, currentFramework].filter(Boolean)) {
+    const prefix = `/${slug}`;
+    if (href === prefix) return hrefPrefix;
+    if (href.startsWith(`${prefix}/`))
+      return `${hrefPrefix}${href.slice(prefix.length)}`;
   }
-  const featureViewerNeedle = `feature-viewer.copilotkit.ai/${fromSlug}/`;
-  if (href.includes(featureViewerNeedle)) {
-    return href.replace(
-      featureViewerNeedle,
-      `feature-viewer.copilotkit.ai/${toSlug}/`,
-    );
-  }
+  if (
+    /^\/(threads(?:[/?#-]|$)|learning(?:[/?#]|$)|intelligence(?:[/?#]|$))/.test(
+      href,
+    )
+  )
+    return `${hrefPrefix}${href}`;
   return href;
-}
-
-/**
- * Map Track A's `OpsPlatformCTAData.variant` ("card" | "banner") onto the
- * variants supported by shell-docs's `OpsPlatformCTA` ("tile" | "inline" |
- * "card" | "info"). "banner" => "inline" preserves the full-width prominent
- * CTA intent without introducing a new variant.
- */
-function ctaVariantFor(data: OpsPlatformCTAData): "card" | "inline" {
-  return data.variant === "banner" ? "inline" : "card";
-}
-
-/**
- * Section eyebrow — small sans-serif label with a hairline rule. Dropped
- * the prior monospace + wide-tracking treatment because it read as
- * editorial pastiche on a developer-docs surface.
- */
-function SectionEyebrow({ label }: { label: string }) {
-  return (
-    <div className="flex items-center gap-3 mb-6">
-      <span className="text-sm font-medium text-[var(--text-secondary)] whitespace-nowrap">
-        {label}
-      </span>
-      <div className="flex-1 h-px bg-[var(--border)]" />
-    </div>
-  );
 }
 
 export function FrameworkOverview({
   data,
   currentFramework,
+  hrefPrefix,
+  frontendOverride = "react",
   afterFeatures,
+  connectSnippet,
   iconOverride,
+  showcaseDemos = [],
+  setupContent,
 }: FrameworkOverviewProps) {
-  const {
-    frameworkName,
-    iconKey,
-    header,
-    subheader,
-    guideLink: rawGuideLink,
-    initCommand,
-    supportedFeatures = [],
-    architectureImage,
-    architectureVideo,
-    liveDemos = [],
-    cta,
-  } = data;
-
-  // Derive the primary variant's slug from the data record's own links —
-  // typically the path segment after the leading `/` of `guideLink`
-  // (e.g. "/langgraph/quickstart" → "langgraph"). This is the slug we
-  // rewrite *away from* so that variant users land on their own variant's
-  // sub-pages.
-  const fromSlug = rawGuideLink.split("/")[1] ?? "";
-  const link = (href: string) => rewriteHref(href, fromSlug, currentFramework);
-
-  const guideLink = link(rawGuideLink);
-
-  const [activeDemo, setActiveDemo] = useState<string>(
-    liveDemos[0]?.type || "saas",
-  );
-  const [copied, setCopied] = useState(false);
-
-  // Look up the icon by key. If the key isn't registered (forward-compat with
-  // string IconKey from Track A), fall back to rendering nothing rather than
-  // crashing — the framework name still appears next to it.
-  const IconComponent = customIcons[iconKey as IconKey];
-  const hasIcon = Boolean(iconOverride || IconComponent);
-
-  const handleCopyCommand = async () => {
+  const { frameworkName, cta, connect, supportedFeatures = [] } = data;
+  const link = (href: string) =>
+    frameworkLandingHref(
+      href,
+      data.guideLink.split("/")[1] ?? "",
+      currentFramework,
+      hrefPrefix,
+    );
+  const Icon = customIcons[data.iconKey as IconKey];
+  const posthog = usePostHog();
+  const defaultCta = cta ? (
+    <OpsPlatformCTA
+      variant={cta.variant === "banner" ? "inline" : "card"}
+      title={cta.title}
+      body={cta.body}
+      ctaLabel={cta.ctaLabel}
+      surface={cta.surface}
+      frontend={frontendOverride}
+      backend={currentFramework}
+      fromPath={hrefPrefix ?? `/${currentFramework}`}
+    />
+  ) : null;
+  const extraContent =
+    afterFeatures && data.preserveCtaWithAfterFeatures ? (
+      <>
+        {afterFeatures}
+        {defaultCta}
+      </>
+    ) : (
+      (afterFeatures ?? defaultCta)
+    );
+  function trackDemo(href: string) {
     try {
-      await navigator.clipboard.writeText(initCommand);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      // clipboard.writeText rejects in non-secure contexts (http://),
-      // when the document isn't focused, or when the user has denied
-      // permission. Don't flip the "copied" indicator on failure — the
-      // user would see a checkmark and paste an empty/stale buffer.
-      console.error(
-        "[framework-overview] clipboard write failed; copy button no-op",
-        err,
-      );
+      posthog?.capture("docs.journey_continued", {
+        destination_type: "demo",
+        destination_path: href,
+        frontend: frontendOverride,
+        backend: currentFramework,
+        from_path: hrefPrefix ?? `/${currentFramework}`,
+      });
+    } catch {
+      /* Analytics cannot block navigation. */
     }
-  };
-
-  // If no explicit afterFeatures slot is supplied, render the structured cta
-  // (if any) so data-driven intros still get a CTA without needing MDX.
-  const resolvedAfterFeatures: ReactNode =
-    afterFeatures ??
-    (cta ? (
-      <OpsPlatformCTA
-        variant={ctaVariantFor(cta)}
-        title={cta.title}
-        body={cta.body}
-        ctaLabel={cta.ctaLabel}
-        surface={cta.surface}
-      />
-    ) : null);
-
-  const activeDemoData = liveDemos.find((demo) => demo.type === activeDemo);
-
+  }
   return (
-    <div className="relative pb-24">
-      {/* Hero atmosphere — single restrained accent glow behind the
-          framework name + headline. Sits at zIndex 0 so all hero text
-          renders cleanly on top. Subtle in light mode, more present in
-          dark mode (where the page bg gives the accent room to breathe). */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-0 h-[480px] overflow-hidden"
-      >
-        <div
-          className="absolute left-1/2 -translate-x-1/2 -top-40 h-[520px] w-[820px] rounded-full opacity-60 dark:opacity-50"
-          style={{
-            background:
-              "radial-gradient(closest-side, var(--accent-light), transparent 70%)",
-            filter: "blur(48px)",
-          }}
+    <div className="partner-landing not-prose">
+      <header className="partner-hero">
+        <div className="partner-identity">
+          <span className="partner-logo">
+            {iconOverride ?? (Icon ? <Icon /> : null)}
+          </span>
+          <span>CopilotKit + {frameworkName}</span>
+        </div>
+        <h1>
+          Bring your {frameworkName} agents
+          <br />
+          <span>into any app</span>
+        </h1>
+        <p className="partner-summary">
+          CopilotKit is an open-source framework that connects your app to{" "}
+          {frameworkName} agents. Give your agents chat, generative UI,
+          human-in-the-loop, AG-UI Streams, Automatic Learning and more.
+        </p>
+        <HeroStartActions
+          prompt={
+            <HeroOnboardingPromptButton
+              surface="docs_framework_hero"
+              framework={{ slug: currentFramework, name: frameworkName }}
+            />
+          }
+          quickstart={
+            <QuickstartLinkButton
+              href={link(data.guideLink)}
+              variant="secondary"
+              frontend={frontendOverride}
+              backend={currentFramework}
+              fromPath={hrefPrefix ?? `/${currentFramework}`}
+            />
+          }
         />
-        <div
-          className="absolute left-[8%] top-24 h-[260px] w-[260px] rounded-full opacity-40 dark:opacity-30"
-          style={{
-            background:
-              "radial-gradient(closest-side, rgba(190, 194, 255, 0.45), transparent 70%)",
-            filter: "blur(60px)",
-          }}
-        />
-        <div
-          className="absolute right-[6%] top-44 h-[220px] w-[220px] rounded-full opacity-35 dark:opacity-25"
-          style={{
-            background:
-              "radial-gradient(closest-side, rgba(133, 236, 206, 0.4), transparent 70%)",
-            filter: "blur(60px)",
-          }}
-        />
-      </div>
+      </header>
 
-      <div className="relative z-10">
-        {/* =========================================================
-             HERO
-             ========================================================= */}
-        <header className="pt-2 sm:pt-4 pb-8 sm:pb-12">
-          {/* Framework identity: icon + name in a horizontal lockup. */}
-          <div className="flex items-center gap-3 mb-5">
-            {hasIcon && (
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text)]">
-                {iconOverride ??
-                  (IconComponent ? (
-                    <IconComponent className="h-6 w-6" />
-                  ) : null)}
-              </div>
-            )}
-            <span className="text-base font-semibold tracking-tight text-[var(--text)]">
-              {frameworkName}
-            </span>
-          </div>
+      <PartnerFeatureExplorer
+        demos={showcaseDemos}
+        frameworkName={frameworkName}
+        onOpenDemo={trackDemo}
+      />
 
-          {/* Headline + supporting copy — tightened from the prior
-              display-scale type. Still left-aligned with balanced wrap. */}
-          <h1 className="text-[1.75rem] sm:text-[2.25rem] md:text-[2.5rem] font-semibold leading-[1.1] tracking-[-0.02em] text-[var(--text)] text-balance max-w-[24ch]">
-            {header}
-          </h1>
-          <p className="mt-4 max-w-[58ch] text-base sm:text-lg text-[var(--text-muted)] leading-[1.55] text-pretty">
-            {subheader}
+      {data.showcase && (
+        <p className="partner-showcase-intro">{data.showcase.intro}</p>
+      )}
+
+      {supportedFeatures.length > 0 && (
+        <section
+          className="partner-section"
+          aria-labelledby="partner-capabilities-heading"
+        >
+          <h2 id="partner-capabilities-heading">Build with {frameworkName}</h2>
+          <p className="partner-section-intro">
+            {data.lede ??
+              `Add the user-facing capabilities your ${frameworkName} agents need.`}
           </p>
-
-          {/* Action cluster: accent CTA + copy-command chip. The Live
-              feature viewer link was dropped — the demo iframe below
-              already covers "see it running" intent. */}
-          <div className="mt-7 flex flex-col sm:flex-row sm:items-center gap-3">
-            <Link href={guideLink} className="no-underline group">
-              <button
-                type="button"
-                className="inline-flex w-full sm:w-auto items-center justify-center gap-2 h-11 px-4 rounded-lg bg-[var(--accent)] hover:brightness-110 text-white font-medium text-[13.5px] transition-[filter] duration-200"
-              >
-                Start the quickstart
-                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-              </button>
-            </Link>
-
-            <button
-              type="button"
-              onClick={handleCopyCommand}
-              className="inline-flex w-full sm:w-auto items-center justify-between sm:justify-start gap-3 h-11 px-4 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:bg-[var(--bg-elevated)] text-[var(--text)] transition-colors group"
-              aria-label="Copy install command"
-            >
-              <span className="flex items-center gap-2 text-[13.5px]">
-                <span className="text-[var(--accent)] opacity-70 font-mono">
-                  $
-                </span>
-                <span className="font-mono text-[13px] text-[var(--text-secondary)] group-hover:text-[var(--text)]">
-                  {initCommand}
-                </span>
-              </span>
-              <span className="text-[var(--text-muted)] group-hover:text-[var(--text)]">
-                {copied ? (
-                  <Check className="h-4 w-4 text-[var(--accent)]" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </span>
-            </button>
-          </div>
-        </header>
-
-        {/* =========================================================
-             SUPPORTED FEATURES — numbered milestone list
-             ========================================================= */}
-        {supportedFeatures.length > 0 && (
-          <section className="mb-20 sm:mb-28">
-            <SectionEyebrow label="What you can build" />
-            <div className="mb-12 max-w-[58ch]">
-              <h2 className="text-[2rem] sm:text-[2.5rem] font-semibold tracking-[-0.02em] leading-[1.1] text-[var(--text)]">
-                Build with {frameworkName}
-              </h2>
-              <p className="mt-3 text-[15px] sm:text-base text-[var(--text-muted)] leading-relaxed">
-                The user-facing primitives every {frameworkName} integration
-                ships with — pick the one that fits your product and drop the
-                code in.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-16 sm:gap-24">
-              {supportedFeatures.map((feature) => {
-                const hasMedia = Boolean(feature.videoUrl);
-                return (
-                  <article
-                    key={feature.title}
-                    className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-start"
+          <div className="partner-capabilities">
+            {supportedFeatures.map((feature) => (
+              <article key={feature.title} className="partner-capability">
+                <h3>{feature.title}</h3>
+                <p>{feature.description}</p>
+                <Link href={link(feature.documentationLink)}>
+                  Read the docs <ArrowRight size={14} aria-hidden="true" />
+                </Link>
+                {feature.demoLink && (
+                  <Link
+                    href={link(feature.demoLink)}
+                    onClick={() => trackDemo(link(feature.demoLink!))}
                   >
-                    {/* Left column: title + description + links */}
-                    <div className="lg:col-span-5">
-                      <h3 className="text-[1.5rem] sm:text-[1.75rem] font-semibold tracking-[-0.015em] leading-[1.15] text-[var(--text)]">
-                        {feature.title}
-                      </h3>
-                      <p className="mt-3 text-[15px] text-[var(--text-muted)] leading-[1.6]">
-                        {feature.description}
-                      </p>
+                    Live demo <ExternalLink size={14} aria-hidden="true" />
+                  </Link>
+                )}
+              </article>
+            ))}
+          </div>
+          {data.capabilitiesFootnote && (
+            <p className="partner-capabilities-footnote">
+              {data.capabilitiesFootnote.text}{" "}
+              <Link href={link(data.capabilitiesFootnote.href)}>
+                {data.capabilitiesFootnote.linkLabel}
+                <ArrowRight size={14} aria-hidden="true" />
+              </Link>
+            </p>
+          )}
+        </section>
+      )}
 
-                      <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2">
-                        <Link
-                          href={link(feature.documentationLink)}
-                          className="inline-flex items-center gap-1.5 text-[14px] font-medium text-[var(--accent)] hover:text-[var(--accent)] hover:brightness-110 no-underline group"
-                        >
-                          Read the docs
-                          <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                        </Link>
-                        {feature.demoLink && (
-                          <Link
-                            href={link(feature.demoLink)}
-                            className="inline-flex items-center gap-1.5 text-[14px] text-[var(--text-muted)] hover:text-[var(--text)] no-underline transition-colors"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            Live demo
-                          </Link>
-                        )}
-                      </div>
-                    </div>
+      <section
+        id="setup"
+        className="partner-section partner-setup"
+        aria-labelledby="partner-setup-heading"
+      >
+        <h2 id="partner-setup-heading">Start building</h2>
+        <p className="partner-section-intro">
+          Connect an existing agent or build a new one. Get a tailored setup
+          prompt.
+        </p>
+        {setupContent && <div className="partner-wizard">{setupContent}</div>}
+      </section>
 
-                    {/* Right column: video. If no media, the left column
-                        spans wider and we leave the right empty (graceful
-                        fallback for sparse data records). */}
-                    {hasMedia && (
-                      <div className="lg:col-span-7">
-                        <div className="relative rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_18px_44px_-22px_rgba(0,0,0,0.4)]">
-                          <video
-                            src={feature.videoUrl}
-                            className="w-full block"
-                            autoPlay
-                            muted
-                            loop
-                            playsInline
-                          />
-                          <div
-                            aria-hidden
-                            className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5 rounded-xl"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-        )}
+      {connect && (
+        <section
+          className="partner-section"
+          aria-labelledby="partner-connect-heading"
+        >
+          <h2 id="partner-connect-heading">Connect your agent</h2>
+          <p className="partner-section-intro">{connect.intro}</p>
+          <div className="partner-connect-snippet">
+            {connectSnippet ??
+              (connect.code && (
+                <pre>
+                  <code>{connect.code}</code>
+                </pre>
+              ))}
+          </div>
+          <Link className="partner-connect-link" href={link(connect.guideLink)}>
+            Read the setup guide <ArrowRight size={14} aria-hidden="true" />
+          </Link>
+        </section>
+      )}
 
-        {/* =========================================================
-             AFTER FEATURES (CTA or MDX escape hatch)
-             ========================================================= */}
-        {resolvedAfterFeatures && (
-          <section className="mb-20 sm:mb-28">{resolvedAfterFeatures}</section>
-        )}
-
-        {/* =========================================================
-             ARCHITECTURE
-             ========================================================= */}
-        {(architectureImage || architectureVideo) && (
-          <section className="mb-20 sm:mb-28">
-            <SectionEyebrow label="How it fits together" />
-            <div className="mb-10 max-w-[58ch]">
-              <h2 className="text-[2rem] sm:text-[2.5rem] font-semibold tracking-[-0.02em] leading-[1.1] text-[var(--text)]">
-                Architecture
-              </h2>
-              <p className="mt-3 text-[15px] sm:text-base text-[var(--text-muted)] leading-relaxed">
-                The shape of a CopilotKit + {frameworkName} application — from
-                your UI down to the agent runtime.
-              </p>
-            </div>
-            <div className="rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_18px_44px_-22px_rgba(0,0,0,0.4)]">
-              {architectureImage && (
-                <Image
-                  src={architectureImage}
-                  alt={`CopilotKit ${frameworkName} architecture diagram`}
-                  height={800}
-                  width={1600}
-                  className="w-full h-auto block"
-                />
-              )}
-              {architectureVideo && (
-                <video
-                  src={architectureVideo}
-                  className="w-full block"
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                />
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* =========================================================
-             LIVE DEMOS
-             ========================================================= */}
-        {liveDemos.length > 0 && (
-          <section className="mb-20 sm:mb-28">
-            <SectionEyebrow label="Live example" />
-            <div className="mb-8 max-w-[58ch]">
-              <h2 className="text-[2rem] sm:text-[2.5rem] font-semibold tracking-[-0.02em] leading-[1.1] text-[var(--text)]">
-                Run {frameworkName} in your browser
-              </h2>
-              <p className="mt-3 text-[15px] sm:text-base text-[var(--text-muted)] leading-relaxed">
-                Two patterns we see most often — drive a SaaS workflow, or
-                collaborate on a canvas with your agent.
-              </p>
-            </div>
-
-            {/* Segmented control — flat, single-row, with a moving accent
-                underline. Mirrors the dojo's "view toggle" treatment but
-                in a flatter style that suits a landing page. */}
-            {liveDemos.length > 1 && (
-              <div className="mb-6 inline-flex items-center gap-1 p-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
-                {liveDemos.map((demo) => {
-                  const active = activeDemo === demo.type;
-                  return (
-                    <button
-                      key={demo.type}
-                      type="button"
-                      onClick={() => setActiveDemo(demo.type)}
-                      className={`h-8 px-4 rounded-md text-[13px] font-medium transition-all ${
-                        active
-                          ? "bg-[var(--bg-elevated)] text-[var(--text)] shadow-sm"
-                          : "bg-transparent text-[var(--text-muted)] hover:text-[var(--text)]"
-                      }`}
-                    >
-                      {demo.title}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {activeDemoData && (
-              <p className="mb-5 text-[14.5px] text-[var(--text-muted)] leading-[1.6] max-w-[68ch]">
-                {activeDemoData.description}
-              </p>
-            )}
-
-            <div className="relative rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.4)]">
-              {activeDemoData && (
-                <iframe
-                  src={activeDemoData.iframeUrl}
-                  className="w-full h-[480px] sm:h-[600px] block"
-                  title={`${activeDemoData.title} Demo`}
-                />
-              )}
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5 rounded-2xl"
-              />
-            </div>
-          </section>
-        )}
-      </div>
+      {extraContent && (
+        <section className="partner-section">{extraContent}</section>
+      )}
+      <footer className="partner-footer">
+        <a
+          href="https://github.com/CopilotKit/CopilotKit"
+          target="_blank"
+          rel="noreferrer"
+        >
+          View on GitHub
+        </a>
+        <a href="#setup">
+          Start building <ArrowRight size={16} aria-hidden="true" />
+        </a>
+      </footer>
     </div>
   );
+}
+const DOCS_SLUG_TO_CLI_FRAMEWORK: Record<string, string> = {
+  "langgraph-python": "langgraph-py",
+  "langgraph-typescript": "langgraph-js",
+  "google-adk": "adk",
+  strands: "aws-strands-py",
+  "strands-typescript": "aws-strands-ts",
+  "ms-agent-dotnet": "microsoft-agent-framework-dotnet",
+  "ms-agent-python": "microsoft-agent-framework-py",
+  mastra: "mastra",
+  "pydantic-ai": "pydantic-ai",
+  llamaindex: "llamaindex",
+  agno: "agno",
+  ag2: "ag2",
+};
+
+export function cliFrameworkForDocsSlug(slug: string): string | undefined {
+  return DOCS_SLUG_TO_CLI_FRAMEWORK[slug];
 }

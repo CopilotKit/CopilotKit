@@ -2,7 +2,7 @@
  * Multimodal LangGraph TypeScript agent — accepts image + document (PDF)
  * attachments scoped to the `/demos/multimodal` cell.
  *
- * Uses a *dedicated* vision-capable graph (gpt-4o) so other demos continue
+ * Uses a *dedicated* vision-capable graph (gpt-5-mini) so other demos continue
  * to use cheaper, text-only models. Inputs forwarded by the runtime:
  *   - `{"type": "text", "text": "..."}`
  *   - `{"type": "image", "source": {"type": "data", "value": "<base64>",
@@ -10,7 +10,7 @@
  *   - `{"type": "document", "source": {"type": "data", "value": "<base64>",
  *      "mimeType": "application/pdf"}}`
  *
- * gpt-4o consumes `image` parts natively. For `document` parts (PDFs) we
+ * gpt-5-mini consumes `image` parts natively. For `document` parts (PDFs) we
  * extract text server-side via `pdf-parse` and inline it as a text part
  * with a clear delimiter — matching the Python reference's `pypdf`-backed
  * extraction so the TS multimodal demo reaches feature parity.
@@ -30,6 +30,8 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
+
 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 import pdfParse from "pdf-parse";
 
@@ -61,6 +63,55 @@ interface ContentPart {
 async function rewritePart(part: unknown): Promise<unknown> {
   if (!part || typeof part !== "object") return part;
   const p = part as ContentPart;
+  // The @ag-ui/langgraph converter collapses EVERY attachment (image AND
+  // document) into an `image_url` data-URL before it reaches here, so the real
+  // wire path is this branch — route on the data-URL MIME (mirrors the Python
+  // reference). Images pass through unchanged (gpt-5-mini consumes them natively);
+  // any non-image data URL (e.g. application/pdf) is flattened to text, because
+  // OpenAI 400s ("Only image types are supported") on a non-image image_url.
+  if (p.type === "image_url") {
+    const iu = (p as { image_url?: unknown }).image_url;
+    const url =
+      typeof iu === "string"
+        ? iu
+        : iu &&
+            typeof iu === "object" &&
+            typeof (iu as { url?: unknown }).url === "string"
+          ? (iu as { url: string }).url
+          : undefined;
+    if (typeof url === "string" && url.startsWith("data:")) {
+      const mime = url.slice(5).split(/[;,]/)[0];
+      if (mime && !mime.startsWith("image/")) {
+        const base64 = url.slice(url.indexOf(",") + 1);
+        if (mime === "application/pdf" && base64) {
+          try {
+            const parsed = await pdfParse(Buffer.from(base64, "base64"));
+            const text = parsed.text.trim();
+            if (text) {
+              return {
+                type: "text",
+                text:
+                  `[Attached PDF (${parsed.numpages} page${parsed.numpages === 1 ? "" : "s"}) — extracted text follows]\n\n` +
+                  text,
+              };
+            }
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            return {
+              type: "text",
+              text: `[Attached PDF — server-side extraction failed: ${message}]`,
+            };
+          }
+        }
+        return {
+          type: "text",
+          text: `[Attached document${mime ? ` (${mime})` : ""}: contents not extracted server-side.]`,
+        };
+      }
+    }
+    // Image (or non-data) image_url: pass through unchanged.
+    return part;
+  }
   if (p.type === "image" && p.source?.type === "data") {
     const mime = p.source.mimeType ?? "image/png";
     const value = p.source.value ?? "";
@@ -133,9 +184,12 @@ async function rewriteMessages(
 }
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  // gpt-4o is the vision-capable default; temperature kept low for
+  // gpt-5-mini is the vision-capable default; temperature kept low for
   // deterministic image-Q&A behavior.
-  const model = new ChatOpenAI({ model: "gpt-4o", temperature: 0.2 });
+  const model = makeChatOpenAI(config, {
+    model: "gpt-5-mini",
+    temperature: 0.2,
+  });
 
   const messages = await rewriteMessages(state.messages);
 

@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 // The agent backend runs as a separate process on port 8000.
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
@@ -13,14 +14,28 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
-function createAgent(path = "/") {
+// Per-request request/response logging is gated behind this flag (default off).
+// Under d6 probe fan-out, unconditional per-request logs flooded Railway's
+// 500-logs/sec cap and killed the replica ("Messages dropped" → container stop).
+// Set SHOWCASE_ROUTE_DEBUG=1 to re-enable verbose per-request tracing locally.
+const ROUTE_DEBUG =
+  process.env.SHOWCASE_ROUTE_DEBUG === "1" ||
+  process.env.SHOWCASE_ROUTE_DEBUG === "true";
+
+function createAgent(path = "/chat") {
   return new HttpAgent({ url: `${AGENT_URL}${path}` });
 }
 
-// CrewAI hosts a single shared `LatestAiDevelopment` crew. We register
-// many agent names here so individual demo pages can scope their
-// per-cell frontend tool / component registrations independently; all
-// names resolve to the same HttpAgent bridge. See PARITY_NOTES.md.
+// Cells that only need a plain assistant share the neutral chat Flow on
+// `/chat` (src/agents/chat_flow.py). We register many agent names here so
+// individual demo pages can scope their per-cell frontend tool / component
+// registrations independently; the names below with no explicit override all
+// resolve to that Flow. See ../../../../PARITY_NOTES.md (integration root).
+//
+// The default deliberately is NOT a CrewAI crew endpoint. A crew endpoint
+// composes its system message with CrewAI's `build_system_message`, whose
+// unconditional boilerplate makes the assistant introduce itself and steer
+// every answer back to the crew's purpose.
 const agentNames = [
   // Existing base demos
   "agentic_chat",
@@ -45,12 +60,8 @@ const agentNames = [
   "frontend-tools-async",
   "readonly-state-agent-context",
   "agent-config",
-  // Reasoning variants
-  "agentic-chat-reasoning",
-  "reasoning-default-render",
   // Tool rendering variants
   "tool-rendering-default-catchall",
-  "tool-rendering-custom-catchall",
   "tool-rendering-reasoning-chain",
   // HITL
   "hitl-in-chat",
@@ -60,15 +71,71 @@ const agentNames = [
   "open-gen-ui-advanced",
 ];
 
+// Reasoning variants share a native CrewAI Flow. The CrewAI bridge translates
+// the reasoning-model stream into AG-UI reasoning and text lifecycles.
+const reasoningAgentNames = [
+  "reasoning-default",
+  "reasoning-custom",
+  "reasoning-default-render",
+  "agentic-chat-reasoning",
+];
+
 const agents: Record<string, AbstractAgent> = {};
 for (const name of agentNames) {
   agents[name] = createAgent();
 }
-// Interrupt-adapted demos route to the dedicated scheduling crew backend.
-// Both gen-ui-interrupt and interrupt-headless share the same crew; only the
+
+// CrewAI Flows own the state, tool-result, and delegation lifecycles for
+// these cells. Keep every alias explicit: silently falling back to the root
+// chat endpoint makes the UI appear connected while dropping the specialized
+// AG-UI events that each demo exists to prove.
+agents["shared-state-read"] = createAgent("/shared-state-read");
+agents["shared-state-write"] = createAgent("/shared-state-read-write");
+agents["shared-state-streaming"] = createAgent("/shared-state-streaming");
+agents["shared-state-read-write"] = createAgent("/shared-state-read-write");
+agents["subagents"] = createAgent("/subagents");
+agents["tool-rendering"] = createAgent("/tool-rendering");
+agents["tool-rendering-default-catchall"] = createAgent("/tool-rendering");
+agents["tool-rendering-custom-catchall"] = createAgent("/tool-rendering");
+agents["tool-rendering-reasoning-chain"] = createAgent(
+  "/tool-rendering-reasoning",
+);
+agents["frontend_tools"] = createAgent("/frontend-tools");
+agents["frontend-tools-async"] = createAgent("/frontend-tools");
+agents["human_in_the_loop"] = createAgent("/frontend-tools");
+agents["hitl-in-chat"] = createAgent("/frontend-tools");
+agents["hitl-in-app"] = createAgent("/frontend-tools");
+agents["headless-complete"] = createAgent("/tool-rendering");
+agents["open-gen-ui"] = createAgent("/frontend-tools");
+agents["open-gen-ui-advanced"] = createAgent("/frontend-tools");
+for (const name of reasoningAgentNames) {
+  agents[name] = createAgent("/reasoning");
+}
+// Interrupt-adapted demos route to the dedicated scheduling Flow backend.
+// Both gen-ui-interrupt and interrupt-headless share the same Flow; only the
 // frontend UX differs (inline in chat vs. external popup).
-agents["gen-ui-interrupt"] = createAgent("/interrupt-adapted");
-agents["interrupt-headless"] = createAgent("/interrupt-adapted");
+agents["gen-ui-interrupt"] = createAgent("/interrupt");
+agents["interrupt-headless"] = createAgent("/interrupt");
+// gen-ui-agent routes to a dedicated CrewAI Flow backend that owns the
+// `set_steps` tool + per-call STATE_SNAPSHOT emit (see
+// src/agents/gen_ui_agent.py). A crew endpoint cannot host this demo
+// because ChatWithCrewFlow does not surface per-tool state mutations to
+// the AG-UI bridge — same architectural reason as
+// shared-state-read-write and subagents.
+agents["gen-ui-agent"] = createAgent("/gen-ui-agent");
+// gen-ui-tool-based has its own Flow (src/agents/gen_ui_tool_based.py) for
+// the same reason langgraph-python gives it a dedicated graph: it must force
+// a `render_*` chart call on the user turn, which the neutral chat Flow does
+// not do.
+agents["gen-ui-tool-based"] = createAgent("/gen-ui-tool-based");
+// tool-rendering-custom-catchall routes to a dedicated CrewAI Flow
+// backend (`/tool-rendering`, src/agents/tool_rendering.py) that emits
+// AG-UI TOOL_CALL_* events for `get_weather` / `get_stock_price`.
+// `ChatWithCrewFlow` runs backend tools internally without emitting
+// tool-call events, so the frontend's custom wildcard renderer
+// (`useDefaultRenderTool`) would never paint the
+// `[data-testid="custom-wildcard-card"]` shell that the
+// `d5-tool-rendering-custom-catchall` probe asserts on.
 agents["default"] = createAgent();
 
 console.log(
@@ -78,34 +145,56 @@ console.log(
 export const POST = async (req: NextRequest) => {
   const url = req.url;
   const contentType = req.headers.get("content-type");
-  console.log(`[copilotkit/route] POST ${url} (content-type: ${contentType})`);
+  if (ROUTE_DEBUG) {
+    console.log(
+      `[copilotkit/route] POST ${url} (content-type: ${contentType})`,
+    );
+  }
 
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime: new CopilotRuntime({
         // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
       }),
+      basePath: "/api/copilotkit",
+      mode: "single-route",
     });
 
-    const response = await handleRequest(req);
-    console.log(`[copilotkit/route] Response status: ${response.status}`);
+    const response = await copilotHandler(req);
+    if (!response.ok) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    } else if (ROUTE_DEBUG) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    }
     return response;
   } catch (error: unknown) {
-    const err = error as Error;
-    console.error(`[copilotkit/route] ERROR: ${err.message}`);
-    console.error(`[copilotkit/route] Stack: ${err.stack}`);
+    // Log full details server-side (operators grep `errorId` to correlate),
+    // but never echo `err.message` / `err.stack` back to the HTTP client —
+    // that leaks internal paths, dependency versions, and stack traces.
+    const err = error instanceof Error ? error : new Error(String(error));
+    const errorId = crypto.randomUUID();
+    console.error(
+      JSON.stringify({
+        at: new Date().toISOString(),
+        level: "error",
+        scope: "copilotkit/route",
+        errorId,
+        message: err.message,
+        stack: err.stack,
+      }),
+    );
     return NextResponse.json(
-      { error: err.message, stack: err.stack },
+      { error: "internal runtime error", errorId },
       { status: 500 },
     );
   }
 };
 
 export const GET = async () => {
-  console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  if (ROUTE_DEBUG) {
+    console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  }
 
   let agentStatus = "unknown";
   try {

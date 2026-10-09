@@ -188,10 +188,43 @@ public class WebClientConfig {
         ExchangeFilterFunction aimockFilter = (request, next) -> {
             Map<String, String> aimockHeaders = AimockHeaderContext.get();
             if (aimockHeaders.isEmpty()) {
+                // No forwarded headers at all — leave the outbound request
+                // byte-identical to pre-instrumentation behavior. (No
+                // diagnostic context is possible without forwarded headers.)
                 return next.exchange(request);
             }
+            // GATING RULE: only deviate from original control flow (append the
+            // x-diag-hops breadcrumb, emit the per-outbound CVDIAG log) when a
+            // diagnostic header is actually present. On non-diagnostic traffic
+            // we still forward the inbound x-* headers (original behavior) but
+            // add NO x-diag-hops and skip the noisy per-outbound log.
+            boolean diagnosticPresent =
+                    aimockHeaders.containsKey(CvDiag.HEADER_DIAG_RUN_ID)
+                            || aimockHeaders.containsKey(CvDiag.HEADER_AIMOCK_CONTEXT);
             ClientRequest.Builder mutated = ClientRequest.from(request);
-            aimockHeaders.forEach(mutated::header);
+            if (!diagnosticPresent) {
+                // Forward the inbound x-* headers exactly as before — no hop
+                // breadcrumb, no log.
+                aimockHeaders.forEach(mutated::header);
+                return next.exchange(mutated.build());
+            }
+            // CVDIAG: append this layer's hop tag to x-diag-hops on the
+            // outbound (streaming) LLM call and log the outbound boundary.
+            // x-diag-run-id / x-diag-hops rode the threadlocal the same way as
+            // x-aimock-context across the ForkJoinPool handoff.
+            String existingHops = aimockHeaders.get(CvDiag.HEADER_DIAG_HOPS);
+            String newHops = CvDiag.appendHop(existingHops, "backend-spring-ai");
+            CvDiag.logOutbound(log, "backend-spring-ai", aimockHeaders, CvDiag.hopCount(existingHops));
+            // Forward all x-* headers EXCEPT x-diag-hops, which we set once
+            // below with this layer's hop appended (ClientRequest.Builder.header
+            // appends rather than replaces, so forwarding it here too would
+            // duplicate the breadcrumb).
+            aimockHeaders.forEach((key, value) -> {
+                if (!CvDiag.HEADER_DIAG_HOPS.equalsIgnoreCase(key)) {
+                    mutated.header(key, value);
+                }
+            });
+            mutated.headers(h -> h.set(CvDiag.HEADER_DIAG_HOPS, newHops));
             return next.exchange(mutated.build());
         };
 

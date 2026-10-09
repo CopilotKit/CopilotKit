@@ -12,12 +12,12 @@ Open Multi-Agent Canvas, created by [CopilotKit](https://github.com/CopilotKit/C
 
 ## Existing Agents
 
-Check out these awesome agents (they live in separate repositories). You can run them separately or deploy them on LangSmith:
+Check out these awesome agents (they live in separate directories in this repository). You can run them separately or deploy them on LangSmith:
 
-- [CoAgents Travel Agent](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel/agent)
-- [CoAgents AI Researcher](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-ai-researcher/agent)
+- [CoAgents Travel Agent](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v1/travel/agent)
+- [CoAgents AI Researcher](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v1/research-canvas/agents)
 
-Additionally, this project now includes a built-in MCP (Multi-Channel Protocol) Agent:
+Additionally, this project now includes a built-in MCP (Model Context Protocol) Agent:
 
 - **MCP Agent**: A general-purpose agent capable of handling various tasks through configurable MCP servers.
 
@@ -33,11 +33,11 @@ Make sure you have:
 
 ### 2. API Keys
 
-- [Copilot Cloud](https://cloud.copilotkit.ai)
+- [Copilot Cloud](https://dashboard.operations.copilotkit.ai)
 
 ## Running the Frontend
 
-Rename the `example.env` file in the `frontend` folder to `.env`:
+Create `frontend/.env`:
 
 ```sh
 NEXT_PUBLIC_CPK_PUBLIC_API_KEY=...
@@ -50,7 +50,7 @@ cd frontend
 pnpm i
 ```
 
-Need a CopilotKit API key? Get one [here](https://cloud.copilotkit.ai/).
+Need a CopilotKit API key? Get one [here](https://dashboard.operations.copilotkit.ai/).
 
 Then, fire up the Next.js project:
 
@@ -75,7 +75,7 @@ The MCP Agent allows you to connect to various MCP-compatible servers:
 
 ## Running the MCP Agent Backend (Optional)
 
-Rename the `example.env` file in the `agent` folder to `.env`:
+Create `agent/.env`:
 
 ```sh
 OPENAI_API_KEY=...

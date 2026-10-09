@@ -1,0 +1,42 @@
+---
+title: MessageRef
+description: The opaque provider message handle returned by post and supplied to managed interaction callbacks.
+---
+
+`MessageRef` identifies a provider message:
+
+```ts
+interface MessageRef {
+  id: string;
+  [key: string]: unknown;
+}
+```
+
+Use a ref with `thread.update()` or `thread.delete()`:
+
+```ts
+const ref = await thread.post("Working…");
+await thread.update(ref, "Done.");
+```
+
+## Managed lifetime
+
+A ref returned by `thread.post()` carries routing for the current managed
+delivery. Do not persist it and assume it can be edited in a later delivery.
+
+For a later component callback, use `ctx.message.ref`. Intelligence stamps the
+source provider message onto that interaction delivery when available:
+
+```ts
+if (message.ref.id) {
+  try {
+    await thread.update(message.ref, "Updated");
+  } catch {
+    // Provider updates are best-effort.
+  }
+}
+```
+
+Teams `Action.Submit` can arrive without `replyToId`, producing an empty ref.
+Slack and Teams delete capabilities also differ; see
+[`Thread`](/reference/channels/classes/Thread).

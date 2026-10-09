@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
+# @region[agent-config-setup]
 Tone = Literal["professional", "casual", "enthusiastic"]
 Expertise = Literal["beginner", "intermediate", "expert"]
 ResponseLength = Literal["concise", "detailed"]
@@ -103,6 +104,9 @@ def build_system_prompt(tone: str, expertise: str, response_length: str) -> str:
         f"Expertise level: {expertise_rules[expertise]}\n"
         f"Response length: {length_rules[response_length]}"
     )
+
+
+# @endregion[agent-config-setup]
 
 
 __all__ = [

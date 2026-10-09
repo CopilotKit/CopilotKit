@@ -17,7 +17,6 @@ using System.ClientModel;
 // showcase/integrations/langgraph-python/src/agents/hitl_in_chat_agent.py
 public sealed class HitlInChatAgentFactory
 {
-    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
     private const string SystemPrompt =
         "You help users book an onboarding call with the sales team. " +
         "When they ask to book a call, call the frontend-provided " +
@@ -34,28 +33,23 @@ public sealed class HitlInChatAgentFactory
 
         _logger = loggerFactory.CreateLogger<HitlInChatAgentFactory>();
 
-        var githubToken = configuration["GitHubToken"]
-            ?? throw new InvalidOperationException(
-                "GitHubToken not found in configuration. " +
-                "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
-                "or get it using: gh auth token");
+        var apiKey = ApiKeyResolver.ResolveApiKey(configuration);
 
-        var endpointEnv = Environment.GetEnvironmentVariable("OPENAI_BASE_URL");
-        var endpoint = endpointEnv ?? DefaultOpenAiEndpoint;
+        var endpoint = ApiKeyResolver.ResolveEndpoint(configuration);
 
         _openAiClient = new(
-            new ApiKeyCredential(githubToken),
+            new ApiKeyCredential(apiKey),
             AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
     public AIAgent CreateHitlInChatAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
 
         return new ChatClientAgent(
             chatClient,
             name: "HitlInChatAgent",
-            description: SystemPrompt,
+            instructions: SystemPrompt,
             tools: []);
     }
 }

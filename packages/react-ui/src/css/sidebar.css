@@ -44,3 +44,30 @@
     margin-right: 28rem;
   }
 }
+
+/*
+ * Opt-in (via the `fullHeightChildren` prop on `CopilotSidebar`): let children
+ * of the sidebar use `height: 100%`.
+ *
+ * By default both wrappers CopilotSidebar puts around your app are auto-height
+ * blocks, so a percentage height on a child has no definite containing block to
+ * resolve against and collapses to content height.
+ *
+ * The viewport unit is deliberate: `height: 100%` here would only resolve if
+ * every ancestor (html/body/#root) also declared a height, which react-ui
+ * neither sets nor can guarantee. `min-height: 0` on the children wrapper
+ * overrides the flex-item `min-height: auto` default so tall content scrolls
+ * inside the child instead of stretching the wrapper past the viewport.
+ */
+.copilotKitSidebarContentWrapper.copilotKitSidebarFullHeightChildren {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.copilotKitSidebarContentWrapper.copilotKitSidebarFullHeightChildren
+  > .copilotKitModalChildrenWrapper {
+  flex: 1 1 auto;
+  min-height: 0;
+}

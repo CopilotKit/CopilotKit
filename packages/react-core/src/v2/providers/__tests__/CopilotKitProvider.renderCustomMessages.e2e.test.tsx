@@ -11,12 +11,12 @@ import {
   textMessageContentEvent,
   textMessageEndEvent,
 } from "../../__tests__/utils/test-helpers";
-import { ReactCustomMessageRenderer } from "../../types/react-custom-message-renderer";
+import type { ReactCustomMessageRenderer } from "../../types/react-custom-message-renderer";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import { useAgent } from "../../hooks/use-agent";
 import { CopilotKitCoreReact } from "../../lib/react-core";
-import { Message } from "@ag-ui/core";
+import type { Message } from "@ag-ui/core";
 
 // Test shim: some environments lack setCredentials on CopilotKitCoreReact.
 if (!(CopilotKitCoreReact.prototype as any).setCredentials) {
@@ -127,6 +127,8 @@ describe("CopilotKitProvider custom message renderers E2E", () => {
 
   it("renders stored state snapshots for sequential runs", async () => {
     const agent = new MockStepwiseAgent();
+    const firstRun = { threadId: agent.threadId, runId: "first-run" };
+    const secondRun = { threadId: agent.threadId, runId: "second-run" };
     const history: number[] = [];
 
     const emitSnapshot = (count: number) => {
@@ -153,12 +155,12 @@ describe("CopilotKitProvider custom message renderers E2E", () => {
       expect(screen.getByText("First question")).toBeDefined();
     });
 
-    agent.emit(runStartedEvent());
+    agent.emit(runStartedEvent(firstRun));
     emitSnapshot(1);
     agent.emit(textMessageStartEvent(firstAssistantId));
     agent.emit(textMessageContentEvent(firstAssistantId, "First answer"));
     agent.emit(textMessageEndEvent(firstAssistantId));
-    agent.emit(runFinishedEvent());
+    agent.emit(runFinishedEvent(firstRun));
 
     await waitFor(() => {
       expect(
@@ -178,12 +180,12 @@ describe("CopilotKitProvider custom message renderers E2E", () => {
       expect(screen.getByText("Second question")).toBeDefined();
     });
 
-    agent.emit(runStartedEvent());
+    agent.emit(runStartedEvent(secondRun));
     emitSnapshot(2);
     agent.emit(textMessageStartEvent(secondAssistantId));
     agent.emit(textMessageContentEvent(secondAssistantId, "Second answer"));
     agent.emit(textMessageEndEvent(secondAssistantId));
-    agent.emit(runFinishedEvent());
+    agent.emit(runFinishedEvent(secondRun));
     agent.complete();
 
     await waitFor(() => {
@@ -357,8 +359,16 @@ describe("CopilotKitProvider custom message renderers E2E", () => {
       expect(screen.getByTestId(`first-${messageId}`)).toBeDefined();
     });
 
-    // Only first renderer should execute since it returns a result
-    expect(executionOrder).toEqual(["first"]);
+    // Only first renderer should execute since it returns a result.
+    const reactMajor = parseInt(React.version.split(".")[0], 10);
+    if (reactMajor >= 19) {
+      expect(executionOrder).toEqual(["first"]);
+    } else {
+      // React 18 may invoke the renderer on extra renders because effect
+      // batching differs. Assert the intent: `first` ran, `second` never did.
+      expect(executionOrder).toContain("first");
+      expect(executionOrder).not.toContain("second");
+    }
     expect(screen.queryByTestId(`second-${messageId}`)).toBeNull();
   });
 

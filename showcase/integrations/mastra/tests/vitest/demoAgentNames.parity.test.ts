@@ -26,12 +26,11 @@ vi.mock("@ag-ui/mastra", () => ({
   MastraAgent: { getLocalAgents: vi.fn() },
   getLocalAgent: vi.fn(),
 }));
-vi.mock("@copilotkit/runtime", () => ({
+vi.mock("@copilotkit/runtime/v2", () => ({
   CopilotRuntime: vi.fn(),
-  ExperimentalEmptyAdapter: vi.fn(),
-  copilotRuntimeNextJSAppRouterEndpoint: vi.fn(() => ({
-    handleRequest: vi.fn(async () => new Response("ok")),
-  })),
+  createCopilotRuntimeHandler: vi.fn(() =>
+    vi.fn(async () => new Response("ok")),
+  ),
 }));
 vi.mock("next/server", () => ({
   NextRequest: class {},
@@ -61,6 +60,16 @@ const WELL_KNOWN_EXCLUDES = new Set<string>([
   // with `mcpApps.servers` config). Its agent name lives in that route, not
   // in the main `demoAgentNames` registry.
   "mcp-apps",
+  // These cells each point at their own dedicated route (binding a dedicated
+  // agent via getLocalAgent/getLocalAgents), not the main `/api/copilotkit`:
+  //   a2ui-recovery  -> /api/copilotkit-a2ui-recovery (getA2UITools, injectA2UITool:false)
+  //   background-agents -> /api/copilotkit-background-agents
+  //   browser-use    -> /api/copilotkit-browser-use (local Playwright)
+  //   observational-memory -> /api/copilotkit-observational-memory (surfacing toggle)
+  "a2ui-recovery",
+  "background-agents",
+  "browser-use",
+  "observational-memory",
 ]);
 
 function dirExists(p: string): boolean {

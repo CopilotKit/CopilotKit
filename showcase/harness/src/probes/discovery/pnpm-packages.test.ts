@@ -388,6 +388,57 @@ describe("pnpmPackagesDiscoverySource", () => {
     ).rejects.toBeInstanceOf(DiscoverySourceSchemaError);
   });
 
+  it("skips out-of-prefix deep-glob patterns instead of throwing when pathPrefix is set", async () => {
+    // Regression: the fleet pnpm-workspace.yaml carries a multi-segment
+    // glob (`examples/v2/*/apps/*`) that the strict matcher rejects. The
+    // version_drift probe only wants `packages/`, so an unsupported
+    // pattern that can't possibly match the requested prefix must be
+    // skipped BEFORE its glob shape is validated — otherwise enumeration
+    // aborts with discoveryFailed:true and writes 0 rows.
+    await writeFile(
+      "pnpm-workspace.yaml",
+      `packages:\n  - "packages/*"\n  - "examples/v2/*/apps/*"\n`,
+    );
+    await writeFile(
+      "packages/runtime/package.json",
+      JSON.stringify({ name: "@copilotkit/runtime", version: "1.2.0" }),
+    );
+    await writeFile(
+      "packages/core/package.json",
+      JSON.stringify({ name: "@copilotkit/core", version: "0.9.5" }),
+    );
+    // A real example app under the deep-glob path — proves we don't crash
+    // on it and don't (wrongly) include it given the packages/ prefix.
+    await writeFile(
+      "examples/v2/react/apps/demo/package.json",
+      JSON.stringify({ name: "demo-app", version: "0.0.0" }),
+    );
+    const records = await pnpmPackagesDiscoverySource.enumerate(BASE_CTX, {
+      rootDir: tmpDir,
+      pathPrefix: "packages/",
+    });
+    expect(records.map((r) => r.name).sort()).toEqual([
+      "@copilotkit/core",
+      "@copilotkit/runtime",
+    ]);
+  });
+
+  it("still throws on an unsupported deep-glob pattern that DOES match the requested prefix", async () => {
+    // The skip is scoped to patterns that can't match the prefix. A
+    // deep-glob whose own prefix overlaps the requested pathPrefix is
+    // still a genuine unsupported-shape error and must surface loudly.
+    await writeFile(
+      "pnpm-workspace.yaml",
+      `packages:\n  - "packages/*/apps/*"\n`,
+    );
+    await expect(
+      pnpmPackagesDiscoverySource.enumerate(BASE_CTX, {
+        rootDir: tmpDir,
+        pathPrefix: "packages/",
+      }),
+    ).rejects.toBeInstanceOf(DiscoverySourceSchemaError);
+  });
+
   it("skips non-directory entries inside a globbed prefix", async () => {
     await writeFile("pnpm-workspace.yaml", `packages:\n  - "packages/*"\n`);
     await writeFile(

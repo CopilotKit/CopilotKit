@@ -1,4 +1,0 @@
-interface:
-  display_name: "Showcase Demo Work"
-  short_description: "Build and debug showcase demos with D5."
-  default_prompt: "Build or investigate this CopilotKit showcase demo using langgraph-python parity, aimock record/replay fixtures, every-pill verification, and D5 regression coverage."

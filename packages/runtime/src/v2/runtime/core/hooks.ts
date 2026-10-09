@@ -35,9 +35,13 @@ import type { CopilotRuntimeLike } from "./runtime";
 
 export type RouteInfo =
   | { method: "agent/run"; agentId: string }
+  | { method: "agent/suggest"; agentId: string }
   | { method: "agent/connect"; agentId: string }
+  | { method: "trajectory/connect"; trajectoryId: string }
   | { method: "agent/stop"; agentId: string; threadId: string }
   | { method: "info" }
+  | { method: "inspector/metadata" }
+  | { method: "inspector/learning" }
   | { method: "transcribe" }
   | { method: "threads/list" }
   | { method: "threads/subscribe" }
@@ -47,6 +51,11 @@ export type RouteInfo =
   | { method: "threads/events"; threadId: string }
   | { method: "threads/state"; threadId: string }
   | { method: "threads/clear" }
+  | { method: "memories/list" }
+  | { method: "memories/recall" }
+  | { method: "memories/subscribe" }
+  | { method: "memories/mutate"; memoryId: string }
+  | { method: "annotate" }
   | { method: "cpk-debug-events" };
 
 /* ------------------------------------------------------------------------------------------------

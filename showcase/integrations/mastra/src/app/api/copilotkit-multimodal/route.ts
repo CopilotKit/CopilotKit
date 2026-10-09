@@ -9,14 +9,15 @@
 // exactly the cell that exercises it, matching the pattern used by
 // `/api/copilotkit-beautiful-chat`.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { getLocalAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
+import { withForwardedHeaders } from "@/mastra/_header_forwarding";
 
 const multimodalAgent = getLocalAgent({
   mastra,
@@ -38,19 +39,20 @@ const runtime = new CopilotRuntime({
   },
 });
 
-export const POST = async (req: NextRequest) => {
-  try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-multimodal",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
-      runtime,
-    });
-    return await handleRequest(req);
-  } catch (error: unknown) {
-    const e = error as { message?: string; stack?: string };
-    return NextResponse.json(
-      { error: e.message, stack: e.stack },
-      { status: 500 },
-    );
-  }
-};
+export const POST = async (req: NextRequest) =>
+  withForwardedHeaders(req, async () => {
+    try {
+      const copilotHandler = createCopilotRuntimeHandler({
+        runtime,
+        basePath: "/api/copilotkit-multimodal",
+        mode: "single-route",
+      });
+      return await copilotHandler(req);
+    } catch (error: unknown) {
+      const e = error as { message?: string; stack?: string };
+      return NextResponse.json(
+        { error: e.message, stack: e.stack },
+        { status: 500 },
+      );
+    }
+  });

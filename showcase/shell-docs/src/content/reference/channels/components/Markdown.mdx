@@ -1,0 +1,23 @@
+---
+title: Markdown
+description: Render an explicit portable Markdown text block.
+---
+
+`Markdown` is an explicit body-text block for formatted content.
+
+```tsx
+import { Markdown, Message } from "@copilotkit/channels/ui";
+
+<Message>
+  <Markdown>{"**Owner:** Payments\n\n`p95 = 1.8s`"}</Markdown>
+</Message>;
+```
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `children` | `BotChildren` | Markdown text and portable child content. |
+
+It currently maps to the same provider primitives as
+[`Section`](/reference/channels/components/Section): Slack `mrkdwn` and a
+wrapping Teams `TextBlock`. Use it when the semantic intent of the source is
+formatted text.

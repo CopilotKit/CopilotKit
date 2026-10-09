@@ -8,46 +8,79 @@ import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CopilotChatInput } from "../copilot-chat-input";
 import { ChatState } from "../../../chat-state";
+import { CopilotKit } from "../../../copilotkit";
 
 @Injectable()
 class ChatStateStub extends ChatState {
   inputValue = signal("");
+  override readonly attachmentsEnabled = signal(false);
+  override readonly attachmentsUploading = signal(false);
   submitInput = vi.fn((value: string) => this.inputValue.set(value));
   changeInput = vi.fn((value: string) => this.inputValue.set(value));
+  addFile = vi.fn();
+}
+
+@Injectable()
+class CopilotKitStub {
+  readonly audioFileTranscriptionEnabled = signal<boolean | undefined>(
+    undefined,
+  );
 }
 
 describe("CopilotChatInput", () => {
   let injector: EnvironmentInjector;
   let component: CopilotChatInput;
   let chatState: ChatStateStub;
+  let copilotKit: CopilotKitStub;
 
   beforeEach(() => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [{ provide: ChatState, useClass: ChatStateStub }],
+      providers: [
+        { provide: ChatState, useClass: ChatStateStub },
+        { provide: CopilotKit, useClass: CopilotKitStub },
+      ],
     });
 
     injector = TestBed.inject(EnvironmentInjector);
     chatState = TestBed.inject(ChatState) as ChatStateStub;
+    copilotKit = TestBed.inject(CopilotKit) as unknown as CopilotKitStub;
     component = runInInjectionContext(injector, () => new CopilotChatInput());
 
-    component.textAreaRef = {
+    const textAreaMock = {
       setValue: vi.fn(),
       focus: vi.fn(),
-    } as any;
-    component.audioRecorderRef = {
+    };
+    const audioRecorderMock = {
       start: vi.fn().mockResolvedValue(undefined),
       stop: vi.fn().mockResolvedValue(undefined),
       getState: () => "idle",
-    } as any;
+    };
+    (component as any).textAreaRef = () => textAreaMock;
+    (component as any).audioRecorderRef = () => audioRecorderMock;
   });
 
   it("switches between input and transcribe modes", () => {
+    copilotKit.audioFileTranscriptionEnabled.set(true);
+
     expect(component.computedMode()).toBe("input");
     component.handleStartTranscribe();
     expect(component.computedMode()).toBe("transcribe");
     component.handleCancelTranscribe();
     expect(component.computedMode()).toBe("input");
+  });
+
+  it("uses the public mode input when one is provided", () => {
+    const fixture = TestBed.createComponent(CopilotChatInput);
+    fixture.componentRef.setInput("mode", "processing");
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.computedMode()).toBe("processing");
+
+    fixture.componentRef.setInput("mode", "transcribe");
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.computedMode()).toBe("transcribe");
   });
 
   it("emits value changes and updates chat state", () => {
@@ -60,6 +93,15 @@ describe("CopilotChatInput", () => {
     expect(chatState.changeInput).toHaveBeenCalledWith("Hello world");
   });
 
+  it("keeps an explicit empty controlled value", () => {
+    chatState.inputValue.set("stale draft");
+    const fixture = TestBed.createComponent(CopilotChatInput);
+    fixture.componentRef.setInput("value", "");
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.computedValue()).toBe("");
+  });
+
   it("submits trimmed messages and clears input", () => {
     const submitSpy = vi.fn();
     component.submitMessage.subscribe(submitSpy);
@@ -70,7 +112,40 @@ describe("CopilotChatInput", () => {
     expect(submitSpy).toHaveBeenCalledWith("Do it");
     expect(chatState.submitInput).toHaveBeenCalledWith("Do it");
     expect(chatState.changeInput).toHaveBeenLastCalledWith("");
-    expect(component.textAreaRef?.setValue).toHaveBeenCalledWith("");
+    expect(component.textAreaRef()?.setValue).toHaveBeenCalledWith("");
+  });
+
+  it("disables send while attachments are uploading", () => {
+    component.handleValueChange("Do it");
+    chatState.attachmentsUploading.set(true);
+
+    expect(component.sendButtonDisabled()).toBe(true);
+
+    component.send();
+
+    expect(chatState.submitInput).not.toHaveBeenCalled();
+    expect(component.textAreaRef()?.setValue).not.toHaveBeenCalled();
+  });
+
+  it("only opens the file picker when attachments are enabled", () => {
+    const addFileSpy = vi.fn();
+    component.addFile.subscribe(addFileSpy);
+
+    expect(component.addFileButtonDisabled()).toBe(true);
+
+    component.handleAddFile();
+
+    expect(addFileSpy).not.toHaveBeenCalled();
+    expect(chatState.addFile).not.toHaveBeenCalled();
+
+    chatState.attachmentsEnabled.set(true);
+
+    expect(component.addFileButtonDisabled()).toBe(false);
+
+    component.handleAddFile();
+
+    expect(addFileSpy).toHaveBeenCalledOnce();
+    expect(chatState.addFile).toHaveBeenCalledOnce();
   });
 
   it("exposes tools menu through computed signal", () => {
@@ -78,5 +153,46 @@ describe("CopilotChatInput", () => {
       { label: "Example", onSelect: vi.fn() },
     ];
     expect(component.computedToolsMenu()).toHaveLength(1);
+  });
+
+  it("treats an absent transcription capability as disabled", () => {
+    const startSpy = vi.fn();
+    component.startTranscribe.subscribe(startSpy);
+
+    expect(component.audioTranscriptionEnabled()).toBe(false);
+    component.handleStartTranscribe();
+
+    expect(component.computedMode()).toBe("input");
+    expect(startSpy).not.toHaveBeenCalled();
+  });
+
+  it("hides the mic while the runtime reports transcription as disabled", () => {
+    copilotKit.audioFileTranscriptionEnabled.set(false);
+    const fixture = TestBed.createComponent(CopilotChatInput);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.audioTranscriptionEnabled()).toBe(false);
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector(
+        "copilot-chat-start-transcribe-button",
+      ),
+    ).toBeNull();
+  });
+
+  it("shows the mic and starts transcription when the runtime enables it", () => {
+    copilotKit.audioFileTranscriptionEnabled.set(true);
+    const fixture = TestBed.createComponent(CopilotChatInput);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.audioTranscriptionEnabled()).toBe(true);
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector(
+        "copilot-chat-start-transcribe-button",
+      ),
+    ).not.toBeNull();
+
+    fixture.componentInstance.handleStartTranscribe();
+
+    expect(fixture.componentInstance.computedMode()).toBe("transcribe");
   });
 });

@@ -1,0 +1,79 @@
+{
+  "_fixture": {
+    "description": "Real-surface PB status rows carrying harness INFRA signals (U7, spec §7.1). Captured from the harness driver write shapes: the per-cell d6 RED row signal is the exact object built at showcase/harness/src/probes/drivers/d6-all-pills.ts:1362-1377 (errorClass + errorDesc top-level on the signal blob, alongside slug/featureType/url/diagnostics); the D4 chat RED row carries driver-error in errorDesc ONLY (errorClass unset) per d4-chat-roundtrip.ts:915. The genuine-failure row (selector-timeout) is included to prove a ran-and-failed assertion STAYS red. shell-dashboard had no captured driver-error PB fixture before this file; these rows are persisted exactly as the harness writer emits them (showcase/harness/src/probes/drivers/d6-all-pills.ts:2211 writes result.signal straight onto the row).",
+    "source_drivers": [
+      "showcase/harness/src/probes/drivers/d6-all-pills.ts:1362 (per-cell d6 red side row)",
+      "showcase/harness/src/probes/drivers/d6-all-pills.ts:1783 (driver-error errorClass catch)",
+      "showcase/harness/src/probes/drivers/d4-chat-roundtrip.ts:915 (D4 driver-error in errorDesc)"
+    ]
+  },
+  "d6DriverErrorRow": {
+    "id": "rec_d6_driver_error",
+    "key": "d6:agno/agentic-chat",
+    "dimension": "d6",
+    "state": "red",
+    "signal": {
+      "slug": "agno",
+      "featureType": "agentic-chat",
+      "backendUrl": "http://agno:8000",
+      "url": "http://shell:3000/agno/agentic-chat",
+      "fixtureFile": "agno-agentic-chat.json",
+      "turns_completed": 0,
+      "total_turns": 4,
+      "errorDesc": "page.goto: net::ERR_CONNECTION_REFUSED at http://shell:3000/agno/agentic-chat",
+      "errorClass": "driver-error",
+      "diagnostics": { "consoleErrors": [], "screenshot": null }
+    },
+    "observed_at": "2026-06-19T08:00:00.000Z",
+    "transitioned_at": "2026-06-19T08:00:00.000Z",
+    "fail_count": 1,
+    "first_failure_at": "2026-06-19T08:00:00.000Z"
+  },
+  "d4DriverErrorRow": {
+    "id": "rec_d4_driver_error",
+    "key": "chat:agno",
+    "dimension": "chat",
+    "state": "red",
+    "signal": {
+      "slug": "agno",
+      "level": "L3",
+      "errorDesc": "driver-error"
+    },
+    "observed_at": "2026-06-19T08:00:00.000Z",
+    "transitioned_at": "2026-06-19T08:00:00.000Z",
+    "fail_count": 1,
+    "first_failure_at": "2026-06-19T08:00:00.000Z"
+  },
+  "abortRow": {
+    "id": "rec_d6_abort",
+    "key": "d6:agno/agentic-chat",
+    "dimension": "d6",
+    "state": "red",
+    "signal": {
+      "slug": "agno",
+      "featureType": "agentic-chat",
+      "errorClass": "abort",
+      "errorDesc": "aborted before start"
+    },
+    "observed_at": "2026-06-19T08:00:00.000Z",
+    "transitioned_at": "2026-06-19T08:00:00.000Z",
+    "fail_count": 1,
+    "first_failure_at": "2026-06-19T08:00:00.000Z"
+  },
+  "genuineSelectorTimeoutRow": {
+    "id": "rec_d6_selector_timeout",
+    "key": "d6:agno/agentic-chat",
+    "dimension": "d6",
+    "state": "red",
+    "signal": {
+      "slug": "agno",
+      "featureType": "agentic-chat",
+      "errorClass": "selector-timeout",
+      "errorDesc": "waiting for selector [data-testid=\"assistant-message\"] timed out after 30000ms"
+    },
+    "observed_at": "2026-06-19T08:00:00.000Z",
+    "transitioned_at": "2026-06-19T08:00:00.000Z",
+    "fail_count": 1,
+    "first_failure_at": "2026-06-19T08:00:00.000Z"
+  }
+}

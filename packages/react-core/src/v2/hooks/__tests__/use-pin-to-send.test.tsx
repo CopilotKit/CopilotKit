@@ -146,7 +146,7 @@ describe("usePinToSend", () => {
     });
   });
 
-  it("shrinks spacer as content height grows (does not grow it)", async () => {
+  it("adjusts spacer as content height changes to keep the user message pinned", async () => {
     let observed: (() => void) | null = null;
     const ROStub = vi.fn().mockImplementation((cb: () => void) => {
       observed = cb;
@@ -182,11 +182,14 @@ describe("usePinToSend", () => {
       act(() => observed?.());
       expect(parseInt(spacer.style.height, 10)).toBeLessThan(744);
 
-      // Simulate content shrinking — spacer should NOT grow back
+      // Simulate content shrinking — spacer should grow back to preserve the
+      // original anchor instead of leaving the user message shifted.
       setHeight(content, 100);
       const shrunkHeight = spacer.style.height;
       act(() => observed?.());
-      expect(spacer.style.height).toBe(shrunkHeight);
+      expect(parseInt(spacer.style.height, 10)).toBeGreaterThan(
+        parseInt(shrunkHeight, 10),
+      );
     } finally {
       global.ResizeObserver = prevRO;
     }

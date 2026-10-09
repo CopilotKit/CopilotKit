@@ -14,6 +14,7 @@
  * sidebar in real time.
  */
 
+// @region[shared-state-setup]
 export interface Preferences {
   name?: string;
   tone?: "formal" | "casual" | "playful";
@@ -100,3 +101,4 @@ export function buildSharedStateReadWriteSystemPrompt(
   if (!preamble) return SHARED_STATE_READ_WRITE_BASE_SYSTEM;
   return `${SHARED_STATE_READ_WRITE_BASE_SYSTEM}\n\n${preamble}`;
 }
+// @endregion[shared-state-setup]

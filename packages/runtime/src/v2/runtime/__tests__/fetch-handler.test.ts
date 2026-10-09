@@ -1,6 +1,12 @@
-import { describe, it, expect, vi } from "vitest";
+import type {
+  InspectorLearningSnapshotV1,
+  InspectorMetadataV1,
+} from "@copilotkit/shared";
+import { describe, it, expect, test, vi } from "vitest";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { CopilotRuntime } from "../core/runtime";
+import type { CopilotRuntimeLike } from "../core/runtime";
+import { CopilotKitIntelligence } from "../intelligence-platform";
 import type { AbstractAgent } from "@ag-ui/client";
 
 /* ------------------------------------------------------------------------------------------------
@@ -12,6 +18,86 @@ const createMockAgent = () => {
     execute: vi.fn().mockResolvedValue({ events: [] }),
   };
   (agent as { clone: () => unknown }).clone = () => createMockAgent();
+  return agent as AbstractAgent;
+};
+
+// The `copilotkitSuggest` tool call, expressed as the AG-UI event sequence a
+// real provider streams — the suggest handler forwards these onto the SSE
+// response.
+const suggestToolCallEvents: Array<Record<string, unknown>> = [
+  { type: "RUN_STARTED", threadId: "t1", runId: "r1" },
+  {
+    type: "TOOL_CALL_START",
+    toolCallId: "tc-1",
+    toolCallName: "copilotkitSuggest",
+    parentMessageId: "suggest-1",
+  },
+  {
+    type: "TOOL_CALL_ARGS",
+    toolCallId: "tc-1",
+    delta: JSON.stringify({
+      suggestions: [{ title: "Hi", message: "Say hi" }],
+    }),
+  },
+  { type: "TOOL_CALL_END", toolCallId: "tc-1" },
+  { type: "RUN_FINISHED", threadId: "t1", runId: "r1" },
+];
+
+/** Drains an SSE `Response` body into the list of parsed `data:` events. */
+const drainSseEvents = async (
+  response: Response,
+): Promise<Array<Record<string, unknown>>> => {
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer +=
+      typeof value === "string"
+        ? value
+        : decoder.decode(value, { stream: true });
+  }
+  buffer += decoder.decode();
+  const events: Array<Record<string, unknown>> = [];
+  for (const frame of buffer.split("\n\n")) {
+    const line = frame.trim();
+    if (line.startsWith("data:")) {
+      events.push(JSON.parse(line.slice("data:".length).trim()));
+    }
+  }
+  return events;
+};
+
+/**
+ * A suggest-capable mock agent. Unlike `createMockAgent`, its clone exposes the
+ * surface `handleSuggestAgent` touches (`setMessages`/`setState`/`threadId`/
+ * `abortRun`) and a `runAgent` that streams a `copilotkitSuggest` tool call via
+ * `onEvent`, so the suggest route resolves to a real 200 SSE stream.
+ */
+const createSuggestAgent = () => {
+  const agent: unknown = {
+    agentId: "default",
+    headers: {},
+    threadId: undefined,
+    setMessages: vi.fn(),
+    setState: vi.fn(),
+    abortRun: vi.fn(),
+    runAgent: vi.fn(
+      async (
+        _input: unknown,
+        sub?: {
+          onEvent?: (params: { event: Record<string, unknown> }) => void;
+        },
+      ) => {
+        for (const event of suggestToolCallEvents) {
+          sub?.onEvent?.({ event });
+        }
+        return { newMessages: [] };
+      },
+    ),
+  };
+  (agent as { clone: () => unknown }).clone = () => createSuggestAgent();
   return agent as AbstractAgent;
 };
 
@@ -46,6 +132,12 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
     const body = await response.json();
     expect(body).toHaveProperty("version");
     expect(body).toHaveProperty("agents");
+    expect(body.threadEndpoints).toMatchObject({
+      list: true,
+      inspect: true,
+      mutations: false,
+      realtimeMetadata: false,
+    });
   });
 
   it("returns 404 for paths not starting with basePath", async () => {
@@ -70,6 +162,13 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
   it("returns 405 for GET on a POST-only route", async () => {
     const response = await handler(
       get("http://localhost/api/copilotkit/agent/myAgent/run"),
+    );
+    expect(response.status).toBe(405);
+  });
+
+  it("returns 405 for GET on /agent/:agentId/suggest (POST-only)", async () => {
+    const response = await handler(
+      get("http://localhost/api/copilotkit/agent/myAgent/suggest"),
     );
     expect(response.status).toBe(405);
   });
@@ -114,6 +213,86 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
     expect(response.status).not.toBe(405);
   });
 
+  // Memory routes are opt-in (secure default off). These reachability tests use
+  // a runtime with `exposeMemoryRoutes: true`; the gated-off (404) behavior is
+  // covered in its own describe block below.
+  const memoryHandler = createCopilotRuntimeHandler({
+    runtime: new CopilotRuntime({
+      agents: { default: createMockAgent() },
+      exposeMemoryRoutes: true,
+    }),
+    basePath: "/api/copilotkit",
+    mode: "multi-route",
+  });
+
+  it("routes GET /memories (not 404/405)", async () => {
+    const response = await memoryHandler(
+      get("http://localhost/api/copilotkit/memories"),
+    );
+    // No intelligence configured here → 422, but the route + GET method match.
+    expect(response.status).not.toBe(404);
+    expect(response.status).not.toBe(405);
+  });
+
+  it("routes POST /memories (create) — not 404/405", async () => {
+    const response = await memoryHandler(
+      post("http://localhost/api/copilotkit/memories", {
+        content: "c",
+        kind: "topical",
+        scope: "user",
+      }),
+    );
+    expect(response.status).not.toBe(404);
+    expect(response.status).not.toBe(405);
+  });
+
+  it("routes POST /memories/recall (not 404/405)", async () => {
+    const response = await memoryHandler(
+      post("http://localhost/api/copilotkit/memories/recall", {
+        query: "music",
+      }),
+    );
+    // No intelligence configured → 422, but the route + POST method match.
+    expect(response.status).not.toBe(404);
+    expect(response.status).not.toBe(405);
+  });
+
+  it("returns 405 for GET /memories/recall (POST-only)", async () => {
+    const response = await memoryHandler(
+      get("http://localhost/api/copilotkit/memories/recall"),
+    );
+    expect(response.status).toBe(405);
+  });
+
+  it("routes PATCH /memories/:id (supersede) — not 404/405", async () => {
+    const response = await memoryHandler(
+      new Request("http://localhost/api/copilotkit/memories/m-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: "c", kind: "topical", scope: "user" }),
+      }),
+    );
+    expect(response.status).not.toBe(404);
+    expect(response.status).not.toBe(405);
+  });
+
+  it("routes DELETE /memories/:id (retire) — not 404/405", async () => {
+    const response = await memoryHandler(
+      new Request("http://localhost/api/copilotkit/memories/m-1", {
+        method: "DELETE",
+      }),
+    );
+    expect(response.status).not.toBe(404);
+    expect(response.status).not.toBe(405);
+  });
+
+  it("returns 405 for GET /memories/:id (PATCH/DELETE-only)", async () => {
+    const response = await memoryHandler(
+      get("http://localhost/api/copilotkit/memories/m-1"),
+    );
+    expect(response.status).toBe(405);
+  });
+
   it("basePath with trailing slash still works", async () => {
     const trailingSlashHandler = createCopilotRuntimeHandler({
       runtime: createRuntime(),
@@ -147,6 +326,85 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
 });
 
 /* ------------------------------------------------------------------------------------------------
+ * Opt-in memory-proxy flag (exposeMemoryRoutes)
+ * --------------------------------------------------------------------------------------------- */
+
+describe("createCopilotRuntimeHandler — exposeMemoryRoutes gate", () => {
+  const offHandler = createCopilotRuntimeHandler({
+    // Default: exposeMemoryRoutes omitted → off.
+    runtime: new CopilotRuntime({ agents: { default: createMockAgent() } }),
+    basePath: "/api/copilotkit",
+    mode: "multi-route",
+  });
+  const onHandler = createCopilotRuntimeHandler({
+    runtime: new CopilotRuntime({
+      agents: { default: createMockAgent() },
+      exposeMemoryRoutes: true,
+    }),
+    basePath: "/api/copilotkit",
+    mode: "multi-route",
+  });
+
+  it("404s GET /memories when the flag is off (default)", async () => {
+    const response = await offHandler(
+      get("http://localhost/api/copilotkit/memories"),
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("404s POST /memories/recall when the flag is off (default)", async () => {
+    const response = await offHandler(
+      post("http://localhost/api/copilotkit/memories/recall", {
+        query: "music",
+      }),
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("404s POST /memories/subscribe when the flag is off (default)", async () => {
+    const response = await offHandler(
+      post("http://localhost/api/copilotkit/memories/subscribe"),
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("404s PATCH /memories/:id when the flag is off (default)", async () => {
+    const response = await offHandler(
+      new Request("http://localhost/api/copilotkit/memories/m-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: "c", kind: "topical" }),
+      }),
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("404s (not 405) for a wrong method on a hidden memory route — no route-existence leak", async () => {
+    // GET on the POST-only recall route would 405 if reachable; the gate must
+    // 404 before method validation so the route's existence is not disclosed.
+    const response = await offHandler(
+      get("http://localhost/api/copilotkit/memories/recall"),
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("does not 404 memory routes when the flag is on", async () => {
+    // No intelligence configured → 422 (not 404): the route is now exposed.
+    const response = await onHandler(
+      get("http://localhost/api/copilotkit/memories"),
+    );
+    expect(response.status).not.toBe(404);
+  });
+
+  it("leaves non-memory routes reachable when the flag is off", async () => {
+    const response = await offHandler(
+      get("http://localhost/api/copilotkit/info"),
+    );
+    expect(response.status).toBe(200);
+  });
+});
+
+/* ------------------------------------------------------------------------------------------------
  * Multi-route without basePath (suffix matching)
  * --------------------------------------------------------------------------------------------- */
 
@@ -172,6 +430,49 @@ describe("createCopilotRuntimeHandler — multi-route without basePath", () => {
       }),
     );
     expect(response.status).not.toBe(404);
+  });
+
+  it("matches /agent/:id/suggest suffix", async () => {
+    const response = await handler(
+      post("http://localhost/some/prefix/agent/default/suggest", {
+        threadId: "t1",
+        runId: "r1",
+      }),
+    );
+    expect(response.status).not.toBe(404);
+    expect(response.status).not.toBe(405);
+  });
+
+  it("routes POST /agent/:id/suggest to handleSuggestAgent and returns 200 with messages", async () => {
+    // Mirrors the single-route end-to-end assertion: a suggest-capable agent
+    // whose `runAgent` emits a `copilotkitSuggest` tool-call message proves the
+    // multi-route dispatch reaches `handleSuggestAgent` and returns a real 200
+    // transcript, not just a non-404/405 routing match.
+    const suggestHandler = createCopilotRuntimeHandler({
+      runtime: createRuntime({ default: createSuggestAgent() }),
+      mode: "multi-route",
+    });
+    const response = await suggestHandler(
+      post("http://localhost/some/prefix/agent/default/suggest", {
+        threadId: "t1",
+        runId: "r1",
+        state: {},
+        messages: [],
+        tools: [],
+        context: [],
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    const events = await drainSseEvents(response);
+    expect(
+      events.some(
+        (e) =>
+          e.type === "TOOL_CALL_START" &&
+          e.toolCallName === "copilotkitSuggest",
+      ),
+    ).toBe(true);
   });
 
   it("returns 404 for no known suffix", async () => {
@@ -269,6 +570,46 @@ describe("createCopilotRuntimeHandler — single-route mode", () => {
     expect(response.status).not.toBe(405);
   });
 
+  it("dispatches agent/suggest method to handleSuggestAgent and returns 200 with messages", async () => {
+    // The shared `createMockAgent` has no `runAgent`, so the suggest handler
+    // would hit its error path (502) and a `not.toBe(404/405)` assertion would
+    // pass without proving the route actually reaches `handleSuggestAgent`.
+    // Use a suggest-specific agent whose `runAgent` emits a tool-call message,
+    // so a 200 + `messages` body proves the route ran the handler end to end.
+    const suggestRuntime = createRuntime({ default: createSuggestAgent() });
+    const suggestHandler = createCopilotRuntimeHandler({
+      runtime: suggestRuntime,
+      basePath: "/api/copilotkit",
+      mode: "single-route",
+    });
+
+    const response = await suggestHandler(
+      post("http://localhost/api/copilotkit", {
+        method: "agent/suggest",
+        params: { agentId: "default" },
+        body: {
+          threadId: "t1",
+          runId: "r1",
+          state: {},
+          messages: [],
+          tools: [],
+          context: [],
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    const events = await drainSseEvents(response);
+    expect(
+      events.some(
+        (e) =>
+          e.type === "TOOL_CALL_START" &&
+          e.toolCallName === "copilotkitSuggest",
+      ),
+    ).toBe(true);
+  });
+
   it("returns 404 when basePath doesn't match in single-route", async () => {
     const response = await handler(
       post("http://localhost/other/path", { method: "info" }),
@@ -320,6 +661,12 @@ describe("createCopilotRuntimeHandler — single-route mode", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toHaveProperty("version");
+    expect(body.threadEndpoints).toMatchObject({
+      list: false,
+      inspect: false,
+      mutations: false,
+      realtimeMetadata: false,
+    });
   });
 });
 
@@ -453,4 +800,300 @@ describe("createCopilotRuntimeHandler — error handling", () => {
     const response = await handler(get("http://localhost/api/info"));
     expect(response.status).toBe(403);
   });
+});
+
+function setupInspectorMetadataRoute() {
+  const intelligence = new CopilotKitIntelligence({
+    apiUrl: "https://api.example.com",
+    wsUrl: "wss://ws.example.com",
+    apiKey: "server-api-key",
+  });
+  const getInspectorMetadata = vi.spyOn(intelligence, "getInspectorMetadata");
+  const runtime = new CopilotRuntime({
+    agents: {},
+    intelligence,
+    identifyUser: async () => ({ id: "user-1", name: "User One" }),
+  });
+  const metadata = {
+    schemaVersion: 1,
+    identity: { organizationName: "Acme", projectName: "Support" },
+    license: { state: "valid" },
+  } satisfies InspectorMetadataV1;
+
+  return { getInspectorMetadata, metadata, runtime };
+}
+
+function setupInspectorLearningRoute(debug = false, configured = true) {
+  const intelligence = new CopilotKitIntelligence({
+    apiUrl: "https://api.example.com",
+    wsUrl: "wss://ws.example.com",
+    apiKey: "server-api-key",
+    getLearningContainerId: configured ? () => "checkout" : undefined,
+  });
+  const snapshot = {
+    schemaVersion: 1,
+    projectKey: "project-safe-key",
+    snapshotVersion: "snapshot-1",
+    webAppOrigin: "https://app.copilotkit.ai",
+    configuration: {
+      state: "configured",
+      container: { id: "checkout", name: "Checkout Assistant" },
+    },
+    pendingThreadCount: 8,
+    run: { hasActiveRun: false, hasEverSucceeded: false, latest: null },
+    pendingCandidateCount: 0,
+    skillsPage: {
+      page: 1,
+      pageSize: 3,
+      total: 0,
+      totalPages: 0,
+      items: [],
+    },
+    insightsPage: {
+      page: 1,
+      pageSize: 4,
+      total: 0,
+      totalPages: 0,
+      items: [],
+    },
+    links: {
+      learning: "https://app.copilotkit.ai/learning",
+      candidates: null,
+      runs: "https://app.copilotkit.ai/learning?tab=runs",
+    },
+  } satisfies InspectorLearningSnapshotV1;
+  const getInspectorLearning = vi
+    .spyOn(intelligence, "getInspectorLearning")
+    .mockResolvedValue(snapshot);
+  const runtime = new CopilotRuntime({
+    agents: { checkout: createMockAgent() },
+    intelligence,
+    identifyUser: async () => ({ id: "user-1", name: "User One" }),
+    debug,
+  });
+  return { getInspectorLearning, runtime, snapshot };
+}
+
+test.each(["multi-route", "single-route"] as const)(
+  "negotiates and fetches Inspector Learning through the authorized %s transport",
+  async (mode) => {
+    const { getInspectorLearning, runtime, snapshot } =
+      setupInspectorLearningRoute();
+    const requireHostAuth = vi.fn(({ request }: { request: Request }) => {
+      if (request.headers.get("authorization") !== "Bearer host-session") {
+        throw new Response("Unauthorized", { status: 401 });
+      }
+    });
+    const handler = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+      mode,
+      hooks: { onRequest: requireHostAuth },
+    });
+    const request = (method: string, params?: Record<string, unknown>) =>
+      mode === "single-route"
+        ? post("https://runtime.example/api/copilotkit", { method, params })
+        : get(
+            `https://runtime.example/api/copilotkit/${
+              method === "info" ? "info" : "inspector-learning"
+            }${params ? "?agentId=checkout&skillsPage=1" : ""}`,
+          );
+    const authorized = (source: Request) =>
+      new Request(source, {
+        headers: {
+          ...Object.fromEntries(source.headers),
+          authorization: "Bearer host-session",
+        },
+      });
+
+    const info = await handler(authorized(request("info")));
+    expect(info.status).toBe(200);
+    expect(await info.json()).toHaveProperty("inspectorLearning", true);
+
+    const unauthorizedLearning = await handler(
+      request("inspector/learning", {
+        agentId: "checkout",
+        skillsPage: 1,
+      }),
+    );
+    expect(unauthorizedLearning.status).toBe(401);
+    expect(getInspectorLearning).not.toHaveBeenCalled();
+
+    const learning = await handler(
+      authorized(
+        request("inspector/learning", {
+          agentId: "checkout",
+          skillsPage: 1,
+        }),
+      ),
+    );
+    expect(learning.status).toBe(200);
+    await expect(learning.json()).resolves.toEqual(snapshot);
+    expect(getInspectorLearning).toHaveBeenCalledWith({
+      agentId: "checkout",
+      skillsPage: 1,
+    });
+
+    const rejectedInfo = await handler(request("info"));
+    expect(rejectedInfo.status).toBe(401);
+  },
+);
+
+test("advertises and serves Inspector Learning without debug or a handler opt-in", async () => {
+  const { runtime, snapshot } = setupInspectorLearningRoute();
+  const handler = createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+  });
+  const info = await handler(
+    get("https://runtime.example/api/copilotkit/info"),
+  );
+  expect(await info.json()).toHaveProperty("inspectorLearning", true);
+  const learning = await handler(
+    get("https://runtime.example/api/copilotkit/inspector-learning"),
+  );
+  expect(learning.status).toBe(200);
+  expect(await learning.json()).toEqual(snapshot);
+});
+
+test("does not advertise or proxy Learning without container assignment configuration", async () => {
+  const { runtime, getInspectorLearning } = setupInspectorLearningRoute(
+    false,
+    false,
+  );
+  const handler = createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+  });
+  const info = await handler(
+    get("https://runtime.example/api/copilotkit/info"),
+  );
+  const data = await info.json();
+  expect(data.inspectorLearning).not.toBe(true);
+  expect(data.intelligence).toBeDefined();
+  const response = await handler(
+    get("https://runtime.example/api/copilotkit/inspector-learning"),
+  );
+  expect(response.status).toBe(404);
+  expect(getInspectorLearning).not.toHaveBeenCalled();
+});
+
+test("keeps Inspector Learning unavailable for runtimes without a web identity resolver", async () => {
+  const { runtime, getInspectorLearning } = setupInspectorLearningRoute();
+  const handler = createCopilotRuntimeHandler({
+    runtime: {
+      ...runtime,
+      mode: "intelligence",
+      intelligence: runtime.intelligence,
+      identifyUser: undefined,
+    } as unknown as CopilotRuntimeLike,
+    basePath: "/api/copilotkit",
+  });
+  const response = await handler(
+    get("https://runtime.example/api/copilotkit/inspector-learning"),
+  );
+  expect(response.status).toBe(404);
+  expect(getInspectorLearning).not.toHaveBeenCalled();
+});
+
+test("fetch-handler routes multi-route inspector metadata through hooks without forwarding browser auth", async () => {
+  const { getInspectorMetadata, metadata, runtime } =
+    setupInspectorMetadataRoute();
+  getInspectorMetadata.mockResolvedValue(metadata);
+  const onBeforeHandler = vi.fn();
+  const onResponse = vi.fn();
+  const handler = createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    mode: "multi-route",
+    hooks: { onBeforeHandler, onResponse },
+  });
+  const request = new Request(
+    "https://runtime.example/api/copilotkit/inspector-metadata",
+    {
+      method: "GET",
+      headers: { Authorization: "Bearer browser-token" },
+    },
+  );
+
+  const response = await handler(request);
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get("Cache-Control")).toBe("no-store, private");
+  await expect(response.json()).resolves.toEqual(metadata);
+  expect(getInspectorMetadata).toHaveBeenCalledWith();
+  expect(onBeforeHandler.mock.calls[0]?.[0].route).toEqual({
+    method: "inspector/metadata",
+  });
+  expect(onResponse.mock.calls[0]?.[0].route).toEqual({
+    method: "inspector/metadata",
+  });
+});
+
+test("fetch-handler rejects POST on the multi-route inspector metadata endpoint", async () => {
+  const { getInspectorMetadata, runtime } = setupInspectorMetadataRoute();
+  const handler = createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    mode: "multi-route",
+  });
+
+  const response = await handler(
+    post("https://runtime.example/api/copilotkit/inspector-metadata"),
+  );
+
+  expect(response.status).toBe(405);
+  expect(response.headers.get("Allow")).toBe("GET");
+  expect(getInspectorMetadata).not.toHaveBeenCalled();
+});
+
+test("fetch-handler dispatches single-route inspector metadata", async () => {
+  const { getInspectorMetadata, metadata, runtime } =
+    setupInspectorMetadataRoute();
+  getInspectorMetadata.mockResolvedValue(metadata);
+  const onBeforeHandler = vi.fn();
+  const onResponse = vi.fn();
+  const handler = createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    mode: "single-route",
+    hooks: { onBeforeHandler, onResponse },
+  });
+
+  const response = await handler(
+    post("https://runtime.example/api/copilotkit", {
+      method: "inspector/metadata",
+    }),
+  );
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get("Cache-Control")).toBe("no-store, private");
+  await expect(response.json()).resolves.toEqual(metadata);
+  expect(getInspectorMetadata).toHaveBeenCalledWith();
+  expect(onBeforeHandler.mock.calls[0]?.[0].route).toEqual({
+    method: "inspector/metadata",
+  });
+  expect(onResponse.mock.calls[0]?.[0].route).toEqual({
+    method: "inspector/metadata",
+  });
+});
+
+test("fetch-handler keeps single-route provider failures isolated", async () => {
+  const { getInspectorMetadata, runtime } = setupInspectorMetadataRoute();
+  getInspectorMetadata.mockRejectedValue(new Error("provider unavailable"));
+  const handler = createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    mode: "single-route",
+  });
+
+  const response = await handler(
+    post("https://runtime.example/api/copilotkit", {
+      method: "inspector/metadata",
+    }),
+  );
+
+  expect(response.status).toBe(204);
+  expect(response.headers.get("Cache-Control")).toBe("no-store, private");
+  await expect(response.text()).resolves.toBe("");
 });

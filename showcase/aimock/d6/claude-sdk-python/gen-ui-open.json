@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-python / gen-ui-open",
+    "sourceScript": "d5-gen-ui-open.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-open pill — 3D axis visualization. The D5 script asserts at least one iframe[srcdoc] mounts with srcdoc length >= 100. The response must include a generateSandboxedUi tool call whose arguments contain HTML/CSS that will be rendered in an iframe.",
+      "match": {
+        "userMessage": "3D axis visualization",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_genui_3d_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":400,\"placeholderMessages\":[\"Rendering 3D axis visualization...\"],\"css\":\"body{margin:0;background:#0f172a;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui}canvas{border:1px solid #334155;border-radius:8px}\",\"html\":\"<div data-testid='ogui-3d-axis' style='padding:20px;text-align:center'><canvas id='c' width='300' height='300'></canvas><p style='color:#94a3b8;margin-top:8px'>3D Axis — Model Airplane</p></div>\",\"jsFunctions\":\"(function(){var c=document.getElementById('c');var ctx=c.getContext('2d');ctx.strokeStyle='#60a5fa';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(150,250);ctx.lineTo(150,50);ctx.stroke();ctx.strokeStyle='#34d399';ctx.beginPath();ctx.moveTo(150,150);ctx.lineTo(270,210);ctx.stroke();ctx.strokeStyle='#f472b6';ctx.beginPath();ctx.moveTo(150,150);ctx.lineTo(50,210);ctx.stroke();ctx.fillStyle='#e2e8f0';ctx.font='12px system-ui';ctx.fillText('Y',155,45);ctx.fillText('X',275,215);ctx.fillText('Z',35,215);})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "3D axis visualization",
+        "hasToolResult": true,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Here is a 3D axis visualization rendered in a sandboxed iframe. The three axes (X, Y, Z) are drawn on a canvas element representing the model airplane coordinate space."
+      }
+    }
+  ]
+}

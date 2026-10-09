@@ -10,7 +10,6 @@ so import failures are localized and testable.
 
 # @region[supervisor-delegation-tools]
 # @region[subagent-setup]
-# @region[backend-render-operations]
 # @region[weather-tool-backend]
 import json
 import logging
@@ -18,7 +17,7 @@ import os
 import threading
 import uuid
 from collections.abc import AsyncIterator, Mapping
-from typing import Any, Optional, TypedDict
+from typing import Any, Optional
 
 from ag_ui.core.events import (
     EventType,
@@ -34,6 +33,7 @@ from ag_ui.core.events import (
     ToolCallStartEvent,
 )
 from ag_ui.core.types import (
+    Context,
     AssistantMessage,
     FunctionCall,
     ToolCall,
@@ -54,16 +54,34 @@ from strands.hooks import (
     HookRegistry,
 )
 from strands.models.openai import OpenAIModel
+from strands.types.tools import ToolContext
 
 # Import shared tool implementations (symlinked at project root → ../../shared/python/tools)
 from tools import (
     get_weather_impl,
     query_data_impl,
-    manage_sales_todos_impl,
+    roll_dice_impl,
     schedule_meeting_impl,
     search_flights_impl,
-    build_a2ui_operations_from_tool_call,
 )
+
+from tools.todos import BoardTodoInput, manage_todos_impl
+
+# gen-ui-agent specialization (set_steps tool + state hook + prompt addendum).
+# The shared Strands backend serves every demo; this module lives in its own
+# file so the gen-ui-agent surface area is reviewable in isolation, matching
+# the wave-2 BYOC pattern (byoc_hashbrown.py / byoc_json_render.py).
+from agents.gen_ui_agent import (
+    GEN_UI_AGENT_PROMPT,
+    set_steps,
+    steps_state_from_args,
+)
+
+# Dynamic A2UI generation (`generate_a2ui` + its structured error shape). Its
+# own module for the same reason as gen_ui_agent above — and so the docs'
+# `backend-render-operations` snippet is that tool rather than all of agent.py.
+from agents.a2ui_generate import generate_a2ui
+from agents.todo_state_sync import TodoStateAgent, TodoStateHook
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +131,8 @@ class _MessagesSnapshotWrapper:
     async def run(self, input_data: Any) -> AsyncIterator[Any]:
         """Wrap ``delegate.run()`` and inject ``MessagesSnapshotEvent``."""
 
+        input_data = with_state_context(input_data)
+
         # Seed the snapshot message list from the full conversation
         # history that CopilotKit sends with every request.  This way
         # each MESSAGES_SNAPSHOT contains the *complete* thread state
@@ -123,13 +143,10 @@ class _MessagesSnapshotWrapper:
             for msg in input_data.messages:
                 msg_id = getattr(msg, "id", None) or str(uuid.uuid4())
                 if msg.role == "user":
-                    content = (
-                        msg.content
-                        if isinstance(msg.content, str)
-                        else str(msg.content)
-                    )
+                    # Preserve typed attachments, their sources, and filenames
+                    # in the replay snapshot just as they arrived on the wire.
                     messages.append(
-                        UserMessage(id=msg_id, role="user", content=content)
+                        UserMessage(id=msg_id, role="user", content=msg.content)
                     )
                 elif msg.role == "assistant":
                     tool_calls_list = None
@@ -304,20 +321,6 @@ class _MessagesSnapshotWrapper:
                 continue
 
 
-class _A2uiError(TypedDict):
-    """Shape of the structured error dict returned by generate_a2ui branches.
-
-    Mirrors the google-adk and langroid sibling agents' error shape — keep
-    all three in sync. Every error branch MUST populate all three keys so
-    callers (and the LLM summarizing the tool result) see a consistent
-    surface.
-    """
-
-    error: str
-    message: str
-    remediation: str
-
-
 # ---- Tools --------------------------------------------------------------
 
 
@@ -338,6 +341,21 @@ def get_weather(location: str):
 
 
 @tool
+def roll_dice(sides: int):
+    """Roll a die with the given number of sides and return the result.
+
+    Use for any dice-rolling request (e.g. 'roll a d20' -> sides=20).
+
+    Args:
+        sides: Number of sides (e.g. 20 for a d20)
+
+    Returns:
+        Roll result as JSON string
+    """
+    return json.dumps(roll_dice_impl(sides))
+
+
+@tool
 def query_data(query: str):
     """Query financial database for chart data.
 
@@ -352,11 +370,42 @@ def query_data(query: str):
     return json.dumps(query_data_impl(query))
 
 
-@tool
-def manage_sales_todos(todos: list[dict]):
+# Native agent state key holding the sales pipeline. A configured Strands
+# SessionManager persists ``agent.state`` with the session and restores it on
+# the next agent built for the same session. The STATE_SNAPSHOT emitted by
+# ``sales_state_from_args`` only carries the list to the UI.
+SALES_TODOS_STATE_KEY = "todos"
+
+
+def _process_sales_todos(todos: list, tool_use_id: str | None) -> list[dict]:
+    """Run the shared impl, giving new items ids derived from the tool call.
+
+    ``sales_state_from_args`` (UI snapshot, emitted before the tool runs) and
+    ``manage_sales_todos`` (native state) process the same arguments
+    separately. Deriving a missing id from the tool call id and position keeps
+    both copies identical instead of each drawing its own random id.
+    """
+    if tool_use_id:
+        todos = [
+            {
+                **todo,
+                "id": str(uuid.uuid5(uuid.NAMESPACE_URL, f"{tool_use_id}/{index}")),
+            }
+            if isinstance(todo, dict) and not todo.get("id")
+            else todo
+            for index, todo in enumerate(todos)
+        ]
+    return [dict(todo) for todo in manage_todos_impl(todos)]
+
+
+@tool(context=True)
+def manage_sales_todos(todos: list[BoardTodoInput], tool_context: ToolContext):
     """Manage the sales pipeline by replacing the entire list of todos.
 
-    IMPORTANT: Always provide the entire list, not just new items.
+    CRITICAL: Read get_sales_todos first and provide the entire list, not just
+    changed items. Copy every existing id exactly; omit id only for new items.
+    Preserve titles, descriptions, emoji and metadata on unchanged items.
+    Use status pending or completed for board tasks; do not use completed.
 
     Args:
         todos: The complete updated list of sales todos
@@ -364,33 +413,34 @@ def manage_sales_todos(todos: list[dict]):
     Returns:
         Success message
     """
-    result = manage_sales_todos_impl(todos)
+    result = _process_sales_todos(todos, tool_context.tool_use.get("toolUseId"))
+    tool_context.agent.state.set(SALES_TODOS_STATE_KEY, result)
     return f"Sales todos updated. Tracking {len(result)} item(s)."
 
 
-@tool
-def get_sales_todos():
-    """Get the current sales pipeline todos.
+@tool(context=True)
+def get_sales_todos(tool_context: ToolContext):
+    """Read the authoritative saved todo list for this conversation.
 
-    Returns:
-        Instruction to check the sales pipeline in context
+    Call before updating todos. Preserve the returned ids exactly.
     """
-    return "Check the sales pipeline provided in the context."
+    return tool_context.agent.state.get(SALES_TODOS_STATE_KEY) or []
 
 
-# @region[backend-interrupt-tool]
 # @region[backend-tool-call]
-# Strands has no native interrupt primitive, so the gen-ui-interrupt and
-# interrupt-headless demos register `schedule_meeting` as a frontend tool
-# via `useFrontendTool`. Its async handler returns a Promise that only
-# resolves once the user picks a slot or cancels in the in-chat picker
-# (the Strands shim for LangGraph's `interrupt()` / `resolve()` pair).
+# `hitl-in-chat` registers `schedule_meeting` as a FRONTEND tool, so its async
+# handler resolves only once the user picks a slot or cancels in the in-chat
+# picker.
 #
 # This `@tool` declaration is the backend's contract with the LLM: the
 # docstring and signature are what the model sees when deciding to call
 # `schedule_meeting`. CopilotKit's runtime routes the call to the frontend
-# handler registered with `useFrontendTool` (same name), so the local
+# handler registered with the same name, so the local
 # `schedule_meeting_impl` body acts as a fallback for non-UI invocations.
+#
+# The interrupt demos do NOT use this tool. They run against the dedicated
+# `agents/interrupt_agent.py`, whose `schedule_meeting` pauses itself with
+# Strands' native `tool_context.interrupt(...)`.
 @tool
 def schedule_meeting(reason: str):
     """Schedule a meeting with user approval.
@@ -408,7 +458,6 @@ def schedule_meeting(reason: str):
 
 
 # @endregion[backend-tool-call]
-# @endregion[backend-interrupt-tool]
 
 
 @tool
@@ -435,156 +484,12 @@ def search_flights(flights: list[dict]):
     return json.dumps(result)
 
 
-# The `generate_a2ui` tool runs a secondary LLM call with a forced
-# `render_a2ui` tool, then converts that tool call's args into the
-# A2UI `a2ui_operations` container via
-# `build_a2ui_operations_from_tool_call`. The ag_ui_strands middleware
-# detects the container in the tool result and forwards the ops to
-# the frontend, which resolves component names through the registered
-# catalog (`copilotkit://generative-catalog`).
-@tool
-def generate_a2ui(context: str) -> str:
-    """Generate dynamic A2UI components based on the conversation.
-
-    A secondary LLM designs the UI schema and data. The result is
-    returned as an a2ui_operations container for the middleware to detect.
-
-    Error branches return a JSON-serialized ``_A2uiError`` dict rather
-    than raising, so OpenAI transport / quota / auth failures surface to
-    the LLM as a structured tool result (not an uncaught exception in the
-    strands tool machinery). See ``_A2uiError`` above.
-
-    Args:
-        context: Conversation context to generate UI from
-
-    Returns:
-        A2UI operations (or ``_A2uiError``) as JSON string
-    """
-    tool_schema = {
-        "type": "function",
-        "function": {
-            "name": "render_a2ui",
-            "description": "Render a dynamic A2UI v0.9 surface.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "surfaceId": {"type": "string"},
-                    "catalogId": {"type": "string"},
-                    "components": {"type": "array", "items": {"type": "object"}},
-                    "data": {"type": "object"},
-                },
-                "required": ["surfaceId", "catalogId", "components"],
-            },
-        },
-    }
-
-    # Wrap the OpenAI call so raw SDK / transport failures do NOT bubble up
-    # through the strands tool machinery as uncaught exceptions. Return a
-    # structured error with remediation instead — the LLM can surface this
-    # to the user. Mirrors the google-adk and langroid sibling agents'
-    # error-handling shape — keep all three in sync.
-    #
-    # Exception scope is broad on the SDK side but still bounded:
-    #   * ``openai.OpenAIError`` covers config-time failures (e.g. from
-    #     ``OpenAI()`` constructor when ``OPENAI_API_KEY`` is unset).
-    #     ``APIError`` subclasses (RateLimitError, APIConnectionError,
-    #     AuthenticationError, BadRequestError, etc.) are also caught via
-    #     the broader ``except`` tuple. Verified against ``openai>=1.0`` —
-    #     re-check hierarchy on major version bumps.
-    #   * ``httpx.HTTPError`` covers transport failures (ConnectError,
-    #     ReadTimeout, RemoteProtocolError) that can escape below the SDK's
-    #     wrap layer in rare cases.
-    # Programmer errors (AttributeError, NameError, TypeError from bad
-    # kwargs, etc.) still propagate so bugs are not silently swallowed as
-    # "LLM error". Note the client construction itself is inside the try
-    # block for the same reason.
-    import openai as _openai_mod
-    import httpx as _httpx_mod
-
-    try:
-        client = _openai_mod.OpenAI()
-        response = client.chat.completions.create(
-            model="gpt-4.1",
-            messages=[
-                {
-                    "role": "system",
-                    "content": context or "Generate a useful dashboard UI.",
-                },
-                {
-                    "role": "user",
-                    "content": "Generate a dynamic A2UI dashboard based on the conversation.",
-                },
-            ],
-            tools=[tool_schema],
-            tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
-        )
-    except (_openai_mod.OpenAIError, _httpx_mod.HTTPError) as exc:
-        logger.exception("generate_a2ui: OpenAI API call failed")
-        return json.dumps(
-            _A2uiError(
-                error="a2ui_llm_error",
-                message=f"Secondary A2UI LLM call failed: {exc.__class__.__name__}",
-                remediation=(
-                    "Verify OPENAI_API_KEY is set and the OpenAI service is reachable. "
-                    "See server logs for the full traceback."
-                ),
-            )
-        )
-
-    if not response.choices:
-        logger.warning("generate_a2ui: OpenAI response contained no choices")
-        return json.dumps(
-            _A2uiError(
-                error="a2ui_empty_response",
-                message="Secondary A2UI LLM returned no choices.",
-                remediation="Retry; if this persists, check OpenAI status.",
-            )
-        )
-
-    tool_calls = response.choices[0].message.tool_calls
-    if not tool_calls:
-        logger.warning(
-            "generate_a2ui: OpenAI response had no tool_calls despite forced tool_choice"
-        )
-        return json.dumps(
-            _A2uiError(
-                error="a2ui_no_tool_call",
-                message="Secondary A2UI LLM did not call render_a2ui.",
-                remediation=(
-                    "Retry the request. If this persists, verify the tool_choice "
-                    "schema matches the OpenAI API contract."
-                ),
-            )
-        )
-
-    tool_call = tool_calls[0]
-    try:
-        args = json.loads(tool_call.function.arguments)
-    except (ValueError, TypeError) as exc:
-        logger.exception(
-            "generate_a2ui: failed to parse render_a2ui tool arguments as JSON"
-        )
-        return json.dumps(
-            _A2uiError(
-                error="a2ui_invalid_arguments",
-                message=f"Could not parse render_a2ui arguments: {exc}",
-                remediation="Retry the request; the secondary LLM emitted malformed JSON.",
-            )
-        )
-
-    result = build_a2ui_operations_from_tool_call(args)
-    return json.dumps(result)
-
-
-# @endregion[backend-render-operations]
-
-
 @tool
 def set_theme_color(theme_color: str):
     """Change the theme color of the UI.
 
     This is a frontend tool - it returns None as the actual
-    execution happens on the frontend via useFrontendTool.
+    execution happens through the frontend tool registration.
 
     Args:
         theme_color: The color to set as theme
@@ -595,8 +500,8 @@ def set_theme_color(theme_color: str):
 # ---- Shared State (Read + Write) demo ----------------------------------
 #
 # The frontend's `shared-state-read-write` page writes a `preferences`
-# object into agent state via `agent.setState()`. ``build_state_prompt``
-# reads it from ``input_data.state`` and prepends a system-style line so
+# object into agent state via `agent.setState()`. ``with_state_context``
+# copies it from ``input_data.state`` into transient request context so
 # the LLM sees the user's preferred name / tone / language / interests on
 # every turn. The agent in turn uses ``set_notes`` to mutate
 # ``state["notes"]``; ``notes_state_from_args`` emits a ``StateSnapshotEvent``
@@ -667,6 +572,72 @@ async def notes_state_from_args(context):
     return {"notes": cleaned}
 
 
+# ---- Shared State (Streaming) demo --------------------------------------
+#
+# The shared-state-streaming demo writes a document into ``state["document"]``
+# via a ``write_document`` tool; the frontend subscribes to state changes and
+# renders ``state.document`` live. Mirrors langgraph-python's
+# ``StateStreamingMiddleware`` target. Strands updates state from the complete
+# tool args (not per-token), which the d5 probe tolerates — it only asserts the
+# document grew substantively after settle, not mid-stream chunking.
+
+
+@tool
+def write_document(document: str):
+    """Write a document for the user.
+
+    Call this whenever the user asks you to write, draft, or revise any
+    piece of text (a poem, email, essay, summary, etc.). Pass the FULL
+    content as a single string in the ``document`` argument — the document
+    lives in shared state and the UI renders it live; never paste it into a
+    chat message.
+
+    Args:
+        document: The full document content as a single string.
+
+    Returns:
+        Confirmation string for the LLM to summarise back to the user.
+    """
+    return "Document written to shared state."
+
+
+async def document_state_from_args(context):
+    """Emit a StateSnapshotEvent for the ``document`` slot when
+    ``write_document`` fires. Accepts str-or-dict tool input, mirrors
+    ``notes_state_from_args`` shape."""
+    raw_input = getattr(context, "tool_input", None)
+    if raw_input is None:
+        logger.warning("document_state_from_args: context has no tool_input")
+        return None
+
+    tool_input = raw_input
+    if isinstance(tool_input, str):
+        try:
+            tool_input = json.loads(tool_input)
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "document_state_from_args: malformed JSON tool input (%s); input excerpt: %s",
+                exc,
+                repr(raw_input)[:200],
+            )
+            return None
+
+    if isinstance(tool_input, dict):
+        document = tool_input.get("document")
+    elif isinstance(tool_input, str):
+        document = tool_input
+    else:
+        logger.warning(
+            "document_state_from_args: unsupported tool_input type %s",
+            type(tool_input).__name__,
+        )
+        return None
+
+    if not isinstance(document, str) or not document:
+        return None
+    return {"document": document}
+
+
 # ---- Sub-Agents demo ----------------------------------------------------
 #
 # A supervisor LLM (this top-level Strands Agent) delegates to three
@@ -723,9 +694,9 @@ def _seed_delegations_from_state(thread_id: str, state) -> list[dict]:
     """Initialise the per-thread scratchpad from the inbound state.
 
     Called lazily from each delegation tool. The frontend persists
-    ``state["delegations"]`` across runs via ``useAgent``, so a multi-turn
-    conversation should APPEND to the prior list rather than overwriting
-    it.
+    ``state["delegations"]`` across runs through its agent store, so a
+    multi-turn conversation should APPEND to the prior list rather than
+    overwriting it.
     """
     with _delegations_lock:
         if thread_id in _delegations_by_thread:
@@ -782,7 +753,7 @@ def _invoke_subagent_llm(system_prompt: str, task: str) -> str:
     try:
         client = _openai_mod.OpenAI()
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-5-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": task},
@@ -971,6 +942,23 @@ def _flatten_tool_result(result_data) -> str:
     return str(result_data)
 
 
+async def sales_state_from_result(context):
+    """Republish authoritative reads when a reconnect has no local board."""
+    result = getattr(context, "result_data", None)
+    # The adapter parses the SDK's JSON text into a native list. Preserve that
+    # list directly: _flatten_tool_result's str(list) is not valid JSON.
+    if isinstance(result, list) and all(
+        isinstance(todo, dict) and ("title" in todo or "text" not in todo)
+        for todo in result
+    ):
+        todos = result
+    else:
+        todos = json.loads(_flatten_tool_result(result))
+    if not isinstance(todos, list) or not all(isinstance(todo, dict) for todo in todos):
+        raise ValueError("get_sales_todos returned an invalid todo list")
+    return {"todos": todos}
+
+
 # ---- State management ---------------------------------------------------
 
 
@@ -1003,99 +991,29 @@ def _format_preferences_block(prefs: dict) -> Optional[str]:
     )
 
 
-def _recover_original_user_message(input_data) -> Optional[str]:
-    """Extract the original user message for HITL continuation runs.
+def with_state_context(input_data):
+    """Copy current UI state into transient AG-UI context, preserving user text.
 
-    When a frontend tool (HITL) completes, ag_ui_strands synthesizes a
-    generic user message like ``"tool_name executed successfully with no
-    return value."`` and passes it to the state_context_builder.  This
-    synthetic message breaks aimock fixture matching which keys on the
-    *original* user message (e.g. ``"trip to mars"``).
-
-    We detect the continuation case — messages end with
-    ``[assistant(tool_calls), tool]`` — and walk backwards to find the
-    last *real* user message preceding the tool-call assistant turn.
-    Returns ``None`` when the conversation is not a HITL continuation.
+    The adapter supplies context during model calls and restores native history
+    afterward, including tool continuations. Never use state_context_builder to
+    prepend application instructions to durable user messages.
     """
-    messages = getattr(input_data, "messages", None)
-    if not messages or len(messages) < 3:
-        return None
-
-    # Check if messages end with [..., assistant(tool_calls), tool].
-    # That pattern signals a HITL continuation run.
-    last = messages[-1]
-    second_last = messages[-2]
-    if not (
-        getattr(last, "role", None) == "tool"
-        and getattr(second_last, "role", None) == "assistant"
-        and getattr(second_last, "tool_calls", None)
-    ):
-        return None
-
-    # Walk backwards from the assistant turn to find the real user message.
-    for i in range(len(messages) - 3, -1, -1):
-        msg = messages[i]
-        if getattr(msg, "role", None) == "user":
-            content = getattr(msg, "content", None)
-            if isinstance(content, str) and content.strip():
-                return content
-            if isinstance(content, list):
-                texts = [
-                    p.get("text", "") if isinstance(p, dict) else str(p)
-                    for p in content
-                ]
-                joined = " ".join(t for t in texts if t).strip()
-                if joined:
-                    return joined
-    return None
-
-
-def build_state_prompt(input_data, user_message: str) -> str:
-    """Inject UI-owned shared state slots into the outgoing prompt.
-
-    Handles every demo whose backend reads from ``state``:
-
-    * ``shared-state-read-write`` — preferences (name, tone, language,
-      interests) written by the UI via ``agent.setState``.
-    * sales pipeline (legacy ``manage_sales_todos`` flow) — todos seeded
-      by the agent and re-rendered in cards.
-
-    For HITL continuation runs, the synthetic ``"tool_name executed
-    successfully..."`` message is replaced with the original user message
-    from the conversation history, so aimock fixture matching (which keys
-    on ``userMessage``) continues to work across turns.
-
-    All branches degrade to the original ``user_message`` when the
-    relevant slot is missing.
-    """
-    # On HITL continuation runs, recover the real user message so aimock
-    # can match the correct fixture (keyed on the original userMessage).
-    recovered = _recover_original_user_message(input_data)
-    if recovered is not None:
-        user_message = recovered
-
-    state_dict = getattr(input_data, "state", None)
-    if not isinstance(state_dict, dict):
-        return user_message
-
-    blocks: list[str] = []
-
-    prefs_block = _format_preferences_block(state_dict.get("preferences") or {})
-    if prefs_block:
-        blocks.append(prefs_block)
-
-    if "todos" in state_dict:
-        todos_json = json.dumps(state_dict["todos"], indent=2)
-        blocks.append(f"Current sales pipeline:\n{todos_json}")
-
-    if not blocks:
-        return user_message
-
-    return "\n\n".join(blocks) + f"\n\nUser request: {user_message}"
-
-
-# Back-compat alias: tests / scripts may import the old name.
-build_sales_prompt = build_state_prompt
+    context = list(input_data.context)
+    state = input_data.state
+    if isinstance(state, dict):
+        preferences = _format_preferences_block(state.get("preferences") or {})
+        if preferences:
+            context.append(
+                Context(description="Current user preferences", value=preferences)
+            )
+        if "todos" in state:
+            context.append(
+                Context(
+                    description="Current sales pipeline",
+                    value=json.dumps(state["todos"], indent=2),
+                )
+            )
+    return input_data.model_copy(update={"context": context})
 
 
 async def sales_state_from_args(context):
@@ -1152,8 +1070,8 @@ async def sales_state_from_args(context):
     if not isinstance(todos_data, list):
         return None
 
-    processed = manage_sales_todos_impl(todos_data)
-    return {"todos": [dict(t) for t in processed]}
+    processed = _process_sales_todos(todos_data, getattr(context, "tool_use_id", None))
+    return {"todos": processed}
 
 
 # ---- Loop guard ---------------------------------------------------------
@@ -1412,6 +1330,21 @@ class _HookInjectingAgentDict(dict):
 # ---- Factory ------------------------------------------------------------
 
 
+DEFAULT_MODEL = "gpt-5-mini"
+
+
+def model_id() -> str:
+    """Resolve the chat model at call time.
+
+    Read here rather than at module scope: the agent server imports this module
+    before it calls `load_dotenv()`, so a module-level read would always miss an
+    override from the environment file. Mirrors the TypeScript integration,
+    which already honours `MODEL_ID`, so both columns can be pointed at another
+    model without a rebuild.
+    """
+    return os.environ.get("MODEL_ID", DEFAULT_MODEL)
+
+
 def _build_model() -> OpenAIModel:
     """Construct the OpenAI model, failing fast on missing credentials."""
     api_key = os.getenv("OPENAI_API_KEY", "")
@@ -1419,7 +1352,7 @@ def _build_model() -> OpenAIModel:
         raise RuntimeError("OPENAI_API_KEY must be set for the strands showcase agent")
     return OpenAIModel(
         client_args={"api_key": api_key},
-        model_id="gpt-4o",
+        model_id=model_id(),
     )
 
 
@@ -1436,6 +1369,9 @@ SYSTEM_PROMPT = (
     "- Search flights and display rich A2UI cards (via search_flights tool)\n"
     "- Generate dynamic A2UI dashboards from conversation context (via generate_a2ui tool)\n"
     "- Generate step-by-step plans for user review (human-in-the-loop)\n"
+    "- Plan and execute multi-step tasks with a live progress card by "
+    "calling `set_steps` on every status transition (see planner mode "
+    "instructions below)\n"
     "- Remember things the user tells you by calling `set_notes` with the FULL "
     "updated list of short note strings (existing notes + new). The UI "
     "renders these in a notes panel.\n"
@@ -1448,7 +1384,8 @@ SYSTEM_PROMPT = (
     "When discussing the sales pipeline, ALWAYS use the get_sales_todos tool to see the current list before "
     "mentioning, updating, or discussing todos with the user.\n"
     "When the user shares preferences (name, tone, language, interests), they will be "
-    "supplied in a system-style block at the top of every turn — respect them."
+    "supplied in a system-style block at the top of every turn — respect them.\n\n"
+    + GEN_UI_AGENT_PROMPT
 )
 
 
@@ -1465,22 +1402,13 @@ def build_showcase_agent(
     resolved_model = model if model is not None else _build_model()
 
     shared_state_config = StrandsAgentConfig(
-        state_context_builder=build_state_prompt,
         tool_behaviors={
             "manage_sales_todos": ToolBehavior(
-                skip_messages_snapshot=True,
+                # State updates also need their call/result in replayable history.
                 state_from_args=sales_state_from_args,
             ),
-            # get_weather is used by the tool-rendering demo. The frontend
-            # renders a weather card from the tool result via useRenderTool.
-            # There is no need for the agent to continue streaming a text
-            # summary afterwards -- the card IS the response. Halting after
-            # the first tool result also protects against upstream LLM/mock
-            # loops (e.g. aimock's fuzzy fixture matching on "weather"
-            # returns the same get_weather tool call every turn, which would
-            # otherwise recurse indefinitely).
-            "get_weather": ToolBehavior(
-                stop_streaming_after_result=True,
+            "get_sales_todos": ToolBehavior(
+                state_from_result=sales_state_from_result,
             ),
             # Shared State (Read + Write) — the agent writes notes to
             # `state["notes"]` via the `set_notes` tool. Emit a snapshot
@@ -1488,6 +1416,19 @@ def build_showcase_agent(
             # without waiting for the full text-response to stream.
             "set_notes": ToolBehavior(
                 state_from_args=notes_state_from_args,
+            ),
+            # Shared State (Streaming) — write_document streams the document
+            # string into state["document"] so the DocumentView renders it.
+            "write_document": ToolBehavior(
+                state_from_args=document_state_from_args,
+            ),
+            # gen-ui-agent — the planner writes the full step list to
+            # `state["steps"]` via `set_steps` on every transition. Emit a
+            # snapshot the moment the tool fires so the UI's progress card
+            # re-renders pending → in_progress → completed in-place without
+            # waiting for the text response to stream.
+            "set_steps": ToolBehavior(
+                state_from_args=steps_state_from_args,
             ),
             # Sub-Agents — every delegation appends to
             # `state["delegations"]`. Use `state_from_result` rather than
@@ -1514,11 +1455,14 @@ def build_showcase_agent(
             manage_sales_todos,
             get_weather,
             query_data,
+            roll_dice,
             schedule_meeting,
             search_flights,
             generate_a2ui,
             set_theme_color,
             set_notes,
+            set_steps,
+            write_document,
             research_agent,
             writing_agent,
             critique_agent,
@@ -1530,6 +1474,7 @@ def build_showcase_agent(
         name="strands_agent",
         description="A sales assistant that collaborates with you to manage a sales pipeline",
         config=shared_state_config,
+        hooks=[TodoStateHook()],
     )
 
     # Replace the per-thread agent dict with our hook-injecting variant.
@@ -1545,4 +1490,4 @@ def build_showcase_agent(
     # Wrap with MessagesSnapshot injection so the CopilotKit frontend
     # can build its message tree from tool-call responses. See the
     # class docstring for why this is needed.
-    return _MessagesSnapshotWrapper(agui_agent)
+    return _MessagesSnapshotWrapper(TodoStateAgent(agui_agent))

@@ -8,6 +8,8 @@ import com.copilotkit.showcase.springai.tools.ScheduleMeetingTool;
 import com.copilotkit.showcase.springai.tools.GetSalesTodosTool;
 import com.copilotkit.showcase.springai.tools.ManageSalesTodosTool;
 import com.copilotkit.showcase.springai.tools.SearchFlightsTool;
+import com.copilotkit.showcase.springai.tools.GetStockPriceTool;
+import com.copilotkit.showcase.springai.tools.RollD20Tool;
 import com.copilotkit.showcase.springai.tools.GenerateA2uiTool;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.function.FunctionToolCallback;
@@ -44,6 +46,8 @@ public class AgentConfig {
                     You can schedule meetings using the schedule_meeting tool.
                     You can manage the sales pipeline using get_sales_todos and manage_sales_todos tools.
                     You can search for flights using the search_flights tool.
+                    You can look up stock prices using the get_stock_price tool.
+                    You can roll a 20-sided die using the roll_d20 tool.
                     You can generate dynamic UI using the generate_a2ui tool.
                     For other tools (change_background, generate_haiku, generate_task_steps,
                     pieChart, barChart, scheduleTime, toggleTheme),
@@ -54,6 +58,8 @@ public class AgentConfig {
                     When asked to schedule a meeting, use the schedule_meeting tool.
                     When asked about the sales pipeline or deals, use get_sales_todos first.
                     When asked to search for flights, use the search_flights tool.
+                    When asked about a stock or ticker price, use the get_stock_price tool.
+                    When asked to roll a die, use the roll_d20 tool.
                     Keep responses concise and helpful.
                     """)
                 .toolCallback(
@@ -90,6 +96,18 @@ public class AgentConfig {
                     FunctionToolCallback.builder("search_flights", new SearchFlightsTool())
                         .description("Search for available flights between two cities")
                         .inputType(SearchFlightsTool.Request.class)
+                        .build()
+                )
+                .toolCallback(
+                    FunctionToolCallback.builder("get_stock_price", new GetStockPriceTool())
+                        .description("Get a mock current price for a stock ticker")
+                        .inputType(GetStockPriceTool.Request.class)
+                        .build()
+                )
+                .toolCallback(
+                    FunctionToolCallback.builder("roll_d20", new RollD20Tool())
+                        .description("Roll a 20-sided die")
+                        .inputType(RollD20Tool.Request.class)
                         .build()
                 )
                 .toolCallback(

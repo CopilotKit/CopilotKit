@@ -1,0 +1,22 @@
+---
+title: Header
+description: Render a portable title row in a Slack Block Kit message or Teams Adaptive Card.
+---
+
+`Header` renders prominent text near the top of a message.
+
+```tsx
+import { Header, Message } from "@copilotkit/channels/ui";
+
+<Message>
+  <Header>INC-421 · Investigating</Header>
+</Message>;
+```
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `children` | `BotChildren` | Text and nested portable content. |
+
+Managed Slack renders a plain-text header block. Managed Teams renders a large,
+bold, wrapping `TextBlock`. Keep the header short; each provider clamps text to
+its native payload budget.

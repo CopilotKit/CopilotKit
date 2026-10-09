@@ -1,5 +1,5 @@
 import { useTrips } from "@/lib/hooks/use-trips";
-import { Map } from "leaflet";
+import type { Map } from "leaflet";
 import { Button } from "./ui/button";
 import { Trash, MoreHorizontal } from "lucide-react";
 import {
@@ -11,7 +11,7 @@ import {
 import { EditPlace } from "./EditPlace";
 import { useState } from "react";
 import { PlaceCard } from "./PlaceCard";
-import { Place } from "@/lib/types";
+import type { Place } from "@/lib/types";
 
 export type PlaceProps = {
   place: Place;

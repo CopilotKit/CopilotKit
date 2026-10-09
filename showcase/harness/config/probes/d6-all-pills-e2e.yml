@@ -1,0 +1,86 @@
+# Probe: d6-all-pills-e2e (D6 -- "everything works" completeness)
+#
+# Drives a Playwright multi-turn conversation through EVERY demo cell
+# for each showcase Railway service. Where e2e-deep (D5) picks ONE
+# representative per feature type, this probe runs ALL cells.
+#
+# Rows emitted per driver invocation:
+#   - Primary `d6-all-pills-e2e:<name>`  Aggregate ProbeResult.
+#   - Side    `d6:<slug>`                Green only if ALL cells pass.
+#   - Side    `d6:<slug>/<demoId>`       Per-cell diagnostic (not consumed
+#                                        by dashboard rollup).
+#
+# -- Cadence: hourly at :40 --
+#
+# :40 is offset off every other Playwright probe so none co-fire for the
+# shared browser pool: e2e-smoke (`*/15` = :00/:15/:30/:45), e2e-demos (:10),
+# and e2e-deep/D5 (:05/:20/:35/:50). With BROWSER_POOL_BROWSERS=3
+# chromium processes and FEATURE_CONCURRENCY=4, the slowest round of the
+# fan-out runs ~200s per service under CPU contention.
+#
+# -- timeout_ms: 1_200_000 (20 min) --
+# -- max_concurrency: 5 --
+#
+# Fleet sizing: discovery now enumerates ~18 showcase demo services (NOT the
+# legacy "8 services x 4 features" assumption this header carried before).
+# With max_concurrency: 5, the fan-out runs in ceil(18/5) = 4 serialized
+# rounds. Later rounds start late and execute under CPU contention, so each
+# service's wall-clock stretches toward ~200s. The previous 600_000 (10 min)
+# outer cap was sized for a single round; under multiple rounds the late
+# rounds blew the per-service budget and ALL 18 services went red with
+# `driver timeout after 600000ms`. The corrected 1_200_000 (20 min) cap fits
+# 4 rounds x ~200s with comfortable headroom and matches the sibling
+# 18-service `e2e-demos` probe (same fleet, same 20-min budget). The
+# concurrency itself (5, lowered from 8) is justified in the OVERLAP block
+# below — the round count here is just the budget-sizing consequence.
+#
+# -- Concurrency LOWERED 8 -> 5: cgroup pids.max=1000 ceiling, OVERLAP case --
+#
+# The PROVEN wedge is OS thread/PID exhaustion against the container cgroup
+# `pids.max=1000` ceiling: each concurrent feature-worker drives a chromium
+# renderer (~15 threads), and the live wedge peaked 998/1000 specifically
+# during a d6+d5 OVERLAP — the simultaneous renderers of BOTH probes summed
+# past the ceiling → pthread_create EAGAIN → "Target page ... has been closed"
+# → crash-loop. Fewer concurrent d6 feature-workers cut the simultaneous-
+# renderer thread peak, leaving headroom for a co-firing d5 (or a recovery
+# relaunch) without crossing 1000. This is the complementary lever to
+# BROWSER_POOL_MAX_CONTEXTS (already lowered 40 -> 24): max_concurrency caps
+# the d6 fan-out width (the overlap-peak driver), the context cap bounds the
+# global context/renderer count. 5 services x 4 features = 20 concurrent
+# contexts, comfortably under the 24-context global cap with overlap room.
+kind: e2e_d6
+id: d6-all-pills-e2e
+schedule: "40 * * * *"
+timeout_ms: 1200000
+max_concurrency: 5
+discovery:
+  source: railway-services
+  filter:
+    namePrefix: "showcase-"
+    nameExcludes:
+      - showcase-aimock
+      - showcase-harness
+      - showcase-pocketbase
+      - showcase-shell
+      - showcase-shell-dashboard
+      - showcase-shell-docs
+      - showcase-shell-dojo
+      # Decommissioned starters
+      - showcase-starter-ag2
+      - showcase-starter-agno
+      - showcase-starter-claude-sdk-python
+      - showcase-starter-claude-sdk-typescript
+      - showcase-starter-crewai-crews
+      - showcase-starter-google-adk
+      - showcase-starter-langgraph-fastapi
+      - showcase-starter-langgraph-python
+      - showcase-starter-langgraph-typescript
+      - showcase-starter-langroid
+      - showcase-starter-llamaindex
+      - showcase-starter-mastra
+      - showcase-starter-ms-agent-dotnet
+      - showcase-starter-ms-agent-python
+      - showcase-starter-pydantic-ai
+      - showcase-starter-spring-ai
+      - showcase-starter-strands
+  key_template: "d6-all-pills-e2e:${name}"

@@ -19,11 +19,8 @@
  */
 
 import React from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import { Chat } from "./chat";
 
 export default function MCPAppsDemo() {
   // @region[no-frontend-renderer-needed]
@@ -40,23 +37,4 @@ export default function MCPAppsDemo() {
     </CopilotKit>
   );
   // @endregion[no-frontend-renderer-needed]
-}
-
-function Chat() {
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Draw a flowchart",
-        message: "Use Excalidraw to draw a simple flowchart with three steps.",
-      },
-      {
-        title: "Sketch a system diagram",
-        message:
-          "Open Excalidraw and sketch a system diagram with a client, server, and database.",
-      },
-    ],
-    available: "always",
-  });
-
-  return <CopilotChat agentId="mcp-apps" className="h-full rounded-2xl" />;
 }

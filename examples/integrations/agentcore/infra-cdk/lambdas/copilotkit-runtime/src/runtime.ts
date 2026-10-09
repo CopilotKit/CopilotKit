@@ -2,15 +2,21 @@
  * Shared CopilotKit runtime — the single source of truth.
  * Imported by index.ts (Lambda) and server.ts (local dev).
  */
-import { EventType, HttpAgent, type BaseEvent } from "@ag-ui/client";
+import { EventType, HttpAgent } from "@ag-ui/client";
+import type { BaseEvent } from "@ag-ui/client";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import {
+  CopilotKitIntelligence,
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { concatMap, of } from "rxjs";
 import { randomUUID } from "node:crypto";
+import {
+  resolveLocalRuntimeUser,
+  resolveVerifiedRuntimeUser,
+} from "./identity.js";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -22,7 +28,7 @@ export function buildAgents(): Record<string, HttpAgent> {
   const agentUrl = requireEnv("AGENTCORE_AG_UI_URL");
   const agentName = process.env.COPILOTKIT_AGENT_NAME ?? "default";
   const mcpServerUrl =
-    process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com";
+    process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com/mcp";
 
   const agent = new HttpAgent({ url: agentUrl, headers: {} });
   agent.use(
@@ -36,21 +42,7 @@ export function buildAgents(): Record<string, HttpAgent> {
   return { [agentName]: agent };
 }
 
-/**
- * AgentCore stores conversation history in its own memory layer (AgentCoreMemorySaver /
- * AgentCoreMemorySessionManager). When CopilotKit reconnects to an existing thread
- * (e.g. page refresh), it calls `connect()` which replays that stored history as a
- * MESSAGES_SNAPSHOT event. Two issues arise from this that this runner fixes:
- *
- * 1. Unknown threads — CopilotKit may call `connect()` for a thread it has never
- *    `run()` against (e.g. on first load). The base runner would error; instead we
- *    return an empty snapshot so the UI initialises cleanly.
- *
- * 2. Missing tool-call results — AgentCore's snapshot includes assistant messages
- *    with tool calls, but the corresponding TOOL_CALL_RESULT events are absent.
- *    CopilotKit needs those results to reconcile its internal message state. We
- *    synthesise empty results for every past tool call before emitting the snapshot.
- */
+/** Preserves AgentCore snapshot replay behavior for local and managed threads. */
 export class AgentCoreRunner extends InMemoryAgentRunner {
   private readonly knownThreadIds = new Set<string>();
 
@@ -65,7 +57,6 @@ export class AgentCoreRunner extends InMemoryAgentRunner {
     request: Parameters<InMemoryAgentRunner["connect"]>[0],
   ): ReturnType<InMemoryAgentRunner["connect"]> {
     if (!request.threadId || !this.knownThreadIds.has(request.threadId)) {
-      // Unknown thread — return an empty snapshot instead of erroring.
       const runId =
         typeof (request as { runId?: unknown }).runId === "string"
           ? ((request as { runId?: string }).runId ?? randomUUID())
@@ -86,8 +77,6 @@ export class AgentCoreRunner extends InMemoryAgentRunner {
       ) as unknown as ReturnType<InMemoryAgentRunner["connect"]>;
     }
 
-    // Known thread — replay synthetic tool-call results before the snapshot so
-    // CopilotKit can reconcile its message state correctly.
     return (super.connect(request) as any).pipe(
       concatMap((event: any) => {
         if (
@@ -115,7 +104,9 @@ export class AgentCoreRunner extends InMemoryAgentRunner {
   }
 }
 
-export function buildApp() {
+export function buildApp(
+  options: { readonly localDevelopment?: boolean } = {},
+) {
   const agents = buildAgents();
   const agentName = process.env.COPILOTKIT_AGENT_NAME ?? "default";
   const defaultAgent =
@@ -124,10 +115,27 @@ export function buildApp() {
   if (!defaultAgent)
     throw new Error("At least one CopilotKit agent URL must be configured");
 
-  const runtime = new CopilotRuntime({
-    agents: { ...agents, default: defaultAgent },
-    runner: new AgentCoreRunner(),
-  });
+  const runtime = process.env.CPK_INTELLIGENCE_API_KEY
+    ? new CopilotRuntime({
+        agents: { ...agents, default: defaultAgent },
+        intelligence: new CopilotKitIntelligence({
+          apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
+          ...(process.env.INTELLIGENCE_API_URL
+            ? { apiUrl: process.env.INTELLIGENCE_API_URL }
+            : {}),
+          ...(process.env.INTELLIGENCE_GATEWAY_WS_URL
+            ? { wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL }
+            : {}),
+        }),
+        identifyUser: (request) =>
+          options.localDevelopment
+            ? resolveLocalRuntimeUser(request)
+            : resolveVerifiedRuntimeUser(request),
+      })
+    : new CopilotRuntime({
+        agents: { ...agents, default: defaultAgent },
+        runner: new AgentCoreRunner(),
+      });
 
   return createCopilotEndpoint({ runtime, basePath: "/copilotkit" });
 }

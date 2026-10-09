@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for mastra / byoc (bring-your-own-component)",
+    "sourceFile": "harness/src/probes/scripts/d5-byoc.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "byoc-hashbrown pill — Q4 sales dashboard. The BYOC demo renders structured-output via a user-supplied component; the agent emits a JSON payload that the custom renderer materializes as metric cards + charts. The response shape must include structured data the renderer can parse. hasToolResult:false ensures this only fires on the initial user prompt.",
+      "match": {
+        "userMessage": "Show me a Q4 sales dashboard. Include a total-revenue metric card, a pie chart of revenue by segment, and a bar chart of monthly revenue.",
+        "hasToolResult": false,
+        "context": "mastra"
+      },
+      "response": {
+        "content": "{\"metrics\":[{\"label\":\"Total Revenue\",\"value\":\"$4.08M\",\"trend\":\"up\",\"change\":\"+12.3%\"},{\"label\":\"New Customers\",\"value\":\"1,847\",\"trend\":\"up\",\"change\":\"+8.1%\"},{\"label\":\"Avg Deal Size\",\"value\":\"$2,208\",\"trend\":\"down\",\"change\":\"-3.4%\"}],\"charts\":[{\"type\":\"pie\",\"title\":\"Revenue by Segment\",\"data\":[{\"label\":\"Enterprise\",\"value\":1850},{\"label\":\"Mid-Market\",\"value\":1230},{\"label\":\"SMB\",\"value\":680},{\"label\":\"Self-Serve\",\"value\":320}]},{\"type\":\"bar\",\"title\":\"Monthly Revenue\",\"data\":[{\"label\":\"Oct\",\"value\":1280},{\"label\":\"Nov\",\"value\":1340},{\"label\":\"Dec\",\"value\":1460}]}]}"
+      }
+    },
+    {
+      "_comment": "byoc-json-render pill — shorter sales dashboard prompt variant used by the json-render demo. Same structured shape.",
+      "match": {
+        "userMessage": "Show me the sales dashboard with metrics and a revenue chart",
+        "hasToolResult": false,
+        "context": "mastra"
+      },
+      "response": {
+        "content": "{\"metrics\":[{\"label\":\"Total Revenue\",\"value\":\"$4.08M\",\"trend\":\"up\",\"change\":\"+12.3%\"},{\"label\":\"New Customers\",\"value\":\"1,847\",\"trend\":\"up\",\"change\":\"+8.1%\"}],\"charts\":[{\"type\":\"bar\",\"title\":\"Revenue Trend\",\"data\":[{\"label\":\"Q1\",\"value\":820},{\"label\":\"Q2\",\"value\":940},{\"label\":\"Q3\",\"value\":1080},{\"label\":\"Q4\",\"value\":1240}]}]}"
+      }
+    }
+  ]
+}

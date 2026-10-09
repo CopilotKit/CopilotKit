@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from "vitest";
 import { CopilotChatSuggestionView } from "../CopilotChatSuggestionView";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { Suggestion } from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
 
 // Wrapper to provide required context
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -88,11 +88,14 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
     describe("container slot", () => {
       it("should pass custom props to container", () => {
         const suggestions = createSuggestions();
+        const containerProps: Partial<React.HTMLAttributes<HTMLDivElement>> & {
+          "data-testid": string;
+        } = { "data-testid": "custom-container" };
         render(
           <TestWrapper>
             <CopilotChatSuggestionView
               suggestions={suggestions}
-              container={{ "data-testid": "custom-container" }}
+              container={containerProps}
             />
           </TestWrapper>,
         );
@@ -104,11 +107,15 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
       it("should pass custom onClick to container", () => {
         const onClick = vi.fn();
         const suggestions = createSuggestions();
+        const containerProps = {
+          onClick,
+          "data-testid": "clickable-container",
+        };
         render(
           <TestWrapper>
             <CopilotChatSuggestionView
               suggestions={suggestions}
-              container={{ onClick, "data-testid": "clickable-container" }}
+              container={containerProps}
             />
           </TestWrapper>,
         );
@@ -319,7 +326,9 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
 
     it("should pass suggestions array through children render function", () => {
       const suggestions = createSuggestions();
-      const childrenFn = vi.fn(() => <div />);
+      const childrenFn = vi.fn((_props: { suggestions: Suggestion[] }) => (
+        <div />
+      ));
 
       render(
         <TestWrapper>
@@ -337,7 +346,9 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
     it("should pass loadingIndexes through children render function", () => {
       const suggestions = createSuggestions();
       const loadingIndexes = [0, 2];
-      const childrenFn = vi.fn(() => <div />);
+      const childrenFn = vi.fn(
+        (_props: { loadingIndexes?: ReadonlyArray<number> }) => <div />,
+      );
 
       render(
         <TestWrapper>

@@ -54,14 +54,14 @@ state updates, you can reflect these updates natively in your application.
       <Tab value="TypeScript">
         ```ts title="agent.ts"
         import { createMiddleware } from "langchain";
-        import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+        import { copilotkitMiddleware, zodState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
         import { z } from "zod";
 
         // Define the state as a middleware. The default flows through automatically.
         export const languageStateMiddleware = createMiddleware({
             name: "AgentState",
             stateSchema: z.object({
-                language: z.enum(["english", "spanish"]).default("english"),
+                language: zodState(z.enum(["english", "spanish"]).default("english")),
             }),
         });
 

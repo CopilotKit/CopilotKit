@@ -4,10 +4,17 @@ import {
   CopilotKitContext,
   LicenseContext,
 } from "@copilotkit/react-core/v2/context";
-import type { CopilotKitContextValue } from "@copilotkit/react-core/v2/context";
+import type {
+  CopilotKitContextValue,
+  CopilotKitCoreReact as CopilotKitCoreReactInstance,
+} from "@copilotkit/react-core/v2/context";
 import { CopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
-import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
-import type { DebugConfig } from "@copilotkit/shared";
+import type {
+  CopilotKitCoreErrorCode,
+  CopilotKitMessageFilter,
+} from "@copilotkit/core";
+import type { DebugConfig, RuntimeLicenseStatus } from "@copilotkit/shared";
+import { createLicenseContextValue } from "@copilotkit/shared";
 
 export interface CopilotKitNativeProviderProps {
   children: ReactNode;
@@ -19,6 +26,33 @@ export interface CopilotKitNativeProviderProps {
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
   credentials?: RequestCredentials;
+  /**
+   * Rewrites the message list sent to runtime agents on every run.
+   *
+   * CopilotKit sends the whole thread each time. When your agent already
+   * stores the conversation, most of that payload is waste, and an agent that
+   * merges the inbound list with its own store can show the model every turn
+   * twice. Return the messages to send:
+   *
+   * ```tsx
+   * <CopilotKitProvider
+   *   runtimeUrl="/api/copilotkit"
+   *   messageFilter={(messages) => messages.slice(-1)}
+   * />
+   * ```
+   *
+   * The filter changes the request body only. The transcript the UI renders is
+   * untouched. Broken tool-call pairs are repaired before the request is sent,
+   * so a filter this blunt cannot strand a tool result mid-HITL.
+   *
+   * Agents reached through your CopilotRuntime honor this. An agent your app
+   * passes in directly does not, and neither Intelligence runs nor suggestion
+   * runs are ever filtered.
+   *
+   * Prefer a stable reference (`useCallback`). An inline arrow re-registers the
+   * filter on every render, which is harmless but needless.
+   */
+  messageFilter?: CopilotKitMessageFilter;
   /** Whether the runtime uses a single-route endpoint */
   useSingleEndpoint?: boolean;
   /** Custom properties forwarded to agents */
@@ -74,6 +108,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   runtimeUrl,
   headers: headersProp,
   credentials,
+  messageFilter,
   useSingleEndpoint,
   properties,
   onError,
@@ -97,10 +132,10 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     [JSON.stringify(properties)],
   );
 
-  const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
+  const copilotkitRef = useRef<CopilotKitCoreReactInstance | null>(null);
 
   if (copilotkitRef.current === null) {
-    copilotkitRef.current = new CopilotKitCoreReact({
+    const instance: CopilotKitCoreReactInstance = new CopilotKitCoreReact({
       runtimeUrl,
       runtimeTransport:
         useSingleEndpoint === true
@@ -110,14 +145,16 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
             : "auto",
       headers: stableHeaders,
       credentials,
+      messageFilter,
       properties: stableProperties,
       debug,
     });
     // Set initial defaultThrottleMs synchronously so child hooks see the
     // correct value on their first render (before useEffect fires).
     if (defaultThrottleMs !== undefined) {
-      copilotkitRef.current.setDefaultThrottleMs(defaultThrottleMs);
+      instance.setDefaultThrottleMs(defaultThrottleMs);
     }
+    copilotkitRef.current = instance;
   }
 
   const copilotkit = copilotkitRef.current;
@@ -134,6 +171,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     );
     copilotkit.setHeaders(stableHeaders);
     copilotkit.setCredentials(credentials);
+    copilotkit.setMessageFilter(messageFilter);
     copilotkit.setProperties(stableProperties);
     copilotkit.setDebug(debug);
   }, [
@@ -141,6 +179,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     useSingleEndpoint,
     stableHeaders,
     credentials,
+    messageFilter,
     stableProperties,
     debug,
     copilotkit,
@@ -159,6 +198,10 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   const [executingToolCallIds, setExecutingToolCallIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
+
+  const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
+    RuntimeLicenseStatus | undefined
+  >(undefined);
 
   // Use ref to avoid subscription churn when onError changes
   const onErrorRef = useRef(onError);
@@ -198,6 +241,9 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
           );
         }
       },
+      onRuntimeConnectionStatusChanged: () => {
+        setRuntimeLicenseStatus(copilotkit.licenseStatus);
+      },
     });
     return () => subscription.unsubscribe();
   }, [copilotkit]);
@@ -210,14 +256,10 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     [copilotkit, executingToolCallIds],
   );
 
+  // License context — driven by server-reported status via /info endpoint
   const licenseContextValue = useMemo(
-    () => ({
-      status: null as null,
-      license: null as null,
-      checkFeature: () => true,
-      getLimit: () => null,
-    }),
-    [],
+    () => createLicenseContextValue(runtimeLicenseStatus),
+    [runtimeLicenseStatus],
   );
 
   return (

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { OpenAIProviderSettings } from "@ai-sdk/openai";
-import { OpenAIAdapter } from "../../../src/service-adapters/openai/openai-adapter";
+import { OpenAIAdapter } from "../../../src/v1-deprecated/service-adapters/openai/openai-adapter";
 import OpenAI from "openai";
 
 // Keys from OpenAIProviderSettings that we forward from the OpenAI SDK client.

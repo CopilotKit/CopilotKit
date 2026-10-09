@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23023047' d='M4 4h16v16H4z'/%3E%3Cpath fill='%23fff' d='M8 8h8v2H8zm0 4h8v2H8zm0 4h5v2H8z'/%3E%3C/svg%3E"
+    />
+    <title>Inspector state workbench</title>
+    <script type="module" src="/main.ts"></script>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        background: #f6f6f8;
+        color: #282735;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        min-height: 100vh;
+      }
+
+      button,
+      select,
+      input {
+        min-height: 36px;
+        border: 1px solid #cbcbd5;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #282735;
+        font: inherit;
+        font-size: 13px;
+      }
+
+      button {
+        cursor: pointer;
+        padding: 8px 12px;
+      }
+
+      button:hover {
+        border-color: #282735;
+        background: #f6f5fb;
+      }
+
+      button:focus-visible,
+      select:focus-visible,
+      input:focus-visible,
+      summary:focus-visible {
+        outline: 3px solid #7560cc;
+        outline-offset: 2px;
+      }
+
+      select {
+        width: 100%;
+        padding: 7px 34px 7px 10px;
+      }
+
+      input {
+        width: 100%;
+        min-width: 0;
+        padding: 7px 10px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        gap: 48px;
+        height: 80px;
+        padding: 0 96px 0 24px;
+        border-bottom: 1px solid #e8e8ef;
+        background: #fff;
+      }
+      a:focus-visible {
+        outline: 3px solid #7560cc;
+        outline-offset: 3px;
+      }
+      .title h1 {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+
+      .title p,
+      .field-label,
+      .status-line {
+        margin: 4px 0 0;
+        color: #626170;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .field-label {
+        display: block;
+        margin: 0 0 5px;
+        font-weight: 600;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .route-alert {
+        margin: 12px 18px 0;
+        padding: 10px 12px;
+        border-left: 3px solid #fb8500;
+        background: #fff7e3;
+        color: #553600;
+        font-size: 13px;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 390px;
+        gap: 16px;
+        padding: 16px;
+        height: calc(100dvh - 80px);
+      }
+      .inspector-stage {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+        border: 1px solid #dddde6;
+        border-radius: 8px;
+        background:
+          radial-gradient(circle, #dcdce5 0.8px, transparent 1px) 0 0 / 20px
+            20px,
+          #fafafd;
+      }
+      .stage-toolbar {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 16px;
+        border-bottom: 1px solid #e8e8ef;
+        background: #fff;
+      }
+      .stage-toolbar h2 {
+        margin: 0;
+      }
+      .stage-toolbar p {
+        margin: 4px 0 0;
+        color: #626170;
+        font-size: 12px;
+      }
+      .stage-toolbar button {
+        white-space: nowrap;
+      }
+
+      .stage-label {
+        position: absolute;
+        bottom: 16px;
+        left: 16px;
+        margin: 0;
+        z-index: 0;
+        max-width: 320px;
+        color: #626170;
+        font-size: 12px;
+        line-height: 1.6;
+      }
+      #inspector-host {
+        position: relative;
+        z-index: 1;
+        display: block;
+      }
+      .console {
+        min-height: 0;
+        overflow: auto;
+        border: 1px solid #dddde6;
+        border-radius: 8px;
+        background: #fff;
+        scrollbar-color: #cccbd7 transparent;
+      }
+      .section-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .section-heading h2 {
+        margin: 0;
+      }
+      .hint {
+        color: #626170;
+        font-size: 12px;
+        line-height: 1.55;
+        margin: 8px 0;
+      }
+      .text-button {
+        min-height: 28px;
+        padding: 3px 6px;
+        color: #5b45b0;
+        border-color: transparent;
+        background: transparent;
+      }
+      .status-line:empty {
+        display: none;
+      }
+      #replay-notification {
+        margin-top: 12px;
+        width: 100%;
+      }
+      .console > details[open] > summary {
+        margin-bottom: 12px;
+      }
+      ::selection {
+        background: #e7e0ff;
+      }
+      input::placeholder,
+      textarea::placeholder {
+        color: #747383;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .console > section,
+      .console > details {
+        padding: 16px;
+        border-bottom: 1px solid #e8e8ef;
+      }
+
+      .console > :last-child {
+        border-bottom: 0;
+      }
+
+      h2 {
+        margin: 0 0 8px;
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .state-grid {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 5px 10px;
+        margin: 0;
+        font-size: 12px;
+      }
+
+      .state-grid dt {
+        color: #626170;
+      }
+
+      .state-grid dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+        font-weight: 600;
+      }
+
+      [data-state="connected"],
+      [data-state="match"] {
+        color: #087653;
+      }
+
+      [data-state="pending"],
+      [data-state="connecting"] {
+        color: #785700;
+      }
+
+      [data-state="interaction"] {
+        color: #315b88;
+      }
+
+      [data-state="error"] {
+        color: #a1262d;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+
+      th,
+      td {
+        padding: 6px 5px;
+        border-bottom: 1px solid #ededf2;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+
+      th:first-child,
+      td:first-child {
+        text-align: left;
+      }
+
+      thead th {
+        color: #626170;
+        font-weight: 600;
+      }
+
+      tbody tr:last-child td {
+        border-bottom: 0;
+      }
+
+      summary {
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      pre {
+        max-height: 360px;
+        margin: 10px 0 0;
+        overflow: auto;
+        color: #282735;
+        font:
+          11px/1.55 "SFMono-Regular",
+          Consolas,
+          monospace;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      #request-log {
+        max-height: 240px;
+        margin: 10px 0 0;
+        padding-left: 20px;
+        overflow: auto;
+        color: #626170;
+        font:
+          11px/1.55 "SFMono-Regular",
+          Consolas,
+          monospace;
+      }
+
+      @media (max-width: 1100px) {
+        .workspace {
+          grid-template-columns: minmax(0, 1fr) 360px;
+          gap: 12px;
+          padding: 12px;
+        }
+        .stage-toolbar {
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+      }
+      @media (max-width: 800px) {
+        .topbar {
+          height: auto;
+          min-height: 104px;
+          flex-direction: column;
+          align-items: flex-start;
+          justify-content: center;
+          gap: 12px;
+          padding: 14px 88px 0 16px;
+        }
+        .workspace {
+          height: auto;
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .console {
+          grid-row: 1;
+          overflow: visible;
+        }
+        .inspector-stage {
+          min-height: 480px;
+        }
+        .stage-toolbar {
+          padding: 12px;
+        }
+      }
+
+      /* Consistent, generous disclosure targets in the workbench. */
+      details > summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 34px;
+        padding: 8px 10px;
+        border-radius: 6px;
+        color: #626170;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        list-style: none;
+      }
+      summary::-webkit-details-marker {
+        display: none;
+      }
+      details > summary::after {
+        content: "";
+        flex: none;
+        width: 6px;
+        height: 6px;
+        border-right: 1.5px solid currentColor;
+        border-bottom: 1.5px solid currentColor;
+        transform: rotate(-45deg);
+        margin-right: 3px;
+      }
+      details[open] > summary::after {
+        transform: rotate(45deg);
+      }
+      details > summary:hover {
+        background: #f2f0f7;
+        color: #403354;
+      }
+      details[open] > summary {
+        background: #f6f5fa;
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="title">
+        <h1>Inspector workbench</h1>
+        <p>Local development</p>
+      </div>
+    </header>
+
+    <p id="route-alert" class="route-alert" role="alert" hidden></p>
+
+    <main class="workspace">
+      <section class="inspector-stage" aria-label="Actual Web Inspector">
+        <div class="stage-toolbar">
+          <div>
+            <h2>Inspector preview</h2>
+            <p>Explore the selected scenario.</p>
+          </div>
+          <button id="open-inspector" type="button">Open Inspector</button>
+        </div>
+        <p class="stage-label">Real Inspector · local runtime</p>
+        <div id="inspector-host"></div>
+      </section>
+
+      <aside class="console" aria-label="Scenario validation console">
+        <section>
+          <div class="section-heading">
+            <h2>Scenario</h2>
+            <button id="reset-scenario" class="text-button" type="button">
+              Reset
+            </button>
+          </div>
+          <select id="scenario-select" aria-label="Scenario"></select>
+          <p id="scenario-description" class="hint"></p>
+          <button id="copy-link" type="button" class="text-button">
+            Copy scenario link
+          </button>
+          <p id="action-status" class="status-line" aria-live="polite">
+            Loading the local fixture…
+          </p>
+        </section>
+        <section>
+          <h2>Notification client</h2>
+          <div class="field-grid">
+            <label
+              >SDK version<input id="sdk-version" placeholder="1.70.2"
+            /></label>
+            <label
+              >Framework<select id="sdk-framework">
+                <option value="react">React</option>
+                <option value="vue">Vue</option>
+                <option value="angular">Angular</option>
+              </select></label
+            >
+          </div>
+          <p class="hint">
+            Intelligence, plan and deployment follow the selected scenario.
+          </p>
+          <button id="replay-notification" type="button">
+            Replay notification
+          </button>
+        </section>
+
+        <section>
+          <h2>Runtime</h2>
+          <dl class="state-grid">
+            <dt>Runtime</dt>
+            <dd id="runtime-status">connecting</dd>
+            <dt>Media</dt>
+            <dd id="media-status">checking</dd>
+            <dt>Ledger</dt>
+            <dd id="ledger-status" aria-live="polite">waiting</dd>
+          </dl>
+        </section>
+
+        <details>
+          <summary>Request checks</summary>
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Kind</th>
+                <th scope="col">Expected</th>
+                <th scope="col">Actual</th>
+                <th scope="col">Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>list</td>
+                <td id="expected-list">0</td>
+                <td id="actual-list">0</td>
+                <td id="outcome-list">Pending</td>
+              </tr>
+              <tr>
+                <td>subscribe</td>
+                <td id="expected-subscribe">0</td>
+                <td id="actual-subscribe">0</td>
+                <td id="outcome-subscribe">Pending</td>
+              </tr>
+              <tr>
+                <td>inspect</td>
+                <td id="expected-inspect">0</td>
+                <td id="actual-inspect">0</td>
+                <td id="outcome-inspect">Pending</td>
+              </tr>
+              <tr>
+                <td>messages</td>
+                <td id="expected-messages">0</td>
+                <td id="actual-messages">0</td>
+                <td id="outcome-messages">Pending</td>
+              </tr>
+              <tr>
+                <td>events</td>
+                <td id="expected-events">0</td>
+                <td id="actual-events">0</td>
+                <td id="outcome-events">Pending</td>
+              </tr>
+              <tr>
+                <td>state</td>
+                <td id="expected-state">0</td>
+                <td id="actual-state">0</td>
+                <td id="outcome-state">Pending</td>
+              </tr>
+            </tbody>
+          </table>
+        </details>
+
+        <details>
+          <summary>Scenario data</summary>
+          <pre id="fixture-json" tabindex="0"></pre>
+        </details>
+
+        <details>
+          <summary>Request log</summary>
+          <ol id="request-log"></ol>
+        </details>
+      </aside>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,108 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-python / headless-complete",
+    "sourceFile": "d5-all.json",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "_comment": "headless-complete highlight pill: high-priority verbatim match. Without this, the showcase-assistant catch-all in feature-parity.json wins. Two-turn fixture: turn 1 emits the highlight_note tool call so the headless useComponent registration paints a Highlight card; turn 2 (after the tool result) emits the deterministic narration.",
+      "match": {
+        "userMessage": "Highlight: ship the demo on Friday",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_headless_highlight_001",
+            "name": "highlight_note",
+            "arguments": "{\"text\":\"ship the demo on Friday\",\"color\":\"yellow\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Highlight: ship the demo on Friday",
+        "hasToolResult": true,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Highlighted 'ship the demo on Friday' for you above."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "chart of revenue over the last six months",
+        "toolCallId": "call_d5_headless_revenue_chart_001",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Here is the chart of revenue over the last six months \u2014 quarterly revenue grew steadily, peaking in June."
+      }
+    },
+    {
+      "_comment": "headless-complete revenue chart pill: locks the deterministic chart leading phrase. Two-turn fixture: turn 1 emits the get_revenue_chart tool call (no parameters per the python tool); turn 2 emits the narration that the headless message-assistant bubble renders alongside the ChartCard.",
+      "match": {
+        "userMessage": "chart of revenue over the last six months",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_headless_revenue_chart_001",
+            "name": "get_revenue_chart",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "trigger the headless interrupt",
+        "turnIndex": 0,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Interrupt raised. The agent has paused at a graph-level interrupt and is waiting for user input. Reply with 'yes' or 'no' to resume."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "resolve the interrupt with yes",
+        "turnIndex": 0,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Interrupt resolved with 'yes'. The agent resumed execution from the suspended node and produced its final answer."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "ship the demo on Friday",
+        "toolCallId": "call_d5_highlight_note_001",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Highlighted 'ship the demo on Friday' in yellow above. Let me know if you want a different color or a longer note."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "ship the demo on Friday",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_highlight_note_001",
+            "name": "highlight_note",
+            "arguments": "{\"text\":\"ship the demo on Friday\",\"color\":\"yellow\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

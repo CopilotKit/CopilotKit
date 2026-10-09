@@ -2,7 +2,11 @@
 // @region[subagent-setup]
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import { openai } from "@ai-sdk/openai";
+// Use the header-forwarding `openai` so subagents' internal LLM calls
+// carry the inbound `x-aimock-context` / `x-aimock-strict` headers. Without
+// this, sub-agent calls return 404 from aimock under strict mode. See
+// `_header_forwarding.ts` for the ALS-bound fetch wrapper.
+import { openai } from "@/mastra/_header_forwarding";
 import { Agent } from "@mastra/core/agent";
 import crypto from "node:crypto";
 import { writeDelegationsToWorkingMemory } from "./working-memory";
@@ -11,7 +15,7 @@ import { writeDelegationsToWorkingMemory } from "./working-memory";
 // don't share memory or tools with the supervisor — the supervisor only sees
 // their final text output via the tools below. Mirrors the LangGraph-Python
 // `subagents.py` reference where each sub-agent is a `create_agent(...)`.
-const SUBAGENT_MODEL = openai("gpt-4o-mini");
+const SUBAGENT_MODEL = openai("gpt-5-mini");
 
 const researchSubAgent = new Agent({
   id: "research-subagent",

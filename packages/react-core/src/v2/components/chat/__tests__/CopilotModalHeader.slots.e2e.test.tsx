@@ -88,11 +88,14 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
   describe("2. Property Passing (onClick, disabled, etc.)", () => {
     describe("titleContent slot", () => {
       it("should pass custom props to titleContent", () => {
+        const titleContentProps: Partial<
+          React.ComponentProps<typeof CopilotModalHeader.Title>
+        > & { "data-testid": string } = { "data-testid": "custom-title" };
         render(
           <TestWrapper>
             <CopilotModalHeader
               title="Test Title"
-              titleContent={{ "data-testid": "custom-title" }}
+              titleContent={titleContentProps}
             />
           </TestWrapper>,
         );
@@ -104,11 +107,15 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
 
       it("should pass custom onClick to titleContent", () => {
         const onClick = vi.fn();
+        const titleContentProps = {
+          onClick,
+          "data-testid": "clickable-title",
+        };
         render(
           <TestWrapper>
             <CopilotModalHeader
               title="Click Me"
-              titleContent={{ onClick, "data-testid": "clickable-title" }}
+              titleContent={titleContentProps}
             />
           </TestWrapper>,
         );
@@ -287,7 +294,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
     });
 
     it("should pass resolved title through children render function", () => {
-      const childrenFn = vi.fn(() => <div />);
+      const childrenFn = vi.fn((_props: { title?: string }) => <div />);
 
       render(
         <TestWrapper>

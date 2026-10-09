@@ -22,14 +22,10 @@ import {
   testId,
 } from "../../../__tests__/utils/test-helpers";
 import { MCPAppsActivityType } from "../../../components/MCPAppsActivityRenderer";
-import {
-  AbstractAgent,
-  RunAgentInput,
-  RunAgentResult,
-  BaseEvent,
-  EventType,
-} from "@ag-ui/client";
-import { Observable, Subject } from "rxjs";
+import type { RunAgentInput, RunAgentResult, BaseEvent } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { Subject } from "rxjs";
 
 /**
  * MockMCPProxyAgent with spying support for ui/message tests.
@@ -226,6 +222,7 @@ async function sendUiMessage(
     role?: string;
     content?: Array<{ type: string; text?: string }>;
     followUp?: boolean;
+    _meta?: Record<string, unknown>;
   },
 ) {
   const msg = new MessageEvent("message", {
@@ -304,6 +301,34 @@ describe("MCP Apps ui/message followUp behavior", () => {
     expect(runSpy.mock.calls.length).toBe(0);
   });
 
+  it("reads role/followUp from params._meta.copilotkit (extension channel)", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "ui-msg-agent-meta";
+
+    const iframe = await setupMCPActivity(
+      agent,
+      "ui-msg-agent-meta",
+      "Meta test",
+    );
+
+    const runSpy = vi.spyOn(agent, "run");
+
+    // No top-level role/followUp; the extensions come through _meta.copilotkit.
+    await sendUiMessage(iframe, {
+      content: [{ type: "text", text: "Via meta channel" }],
+      _meta: { copilotkit: { role: "assistant", followUp: false } },
+    });
+
+    // role from _meta is honored: message added as assistant.
+    const assistCalls = agent.addMessageCalls.filter(
+      (c) => c.content === "Via meta channel" && c.role === "assistant",
+    );
+    expect(assistCalls.length).toBeGreaterThanOrEqual(1);
+
+    // followUp:false from _meta is honored: the agent does NOT run.
+    expect(runSpy.mock.calls.length).toBe(0);
+  });
+
   it("followUp: false on user-role message: addMessage IS called but runAgent is NOT invoked", async () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "ui-msg-agent-nofollowup";
@@ -358,6 +383,43 @@ describe("MCP Apps ui/message followUp behavior", () => {
 
     // run() should have been called
     expect(runSpy.mock.calls.length).toBeGreaterThan(0);
+  });
+
+  it("does not run a queued ui/message follow-up against a thread the host switched to (issue #5819)", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "ui-msg-leak";
+
+    const iframe = await setupMCPActivity(agent, "ui-msg-leak", "Leak test");
+
+    const runSpy = vi.spyOn(agent, "run");
+
+    // The agent is busy when the follow-up arrives, so it gets queued rather
+    // than run immediately.
+    agent.isRunning = true;
+
+    await sendUiMessage(iframe, {
+      role: "user",
+      content: [{ type: "text", text: "queued while busy" }],
+    });
+
+    // The follow-up is still queued (agent busy) — nothing ran yet.
+    expect(runSpy.mock.calls.length).toBe(0);
+
+    // The host switches to a different thread before the queued work runs.
+    agent.threadId = "some-other-thread";
+
+    // The agent goes idle, so the queue drains (waitForAgentIdle polls isRunning).
+    agent.isRunning = false;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    });
+
+    // The follow-up must NOT have executed against the shared agent, which now
+    // points at 'some-other-thread'. A local (non-runtime) agent cannot be
+    // re-homed to the original thread, so the stale follow-up is dropped rather
+    // than leaked into the current thread.
+    expect(runSpy).not.toHaveBeenCalled();
+    expect(agent.threadId).toBe("some-other-thread");
   });
 
   it("message with text content always adds to agent messages regardless of followUp", async () => {

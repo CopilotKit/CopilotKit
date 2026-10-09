@@ -53,6 +53,20 @@ describe("d5-hitl-approve-deny script", () => {
     expect(turns[0]!.assertions).toBeTypeOf("function");
   });
 
+  it("completes the tool-only first leg when the approval modal mounts", async () => {
+    const mod = await import("./d5-hitl-approve-deny.js");
+    const script = mod.__d5HitlApproveDenyScript;
+    const turns = script.buildTurns({
+      integrationSlug: "langgraph-python",
+      featureType: "hitl-approve-deny",
+      baseUrl: "https://example.test",
+    });
+
+    expect(turns[0]!.completeOnMount).toEqual({
+      testIds: ["approval-dialog-overlay"],
+    });
+  });
+
   it("assertion clicks approve and passes when the follow-up message contains $50 and 12345", async () => {
     const mod = await import("./d5-hitl-approve-deny.js");
     const script = mod.__d5HitlApproveDenyScript;
@@ -87,7 +101,7 @@ describe("d5-hitl-approve-deny script", () => {
       },
     };
 
-    await turns[0]!.assertions!(page);
+    await turns[0]!.assertions!(page, { bubbleIndex: 0, text: "" });
     // Approve button was clicked.
     expect(
       calls.some((c) => c.method === "click" && c.selector.includes("approve")),
@@ -117,9 +131,9 @@ describe("d5-hitl-approve-deny script", () => {
       // intentionally NOT providing `click`
     } as unknown as import("../helpers/conversation-runner.js").Page;
 
-    await expect(turns[0]!.assertions!(pageWithoutClick)).rejects.toThrow(
-      /missing click/,
-    );
+    await expect(
+      turns[0]!.assertions!(pageWithoutClick, { bubbleIndex: 0, text: "" }),
+    ).rejects.toThrow(/missing click/);
   });
 
   it("anchors approve-button selectors under the resolved approval-dialog selector", async () => {
@@ -168,7 +182,7 @@ describe("d5-hitl-approve-deny script", () => {
       },
     };
 
-    await turns[0]!.assertions!(page);
+    await turns[0]!.assertions!(page, { bubbleIndex: 0, text: "" });
 
     // Dialog overlay selector queried first (outermost portal'd element).
     expect(seenSelectors[0]).toBe('[data-testid="approval-dialog-overlay"]');
@@ -209,7 +223,9 @@ describe("d5-hitl-approve-deny script", () => {
       },
     };
 
-    await expect(turns[0]!.assertions!(page)).rejects.toThrow(/missing token/);
+    await expect(
+      turns[0]!.assertions!(page, { bubbleIndex: 0, text: "" }),
+    ).rejects.toThrow(/missing token/);
   });
 });
 

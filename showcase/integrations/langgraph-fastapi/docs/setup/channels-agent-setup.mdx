@@ -1,0 +1,31 @@
+Follow the [LangGraph FastAPI quickstart](/langgraph-fastapi/quickstart) to
+configure the `sample_agent` graph and AG-UI endpoint, then start the same
+FastAPI application:
+
+```bash title="Agent application"
+uv run main.py
+```
+
+Point the LangGraph HTTP adapter at the AG-UI endpoint:
+
+```dotenv title=".env"
+AGENT_URL=http://localhost:8123/
+```
+
+The Runtime package installed by the Channels quickstart includes the native
+LangGraph adapter.
+
+This selector variant follows the quickstart's FastAPI deployment, so use
+`LangGraphHttpAgent`. Return a fresh adapter for every channel thread:
+
+```ts title="agent.ts"
+import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
+
+export function makeAgent(threadId: string) {
+  const agent = new LangGraphHttpAgent({
+    url: process.env.AGENT_URL!,
+  });
+  agent.threadId = threadId;
+  return agent;
+}
+```

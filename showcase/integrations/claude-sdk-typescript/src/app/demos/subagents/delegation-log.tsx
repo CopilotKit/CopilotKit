@@ -11,7 +11,7 @@ export interface Delegation {
   id: string;
   sub_agent: SubAgentName;
   task: string;
-  status: "running" | "completed" | "failed";
+  status: "completed";
   result: string;
 }
 
@@ -42,12 +42,6 @@ const SUB_AGENT_STYLE: Record<
   },
 };
 
-const STATUS_STYLE: Record<Delegation["status"], string> = {
-  running: "text-[#010507] bg-[#FFE89F]/40 border-[#FFD24D]",
-  completed: "text-[#189370] bg-[#85ECCE]/15 border-[#85ECCE4D]",
-  failed: "text-[#FA5F67] bg-[#FA5F67]/10 border-[#FA5F6766]",
-};
-
 // @region[delegation-log-frontend]
 /**
  * Live delegation log — renders the `delegations` slot of agent state.
@@ -57,7 +51,25 @@ const STATUS_STYLE: Record<Delegation["status"], string> = {
  * The parent header shows how many sub-agents have been called and
  * whether the supervisor is still running.
  */
+// Fixed list of the three sub-agent roles the supervisor can call.
+// Rendered as always-visible indicator chips at the top of the log
+// (regardless of whether the supervisor has delegated yet) so the user
+// — and the e2e suite — can see at a glance which sub-agents exist and
+// which are currently active.
+const INDICATOR_ROLES: ReadonlyArray<{
+  role: "researcher" | "writer" | "critic";
+  subAgent: SubAgentName;
+}> = [
+  { role: "researcher", subAgent: "research_agent" },
+  { role: "writer", subAgent: "writing_agent" },
+  { role: "critic", subAgent: "critique_agent" },
+];
+
 export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
+  const calledRoles = new Set<SubAgentName>(
+    delegations.map((d) => d.sub_agent),
+  );
+
   return (
     <div
       data-testid="delegation-log"
@@ -86,6 +98,30 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
         </span>
       </div>
 
+      <div
+        data-testid="subagent-indicators"
+        className="flex items-center gap-2 border-b border-[#E9E9EF] bg-white px-6 py-2"
+      >
+        {INDICATOR_ROLES.map(({ role, subAgent }) => {
+          const style = SUB_AGENT_STYLE[subAgent];
+          const fired = calledRoles.has(subAgent);
+          return (
+            <span
+              key={role}
+              data-testid={`subagent-indicator-${role}`}
+              data-role={role}
+              data-fired={fired ? "true" : "false"}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.1em] border ${style.color} ${
+                fired ? "" : "opacity-60"
+              }`}
+            >
+              <span aria-hidden>{style.emoji}</span>
+              <span>{style.label}</span>
+            </span>
+          );
+        })}
+      </div>
+
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {delegations.length === 0 ? (
           <p className="text-[#838389] italic text-sm">
@@ -99,7 +135,6 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
               <div
                 key={d.id}
                 data-testid="delegation-entry"
-                data-status={d.status}
                 className="border border-[#E9E9EF] rounded-xl p-3 bg-[#FAFAFC]"
               >
                 <div className="flex items-center justify-between mb-2">
@@ -114,9 +149,7 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
                       <span>{style.label}</span>
                     </span>
                   </div>
-                  <span
-                    className={`text-[10px] uppercase tracking-[0.12em] font-semibold border rounded-full px-2 py-0.5 ${STATUS_STYLE[d.status]}`}
-                  >
+                  <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-[#189370]">
                     {d.status}
                   </span>
                 </div>
@@ -124,15 +157,9 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
                   <span className="font-semibold text-[#010507]">Task: </span>
                   {d.task}
                 </div>
-                {d.result ? (
-                  <div className="text-sm text-[#010507] whitespace-pre-wrap bg-white rounded-lg p-2.5 border border-[#E9E9EF]">
-                    {d.result}
-                  </div>
-                ) : (
-                  <div className="text-xs italic text-[#838389]">
-                    Waiting for sub-agent…
-                  </div>
-                )}
+                <div className="text-sm text-[#010507] whitespace-pre-wrap bg-white rounded-lg p-2.5 border border-[#E9E9EF]">
+                  {d.result}
+                </div>
               </div>
             );
           })

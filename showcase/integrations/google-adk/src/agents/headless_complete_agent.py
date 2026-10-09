@@ -7,16 +7,20 @@ ADK: three mock backend tools (`get_weather`, `get_stock_price`,
 rules so the LLM picks the matching tool per pill.
 
 The frontend also registers a `highlight_note` *frontend* tool via
-`useComponent`, which the LLM may emit a tool_call for; that call flows
-through the AG-UI tool surface and is executed in the browser (no
-backend Python is required for that one, so it's not in the tools list
-here — same shape as langgraph-python).
+`useComponent`, executed in the browser. Unlike langgraph-python (where
+CopilotKit auto-injects frontend tools into the graph), ADK only exposes
+and routes frontend-registered tools when the agent includes
+`AGUIToolset()` in its `tools` list. Without it the model emits a
+`highlight_note` call that the backend tool registry rejects ("Tool
+'highlight_note' not found"), aborting the run — so `AGUIToolset()` is
+required here alongside the three backend tools.
 """
 
 from __future__ import annotations
 
 from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
+from ag_ui_adk import AGUIToolset
 
 from agents.shared_chat import get_model, stop_on_terminal_text
 
@@ -104,6 +108,6 @@ headless_complete_agent = LlmAgent(
     name="HeadlessCompleteAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
-    tools=[get_weather, get_stock_price, get_revenue_chart],
+    tools=[get_weather, get_stock_price, get_revenue_chart, AGUIToolset()],
     after_model_callback=stop_on_terminal_text,
 )

@@ -1,0 +1,31 @@
+/* A2UI surface theme — mapped to verified CopilotKit brand tokens.
+   Scoped to .a2ui-surface and consumed by @copilotkit/a2ui-renderer. */
+.a2ui-surface {
+  --background: #fafafc;
+  --foreground: #010507;
+  --card: #ffffff;
+  --primary: #010507;
+  --primary-foreground: #ffffff;
+  --border: #dbdbe5;
+  --input: #dbdbe5;
+  --muted: #f0f0f4;
+  --muted-foreground: #57575b;
+  --accent: #bec2ff;
+  --accent-foreground: #010507;
+  --radius: 14px;
+
+  font-family:
+    var(--font-plus-jakarta),
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif !important;
+  letter-spacing: -0.01em;
+  line-height: 1.5;
+  color: var(--foreground);
+}
+
+.a2ui-surface img {
+  max-height: 32px;
+  border-radius: 6px;
+}

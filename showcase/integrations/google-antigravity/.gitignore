@@ -1,0 +1,13 @@
+node_modules/
+.next/
+.env.local
+.env
+*.pyc
+__pycache__/
+.venv/
+dist/
+playwright-report/
+test-results/
+
+# Shared modules (copied by CI)
+shared_frontend/

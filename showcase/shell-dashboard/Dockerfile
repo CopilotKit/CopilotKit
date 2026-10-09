@@ -1,6 +1,16 @@
 FROM node:20-slim AS builder
 ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
+# Starter-ladder feature flag. `catalog.json` is a BUILD artifact (see the
+# `generate-registry.ts` step below and the doc comment on
+# `starterCellsEnabled()` in harness/src/shared/catalog/catalog-flatten.ts), so
+# a Railway service variable CANNOT turn the starter cells on for the
+# dashboard — the flag has to be present when `next build` bakes the catalog
+# in. Default EMPTY = OFF; `--build-arg SHOWCASE_STARTER_CELLS=1` turns it on.
+# The harness is the other half of this flag and needs NO build plumbing: it
+# reaches `buildCatalogCells()` at request time, so its Railway service
+# variable is sufficient.
+ARG SHOWCASE_STARTER_CELLS=
 WORKDIR /app
 
 # Copy manifests + lockfiles for deterministic installs.
@@ -23,24 +33,36 @@ COPY showcase/scripts/ ./scripts/
 # determine docs reachability status. Only the content directory is needed.
 COPY showcase/shell-docs/src/content/ ./shell-docs/src/content/
 COPY showcase/shell-dashboard/ ./shell-dashboard/
+# The canonical cell-model fold lives in the harness so the dashboard AND the
+# harness monitor import ONE copy. The dashboard's `src/lib/{cell-model,
+# live-status,staleness,format-ts}.ts` re-export barrels resolve it via the
+# relative path `../../../harness/src/shared/cell-model/*` (= /app/harness/...),
+# and generate-registry.ts imports the catalog cross-join/flatten fold from
+# ../harness/src/shared/catalog/catalog-flatten.js. That file is ESM (relies on
+# the harness package.json's `"type": "module"`) and does `import yaml from
+# "js-yaml"`, resolved by walking up from the harness tree. Stage the shared
+# tree + the harness package.json for the ESM scope, then point
+# harness/node_modules at the already-installed scripts node_modules so js-yaml
+# (+ its argparse dep) resolve — no second install of the harness package.
+#
+# Copy the WHOLE `src/shared` tree rather than enumerating its subdirectories.
+# This build named `cell-model/` and `catalog/` individually, which was correct
+# only while those two were the entire shared surface; the sibling shell builds
+# staged `catalog/` alone and died with ERR_MODULE_NOT_FOUND the moment
+# catalog-flatten.ts imported across into cell-model. A whole-tree copy is what
+# keeps the single-shared-fold invariant from depending on an enumeration
+# nobody updates.
+COPY showcase/harness/src/shared/ ./harness/src/shared/
+COPY showcase/harness/package.json ./harness/package.json
+RUN ln -s ../scripts/node_modules harness/node_modules
 
 # Bake commit info into Next.js build (NEXT_PUBLIC_* are compiled in).
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BRANCH=${BRANCH}
-
-# NEXT_PUBLIC_* vars are inlined by Next.js at build time. Must be
-# provided as Docker build args — runtime env vars on Railway are too late.
-ARG NEXT_PUBLIC_SHELL_URL
-ENV NEXT_PUBLIC_SHELL_URL=${NEXT_PUBLIC_SHELL_URL}
-ARG NEXT_PUBLIC_POCKETBASE_URL
-ENV NEXT_PUBLIC_POCKETBASE_URL=${NEXT_PUBLIC_POCKETBASE_URL}
-# `next.config.ts` reads OPS_BASE_URL inside `rewrites()` and throws if it
-# is unset. `next build` evaluates rewrites at build time to generate the
-# routing manifest, so the value must be in the BUILDER environment — not
-# just runtime. Without this, `npx next build` aborts with the
-# "OPS_BASE_URL must be set" error from next.config.ts.
-ARG OPS_BASE_URL
-ENV OPS_BASE_URL=${OPS_BASE_URL}
+# Builder-stage only. `generate-registry.ts` and `next build` read this from
+# the process env; the runner stage is a separate `FROM` and does not inherit
+# it, which is correct — nothing reads it at runtime in this image.
+ENV SHOWCASE_STARTER_CELLS=${SHOWCASE_STARTER_CELLS}
 
 # Generate registry + docs status, then build Next.js
 RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
@@ -68,10 +90,11 @@ FROM node:20-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=10000
-# NEXT_PUBLIC_* are statically inlined at build time; the runtime env vars
-# from the builder stage are not inherited here and would be undefined
-# regardless. Don't re-declare them — they'd just be noise and create the
-# illusion that changing them at runtime does anything.
+# URL env vars (POCKETBASE_URL / SHELL_URL / OPS_BASE_URL) are read at
+# runtime by `src/lib/runtime-config.ts` from the Railway service env —
+# no Dockerfile ARG/ENV plumbing required for them.
+# COMMIT_SHA / BRANCH stay build-baked because they identify the artifact,
+# not the deploy. See showcase/RAILWAY.md and runtime-config.ts.
 
 # Copy build artifacts with `node:node` ownership so the runtime process
 # (dropped to USER node below) can read them. The `node` user/group ships

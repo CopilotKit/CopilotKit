@@ -5,7 +5,6 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json ./
 RUN npm install --ignore-scripts
-RUN npm install next@latest
 
 FROM base AS builder
 WORKDIR /app

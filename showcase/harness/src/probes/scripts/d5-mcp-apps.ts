@@ -14,22 +14,34 @@
  * iframe embedding pipeline, not a chat round-trip.
  *
  * Selector cascade (most-specific first):
- *   1. `[data-testid="mcp-app-iframe"]`  — canonical testid (Phase 1
- *                                          adds this; until then the
- *                                          fallback covers it).
+ *   1. `[data-testid="mcp-app-iframe"]`  — canonical testid, declared by
+ *                                          every frontend that renders an
+ *                                          MCP app (react-core / vue
+ *                                          `MCPAppsActivityRenderer`,
+ *                                          Angular `copilot-mcp-apps-widget`).
  *   2. `iframe[sandbox]`                 — sandbox attribute is required
  *                                          by the MCP-apps spec, so any
  *                                          conforming page renders one.
+ *                                          Keeps the probe honest against a
+ *                                          deployed integration pinned to a
+ *                                          package version predating the
+ *                                          testid: the surface IS there, so
+ *                                          the row must not red.
+ *
+ * The SAME cascade is what the turn settles on — `completeOnMount.selectors`
+ * takes the comma-joined cascade so the runner's mount gate and this module's
+ * assertion measure one contract. Gating the settle on the bare testid alone
+ * was the CF-1 false-red: the testid existed only in Angular, so every
+ * React/Vue integration timed out `surface-missing` at 30s while the demo
+ * rendered fine by hand.
  *
  * Side effect: importing this module triggers `registerD5Script`. The
- * default loader in `e2e-deep.ts` discovers it via the `d5-*` filename
+ * default loader in `d6-all-pills.ts` discovers it via the `d5-*` filename
  * convention.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
 /**
@@ -42,6 +54,14 @@ export const MCP_APP_IFRAME_SELECTORS = [
   '[data-testid="mcp-app-iframe"]',
   "iframe[sandbox]",
 ] as const;
+
+/**
+ * The cascade as ONE CSS any-of selector, for `completeOnMount.selectors`.
+ * `querySelectorAll` unions comma-separated branches, so this counts "an MCP
+ * app surface in any conforming form" as a single conjunctive surface entry.
+ */
+export const MCP_APP_IFRAME_SELECTOR_CASCADE =
+  MCP_APP_IFRAME_SELECTORS.join(", ");
 
 /** Total time we'll poll for the iframe to mount, in ms. The page may
  *  hydrate the iframe asynchronously after first paint, so the wait
@@ -132,7 +152,15 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
     {
       input:
         "Open Excalidraw and sketch a system diagram with a client, server, and database.",
-      assertions: assertIframePresent,
+      completeOnMount: {
+        selectors: [MCP_APP_IFRAME_SELECTOR_CASCADE],
+      },
+      // Wrapped so the assertions callback ignores the Phase-4 `ctx`
+      // argument: `assertIframePresent` takes `(page, timeoutMs?)`, not
+      // `(page, ctx)`, and ctx is irrelevant to the iframe-mount probe.
+      assertions: async (page) => {
+        await assertIframePresent(page);
+      },
     },
   ];
 }

@@ -10,7 +10,7 @@ from textwrap import dedent
 from typing import Any
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.ag_ui import StateDeps
+from pydantic_ai.ui import StateDeps
 from ag_ui.core import EventType, StateSnapshotEvent
 from pydantic_ai.models.openai import OpenAIResponsesModel
 
@@ -46,7 +46,7 @@ class SalesTodosState(BaseModel):
 # Agent
 # =====
 agent = Agent(
-    model=OpenAIResponsesModel("gpt-4.1-mini"),
+    model=OpenAIResponsesModel("gpt-5-mini"),
     deps_type=StateDeps[SalesTodosState],
     system_prompt=dedent("""
         You are a helpful sales assistant that helps manage a sales pipeline.
@@ -203,7 +203,7 @@ def generate_a2ui(ctx: RunContext[StateDeps[SalesTodosState]]) -> str:
     llm_messages.extend(conversation_messages)
 
     response = client.chat.completions.create(
-        model="gpt-4.1",
+        model="gpt-5-mini",
         messages=llm_messages,
         tools=[tool_schema],
         tool_choice={"type": "function", "function": {"name": "render_a2ui"}},

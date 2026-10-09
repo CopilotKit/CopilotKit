@@ -6,6 +6,7 @@
         "@copilotkit/a2ui-renderer",
         "@copilotkit/agentcore-runner",
         "@copilotkit/core",
+        "@copilotkit/mcp-apps-renderer",
         "@copilotkit/react-core",
         "@copilotkit/react-native",
         "@copilotkit/react-textarea",
@@ -17,14 +18,47 @@
         "@copilotkit/sqlite-runner",
         "@copilotkit/voice",
         "@copilotkit/vue",
+        "@copilotkit/web-components",
         "@copilotkit/web-inspector"
       ],
       "versionSource": "@copilotkit/react-core",
       "sharedVersion": true
     },
+    "learning": {
+      "packages": ["@copilotkit/learning"],
+      "versionSource": "@copilotkit/learning",
+      "sharedVersion": false
+    },
     "angular": {
-      "packages": ["@copilotkitnext/angular"],
-      "versionSource": "@copilotkitnext/angular",
+      "packages": ["@copilotkit/angular"],
+      "versionSource": "@copilotkit/angular",
+      "sharedVersion": false
+    },
+    "channels": {
+      "packages": [
+        "@copilotkit/channels-ui",
+        "@copilotkit/channels-core",
+        "@copilotkit/channels-slack",
+        "@copilotkit/channels-teams",
+        "@copilotkit/channels-intelligence",
+        "@copilotkit/channels-discord",
+        "@copilotkit/channels-telegram",
+        "@copilotkit/channels-whatsapp",
+        "@copilotkit/channels"
+      ],
+      "versionSource": "@copilotkit/channels",
+      "sharedVersion": true
+    },
+    "intelligence-langgraph": {
+      "packages": ["@copilotkit/intelligence-langgraph"],
+      "sourcePaths": ["packages/intelligence-delivery-core"],
+      "versionSource": "@copilotkit/intelligence-langgraph",
+      "sharedVersion": false
+    },
+    "intelligence-mastra": {
+      "packages": ["@copilotkit/intelligence-mastra"],
+      "sourcePaths": ["packages/intelligence-delivery-core"],
+      "versionSource": "@copilotkit/intelligence-mastra",
       "sharedVersion": false
     }
   }

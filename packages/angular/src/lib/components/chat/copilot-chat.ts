@@ -1,28 +1,34 @@
+import type { TemplateRef, Type } from "@angular/core";
 import {
   Component,
   input,
   ChangeDetectionStrategy,
   ViewEncapsulation,
   signal,
-  effect,
   ChangeDetectorRef,
   Injector,
-  Type,
   computed,
   inject,
+  viewChild,
+  DestroyRef,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { CopilotChatView } from "./copilot-chat-view";
+import { CopilotChatAttachmentsDirective } from "./copilot-chat-attachments.directive";
 
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
-import {
-  Message,
-  AbstractAgent,
-  AGUIConnectNotImplementedError,
-} from "@ag-ui/client";
+import type { AttachmentsConfig } from "@copilotkit/shared";
+import { AGUIConnectNotImplementedError } from "@ag-ui/client";
+import type { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
+import { isRunCompletionAware, ɵisHttpAgent } from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
 import { injectAgentStore } from "../../agent";
 import { CopilotKit } from "../../copilotkit";
 import { ChatState } from "../../chat-state";
+import { transcribeAudio } from "../../transcription";
+import { COPILOT_CHAT_CONFIGURATION } from "../../chat-configuration";
+import { connectActiveThread } from "../../active-thread-connector";
+import { explicitEffect } from "../../explicit-effect";
 
 /**
  * CopilotChat component - Angular equivalent of React's <CopilotChat>
@@ -35,20 +41,37 @@ import { ChatState } from "../../chat-state";
  */
 @Component({
   selector: "copilot-chat",
-  standalone: true,
-  imports: [CommonModule, CopilotChatView],
+  imports: [CopilotChatView, CopilotChatAttachmentsDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
-  host: { "data-copilotkit": "" },
+  host: { "data-copilotkit": "", class: "cpk:block cpk:h-full cpk:min-h-0" },
   template: `
-    <copilot-chat-view
-      [messages]="messages() ?? []"
-      [autoScroll]="true"
-      [messageViewClass]="'w-full'"
-      [showCursor]="showCursor()"
-      [inputComponent]="inputComponent()"
+    <div
+      style="display: contents"
+      copilotChatAttachments
+      [config]="attachmentsConfig()"
     >
-    </copilot-chat-view>
+      <copilot-chat-view
+        [messages]="messages()"
+        [state]="agentState()"
+        [agentId]="resolvedAgentId()"
+        [autoScroll]="true"
+        [messageViewClass]="'cpk:w-full'"
+        [showCursor]="showCursor()"
+        [inputComponent]="inputComponent()"
+        [assistantMessageComponent]="assistantMessageComponent()"
+        [assistantMessageTemplate]="assistantMessageTemplate()"
+        [assistantMessageClass]="assistantMessageClass()"
+        [reasoningMessageComponent]="reasoningMessageComponent()"
+        [reasoningMessageTemplate]="reasoningMessageTemplate()"
+        [reasoningMessageClass]="reasoningMessageClass()"
+        [messageViewChildrenComponent]="messageViewChildrenComponent()"
+        [messageViewChildrenTemplate]="messageViewChildrenTemplate()"
+        [messageViewChildrenClass]="messageViewChildrenClass()"
+        [hasExplicitThreadId]="hasExplicitThreadId()"
+      >
+      </copilot-chat-view>
+    </div>
   `,
   providers: [
     {
@@ -57,120 +80,364 @@ import { ChatState } from "../../chat-state";
     },
   ],
 })
-export class CopilotChat implements ChatState {
+export class CopilotChat extends ChatState {
+  private readonly attachmentsDirective = viewChild(
+    CopilotChatAttachmentsDirective,
+  );
+
   readonly inputValue = signal<string>("");
   readonly agentId = input<string | undefined>();
   readonly threadId = input<string | undefined>();
   readonly inputComponent = input<Type<any> | undefined>();
-  private readonly resolvedAgentId = computed(
-    () => this.agentId() ?? DEFAULT_AGENT_ID,
+  /** Component used to render each assistant message in the prebuilt chat. */
+  readonly assistantMessageComponent = input<Type<any> | undefined>();
+  /** Template used to render each assistant message in the prebuilt chat. */
+  readonly assistantMessageTemplate = input<TemplateRef<any> | undefined>();
+  /** Class forwarded to the default or custom assistant-message renderer. */
+  readonly assistantMessageClass = input<string | undefined>();
+  /** Component used to render each reasoning message in the prebuilt chat. */
+  readonly reasoningMessageComponent = input<Type<any> | undefined>();
+  /** Template used to render each reasoning message in the prebuilt chat. */
+  readonly reasoningMessageTemplate = input<TemplateRef<any> | undefined>();
+  /** Class forwarded to the default or custom reasoning-message renderer. */
+  readonly reasoningMessageClass = input<string | undefined>();
+  /** Component rendered after the transcript messages and before the cursor. */
+  readonly messageViewChildrenComponent = input<Type<any> | undefined>();
+  /** Template rendered after the transcript messages and before the cursor. */
+  readonly messageViewChildrenTemplate = input<TemplateRef<any> | undefined>();
+  /** Class forwarded to custom transcript-children renderers. */
+  readonly messageViewChildrenClass = input<string | undefined>();
+  readonly attachmentsConfig = input<AttachmentsConfig | undefined>(undefined, {
+    alias: "attachments",
+  });
+  /**
+   * Ambient chat configuration, when a {@link provideCopilotChatConfiguration}
+   * provider is in scope. Absent (`null`) for standalone
+   * `<copilot-chat [threadId]>` usage, which has no provider — resolved via the
+   * optional inject so the component does not throw without one.
+   */
+  private readonly config = inject(COPILOT_CHAT_CONFIGURATION, {
+    optional: true,
+  });
+  protected readonly resolvedAgentId = computed(
+    () => this.agentId() ?? this.config?.agentId() ?? DEFAULT_AGENT_ID,
   );
   readonly agentStore = injectAgentStore(this.resolvedAgentId);
   private readonly copilotKit = inject(CopilotKit);
-  // readonly chatConfig = injectChatConfig();
   readonly cdr = inject(ChangeDetectorRef);
   readonly injector = inject(Injector);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly connecting = signal(false);
+  private activeConnection?: { dispose(): void };
+  protected readonly showCursor = computed(
+    () => this.connecting() || this.agentStore().isRunning(),
+  );
 
   protected messages = computed(() => this.agentStore().messages());
-  protected isRunning = computed(() => this.agentStore().isRunning());
-  protected showCursor = signal<boolean>(false);
+  protected agentState = computed(() => this.agentStore().state());
+  protected readonly hasExplicitThreadId =
+    this.config?.hasExplicitThreadId ??
+    computed(() => Boolean(this.threadId()));
+  protected readonly agentRef = computed(() => this.agentStore().agent);
+  protected readonly resolvedThreadId = computed(
+    () => this.threadId() || this.generatedThreadId,
+  );
+  override readonly attachmentsEnabled = computed(
+    () => this.attachmentsConfig()?.enabled ?? false,
+  );
+  override readonly attachmentsUploading = computed(() =>
+    this.attachments().some((attachment) => attachment.status === "uploading"),
+  );
 
   private generatedThreadId: string = randomUUID();
-  private hasConnectedOnce = false;
 
   constructor() {
-    // Connect once when agent becomes available
-    // Connect once when agent becomes available
-    effect(
-      () => {
-        const a = this.agentStore().agent;
-        if (!a) return;
-        // Apply thread id when agent is available
-        a.threadId = this.threadId() || this.generatedThreadId;
-        if (!this.hasConnectedOnce) {
-          this.hasConnectedOnce = true;
-          if ("isCopilotKitAgent" in (a as any)) {
-            this.connectToAgent(a);
-          } else {
-            // Non-CopilotKit agent: nothing to connect; keep default cursor state
-          }
+    super();
+
+    this.destroyRef.onDestroy(() => this.activeConnection?.dispose());
+
+    const suggestionsSubscription = this.copilotKit.core.subscribe({
+      onAgentsChanged: () => {
+        const agentId = this.resolvedAgentId();
+        this.syncSuggestionsFromCore(agentId);
+        if (this.copilotKit.core.getAgent(agentId)) {
+          this.copilotKit.reloadSuggestions(agentId);
         }
       },
-      { allowSignalWrites: true },
-    );
+      onSuggestionsChanged: ({ agentId, suggestions }) => {
+        if (agentId !== this.resolvedAgentId()) {
+          return;
+        }
 
-    // Keep agent threadId in sync with input
-    effect(() => {
-      const a = this.agentStore().agent;
-      if (a) {
-        a.threadId = this.threadId() || this.generatedThreadId;
-      }
+        this.suggestions.set(suggestions);
+        this.suggestionsLoading.set(
+          this.copilotKit.core.getSuggestions(agentId).isLoading,
+        );
+        this.cdr.markForCheck();
+      },
+      onSuggestionsStartedLoading: ({ agentId }) => {
+        if (agentId !== this.resolvedAgentId()) {
+          return;
+        }
+
+        this.suggestionsLoading.set(true);
+        this.cdr.markForCheck();
+      },
+      onSuggestionsFinishedLoading: ({ agentId }) => {
+        if (agentId !== this.resolvedAgentId()) {
+          return;
+        }
+
+        this.syncSuggestionsFromCore(agentId);
+      },
+      onSuggestionsConfigChanged: () => {
+        const agentId = this.resolvedAgentId();
+        this.syncSuggestionsFromCore(agentId);
+        this.copilotKit.reloadSuggestions(agentId);
+      },
     });
 
-    // Hide cursor when agent starts (runAgent via core does not pass subscriber callbacks)
-    effect(
-      () => {
-        if (this.isRunning()) {
-          this.showCursor.set(false);
-          this.cdr.markForCheck();
+    this.destroyRef.onDestroy(() => suggestionsSubscription.unsubscribe());
+
+    explicitEffect(this.resolvedAgentId, (agentId) => {
+      this.syncSuggestionsFromCore(agentId);
+      this.copilotKit.reloadSuggestions(agentId);
+    });
+
+    if (this.config) {
+      // A set `[threadId]` input seeds the ambient config so the input
+      // actually drives the active thread (not just the welcome flag). When
+      // the config is controlled by a host-provided `threadId` option,
+      // `setActiveThreadId` no-ops — so a controlled config wins over the
+      // input, matching React's prop-precedence. When `[threadId]` is unset,
+      // the effect does nothing and the config drives as before.
+      explicitEffect(this.threadId, (inputThreadId) => {
+        if (inputThreadId) {
+          this.config!.setActiveThreadId(inputThreadId, { explicit: true });
         }
+      });
+    }
+    // Both ambient and standalone threads share reset and connection cleanup.
+    connectActiveThread(
+      this.config ?? {
+        threadId: this.resolvedThreadId,
+        hasExplicitThreadId: this.hasExplicitThreadId,
       },
-      { allowSignalWrites: true },
+      this.agentStore,
+      (agent) => this.connectToAgent(agent),
     );
   }
 
-  private async connectToAgent(agent: AbstractAgent): Promise<void> {
-    if (!agent) return;
+  private connectToAgent(agent: AbstractAgent) {
+    let disposed = false;
+    let initialized: RunAgentInput | undefined;
+    let replaced = false;
+    let completion: Promise<void> | undefined;
+    let detachCompletion: Promise<void> | undefined;
+    const controller = new AbortController();
+    if (ɵisHttpAgent(agent)) agent.abortController = controller;
 
-    this.showCursor.set(true);
-    this.cdr.markForCheck();
-
-    try {
-      await this.copilotKit.core.connectAgent({ agent });
-      this.showCursor.set(false);
-      this.cdr.markForCheck();
-    } catch (error) {
-      if (error instanceof AGUIConnectNotImplementedError) {
-        // Connect not implemented (e.g. agent only supports run), ignore
-      } else {
-        console.error("Failed to connect to agent:", error);
+    const ownsPipeline = () => {
+      if (!initialized || replaced) return false;
+      const candidate: unknown = agent;
+      const current = isRunCompletionAware(candidate)
+        ? candidate.activeRunCompletionPromise
+        : undefined;
+      if (!current) return false;
+      completion ??= current;
+      return current === completion;
+    };
+    let refresh: ReturnType<typeof setTimeout> | undefined;
+    const subscription = agent.subscribe({
+      onRunInitialized: ({ input }) => {
+        if (initialized && input !== initialized) {
+          replaced = true;
+        } else {
+          initialized = input;
+          // AG-UI installs the pipeline after initialization subscribers finish.
+          refresh = setTimeout(ownsPipeline, 0);
+        }
+      },
+      onRunStartedEvent: () => {
+        ownsPipeline();
+      },
+    });
+    const cleanup = () => {
+      clearTimeout(refresh);
+      subscription.unsubscribe();
+      if (this.activeConnection === handle) {
+        this.activeConnection = undefined;
+        this.connecting.set(false);
       }
-      this.showCursor.set(false);
-      this.cdr.markForCheck();
+    };
+    const handle = {
+      dispose: () => {
+        if (disposed) return detachCompletion;
+        disposed = true;
+        const current = this.activeConnection === handle;
+        const detach = current && (ownsPipeline() || !initialized);
+        // A successor connect may reuse HttpAgent's controller.
+        if (
+          !replaced &&
+          (current ||
+            (ɵisHttpAgent(agent) && agent.abortController !== controller))
+        ) {
+          controller.abort();
+        }
+        cleanup();
+        if (detach) detachCompletion = agent.detachActiveRun().catch(() => {});
+        return detachCompletion;
+      },
+    };
+    this.activeConnection = handle;
+    this.connecting.set(true);
+    void Promise.resolve()
+      .then(async () => {
+        if (!disposed && !this.destroyRef.destroyed) {
+          await this.copilotKit.core.connectAgent({ agent });
+        }
+      })
+      .catch((error: unknown) => {
+        if (!disposed && !(error instanceof AGUIConnectNotImplementedError)) {
+          console.error("[CopilotKit] Failed to connect to agent:", error);
+        }
+      })
+      .finally(cleanup);
+    return handle;
+  }
+
+  // Match React: wait for the current agent pipeline before sending another turn.
+  private async waitForActiveRunToSettle(agent: AbstractAgent): Promise<void> {
+    const candidate: unknown = agent;
+    const completion = isRunCompletionAware(candidate)
+      ? candidate.activeRunCompletionPromise
+      : undefined;
+    if (agent.isRunning && completion) {
+      try {
+        await completion;
+      } catch (error) {
+        console.error(
+          "[CopilotKit] In-flight run rejected while queuing send:",
+          error,
+        );
+      }
     }
   }
 
   async submitInput(value: string): Promise<void> {
+    if (
+      this.destroyRef.destroyed ||
+      !value.trim() ||
+      this.attachmentsUploading()
+    )
+      return;
     const agent = this.agentStore().agent;
-    if (!agent || !value.trim()) return;
-
-    // Add user message
-    const userMessage: Message = {
-      id: randomUUID(),
-      role: "user",
-      content: value,
-    };
-    agent.addMessage(userMessage);
-
-    // Clear the input
+    const threadId = agent.threadId;
     this.inputValue.set("");
+    await this.waitForActiveRunToSettle(agent);
+    if (
+      this.destroyRef.destroyed ||
+      this.agentStore().agent !== agent ||
+      agent.threadId !== threadId
+    )
+      return;
 
-    // Show cursor while processing
-    this.showCursor.set(true);
-    this.cdr.markForCheck();
+    // An upload can begin while this send is waiting, just as in React.
+    if (this.attachmentsUploading()) {
+      this.inputValue.set(value);
+      console.error("[CopilotKit] Cannot send while attachments are uploading");
+      return;
+    }
 
-    // Run the agent via core so tools (and context, forwardedProps) are included
     try {
+      const attachments = this.attachmentsDirective();
+      const ready = attachments?.consume() ?? [];
+      const message: Message =
+        ready.length > 0
+          ? {
+              id: randomUUID(),
+              role: "user",
+              content: attachments!.buildContent(value, ready),
+            }
+          : { id: randomUUID(), role: "user", content: value };
+      agent.addMessage(message);
       await this.copilotKit.core.runAgent({ agent });
     } catch (error) {
-      console.error("Agent run error:", error);
-    } finally {
-      this.showCursor.set(false);
-      this.cdr.markForCheck();
+      console.error("[CopilotKit] Agent run error:", error);
+    }
+  }
+
+  async selectSuggestion(
+    suggestion: Suggestion,
+    _index: number,
+  ): Promise<void> {
+    const message = suggestion.message.trim();
+    if (this.destroyRef.destroyed || !message || suggestion.isLoading) return;
+    const agent = this.agentStore().agent;
+    const threadId = agent.threadId;
+    await this.waitForActiveRunToSettle(agent);
+    if (
+      this.destroyRef.destroyed ||
+      this.agentStore().agent !== agent ||
+      agent.threadId !== threadId
+    )
+      return;
+
+    try {
+      agent.addMessage({ id: randomUUID(), role: "user", content: message });
+      await this.copilotKit.core.runAgent({ agent });
+    } catch (error) {
+      console.error("[CopilotKit] Agent run error:", error);
     }
   }
 
   changeInput(value: string): void {
     this.inputValue.set(value);
+  }
+
+  override async finishTranscription(audioBlob: Blob): Promise<void> {
+    this.isTranscribing.set(true);
+    this.cdr.markForCheck();
+
+    try {
+      const result = await transcribeAudio(this.copilotKit.core, audioBlob);
+      const text = result.text?.trim();
+      if (text) {
+        const previous = this.inputValue().trim();
+        this.inputValue.set(previous ? `${previous} ${text}` : text);
+      }
+    } catch (error) {
+      console.error("[CopilotKit] Transcription failed:", error);
+    } finally {
+      this.isTranscribing.set(false);
+      this.cdr.markForCheck();
+    }
+  }
+
+  private syncSuggestionsFromCore(agentId: string): void {
+    const result = this.copilotKit.core.getSuggestions(agentId);
+    this.suggestions.set(result.suggestions);
+    this.suggestionsLoading.set(result.isLoading);
+    this.cdr.markForCheck();
+  }
+
+  addFile(): void {
+    this.attachmentsDirective()?.openFilePicker();
+  }
+
+  removeAttachment(id: string): void {
+    this.attachmentsDirective()?.removeAttachment(id);
+  }
+
+  handleDragOver(event: DragEvent): void {
+    this.attachmentsDirective()?.onDragOver(event);
+  }
+
+  handleDragLeave(event: DragEvent): void {
+    this.attachmentsDirective()?.onDragLeave(event);
+  }
+
+  handleDrop(event: DragEvent): void {
+    void this.attachmentsDirective()?.onDrop(event);
   }
 }

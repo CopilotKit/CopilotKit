@@ -17,7 +17,6 @@ using System.ClientModel;
 // showcase/integrations/langgraph-python/src/agents/mcp_apps_agent.py
 public sealed class McpAppsAgentFactory
 {
-    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
     private const string SystemPrompt =
         "You draw simple diagrams in Excalidraw via the MCP tool.\n\n" +
         "SPEED MATTERS. Produce a correct-enough diagram fast; do not optimize " +
@@ -56,30 +55,25 @@ public sealed class McpAppsAgentFactory
 
         _logger = loggerFactory.CreateLogger<McpAppsAgentFactory>();
 
-        var githubToken = configuration["GitHubToken"]
-            ?? throw new InvalidOperationException(
-                "GitHubToken not found in configuration. " +
-                "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
-                "or get it using: gh auth token");
+        var apiKey = ApiKeyResolver.ResolveApiKey(configuration);
 
-        var endpointEnv = Environment.GetEnvironmentVariable("OPENAI_BASE_URL");
-        var endpoint = endpointEnv ?? DefaultOpenAiEndpoint;
+        var endpoint = ApiKeyResolver.ResolveEndpoint(configuration);
 
         _openAiClient = new(
-            new ApiKeyCredential(githubToken),
+            new ApiKeyCredential(apiKey),
             AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
     public AIAgent CreateMcpAppsAgent()
     {
-        // gpt-4o-mini for speed — Excalidraw element emission is simple JSON
+        // gpt-5-mini for speed — Excalidraw element emission is simple JSON
         // and we bias hard toward sub-30s generation.
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
 
         return new ChatClientAgent(
             chatClient,
             name: "McpAppsAgent",
-            description: SystemPrompt,
+            instructions: SystemPrompt,
             tools: []);
     }
 }

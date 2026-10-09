@@ -1,51 +1,43 @@
 "use client";
 
+import React from "react";
 import {
-  CopilotKitProvider,
-  CopilotChat,
+  CopilotKit,
   useAgent,
   UseAgentUpdate,
 } from "@copilotkit/react-core/v2";
 
-export default function SharedStateStreaming() {
+import { DemoLayout } from "./demo-layout";
+import { useSharedStateStreamingSuggestions } from "./suggestions";
+
+interface StreamingAgentState {
+  document?: string;
+}
+
+export default function SharedStateStreamingDemo() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" useSingleEndpoint>
-      <Demo />
-    </CopilotKitProvider>
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-streaming">
+      <DemoContent />
+    </CopilotKit>
   );
 }
 
-function Demo() {
+function DemoContent() {
   // @region[frontend-use-coagent-state]
+  // Subscribe to BOTH state changes and run-status changes. The former
+  // drives the per-token document rerender; the latter toggles the
+  // "LIVE" badge when the agent starts / stops.
   const { agent } = useAgent({
-    agentId: "default",
-    updates: [UseAgentUpdate.OnStateChanged],
+    agentId: "shared-state-streaming",
+    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
   });
   // @endregion[frontend-use-coagent-state]
 
-  const document = (agent.state as { document?: string }).document ?? "";
+  useSharedStateStreamingSuggestions();
 
-  return (
-    <main className="p-8 grid grid-cols-2 gap-8 h-screen">
-      <div className="overflow-auto">
-        <h1 className="text-2xl font-semibold mb-4">State Streaming</h1>
-        <p className="text-sm opacity-70 mb-4">
-          The agent streams the document into <code>state.document</code> by
-          repeatedly calling <code>AGUISendStateDelta</code>. Try: &ldquo;Write
-          a short essay about small habits, and stream the document to state as
-          you go.&rdquo;
-        </p>
-        <pre className="whitespace-pre-wrap font-serif text-base border rounded p-4 min-h-[300px]">
-          {document || (
-            <span className="opacity-40 italic font-sans text-sm">
-              The agent will fill this panel as it streams updates.
-            </span>
-          )}
-        </pre>
-      </div>
-      <div>
-        <CopilotChat />
-      </div>
-    </main>
-  );
+  const agentState = agent.state as StreamingAgentState | undefined;
+  const document = agentState?.document ?? "";
+  const isRunning = agent.isRunning;
+
+  return <DemoLayout document={document} isStreaming={isRunning} />;
 }

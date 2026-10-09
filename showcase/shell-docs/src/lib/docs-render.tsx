@@ -12,6 +12,7 @@ import path from "path";
 import matter from "gray-matter";
 import { resolveWithinDir } from "./safe-fs";
 import { getDocsMode } from "./registry";
+import { isRouteGroupSegment } from "./route-groups";
 
 export const CONTENT_DIR = path.join(process.cwd(), "src/content/docs");
 export const SNIPPETS_DIR = path.join(CONTENT_DIR, "..", "snippets");
@@ -27,9 +28,28 @@ export {
 // Nav tree types
 // ---------------------------------------------------------------------------
 
+export type NavNodeVariant = "react-docs-proxy" | "frontend-docs-upcoming";
+
+export type FrontendDocsStatus = "feature-complete" | "early-access";
+
 export type NavNode =
-  | { type: "page"; title: string; slug: string; icon?: string }
-  | { type: "section"; title: string; icon?: string }
+  | {
+      type: "page";
+      title: string;
+      slug: string;
+      href?: string;
+      icon?: string;
+      variant?: NavNodeVariant;
+    }
+  | {
+      type: "section";
+      title: string;
+      icon?: string;
+      variant?: NavNodeVariant;
+      quickstartHref?: string;
+      referenceHref?: string;
+      frontendDocsStatus?: FrontendDocsStatus;
+    }
   | {
       type: "group";
       title: string;
@@ -37,6 +57,7 @@ export type NavNode =
       children: NavNode[];
       defaultOpen?: boolean;
       icon?: string;
+      variant?: NavNodeVariant;
     };
 
 // Section headers (the all-caps separators) carry the only icons in
@@ -58,23 +79,28 @@ const SECTION_ICONS: Record<string, string> = {
   "get started": "lucide/Rocket",
   concepts: "lucide/BookOpen",
   "build chat uis": "lucide/MessageSquare",
-  "build generative ui": "lucide/Paintbrush",
+  "build generative ui": "lucide/LayoutTemplate",
   "add agent powers": "lucide/Wand2",
   runtime: "lucide/Cpu",
   "observe & operate": "lucide/SearchCheck",
-  enterprise: "custom/copilotkit-kite",
+  intelligence: "custom/copilotkit-kite",
+  "intelligence platform": "custom/copilotkit-kite",
+  channels: "lucide/MessagesSquare",
   deploy: "lucide/Cloud",
-  other: "lucide/MoreHorizontal",
+  deployment: "lucide/Cloud",
+  other: "lucide/Wrench",
   // Built-in Agent (authored) sections — match the section names in
   // `content/docs/integrations/built-in-agent/meta.json`. Adjust here
   // when those section labels change in that meta.json.
   "getting started": "lucide/Rocket",
-  basics: "lucide/BookOpen",
-  "generative ui": "lucide/Paintbrush",
+  basics: "lucide/Sprout",
+  "generative ui": "lucide/LayoutTemplate",
   "app control": "lucide/WandSparkles",
+  interactivity: "lucide/MousePointer",
+  "agent capabilities": "lucide/Sparkles",
   "built-in agent": "lucide/Bot",
   backend: "lucide/Server",
-  "premium features": "custom/copilotkit-kite",
+  learn: "lucide/BookOpen",
   tutorials: "lucide/ListChecks",
   troubleshooting: "lucide/LifeBuoy",
 };
@@ -130,7 +156,13 @@ const isDev = process.env.NODE_ENV === "development";
 const titleCache = new Map<string, string | null>();
 const metaCache = new Map<
   string,
-  { title?: string; pages?: string[]; root?: boolean } | null
+  {
+    title?: string;
+    pages?: string[];
+    root?: boolean;
+    icon?: string;
+    frontend?: unknown;
+  } | null
 >();
 // Tree-level cache. Even with title/meta cached, `buildNavTree` still
 // allocates ~200 NavNode objects per call and is invoked from every
@@ -139,82 +171,6 @@ const metaCache = new Map<
 // repeated calls return the same array reference. Dev mode skips it
 // so meta.json edits propagate without a restart.
 const navTreeCache = new Map<string, NavNode[]>();
-
-// Resolved-source strings for `<FrameworkSetup>` concept files. Same
-// dev/prod policy as the title/meta caches: dev re-reads on every
-// request so authoring edits show up immediately; prod caches for
-// the process lifetime since content is frozen at deploy time.
-//
-// The cache stores raw source strings — compilation happens on every
-// render so the `components` map binding (which closes over the URL
-// framework slug) stays correct.
-const setupConceptCache = new Map<string, string | null>();
-
-// Only exposed for tests. The compiled bundle ignores this export.
-export function __resetSetupConceptCacheForTest(): void {
-  setupConceptCache.clear();
-}
-
-/**
- * Resolve `<integrationsRoot>/<docsFolder>/docs/setup/<concept>.mdx`
- * for the given integration package root. Returns the file's source
- * string when present, or null for missing / empty / unreadable /
- * path-traversal attempts.
- *
- * `integrationsRoot` is the absolute path to `showcase/integrations/`
- * in production; tests inject a tmpdir so they're decoupled from the
- * on-disk shape of the real repo.
- *
- * Both the docsFolder + concept legs are routed through `resolveWithinDir`
- * for defense-in-depth — integration owners author both, but a typo or
- * a malicious slug should never escape the integrations root.
- */
-export function resolveSetupConcept(
-  integrationsRoot: string,
-  docsFolder: string,
-  concept: string,
-): string | null {
-  const folderResolved = resolveWithinDir(integrationsRoot, docsFolder);
-  if (!folderResolved) return null;
-  const conceptResolved = resolveWithinDir(
-    folderResolved,
-    path.join("docs", "setup", `${concept}.mdx`),
-  );
-  if (!conceptResolved) return null;
-
-  const cacheKey = conceptResolved;
-  if (!isDev && setupConceptCache.has(cacheKey)) {
-    return setupConceptCache.get(cacheKey)!;
-  }
-
-  if (!fs.existsSync(conceptResolved)) {
-    setupConceptCache.set(cacheKey, null);
-    return null;
-  }
-
-  let raw: string;
-  try {
-    raw = fs.readFileSync(conceptResolved, "utf-8");
-  } catch (err) {
-    console.error(
-      "[docs-render] failed to read setup concept",
-      conceptResolved,
-      err,
-    );
-    setupConceptCache.set(cacheKey, null);
-    return null;
-  }
-
-  // Whitespace-only files render nothing — treated as a deliberate
-  // placeholder, not an authoring error.
-  if (raw.trim().length === 0) {
-    setupConceptCache.set(cacheKey, null);
-    return null;
-  }
-
-  setupConceptCache.set(cacheKey, raw);
-  return raw;
-}
 
 export function readTitle(filePath: string): string | null {
   const cacheKey = path.resolve(filePath);
@@ -240,9 +196,12 @@ export function readTitle(filePath: string): string | null {
   // code sample or example config). Falls back to the first H1 when no
   // frontmatter title is set.
   const fm = extractFrontmatter(raw);
+  const navTitleMatch = fm.match(/^nav_title:\s*["']?(.+?)["']?\s*$/m);
   const fmMatch = fm.match(/^title:\s*["']?(.+?)["']?\s*$/m);
   let title: string | null = null;
-  if (fmMatch) {
+  if (navTitleMatch) {
+    title = navTitleMatch[1].replace(/["']$/, "");
+  } else if (fmMatch) {
     title = fmMatch[1].replace(/["']$/, "");
   } else {
     const headingMatch = raw.match(/^#\s+(.+)$/m);
@@ -252,11 +211,12 @@ export function readTitle(filePath: string): string | null {
   return title;
 }
 
-// Read the `icon:` field from an MDX file's frontmatter. Mirrors
-// `readTitle` so the icon survives the same caching / extraction story
-// (frontmatter-scoped regex, dev cache bypass). Returns the raw spec
-// string (e.g. `"lucide/Paintbrush"`); the bridge resolves it to a
-// React element when building the PageTree.
+// Read the sidebar `icon:` field from an MDX file's frontmatter. Page
+// icons are opt-in: `icon:` can live in frontmatter as metadata, but
+// it only appears in navigation when the page also sets
+// `showIcon: true`. This keeps icons available for targeted surfaces
+// like cookbook partner pages without turning every icon-bearing docs
+// page into an icon row.
 export function readIcon(filePath: string): string | null {
   const cacheKey = `icon:${path.resolve(filePath)}`;
   if (!isDev && titleCache.has(cacheKey)) return titleCache.get(cacheKey)!;
@@ -272,6 +232,11 @@ export function readIcon(filePath: string): string | null {
     return null;
   }
   const fm = extractFrontmatter(raw);
+  const showIcon = /^showIcon:\s*["']?true["']?\s*$/m.test(fm);
+  if (!showIcon) {
+    titleCache.set(cacheKey, null);
+    return null;
+  }
   const match = fm.match(/^icon:\s*["']?(.+?)["']?\s*$/m);
   const icon = match ? match[1].replace(/["']$/, "") : null;
   titleCache.set(cacheKey, icon);
@@ -298,6 +263,7 @@ export function readMeta(dir: string): {
   pages?: MetaPageEntry[];
   root?: boolean;
   icon?: string;
+  frontend?: unknown;
 } | null {
   const metaPath = path.join(dir, "meta.json");
   const cacheKey = path.resolve(metaPath);
@@ -463,7 +429,18 @@ function parseMetaPages(
       const title =
         readTitle(mdxFile) || entry.split("/").pop()!.replace(/-/g, " ");
       const icon = readIcon(mdxFile);
-      nodes.push({ type: "page", title, slug, icon: icon ?? undefined });
+      // An explicitly listed nested index is a direct link to the folder
+      // root, not a separate `/index` route. This lets a section expose an
+      // Overview page without wrapping a one-page folder around it.
+      const pageSlug = slug.endsWith("/index")
+        ? slug.slice(0, -"/index".length)
+        : slug;
+      nodes.push({
+        type: "page",
+        title,
+        slug: pageSlug,
+        icon: icon ?? undefined,
+      });
     } else if (fs.existsSync(subDir) && fs.statSync(subDir).isDirectory()) {
       const subMeta = readMeta(subDir);
       if (subMeta?.root) continue;
@@ -577,47 +554,32 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
   // both are present — the per-framework tree is only an escape hatch
   // for framework-specific topics, not an alternative rendering.
   const prefix = `integrations/${folder}/`;
-  const filtered: NavNode[] = [];
-  for (const node of nodes) {
+  const rewriteSlug = (slug: string): string => {
+    const stripped = slug.replace(prefix, "");
+    if (stripped === "index") return "";
+    if (stripped.endsWith("/index")) return stripped.slice(0, -"/index".length);
+    return stripped;
+  };
+  const rootEquivalentExists = (slug: string): boolean => {
+    const rootSlug = rewriteSlug(slug);
+    if (rootSlug === "") return false;
+    const rootMdx = path.join(CONTENT_DIR, `${rootSlug}.mdx`);
+    const rootIndex = path.join(CONTENT_DIR, rootSlug, "index.mdx");
+    return fs.existsSync(rootMdx) || fs.existsSync(rootIndex);
+  };
+  const rewriteNode = (node: NavNode): NavNode | null => {
     if (node.type === "page") {
-      // node.slug looks like `integrations/<folder>/<topic>`. Strip
-      // the prefix to check the root-level equivalent.
-      const rootSlug = node.slug.replace(prefix, "");
-      // Literal `"index"` is the framework-root page — it lives at the
-      // bare `/<framework>` URL, not at `/<framework>/index`. Rewrite to
-      // empty-slug so consumers (`SidebarLink`, `RenderNav`) build the
-      // correct href. The framework root never has a root-level
-      // equivalent at `CONTENT_DIR/index.mdx`, so the existence checks
-      // below would never filter it; we short-circuit instead.
-      if (rootSlug === "index") {
-        filtered.push({ ...node, slug: "" });
-        continue;
-      }
-      const rootMdx = path.join(CONTENT_DIR, `${rootSlug}.mdx`);
-      const rootIndex = path.join(CONTENT_DIR, rootSlug, "index.mdx");
-      if (fs.existsSync(rootMdx) || fs.existsSync(rootIndex)) continue;
-      // Rewrite the slug so the link points at /<framework>/<topic>,
-      // which the router resolves via its fallback to the same MDX.
-      filtered.push({ ...node, slug: rootSlug });
-    } else if (node.type === "group") {
-      // Recursively filter children of a group.
+      if (rootEquivalentExists(node.slug)) return null;
+      return { ...node, slug: rewriteSlug(node.slug) };
+    }
+    if (node.type === "group") {
       const children = node.children
-        .filter((c) => {
-          if (c.type !== "page") return true;
-          const rootSlug = c.slug.replace(prefix, "");
-          if (rootSlug === "index") return true;
-          const rootMdx = path.join(CONTENT_DIR, `${rootSlug}.mdx`);
-          const rootIndex = path.join(CONTENT_DIR, rootSlug, "index.mdx");
-          return !fs.existsSync(rootMdx) && !fs.existsSync(rootIndex);
-        })
-        .map((c) => {
-          if (c.type !== "page") return c;
-          const rootSlug = c.slug.replace(prefix, "");
-          return { ...c, slug: rootSlug === "index" ? "" : rootSlug };
-        });
+        .map(rewriteNode)
+        .filter((child): child is NavNode => child !== null);
       if (children.length > 0) {
-        filtered.push({ ...node, children });
+        return { ...node, slug: rewriteSlug(node.slug), children };
       }
+      return null;
     }
     // Intentionally drop section nodes. Per-framework meta.json files
     // tend to mirror the root tree's sections ("Getting Started",
@@ -625,7 +587,11 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
     // with root sections of the same name on React keys and (b) double
     // up the visual hierarchy — the override block is already wrapped
     // in a single `{frameworkName}` section by mergeFrameworkNav.
-  }
+    return null;
+  };
+  const filtered = nodes
+    .map(rewriteNode)
+    .filter((node): node is NavNode => node !== null);
 
   // Flatten empty-title wrapper groups. buildNavTree clears the title on
   // a spread-derived group when the preceding section header has the
@@ -646,25 +612,25 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
 
 /**
  * Build a sidebar that contains ONLY the per-framework MDX tree
- * (no merge with root nav, no root-equivalent filtering). Used when a
- * framework's `docs_mode === "authored"` — the framework owns its
- * entire IA, so the agnostic root sections (Concepts / Build Chat UIs
- * / ...) must NOT appear, and per-framework pages with names that
- * happen to match root pages (`quickstart`, `frontend-tools`, etc.)
- * MUST survive (they're the authoritative version for this framework).
+ * (no merge with root nav, no root-equivalent filtering). Authored
+ * integrations use this because their `integrations/<folder>/meta.json`
+ * is the source of truth for page order and section grouping.
  *
  * Slugs are rewritten to drop the `integrations/<folder>/` prefix and
  * the literal `index` → "" rewrite, so links resolve at
  * `/<framework>/<topic>` and the framework root at `/<framework>`.
  */
-export function buildFrameworkOnlyNav(folder: string): NavNode[] {
+export function buildFrameworkOnlyNav(
+  folder: string,
+  sharedSections: string[] = SHARED_ROOT_SECTIONS,
+): NavNode[] {
   const frameworkDir = path.join(CONTENT_DIR, "integrations", folder);
   if (!fs.existsSync(frameworkDir)) return [];
   const nodes = buildNavTree(frameworkDir, `integrations/${folder}`);
   const prefix = `integrations/${folder}/`;
 
   // Recursive slug rewrite so nested groups (e.g. `human-in-the-loop/`,
-  // `premium/`) also get the prefix stripped from their children.
+  // `intelligence/`) also get the prefix stripped from their children.
   //
   // Two `index` cases need rewriting:
   //   1. Top-level `index` → "" so the framework-root entry resolves to
@@ -693,7 +659,1022 @@ export function buildFrameworkOnlyNav(folder: string): NavNode[] {
     }
     return node;
   };
-  return nodes.map(rewrite);
+  return normalizeSidebarNav(
+    dropEmptySections(
+      appendSharedThreadPages(
+        appendSharedRootSections(nodes.map(rewrite), sharedSections),
+      ),
+    ),
+  );
+}
+
+/**
+ * Build the sidebar for the ROOT surface (the bare-URL docs, served by
+ * the default framework — Built-in Agent). Same as
+ * `buildFrameworkOnlyNav` but folds the agnostic root sections
+ * (`ROOT_SURFACE_SECTIONS`) into the tree so navigating from a BIA page
+ * to an agnostic page (e.g. `/concepts/architecture`, `/backend/ag-ui`)
+ * keeps ONE coherent sidebar instead of swapping IAs.
+ *
+ * Scoped to the root surface only: `buildFrameworkOnlyNav`'s default
+ * keeps the shared-section behavior for deepagents, and generated
+ * frameworks are untouched.
+ */
+export function buildRootSurfaceNav(folder: string): NavNode[] {
+  return buildFrameworkOnlyNav(folder, ROOT_SURFACE_SECTIONS);
+}
+
+const SHARED_ROOT_SECTIONS = ["Intelligence", "Platforms"];
+
+// Sections pulled from the root `meta.json` into the Built-in Agent
+// sidebar when it serves the ROOT surface (see `buildRootSurfaceNav`).
+// BIA is the default framework and its docs render at the bare root
+// URLs, so its sidebar must also navigate the agnostic pages that live
+// outside BIA's authored tree (Concepts, the Runtime/backend pages,
+// Intelligence, Deploy, What's New, Migrate, …). Without this, landing
+// on an agnostic page like `/concepts/architecture` swaps the sidebar
+// to the root `meta.json` IA — the jarring "two docs colliding" flip.
+//
+// Each title slots into a matching empty `---Section---` placeholder in
+// BIA's `meta.json` when present (so position is author-controlled),
+// otherwise the section appends at the end. "Intelligence" and
+// "Platforms" stay in the list so the root surface keeps the generated
+// Intelligence IA and shared platform guides.
+const ROOT_SURFACE_SECTIONS = [
+  "Concepts",
+  "Runtime",
+  "Intelligence",
+  "Deploy",
+  "Platforms",
+  "Other",
+];
+
+/**
+ * Remove section headers that have no entries before the next section
+ * header (or end of tree). `buildRootSurfaceNav` relies on empty
+ * `---Section---` placeholders in BIA's meta.json that get filled by
+ * `appendSharedRootSections`; any placeholder whose section isn't in
+ * the active shared list would otherwise render as a
+ * dangling header. This also guards against authored metas that leave a
+ * trailing empty section.
+ */
+function dropEmptySections(navTree: NavNode[]): NavNode[] {
+  return navTree.filter((node, i) => {
+    if (node.type !== "section") return true;
+    const next = navTree[i + 1];
+    // Keep the section only if a non-section node follows it before the
+    // next section boundary.
+    return next !== undefined && next.type !== "section";
+  });
+}
+
+function sectionRange(
+  navTree: NavNode[],
+  sectionTitle: string,
+): { start: number; end: number } | null {
+  const start = navTree.findIndex(
+    (node) =>
+      node.type === "section" &&
+      node.title.toLowerCase() === sectionTitle.toLowerCase(),
+  );
+  if (start === -1) return null;
+
+  const nextSection = navTree.findIndex(
+    (node, index) => index > start && node.type === "section",
+  );
+  return { start, end: nextSection === -1 ? navTree.length : nextSection };
+}
+
+function hasPageSlug(navTree: NavNode[], slug: string): boolean {
+  return navTree.some((node) => {
+    if (node.type === "page") return node.slug === slug;
+    if (node.type === "group") return hasPageSlug(node.children, slug);
+    return false;
+  });
+}
+
+function findPageBySlug(navTree: NavNode[], slug: string): NavNode | null {
+  for (const node of navTree) {
+    if (node.type === "page" && node.slug === slug) return node;
+    if (node.type === "group") {
+      const match = findPageBySlug(node.children, slug);
+      if (match) return match;
+    }
+  }
+  return null;
+}
+
+type SidebarSection = {
+  section: Extract<NavNode, { type: "section" }>;
+  children: NavNode[];
+};
+
+const SIDEBAR_SECTION_TITLES: Record<string, string> = {
+  "get started": "Getting Started",
+  "getting started": "Getting Started",
+  "build chat uis": "Basics",
+  basics: "Basics",
+  "build generative ui": "Generative UI",
+  "generative ui": "Generative UI",
+  "add agent powers": "App Control",
+  "app control": "App Control",
+  intelligence: "Intelligence",
+  "intelligence platform": "Intelligence",
+  backend: "Runtime",
+  runtime: "Runtime",
+  deploy: "Deployment",
+  deployment: "Deployment",
+};
+
+type SidebarBuckets = {
+  prefix: NavNode[];
+  sections: SidebarSection[];
+};
+
+function splitSidebarSections(navTree: NavNode[]): SidebarBuckets {
+  const prefix: NavNode[] = [];
+  const sections: SidebarSection[] = [];
+  const sectionsByTitle = new Map<string, SidebarSection>();
+  let current: SidebarSection | undefined;
+
+  for (const node of navTree) {
+    if (node.type !== "section") {
+      if (current) current.children.push(node);
+      else prefix.push(node);
+      continue;
+    }
+
+    const title =
+      SIDEBAR_SECTION_TITLES[node.title.toLowerCase()] ?? node.title;
+    const existing = sectionsByTitle.get(title);
+    if (existing) {
+      current = existing;
+      continue;
+    }
+
+    current = {
+      section: { ...node, title },
+      children: [],
+    };
+    sections.push(current);
+    sectionsByTitle.set(title, current);
+  }
+
+  return { prefix, sections };
+}
+
+function sidebarSectionChildren(
+  buckets: SidebarBuckets,
+  title: string,
+): NavNode[] {
+  return (
+    buckets.sections.find(({ section }) => section.title === title)?.children ??
+    []
+  );
+}
+
+function findNavNode(
+  nodes: NavNode[],
+  predicate: (node: NavNode) => boolean,
+): NavNode | null {
+  for (const node of nodes) {
+    if (predicate(node)) return node;
+    if (node.type === "group") {
+      const match = findNavNode(node.children, predicate);
+      if (match) return match;
+    }
+  }
+  return null;
+}
+
+function flattenUntitledGroups(nodes: NavNode[]): NavNode[] {
+  return nodes.flatMap((node) => {
+    if (node.type === "group" && node.title === "") return node.children;
+    return [node];
+  });
+}
+
+function sidebarTopicGroup(
+  title: string,
+  slug: string,
+  source: NavNode | NavNode[] | null,
+  defaultOpen = false,
+): Extract<NavNode, { type: "group" }> | null {
+  if (!source) return null;
+  const children = Array.isArray(source)
+    ? source
+    : source.type === "group"
+      ? source.children
+      : [source];
+  if (children.length === 0) return null;
+  return { type: "group", title, slug, children, defaultOpen };
+}
+
+function withoutRouteGroupSlug(slug: string): string {
+  return slug
+    .split("/")
+    .filter((segment) => !isRouteGroupSegment(segment))
+    .join("/");
+}
+
+function withoutRouteGroupSegments(node: NavNode): NavNode {
+  if (node.type === "section") return node;
+  const slug = withoutRouteGroupSlug(node.slug);
+  if (node.type === "page") return { ...node, slug };
+  return {
+    ...node,
+    slug,
+    children: node.children.map(withoutRouteGroupSegments),
+  };
+}
+
+function uniqueSidebarNodes(nodes: NavNode[]): NavNode[] {
+  const seen = new Set<string>();
+  return nodes.filter((node) => {
+    const key =
+      node.type === "section"
+        ? `section:${node.title}`
+        : node.type === "page"
+          ? `page:${node.href ?? node.slug}`
+          : `group:${node.title}:${node.slug}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function sidebarSection(title: string, children: Array<NavNode | null>) {
+  const present = children.filter((node): node is NavNode => node !== null);
+  return [
+    {
+      type: "section",
+      title,
+      icon: sectionIconFor(title),
+    } satisfies NavNode,
+    ...present,
+  ] satisfies NavNode[];
+}
+
+const RESERVED_SIDEBAR_SECTIONS = new Set([
+  "Getting Started",
+  "Basics",
+  "Generative UI",
+  "App Control",
+  "Interactivity",
+  "Agent capabilities",
+  "Runtime",
+  "Intelligence",
+  "Backend",
+  "Deployment",
+  "Concepts",
+  "Learn",
+  "Observe & Operate",
+  "Platforms",
+  "Troubleshooting",
+  "Other",
+]);
+
+function isSharedFrameworkNode(node: NavNode): boolean {
+  if (node.type === "section") return true;
+  const slug = node.slug
+    .split("/")
+    .filter((segment) => !isRouteGroupSegment(segment))
+    .join("/");
+  return (
+    slug === "frontend-tools" ||
+    slug === "webmcp" ||
+    slug === "learning" ||
+    slug === "inspector" ||
+    slug === "vs-code-extension" ||
+    slug === "telemetry" ||
+    slug === "multi-agent/subagents" ||
+    slug === "shared-state" ||
+    slug.startsWith("shared-state/") ||
+    slug === "human-in-the-loop" ||
+    slug.startsWith("human-in-the-loop/")
+  );
+}
+
+/**
+ * Reduce every docs source tree to the same high-level sidebar map. The
+ * detailed pages remain inside topic folders, while the always-visible rows
+ * match the product concepts readers choose between first.
+ */
+export function normalizeSidebarNav(
+  navTree: NavNode[],
+  includeCanonicalFallback = true,
+): NavNode[] {
+  const input = splitSidebarSections(navTree);
+  const canonical = includeCanonicalFallback
+    ? splitSidebarSections(buildNavTree(CONTENT_DIR))
+    : { prefix: [], sections: [] };
+  const allInputNodes = [
+    ...input.prefix,
+    ...input.sections.flatMap(({ children }) => children),
+  ];
+  const allCanonicalNodes = [
+    ...canonical.prefix,
+    ...canonical.sections.flatMap(({ children }) => children),
+  ];
+  const findPage = (slug: string) =>
+    findPageBySlug(allInputNodes, slug) ??
+    findPageBySlug(allCanonicalNodes, slug);
+  const findGroup = (nodes: NavNode[], title: string) =>
+    findNavNode(
+      nodes,
+      (node) =>
+        node.type === "group" &&
+        node.title.toLowerCase() === title.toLowerCase(),
+    );
+
+  const gettingStarted = [
+    ...input.prefix,
+    ...sidebarSectionChildren(input, "Getting Started"),
+  ];
+  const introduction =
+    findPageBySlug(gettingStarted, "") ?? findPageBySlug(allCanonicalNodes, "");
+  const quickstart =
+    findPageBySlug(gettingStarted, "quickstart") ?? findPage("quickstart");
+  const buildWithAgents =
+    findPageBySlug(gettingStarted, "build-with-agents") ??
+    findPage("build-with-agents");
+  const intelligenceOverviewLink = findPage("intelligence/overview");
+  const startLinks: NavNode[] = [
+    ...(introduction?.type === "page"
+      ? [
+          {
+            ...introduction,
+            title: "Introduction",
+            icon: "lucide/Rocket",
+          },
+        ]
+      : []),
+    ...(quickstart?.type === "page"
+      ? [{ ...quickstart, title: "Quickstart", icon: "lucide/Play" }]
+      : []),
+    ...(buildWithAgents?.type === "page"
+      ? [
+          {
+            ...buildWithAgents,
+            title: "Build with agents",
+            icon: "lucide/BrainCircuit",
+          },
+        ]
+      : []),
+    ...(intelligenceOverviewLink?.type === "page"
+      ? [
+          {
+            ...intelligenceOverviewLink,
+            title: "Intelligence",
+            icon: "custom/intelligence-kite",
+          },
+        ]
+      : []),
+  ];
+  const frontendGettingStartedExtras = gettingStarted.filter(
+    (node) =>
+      node.type === "page" &&
+      node !== introduction &&
+      node !== quickstart &&
+      (node.slug === "using-these-docs" ||
+        node.slug === "features" ||
+        node.title.toLowerCase().includes("angular")),
+  );
+
+  const inputBasics = sidebarSectionChildren(input, "Basics");
+  const canonicalBasics = sidebarSectionChildren(canonical, "Basics");
+  const existingChat = findGroup(inputBasics, "Chat");
+  const authoredThreads =
+    findGroup(inputBasics, "Threads") ?? findGroup(canonicalBasics, "Threads");
+  const threadUiChildren =
+    authoredThreads?.type === "group" ? authoredThreads.children : [];
+  const threadDeliverySlugs = [
+    "threads",
+    "intelligence/bring-your-own-thread-system",
+    "threads-import",
+    "threads-lifecycle",
+    "intelligence/threads-explained",
+  ];
+  const filterChatNodes = (nodes: NavNode[]) =>
+    nodes.filter(
+      (node) =>
+        !(
+          node.type === "group" &&
+          ["Threads", "AG-UI Streams"].includes(node.title)
+        ) &&
+        !(
+          node.type === "page" &&
+          (["inspector", ...threadDeliverySlugs].includes(node.slug) ||
+            Boolean(findPageBySlug(threadUiChildren, node.slug)))
+        ),
+    );
+  const inputChatNodes = filterChatNodes(inputBasics);
+  const chatSource = existingChat
+    ? existingChat.type === "group"
+      ? filterChatNodes(existingChat.children)
+      : []
+    : inputChatNodes.length > 0
+      ? inputChatNodes
+      : filterChatNodes(canonicalBasics);
+  const chat = sidebarTopicGroup(
+    "Chat",
+    "sidebar#chat",
+    uniqueSidebarNodes(chatSource),
+  );
+  const threadUiTopic = sidebarTopicGroup(
+    "Threads",
+    "sidebar#threads-ui",
+    threadUiChildren,
+  );
+  const frontendTools = findPage("frontend-tools");
+
+  const inputGenerative = flattenUntitledGroups(
+    sidebarSectionChildren(input, "Generative UI"),
+  );
+  const canonicalGenerative = flattenUntitledGroups(
+    sidebarSectionChildren(canonical, "Generative UI"),
+  );
+  const generativeTopic = (title: string, displayTitle = title) => {
+    const source =
+      findGroup(inputGenerative, title) ??
+      findGroup(canonicalGenerative, title);
+    return sidebarTopicGroup(
+      displayTitle,
+      `sidebar#generative-${displayTitle.toLowerCase().replaceAll(" ", "-")}`,
+      source,
+    );
+  };
+
+  const inputInteractivity = sidebarSectionChildren(input, "Interactivity");
+  const inputAppControl = sidebarSectionChildren(input, "App Control");
+  const canonicalAppControl = sidebarSectionChildren(canonical, "App Control");
+  const interactivitySources = [
+    ...inputInteractivity,
+    ...inputAppControl,
+    ...canonicalAppControl,
+  ];
+  const sharedState =
+    findGroup(interactivitySources, "Shared state") ?? findPage("shared-state");
+  const humanInTheLoop =
+    findGroup(interactivitySources, "Human-in-the-loop") ??
+    findGroup(interactivitySources, "Human in the loop") ??
+    findNavNode(
+      interactivitySources,
+      (node) => node.type === "group" && node.slug === "human-in-the-loop",
+    );
+
+  const existingAgentCapabilities = sidebarSectionChildren(
+    input,
+    "Agent capabilities",
+  );
+  const existingFrameworkGroups = existingAgentCapabilities.filter(
+    (node) =>
+      node.type === "group" &&
+      !["automatic learning", "sub-agents"].includes(node.title.toLowerCase()),
+  );
+  const frameworkGroups =
+    existingFrameworkGroups.length > 0
+      ? existingFrameworkGroups
+      : input.sections
+          .filter(
+            ({ section, children }) =>
+              !RESERVED_SIDEBAR_SECTIONS.has(section.title) &&
+              children.some((node) => !isSharedFrameworkNode(node)),
+          )
+          .map(({ section, children }) =>
+            sidebarTopicGroup(
+              section.title,
+              `sidebar#framework-${section.title
+                .toLowerCase()
+                .replaceAll(/[^a-z0-9]+/g, "-")}`,
+              children.filter((node) => !isSharedFrameworkNode(node)),
+            ),
+          )
+          .filter((node): node is Extract<NavNode, { type: "group" }> =>
+            Boolean(node),
+          );
+  const subagents = findPage("multi-agent/subagents");
+  const webMcp = findPage("webmcp");
+
+  const intelligencePage = (slug: string, title: string): NavNode | null => {
+    const page = findPage(slug);
+    return page?.type === "page" ? { ...page, title, icon: undefined } : null;
+  };
+  const intelligenceOverview = intelligencePage(
+    "intelligence/overview",
+    "Overview",
+  );
+  const intelligenceQuickstart = intelligencePage(
+    "intelligence/quickstart",
+    "Quickstart",
+  );
+  const intelligenceArchitecture = intelligencePage(
+    "intelligence/intelligence-platform",
+    "Architecture",
+  );
+
+  const intelligenceStreams = sidebarTopicGroup(
+    "AG-UI Streams",
+    "sidebar#ag-ui-streams",
+    [
+      intelligencePage("threads", "Overview"),
+      intelligencePage(
+        "intelligence/bring-your-own-thread-system",
+        "Bring your own thread system",
+      ),
+      intelligencePage("threads-import", "Add to Existing Threads"),
+      intelligencePage("threads-lifecycle", "Thread & History Lifecycle"),
+      intelligencePage(
+        "intelligence/threads-explained",
+        "Streams & Framework Threads",
+      ),
+    ].filter((node): node is NavNode => node !== null),
+  );
+  const intelligenceCloud = intelligencePage(
+    "intelligence/managed-intelligence-platform",
+    "Cloud-hosted",
+  );
+  const intelligencePlans = intelligencePage("intelligence/plans", "Plans");
+  const intelligenceSelfHosted = intelligencePage(
+    "intelligence/self-hosting",
+    "Self-hosted",
+  );
+  const intelligenceEcs = intelligencePage(
+    "intelligence/self-hosting-ecs",
+    "AWS ECS/Fargate",
+  );
+  const intelligenceLocal = intelligencePage(
+    "intelligence/self-hosting-local",
+    "Local evaluation",
+  );
+  const intelligenceLearning = intelligencePage(
+    "learning",
+    "Automatic Learning",
+  );
+  const intelligenceMemory = intelligencePage(
+    "intelligence/memories",
+    "User Memories",
+  );
+  const intelligenceSkillDelivery = intelligencePage(
+    "intelligence/learned-skills",
+    "Skill delivery",
+  );
+  const intelligenceCapture = intelligencePage(
+    "intelligence/capture-interactions",
+    "Capture interactions",
+  );
+  const intelligenceStandaloneCollector = intelligencePage(
+    "intelligence/standalone-collector",
+    "Standalone collector",
+  );
+  const intelligenceCapturedData = intelligencePage(
+    "intelligence/captured-data",
+    "Captured data",
+  );
+  // Skill delivery is a step inside Automatic Learning, so it nests under
+  // that page. The group shares the page's slug, and page-tree-bridge lifts
+  // the matching child onto the folder so the folder title links to /learning.
+  const intelligenceLearningGroup = sidebarTopicGroup(
+    "Automatic Learning",
+    "learning",
+    [intelligenceLearning, intelligenceSkillDelivery].filter(
+      (node): node is NavNode => node !== null,
+    ),
+  );
+  const intelligenceAnalytics = intelligencePage(
+    "intelligence/analytics",
+    "Product Analytics",
+  );
+  const intelligenceChannels = intelligencePage(
+    "intelligence/channels",
+    "Channels",
+  );
+
+  const existingBackend = sidebarSectionChildren(input, "Backend");
+  const inputDeployment = sidebarSectionChildren(input, "Deployment");
+  const runtimeSource =
+    findGroup(existingBackend, "Runtime") ??
+    findGroup(inputDeployment, "Runtime") ??
+    sidebarSectionChildren(input, "Runtime");
+  const deploymentSource =
+    findGroup(existingBackend, "Deployment") ??
+    inputDeployment.filter(
+      (node) => !(node.type === "group" && node.title === "Runtime"),
+    );
+  const debuggingSource =
+    findGroup(existingBackend, "Debugging") ??
+    uniqueSidebarNodes([
+      ...sidebarSectionChildren(input, "Observe & Operate"),
+      ...(findPage("inspector") ? [findPage("inspector")!] : []),
+    ]);
+
+  const existingLearn = sidebarSectionChildren(input, "Learn");
+  const conceptsSource =
+    findGroup(existingLearn, "Concepts") ??
+    sidebarSectionChildren(input, "Concepts");
+  const frontendGuidesSource = uniqueSidebarNodes([
+    ...frontendGettingStartedExtras,
+    ...sidebarSectionChildren(input, "Angular Guides"),
+  ]);
+
+  const inputOther = sidebarSectionChildren(input, "Other");
+  const canonicalOther = sidebarSectionChildren(canonical, "Other");
+  const contributingSource =
+    findGroup(inputOther, "Contributing") ??
+    findGroup(canonicalOther, "Contributing");
+  const troubleshootingSource =
+    findGroup(inputOther, "Troubleshooting") ??
+    findGroup(
+      sidebarSectionChildren(input, "Troubleshooting"),
+      "Troubleshooting",
+    ) ??
+    sidebarTopicGroup(
+      "Troubleshooting",
+      "sidebar#troubleshooting-source",
+      flattenUntitledGroups(sidebarSectionChildren(input, "Troubleshooting")),
+    );
+  const telemetry =
+    findNavNode(
+      [...inputOther, ...canonicalOther],
+      (node) =>
+        node.type === "page" &&
+        withoutRouteGroupSlug(node.slug) === "telemetry",
+    ) ?? findPage("telemetry");
+  const communityFrameworks =
+    findNavNode(
+      [...inputOther, ...canonicalOther],
+      (node) =>
+        node.type === "page" &&
+        withoutRouteGroupSlug(node.slug) === "community-frameworks",
+    ) ?? findPage("community-frameworks");
+
+  return [
+    ...startLinks,
+    ...sidebarSection("Basics", [
+      chat,
+      threadUiTopic,
+      frontendTools?.type === "page"
+        ? { ...frontendTools, title: "Frontend-tools", icon: undefined }
+        : null,
+    ]),
+    ...sidebarSection("Generative UI", [
+      generativeTopic("Controlled"),
+      generativeTopic("Declarative"),
+      generativeTopic("Open-Ended", "Open-ended"),
+    ]),
+    ...sidebarSection("Interactivity", [
+      sidebarTopicGroup("Shared state", "sidebar#shared-state", sharedState),
+      sidebarTopicGroup(
+        "Human-in-the-loop",
+        "sidebar#human-in-the-loop",
+        humanInTheLoop,
+      ),
+      webMcp?.type === "page"
+        ? { ...webMcp, title: "WebMCP", icon: undefined }
+        : null,
+    ]),
+    ...sidebarSection("Agent capabilities", [
+      ...frameworkGroups,
+      subagents?.type === "page"
+        ? { ...subagents, title: "Sub-agents", icon: undefined }
+        : null,
+    ]),
+    ...sidebarSection("Intelligence", [
+      intelligenceOverview,
+      sidebarTopicGroup(
+        "Get started",
+        "sidebar#intelligence-get-started",
+        [
+          intelligenceQuickstart,
+          intelligenceArchitecture,
+          intelligencePlans,
+        ].filter((node): node is NavNode => node !== null),
+      ),
+      sidebarTopicGroup(
+        "Features",
+        "sidebar#intelligence-features",
+        [
+          intelligenceStreams,
+          intelligenceLearningGroup,
+          intelligenceMemory,
+          intelligenceCapture,
+          intelligenceStandaloneCollector,
+          intelligenceCapturedData,
+          intelligenceAnalytics,
+          intelligenceChannels,
+        ].filter((node): node is NavNode => node !== null),
+        true,
+      ),
+      sidebarTopicGroup(
+        "Hosting",
+        "sidebar#intelligence-hosting",
+        [
+          intelligenceCloud,
+          intelligenceSelfHosted,
+          intelligenceEcs,
+          intelligenceLocal,
+        ].filter((node): node is NavNode => node !== null),
+      ),
+    ]),
+    ...sidebarSection("Backend", [
+      sidebarTopicGroup("Runtime", "sidebar#runtime", runtimeSource),
+      sidebarTopicGroup(
+        "Deployment",
+        "sidebar#deployment",
+        Array.isArray(deploymentSource)
+          ? flattenUntitledGroups(deploymentSource)
+          : deploymentSource,
+      ),
+      sidebarTopicGroup("Debugging", "sidebar#debugging", debuggingSource),
+    ]),
+    ...sidebarSection("Learn", [
+      sidebarTopicGroup(
+        "Concepts",
+        "sidebar#concepts",
+        Array.isArray(conceptsSource)
+          ? flattenUntitledGroups(conceptsSource)
+          : conceptsSource,
+      ),
+      sidebarTopicGroup(
+        "Angular guides",
+        "sidebar#angular-guides",
+        frontendGuidesSource,
+      ),
+      {
+        type: "page",
+        title: "Cookbook",
+        slug: "cookbook",
+        href: "/cookbook",
+        icon: "lucide/ArrowUpRight",
+      },
+      {
+        type: "page",
+        title: "Reference",
+        slug: "reference",
+        href: "/reference",
+        icon: "lucide/ArrowUpRight",
+      },
+    ]),
+    ...sidebarSection("Other", [
+      contributingSource
+        ? sidebarTopicGroup(
+            "Contributing",
+            "sidebar#contributing",
+            withoutRouteGroupSegments(contributingSource),
+          )
+        : null,
+      troubleshootingSource
+        ? sidebarTopicGroup(
+            "Troubleshooting",
+            "sidebar#troubleshooting",
+            troubleshootingSource,
+          )
+        : null,
+      telemetry?.type === "page"
+        ? {
+            ...withoutRouteGroupSegments(telemetry),
+            title: "Open-source telemetry",
+            icon: undefined,
+          }
+        : null,
+      communityFrameworks?.type === "page"
+        ? { ...withoutRouteGroupSegments(communityFrameworks), icon: undefined }
+        : null,
+    ]),
+  ];
+}
+
+function isRichThreadsGroup(
+  node: NavNode,
+): node is Extract<NavNode, { type: "group" }> {
+  return (
+    node.type === "group" &&
+    hasPageSlug(node.children, "threads") &&
+    node.title === "AG-UI Streams"
+  );
+}
+
+function appendSharedThreadPages(navTree: NavNode[]): NavNode[] {
+  const rootGroup = buildNavTree(CONTENT_DIR).find(
+    (node): node is Extract<NavNode, { type: "group" }> =>
+      isRichThreadsGroup(node),
+  );
+  if (!rootGroup) return navTree;
+
+  const sharedPages = [
+    "intelligence/bring-your-own-thread-system",
+    "intelligence/threads-explained",
+  ].flatMap((slug) => {
+    const page = findPageBySlug(rootGroup.children, slug);
+    return page?.type === "page" ? [page] : [];
+  });
+
+  return navTree.map((node) => {
+    if (!isRichThreadsGroup(node)) return node;
+    const missing = sharedPages.filter(
+      (page) => !hasPageSlug(node.children, page.slug),
+    );
+    return { ...node, children: [...node.children, ...missing] };
+  });
+}
+
+// A nav node whose slug carries a route-group segment like `(other)`.
+// Route groups are organizational-only — the segment is stripped from
+// the real URL — so folding them into a sidebar would emit a bogus
+// `/(other)/…` href (and duplicate pages that also live at their
+// stripped URL). `appendSharedRootSections` drops these when folding
+// root sections into a framework sidebar.
+function isRouteGroupNode(node: NavNode): boolean {
+  if (node.type === "section") return false;
+  return node.slug
+    .split("/")
+    .some((seg) => seg.startsWith("(") && seg.endsWith(")"));
+}
+
+function filterMissingPages(node: NavNode, navTree: NavNode[]): NavNode | null {
+  if (node.type === "page") {
+    return hasPageSlug(navTree, node.slug) ? null : node;
+  }
+  if (node.type === "group") {
+    const children = node.children
+      .map((child) => filterMissingPages(child, navTree))
+      .filter((child): child is NavNode => child !== null);
+    return children.length > 0 ? { ...node, children } : null;
+  }
+  return node;
+}
+
+/**
+ * Authored framework sidebars own their page order, but some root docs
+ * sections are global product guidance rather than framework IA. Keep
+ * those shared sections in every framework sidebar without duplicating
+ * entries across each authored integration's meta.json.
+ */
+function appendSharedRootSections(
+  navTree: NavNode[],
+  sharedSections: string[] = SHARED_ROOT_SECTIONS,
+): NavNode[] {
+  let nextNavTree = navTree;
+  const rootNavTree = buildNavTree(CONTENT_DIR);
+
+  for (const sectionTitle of sharedSections) {
+    const rootRange = sectionRange(rootNavTree, sectionTitle);
+    if (!rootRange) continue;
+
+    const section = rootNavTree[rootRange.start];
+    const missingNodes = rootNavTree
+      .slice(rootRange.start + 1, rootRange.end)
+      .filter((node) => !isRouteGroupNode(node))
+      .map((node) => filterMissingPages(node, nextNavTree))
+      .filter((node): node is NavNode => node !== null);
+    if (missingNodes.length === 0) continue;
+
+    const existingRange = sectionRange(nextNavTree, sectionTitle);
+    if (existingRange) {
+      nextNavTree = [
+        ...nextNavTree.slice(0, existingRange.end),
+        ...missingNodes,
+        ...nextNavTree.slice(existingRange.end),
+      ];
+    } else {
+      nextNavTree = [...nextNavTree, section, ...missingNodes];
+    }
+  }
+
+  return nextNavTree;
+}
+
+// Map a framework slug to the section-header icon spec used by the
+// sidebar bridge. LangGraph variants (-python, -typescript, -fastapi)
+// share the LangGraph mark; other integrations have no custom mark yet
+// and fall back to no icon. Extend as we ship more.
+export function frameworkSectionIcon(framework: string): string | undefined {
+  if (framework.startsWith("langgraph")) return "custom/langgraph";
+  return undefined;
+}
+
+/**
+ * Merge per-framework overrides into the root nav tree. The override
+ * block is inserted as a labeled section right after the agent-control
+ * section in the root ordering.
+ *
+ * Authored and generated frameworks both use this merged shell so the
+ * sidebar information architecture is stable across framework switches.
+ * Content resolution still decides whether a given slug renders authored
+ * MDX first or the generated/root page first.
+ */
+export function mergeFrameworkNav(
+  rootNav: NavNode[],
+  overrideNav: NavNode[],
+  frameworkName: string,
+  frameworkIcon?: string,
+): NavNode[] {
+  if (overrideNav.length === 0) return rootNav;
+
+  // Pull the framework-root page (the "Introduction" entry from
+  // integrations/<folder>/meta.json's literal "index" slot —
+  // buildFrameworkOverridesNav rewrites its slug to "") out of the override
+  // nav so we can place it inside the global "Get Started" section instead
+  // of stranding it above all section headers as a top-level prefix.
+  const introIdx = overrideNav.findIndex(
+    (n) => n.type === "page" && n.slug === "",
+  );
+  const introNode = introIdx >= 0 ? overrideNav[introIdx] : null;
+  const remainingOverrideNav =
+    introIdx >= 0
+      ? [...overrideNav.slice(0, introIdx), ...overrideNav.slice(introIdx + 1)]
+      : overrideNav;
+
+  const sectionHeader: NavNode = {
+    type: "section",
+    title: frameworkName,
+    icon: frameworkIcon,
+  };
+  const isSection = (n: NavNode, title: string) =>
+    n.type === "section" && n.title.toLowerCase() === title.toLowerCase();
+  // Section names tried in priority order. The first match wins; the
+  // override block is inserted right before the *next* section header
+  // after the matched anchor. Update this list when the JTBD section
+  // names change in content/docs/meta.json.
+  const ANCHOR_CANDIDATES = [
+    "add agent powers",
+    "give your app agent powers",
+    "app control",
+    "agents & backends",
+    "backend",
+    "runtime",
+  ];
+  let insertAt = -1;
+  for (const anchor of ANCHOR_CANDIDATES) {
+    const anchorIdx = rootNav.findIndex((n) => isSection(n, anchor));
+    if (anchorIdx === -1) continue;
+    for (let i = anchorIdx + 1; i < rootNav.length; i++) {
+      if (rootNav[i].type === "section") {
+        insertAt = i;
+        break;
+      }
+    }
+    if (insertAt !== -1) break;
+  }
+
+  // Reconcile the rootNav's existing root-level introduction with the
+  // framework's own introNode. At a framework view we want exactly one
+  // Introduction entry, and it should link to the framework root.
+  const rootHasIntro = rootNav.some((n) => n.type === "page" && n.slug === "");
+  const rootNavWithIntro = (() => {
+    if (!introNode) return rootNav;
+    if (rootHasIntro) {
+      return rootNav.map((n) =>
+        n.type === "page" && n.slug === "" ? introNode : n,
+      );
+    }
+    const getStartedIdx = rootNav.findIndex((n) => isSection(n, "get started"));
+    if (getStartedIdx === -1) return [introNode, ...rootNav];
+    return [
+      ...rootNav.slice(0, getStartedIdx + 1),
+      introNode,
+      ...rootNav.slice(getStartedIdx + 1),
+    ];
+  })();
+
+  if (insertAt === -1) {
+    return [...rootNavWithIntro, sectionHeader, ...remainingOverrideNav];
+  }
+  const getStartedIdx = rootNav.findIndex((n) => isSection(n, "get started"));
+  const prepended = !!introNode && !rootHasIntro && getStartedIdx === -1;
+  const splicedAfterAnchor =
+    !!introNode &&
+    !rootHasIntro &&
+    getStartedIdx !== -1 &&
+    insertAt > getStartedIdx;
+  const adjustedInsertAt =
+    prepended || splicedAfterAnchor ? insertAt + 1 : insertAt;
+  return [
+    ...rootNavWithIntro.slice(0, adjustedInsertAt),
+    sectionHeader,
+    ...remainingOverrideNav,
+    ...rootNavWithIntro.slice(adjustedInsertAt),
+  ];
+}
+
+/**
+ * Build the framework-scoped sidebar IA used by generated framework
+ * routes. Generated docs share the root docs IA and layer sparse
+ * framework-specific overrides into that tree.
+ */
+export function buildFrameworkNav(
+  docsFolder: string,
+  frameworkName: string,
+  frameworkSlug: string,
+): NavNode[] {
+  return normalizeSidebarNav(
+    mergeFrameworkNav(
+      buildNavTree(CONTENT_DIR),
+      buildFrameworkOverridesNav(docsFolder),
+      frameworkName,
+      frameworkSectionIcon(frameworkSlug),
+    ),
+  );
 }
 
 /**
@@ -769,6 +1750,7 @@ export const SNIPPET_MAP: Record<string, string> = {
   A2UI: "shared/generative-ui/a2ui.mdx",
   AgUI: "shared/backend/ag-ui.mdx",
   AGUI: "shared/backend/ag-ui.mdx", // alias of AgUI
+  BuildWithAgents: "shared/guides/build-with-agents.mdx",
   CodingAgents: "shared/coding-agents.mdx",
   CommonIssues: "shared/troubleshooting/common-issues.mdx",
   CopilotRuntime: "copilot-runtime.mdx",
@@ -780,31 +1762,58 @@ export const SNIPPET_MAP: Record<string, string> = {
   FrontEndToolsImpl: "shared/app-control/frontend-tools.mdx", // alias of FrontendTools
   GenerativeUISpecsOverview: "shared/generative-ui-specs-overview.mdx",
   HeadlessUI: "shared/basics/headless-ui.mdx",
-  Inspector: "shared/premium/inspector.mdx",
+  Inspector: "shared/intelligence/inspector.mdx",
   Interactive: "shared/generative-ui/interactive.mdx",
   MCPApps: "shared/generative-ui/mcp-apps.mdx",
   MCPSetup: "shared/guides/mcp-server-setup.mdx",
   MigrateTo1100: "shared/troubleshooting/migrate-to-1.10.X.mdx",
   MigrateTo182: "shared/troubleshooting/migrate-to-1.8.2.mdx",
   MigrateToV2: "shared/troubleshooting/migrate-to-v2.mdx",
-  Observability: "shared/premium/observability.mdx",
-  ObservabilityConnectors:
-    "shared/troubleshooting/observability-connectors.mdx",
-  Overview: "shared/premium/overview.mdx",
+  Overview: "shared/intelligence/overview.mdx",
   PrebuiltComponents: "shared/basics/prebuilt-components.mdx",
   ProgrammaticControl: "shared/basics/programmatic-control.mdx",
   ReasoningMessages:
     "shared/guides/custom-look-and-feel/reasoning-messages.mdx",
-  SelfHosting: "shared/premium/self-hosting.mdx",
+  SelfHosting: "shared/intelligence/self-hosting.mdx",
   Slots: "shared/basics/slots.mdx",
-  Threads: "shared/threads/threads.mdx",
+  HeadlessThreads: "shared/threads/headless-threads.mdx",
+  Threads: "shared/threads/headless-threads.mdx",
+  ThreadsOverview: "shared/threads/overview.mdx",
+  // Local / Self-hosted FastAPI / LangGraph-Platform deployment-URL tabs,
+  // reused by the LangSmith deploy partial. Registered here (not just in
+  // mdx-registry's STUB_PARTIAL_MAP) so inlineSnippets resolves it and
+  // doesn't emit a spurious "snippet missing" warning.
+  LangGraphPlatformDeploymentTabs: "langgraph-platform-deployment-tabs.mdx",
+  ToolRenderer: "shared/generative-ui/tool-rendering.mdx", // alias of ToolRendering
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
   DefaultToolRendering: "shared/guides/default-tool-rendering.mdx",
+  // Versionless aliases retained for backward compat with older MDX that
+  // emits `<MigrateTo />` / `<MigrateToV />`; both resolve to v2.
+  MigrateTo: "shared/troubleshooting/migrate-to-v2.mdx",
+  MigrateToV: "shared/troubleshooting/migrate-to-v2.mdx",
+  CopilotUI: "copilot-ui.mdx",
+  LandingCodeShowcase: "landing-code-showcase.mdx",
+  UseAgentSnippet: "use-agent.mdx",
+  InstallSDKSnippet: "install-sdk.mdx",
+  InstallPythonSDK: "install-python-sdk.mdx",
+  RunAndConnect: "coagents/run-and-connect-agent.mdx",
+  RunAndConnectSnippet: "coagents/run-and-connect-agent.mdx", // alias of RunAndConnect
+  CopilotCloudConfigureCopilotKitProvider:
+    "copilot-cloud-configure-copilotkit-provider.mdx",
+  // Historical spelling (no `Provider` suffix) still appears in tutorials.
+  CopilotCloudConfigureCopilotKit:
+    "copilot-cloud-configure-copilotkit-provider.mdx",
+  SelfHostingCopilotRuntimeCreateEndpoint:
+    "self-hosting-copilot-runtime-create-endpoint.mdx",
+  SelfHostingCopilotRuntimeConfigureCopilotKitProvider:
+    "self-hosting-copilot-runtime-configure-copilotkit-provider.mdx",
+  SelfHostingCopilotRuntimeConfigureCopilotKit:
+    "self-hosting-copilot-runtime-configure-copilotkit-provider.mdx",
 };
 
 export const SUBPATH_TO_COMPONENT: Record<string, string> = {
   "ag-ui": "AGUI",
-  "coding-agents": "CodingAgents",
+  "build-with-agents": "CodingAgents",
   "copilot-runtime": "CopilotRuntime",
   "custom-look-and-feel/headless-ui": "HeadlessUI",
   "custom-look-and-feel/slots": "Slots",
@@ -817,15 +1826,13 @@ export const SUBPATH_TO_COMPONENT: Record<string, string> = {
   inspector: "Inspector",
   "prebuilt-components": "PrebuiltComponents",
   "programmatic-control": "ProgrammaticControl",
-  "premium/headless-ui": "HeadlessUI",
-  "premium/observability": "Observability",
-  "premium/overview": "Overview",
+  "intelligence/headless-ui": "HeadlessUI",
+  "intelligence/overview": "Overview",
   "troubleshooting/common-issues": "CommonIssues",
   "troubleshooting/error-debugging": "ErrorDebugging",
   "troubleshooting/migrate-to-1.10.X": "MigrateTo1100",
   "troubleshooting/migrate-to-1.8.2": "MigrateTo182",
   "troubleshooting/migrate-to-v2": "MigrateToV2",
-  "troubleshooting/observability-connectors": "ObservabilityConnectors",
 };
 
 /**
@@ -928,17 +1935,147 @@ export function stripLeadingImports(source: string): string {
   return out.join("\n");
 }
 
+/**
+ * Returns true if `offset` falls inside a Markdown fenced code block
+ * (```...``` or ~~~...~~~) or an inline code span (`...`) within
+ * `content`. Best-effort: scans from the start of `content` and tracks
+ * fence state line by line. Markdown requires fence markers at the start
+ * of a line (optionally preceded by up to three spaces), so we anchor on
+ * that. Used by `inlineSnippets()` to skip JSX-looking matches that
+ * appear inside example code (e.g. `<CopilotChat />` shown as runtime
+ * usage in slots.mdx) rather than as snippet imports.
+ */
+function isInsideCodeFence(content: string, offset: number): boolean {
+  // Split the text up to the match into completed lines + a possibly
+  // partial trailing line. We treat all completed lines as candidate
+  // fence boundaries and the trailing partial line as the context for
+  // inline-code (single-backtick) detection.
+  const lines = content.slice(0, offset).split("\n");
+  const completed = lines.slice(0, -1);
+  const currentLine = lines[lines.length - 1] ?? "";
+
+  // Fenced blocks: walk completed lines and toggle on matching
+  // opener/closer. CommonMark allows up to 3 leading spaces; MDX in
+  // shell-docs is more permissive — fences inside `<Step>` and other
+  // JSX containers are routinely indented 8+ spaces. Match any
+  // leading whitespace so those fences aren't missed.
+  let inFence = false;
+  let openerChar: string | null = null;
+  for (const line of completed) {
+    const fenceMatch = line.match(/^\s*(`{3,}|~{3,})/);
+    if (!fenceMatch) continue;
+    const marker = fenceMatch[1];
+    if (!inFence) {
+      inFence = true;
+      openerChar = marker[0];
+    } else if (marker[0] === openerChar) {
+      inFence = false;
+      openerChar = null;
+    }
+  }
+  if (inFence) return true;
+
+  // Inline code: count single-backtick toggles on the partial current
+  // line. A single backtick opens an inline span that closes on the
+  // next single backtick. Runs of 2+ backticks are rare in prose
+  // (literal-backtick spans) and intentionally ignored so the common
+  // `<Component />` case is caught reliably.
+  let inlineToggles = 0;
+  let i = 0;
+  while (i < currentLine.length) {
+    if (currentLine[i] !== "`") {
+      i++;
+      continue;
+    }
+    let run = 0;
+    while (i + run < currentLine.length && currentLine[i + run] === "`") {
+      run++;
+    }
+    if (run === 1) inlineToggles++;
+    i += run;
+  }
+  return inlineToggles % 2 === 1;
+}
+
+/**
+ * Names that look like JSX components (PascalCase) imported into the MDX
+ * via `import { ... }` or `import Foo` from any path. Imports from
+ * `@/snippets/...` are tracked separately so recursive snippet imports can
+ * be inlined by their import target instead of requiring every helper in
+ * SNIPPET_MAP. Other imports are treated as runtime React components
+ * resolved at render time via the docsComponents registry.
+ */
+function gatherMdxImportComponentInfo(source: string): {
+  runtimeComponentNames: Set<string>;
+  snippetRelByComponent: Map<string, string>;
+} {
+  const runtimeComponentNames = new Set<string>();
+  const snippetRelByComponent = new Map<string, string>();
+  const importRegex =
+    /^import\s+(?:type\s+)?([\s\S]*?)\s+from\s+["']([^"']+)["']\s*;?\s*$/gm;
+  let m: RegExpExecArray | null;
+  while ((m = importRegex.exec(source)) !== null) {
+    const importClause = m[1].trim();
+    const importPath = m[2];
+    const snippetRel = importPath.startsWith("@/snippets/")
+      ? importPath.slice("@/snippets/".length)
+      : null;
+    const names = componentNamesFromImportClause(importClause);
+
+    for (const name of names) {
+      if (snippetRel) {
+        snippetRelByComponent.set(name, snippetRel);
+      } else {
+        runtimeComponentNames.add(name);
+      }
+    }
+  }
+  return { runtimeComponentNames, snippetRelByComponent };
+}
+
+function componentNamesFromImportClause(importClause: string): string[] {
+  const names = new Set<string>();
+  const defaultMatch = importClause.match(/^([A-Z]\w*)\s*(?:,|$)/);
+  if (defaultMatch) names.add(defaultMatch[1]);
+
+  const namespaceMatch = importClause.match(/^\*\s+as\s+([A-Z]\w*)$/);
+  if (namespaceMatch) names.add(namespaceMatch[1]);
+
+  const namedMatch = importClause.match(/\{([^}]+)\}/);
+  if (namedMatch) {
+    for (const part of namedMatch[1].split(",")) {
+      const renamed = part.trim().split(/\s+as\s+/);
+      const name = renamed[renamed.length - 1].trim();
+      if (/^[A-Z]\w*$/.test(name)) names.add(name);
+    }
+  }
+
+  return [...names];
+}
+
 export function inlineSnippets(
   content: string,
   slugPath: string = "",
   seen: Set<string> = new Set(),
 ): string {
+  const { runtimeComponentNames, snippetRelByComponent } =
+    gatherMdxImportComponentInfo(content);
   let result = stripLeadingImports(content);
 
   result = result.replace(
     /<([A-Z]\w*)\s*(?:components=\{[^}]*\}\s*)?\/>/g,
-    (match, componentName) => {
-      let snippetRel = SNIPPET_MAP[componentName];
+    (match, componentName, offset: number, source: string) => {
+      // Skip JSX-looking strings inside code fences / inline code: those
+      // are rendered example code, not snippet imports. Suppresses the
+      // bulk of `[docs-render] snippet missing` warnings that surfaced
+      // post-cutover (e.g. <CopilotChat />, <YourApp />, <WeatherCard />
+      // shown as usage examples inside ```tsx ... ``` blocks).
+      if (isInsideCodeFence(source, offset)) {
+        return match;
+      }
+
+      let snippetRel =
+        SNIPPET_MAP[componentName] ?? snippetRelByComponent.get(componentName);
 
       if (!snippetRel && componentName === "SharedContent" && slugPath) {
         // The docs page could live at any of these URL shapes:
@@ -967,9 +2104,43 @@ export function inlineSnippets(
       }
 
       if (!snippetRel) {
+        // Components ending in `Icon` are conventionally lucide-react
+        // icons. shell-docs's MDX renders them via the `docsComponents`
+        // global registry in mdx-registry.tsx, so they're real runtime
+        // React components — not snippet imports. Skip silently rather
+        // than warn (matches the same shape as the fence-aware short
+        // circuit above for `<CopilotChat />` in prose backticks).
+        if (componentName.endsWith("Icon")) {
+          return match;
+        }
+        // Icon-library components also hit the inliner as bare JSX
+        // references (no explicit import — the registry provides them
+        // via docsComponents at render time). Lucide square-prefixed
+        // icons (SquareTerminal, SquareChartGantt, etc.), react-icons
+        // fa/si/pi prefixes, and similar PascalCase + icon-library
+        // shapes don't match the trailing-Icon filter above. Skip
+        // them by name shape so the inliner doesn't log a warning for
+        // every icon usage.
+        if (/^(Fa|Si|Pi|Square)[A-Z]/.test(componentName)) {
+          return match;
+        }
+        // Skip components the MDX explicitly imports. They're real React
+        // components rendered through the docsComponents registry at
+        // request time, not snippet references. stripLeadingImports()
+        // above removes the import line; gatherMdxImportComponentInfo()
+        // preserved the runtime import set so the inliner can tell these
+        // apart from genuine missing-snippet cases.
+        if (
+          runtimeComponentNames.has(componentName) ||
+          componentName === "PageAgentPrompt"
+        ) {
+          return match;
+        }
         // Log so docs authors see a clean signal when a <Component />
         // reference can't be mapped to a snippet file (previously the
-        // component just silently rendered nothing).
+        // component just silently rendered nothing). Matches inside code
+        // fences are short-circuited above so this warning only fires on
+        // genuine prose-level references.
         console.warn(
           "[docs-render] snippet missing for component",
           componentName,
@@ -1109,9 +2280,11 @@ const isTableSeparator = (s: string): boolean =>
   /\|/.test(s) && /^\s*[|:\- ]+\s*$/.test(s);
 
 export function convertTablesInJSX(content: string): string {
-  const tagPattern = JSX_CONTAINER_TAGS.join("|");
+  const tagPattern = [...JSX_CONTAINER_TAGS]
+    .sort((a, b) => b.length - a.length)
+    .join("|");
   const regex = new RegExp(
-    `(<(${tagPattern})[^>]*>)([\\s\\S]*?)(<\\/(?:${tagPattern})>)`,
+    `(<(${tagPattern})(?:\\s[^>]*)?>)([\\s\\S]*?)(<\\/\\2>)`,
     "g",
   );
 
@@ -1131,7 +2304,7 @@ export function convertTablesInJSX(content: string): string {
       // nesting and bail — the outer match is left untouched, which
       // renders correctly via MDX's own JSX handling (tables inside
       // nested containers simply won't be promoted to HTML tables).
-      if (new RegExp(`<${tagName}[\\s>]`).test(inner)) {
+      if (new RegExp(`<${tagName}(?:\\s|>)`).test(inner)) {
         return match;
       }
       const lines = inner.split("\n");
@@ -1202,13 +2375,142 @@ export interface DocFrontmatter {
   description?: string;
   defaultFramework?: string;
   defaultCell?: string;
+  full?: boolean;
+  hideBreadcrumb?: boolean;
   hideTOC?: boolean;
+  hideHeader?: boolean;
+  hidePageActions?: boolean;
+  /**
+   * Page-specific prompt for the page-tools "Copy prompt" action. When set,
+   * the action copies this text instead of the generic onboarding prompt.
+   */
+  agentPrompt?: string;
+  frontend?: unknown;
+  /**
+   * Early-access gate id (see `src/lib/early-access.ts`). When set,
+   * the page renders blurred behind the matching password gate.
+   */
+  earlyAccess?: string;
+}
+
+function slugSegments(slugPath: string): string[] | null {
+  const segments = slugPath.split(/[\\/]+/).filter(Boolean);
+  if (segments.some((segment) => segment === "." || segment === "..")) {
+    return null;
+  }
+  return segments;
+}
+
+function routeGroupSubdirs(dir: string): string[] {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((entry) => entry.isDirectory() && isRouteGroupSegment(entry.name))
+    .map((entry) => entry.name);
+}
+
+function resolveDocThroughRouteGroups(
+  dir: string,
+  segments: string[],
+): string | null {
+  if (segments.length === 0) {
+    const indexPath = path.join(dir, "index.mdx");
+    return fs.existsSync(indexPath) ? indexPath : null;
+  }
+
+  const [segment, ...rest] = segments;
+  if (rest.length === 0) {
+    const mdxPath = path.join(dir, `${segment}.mdx`);
+    if (fs.existsSync(mdxPath)) return mdxPath;
+    const indexPath = path.join(dir, segment, "index.mdx");
+    if (fs.existsSync(indexPath)) return indexPath;
+  }
+
+  const directDir = path.join(dir, segment);
+  if (fs.existsSync(directDir) && fs.statSync(directDir).isDirectory()) {
+    const direct = resolveDocThroughRouteGroups(directDir, rest);
+    if (direct) return direct;
+  }
+
+  for (const routeGroup of routeGroupSubdirs(dir)) {
+    const grouped = resolveDocThroughRouteGroups(
+      path.join(dir, routeGroup),
+      segments,
+    );
+    if (grouped) return grouped;
+  }
+
+  return null;
+}
+
+function resolveRouteGroupedDocPath(slugPath: string): string | null {
+  const segments = slugSegments(slugPath);
+  if (!segments) return null;
+
+  const filePath = resolveDocThroughRouteGroups(CONTENT_DIR, segments);
+  if (!filePath) return null;
+
+  const resolved = resolveWithinDir(
+    CONTENT_DIR,
+    path.relative(CONTENT_DIR, filePath),
+  );
+  return resolved && fs.existsSync(resolved) ? resolved : null;
 }
 
 /**
  * Load an MDX file by slug and return its raw source + parsed frontmatter
  * metadata for rendering. Returns null when the file doesn't exist.
  */
+/**
+ * Slugs whose per-framework file wins even under `docs_mode: generated`.
+ *
+ * - `/quickstart` at the root is a routing shim; the real quickstart content
+ *   lives per-framework.
+ * - `/threads-import` is a cross-source overview at the root, but ADK and
+ *   LangGraph ship source-specific import guides at the same framework URL.
+ */
+export const FRAMEWORK_WINS_SLUGS: ReadonlySet<string> = new Set([
+  "quickstart",
+  "threads-import",
+]);
+
+/**
+ * The order in which a framework-scoped URL resolves to MDX.
+ *
+ *   authored  — the per-framework file wins for every slug; fall back to root
+ *               only when the framework has no file (preserves the shared
+ *               fallback for slugs a framework deliberately leaves agnostic).
+ *   generated — root wins; the per-framework tree is a sparse override layer,
+ *               except for FRAMEWORK_WINS_SLUGS.
+ *
+ * SHARED ON PURPOSE. This order previously existed as three separate copies —
+ * the page route's body resolver, `llms-mdx`, and `frameworkMetadata` — and
+ * they had drifted apart in two different ways:
+ *
+ *   - `frameworkMetadata` had no docsMode branch at all, so a generated-mode
+ *     page served the ROOT file's body under the FRAMEWORK file's <title> and
+ *     meta description. 76 URLs advertised content the site does not render.
+ *   - `llms-mdx` treated only `quickstart` as framework-wins, not
+ *     `threads-import`, so raw Markdown disagreed with the rendered page.
+ *
+ * Callers that need extra candidates (llms-mdx appends a quickstart fallback
+ * for `index`) append them to the returned array.
+ */
+export function docCandidateOrder(
+  docsMode: "generated" | "authored" | "hidden",
+  docsFolder: string,
+  slugPath: string,
+): string[] {
+  const frameworkPath = `integrations/${docsFolder}/${slugPath}`;
+  const frameworkFirst =
+    docsMode === "authored" || FRAMEWORK_WINS_SLUGS.has(slugPath);
+  return frameworkFirst ? [frameworkPath, slugPath] : [slugPath, frameworkPath];
+}
+
 export function loadDoc(
   slugPath: string,
 ): { source: string; filePath: string; fm: DocFrontmatter } | null {
@@ -1228,7 +2530,12 @@ export function loadDoc(
   } else if (indexResolved && fs.existsSync(indexResolved)) {
     filePath = indexResolved;
   } else {
-    return null;
+    // Route groups such as `(other)` organize the sidebar filesystem but
+    // are not public URL segments. Resolve `/strands/telemetry` to
+    // `integrations/aws-strands/(other)/telemetry/index.mdx`.
+    const routeGroupedPath = resolveRouteGroupedDocPath(slugPath);
+    if (!routeGroupedPath) return null;
+    filePath = routeGroupedPath;
   }
 
   let source: string;
@@ -1272,7 +2579,18 @@ export function loadDoc(
       : undefined;
   const defaultCell =
     typeof data.snippet_cell === "string" ? data.snippet_cell : undefined;
+  const full = data.full === true;
+  const hideBreadcrumb = data.hideBreadcrumb === true;
   const hideTOC = data.hideTOC === true;
+  const hideHeader = data.hideHeader === true;
+  const hidePageActions = data.hidePageActions === true;
+  const agentPrompt =
+    typeof data.agentPrompt === "string" && data.agentPrompt.trim()
+      ? data.agentPrompt.trim()
+      : undefined;
+  const frontend = data.frontend;
+  const earlyAccess =
+    typeof data.earlyAccess === "string" ? data.earlyAccess : undefined;
 
   return {
     source,
@@ -1282,7 +2600,14 @@ export function loadDoc(
       description,
       defaultFramework,
       defaultCell,
+      full,
+      hideBreadcrumb,
       hideTOC,
+      hideHeader,
+      hidePageActions,
+      agentPrompt,
+      frontend,
+      earlyAccess,
     },
   };
 }
@@ -1293,11 +2618,118 @@ export function loadDoc(
 
 export type Breadcrumb = { label: string; href: string | null };
 
+function normalizeNavSlug(slug: string): string {
+  return slug.replace(/\/index$/, "");
+}
+
+function navNodeContainsSlug(node: NavNode, slugPath: string): boolean {
+  if (node.type === "section") return false;
+  if (node.type === "group") {
+    return node.children.some((child) => navNodeContainsSlug(child, slugPath));
+  }
+
+  return normalizeNavSlug(node.slug) === normalizeNavSlug(slugPath);
+}
+
+function navGroupTrailForSlug(
+  node: NavNode,
+  slugPath: string,
+): string[] | null {
+  if (node.type === "section") return null;
+  if (node.type === "page") {
+    return normalizeNavSlug(node.slug) === normalizeNavSlug(slugPath)
+      ? []
+      : null;
+  }
+
+  for (const child of node.children) {
+    const childTrail = navGroupTrailForSlug(child, slugPath);
+    if (childTrail !== null) {
+      return node.title ? [node.title, ...childTrail] : childTrail;
+    }
+  }
+
+  return null;
+}
+
+/** Return the visible sidebar hierarchy above a guide page. */
+export function navAncestorBreadcrumbsForSlug(
+  navTree: NavNode[],
+  slugPath: string,
+): Breadcrumb[] | null {
+  let currentSection: string | null = null;
+
+  for (const node of navTree) {
+    if (node.type === "section") {
+      currentSection = node.title;
+      continue;
+    }
+
+    const groupTrail = navGroupTrailForSlug(node, slugPath);
+    if (groupTrail === null) continue;
+
+    const labels = currentSection
+      ? [currentSection, ...groupTrail]
+      : groupTrail;
+    return labels.map((label) => ({
+      label,
+      href: null,
+    }));
+  }
+
+  return null;
+}
+
+/** Return the sidebar section that contains a guide page. */
+export function navSectionTitleForSlug(
+  navTree: NavNode[],
+  slugPath: string,
+): string | null {
+  let currentSection: string | null = null;
+  for (const node of navTree) {
+    if (node.type === "section") {
+      currentSection = node.title;
+    } else if (navNodeContainsSlug(node, slugPath)) {
+      return currentSection;
+    }
+  }
+  return null;
+}
+
+/**
+ * Turn a guide page's full breadcrumb trail into the ancestors shown above
+ * its title. The title already represents the current page, and the generic
+ * "Docs" root adds no information inside the guide surface. Named framework
+ * roots and first-level sections such as Cookbook remain visible. When a
+ * URL-level folder belongs to a broader sidebar section, prepend that section
+ * so paths such as AG-UI retain the visible Concepts hierarchy.
+ */
+export function visibleGuideBreadcrumbs(
+  breadcrumbs: Breadcrumb[],
+  sectionTitle?: string | null,
+): Breadcrumb[] {
+  const ancestors = breadcrumbs.slice(0, -1);
+  const hasGenericRoot = ancestors[0]?.label === "Docs";
+  const visible = hasGenericRoot ? ancestors.slice(1) : ancestors;
+  const isCookbook = breadcrumbs[1]?.label === "Cookbook";
+
+  if (
+    !hasGenericRoot ||
+    !sectionTitle ||
+    isCookbook ||
+    visible[0]?.label === sectionTitle
+  ) {
+    return visible;
+  }
+
+  return [{ label: sectionTitle, href: null }, ...visible];
+}
+
 export function buildBreadcrumbs(
   slugPath: string,
   opts: { rootLabel: string; rootHref: string | null; slugHrefPrefix: string },
 ): Breadcrumb[] {
-  const parts = slugPath.split("/");
+  const parts = slugPath ? slugPath.split("/").filter(Boolean) : [];
   const crumbs: Breadcrumb[] = [{ label: opts.rootLabel, href: opts.rootHref }];
 
   for (let i = 0; i < parts.length; i++) {
@@ -1330,7 +2762,10 @@ export function buildBreadcrumbs(
         .replace(/\b\w/g, (c) => c.toUpperCase());
     }
 
-    crumbs.push({ label, href: isLast ? null : href });
+    const hasLandingPage =
+      (mdxFile && fs.existsSync(mdxFile)) ||
+      (indexFile && fs.existsSync(indexFile));
+    crumbs.push({ label, href: isLast || !hasLandingPage ? null : href });
   }
 
   return crumbs;

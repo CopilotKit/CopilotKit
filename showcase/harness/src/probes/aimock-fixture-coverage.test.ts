@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -77,10 +78,22 @@ const SPEC_DIR = path.resolve(
   WORKSPACE_ROOT,
   "showcase/integrations/langgraph-python/tests/e2e",
 );
-const FIXTURE_FILE = path.resolve(
-  WORKSPACE_ROOT,
-  "showcase/aimock/feature-parity.json",
-);
+
+/**
+ * After the D4/D6 reorg the monolithic `feature-parity.json` was split into
+ * per-integration files under `showcase/aimock/{d4,d6}/<integration>/*.json`
+ * plus a depth-agnostic `showcase/aimock/shared/*.json` bucket. For the
+ * langgraph-python coverage check we union every fixture from:
+ *   - showcase/aimock/d4/langgraph-python/*.json
+ *   - showcase/aimock/d6/langgraph-python/*.json
+ *   - showcase/aimock/shared/*.json (no-context, matches any integration)
+ * and run the same substring-coverage rule across the union.
+ */
+const FIXTURE_DIRS = [
+  path.resolve(WORKSPACE_ROOT, "showcase/aimock/d4/langgraph-python"),
+  path.resolve(WORKSPACE_ROOT, "showcase/aimock/d6/langgraph-python"),
+  path.resolve(WORKSPACE_ROOT, "showcase/aimock/shared"),
+];
 
 /**
  * Threshold below which a prompt is trivially short enough that its
@@ -259,11 +272,59 @@ function isCovered(prompt: string, fixtures: Fixture[]): boolean {
   return false;
 }
 
+/**
+ * Load and union all fixtures from the per-integration + shared dirs.
+ * Each file is expected to be `{fixtures: [...]}` (the same shape the old
+ * monolithic feature-parity.json used).
+ *
+ * Missing fixture DIRECTORIES are a hard error (the reorg layout is
+ * load-bearing). Files present but lacking a `fixtures` array are ALSO a
+ * hard error — fail loud against schema drift rather than silently skipping.
+ * Malformed JSON is rethrown with the offending file path so operators can
+ * identify the source file immediately.
+ */
+export async function loadAllFixtures(dirs: string[]): Promise<Fixture[]> {
+  const out: Fixture[] = [];
+  for (const dir of dirs) {
+    let entries: string[];
+    try {
+      entries = await fs.readdir(dir);
+    } catch (err) {
+      // Missing dir is a hard error — the reorg layout is load-bearing.
+      throw new Error(
+        `aimock fixture dir not found: ${dir} (${(err as Error).message})`,
+        { cause: err },
+      );
+    }
+    const jsonFiles = entries.filter((e) => e.endsWith(".json"));
+    for (const file of jsonFiles) {
+      const fullPath = path.join(dir, file);
+      let parsed: Partial<FeatureParityFile>;
+      try {
+        const raw = await fs.readFile(fullPath, "utf8");
+        parsed = JSON.parse(raw) as Partial<FeatureParityFile>;
+      } catch (err) {
+        const msg = (err as Error).message;
+        throw new Error(`failed to parse fixture file ${fullPath}: ${msg}`, {
+          cause: err,
+        });
+      }
+      if (!parsed || !Array.isArray(parsed.fixtures)) {
+        // Schema drift is a hard error — every fixture file MUST carry a
+        // `fixtures` array. Matches the "missing dir is a hard error"
+        // stance above.
+        throw new Error(`fixture file missing 'fixtures' array: ${fullPath}`);
+      }
+      out.push(...parsed.fixtures);
+    }
+  }
+  return out;
+}
+
 describe("aimock feature-parity fixture coverage for langgraph-python E2E specs", () => {
   it("every extracted chat prompt has a matching fixture", async () => {
-    // Load fixtures.
-    const fixtureRaw = await fs.readFile(FIXTURE_FILE, "utf8");
-    const { fixtures } = JSON.parse(fixtureRaw) as FeatureParityFile;
+    // Load fixtures from the D4/D6 per-integration dirs + shared bucket.
+    const fixtures = await loadAllFixtures(FIXTURE_DIRS);
     expect(Array.isArray(fixtures)).toBe(true);
     expect(fixtures.length).toBeGreaterThan(0);
 
@@ -298,8 +359,11 @@ describe("aimock feature-parity fixture coverage for langgraph-python E2E specs"
         .join("\n");
       throw new Error(
         `Found ${uncovered.length} langgraph-python spec prompt(s) without matching aimock fixtures.\n` +
-          `Add a fixture entry (match.userMessage substring + deterministic response) to\n` +
-          `showcase/aimock/feature-parity.json for each:\n\n${listing}\n\n` +
+          `Add a fixture entry (match.userMessage substring + deterministic response) to one of:\n` +
+          `  - showcase/aimock/d4/langgraph-python/<file>.json\n` +
+          `  - showcase/aimock/d6/langgraph-python/<file>.json\n` +
+          `  - showcase/aimock/shared/<file>.json (no-context, depth-agnostic)\n\n` +
+          `${listing}\n\n` +
           `Total prompts scanned: ${allPrompts.length}. Specs scanned: ${specFiles.length}.`,
       );
     }
@@ -309,5 +373,51 @@ describe("aimock feature-parity fixture coverage for langgraph-python E2E specs"
     // trivially. Floor chosen from the current count (roughly 50+) with
     // margin for future pruning.
     expect(allPrompts.length).toBeGreaterThanOrEqual(30);
+  });
+});
+
+/**
+ * Fail-loud coverage for the two throw branches in `loadAllFixtures`.
+ *
+ * These tests exist because the loader was hardened to throw (rather than
+ * silently `continue`) on (a) malformed JSON and (b) a file missing the
+ * `fixtures` array. Without these tests, a future revert to silent-skip
+ * would pass CI green. Each test isolates a temp dir, writes the offending
+ * file, calls the helper directly, and asserts the rejection message
+ * mentions both the failure mode and the file path.
+ */
+describe("loadAllFixtures fail-loud", () => {
+  it("throws with file path when a fixture file has malformed JSON", async () => {
+    const tmpDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "aimock-fixture-malformed-"),
+    );
+    try {
+      const badPath = path.join(tmpDir, "bad.json");
+      await fs.writeFile(badPath, "{ not valid json", "utf8");
+
+      await expect(loadAllFixtures([tmpDir])).rejects.toThrow(
+        /failed to parse fixture file/,
+      );
+      await expect(loadAllFixtures([tmpDir])).rejects.toThrow(badPath);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("throws with file path when a fixture file is missing the 'fixtures' array", async () => {
+    const tmpDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "aimock-fixture-missing-"),
+    );
+    try {
+      const badPath = path.join(tmpDir, "no-fixtures.json");
+      await fs.writeFile(badPath, JSON.stringify({ notFixtures: [] }), "utf8");
+
+      await expect(loadAllFixtures([tmpDir])).rejects.toThrow(
+        /missing 'fixtures' array/,
+      );
+      await expect(loadAllFixtures([tmpDir])).rejects.toThrow(badPath);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
   });
 });

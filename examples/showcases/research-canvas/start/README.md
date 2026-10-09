@@ -29,7 +29,7 @@ Running locally, you'll need the following API keys:
 - [OpenAI](https://platform.openai.com/api-keys)
 - [Tavily](https://tavily.com/#pricing)
 - [LangSmith](https://docs.smith.langchain.com/administration/how_to_guides/organization_management/create_account_api_key)
-- [CopilotKit](https://cloud.copilotkit.ai)
+- [CopilotKit](https://dashboard.operations.copilotkit.ai)
 
 ### 3. Start the Agent
 

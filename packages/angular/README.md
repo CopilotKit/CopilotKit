@@ -1,17 +1,29 @@
 # CopilotKit for Angular
 
-Angular bindings for CopilotKit core and AG-UI agents. This package provides services, directives, and utilities for building custom, headless Copilot UIs.
+First-party Angular bindings for CopilotKit core and AG-UI agents. The package
+ships standalone chat, popup, and sidebar components as well as signal-based
+headless APIs, tool and activity renderers, threads, memories, interrupts,
+attachments, A2UI, Open Generative UI, and opt-in MCP Apps support.
+
+Want to contribute? Read the [Angular contribution guide](https://github.com/CopilotKit/CopilotKit/blob/main/packages/angular/CONTRIBUTING.md).
 
 ## Installation
 
 ```bash
 # npm
-npm install @copilotkit/{core,angular}
+npm install @copilotkit/angular
 ```
 
-- `@angular/core` and `@angular/common` (19+)
+Peer dependencies you provide in your app:
+
+- `@angular/core` and `@angular/common` (Angular 22)
 - `@angular/cdk` (match your Angular major)
-- `rxjs`
+- `rxjs` 7.8 or newer
+
+The exact versions exercised by the packed-consumer release matrix are stored
+in `package.json` under `copilotkit.angularSupport`. The library is compiled at
+the Angular 22 baseline and installed with strict peer checking against that
+supported major.
 
 ## Quick start
 
@@ -26,7 +38,6 @@ import { provideCopilotKit } from "@copilotkit/angular";
 export const appConfig: ApplicationConfig = {
   providers: [
     provideCopilotKit({
-      licenseKey: "ck_pub_your_public_api_key",
       runtimeUrl: "http://localhost:3001/api/copilotkit",
       headers: { Authorization: "Bearer ..." },
       properties: { app: "demo" },
@@ -98,25 +109,43 @@ The `agent` is an AG-UI `AbstractAgent`. Refer to your AG-UI agent implementatio
 export interface CopilotKitConfig {
   runtimeUrl?: string;
   headers?: Record<string, string>;
+  credentials?: RequestCredentials;
   licenseKey?: string;
   properties?: Record<string, unknown>;
   agents?: Record<string, AbstractAgent>;
+  selfManagedAgents?: Record<string, AbstractAgent>;
   tools?: ClientTool[];
   renderToolCalls?: RenderToolCallConfig[];
+  renderActivityMessages?: RenderActivityMessageConfig[];
+  suggestionsConfig?: SuggestionsConfig[];
   frontendTools?: FrontendToolConfig[];
   humanInTheLoop?: HumanInTheLoopConfig[];
+  defaultToolRendering?: boolean;
+  a2ui?: A2UIConfig;
+  openGenerativeUI?: OpenGenerativeUIConfig;
 }
 ```
 
 - `runtimeUrl`: URL to your CopilotKit runtime.
 - `headers`: Default headers sent to the runtime.
-- `licenseKey`: Copilot Cloud public API key (`ck_pub_...`), required by `provideCopilotKit`.
+- `credentials`: Fetch credentials mode. Use `"include"` for cross-origin
+  HTTP-only cookies.
 - `properties`: Arbitrary props forwarded to agent runs.
 - `agents`: Local, in-browser agents keyed by `agentId`.
+- `selfManagedAgents`: AG-UI agents managed directly by the application.
 - `tools`: Tool definitions advertised to the runtime (no handler).
 - `renderToolCalls`: Components to render tool calls in the UI.
+- `renderActivityMessages`: Components to render AG-UI activity messages.
+- `suggestionsConfig`: Static or runtime-generated chat suggestions.
 - `frontendTools`: Client-side tools with handlers.
 - `humanInTheLoop`: Tools that pause for user input.
+- `defaultToolRendering`: Opt in to the text-only renderer for unknown tools.
+  It is disabled by default so missing renderers remain visible integration
+  errors rather than silently changing the experience.
+- `a2ui`: Theme, catalog, schema, loading UI, and recovery policy for A2UI.
+  Surfaces render with the catalog from `@copilotkit/angular/a2ui` (see
+  below); without one, A2UI stays off.
+- `openGenerativeUI`: Sandboxed UI functions and optional design guidance.
 
 ### Injection helpers
 
@@ -131,6 +160,7 @@ export interface CopilotKitConfig {
 - `runtimeUrl`: `Signal<string | undefined>`
 - `runtimeTransport`: `Signal<CopilotRuntimeTransport>` (`"rest" | "single"`)
 - `headers`: `Signal<Record<string, string>>`
+- `credentials`: `Signal<RequestCredentials | undefined>`
 - `toolCallRenderConfigs`: `Signal<RenderToolCallConfig[]>`
 - `clientToolCallRenderConfigs`: `Signal<FrontendToolConfig[]>`
 - `humanInTheLoopToolRenderConfigs`: `Signal<HumanInTheLoopConfig[]>`
@@ -142,7 +172,7 @@ export interface CopilotKitConfig {
 - `addRenderToolCall(config: RenderToolCallConfig): void`
 - `addHumanInTheLoop(config: HumanInTheLoopConfig): void`
 - `removeTool(toolName: string, agentId?: string): void`
-- `updateRuntime(options: { runtimeUrl?: string; runtimeTransport?: CopilotRuntimeTransport; headers?: Record<string,string>; properties?: Record<string, unknown>; agents?: Record<string, AbstractAgent>; }): void`
+- `updateRuntime(options: { runtimeUrl?: string; runtimeTransport?: CopilotRuntimeTransport; headers?: Record<string,string>; credentials?: RequestCredentials; properties?: Record<string, unknown>; agents?: Record<string, AbstractAgent>; selfManagedAgents?: Record<string, AbstractAgent>; }): void`
 
 ### Advanced
 
@@ -278,7 +308,6 @@ registerHumanInTheLoop({
 
 ```ts
 provideCopilotKit({
-  licenseKey: "ck_pub_your_public_api_key",
   frontendTools: [
     /* FrontendToolConfig[] */
   ],
@@ -295,6 +324,59 @@ provideCopilotKit({
 ```
 
 `tools` are advertised to the runtime. If you include `renderer` + `parameters` on a `ClientTool`, CopilotKit will also register a renderer for tool calls.
+
+## Prebuilt UI
+
+All UI exports are standalone Angular components. Import the component classes
+directly and import `@copilotkit/angular/styles.css` once in the application's
+global stylesheet.
+
+### Full-page chat
+
+```ts
+import { Component } from "@angular/core";
+import { CopilotChat } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-assistant",
+  imports: [CopilotChat],
+  template: `<copilot-chat [agentId]="'default'" />`,
+})
+export class AssistantComponent {}
+```
+
+Use `CopilotPopup` for a floating dialog and `CopilotSidebar` for responsive
+overlay or docked presentation. Their `open` inputs are model signals, so
+`[(open)]` supports controlled application state. Both include focus trapping,
+Escape handling, focus restoration, accessible dialog naming, reduced-motion
+behavior, and safe-area-aware mobile layouts.
+
+```ts
+import { Component, signal } from "@angular/core";
+import { CopilotPopup, CopilotSidebar } from "@copilotkit/angular";
+
+@Component({
+  imports: [CopilotPopup, CopilotSidebar],
+  template: `
+    <copilot-popup [(open)]="popupOpen" title="Support assistant" />
+    <copilot-sidebar
+      [(open)]="sidebarOpen"
+      mode="docked"
+      position="right"
+      title="Workspace assistant"
+    />
+  `,
+})
+export class AssistantSurfacesComponent {
+  readonly popupOpen = signal(false);
+  readonly sidebarOpen = signal(false);
+}
+```
+
+`CopilotChatView`, message, input, toolbar, button, attachment, and slot
+components are supported public customization primitives. See
+[`API.md`](./API.md) for the exhaustive export inventory; use the higher-level
+components unless you are replacing part of the default composition.
 
 ## `RenderToolCalls` component
 
@@ -321,7 +403,203 @@ Tool arguments are parsed with `partialJSONParse`, so incomplete JSON during str
 - Set `runtimeUrl` to your CopilotKit runtime endpoint.
 - If you need to change runtime settings at runtime, call `CopilotKit.updateRuntime(...)`.
 - `runtimeTransport` supports `"rest"` or `"single"` (SSE single-stream transport).
+- For cross-origin cookie authentication, set `credentials: "include"` and
+  enable credentialed CORS for the Angular app's exact origin.
 
-## Not documented here
+## Activity renderers and generative UI
 
-This package also exports a full set of chat UI components under `src/lib/components/chat`. Those APIs are intentionally omitted from this README.
+Register application activity renderers with `registerRenderActivityMessage`
+or the `renderActivityMessages` provider option. Application registrations
+take precedence over optional built-ins.
+
+- A2UI is enabled when the runtime advertises the capability or when
+  `a2ui.catalog` is supplied. An explicit catalog enables its renderers and
+  agent context even when runtime `/info` does not advertise A2UI, matching the
+  React provider contract. Configure recovery exposure independently of
+  server-provided lifecycle content.
+- Open Generative UI is enabled with `openGenerativeUI: { ... }`. Generated UI
+  runs in an isolated WebSandbox; expose only narrowly scoped
+  `sandboxFunctions` and never place credentials in browser configuration.
+- MCP Apps is intentionally a secondary entry point. Add
+  `provideMCPApps()` to application providers and import advanced host APIs
+  from `@copilotkit/angular/mcp-apps`. MCP resource and tool requests travel
+  through the selected AG-UI agent; the browser provider does not accept a
+  server URL. The renderer uses the same inline `srcdoc` sandbox, sandbox
+  permissions, and resource-domain CSP as the React SDK.
+
+### A2UI with Angular components
+
+`@copilotkit/angular/a2ui` renders A2UI with ordinary standalone Angular
+components. A2UI needs a catalog: without one it stays off, even when the
+runtime enables it, and CopilotKit logs a warning. `basicCatalog`
+implements the A2UI basic components (Text, Row, Column, Card, Button,
+TextField, and the rest):
+
+```ts
+import { basicCatalog } from "@copilotkit/angular/a2ui";
+
+provideCopilotKit({
+  runtimeUrl: "/api/copilotkit",
+  a2ui: { catalog: basicCatalog },
+});
+```
+
+For your own components, build a catalog with `createAngularCatalog`. It
+contains exactly the components you register unless you pass
+`includeBasicCatalog: true`, which adds the basic components; a definition
+with the same name replaces the basic one. A component receives the resolved
+props through a single `props` input, or through inputs named after the
+schema keys. Props the agent has not sent yet arrive as `undefined`, so put
+defaults in the template (`label() ?? "…"`) rather than in `input("…")`.
+Containers render children with `<copilot-a2ui-child>`.
+
+```ts
+import {
+  ActionSchema,
+  ChildListSchema,
+  CopilotA2UIChild,
+  DynamicStringSchema,
+  createAngularCatalog,
+  type A2UICatalogDefinitions,
+  type A2UIProps,
+} from "@copilotkit/angular/a2ui";
+
+const definitions = {
+  Column: { props: z.object({ children: ChildListSchema }) },
+  Card: {
+    props: z.object({
+      title: DynamicStringSchema,
+      child: z.string().optional(),
+    }),
+  },
+  PrimaryButton: {
+    props: z.object({ label: z.string(), action: ActionSchema.optional() }),
+  },
+} satisfies A2UICatalogDefinitions;
+
+@Component({
+  selector: "app-a2ui-card",
+  imports: [CopilotA2UIChild],
+  template: `
+    <article>
+      <h3>{{ props().title }}</h3>
+      <copilot-a2ui-child [child]="props().child" />
+    </article>
+  `,
+})
+export class CardComponent {
+  readonly props = input.required<A2UIProps<typeof definitions, "Card">>();
+}
+
+export const catalog = createAngularCatalog(
+  definitions,
+  {
+    Column: ColumnComponent,
+    Card: CardComponent,
+    PrimaryButton: PrimaryButtonComponent,
+  },
+  { catalogId: "copilotkit://dashboard-catalog", includeBasicCatalog: true },
+);
+
+provideCopilotKit({ runtimeUrl: "/api/copilotkit", a2ui: { catalog } });
+```
+
+Props declared with `ActionSchema` arrive as callable closures, and dynamic
+props gain `set*` setters that write back to the data model. Inject
+`injectA2UIComponentContext()` to dispatch custom actions or write data-model
+paths directly. `<copilot-a2ui-surface>` renders operations outside the chat
+with the same catalog. `Icon` renders Material Symbols ligatures, so load that
+font if the agent uses icons.
+
+A catalog entry can also be a Custom Element, such as an existing design
+system's web component: pass `{ tagName, element }` instead of an Angular
+component. CopilotKit registers the element, renders it in place of the node,
+and assigns the node's A2UI `ComponentContext` to its `context` property on
+every update; the element reads its props and dispatches actions from there.
+
+```ts
+createAngularCatalog(
+  { Badge: { props: z.object({ label: z.string() }) } },
+  { Badge: { tagName: "acme-badge", element: AcmeBadge } },
+);
+```
+
+The basic catalog and the surface are styled with CSS variables. Set them on
+any ancestor; the CopilotKit stylesheet switches the colors in dark mode. The
+agent's `primaryColor` theme sets `--a2ui-color-primary` for its surface.
+
+| Variable                                                                | Default                              | Used for                                     |
+| ----------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------- |
+| `--a2ui-color-primary`                                                  | `#007bff`                            | primary buttons, active tabs, selected chips |
+| `--a2ui-color-on-primary`                                               | `#fff`                               | text on the primary color                    |
+| `--a2ui-color-surface`                                                  | `#fff`                               | cards, buttons, chips, dialogs               |
+| `--a2ui-color-border`                                                   | `#ccc`                               | borders and dividers                         |
+| `--a2ui-color-muted`                                                    | `#666`                               | captions and secondary text                  |
+| `--a2ui-color-error`                                                    | `red`                                | validation errors                            |
+| `--a2ui-color-input`, `--a2ui-color-on-input`                           | system field colors                  | text inputs                                  |
+| `--a2ui-color-placeholder`, `--a2ui-color-placeholder-highlight`        | `#f3f4f6`, `#e5e7eb`                 | loading and pending placeholders             |
+| `--a2ui-spacing-m`                                                      | `8px`                                | component margins and gaps                   |
+| `--a2ui-row-gap`, `--a2ui-column-gap`, `--a2ui-list-gap`                | `--a2ui-spacing-m`                   | space between children                       |
+| `--a2ui-border-radius`                                                  | `8px`                                | cards, inputs, dialogs                       |
+| `--a2ui-font-size-s`, `--a2ui-font-size-xs`                             | `14px`, `12px`                       | labels, captions                             |
+| `--a2ui-card-padding`, `--a2ui-card-shadow`                             | `16px`, subtle shadow                | Card                                         |
+| `--a2ui-button-padding`, `--a2ui-button-border-radius`                  | `8px 16px`, `4px`                    | Button, tabs                                 |
+| `--a2ui-input-padding`                                                  | `8px`                                | TextField, DateTimeInput                     |
+| `--a2ui-chip-border-radius`                                             | `16px`                               | ChoicePicker chips                           |
+| `--a2ui-icon-size`                                                      | `24px`                               | Icon                                         |
+| `--a2ui-modal-backdrop`, `--a2ui-modal-padding`, `--a2ui-modal-z-index` | `rgba(0, 0, 0, 0.5)`, `24px`, `1000` | Modal                                        |
+
+`--a2ui-primary-color`, which the React and Vue renderers use, still works as
+a fallback for `--a2ui-color-primary`.
+
+As in the A2UI renderers, Row, Column and List space their children with a gap
+rather than margins on each component, and a component's `weight` becomes its
+`flex` grow factor inside a Row or Column.
+
+## Lifecycle and cleanup
+
+Call `injectAgentStore`, `connectAgentContext`, `registerFrontendTool`,
+`registerRenderToolCall`, `registerRenderActivityMessage`, `injectInterrupt`,
+`injectThreads`, and `injectMemories` from an Angular injection context. The
+helpers bind subscriptions, effects, timers, runtime registrations, and
+observers to the owning `DestroyRef`. Changing a signal-based agent ID tears
+down the previous agent subscription before connecting the replacement.
+
+Do not create these helpers in module-level code or cache an injected
+controller beyond the lifetime of its injector. `AgentStore.teardown()` is
+public for advanced manually constructed stores; stores returned by
+`injectAgentStore` are cleaned up automatically and should not need a manual
+call.
+
+Application-owned asynchronous work remains application-owned. Cancel fetches
+or other side effects started by a frontend-tool handler when its host is
+destroyed, and do not resolve an interrupt after its controller has left the
+view.
+
+## SSR, hydration, and zoneless Angular
+
+The package is designed for standalone, OnPush, signal-based applications and
+is tested with `provideZonelessChangeDetection()`. No Zone.js dependency is
+required. Keep application state in signals or Angular outputs so zoneless
+change detection can observe updates.
+
+Browser-only DOM setup is deferred to render lifecycle hooks or guarded by the
+platform where the package owns it. For SSR and hydration:
+
+- provide the same CopilotKit configuration and initial `open`/`agentId`
+  values on the server and first client render;
+- do not access returned agents or run tools during server rendering;
+- make runtime URLs absolute when the server and browser use different
+  origins, or proxy a same-origin `/api/copilotkit` endpoint;
+- enable A2UI, Open Generative UI, audio recording, and MCP Apps in the browser;
+  their interactive sandboxes, custom elements, media APIs, and iframes become
+  active after hydration;
+- avoid branching the component tree on `window` before hydration. Use Angular
+  platform guards and `afterNextRender` for application-owned browser work.
+
+## Public API contract
+
+[`API.md`](./API.md) lists every supported export from the root and MCP Apps
+entry points and identifies the single internal extension token. A package test
+compares that inventory to TypeScript's resolved entry-point exports so a new
+public symbol cannot be introduced without documentation.

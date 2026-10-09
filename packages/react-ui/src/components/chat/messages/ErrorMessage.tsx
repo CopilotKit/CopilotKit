@@ -1,4 +1,4 @@
-import { ErrorMessageProps } from "../props";
+import type { ErrorMessageProps } from "../props";
 import { useChatContext } from "../ChatContext";
 import { Markdown } from "../Markdown";
 import { useState } from "react";
@@ -28,7 +28,10 @@ export const ErrorMessage = (props: ErrorMessageProps) => {
   console.log(error);
 
   return (
-    <div className="copilotKitMessage copilotKitAssistantMessage">
+    <div
+      data-testid="copilot-error-banner"
+      className="copilotKitMessage copilotKitAssistantMessage"
+    >
       <Markdown content={error.message} />
 
       <div

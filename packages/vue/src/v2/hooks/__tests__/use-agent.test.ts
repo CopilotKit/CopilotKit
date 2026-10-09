@@ -4,7 +4,10 @@ import type { AbstractAgent, Message } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 import { useAgent } from "../use-agent";
 import { useCopilotKit } from "../../providers/useCopilotKit";
-import { mountWithProvider } from "../../__tests__/utils/mount";
+import {
+  mountWithProvider,
+  renderWithCopilotKit,
+} from "../../__tests__/utils/mount";
 import { StateCapturingAgent } from "../../__tests__/utils/agents";
 
 describe("useAgent", () => {
@@ -35,6 +38,62 @@ describe("useAgent", () => {
     });
 
     expect(wrapper.find("[data-testid=agent-id]").text()).toBe("test-agent");
+  });
+
+  it("uses agentId from chat configuration when no agentId prop is provided", () => {
+    const mockAgent = new StateCapturingAgent([], "configured-agent");
+
+    const Child = defineComponent({
+      setup() {
+        const { agent } = useAgent();
+        return () =>
+          h(
+            "span",
+            { "data-testid": "agent-id" },
+            agent.value?.agentId ?? "none",
+          );
+      },
+    });
+
+    const { wrapper } = renderWithCopilotKit(() => h(Child), {
+      agentId: "configured-agent",
+      agents: {
+        "configured-agent": mockAgent as unknown as AbstractAgent,
+      },
+    });
+
+    expect(wrapper.find("[data-testid=agent-id]").text()).toBe(
+      "configured-agent",
+    );
+  });
+
+  it("uses explicit agentId over chat configuration", () => {
+    const configuredAgent = new StateCapturingAgent([], "configured-agent");
+    const explicitAgent = new StateCapturingAgent([], "explicit-agent");
+
+    const Child = defineComponent({
+      setup() {
+        const { agent } = useAgent({ agentId: "explicit-agent" });
+        return () =>
+          h(
+            "span",
+            { "data-testid": "agent-id" },
+            agent.value?.agentId ?? "none",
+          );
+      },
+    });
+
+    const { wrapper } = renderWithCopilotKit(() => h(Child), {
+      agentId: "configured-agent",
+      agents: {
+        "configured-agent": configuredAgent as unknown as AbstractAgent,
+        "explicit-agent": explicitAgent as unknown as AbstractAgent,
+      },
+    });
+
+    expect(wrapper.find("[data-testid=agent-id]").text()).toBe(
+      "explicit-agent",
+    );
   });
 
   it("passes state set through useAgent into run input", async () => {

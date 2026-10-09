@@ -1,0 +1,21 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for spring-ai / voice",
+    "sourceFile": "d5-all.json",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "_comment": "Voice probe fast-path: exact-match content-only response.",
+      "match": {
+        "userMessage": "What is the weather in Tokyo?",
+        "turnIndex": 0,
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
+      }
+    }
+  ]
+}

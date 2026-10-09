@@ -1,8 +1,10 @@
 # D5 Multi-Turn aimock Fixtures
 
-Nine feature-type fixtures used by the D5 (complex interact) probes in
-`showcase/harness/src/probes/drivers/e2e-deep.ts` (forthcoming) against the LangGraph
-Python (LGP) showcase as the reference implementation.
+Nine feature-type fixtures used by the D5 (complex interact) probes. D5
+runs the D6 driver `showcase/harness/src/probes/drivers/d6-all-pills.ts`
+as "D6 take-one" (the former separate `e2e-deep.ts` driver was deleted),
+scoped to representative pills against the LangGraph Python (LGP) showcase
+as the reference implementation.
 
 ## What "multi-turn" means in aimock
 
@@ -112,7 +114,7 @@ re-author the affected fixture by hand following the existing pattern:
    one-off check.
 5. Replay-verify each leg of the conversation against a booted aimock:
    ```
-   npx @copilotkit/aimock --port 14010 --fixtures showcase/harness/fixtures/d5/<feature>.json --validate-on-load
+   pnpm aimock --port 14010 --fixtures showcase/harness/fixtures/d5/<feature>.json --validate-on-load
    ```
    then issue chat-completions requests for each turn (turn 1 user message,
    turn 1 follow-up after tool result, turn 2 user message, ...) and assert

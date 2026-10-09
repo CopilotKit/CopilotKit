@@ -3,7 +3,7 @@
     {
       "match": { "toolCallId": "call_manage_todos_001" },
       "response": {
-        "content": "I've added the tasks to your todo list:\n\n1. **Review project plan** - Go through the Q2 project plan and provide feedback\n2. **Update documentation** - Update the API docs with the new endpoints\n\nBoth tasks are currently pending. Would you like to modify any of them or add more tasks?"
+        "content": "I've added the tasks to your todo list:\n\n1. **Read the docs** - Read the CopilotKit documentation\n2. **Build a prototype** - Build a small CopilotKit prototype\n3. **Explore agent state** - Explore CopilotKit shared agent state\n\nAll three tasks are currently pending. Would you like to modify any of them or add more tasks?"
       }
     },
     {
@@ -13,45 +13,161 @@
       }
     },
     {
+      "match": { "toolCallId": "call_query_data_pie_001" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "pieChart",
+            "arguments": "{\"title\":\"Revenue Distribution by Category\",\"description\":\"Share of total revenue across product categories\",\"data\":[{\"label\":\"Enterprise\",\"value\":2100000},{\"label\":\"Mid-Market\",\"value\":1500000},{\"label\":\"SMB\",\"value\":1200000},{\"label\":\"Self-Serve\",\"value\":800000}]}",
+            "id": "call_pie_chart_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "toolCallId": "call_query_data_bar_001" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "barChart",
+            "arguments": "{\"title\":\"Expenses by Category\",\"description\":\"Operating expenses across the business\",\"data\":[{\"label\":\"Salaries\",\"value\":1800000},{\"label\":\"Infrastructure\",\"value\":640000},{\"label\":\"Marketing\",\"value\":420000},{\"label\":\"R&D\",\"value\":520000},{\"label\":\"Operations\",\"value\":310000}]}",
+            "id": "call_bar_chart_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "toolCallId": "call_pie_chart_001" },
+      "response": {
+        "content": "Here's the revenue distribution as a pie chart. Enterprise leads at $2.1M, followed by Mid-Market ($1.5M), SMB ($1.2M), and Self-Serve ($0.8M). Want me to break any segment down further?"
+      }
+    },
+    {
+      "match": { "toolCallId": "call_bar_chart_001" },
+      "response": {
+        "content": "Here's the expense breakdown as a bar chart. Salaries are the largest line at $1.8M, with Infrastructure ($0.64M), R&D ($0.52M), Marketing ($0.42M), and Operations ($0.31M) following. Want to compare this against revenue?"
+      }
+    },
+    {
+      "match": { "toolCallId": "call_query_data_dashboard_001" },
+      "response": {
+        "content": "Here's your sales dashboard:\n\n- **Total Revenue**: $6.6M (up 20% QoQ)\n- **New Customers**: 1,240\n- **Conversion Rate**: 3.8%\n\nRevenue is trending up steadily across all four quarters. Want me to drill into any of these metrics?"
+      }
+    },
+    {
       "match": { "toolCallId": "call_query_data_001" },
       "response": {
         "content": "Here's a summary of the financial data:\n\n- **Q1 Revenue**: $1.2M\n- **Q2 Revenue**: $1.5M\n- **Q3 Revenue**: $1.8M\n- **Q4 Revenue**: $2.1M\n\nTotal annual revenue: $6.6M, showing steady quarter-over-quarter growth of approximately 20%. Would you like me to visualize this data differently?"
       }
     },
     {
-      "match": { "userMessage": "Hello" },
+      "match": { "toolCallId": "call_schedule_time_001" },
       "response": {
-        "content": "Hello! I'm your todo app assistant. I can help you manage your tasks, query data, and more. Here's what I can do:\n\n- **Manage Todos** - Add, update, or remove tasks\n- **View Todos** - See your current task list\n- **Query Data** - Look up and analyze data\n- **Search Flights** - Find flight information\n\nWhat would you like to do today?"
+        "content": "Your 30-minute meeting to learn about CopilotKit is scheduled. I've added it to your calendar — let me know if you'd like to change the time."
       }
     },
     {
-      "match": { "userMessage": "Task Manager" },
+      "match": { "userMessage": "pie chart of our revenue" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_data",
+            "arguments": "{\"query\":\"Show revenue distribution by category as a pie chart\"}",
+            "id": "call_query_data_pie_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "bar chart of our expenses" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_data",
+            "arguments": "{\"query\":\"Show expenses by category as a bar chart\"}",
+            "id": "call_query_data_bar_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "schedule a 30-minute meeting to learn about CopilotKit"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "scheduleTime",
+            "arguments": "{\"reasonForScheduling\":\"Learn about CopilotKit\",\"meetingDuration\":30}",
+            "id": "call_schedule_time_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "flights from SFO to JFK" },
+      "response": {
+        "content": "I found a few options for flights from SFO to JFK next Tuesday:\n\n- **UA 1234** — departs 7:30 AM, arrives 4:05 PM, 1 stop, $312\n- **DL 5678** — departs 10:15 AM, arrives 6:50 PM, nonstop, $389\n- **AA 9012** — departs 1:40 PM, arrives 10:20 PM, nonstop, $415\n\nWould you like me to hold one of these for you?"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "sales dashboard with total revenue, new customers, and conversion rate"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_data",
+            "arguments": "{\"query\":\"Fetch financial sales data for a sales dashboard with revenue, customers, and conversion rate\"}",
+            "id": "call_query_data_dashboard_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Use Excalidraw to create a simple network diagram"
+      },
+      "response": {
+        "content": "Here's a simple network diagram for your topology:\n\n```\n            [Router]\n           /        \\\n      [Switch A]   [Switch B]\n       /     \\      /     \\\n   [PC 1] [PC 2] [PC 3] [PC 4]\n```\n\nThe router connects to two switches, and each switch connects to two computers. In the live demo this renders as an interactive Excalidraw diagram via the Excalidraw MCP app."
+      }
+    },
+    {
+      "match": { "userMessage": "build a modern calculator" },
+      "response": {
+        "content": "Here's the plan for your generative calculator app:\n\n- **Standard keypad** — digits 0-9, decimal point, and the four operators (+, -, ×, ÷) with clear and equals.\n- **Metric shortcut buttons** — labeled chips for **Total Revenue ($6.6M)**, **New Customers (1,240)**, and **Conversion Rate (3.8%)** that insert their value into the display when clicked.\n- **Live display** — shows the running expression and result.\n\nIn the live demo this renders as a fully interactive sandboxed UI via the generateSandboxedUi tool."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Toggle the app theme using the toggleTheme tool"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "toggleTheme",
+            "arguments": "{}",
+            "id": "call_toggle_theme_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "add three todos about learning CopilotKit" },
       "response": {
         "toolCalls": [
           {
             "name": "manage_todos",
-            "arguments": "{\"todos\":[{\"title\":\"Review project plan\",\"description\":\"Go through the Q2 project plan and provide feedback\",\"emoji\":\"📋\",\"status\":\"pending\"},{\"title\":\"Update documentation\",\"description\":\"Update the API docs with the new endpoints\",\"emoji\":\"📝\",\"status\":\"pending\"}]}",
+            "arguments": "{\"todos\":[{\"title\":\"Read the docs\",\"description\":\"Read the CopilotKit documentation\",\"emoji\":\"📚\",\"status\":\"pending\"},{\"title\":\"Build a prototype\",\"description\":\"Build a small CopilotKit prototype\",\"emoji\":\"🛠️\",\"status\":\"pending\"},{\"title\":\"Explore agent state\",\"description\":\"Explore CopilotKit shared agent state\",\"emoji\":\"🧠\",\"status\":\"pending\"}]}",
             "id": "call_manage_todos_001"
           }
         ]
       }
     },
     {
-      "match": { "userMessage": "Pie Chart" },
+      "match": { "userMessage": "Hello" },
       "response": {
-        "toolCalls": [
-          {
-            "name": "query_data",
-            "arguments": "{\"query\":\"Show quarterly revenue data as a pie chart\",\"format\":\"pie_chart\"}",
-            "id": "call_query_data_001"
-          }
-        ]
-      }
-    },
-    {
-      "match": { "userMessage": "Toggle Theme" },
-      "response": {
-        "content": "I've toggled the theme for you. The application should now be displaying in the alternate color scheme. Let me know if you'd like to switch back or if there's anything else I can help with!"
+        "content": "Hello! I'm your todo app assistant. I can help you manage your tasks, query data, and more. Here's what I can do:\n\n- **Manage Todos** - Add, update, or remove tasks\n- **View Todos** - See your current task list\n- **Query Data** - Look up and analyze data\n- **Search Flights** - Find flight information\n\nWhat would you like to do today?"
       }
     },
     {

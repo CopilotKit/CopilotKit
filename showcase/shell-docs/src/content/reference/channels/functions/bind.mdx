@@ -1,0 +1,44 @@
+---
+title: bind
+description: Reuse a Channels interaction handler while binding a serializable value into action.value.
+---
+
+`bind(handler, args)` returns a click handler that replaces
+`ctx.action.value` with `args`.
+
+## Signature
+
+```ts
+function bind(handler: ClickHandler, args: unknown): ClickHandler;
+```
+
+```tsx title="issue-actions.tsx"
+import { Actions, Button, bind } from "@copilotkit/channels/ui";
+import type { InteractionContext } from "@copilotkit/channels/ui";
+
+async function assign({ thread, action }: InteractionContext) {
+  if (typeof action.value !== "string") return;
+  await assignments.assign(action.value);
+  await thread.post(`Assigned ${action.value}.`);
+}
+
+export function IssueActions({ issueId }: { issueId: string }) {
+  return (
+    <Actions>
+      <Button onClick={bind(assign, issueId)}>Assign to me</Button>
+    </Actions>
+  );
+}
+```
+
+For a one-off button, the `value` prop is usually clearer:
+
+```tsx
+<Button value={issueId} onClick={assign}>
+  Assign to me
+</Button>
+```
+
+Bound values and registered component props must be JSON-serializable if the
+callback must survive a restart. Register the named component and configure a
+durable `StateStore`.

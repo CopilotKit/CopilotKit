@@ -8,7 +8,7 @@
  * 4. Tool calls proxied back through the agent
  */
 import { fireEvent, screen, waitFor, act } from "@testing-library/react";
-import { z } from "zod";
+import type { z } from "zod";
 import { vi } from "vitest";
 import {
   activitySnapshotEvent,
@@ -21,15 +21,11 @@ import {
   MCPAppsActivityType,
   MCPAppsActivityContentSchema,
 } from "../../../components/MCPAppsActivityRenderer";
-import { ReactActivityMessageRenderer } from "../../../types";
-import {
-  AbstractAgent,
-  RunAgentInput,
-  RunAgentResult,
-  BaseEvent,
-  EventType,
-} from "@ag-ui/client";
-import { Observable, Subject } from "rxjs";
+import type { ReactActivityMessageRenderer } from "../../../types";
+import type { RunAgentInput, RunAgentResult, BaseEvent } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { Subject } from "rxjs";
 
 /**
  * Mock agent that intercepts runAgent calls for proxied MCP requests
@@ -571,6 +567,37 @@ describe("MCP Apps Activity Renderer E2E", () => {
       expect(toolInputResult.success).toBe(true);
     });
 
+    // Field-contract guard for GH #4295. The schema must use the two-argument
+    // z.record(z.string(), z.unknown()) form: Zod 4 made the key schema
+    // mandatory, so the single-argument form is a compile-time error (TS2554)
+    // when built against Zod 4. Runtime parsing is unaffected under both Zod
+    // majors, so this test only guards the field contract (string keys, mixed
+    // value types preserved). The single-arg form itself is prevented at author
+    // time by the copilotkit/no-single-arg-zod-record lint rule, since no
+    // runtime test can reproduce a purely type-level incompatibility.
+    it("preserves non-empty toolInput records of mixed value types", () => {
+      const baseContent = {
+        resourceUri: "ui://server/resource",
+        serverHash: "hash123",
+        result: { isError: false },
+      };
+
+      const withToolInput = {
+        ...baseContent,
+        toolInput: { stringArg: "value", numberArg: 42, nested: { a: 1 } },
+      };
+      const result = MCPAppsActivityContentSchema.safeParse(withToolInput);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.toolInput).toEqual(withToolInput.toolInput);
+      }
+
+      const withEmptyToolInput = { ...baseContent, toolInput: {} };
+      expect(
+        MCPAppsActivityContentSchema.safeParse(withEmptyToolInput).success,
+      ).toBe(true);
+    });
+
     it("rejects invalid activity content", () => {
       // Missing required fields
       const missingResourceUri = {
@@ -1063,6 +1090,68 @@ describe("MCP Apps Activity Renderer E2E", () => {
       await waitFor(() => {
         expect(screen.getByText("Loading...")).toBeDefined();
       });
+    });
+  });
+
+  describe("Surface contract", () => {
+    // The shared harness probe
+    // (`showcase/harness/src/probes/scripts/d5-mcp-apps.ts`) settles the turn on
+    // `[data-testid="mcp-app-iframe"]` mounting, and Angular + Vue declare the
+    // same testid/title pair. Dropping it here silently reds the D5/D6 mcp-apps
+    // rows on every React integration while the demo still works by hand.
+    it("tags the sandbox iframe with the shared mcp-app-iframe testid", async () => {
+      const agent = new MockMCPProxyAgent();
+      const agentId = "mcp-test-agent";
+      agent.agentId = agentId;
+
+      agent.setRunAgentResponse("resources/read", {
+        contents: [
+          {
+            uri: "ui://test/testid",
+            mimeType: "text/html",
+            text: "<html><body>Testid Content</body></html>",
+          },
+        ],
+      });
+
+      renderWithCopilotKit({
+        agents: { [agentId]: agent },
+        agentId,
+      });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Testid app" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Testid app")).toBeDefined();
+      });
+
+      agent.emit(runStartedEvent());
+      agent.emit(
+        activitySnapshotEvent({
+          messageId: testId("mcp-activity"),
+          activityType: MCPAppsActivityType,
+          content: mcpAppsActivityContent({
+            resourceUri: "ui://test/testid",
+            serverHash: "testid-hash",
+          }),
+        }),
+      );
+      agent.emit(runFinishedEvent());
+
+      await waitFor(
+        () => {
+          const iframe = document.querySelector(
+            'iframe[data-testid="mcp-app-iframe"]',
+          );
+          expect(iframe).not.toBeNull();
+          expect(iframe?.getAttribute("title")).toBe(
+            "Interactive MCP application",
+          );
+        },
+        { timeout: 3000 },
+      );
     });
   });
 });

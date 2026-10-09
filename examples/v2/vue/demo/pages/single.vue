@@ -6,8 +6,8 @@ import {
   CopilotKitProvider,
   useConfigureSuggestions,
   useFrontendTool,
-} from "@copilotkit/vue";
-import type { ToolsMenuItem } from "@copilotkit/vue";
+} from "@copilotkit/vue/v2";
+import type { ToolsMenuItem } from "@copilotkit/vue/v2";
 
 const toolsMenu: (ToolsMenuItem | "-")[] = [
   {
@@ -76,7 +76,6 @@ const SingleEndpointRouteContent = defineComponent({
   <CopilotKitProvider
     runtime-url="/api/copilotkit-single"
     :use-single-endpoint="true"
-    show-dev-console="auto"
   >
     <div style="height: 100vh; margin: 0; padding: 0; overflow: hidden">
       <SingleEndpointRouteContent />

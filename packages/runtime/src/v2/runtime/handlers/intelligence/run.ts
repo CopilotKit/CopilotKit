@@ -13,6 +13,15 @@ import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
 import type { AgentRunnerRunRequest } from "../../runner/agent-runner";
 import type { Observable } from "rxjs";
+import { getRuntimeErrorReporter } from "../../core/runtime-error-reporter";
+import type { RuntimeErrorPhase } from "../../core/runtime-error-reporter";
+import {
+  resolveLearningContainerId,
+  resolveLearningContainerSelector,
+} from "../../core/learning";
+import { getPlatformErrorStatus } from "../shared/intelligence-utils";
+import { startThreadLockHeartbeat } from "../../intelligence-platform/thread-lock-heartbeat";
+import type { ThreadSummary } from "../../intelligence-platform";
 
 /**
  * Builds browser-facing realtime connection metadata owned by the runtime.
@@ -55,6 +64,7 @@ interface HandleIntelligenceRunParams {
   agentId: string;
   agent: AbstractAgent;
   input: RunAgentInput;
+  startTime?: number;
 }
 
 export async function handleIntelligenceRun({
@@ -63,7 +73,10 @@ export async function handleIntelligenceRun({
   agentId,
   agent,
   input,
+  startTime,
 }: HandleIntelligenceRunParams): Promise<Response> {
+  const runtimeTelemetry = runtime.telemetry ?? telemetry;
+
   if (!runtime.intelligence) {
     return Response.json(
       {
@@ -80,12 +93,51 @@ export async function handleIntelligenceRun({
   }
   const userId = user.id;
 
+  const proxyRequest = (
+    input.forwardedProps as Record<string, unknown> | undefined
+  )?.__proxiedMCPRequest;
+  const isDirectResourceRead =
+    input.forwardedProps?.__copilotkitMcpResourceReadOnly === true &&
+    proxyRequest &&
+    typeof proxyRequest === "object" &&
+    (proxyRequest as { method?: unknown }).method === "resources/read";
+
+  let learningContainerId: string | undefined;
   try {
-    const { thread, created } = await runtime.intelligence.getOrCreateThread({
+    const selector = runtime.intelligence.ɵgetLearningContainerId?.();
+    learningContainerId = selector
+      ? await resolveLearningContainerSelector(selector, {
+          surface: "web",
+          user,
+          agentId,
+          input,
+        })
+      : await resolveLearningContainerId(runtime.learning, {
+          surface: "web",
+          request,
+          threadId: input.threadId,
+          runId: input.runId,
+          agentId,
+          userId,
+        });
+  } catch (error) {
+    logger.error("Failed to resolve Learning Container:", error);
+    return Response.json(
+      { error: "Failed to resolve Learning Container" },
+      { status: 500 },
+    );
+  }
+
+  let thread: ThreadSummary;
+  try {
+    const initialized = await runtime.intelligence.getOrCreateThread({
       threadId: input.threadId,
       userId,
       agentId,
+      ...(learningContainerId !== undefined ? { learningContainerId } : {}),
     });
+    thread = initialized.thread;
+    const { created } = initialized;
 
     if (created && runtime.generateThreadNames && !thread.name?.trim()) {
       void generateThreadNameForNewThread({
@@ -101,23 +153,73 @@ export async function handleIntelligenceRun({
     }
   } catch (error) {
     logger.error("Failed to get or create thread:", error);
+    const platformStatus = getPlatformErrorStatus(error);
     return Response.json(
       {
         error: "Failed to initialize thread",
       },
-      { status: 502 },
+      {
+        status:
+          platformStatus !== undefined &&
+          platformStatus >= 400 &&
+          platformStatus < 500
+            ? platformStatus
+            : 502,
+      },
     );
+  }
+
+  // MCP App resources are presentation data. Initialize the thread through the
+  // usual path, then fetch without claiming its mutation lock so an approval
+  // can continue while the resource server is still answering.
+  if (isDirectResourceRead) {
+    try {
+      if (thread.agentId && thread.agentId !== agentId) {
+        return Response.json(
+          { error: "Thread belongs to another agent" },
+          { status: 403 },
+        );
+      }
+      agent.threadId = thread.id;
+      const run = await agent.runAgent({
+        runId: input.runId,
+        tools: input.tools,
+        context: input.context,
+        forwardedProps: input.forwardedProps,
+      });
+      return Response.json({
+        kind: "mcp-resource-read",
+        threadId: thread.id,
+        runId: input.runId,
+        result: run.result ?? null,
+      });
+    } catch (error) {
+      logger.error("MCP resource read failed:", error);
+      const status = getPlatformErrorStatus(error);
+      return Response.json(
+        { error: "MCP resource read failed" },
+        { status: status && status >= 400 && status < 500 ? status : 502 },
+      );
+    }
   }
 
   let canonicalThreadId = input.threadId;
   let canonicalRunId = input.runId;
   let joinToken: string | undefined;
+  let backendThreadId: string | undefined;
+  let lockTtlSeconds: number | undefined;
+  let lockRequestedAt = 0;
   try {
+    // The platform starts the lock's TTL when it handles the request, so time
+    // the lifetime from the send rather than from the response.
+    lockRequestedAt = Date.now();
     const lockResult = await runtime.intelligence.ɵacquireThreadLock({
+      supportsBackendThreadId: true,
       threadId: input.threadId,
       runId: input.runId,
       userId,
       agentId,
+      ...(learningContainerId !== undefined ? { learningContainerId } : {}),
       ...(runtime.lockKeyPrefix !== undefined
         ? { lockKeyPrefix: runtime.lockKeyPrefix }
         : {}),
@@ -126,13 +228,18 @@ export async function handleIntelligenceRun({
     canonicalThreadId = lockResult.threadId;
     canonicalRunId = lockResult.runId;
     joinToken = lockResult.joinToken;
+    backendThreadId = lockResult.backendThreadId;
+    lockTtlSeconds = lockResult.ttlSeconds;
   } catch (error) {
     logger.error("Thread lock denied:", error);
+    const platformStatus = getPlatformErrorStatus(error);
     return Response.json(
       {
         error: "Thread lock denied",
       },
-      { status: 409 },
+      {
+        status: platformStatus === 409 ? 409 : 502,
+      },
     );
   }
 
@@ -161,38 +268,10 @@ export async function handleIntelligenceRun({
     );
   }
 
-  // When Intelligence has `mcpServer: true`, hand the agent the per-request
-  // bits it needs to attach the platform's MCP server: the resolved user-id,
-  // the project Bearer (`apiKey`), and the MCP URL. These ride through
-  // `forwardedProps.auth.copilotkitIntelligence` so the agent doesn't need a
-  // typed reference to the Intelligence client. `BuiltInAgent` reads the
-  // bag and builds a per-request MCP config with a closure-baked fetch;
-  // non-BuiltInAgent agents naturally ignore the key. The `auth` namespace
-  // is the convention for credentials that downstream redaction policies
-  // strip before durable storage and FE replay.
-  const upstreamAuth =
-    (input.forwardedProps as { auth?: Record<string, unknown> } | undefined)
-      ?.auth ?? {};
-  const copilotkitIntelligenceAuth =
-    runtime.intelligence.ɵisMcpServerEnabled?.()
-      ? {
-          copilotkitIntelligence: {
-            userId,
-            apiKey: runtime.intelligence.ɵgetApiKey(),
-            mcpUrl: `${runtime.intelligence.ɵgetApiUrl()}/mcp`,
-          },
-        }
-      : {};
-  const mergedAuth = { ...upstreamAuth, ...copilotkitIntelligenceAuth };
-
   const canonicalInput: RunAgentInput = {
     ...input,
     threadId: canonicalThreadId,
     runId: canonicalRunId,
-    forwardedProps: {
-      ...input.forwardedProps,
-      ...(Object.keys(mergedAuth).length > 0 ? { auth: mergedAuth } : {}),
-    },
   };
 
   let persistedInputMessages: Message[] | undefined;
@@ -200,6 +279,7 @@ export async function handleIntelligenceRun({
     try {
       const history = await runtime.intelligence.getThreadMessages({
         threadId: canonicalThreadId,
+        userId,
       });
       const historicMessageIds = new Set(
         history.messages.map((message) => message.id),
@@ -219,39 +299,46 @@ export async function handleIntelligenceRun({
     }
   }
 
-  telemetry.capture("oss.runtime.agent_execution_stream_started", {});
+  runtimeTelemetry.capture("oss.runtime.agent_execution_stream_started", {});
 
-  // Start heartbeat timer to renew the thread lock.
-  let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
-  heartbeatTimer = setInterval(() => {
-    runtime.intelligence
-      .ɵrenewThreadLock({
+  // Keep the thread lock alive while the run executes. Transient renewal
+  // failures are retried within the lock's remaining TTL; only a lost lock
+  // (or running out of time) aborts the run.
+  const heartbeat = startThreadLockHeartbeat({
+    renew: (signal) =>
+      runtime.intelligence.ɵrenewThreadLock({
         threadId: canonicalThreadId,
         runId: canonicalRunId,
         ttlSeconds: runtime.lockTtlSeconds,
         ...(runtime.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: runtime.lockKeyPrefix }
           : {}),
-      })
-      .catch((err) => {
-        logger.error("Failed to renew thread lock:", err);
-        clearHeartbeat();
-        try {
-          agent.abortRun();
-        } catch (abortError) {
-          logger.error(
-            "Failed to abort agent after lock renewal failure:",
-            abortError,
-          );
-        }
-      });
-  }, runtime.lockHeartbeatIntervalSeconds * 1_000);
+        signal,
+      }),
+    intervalMs: runtime.lockHeartbeatIntervalSeconds * 1_000,
+    fallbackTtlSeconds: runtime.lockTtlSeconds,
+    // The acquire round trip and the history lookup above both run between
+    // the lock request and now, so pass the lifetime the platform set minus
+    // the time already spent.
+    initialTtlSeconds:
+      lockTtlSeconds === undefined
+        ? undefined
+        : lockTtlSeconds - (Date.now() - lockRequestedAt) / 1_000,
+    onLost: (err) => {
+      logger.error("Failed to renew thread lock:", err);
+      try {
+        agent.abortRun();
+      } catch (abortError) {
+        logger.error(
+          "Failed to abort agent after lock renewal failure:",
+          abortError,
+        );
+      }
+    },
+  });
 
   const clearHeartbeat = () => {
-    if (heartbeatTimer !== undefined) {
-      clearInterval(heartbeatTimer);
-      heartbeatTimer = undefined;
-    }
+    heartbeat.stop();
   };
 
   const runStarted = { current: false };
@@ -260,9 +347,32 @@ export async function handleIntelligenceRun({
 
   const runRequest: AgentRunnerRunRequest = {
     threadId: canonicalThreadId,
+    ...(backendThreadId === undefined ? {} : { backendThreadId }),
     agent,
     input: canonicalInput,
     ...(persistedInputMessages !== undefined ? { persistedInputMessages } : {}),
+  };
+
+  const runtimeErrorReporter = getRuntimeErrorReporter(runtime);
+  let agentErrorReported = false;
+  const reportAgentError = (error: unknown, phase: RuntimeErrorPhase) => {
+    if (agentErrorReported) return;
+    agentErrorReported = true;
+    // Analytics describes the outcome; only the application-owned reporter
+    // receives diagnostics that may contain customer or upstream content.
+    runtimeTelemetry.capture("oss.runtime.agent_execution_stream_errored", {
+      error: "AGENT_EXECUTION_FAILED",
+    });
+    runtimeErrorReporter?.report({
+      request,
+      error,
+      operation: "agent.run",
+      agentId,
+      threadId: canonicalThreadId,
+      runId: canonicalRunId,
+      phase,
+      startTime,
+    });
   };
 
   try {
@@ -278,16 +388,31 @@ export async function handleIntelligenceRun({
         if (event.type === EventType.RUN_STARTED) {
           runStarted.current = true;
         }
-        if (event.type === EventType.RUN_ERROR && !runStarted.current) {
-          clearHeartbeat();
-          immediateStartupErrorMessage =
+        if (event.type === EventType.RUN_ERROR) {
+          const message =
             "message" in event && typeof event.message === "string"
               ? event.message
               : "Runner failed before the run started";
-          immediateStartupCleanup = cleanupLock("runner-start-failed");
+          reportAgentError(
+            new Error(message),
+            runStarted.current
+              ? "intelligence.subscription"
+              : "intelligence.startup",
+          );
+          if (!runStarted.current) {
+            clearHeartbeat();
+            immediateStartupErrorMessage = message;
+            immediateStartupCleanup = cleanupLock("runner-start-failed");
+          }
         }
       },
       error: (error) => {
+        reportAgentError(
+          error,
+          runStarted.current
+            ? "intelligence.subscription"
+            : "intelligence.startup",
+        );
         clearHeartbeat();
         if (!runStarted.current) {
           immediateStartupErrorMessage =
@@ -296,19 +421,22 @@ export async function handleIntelligenceRun({
         } else {
           cleanupLock("runner-error");
         }
-        telemetry.capture("oss.runtime.agent_execution_stream_errored", {
-          error: error instanceof Error ? error.message : String(error),
-        });
         logger.error("Error running agent:", error);
       },
       complete: () => {
         clearHeartbeat();
-        telemetry.capture("oss.runtime.agent_execution_stream_ended", {});
+        // Preserve the existing completion count even when the stream contains
+        // RUN_ERROR. Failure reporting is separate and carries only a safe code.
+        runtimeTelemetry.capture(
+          "oss.runtime.agent_execution_stream_ended",
+          {},
+        );
       },
     });
 
     await runStart.startup;
   } catch (error) {
+    reportAgentError(error, "intelligence.startup");
     clearHeartbeat();
     await (immediateStartupCleanup ?? cleanupLock("runner-start-threw"));
     logger.error("Error starting agent runner:", error);

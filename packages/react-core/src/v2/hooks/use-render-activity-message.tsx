@@ -1,8 +1,8 @@
-import { ActivityMessage } from "@ag-ui/core";
+import type { ActivityMessage } from "@ag-ui/core";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { useCopilotKit, useCopilotChatConfiguration } from "../providers";
 import { useCallback, useMemo } from "react";
-import { ReactActivityMessageRenderer } from "../types";
+import type { ReactActivityMessageRenderer } from "../types";
 
 export function useRenderActivityMessage() {
   const { copilotkit } = useCopilotKit();
@@ -39,12 +39,21 @@ export function useRenderActivityMessage() {
         return null;
       }
 
-      const parseResult = renderer.content.safeParse(message.content);
+      const parseResult = renderer.content["~standard"].validate(
+        message.content,
+      );
 
-      if (!parseResult.success) {
+      if (parseResult instanceof Promise) {
+        console.warn(
+          `Async content validation is not supported for activity message '${message.activityType}'`,
+        );
+        return null;
+      }
+
+      if (parseResult.issues) {
         console.warn(
           `Failed to parse content for activity message '${message.activityType}':`,
-          parseResult.error,
+          parseResult.issues,
         );
         return null;
       }
@@ -56,7 +65,7 @@ export function useRenderActivityMessage() {
         <Component
           key={message.id}
           activityType={message.activityType}
-          content={parseResult.data}
+          content={parseResult.value}
           message={message}
           agent={agent}
         />

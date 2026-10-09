@@ -11,12 +11,12 @@ COPY public/ ./public/
 COPY next.config.ts tsconfig.json postcss.config.mjs ./
 COPY showcase.json ./showcase.json
 
-# Docker override: use AG-UI HttpAgent instead of LangGraphAgent.
-# Next.js 16+ rejects both /api/copilotkit/route.ts AND /api/copilotkit/[[...slug]]/route.ts
-# at the same time — remove the default catch-all and drop in the HttpAgent route.
-RUN rm -f ./src/app/api/copilotkit/\[\[...slug\]\]/route.ts
-COPY docker-route-override.ts ./src/app/api/copilotkit/route.ts
-RUN npm install @ag-ui/client
+# No Docker route override. Unlike the Python starters, @langchain/langgraph-cli
+# dev is pure Node and needs no Docker-in-Docker, so entrypoint.sh runs the real
+# LangGraph Platform server on :8123. The checked-in catch-all route already
+# talks to it via LangGraphAgent (deploymentUrl + graphId), which is that
+# server's protocol; an AG-UI HttpAgent POST to it just 404s. Using the real
+# route also restores the PATCH and DELETE handlers the override dropped.
 
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 # Next.js 16+ uses Turbopack by default; use --webpack for serverExternalPackages compat

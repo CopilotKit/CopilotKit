@@ -1,0 +1,59 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for mastra / background-agents",
+    "created": "2026-07-02",
+    "note": "Net-new Mastra-specific cell (background tasks have no langgraph-python canonical to mirror). Two-turn pattern per pill: leg 1 (hasToolResult:false) returns the run_deep_research tool call, which Mastra dispatches as a background task; leg 2 (hasToolResult:true, anchored by the leg-1 toolCallId) returns the ack once the placeholder tool result exists. The background-task-started activity chunk comes from Mastra executing the backgrounded tool, NOT from aimock — aimock only drives the LLM tool call."
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Kick off deep research on the current landscape of AI agent frameworks",
+        "hasToolResult": false,
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bg_research_frameworks_001",
+            "name": "run_deep_research",
+            "arguments": "{\"topic\":\"the current landscape of AI agent frameworks\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d6_bg_research_frameworks_001",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Deep research on AI agent frameworks is now running in the background — I'll surface the findings once it completes. You can keep chatting in the meantime."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Kick off deep research on emerging renewable energy trends for 2026",
+        "hasToolResult": false,
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bg_research_energy_001",
+            "name": "run_deep_research",
+            "arguments": "{\"topic\":\"emerging renewable energy trends for 2026\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d6_bg_research_energy_001",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Deep research on renewable energy trends is now running in the background — I'll surface the findings once it completes. You can keep chatting in the meantime."
+      }
+    }
+  ]
+}

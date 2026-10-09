@@ -1,0 +1,324 @@
+/*
+ * Project Overview: one grid in every state. Metrics row, then the Event
+ * volume card beside Product Insights at equal height, then Automatic
+ * Learning beside Recent Threads from 1280px. Every block below the metrics
+ * is a bordered card or the shared table frame.
+ */
+.overview {
+  max-width: none;
+  width: 100%;
+}
+
+.overview > :global(.shell-page__header) {
+  margin-bottom: 22px;
+}
+.overview > :global(.shell-page__header) h1 {
+  font-size: 25px;
+}
+
+.period,
+.chartContext {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted-foreground);
+  font-size: var(--text-control);
+}
+.chartContext {
+  font-size: var(--text-caption);
+}
+.chartContext a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-control);
+  color: inherit;
+}
+.chartContext a:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.chartContext a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+/* Metrics row: unboxed tiles over one divider. */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  border-bottom: 1px solid var(--border);
+  padding: 22px 0 25px;
+}
+.metrics :global(.metric-tile) {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+.metrics :global(.metric-tile__value:not([data-compact='true'])) {
+  font-size: 29px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+.metrics :global(.metric-tile__icon),
+.metrics :global(.metric-tile__dot) {
+  display: none;
+}
+
+.activitySection {
+  min-width: 0;
+}
+
+/* Section header: 14px title and a quiet text link with an arrow. */
+.sectionHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  min-height: 28px;
+  margin-bottom: 12px;
+}
+.sectionHeader h2 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: var(--text-section);
+  font-weight: 600;
+}
+.sectionLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--radius-control);
+  color: var(--muted-foreground);
+  font-size: var(--text-control);
+  font-weight: 500;
+  text-decoration: none;
+}
+.sectionLink:hover {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sectionLink:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.sectionNote,
+.cardNote {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: var(--text-control);
+  line-height: 1.55;
+}
+.sectionNote {
+  margin-block: 12px;
+}
+
+/* Spotlight row: Event volume and Product Insights at equal height. */
+.spotlightGrid {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1.55fr) minmax(290px, 0.9fr);
+  margin-top: 24px;
+}
+.spotlightGrid[data-single='true'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.eventVolume {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 350px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: var(--card);
+  padding: 20px;
+}
+.eventVolumeEmpty {
+  min-height: 150px;
+}
+.spotlightHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.spotlightHeading h2 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: var(--text-section);
+  font-weight: 600;
+}
+.eventVolume :global(.accessible-chart) {
+  height: 295px;
+}
+.eventVolume :global(.accessible-chart__visual) {
+  height: 100%;
+}
+.eventVolume :global(.trend-chart) {
+  height: auto;
+}
+.eventVolume :global([data-single-bucket] .accessible-chart) {
+  height: 262px;
+}
+.overviewInsights {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+.overviewInsights > * {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+}
+
+/* A quiet period keeps the grid: the prompt takes the Event volume slot. */
+.quietActivity {
+  display: flex;
+  min-width: 0;
+}
+.quietActivity > * {
+  min-height: 350px;
+}
+
+/* Automatic Learning and Recent Threads: side by side from 1280px. Two
+ * tables keep their own heights; a first-use prompt beside a table stretches
+ * the pair to one height so the cards align (see overviewActivityBalance). */
+.activityGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 24px;
+  align-items: start;
+  margin-top: 32px;
+}
+.activityGrid[data-stretch='true'] {
+  align-items: stretch;
+}
+.activityGrid[data-stretch='true'] > .activitySection {
+  display: flex;
+  flex-direction: column;
+}
+.activityGrid[data-stretch='true'] > .activitySection > :last-child {
+  flex: 1 1 auto;
+}
+.tableFrame[data-stretch='true'] {
+  display: flex;
+  flex-direction: column;
+}
+.tableFrame[data-stretch='true'] > :global([data-slot='table-viewport']) {
+  flex: 1 1 auto;
+}
+
+/* Table cells stay on one line; long values truncate with a title. */
+.tableFrame :global(table) {
+  table-layout: fixed;
+}
+.tableFrame[data-columns='threads'] :global(th:nth-child(2)) {
+  width: 18%;
+}
+.tableFrame[data-columns='threads'] :global(th:nth-child(3)) {
+  width: 17%;
+}
+.tableFrame[data-columns='threads'] :global(th:nth-child(4)) {
+  width: 11.75rem;
+}
+.tableFrame[data-columns='learning'] :global(th:nth-child(2)) {
+  width: 5rem;
+}
+.tableFrame[data-columns='learning'] :global(th:nth-child(3)) {
+  width: 6.75rem;
+}
+.tableFrame[data-columns='learning'] :global(th:nth-child(4)) {
+  width: 11rem;
+}
+.tableFrame :global(td) {
+  font-variant-numeric: tabular-nums;
+}
+.truncate {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* All projects: the project under a table's primary value. */
+.primaryCell {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cellProject {
+  display: block;
+  min-width: 0;
+  margin-top: 2px;
+  color: var(--muted-foreground);
+  font-size: var(--text-caption);
+}
+.rowLink {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--foreground);
+  font-weight: 500;
+  text-decoration: none;
+}
+.rowLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 1279px) {
+  .activityGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Beside the rail on tablets there is no room for the chart and Insights
+ * side by side: stack them, and let the Insights card size to its content. */
+@media (max-width: 1023px) {
+  .spotlightGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .overviewInsights > * {
+    position: static;
+    height: auto;
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .spotlightGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .metrics {
+    gap: 16px 8px;
+  }
+  .metrics :global(.metric-tile__value:not([data-compact='true'])) {
+    font-size: 22px;
+  }
+  .eventVolume {
+    min-height: 300px;
+    padding: 14px;
+  }
+  .eventVolumeEmpty {
+    min-height: 130px;
+  }
+  .eventVolume :global(.accessible-chart) {
+    height: 245px;
+  }
+  .eventVolume :global([data-single-bucket] .accessible-chart) {
+    height: 212px;
+  }
+  .overviewInsights > * {
+    position: static;
+    height: auto;
+    width: 100%;
+  }
+}

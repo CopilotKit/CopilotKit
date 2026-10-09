@@ -9,6 +9,21 @@
 migrate(
   (db) => {
     const dao = new Dao(db);
+    // Idempotency: on an existing volume the `alert_state` collection may
+    // already exist while this migration is NOT recorded in `_migrations`.
+    // A bare saveCollection(new Collection(...)) then throws
+    // `UNIQUE constraint failed: _collections.name`, aborting the entire
+    // migration chain. Mirror the proven probe_runs / resource_snapshots
+    // guard: find-or-skip. PB JSVM has no typed error discrimination, so
+    // catch broadly and treat a present collection as a clean no-op.
+    // (Later 1776789000/100 reconcile migrations own field-level schema
+    // corrections for an existing `alert_state`.)
+    try {
+      dao.findCollectionByNameOrId("alert_state");
+      return;
+    } catch {
+      // Not present — fall through to create.
+    }
     const c = new Collection({
       name: "alert_state",
       type: "base",
@@ -32,7 +47,13 @@ migrate(
   },
   (db) => {
     const dao = new Dao(db);
-    const c = dao.findCollectionByNameOrId("alert_state");
+    let c;
+    try {
+      c = dao.findCollectionByNameOrId("alert_state");
+    } catch {
+      // Already absent — nothing to do.
+      return;
+    }
     dao.deleteCollection(c);
   },
 );

@@ -1,5 +1,7 @@
 "use client";
 
+// @region[hitl-hook]
+// @region[time-slots]
 import React from "react";
 import {
   CopilotKit,
@@ -11,15 +13,16 @@ import { z } from "zod";
 import { TimePickerCard, TimeSlot } from "./time-picker-card";
 
 const DEFAULT_SLOTS: TimeSlot[] = [
-  { label: "Tomorrow 10:00 AM", iso: "2026-04-25T10:00:00-07:00" },
-  { label: "Tomorrow 2:00 PM", iso: "2026-04-25T14:00:00-07:00" },
-  { label: "Monday 9:00 AM", iso: "2026-04-28T09:00:00-07:00" },
-  { label: "Monday 3:30 PM", iso: "2026-04-28T15:30:00-07:00" },
+  { label: "Tomorrow 10:00 AM", iso: "2026-04-19T10:00:00-07:00" },
+  { label: "Tomorrow 2:00 PM", iso: "2026-04-19T14:00:00-07:00" },
+  { label: "Monday 9:00 AM", iso: "2026-04-21T09:00:00-07:00" },
+  { label: "Monday 3:30 PM", iso: "2026-04-21T15:30:00-07:00" },
 ];
+// @endregion[time-slots]
 
 export default function HitlInChatDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="human_in_the_loop">
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="hitl-in-chat">
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
@@ -46,7 +49,7 @@ function Chat() {
   });
 
   useHumanInTheLoop({
-    agentId: "human_in_the_loop",
+    agentId: "hitl-in-chat",
     name: "book_call",
     description:
       "Ask the user to pick a time slot for a call. The picker UI presents fixed candidate slots; the user's choice is returned to the agent.",
@@ -68,8 +71,7 @@ function Chat() {
       />
     ),
   });
+  // @endregion[hitl-hook]
 
-  return (
-    <CopilotChat agentId="human_in_the_loop" className="h-full rounded-2xl" />
-  );
+  return <CopilotChat agentId="hitl-in-chat" className="h-full rounded-2xl" />;
 }

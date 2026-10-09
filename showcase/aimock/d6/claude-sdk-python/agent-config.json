@@ -1,0 +1,69 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-python / agent-config",
+    "sourceScript": "d5-agent-config.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "agent-config tone:professional — value-A turn. Must differ from the casual variant below so the knob-diff assertion passes.",
+      "match": {
+        "userMessage": "tone:professional",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Good day. I am your professionally-tuned assistant, configured to deliver clear, structured, and formal responses. I prioritize precision and maintain a business-appropriate register throughout our interaction. How may I assist you today?"
+      }
+    },
+    {
+      "_comment": "agent-config tone:casual — value-B turn. Must differ from professional variant.",
+      "match": {
+        "userMessage": "tone:casual",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Hey! I'm your chill assistant, set to casual mode. I keep things relaxed, friendly, and conversational — no stiff corporate speak here. What's up?"
+      }
+    },
+    {
+      "_comment": "agent-config expertise:beginner — value-A turn.",
+      "match": {
+        "userMessage": "expertise:beginner",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "CopilotKit is a tool that helps you add AI chat features to your web apps. Think of it like plugging in a smart assistant that can talk to your users and help them get things done, without you having to build the AI part from scratch."
+      }
+    },
+    {
+      "_comment": "agent-config expertise:expert — value-B turn. Must differ from beginner variant.",
+      "match": {
+        "userMessage": "expertise:expert",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "CopilotKit is an open-source framework that orchestrates LLM-powered agents within React applications via the AG-UI protocol. It provides hooks like useCopilotChat, useCopilotAction, and useCoAgent for bidirectional state synchronization between frontend components and backend agent runtimes — LangGraph, CrewAI, or custom implementations. The runtime layer handles tool dispatch, streaming, and multi-agent coordination."
+      }
+    },
+    {
+      "_comment": "agent-config responseLength:concise — value-A turn. Must be significantly shorter than detailed variant (delta >= 80 chars).",
+      "match": {
+        "userMessage": "responseLength:concise",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Agent context lets you pass frontend state to your agent on every turn via useAgentContext."
+      }
+    },
+    {
+      "_comment": "agent-config responseLength:detailed — value-B turn. Must exceed concise by >= 80 chars.",
+      "match": {
+        "userMessage": "responseLength:detailed",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Agent context is a mechanism provided by CopilotKit's useAgentContext hook that allows your React frontend to inject arbitrary key-value state into every agent turn. When the user sends a message, the runtime serializes the current agent context and appends it to the system prompt delivered to the backend agent. This enables features like per-turn configuration knobs (tone, expertise level, response length), user preferences, and session metadata — all flowing from the UI layer to the agent without requiring explicit tool calls or manual state management. The agent receives the context as structured data in its system prompt and can adapt its behavior accordingly. This is particularly powerful for demos like agent-config where sliders and dropdowns on the frontend directly influence the agent's personality and output style in real time."
+      }
+    }
+  ]
+}

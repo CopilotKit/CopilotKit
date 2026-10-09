@@ -7,12 +7,14 @@
  * StateGraph with chat + tool_node, CopilotKit state annotation) so it fits the
  * kitchen-sink layout already established in graph.ts.
  *
- * Tools:
+ * Local tools:
  *   - query_data           — natural-language query over beautiful-chat-data/db.csv
  *   - manage_todos         — create/update todo list with auto-assigned ids
  *   - get_todos            — read current todos from agent state
  *   - search_flights       — fixed-schema A2UI flight search (2 flights)
- *   - generate_a2ui        — dynamic A2UI surface via secondary LLM
+ *
+ * Dynamic A2UI uses the AG-UI generation tool and its bounded validation/retry
+ * loop, with the runtime-provided catalog and usage guide.
  *
  * Data files: ./beautiful-chat-data/db.csv + schemas/flight_schema.json
  */
@@ -22,23 +24,23 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import type { ToolRunnableConfig } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import {
-  AIMessage,
-  SystemMessage,
-  ToolMessage,
-} from "@langchain/core/messages";
+import type { AIMessage } from "@langchain/core/messages";
+import { SystemMessage, ToolMessage } from "@langchain/core/messages";
 import {
   Annotation,
   Command,
+  getCurrentTaskInput,
   MemorySaver,
   START,
   StateGraph,
 } from "@langchain/langgraph";
-import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
+import { getA2UITools } from "@ag-ui/langgraph";
+import { a2uiContext } from "../../_shared/ts/a2ui/context";
 import {
   convertActionsToDynamicStructuredTools,
   copilotkitEmitState,
@@ -61,6 +63,7 @@ type Todo = z.infer<typeof TodoSchema>;
 
 const BeautifulChatStateAnnotation = Annotation.Root({
   ...CopilotKitStateAnnotation.spec,
+  "ag-ui": Annotation<Record<string, unknown>>,
   todos: Annotation<Todo[]>,
 });
 
@@ -97,8 +100,9 @@ async function loadFlightSchema(): Promise<unknown[]> {
   if (cachedFlightSchema) return cachedFlightSchema;
   const schemaPath = path.join(DATA_DIR, "schemas", "flight_schema.json");
   const raw = await fs.readFile(schemaPath, "utf-8");
-  cachedFlightSchema = JSON.parse(raw);
-  return cachedFlightSchema;
+  const schema: unknown[] = JSON.parse(raw);
+  cachedFlightSchema = schema;
+  return schema;
 }
 
 // ---------------------------------------------------------------------------
@@ -166,11 +170,9 @@ const manageTodos = tool(
 );
 
 const getTodos = tool(
-  async () => {
-    // In the Python version, this reads from runtime.state. TS ToolNode doesn't
-    // pass state to tools by default, so return an empty list; the agent can
-    // re-fetch via manage_todos semantics.
-    return JSON.stringify([]);
+  async (_input, config: ToolRunnableConfig) => {
+    const state = getCurrentTaskInput<BeautifulChatState>(config);
+    return JSON.stringify(state.todos ?? []);
   },
   {
     name: "get_todos",
@@ -237,63 +239,59 @@ const searchFlights = tool(
   },
 );
 
-const generateA2ui = tool(
-  async (_args, _config) => {
-    // Secondary LLM designs a dynamic A2UI surface. Context is not threaded
-    // through ToolNode by default, so we run a simple one-shot call that
-    // mirrors the python agent's contract without direct state access.
-    const secondaryModel = new ChatOpenAI({ temperature: 0, model: "gpt-4.1" });
-    const renderTool = tool(async () => "rendered", {
-      name: "render_a2ui",
-      description: "Render a dynamic A2UI v0.9 surface.",
-      schema: z.object({
-        surfaceId: z.string(),
-        catalogId: z.string(),
-        components: z.array(z.record(z.unknown())),
-        data: z.record(z.unknown()).optional(),
-      }),
-    });
+// Backend tools remain local; toolsForRun adds catalog-bound UI generation.
+const tools = [queryData, manageTodos, getTodos, searchFlights];
 
-    const modelWithTool = secondaryModel.bindTools!([renderTool], {
-      tool_choice: { type: "function", function: { name: "render_a2ui" } },
-    });
-
-    const response = (await modelWithTool.invoke([
-      new SystemMessage({
-        content:
-          "Design a concise A2UI dashboard. Call render_a2ui with a surfaceId, catalogId 'copilotkit://app-dashboard-catalog', a components array (root id 'root'), and any initial data.",
-      }),
-    ])) as AIMessage;
-
-    if (!response.tool_calls?.length) {
-      return JSON.stringify({ error: "LLM did not call render_a2ui" });
-    }
-    const args = response.tool_calls[0].args as Record<string, unknown>;
-    const surfaceId = (args.surfaceId as string) ?? "dynamic-surface";
-    const catalogId = (args.catalogId as string) ?? CATALOG_ID;
-    const components = (args.components as unknown[]) ?? [];
-    const data = (args.data as Record<string, unknown>) ?? {};
-    const ops: unknown[] = [
-      { version: "v0.9", createSurface: { surfaceId, catalogId } },
-      { version: "v0.9", updateComponents: { surfaceId, components } },
-    ];
-    if (Object.keys(data).length > 0) {
-      ops.push({
-        version: "v0.9",
-        updateDataModel: { surfaceId, path: "/", value: data },
-      });
-    }
-    return JSON.stringify({ a2ui_operations: ops });
-  },
-  {
-    name: "generate_a2ui",
-    description:
-      "Generate dynamic A2UI components based on the conversation. Use for dashboards and rich UIs.",
-    schema: z.object({}),
-  },
-);
-
-const tools = [queryData, manageTodos, getTodos, searchFlights, generateA2ui];
+// Keep generation in the graph so malformed output gets the toolkit's bounded
+// validate/retry loop and terminal failure envelope, rather than a synthetic
+// "rendered" result for an unvalidated frontend action.
+function toolsForRun(state: BeautifulChatState, config: RunnableConfig) {
+  const context = a2uiContext(state);
+  const actions = Array.isArray(context.properties.actions)
+    ? context.properties.actions
+    : [];
+  const renderName =
+    typeof context.properties.inject_a2ui_tool === "string"
+      ? context.properties.inject_a2ui_tool
+      : "render_a2ui";
+  const enabled =
+    context.properties.inject_a2ui_tool ??
+    actions.some(
+      (action) => (action.function?.name ?? action.name) === renderName,
+    );
+  if (!enabled) return { context, actions, localTools: tools };
+  const generator = getA2UITools({
+    model: makeChatOpenAI(config, { model: "gpt-5-mini" }),
+    defaultCatalogId: context.catalogId ?? CATALOG_ID,
+    catalog: context.catalog,
+  });
+  const generationTool = tool(
+    async (input, toolConfig: ToolRunnableConfig) => {
+      if (!context.catalog || !context.catalogId) {
+        return JSON.stringify({
+          code: "a2ui_recovery_exhausted",
+          error:
+            "The frontend A2UI component schema is missing. Enable catalog schema context before requesting a dashboard.",
+          attempts: [],
+        });
+      }
+      const runtimeConfig = { ...toolConfig, state: context.state };
+      return generator.invoke(input, runtimeConfig);
+    },
+    {
+      name: generator.name,
+      description: generator.description,
+      schema: generator.schema,
+    },
+  );
+  return {
+    context,
+    actions: actions.filter(
+      (action) => (action.function?.name ?? action.name) !== renderName,
+    ),
+    localTools: [...tools, generationTool],
+  };
+}
 
 // ---------------------------------------------------------------------------
 // 4. Chat node
@@ -308,21 +306,25 @@ Tool guidance:
   charts, tables, and cards. It handles rendering automatically.
 - Charts: call query_data first, then render with the chart component.
 - Todos: enable app mode first, then manage todos.
+- If UI generation reports exhausted recovery, explain the failure briefly;
+  do not claim it rendered or start another generation attempt automatically.
 `;
 
 async function chatNode(state: BeautifulChatState, config: RunnableConfig) {
-  const model = new ChatOpenAI({
-    temperature: 0,
-    model: "gpt-4o",
+  const model = makeChatOpenAI(config, {
+    model: "gpt-5-mini",
     modelKwargs: { parallel_tool_calls: false },
   });
 
+  const { context, actions, localTools } = toolsForRun(state, config);
   const modelWithTools = model.bindTools!([
-    ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),
-    ...tools,
+    ...convertActionsToDynamicStructuredTools(actions),
+    ...localTools,
   ]);
 
-  const systemMessage = new SystemMessage({ content: SYSTEM_PROMPT });
+  const systemMessage = new SystemMessage({
+    content: `${SYSTEM_PROMPT}\n\n${context.prompt}`,
+  });
 
   const response = await modelWithTools.invoke(
     [systemMessage, ...state.messages],
@@ -336,12 +338,19 @@ async function chatNode(state: BeautifulChatState, config: RunnableConfig) {
 // 5. Routing
 // ---------------------------------------------------------------------------
 
-function shouldContinue({ messages, copilotkit }: BeautifulChatState) {
+function shouldContinue(state: BeautifulChatState) {
+  const { messages } = state;
   const lastMessage = messages[messages.length - 1] as AIMessage;
   if (lastMessage.tool_calls?.length) {
-    const actions = copilotkit?.actions;
+    const actions = a2uiContext(state).properties.actions;
     const toolCallName = lastMessage.tool_calls![0].name;
-    if (!actions || actions.every((action) => action.name !== toolCallName)) {
+    if (
+      toolCallName === "generate_a2ui" ||
+      !Array.isArray(actions) ||
+      actions.every(
+        (action) => (action.function?.name ?? action.name) !== toolCallName,
+      )
+    ) {
       return "tool_node";
     }
   }
@@ -354,7 +363,9 @@ function shouldContinue({ messages, copilotkit }: BeautifulChatState) {
 
 const workflow = new StateGraph(BeautifulChatStateAnnotation)
   .addNode("chat_node", chatNode)
-  .addNode("tool_node", new ToolNode(tools))
+  .addNode("tool_node", (state, config) =>
+    new ToolNode(toolsForRun(state, config).localTools).invoke(state, config),
+  )
   .addEdge(START, "chat_node")
   .addEdge("tool_node", "chat_node")
   .addConditionalEdges("chat_node", shouldContinue as any);

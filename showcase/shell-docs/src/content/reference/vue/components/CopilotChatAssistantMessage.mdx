@@ -1,0 +1,298 @@
+---
+title: "CopilotChatAssistantMessage"
+description: "Vue 3 component for displaying assistant messages with Markdown, tool calls, and an action toolbar"
+---
+
+## Overview
+
+`CopilotChatAssistantMessage` is a Vue 3 component that displays assistant messages with Markdown support, tool call rendering, and an action toolbar. Markdown is rendered with `streamdown-vue` (`StreamMarkdown`), which supports GitHub Flavored Markdown tables, math expressions (KaTeX styles are loaded automatically), and syntax-highlighted code blocks via Shiki (`github-light` / `github-dark` themes). Tables and code blocks include built-in copy and download actions, and images get a hover download button.
+
+The toolbar provides copy, thumbs up, thumbs down, read aloud, and regenerate buttons. Tooltip and aria labels are sourced from the nearest `CopilotChatConfigurationProvider` (see [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration)). The thumbs up, thumbs down, read aloud, and regenerate buttons are only rendered when a listener for the corresponding event is attached; the copy button is always shown when the toolbar is visible.
+
+<Callout type="info">
+  The toolbar is hidden while the latest assistant message is still streaming
+  (when `isRunning` is `true` for the last message) and when the message has no
+  text content. It also respects the `toolbarVisible` prop.
+</Callout>
+
+## Import
+
+```vue
+<script setup lang="ts">
+import { CopilotChatAssistantMessage } from "@copilotkit/vue/v2";
+</script>
+```
+
+## Example
+
+```vue
+<script setup lang="ts">
+import { CopilotChatAssistantMessage } from "@copilotkit/vue/v2";
+import type { AssistantMessage } from "@ag-ui/core";
+
+const message: AssistantMessage = {
+  id: "1",
+  role: "assistant",
+  content: "Here is **Markdown** with a `code` sample.",
+};
+</script>
+
+<template>
+  <CopilotChatAssistantMessage
+    :message="message"
+    @thumbs-up="(msg) => console.log('Thumbs up:', msg.id)"
+    @thumbs-down="(msg) => console.log('Thumbs down:', msg.id)"
+  />
+</template>
+```
+
+## Props
+
+<PropertyReference name="message" type="AssistantMessage" required>
+  The assistant message object to render. Contains the message `content`, `id`,
+  `role`, and any associated tool calls. Array content parts of type `text` are
+  joined with newlines; other content types are ignored.
+</PropertyReference>
+
+<PropertyReference name="messages" type="Message[]" default="[]">
+  The full array of conversation messages. Passed through to the tool calls view
+  for context-aware rendering, and used to determine whether this message is the
+  latest assistant message (which controls toolbar visibility during streaming).
+</PropertyReference>
+
+<PropertyReference name="isRunning" type="boolean" default="false">
+  Whether the agent is currently executing. While `true`, the toolbar is hidden
+  for the latest assistant message so it does not appear mid-stream.
+</PropertyReference>
+
+<PropertyReference name="toolbarVisible" type="boolean" default="true">
+  Controls whether the action toolbar is visible. When set to `false`, the
+  toolbar is hidden entirely regardless of which event listeners are attached.
+</PropertyReference>
+
+## Events
+
+Each event emits the current `message` as its payload. Attaching a listener for
+`thumbs-up`, `thumbs-down`, `read-aloud`, or `regenerate` also causes the matching
+toolbar button to render; without a listener the button is omitted.
+
+<PropertyReference name="thumbs-up" type="(message: AssistantMessage) => void">
+  Emitted when the user clicks the thumbs-up button. The button only appears
+  when a listener is attached.
+</PropertyReference>
+
+<PropertyReference name="thumbs-down" type="(message: AssistantMessage) => void">
+  Emitted when the user clicks the thumbs-down button. The button only appears
+  when a listener is attached.
+</PropertyReference>
+
+<PropertyReference name="read-aloud" type="(message: AssistantMessage) => void">
+  Emitted when the user clicks the read-aloud button. The button only appears
+  when a listener is attached.
+</PropertyReference>
+
+<PropertyReference name="regenerate" type="(message: AssistantMessage) => void">
+  Emitted when the user clicks the regenerate button. The button only appears
+  when a listener is attached.
+</PropertyReference>
+
+<Callout type="info">
+  Copying the message to the clipboard is handled internally by the copy button.
+  There is no `copy` event; the copy button is always present when the toolbar is
+  visible.
+</Callout>
+
+## Slots
+
+The component exposes named slots so you can override individual pieces of the
+default layout. Each slot receives scoped props (shown below) that wire its
+behavior to the message and toolbar handlers.
+
+<PropertyReference name="layout" type="slot">
+  Replaces the entire component layout. Receives `message`, `content`,
+  `is-running`, `toolbar-visible`, `should-show-toolbar`, the nested slot render
+  functions (`message-renderer`, `toolbar`, `copy-button`, `thumbs-up-button`,
+  `thumbs-down-button`, `read-aloud-button`, `regenerate-button`,
+  `tool-calls-view`), and the handlers `on-copy`, `on-thumbs-up`,
+  `on-thumbs-down`, `on-read-aloud`, and `on-regenerate`.
+</PropertyReference>
+
+<PropertyReference name="message-renderer" type="slot">
+  Replaces the Markdown renderer. Receives `message` and `content` (the
+  normalized text). Use this to swap out `StreamMarkdown` for a custom renderer.
+</PropertyReference>
+
+<PropertyReference name="tool-calls-view" type="slot">
+  Replaces the tool calls view. Receives `message` and `messages`. Defaults to
+  `CopilotChatToolCallsView`, which renders the message's tool calls using the
+  closest registered tool renderer.
+</PropertyReference>
+
+<PropertyReference name="toolbar" type="slot">
+  Replaces the action toolbar container. Receives `message` and
+  `should-show-toolbar`. Only rendered when the toolbar should be shown.
+</PropertyReference>
+
+<PropertyReference name="copy-button" type="slot">
+  Replaces the copy-to-clipboard button. Receives `on-copy`, `copied` (whether
+  the copied state is currently active), and `label`.
+</PropertyReference>
+
+<PropertyReference name="thumbs-up-button" type="slot">
+  Replaces the thumbs-up button. Receives `on-thumbs-up` and `label`. Only
+  rendered when a `thumbs-up` listener is attached.
+</PropertyReference>
+
+<PropertyReference name="thumbs-down-button" type="slot">
+  Replaces the thumbs-down button. Receives `on-thumbs-down` and `label`. Only
+  rendered when a `thumbs-down` listener is attached.
+</PropertyReference>
+
+<PropertyReference name="read-aloud-button" type="slot">
+  Replaces the read-aloud button. Receives `on-read-aloud` and `label`. Only
+  rendered when a `read-aloud` listener is attached.
+</PropertyReference>
+
+<PropertyReference name="regenerate-button" type="slot">
+  Replaces the regenerate button. Receives `on-regenerate` and `label`. Only
+  rendered when a `regenerate` listener is attached.
+</PropertyReference>
+
+<PropertyReference name="toolbar-items" type="slot">
+  Appended to the toolbar after the default buttons. Use this to add custom
+  toolbar actions. Receives no scoped props.
+</PropertyReference>
+
+## Usage
+
+### Basic assistant message
+
+```vue
+<script setup lang="ts">
+import { CopilotChatAssistantMessage } from "@copilotkit/vue/v2";
+import type { AssistantMessage } from "@ag-ui/core";
+
+defineProps<{ message: AssistantMessage }>();
+</script>
+
+<template>
+  <CopilotChatAssistantMessage
+    :message="message"
+    @thumbs-up="(msg) => console.log('Thumbs up:', msg.id)"
+    @thumbs-down="(msg) => console.log('Thumbs down:', msg.id)"
+  />
+</template>
+```
+
+### Adding regenerate and read aloud
+
+Attaching the listeners makes the corresponding buttons appear automatically.
+
+```vue
+<script setup lang="ts">
+import { CopilotChatAssistantMessage } from "@copilotkit/vue/v2";
+import type { AssistantMessage } from "@ag-ui/core";
+
+defineProps<{ message: AssistantMessage }>();
+
+function handleRegenerate(msg: AssistantMessage) {
+  // re-run the agent for this message
+}
+
+function handleReadAloud(msg: AssistantMessage) {
+  // speak msg.content
+}
+</script>
+
+<template>
+  <CopilotChatAssistantMessage
+    :message="message"
+    @regenerate="handleRegenerate"
+    @read-aloud="handleReadAloud"
+  />
+</template>
+```
+
+### Adding custom toolbar items
+
+```vue
+<script setup lang="ts">
+import { CopilotChatAssistantMessage } from "@copilotkit/vue/v2";
+import type { AssistantMessage } from "@ag-ui/core";
+
+defineProps<{ message: AssistantMessage }>();
+</script>
+
+<template>
+  <CopilotChatAssistantMessage :message="message">
+    <template #toolbar-items>
+      <button type="button" @click="shareMessage(message)">Share</button>
+    </template>
+  </CopilotChatAssistantMessage>
+</template>
+```
+
+### Hiding the toolbar
+
+```vue
+<script setup lang="ts">
+import { CopilotChatAssistantMessage } from "@copilotkit/vue/v2";
+import type { AssistantMessage } from "@ag-ui/core";
+
+defineProps<{ message: AssistantMessage }>();
+</script>
+
+<template>
+  <CopilotChatAssistantMessage :message="message" :toolbar-visible="false" />
+</template>
+```
+
+### Custom Markdown renderer
+
+```vue
+<script setup lang="ts">
+import { CopilotChatAssistantMessage } from "@copilotkit/vue/v2";
+import type { AssistantMessage } from "@ag-ui/core";
+
+defineProps<{ message: AssistantMessage }>();
+</script>
+
+<template>
+  <CopilotChatAssistantMessage :message="message">
+    <template #message-renderer="{ content }">
+      <div class="custom-markdown">{{ content }}</div>
+    </template>
+  </CopilotChatAssistantMessage>
+</template>
+```
+
+### Customizing a toolbar button
+
+```vue
+<script setup lang="ts">
+import { CopilotChatAssistantMessage } from "@copilotkit/vue/v2";
+import type { AssistantMessage } from "@ag-ui/core";
+
+defineProps<{ message: AssistantMessage }>();
+</script>
+
+<template>
+  <CopilotChatAssistantMessage
+    :message="message"
+    @regenerate="(msg) => regenerate(msg)"
+  >
+    <template #regenerate-button="{ onRegenerate, label }">
+      <button type="button" :title="label" @click="onRegenerate">
+        Regenerate
+      </button>
+    </template>
+  </CopilotChatAssistantMessage>
+</template>
+```
+
+## Related
+
+- `CopilotChatToolCallsView` - Renders the tool calls contained in an assistant message
+- [`CopilotChatUserMessage`](/reference/vue/components/CopilotChatUserMessage) - Companion component for user messages
+- [`CopilotChatMessageView`](/reference/vue/components/CopilotChatMessageView) - Parent component that renders this as the default assistant message
+- [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration) - Provides the localized toolbar labels

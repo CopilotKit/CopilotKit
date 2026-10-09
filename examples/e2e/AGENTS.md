@@ -17,9 +17,9 @@ This suite intentionally runs **one example at a time**.
 - The active example is selected via the `EXAMPLE` environment variable.
 - If `EXAMPLE` is not set, it defaults to `form-filling`.
 
-The Playwright config (`playwright.config.ts`) uses `EXAMPLE` to:
+The Playwright config (`playwright.config.ts`) uses an explicit path map to:
 
-- Set the `webServer.cwd` to the chosen example directory (`examples/v1/${EXAMPLE}`).
+- Set `webServer.cwd` to the chosen example under `examples/v1/` or `examples/canvas/`.
 - Choose the `webServer.command` used to start the app.
 
 ### Why each spec has `const EXAMPLE = process.env.EXAMPLE ?? "form-filling";`
@@ -84,18 +84,19 @@ From `examples/e2e`:
 - `EXAMPLE=research-canvas pnpm test`
 - `EXAMPLE=chat-with-your-data pnpm test`
 - `EXAMPLE=state-machine pnpm test`
+- `EXAMPLE=mastra-pm pnpm test`
 
 When `EXAMPLE` is set, you should see `1 passed` and the other example specs `skipped`.
 
 ## Test layout
 
-- Tests live under `tests/v1.x/`.
+- Tests live under `tests/public-examples/`.
 - Each example gets a single smoke spec (minimal assertions).
 
 Examples:
 
-- `tests/v1.x/form-filling.spec.ts`
-- `tests/v1.x/travel.spec.ts`
+- `tests/public-examples/form-filling.spec.ts`
+- `tests/public-examples/travel.spec.ts`
 
 ## Writing smoke tests (guidelines)
 
@@ -119,7 +120,7 @@ If an example auto-opens Copilot UI / triggers calls, prefer adding a query para
 
 Workflow:
 
-- `.github/workflows/test_e2e-legacy-v1.yml`
+- `.github/workflows/test_e2e-public-examples.yml`
 
 It runs a matrix of:
 
@@ -128,17 +129,19 @@ It runs a matrix of:
 - `research-canvas`
 - `chat-with-your-data`
 - `state-machine`
+- `mastra-pm`
 
 Key CI behaviors:
 
 - Installs `examples/e2e` deps and Playwright Chromium.
-- Installs the selected example’s deps.
+- Installs the workspace dependencies and builds CopilotKit.
 - Uses `pnpm install --frozen-lockfile` for deterministic installs.
-- For `research-canvas`, installs with `--ignore-scripts` to avoid requiring Python tooling just to run UI smoke tests.
+- Runs the selected app’s unit tests, plus the Research Canvas TypeScript agent tests
+  or Travel Python tests when selected.
 
 Artifacts:
 
-- Always uploads Playwright output (`test-results` and `playwright-report`) for debugging.
+- Uploads Playwright output (`test-results` and `playwright-report`) when a job fails.
 
 ## Common issues / debugging
 
@@ -149,8 +152,8 @@ Artifacts:
 ## Adding a new example
 
 1. Ensure the example can be started via `pnpm dev` (Next-only) or `pnpm dev:ui` (hybrid).
-2. Add a new spec under `tests/v1.x/<example>.spec.ts`.
+2. Add a new spec under `tests/public-examples/<example>.spec.ts`.
 3. Run locally:
    - `EXAMPLE=<example> pnpm test`
 4. Add the example name to the CI matrix in:
-   - `.github/workflows/test_e2e-legacy-v1.yml`
+   - `.github/workflows/test_e2e-public-examples.yml`

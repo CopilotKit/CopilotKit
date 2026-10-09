@@ -1,0 +1,11 @@
+<Steps>
+  <Step>
+    ### Stream partial state updates while Claude responds
+
+    For streaming state, parse the agent's structured deltas as they arrive and
+    emit CopilotKit state updates before the final message is complete. This
+    branch runs inside the streamed tool-argument handler.
+
+    <DemoCode file="src/agent_server.ts" region="state-streaming-delta-emission" />
+  </Step>
+</Steps>

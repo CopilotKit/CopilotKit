@@ -32,6 +32,7 @@ import {
 import { transformerMeta } from "./rehype-code-meta";
 import { inlineSnippets, convertTablesInJSX } from "./docs-render";
 import { resolveWithinDir } from "./safe-fs";
+import { MdxCodeBlock } from "@/components/mdx-code-block";
 
 const SNIPPETS_DIR = path.join(process.cwd(), "src/content/snippets");
 
@@ -89,9 +90,16 @@ function readPartial(relativePath: string): string | null {
 export async function PartialLoader({
   relativePath,
   components,
+  scope,
 }: {
   relativePath: string;
   components: Record<string, React.ComponentType<Record<string, unknown>>>;
+  // Extra MDX scope variables made available to the partial as
+  // top-level identifiers (e.g. `{framework}`). next-mdx-remote passes
+  // these as function args of the compiled module, NOT as the rendered
+  // component's `props` — so the partial must reference them bare, not
+  // via `props.<name>`. Optional; existing callers pass nothing.
+  scope?: Record<string, unknown>;
 }): Promise<React.ReactElement | null> {
   const body = readPartial(relativePath);
   if (body === null) {
@@ -99,7 +107,7 @@ export async function PartialLoader({
       // eslint-disable-next-line no-console
       console.warn("[mdx-registry-loader] partial not found:", relativePath);
       return (
-        <div className="my-4 rounded-md border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
+        <div className="shell-docs-radius-surface my-4 border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
           [mdx-registry-loader] partial not found: {relativePath}
         </div>
       );
@@ -121,9 +129,13 @@ export async function PartialLoader({
     <MDXRemote
       source={preprocessed}
       components={
-        components as React.ComponentProps<typeof MDXRemote>["components"]
+        {
+          ...components,
+          pre: MdxCodeBlock,
+        } as React.ComponentProps<typeof MDXRemote>["components"]
       }
       options={{
+        scope,
         mdxOptions: {
           remarkPlugins: [remarkGfm],
           rehypePlugins: [

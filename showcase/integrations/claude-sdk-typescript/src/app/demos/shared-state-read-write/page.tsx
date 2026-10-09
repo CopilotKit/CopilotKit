@@ -1,16 +1,15 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
+import React, { useEffect, useRef } from "react";
 import {
-  CopilotChat,
+  CopilotKit,
   useAgent,
   UseAgentUpdate,
-  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 
-import { PreferencesCard, type Preferences } from "./preferences-card";
-import { NotesCard } from "./notes-card";
+import type { Preferences } from "./preferences-card";
+import { DemoLayout } from "./demo-layout";
+import { useSharedStateReadWriteSuggestions } from "./suggestions";
 
 const INITIAL_PREFERENCES: Preferences = {
   name: "",
@@ -30,10 +29,7 @@ interface RWAgentState {
 
 export default function SharedStateReadWriteDemo() {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit-shared-state-read-write"
-      agent="shared-state-read-write"
-    >
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-read-write">
       <DemoContent />
     </CopilotKit>
   );
@@ -52,25 +48,16 @@ function DemoContent() {
   // @endregion[use-agent-read]
   // @endregion[use-agent]
 
-  useConfigureSuggestions({
-    suggestions: [
-      { title: "Greet me", message: "Say hi and introduce yourself." },
-      {
-        title: "Remember something",
-        message:
-          "Remember that I prefer morning meetings and that I don't eat dairy.",
-      },
-      {
-        title: "Plan a weekend",
-        message: "Suggest a weekend plan based on my interests.",
-      },
-    ],
-    available: "always",
-  });
+  useSharedStateReadWriteSuggestions();
 
   const agentState = agent.state as RWAgentState | undefined;
   const preferences = agentState?.preferences ?? INITIAL_PREFERENCES;
   const notes = agentState?.notes ?? [];
+  const latestNotesRef = useRef(notes);
+
+  useEffect(() => {
+    latestNotesRef.current = notes;
+  }, [notes]);
 
   // Seed initial preferences + empty notes into agent state once, so the
   // agent has something to read on the very first turn.
@@ -81,19 +68,18 @@ function DemoContent() {
         notes: [],
       } as RWAgentState);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [agent, agentState?.preferences]);
 
   // @region[set-state]
   // @region[use-agent-write]
   // WRITE: every edit in the sidebar goes straight into agent state.
-  // On the agent's next turn, the agent_server reads this back out of
-  // `input.state.preferences` and adds it to the system prompt — so the
-  // UI's writes visibly steer the model.
+  // On the agent's next turn, `PreferencesInjectorMiddleware` reads this
+  // back out of state and adds it to the system prompt — so the UI's
+  // writes visibly steer the model.
   const handlePreferencesChange = (next: Preferences) => {
     agent.setState({
       preferences: next,
-      notes, // preserve what the agent has written
+      notes: latestNotesRef.current, // preserve what the agent has written
     } as RWAgentState);
   };
   // @endregion[use-agent-write]
@@ -105,23 +91,11 @@ function DemoContent() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-screen w-full bg-gray-50">
-      <aside className="p-4 md:w-[360px] md:shrink-0 overflow-y-auto space-y-4">
-        <PreferencesCard
-          value={preferences}
-          onChange={handlePreferencesChange}
-        />
-        <NotesCard notes={notes} onClear={handleClearNotes} />
-      </aside>
-      <main className="flex-1 flex flex-col min-h-0">
-        <CopilotChat
-          agentId="shared-state-read-write"
-          className="flex-1 min-h-0"
-          labels={{
-            chatInputPlaceholder: "Chat with the agent...",
-          }}
-        />
-      </main>
-    </div>
+    <DemoLayout
+      preferences={preferences}
+      notes={notes}
+      onPreferencesChange={handlePreferencesChange}
+      onClearNotes={handleClearNotes}
+    />
   );
 }

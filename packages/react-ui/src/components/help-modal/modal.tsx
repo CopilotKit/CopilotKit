@@ -67,7 +67,7 @@ export function CopilotKitHelpModal() {
             <div className="space-y-4 mb-4">
               <div className="copilotKitHelpItemButton">
                 <a
-                  href="https://docs.copilotkit.ai/coagents/troubleshooting/common-issues"
+                  href="https://docs.copilotkit.ai/langgraph-python/troubleshooting/common-issues"
                   target="_blank"
                   rel="noopener noreferrer"
                 >

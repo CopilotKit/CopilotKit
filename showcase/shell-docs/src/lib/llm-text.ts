@@ -1,7 +1,7 @@
 // LLM-friendly rendering of docs pages.
 //
 // Three consumers:
-//   1. `/llms.txt`            — index of every docs page (title + URL).
+//   1. `/llms.txt`            — curated decision index (title + URL).
 //   2. `/llms-full.txt`       — concatenated full body of every page.
 //   3. `/<path>.md` and .mdx  — single-page raw markdown, snippets inlined.
 //
@@ -14,7 +14,8 @@
 //     docs-render (same map used at page render time)
 //   - resolves `<Snippet />` tags to fenced code blocks by reading the
 //     same `demo-content.json` that the runtime <Snippet> component does
-//   - strips `<InlineDemo />` (no body content — it's a live iframe demo)
+//   - strips `<InlineDemo />` (no body content — it's a live iframe demo),
+//     optionally preserving selected `llmRegion` or `llmFiles` source excerpts
 //   - keeps every other JSX tag verbatim (Tabs / Callout / Card render
 //     visually but their inner Markdown is still readable as prose)
 //
@@ -34,15 +35,48 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
-import { CONTENT_DIR, inlineSnippets, loadDoc } from "./docs-render";
-import { getDocsFolder, getIntegrations } from "./registry";
+import { frameworkOverviews } from "@/data/frameworks";
+import { ONBOARDING_PROMPT_ORIGIN } from "./intelligence-onboarding-prompt";
+import { INTELLIGENCE_FEATURES } from "./intelligence-features";
 import {
-  AG_UI_CONTENT_DIR,
-  DOCS_CONTENT_DIR,
-  REFERENCE_CONTENT_DIR,
-  walkMdx,
-} from "./sitemap-helpers";
+  isV1ReferenceUrl,
+  renderV1DeprecationNoticeUseV2InsteadMarkdown,
+} from "@/lib/v1-deprecation-use-v2-instead";
+import {
+  CHANNEL_FRONTENDS,
+  CHANNEL_GUIDE_ROUTES,
+  channelConnectHref,
+  channelGuideHref,
+  getChannelGuidePublicSlug,
+} from "./channel-guide-routes";
+import { CONTENT_DIR, inlineSnippets, loadDoc } from "./docs-render";
+import {
+  getDocsFolder,
+  getDocsMode,
+  getIntegrations,
+  ROOT_FRAMEWORK,
+} from "./registry";
+import {
+  REFERENCE_VERSIONS,
+  loadReferenceVersionItems,
+  resolveReferencePage,
+} from "./reference-items";
+import { DOCS_CONTENT_DIR, walkMdx } from "./sitemap-helpers";
 import demoContent from "@/data/demo-content.json";
+import angularSourceContent from "@/data/angular-source-content.json";
+import setupContentData from "@/data/setup-content.json";
+import {
+  filterAngularBackendScopedBlocks,
+  filterFrameworkScopedBlocks,
+  filterFrontendScopedBlocks,
+} from "./toc";
+import type { FrontendId } from "./frontend-options";
+import { resolveDocsHref } from "./docs-link-rewrite";
+import { resolveBundledSetupConcept } from "./setup-content";
+import type { SetupContentBundle } from "./setup-content";
+import { RICH_THREADS_SETUP_PROMPT } from "./rich-threads-setup-prompt";
+import { MEMORY_SETUP_PROMPT } from "./memory-setup-prompt";
+import { LEARNING_SETUP_PROMPT } from "./learning-setup-prompt";
 
 interface Region {
   file: string;
@@ -67,6 +101,17 @@ const demos: Record<string, DemoRecord> = (
   demoContent as { demos: Record<string, DemoRecord> }
 ).demos;
 
+const angularRegions = (
+  angularSourceContent as {
+    regions: Record<
+      string,
+      { file: string; language: string; content: string }
+    >;
+  }
+).regions;
+
+const setupContent = setupContentData as SetupContentBundle;
+
 // Preferred framework for cross-framework `<Snippet />` resolution when
 // the caller hasn't picked one (i.e. `/<slug>.md` without a framework
 // scope, or /llms-full.txt). We try this list in order before falling
@@ -78,6 +123,20 @@ const SNIPPET_FRAMEWORK_PREFERENCE = [
   "mastra",
   "built-in-agent",
 ];
+
+/**
+ * Map Angular frontend source slugs to the URLs served by the docs router.
+ */
+function canonicalDocsUrl(slug: string): string {
+  if (slug === "frontends/angular") return "angular";
+  if (slug === "frontends/angular/docs-status") {
+    return "angular/using-these-docs";
+  }
+  if (slug.startsWith("frontends/angular/")) {
+    return slug.replace(/^frontends\//, "");
+  }
+  return slug;
+}
 
 // -----------------------------------------------------------------------
 // Public types
@@ -98,6 +157,8 @@ export interface LlmPage {
   /** Optional framework slug for snippet resolution. Set on framework
    *  override pages (where `loadSlug` starts with `integrations/<folder>/`). */
   framework?: string;
+  /** Optional frontend surface used for scoped content filtering and links. */
+  frontend?: FrontendId;
 }
 
 // -----------------------------------------------------------------------
@@ -105,21 +166,35 @@ export interface LlmPage {
 // -----------------------------------------------------------------------
 
 /**
- * Enumerate every docs page that should appear in `llms.txt` and the
- * concatenated `llms-full.txt` aggregate. Covers four URL families:
+ * Enumerate every docs page available to the exhaustive `llms-full.txt`
+ * aggregate and route-contract tests. Covers five URL families:
  *
  *   - Bare unscoped docs   (/<slug>)
  *   - Per-framework        (/<framework>/<slug>)
+ *   - Channel-scoped       (/<slack|teams>/<framework?>/<guide?>)
  *   - Reference            (/reference/<slug>)
- *   - AG-UI                (/ag-ui/<slug>)
  *
  * We intentionally do NOT cross-product unscoped pages × every framework
  * — that would emit dozens of near-duplicate entries for the LLM. The
  * bare URL serves as the canonical entry; framework-scoped entries are
  * included only for per-framework override files actually present under
- * `content/docs/integrations/<folder>/`.
+ * `content/docs/integrations/<folder>/`. Slack and Teams are the deliberate
+ * exception: their canonical route contract exposes a full framework matrix.
  */
-export function getAllLlmPages(): LlmPage[] {
+export interface GetAllLlmPagesOptions {
+  /**
+   * `all` emits every channel/framework guide URL for exhaustive discovery.
+   * `content-unique` keeps every framework quickstart but emits each shared
+   * guide body only once per provider at the Built-in Agent URL.
+   */
+  channelGuideVariants: "all" | "content-unique";
+}
+
+export function getAllLlmPages(
+  { channelGuideVariants }: GetAllLlmPagesOptions = {
+    channelGuideVariants: "all",
+  },
+): LlmPage[] {
   const pages: LlmPage[] = [];
   const seenUrls = new Set<string>();
 
@@ -129,19 +204,43 @@ export function getAllLlmPages(): LlmPage[] {
     pages.push(page);
   };
 
+  // ROOT_FRAMEWORK's authored pages win at bare root URLs (the same
+  // resolution the live pages use — see UnscopedDocsPage). Walk its
+  // folder once so the bare loop below can swap in the override.
+  const rootFolder = getDocsFolder(ROOT_FRAMEWORK);
+  const rootOverrides = new Map<string, string>(); // slug → filePath
+  const rootDir = path.join(CONTENT_DIR, "integrations", rootFolder);
+  if (fs.existsSync(rootDir)) {
+    for (const { slug, filePath } of walkMdx(rootDir)) {
+      rootOverrides.set(slug, filePath);
+    }
+  }
+
   // 1. Bare unscoped docs (`src/content/docs/**.mdx`, minus `integrations/`).
   for (const { slug, filePath } of walkMdx(
     DOCS_CONTENT_DIR,
     new Set(["integrations"]),
   )) {
     if (!slug) continue;
-    const meta = readMetaFromFile(filePath);
+    // Slack/Teams connection guides and the shared Channels guide sources are
+    // emitted below as an explicit provider × framework matrix. Skipping them
+    // here prevents the bare filesystem walk from claiming their canonical
+    // URLs before the correctly annotated variants are pushed.
+    if (slug === "frontends/slack" || slug === "frontends/teams") continue;
+    if (getChannelGuidePublicSlug(slug)) continue;
+    // The root `built-in-agent.mdx` topic page's bare URL permanently
+    // redirects to `/` (the retired framework prefix); it stays
+    // reachable under other frameworks' scopes only.
+    if (slug === ROOT_FRAMEWORK) continue;
+    const overridePath = rootOverrides.get(slug);
+    const meta = readMetaFromFile(overridePath ?? filePath);
     push({
-      url: slug,
+      url: canonicalDocsUrl(slug),
       title: meta.title ?? slug,
       description: meta.description,
-      filePath,
-      loadSlug: slug,
+      filePath: overridePath ?? filePath,
+      loadSlug: overridePath ? `integrations/${rootFolder}/${slug}` : slug,
+      framework: overridePath ? ROOT_FRAMEWORK : undefined,
     });
   }
 
@@ -155,16 +254,36 @@ export function getAllLlmPages(): LlmPage[] {
   //    `if (!slug) continue` guard silently skipped framework root URLs
   //    from `/llms.txt`, leaving LLM crawlers unable to find e.g.
   //    `/langgraph-python`. Treat empty slug as the framework root and
-  //    emit it as the bare integration URL.
+  //    emit it as the bare integration URL. A few generated integrations
+  //    intentionally author only `quickstart.mdx`; for those, expose the
+  //    framework root with that real source rather than inventing overview
+  //    prose or omitting a fetchable root URL.
   const integrations = getIntegrations();
   for (const integration of integrations) {
-    if (integration.docs_mode === "hidden") continue;
+    if (getDocsMode(integration.slug) === "hidden") continue;
     const folder = getDocsFolder(integration.slug);
     const integrationDir = path.join(CONTENT_DIR, "integrations", folder);
     if (!fs.existsSync(integrationDir)) continue;
-    for (const { slug, filePath } of walkMdx(integrationDir)) {
+    const servedAtRoot = integration.slug === ROOT_FRAMEWORK;
+    const integrationEntries = walkMdx(integrationDir);
+    let emittedFrameworkRoot = false;
+    let quickstartEntry:
+      | { readonly slug: string; readonly filePath: string }
+      | undefined;
+
+    for (const { slug, filePath } of integrationEntries) {
       const isRoot = !slug;
-      const url = isRoot ? integration.slug : `${integration.slug}/${slug}`;
+      if (isRoot) emittedFrameworkRoot = true;
+      if (slug === "quickstart") quickstartEntry = { slug, filePath };
+      // ROOT_FRAMEWORK pages live at bare root URLs. Slugs shadowing a
+      // bare doc were already pushed (BIA-resolved) in pass 1, and the
+      // folder index's URL would be the home page — skip it.
+      if (servedAtRoot && isRoot) continue;
+      const url = servedAtRoot
+        ? slug
+        : isRoot
+          ? integration.slug
+          : `${integration.slug}/${slug}`;
       const meta = readMetaFromFile(filePath);
       push({
         url,
@@ -175,32 +294,115 @@ export function getAllLlmPages(): LlmPage[] {
         framework: integration.slug,
       });
     }
+
+    if (!servedAtRoot && !emittedFrameworkRoot && quickstartEntry) {
+      const meta = readMetaFromFile(quickstartEntry.filePath);
+      push({
+        url: integration.slug,
+        title: meta.title ?? integration.name,
+        description: meta.description,
+        filePath: quickstartEntry.filePath,
+        loadSlug: `integrations/${folder}/quickstart`,
+        framework: integration.slug,
+      });
+    }
   }
 
-  // 3. Reference docs.
-  for (const { slug, filePath } of walkMdx(REFERENCE_CONTENT_DIR)) {
-    const meta = readMetaFromFile(filePath);
-    push({
-      url: slug ? `reference/${slug}` : "reference",
-      title: meta.title ?? slug,
-      description: meta.description,
-      filePath,
-      // Reference docs live outside CONTENT_DIR; we can't reuse
-      // loadDoc(). Caller branches on this prefix when reading source.
-      loadSlug: `__reference__/${slug || "index"}`,
-    });
+  // 3. Canonical Slack/Teams routes. Both discovery modes retain every
+  // framework-specific connection guide because its FrameworkSetup expansion is
+  // unique. Shared guide sources vary only by provider, so the compact corpus
+  // keeps one Built-in Agent copy per provider while llms.txt advertises the
+  // complete canonical route matrix.
+  const visibleIntegrations = integrations.filter(
+    (integration) => getDocsMode(integration.slug) !== "hidden",
+  );
+  for (const frontend of CHANNEL_FRONTENDS) {
+    const connectionGuide = loadDoc(`frontends/${frontend}`);
+    if (connectionGuide) {
+      for (const integration of visibleIntegrations) {
+        push({
+          url: channelConnectHref(frontend, integration.slug).slice(1),
+          title: connectionGuide.fm.title,
+          description: connectionGuide.fm.description,
+          filePath: connectionGuide.filePath,
+          loadSlug: `frontends/${frontend}`,
+          framework: integration.slug,
+          frontend,
+        });
+      }
+    }
+
+    for (const guide of CHANNEL_GUIDE_ROUTES) {
+      const doc = loadDoc(guide.sourceSlug);
+      if (!doc) continue;
+      const guideFrameworks =
+        channelGuideVariants === "all"
+          ? visibleIntegrations
+          : visibleIntegrations.filter(
+              (integration) => integration.slug === ROOT_FRAMEWORK,
+            );
+      for (const integration of guideFrameworks) {
+        push({
+          url: channelGuideHref(frontend, integration.slug, guide.slug).slice(
+            1,
+          ),
+          title: doc.fm.title,
+          description: doc.fm.description,
+          filePath: doc.filePath,
+          loadSlug: guide.sourceSlug,
+          framework: integration.slug,
+          frontend,
+        });
+      }
+    }
   }
 
-  // 4. AG-UI.
-  for (const { slug, filePath } of walkMdx(AG_UI_CONTENT_DIR)) {
-    const meta = readMetaFromFile(filePath);
-    push({
-      url: slug ? `ag-ui/${slug}` : "ag-ui",
-      title: meta.title ?? slug,
-      description: meta.description,
-      filePath,
-      loadSlug: `__ag-ui__/${slug || "index"}`,
-    });
+  // 4. Reference docs — all SDK versions at their canonical versioned URLs.
+  //
+  //    The v2 (current) API reference lives at the root of
+  //    `src/content/reference/` (e.g. `hooks/useCopilotAction.mdx`) and is
+  //    served at `/reference/v2/hooks/useCopilotAction`. Older versions live
+  //    under their own subfolder (`v1/`, `react-native/`, etc.) and are
+  //    served at `/reference/v1/hooks/...`.
+  //
+  //    We enumerate via `loadReferenceVersionItems` (which already knows the
+  //    canonical URL for each version) rather than walking the filesystem
+  //    directly, so that LLM consumers see the same versioned URL they would
+  //    navigate to in the browser.
+  for (const version of REFERENCE_VERSIONS) {
+    // Version root index page (e.g. `/reference/v2`, `/reference/v1`).
+    const rootResolved = resolveReferencePage([version]);
+    if (rootResolved) {
+      const rootMeta = readMetaFromFile(rootResolved.filePath);
+      push({
+        url: `reference/${version}`,
+        title: rootMeta.title ?? version,
+        description: rootMeta.description,
+        filePath: rootResolved.filePath,
+        loadSlug: `__reference__/${rootResolved.contentSlug}`,
+      });
+    }
+
+    // Individual API reference pages within this version.
+    for (const item of loadReferenceVersionItems(version)) {
+      // item.url is the canonical path, e.g. "/reference/v2/hooks/foo".
+      // Strip the leading "/" so LlmPage.url has no leading slash.
+      const url = item.url.replace(/^\//, "");
+      // Resolve the source file via the same logic the page renderer uses.
+      const resolved = resolveReferencePage(
+        url.replace(/^reference\//, "").split("/"),
+      );
+      if (!resolved) continue;
+      push({
+        url,
+        title: item.title,
+        description: item.description,
+        filePath: resolved.filePath,
+        // Reference docs live outside CONTENT_DIR; readSource branches on
+        // this prefix to read via fs.readFileSync instead of loadDoc().
+        loadSlug: `__reference__/${resolved.contentSlug}`,
+      });
+    }
   }
 
   return pages.sort((a, b) => a.url.localeCompare(b.url));
@@ -485,20 +687,199 @@ function expandSnippets(
 }
 
 /**
- * Drop `<InlineDemo ... />` tags — these mount live iframes in the
- * browser; in plain markdown they're noise. Leave a short note so the
- * LLM still knows a demo exists at that point in the page.
+ * Inline package-owned framework setup MDX so raw Markdown consumers receive
+ * the selected agent's actual setup instead of an unresolved JSX placeholder.
  */
-function stripInlineDemos(body: string): string {
+function expandFrameworkSetups(
+  body: string,
+  framework: string | undefined,
+): string {
+  if (!body.includes("<FrameworkSetup")) return body;
+  if (!framework) return body;
+
+  return body.replace(
+    /<FrameworkSetup\b([\s\S]*?)\/>/g,
+    (_match, inner: string) => {
+      const concept = /\bconcept\s*=\s*["']([^"']+)["']/.exec(inner)?.[1];
+      if (!concept) {
+        throw new Error(
+          `[llm-text] FrameworkSetup is missing a concept for ${framework}`,
+        );
+      }
+
+      const source = resolveBundledSetupConcept(
+        framework,
+        concept,
+        setupContent,
+      );
+      if (source === null) {
+        if (concept === "channels-agent-setup") {
+          throw new Error(
+            `[llm-text] setup concept "${concept}" is not bundled for ${framework}`,
+          );
+        }
+        return `<!-- setup skipped: ${concept} is not bundled for ${framework} -->`;
+      }
+      return source.trimEnd();
+    },
+  );
+}
+
+/** Resolve Angular-authored docs snippets from the canonical Showcase app. */
+function expandAngularSnippets(body: string): string {
+  return body.replace(
+    /<AngularSnippet\b([\s\S]*?)\/>/g,
+    (_match, inner: string) => {
+      const region = /\bregion\s*=\s*["']([^"']+)["']/.exec(inner)?.[1];
+      const source = region ? angularRegions[region] : undefined;
+      if (!source) {
+        return `<!-- Angular Showcase snippet skipped: missing region ${region ?? "(none)"} -->`;
+      }
+      const header = fileHeaderComment(source.language, source.file);
+      return fenceFor(
+        source.language,
+        header ? `${header}\n${source.content}` : source.content,
+      );
+    },
+  );
+}
+
+/** Expand the interactive AG-UI Streams prompt for raw Markdown consumers. */
+function expandRichThreadsSetupPrompts(body: string): string {
+  return body.replace(
+    /<RichThreadsSetupPrompt\s*\/>/g,
+    `### Copy this prompt into your coding agent\n\n${fenceFor(
+      "text",
+      RICH_THREADS_SETUP_PROMPT,
+    )}`,
+  );
+}
+
+/** Expand the Automatic Learning prompt for raw Markdown consumers. */
+function expandLearningSetupPrompts(body: string): string {
+  return body.replace(
+    /<LearningSetupPrompt\s*\/>/g,
+    `#### Copy this prompt into your coding agent\n\n${fenceFor(
+      "text",
+      LEARNING_SETUP_PROMPT,
+    )}`,
+  );
+}
+
+/**
+ * Drop `<InlineDemo ... />` tags — these mount live iframes in the browser;
+ * in plain markdown they're noise. Leave a short note so the LLM still knows
+ * a demo exists at that point in the page. Authors may select one bundled
+ * `llmRegion` or `llmFiles` when the interactive Code tab contains essential
+ * implementation detail that would otherwise disappear from raw Markdown.
+ */
+function expandInlineDemos(
+  body: string,
+  framework: string | undefined,
+): string {
   return body.replace(
     /<InlineDemo\b([\s\S]*?)\/>/g,
     (_match, inner: string) => {
       const demoAttr = /demo\s*=\s*["']([^"']+)["']/.exec(inner);
-      return demoAttr
+      const note = demoAttr
         ? `\n<!-- interactive demo: ${demoAttr[1]} -->\n`
         : "\n<!-- interactive demo -->\n";
+      const llmRegion = /llmRegion\s*=\s*["']([^"']+)["']/.exec(inner)?.[1];
+      const llmFiles = /llmFiles\s*=\s*["']([^"']+)["']/.exec(inner)?.[1];
+      if (!demoAttr || (!llmRegion && !llmFiles)) return note;
+
+      const sources = llmRegion
+        ? [{ region: llmRegion }]
+        : llmFiles!.split(",").map((file) => ({ file: file.trim() }));
+      const snippets = sources.map((source) =>
+        resolveSnippet(
+          { cell: demoAttr[1], ...source },
+          framework,
+          demoAttr[1],
+        ),
+      );
+      const visible = !llmRegion
+        ? snippets
+        : snippets.filter(
+            (snippet) => !snippet.startsWith("<!-- snippet skipped:"),
+          );
+      return visible.length ? `${note}\n${visible.join("\n\n")}\n` : note;
     },
   );
+}
+
+function scopedDocsPrefix(page: LlmPage): string {
+  const framework =
+    page.framework && page.framework !== ROOT_FRAMEWORK ? page.framework : null;
+  if (page.frontend && page.frontend !== "react") {
+    return `/${page.frontend}${framework ? `/${framework}` : ""}`;
+  }
+  return framework ? `/${framework}` : "";
+}
+
+function rewriteRootRelativeLinks(
+  source: string,
+  rewrite: (href: string) => string,
+): string {
+  return source
+    .replace(
+      /(\]\()((?:\/(?!\/))[^\s)]+)(\))/g,
+      (_match, open: string, href: string, close: string) =>
+        `${open}${rewrite(href)}${close}`,
+    )
+    .replace(
+      /(\bhref\s*=\s*["'])((?:\/(?!\/))[^"']+)(["'])/g,
+      (_match, open: string, href: string, close: string) =>
+        `${open}${rewrite(href)}${close}`,
+    );
+}
+
+/**
+ * Rewrite prose links through the same frontend/framework resolver as HTML
+ * docs while preserving fenced code byte-for-byte. The line scanner supports
+ * backtick and tilde fences of any Markdown-valid length (three or more),
+ * including info strings and longer closing fences.
+ */
+export function rewriteScopedDocsLinks(body: string, page: LlmPage): string {
+  const slugHrefPrefix = scopedDocsPrefix(page);
+  const options = {
+    slugHrefPrefix,
+    frameworkOverride: page.framework,
+    frontendOverride: page.frontend,
+  };
+  const rewrite = (href: string): string =>
+    resolveDocsHref(href, options) ?? href;
+  const lines = body.match(/[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+$/g) ?? [];
+  let openFence: { marker: "`" | "~"; length: number } | null = null;
+
+  return lines
+    .map((line) => {
+      const content = line.replace(/(?:\r\n|\r|\n)$/, "");
+
+      if (openFence) {
+        const closing = content.match(/^ {0,3}([`~]+)[ \t]*$/);
+        if (
+          closing &&
+          closing[1][0] === openFence.marker &&
+          closing[1].length >= openFence.length
+        ) {
+          openFence = null;
+        }
+        return line;
+      }
+
+      const opening = content.match(/^ {0,3}(`{3,}|~{3,})[^\r\n]*$/);
+      if (opening) {
+        openFence = {
+          marker: opening[1][0] as "`" | "~",
+          length: opening[1].length,
+        };
+        return line;
+      }
+
+      return rewriteRootRelativeLinks(line, rewrite);
+    })
+    .join("");
 }
 
 /**
@@ -517,7 +898,7 @@ function stripInlineDemos(body: string): string {
  */
 export function renderPageToLlmText(
   page: LlmPage,
-  options: { framework?: string } = {},
+  options: { framework?: string; frontend?: FrontendId } = {},
 ): string {
   const raw = readSource(page);
   if (!raw) return "";
@@ -537,39 +918,132 @@ export function renderPageToLlmText(
   const frontmatterCell =
     typeof data.snippet_cell === "string" ? data.snippet_cell : undefined;
   const framework = options.framework ?? page.framework ?? frontmatterFramework;
+  const frontend = options.frontend ?? page.frontend;
 
   let body = stripFrontmatter(raw);
+
+  // Generated HTML intros mount authored after-features sections separately
+  // from their index/quickstart source. Include that same content in the
+  // overview's Markdown and full corpus, but never in ordinary guide pages.
+  const overviewUrl = frontend ? `${frontend}/${framework}` : framework;
+  if (
+    framework &&
+    (!frontend || frontend === "angular") &&
+    page.url === overviewUrl &&
+    getDocsMode(framework) === "generated" &&
+    frameworkOverviews[framework]?.hasAfterFeaturesMdx
+  ) {
+    const overviewSection = path.join(
+      CONTENT_DIR,
+      "../framework-overviews",
+      framework,
+      "after-features.mdx",
+    );
+    if (fs.existsSync(overviewSection)) {
+      body += `\n\n${fs.readFileSync(overviewSection, "utf8")}`;
+    } else {
+      // Match HTML's fallback for variants whose shared overview record
+      // enables a slot without providing variant-specific authored content.
+      console.error(
+        `[llm-text] missing framework overview section: ${overviewSection}`,
+      );
+    }
+  }
 
   // 1) Inline `<Component />` shared snippets (`<AGUI />`, etc.). Uses
   //    the SNIPPET_MAP / SUBPATH_TO_COMPONENT logic — same as the page
   //    renderer uses for the live HTML view.
   body = inlineSnippets(body, page.loadSlug);
+  body = body.replace(
+    /<IntelligenceFeatureCards\s*\/>/g,
+    `## What Intelligence gives you\n\n${INTELLIGENCE_FEATURES.map(
+      (feature) => `- [${feature.title}](${feature.href}): ${feature.body}`,
+    ).join("\n")}`,
+  );
 
-  // 2) Resolve `<Snippet ... />` to fenced code.
+  // Expand interactive prompts after inlining so prompts inside shared
+  // snippets are also available in raw Markdown and LLM feeds.
+  body = body.replace(
+    /<PageAgentPrompt\s*\/>/g,
+    "Ask your coding agent to follow the setup steps on this page for your selected framework and frontend.",
+  );
+  body = expandRichThreadsSetupPrompts(body);
+  body = expandLearningSetupPrompts(body);
+  body = body.replace(
+    /<MemorySetupPrompt\s*\/>/g,
+    `### Copy this prompt into your coding agent\n\n${fenceFor("text", MEMORY_SETUP_PROMPT)}`,
+  );
+
+  // Imported snippets can contain frontend-scoped branches of their own.
+  // Filter after inlining so raw Markdown output follows the same frontend
+  // selection as the live MDX component tree.
+  body = filterFrontendScopedBlocks(body, frontend);
+  if (frontend === "angular") {
+    body = filterAngularBackendScopedBlocks(body, framework);
+  }
+
+  // Framework-gated branches (`<WhenFrameworkHas flag=… equals=…>`) have to be
+  // resolved here too, and against the SAME framework the `<Snippet />` tags
+  // below resolve to. The live HTML page drops the non-matching branches (the
+  // component returns null); raw Markdown used to keep every branch verbatim,
+  // so a gated page emitted all of its mutually-exclusive variants at once,
+  // each one carrying the single selected framework's code. On
+  // `generative-ui/a2ui/fixed-schema` that meant three "how the schema is
+  // delivered" sections whose prose contradicted the identical snippet under
+  // each of them — including a branch stating the language ships no
+  // `load_schema` helper directly above a snippet calling `load_schema`.
+  //
+  // `pickFramework` is what `expandSnippets` uses, so routing the gating
+  // decision through it keeps prose and code agreeing even on unscoped
+  // (`/<slug>.md`) requests where no framework was passed in.
+  const gatedFramework = frontmatterCell
+    ? (pickFramework(frontmatterCell, undefined, framework) ?? framework)
+    : framework;
+  body = filterFrameworkScopedBlocks(body, gatedFramework);
+
+  // 2) Inline the selected package-owned framework setup. Bare docs URLs use
+  // Built-in Agent on the live site, so use that same default for setup
+  // components without forcing snippet selection away from its existing
+  // cross-framework preference order.
+  body = expandFrameworkSetups(body, framework ?? ROOT_FRAMEWORK);
+
+  // 3) Resolve `<Snippet ... />` to fenced code.
   body = expandSnippets(body, framework, frontmatterCell);
 
-  // 3) Drop `<InlineDemo />`.
-  body = stripInlineDemos(body);
+  // 4) Resolve regions from the canonical Angular Showcase app.
+  body = expandAngularSnippets(body);
 
-  // 4) Prepend an H1 (and description blockquote) so consumers always
+  // 5) Drop `<InlineDemo />`, preserving any explicitly selected LLM source.
+  body = expandInlineDemos(body, framework);
+
+  // 6) Keep raw Markdown links in the same frontend/framework surface as the
+  // live page. Store the effective axes so explicit render overrides retain
+  // backwards compatibility with callers whose LlmPage predates those fields.
+  body = rewriteScopedDocsLinks(body, {
+    ...page,
+    framework,
+    frontend,
+  });
+
+  // 7) Prepend an H1 (and description blockquote) so consumers always
   //    get a clear page title — frontmatter alone wouldn't survive the
   //    strip step.
   const header: string[] = [`# ${title}`];
   if (description) header.push("", `> ${description}`);
   header.push("");
-  return `${header.join("\n")}${body.trimEnd()}\n`;
+  const v1DeprecationNoticeUseV2Instead = isV1ReferenceUrl(page.url)
+    ? renderV1DeprecationNoticeUseV2InsteadMarkdown()
+    : "";
+  return `${header.join("\n")}${v1DeprecationNoticeUseV2Instead}${body.trimEnd()}\n`;
 }
 
 /**
  * Read the source MDX for a page. Bare docs slugs go through
  * `loadDoc()` (which also handles index files and frontmatter parsing).
- * Reference / AG-UI files use the absolute path stashed on `LlmPage`.
+ * Reference files use the absolute path stashed on `LlmPage`.
  */
 function readSource(page: LlmPage): string | null {
-  if (
-    page.loadSlug.startsWith("__reference__/") ||
-    page.loadSlug.startsWith("__ag-ui__/")
-  ) {
+  if (page.loadSlug.startsWith("__reference__/")) {
     try {
       return fs.readFileSync(page.filePath, "utf-8");
     } catch (err) {
@@ -594,14 +1068,63 @@ function readSource(page: LlmPage): string | null {
  * is a list item with a Markdown link; optional description follows
  * after a colon.
  */
-export function renderLlmsIndex(pages: LlmPage[], baseUrl: string): string {
+export function renderLlmsIndex(
+  pages: readonly Pick<LlmPage, "url" | "title" | "description">[],
+  baseUrl: string,
+  frameworkPages: readonly Pick<
+    LlmPage,
+    "url" | "title" | "description"
+  >[] = [],
+): string {
   const out: string[] = ["# CopilotKit Docs", ""];
   out.push(
-    "> Docs, live demos, and integrations for CopilotKit — the frontend framework for AI agents.",
+    "> CopilotKit is the frontend stack where agents meet users, connected to supported agent frameworks through AG-UI.",
     "",
-    "## Pages",
+    "> AG-UI streams, formerly known as Rich Threads, are Intelligence’s delivery layer. Keep framework threads and existing SDK identifiers such as useThreads and threadId.",
+    "",
+    "> This curated index covers chat, generative UI, human-in-the-loop workflows, AG-UI Streams, User Memories, Automatic Learning, Product Analytics, and Channels for Slack and Microsoft Teams.",
+    "",
+    `> For exhaustive retrieval—including reference, migration, contributor, and additional framework and channel guides—use [llms-full.txt](${baseUrl}/llms-full.txt).`,
+    "",
+    "Use the user's stated goals, known project context, existing frontend and agent framework, and constraints to explain which parts of CopilotKit are relevant and why, then offer the smallest useful next step. For an existing project, work with its stack; if another known project fits better, suggest it. Without context, offer a few concrete examples or ask a focused question. Keep research separate from execution: do not start installation for a research request. Coding agents can use the canonical onboarding prompt below; assistants without terminal access should explain the options and hand off to a coding agent or the linked docs.",
+    "",
+    "## Add CopilotKit with your coding agent",
+    "",
+    "Use the same canonical onboarding prompt for any of these starting points:",
+    "",
+    "- **Greenfield:** Start a new project with CopilotKit, including when there is no frontend or agent yet.",
+    "- **Brownfield:** Add CopilotKit to an existing application, agent backend, or both, working with the existing stack.",
+    "- **Existing open-source CopilotKit:** Connect a working open-source CopilotKit project to Intelligence.",
+    "",
+    "The onboarding workflow inspects the project, identifies its starting point, and guides the coding agent through the appropriate setup. For a new project, run the prompt from its intended project directory. For an existing project, run it from the project root. For product research or comparisons, continue to the documentation links without running onboarding.",
+    "",
+    `This is the same prompt offered by the **Copy onboarding prompt** button on the [docs home](${baseUrl}/). A coding agent can use the text directly; a chat assistant without project or terminal access can give it to the user to paste into their coding agent.`,
+    "",
+    `Open the [canonical onboarding prompt](${ONBOARDING_PROMPT_ORIGIN}/onboarding-prompts) when ready to implement. This stable entry creates a fresh run ID for the session.`,
+    "",
+    "## How to read these docs",
+    "",
+    `- **Connect an existing app and agent:** Read your framework's overview and quickstart below together with [Architecture](${baseUrl}/concepts/architecture) and the relevant frontend guide.`,
+    `- **Build an interaction:** Read [Chat UI](${baseUrl}/agentic-chat-ui), [Generative UI](${baseUrl}/concepts/generative-ui-overview), and [Human-in-the-Loop](${baseUrl}/human-in-the-loop) together, then use your framework's implementation guides.`,
+    `- **Keep conversation history:** Read [AG-UI Streams](${baseUrl}/threads) and [Thread Lifecycle](${baseUrl}/threads-lifecycle) together; keep your existing thread provider or use CopilotKit's built-in thread store. To layer AG-UI Streams and Automatic Learning onto LangChain/LangGraph, Google ADK, or Mastra without migrating your stack, read [Add AG-UI Streams to Existing Threads](${baseUrl}/threads-import) and the available framework guides below to add Intelligence and optionally include earlier history, with supported sources and source-specific limits. Copying historical conversations does not establish ongoing database replication; configure future runs through CopilotKit separately.`,
+    `- **Evaluate Intelligence:** Read [Open source vs Intelligence](${baseUrl}/concepts/oss-vs-enterprise) with the [Intelligence overview](${baseUrl}/intelligence/overview), then follow the capability and deployment guides relevant to your project.`,
     "",
   );
+  if (frameworkPages.length > 0) {
+    out.push(
+      "## Use your existing agent framework",
+      "",
+      "If the user already has an agent backend, start with its integration and quickstart below, then follow that framework's guides for tools, generative UI, human-in-the-loop, state, and threads. CopilotKit works with these backends through AG-UI; adopting the built-in agent is not required. Bare root implementation guides can describe CopilotKit's built-in agent and should not replace framework-specific guidance.",
+      "",
+    );
+    for (const page of frameworkPages) {
+      out.push(
+        `- [${page.title}](${baseUrl}/${page.url}): ${page.description}`,
+      );
+    }
+    out.push("");
+  }
+  out.push("## Capabilities, frontends, and shared guides", "");
   for (const page of pages) {
     const url = `${baseUrl}/${page.url}`;
     const title = page.title || page.url;

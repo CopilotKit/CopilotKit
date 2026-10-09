@@ -2,6 +2,8 @@
 // (e.g. `"lucide/Paintbrush"`) read from MDX/meta.json frontmatter;
 // `resolveSidebarIcon` turns it into a React element that the
 // PageTree → Fumadocs sidebar can render directly.
+// Page-level MDX icons must also set `showIcon: true`; section/meta
+// icons are resolved directly by the nav builders.
 //
 // We import only the lucide icons we actually reference so the
 // client bundle doesn't pick up the entire lucide library. When a
@@ -9,10 +11,14 @@
 // below (and to the lucide imports above).
 
 import React from "react";
+import Image from "next/image";
 import { LanggraphIcon } from "@/components/icons/framework-icons";
-import { CopilotKitMark } from "@/components/copilotkit-mark";
+import { CopilotKitIcon } from "@/components/copilotkit-icon";
+import { IntelligenceKiteIcon } from "@/components/intelligence-kite-icon";
+import { FrontendLogo } from "@/components/frontend-logo";
 import {
   // Pages / sections
+  ArrowUpRight,
   Bolt,
   BookA,
   BookOpen,
@@ -22,6 +28,7 @@ import {
   BrainCircuit,
   Brush,
   Bug,
+  CircleAlert,
   CirclePause,
   Cloud,
   Code,
@@ -34,8 +41,12 @@ import {
   Gauge,
   Globe,
   LayoutDashboard,
+  LayoutGrid,
+  LayoutTemplate,
   LifeBuoy,
+  Lightbulb,
   ListChecks,
+  Map,
   MessageSquare,
   MessageSquareMore,
   Mic,
@@ -44,9 +55,11 @@ import {
   MousePointer,
   Network,
   Paintbrush,
+  PanelTop,
   Paperclip,
   Play,
   Plug,
+  PlugZap,
   Repeat,
   Rocket,
   SearchCheck,
@@ -55,6 +68,8 @@ import {
   Shield,
   SlidersHorizontal,
   Sparkles,
+  Sprout,
+  Star,
   TextSelect,
   Terminal,
   RefreshCw,
@@ -72,6 +87,7 @@ import {
 // in MDX frontmatter and meta.json `icon` fields. Add to this map (and
 // to the import block above) when content references a new lucide icon.
 const ICONS: Record<string, React.ReactNode> = {
+  "lucide/ArrowUpRight": <ArrowUpRight />,
   "lucide/Bolt": <Bolt />,
   "lucide/BookA": <BookA />,
   "lucide/BookOpen": <BookOpen />,
@@ -81,6 +97,7 @@ const ICONS: Record<string, React.ReactNode> = {
   "lucide/BrainCircuit": <BrainCircuit />,
   "lucide/Brush": <Brush />,
   "lucide/Bug": <Bug />,
+  "lucide/CircleAlert": <CircleAlert />,
   "lucide/CirclePause": <CirclePause />,
   "lucide/Cloud": <Cloud />,
   "lucide/Code": <Code />,
@@ -93,8 +110,12 @@ const ICONS: Record<string, React.ReactNode> = {
   "lucide/Gauge": <Gauge />,
   "lucide/Globe": <Globe />,
   "lucide/LayoutDashboard": <LayoutDashboard />,
+  "lucide/LayoutGrid": <LayoutGrid />,
+  "lucide/LayoutTemplate": <LayoutTemplate />,
   "lucide/LifeBuoy": <LifeBuoy />,
+  "lucide/Lightbulb": <Lightbulb />,
   "lucide/ListChecks": <ListChecks />,
+  "lucide/Map": <Map />,
   "lucide/MessageSquare": <MessageSquare />,
   "lucide/MessageSquareMore": <MessageSquareMore />,
   "lucide/Mic": <Mic />,
@@ -103,9 +124,11 @@ const ICONS: Record<string, React.ReactNode> = {
   "lucide/MousePointer": <MousePointer />,
   "lucide/Network": <Network />,
   "lucide/Paintbrush": <Paintbrush />,
+  "lucide/PanelTop": <PanelTop />,
   "lucide/Paperclip": <Paperclip />,
   "lucide/Play": <Play />,
   "lucide/Plug": <Plug />,
+  "lucide/PlugZap": <PlugZap />,
   "lucide/RefreshCw": <RefreshCw />,
   "lucide/Repeat": <Repeat />,
   "lucide/Rocket": <Rocket />,
@@ -115,6 +138,8 @@ const ICONS: Record<string, React.ReactNode> = {
   "lucide/Shield": <Shield />,
   "lucide/SlidersHorizontal": <SlidersHorizontal />,
   "lucide/Sparkles": <Sparkles />,
+  "lucide/Sprout": <Sprout />,
+  "lucide/Star": <Star />,
   "lucide/Terminal": <Terminal />,
   "lucide/TextSelect": <TextSelect />,
   "lucide/TriangleAlert": <TriangleAlert />,
@@ -126,11 +151,100 @@ const ICONS: Record<string, React.ReactNode> = {
   "lucide/Wrench": <Wrench />,
   "lucide/Zap": <Zap />,
   // Custom marks — used by section headers for framework / enterprise
-  // scaffolding. The CopilotKit kite is the inline gradient mark from
-  // BrandNav; the LangGraph mark comes from the framework-icons set so
+  // scaffolding. The LangGraph mark comes from the framework-icons set so
   // its visual treatment matches the framework picker.
   "custom/langgraph": <LanggraphIcon />,
-  "custom/copilotkit-kite": <CopilotKitMark />,
+  "custom/copilotkit-kite": <CopilotKitIcon />,
+  "custom/intelligence-kite": <IntelligenceKiteIcon />,
+  "custom/react": <FrontendLogo icon="react" size={16} />,
+  "custom/daytona": (
+    <Image
+      src="/logos/daytona.png"
+      alt=""
+      aria-hidden="true"
+      width={16}
+      height={16}
+      unoptimized
+      className="h-4 w-4 shrink-0 rounded-[3px] object-cover"
+    />
+  ),
+  "custom/claude-managed-agents": (
+    <Image
+      src="/logos/claude.svg"
+      alt=""
+      aria-hidden="true"
+      width={16}
+      height={16}
+      unoptimized
+      className="h-4 w-4 shrink-0 object-contain"
+    />
+  ),
+  "custom/arcade": (
+    <Image
+      src="/logos/arcade.png"
+      alt=""
+      aria-hidden="true"
+      width={16}
+      height={16}
+      unoptimized
+      className="h-4 w-4 shrink-0 object-contain"
+    />
+  ),
+  "custom/oracle-agent-spec": (
+    <Image
+      src="/logos/oracle-agent-spec.png"
+      alt=""
+      aria-hidden="true"
+      width={16}
+      height={16}
+      unoptimized
+      className="h-4 w-4 shrink-0 object-contain"
+    />
+  ),
+  "custom/openbox": (
+    <Image
+      src="/logos/openbox.png"
+      alt=""
+      aria-hidden="true"
+      width={16}
+      height={16}
+      unoptimized
+      className="h-4 w-4 shrink-0 object-contain"
+    />
+  ),
+  "custom/typesafe": (
+    <Image
+      src="/logos/typesafe.svg"
+      alt=""
+      aria-hidden="true"
+      width={16}
+      height={16}
+      unoptimized
+      className="h-4 w-4 shrink-0 object-contain"
+    />
+  ),
+  "custom/manufact": (
+    <Image
+      src="/logos/manufact.svg"
+      alt=""
+      aria-hidden="true"
+      width={16}
+      height={16}
+      unoptimized
+      className="h-4 w-4 shrink-0 object-contain dark:invert"
+    />
+  ),
+  "custom/google-adk": (
+    <Image
+      src="/logos/google-adk.png"
+      alt=""
+      aria-hidden="true"
+      width={16}
+      height={16}
+      unoptimized
+      className="h-4 w-4 shrink-0 object-contain"
+    />
+  ),
 };
 
 export function resolveSidebarIcon(spec: string | undefined): React.ReactNode {

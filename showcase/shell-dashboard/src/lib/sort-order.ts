@@ -14,10 +14,15 @@ export const sortOrder: Record<string, number> = {
   "maf-python": 5,
   "ms-agent-dotnet": 6,
   "maf-dotnet": 6,
+  // ms-agent-harness-dotnet is a rendered partner column (see BASELINE_PARTNERS
+  // in baseline-types.ts). The 6.5 slot sorts it right after ms-agent-dotnet.
+  "ms-agent-harness-dotnet": 6.5,
   strands: 7,
+  "strands-typescript": 7.5,
   mastra: 8,
   "crewai-crews": 9,
   crewai: 9,
+  "crewai-conversational-flows": 9.5,
   "pydantic-ai": 10,
   "claude-sdk-python": 11,
   "claude-sdk-typescript": 12,

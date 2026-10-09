@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 // The agent backend runs as a separate process on port 8000.
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
@@ -12,6 +13,14 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
+
+// Per-request request/response logging is gated behind this flag (default off).
+// Under d6 probe fan-out, unconditional per-request logs flooded Railway's
+// 500-logs/sec cap and killed the replica ("Messages dropped" → container stop).
+// Set SHOWCASE_ROUTE_DEBUG=1 to re-enable verbose per-request tracing locally.
+const ROUTE_DEBUG =
+  process.env.SHOWCASE_ROUTE_DEBUG === "1" ||
+  process.env.SHOWCASE_ROUTE_DEBUG === "true";
 
 function createAgent(path = "/") {
   return new HttpAgent({ url: `${AGENT_URL}${path}` });
@@ -28,7 +37,6 @@ const sharedAgentNames = [
   "human_in_the_loop",
   "tool-rendering",
   "gen-ui-tool-based",
-  "gen-ui-agent",
   "shared-state-read",
   "shared-state-write",
   "shared-state-streaming",
@@ -39,13 +47,26 @@ const sharedAgentNames = [
   "chat-customization-css",
   "headless-simple",
   "readonly-state-agent-context",
-  "reasoning-default-render",
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
   "frontend_tools",
   "frontend-tools-async",
   "hitl-in-app",
   "hitl-in-chat",
+];
+
+// Reasoning agent names — backed by the reasoning-enabled AG2 agent at
+// /reasoning. Emits AG-UI REASONING_MESSAGE_* events that the frontend
+// renders via the `reasoningMessage` slot (built-in card for
+// `reasoning-default`, custom amber ReasoningBlock for `reasoning-custom`).
+// The demo pages use the ids `reasoning-default` / `reasoning-custom`; both
+// share the one reasoning backend. `agentic-chat-reasoning` and
+// `reasoning-default-render` are legacy aliases kept for any cell that still
+// references them.
+const reasoningAgentNames = [
+  "reasoning-default",
+  "reasoning-custom",
+  "reasoning-default-render",
   "agentic-chat-reasoning",
 ];
 
@@ -59,6 +80,7 @@ const dedicatedAgents: Record<string, string> = {
   "headless-complete": "/headless-complete/",
   "tool-rendering-reasoning-chain": "/tool-rendering-reasoning-chain/",
   "agent-config-demo": "/agent-config/",
+  "gen-ui-agent": "/gen-ui-agent/",
 };
 
 // Interrupt-adapted demos: gen-ui-interrupt and interrupt-headless share the
@@ -69,6 +91,9 @@ const interruptAgentNames = ["gen-ui-interrupt", "interrupt-headless"];
 const agents: Record<string, AbstractAgent> = {};
 for (const name of sharedAgentNames) {
   agents[name] = createAgent();
+}
+for (const name of reasoningAgentNames) {
+  agents[name] = createAgent("/reasoning/");
 }
 for (const [name, path] of Object.entries(dedicatedAgents)) {
   agents[name] = createAgent(path);
@@ -85,20 +110,28 @@ console.log(
 export const POST = async (req: NextRequest) => {
   const url = req.url;
   const contentType = req.headers.get("content-type");
-  console.log(`[copilotkit/route] POST ${url} (content-type: ${contentType})`);
+  if (ROUTE_DEBUG) {
+    console.log(
+      `[copilotkit/route] POST ${url} (content-type: ${contentType})`,
+    );
+  }
 
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime: new CopilotRuntime({
         // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
       }),
+      basePath: "/api/copilotkit",
+      mode: "single-route",
     });
 
-    const response = await handleRequest(req);
-    console.log(`[copilotkit/route] Response status: ${response.status}`);
+    const response = await copilotHandler(req);
+    if (!response.ok) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    } else if (ROUTE_DEBUG) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    }
     return response;
   } catch (error: unknown) {
     // Log full details server-side (operators grep `errorId` to correlate),
@@ -124,7 +157,9 @@ export const POST = async (req: NextRequest) => {
 };
 
 export const GET = async () => {
-  console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  if (ROUTE_DEBUG) {
+    console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  }
 
   let agentStatus = "unknown";
   try {

@@ -2,6 +2,14 @@
 
 import React from "react";
 
+// Rich per-tool renderer for the `search_flights` backend tool.
+//
+// Registered in page.tsx via `useRenderTool({ name: "search_flights", ... })`,
+// this card shows the search origin/destination and a short list of
+// flight results. It only renders once the backend returns; while the
+// tool is still running it shows a compact loading state so the chat
+// doesn't look frozen.
+
 export interface Flight {
   airline?: string;
   flight?: string;
@@ -34,17 +42,17 @@ export function FlightListCard({
             className="flex h-8 w-8 items-center justify-center rounded-full bg-[#BEC2FF1A] text-[#010507]"
             aria-hidden
           >
-            FL
+            ✈
           </span>
           <div className="font-semibold text-[#010507]">
             <span data-testid="flight-origin">{origin || "?"}</span>
-            <span className="mx-1.5 text-[#838389]">-&gt;</span>
+            <span className="mx-1.5 text-[#838389]">→</span>
             <span data-testid="flight-destination">{destination || "?"}</span>
           </div>
         </div>
         {loading ? (
           <span className="text-[10px] uppercase tracking-[0.14em] text-[#57575B]">
-            searching...
+            searching…
           </span>
         ) : (
           <span className="rounded-full border border-[#DBDBE5] bg-[#F7F7F9] px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#57575B]">
@@ -74,17 +82,17 @@ export function FlightListCard({
               >
                 <div>
                   <div className="font-medium text-[#010507]">
-                    {f.airline ?? "--"}{" "}
+                    {f.airline ?? "—"}{" "}
                     <span className="font-mono text-xs text-[#838389]">
                       {f.flight ?? ""}
                     </span>
                   </div>
                   <div className="text-xs text-[#57575B] mt-0.5">
-                    {f.depart ?? "?"} -&gt; {f.arrive ?? "?"}
+                    {f.depart ?? "?"} → {f.arrive ?? "?"}
                   </div>
                 </div>
                 <div className="font-mono text-sm font-medium text-[#189370]">
-                  {f.price_usd !== undefined ? `$${f.price_usd}` : "--"}
+                  {f.price_usd !== undefined ? `$${f.price_usd}` : "—"}
                 </div>
               </li>
             ))

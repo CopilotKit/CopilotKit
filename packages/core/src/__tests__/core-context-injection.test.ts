@@ -82,3 +82,93 @@ describe("Context injection into agent input (#3150)", () => {
     expect(agent.connectAgentCalls[0].context).toEqual([]);
   });
 });
+
+describe("Per-agent context scoping (#5369)", () => {
+  let core: CopilotKitCore;
+
+  beforeEach(() => {
+    core = new CopilotKitCore({});
+  });
+
+  it("runAgent forwards agent-scoped context only to runs of the listed agents", async () => {
+    core.addContext({ description: "Global", value: "everyone" });
+    core.addContext({
+      description: "A2UI catalog",
+      value: "schema",
+      agentIds: ["a2ui_agent", "other_a2ui_agent"],
+    });
+
+    const a2uiAgent = new MockAgent({ newMessages: [] });
+    const plainAgent = new MockAgent({ newMessages: [] });
+    core.addAgent__unsafe_dev_only({
+      id: "a2ui_agent",
+      agent: a2uiAgent as any,
+    });
+    core.addAgent__unsafe_dev_only({
+      id: "plain_agent",
+      agent: plainAgent as any,
+    });
+
+    await core.runAgent({ agent: a2uiAgent as any });
+    await core.runAgent({ agent: plainAgent as any });
+
+    expect(a2uiAgent.runAgentCalls[0].context).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ description: "Global", value: "everyone" }),
+        expect.objectContaining({
+          description: "A2UI catalog",
+          value: "schema",
+        }),
+      ]),
+    );
+    expect(plainAgent.runAgentCalls[0].context).toEqual([
+      expect.objectContaining({ description: "Global", value: "everyone" }),
+    ]);
+  });
+
+  it("strips the agentIds scoping metadata from the context sent to the agent", async () => {
+    core.addContext({
+      description: "A2UI catalog",
+      value: "schema",
+      agentIds: ["test"],
+    });
+
+    const agent = new MockAgent({ newMessages: [] });
+    core.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+
+    await core.runAgent({ agent: agent as any });
+
+    expect(agent.runAgentCalls[0].context).toEqual([
+      { description: "A2UI catalog", value: "schema" },
+    ]);
+  });
+
+  it("connectAgent applies the same per-agent filtering", async () => {
+    core.addContext({ description: "Global", value: "everyone" });
+    core.addContext({
+      description: "A2UI catalog",
+      value: "schema",
+      agentIds: ["someone_else"],
+    });
+
+    const agent = new MockAgentWithConnect({ newMessages: [] });
+    core.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+
+    await core.connectAgent({ agent: agent as any });
+
+    expect(agent.connectAgentCalls[0].context).toEqual([
+      { description: "Global", value: "everyone" },
+    ]);
+  });
+
+  it("an empty agentIds array means the context is sent to no agent", async () => {
+    core.addContext({ description: "Nobody", value: "hidden", agentIds: [] });
+
+    const agent = new MockAgent({ newMessages: [] });
+    core.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
+
+    await core.runAgent({ agent: agent as any });
+
+    expect(agent.runAgentCalls[0].context).toEqual([]);
+  });
+});

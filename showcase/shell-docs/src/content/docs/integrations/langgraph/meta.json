@@ -3,8 +3,14 @@
   "root": true,
   "pages": [
     "index",
+    "cli",
     "---Basics---",
     "prebuilt-components",
+    {
+      "title": "AG-UI Streams",
+      "defaultOpen": true,
+      "pages": ["threads", "headless-threads", "threads-import"]
+    },
     "custom-look-and-feel",
     "programmatic-control",
     "---Generative UI---",
@@ -18,10 +24,10 @@
     "configurable",
     "subgraphs",
     "auth",
-    "---Threads---",
-    "threads",
-    "---Premium Features---",
-    "...premium",
+    "guardrails",
+    "---Deploy---",
+    "deploy-agentcore",
+    "deploy-langsmith",
     "---Tutorials---",
     "...tutorials"
   ]

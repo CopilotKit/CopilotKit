@@ -3,11 +3,10 @@
  */
 import express from "express";
 import request from "supertest";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { AbstractAgent } from "@ag-ui/client";
+import { expect, test, vi } from "vitest";
+import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 
-import { telemetry } from "../telemetry";
 import { createCopilotExpressHandler } from "../endpoints/express";
 import { CopilotRuntime } from "../core/runtime";
 
@@ -20,12 +19,13 @@ function makeAgent(): AbstractAgent {
 function makeRuntime() {
   const runner = {
     run: () =>
-      new Observable((observer) => {
-        observer.next({});
+      new Observable<BaseEvent>((observer) => {
+        observer.next({} as BaseEvent);
         observer.complete();
         return () => undefined;
       }),
-    connect: () => of({}),
+    connect: () => of({} as BaseEvent),
+    isRunning: async () => false,
     stop: async () => true,
   };
   return new CopilotRuntime({
@@ -34,19 +34,24 @@ function makeRuntime() {
   });
 }
 
-describe("Express adapter — telemetry firing (integration)", () => {
-  let captureSpy: ReturnType<typeof vi.spyOn>;
+/** Creates an isolated runtime and a spy on its bound telemetry capture. */
+function setup() {
+  const runtime = makeRuntime();
+  const captureSpy = vi
+    .spyOn(runtime.telemetry, "capture")
+    .mockResolvedValue(undefined);
 
-  beforeEach(() => {
-    captureSpy = vi.spyOn(telemetry, "capture").mockResolvedValue(undefined);
-  });
+  return {
+    runtime,
+    captureSpy,
+    teardown: () => captureSpy.mockRestore(),
+  };
+}
 
-  afterEach(() => {
-    captureSpy.mockRestore();
-  });
+test("Express adapter fires instance_created on handler creation (multi-route)", async () => {
+  const { runtime, captureSpy, teardown } = setup();
 
-  it("fires instance_created on handler creation (multi-route)", async () => {
-    const runtime = makeRuntime();
+  try {
     createCopilotExpressHandler({ runtime, basePath: "/" });
 
     await vi.waitFor(() => {
@@ -58,10 +63,15 @@ describe("Express adapter — telemetry firing (integration)", () => {
         }),
       );
     });
-  });
+  } finally {
+    teardown();
+  }
+});
 
-  it("fires copilot_request_created when a real HTTP request hits the handler", async () => {
-    const runtime = makeRuntime();
+test("Express adapter fires copilot_request_created for a real HTTP request", async () => {
+  const { runtime, captureSpy, teardown } = setup();
+
+  try {
     const app = express();
     app.use(createCopilotExpressHandler({ runtime, basePath: "/" }));
 
@@ -77,10 +87,15 @@ describe("Express adapter — telemetry firing (integration)", () => {
         "cloud.api_key_provided": false,
       }),
     );
-  });
+  } finally {
+    teardown();
+  }
+});
 
-  it("includes cloud.public_api_key on request when header is present", async () => {
-    const runtime = makeRuntime();
+test("Express adapter includes cloud.public_api_key when the header is present", async () => {
+  const { runtime, captureSpy, teardown } = setup();
+
+  try {
     const app = express();
     app.use(createCopilotExpressHandler({ runtime, basePath: "/" }));
 
@@ -97,5 +112,7 @@ describe("Express adapter — telemetry firing (integration)", () => {
         "cloud.public_api_key": "ck_pub_test_xyz",
       }),
     );
-  });
+  } finally {
+    teardown();
+  }
 });

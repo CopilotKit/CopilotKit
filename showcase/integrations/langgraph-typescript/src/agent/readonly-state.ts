@@ -13,10 +13,12 @@
  * frontend registered and answers accordingly.
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage } from "@langchain/core/messages";
 import { MemorySaver, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
+
 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
 const AgentStateAnnotation = CopilotKitStateAnnotation;
@@ -30,9 +32,12 @@ const SYSTEM_PROMPT =
   "respect their timezone when mentioning times, and reference " +
   "recent activity when it helps you answer. Keep responses short.";
 
-async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({ model: "gpt-5.4" });
-
+// @region[agent-context-setup]
+async function runChatNode(
+  state: AgentState,
+  config: RunnableConfig,
+  model: ChatOpenAI,
+) {
   // Inject read-only context from useAgentContext / useCopilotReadable.
   // Mirrors the `createAppContextBeforeAgent` logic in CopilotKitMiddleware:
   // context may be a string or an object — stringify it and prepend as a
@@ -65,8 +70,23 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   return { messages: response };
 }
 
+export async function chatNode(state: AgentState, config: RunnableConfig) {
+  return runChatNode(state, config, new ChatOpenAI({ model: "gpt-5.4" }));
+}
+// @endregion[agent-context-setup]
+
+// Keep the executable showcase graph on the header-forwarding model while the
+// extracted chat node above uses only the public ChatOpenAI constructor.
+async function chatNodeWithHeaders(state: AgentState, config: RunnableConfig) {
+  return runChatNode(
+    state,
+    config,
+    makeChatOpenAI(config, { model: "gpt-5.4" }),
+  );
+}
+
 const workflow = new StateGraph(AgentStateAnnotation)
-  .addNode("chat_node", chatNode)
+  .addNode("chat_node", chatNodeWithHeaders)
   .addEdge(START, "chat_node")
   .addEdge("chat_node", "__end__");
 

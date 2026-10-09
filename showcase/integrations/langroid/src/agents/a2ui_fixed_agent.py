@@ -51,6 +51,7 @@ from ag_ui.core import (
     TextMessageStartEvent,
     ToolCallArgsEvent,
     ToolCallEndEvent,
+    ToolCallResultEvent,
     ToolCallStartEvent,
 )
 from fastapi import Request
@@ -117,34 +118,42 @@ _DISPLAY_FLIGHT_TOOL: dict[str, Any] = {
 def _build_a2ui_operations(
     *, origin: str, destination: str, airline: str, price: str
 ) -> dict[str, Any]:
-    """Build the ``a2ui_operations`` container the runtime middleware
-    detects in tool results and forwards to the frontend renderer.
+    """Build the ``a2ui_operations`` container (v0.9 shape) the runtime
+    middleware detects in TOOL_CALL_RESULT events and forwards to the
+    frontend renderer.
 
-    Mirrors ``ag2``'s ``a2ui_fixed.display_flight`` exactly so the frontend
-    catalog binding in
-    ``src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts`` resolves the
-    component names against the local React components.
+    Uses the v0.9 nested form (``{"version": "v0.9", "createSurface": {...}}``)
+    matching the ``copilotkit`` Python SDK's ``a2ui.render(...)`` output and
+    the claude-sdk-python / strands / google-adk peers. The legacy flat form
+    (``{"type": "create_surface", ...}``) is silently dropped by the renderer.
     """
     return {
         "a2ui_operations": [
             {
-                "type": "create_surface",
-                "surfaceId": SURFACE_ID,
-                "catalogId": CATALOG_ID,
+                "version": "v0.9",
+                "createSurface": {
+                    "surfaceId": SURFACE_ID,
+                    "catalogId": CATALOG_ID,
+                },
             },
             {
-                "type": "update_components",
-                "surfaceId": SURFACE_ID,
-                "components": FLIGHT_SCHEMA,
+                "version": "v0.9",
+                "updateComponents": {
+                    "surfaceId": SURFACE_ID,
+                    "components": FLIGHT_SCHEMA,
+                },
             },
             {
-                "type": "update_data_model",
-                "surfaceId": SURFACE_ID,
-                "data": {
-                    "origin": origin,
-                    "destination": destination,
-                    "airline": airline,
-                    "price": price,
+                "version": "v0.9",
+                "updateDataModel": {
+                    "surfaceId": SURFACE_ID,
+                    "path": "/",
+                    "value": {
+                        "origin": origin,
+                        "destination": destination,
+                        "airline": airline,
+                        "price": price,
+                    },
                 },
             },
         ]
@@ -392,40 +401,30 @@ async def handle_run(request: Request) -> StreamingResponse:
 
             # Build the tool result containing the a2ui_operations
             # container. The Next.js runtime A2UI middleware detects
-            # this shape and forwards the surface ops to the frontend.
+            # this shape in TOOL_CALL_RESULT events and forwards the
+            # surface ops to the frontend renderer.
             operations = _build_a2ui_operations(
                 origin=str(tool_args.get("origin", "")),
                 destination=str(tool_args.get("destination", "")),
                 airline=str(tool_args.get("airline", "")),
                 price=str(tool_args.get("price", "")),
             )
-            tool_result_id = str(uuid.uuid4())
+            tool_result_msg_id = str(uuid.uuid4())
             yield _sse_line(
                 TextMessageEndEvent(
                     type=EventType.TEXT_MESSAGE_END,
                     message_id=parent_id,
                 )
             )
-            # Emit the tool result as a fresh text block so the runtime
-            # middleware-sse-parser sees the JSON payload as a tool-call
-            # response.
+            # Emit the a2ui_operations container via TOOL_CALL_RESULT so
+            # the A2UI middleware detects it. TextMessageContentEvent is
+            # not scanned for a2ui_operations — only tool results are.
             yield _sse_line(
-                TextMessageStartEvent(
-                    type=EventType.TEXT_MESSAGE_START,
-                    message_id=tool_result_id,
-                )
-            )
-            yield _sse_line(
-                TextMessageContentEvent(
-                    type=EventType.TEXT_MESSAGE_CONTENT,
-                    message_id=tool_result_id,
-                    delta=json.dumps(operations),
-                )
-            )
-            yield _sse_line(
-                TextMessageEndEvent(
-                    type=EventType.TEXT_MESSAGE_END,
-                    message_id=tool_result_id,
+                ToolCallResultEvent(
+                    type=EventType.TOOL_CALL_RESULT,
+                    tool_call_id=call_id,
+                    message_id=tool_result_msg_id,
+                    content=json.dumps(operations),
                 )
             )
 

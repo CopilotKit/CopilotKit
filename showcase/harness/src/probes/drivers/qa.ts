@@ -94,7 +94,7 @@ export function createQaDriver(
       const slug = deriveSlug(input);
       const repoRoot = deps.repoRoot ?? resolveRepoRoot(ctx);
 
-      const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+      const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
       const manifestPath = path.join(pkgDir, "manifest.yaml");
 
       let manifestRaw: string;

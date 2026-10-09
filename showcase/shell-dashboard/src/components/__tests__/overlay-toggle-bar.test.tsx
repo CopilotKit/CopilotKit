@@ -29,7 +29,7 @@ function renderBar(
 }
 
 describe("OverlayToggleBar", () => {
-  it("renders all 5 overlay pills", () => {
+  it("renders all 6 overlay pills", () => {
     const { getByTestId } = renderBar();
     for (const overlay of ALL_OVERLAYS) {
       expect(getByTestId(`overlay-pill-${overlay}`)).toBeTruthy();

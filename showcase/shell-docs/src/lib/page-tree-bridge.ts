@@ -13,26 +13,152 @@
 //   - Separator { type: 'separator'; name }
 //   - Folder { type: 'folder'; name; children; defaultOpen?; index? }
 //
+// Top-level `section` nodes stay separators so they provide a stable visual
+// hierarchy. Topic groups below them remain collapsible folders.
+//
 // We pre-bake the URL using `slugHrefPrefix` (the value DocsPageView
-// already uses for its own hrefs), so a framework-scoped render passes
-// `/built-in-agent` and the sidebar renders `/built-in-agent/<slug>`
-// links statically. This loses shell-docs's client-side framework
-// rewriting via <SidebarLink>, but the FrameworkProvider + RouterPivot
-// handle the case where a user lands on an unscoped URL — they get
-// redirected to /<stored>/<slug> and the sidebar there carries the
-// framework prefix.
+// already uses for its own hrefs): a framework-scoped render passes
+// `/<framework>` and the sidebar renders `/<framework>/<slug>` links
+// statically, while the root surface (where the Built-in Agent docs are
+// served) passes "" and the sidebar links resolve at `/<slug>`.
 
 import React from "react";
 import type * as PageTree from "fumadocs-core/page-tree";
 import type { NavNode } from "@/lib/docs-render";
 import { resolveSidebarIcon } from "@/lib/sidebar-icon";
 
+const frontendUpcomingSkeletonCards = [
+  ["long", "medium", "short"],
+  ["medium", "long"],
+  ["short", "long", "medium"],
+  ["long", "short"],
+  ["medium", "short"],
+  ["short", "medium", "long"],
+  ["long", "medium"],
+  ["medium", "short"],
+] as const;
+
 function buildUrl(prefix: string, slug: string): string {
   // `prefix` is one of "/docs", "/<framework>", or "" (root). Normalize
   // trailing/leading slashes so `/${prefix}/${slug}` never doubles up.
   const left = prefix.endsWith("/") ? prefix.slice(0, -1) : prefix;
   const right = slug.startsWith("/") ? slug.slice(1) : slug;
+  if (!right) return left || "/";
   return left ? `${left}/${right}` : `/${right}`;
+}
+
+function renderNavName(
+  title: string,
+  variant: NavNode["variant"],
+  icon?: React.ReactNode,
+  links?: {
+    quickstartHref?: string;
+    referenceHref?: string;
+    frontendDocsStatus?: "feature-complete" | "early-access";
+  },
+  iconAfter = false,
+): React.ReactNode {
+  const isReactDocsProxy = variant === "react-docs-proxy";
+  if (variant === "frontend-docs-upcoming") {
+    const frontendDocsStatus = links?.frontendDocsStatus ?? "early-access";
+    const ariaLabel =
+      frontendDocsStatus === "feature-complete"
+        ? `${title} guides are coming soon. ${title} is feature complete, but the docs are still catching up. The quickstart and reference guides are ready with more guides on the way.`
+        : `${title} guides are coming soon. ${title} is currently in early access. The quickstart and reference guides are ready; more are on the way after early access.`;
+
+    return React.createElement(
+      "span",
+      {
+        className: "shell-docs-frontend-docs-upcoming",
+        role: "note",
+        "aria-label": ariaLabel,
+      },
+      React.createElement(
+        "span",
+        { className: "shell-docs-frontend-docs-upcoming-header" },
+        icon,
+        React.createElement(
+          "span",
+          { className: "shell-docs-frontend-docs-upcoming-title" },
+          "Guides coming soon...",
+        ),
+      ),
+      React.createElement(
+        "span",
+        { className: "shell-docs-frontend-docs-upcoming-copy" },
+        frontendDocsStatus === "feature-complete"
+          ? `${title} is feature complete, but the docs are still catching up. The `
+          : `${title} is currently in early access. The `,
+        React.createElement(
+          "a",
+          {
+            className: "shell-docs-frontend-docs-upcoming-link",
+            href: links?.quickstartHref ?? "#",
+          },
+          "quickstart",
+        ),
+        " and ",
+        React.createElement(
+          "a",
+          {
+            className: "shell-docs-frontend-docs-upcoming-link",
+            href: links?.referenceHref ?? "#",
+          },
+          "reference",
+        ),
+        frontendDocsStatus === "feature-complete"
+          ? " guides are ready with more guides on the way."
+          : " guides are ready; more are on the way after early access.",
+      ),
+      React.createElement(
+        "span",
+        {
+          className: "shell-docs-frontend-docs-upcoming-stack",
+          "aria-hidden": "true",
+        },
+        frontendUpcomingSkeletonCards.map((lines, cardIndex) =>
+          React.createElement(
+            "span",
+            {
+              key: `card-${cardIndex}`,
+              className: "shell-docs-frontend-docs-upcoming-sheet",
+            },
+            lines.map((line, lineIndex) =>
+              React.createElement("span", {
+                key: `line-${lineIndex}`,
+                className: `shell-docs-frontend-docs-upcoming-sheet-line shell-docs-frontend-docs-upcoming-sheet-line-${line}`,
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  const className =
+    variant === "react-docs-proxy" ? "shell-docs-react-docs-proxy" : undefined;
+
+  if (!className && !icon) return title;
+
+  const label = React.createElement(
+    "span",
+    {
+      className,
+      key: "label",
+      ...(isReactDocsProxy
+        ? { "data-shell-docs-react-docs-proxy": "true" }
+        : {}),
+    },
+    title,
+  );
+
+  return icon
+    ? React.createElement(
+        React.Fragment,
+        null,
+        ...(iconAfter ? [label, icon] : [icon, label]),
+      )
+    : label;
 }
 
 // Convert a single shell-docs NavNode into ZERO OR MORE PageTree.Nodes.
@@ -50,36 +176,47 @@ export function navNodeToPageTreeNodes(
   if (node.type === "section") {
     // Section icons come from the NavNode's `icon` field (set either
     // by parseMetaPages from an explicit meta.json icon, or hardcoded
-    // by `mergeFrameworkNav` for the framework section). Pages and
-    // folders no longer render icons — only the all-caps section
-    // headers do, which keeps the sidebar quieter and reserves icons
-    // for the top-level visual scaffold.
+    // by `mergeFrameworkNav` for the framework section). Section
+    // headers keep the top-level visual scaffold; individual pages can
+    // opt into icons with `showIcon: true` in frontmatter for targeted
+    // cases like partner cookbook entries.
     //
-    // We MERGE icon + title into Fumadocs's `name` prop as a Fragment
-    // instead of passing the icon via the separate `icon` prop. The
-    // upstream `SidebarSeparator` renders `[item.icon, item.name]` as
-    // a child array, which triggers the React key-warning loop when
-    // both slots are populated. Combining them into a single ReactNode
-    // sidesteps that without forking Fumadocs. The separator's
-    // `inline-flex items-center gap-2` styling still aligns the SVG
-    // and label exactly as it would have with the prop split.
+    // Upcoming "guides coming soon" cards keep icon + copy inside
+    // `name`. Normal sections put the glyph on `icon` so a later folder
+    // wrap can render [icon, label, chevron] as one flex row.
     const icon = resolveSidebarIcon(node.icon);
-    const name: React.ReactNode = icon
-      ? React.createElement(
-          React.Fragment,
-          null,
-          icon,
-          React.createElement("span", null, node.title),
-        )
-      : node.title;
-    return [{ type: "separator", name }];
+    const selfContained = node.variant === "frontend-docs-upcoming";
+    const name = renderNavName(
+      node.title,
+      node.variant,
+      selfContained ? icon : undefined,
+      {
+        quickstartHref: node.quickstartHref,
+        referenceHref: node.referenceHref,
+        frontendDocsStatus: node.frontendDocsStatus,
+      },
+    );
+    return [
+      {
+        type: "separator",
+        name,
+        ...(selfContained || !icon ? {} : { icon }),
+      },
+    ];
   }
   if (node.type === "page") {
+    const icon = resolveSidebarIcon(node.icon);
     return [
       {
         type: "page",
-        name: node.title,
-        url: buildUrl(slugHrefPrefix, node.slug),
+        name: renderNavName(
+          node.title,
+          node.variant,
+          icon,
+          undefined,
+          node.icon === "lucide/ArrowUpRight",
+        ),
+        url: node.href ?? buildUrl(slugHrefPrefix, node.slug),
       },
     ];
   }
@@ -98,8 +235,12 @@ export function navNodeToPageTreeNodes(
   // link to that page instead of a separate "Overview" entry inside the
   // expanded folder. The URL drops the `/index` suffix so the canonical
   // folder root (e.g. `/agentic-protocols`) is what the link points at.
+  // A child whose slug equals the group's own slug (a topic group built
+  // around a real page, e.g. "learning") is lifted the same way.
   const indexNavIdx = node.children.findIndex(
-    (c) => c.type === "page" && c.slug === `${node.slug}/index`,
+    (c) =>
+      c.type === "page" &&
+      (c.slug === `${node.slug}/index` || c.slug === node.slug),
   );
   let folderIndex: PageTree.Item | undefined;
   let folderChildren: PageTree.Node[] = childNodes;
@@ -116,7 +257,7 @@ export function navNodeToPageTreeNodes(
   return [
     {
       type: "folder",
-      name: node.title,
+      name: renderNavName(node.title, node.variant),
       // Inline-folder groups (from a meta.json `{ title, pages, defaultOpen }`
       // entry) can opt into starting expanded; everything else stays
       // collapsed by default and Fumadocs still auto-opens the folder
@@ -127,6 +268,13 @@ export function navNodeToPageTreeNodes(
       children: folderChildren,
     },
   ];
+}
+
+function buildPageTreeChildren(
+  tree: NavNode[],
+  slugHrefPrefix: string,
+): PageTree.Node[] {
+  return tree.flatMap((node) => navNodeToPageTreeNodes(node, slugHrefPrefix));
 }
 
 // Cache by the (memoized) NavNode[] reference so successive calls with
@@ -148,7 +296,7 @@ export function navTreeToPageTree(
     if (hit) return hit;
     const built: PageTree.Root = {
       name: rootName,
-      children: tree.flatMap((n) => navNodeToPageTreeNodes(n, slugHrefPrefix)),
+      children: buildPageTreeChildren(tree, slugHrefPrefix),
     };
     if (!perTree) {
       perTree = new Map();
@@ -159,6 +307,6 @@ export function navTreeToPageTree(
   }
   return {
     name: rootName,
-    children: tree.flatMap((n) => navNodeToPageTreeNodes(n, slugHrefPrefix)),
+    children: buildPageTreeChildren(tree, slugHrefPrefix),
   };
 }

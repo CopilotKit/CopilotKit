@@ -1,14 +1,28 @@
 import { NextResponse } from "next/server";
-import path from "path";
+import { docCandidateOrder, loadDoc } from "@/lib/docs-render";
+import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
+import { resolveAngularDoc } from "@/lib/angular-doc-navigation";
 import {
-  AG_UI_CONTENT_DIR,
-  REFERENCE_CONTENT_DIR,
-} from "@/lib/sitemap-helpers";
-import { loadDoc } from "@/lib/docs-render";
-import { getDocsFolder, getDocsMode, getIntegrations } from "@/lib/registry";
+  getFrontendContentSlug,
+  getFrontendGuidanceContentSlug,
+} from "@/lib/frontend-page-content";
+import { resolveChannelGuideRoute } from "@/lib/channel-guide-routes";
+import {
+  isChannelFrontend,
+  isFrontendId,
+  parseFrontendRoutePath,
+} from "@/lib/frontend-options";
+import type { FrontendId } from "@/lib/frontend-options";
+import {
+  getDocsFolder,
+  getDocsMode,
+  getIntegrations,
+  ROOT_FRAMEWORK,
+} from "@/lib/registry";
 import type { LlmPage } from "@/lib/llm-text";
 import { renderPageToLlmText } from "@/lib/llm-text";
-import fs from "fs";
+import { resolveReferencePage } from "@/lib/reference-items";
+import matter from "gray-matter";
 
 // Per-page raw-Markdown endpoint. The `next.config.ts` rewrites map
 // `<path>.md` and `<path>.mdx` requests onto this route so external
@@ -29,12 +43,20 @@ import fs from "fs";
 //   - Frontmatter is stripped and replaced with an H1 + description
 //     blockquote so the title survives.
 //
+// TELEMETRY LIVES IN `src/middleware.ts`, NOT HERE. Every `<path>.md`
+// fetch is reported as `docs.llm_text_fetched`, with the caller
+// classified from its user agent. Middleware runs before the
+// `next.config.ts` rewrite that maps `.md`/`.mdx` onto this route, so
+// it sees the request under its public path; a second capture here
+// would count the same fetch twice.
+//
 // URL resolution mirrors what `app/[framework]/[[...slug]]/page.tsx` does:
+//   - Frontend-scoped URLs reuse the same `/<frontend>` content
+//     resolution as the live frontend pages.
 //   - When the first segment is a known integration slug, we try
 //     `integrations/<docsFolder>/<rest>.mdx` first (or root depending on
 //     docs_mode), so framework-scoped URLs resolve the correct MDX.
-//   - Otherwise we walk the bare slug, then fall back to `/reference/...`
-//     and `/ag-ui/...` content roots.
+//   - Otherwise we walk the bare slug, then fall back to `/reference/...`.
 
 export async function GET(
   _req: Request,
@@ -52,6 +74,7 @@ export async function GET(
 
   const body = renderPageToLlmText(resolved.page, {
     framework: resolved.framework,
+    ...(resolved.frontend ? { frontend: resolved.frontend } : {}),
   });
   if (!body) {
     return new NextResponse("Not found", { status: 404 });
@@ -68,6 +91,17 @@ export async function GET(
 interface ResolvedPage {
   page: LlmPage;
   framework?: string;
+  frontend?: FrontendPageId;
+}
+
+type FrontendPageId = Exclude<FrontendId, "react">;
+
+function isFrontendGuidanceSlug(slugPath: string): boolean {
+  return slugPath === "using-these-docs";
+}
+
+function isFrontendRootSlug(slugPath: string): boolean {
+  return !slugPath || slugPath === "quickstart";
 }
 
 function resolvePage(slug: string[]): ResolvedPage | null {
@@ -75,32 +109,220 @@ function resolvePage(slug: string[]): ResolvedPage | null {
   const rest = slug.slice(1).join("/");
   const url = slug.join("/");
 
-  // /reference/<slug>.md → src/content/reference/<slug>.mdx
-  if (first === "reference") {
-    const refSlug = rest || "index";
-    const filePath = findExistingMdx(REFERENCE_CONTENT_DIR, refSlug);
-    if (!filePath) return null;
+  // /<frontend>[/<slug>].md → the same MDX rendered by the
+  // frontend-scoped docs pages.
+  if (isFrontendId(first)) {
+    if (first === "react") return null;
+
+    const frontend = first as FrontendPageId;
+    const frontendRoute = parseFrontendRoutePath(
+      `/${slug.join("/")}`,
+      getIntegrations().map((integration) => integration.slug),
+    );
+    const frontendRest = frontendRoute?.slugPath ?? rest;
+    const scopedBackendFramework =
+      frontendRoute?.backend === ROOT_FRAMEWORK
+        ? undefined
+        : (frontendRoute?.backend ?? undefined);
+    const selectedFramework = isChannelFrontend(frontend)
+      ? (frontendRoute?.backend ?? ROOT_FRAMEWORK)
+      : scopedBackendFramework;
+    const selectedFrameworkDocsMode = getDocsMode(
+      selectedFramework ?? ROOT_FRAMEWORK,
+    );
+
+    // Hidden frameworks must fail closed before any generic root/framework
+    // fallback can accidentally make a scoped Markdown URL reachable.
+    if (isChannelFrontend(frontend) && selectedFrameworkDocsMode === "hidden") {
+      return null;
+    }
+
+    if (isChannelFrontend(frontend)) {
+      if (!frontendRest) {
+        const doc = loadDoc("channels");
+        if (!doc) return null;
+
+        return {
+          page: {
+            url,
+            title: doc.fm.title,
+            description: doc.fm.description,
+            filePath: doc.filePath,
+            loadSlug: "channels",
+            framework: selectedFramework,
+            frontend,
+          },
+          framework: selectedFramework,
+          frontend,
+        };
+      }
+
+      if (frontendRest === "connect") {
+        const contentSlug = getFrontendContentSlug(frontend);
+        const doc = loadDoc(contentSlug);
+        if (!doc) return null;
+
+        return {
+          page: {
+            url,
+            title: doc.fm.title,
+            description: doc.fm.description,
+            filePath: doc.filePath,
+            loadSlug: contentSlug,
+            framework: selectedFramework,
+            frontend,
+          },
+          framework: selectedFramework,
+          frontend,
+        };
+      }
+
+      const channelGuide = resolveChannelGuideRoute({
+        frontend,
+        framework: selectedFramework,
+        slugPath: frontendRest,
+        frameworkDocsMode: selectedFrameworkDocsMode,
+      });
+      if (channelGuide) {
+        const doc = loadDoc(channelGuide.sourceSlug);
+        if (!doc) return null;
+
+        return {
+          page: {
+            url,
+            title: doc.fm.title,
+            description: doc.fm.description,
+            filePath: doc.filePath,
+            loadSlug: channelGuide.sourceSlug,
+            framework: channelGuide.framework,
+            frontend: channelGuide.frontend,
+          },
+          framework: channelGuide.framework,
+          frontend: channelGuide.frontend,
+        };
+      }
+    }
+
+    if (isFrontendGuidanceSlug(frontendRest)) {
+      const contentSlug = getFrontendGuidanceContentSlug(frontend);
+      const doc = loadDoc(contentSlug);
+      if (!doc) return null;
+
+      return {
+        page: {
+          url,
+          title: doc.fm.title,
+          description: doc.fm.description,
+          filePath: doc.filePath,
+          loadSlug: contentSlug,
+          framework: selectedFramework,
+          frontend,
+        },
+        framework: selectedFramework,
+        frontend,
+      };
+    }
+
+    if (isFrontendRootSlug(frontendRest)) {
+      const contentSlug = getFrontendContentSlug(frontend);
+      const doc = loadDoc(contentSlug);
+      if (!doc) return null;
+
+      return {
+        page: {
+          url,
+          title: doc.fm.title,
+          description: doc.fm.description,
+          filePath: doc.filePath,
+          loadSlug: contentSlug,
+          framework: selectedFramework,
+          frontend,
+        },
+        framework: selectedFramework,
+        frontend,
+      };
+    }
+
+    if (frontend === "angular") {
+      const resolution = resolveAngularDoc(
+        scopedBackendFramework ?? null,
+        frontendRest,
+      );
+      if (!resolution) return null;
+      const doc = loadDoc(resolution.contentSlugPath);
+      if (!doc) return null;
+
+      return {
+        page: {
+          url,
+          title: doc.fm.title,
+          description: doc.fm.description,
+          filePath: doc.filePath,
+          loadSlug: resolution.contentSlugPath,
+          framework: resolution.framework,
+          frontend,
+        },
+        framework: resolution.framework,
+        frontend,
+      };
+    }
+
+    if (scopedBackendFramework) {
+      const resolved = resolveFrameworkScopedPage(
+        scopedBackendFramework,
+        frontendRest || "index",
+        url,
+      );
+      return resolved
+        ? {
+            ...resolved,
+            page: { ...resolved.page, frontend },
+            frontend,
+          }
+        : null;
+    }
+
+    const contentSlug = (() => {
+      const resolution = resolveFrontendDocPage(frontend, frontendRest);
+      return resolution.status === "found" ? resolution.contentSlugPath : null;
+    })();
+
+    if (!contentSlug) return null;
+    const doc = loadDoc(contentSlug);
+    if (!doc) return null;
+
     return {
       page: {
         url,
-        title: refSlug,
-        filePath,
-        loadSlug: `__reference__/${refSlug}`,
+        title: doc.fm.title,
+        description: doc.fm.description,
+        filePath: doc.filePath,
+        loadSlug: contentSlug,
+        framework: selectedFramework,
+        frontend,
       },
+      framework: selectedFramework,
+      frontend,
     };
   }
 
-  // /ag-ui/<slug>.md → src/content/ag-ui/<slug>.mdx
-  if (first === "ag-ui") {
-    const agSlug = rest || "index";
-    const filePath = findExistingMdx(AG_UI_CONTENT_DIR, agSlug);
-    if (!filePath) return null;
+  // /reference/<slug>.md → src/content/reference/<slug>.mdx
+  if (first === "reference") {
+    const referenceSlug = rest ? rest.split("/") : [];
+    const resolved = resolveReferencePage(referenceSlug);
+    if (!resolved) return null;
+    const { data } = matter(resolved.raw);
     return {
       page: {
         url,
-        title: agSlug,
-        filePath,
-        loadSlug: `__ag-ui__/${agSlug}`,
+        title:
+          typeof data.title === "string"
+            ? data.title
+            : resolved.pageSlug || "Reference",
+        description:
+          typeof data.description === "string" ? data.description : undefined,
+        filePath: resolved.filePath,
+        loadSlug: `__reference__/${resolved.contentSlug}`,
       },
     };
   }
@@ -108,76 +330,70 @@ function resolvePage(slug: string[]): ResolvedPage | null {
   // Framework-scoped URL: first segment is an integration slug.
   const frameworkSlugs = new Set(getIntegrations().map((i) => i.slug));
   if (frameworkSlugs.has(first)) {
-    const docsFolder = getDocsFolder(first);
-    const docsMode = getDocsMode(first);
-    const tail = rest || "index";
-    const rootSlugPath = tail;
-    const frameworkSlugPath = `integrations/${docsFolder}/${tail}`;
-
-    // `authored` frameworks own their entire IA — try the per-framework
-    // tree first. `generated` is the inverse — root wins, framework
-    // tree is the override.
-    const candidateOrder =
-      docsMode === "authored"
-        ? [frameworkSlugPath, rootSlugPath]
-        : [rootSlugPath, frameworkSlugPath];
-
-    for (const candidate of candidateOrder) {
-      const doc = loadDoc(candidate);
-      if (!doc) continue;
-      return {
-        page: {
-          url,
-          title: doc.fm.title,
-          description: doc.fm.description,
-          filePath: doc.filePath,
-          loadSlug: candidate,
-          framework: first,
-        },
-        framework: first,
-      };
-    }
-    return null;
+    return resolveFrameworkScopedPage(first, rest || "index", url);
   }
 
-  // Bare unscoped doc.
-  const doc = loadDoc(url);
-  if (!doc) return null;
-  return {
-    page: {
-      url,
-      title: doc.fm.title,
-      description: doc.fm.description,
-      filePath: doc.filePath,
-      loadSlug: url,
-    },
-  };
+  // Bare unscoped doc. The root surface serves ROOT_FRAMEWORK's
+  // authored page when one exists (mirrors UnscopedDocsPage), so the
+  // `.md` variant must resolve the same MDX the page renders.
+  const rootOverride = `integrations/${getDocsFolder(ROOT_FRAMEWORK)}/${url}`;
+  const candidates =
+    getDocsMode(ROOT_FRAMEWORK) === "authored" ? [rootOverride, url] : [url];
+  for (const candidate of candidates) {
+    const doc = loadDoc(candidate);
+    if (!doc) continue;
+    const isOverride = candidate !== url;
+    return {
+      page: {
+        url,
+        title: doc.fm.title,
+        description: doc.fm.description,
+        filePath: doc.filePath,
+        loadSlug: candidate,
+        framework: isOverride ? ROOT_FRAMEWORK : undefined,
+      },
+      framework: isOverride ? ROOT_FRAMEWORK : undefined,
+    };
+  }
+  return null;
 }
 
-/**
- * Resolve `<root>/<slug>.mdx` or `<root>/<slug>/index.mdx` if present.
- * Returns null when neither exists. Constrained to `root` via
- * `path.resolve()` + prefix check to keep slug input from escaping the
- * content dir.
- */
-function findExistingMdx(root: string, slug: string): string | null {
-  const candidates = [
-    path.join(root, `${slug}.mdx`),
-    path.join(root, slug, "index.mdx"),
-  ];
-  const resolvedRoot = path.resolve(root);
-  for (const cand of candidates) {
-    const resolved = path.resolve(cand);
-    if (!resolved.startsWith(resolvedRoot + path.sep)) {
-      console.warn(
-        "[llms-mdx] rejecting candidate outside content root",
-        cand,
-        "root:",
-        root,
-      );
-      continue;
-    }
-    if (fs.existsSync(resolved)) return resolved;
+function resolveFrameworkScopedPage(
+  framework: string,
+  tail: string,
+  url: string,
+): ResolvedPage | null {
+  const docsFolder = getDocsFolder(framework);
+  const docsMode = getDocsMode(framework);
+  if (docsMode === "hidden") return null;
+
+  const rootSlugPath = tail;
+  const frameworkSlugPath = `integrations/${docsFolder}/${tail}`;
+
+  // Shared with the page route (docCandidateOrder) so raw Markdown and the
+  // rendered page never disagree. This previously treated only `quickstart`
+  // as framework-wins; the page route also gives `threads-import` to the
+  // framework, so llms-mdx served root content for a URL the site renders
+  // from the framework tree.
+  const candidateOrder = docCandidateOrder(docsMode, docsFolder, tail);
+  if (tail === "index") {
+    candidateOrder.push(`integrations/${docsFolder}/quickstart`);
+  }
+
+  for (const candidate of candidateOrder) {
+    const doc = loadDoc(candidate);
+    if (!doc) continue;
+    return {
+      page: {
+        url,
+        title: doc.fm.title,
+        description: doc.fm.description,
+        filePath: doc.filePath,
+        loadSlug: candidate,
+        framework,
+      },
+      framework,
+    };
   }
   return null;
 }

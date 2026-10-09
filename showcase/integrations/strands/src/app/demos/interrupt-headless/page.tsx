@@ -1,47 +1,86 @@
 "use client";
 
-// Headless Interrupt demo (Strands port).
+// Headless Interrupt cell: renders `useInterrupt` outside the chat.
 //
-// Layout: chat on the right, empty app surface on the left. The user triggers
-// the agent from a chat suggestion. When the agent calls `schedule_meeting`,
-// we render a time-picker popup IN THE APP SURFACE (left pane) — outside of
-// the chat. Picking a slot resolves the tool call, the popup vanishes, and
-// the agent confirms back in chat.
-//
-// Adaptation: the LangGraph version uses a custom `useHeadlessInterrupt` hook
-// built on top of `useAgent` + `useCopilotKit` that reads LangGraph's native
-// `interrupt()` event from the AG-UI stream. AWS Strands has no interrupt
-// primitive, so we instead register `schedule_meeting` as a frontend tool and
-// gate the UI on whether the tool is currently awaiting a user decision. The
-// async handler returns a Promise that only resolves when the user interacts
-// with the external popup — equivalent UX, different mechanism.
+// Layout: chat on the right, empty app surface on the left. The user
+// triggers the agent from a chat suggestion. When the backend calls
+// `schedule_meeting`, Strands' native `tool_context.interrupt()` surfaces as a
+// standard AG-UI interrupt via the hook
+// and we render a time-picker popup IN THE APP SURFACE (left pane) —
+// not inside the chat. Picking a slot resolves the interrupt, the
+// popup vanishes, and the agent confirms back in chat.
 
-import React, { useRef, useState } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
+// @region[headless-useinterrupt-primitives]
+import React, { useEffect, useState } from "react";
 import {
+  CopilotKit,
   CopilotChat,
   useConfigureSuggestions,
-  useFrontendTool,
+  useInterrupt,
 } from "@copilotkit/react-core/v2";
-import { z } from "zod";
+import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
+import type { TimeSlot } from "../_shared/interrupt-fallback-slots";
 
 type InterruptPayload = {
   topic?: string;
   attendee?: string;
+  slots?: TimeSlot[];
 };
 
-type TimeSlot = { label: string; iso: string };
+// Read the tool's `interrupt()` reason off an AG-UI interrupt.
+//
+// The two bridges expose it on different channels: `ag_ui_strands` (Python)
+// carries the reason object under `metadata.reason`, while the published
+// `@ag-ui/aws-strands` 0.2.3 JSON-encodes it into `message` instead. Both are
+// read so one page serves both, and the legacy event value is read last for
+// adapters that pass the payload through unwrapped.
+/**
+ * JSON.parse that never throws and never returns a primitive. Both readers run
+ * inside a React render callback, where a throw takes the whole pane down.
+ */
+function parseObject(raw: string | undefined): Record<string, unknown> | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
 
-type PickerResult =
-  | { chosen_time: string; chosen_label: string }
-  | { cancelled: true };
+function readInterruptPayload(
+  interrupt: { metadata?: unknown; message?: string } | null | undefined,
+  eventValue: unknown,
+): InterruptPayload {
+  const metadata = interrupt?.metadata as
+    | { reason?: InterruptPayload }
+    | undefined;
+  if (metadata?.reason && typeof metadata.reason === "object") {
+    return metadata.reason;
+  }
 
-const DEFAULT_SLOTS: TimeSlot[] = [
-  { label: "Tomorrow 10:00 AM", iso: "2026-04-25T10:00:00-07:00" },
-  { label: "Tomorrow 2:00 PM", iso: "2026-04-25T14:00:00-07:00" },
-  { label: "Monday 9:00 AM", iso: "2026-04-28T09:00:00-07:00" },
-  { label: "Monday 3:30 PM", iso: "2026-04-28T15:30:00-07:00" },
-];
+  // The published TypeScript bridge JSON-encodes the reason into `message`
+  // instead of carrying it on metadata.
+  const decoded = parseObject(interrupt?.message);
+  if (decoded) {
+    const nested = (decoded as { reason?: InterruptPayload }).reason;
+    return nested && typeof nested === "object"
+      ? nested
+      : (decoded as InterruptPayload);
+  }
+
+  // Legacy channel: some adapters pass the payload through as the event value,
+  // JSON-encoded or not.
+  const legacy =
+    typeof eventValue === "string" ? parseObject(eventValue) : eventValue;
+  if (!legacy || typeof legacy !== "object") return {};
+  const wrapped = (legacy as { metadata?: { reason?: InterruptPayload } })
+    .metadata?.reason;
+  if (wrapped && typeof wrapped === "object") return wrapped;
+  return legacy as InterruptPayload;
+}
 
 export default function InterruptHeadlessDemo() {
   return (
@@ -52,11 +91,58 @@ export default function InterruptHeadlessDemo() {
 }
 
 function Layout() {
-  const [pending, setPending] = useState<InterruptPayload | null>(null);
-  // Resolver for the currently-awaiting `schedule_meeting` tool call. Set by
-  // the async frontend-tool handler below, called when the user picks a slot
-  // or cancels from the external popup.
-  const resolverRef = useRef<((result: PickerResult) => void) | null>(null);
+  const [resolving, setResolving] = useState(false);
+  const interruptElement = useInterrupt({
+    agentId: "interrupt-headless",
+    renderInChat: false,
+    render: ({ event, interrupt, resolve }) => {
+      const payload = readInterruptPayload(interrupt, event.value);
+      const resumeAfterPaint = (response: unknown) => {
+        setResolving(true);
+        // A frame boundary lets React paint before resume unmounts the
+        // interrupt, but `requestAnimationFrame` never fires in a background
+        // tab, so a timer runs whichever comes first and the resume cannot be
+        // stranded. Fire-and-forget by design: a rejected resume is re-surfaced
+        // globally instead of disappearing.
+        let fired = false;
+        const resumeOnce = () => {
+          if (fired) return;
+          fired = true;
+          void resolve(response).then(
+            () => setResolving(false),
+            (error) => {
+              setResolving(false);
+              queueMicrotask(() => {
+                throw error;
+              });
+            },
+          );
+        };
+        requestAnimationFrame(resumeOnce);
+        window.setTimeout(resumeOnce, 100);
+      };
+      return (
+        <TimeSlotPopup
+          payload={payload}
+          onPick={(slot) => {
+            resumeAfterPaint({
+              chosen_time: slot.iso,
+              chosen_label: slot.label,
+            });
+          }}
+          onCancel={() => {
+            resumeAfterPaint({ cancelled: true });
+          }}
+        />
+      );
+    },
+  });
+
+  useEffect(() => {
+    if (interruptElement) {
+      setResolving(false);
+    }
+  }, [interruptElement]);
 
   useConfigureSuggestions({
     suggestions: [
@@ -72,73 +158,23 @@ function Layout() {
     available: "always",
   });
 
-  // @region[headless-promise-primitives]
-  useFrontendTool({
-    name: "schedule_meeting",
-    description:
-      "Ask the user to pick a time slot for a meeting via a picker popup " +
-      "that appears outside the chat. Blocks until the user chooses a " +
-      "slot or cancels.",
-    parameters: z.object({
-      topic: z
-        .string()
-        .describe("Short human-readable description of the meeting."),
-      attendee: z
-        .string()
-        .optional()
-        .describe("Who the meeting is with (optional)."),
-    }),
-    // Async handler: sets the pending payload so the popup renders, then
-    // returns a Promise that only resolves once the user interacts with the
-    // popup. This is the Strands shim for the LangGraph headless interrupt
-    // `resume` flow.
-    handler: async ({
-      topic,
-      attendee,
-    }: {
-      topic: string;
-      attendee?: string;
-    }): Promise<string> => {
-      setPending({ topic, attendee });
-      const result = await new Promise<PickerResult>((resolve) => {
-        resolverRef.current = resolve;
-      });
-      setPending(null);
-      if ("cancelled" in result && result.cancelled) {
-        return "User cancelled. Meeting NOT scheduled.";
-      }
-      if ("chosen_label" in result) {
-        return `Meeting scheduled for ${result.chosen_label}.`;
-      }
-      return "User did not pick a time. Meeting NOT scheduled.";
-    },
-    // Render nothing inside the chat — the UI lives in the app surface.
-    render: () => null,
-  });
-  // @endregion[headless-promise-primitives]
-
-  const resolve = (result: PickerResult) => {
-    const fn = resolverRef.current;
-    resolverRef.current = null;
-    fn?.(result);
-  };
-
   return (
     <div className="grid h-screen grid-cols-[1fr_420px] bg-[#FAFAFC]">
-      <AppSurface pending={pending} resolve={resolve} />
+      <AppSurface interruptElement={interruptElement} resolving={resolving} />
       <div className="border-l border-[#DBDBE5] bg-white">
         <CopilotChat agentId="interrupt-headless" className="h-full" />
       </div>
     </div>
   );
 }
+// @endregion[headless-useinterrupt-primitives]
 
 type AppSurfaceProps = {
-  pending: InterruptPayload | null;
-  resolve: (result: PickerResult) => void;
+  interruptElement: React.ReactElement | null;
+  resolving: boolean;
 };
 
-function AppSurface({ pending, resolve }: AppSurfaceProps) {
+function AppSurface({ interruptElement, resolving }: AppSurfaceProps) {
   return (
     <div
       data-testid="interrupt-headless-app-surface"
@@ -152,18 +188,21 @@ function AppSurface({ pending, resolve }: AppSurfaceProps) {
       </header>
 
       <div className="relative flex flex-1 items-center justify-center p-8">
-        {pending ? (
-          <TimeSlotPopup
-            payload={pending}
-            onPick={(slot) =>
-              resolve({ chosen_time: slot.iso, chosen_label: slot.label })
-            }
-            onCancel={() => resolve({ cancelled: true })}
-          />
-        ) : (
-          <EmptyState />
-        )}
+        {interruptElement ?? (resolving ? <ResolvingState /> : <EmptyState />)}
       </div>
+    </div>
+  );
+}
+
+function ResolvingState() {
+  return (
+    <div data-testid="interrupt-headless-resolving" className="text-center">
+      <div className="text-sm font-medium text-[#010507]">
+        Confirming your selection…
+      </div>
+      <p className="mt-1 text-sm text-[#57575B]">
+        The assistant will post the confirmed booking in chat.
+      </p>
     </div>
   );
 }
@@ -208,6 +247,17 @@ type TimeSlotPopupProps = {
 };
 
 function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
+  // One answer per interrupt: the buttons latch on the first click so a second
+  // one cannot race the resume that is already in flight.
+  const [answered, setAnswered] = useState(false);
+  // The interrupt payload carries the topic and attendee, not the slots: both
+  // backends pause with a reason only, so the times below are generated here,
+  // relative to "now", so the picker always shows future slots. The payload
+  // branch stays for a backend that does send its own candidates.
+  const slots =
+    payload.slots && payload.slots.length > 0
+      ? payload.slots
+      : generateFallbackSlots();
   return (
     <div
       role="dialog"
@@ -234,13 +284,17 @@ function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
       )}
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {DEFAULT_SLOTS.map((slot) => (
+        {slots.map((slot) => (
           <button
             key={slot.iso}
             type="button"
             data-testid={`interrupt-headless-slot-${slot.iso}`}
-            onClick={() => onPick(slot)}
-            className="rounded-xl border border-[#DBDBE5] bg-white px-3 py-3 text-sm font-medium text-[#010507] transition-colors hover:border-[#BEC2FF] hover:bg-[#BEC2FF1A]"
+            disabled={answered}
+            onClick={() => {
+              setAnswered(true);
+              onPick(slot);
+            }}
+            className="rounded-xl border border-[#DBDBE5] bg-white px-3 py-3 text-sm font-medium text-[#010507] transition-colors hover:border-[#BEC2FF] hover:bg-[#BEC2FF1A] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {slot.label}
           </button>
@@ -250,8 +304,12 @@ function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
       <button
         type="button"
         data-testid="interrupt-headless-cancel"
-        onClick={onCancel}
-        className="mt-4 w-full rounded-xl border border-[#DBDBE5] bg-white px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-[#57575B] transition-colors hover:bg-[#FAFAFC]"
+        disabled={answered}
+        onClick={() => {
+          setAnswered(true);
+          onCancel();
+        }}
+        className="mt-4 w-full rounded-xl border border-[#DBDBE5] bg-white px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-[#57575B] transition-colors hover:bg-[#FAFAFC] disabled:cursor-not-allowed disabled:opacity-60"
       >
         Cancel
       </button>

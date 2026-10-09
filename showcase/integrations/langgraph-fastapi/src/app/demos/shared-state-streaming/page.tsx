@@ -1,11 +1,18 @@
 "use client";
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
-  CopilotChat,
-  useConfigureSuggestions,
+  CopilotKit,
+  useAgent,
+  UseAgentUpdate,
 } from "@copilotkit/react-core/v2";
+
+import { DemoLayout } from "./demo-layout";
+import { useSharedStateStreamingSuggestions } from "./suggestions";
+
+interface StreamingAgentState {
+  document?: string;
+}
 
 export default function SharedStateStreamingDemo() {
   return (
@@ -16,29 +23,21 @@ export default function SharedStateStreamingDemo() {
 }
 
 function DemoContent() {
-  // TODO: Implement State Streaming demo
-  // See the LangGraph Python reference implementation for patterns
-  //
-  // Key hooks available:
-  //   useFrontendTool({ name, description, parameters: z.object({...}), handler })
-  //   useRenderTool({ name: "tool_name", render: ({ args }) => <Component /> })
-  //   useHumanInTheLoop({ name, description, parameters, handler: ({ args, respond }) => ... })
-  //   useAgentContext({ description, value })
-  //   useConfigureSuggestions({ suggestions: [{ title, message }] })
-  //   useInterrupt({ render: ({ event, resolve }) => <Component /> })
-
-  useConfigureSuggestions({
-    suggestions: [{ title: "Get started", message: "Hello! What can you do?" }],
+  // @region[frontend-use-coagent-state]
+  // Subscribe to BOTH state changes and run-status changes. The former
+  // drives the per-token document rerender; the latter toggles the
+  // "LIVE" badge when the agent starts / stops.
+  const { agent } = useAgent({
+    agentId: "shared-state-streaming",
+    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
   });
+  // @endregion[frontend-use-coagent-state]
 
-  return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
-      <CopilotChat
-        labels={{
-          title: "State Streaming",
-          placeholder: "Type a message...",
-        }}
-      />
-    </div>
-  );
+  useSharedStateStreamingSuggestions();
+
+  const agentState = agent.state as StreamingAgentState | undefined;
+  const document = agentState?.document ?? "";
+  const isRunning = agent.isRunning;
+
+  return <DemoLayout document={document} isStreaming={isRunning} />;
 }

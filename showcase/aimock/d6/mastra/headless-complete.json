@@ -1,0 +1,136 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for mastra / headless-complete",
+    "sourceFile": "d5-all.json",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-21",
+    "note": "ported from headless-complete (langgraph-python); context rewritten to mastra"
+  },
+  "fixtures": [
+    {
+      "_comment": "headless-complete weather pill narration \u2014 matches when the get_weather tool result with id call_d5_headless_weather_001 is the last message. The 'tokyo' textToken assertion is satisfied by the city name.",
+      "match": {
+        "toolCallId": "call_d5_headless_weather_001",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy. The headless WeatherCard above shows the sunny snapshot from the tool."
+      }
+    },
+    {
+      "_comment": "headless-complete stock pill narration \u2014 matches when the get_stock_price tool result with id call_d5_headless_stock_001 is the last message. textToken 'aapl' satisfied by ticker mention.",
+      "match": {
+        "toolCallId": "call_d5_headless_stock_001",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "AAPL is at $189.42, up 1.27% on the day."
+      }
+    },
+    {
+      "_comment": "headless-complete highlight pill narration \u2014 matches when the highlight_note tool result with id call_d5_headless_highlight_001 is the last message.",
+      "match": {
+        "toolCallId": "call_d5_headless_highlight_001",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Highlighted 'ship the demo on Friday' for you above."
+      }
+    },
+    {
+      "_comment": "headless-complete revenue chart narration \u2014 matches when the get_revenue_chart tool result with id call_d5_headless_revenue_chart_001 is the last message.",
+      "match": {
+        "toolCallId": "call_d5_headless_revenue_chart_001",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Here is the chart of revenue over the last six months \u2014 quarterly revenue grew steadily, peaking in June."
+      }
+    },
+    {
+      "_comment": "headless-complete weather pill toolcall \u2014 emit get_weather for Tokyo. Probe sends 'What's the weather in Tokyo?'. Keyed on the full 'What's the weather in Tokyo' prefix (mirrors gold langgraph-python) so it does NOT substring-collide with the tool-rendering 'Chain tools' pill ('...get the weather in Tokyo...'), which loads later and would otherwise be hijacked into emitting only get_weather.",
+      "match": {
+        "userMessage": "What's the weather in Tokyo",
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_headless_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\",\"temperature\":68,\"conditions\":\"Sunny\",\"humidity\":55,\"wind_speed\":10}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "headless-complete stock pill toolcall \u2014 emit get_stock_price for AAPL. Probe sends \"What's the price of AAPL right now?\".",
+      "match": {
+        "userMessage": "price of AAPL right now",
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_headless_stock_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "headless-complete highlight pill toolcall \u2014 emit highlight_note. Probe sends \"Highlight this note for me: 'ship the demo on Friday'.\" so userMessage substring 'ship the demo on Friday' catches it.",
+      "match": {
+        "userMessage": "ship the demo on Friday",
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_headless_highlight_001",
+            "name": "highlight_note",
+            "arguments": "{\"text\":\"ship the demo on Friday\",\"color\":\"yellow\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "headless-complete revenue chart toolcall \u2014 emit get_revenue_chart (no args). Probe sends 'Show me a chart of revenue over the last six months.'. Includes a short leading `content` snippet so the word 'revenue' lands in the assistant bubble synchronously with the tool-call emission. Without this, the chart card's title falls back to 'Chart' during the `executing` render phase (result still undefined), and the conversation-runner's count-based settle can fire its 1500ms quiet window before the narration follow-up message arrives \u2014 leaving the assistant text without 'revenue' on the probe's first attempt.",
+      "match": {
+        "userMessage": "chart of revenue over the last six months",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Pulling the revenue chart for the last six months...",
+        "toolCalls": [
+          {
+            "id": "call_d5_headless_revenue_chart_001",
+            "name": "get_revenue_chart",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "trigger the headless interrupt",
+        "turnIndex": 0,
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Interrupt raised. The agent has paused at a graph-level interrupt and is waiting for user input. Reply with 'yes' or 'no' to resume."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "resolve the interrupt with yes",
+        "turnIndex": 0,
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Interrupt resolved with 'yes'. The agent resumed execution from the suspended node and produced its final answer."
+      }
+    }
+  ]
+}

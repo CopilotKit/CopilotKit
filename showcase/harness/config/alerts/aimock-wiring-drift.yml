@@ -40,7 +40,7 @@ template:
     {{#trigger.set_drifted}}:warning: *aimock wiring drift — {{signal.unwiredCount}} {{signal.unwiredNoun}} bypassing showcase-aimock:*
     {{#signal.unwired}}• `{{.}}`
     {{/signal.unwired}}
-    Fix: set `OPENAI_BASE_URL` (or `ANTHROPIC_BASE_URL` for claude-sdk) on each service to the aimock production URL.
+    Fix: set `OPENAI_BASE_URL` (or `ANTHROPIC_BASE_URL` for claude-sdk, `GOOGLE_GEMINI_BASE_URL` for google-adk) on each service to the aimock PRIVATE networking URL `http://showcase-aimock.railway.internal:4010` (append `/v1` for `OPENAI_BASE_URL`) — free intra-env networking, NOT the billed public `*.up.railway.app` host.
     <{{{env.dashboardUrl}}}|Dashboard>{{#event.runUrl}} | <{{{event.runUrl}}}|Run>{{/event.runUrl}}{{/trigger.set_drifted}}
     {{#trigger.set_errored}}:rotating_light: *aimock wiring probe errored — {{signal.erroredCount}} service(s) unreadable:*
     {{#signal.erroredPreview}}• `{{.}}`

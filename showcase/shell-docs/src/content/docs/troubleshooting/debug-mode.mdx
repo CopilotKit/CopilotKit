@@ -2,11 +2,16 @@
 title: "Debug Mode"
 description: "Enable debug mode to get detailed logging of the AG-UI event pipeline on both the server and client."
 icon: "lucide/Bug"
+frontend: universal
 ---
 
 # Debug Mode
 
-When your agent isn't behaving as expected — events are missing, state isn't updating, or tool calls aren't executing — you need visibility into what's happening in the event pipeline. Debug mode gives you that visibility with detailed logging on both the server (runtime) and client (React) side.
+When your agent isn't behaving as expected — events are missing, state isn't
+updating, or tool calls aren't executing — you need visibility into the event
+pipeline. Runtime debug mode provides structured server-side logging; the
+frontend can inspect the resulting stream with browser network tools or the
+AG-UI Event Inspector.
 
 Enable it to see:
 - What events your agent is emitting and whether they reach the client
@@ -55,7 +60,8 @@ This produces structured Pino logs (formatted by `pino-pretty`) with a `copilotk
     loggedEventCount: 4
 ```
 
-### Client-Side (React)
+<FrontendOnly frontend="react">
+### Client-Side
 
 Pass `debug={true}` to the `<CopilotKit>` provider:
 
@@ -73,10 +79,21 @@ This forwards the debug configuration to the AG-UI client transport layer (`tran
 <Callout type="info">
   The server and client debug toggles are independent. Enabling debug on the client does not affect the server, and vice versa.
 </Callout>
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+### Client-side inspection
+
+`@copilotkit/angular` does not expose a separate client debug toggle. Enable
+debugging on `CopilotRuntime`, inspect the SSE request in browser developer
+tools, or connect the [AG-UI Event Inspector](/troubleshooting/event-inspector)
+to the development runtime.
+</FrontendOnly>
 
 ## Granular Configuration
 
-Instead of `true`, you can pass an object for fine-grained control over what gets logged:
+On `CopilotRuntime`, pass an object instead of `true` for fine-grained control
+over what gets logged:
 
 ```ts
 debug: {
@@ -85,8 +102,6 @@ debug: {
   verbose: false,   // Log full payloads instead of summaries
 }
 ```
-
-This works the same way on both the server and client.
 
 ### Defaults
 
@@ -146,9 +161,18 @@ Look for `STATE_SNAPSHOT` or `STATE_DELTA` events in server logs. If they appear
 
 In **summary mode** (verbose off), event logs include key identifiers like `messageId`, `toolCallId`, `toolCallName`, `role`, and content lengths instead of full payloads.
 
+<FrontendOnly frontend="react">
 ### Client-Side
 
 On the client, the `debug` configuration is passed through to the AG-UI transport layer. The AG-UI client library controls what (if any) debug output is produced. CopilotKit itself does not emit `console.debug` calls — the debug flag configures the underlying AG-UI event pipeline.
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+### Client-side
+
+Use the browser's Network panel or the AG-UI Event Inspector for client-side
+visibility. The Angular package does not add a second console-debug stream.
+</FrontendOnly>
 
 <Callout type="warn">
   Debug mode can produce a large volume of log output, especially in verbose mode. Use it during development and debugging, not in production.

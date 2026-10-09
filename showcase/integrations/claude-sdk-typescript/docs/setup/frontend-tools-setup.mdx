@@ -1,0 +1,22 @@
+<Steps>
+  <Step>
+    ### Forward browser tools to Claude
+
+    Frontend tools registered with `useFrontendTool` arrive in the AG-UI run
+    input. This demo's server calls the Anthropic Messages API directly for
+    runs that carry frontend tools, so it converts each AG-UI tool definition
+    into a Messages API tool schema first.
+
+    The published `ClaudeAgentAdapter` from `@ag-ui/claude-agent-sdk` needs
+    no such conversion. It registers each frontend tool on its own in-process
+    MCP tool server as `mcp__ag_ui__<name>`, allows it, and ends the run when
+    Claude calls it so the browser can execute the tool. Pass the run input to
+    the adapter and frontend tools work with no extra wiring.
+
+    <DemoCode
+      file="src/agent_server.ts"
+      region="frontend-tools-setup"
+      highlight="28-32"
+    />
+  </Step>
+</Steps>

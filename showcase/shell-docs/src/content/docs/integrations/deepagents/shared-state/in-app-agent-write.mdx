@@ -51,13 +51,13 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
       <Tab value="TypeScript">
         ```ts title="agent.ts"
         import { createMiddleware } from "langchain";
-        import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+        import { copilotkitMiddleware, zodState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
         import { z } from "zod";
 
         export const languageStateMiddleware = createMiddleware({
             name: "AgentState",
             stateSchema: z.object({
-                language: z.enum(["english", "spanish"]).default("english"),
+                language: zodState(z.enum(["english", "spanish"]).default("english")),
             }),
         });
 
@@ -120,10 +120,10 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 ### Re-run the agent with updated state
 
 The new agent state will be used next time the agent runs.
-If you want to re-run it manually, use `agent.runAgent` after updating state.
+If you want to re-run it manually, call `copilotkit.runAgent({ agent })` after updating state. Running through `copilotkit` sends your frontend tools and context with the run and executes any frontend tool calls.
 
 ```tsx title="ui/app/page.tsx"
-import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
 
 // ...
 
@@ -131,6 +131,7 @@ function YourMainContent() {
   const { agent } = useAgent({
     agentId: "sample_agent",
   });
+  const { copilotkit } = useCopilotKit(); // [!code highlight]
 
   const language = (agent.state.language as string) ?? "english";
 
@@ -141,7 +142,7 @@ function YourMainContent() {
 
     // [!code highlight:2]
     // re-run the agent with updated state
-    agent.runAgent();
+    copilotkit.runAgent({ agent });
   };
 
   return (

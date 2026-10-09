@@ -1,27 +1,28 @@
 "use client";
 
-// Tool Rendering — DEFAULT CATCH-ALL variant (.NET / Microsoft Agent Framework).
+// Tool Rendering — DEFAULT CATCH-ALL variant (simplest).
 //
-// This cell is the simplest point in the three-way progression. The .NET
-// SalesAgent backend exposes a handful of tools (get_weather, search_flights,
-// get_sales_todos, etc.) and the frontend ONLY opts into CopilotKit's built-in
-// default tool-call card — no per-tool renderers, no custom wildcard UI.
+// This cell is the simplest point in the three-way progression. The
+// backend exposes a handful of mock tools (get_weather, search_flights,
+// get_stock_price, roll_dice) and the frontend ONLY opts into
+// CopilotKit's built-in default tool-call card — no per-tool renderers,
+// no custom wildcard UI.
 //
-// `useDefaultRenderTool()` (called with no config) registers the built-in
-// `DefaultToolCallRenderer` under the `*` wildcard. That renderer shows the
-// tool name, a live status pill (Running → Done), and a collapsible
-// "Arguments / Result" section that fills in as the call progresses. Without
-// this hook the runtime has NO `*` renderer, so `useRenderToolCall` falls
-// through to `null` and tool calls are invisible — the user only sees the
-// assistant's final text summary.
+// `useDefaultRenderTool()` (called with no config) registers the built-
+// in `DefaultToolCallRenderer` under the `*` wildcard. That renderer
+// shows the tool name, a live status pill (Running → Done), and a
+// collapsible "Arguments / Result" section that fills in as the call
+// progresses. Without this hook the runtime has NO `*` renderer, so
+// `useRenderToolCall` falls through to `null` and tool calls are
+// invisible — the user only sees the assistant's final text summary.
 
 import React from "react";
 import {
   CopilotKit,
   CopilotChat,
-  useConfigureSuggestions,
   useDefaultRenderTool,
 } from "@copilotkit/react-core/v2";
+import { useSuggestions } from "./suggestions";
 
 export default function ToolRenderingDefaultCatchallDemo() {
   return (
@@ -47,23 +48,7 @@ function Chat() {
   useDefaultRenderTool();
   // @endregion[default-catchall-zero-config]
 
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
-      },
-      {
-        title: "Find flights",
-        message: "Find flights from SFO to JFK.",
-      },
-      {
-        title: "Weather in Tokyo",
-        message: "How's the weather in Tokyo today?",
-      },
-    ],
-    available: "always",
-  });
+  useSuggestions();
 
   return (
     <CopilotChat

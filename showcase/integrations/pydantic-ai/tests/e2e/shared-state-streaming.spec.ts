@@ -1,140 +1,139 @@
 import { test, expect } from "@playwright/test";
 
+// Shared State (Streaming) — Document Viewer demo. The agent streams a
+// `document` field in its state; the frontend renders it token-by-token
+// in a read-only DocumentView panel alongside a CopilotSidebar.
 test.describe("State Streaming", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/shared-state-streaming");
   });
 
-  test("page loads with document editor and sidebar", async ({ page }) => {
-    // The document editor has a textarea
-    const textarea = page.locator("textarea").first();
-    await expect(textarea).toBeVisible({ timeout: 10000 });
-
-    // The sidebar should show "AI Document Editor" title
-    await expect(page.getByText("AI Document Editor")).toBeVisible({
-      timeout: 10000,
+  test("page loads with document panel and chat sidebar", async ({ page }) => {
+    // The document panel should mount with its testid
+    await expect(page.locator('[data-testid="document-view"]')).toBeVisible({
+      timeout: 15000,
     });
-  });
 
-  test("sidebar has chat input", async ({ page }) => {
+    // The "Document" heading inside the panel
+    await expect(page.getByText("Document")).toBeVisible({ timeout: 10000 });
+
+    // Character count starts at 0
     await expect(
-      page.locator('textarea, [placeholder*="message"]').first(),
+      page.locator('[data-testid="document-char-count"]'),
+    ).toHaveText("0 chars", { timeout: 10000 });
+
+    // The sidebar chat input should be present
+    await expect(
+      page.getByPlaceholder("Ask me to write something..."),
     ).toBeVisible({ timeout: 10000 });
   });
 
-  test("document editor placeholder is visible when empty", async ({
-    page,
-  }) => {
-    await expect(page.getByText("Write whatever you want here...")).toBeVisible(
-      { timeout: 10000 },
-    );
+  test("empty state shows placeholder text", async ({ page }) => {
+    await expect(page.locator('[data-testid="document-view"]')).toBeVisible({
+      timeout: 15000,
+    });
+
+    // When no document has been streamed, the placeholder italic text shows
+    await expect(
+      page.getByText("Ask the agent to write something"),
+    ).toBeVisible({ timeout: 10000 });
+
+    // document-content testid should NOT be present in the empty state
+    await expect(
+      page.locator('[data-testid="document-content"]'),
+    ).not.toBeVisible();
   });
 
-  test("user can type in the document editor", async ({ page }) => {
-    // The main textarea should accept text
-    const editorTextarea = page.locator("textarea.w-full").first();
-    await editorTextarea.fill("This is my test document content.");
-
-    await expect(editorTextarea).toHaveValue(
-      "This is my test document content.",
-    );
+  test("starter suggestions render in the sidebar", async ({ page }) => {
+    // The suggestions defined in suggestions.ts should appear as buttons
+    for (const title of [
+      "Write a short poem",
+      "Draft an email",
+      "Explain quantum computing",
+    ]) {
+      await expect(page.getByRole("button", { name: title })).toBeVisible({
+        timeout: 15000,
+      });
+    }
   });
 
-  test("asking agent to edit shows confirm changes modal", async ({ page }) => {
-    // Add some content to the editor
-    const editorTextarea = page.locator("textarea.w-full").first();
-    await editorTextarea.fill("Draft proposal for Q2 project.");
+  test("sending a message triggers document streaming", async ({ page }) => {
+    await expect(page.locator('[data-testid="document-view"]')).toBeVisible({
+      timeout: 15000,
+    });
 
-    // Ask the agent to modify via the sidebar chat
-    const chatInputs = page.locator(
-      'textarea[placeholder], [placeholder*="message"]',
-    );
-    const chatInput = chatInputs.last();
-    await chatInput.fill("Expand this into a full project proposal");
-    await chatInput.press("Enter");
+    // Send a message via the sidebar
+    const input = page.getByPlaceholder("Ask me to write something...");
+    await input.fill("Write a short poem about autumn leaves.");
+    await input.press("Enter");
 
-    // The ConfirmChanges modal should appear with accept/reject buttons
-    const confirmModal = page.locator('[data-testid="confirm-changes-modal"]');
-    await expect(confirmModal).toBeVisible({ timeout: 60000 });
+    // The document-content area should appear as the agent streams tokens
+    await expect(page.locator('[data-testid="document-content"]')).toBeVisible({
+      timeout: 60000,
+    });
 
-    // Should show the "Confirm Changes" heading
-    await expect(confirmModal.getByText("Confirm Changes")).toBeVisible();
-
-    // Should have Reject and Confirm buttons
-    await expect(page.locator('[data-testid="reject-button"]')).toBeVisible();
-    await expect(page.locator('[data-testid="confirm-button"]')).toBeVisible();
+    // Content should have meaningful length (not empty)
+    const content = page.locator('[data-testid="document-content"]');
+    await expect(async () => {
+      const text = await content.textContent();
+      expect(text!.length).toBeGreaterThan(10);
+    }).toPass({ timeout: 60000 });
   });
 
-  test("accepting changes updates status display", async ({ page }) => {
-    const editorTextarea = page.locator("textarea.w-full").first();
-    await editorTextarea.fill("Meeting notes from today.");
+  test("character count updates as document streams", async ({ page }) => {
+    await expect(page.locator('[data-testid="document-view"]')).toBeVisible({
+      timeout: 15000,
+    });
 
-    const chatInputs = page.locator(
-      'textarea[placeholder], [placeholder*="message"]',
-    );
-    const chatInput = chatInputs.last();
-    await chatInput.fill("Rewrite these notes in a more formal tone");
-    await chatInput.press("Enter");
+    const charCount = page.locator('[data-testid="document-char-count"]');
+    await expect(charCount).toHaveText("0 chars");
 
-    // Wait for confirm modal
-    const confirmButton = page.locator('[data-testid="confirm-button"]');
-    await expect(confirmButton).toBeVisible({ timeout: 60000 });
+    // Send a message to trigger streaming
+    const input = page.getByPlaceholder("Ask me to write something...");
+    await input.fill("Write a short poem about autumn leaves.");
+    await input.press("Enter");
 
-    // Click confirm
-    await confirmButton.click();
-
-    // The status should show "Accepted"
-    await expect(page.locator('[data-testid="status-display"]')).toHaveText(
-      "Accepted",
-    );
+    // Wait for char count to increase above 0
+    await expect(async () => {
+      const text = await charCount.textContent();
+      const count = parseInt(text!.replace(/\D/g, ""), 10);
+      expect(count).toBeGreaterThan(0);
+    }).toPass({ timeout: 60000 });
   });
 
-  test("rejecting changes updates status display", async ({ page }) => {
-    const editorTextarea = page.locator("textarea.w-full").first();
-    await editorTextarea.fill("Budget report for Q3.");
+  test("live badge appears while agent is streaming", async ({ page }) => {
+    await expect(page.locator('[data-testid="document-view"]')).toBeVisible({
+      timeout: 15000,
+    });
 
-    const chatInputs = page.locator(
-      'textarea[placeholder], [placeholder*="message"]',
-    );
-    const chatInput = chatInputs.last();
-    await chatInput.fill("Make this more detailed with bullet points");
-    await chatInput.press("Enter");
+    // No live badge before we send anything
+    await expect(
+      page.locator('[data-testid="document-live-badge"]'),
+    ).not.toBeVisible();
 
-    // Wait for confirm modal
-    const rejectButton = page.locator('[data-testid="reject-button"]');
-    await expect(rejectButton).toBeVisible({ timeout: 60000 });
+    // Send a message to trigger streaming
+    const input = page.getByPlaceholder("Ask me to write something...");
+    await input.fill("Write a short poem about autumn leaves.");
+    await input.press("Enter");
 
-    // Click reject
-    await rejectButton.click();
-
-    // The status should show "Rejected"
-    await expect(page.locator('[data-testid="status-display"]')).toHaveText(
-      "Rejected",
-    );
+    // The LIVE badge should appear while the agent is running
+    await expect(
+      page.locator('[data-testid="document-live-badge"]'),
+    ).toBeVisible({ timeout: 60000 });
   });
 
-  test("confirm modal shows diff of proposed changes", async ({ page }) => {
-    const editorTextarea = page.locator("textarea.w-full").first();
-    await editorTextarea.fill("Simple draft text.");
+  test("assistant responds in the sidebar chat", async ({ page }) => {
+    await expect(page.locator('[data-testid="document-view"]')).toBeVisible({
+      timeout: 15000,
+    });
 
-    const chatInputs = page.locator(
-      'textarea[placeholder], [placeholder*="message"]',
-    );
-    const chatInput = chatInputs.last();
-    await chatInput.fill("Rewrite this as a formal letter");
-    await chatInput.press("Enter");
+    const input = page.getByPlaceholder("Ask me to write something...");
+    await input.fill("Write a short poem about autumn leaves.");
+    await input.press("Enter");
 
-    // Wait for confirm modal
-    const confirmModal = page.locator('[data-testid="confirm-changes-modal"]');
-    await expect(confirmModal).toBeVisible({ timeout: 60000 });
-
-    // Modal should contain the proposed new content (not empty)
-    const modalText = await confirmModal.textContent();
-    expect(modalText).toBeTruthy();
-    expect(modalText!.length).toBeGreaterThan(20);
-
-    // Both action buttons should be present
-    await expect(page.locator('[data-testid="reject-button"]')).toBeVisible();
-    await expect(page.locator('[data-testid="confirm-button"]')).toBeVisible();
+    // The sidebar should show an assistant message
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 60000 });
   });
 });

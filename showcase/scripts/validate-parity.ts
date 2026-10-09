@@ -43,11 +43,8 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import {
-  parseManifest,
-  type Manifest,
-  type ManifestDemo,
-} from "./lib/manifest.js";
+import { parseManifest } from "./lib/manifest.js";
+import type { Manifest, ManifestDemo } from "./lib/manifest.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // ROOT = showcase/ (NOT the repo root). validate-parity.ts lives at
@@ -1141,6 +1138,12 @@ function runParityImpl(
     slugs = fs
       .readdirSync(resolvedPackagesDir, { withFileTypes: true })
       .filter((d) => d.isDirectory())
+      // `_shared` is the shared-code directory (cvdiag emitters/schema staged
+      // into each integration via the per-integration `_shared` symlink), not
+      // an integration: it has no manifest.yaml and must not be audited for
+      // parity. Dot-directories (e.g. a local `.pytest_cache`) are build/test
+      // artifacts, never integration slugs, so they are excluded too.
+      .filter((d) => d.name !== "_shared" && !d.name.startsWith("."))
       .map((d) => d.name)
       .sort();
   } catch (err) {

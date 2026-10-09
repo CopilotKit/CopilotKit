@@ -1,4 +1,5 @@
-import { inject, watch, type Ref } from "vue";
+import { inject, watch } from "vue";
+import type { Ref } from "vue";
 import {
   LastUserMessageKey,
   createDefaultLastUserMessageRef,
@@ -25,8 +26,9 @@ export interface UsePinToSendOptions {
  *   `viewportHeight - bubbleHeight - topOffset` and scrolls so the bubble
  *   sits `topOffset` from the viewport top (padding above the bubble is
  *   pushed off-screen).
- * - Installs a shrink-only `ResizeObserver` on `contentRef` that collapses
- *   the spacer as the assistant response grows; never grows it back.
+ * - Installs a `ResizeObserver` on `contentRef` that adjusts the spacer in
+ *   both directions as content below the anchored message changes, keeping
+ *   the bubble pinned.
  * - Cancels the scheduled `requestAnimationFrame` and disconnects the
  *   `ResizeObserver` on subsequent re-runs and on scope dispose.
  */
@@ -43,7 +45,6 @@ export function usePinToSend({
   );
 
   let lastNonce = -1;
-  let currentSpacerHeight = 0;
   let raf: number | null = null;
   let ro: ResizeObserver | null = null;
 
@@ -109,7 +110,6 @@ export function usePinToSend({
       );
 
       spacerEl.style.height = `${spacerHeight}px`;
-      currentSpacerHeight = spacerHeight;
 
       if (typeof requestAnimationFrame === "function") {
         raf = requestAnimationFrame(() => {
@@ -124,10 +124,9 @@ export function usePinToSend({
         });
       }
 
-      // Shrink-only ResizeObserver: as the assistant response grows below the
-      // anchored user message, collapse the spacer by the same amount so total
-      // scrollable space below the bubble stays constant (and the bubble stays
-      // pinned). Never grow the spacer after initial sizing.
+      // As content below the anchored user message changes, adjust the spacer
+      // by the same amount so total scrollable space below the bubble stays
+      // constant and the bubble stays pinned.
       if (typeof ResizeObserver !== "undefined") {
         ro = new ResizeObserver(() => {
           if (!contentEl || !spacerEl || !scrollEl) return;
@@ -139,10 +138,7 @@ export function usePinToSend({
           const consumedBelow =
             contentHeight - targetOffsetWithinContent - userMessageHeight;
           const remaining = Math.max(0, spacerHeight - consumedBelow);
-          if (remaining < currentSpacerHeight) {
-            spacerEl.style.height = `${remaining}px`;
-            currentSpacerHeight = remaining;
-          }
+          spacerEl.style.height = `${remaining}px`;
         });
         ro.observe(contentEl);
       }

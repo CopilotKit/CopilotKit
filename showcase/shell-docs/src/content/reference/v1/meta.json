@@ -1,0 +1,15 @@
+{
+  "title": "v1",
+  "pages": [
+    "index",
+    "export-map",
+    "---UI Components---",
+    "...components",
+    "---Hooks---",
+    "...hooks",
+    "---Classes---",
+    "...classes",
+    "---SDKs---",
+    "...sdk"
+  ]
+}

@@ -9,7 +9,9 @@ const log = createLogger({ component: "aimock-rebuild" });
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SHOWCASE_DIR = path.resolve(__dirname, "../../..");
-const COMPOSE_FILE = path.join(SHOWCASE_DIR, "docker-compose.local.yml");
+const COMPOSE_FILE =
+  process.env.SHOWCASE_COMPOSE_FILE ||
+  path.join(SHOWCASE_DIR, "docker-compose.local.yml");
 
 // ---------------------------------------------------------------------------
 // Default aimock source locations (relative to showcase dir)

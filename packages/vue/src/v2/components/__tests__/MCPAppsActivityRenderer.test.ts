@@ -48,6 +48,32 @@ async function flushAsync() {
   await nextTick();
 }
 
+/**
+ * Wait for the sandbox iframe to be configured by the shared session. The host
+ * mounts the iframe synchronously, but the bridge package is loaded through a
+ * dynamic import and the resource is fetched through the agent, so `srcdoc` (and
+ * the sandbox contract attributes) land a few macrotasks later.
+ */
+async function waitForSandboxIframe(wrapper: {
+  find: (selector: string) => { exists: () => boolean; element: Element };
+}): Promise<HTMLIFrameElement> {
+  let iframe: HTMLIFrameElement | undefined;
+  await vi.waitFor(
+    () => {
+      const found = wrapper.find("iframe");
+      expect(found.exists()).toBe(true);
+      const element = found.element as HTMLIFrameElement;
+      expect(element.srcdoc).toBeTruthy();
+      iframe = element;
+    },
+    // The bridge arrives through a dynamic import, so this waits on real module
+    // loading rather than a microtask. `vi.waitFor`'s 1s default is enough in
+    // isolation but not when the whole monorepo's suites run in parallel.
+    { timeout: 10_000, interval: 50 },
+  );
+  return iframe!;
+}
+
 describe("MCPAppsActivityRenderer", () => {
   it("exports the expected activity type and schema", () => {
     expect(MCPAppsActivityType).toBe("mcp-apps");
@@ -80,8 +106,8 @@ describe("MCPAppsActivityRenderer", () => {
         },
         message: {
           id: "activity-1",
-          role: "assistant",
-          content: "",
+          role: "activity",
+          content: {},
           activityType: MCPAppsActivityType,
         },
         agent: undefined,
@@ -123,8 +149,8 @@ describe("MCPAppsActivityRenderer", () => {
         },
         message: {
           id: "activity-no-border",
-          role: "assistant",
-          content: "",
+          role: "activity",
+          content: {},
           activityType: MCPAppsActivityType,
         },
         agent,
@@ -174,18 +200,15 @@ describe("MCPAppsActivityRenderer", () => {
         },
         message: {
           id: "activity-csp",
-          role: "assistant",
-          content: "",
+          role: "activity",
+          content: {},
           activityType: MCPAppsActivityType,
         },
         agent,
       },
     });
 
-    await flushAsync();
-    await flushAsync();
-
-    const iframe = wrapper.find("iframe").element as HTMLIFrameElement;
+    const iframe = await waitForSandboxIframe(wrapper);
     expect(iframe.srcdoc).toContain("script-src");
     expect(iframe.srcdoc).toContain("frame-src");
     expect(iframe.srcdoc).toContain("https://widgets.example.com");
@@ -214,18 +237,15 @@ describe("MCPAppsActivityRenderer", () => {
         },
         message: {
           id: "activity-default-csp",
-          role: "assistant",
-          content: "",
+          role: "activity",
+          content: {},
           activityType: MCPAppsActivityType,
         },
         agent,
       },
     });
 
-    await flushAsync();
-    await flushAsync();
-
-    const iframe = wrapper.find("iframe").element as HTMLIFrameElement;
+    const iframe = await waitForSandboxIframe(wrapper);
     expect(iframe.srcdoc).toContain(
       "script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' 'unsafe-eval' blob: data: http://localhost:* https://localhost:*;",
     );
@@ -233,5 +253,45 @@ describe("MCPAppsActivityRenderer", () => {
       "frame-src * blob: data: http://localhost:* https://localhost:*;",
     );
     expect(iframe.srcdoc).not.toContain("widgets.example.com");
+  });
+
+  // Cross-frontend surface contract: the shared harness probe
+  // (`showcase/harness/src/probes/scripts/d5-mcp-apps.ts`) settles the turn on
+  // `[data-testid="mcp-app-iframe"]` mounting. Angular and react-core declare
+  // the same pair; dropping it here silently reds the D5/D6 mcp-apps rows on
+  // every Vue integration while the demo still looks fine by hand.
+  it("tags the sandbox iframe with the shared mcp-app-iframe testid", async () => {
+    const agent = createAgentMock({
+      runResult: {
+        result: {
+          contents: [{ uri: "ui://server/testid", text: "<div>testid</div>" }],
+        },
+      },
+      threadId: "testid-thread",
+    });
+
+    const wrapper = mount(MCPAppsActivityRenderer, {
+      props: {
+        activityType: MCPAppsActivityType,
+        content: {
+          resourceUri: "ui://server/testid",
+          serverHash: "hash-testid",
+          result: {},
+        },
+        message: {
+          id: "activity-testid",
+          role: "activity",
+          content: {},
+          activityType: MCPAppsActivityType,
+        },
+        agent,
+      },
+    });
+
+    await waitForSandboxIframe(wrapper);
+
+    const iframe = wrapper.find('iframe[data-testid="mcp-app-iframe"]');
+    expect(iframe.exists()).toBe(true);
+    expect(iframe.attributes("title")).toBe("Interactive MCP application");
   });
 });

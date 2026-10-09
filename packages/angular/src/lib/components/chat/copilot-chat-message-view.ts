@@ -1,21 +1,28 @@
+import type { TemplateRef, Type } from "@angular/core";
 import {
   Component,
   input,
   output,
   ContentChild,
-  TemplateRef,
-  Type,
   ChangeDetectionStrategy,
   ViewEncapsulation,
+  afterRenderEffect,
   computed,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+import { NgTemplateOutlet } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
-import type { Message } from "@ag-ui/core";
+import type { Message, ReasoningMessage } from "@ag-ui/core";
 import { CopilotChatAssistantMessage } from "./copilot-chat-assistant-message";
 import { CopilotChatUserMessage } from "./copilot-chat-user-message";
 import { CopilotChatMessageViewCursor } from "./copilot-chat-message-view-cursor";
+import { CopilotChatReasoningMessage } from "./copilot-chat-reasoning-message";
+import { CopilotActivity } from "../activity/copilot-activity";
 import { cn } from "../../utils";
+import {
+  commitRowKeyStore,
+  createRowKeyStore,
+  resolveRowRenderKeys,
+} from "@copilotkit/shared";
 
 /**
  * CopilotChatMessageView component - Angular port of the React component.
@@ -24,14 +31,15 @@ import { cn } from "../../utils";
  */
 @Component({
   selector: "copilot-chat-message-view",
-  standalone: true,
   host: { "data-copilotkit": "" },
   imports: [
-    CommonModule,
+    NgTemplateOutlet,
     CopilotSlot,
     CopilotChatAssistantMessage,
     CopilotChatUserMessage,
+    CopilotChatReasoningMessage,
     CopilotChatMessageViewCursor,
+    CopilotActivity,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
@@ -46,7 +54,7 @@ import { cn } from "../../utils";
       <!-- Default layout - exact React DOM structure: div with "flex flex-col" classes -->
       <div [class]="computedClass()">
         <!-- Message iteration - simplified without tool calls -->
-        @for (message of messagesValue(); track trackByMessageId($index, message)) {
+        @for (message of messagesValue(); track rowRenderKey($index, message)) {
           @if (message && message.role === "assistant") {
             <!-- Assistant message with slot support -->
             @if (assistantMessageComponent() || assistantMessageTemplate()) {
@@ -60,6 +68,7 @@ import { cn } from "../../utils";
               <copilot-chat-assistant-message
                 [message]="message"
                 [messages]="messagesValue()"
+                [agentId]="agentId()"
                 [isLoading]="isLoadingValue()"
                 [inputClass]="assistantMessageClass()"
                 (thumbsUp)="handleAssistantThumbsUp($event)"
@@ -85,7 +94,31 @@ import { cn } from "../../utils";
               >
               </copilot-chat-user-message>
             }
+          } @else if (message && message.role === "reasoning") {
+            @if (reasoningMessageComponent() || reasoningMessageTemplate()) {
+              <copilot-slot
+                [slot]="reasoningMessageTemplate() || reasoningMessageComponent()"
+                [context]="mergeReasoningProps(asReasoningMessage(message))"
+                [defaultComponent]="defaultReasoningComponent"
+              />
+            } @else {
+              <copilot-chat-reasoning-message
+                [message]="asReasoningMessage(message)"
+                [messages]="messagesValue()"
+                [isRunning]="isLoadingValue()"
+                [inputClass]="reasoningMessageClass()"
+              />
+            }
+          } @else if (message && message.role === "activity") {
+            <copilot-activity [message]="message" [agentId]="agentId()" />
           }
+        }
+
+        @if (childrenComponent() || childrenTemplate()) {
+          <copilot-slot
+            [slot]="childrenTemplate() || childrenComponent()"
+            [context]="childrenContext()"
+          />
         }
 
         <!-- Cursor - exactly like React's conditional rendering -->
@@ -109,9 +142,12 @@ import { cn } from "../../utils";
 export class CopilotChatMessageView {
   // Core inputs matching React props
   messages = input<Message[]>([]);
+  /** Current agent state exposed to transcript-children slots. */
+  state = input<unknown>({});
   showCursor = input<boolean>(false);
   isLoading = input<boolean>(false);
   inputClass = input<string | undefined>();
+  agentId = input<string | undefined>();
 
   // Handler availability handled via DI service
 
@@ -119,6 +155,16 @@ export class CopilotChatMessageView {
   assistantMessageComponent = input<Type<any> | undefined>();
   assistantMessageTemplate = input<TemplateRef<any> | undefined>();
   assistantMessageClass = input<string | undefined>();
+
+  // ReasoningMessage slot inputs
+  reasoningMessageComponent = input<Type<any> | undefined>();
+  reasoningMessageTemplate = input<TemplateRef<any> | undefined>();
+  reasoningMessageClass = input<string | undefined>();
+
+  // Content rendered after the message collection and before the cursor.
+  childrenComponent = input<Type<any> | undefined>();
+  childrenTemplate = input<TemplateRef<any> | undefined>();
+  childrenClass = input<string | undefined>();
 
   // User message slot inputs
   userMessageComponent = input<Type<any> | undefined>();
@@ -144,15 +190,40 @@ export class CopilotChatMessageView {
   // Default components for slots
   protected readonly defaultAssistantComponent = CopilotChatAssistantMessage;
   protected readonly defaultUserComponent = CopilotChatUserMessage;
+  protected readonly defaultReasoningComponent = CopilotChatReasoningMessage;
   protected readonly defaultCursorComponent = CopilotChatMessageViewCursor;
 
   // Derived values from inputs
   protected messagesValue = computed(() => this.messages());
-  protected showCursorValue = computed(() => this.showCursor());
+
+  /**
+   * Override table backing `rowRenderKey`. Per component instance, so its
+   * lifetime matches the rendered list.
+   */
+  private readonly rowKeyStore = createRowKeyStore();
+  protected rowRenderKeys = computed(() =>
+    resolveRowRenderKeys(this.rowKeyStore, this.messagesValue()),
+  );
+
+  // Record what actually rendered, never what the computed merely evaluated:
+  // an anchor from an evaluation that never reaches the DOM would re-key a
+  // rendered row and recreate it.
+  private readonly rowKeyStoreCommit = afterRenderEffect(() => {
+    commitRowKeyStore(this.rowKeyStore, this.messagesValue());
+  });
+  protected showCursorValue = computed(
+    () => this.showCursor() && this.lastMessage()?.role !== "reasoning",
+  );
   protected isLoadingValue = computed(() => this.isLoading());
+  protected lastMessage = computed(() => {
+    const messages = this.messagesValue();
+    return messages[messages.length - 1];
+  });
 
   // Computed class matching React: twMerge("flex flex-col", className)
-  computedClass = computed(() => cn("flex flex-col", this.inputClass()));
+  computedClass = computed(() =>
+    cn("cpk:flex cpk:flex-col", this.inputClass()),
+  );
 
   // Layout context for custom templates (render prop pattern)
   layoutContext = computed(() => ({
@@ -160,7 +231,12 @@ export class CopilotChatMessageView {
     messages: this.messagesValue(),
     showCursor: this.showCursorValue(),
     messageElements: this.messagesValue().filter(
-      (m) => m && (m.role === "assistant" || m.role === "user"),
+      (m) =>
+        m &&
+        (m.role === "assistant" ||
+          m.role === "user" ||
+          m.role === "reasoning" ||
+          m.role === "activity"),
     ),
   }));
 
@@ -185,6 +261,25 @@ export class CopilotChatMessageView {
     };
   }
 
+  mergeReasoningProps(message: ReasoningMessage) {
+    return {
+      message,
+      messages: this.messagesValue(),
+      isRunning: this.isLoadingValue(),
+      inputClass: this.reasoningMessageClass(),
+    };
+  }
+
+  childrenContext() {
+    return {
+      messages: this.messagesValue(),
+      state: this.state(),
+      agentId: this.agentId(),
+      isRunning: this.isLoadingValue(),
+      inputClass: this.childrenClass(),
+    };
+  }
+
   mergeUserProps(message: Message) {
     return {
       message,
@@ -192,12 +287,18 @@ export class CopilotChatMessageView {
     };
   }
 
-  // TrackBy function for performance optimization
-  trackByMessageId(index: number, message: Message): string {
-    return message?.id || `index-${index}`;
+  asReasoningMessage(message: Message): ReasoningMessage {
+    return message as ReasoningMessage;
   }
 
-  constructor() {}
+  /**
+   * Stable `@for` track key. A message's canonical id can change mid-stream, and
+   * tracking by it destroys and recreates the row on that swap (the HITL chat
+   * flash). See ./row-render-keys for the mechanism and its limits.
+   */
+  rowRenderKey(index: number, message: Message): string {
+    return this.rowRenderKeys()[index] ?? message?.id ?? `index-${index}`;
+  }
 
   // Event handlers - just pass them through
   handleAssistantThumbsUp(event: { message: Message }): void {

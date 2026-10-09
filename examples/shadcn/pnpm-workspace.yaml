@@ -1,0 +1,4 @@
+packages:
+  - "."
+minimumReleaseAgeExclude:
+  - "@shadcn/react@0.1.0"

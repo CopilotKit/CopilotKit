@@ -1,21 +1,21 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { readFileSync } from "fs";
 import path from "path";
+import { globSync } from "glob";
+import { loadFixtureFile } from "@copilotkit/aimock";
 
 // Regression guard for the three "open-gen-ui-advanced" interactive pills.
 //
-// Each pill's `userMessage` doubles as a fixture key in
-// `showcase/aimock/d5-all.json`. The fixture's `generateSandboxedUi`
-// tool-call arguments MUST include `jsFunctions` that wire up the in-iframe
-// click handlers — otherwise the iframe renders HTML+CSS but every button
-// is a no-op (the regression that motivated this test).
+// Each pill's `userMessage` doubles as a fixture key in the per-integration
+// fixture files under `showcase/aimock/d6/`. The fixture's
+// `generateSandboxedUi` tool-call arguments MUST include `jsFunctions` that
+// wire up the in-iframe click handlers — otherwise the iframe renders HTML+CSS
+// but every button is a no-op (the regression that motivated this test).
 //
 // Fixture aimock schema validation (in `aimock-fixtures.test.ts`) catches
 // structural issues but not semantic ones — it doesn't know that the
 // Calculator's HTML needs JS to do anything. This test plugs that gap.
 
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
-const FIXTURE_PATH = path.join(REPO_ROOT, "showcase", "aimock", "d5-all.json");
 
 type Fixture = {
   match: { userMessage?: string; toolCallId?: string };
@@ -28,8 +28,28 @@ type Fixture = {
 let fixturesByMessage: Record<string, Fixture[]> = {};
 
 beforeAll(() => {
-  const raw = JSON.parse(readFileSync(FIXTURE_PATH, "utf8"));
-  for (const f of raw.fixtures as Fixture[]) {
+  // Load fixtures for a single integration (langgraph-python, the reference
+  // integration) plus shared. At runtime each integration only sees its own
+  // scoped fixtures via X-AIMock-Context, so loading a single integration's
+  // fixture set is the correct simulation.
+  const fixtureFiles = [
+    ...globSync("showcase/aimock/shared/*.json", {
+      cwd: REPO_ROOT,
+      absolute: true,
+    }),
+    ...globSync("showcase/aimock/d4/langgraph-python/*.json", {
+      cwd: REPO_ROOT,
+      absolute: true,
+    }),
+    ...globSync("showcase/aimock/d6/langgraph-python/*.json", {
+      cwd: REPO_ROOT,
+      absolute: true,
+    }),
+  ];
+  const allFixtures = fixtureFiles.flatMap((f) =>
+    loadFixtureFile(f),
+  ) as unknown as Fixture[];
+  for (const f of allFixtures) {
     const key = f.match.userMessage;
     if (!key) continue;
     (fixturesByMessage[key] ??= []).push(f);

@@ -48,6 +48,37 @@ describe("phoenix observable utilities", () => {
     expect(socket!.disconnected).toBe(true);
   });
 
+  /**
+   * Phoenix's 30s default heartbeat equals a common reverse-proxy WebSocket
+   * idle timeout, so a quiet run would get its browser socket dropped.
+   */
+  it("pings every 15s by default so a 30s proxy idle timeout never fires", () => {
+    phoenix.sockets.splice(0);
+    const subscription = ɵphoenixSocket$({
+      url: "ws://localhost:4000/client",
+      options: { params: { token: "t" } },
+    }).subscribe();
+
+    expect(phoenix.sockets[0]!.opts).toEqual({
+      heartbeatIntervalMs: 15_000,
+      params: { token: "t" },
+    });
+
+    subscription.unsubscribe();
+  });
+
+  it("lets the caller override the heartbeat interval", () => {
+    phoenix.sockets.splice(0);
+    const subscription = ɵphoenixSocket$({
+      url: "ws://localhost:4000/client",
+      options: { heartbeatIntervalMs: 5_000 },
+    }).subscribe();
+
+    expect(phoenix.sockets[0]!.opts.heartbeatIntervalMs).toBe(5_000);
+
+    subscription.unsubscribe();
+  });
+
   it("joins channels automatically and leaves on teardown", () => {
     phoenix.sockets.splice(0);
     const socket$ = ɵphoenixSocket$({
@@ -80,7 +111,7 @@ describe("phoenix observable utilities", () => {
     subscription.unsubscribe();
 
     expect(channel!.left).toBe(true);
-    expect(phoenix.sockets[0].disconnected).toBe(true);
+    expect(phoenix.sockets[0]!.disconnected).toBe(true);
   });
 
   it("removes channel event listeners on unsubscribe", () => {
@@ -95,7 +126,7 @@ describe("phoenix observable utilities", () => {
 
     const payloads: string[] = [];
     const channelSubscription = channel$.subscribe();
-    const channel = phoenix.sockets[0].channels[0];
+    const channel = phoenix.sockets[0]!.channels[0]!;
     channel.triggerJoin("ok");
 
     const eventSubscription = ɵobservePhoenixEvent$<{ value: string }>(
@@ -128,13 +159,13 @@ describe("phoenix observable utilities", () => {
       socket: firstSocket,
       signals$: new Subject(),
     });
-    const firstChannel = firstSocket.channels[0];
+    const firstChannel = firstSocket.channels[0]!;
 
     socketSessions$.next({
       socket: secondSocket,
       signals$: new Subject(),
     });
-    const secondChannel = secondSocket.channels[0];
+    const secondChannel = secondSocket.channels[0]!;
 
     expect(firstChannel.left).toBe(true);
     expect(secondChannel.left).toBe(false);
@@ -150,7 +181,7 @@ describe("phoenix observable utilities", () => {
       url: "ws://localhost:4000/client",
     });
 
-    let error: Error | null = null;
+    let error = null as Error | null;
     const subscription = ɵobservePhoenixSocketHealth$(
       ɵobservePhoenixSocketSignals$(socket$),
       2,
@@ -160,7 +191,7 @@ describe("phoenix observable utilities", () => {
       },
     });
 
-    const socket = phoenix.sockets[0];
+    const socket = phoenix.sockets[0]!;
     socket.triggerError(new Error("first"));
     socket.triggerOpen();
     socket.triggerError(new Error("second"));

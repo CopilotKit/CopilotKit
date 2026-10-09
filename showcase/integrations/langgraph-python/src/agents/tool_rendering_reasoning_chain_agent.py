@@ -14,6 +14,8 @@ from deepagents import create_deep_agent
 from langchain.chat_models import init_chat_model
 from langchain.tools import tool
 
+from src.agents._header_forwarding_middleware import HeaderForwardingMiddleware
+
 
 @tool
 def get_weather(location: str) -> dict:
@@ -120,10 +122,14 @@ SYSTEM_PROMPT = (
 
 REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4")
 
-# No CopilotKitMiddleware — this demo combines reasoning-token streaming with
-# backend tool rendering, but doesn't consume any frontend tools or app context.
-# The frontend renders the tool calls via `useRenderTool`, which works off the
-# AG-UI tool-call event stream and doesn't require server-side middleware.
+# No full CopilotKitMiddleware — this demo combines reasoning-token streaming
+# with backend tool rendering, but doesn't consume any frontend tools or app
+# context. We still attach the minimal HeaderForwardingMiddleware so inbound
+# ``x-aimock-context`` (and other ``x-*``) headers reach the outgoing
+# /v1/responses call; without it the LangGraph run swallows them inside
+# ``configurable`` and aimock 404s with no fixture match. The minimal
+# middleware does ONLY header propagation — no App-Context injection, no
+# tool-merging, no state-surfacing.
 graph = create_deep_agent(
     model=init_chat_model(
         f"openai:{REASONING_MODEL}",
@@ -139,4 +145,5 @@ graph = create_deep_agent(
     ),
     tools=[get_weather, search_flights, get_stock_price, roll_dice],
     system_prompt=SYSTEM_PROMPT,
+    middleware=[HeaderForwardingMiddleware()],
 )

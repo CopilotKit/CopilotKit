@@ -1,1 +1,1 @@
-export * from "./agentcore-runner";
+export * from "./agentcore-runner.js";

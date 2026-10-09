@@ -1,26 +1,25 @@
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { MastraAgent, getLocalAgent } from "@ag-ui/mastra";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { mastra } from "@/mastra";
+// `withForwardedHeaders` binds inbound x-* headers (e.g. x-aimock-context)
+// into an AsyncLocalStorage scope so the wrapped @ai-sdk/openai provider's
+// fetch can re-attach them on outbound LLM calls. Required because the
+// @ag-ui/mastra adapter does not forward inbound headers to Vercel AI SDK.
+import { withForwardedHeaders } from "@/mastra/_header_forwarding";
+// CVDIAG backend instrumentation (L1-E). No-op pass-through unless
+// CVDIAG_BACKEND_EMITTER is set truthy (default OFF).
+import { withCvdiagBackend } from "@/cvdiag-backend";
 
-// We use ExperimentalEmptyAdapter because Mastra agents drive the LLM
-// themselves — the CopilotKit runtime only brokers AG-UI events between
-// the frontend and the agent. A real adapter (OpenAI/Anthropic/etc.) would
-// try to issue its own LLM calls and conflict with the agent's own loop.
-const serviceAdapter = new ExperimentalEmptyAdapter();
-
-// Startup log: make the adapter choice visible in boot logs so operators
-// debugging "why is the runtime not calling the LLM?" can find the answer
-// without reading source.
-console.log(
-  "[copilotkit route] init: serviceAdapter=ExperimentalEmptyAdapter (Mastra agents drive the LLM)",
-);
+// The V2 runtime has no service adapters: Mastra agents drive the LLM
+// themselves and the runtime only brokers AG-UI events between the frontend
+// and the agent. Under V1 this route passed `ExperimentalEmptyAdapter` to say
+// exactly that; there is now no adapter to choose, so nothing to configure.
 
 // The Mastra config registers a single local agent (`weatherAgent`), but the
 // demo pages request a variety of agent names (`agentic_chat`,
@@ -64,8 +63,15 @@ export const demoAgentNames = [
   "hitl-in-app",
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
-  "agentic-chat-reasoning",
-  "reasoning-default-render",
+  // Reasoning cells. The demo pages request these agent names verbatim
+  // (`agent="reasoning-default"` / `agent="reasoning-custom"`); they must be
+  // registered here or the runtime returns agent-not-found and the chat never
+  // starts (no reasoning stream renders). These are the agent-name equivalents
+  // of the `reasoning-default-render` / `agentic-chat-reasoning` manifest
+  // feature keys — see tests/vitest/demoAgentNames.parity.test.ts, which
+  // enforces that every page `agent="…"` literal appears in this list.
+  "reasoning-default",
+  "reasoning-custom",
   "readonly-state-agent-context",
   "agent-config",
   "declarative-gen-ui",
@@ -83,9 +89,30 @@ export const demoAgentNames = [
 const demoAgentIdOverrides: Partial<Record<DemoAgentName, string>> = {
   "headless-complete": "headlessCompleteAgent",
   "shared-state-read-write": "sharedStateReadWriteAgent",
+  "shared-state-streaming": "sharedStateStreamingAgent",
+  "gen-ui-agent": "genUiAgent",
   subagents: "subagentsSupervisorAgent",
   "gen-ui-interrupt": "interruptAgent",
   "interrupt-headless": "interruptAgent",
+  // Reasoning cells use a dedicated reasoning-capable agent (Responses API +
+  // reasoning-summary streaming). Mapping them to the default weatherAgent
+  // (gpt-4o) meant no reasoning items were ever emitted and the reasoning slot
+  // stayed dark. See src/mastra/agents/index.ts (reasoningAgent).
+  "reasoning-default": "reasoningAgent",
+  "reasoning-custom": "reasoningAgent",
+  // Reasoning + backend tool-rendering chain: dedicated agent registers the
+  // four chain tools (weather/flights/stock/dice) under the fixture tool-call
+  // names so Mastra executes each leg and the multi-turn chain reaches its
+  // closing narration.
+  "tool-rendering-reasoning-chain": "reasoningChainAgent",
+  // Plain tool-rendering + its catch-all variants share one backend bound to
+  // all four demo tools (get_weather, search_flights, get_stock_price,
+  // roll_d20) — mirrors gold tool_rendering_agent.py. Without this they fell
+  // back to weatherAgent, which lacks get_stock_price/roll_d20, so the Stock,
+  // d20, and Chain pills emitted uncallable tool calls and rendered no card.
+  "tool-rendering": "toolRenderingAgent",
+  "tool-rendering-default-catchall": "toolRenderingAgent",
+  "tool-rendering-custom-catchall": "toolRenderingAgent",
 };
 
 export type DemoAgentName = (typeof demoAgentNames)[number];
@@ -103,6 +130,8 @@ export type LocalMastraAgentName =
   | "weatherAgent"
   | "headlessCompleteAgent"
   | "sharedStateReadWriteAgent"
+  | "sharedStateStreamingAgent"
+  | "genUiAgent"
   | "subagentsSupervisorAgent"
   | "interruptAgent"
   | "multimodalAgent"
@@ -155,6 +184,16 @@ export function buildAgents(
       "sharedStateReadWriteAgent missing from Mastra config — required for shared-state-read-write demo alias",
     );
   }
+  if (!baseLocalAgents.sharedStateStreamingAgent) {
+    throw new Error(
+      "sharedStateStreamingAgent missing from Mastra config — required for shared-state-streaming demo alias",
+    );
+  }
+  if (!baseLocalAgents.genUiAgent) {
+    throw new Error(
+      "genUiAgent missing from Mastra config — required for gen-ui-agent demo alias",
+    );
+  }
   if (!baseLocalAgents.subagentsSupervisorAgent) {
     throw new Error(
       "subagentsSupervisorAgent missing from Mastra config — required for subagents demo alias",
@@ -197,6 +236,24 @@ export function buildAgents(
     throw new Error(
       "getLocalAgent returned null for sharedStateReadWriteAgent",
     );
+  }
+  const sharedStateStreamingAgentInstance = getLocalAgent({
+    mastra: mastraInstance,
+    agentId: "sharedStateStreamingAgent",
+    resourceId: "mastra-sharedStateStreamingAgent",
+  });
+  if (!sharedStateStreamingAgentInstance) {
+    throw new Error(
+      "getLocalAgent returned null for sharedStateStreamingAgent",
+    );
+  }
+  const genUiAgentInstance = getLocalAgent({
+    mastra: mastraInstance,
+    agentId: "genUiAgent",
+    resourceId: "mastra-genUiAgent",
+  });
+  if (!genUiAgentInstance) {
+    throw new Error("getLocalAgent returned null for genUiAgent");
   }
   const subagentsSupervisorAgentInstance = getLocalAgent({
     mastra: mastraInstance,
@@ -242,6 +299,8 @@ export function buildAgents(
     weatherAgent: baseLocalAgents.weatherAgent,
     headlessCompleteAgent: headlessCompleteAgentInstance,
     sharedStateReadWriteAgent: sharedStateRWAgentInstance,
+    sharedStateStreamingAgent: sharedStateStreamingAgentInstance,
+    genUiAgent: genUiAgentInstance,
     subagentsSupervisorAgent: subagentsSupervisorAgentInstance,
     interruptAgent: interruptAgentInstance,
     multimodalAgent: multimodalAgentInstance,
@@ -286,6 +345,11 @@ export function buildAgents(
     "sharedStateReadWriteAgent",
     "mastra-sharedStateReadWriteAgent",
   );
+  resourceIdByAgent.set(
+    "sharedStateStreamingAgent",
+    "mastra-sharedStateStreamingAgent",
+  );
+  resourceIdByAgent.set("genUiAgent", "mastra-genUiAgent");
   resourceIdByAgent.set(
     "subagentsSupervisorAgent",
     "mastra-subagentsSupervisorAgent",
@@ -366,7 +430,7 @@ export function __resetAgentsCacheForTests(): void {
 // regardless of where the failure occurred. Phases:
 //   - "setup": everything that happens BEFORE headers flush. Covers agent
 //     cache construction, runtime instantiation, and synchronous failures
-//     inside `wrapStreamingResponse` (malformed Response from handleRequest,
+//     inside `wrapStreamingResponse` (malformed Response from copilotHandler,
 //     etc.) — all of which still allow us to return a 500 JSON envelope.
 //   - "stream": mid-stream failures observed by the body wrapper AFTER
 //     headers have been committed — we can no longer change the status, only
@@ -391,7 +455,7 @@ function logRouteError(err: unknown, phase: "setup" | "stream"): string {
 
 // Wrap a streaming Response body with a TransformStream that forwards chunks
 // verbatim but catches any error thrown by the upstream source AFTER headers
-// have been flushed. Without this, a rejection inside handleRequest's SSE
+// have been flushed. Without this, a rejection inside copilotHandler's SSE
 // loop escapes every try/catch and leaves the frontend with a mute aborted
 // stream — no log, no errorId, no way to correlate.
 //
@@ -451,51 +515,63 @@ function wrapStreamingResponse(response: Response): Response {
 //   1. Synchronous construction errors (bad mastra config, missing
 //      weatherAgent, etc.) — caught by the outer try/catch, 500 returned.
 //   2. Synchronous wrap-time errors (e.g. malformed Response from
-//      handleRequest that makes `wrapStreamingResponse` itself throw) —
+//      copilotHandler that makes `wrapStreamingResponse` itself throw) —
 //      caught separately so we can cancel the upstream body before the 500
 //      goes out. Without this cancel, the ReadableStream returned by
-//      handleRequest leaks (no consumer ever reads it).
+//      copilotHandler leaks (no consumer ever reads it).
 //   3. Mid-stream errors (thrown after response headers have been flushed)
 //      — caught inside the TransformStream in `wrapStreamingResponse`.
-export const POST = async (req: NextRequest) => {
-  let response: Response | undefined;
-  try {
-    const runtime = new CopilotRuntime({
-      agents: getAgents(),
-    });
-
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      runtime,
-      serviceAdapter,
-      endpoint: "/api/copilotkit",
-    });
-
-    response = await handleRequest(req);
-  } catch (err) {
-    const errorId = logRouteError(err, "setup");
-    return NextResponse.json(
-      { error: "internal runtime error", errorId },
-      { status: 500 },
-    );
-  }
-
-  try {
-    return wrapStreamingResponse(response);
-  } catch (err) {
-    // `wrapStreamingResponse` threw synchronously (e.g. malformed
-    // `response.headers`). The upstream ReadableStream has been produced
-    // but nobody is going to consume it — cancel it explicitly to release
-    // whatever resources the runtime holds open behind the body. Swallow
-    // errors from cancel itself; we're already on the 500 path.
+const copilotkitPost = async (req: NextRequest): Promise<Response> =>
+  // Bind inbound x-* headers into ALS for the duration of this request so
+  // the wrapped @ai-sdk/openai provider's fetch can attach them on every
+  // outbound LLM call (e.g. x-aimock-context for aimock fixture matching).
+  withForwardedHeaders(req, async () => {
+    let response: Response | undefined;
     try {
-      await response.body?.cancel();
-    } catch {
-      // best-effort cleanup; the primary error is already being logged below
+      const runtime = new CopilotRuntime({
+        agents: getAgents(),
+      });
+
+      const copilotHandler = createCopilotRuntimeHandler({
+        runtime,
+        basePath: "/api/copilotkit",
+        mode: "single-route",
+      });
+
+      response = await copilotHandler(req);
+    } catch (err) {
+      const errorId = logRouteError(err, "setup");
+      return NextResponse.json(
+        { error: "internal runtime error", errorId },
+        { status: 500 },
+      );
     }
-    const errorId = logRouteError(err, "setup");
-    return NextResponse.json(
-      { error: "internal runtime error", errorId },
-      { status: 500 },
-    );
-  }
-};
+
+    try {
+      return wrapStreamingResponse(response);
+    } catch (err) {
+      // `wrapStreamingResponse` threw synchronously (e.g. malformed
+      // `response.headers`). The upstream ReadableStream has been produced
+      // but nobody is going to consume it — cancel it explicitly to release
+      // whatever resources the runtime holds open behind the body. Swallow
+      // errors from cancel itself; we're already on the 500 path.
+      try {
+        await response.body?.cancel();
+      } catch {
+        // best-effort cleanup; the primary error is already being logged below
+      }
+      const errorId = logRouteError(err, "setup");
+      return NextResponse.json(
+        { error: "internal runtime error", errorId },
+        { status: 500 },
+      );
+    }
+  });
+
+// Wrap with CVDIAG backend instrumentation (L1-E). No-op pass-through unless
+// CVDIAG_BACKEND_EMITTER is set truthy (default OFF).
+export const POST = withCvdiagBackend(copilotkitPost, {
+  slug: "mastra",
+  agentName: "weatherAgent",
+  provider: "openai",
+});

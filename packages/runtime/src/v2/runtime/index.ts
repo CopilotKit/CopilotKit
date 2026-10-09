@@ -7,9 +7,15 @@ export * from "./runner";
 // Export transcription services
 export * from "./transcription-service/transcription-service";
 
-// Export intelligence platform client and types
+// Export CopilotKit Intelligence client and types
 export {
   CopilotKitIntelligence,
+  LearnedSkillsError,
+  type LearnedSkillsErrorCode,
+  type GetLearnedSkillsSnapshotRequest,
+  type GetLearnedSkillsSnapshotsRequest,
+  type LearnedSkillsBatchResult,
+  type LearnedSkillsSnapshotResult,
   type CopilotKitIntelligenceConfig,
   type CreateThreadRequest,
   type ThreadSummary,
@@ -29,6 +35,7 @@ export { createCopilotRuntimeHandler } from "./core/fetch-handler";
 export type {
   CopilotRuntimeHandlerOptions,
   CopilotRuntimeFetchHandler,
+  CopilotRuntimeFetchHandlerWithChannels,
 } from "./core/fetch-handler";
 
 // Export hook types
@@ -43,6 +50,10 @@ export type {
 
 // Export CORS config type
 export type { CopilotCorsConfig } from "./core/fetch-cors";
+
+// Export Channels control-surface types so consumers can name the type of
+// `handler.channels` (see `core/channel-manager.ts`).
+export type { ChannelsControl, ChannelStatus } from "./core/channel-manager";
 
 // Deprecated type aliases for backward compatibility
 /** @deprecated Use `CopilotRuntimeFetchHandler` instead. Note: the new type takes `Request` directly, not `{ request: Request }`. */

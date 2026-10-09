@@ -44,6 +44,7 @@ you can ensure that the agent is always making the right decisions and ultimatel
 
     ```tsx title="ui/app/page.tsx"
     import { useHumanInTheLoop } from "@copilotkit/react-core/v2" // [!code highlight]
+    import { z } from "zod"
 
     function YourMainContent() {
       // ...
@@ -51,20 +52,10 @@ you can ensure that the agent is always making the right decisions and ultimatel
       useHumanInTheLoop({
         name: "offerOptions",
         description: "Give the user a choice between two options and have them select one.",
-        parameters: [
-          {
-            name: "option_1",
-            type: "string",
-            description: "The first option",
-            required: true,
-          },
-          {
-            name: "option_2",
-            type: "string",
-            description: "The second option",
-            required: true,
-          },
-        ],
+        parameters: z.object({
+          option_1: z.string().describe("The first option"),
+          option_2: z.string().describe("The second option"),
+        }),
         render: ({ args, respond }) => {
           if (!respond) return <></>;
           return (

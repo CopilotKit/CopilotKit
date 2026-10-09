@@ -2,9 +2,12 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { CopilotChatView } from "../CopilotChatView";
-import { CopilotChatMessageView } from "../CopilotChatMessageView";
-import { CopilotChatInput } from "../CopilotChatInput";
-import { CopilotChatSuggestionView } from "../CopilotChatSuggestionView";
+import type { CopilotChatMessageView } from "../CopilotChatMessageView";
+import type { CopilotChatInput } from "../CopilotChatInput";
+import type { CopilotChatSuggestionView } from "../CopilotChatSuggestionView";
+import type { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
+import type { CopilotChatUserMessage } from "../CopilotChatUserMessage";
+import type { CopilotChatSuggestionPillProps } from "../CopilotChatSuggestionPill";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 
@@ -190,7 +193,10 @@ describe("CopilotChatView Slot System E2E Tests", () => {
 
         render(
           <TestWrapper>
-            <CopilotChatView messages={sampleMessages} input={CustomInput} />
+            <CopilotChatView
+              messages={sampleMessages}
+              input={CustomInput as unknown as typeof CopilotChatInput}
+            />
           </TestWrapper>,
         );
 
@@ -313,7 +319,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           <TestWrapper>
             <CopilotChatView
               messages={sampleMessages}
-              messageView={CustomMessageView}
+              messageView={CustomMessageView as typeof CopilotChatMessageView}
             />
           </TestWrapper>,
         );
@@ -335,7 +341,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
             <CopilotChatView
               messages={sampleMessages}
               isRunning={true}
-              messageView={CustomMessageView}
+              messageView={CustomMessageView as typeof CopilotChatMessageView}
             />
           </TestWrapper>,
         );
@@ -363,7 +369,10 @@ describe("CopilotChatView Slot System E2E Tests", () => {
 
         render(
           <TestWrapper>
-            <CopilotChatView messages={sampleMessages} input={CustomInput} />
+            <CopilotChatView
+              messages={sampleMessages}
+              input={CustomInput as typeof CopilotChatInput}
+            />
           </TestWrapper>,
         );
 
@@ -387,7 +396,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           <TestWrapper>
             <CopilotChatView
               messages={sampleMessages}
-              input={CustomInput}
+              input={CustomInput as typeof CopilotChatInput}
               onSubmitMessage={submitHandler}
             />
           </TestWrapper>,
@@ -447,7 +456,9 @@ describe("CopilotChatView Slot System E2E Tests", () => {
             <CopilotChatView
               messages={sampleMessages}
               suggestions={suggestions}
-              suggestionView={CustomSuggestionView}
+              suggestionView={
+                CustomSuggestionView as typeof CopilotChatSuggestionView
+              }
             />
           </TestWrapper>,
         );
@@ -523,7 +534,8 @@ describe("CopilotChatView Slot System E2E Tests", () => {
             <CopilotChatView
               messages={sampleMessages}
               messageView={{
-                assistantMessage: CustomAssistantMessage,
+                assistantMessage:
+                  CustomAssistantMessage as typeof CopilotChatAssistantMessage,
               }}
             />
           </TestWrapper>,
@@ -545,7 +557,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
             <CopilotChatView
               messages={sampleMessages}
               messageView={{
-                userMessage: CustomUserMessage,
+                userMessage: CustomUserMessage as typeof CopilotChatUserMessage,
               }}
             />
           </TestWrapper>,
@@ -558,9 +570,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
 
     describe("messageView -> cursor drill-down", () => {
       it("should allow customizing cursor within messageView", () => {
-        const CustomCursor: React.FC<any> = () => (
-          <span data-testid="custom-cursor">|</span>
-        );
+        const CustomCursor = () => <span data-testid="custom-cursor">|</span>;
 
         render(
           <TestWrapper>
@@ -584,19 +594,18 @@ describe("CopilotChatView Slot System E2E Tests", () => {
 
     describe("input -> textArea drill-down", () => {
       it("should allow customizing textArea within input", () => {
-        const CustomTextArea: React.FC<any> = React.forwardRef<
-          HTMLTextAreaElement,
-          any
-        >(({ value, onChange, ...props }, ref) => (
-          <textarea
-            ref={ref}
-            data-testid="custom-textarea"
-            value={value}
-            onChange={(e) => onChange?.(e.target.value)}
-            placeholder="Type here..."
-            {...props}
-          />
-        ));
+        const CustomTextArea = React.forwardRef<HTMLTextAreaElement, any>(
+          ({ value, onChange, ...props }, ref) => (
+            <textarea
+              ref={ref}
+              data-testid="custom-textarea"
+              value={value}
+              onChange={(e) => onChange?.(e.target.value)}
+              placeholder="Type here..."
+              {...props}
+            />
+          ),
+        );
 
         render(
           <TestWrapper>
@@ -677,18 +686,18 @@ describe("CopilotChatView Slot System E2E Tests", () => {
         ];
 
         // Custom suggestion component that handles the props passed by the slot system
-        const CustomSuggestionPill: React.FC<any> = ({
-          suggestion,
-          onClick,
-          title,
-        }) => (
+        const CustomSuggestionPill = React.forwardRef<
+          HTMLButtonElement,
+          CopilotChatSuggestionPillProps
+        >(({ onClick, title, children }, ref) => (
           <button
+            ref={ref}
             data-testid="custom-suggestion-pill"
-            onClick={() => onClick?.(suggestion)}
+            onClick={onClick}
           >
-            💡 {suggestion?.title ?? title ?? "Suggestion"}
+            💡 {children ?? title ?? "Suggestion"}
           </button>
-        );
+        ));
 
         render(
           <TestWrapper>
@@ -715,9 +724,9 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           { title: "Test", message: "Test msg", isLoading: false },
         ];
 
-        const CustomContainer: React.FC<any> = React.forwardRef<
+        const CustomContainer = React.forwardRef<
           HTMLDivElement,
-          any
+          React.HTMLAttributes<HTMLDivElement>
         >(({ children, ...props }, ref) => (
           <div ref={ref} data-testid="custom-suggestion-container" {...props}>
             <span>Suggestions:</span>
@@ -754,7 +763,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           <div data-testid="nested-user">U: {message?.content}</div>
         );
 
-        const CustomTextArea: React.FC<any> = React.forwardRef<any, any>(
+        const CustomTextArea = React.forwardRef<HTMLTextAreaElement, any>(
           (props, ref) => (
             <textarea ref={ref} data-testid="nested-textarea" {...props} />
           ),
@@ -765,8 +774,9 @@ describe("CopilotChatView Slot System E2E Tests", () => {
             <CopilotChatView
               messages={sampleMessages}
               messageView={{
-                assistantMessage: CustomAssistant,
-                userMessage: CustomUser,
+                assistantMessage:
+                  CustomAssistant as typeof CopilotChatAssistantMessage,
+                userMessage: CustomUser as typeof CopilotChatUserMessage,
               }}
               input={{
                 textArea: CustomTextArea,

@@ -2,13 +2,36 @@ import { Hono } from "hono";
 import type { PbClient } from "../storage/pb-client.js";
 import type { Logger } from "../types/index.js";
 import type { TypedEventBus } from "../events/event-bus.js";
+import type { HarnessRole } from "../fleet/role-config.js";
 import { registerDeployWebhook } from "./webhooks/deploy.js";
 import { registerProbesRoutes, type ProbesRouteDeps } from "./probes.js";
+import {
+  registerFleetRunsRoutes,
+  type FleetRunsRouteDeps,
+} from "./fleet-runs.js";
+import { registerMatrixRoute } from "./matrix.js";
 import { renderPrometheus, type MetricsRegistry } from "./metrics.js";
 
 export interface ServerDeps {
   pb: PbClient;
   logger: Logger;
+  /**
+   * Service role this /health surface represents. Defaults to "worker"
+   * (the legacy in-process harness), for which probe rules are the unit of
+   * work — so /health requires `ruleCount > 0` (a running server with zero
+   * rules means the rule loader silently failed). The "control-plane" role
+   * is a scheduler/queue/aggregator that legitimately owns NO probe rules
+   * (only the single fleet-job-producer scheduler entry), so for it the
+   * `rules > 0` gate is dropped — liveness is governed by pb + the scheduler
+   * signals (`schedulerJobCount`, `schedulerStarted`, `loopAlive`) instead.
+   * Without this, the control-plane container reports degraded/503 forever
+   * (rules is always 0) and Railway restart-loops it.
+   *
+   * Typed via the `HarnessRole` SSOT (fleet/role-config.ts) so a future role
+   * addition flows here automatically rather than drifting from an inline
+   * literal union.
+   */
+  role?: HarnessRole;
   ruleCount: () => number;
   /**
    * Historically exposed as `loop: ok|stopped` on /health, but the flag
@@ -60,6 +83,21 @@ export interface ServerDeps {
    * always supplies this in production.
    */
   probes?: ProbesRouteDeps;
+  /**
+   * Optional `/api/runs*` wiring (§5.2). Optional at the TYPE level only
+   * because worker-role/boot callers omit it — the CP role ALWAYS supplies
+   * it, and unlike `probes` there is deliberately NO token coupling: the
+   * fleet-runs router has no mutating route, so the §5.2 unconditional-mount
+   * guarantee is enforced at the orchestrator's CP call site.
+   */
+  fleetRuns?: FleetRunsRouteDeps;
+  /**
+   * §9 compensating control: when supplied, /health gains
+   * `fleetRuns.lastEvaluatedAt` — the family-silence monitor's evaluation
+   * stamp (ISO, or null before the first evaluation) — so an external poll
+   * of the already-exposed health surface can detect a wedged monitor.
+   */
+  fleetRunsLastEvaluatedAt?: () => number | null;
 }
 
 export function buildServer(deps: ServerDeps): Hono {
@@ -92,6 +130,16 @@ export function buildServer(deps: ServerDeps): Hono {
     registerProbesRoutes(app, deps.probes);
   }
 
+  if (deps.fleetRuns) {
+    registerFleetRunsRoutes(app, deps.fleetRuns);
+  }
+
+  // §11 read-model: GET /api/matrix returns the true per-cell chip state as
+  // JSON off the SAME buildCellModel engine the dashboard renders. Registered
+  // unconditionally — it is a pure read over `pb` (always on ServerDeps) with
+  // no mutating route, matching /api/runs' exposure posture (§11.7).
+  registerMatrixRoute(app, { pb: deps.pb, logger: deps.logger });
+
   if (deps.metrics) {
     const registry = deps.metrics;
     // NOTE: `/metrics` is intentionally unauthenticated so in-cluster
@@ -109,7 +157,17 @@ export function buildServer(deps: ServerDeps): Hono {
   }
 
   app.get("/health", async (c) => {
-    const pbOk = await deps.pb.health();
+    // Guard the PB probe: `pb.health()` REJECTING (vs resolving `false`) must
+    // still fold into the `pb: "down"` / 503 degraded JSON contract below —
+    // an unguarded throw would surface as a bare 500 with no body, defeating
+    // the structured-degradation contract a consumer polls for.
+    let pbOk: boolean;
+    try {
+      pbOk = await deps.pb.health();
+    } catch (err) {
+      deps.logger.error("health.pb-check-failed", { error: String(err) });
+      pbOk = false;
+    }
     const ruleCount = deps.ruleCount();
     // Loop-alive semantics:
     //   - `schedulerStarted` (optional): true once start() returned.
@@ -138,7 +196,25 @@ export function buildServer(deps: ServerDeps): Hono {
           : !jobCountOk
             ? "no-jobs"
             : "ok";
-    const ok = pbOk && loopOk && ruleCount > 0;
+    // Role-aware rules gate: the worker (default) role treats probe rules as
+    // its unit of work, so zero rules is a hard 503 (rule-loader crashed).
+    // The control-plane owns no probe rules — its liveness is the scheduler
+    // signals already folded into `loopOk` (schedulerJobCount>0 covers the
+    // fleet-job-producer entry) — so it must not require rules>0, or it would
+    // report degraded forever and Railway would restart-loop it.
+    const rulesOk = deps.role === "control-plane" ? true : ruleCount > 0;
+    const ok = pbOk && loopOk && rulesOk;
+    // §9 compensating control: surface the family-silence monitor's
+    // evaluation stamp so "CP alive but monitor wedged" is externally
+    // detectable. Informational only — never folds into the status gate.
+    let fleetRuns: { lastEvaluatedAt: string | null } | undefined;
+    if (deps.fleetRunsLastEvaluatedAt) {
+      const evaluatedAtMs = deps.fleetRunsLastEvaluatedAt();
+      fleetRuns = {
+        lastEvaluatedAt:
+          evaluatedAtMs === null ? null : new Date(evaluatedAtMs).toISOString(),
+      };
+    }
     return c.json(
       {
         status: ok ? "ok" : "degraded",
@@ -146,6 +222,7 @@ export function buildServer(deps: ServerDeps): Hono {
         loop: loopLabel,
         rules: ruleCount,
         schedulerJobs: jobCount,
+        ...(fleetRuns ? { fleetRuns } : {}),
       },
       ok ? 200 : 503,
     );

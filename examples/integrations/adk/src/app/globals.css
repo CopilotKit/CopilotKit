@@ -12,6 +12,19 @@
   }
 }
 
+/* adk's CopilotSidebar (CopilotKit's V2 chat) stays LIGHT regardless of the OS
+   color scheme, so the threads layout is held light too — otherwise it would
+   clash with the sidebar it sits beside. The SDK <CopilotThreadsDrawer> reads
+   --foreground/--background by token inheritance; re-pinning them here keeps the
+   panel readable without affecting the demo content. The confirm dialog renders
+   in a portal on <body>, so re-pin there as well. Values mirror the V2 light
+   theme (oklch(0.145 0 0) / oklch(1 0 0)). */
+.threadsLayout,
+body > [role="presentation"] {
+  --foreground: oklch(0.145 0 0);
+  --background: oklch(1 0 0);
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

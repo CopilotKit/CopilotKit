@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for built-in-agent / gen-ui-open and gen-ui-open-advanced",
+    "sourceFile": "d5-gen-ui-open.ts, d5-gen-ui-open-advanced.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-open basic pill — '3D axis visualization (model airplane)'. Emits generateSandboxedUi with srcdoc >= 100 chars so the iframe assertion passes.",
+      "match": {
+        "userMessage": "3D axis visualization",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_genui_3d_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":400,\"placeholderMessages\":[\"Rendering 3D axis visualization…\"],\"css\":\"body{margin:0;background:#1a1a2e;display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:system-ui}canvas{border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.5)}\",\"html\":\"<canvas id='c' width='400' height='400' data-testid='3d-axis-canvas'></canvas><p style='color:#e0e0e0;text-align:center;margin-top:8px'>3D Axis Visualization — Model Airplane</p>\",\"jsFunctions\":\"(function(){var c=document.getElementById('c');var ctx=c.getContext('2d');ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,400,400);ctx.strokeStyle='#e74c3c';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(200,200);ctx.lineTo(350,200);ctx.stroke();ctx.strokeStyle='#2ecc71';ctx.beginPath();ctx.moveTo(200,200);ctx.lineTo(200,50);ctx.stroke();ctx.strokeStyle='#3498db';ctx.beginPath();ctx.moveTo(200,200);ctx.lineTo(100,300);ctx.stroke();ctx.fillStyle='#e0e0e0';ctx.font='14px system-ui';ctx.fillText('X',355,205);ctx.fillText('Y',195,40);ctx.fillText('Z',85,310);})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-open basic pill — follow-up after generateSandboxedUi returns.",
+      "match": {
+        "userMessage": "3D axis visualization",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "3D axis visualization rendered above — X (red), Y (green), and Z (blue) axes drawn on a canvas with a model airplane reference frame."
+      }
+    },
+    {
+      "_comment": "gen-ui-open-advanced pill — 'Inline expression evaluator'. Emits generateSandboxedUi with sandbox=allow-scripts so the advanced iframe assertion passes.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_genui_eval_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":300,\"placeholderMessages\":[\"Building expression evaluator…\"],\"css\":\"body{margin:0;padding:16px;font-family:monospace;background:#0f172a;color:#e2e8f0}.wrap{max-width:400px;margin:0 auto}input{width:100%;padding:10px;background:#1e293b;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-family:monospace;font-size:14px;box-sizing:border-box}#result{margin-top:12px;padding:10px;background:#1e293b;border-radius:6px;min-height:24px}h3{margin:0 0 12px;color:#94a3b8}\",\"html\":\"<div class='wrap'><h3>Expression Evaluator</h3><input id='expr' placeholder='Enter expression (e.g. 2+2)' data-testid='eval-input'/><div id='result' data-testid='eval-result'>—</div></div>\",\"jsFunctions\":\"(function(){var input=document.getElementById('expr');var result=document.getElementById('result');input.addEventListener('keyup',function(e){if(e.key==='Enter'){try{result.textContent='= '+eval(input.value);}catch(err){result.textContent='Error: '+err.message;}}});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-open-advanced pill — follow-up after generateSandboxedUi returns.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Expression evaluator rendered above — type a math expression and press Enter to evaluate it."
+      }
+    }
+  ]
+}

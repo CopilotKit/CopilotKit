@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for strands / gen-ui-open",
+    "sourceFile": "d5-gen-ui-open.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-open — 3D axis visualization pill, 1st leg: emit generateSandboxedUi (iframe[srcdoc] >= 100 chars, the assertion threshold). sequenceIndex:0 gates it to the first match — Strands mints UUID tool ids so the toolCallId follow-up below can't match, and hasToolResult flips true after the tool runs; sequenceIndex is invariant to both, so the bare-userMessage content leg cleanly catches the follow-up turn.",
+      "match": {
+        "userMessage": "3D axis visualization",
+        "sequenceIndex": 0,
+        "context": "strands"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_gen_ui_3d_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":400,\"placeholderMessages\":[\"Rendering 3D visualization…\"],\"css\":\"body{margin:0;background:#1a1a2e;display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:system-ui}canvas{border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.5)}.label{position:absolute;color:#e2e8f0;font-size:12px;pointer-events:none}\",\"html\":\"<div style=\\\"position:relative;width:300px;height:300px\\\" data-testid=\\\"ogui-3d-axis\\\"><canvas id=\\\"c\\\" width=\\\"300\\\" height=\\\"300\\\"></canvas><div class=\\\"label\\\" style=\\\"left:270px;top:150px;color:#ef4444\\\">X</div><div class=\\\"label\\\" style=\\\"left:140px;top:30px;color:#22c55e\\\">Y</div><div class=\\\"label\\\" style=\\\"left:60px;top:220px;color:#3b82f6\\\">Z</div></div>\",\"jsFunctions\":\"(function(){var c=document.getElementById('c');var ctx=c.getContext('2d');var cx=150,cy=150,len=100;ctx.strokeStyle='#ef4444';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+len,cy);ctx.stroke();ctx.strokeStyle='#22c55e';ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx,cy-len);ctx.stroke();ctx.strokeStyle='#3b82f6';ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx-len*0.7,cy+len*0.7);ctx.stroke();})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-open — 3D axis visualization pill, 2nd leg: follow-up content after the iframe renders (sequenceIndex:0 exhausted).",
+      "match": {
+        "userMessage": "3D axis visualization",
+        "context": "strands"
+      },
+      "response": {
+        "content": "3D axis visualization rendered above — red for X, green for Y, blue for Z. The canvas draws the three orthogonal axes with labeled endpoints."
+      }
+    }
+  ]
+}

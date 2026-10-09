@@ -2,69 +2,121 @@ import { useCopilotKit } from "../context";
 import type { ReactFrontendTool } from "../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../types/human-in-the-loop";
 import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
-import { useCallback, useEffect, useRef } from "react";
+import { ToolCallStatus } from "@copilotkit/core";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import React from "react";
 import { useFrontendTool } from "./use-frontend-tool";
+
+/** Registration name of a catch-all tool: handles any otherwise-unhandled call. */
+const WILDCARD_TOOL_NAME = "*";
 
 export function useHumanInTheLoop<
   T extends Record<string, unknown> = Record<string, unknown>,
 >(tool: ReactHumanInTheLoop<T>, deps?: ReadonlyArray<unknown>) {
   const { copilotkit } = useCopilotKit();
   const resolvePromiseRef = useRef<((result: unknown) => void) | null>(null);
+  // Cleanup that detaches the pending abort listener; cleared whenever the
+  // promise settles (via respond() or abort) so the listener can't fire twice
+  // or leak after the interaction is done.
+  const cleanupAbortRef = useRef<(() => void) | null>(null);
 
   const respond = useCallback(async (result: unknown) => {
     if (resolvePromiseRef.current) {
+      cleanupAbortRef.current?.();
+      cleanupAbortRef.current = null;
       resolvePromiseRef.current(result);
       resolvePromiseRef.current = null;
     }
   }, []);
 
-  const handler = useCallback(async () => {
-    return new Promise((resolve) => {
-      resolvePromiseRef.current = resolve;
-    });
-  }, []);
+  const handler = useCallback(
+    async (_args: T, context?: { signal?: AbortSignal }) => {
+      const signal = context?.signal;
+      return new Promise((resolve, reject) => {
+        // If the run was already aborted before the handler ran, reject
+        // immediately so core records an explicit error tool result instead of
+        // silently resolving to an empty string.
+        if (signal?.aborted) {
+          reject(new Error("Human-in-the-loop interaction aborted"));
+          return;
+        }
+
+        resolvePromiseRef.current = resolve;
+
+        if (signal) {
+          const onAbort = () => {
+            cleanupAbortRef.current = null;
+            resolvePromiseRef.current = null;
+            reject(new Error("Human-in-the-loop interaction aborted"));
+          };
+          signal.addEventListener("abort", onAbort, { once: true });
+          cleanupAbortRef.current = () => {
+            signal.removeEventListener("abort", onAbort);
+          };
+        }
+      });
+    },
+    [],
+  );
 
   const RenderComponent: ReactToolCallRenderer<T>["render"] = useCallback(
     (props) => {
       const ToolComponent = tool.render;
 
-      // Enhance props based on current status
-      if (props.status === "inProgress") {
+      // Build the HITL render props per status. `props` already carries
+      // `toolCallId`; we overwrite `name`/`description` with the tool's
+      // registration values and add the registration `agentId`, so the HITL
+      // render always receives the full prop contract. `respond` is only live
+      // while the tool is executing.
+      //
+      // A catch-all registration is the exception: `"*"` is not the name of
+      // anything the agent called, so the incoming `props.name` — the tool
+      // actually being handled — is kept instead. It is what lets one
+      // catch-all render serve N tools.
+      const name = tool.name === WILDCARD_TOOL_NAME ? props.name : tool.name;
+
+      if (props.status === ToolCallStatus.InProgress) {
         const enhancedProps = {
           ...props,
-          name: tool.name,
+          name,
           description: tool.description || "",
+          agentId: tool.agentId,
           respond: undefined,
         };
         return React.createElement(ToolComponent, enhancedProps);
-      } else if (props.status === "executing") {
+      } else if (props.status === ToolCallStatus.Executing) {
         const enhancedProps = {
           ...props,
-          name: tool.name,
+          name,
           description: tool.description || "",
+          agentId: tool.agentId,
           respond,
         };
         return React.createElement(ToolComponent, enhancedProps);
-      } else if (props.status === "complete") {
+      } else if (props.status === ToolCallStatus.Complete) {
         const enhancedProps = {
           ...props,
-          name: tool.name,
+          name,
           description: tool.description || "",
+          agentId: tool.agentId,
           respond: undefined,
         };
         return React.createElement(ToolComponent, enhancedProps);
       }
 
-      // Fallback - just render with original props
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return React.createElement(ToolComponent, props as any);
+      // ToolCallStatus has only the three states handled above, so this point
+      // is unreachable and `props` narrows to `never`. The assignment turns a
+      // newly-added status into a compile error here — forcing it to get its
+      // own branch above — instead of silently rendering without `respond`.
+      const exhaustiveCheck: never = props;
+      return exhaustiveCheck;
     },
-    [tool.render, tool.name, tool.description, respond],
+    [tool.render, tool.name, tool.description, tool.agentId, respond],
   );
 
   const frontendTool: ReactFrontendTool<T> = {
     ...tool,
+    type: "human-in-the-loop",
     handler,
     render: RenderComponent,
   };
@@ -72,8 +124,16 @@ export function useHumanInTheLoop<
   useFrontendTool(frontendTool, deps);
 
   // Human-in-the-loop tools should remove their renderer on unmount
-  // since they can't respond to user interactions anymore
-  useEffect(() => {
+  // since they can't respond to user interactions anymore.
+  //
+  // This MUST stay a layout effect to match `useFrontendTool`, which registers
+  // the renderer in its own layout effect. React runs every cleanup in a phase
+  // before any effect of that same phase, but it runs the whole layout phase
+  // ahead of the whole passive phase. If this teardown were passive while the
+  // registration is layout, a keyed remount would order the outgoing
+  // instance's removal *after* the incoming instance's registration and delete
+  // the renderer that had just been added, leaving the tool unrenderable.
+  useLayoutEffect(() => {
     return () => {
       copilotkit.removeHookRenderToolCall(tool.name, tool.agentId);
     };

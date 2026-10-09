@@ -1,61 +1,44 @@
 "use client";
 
 /**
- * Agent Config Object demo (Spring AI port).
+ * Agent Config Object — typed config knobs (tone / expertise / responseLength)
+ * forwarded from the provider into the agent so its behavior changes per turn.
  *
- * Forwards a typed config object (tone / expertise / responseLength) from the
- * frontend to the Spring backend via `CopilotKit properties`. The Spring
- * controller at `/agent-config/run` reads those three fields off the AG-UI
- * envelope's `forwardedProps`, builds a per-request SpringAIAgent with a
- * system prompt composed from them, and runs the agent.
+ * Wiring: the toggles live in `useAgentConfig`. Each render the resolved
+ * config is published to the agent via `useAgentContext` — the v2 idiom
+ * for "frontend → agent runtime context" in LangGraph 0.6+. The Python
+ * graph picks it up through `CopilotKitMiddleware`, which routes the
+ * context entry into the model's prompt before each call.
+ *
+ * (LangGraph 0.6 deprecated `configurable` in favor of `context`; the
+ * `properties` prop on `<CopilotKit>` still works for v1-style relays
+ * but goes through `forwardedProps` and does not land in `RunnableConfig`
+ * in @ag-ui/langgraph 0.0.31. `useAgentContext` is the supported path.)
  */
 
-import { CopilotChat, CopilotKit } from "@copilotkit/react-core/v2";
-import { useMemo } from "react";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
-import { ConfigCard } from "./config-card";
+import { DemoLayout } from "./demo-layout";
+import { ConfigContextRelay } from "./config-context-relay";
 import { useAgentConfig } from "./use-agent-config";
 
 export default function AgentConfigDemoPage() {
   const { config, setTone, setExpertise, setResponseLength } = useAgentConfig();
 
-  const providerProperties = useMemo<Record<string, unknown>>(
-    () => ({
-      tone: config.tone,
-      expertise: config.expertise,
-      responseLength: config.responseLength,
-    }),
-    [config.tone, config.expertise, config.responseLength],
-  );
-
   return (
+    // @region[provider-setup]
     <CopilotKit
       runtimeUrl="/api/copilotkit-agent-config"
       agent="agent-config-demo"
-      properties={providerProperties}
     >
-      <div className="flex h-screen flex-col gap-3 p-6">
-        <header>
-          <h1 className="text-lg font-semibold">Agent Config Object</h1>
-          <p className="text-sm text-black/60 dark:text-white/60">
-            Forwarded props let the frontend tell the agent how to behave. Tone,
-            expertise, and response length are forwarded to Spring, which builds
-            a system prompt per turn.
-          </p>
-        </header>
-        <ConfigCard
-          config={config}
-          onToneChange={setTone}
-          onExpertiseChange={setExpertise}
-          onResponseLengthChange={setResponseLength}
-        />
-        <div className="flex-1 overflow-hidden rounded-md border border-black/10 dark:border-white/10">
-          <CopilotChat
-            agentId="agent-config-demo"
-            className="h-full rounded-md"
-          />
-        </div>
-      </div>
+      <ConfigContextRelay config={config} />
+      <DemoLayout
+        config={config}
+        onToneChange={setTone}
+        onExpertiseChange={setExpertise}
+        onResponseLengthChange={setResponseLength}
+      />
     </CopilotKit>
+    // @endregion[provider-setup]
   );
 }

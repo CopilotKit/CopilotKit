@@ -178,7 +178,7 @@ test.describe("HITL In-App (approval dialog portaled to <body>)", () => {
   });
 
   // TODO: re-enable when downgrade flow is fixed (broken upstream as of 2026-05-07)
-  test.skip("downgrade #12346 → approve/reject flow", async () => {
+  test("downgrade #12346 → approve/reject flow", async () => {
     // Intentionally skipped per spec: the downgrade pill exposes a
     // separate upstream bug (ticket-12346 surface) that is out of scope
     // for the genuine-pass rewrite. Re-enable when the upstream demo
@@ -212,7 +212,7 @@ test.describe("HITL In-App (approval dialog portaled to <body>)", () => {
     );
     await expect(refundDialog).toBeVisible({ timeout: 60_000 });
     // The first dialog targets ticket #12345.
-    await expect(refundDialog.getByText(/#12345/)).toBeVisible();
+    await expect(refundDialog.getByText(/#12345/).first()).toBeVisible();
 
     await page.getByTestId("approval-dialog-approve").click();
     await expect(
@@ -239,6 +239,6 @@ test.describe("HITL In-App (approval dialog portaled to <body>)", () => {
       'body > [data-testid="approval-dialog-overlay"]',
     );
     await expect(escalateDialog).toBeVisible({ timeout: 60_000 });
-    await expect(escalateDialog.getByText(/#12347/)).toBeVisible();
+    await expect(escalateDialog.getByText(/#12347/).first()).toBeVisible();
   });
 });

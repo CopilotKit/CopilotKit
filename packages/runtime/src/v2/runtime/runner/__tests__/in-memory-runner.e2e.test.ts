@@ -1,16 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { InMemoryAgentRunner } from "../in-memory";
-import {
-  AbstractAgent,
+import type {
   BaseEvent,
-  EventType,
   Message,
   RunAgentInput,
+  RunAgentResult,
   RunErrorEvent,
   RunFinishedEvent,
   RunStartedEvent,
 } from "@ag-ui/client";
-import { EMPTY, Subscription, firstValueFrom, from } from "rxjs";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { Subscription } from "rxjs";
+import { EMPTY, firstValueFrom, from } from "rxjs";
 import { toArray } from "rxjs/operators";
 
 type RunCallbacks = {
@@ -35,7 +36,10 @@ class EmitAgent extends AbstractAgent {
     super();
   }
 
-  async runAgent(input: RunAgentInput, callbacks: RunCallbacks): Promise<void> {
+  async runAgent(
+    input: RunAgentInput,
+    callbacks: RunCallbacks,
+  ): Promise<RunAgentResult> {
     const {
       emitDefaultRunStarted = true,
       includeRunFinished = true,
@@ -80,6 +84,7 @@ class EmitAgent extends AbstractAgent {
       };
       await emit(finishEvent);
     }
+    return { result: undefined, newMessages: [] };
   }
 
   clone(): AbstractAgent {
@@ -89,7 +94,7 @@ class EmitAgent extends AbstractAgent {
     });
   }
 
-  protected run(): ReturnType<AbstractAgent["run"]> {
+  run(): ReturnType<AbstractAgent["run"]> {
     return EMPTY;
   }
 
@@ -106,11 +111,11 @@ class ReplayAgent extends AbstractAgent {
     super({ threadId });
   }
 
-  async runAgent(): Promise<void> {
+  async runAgent(): Promise<RunAgentResult> {
     throw new Error("not used");
   }
 
-  protected run(): ReturnType<AbstractAgent["run"]> {
+  run(): ReturnType<AbstractAgent["run"]> {
     return EMPTY;
   }
 
@@ -127,11 +132,11 @@ class RunnerConnectAgent extends AbstractAgent {
     super({ threadId });
   }
 
-  async runAgent(): Promise<void> {
+  async runAgent(): Promise<RunAgentResult> {
     throw new Error("not used");
   }
 
-  protected run(): ReturnType<AbstractAgent["run"]> {
+  run(): ReturnType<AbstractAgent["run"]> {
     return EMPTY;
   }
 
@@ -585,7 +590,7 @@ describe("InMemoryAgentRunner e2e", () => {
         type: EventType.RUN_STARTED,
         threadId,
         runId,
-        parentRunId: null,
+        parentRunId: "custom-parent-run",
         input: customInput,
       };
 
@@ -770,6 +775,87 @@ describe("InMemoryAgentRunner e2e", () => {
       expect(capturedRunErrors[0]).toMatchObject(runErrorEvent);
       expect(result.newMessages).toEqual([userMessage]);
       expect(replayAgent.messages).toEqual([userMessage]);
+    });
+  });
+  describe("Subagent Attribution", () => {
+    it("replays subagent lifecycle events and keeps attribution on messages", async () => {
+      const runner = new InMemoryAgentRunner();
+      const threadId = "thread-subagents";
+      const subagentEvents = [
+        {
+          type: EventType.SUBAGENT_STARTED,
+          subagentRunId: "research",
+          name: "researcher",
+          parentToolCallId: "call-1",
+          parentMessageId: "supervisor",
+        },
+        {
+          type: EventType.SUBAGENT_FINISHED,
+          subagentRunId: "research",
+          result: { sources: 3 },
+        },
+      ] as BaseEvent[];
+      const events = [
+        ...createTextMessageEvents({
+          messageId: "supervisor",
+          content: "Delegating",
+        }),
+        {
+          type: EventType.TOOL_CALL_START,
+          toolCallId: "call-1",
+          toolCallName: "research",
+          parentMessageId: "supervisor",
+        },
+        { type: EventType.TOOL_CALL_END, toolCallId: "call-1" },
+        subagentEvents[0],
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "research-1",
+          role: "assistant",
+          subagentRunId: "research",
+        },
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "research-1",
+          delta: "Found 3 sources",
+        },
+        { type: EventType.TEXT_MESSAGE_END, messageId: "research-1" },
+        subagentEvents[1],
+        {
+          type: EventType.TOOL_CALL_RESULT,
+          toolCallId: "call-1",
+          messageId: "result-1",
+          content: "3 sources",
+          role: "tool",
+        },
+      ] as BaseEvent[];
+
+      await collectEvents(
+        runner.run({
+          threadId,
+          agent: new EmitAgent({ events }),
+          input: createRunInput({ threadId, runId: "run-0", messages: [] }),
+        }),
+      );
+
+      const replayEvents = await collectEvents(runner.connect({ threadId }));
+      const replayAgent = new ReplayAgent(replayEvents, threadId);
+      await replayAgent.connectAgent({ runId: "replay-run" });
+
+      expect(
+        replayEvents.filter(
+          ({ type }) =>
+            type === EventType.SUBAGENT_STARTED ||
+            type === EventType.SUBAGENT_FINISHED,
+        ),
+      ).toEqual(subagentEvents);
+      expect(
+        replayAgent.messages.find(({ id }) => id === "research-1"),
+      ).toMatchObject({
+        role: "assistant",
+        content: "Found 3 sources",
+        subagentRunId: "research",
+      });
     });
   });
 });

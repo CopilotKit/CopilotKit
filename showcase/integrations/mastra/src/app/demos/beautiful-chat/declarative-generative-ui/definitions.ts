@@ -27,10 +27,12 @@ export const demonstrationCatalogDefinitions = {
     }),
   },
 
-  // Text: removed — the basic catalog's Text uses DynamicStringSchema
-  // which supports path bindings (e.g. { path: "flights[*].airline" }).
-  // Overriding it with z.string() breaks fixed-schema data binding.
-
+  // Custom Row/Column: override the basic catalog's versions so we can
+  // honour `gap` (basic Row/Column from web_core ignores it). Children may
+  // be a literal-string array (flat trees) OR a structural template form
+  // `{ componentId, path }` so the GenericBinder expands per-row templates
+  // from the data model — required for fixed-schema flows like
+  // flight_schema.json (Row.children = { componentId, path: "/flights" }).
   Row: {
     description: "Horizontal layout container.",
     props: z.object({

@@ -30,6 +30,7 @@ function createMockCore() {
     setHeaders: vi.fn(),
     setCredentials: vi.fn(),
     setProperties: vi.fn(),
+    setMessageFilter: vi.fn(),
     setDebug: vi.fn(),
     setDefaultThrottleMs: vi.fn(),
     getAgent: vi.fn(() => undefined),
@@ -199,7 +200,7 @@ vi.mock("react-native", () => {
     },
     StyleSheet: {
       create: (styles: any) => styles,
-      absoluteFillObject: {
+      absoluteFill: {
         position: "absolute",
         top: 0,
         left: 0,

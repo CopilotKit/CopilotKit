@@ -106,8 +106,8 @@ is a situation where a user and an agent are working together to solve a problem
         ```csharp title="Program.cs"
         using System.Runtime.CompilerServices;
         using System.Text.Json;
-        using Azure.AI.OpenAI;
-        using Azure.Identity;
+        using AGUI.Abstractions;
+        using AGUI.Server;
         using Microsoft.Agents.AI;
         using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
         using Microsoft.AspNetCore.Builder;
@@ -115,21 +115,25 @@ is a situation where a user and an agent are working together to solve a problem
         using Microsoft.Extensions.AI;
         using Microsoft.Extensions.DependencyInjection;
         using Microsoft.Extensions.Options;
+        using OpenAI;
+        using OpenAI.Chat;
+        using AIChatMessage = Microsoft.Extensions.AI.ChatMessage;
+        using AIChatResponseFormat = Microsoft.Extensions.AI.ChatResponseFormat;
 
         var builder = WebApplication.CreateBuilder(args);
-        builder.Services.AddAGUI();
+        builder.Services.AddAGUIServer();
         var app = builder.Build();
 
-        string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
-        string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+        string openAiApiKey = builder.Configuration["OPENAI_API_KEY"]
+            ?? throw new InvalidOperationException("Set OPENAI_API_KEY");
 
         // Get JSON serializer options
         var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 
         // Create the base agent
-        AIAgent baseAgent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
-            .GetChatClient(deployment)
-            .CreateAIAgent(
+        AIAgent baseAgent = new OpenAIClient(openAiApiKey)
+            .GetChatClient("gpt-5.4-mini")
+            .AsAIAgent(
                 name: "ResearchAssistant",
                 instructions: "You are a research assistant that tracks your progress.");
 
@@ -137,7 +141,7 @@ is a situation where a user and an agent are working together to solve a problem
         AIAgent agent = new StateStreamingAgent(baseAgent, jsonOptions.Value.SerializerOptions);
 
         // Map the AG-UI endpoint
-        app.MapAGUI("/", agent);
+        app.MapAGUIServer("/", agent);
         await app.RunAsync();
 
         // Agent wrapper that streams state updates
@@ -151,39 +155,49 @@ is a situation where a user and an agent are working together to solve a problem
                 this._jsonSerializerOptions = jsonSerializerOptions;
             }
 
-            public override async IAsyncEnumerable<AgentRunResponseUpdate> RunStreamingAsync(
-                IEnumerable<ChatMessage> messages,
-                AgentThread? thread = null,
+            protected override Task<AgentResponse> RunCoreAsync(
+                IEnumerable<AIChatMessage> messages,
+                AgentSession? session = null,
+                AgentRunOptions? options = null,
+                CancellationToken cancellationToken = default) =>
+                RunCoreStreamingAsync(messages, session, options, cancellationToken)
+                    .ToAgentResponseAsync(cancellationToken);
+
+            protected override async IAsyncEnumerable<AgentResponseUpdate> RunCoreStreamingAsync(
+                IEnumerable<AIChatMessage> messages,
+                AgentSession? session = null,
                 AgentRunOptions? options = null,
                 [EnumeratorCancellation] CancellationToken cancellationToken = default)
             {
-                // Get current state from options if provided
-                JsonElement currentState = default;
-                if (options is ChatClientAgentRunOptions { ChatOptions.AdditionalProperties: { } properties } &&
-                    properties.TryGetValue("ag_ui_state", out object? stateObj) && stateObj is JsonElement state)
+                // Recover the state sent in the AG-UI request
+                JsonElement? currentState = null;
+                if (options is ChatClientAgentRunOptions { ChatOptions: { } chatOptions } &&
+                    chatOptions.TryGetRunAgentInput(out RunAgentInput? input) &&
+                    input?.State is { ValueKind: JsonValueKind.Object } state)
                 {
                     currentState = state;
                 }
 
-                // Create options with JSON schema for structured state output
-                ChatClientAgentRunOptions stateOptions = new ChatClientAgentRunOptions
+                // Clone the run options, then request structured state output
+                var chatRunOptions = options as ChatClientAgentRunOptions;
+                var stateChatOptions = chatRunOptions?.ChatOptions?.Clone() ?? new ChatOptions();
+                stateChatOptions.ResponseFormat = AIChatResponseFormat.ForJsonSchema<AgentStateSnapshot>(
+                    schemaName: "AgentStateSnapshot",
+                    schemaDescription: "Research progress state");
+
+                ChatClientAgentRunOptions stateOptions = new(stateChatOptions)
                 {
-                    ChatOptions = new ChatOptions
-                    {
-                        ResponseFormat = ChatResponseFormat.ForJsonSchema<AgentStateSnapshot>(
-                            schemaName: "AgentStateSnapshot",
-                            schemaDescription: "Research progress state")
-                    }
+                    ChatClientFactory = chatRunOptions?.ChatClientFactory,
                 };
 
                 // Add system message with current state
-                var stateMessage = new ChatMessage(ChatRole.System,
-                    $"Current state: {(currentState.ValueKind != JsonValueKind.Undefined ? currentState.GetRawText() : "{}")}");
+                var stateMessage = new AIChatMessage(ChatRole.System,
+                    $"Current state: {currentState?.GetRawText() ?? "{}"}");
                 var messagesWithState = messages.Append(stateMessage);
 
                 // Collect all updates
-                var allUpdates = new List<AgentRunResponseUpdate>();
-                await foreach (var update in this.InnerAgent.RunStreamingAsync(messagesWithState, thread, stateOptions, cancellationToken))
+                var allUpdates = new List<AgentResponseUpdate>();
+                await foreach (var update in InnerAgent.RunStreamingAsync(messagesWithState, session, stateOptions, cancellationToken))
                 {
                     allUpdates.Add(update);
                     // Stream non-text updates immediately
@@ -194,24 +208,36 @@ is a situation where a user and an agent are working together to solve a problem
                 }
 
                 // Deserialize state snapshot from response
-                var response = allUpdates.ToAgentRunResponse();
-                if (response.TryDeserialize(this._jsonSerializerOptions, out JsonElement stateSnapshot))
+                var response = allUpdates.ToAgentResponse();
+                JsonElement? stateSnapshot = null;
+                try
+                {
+                    stateSnapshot = JsonSerializer.Deserialize<JsonElement>(
+                        response.Text,
+                        this._jsonSerializerOptions);
+                }
+                catch (JsonException)
+                {
+                    // The model did not return the requested state snapshot.
+                }
+
+                if (stateSnapshot is { } parsedStateSnapshot)
                 {
                     byte[] stateBytes = JsonSerializer.SerializeToUtf8Bytes(
-                        stateSnapshot,
+                        parsedStateSnapshot,
                         this._jsonSerializerOptions.GetTypeInfo(typeof(JsonElement)));
 
                     // Emit state snapshot as DataContent
-                    yield return new AgentRunResponseUpdate
+                    yield return new AgentResponseUpdate
                     {
                         Contents = [new DataContent(stateBytes, "application/json")]
                     };
                 }
 
                 // Stream text summary
-                var summaryMessage = new ChatMessage(ChatRole.System, "Provide a brief summary of your progress.");
-                await foreach (var update in this.InnerAgent.RunStreamingAsync(
-                    messages.Concat(response.Messages).Append(summaryMessage), thread, options, cancellationToken))
+                var summaryMessage = new AIChatMessage(ChatRole.System, "Provide a brief summary of your progress.");
+                await foreach (var update in InnerAgent.RunStreamingAsync(
+                    messages.Concat(response.Messages).Append(summaryMessage), session, options, cancellationToken))
                 {
                     yield return update;
                 }
@@ -228,6 +254,7 @@ is a situation where a user and an agent are working together to solve a problem
         from agent_framework.openai import OpenAIChatClient
         from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
         from agent_framework.ag_ui import AgentFrameworkAgent
+        from azure.identity import DefaultAzureCredential
         from dotenv import load_dotenv
         from fastapi import FastAPI
         from typing import Annotated
@@ -270,9 +297,11 @@ is a situation where a user and an agent are working together to solve a problem
 
         def _build_chat_client():
             if os.getenv("AZURE_OPENAI_ENDPOINT"):
+                azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
                 return OpenAIChatClient(
                     model=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini"),
-                    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+                    api_key=azure_api_key,
+                    credential=None if azure_api_key else DefaultAzureCredential(),
                     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
                 )
             if os.getenv("OPENAI_API_KEY"):
@@ -281,7 +310,7 @@ is a situation where a user and an agent are working together to solve a problem
                     api_key=os.getenv("OPENAI_API_KEY"),
                 )
             raise RuntimeError(
-                "Set either AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY, or OPENAI_API_KEY."
+                "Set AZURE_OPENAI_ENDPOINT (uses az login unless AZURE_OPENAI_API_KEY is set) or OPENAI_API_KEY."
             )
 
 
@@ -295,7 +324,7 @@ is a situation where a user and an agent are working together to solve a problem
                     "- Maintain a list of searches: each item has { query, done }.\\n"
                     "- When adding a new search, call `update_searches` with the FULL list, including the new item with done=true.\\n"
                     "- All searches in the list should have done=true unless explicitly in progress.\\n"
-                    "- Never send partial updates—always include the full list on each call.\\n"
+                    "- Never send partial updates. Always include the full list on each call.\\n"
                 ),
                 client=chat_client,
                 tools=[update_searches],
@@ -332,7 +361,7 @@ is a situation where a user and an agent are working together to solve a problem
   </Step>
   <Step>
     ### Render state of the agent in the chat
-    Now we can utilize `useAgent` with a `render` function to render the state of our agent **in the chat**.
+    Now we can utilize `useAgent` to read the state of our agent and render it **in the chat**.
 
     ```tsx title="app/page.tsx"
     import { useAgent } from "@copilotkit/react-core/v2";
@@ -348,24 +377,27 @@ is a situation where a user and an agent are working together to solve a problem
     function YourMainContent() {
       // ...
 
-      // [!code highlight:13]
-      // styles omitted for brevity
-      useAgent({
+      // [!code highlight:3]
+      const { agent } = useAgent({
         agentId: "sample_agent",
-        render: ({ state }) => (
-          <div>
-            {state.searches?.map((search, index) => (
-              <div key={index}>
-                {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
-              </div>
-            ))}
-          </div>
-        ),
       });
+
+      // styles omitted for brevity
+      // [!code highlight:9]
+      const renderedState = (
+        <div>
+          {agent.state?.searches?.map((search, index) => (
+            <div key={index}>
+              {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
+            </div>
+          ))}
+        </div>
+      );
 
       // ...
 
-      return <div>...</div>;
+      // [!code highlight]
+      return <div>{renderedState}</div>;
     }
     ```
   </Step>

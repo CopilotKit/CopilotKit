@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langroid / prebuilt-sidebar",
+    "sourceScript": "d5-prebuilt-sidebar.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "prebuilt-sidebar turn — the D5 probe sends this exact prompt and asserts the response lands inside .copilotKitSidebar.",
+      "match": {
+        "userMessage": "hi from the sidebar test",
+        "context": "langroid"
+      },
+      "response": {
+        "content": "Hello from the sidebar — the CopilotSidebar prebuilt component is wired up and reachable. Anything else you would like me to confirm from inside the sidebar?"
+      }
+    }
+  ]
+}

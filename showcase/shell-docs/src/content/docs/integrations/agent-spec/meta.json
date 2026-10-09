@@ -8,9 +8,11 @@
     "---Agent Spec---",
     "langgraph",
     "wayflow",
-    "---Threads---",
-    "threads",
-    "---Premium Features---",
-    "...premium"
+    "---Intelligence---",
+    {
+      "title": "Threads",
+      "defaultOpen": true,
+      "pages": ["threads", "headless-threads"]
+    }
   ]
 }

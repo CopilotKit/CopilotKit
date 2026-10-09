@@ -10,6 +10,13 @@ RUN npm run build
 FROM mcr.microsoft.com/dotnet/sdk:9.0.312 AS agent-build
 WORKDIR /agent
 COPY agent/ ./
+# CVDIAG shared binding (plan unit L1-F): the single-source emitter lives at
+# showcase/integrations/_shared/dotnet/ and is source-included by the csproj via
+# ..\_shared\dotnet\*.cs. The `_shared` symlink at this integration's root is
+# materialized to a real dir by the harness stage_shared step, so it is present
+# in the build context here. Land it at /_shared/dotnet so the csproj at /agent
+# resolves ..\_shared\dotnet (= /_shared/dotnet) identically to the local layout.
+COPY _shared/dotnet/*.cs /_shared/dotnet/
 # Explicit project path: the tests/ subdirectory contains a separate test csproj
 # that must not be picked up by the default glob when publishing the web agent.
 RUN dotnet publish ProverbsAgent.csproj -c Release -o /agent/publish
@@ -35,6 +42,15 @@ COPY --chown=app:app --from=frontend /app/.next ./.next
 COPY --chown=app:app --from=frontend /app/node_modules ./node_modules
 COPY --chown=app:app --from=frontend /app/package.json ./
 COPY --chown=app:app --from=frontend /app/public ./public
+
+# Manifest is read at runtime by `src/app/demos/layout.tsx` (`generateMetadata`
+# calls `headers()` for the `x-pathname` that `src/middleware.ts` sets, which
+# opts every `/demos/*` route into dynamic rendering, so Next can't bake the
+# demo titles into the build). Without this copy every demo page throws "An
+# error occurred in the Server Components render" (ENOENT on
+# /app/manifest.yaml) — the home page is unaffected because it has no dynamic
+# APIs and is statically prerendered at build time.
+COPY --chown=app:app manifest.yaml ./
 
 # .NET agent binary (from agent-build stage — no dotnet SDK at runtime)
 COPY --chown=app:app --from=agent-build /agent/publish /agent

@@ -1,8 +1,21 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  afterEach,
+} from "vitest";
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
-import { FileSnapshotRestorer, execOptsFor } from "./test-cleanup";
+import {
+  FileSnapshotRestorer,
+  acquireGeneratedDataLock,
+  execOptsFor,
+  withGeneratedDataLock,
+} from "./test-cleanup";
 import { SCRIPTS_DIR, SHELL_DATA_DIR } from "./paths";
 
 // Ensure registry.json exists (it's generated, gitignored).
@@ -11,6 +24,7 @@ const DATA_FILES = [
   path.join(SHELL_DATA_DIR, "constraints.json"),
 ];
 const dataRestorer = new FileSnapshotRestorer(DATA_FILES);
+let releaseGeneratedDataLock: (() => void) | undefined;
 const EXEC_OPTS = execOptsFor(SCRIPTS_DIR);
 
 function runGenerator(): string {
@@ -42,25 +56,52 @@ let INTEGRATIONS: Array<{
   demos: string[];
 }>;
 
-beforeAll(() => {
-  runGenerator();
-  dataRestorer.snapshot();
+beforeAll(() =>
+  withGeneratedDataLock(() => {
+    // Only regenerate if registry.json is absent. When generate-registry.test.ts
+    // runs concurrently (fileParallelism: true), its beforeAll already creates
+    // the file; re-running the generator here would race with that suite's
+    // sentinel test (atomic rename clobbers the appended sentinel).
+    if (!fs.existsSync(path.join(SHELL_DATA_DIR, "registry.json"))) {
+      runGenerator();
+    }
+    dataRestorer.snapshot();
 
-  const registryPath = path.join(SHELL_DATA_DIR, "registry.json");
-  registry = JSON.parse(fs.readFileSync(registryPath, "utf-8"));
+    const registryPath = path.join(SHELL_DATA_DIR, "registry.json");
+    registry = JSON.parse(fs.readFileSync(registryPath, "utf-8"));
 
-  INTEGRATIONS = registry.integrations.map((i) => ({
-    slug: i.slug,
-    name: i.name,
-    backendUrl: i.backend_url,
-    deployed: i.deployed,
-    hasToolRendering: i.features.includes("tool-rendering"),
-    demos: i.demos.map((d: { id: string }) => d.id),
-  }));
+    INTEGRATIONS = registry.integrations.map((i) => ({
+      slug: i.slug,
+      name: i.name,
+      backendUrl: i.backend_url,
+      deployed: i.deployed,
+      hasToolRendering: i.features.includes("tool-rendering"),
+      demos: i.demos.map((d: { id: string }) => d.id),
+    }));
+  }),
+);
+
+beforeEach(() => {
+  const release = acquireGeneratedDataLock();
+  try {
+    dataRestorer.restore();
+    releaseGeneratedDataLock = release;
+  } catch (err) {
+    release();
+    throw err;
+  }
 });
 
-afterEach(() => dataRestorer.restore());
-afterAll(() => dataRestorer.restore());
+afterEach(() => {
+  try {
+    dataRestorer.restore();
+  } finally {
+    releaseGeneratedDataLock?.();
+    releaseGeneratedDataLock = undefined;
+  }
+});
+
+afterAll(() => withGeneratedDataLock(() => dataRestorer.restore()));
 
 describe("smoke spec integration registry derivation", () => {
   it("produces one entry per registry integration", () => {

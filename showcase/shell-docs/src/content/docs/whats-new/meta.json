@@ -1,5 +1,8 @@
 {
   "title": "What's New",
+  "frontend": {
+    "kind": "universal"
+  },
   "pages": [
     "mcp-apps-support",
     "langgraph-deep-agents",

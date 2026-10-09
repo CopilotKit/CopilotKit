@@ -1,0 +1,222 @@
+---
+title: "CopilotPopup"
+description: "Vue 3 popup variant of CopilotChat that renders in a floating panel with a toggle button."
+---
+
+<Callout type="info">
+  This is the Vue 3 popup component. Import it from `@copilotkit/vue/v2`.
+</Callout>
+
+`CopilotPopup` renders a floating chat popup with a toggle button. It wraps [`CopilotChat`](/reference/vue/components/CopilotChat) and provides popup-specific layout, sizing, and open/close behavior. The popup includes a header with a title and close button, and can optionally be dismissed by clicking outside.
+
+The `"popup"` feature requires a license. When it is not licensed, the component renders an inline warning and logs a console warning; see [copilotkit.ai/pricing](https://copilotkit.ai/pricing).
+
+## Example
+
+```vue
+<script setup lang="ts">
+import { CopilotPopup } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotPopup
+    agent-id="my-agent"
+    :labels="{ modalHeaderTitle: 'Assistant' }"
+  />
+</template>
+```
+
+## Props
+
+### Own props
+
+<PropertyReference name="defaultOpen" type="boolean" default="true">
+  Whether the popup is open when the component first mounts. After mount, the open/close state is driven by user interaction (toggle button, close button, clicking outside).
+</PropertyReference>
+
+<PropertyReference name="width" type="number | string">
+  Width of the popup panel. Accepts a number (pixels) or a CSS string (for example `"400px"` or `"30vw"`).
+</PropertyReference>
+
+<PropertyReference name="height" type="number | string">
+  Height of the popup panel. Accepts a number (pixels) or a CSS string (for example `"600px"` or `"80vh"`).
+</PropertyReference>
+
+<PropertyReference name="clickOutsideToClose" type="boolean" default="false">
+  Whether clicking outside the popup panel closes it.
+</PropertyReference>
+
+### Inherited CopilotChat props
+
+`CopilotPopup` extends [`CopilotChatProps`](/reference/vue/components/CopilotChat), so it accepts the same agent-wiring and chat-view props. The most common ones:
+
+<PropertyReference name="agentId" type="string">
+  ID of the agent to use. Must match an agent configured in `CopilotKitProvider`.
+</PropertyReference>
+
+<PropertyReference name="threadId" type="string">
+  ID of the conversation thread.
+</PropertyReference>
+
+<PropertyReference name="labels" type="Partial<CopilotChatLabels>">
+  Partial label overrides for the text strings rendered inside the chat (including `modalHeaderTitle` for the popup header).
+</PropertyReference>
+
+<PropertyReference name="autoScroll" type="AutoScrollMode | boolean" default="true">
+  Controls how the chat view scrolls as new messages stream in. Accepts `"pin-to-bottom"` / `true`, `"pin-to-send"`, or `"none"` / `false`.
+</PropertyReference>
+
+<PropertyReference name="welcomeScreen" type="boolean" default="true">
+  Whether to show the welcome screen when no messages exist.
+</PropertyReference>
+
+<PropertyReference name="inputValue" type="string">
+  Controlled value of the chat input.
+</PropertyReference>
+
+<PropertyReference name="inputMode" type="CopilotChatInputMode" default='"input"'>
+  The chat input mode.
+</PropertyReference>
+
+<PropertyReference name="inputToolsMenu" type='(ToolsMenuItem | "-")[]' default="[]">
+  Items shown in the input tools menu. Use `"-"` to insert a separator.
+</PropertyReference>
+
+<PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
+  Optional error handler invoked for chat errors.
+</PropertyReference>
+
+## Slots
+
+All slots are forwarded down to the internal `CopilotPopupView`. Each slot receives scoped props you can bind to.
+
+<PropertyReference name="header" type="(props: CopilotPopupViewHeaderSlotProps) => unknown">
+  Overrides the popup header. Slot props: `title`, `onClose`, `isOpen`.
+</PropertyReference>
+
+<PropertyReference name="toggle-button" type="(props: CopilotPopupViewToggleButtonSlotProps) => unknown">
+  Overrides the floating toggle button. Slot props: `isOpen`, `toggle`, `open`, `close`.
+</PropertyReference>
+
+<PropertyReference name="chat-view" type="(props: CopilotChatViewOverrideSlotProps) => unknown">
+  Replaces the entire popup chat view. Receives the full chat-view props plus event handlers (`onSubmitMessage`, `onStop`, `onInputChange`, `onSelectSuggestion`, and the transcribe/file handlers).
+</PropertyReference>
+
+<PropertyReference name="message-view" type="(props: CopilotChatMessageViewSlotProps) => unknown">
+  Overrides the message list. Slot props: `messages`, `isRunning`.
+</PropertyReference>
+
+<PropertyReference name="input" type="(props: CopilotSidebarWelcomeScreenInputSlotProps) => unknown">
+  Overrides the chat input. Slot props include `modelValue`, `isRunning`, `inputMode`, `inputToolsMenu`, and the input event handlers.
+</PropertyReference>
+
+<PropertyReference name="suggestion-view" type="(props: CopilotSidebarWelcomeScreenSuggestionViewSlotProps) => unknown">
+  Overrides the suggestion list. Slot props: `suggestions`, `loadingIndexes`, `onSelectSuggestion`.
+</PropertyReference>
+
+<PropertyReference name="welcome-screen" type="(props: CopilotChatWelcomeScreenSlotProps) => unknown">
+  Overrides the welcome screen shown when no messages exist.
+</PropertyReference>
+
+<PropertyReference name="welcome-message" type="() => unknown">
+  Overrides only the welcome message content inside the default welcome screen.
+</PropertyReference>
+
+## Events
+
+`CopilotPopup` emits the following events (use kebab-case in templates):
+
+| Event | Payload |
+| --- | --- |
+| `submit-message` | `value: string` |
+| `stop` | (none) |
+| `input-change` | `value: string` |
+| `select-suggestion` | `suggestion: Suggestion, index: number` |
+| `add-file` | (none) |
+| `start-transcribe` | (none) |
+| `cancel-transcribe` | (none) |
+| `finish-transcribe` | (none) |
+
+## Usage
+
+### Basic usage
+
+```vue
+<script setup lang="ts">
+import { CopilotPopup } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotPopup
+    agent-id="my-agent"
+    :labels="{ modalHeaderTitle: 'Assistant' }"
+  />
+</template>
+```
+
+### Custom size and click-outside-to-close
+
+```vue
+<script setup lang="ts">
+import { CopilotPopup } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotPopup
+    agent-id="my-agent"
+    :default-open="false"
+    :width="450"
+    height="80vh"
+    :click-outside-to-close="true"
+  />
+</template>
+```
+
+### Custom header slot
+
+```vue
+<script setup lang="ts">
+import { CopilotPopup } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotPopup agent-id="my-agent">
+    <template #header="{ title, onClose }">
+      <div class="flex items-center justify-between bg-blue-600 px-4 py-2 text-white">
+        <span>{{ title }}</span>
+        <button type="button" @click="onClose">Close</button>
+      </div>
+    </template>
+  </CopilotPopup>
+</template>
+```
+
+### Handling events
+
+```vue
+<script setup lang="ts">
+import { CopilotPopup } from "@copilotkit/vue/v2";
+
+function onSubmit(value: string) {
+  console.log("submitted:", value);
+}
+</script>
+
+<template>
+  <CopilotPopup agent-id="my-agent" @submit-message="onSubmit" />
+</template>
+```
+
+## Behavior
+
+- **Toggle button**: Renders a floating toggle button that opens and closes the popup. Override it with the `toggle-button` slot.
+- **Modal state**: The initial state is set by `defaultOpen`; after mount, state changes come from user interaction (toggle button, close button, clicking outside).
+- **Click outside**: When `clickOutsideToClose` is `true`, clicking outside the popup panel closes it. The default is `false`.
+- **Layout**: Internally uses `CopilotPopupView`, which provides a popup-specific welcome screen layout.
+- **Agent connection**: All agent wiring (messages, running state, suggestions) is handled by the inner `CopilotChat`.
+
+## Related
+
+- [`CopilotChat`](/reference/vue/components/CopilotChat) -- the base chat component used internally
+- [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) -- supplies the copilot context
+- [`useAgent`](/reference/vue/hooks/useAgent) -- composable for accessing the agent instance

@@ -1,24 +1,22 @@
-import {
-  AgentRunner,
+import type {
   AgentRunnerConnectRequest,
   AgentRunnerIsRunningRequest,
   AgentRunnerRunRequest,
-  type AgentRunnerStopRequest,
 } from "./agent-runner";
-import { EMPTY, Observable, from } from "rxjs";
-import { catchError, finalize } from "rxjs/operators";
-import {
-  AbstractAgent,
-  BaseEvent,
-  EventType,
-  RunStartedEvent,
-} from "@ag-ui/client";
+import { AgentRunner } from "./agent-runner";
+import type { AgentRunnerStopRequest } from "./agent-runner";
+import { Observable } from "rxjs";
+import type { AbstractAgent, BaseEvent, RunStartedEvent } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
 import {
   finalizeRunEvents,
+  stripIntelligenceRoutingFields,
   AG_UI_CHANNEL_EVENT,
   phoenixExponentialBackoff,
+  logger,
 } from "@copilotkit/shared";
-import { Socket, Channel } from "phoenix";
+import type { Channel } from "phoenix";
+import { Socket } from "phoenix";
 import { randomUUID } from "node:crypto";
 
 export interface IntelligenceAgentRunnerOptions {
@@ -30,6 +28,12 @@ export interface IntelligenceAgentRunnerOptions {
   maxReconnectMs?: number;
   /** Max delay (ms) for channel rejoin backoff. @default 30_000 */
   maxRejoinMs?: number;
+  /**
+   * Interval (ms) between Phoenix heartbeats on the runner WebSocket. Keep it
+   * below the idle timeout of any proxy between the runtime and Intelligence.
+   * @default 15_000
+   */
+  heartbeatIntervalMs?: number;
 }
 
 export interface RunnerStartupBoundary {
@@ -38,6 +42,8 @@ export interface RunnerStartupBoundary {
 }
 
 interface ThreadState {
+  threadId: string;
+  runId: string;
   socket: Socket;
   channel: Channel;
   isRunning: boolean;
@@ -46,7 +52,36 @@ interface ThreadState {
   currentEvents: BaseEvent[];
   nextEventSeq: number;
   hasRunStarted: boolean;
+  hasJoined: boolean;
+  supportsRunnerEventBatch: boolean;
+  producerFinished: boolean;
+  cancellation: Promise<void>;
+  cancelRun: () => void;
+  completion: Promise<boolean>;
+  resolveCompletion: (completed: boolean) => void;
+  stopTimer: ReturnType<typeof setTimeout> | null;
+  pendingEvents: Map<
+    string,
+    { payload: Record<string, unknown>; queuedAt: number }
+  >;
+  activeEventBatch: { eventIds: string[]; attempt: number } | null;
+  nextEventPushAttempt: number;
+  eventRetryTimer: ReturnType<typeof setTimeout> | null;
+  eventFlushTimer: ReturnType<typeof setTimeout> | null;
+  eventDeadlineTimer: ReturnType<typeof setTimeout> | null;
+  socketReconnectWatchdog: ReturnType<typeof setTimeout> | null;
+  eventRetryAttempt: number;
+  completeRun: () => void;
+  failRun: (error: Error) => void;
 }
+
+const MAX_CONSECUTIVE_SOCKET_ERRORS = 5;
+const EVENT_RETRY_BASE_MS = 100;
+const EVENT_RETRY_MAX_MS = 2_000;
+const RUNNER_EVENT_BATCH_CAPABILITY = "runner_event_batch_v1";
+const MAX_RUNNER_EVENT_BATCH_SIZE = 32;
+const RUNNER_EVENT_BATCH_FLUSH_MS = 5;
+const EVENT_DURABILITY_DEADLINE_MS = 60_000;
 
 export class IntelligenceAgentRunner extends AgentRunner {
   private options: IntelligenceAgentRunnerOptions;
@@ -78,10 +113,16 @@ export class IntelligenceAgentRunner extends AgentRunner {
    * socket.disconnect() in an onError handler will set
    * closeWasClean = true and reset the reconnect timer — permanently
    * killing retries.
+   *
+   * heartbeatIntervalMs — how often Phoenix pings the server
+   *   (default 15s). Phoenix's own default is 30s, which equals a common
+   *   reverse-proxy WebSocket idle timeout (e.g. Azure Application Gateway
+   *   behind AGIC), so a run that emits no events for 30s would have its
+   *   socket dropped by the proxy. The proxy timeout must exceed this value.
    */
-  private createSocket(): Socket {
+  private createSocket(authToken = this.options.authToken): Socket {
     const socket = new Socket(this.options.url, {
-      ...(this.options.authToken ? { authToken: this.options.authToken } : {}),
+      ...(authToken ? { authToken } : {}),
       reconnectAfterMs: phoenixExponentialBackoff(
         100,
         this.options.maxReconnectMs ?? 10_000,
@@ -90,6 +131,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
         1_000,
         this.options.maxRejoinMs ?? 30_000,
       ),
+      heartbeatIntervalMs: this.options.heartbeatIntervalMs ?? 15_000,
     });
     socket.connect();
     return socket;
@@ -120,11 +162,19 @@ export class IntelligenceAgentRunner extends AgentRunner {
     event: BaseEvent,
     request: AgentRunnerRunRequest,
   ): BaseEvent {
-    return {
-      ...(event as BaseEvent & Record<string, unknown>),
-      threadId: request.threadId,
-      runId: request.input.runId,
-    } as BaseEvent;
+    const eventRecord = event as BaseEvent & Record<string, unknown>;
+    eventRecord.threadId = request.threadId;
+    eventRecord.runId = request.input.runId;
+    return eventRecord;
+  }
+
+  /** Remove agent-controlled durable identity before the runtime assigns it. */
+  private withoutAgentEventIdentity(event: BaseEvent): BaseEvent {
+    const source = event as BaseEvent & { metadata?: Record<string, unknown> };
+    const metadata = { ...source.metadata };
+    delete metadata.cpki_event_id;
+    delete metadata.cpki_event_seq;
+    return { ...source, metadata };
   }
 
   private stampRunnerMetadata(event: BaseEvent, state: ThreadState): BaseEvent {
@@ -144,17 +194,15 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
     const eventSeq = state.nextEventSeq++;
 
-    return {
-      ...eventRecord,
-      metadata: {
-        ...existingMetadata,
-        cpki_event_id:
-          typeof existingMetadata.cpki_event_id === "string"
-            ? existingMetadata.cpki_event_id
-            : randomUUID(),
-        cpki_event_seq: eventSeq,
-      },
+    eventRecord.metadata = {
+      ...existingMetadata,
+      cpki_event_id:
+        typeof existingMetadata.cpki_event_id === "string"
+          ? existingMetadata.cpki_event_id
+          : randomUUID(),
+      cpki_event_seq: eventSeq,
     };
+    return eventRecord;
   }
 
   run(request: AgentRunnerRunRequest): Observable<BaseEvent> {
@@ -195,14 +243,29 @@ export class IntelligenceAgentRunner extends AgentRunner {
     }
 
     return new Observable((observer) => {
-      const socket = this.createSocket();
+      if (this.threads.get(threadId)?.isRunning) {
+        observer.error(new Error("Thread already running"));
+        return;
+      }
+
+      const socket = this.createSocket(request.authToken);
 
       const channel = socket.channel(`ingestion:${input.runId}`, {
         thread_id: threadId,
         run_id: input.runId,
       });
 
+      let cancelRun!: () => void;
+      const cancellation = new Promise<void>((resolve) => {
+        cancelRun = resolve;
+      });
+      let resolveCompletion!: (completed: boolean) => void;
+      const completion = new Promise<boolean>((resolve) => {
+        resolveCompletion = resolve;
+      });
       const state: ThreadState = {
+        threadId,
+        runId: input.runId,
         socket,
         channel,
         isRunning: true,
@@ -211,39 +274,79 @@ export class IntelligenceAgentRunner extends AgentRunner {
         currentEvents: [],
         nextEventSeq: 1,
         hasRunStarted: false,
+        hasJoined: false,
+        supportsRunnerEventBatch: false,
+        producerFinished: false,
+        cancellation,
+        cancelRun,
+        completion,
+        resolveCompletion,
+        stopTimer: null,
+        pendingEvents: new Map(),
+        activeEventBatch: null,
+        nextEventPushAttempt: 0,
+        eventRetryTimer: null,
+        eventFlushTimer: null,
+        eventDeadlineTimer: null,
+        socketReconnectWatchdog: null,
+        eventRetryAttempt: 0,
+        completeRun: () => observer.complete(),
+        failRun: (error) => {
+          startupBoundary?.rejectStartup(error);
+          observer.error(error);
+        },
       };
       this.threads.set(threadId, state);
 
-      // Track consecutive socket errors for this run. Phoenix retries
-      // automatically via reconnectAfterMs, but if the connection fails
-      // repeatedly we abort the agent — otherwise runAgent() completes
-      // normally, finalization events buffer silently on the dead
-      // channel, and the client never receives them.
-      //
-      // Aborting the agent is the single trigger that cascades through
-      // the existing error pipeline: runAgent() rejects → catchError
-      // pushes RUN_ERROR → finalize calls finalizeRunEvents +
-      // removeThread → channel.leave() + socket.disconnect().
-      const MAX_CONSECUTIVE_ERRORS = 5;
-      let consecutiveErrors = 0;
+      let consecutiveSocketErrors = 0;
+      let plannedRestart = false;
 
-      socket.onError(() => {
-        consecutiveErrors++;
-        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS && state.agent) {
-          try {
-            state.agent.abortRun();
-          } catch {
-            // Ignore abort errors.
-          }
+      socket.onClose((event) => {
+        if (!this.isCurrentThreadState(threadId, state)) {
+          return;
         }
-        // Otherwise: Phoenix retries automatically using the exponential
-        // backoff schedule configured in createSocket().
+        plannedRestart = plannedRestart || event?.code === 1012;
+        if (event?.code !== 1000 && state.socketReconnectWatchdog === null) {
+          state.socketReconnectWatchdog = setTimeout(() => {
+            state.socketReconnectWatchdog = null;
+            if (!state.isRunning || socket.isConnected()) {
+              return;
+            }
+            socket.disconnect(() => {
+              if (state.isRunning && !socket.isConnected()) {
+                socket.connect();
+              }
+            });
+          }, 1_000);
+        }
       });
-
       socket.onOpen(() => {
-        // A successful (re)connection resets the counter so transient
-        // network blips don't accumulate across recoveries.
-        consecutiveErrors = 0;
+        if (!this.isCurrentThreadState(threadId, state)) {
+          return;
+        }
+        if (state.socketReconnectWatchdog !== null) {
+          clearTimeout(state.socketReconnectWatchdog);
+          state.socketReconnectWatchdog = null;
+        }
+        consecutiveSocketErrors = 0;
+        plannedRestart = false;
+      });
+      socket.onError(() => {
+        if (!this.isCurrentThreadState(threadId, state)) {
+          return;
+        }
+        // Once the gateway has accepted the run, transport recovery is not a
+        // terminal condition. The agent may still be producing the
+        // authoritative answer while Phoenix reconnects and replays durable
+        // events, so an arbitrary socket-error count must not abort it.
+        if (plannedRestart || state.hasJoined) {
+          return;
+        }
+
+        consecutiveSocketErrors += 1;
+        if (consecutiveSocketErrors >= MAX_CONSECUTIVE_SOCKET_ERRORS) {
+          state.agent?.abortRun();
+        }
       });
 
       // Listen for custom "stop" events pushed by the client over the
@@ -253,22 +356,73 @@ export class IntelligenceAgentRunner extends AgentRunner {
       // runner is guaranteed to receive it while still joined.
       channel.on(AG_UI_CHANNEL_EVENT, (payload: BaseEvent) => {
         if (
+          this.isCurrentThreadState(threadId, state) &&
           payload.type === EventType.CUSTOM &&
           (payload as BaseEvent & { name?: string }).name === "stop"
         ) {
-          this.stop({ threadId });
+          this.stop({ threadId, runId: state.runId }).catch((error) => {
+            logger.error(
+              { err: error, threadId, runId: state.runId },
+              "Failed to stop Intelligence run",
+            );
+          });
         }
       });
 
       channel
         .join()
-        .receive("ok", () => {
+        .receive("ok", (response) => {
+          if (!this.isCurrentThreadState(threadId, state)) {
+            return;
+          }
+          const supportsRunnerEventBatch =
+            this.supportsRunnerEventBatch(response);
+          const activeEventBatch =
+            state.supportsRunnerEventBatch === supportsRunnerEventBatch
+              ? state.activeEventBatch
+              : null;
+          state.supportsRunnerEventBatch = supportsRunnerEventBatch;
+          if (state.hasJoined) {
+            this.resetPendingEventRetry(state);
+            if (activeEventBatch !== null) {
+              state.activeEventBatch = activeEventBatch;
+              this.retryActiveEventBatch(state);
+            } else {
+              this.replayPendingEvents(state);
+            }
+            return;
+          }
+
+          state.hasJoined = true;
           startupBoundary?.resolveStartup();
-          this.executeAgentRun(request, state, threadId).subscribe({
-            complete: () => observer.complete(),
+          void this.executeAgentRun(request, state, threadId, (event) => {
+            observer.next(stripIntelligenceRoutingFields(event));
           });
         })
         .receive("error", (resp) => {
+          if (!this.isCurrentThreadState(threadId, state)) {
+            return;
+          }
+          if (state.hasJoined) {
+            if (this.isPermanentEventFailure(resp)) {
+              const reason =
+                typeof (resp as { reason?: unknown }).reason === "string"
+                  ? `: ${(resp as { reason: string }).reason}`
+                  : "";
+              this.failThread(
+                threadId,
+                state,
+                new Error(
+                  `Gateway permanently rejected channel rejoin${reason}`,
+                ),
+              );
+            }
+            return;
+          }
+          if (this.isRetryableJoinError(resp)) {
+            return;
+          }
+
           const error = new Error(
             `Failed to join channel: ${JSON.stringify(resp)}`,
           );
@@ -279,11 +433,18 @@ export class IntelligenceAgentRunner extends AgentRunner {
           } as BaseEvent;
           observer.next(errorEvent);
           state.currentEvents.push(errorEvent);
-          this.removeThread(threadId);
+          this.removeThread(threadId, state);
           startupBoundary?.rejectStartup(error);
           observer.complete();
         })
         .receive("timeout", () => {
+          if (!this.isCurrentThreadState(threadId, state)) {
+            return;
+          }
+          if (state.hasJoined) {
+            return;
+          }
+
           const error = new Error("Timed out joining channel");
           const errorEvent = {
             type: EventType.RUN_ERROR,
@@ -292,13 +453,13 @@ export class IntelligenceAgentRunner extends AgentRunner {
           } as BaseEvent;
           observer.next(errorEvent);
           state.currentEvents.push(errorEvent);
-          this.removeThread(threadId);
+          this.removeThread(threadId, state);
           startupBoundary?.rejectStartup(error);
           observer.complete();
         });
 
       return () => {
-        this.removeThread(threadId);
+        this.removeThread(threadId, state);
       };
     });
   }
@@ -352,35 +513,81 @@ export class IntelligenceAgentRunner extends AgentRunner {
     return Promise.resolve(state?.isRunning ?? false);
   }
 
+  /** Stops this run and waits until its terminal events have been acknowledged. */
   stop(request: AgentRunnerStopRequest): Promise<boolean | undefined> {
     const state = this.threads.get(request.threadId);
     if (!state || !state.isRunning || state.stopRequested) {
       return Promise.resolve(false);
     }
+    if (request.runId !== undefined && state.runId !== request.runId) {
+      return Promise.resolve(false);
+    }
 
     state.stopRequested = true;
+
+    // Fence output before abort: adapters may emit synchronously, throw, or
+    // ignore cancellation. Finalization must not depend on their cooperation.
+    state.cancelRun();
+    state.stopTimer = setTimeout(() => {
+      this.failThread(
+        state.threadId,
+        state,
+        new Error("Timed out stopping Intelligence run"),
+      );
+    }, EVENT_DURABILITY_DEADLINE_MS);
 
     // Direct local abort — the runtime is the authority.
     if (state.agent) {
       try {
         state.agent.abortRun();
       } catch {
-        // Ignore abort errors.
+        // The local run is still fenced and must deliver its terminal events.
+      }
+      // Older AG-UI agents may not expose detachActiveRun. The cancellation
+      // race still finalizes their run without waiting for the producer.
+      if (typeof state.agent.detachActiveRun === "function") {
+        try {
+          Promise.resolve(state.agent.detachActiveRun()).catch((error) => {
+            logger.warn(
+              { err: error, threadId: state.threadId, runId: state.runId },
+              "Failed to detach stopped agent",
+            );
+          });
+        } catch (error) {
+          logger.warn(
+            { err: error, threadId: state.threadId, runId: state.runId },
+            "Failed to detach stopped agent",
+          );
+        }
       }
     }
 
-    return Promise.resolve(true);
+    return state.completion.then((completed) => {
+      if (!completed) {
+        throw new Error(
+          "Intelligence run stopped before terminal events were acknowledged",
+        );
+      }
+      return true;
+    });
   }
 
-  private executeAgentRun(
+  private async executeAgentRun(
     request: AgentRunnerRunRequest,
     state: ThreadState,
     threadId: string,
-  ): Observable<void> {
-    const { currentEvents, channel } = state;
+    onRunError: (event: BaseEvent) => void,
+  ): Promise<void> {
+    const { currentEvents } = state;
     const pushCanonicalEvent = (event: BaseEvent): void => {
+      if (!this.isCurrentThreadState(threadId, state)) {
+        return;
+      }
       const canonicalEvent = this.stampRunnerMetadata(
-        this.stampCanonicalRunOwnership(event, request),
+        this.stampCanonicalRunOwnership(
+          this.withoutAgentEventIdentity(event),
+          request,
+        ),
         state,
       );
       currentEvents.push(canonicalEvent);
@@ -389,10 +596,15 @@ export class IntelligenceAgentRunner extends AgentRunner {
         state.hasRunStarted = true;
       }
 
-      channel.push(
-        "event",
+      this.queueRunnerEvent(
         this.createRunnerEventPayload(canonicalEvent, request, state),
+        state,
       );
+      // Notify the request handler without publishing the persisted error twice.
+      // An agent may emit RUN_ERROR and complete normally instead of throwing.
+      if (canonicalEvent.type === EventType.RUN_ERROR) {
+        onRunError(canonicalEvent);
+      }
     };
 
     const getPersistedInputMessages = () =>
@@ -403,24 +615,24 @@ export class IntelligenceAgentRunner extends AgentRunner {
     ): RunStartedEvent => {
       const baseInput = source?.input ?? request.input;
       const persistedInputMessages = getPersistedInputMessages();
-
-      return {
-        ...(source ?? {
+      const event =
+        source ??
+        ({
           type: EventType.RUN_STARTED,
           threadId: request.threadId,
           runId: request.input.runId,
-        }),
+        } as RunStartedEvent);
+      event.threadId = request.threadId;
+      event.runId = request.input.runId;
+      event.input = {
+        ...baseInput,
         threadId: request.threadId,
         runId: request.input.runId,
-        input: {
-          ...baseInput,
-          threadId: request.threadId,
-          runId: request.input.runId,
-          ...(persistedInputMessages !== undefined
-            ? { messages: persistedInputMessages }
-            : {}),
-        },
-      } as RunStartedEvent;
+        ...(persistedInputMessages !== undefined
+          ? { messages: persistedInputMessages }
+          : {}),
+      };
+      return event;
     };
 
     const ensureRunStarted = (): void => {
@@ -430,42 +642,442 @@ export class IntelligenceAgentRunner extends AgentRunner {
       }
     };
 
-    return from(
-      request.agent.runAgent(request.input, {
-        onEvent: ({ event }: { event: BaseEvent }) => {
-          if (event.type === EventType.RUN_STARTED) {
-            pushCanonicalEvent(buildRunStartedEvent(event as RunStartedEvent));
-            return;
-          }
+    try {
+      if (state.stopRequested) return;
+      const backendThreadId = request.backendThreadId ?? request.threadId;
+      request.agent.threadId = backendThreadId;
+      await Promise.race([
+        request.agent.runAgent(request.input, {
+          onEvent: ({ event }: { event: BaseEvent }) => {
+            if (state.stopRequested || state.producerFinished) return;
+            if (event.type === EventType.RUN_STARTED) {
+              pushCanonicalEvent(
+                buildRunStartedEvent(event as RunStartedEvent),
+              );
+              return;
+            }
 
-          ensureRunStarted();
-          pushCanonicalEvent(event);
-        },
-      }),
-    ).pipe(
-      catchError((error) => {
-        ensureRunStarted();
+            ensureRunStarted();
+            pushCanonicalEvent(event);
+          },
+        }),
+        state.cancellation,
+      ]);
+    } catch (error) {
+      if (state.stopRequested || !this.isCurrentThreadState(threadId, state)) {
+        return;
+      }
+      ensureRunStarted();
+      const existingError = currentEvents.find(
+        (event) => event.type === EventType.RUN_ERROR,
+      );
+      if (!existingError) {
         const errorEvent = {
           type: EventType.RUN_ERROR,
           message: error instanceof Error ? error.message : String(error),
         } as BaseEvent;
         pushCanonicalEvent(errorEvent);
-        return EMPTY;
-      }),
-      finalize(() => {
-        ensureRunStarted();
-        const appended = finalizeRunEvents(currentEvents, {
-          stopRequested: state.stopRequested,
-        });
-        for (const event of appended) {
-          channel.push(
-            "event",
-            this.createRunnerEventPayload(event, request, state),
-          );
+      }
+    } finally {
+      if (!this.isCurrentThreadState(threadId, state)) {
+        return;
+      }
+      ensureRunStarted();
+      const appended = finalizeRunEvents(currentEvents, {
+        stopRequested: state.stopRequested,
+        protocolVersion: request.input.protocolVersion,
+      });
+      for (const event of appended) {
+        pushCanonicalEvent(event);
+      }
+      state.producerFinished = true;
+      this.completeWhenDurable(threadId, state);
+    }
+  }
+
+  /** Queue one immutable event payload until Redis-backed gateway acknowledgement. */
+  private queueRunnerEvent(
+    payload: Record<string, unknown>,
+    state: ThreadState,
+  ): void {
+    if (!this.isCurrentThreadState(state.threadId, state)) {
+      return;
+    }
+    const eventId = this.runnerEventId(payload);
+    if (!state.pendingEvents.has(eventId)) {
+      state.pendingEvents.set(eventId, {
+        payload: structuredClone(payload),
+        queuedAt: Date.now(),
+      });
+    }
+    this.scheduleEventDeadline(state);
+    this.replayPendingEvents(state);
+  }
+
+  private pushPendingEventBatch(
+    eventIds: string[],
+    events: Array<{ payload: Record<string, unknown>; queuedAt: number }>,
+    state: ThreadState,
+  ): void {
+    if (
+      !this.isCurrentThreadState(state.threadId, state) ||
+      this.failIfEventDeadlineExceeded(state) ||
+      state.channel.state !== "joined" ||
+      !state.socket.isConnected()
+    ) {
+      return;
+    }
+
+    const attempt = ++state.nextEventPushAttempt;
+    state.activeEventBatch = { eventIds, attempt };
+    const payloads = events.map((event) => event.payload);
+    const isBatch = state.supportsRunnerEventBatch;
+
+    state.channel
+      .push(
+        isBatch ? "events" : "event",
+        isBatch ? { events: payloads } : payloads[0],
+      )
+      .receive("ok", () => {
+        if (
+          !this.isCurrentThreadState(state.threadId, state) ||
+          state.activeEventBatch?.attempt !== attempt
+        ) {
+          return;
         }
-        this.removeThread(threadId);
-      }),
+        if (this.failIfEventDeadlineExceeded(state)) {
+          return;
+        }
+        for (const eventId of eventIds) {
+          state.pendingEvents.delete(eventId);
+        }
+        state.activeEventBatch = null;
+        state.eventRetryAttempt = 0;
+        if (state.pendingEvents.size === 0) {
+          this.clearPendingEventRetry(state);
+          this.clearPendingEventFlush(state);
+        }
+        this.scheduleEventDeadline(state);
+        this.completeWhenDurable(state.threadId, state);
+        this.replayPendingEvents(state);
+      })
+      .receive("error", (response) =>
+        this.handlePendingEventFailure(state, attempt, response),
+      )
+      .receive("timeout", () => this.handlePendingEventFailure(state, attempt));
+  }
+
+  private handlePendingEventFailure(
+    state: ThreadState,
+    attempt: number,
+    response?: unknown,
+  ): void {
+    if (
+      !this.isCurrentThreadState(state.threadId, state) ||
+      state.activeEventBatch?.attempt !== attempt
+    ) {
+      return;
+    }
+
+    if (this.failIfEventDeadlineExceeded(state)) {
+      return;
+    }
+    if (this.isPermanentEventFailure(response)) {
+      const reason =
+        typeof response === "object" &&
+        response !== null &&
+        typeof (response as { reason?: unknown }).reason === "string"
+          ? (response as { reason: string }).reason
+          : "permanent_gateway_rejection";
+      this.failThread(
+        state.threadId,
+        state,
+        new Error(`Runner event durability failed: ${reason}`),
+      );
+      return;
+    }
+    this.schedulePendingEventRetry(state);
+  }
+
+  private schedulePendingEventRetry(state: ThreadState): void {
+    if (
+      !this.isCurrentThreadState(state.threadId, state) ||
+      state.pendingEvents.size === 0 ||
+      state.eventRetryTimer !== null
+    ) {
+      return;
+    }
+
+    const delay = Math.min(
+      EVENT_RETRY_BASE_MS * 2 ** state.eventRetryAttempt,
+      EVENT_RETRY_MAX_MS,
     );
+    state.eventRetryAttempt += 1;
+    state.eventRetryTimer = setTimeout(() => {
+      state.eventRetryTimer = null;
+      if (
+        !this.isCurrentThreadState(state.threadId, state) ||
+        state.pendingEvents.size === 0
+      ) {
+        return;
+      }
+      this.retryActiveEventBatch(state);
+    }, delay);
+  }
+
+  private clearPendingEventRetry(state: ThreadState): void {
+    if (state.eventRetryTimer !== null) {
+      clearTimeout(state.eventRetryTimer);
+      state.eventRetryTimer = null;
+    }
+  }
+
+  private schedulePendingEventFlush(state: ThreadState): void {
+    if (
+      !this.isCurrentThreadState(state.threadId, state) ||
+      state.pendingEvents.size === 0 ||
+      state.activeEventBatch !== null ||
+      state.eventFlushTimer !== null
+    ) {
+      return;
+    }
+
+    const oldestQueuedAt = Math.min(
+      ...[...state.pendingEvents.values()].map((event) => event.queuedAt),
+    );
+    const delay = Math.max(
+      0,
+      oldestQueuedAt + RUNNER_EVENT_BATCH_FLUSH_MS - Date.now(),
+    );
+    state.eventFlushTimer = setTimeout(() => {
+      state.eventFlushTimer = null;
+      if (!this.isCurrentThreadState(state.threadId, state)) {
+        return;
+      }
+      this.flushPendingEventBatch(state);
+    }, delay);
+  }
+
+  private clearPendingEventFlush(state: ThreadState): void {
+    if (state.eventFlushTimer !== null) {
+      clearTimeout(state.eventFlushTimer);
+      state.eventFlushTimer = null;
+    }
+  }
+
+  private resetPendingEventRetry(state: ThreadState): void {
+    this.clearPendingEventRetry(state);
+    this.clearPendingEventFlush(state);
+    state.eventRetryAttempt = 0;
+    state.activeEventBatch = null;
+  }
+
+  private replayPendingEvents(state: ThreadState): void {
+    if (
+      !this.isCurrentThreadState(state.threadId, state) ||
+      state.activeEventBatch !== null
+    ) {
+      return;
+    }
+
+    const pendingEvents = [...state.pendingEvents.entries()].sort(
+      ([, left], [, right]) =>
+        this.runnerEventSeq(left.payload) - this.runnerEventSeq(right.payload),
+    );
+    if (pendingEvents.length === 0) {
+      return;
+    }
+
+    const batchSize = state.supportsRunnerEventBatch
+      ? MAX_RUNNER_EVENT_BATCH_SIZE
+      : 1;
+    if (!state.supportsRunnerEventBatch || pendingEvents.length >= batchSize) {
+      this.clearPendingEventFlush(state);
+      const batch = pendingEvents.slice(0, batchSize);
+      this.pushPendingEventBatch(
+        batch.map(([eventId]) => eventId),
+        batch.map(([, event]) => event),
+        state,
+      );
+      return;
+    }
+
+    this.schedulePendingEventFlush(state);
+  }
+
+  private flushPendingEventBatch(state: ThreadState): void {
+    if (
+      !this.isCurrentThreadState(state.threadId, state) ||
+      state.activeEventBatch !== null ||
+      state.pendingEvents.size === 0
+    ) {
+      return;
+    }
+
+    const batch = [...state.pendingEvents.entries()]
+      .sort(
+        ([, left], [, right]) =>
+          this.runnerEventSeq(left.payload) -
+          this.runnerEventSeq(right.payload),
+      )
+      .slice(0, MAX_RUNNER_EVENT_BATCH_SIZE);
+    this.pushPendingEventBatch(
+      batch.map(([eventId]) => eventId),
+      batch.map(([, event]) => event),
+      state,
+    );
+  }
+
+  private retryActiveEventBatch(state: ThreadState): void {
+    if (
+      !this.isCurrentThreadState(state.threadId, state) ||
+      this.failIfEventDeadlineExceeded(state)
+    ) {
+      return;
+    }
+    const activeBatch = state.activeEventBatch;
+    if (activeBatch === null) {
+      this.replayPendingEvents(state);
+      return;
+    }
+
+    const events = activeBatch.eventIds
+      .map((eventId) => state.pendingEvents.get(eventId))
+      .filter(
+        (
+          event,
+        ): event is { payload: Record<string, unknown>; queuedAt: number } =>
+          event !== undefined,
+      );
+    if (events.length !== activeBatch.eventIds.length) {
+      state.activeEventBatch = null;
+      this.replayPendingEvents(state);
+      return;
+    }
+
+    this.pushPendingEventBatch(activeBatch.eventIds, events, state);
+  }
+
+  private completeWhenDurable(threadId: string, state: ThreadState): void {
+    if (
+      !this.isCurrentThreadState(threadId, state) ||
+      !state.producerFinished ||
+      state.pendingEvents.size !== 0
+    ) {
+      return;
+    }
+    if (this.threads.get(threadId) !== state) {
+      return;
+    }
+
+    this.removeThread(threadId, state, true);
+    state.completeRun();
+  }
+
+  private runnerEventId(payload: Record<string, unknown>): string {
+    const metadata = payload.metadata as Record<string, unknown>;
+    return metadata.cpki_event_id as string;
+  }
+
+  private runnerEventSeq(payload: Record<string, unknown>): number {
+    const metadata = payload.metadata as Record<string, unknown>;
+    return metadata.cpki_event_seq as number;
+  }
+
+  private supportsRunnerEventBatch(response: unknown): boolean {
+    if (typeof response !== "object" || response === null) {
+      return false;
+    }
+    const capabilities = (response as { capabilities?: unknown }).capabilities;
+    return (
+      Array.isArray(capabilities) &&
+      capabilities.includes(RUNNER_EVENT_BATCH_CAPABILITY)
+    );
+  }
+
+  private isRetryableJoinError(response: unknown): boolean {
+    if (typeof response !== "object" || response === null) {
+      return false;
+    }
+    const value = response as { reason?: unknown; retryable?: unknown };
+    if (value.retryable === false) {
+      return false;
+    }
+    return value.retryable === true || value.reason === "gateway_draining";
+  }
+
+  private isPermanentEventFailure(response: unknown): boolean {
+    return (
+      typeof response === "object" &&
+      response !== null &&
+      (response as { retryable?: unknown }).retryable === false
+    );
+  }
+
+  private scheduleEventDeadline(state: ThreadState): void {
+    if (state.eventDeadlineTimer !== null) {
+      clearTimeout(state.eventDeadlineTimer);
+      state.eventDeadlineTimer = null;
+    }
+    if (
+      !this.isCurrentThreadState(state.threadId, state) ||
+      state.pendingEvents.size === 0
+    ) {
+      return;
+    }
+
+    const oldestQueuedAt = Math.min(
+      ...[...state.pendingEvents.values()].map((event) => event.queuedAt),
+    );
+    const deadline = oldestQueuedAt + EVENT_DURABILITY_DEADLINE_MS;
+    state.eventDeadlineTimer = setTimeout(
+      () => {
+        state.eventDeadlineTimer = null;
+        if (!this.isCurrentThreadState(state.threadId, state)) {
+          return;
+        }
+
+        if (!this.failIfEventDeadlineExceeded(state)) {
+          this.scheduleEventDeadline(state);
+        }
+      },
+      Math.max(0, deadline - Date.now()),
+    );
+  }
+
+  private failThread(threadId: string, state: ThreadState, error: Error): void {
+    if (!this.isCurrentThreadState(threadId, state)) {
+      return;
+    }
+    this.removeThread(threadId, state);
+    try {
+      state.agent?.abortRun();
+    } catch {
+      // The terminal durability error must still reach the subscriber.
+    }
+    state.failRun(error);
+  }
+
+  private failIfEventDeadlineExceeded(state: ThreadState): boolean {
+    if (state.pendingEvents.size === 0) {
+      return false;
+    }
+    const oldestQueuedAt = Math.min(
+      ...[...state.pendingEvents.values()].map((event) => event.queuedAt),
+    );
+    if (Date.now() < oldestQueuedAt + EVENT_DURABILITY_DEADLINE_MS) {
+      return false;
+    }
+    this.failThread(
+      state.threadId,
+      state,
+      new Error("Timed out trying to durably deliver runner events"),
+    );
+    return true;
+  }
+
+  private isCurrentThreadState(threadId: string, state: ThreadState): boolean {
+    return state.isRunning && this.threads.get(threadId) === state;
   }
 
   /**
@@ -475,14 +1087,34 @@ export class IntelligenceAgentRunner extends AgentRunner {
    * Idempotent — safe to call multiple times for the same threadId
    * (e.g. from join error handlers, finalize, and Observable teardown).
    */
-  private removeThread(threadId: string): void {
-    const state = this.threads.get(threadId);
-    if (!state) {
+  private removeThread(
+    threadId: string,
+    state: ThreadState,
+    completed = false,
+  ): void {
+    if (this.threads.get(threadId) !== state) {
       return;
     }
 
     // Delete first so concurrent calls see the entry as already removed.
     this.threads.delete(threadId);
+    state.isRunning = false;
+    state.resolveCompletion(completed);
+    if (state.stopTimer !== null) {
+      clearTimeout(state.stopTimer);
+      state.stopTimer = null;
+    }
+    this.clearPendingEventRetry(state);
+    this.clearPendingEventFlush(state);
+    if (state.eventDeadlineTimer !== null) {
+      clearTimeout(state.eventDeadlineTimer);
+      state.eventDeadlineTimer = null;
+    }
+    state.activeEventBatch = null;
+    if (state.socketReconnectWatchdog !== null) {
+      clearTimeout(state.socketReconnectWatchdog);
+      state.socketReconnectWatchdog = null;
+    }
 
     try {
       state.channel.leave();

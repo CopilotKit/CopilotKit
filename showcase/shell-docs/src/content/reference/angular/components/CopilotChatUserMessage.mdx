@@ -1,0 +1,168 @@
+---
+title: "CopilotChatUserMessage"
+description: "Angular standalone component that renders a single user message with attachments, copy and edit actions, and branch navigation."
+---
+
+## Overview
+
+`CopilotChatUserMessage` renders one user message. It shows image or file attachments, renders the message text, and shows a toolbar with copy and edit actions. When the message belongs to a set of regenerated branches, a branch control lets you move between them.
+
+The copy and edit buttons always render. The branch navigation control renders only when `numberOfBranches` is greater than 1.
+
+The component is standalone and uses `OnPush` change detection. Reactive inputs are Angular [signals](https://angular.dev/guide/signals).
+
+## Usage
+
+Import the component class and use its `copilot-chat-user-message` selector.
+
+```ts title="src/app/user-message.component.ts"
+import { Component, signal } from "@angular/core";
+import { CopilotChatUserMessage } from "@copilotkit/angular";
+import type { UserMessage } from "@ag-ui/core";
+
+@Component({
+  selector: "app-user-message",
+  standalone: true,
+  imports: [CopilotChatUserMessage],
+  template: `
+    <copilot-chat-user-message
+      [message]="message()"
+      (editMessage)="onEdit($event)"
+    />
+  `,
+})
+export class UserMessageComponent {
+  message = signal<UserMessage>({
+    id: "1",
+    role: "user",
+    content: "What is the weather today?",
+  });
+
+  onEdit(event: { message: UserMessage }) {
+    console.log("edit", event.message.id);
+  }
+}
+```
+
+## Inputs
+
+<PropertyReference name="message" type="UserMessage">
+  The user message to render. Its content is flattened to text for the renderer, and any media parts are shown as attachments above it.
+</PropertyReference>
+
+<PropertyReference name="branchIndex" type="number" default="0">
+  Zero-based index of the currently shown branch. Used by the branch navigation control.
+</PropertyReference>
+
+<PropertyReference name="numberOfBranches" type="number" default="1">
+  Total number of regenerated branches for this message. Branch navigation renders only when this is greater than 1.
+</PropertyReference>
+
+<PropertyReference name="additionalToolbarItems" type="TemplateRef<any>">
+  A template prepended to the default toolbar, before the copy and edit buttons.
+</PropertyReference>
+
+<PropertyReference name="inputClass" type="string">
+  Extra CSS classes merged onto the message container.
+</PropertyReference>
+
+### Slot class inputs
+
+Each of these passes extra CSS classes to the corresponding default sub-component.
+
+<PropertyReference name="messageRendererClass" type="string">
+  Classes for the default message renderer.
+</PropertyReference>
+
+<PropertyReference name="toolbarClass" type="string">
+  Classes for the default toolbar.
+</PropertyReference>
+
+<PropertyReference name="copyButtonClass" type="string">
+  Classes for the default copy button.
+</PropertyReference>
+
+<PropertyReference name="editButtonClass" type="string">
+  Classes for the default edit button.
+</PropertyReference>
+
+<PropertyReference name="branchNavigationClass" type="string">
+  Classes for the default branch navigation control.
+</PropertyReference>
+
+### Slot component inputs
+
+Each of these replaces the corresponding default sub-component with a component class of your own. Content-projection templates (see below) take precedence over these.
+
+<PropertyReference name="messageRendererComponent" type="Type<any>">
+  Replaces the default message renderer.
+</PropertyReference>
+
+<PropertyReference name="toolbarComponent" type="Type<any>">
+  Replaces the default toolbar.
+</PropertyReference>
+
+<PropertyReference name="copyButtonComponent" type="Type<any>">
+  Replaces the default copy button.
+</PropertyReference>
+
+<PropertyReference name="editButtonComponent" type="Type<any>">
+  Replaces the default edit button.
+</PropertyReference>
+
+<PropertyReference name="branchNavigationComponent" type="Type<any>">
+  Replaces the default branch navigation control.
+</PropertyReference>
+
+## Outputs
+
+<PropertyReference name="editMessage" type="CopilotChatUserMessageOnEditMessageProps">
+  Emitted when the edit button is clicked. The payload is `{ message: UserMessage }`.
+</PropertyReference>
+
+<PropertyReference name="switchToBranch" type="CopilotChatUserMessageOnSwitchToBranchProps">
+  Emitted when a different branch is selected through the branch navigation control. The payload is `{ message: UserMessage; branchIndex: number; numberOfBranches: number }`.
+</PropertyReference>
+
+## Slots and content projection
+
+You can override any piece of the message by projecting a named template. A projected template takes precedence over the matching `*Component` input. Each template receives a typed context object.
+
+| Template name | Context type | Replaces |
+| --- | --- | --- |
+| `messageRenderer` | `MessageRendererContext` (`{ content: string }`) | The message text renderer |
+| `toolbar` | `UserMessageToolbarContext` (`{ children?: any }`) | The whole toolbar |
+| `copyButton` | `CopyButtonContext` (`{ content?: string; copied?: boolean }`) | The copy button |
+| `editButton` | `EditButtonContext` (empty; click via outputs) | The edit button |
+| `branchNavigation` | `BranchNavigationContext` (`{ currentBranch, numberOfBranches, onSwitchToBranch?, message }`) | The branch navigation control |
+
+```html title="src/app/user-message.component.html"
+<copilot-chat-user-message [message]="message()">
+  <ng-template #messageRenderer let-content="content">
+    <p class="my-user-text">{{ content }}</p>
+  </ng-template>
+</copilot-chat-user-message>
+```
+
+## Related
+
+<Cards>
+  <Card
+    title="CopilotChatMessageView"
+    description="Renders a list of messages, routing each to assistant, user, reasoning, or activity rendering."
+    href="/reference/angular/components/CopilotChatMessageView"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="CopilotChatAssistantMessage"
+    description="Renders a single assistant message with markdown content, a toolbar, and tool calls."
+    href="/reference/angular/components/CopilotChatAssistantMessage"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="CopilotChatView"
+    description="The full chat layout: scroll container, message view, and input."
+    href="/reference/angular/components/CopilotChatView"
+    icon={<LinkIcon />}
+  />
+</Cards>

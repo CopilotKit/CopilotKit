@@ -1,17 +1,15 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
-  CopilotChat,
+  CopilotKit,
   useAgent,
   UseAgentUpdate,
-  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 
-import type { Preferences } from "./preferences-card";
-import { PreferencesCard } from "./preferences-card";
-import { NotesCard } from "./notes-card";
+import { Preferences } from "./preferences-card";
+import { DemoLayout } from "./demo-layout";
+import { useSharedStateReadWriteSuggestions } from "./suggestions";
 
 const INITIAL_PREFERENCES: Preferences = {
   name: "",
@@ -38,32 +36,19 @@ export default function SharedStateReadWriteDemo() {
 }
 
 function DemoContent() {
+  // @region[use-agent]
   // @region[use-agent-read]
-  // Subscribe the component to agent state changes. LlamaIndex's
-  // AGUIChatWorkflow emits a StateSnapshotEvent on InputEvent and after
-  // every tool call, so any time the agent's `set_notes` tool runs, this
-  // hook fires, we re-render, and the notes card reflects the new value.
+  // Subscribe the component to agent state changes. Any time the agent
+  // mutates its state (e.g. via its `set_notes` tool) this hook fires,
+  // we re-render, and the sidebar panels reflect the new values.
   const { agent } = useAgent({
     agentId: "shared-state-read-write",
     updates: [UseAgentUpdate.OnStateChanged],
   });
   // @endregion[use-agent-read]
+  // @endregion[use-agent]
 
-  useConfigureSuggestions({
-    suggestions: [
-      { title: "Greet me", message: "Say hi and introduce yourself." },
-      {
-        title: "Remember something",
-        message:
-          "Remember that I prefer morning meetings and that I don't eat dairy.",
-      },
-      {
-        title: "Plan a weekend",
-        message: "Suggest a weekend plan based on my interests.",
-      },
-    ],
-    available: "always",
-  });
+  useSharedStateReadWriteSuggestions();
 
   const agentState = agent.state as RWAgentState | undefined;
   const preferences = agentState?.preferences ?? INITIAL_PREFERENCES;
@@ -81,10 +66,11 @@ function DemoContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // @region[set-state]
   // @region[use-agent-write]
   // WRITE: every edit in the sidebar goes straight into agent state.
-  // On the agent's next turn, AGUIChatWorkflow injects this state into
-  // the user message via its <state>...</state> prelude — so the UI's
+  // On the agent's next turn, `PreferencesInjectorMiddleware` reads this
+  // back out of state and adds it to the system prompt — so the UI's
   // writes visibly steer the model.
   const handlePreferencesChange = (next: Preferences) => {
     agent.setState({
@@ -93,6 +79,7 @@ function DemoContent() {
     } as RWAgentState);
   };
   // @endregion[use-agent-write]
+  // @endregion[set-state]
 
   // WRITE: let the user clear the agent-authored notes from the UI.
   const handleClearNotes = () => {
@@ -100,23 +87,11 @@ function DemoContent() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-screen w-full bg-gray-50">
-      <aside className="p-4 md:w-[360px] md:shrink-0 overflow-y-auto space-y-4">
-        <PreferencesCard
-          value={preferences}
-          onChange={handlePreferencesChange}
-        />
-        <NotesCard notes={notes} onClear={handleClearNotes} />
-      </aside>
-      <main className="flex-1 flex flex-col min-h-0">
-        <CopilotChat
-          agentId="shared-state-read-write"
-          className="flex-1 min-h-0"
-          labels={{
-            chatInputPlaceholder: "Chat with the agent...",
-          }}
-        />
-      </main>
-    </div>
+    <DemoLayout
+      preferences={preferences}
+      notes={notes}
+      onPreferencesChange={handlePreferencesChange}
+      onClearNotes={handleClearNotes}
+    />
   );
 }

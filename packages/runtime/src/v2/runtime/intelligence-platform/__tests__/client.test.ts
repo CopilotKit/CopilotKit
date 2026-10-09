@@ -1,29 +1,406 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { CopilotKitIntelligence } from "../client";
+import { describe, it, expect, test, vi, beforeEach } from "vitest";
+import { logger } from "@copilotkit/shared";
+import { CopilotKitIntelligence, PlatformRequestError } from "../client";
+import { findForbiddenPublicKeyPaths } from "../../__tests__/runtime-entitlement-test-utils";
 
 const fetchMock = vi.fn();
-globalThis.fetch = fetchMock;
+vi.stubGlobal("fetch", fetchMock);
 const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
+const ACTIVE_MANAGED_RUNTIME_ENTITLEMENT_TRANSPORT = {
+  organizationId: "org-private",
+  source: "managedOrgSubscription",
+  active: true,
+  features: { threads: true },
+  limits: { seats: 25 },
+  planCode: "pro",
+  entitlementSource: "stripe",
+} as const;
+
+const NORMALIZED_ACTIVE_MANAGED_RUNTIME_ENTITLEMENT = {
+  status: "ready",
+  entitlement: {
+    source: "managedOrgSubscription",
+    active: true,
+    features: { threads: true },
+    limits: { seats: 25 },
+    planCode: "pro",
+    entitlementSource: "stripe",
+  },
+} as const;
+
+/** Build a real JSON response for the shared platform fetch mock. */
 function jsonResponse(body: unknown, status = 200) {
-  return Promise.resolve({
-    ok: status >= 200 && status < 300,
-    status,
-    statusText: status === 200 ? "OK" : "Error",
-    json: () => Promise.resolve(body),
-    text: () => Promise.resolve(JSON.stringify(body)),
-  } as Response);
+  return Promise.resolve(
+    new Response(JSON.stringify(body), {
+      status,
+      statusText: status === 200 ? "OK" : "Error",
+      headers: { "content-type": "application/json" },
+    }),
+  );
 }
 
-function emptyResponse(status = 204) {
-  return Promise.resolve({
-    ok: status >= 200 && status < 300,
-    status,
-    statusText: "No Content",
-    json: () => Promise.resolve(null),
-    text: () => Promise.resolve(""),
-  } as Response);
+/** Build a real text response for response-parser failure coverage. */
+function textResponse(body: string, status = 200) {
+  return Promise.resolve(
+    new Response(body, {
+      status,
+      statusText: status === 200 ? "OK" : "Error",
+      headers: { "content-type": "text/plain" },
+    }),
+  );
 }
+
+/** Build a real empty response for successful no-content client operations. */
+function emptyResponse(status = 204) {
+  return Promise.resolve(
+    new Response(null, {
+      status,
+      statusText: "No Content",
+    }),
+  );
+}
+
+/** Build an entitlement client with a trailing-slash URL and project API key. */
+function runtimeEntitlementsClient() {
+  fetchMock.mockReset();
+  return new CopilotKitIntelligence({
+    apiUrl: "https://api.example.com/",
+    wsUrl: "wss://ws.example.com/socket",
+    apiKey: "cpk-project-key",
+  });
+}
+
+/** Require one HTTP-success body to fail strict Runtime entitlement parsing. */
+async function expectRuntimeEntitlementValidationError(
+  response: Promise<Response>,
+): Promise<PlatformRequestError> {
+  const client = runtimeEntitlementsClient();
+  fetchMock.mockReturnValue(response);
+
+  const error: unknown = await client
+    .getRuntimeEntitlements()
+    .catch((caught: unknown) => caught);
+
+  expect(error).toBeInstanceOf(PlatformRequestError);
+  if (!(error instanceof PlatformRequestError)) {
+    throw new Error("Expected a typed Runtime entitlement validation error");
+  }
+  expect({
+    name: error.name,
+    retryable: error.retryable,
+    status: error.status,
+  }).toEqual({
+    name: "PlatformRequestError",
+    retryable: false,
+    status: 502,
+  });
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+
+  return error;
+}
+
+test("getRuntimeEntitlements normalizes the current flat managed App API response", async () => {
+  const client = runtimeEntitlementsClient();
+  fetchMock.mockReturnValue(
+    jsonResponse(ACTIVE_MANAGED_RUNTIME_ENTITLEMENT_TRANSPORT),
+  );
+
+  const result = await client.getRuntimeEntitlements();
+
+  expect(result).toEqual(NORMALIZED_ACTIVE_MANAGED_RUNTIME_ENTITLEMENT);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(fetchMock).toHaveBeenCalledWith(
+    "https://api.example.com/api/entitlements/runtime",
+    expect.objectContaining({
+      method: "GET",
+      headers: expect.objectContaining({
+        Authorization: "Bearer cpk-project-key",
+      }),
+    }),
+  );
+});
+
+test("getRuntimeEntitlements normalizes an inactive self-hosted App API response", async () => {
+  const client = runtimeEntitlementsClient();
+  fetchMock.mockReturnValue(
+    jsonResponse({
+      organizationId: "org-private",
+      source: "selfHostedDeploymentLicense",
+      active: false,
+      features: {},
+      limits: {},
+    }),
+  );
+
+  const result = await client.getRuntimeEntitlements();
+
+  expect(result).toEqual({
+    status: "ready",
+    entitlement: {
+      source: "selfHostedDeploymentLicense",
+      active: false,
+      features: {},
+      limits: {},
+    },
+  });
+  expect(findForbiddenPublicKeyPaths(result)).toEqual([]);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+test("getRuntimeEntitlements accepts an AWS Marketplace App API response", async () => {
+  const client = runtimeEntitlementsClient();
+  const response = {
+    status: "ready",
+    entitlement: {
+      source: "awsMarketplaceDeploymentLicense",
+      active: true,
+      features: { deployment_via_helm_chart: true },
+      limits: { "threads.max_count": 25_000 },
+      planCode: "enterprise",
+    },
+  } as const;
+  fetchMock.mockReturnValue(jsonResponse(response));
+
+  await expect(client.getRuntimeEntitlements()).resolves.toEqual(response);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+test("recursive forbidden-key control detects identity and credential leaks", () => {
+  const leakedProjection = {
+    organizationId: "org-leaked",
+    entitlement: {
+      nested: [{ telemetry_id: "telemetry-leaked" }],
+      licenseToken: "license-leaked",
+    },
+  };
+
+  expect(findForbiddenPublicKeyPaths(leakedProjection)).toEqual([
+    "$.organizationId",
+    "$.entitlement.nested[0].telemetry_id",
+    "$.entitlement.licenseToken",
+  ]);
+});
+
+test("getRuntimeEntitlements aborts a bounded request with a typed timeout error", async () => {
+  vi.useFakeTimers();
+  try {
+    const privateAbortDetail = "private-upstream-timeout-detail";
+    const client = runtimeEntitlementsClient();
+    fetchMock.mockImplementation(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException(privateAbortDetail, "AbortError"));
+          });
+        }),
+    );
+
+    const request = client.getRuntimeEntitlements();
+    const capturedError = request.catch((error: unknown) => error);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const signal = fetchMock.mock.calls[0][1].signal;
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(signal.aborted).toBe(false);
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+
+    await vi.advanceTimersToNextTimerAsync();
+
+    expect(signal.aborted).toBe(true);
+    const error = await capturedError;
+    expect(error).toBeInstanceOf(PlatformRequestError);
+    if (!(error instanceof PlatformRequestError)) {
+      throw new Error("Expected a typed Runtime entitlement timeout error");
+    }
+    expect(error.status).toBe(504);
+    expect(error.retryable).toBe(true);
+    expect(error.message).not.toContain(privateAbortDetail);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("getRuntimeEntitlements marks a safe network failure as retryable", async () => {
+  const privateNetworkDetail = "private-upstream-network-detail";
+  const client = runtimeEntitlementsClient();
+  fetchMock.mockRejectedValue(new Error(privateNetworkDetail));
+
+  const error: unknown = await client
+    .getRuntimeEntitlements()
+    .catch((caught: unknown) => caught);
+
+  expect(error).toBeInstanceOf(PlatformRequestError);
+  if (!(error instanceof PlatformRequestError)) {
+    throw new Error("Expected a typed Runtime entitlement network error");
+  }
+  expect(error.status).toBe(502);
+  expect(error.retryable).toBe(true);
+  expect(error.message).toBe("Runtime entitlement request failed");
+  expect(error.message).not.toContain(privateNetworkDetail);
+});
+
+const UNKNOWN_FIELD_PRIVATE_VALUE = "private-runtime-entitlement-value";
+
+test.each([
+  {
+    label: "flat transport",
+    response: {
+      ...ACTIVE_MANAGED_RUNTIME_ENTITLEMENT_TRANSPORT,
+      unexpected: UNKNOWN_FIELD_PRIVATE_VALUE,
+    },
+  },
+])(
+  "getRuntimeEntitlements rejects a generic unknown property in the $label without leaking its value",
+  async ({ response }) => {
+    const error = await expectRuntimeEntitlementValidationError(
+      jsonResponse(response),
+    );
+
+    expect(error.message).not.toContain(UNKNOWN_FIELD_PRIVATE_VALUE);
+  },
+);
+
+test.each([
+  ["non-JSON", () => textResponse("not json")],
+  [
+    "wrong active type",
+    () =>
+      jsonResponse({
+        ...ACTIVE_MANAGED_RUNTIME_ENTITLEMENT_TRANSPORT,
+        active: "yes",
+      }),
+  ],
+  [
+    "missing organizationId",
+    () =>
+      jsonResponse({
+        source: "managedOrgSubscription",
+        active: true,
+        features: { threads: true },
+        limits: {},
+      }),
+  ],
+  [
+    "unknown source enum",
+    () =>
+      jsonResponse({
+        ...ACTIVE_MANAGED_RUNTIME_ENTITLEMENT_TRANSPORT,
+        source: "managed",
+      }),
+  ],
+])(
+  "getRuntimeEntitlements rejects %s successful body with a typed validation error",
+  async (_label, response) => {
+    await expectRuntimeEntitlementValidationError(response());
+  },
+);
+
+test.each([300, 401, 403, 408, 425, 429, 503, 599])(
+  "getRuntimeEntitlements rejects non-OK status %i after disposing without reading or leaking its body",
+  async (status) => {
+    consoleErrorSpy.mockClear();
+    const client = runtimeEntitlementsClient();
+    const privateUpstreamDetail = `private-upstream-detail-${status}`;
+    const upstreamResponse = new Response(
+      JSON.stringify({ error: privateUpstreamDetail }),
+      { status },
+    );
+    fetchMock.mockResolvedValue(upstreamResponse);
+
+    const error: unknown = await client
+      .getRuntimeEntitlements()
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(PlatformRequestError);
+    if (!(error instanceof PlatformRequestError)) {
+      throw new Error("Expected a typed Runtime entitlement status error");
+    }
+    expect(error.status).toBe(status);
+    expect(error.retryable).toBe(
+      status === 408 || status === 425 || status === 429 || status >= 500,
+    );
+    expect(error.message).toBe(
+      `Runtime entitlement request failed with status ${status}`,
+    );
+    expect(error.message).not.toContain(privateUpstreamDetail);
+    expect(upstreamResponse.bodyUsed).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(consoleErrorSpy.mock.calls)).not.toContain(
+      privateUpstreamDetail,
+    );
+  },
+);
+
+test("getRuntimeEntitlements bounds stalled non-OK response disposal without leaking its body", async () => {
+  vi.useFakeTimers();
+  try {
+    consoleErrorSpy.mockClear();
+    const privateUpstreamDetail = "private-stalled-error-body-detail";
+    let requestSignal: AbortSignal | null | undefined;
+    let disposalStarted = false;
+    const upstreamResponse = new Response(
+      new ReadableStream<Uint8Array>({
+        cancel() {
+          disposalStarted = true;
+          return new Promise<void>((_resolve, reject) => {
+            /** Reject stalled disposal when the request deadline aborts. */
+            const rejectOnAbort = () => {
+              reject(new DOMException(privateUpstreamDetail, "AbortError"));
+            };
+            if (requestSignal?.aborted === true) {
+              rejectOnAbort();
+            } else {
+              requestSignal?.addEventListener("abort", rejectOnAbort, {
+                once: true,
+              });
+            }
+          });
+        },
+      }),
+      { status: 503 },
+    );
+    const client = runtimeEntitlementsClient();
+    fetchMock.mockImplementation(
+      (_input: RequestInfo | URL, init?: RequestInit) => {
+        requestSignal = init?.signal;
+        return Promise.resolve(upstreamResponse);
+      },
+    );
+
+    const request = client.getRuntimeEntitlements();
+    const capturedError = request.catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(disposalStarted).toBe(true);
+    expect(requestSignal?.aborted).toBe(false);
+
+    await vi.advanceTimersToNextTimerAsync();
+
+    const error = await capturedError;
+    expect(error).toBeInstanceOf(PlatformRequestError);
+    if (!(error instanceof PlatformRequestError)) {
+      throw new Error("Expected a typed Runtime entitlement timeout error");
+    }
+    expect(error.status).toBe(504);
+    expect(error.retryable).toBe(true);
+    expect(error.message).toBe("Runtime entitlement request timed out");
+    expect(error.message).not.toContain(privateUpstreamDetail);
+    expect(upstreamResponse.bodyUsed).toBe(true);
+    expect(requestSignal?.aborted).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(consoleErrorSpy.mock.calls)).not.toContain(
+      privateUpstreamDetail,
+    );
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+/*
+ * Existing client coverage follows. These tests predate the repository's flat
+ * test convention; new Runtime entitlement coverage above remains flat.
+ */
 
 describe("CopilotKitIntelligence", () => {
   let client: CopilotKitIntelligence;
@@ -31,10 +408,82 @@ describe("CopilotKitIntelligence", () => {
   beforeEach(() => {
     fetchMock.mockReset();
     consoleErrorSpy.mockClear();
+    consoleWarnSpy.mockClear();
     client = new CopilotKitIntelligence({
       apiUrl: "https://api.example.com",
       wsUrl: "wss://ws.example.com/socket",
       apiKey: "test-key",
+    });
+  });
+
+  it("passes the renewal's abort signal to fetch without sending it in the body", async () => {
+    fetchMock.mockReturnValue(
+      jsonResponse({
+        threadId: "t-1",
+        runId: "r-1",
+        ttlSeconds: 120,
+        status: "renewed",
+      }),
+    );
+    const controller = new AbortController();
+
+    await client.ɵrenewThreadLock({
+      threadId: "t-1",
+      runId: "r-1",
+      ttlSeconds: 20,
+      signal: controller.signal,
+    });
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    expect(init.signal).toBe(controller.signal);
+    expect(JSON.parse(init.body)).toEqual({ runId: "r-1", ttlSeconds: 20 });
+  });
+
+  describe("ɵrenewThreadLock errors", () => {
+    const renew = () =>
+      client.ɵrenewThreadLock({
+        threadId: "t-1",
+        runId: "r-1",
+        ttlSeconds: 20,
+      });
+
+    it.each([
+      [500, true],
+      [409, false],
+    ])(
+      "carries the platform's retryable flag for a %i response",
+      async (status, retryable) => {
+        fetchMock.mockReturnValue(
+          jsonResponse(
+            {
+              error: {
+                code: "SOME_CODE",
+                message: "failed",
+                category: "internal",
+                retryable,
+              },
+              requestId: "req-1",
+              traceId: "trace-1",
+            },
+            status,
+          ),
+        );
+
+        await expect(renew()).rejects.toMatchObject({
+          name: "PlatformRequestError",
+          status,
+          retryable,
+        });
+      },
+    );
+
+    it("leaves retryable unset when the error body is not the platform envelope", async () => {
+      fetchMock.mockReturnValue(textResponse("Bad Gateway", 502));
+
+      const error = await renew().catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(PlatformRequestError);
+      expect((error as PlatformRequestError).status).toBe(502);
+      expect((error as PlatformRequestError).retryable).toBeUndefined();
     });
   });
 
@@ -51,7 +500,7 @@ describe("CopilotKitIntelligence", () => {
     );
   });
 
-  it("derives runner and client websocket URLs from a single intelligence websocket URL", () => {
+  it("derives runner, client, and Channels websocket URLs from one host", () => {
     const c = new CopilotKitIntelligence({
       apiUrl: "https://api.example.com",
       wsUrl: "wss://ws.example.com",
@@ -60,6 +509,136 @@ describe("CopilotKitIntelligence", () => {
 
     expect(c.ɵgetRunnerWsUrl()).toBe("wss://ws.example.com/runner");
     expect(c.ɵgetClientWsUrl()).toBe("wss://ws.example.com/client");
+    expect(c.ɵgetChannelsWsUrl()).toBe("wss://ws.example.com/channels");
+  });
+
+  describe("apiKey validation", () => {
+    it.each([
+      ["an absent key", undefined],
+      ["an empty key", ""],
+      ["a whitespace-only key", "   "],
+    ])("rejects %s at construction, naming the variable", (_label, apiKey) => {
+      expect(
+        () =>
+          new CopilotKitIntelligence({
+            apiKey: apiKey as unknown as string,
+          }),
+      ).toThrow(/CPK_INTELLIGENCE_API_KEY/);
+    });
+
+    it("names the command that provisions a key", () => {
+      expect(() => new CopilotKitIntelligence({ apiKey: "" })).toThrow(
+        /copilotkit project select/,
+      );
+    });
+
+    it("does not echo the rejected key value", () => {
+      // The key is a `cpk-…` secret end to end, so the message must name the
+      // variable and never the value — see `parseProjectIdFromApiKey`, which
+      // omits it for the same reason.
+      const construct = () => new CopilotKitIntelligence({ apiKey: "\t\t" });
+      let message = "";
+      try {
+        construct();
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).toMatch(/CPK_INTELLIGENCE_API_KEY/);
+      expect(message).not.toContain("\t\t");
+    });
+
+    it("accepts a non-blank key", () => {
+      expect(
+        new CopilotKitIntelligence({ apiKey: "cpk-1_key" }),
+      ).toBeInstanceOf(CopilotKitIntelligence);
+    });
+  });
+
+  describe("managed platform URL defaults", () => {
+    it("defaults apiUrl to the managed Intelligence API host", async () => {
+      const c = new CopilotKitIntelligence({ apiKey: "k" });
+      fetchMock.mockReturnValue(jsonResponse({ threads: [], joinCode: "" }));
+      await c.listThreads({ userId: "u", agentId: "a" });
+      expect(fetchMock.mock.calls[0][0]).toMatch(
+        /^https:\/\/api\.intelligence\.copilotkit\.ai\/api/,
+      );
+    });
+
+    it("defaults the websocket URLs to the managed realtime host", () => {
+      const c = new CopilotKitIntelligence({ apiKey: "k" });
+      expect(c.ɵgetRunnerWsUrl()).toBe(
+        "wss://realtime.intelligence.copilotkit.ai/runner",
+      );
+      expect(c.ɵgetClientWsUrl()).toBe(
+        "wss://realtime.intelligence.copilotkit.ai/client",
+      );
+      expect(c.ɵgetChannelsWsUrl()).toBe(
+        "wss://realtime.intelligence.copilotkit.ai/channels",
+      );
+    });
+
+    it("treats blank URLs as unset, so an empty env var still reaches the managed platform", async () => {
+      const c = new CopilotKitIntelligence({
+        apiUrl: "",
+        wsUrl: "   ",
+        apiKey: "k",
+      });
+      fetchMock.mockReturnValue(jsonResponse({ threads: [], joinCode: "" }));
+      await c.listThreads({ userId: "u", agentId: "a" });
+      expect(fetchMock.mock.calls[0][0]).toMatch(
+        /^https:\/\/api\.intelligence\.copilotkit\.ai\/api/,
+      );
+      expect(c.ɵgetRunnerWsUrl()).toBe(
+        "wss://realtime.intelligence.copilotkit.ai/runner",
+      );
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+    });
+
+    it("does not warn when both URLs are omitted", () => {
+      const c = new CopilotKitIntelligence({ apiKey: "k" });
+      expect(c).toBeInstanceOf(CopilotKitIntelligence);
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+    });
+
+    it("does not warn when both URLs are provided", () => {
+      const c = new CopilotKitIntelligence({
+        apiUrl: "https://intelligence.internal",
+        wsUrl: "wss://realtime.intelligence.internal",
+        apiKey: "k",
+      });
+      expect(c.ɵgetRunnerWsUrl()).toBe(
+        "wss://realtime.intelligence.internal/runner",
+      );
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+    });
+
+    it("warns that wsUrl fell back to the managed host when only apiUrl is set", () => {
+      const c = new CopilotKitIntelligence({
+        apiUrl: "https://intelligence.internal",
+        apiKey: "k",
+      });
+      expect(c.ɵgetRunnerWsUrl()).toBe(
+        "wss://realtime.intelligence.copilotkit.ai/runner",
+      );
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/wsUrl falls back to the managed default/),
+      );
+    });
+
+    it("warns that apiUrl fell back to the managed host when only wsUrl is set", async () => {
+      const c = new CopilotKitIntelligence({
+        wsUrl: "wss://realtime.intelligence.internal",
+        apiKey: "k",
+      });
+      fetchMock.mockReturnValue(jsonResponse({ threads: [], joinCode: "" }));
+      await c.listThreads({ userId: "u", agentId: "a" });
+      expect(fetchMock.mock.calls[0][0]).toMatch(
+        /^https:\/\/api\.intelligence\.copilotkit\.ai\/api/,
+      );
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/apiUrl falls back to the managed default/),
+      );
+    });
   });
 
   it("sends Bearer authorization header", async () => {
@@ -106,6 +685,153 @@ describe("CopilotKitIntelligence", () => {
     });
   });
 
+  describe("listMemories", () => {
+    it("sends GET /api/memories with the user in the x-cpki-user-id header", async () => {
+      const payload = {
+        memories: [
+          {
+            id: "m-1",
+            kind: "topical",
+            scope: "user",
+            content: "User's dog is called Pepe.",
+            sourceThreadIds: [],
+            invalidatedAt: null,
+          },
+        ],
+      };
+      fetchMock.mockReturnValue(jsonResponse(payload));
+
+      const result = await client.listMemories({ userId: "user-1" });
+
+      expect(result).toEqual(payload);
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories");
+      expect(opts.method).toBe("GET");
+      // The platform scopes by header, not a query param.
+      expect(opts.headers["x-cpki-user-id"]).toBe("user-1");
+      expect(opts.headers.Authorization).toBe("Bearer test-key");
+    });
+
+    it("forwards includeInvalidated as a query param", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ memories: [] }));
+
+      await client.listMemories({ userId: "user-1", includeInvalidated: true });
+
+      expect(fetchMock.mock.calls[0][0]).toBe(
+        "https://api.example.com/api/memories?includeInvalidated=true",
+      );
+    });
+  });
+
+  describe("memory mutations", () => {
+    it("createMemory POSTs /api/memories with the user header + body", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse(
+          {
+            id: "m1",
+            kind: "topical",
+            scope: "user",
+            content: "c",
+            sourceThreadIds: [],
+            invalidatedAt: null,
+            absorbed: false,
+          },
+          201,
+        ),
+      );
+
+      const res = await client.createMemory({
+        userId: "user-1",
+        content: "c",
+        kind: "topical",
+        scope: "user",
+      });
+
+      expect(res.id).toBe("m1");
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories");
+      expect(opts.method).toBe("POST");
+      expect(opts.headers["x-cpki-user-id"]).toBe("user-1");
+      expect(JSON.parse(opts.body)).toEqual({
+        content: "c",
+        kind: "topical",
+        scope: "user",
+        sourceThreadIds: [],
+      });
+    });
+
+    it("createMemory omits scope from the body when not provided (platform defaults it)", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse(
+          {
+            id: "m1",
+            kind: "topical",
+            scope: "user",
+            content: "c",
+            sourceThreadIds: [],
+            invalidatedAt: null,
+            absorbed: false,
+          },
+          201,
+        ),
+      );
+
+      await client.createMemory({
+        userId: "user-1",
+        content: "c",
+        kind: "topical",
+      });
+
+      const [, opts] = fetchMock.mock.calls[0];
+      const body = JSON.parse(opts.body);
+      expect(body).not.toHaveProperty("scope");
+      expect(body).toEqual({
+        content: "c",
+        kind: "topical",
+        sourceThreadIds: [],
+      });
+    });
+
+    it("updateMemory PATCHes /api/memories/:id (supersede) and returns retiredId", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({
+          id: "m2",
+          kind: "topical",
+          scope: "user",
+          content: "c2",
+          sourceThreadIds: [],
+          invalidatedAt: null,
+          retiredId: "m1",
+        }),
+      );
+
+      const res = await client.updateMemory({
+        userId: "user-1",
+        id: "m1",
+        content: "c2",
+        kind: "topical",
+        scope: "user",
+      });
+
+      expect(res.retiredId).toBe("m1");
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories/m1");
+      expect(opts.method).toBe("PATCH");
+      expect(opts.headers["x-cpki-user-id"]).toBe("user-1");
+    });
+
+    it("removeMemory DELETEs /api/memories/:id with the user header", async () => {
+      fetchMock.mockReturnValue(emptyResponse(204));
+
+      await client.removeMemory({ userId: "user-1", id: "m1" });
+
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories/m1");
+      expect(opts.method).toBe("DELETE");
+      expect(opts.headers["x-cpki-user-id"]).toBe("user-1");
+    });
+  });
+
   describe("subscribeToThreads", () => {
     it("sends POST with userId and returns the join token", async () => {
       fetchMock.mockReturnValue(jsonResponse({ joinToken: "jt-subscribe" }));
@@ -120,6 +846,47 @@ describe("CopilotKitIntelligence", () => {
       expect(opts.method).toBe("POST");
       expect(JSON.parse(opts.body)).toEqual({
         userId: "user-1",
+      });
+    });
+  });
+
+  describe("subscribeToMemories", () => {
+    it("sends POST identifying the user via the x-cpki-user-id header and returns the join token + code", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ joinToken: "jt-mem", joinCode: "jc-mem" }),
+      );
+
+      const result = await client.ɵsubscribeToMemories({
+        userId: "user-1",
+      });
+
+      expect(result).toEqual({ joinToken: "jt-mem", joinCode: "jc-mem" });
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories/subscribe");
+      expect(opts.method).toBe("POST");
+      // The platform's memory routes resolve identity from the header, not the
+      // body — so no userId body, unlike ɵsubscribeToThreads.
+      expect(opts.headers["x-cpki-user-id"]).toBe("user-1");
+      expect(opts.body).toBeUndefined();
+    });
+
+    it("passes through optional project credentials when the platform returns them", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({
+          joinToken: "jt-mem",
+          joinCode: "jc-mem",
+          projectJoinToken: "pjt-mem",
+          projectJoinCode: "pjc-mem",
+        }),
+      );
+
+      const result = await client.ɵsubscribeToMemories({ userId: "user-1" });
+
+      expect(result).toEqual({
+        joinToken: "jt-mem",
+        joinCode: "jc-mem",
+        projectJoinToken: "pjt-mem",
+        projectJoinCode: "pjc-mem",
       });
     });
   });
@@ -201,6 +968,7 @@ describe("CopilotKitIntelligence", () => {
         threadId: "t-1",
         userId: "user-1",
         agentId: "agent-1",
+        learningContainerId: "support-quality",
       });
 
       expect(result).toEqual(thread);
@@ -211,6 +979,7 @@ describe("CopilotKitIntelligence", () => {
         threadId: "t-1",
         userId: "user-1",
         agentId: "agent-1",
+        learningContainerId: "support-quality",
       });
     });
 
@@ -245,12 +1014,93 @@ describe("CopilotKitIntelligence", () => {
       };
       fetchMock.mockReturnValue(jsonResponse({ thread }));
 
-      const result = await client.getThread({ threadId: "t-1" });
+      const result = await client.getThread({
+        threadId: "t-1",
+        userId: "user-1",
+      });
 
       expect(result).toEqual(thread);
       const [url, opts] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.example.com/api/threads/t-1");
+      expect(url).toBe("https://api.example.com/api/threads/t-1?userId=user-1");
       expect(opts.method).toBe("GET");
+    });
+  });
+
+  describe("getOrCreateThread", () => {
+    const thread = { id: "t-1", name: null };
+    const params = { threadId: "t-1", userId: "user-1", agentId: "agent-1" };
+
+    it("creates a thread its lookup did not find without logging an error", async () => {
+      const loggerError = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => {});
+      const loggerDebug = vi
+        .spyOn(logger, "debug")
+        .mockImplementation(() => {});
+      fetchMock
+        .mockReturnValueOnce(jsonResponse({ code: "THREAD_NOT_FOUND" }, 404))
+        .mockReturnValueOnce(jsonResponse({ thread }));
+
+      const result = await client.getOrCreateThread(params);
+
+      expect(result).toEqual({ thread, created: true });
+      expect(loggerError).not.toHaveBeenCalled();
+      expect(loggerDebug).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 404 }),
+        "Intelligence platform request returned an expected status",
+      );
+      loggerError.mockRestore();
+      loggerDebug.mockRestore();
+    });
+
+    it("reads the thread another request created without logging an error", async () => {
+      const loggerError = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => {});
+      fetchMock
+        .mockReturnValueOnce(jsonResponse({ code: "THREAD_NOT_FOUND" }, 404))
+        .mockReturnValueOnce(jsonResponse({ code: "THREAD_EXISTS" }, 409))
+        .mockReturnValueOnce(jsonResponse({ thread }));
+
+      const result = await client.getOrCreateThread(params);
+
+      expect(result).toEqual({ thread, created: false });
+      expect(loggerError).not.toHaveBeenCalled();
+      loggerError.mockRestore();
+    });
+
+    it("still logs a lookup that fails for another reason as an error", async () => {
+      const loggerError = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => {});
+      fetchMock.mockReturnValueOnce(jsonResponse({ code: "INTERNAL" }, 500));
+
+      await expect(client.getOrCreateThread(params)).rejects.toMatchObject({
+        status: 500,
+      });
+      expect(loggerError).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 500 }),
+        "Intelligence platform request failed",
+      );
+      loggerError.mockRestore();
+    });
+
+    it("still logs a 404 from a direct getThread call as an error", async () => {
+      const loggerError = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => {});
+      fetchMock.mockReturnValueOnce(
+        jsonResponse({ code: "THREAD_NOT_FOUND" }, 404),
+      );
+
+      await expect(
+        client.getThread({ threadId: "t-1", userId: "user-1" }),
+      ).rejects.toMatchObject({ status: 404 });
+      expect(loggerError).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 404 }),
+        "Intelligence platform request failed",
+      );
+      loggerError.mockRestore();
     });
   });
 
@@ -267,12 +1117,21 @@ describe("CopilotKitIntelligence", () => {
       };
       fetchMock.mockReturnValue(jsonResponse(payload));
 
-      const result = await client.getThreadMessages({ threadId: "t-1" });
+      const result = await client.getThreadMessages({
+        threadId: "t-1",
+        userId: "user-1",
+        channelDeliveryId: "dlv_delivery_1",
+      });
 
       expect(result).toEqual(payload);
       const [url, opts] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.example.com/api/threads/t-1/messages");
+      expect(url).toBe(
+        "https://api.example.com/api/threads/t-1/messages?userId=user-1",
+      );
       expect(opts.method).toBe("GET");
+      expect(opts.headers).toMatchObject({
+        "X-Cpki-Channel-Delivery-Id": "dlv_delivery_1",
+      });
     });
   });
 
@@ -335,6 +1194,8 @@ describe("CopilotKitIntelligence", () => {
       expect(url).toBe("https://api.example.com/api/threads/t-1");
       expect(opts.method).toBe("DELETE");
       expect(JSON.parse(opts.body)).toEqual({
+        userId: "user-1",
+        agentId: "agent-1",
         reason:
           "Deleted via CopilotKit runtime (userId=user-1, agentId=agent-1)",
       });
@@ -399,6 +1260,8 @@ describe("CopilotKitIntelligence", () => {
         runId: "r-1",
         userId: "user-1",
         agentId: "agent-1",
+        channelDeliveryId: "dlv_delivery_1",
+        learningContainerId: "support-quality",
       });
 
       expect(result).toEqual({
@@ -413,6 +1276,10 @@ describe("CopilotKitIntelligence", () => {
         runId: "r-1",
         userId: "user-1",
         agentId: "agent-1",
+        learningContainerId: "support-quality",
+      });
+      expect(opts.headers).toMatchObject({
+        "X-Cpki-Channel-Delivery-Id": "dlv_delivery_1",
       });
     });
 
@@ -598,4 +1465,391 @@ describe("CopilotKitIntelligence", () => {
       expect(result).toEqual(payload);
     });
   });
+
+  describe("annotate", () => {
+    const validParams = {
+      userId: "user-1",
+      threadId: "thread-1",
+      type: "user_action",
+      payload: {
+        title: "Renamed project",
+        data: { previous: { name: "Foo" }, next: { name: "Bar" } },
+      },
+      clientEventId: "0190a1b2-c3d4-7890-abcd-ef1234567890",
+    };
+
+    it("uses PUT (idempotent) and URL-encodes the clientEventId in the path", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "42", duplicate: false }));
+
+      const result = await client.annotate(validParams);
+
+      expect(result).toEqual({ id: "42", duplicate: false });
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe(
+        "https://api.example.com/connector/annotate/0190a1b2-c3d4-7890-abcd-ef1234567890",
+      );
+      expect(opts.method).toBe("PUT");
+    });
+
+    it("auto-generates a clientEventId (UUID) when omitted and includes it in the path", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      const { clientEventId: _omit, ...paramsWithoutId } = validParams;
+      await client.annotate(paramsWithoutId);
+
+      const [url] = fetchMock.mock.calls[0];
+      // Path must end with /connector/annotate/<uuid>
+      expect(url).toMatch(
+        /^https:\/\/api\.example\.com\/connector\/annotate\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
+    });
+
+    it("sends type, payload, userId, threadId in the body", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate(validParams);
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body)).toMatchObject({
+        type: "user_action",
+        payload: {
+          title: "Renamed project",
+          data: { previous: { name: "Foo" }, next: { name: "Bar" } },
+        },
+        userId: "user-1",
+        threadId: "thread-1",
+      });
+    });
+
+    it("does not send clientEventId in the body", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate(validParams);
+
+      const [, opts] = fetchMock.mock.calls[0];
+      const body = JSON.parse(opts.body);
+      expect(body.clientEventId).toBeUndefined();
+    });
+
+    it("forwards occurredAt in the body when provided", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate({
+        ...validParams,
+        occurredAt: "2026-01-01T00:00:00.000Z",
+      });
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body).occurredAt).toBe("2026-01-01T00:00:00.000Z");
+    });
+
+    it("omits occurredAt from the body when not provided", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate(validParams);
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body).occurredAt).toBeUndefined();
+    });
+
+    it("sends Authorization Bearer with the configured apiKey", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate(validParams);
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(opts.headers.Authorization).toBe("Bearer test-key");
+      expect(opts.headers["Content-Type"]).toBe("application/json");
+    });
+
+    it("encodes special characters in clientEventId path segments", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate({
+        ...validParams,
+        clientEventId: "id/with?special&chars",
+      });
+
+      const [url] = fetchMock.mock.calls[0];
+      expect(url).toBe(
+        "https://api.example.com/connector/annotate/id%2Fwith%3Fspecial%26chars",
+      );
+    });
+
+    it("throws PlatformRequestError on non-2xx with the platform's status", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ error: "bad" }, 400));
+
+      await expect(client.annotate(validParams)).rejects.toMatchObject({
+        status: 400,
+      });
+    });
+
+    it("throws PlatformRequestError 502 when the platform returns an empty body", async () => {
+      fetchMock.mockReturnValue(emptyResponse(200));
+
+      await expect(client.annotate(validParams)).rejects.toMatchObject({
+        status: 502,
+      });
+    });
+
+    it("throws PlatformRequestError 502 when the platform returns JSON null", async () => {
+      // `JSON.parse("null")` returns `null` (not `undefined`), so the
+      // empty-body guard must use `== null` (loose) to catch both
+      // shapes. A `=== undefined` guard would let `null` slip past
+      // and surface as a TypeError in caller code.
+      fetchMock.mockReturnValue(
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          json: () => Promise.resolve(null),
+          text: () => Promise.resolve("null"),
+        } as Response),
+      );
+
+      await expect(client.annotate(validParams)).rejects.toMatchObject({
+        status: 502,
+      });
+    });
+  });
+
+  describe("recallMemories", () => {
+    it("POSTs to /api/memories/recall with the user header and returns the envelope", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({
+          memories: [
+            {
+              id: "m1",
+              kind: "topical",
+              scope: "user",
+              content: "User likes jazz.",
+              sourceThreadIds: [],
+              invalidatedAt: null,
+              score: 0.87,
+            },
+          ],
+        }),
+      );
+
+      const result = await client.recallMemories({
+        userId: "user-1",
+        query: "music taste",
+        limit: 5,
+        scope: "user",
+      });
+
+      expect(result.memories[0]).toMatchObject({ id: "m1", score: 0.87 });
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories/recall");
+      expect(init.method).toBe("POST");
+      expect(init.headers["x-cpki-user-id"]).toBe("user-1");
+      expect(JSON.parse(init.body)).toEqual({
+        query: "music taste",
+        limit: 5,
+        scope: "user",
+      });
+    });
+
+    it("omits limit and scope from the body when not provided", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ memories: [] }));
+
+      await client.recallMemories({ userId: "user-1", query: "hi" });
+
+      const [, init] = fetchMock.mock.calls[0];
+      expect(JSON.parse(init.body)).toEqual({ query: "hi" });
+    });
+  });
+});
+
+function setupInspectorMetadataClient() {
+  fetchMock.mockReset();
+
+  const client = new CopilotKitIntelligence({
+    apiUrl: "https://api.example.com/",
+    wsUrl: "wss://ws.example.com",
+    apiKey: "server-api-key",
+  });
+
+  return { client };
+}
+
+test("inspector-metadata client sends server auth and sanitizes a valid V1 response", async () => {
+  const { client } = setupInspectorMetadataClient();
+  fetchMock.mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        schemaVersion: 1,
+        identity: {
+          organizationName: "Acme",
+          projectName: "Support",
+          privateId: "do-not-forward",
+        },
+        license: { state: "valid" },
+        futureTopLevelField: true,
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    ),
+  );
+
+  const metadata = await client.getInspectorMetadata();
+
+  expect(fetchMock).toHaveBeenCalledWith(
+    "https://api.example.com/api/inspector/metadata",
+    {
+      method: "GET",
+      headers: { Authorization: "Bearer server-api-key" },
+      signal: expect.any(AbortSignal),
+    },
+  );
+  expect(metadata).toEqual({
+    schemaVersion: 1,
+    identity: { organizationName: "Acme", projectName: "Support" },
+    license: { state: "valid" },
+  });
+});
+
+test("inspector-metadata client treats 204 and 404 as compatible absence", async () => {
+  const { client } = setupInspectorMetadataClient();
+
+  for (const status of [204, 404]) {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status }));
+
+    await expect(client.getInspectorMetadata()).resolves.toBeUndefined();
+  }
+});
+
+test("inspector-metadata client aborts and settles a stalled provider request", async () => {
+  vi.useFakeTimers();
+  const { client } = setupInspectorMetadataClient();
+  const loggerWarn = vi
+    .spyOn(logger, "warn")
+    .mockImplementation(() => undefined);
+  fetchMock.mockImplementation(() => new Promise<Response>(() => undefined));
+
+  try {
+    const request = client.getInspectorMetadata();
+    const rejection = expect(request).rejects.toThrow(
+      "Intelligence inspector metadata request timed out",
+    );
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await rejection;
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+    expect(init.signal.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(loggerWarn).toHaveBeenCalledWith(
+      { path: "/api/inspector/metadata", timeoutMs: 5_000 },
+      "Intelligence inspector metadata request timed out",
+    );
+  } finally {
+    loggerWarn.mockRestore();
+    vi.useRealTimers();
+  }
+});
+
+test("inspector-metadata client aborts and settles a stalled provider body", async () => {
+  vi.useFakeTimers();
+  const { client } = setupInspectorMetadataClient();
+  fetchMock.mockResolvedValue(new Response(new ReadableStream<Uint8Array>()));
+
+  try {
+    const request = client.getInspectorMetadata();
+    const rejection = expect(request).rejects.toThrow(
+      "Intelligence inspector metadata request timed out",
+    );
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await rejection;
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.signal.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("inspector-metadata client throws provider errors for 401 and 500", async () => {
+  const { client } = setupInspectorMetadataClient();
+
+  for (const status of [401, 500]) {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: "provider failure" }), { status }),
+    );
+
+    await expect(client.getInspectorMetadata()).rejects.toMatchObject({
+      status,
+    });
+  }
+});
+
+test("inspector-metadata client does not expose provider error bodies", async () => {
+  const { client } = setupInspectorMetadataClient();
+  const sensitiveMarker = "private-provider-body-7d52c";
+  const loggerError = vi
+    .spyOn(logger, "error")
+    .mockImplementation(() => undefined);
+
+  try {
+    for (const status of [401, 500]) {
+      fetchMock.mockResolvedValueOnce(
+        new Response(sensitiveMarker, { status }),
+      );
+      let thrown: unknown;
+
+      try {
+        await client.getInspectorMetadata();
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(Error);
+      if (!(thrown instanceof Error)) {
+        throw new Error("Expected inspector metadata request to throw");
+      }
+      expect(thrown.message).toBe(`Intelligence platform error ${status}`);
+      expect(thrown.message).not.toContain(sensitiveMarker);
+    }
+
+    expect(JSON.stringify(loggerError.mock.calls)).not.toContain(
+      sensitiveMarker,
+    );
+    expect(loggerError).toHaveBeenNthCalledWith(
+      1,
+      { status: 401, path: "/api/inspector/metadata" },
+      "Intelligence platform request failed",
+    );
+    expect(loggerError).toHaveBeenNthCalledWith(
+      2,
+      { status: 500, path: "/api/inspector/metadata" },
+      "Intelligence platform request failed",
+    );
+  } finally {
+    loggerError.mockRestore();
+  }
+});
+
+test("inspector-metadata client throws when a 200 response is malformed JSON", async () => {
+  const { client } = setupInspectorMetadataClient();
+  fetchMock.mockResolvedValue(new Response("{", { status: 200 }));
+
+  await expect(client.getInspectorMetadata()).rejects.toBeInstanceOf(
+    SyntaxError,
+  );
+});
+
+test("inspector-metadata client rejects invalid and unknown schemas", async () => {
+  const { client } = setupInspectorMetadataClient();
+  fetchMock
+    .mockResolvedValueOnce(
+      new Response(JSON.stringify({ schemaVersion: 2 }), { status: 200 }),
+    )
+    .mockResolvedValueOnce(
+      new Response(JSON.stringify({ schemaVersion: "1" }), { status: 200 }),
+    );
+
+  await expect(client.getInspectorMetadata()).resolves.toBeUndefined();
+  await expect(client.getInspectorMetadata()).resolves.toBeUndefined();
 });

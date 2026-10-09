@@ -112,7 +112,7 @@ async def chat_node(
         print(f"mcp_tools: {mcp_tools}")
 
         # Create a model instance
-        model = ChatOpenAI(model="gpt-4o")
+        model = ChatOpenAI(model="gpt-5-mini")
 
         # Create the enhanced multi-tool react agent with our custom prompt
         react_agent = create_react_agent(

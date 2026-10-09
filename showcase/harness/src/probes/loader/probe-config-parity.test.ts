@@ -69,6 +69,12 @@ const RAILWAY_PROBES_EXEMPT_FROM_EXCLUDES_FLOOR: Record<string, string> = {
   // no infra leakage to exclude.
   "qa.yml":
     "qa is scoped to one service via precise namePrefix; no infra leakage",
+  // starter_smoke enumerates `starter-*` services — a namespace fully
+  // DISJOINT from the `showcase-*` infra services the floor protects, so
+  // no infra service can ever leak into its enumeration and the floor
+  // doesn't apply.
+  "starter_smoke.yml":
+    "starter_smoke uses a starter- namePrefix disjoint from showcase-* infra; no infra leakage",
 };
 
 describe("probe-config nameExcludes parity", () => {
@@ -208,10 +214,21 @@ describe("probe-config nameExcludes parity", () => {
           typeof prefix === "string" &&
           prefix.startsWith("showcase-") &&
           prefix.length > "showcase-".length;
+        // A prefix fully DISJOINT from `showcase-` (e.g. `starter-`) is
+        // even safer than a narrow `showcase-X` sub-prefix: no infra
+        // service (all `showcase-*`) can match it, so none can ever leak
+        // into this probe's enumeration. Treat a non-empty, non-showcase-
+        // prefix as satisfying the floor-exemption guard for the same
+        // reason `hasNarrowPrefix` does — the infra-leak risk is nil.
+        const hasDisjointPrefix =
+          typeof prefix === "string" &&
+          prefix.length > 0 &&
+          !"showcase-".startsWith(prefix) &&
+          !prefix.startsWith("showcase-");
         const rationaleSpansEverything = /all services/i.test(rationale ?? "");
         expect(
-          hasNarrowPrefix || rationaleSpansEverything,
-          `${file}: exempt probe must EITHER have a namePrefix narrower than "showcase-" (got ${JSON.stringify(prefix)}) OR carry an "all services" phrase in its RAILWAY_PROBES_EXEMPT_FROM_EXCLUDES_FLOOR rationale. Without one, broadening this probe later would silently flap infra services red.`,
+          hasNarrowPrefix || hasDisjointPrefix || rationaleSpansEverything,
+          `${file}: exempt probe must EITHER have a namePrefix narrower than "showcase-", OR a namePrefix disjoint from "showcase-" (got ${JSON.stringify(prefix)}), OR carry an "all services" phrase in its RAILWAY_PROBES_EXEMPT_FROM_EXCLUDES_FLOOR rationale. Without one, broadening this probe later would silently flap infra services red.`,
         ).toBe(true);
         continue;
       }

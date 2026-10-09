@@ -20,7 +20,7 @@ import { MeetingTimePicker } from "../components/generative-ui/meeting-time-pick
 import { ToolReasoning } from "../components/tool-rendering";
 
 export const useGenerativeUIExamples = () => {
-  const { theme, setTheme } = useTheme();
+  const { setTheme } = useTheme();
 
   // Human-in-the-Loop (frontend tool requiring user decision)
   useHumanInTheLoop({
@@ -34,8 +34,15 @@ export const useGenerativeUIExamples = () => {
         .number()
         .describe("Duration of the meeting in minutes"),
     }),
-    render: ({ respond, status, args }) => {
-      return <MeetingTimePicker status={status} respond={respond} {...args} />;
+    render: ({ respond, status, args, result }) => {
+      return (
+        <MeetingTimePicker
+          status={status}
+          respond={respond}
+          result={result}
+          {...args}
+        />
+      );
     },
   });
 
@@ -67,17 +74,19 @@ export const useGenerativeUIExamples = () => {
     },
   });
 
-  // Frontend Tools (direct frontend state manipulation)
-  useFrontendTool(
-    {
-      name: "toggleTheme",
-      description: "Frontend tool for toggling the theme of the app.",
-      parameters: z.object({}),
-      handler: async () => {
-        const isDark = document.documentElement.classList.contains("dark");
-        setTheme(isDark ? "light" : "dark");
-      },
+  // Frontend Tools (direct frontend state manipulation).
+  // No deps array needed — the handler reads `document` directly and
+  // calls a stable setter. Including [theme, setTheme] in deps caused
+  // the hook to re-register every time the theme flipped, which could
+  // race with an in-flight tool result from the runtime and surface
+  // as a renderer-level error during multi-turn beautiful-chat probes.
+  useFrontendTool({
+    name: "toggleTheme",
+    description: "Frontend tool for toggling the theme of the app.",
+    parameters: z.object({}),
+    handler: async () => {
+      const isDark = document.documentElement.classList.contains("dark");
+      setTheme(isDark ? "light" : "dark");
     },
-    [theme, setTheme],
-  );
+  });
 };

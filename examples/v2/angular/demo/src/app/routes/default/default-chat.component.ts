@@ -1,13 +1,14 @@
-import { Component } from "@angular/core";
-import { CommonModule } from "@angular/common";
+import { Component, ChangeDetectionStrategy } from "@angular/core";
+
 import { CopilotChat } from "@copilotkit/angular";
 
 @Component({
   selector: "default-chat",
   standalone: true,
-  imports: [CommonModule, CopilotChat],
+  imports: [CopilotChat],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <copilot-chat [threadId]="'xyz'"></copilot-chat>
+    <copilot-chat [threadId]="'xyz'" />
   `,
 })
 export class DefaultChatComponent {}

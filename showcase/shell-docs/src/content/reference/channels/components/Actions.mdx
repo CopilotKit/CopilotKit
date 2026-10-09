@@ -1,0 +1,32 @@
+---
+title: Actions
+description: Group portable buttons and Slack-select controls in one message action area.
+---
+
+`Actions` groups interactive controls.
+
+```tsx
+import { Actions, Button, Message, Section } from "@copilotkit/channels/ui";
+
+<Message>
+  <Section>Approve this deployment?</Section>
+  <Actions>
+    <Button value="approve" style="primary" onClick={handleDecision}>
+      Approve
+    </Button>
+    <Button value="deny" style="danger" onClick={handleDecision}>
+      Deny
+    </Button>
+  </Actions>
+</Message>;
+```
+
+| Prop       | Type          | Description                      |
+| ---------- | ------------- | -------------------------------- |
+| `children` | `BotChildren` | Interactive Channels components. |
+
+Managed Slack renders an actions block. Managed Teams lifts `Button` children
+to the Adaptive Card's top-level actions. Use buttons for cross-provider managed
+workflows. A Teams Button callback receives named Adaptive Card input fields in
+`ctx.values`; Teams does not dispatch `Select.onSelect` or `Input.onSubmit` as
+independent callbacks.

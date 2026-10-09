@@ -13,7 +13,7 @@
  *
  * Runtime: this cell uses its own dedicated runtime endpoint
  * (`/api/copilotkit-beautiful-chat`) so it can enable `openGenerativeUI`,
- * `a2ui` with `injectA2UITool: false`, and `mcpApps` simultaneously — the
+ * `a2ui` with `injectA2UITool: true`, and `mcpApps` simultaneously — the
  * same combined-runtime shape the canonical starter uses — without bleeding
  * those global flags into other cells sharing the main `/api/copilotkit`
  * endpoint. The backend graph is `beautiful_chat` (src/agents/beautiful_chat.py).

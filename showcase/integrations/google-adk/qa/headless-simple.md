@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Demo is deployed and accessible at `/demos/headless-simple` on the dashboard host
-- Agent backend is healthy (`/api/health`); `GOOGLE_API_KEY` is set on Railway; the ADK backend mounts the shared `_simple_chat` LlmAgent (Gemini 2.5 Flash) at `/headless_simple`
+- Agent backend is healthy (`/api/health`); `GOOGLE_API_KEY` is set on Railway; the ADK backend mounts the shared `_simple_chat` LlmAgent (Gemini 3.1 Flash-Lite) at `/headless_simple`
 - The demo wires `agent="headless-simple"` at `/api/copilotkit` (neutral assistant cell)
 - Note: the demo source contains no `data-testid` attributes. Checks below rely on verbatim visible text, role/button selectors, and Tailwind utility-class structure
 

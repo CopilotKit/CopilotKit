@@ -19,6 +19,11 @@ export interface TimePickerCardProps {
   ) => void;
 }
 
+/**
+ * Renders a "Book a call" card with a small grid of time slots.
+ * The user picks one slot (or cancels); that resolution is forwarded back
+ * to the agent via the onSubmit callback wired up by `useHumanInTheLoop`.
+ */
 export function TimePickerCard({
   topic,
   attendee,

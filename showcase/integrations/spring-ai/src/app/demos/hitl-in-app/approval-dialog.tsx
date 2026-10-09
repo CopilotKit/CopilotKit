@@ -1,5 +1,13 @@
 "use client";
 
+// @region[approval-dialog]
+// Modal dialog rendered at the APP level (portal'd to <body>) — not
+// inside the chat bubble tree. The caller supplies `pending` (the
+// message/context the agent wants approval for) and an `onResolve`
+// completion callback. The user's click on Approve / Reject fires the
+// callback, which resolves the pending frontend-tool Promise back in
+// the parent page.
+
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -52,7 +60,7 @@ export function ApprovalDialog({ pending, onResolve }: Props) {
           data-testid="approval-dialog-reason"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder="Add a short note the assistant will see..."
+          placeholder="Add a short note the assistant will see…"
           className="mb-4 w-full resize-none rounded-xl border border-[#DBDBE5] px-3 py-2 text-sm text-[#010507] focus:border-[#BEC2FF] focus:outline-none focus:ring-2 focus:ring-[#BEC2FF33]"
           rows={2}
         />
@@ -90,3 +98,4 @@ export function ApprovalDialog({ pending, onResolve }: Props) {
 
   return createPortal(content, document.body);
 }
+// @endregion[approval-dialog]

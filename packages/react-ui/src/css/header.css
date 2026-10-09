@@ -9,12 +9,13 @@
   border-top-right-radius: 0;
   border-bottom: 1px solid var(--copilot-kit-separator-color);
   padding-left: 1.5rem;
+  padding-right: 1.5rem;
   background-color: var(--copilot-kit-contrast-color);
   justify-content: space-between;
   z-index: 2;
 }
 
-.copilotKitSidebar .copilotKitHeader {
+:where(.copilotKitSidebar) .copilotKitHeader {
   border-radius: 0;
 }
 
@@ -29,10 +30,12 @@
 
 @media (min-width: 640px) {
   .copilotKitHeader {
-    padding-left: 1.5rem;
-    padding-right: 24px;
     border-top-left-radius: 8px;
     border-top-right-radius: 8px;
+  }
+
+  :where(.copilotKitSidebar) .copilotKitHeader {
+    border-radius: 0;
   }
 }
 

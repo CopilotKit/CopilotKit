@@ -2,10 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, nextTick, provide, ref } from "vue";
 import { mount } from "@vue/test-utils";
 import { usePinToSend } from "../use-pin-to-send";
-import {
-  LastUserMessageKey,
-  type LastUserMessageState,
-} from "../../components/chat/last-user-message-context";
+import { LastUserMessageKey } from "../../components/chat/last-user-message-context";
+import type { LastUserMessageState } from "../../components/chat/last-user-message-context";
 
 // Strict counterpart of React `use-pin-to-send.test.tsx`.
 // Keep case order, wording, and harness shape aligned 1:1 with the React suite.
@@ -179,7 +177,7 @@ describe("usePinToSend", () => {
     });
   });
 
-  it("shrinks spacer as content height grows (does not grow it)", async () => {
+  it("adjusts spacer as content height changes to keep the user message pinned", async () => {
     let observed: (() => void) | null = null;
     // Must use a class (not an arrow function) so `new ResizeObserver(...)` works in jsdom.
     class ROStub {
@@ -216,11 +214,14 @@ describe("usePinToSend", () => {
       observed?.();
       expect(parseInt(harness.spacer.style.height, 10)).toBeLessThan(744);
 
-      // Simulate content shrinking — spacer should NOT grow back
+      // Simulate content shrinking — spacer should grow back to preserve the
+      // original anchor instead of leaving the user message shifted.
       setHeight(harness.content, 100);
       const shrunkHeight = harness.spacer.style.height;
       observed?.();
-      expect(harness.spacer.style.height).toBe(shrunkHeight);
+      expect(parseInt(harness.spacer.style.height, 10)).toBeGreaterThan(
+        parseInt(shrunkHeight, 10),
+      );
     } finally {
       wrapper?.unmount();
       global.ResizeObserver = prevRO;

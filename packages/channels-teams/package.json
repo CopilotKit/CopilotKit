@@ -1,0 +1,85 @@
+{
+  "name": "@copilotkit/channels-teams",
+  "version": "0.11.0",
+  "description": "Microsoft Teams platform adapter for CopilotKit JSX channels (@copilotkit/channels).",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git",
+    "directory": "packages/channels-teams"
+  },
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "keywords": [
+    "ai",
+    "agent",
+    "bot",
+    "microsoft-teams",
+    "teams",
+    "adaptive-cards",
+    "m365-agents-sdk",
+    "copilotkit",
+    "ag-ui"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./render": {
+      "types": "./dist/render/index.d.ts",
+      "import": "./dist/render/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check-types": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.check.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile esm-only"
+  },
+  "dependencies": {
+    "@ag-ui/client": "1.0.2",
+    "@ag-ui/core": "1.0.2",
+    "@copilotkit/channels-core": "workspace:^",
+    "@copilotkit/channels-ui": "workspace:^",
+    "@copilotkit/core": "workspace:^",
+    "@copilotkit/shared": "workspace:^",
+    "rxjs": "^7.8.1"
+  },
+  "peerDependencies": {
+    "@microsoft/agents-activity": "^1.5.3",
+    "@microsoft/agents-hosting": "^1.5.3",
+    "express": "^4.18.0 || ^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@microsoft/agents-activity": {
+      "optional": true
+    },
+    "@microsoft/agents-hosting": {
+      "optional": true
+    },
+    "express": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:^",
+    "@microsoft/agents-activity": "^1.5.3",
+    "@microsoft/agents-hosting": "^1.5.3",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.0",
+    "express": "^4.18.0 || ^5.0.0",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}

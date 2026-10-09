@@ -1,8 +1,21 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  afterEach,
+} from "vitest";
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
-import { FileSnapshotRestorer, execOptsFor } from "./test-cleanup";
+import {
+  FileSnapshotRestorer,
+  acquireGeneratedDataLock,
+  execOptsFor,
+  withGeneratedDataLock,
+} from "./test-cleanup";
 import { SCRIPTS_DIR, SHELL_DATA_DIR } from "./paths";
 
 // catalog.json is emitted alongside registry.json in all 4 output dirs.
@@ -23,11 +36,21 @@ const DATA_FILES = [
   path.join(SHELL_DASHBOARD_DATA_DIR, "catalog.json"),
 ];
 const dataRestorer = new FileSnapshotRestorer(DATA_FILES);
+let releaseGeneratedDataLock: (() => void) | undefined;
 
 const EXEC_OPTS = execOptsFor(SCRIPTS_DIR);
 
-function runGenerator(): string {
-  const out = execFileSync("npx", ["tsx", "generate-registry.ts"], EXEC_OPTS);
+/**
+ * `env` overrides are layered on top of the ambient environment, so the
+ * DEFAULT call inherits CI's environment exactly as before — which is what
+ * keeps the flag-off case a genuine test of the default build rather than of a
+ * scrubbed one.
+ */
+function runGenerator(env?: Record<string, string>): string {
+  const out = execFileSync("npx", ["tsx", "generate-registry.ts"], {
+    ...EXEC_OPTS,
+    ...(env ? { env: { ...process.env, ...env } } : {}),
+  });
   return out.toString();
 }
 
@@ -36,19 +59,41 @@ function readCatalog(dir: string = SHELL_DATA_DIR): any {
   return JSON.parse(fs.readFileSync(catalogPath, "utf-8"));
 }
 
-beforeAll(() => {
-  runGenerator();
-  dataRestorer.snapshot();
-  if (dataRestorer.snapshotMap.size === 0) {
-    throw new Error(
-      `generate-catalog.test.ts: data snapshot is empty. Expected generated` +
-        ` files at:\n` +
-        DATA_FILES.map((p) => `  ${p}`).join("\n"),
-    );
+beforeAll(() =>
+  withGeneratedDataLock(() => {
+    runGenerator();
+    dataRestorer.snapshot();
+    if (dataRestorer.snapshotMap.size === 0) {
+      throw new Error(
+        `generate-catalog.test.ts: data snapshot is empty. Expected generated` +
+          ` files at:\n` +
+          DATA_FILES.map((p) => `  ${p}`).join("\n"),
+      );
+    }
+  }),
+);
+
+beforeEach(() => {
+  const release = acquireGeneratedDataLock();
+  try {
+    dataRestorer.restore();
+    releaseGeneratedDataLock = release;
+  } catch (err) {
+    release();
+    throw err;
   }
 });
-afterEach(() => dataRestorer.restore());
-afterAll(() => dataRestorer.restore());
+
+afterEach(() => {
+  try {
+    dataRestorer.restore();
+  } finally {
+    releaseGeneratedDataLock?.();
+    releaseGeneratedDataLock = undefined;
+  }
+});
+
+afterAll(() => withGeneratedDataLock(() => dataRestorer.restore()));
 
 describe("Catalog Generator", () => {
   it("output shape matches CatalogData: { metadata, cells }", () => {
@@ -58,10 +103,13 @@ describe("Catalog Generator", () => {
     // Top-level keys must be exactly { metadata, cells }
     expect(Object.keys(catalog).sort()).toEqual(["cells", "metadata"]);
 
-    // metadata must have exactly the CatalogMetadata keys
+    // metadata must have exactly the CatalogMetadata keys. EXACT, not a
+    // subset: PE-118 removed `metadata.generated_at` (a wall-clock stamp
+    // nothing read — `/api/matrix` goes through `buildCatalogCells`, which
+    // returns only `.cells`), and this equality is what fails if a clock read
+    // is ever re-added to the flatten. Do not relax it to arrayContaining.
     expect(Object.keys(catalog.metadata).sort()).toEqual([
       "docs_only",
-      "generated_at",
       "reference",
       "stub",
       "total_cells",
@@ -95,7 +143,54 @@ describe("Catalog Generator", () => {
     }
   });
 
-  it("cross-join produces 792 cells (44 features x 18 integrations); metadata.total_cells excludes docs-only", () => {
+  // PE-110. THE regression guard: regenerate twice from input nobody touched
+  // and require the two emissions to be byte-identical.
+  //
+  // `generateCatalog` used to read `new Date()` for `metadata.generated_at`,
+  // so six consecutive regenerations from pristine `origin/main` produced six
+  // different hashes. The cost was not the diff noise — `catalog.json` is
+  // gitignored — it was that the artifact could not be used as EVIDENCE: a
+  // reviewer could never conclude from an unchanged catalog that a change had
+  // left the matrix alone. PE-110 pinned the stamp to the source revision;
+  // PE-118 removed the field outright. This check is deliberately kept: it
+  // compares whole files, so it still guards every other field against a
+  // clock read creeping back in.
+  //
+  // Bytes, not a parsed deep-equal: JSON.parse would hide key-order drift,
+  // which is the other classic nondeterminism in a generated file.
+  it("regenerating from unchanged input is byte-identical", () => {
+    const outputDirs = [
+      path.resolve(SCRIPTS_DIR, "..", "shell", "src", "data"),
+      path.resolve(SCRIPTS_DIR, "..", "shell-docs", "src", "data"),
+      path.resolve(SCRIPTS_DIR, "..", "shell-dojo", "src", "data"),
+      path.resolve(SCRIPTS_DIR, "..", "shell-dashboard", "src", "data"),
+    ];
+    const readAll = () =>
+      Object.fromEntries(
+        outputDirs.map((dir) => [
+          dir,
+          fs.readFileSync(path.join(dir, "catalog.json")),
+        ]),
+      );
+
+    runGenerator();
+    const first = readAll();
+
+    runGenerator();
+    const second = readAll();
+
+    for (const dir of outputDirs) {
+      expect(
+        second[dir].equals(first[dir]),
+        `catalog.json in ${dir} changed between two regenerations from ` +
+          `unchanged input. First run:\n` +
+          `${first[dir].toString("utf-8").slice(0, 400)}\n` +
+          `Second run:\n${second[dir].toString("utf-8").slice(0, 400)}`,
+      ).toBe(true);
+    }
+  });
+
+  it("cross-join produces 1100 cells (50 features x 22 integrations); metadata.total_cells excludes docs-only", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -109,22 +204,80 @@ describe("Catalog Generator", () => {
       (c: any) => c.manifestation === "starter",
     );
 
-    // 45 features × 18 integrations = 810 cells. The catalog emits cells
+    // 50 features × 22 integrations = 1100 cells. The catalog emits cells
     // uniformly for all (integration × feature) pairs; deprecated-feature
     // visibility is controlled at the dashboard layer via the "Show
     // deprecated" toggle in feature-grid.tsx so the catalog stays
-    // shape-stable. The 45 includes 2 byoc legacy IDs (`byoc-hashbrown`,
+    // shape-stable. The 50 includes 2 byoc legacy IDs (`byoc-hashbrown`,
     // `byoc-json-render`) plus their renamed aliases (`declarative-*`)
-    // that langgraph-python uses for the visible URL slugs.
-    expect(integrated.length).toBe(810);
+    // that langgraph-python uses for the visible URL slugs, the
+    // `a2ui-recovery` feature (wired for google-adk + langgraph-{python,
+    // fastapi,typescript} + strands{,-typescript}; unshipped elsewhere),
+    // and the 3 Mastra-only features (`background-agents`,
+    // `observational-memory`, `browser-use`; unshipped for every other
+    // integration).
+    expect(integrated.length).toBe(1100);
+    // Step 5 is gated by SHOWCASE_STARTER_CELLS, which is UNSET in CI — this
+    // case pins the DEFAULT build. Its flag-on sibling is directly below.
     expect(starters.length).toBe(0);
-    expect(catalog.cells.length).toBe(810);
-    // total_cells excludes docs-only features (currently 1 feature x 18 integrations = 18)
-    expect(catalog.metadata.total_cells).toBe(792);
-    expect(catalog.metadata.docs_only).toBe(18);
+    expect(catalog.cells.length).toBe(1100);
+    // total_cells excludes docs-only features (currently 1 feature x 22 integrations = 22)
+    expect(catalog.metadata.total_cells).toBe(1078);
+    expect(catalog.metadata.docs_only).toBe(22);
   });
 
-  it("LGP has 45 cells: 38 wired + 1 stub + 6 unshipped (deprecated features included; dashboard hides them by default)", () => {
+  // The flag-on sibling. Its ONLY job is the pairing: the starter cells appear
+  // in `cells`, and the ROLLUPS do not move. Those two rollup assertions are
+  // the whole point of Step 6's starter exclusion — `total_cells` is the
+  // single most-read number on the dashboard, and starter cells carry
+  // `feature: null` + `status: "wired"`, so the docs-only predicate ADMITS
+  // them and would raise it by 22, unflagged.
+  //
+  // MUTATION THAT REDS THIS CASE: drop `c.manifestation !== "starter"` from
+  // `countableCells` in `catalog-flatten.ts` Step 6 — `total_cells` becomes
+  // 1100 and `wired` moves by the 17 non-`supported:false` columns.
+  it("with SHOWCASE_STARTER_CELLS=1: 22 starter cells appear and the rollups do NOT move", () => {
+    runGenerator();
+    const flagOff = readCatalog();
+
+    runGenerator({ SHOWCASE_STARTER_CELLS: "1" });
+    const flagOn = readCatalog();
+
+    const starters = flagOn.cells.filter(
+      (c: any) => c.manifestation === "starter",
+    );
+    // One cell per column, all 22 — including the 5 `supported: false` ones,
+    // each of which mints exactly one "not supported" cell rather than nothing.
+    expect(starters.length).toBe(22);
+    expect(flagOn.cells.length).toBe(1122);
+
+    // Status is DERIVED from the block, not hardcoded "wired".
+    expect(starters.filter((c: any) => c.status === "unsupported").length).toBe(
+      5,
+    );
+    expect(starters.filter((c: any) => c.status === "wired").length).toBe(17);
+    // The axis's uniform ceiling, on every starter cell.
+    expect(new Set(starters.map((c: any) => c.max_depth))).toEqual(
+      new Set([3]),
+    );
+    // Every starter cell is feature-null, which is what keeps it out of the
+    // `page-stats` health band and depth histogram.
+    expect(starters.every((c: any) => c.feature === null)).toBe(true);
+
+    // BYTE-IDENTICAL rollups across the flag.
+    expect(flagOn.metadata.total_cells).toBe(flagOff.metadata.total_cells);
+    expect(flagOn.metadata.wired).toBe(flagOff.metadata.wired);
+    expect(flagOn.metadata.stub).toBe(flagOff.metadata.stub);
+    expect(flagOn.metadata.unshipped).toBe(flagOff.metadata.unshipped);
+    expect(flagOn.metadata.unsupported).toBe(flagOff.metadata.unsupported);
+    expect(flagOn.metadata.docs_only).toBe(flagOff.metadata.docs_only);
+    // And the same absolute numbers the flag-off case pins, restated so a
+    // drift in BOTH modes cannot pass by moving together.
+    expect(flagOn.metadata.total_cells).toBe(1078);
+    expect(flagOn.metadata.docs_only).toBe(22);
+  });
+
+  it("LGP has 50 cells: 37 wired + 1 stub + 10 unshipped + 2 unsupported (deprecated features included; dashboard hides them by default)", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -133,23 +286,39 @@ describe("Catalog Generator", () => {
         c.integration === "langgraph-python" &&
         c.manifestation === "integrated",
     );
-    // 45 = 39 LGP-declared features + 4 deprecated features + 2 legacy
+    // 46 = 37 LGP-declared features + 2 quarantined interrupt features
+    // (gen-ui-interrupt / interrupt-headless, now in
+    // `not_supported_features`) + 4 deprecated features + 2 legacy
     // `byoc-*` aliases (LGP declares `declarative-{hashbrown,json-render}`
     // for the visible URL slugs while every other integration still
     // declares the legacy `byoc-*` IDs; the catalog emits cells for both
     // since both are in the registry, and the LGP cells for the legacy
     // IDs are `unshipped` because LGP's manifest only declares the
-    // renamed form). Dashboard's "Show deprecated" toggle hides
-    // deprecated rows by default.
-    expect(lgpCells.length).toBe(45);
+    // renamed form) + 1 unshipped for `threadid-frontend-tool-roundtrip`
+    // (built-in-agent-only feature; LGP doesn't declare it). `a2ui-recovery`
+    // is now WIRED for LGP (the recovery demo shipped across langgraph +
+    // strands), so it no longer counts toward unshipped.
+    // Dashboard's "Show deprecated" toggle hides deprecated rows by default.
+    // +3 unshipped for the Mastra-only features (`background-agents`,
+    // `observational-memory`, `browser-use`) that LGP does not declare,
+    // taking unshipped 7 -> 10 and the LGP cell total 47 -> 50.
+    expect(lgpCells.length).toBe(50);
 
     const wired = lgpCells.filter((c: any) => c.status === "wired");
     const stub = lgpCells.filter((c: any) => c.status === "stub");
     const unshipped = lgpCells.filter((c: any) => c.status === "unshipped");
+    const unsupported = lgpCells.filter((c: any) => c.status === "unsupported");
 
-    expect(wired.length).toBe(38);
+    // The interrupt-pill quarantine moved gen-ui-interrupt / interrupt-headless
+    // (both previously `wired`) into `not_supported_features`, so they now
+    // surface as `unsupported`: wired drops 38 -> 36, unsupported rises 0 -> 2.
+    // unshipped rises 6 -> 7 with threadid-frontend-tool-roundtrip. Then the
+    // a2ui-recovery demo shipped for LGP (wired), so wired rises 36 -> 37 and
+    // unshipped drops 8 -> 7.
+    expect(wired.length).toBe(37);
     expect(stub.length).toBe(1);
-    expect(unshipped.length).toBe(6);
+    expect(unshipped.length).toBe(10);
+    expect(unsupported.length).toBe(2);
   });
 
   it("stub detection: LGP/cli-start has stub status (demo exists, no route)", () => {
@@ -197,7 +366,13 @@ describe("Catalog Generator", () => {
     // crewai-crews wired count moved with the blitz; assert the lower bound
     // (the partial tier requires intersection >= 3 with the reference's
     // wired set, which crewai-crews comfortably exceeds post-blitz).
-    expect(crewaiWired.length).toBeGreaterThanOrEqual(30);
+    // Was 30; now 29 because `multimodal` moved from `features` to
+    // `not_supported_features` in this integration's manifest (no `/multimodal`
+    // route exists on its agent server — see the note there), so that cell is
+    // `unsupported` rather than `wired`. This bound only guards against the
+    // wired set collapsing below what the partial tier needs, so tracking the
+    // manifest here is correct.
+    expect(crewaiWired.length).toBeGreaterThanOrEqual(29);
 
     const tier = crewaiCells[0].parity_tier;
     expect(["at_parity", "partial"]).toContain(tier);
@@ -212,7 +387,7 @@ describe("Catalog Generator", () => {
 
     expect(catalog.metadata).toBeDefined();
     // total_cells excludes docs-only features
-    expect(catalog.metadata.total_cells).toBe(792);
+    expect(catalog.metadata.total_cells).toBe(1078);
 
     // Headline counts exclude docs-only cells; must sum to total_cells.
     expect(
@@ -231,7 +406,7 @@ describe("Catalog Generator", () => {
     ).toBe(catalog.cells.length);
     expect(catalog.metadata.wired).toBeGreaterThanOrEqual(490);
     expect(catalog.metadata.unsupported).toBeGreaterThanOrEqual(0);
-    expect(catalog.metadata.docs_only).toBe(18);
+    expect(catalog.metadata.docs_only).toBe(22);
   });
 
   it("max_depth: D4 for wired/stub cells, D0 for unshipped/unsupported", () => {
@@ -289,17 +464,6 @@ describe("Catalog Generator", () => {
         `Invalid category "${cell.category}" for cell ${cell.id}`,
       ).toBe(true);
     }
-  });
-
-  it("metadata.generated_at timestamp is present and recent", () => {
-    runGenerator();
-    const catalog = readCatalog();
-
-    expect(catalog.metadata.generated_at).toBeDefined();
-    const genTime = new Date(catalog.metadata.generated_at).getTime();
-    const now = Date.now();
-    // Should be within the last 60 seconds
-    expect(now - genTime).toBeLessThan(60000);
   });
 
   it("integrated cells have human-readable display names from registries", () => {

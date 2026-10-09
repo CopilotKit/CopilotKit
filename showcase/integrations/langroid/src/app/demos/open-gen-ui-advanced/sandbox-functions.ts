@@ -9,6 +9,9 @@ import { z } from "zod";
  * into the agent's context so the LLM knows which bridges exist when it
  * generates HTML/JS. Each handler runs on the HOST page and its return
  * value is awaited by the in-iframe caller.
+ *
+ * Keep the surface small and obvious — these are the demo's "app-side
+ * tools" that the sandbox-generated UI can call.
  */
 export const openGenUiSandboxFunctions = [
   {
@@ -23,6 +26,8 @@ export const openGenUiSandboxFunctions = [
         .describe("An arithmetic expression, e.g. '12 * (3 + 4.5)'"),
     }),
     handler: async ({ expression }: { expression: string }) => {
+      // Evaluate only arithmetic-safe expressions. Reject anything with
+      // identifiers or suspicious characters so we never exec arbitrary JS.
       if (!/^[\d+\-*/().\s]+$/.test(expression)) {
         return { ok: false, error: "Unsupported characters in expression." };
       }

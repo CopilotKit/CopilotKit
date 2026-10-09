@@ -49,7 +49,7 @@ _openai_kwargs = {}
 if os.environ.get("OPENAI_BASE_URL"):
     _openai_kwargs["api_base"] = os.environ["OPENAI_BASE_URL"]
 
-_SUB_LLM = OpenAI(model="gpt-4.1-mini", **_openai_kwargs)
+_SUB_LLM = OpenAI(model="gpt-5-mini", **_openai_kwargs)
 
 _RESEARCH_SYSTEM = (
     "You are a research sub-agent. Given a topic, produce a concise "
@@ -279,7 +279,7 @@ SUPERVISOR_SYSTEM_PROMPT = (
 
 
 subagents_router = get_ag_ui_workflow_router(
-    llm=OpenAI(model="gpt-4.1", **_openai_kwargs),
+    llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
     frontend_tools=[],
     backend_tools=[research_agent, writing_agent, critique_agent],
     system_prompt=SUPERVISOR_SYSTEM_PROMPT,

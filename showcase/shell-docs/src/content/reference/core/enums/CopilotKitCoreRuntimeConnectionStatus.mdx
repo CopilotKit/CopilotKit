@@ -1,0 +1,75 @@
+---
+title: "CopilotKitCoreRuntimeConnectionStatus"
+description: "Connection states between CopilotKitCore and the CopilotRuntime."
+---
+
+## Overview
+
+`CopilotKitCoreRuntimeConnectionStatus` represents the state of the connection between `CopilotKitCore` and its runtime. You encounter it via `copilotkit.runtimeConnectionStatus` and the `onRuntimeConnectionStatusChanged` subscriber callback.
+
+**The status reports the outcome of the last actual contact with the runtime.** It is not a claim about the present moment. A failed runtime request moves it to `Error`, a successful one moves it back — and nothing else moves it. There is no polling and no heartbeat, so an outage that begins while your application is idle is not noticed until something is sent.
+
+## Import
+
+```ts
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+```
+
+## Definition
+
+```ts
+enum CopilotKitCoreRuntimeConnectionStatus {
+  Disconnected = "disconnected",
+  Connected = "connected",
+  Connecting = "connecting",
+  Error = "error",
+}
+```
+
+## Members
+
+<PropertyReference name="Disconnected" type="disconnected">
+  No connection to the runtime has been established. This is the initial state when no `runtimeUrl` is set.
+</PropertyReference>
+
+<PropertyReference name="Connected" type="connected">
+  The runtime responded successfully and the client is ready to run agents.
+</PropertyReference>
+
+<PropertyReference name="Connecting" type="connecting">
+  A connection attempt is in flight — runtime info is being fetched.
+</PropertyReference>
+
+<PropertyReference name="Error" type="error">
+  The last contact with the runtime did not succeed. This covers two situations:
+
+  - **The first contact never succeeded.** There are no runtime agents, because none were ever obtained.
+  - **Contact was lost during the session.** The runtime answered at load and stopped answering later — you stopped your dev server, a container restarted, a deploy switched over, a tunnel dropped. Your runtime agents are still there, with their messages and threads intact, and sending stays possible. That is deliberate: sending is what restores the status, so an error state that disabled it would be one you could never leave.
+
+  So `Error` with agents present is a working state, not a bug. The next successful runtime request returns the status to `Connected` and re-syncs what the runtime reports.
+</PropertyReference>
+
+## Usage
+
+```ts
+copilotkit.subscribe({
+  onRuntimeConnectionStatusChanged: ({ status }) => {
+    if (status === CopilotKitCoreRuntimeConnectionStatus.Connected) {
+      enableChat();
+      return;
+    }
+
+    if (status === CopilotKitCoreRuntimeConnectionStatus.Error) {
+      showConnectionError();
+      if (Object.keys(copilotkit.agents).length === 0) {
+        disableChat();
+      }
+    }
+  },
+});
+```
+
+## Related
+
+- [CopilotKitCore](/reference/core/classes/CopilotKitCore) — exposes the connection lifecycle via `runtimeConnectionStatus`.
+- [CopilotKitCoreSubscriber](/reference/core/types/CopilotKitCoreSubscriber) — `onRuntimeConnectionStatusChanged` receives this status.

@@ -4,7 +4,7 @@ import {
   CopilotKitProvider,
   CopilotChat,
   useConfigureSuggestions,
-} from "@copilotkitnext/react";
+} from "@copilotkit/react-core/v2";
 
 export function HomeChat() {
   return (

@@ -6,7 +6,11 @@ hideTOC: true
 snippet_cell: readonly-state-agent-context
 ---
 
+import InspectorPaneContext from "@/snippets/shared/inspector/open-inspector-pane-context.mdx";
+
 <InlineDemo demo="readonly-state-agent-context" />
+
+<InspectorPaneContext components={props.components} />
 
 ## What is this?
 
@@ -34,7 +38,7 @@ Think of it as "props for the agent".
 
 ## How it works in code
 
-<FrameworkSetup concept="agent-setup" />
+<FrameworkSetup concept="agent-context-setup" />
 
 Call `useAgentContext({ description, value })` once per value you want
 to publish. Each call registers a dynamic context entry with the

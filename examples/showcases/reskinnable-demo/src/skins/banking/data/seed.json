@@ -1,0 +1,611 @@
+{
+  "cards": [
+    {
+      "id": "5tf3rmlcyg3",
+      "last4": "4242",
+      "expiry": "08/28",
+      "type": "Visa",
+      "color": "bg-blue-500",
+      "pin": "1234",
+      "expensePolicyId": "8r5c3m4n5o"
+    },
+    {
+      "id": "wr197z5ilg",
+      "last4": "1234",
+      "expiry": "03/29",
+      "type": "MasterCard",
+      "color": "bg-red-500",
+      "pin": "5678",
+      "expensePolicyId": "7f3b3c4d5e"
+    },
+    {
+      "id": "fA5b7c6d5e",
+      "last4": "5555",
+      "expiry": "11/27",
+      "type": "Visa",
+      "color": "bg-blue-500",
+      "pin": "9101",
+      "expensePolicyId": "9a8b7c6d5e"
+    }
+  ],
+  "policies": [
+    {
+      "id": "pol-technology",
+      "type": "Technology",
+      "limit": 270000
+    },
+    {
+      "id": "pol-gtm",
+      "type": "Go-to-Market",
+      "limit": 150000
+    },
+    {
+      "id": "pol-gna",
+      "type": "G&A",
+      "limit": 135000
+    }
+  ],
+  "team": [
+    {
+      "id": "9g5h2j1k4l",
+      "name": "Alex Morgan",
+      "email": "alex@northwind.example",
+      "role": "Admin",
+      "team": "Executive"
+    },
+    {
+      "id": "2b3c4d5e6f",
+      "name": "Maya Chen",
+      "email": "maya@northwind.example",
+      "role": "Assistant",
+      "team": "Executive"
+    }
+  ],
+  "transactions": [
+    {
+      "id": "t-1",
+      "title": "Google Ads",
+      "amount": -5000,
+      "date": "2026-05-28",
+      "policyId": "pol-gtm",
+      "cardId": "wr197z5ilg",
+      "status": "pending",
+      "team": "Marketing",
+      "category": "Advertising"
+    },
+    {
+      "id": "t-2",
+      "title": "AWS",
+      "amount": -15000,
+      "date": "2026-05-20",
+      "policyId": "pol-technology",
+      "cardId": "fA5b7c6d5e",
+      "status": "pending",
+      "team": "Engineering",
+      "category": "Cloud Infrastructure"
+    },
+    {
+      "id": "t-3",
+      "title": "Microsoft 365",
+      "amount": -10000,
+      "date": "2026-05-12",
+      "policyId": "pol-gna",
+      "cardId": "5tf3rmlcyg3",
+      "status": "pending",
+      "team": "Executive",
+      "category": "SaaS & Software"
+    },
+    {
+      "id": "t-4",
+      "title": "Delta Airlines",
+      "amount": -89.99,
+      "date": "2026-04-22",
+      "policyId": "pol-gna",
+      "cardId": "5tf3rmlcyg3",
+      "note": {
+        "content": "SF Executive Offsite",
+        "userId": "9g5h2j1k4l",
+        "date": "2026-04-25"
+      },
+      "status": "approved",
+      "team": "Executive",
+      "category": "Travel"
+    },
+    {
+      "id": "t-100",
+      "title": "Amazon Web Services",
+      "amount": -91800,
+      "date": "2026-06-01",
+      "policyId": "pol-technology",
+      "cardId": "5tf3rmlcyg3",
+      "status": "approved",
+      "team": "Engineering",
+      "category": "Cloud Infrastructure"
+    },
+    {
+      "id": "t-101",
+      "title": "ADP Payroll",
+      "amount": -74200,
+      "date": "2026-06-15",
+      "policyId": "pol-gna",
+      "cardId": "wr197z5ilg",
+      "status": "approved",
+      "team": "People",
+      "category": "Payroll & Benefits"
+    },
+    {
+      "id": "t-102",
+      "title": "Wilson Sonsini",
+      "amount": -58400,
+      "date": "2026-05-22",
+      "policyId": "pol-gna",
+      "cardId": "fA5b7c6d5e",
+      "status": "flagged",
+      "team": "Executive",
+      "category": "Professional Services"
+    },
+    {
+      "id": "t-103",
+      "title": "Snowflake",
+      "amount": -43250,
+      "date": "2026-05-04",
+      "policyId": "pol-technology",
+      "cardId": "5tf3rmlcyg3",
+      "status": "approved",
+      "team": "Engineering",
+      "category": "Cloud Infrastructure"
+    },
+    {
+      "id": "t-104",
+      "title": "Google Ads",
+      "amount": -38600,
+      "date": "2026-06-09",
+      "policyId": "pol-gtm",
+      "cardId": "wr197z5ilg",
+      "status": "approved",
+      "team": "Marketing",
+      "category": "Advertising"
+    },
+    {
+      "id": "t-105",
+      "title": "Deloitte",
+      "amount": -34900,
+      "date": "2026-04-28",
+      "policyId": "pol-gna",
+      "cardId": "fA5b7c6d5e",
+      "status": "approved",
+      "team": "Finance",
+      "category": "Professional Services"
+    },
+    {
+      "id": "t-106",
+      "title": "Salesforce",
+      "amount": -31200,
+      "date": "2026-05-18",
+      "policyId": "pol-gtm",
+      "cardId": "5tf3rmlcyg3",
+      "status": "approved",
+      "team": "Sales",
+      "category": "SaaS & Software"
+    },
+    {
+      "id": "t-107",
+      "title": "Meta Ads",
+      "amount": -27450,
+      "date": "2026-06-11",
+      "policyId": "pol-gtm",
+      "cardId": "wr197z5ilg",
+      "status": "approved",
+      "team": "Marketing",
+      "category": "Advertising"
+    },
+    {
+      "id": "t-108",
+      "title": "Cvent",
+      "amount": -24800,
+      "date": "2026-05-30",
+      "policyId": "pol-gtm",
+      "cardId": "fA5b7c6d5e",
+      "status": "flagged",
+      "team": "Marketing",
+      "category": "Marketing Events"
+    },
+    {
+      "id": "t-109",
+      "title": "Microsoft Azure",
+      "amount": -22100,
+      "date": "2026-04-12",
+      "policyId": "pol-technology",
+      "cardId": "5tf3rmlcyg3",
+      "status": "approved",
+      "team": "Engineering",
+      "category": "Cloud Infrastructure"
+    },
+    {
+      "id": "t-110",
+      "title": "Dell Technologies",
+      "amount": -18750,
+      "date": "2026-05-07",
+      "policyId": "pol-technology",
+      "cardId": "wr197z5ilg",
+      "status": "approved",
+      "team": "Operations",
+      "category": "Hardware"
+    },
+    {
+      "id": "t-111",
+      "title": "Google Cloud",
+      "amount": -17300,
+      "date": "2026-06-02",
+      "policyId": "pol-technology",
+      "cardId": "fA5b7c6d5e",
+      "status": "approved",
+      "team": "Engineering",
+      "category": "Cloud Infrastructure"
+    },
+    {
+      "id": "t-112",
+      "title": "HubSpot",
+      "amount": -15900,
+      "date": "2026-04-19",
+      "policyId": "pol-gtm",
+      "cardId": "5tf3rmlcyg3",
+      "status": "approved",
+      "team": "Marketing",
+      "category": "SaaS & Software"
+    },
+    {
+      "id": "t-113",
+      "title": "WeWork",
+      "amount": -14200,
+      "date": "2026-06-01",
+      "policyId": "pol-technology",
+      "cardId": "wr197z5ilg",
+      "status": "approved",
+      "team": "Operations",
+      "category": "Office & Facilities"
+    },
+    {
+      "id": "t-114",
+      "title": "LinkedIn Ads",
+      "amount": -12650,
+      "date": "2026-05-14",
+      "policyId": "pol-gtm",
+      "cardId": "fA5b7c6d5e",
+      "status": "approved",
+      "team": "Marketing",
+      "category": "Advertising"
+    },
+    {
+      "id": "t-115",
+      "title": "Apple",
+      "amount": -11480,
+      "date": "2026-04-25",
+      "policyId": "pol-technology",
+      "cardId": "5tf3rmlcyg3",
+      "status": "approved",
+      "team": "Engineering",
+      "category": "Hardware"
+    },
+    {
+      "id": "t-116",
+      "title": "Marriott",
+      "amount": -9820,
+      "date": "2026-06-06",
+      "policyId": "pol-gtm",
+      "cardId": "wr197z5ilg",
+      "status": "flagged",
+      "team": "Sales",
+      "category": "Travel"
+    },
+    {
+      "id": "t-117",
+      "title": "Datadog",
+      "amount": -8760,
+      "date": "2026-05-11",
+      "policyId": "pol-technology",
+      "cardId": "fA5b7c6d5e",
+      "status": "approved",
+      "team": "Engineering",
+      "category": "Cloud Infrastructure"
+    },
+    {
+      "id": "t-118",
+      "title": "Gusto",
+      "amount": -8100,
+      "date": "2026-04-15",
+      "policyId": "pol-gna",
+      "cardId": "5tf3rmlcyg3",
+      "status": "approved",
+      "team": "People",
+      "category": "Payroll & Benefits"
+    },
+    {
+      "id": "t-119",
+      "title": "United Airlines",
+      "amount": -7450,
+      "date": "2026-05-27",
+      "policyId": "pol-gna",
+      "cardId": "wr197z5ilg",
+      "status": "approved",
+      "team": "Executive",
+      "category": "Travel"
+    },
+    {
+      "id": "t-120",
+      "title": "Cloudflare",
+      "amount": -6900,
+      "date": "2026-06-03",
+      "policyId": "pol-technology",
+      "cardId": "fA5b7c6d5e",
+      "status": "approved",
+      "team": "Engineering",
+      "category": "Cloud Infrastructure"
+    },
+    {
+      "id": "t-121",
+      "title": "CDW",
+      "amount": -6320,
+      "date": "2026-04-30",
+      "policyId": "pol-technology",
+      "cardId": "5tf3rmlcyg3",
+      "status": "approved",
+      "team": "Operations",
+      "category": "Hardware"
+    },
+    {
+      "id": "t-122",
+      "title": "United Airlines",
+      "amount": -5980,
+      "date": "2026-06-08",
+      "policyId": "pol-gtm",
+      "cardId": "wr197z5ilg",
+      "status": "flagged",
+      "team": "Sales",
+      "category": "Travel"
+    },
+    {
+      "id": "t-123",
+      "title": "Reddit Ads",
+      "amount": -5400,
+      "date": "2026-05-19",
+      "policyId": "pol-gtm",
+      "cardId": "fA5b7c6d5e",
+      "status": "approved",
+      "team": "Marketing",
+      "category": "Advertising"
+    },
+    {
+      "id": "t-124",
+      "title": "Hopin",
+      "amount": -4950,
+      "date": "2026-04-22",
+      "policyId": "pol-gtm",
+      "cardId": "5tf3rmlcyg3",
+      "status": "approved",
+      "team": "Marketing",
+      "category": "Marketing Events"
+    },
+    {
+      "id": "t-125",
+      "title": "Hilton",
+      "amount": -4380,
+      "date": "2026-05-25",
+      "policyId": "pol-gna",
+      "cardId": "wr197z5ilg",
+      "status": "approved",
+      "team": "Executive",
+      "category": "Travel"
+    },
+    {
+      "id": "t-126",
+      "title": "GitHub",
+      "amount": -3900,
+      "date": "2026-06-01",
+      "policyId": "pol-technology",
+      "cardId": "fA5b7c6d5e",
+      "status": "approved",
+      "team": "Engineering",
+      "category": "SaaS & Software"
+    },
+    {
+      "id": "t-127",
+      "title": "TikTok Ads",
+      "amount": -3610,
+      "date": "2026-05-16",
+      "policyId": "pol-gtm",
+      "cardId": "5tf3rmlcyg3",
+      "status": "approved",
+      "team": "Marketing",
+      "category": "Advertising"
+    },
+    {
+      "id": "t-128",
+      "title": "Vercel",
+      "amount": -3200,
+      "date": "2026-04-18",
+      "policyId": "pol-technology",
+      "cardId": "wr197z5ilg",
+      "status": "approved",
+      "team": "Engineering",
+      "category": "SaaS & Software"
+    },
+    {
+      "id": "t-129",
+      "title": "Airbnb",
+      "amount": -2870,
+      "date": "2026-06-05",
+      "policyId": "pol-gtm",
+      "cardId": "fA5b7c6d5e",
+      "status": "approved",
+      "team": "Sales",
+      "category": "Travel"
+    },
+    {
+      "id": "t-130",
+      "title": "Notion",
+      "amount": -2450,
+      "date": "2026-05-02",
+      "policyId": "pol-technology",
+      "cardId": "5tf3rmlcyg3",
+      "status": "approved",
+      "team": "Operations",
+      "category": "SaaS & Software"
+    },
+    {
+      "id": "t-131",
+      "title": "Figma",
+      "amount": -2180,
+      "date": "2026-04-11",
+      "policyId": "pol-technology",
+      "cardId": "wr197z5ilg",
+      "status": "approved",
+      "team": "Engineering",
+      "category": "SaaS & Software"
+    },
+    {
+      "id": "t-132",
+      "title": "Eventbrite",
+      "amount": -1990,
+      "date": "2026-06-07",
+      "policyId": "pol-gtm",
+      "cardId": "fA5b7c6d5e",
+      "status": "approved",
+      "team": "Marketing",
+      "category": "Marketing Events"
+    },
+    {
+      "id": "t-133",
+      "title": "Slack",
+      "amount": -1720,
+      "date": "2026-05-09",
+      "policyId": "pol-technology",
+      "cardId": "5tf3rmlcyg3",
+      "status": "approved",
+      "team": "Operations",
+      "category": "SaaS & Software"
+    },
+    {
+      "id": "t-134",
+      "title": "Staples",
+      "amount": -1440,
+      "date": "2026-04-16",
+      "policyId": "pol-technology",
+      "cardId": "wr197z5ilg",
+      "status": "approved",
+      "team": "Operations",
+      "category": "Office & Facilities"
+    },
+    {
+      "id": "t-135",
+      "title": "Linear",
+      "amount": -1180,
+      "date": "2026-06-04",
+      "policyId": "pol-technology",
+      "cardId": "fA5b7c6d5e",
+      "status": "approved",
+      "team": "Engineering",
+      "category": "SaaS & Software"
+    },
+    {
+      "id": "t-136",
+      "title": "Amazon Business",
+      "amount": -960,
+      "date": "2026-05-13",
+      "policyId": "pol-technology",
+      "cardId": "5tf3rmlcyg3",
+      "status": "pending",
+      "team": "Operations",
+      "category": "Office & Facilities"
+    },
+    {
+      "id": "t-137",
+      "title": "Uber",
+      "amount": -740,
+      "date": "2026-06-10",
+      "policyId": "pol-gtm",
+      "cardId": "wr197z5ilg",
+      "status": "approved",
+      "team": "Sales",
+      "category": "Travel"
+    },
+    {
+      "id": "t-138",
+      "title": "DoorDash",
+      "amount": -520,
+      "date": "2026-05-21",
+      "policyId": "pol-technology",
+      "cardId": "fA5b7c6d5e",
+      "status": "approved",
+      "team": "Engineering",
+      "category": "Meals & Entertainment"
+    },
+    {
+      "id": "t-139",
+      "title": "Sweetgreen",
+      "amount": -380,
+      "date": "2026-04-23",
+      "policyId": "pol-gna",
+      "cardId": "5tf3rmlcyg3",
+      "status": "approved",
+      "team": "People",
+      "category": "Meals & Entertainment"
+    },
+    {
+      "id": "t-140",
+      "title": "Uber",
+      "amount": -290,
+      "date": "2026-06-12",
+      "policyId": "pol-gna",
+      "cardId": "wr197z5ilg",
+      "status": "approved",
+      "team": "Executive",
+      "category": "Travel"
+    },
+    {
+      "id": "t-141",
+      "title": "Blue Bottle Coffee",
+      "amount": -148,
+      "date": "2026-05-06",
+      "policyId": "pol-gtm",
+      "cardId": "fA5b7c6d5e",
+      "status": "approved",
+      "team": "Marketing",
+      "category": "Meals & Entertainment"
+    },
+    {
+      "id": "t-142",
+      "title": "DoorDash",
+      "amount": -96,
+      "date": "2026-06-13",
+      "policyId": "pol-gtm",
+      "cardId": "5tf3rmlcyg3",
+      "status": "approved",
+      "team": "Sales",
+      "category": "Meals & Entertainment"
+    },
+    {
+      "id": "t-143",
+      "title": "Sweetgreen",
+      "amount": -64,
+      "date": "2026-04-27",
+      "policyId": "pol-technology",
+      "cardId": "wr197z5ilg",
+      "status": "approved",
+      "team": "Engineering",
+      "category": "Meals & Entertainment"
+    },
+    {
+      "id": "t-144",
+      "title": "Blue Bottle Coffee",
+      "amount": -28,
+      "date": "2026-05-29",
+      "policyId": "pol-technology",
+      "cardId": "fA5b7c6d5e",
+      "status": "approved",
+      "team": "Operations",
+      "category": "Meals & Entertainment"
+    }
+  ],
+  "exceptions": []
+}

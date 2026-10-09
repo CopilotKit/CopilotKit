@@ -1,0 +1,40 @@
+---
+title: "UserMessage"
+description: "A right-aligned user chat bubble that renders plain text, with an optional timestamp."
+---
+
+## Overview
+
+`UserMessage` renders a right-aligned chat bubble for user turns. Content is shown as plain text (no Markdown), with white text on a primary-color background. Useful when building a custom chat UI on top of the headless [`CopilotChat`](/reference/react-native/components/CopilotChat).
+
+## Import
+
+```tsx
+import { UserMessage } from "@copilotkit/react-native/components";
+```
+
+## Props
+
+<PropertyReference name="content" type="string" required>
+  Plain text content to display.
+</PropertyReference>
+
+<PropertyReference name="timestamp" type="Date">
+  Optional timestamp displayed below the bubble, formatted as 12-hour time.
+</PropertyReference>
+
+<PropertyReference name="style" type="ViewStyle">
+  Optional style override for the outer container.
+</PropertyReference>
+
+## Usage
+
+```tsx
+import { UserMessage } from "@copilotkit/react-native/components";
+
+<UserMessage content="What's the weather today?" timestamp={new Date()} />;
+```
+
+## Related
+
+- [`AssistantMessage`](/reference/react-native/components/AssistantMessage): the assistant-side counterpart

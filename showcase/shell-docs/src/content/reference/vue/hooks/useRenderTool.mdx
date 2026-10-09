@@ -1,0 +1,250 @@
+---
+title: "useRenderTool"
+description: "Register typed Vue renderers for tool calls, by tool name or wildcard"
+---
+
+## Overview
+
+`useRenderTool` is a Vue 3 composable that registers a chat renderer for tool calls.
+You can target a specific tool name (with a typed Zod `parameters` schema) or use a wildcard (`"*"`) fallback renderer.
+
+The render target is a Vue render function (returning a `VNodeChild`) or a Vue `Component`. It receives the tool `name`, the parsed `parameters`, the current `status`, and the `result` (when complete). This is not JSX; you render with Vue's `h()`, a setup-defined render function, or by passing a single-file Vue component.
+
+This composable only handles rendering. It does not register a frontend handler.
+
+<Callout type="info">
+  Call `useRenderTool` from inside `setup()` (or `<script setup>`) of a component mounted under [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider). It reads the active CopilotKit instance from provider context, so it cannot be called outside that tree.
+</Callout>
+
+## Import
+
+```ts
+import { useRenderTool } from "@copilotkit/vue/v2";
+```
+
+## Signature
+
+### Wildcard overload
+
+```ts
+import { useRenderTool } from "@copilotkit/vue/v2";
+import type { WatchSource } from "vue";
+
+useRenderTool(
+  {
+    name: "*",
+    render: ((props) => VNodeChild) | Component,
+    agentId?: string,
+  },
+  deps?: WatchSource<unknown>[],
+): void;
+```
+
+### Named overload
+
+```ts
+import { z } from "zod";
+import { useRenderTool } from "@copilotkit/vue/v2";
+import type { WatchSource } from "vue";
+
+useRenderTool<S>(
+  {
+    name: string,
+    parameters: S, // a Zod / Standard Schema; parameters are inferred from it
+    render: ((props: RenderToolProps<S>) => VNodeChild) | Component<RenderToolProps<S>>,
+    agentId?: string,
+  },
+  deps?: WatchSource<unknown>[],
+): void;
+```
+
+## Parameters
+
+<PropertyReference name="config" type="object" required>
+  The renderer configuration.
+
+  <PropertyReference name="name" type="string" required>
+    The tool name to render, or `"*"` for a wildcard fallback that matches any unhandled tool call.
+  </PropertyReference>
+
+  <PropertyReference name="parameters" type="StandardSchemaV1">
+    A Zod (or other Standard Schema) schema describing the tool arguments. Required for named renderers; the type of `parameters` passed to `render` is inferred from it. Omit it for the wildcard (`"*"`) overload.
+  </PropertyReference>
+
+  <PropertyReference name="render" type="((props: RenderToolProps) => VNodeChild) | Component" required>
+    Either a render function returning a `VNodeChild`, or a Vue `Component`. When a component is provided, the render props are passed to it as component props.
+  </PropertyReference>
+
+  <PropertyReference name="agentId" type="string">
+    Scope the renderer to a specific agent. Renderers are deduplicated per `agentId:name` key.
+  </PropertyReference>
+</PropertyReference>
+
+<PropertyReference name="deps" type="WatchSource<unknown>[]">
+  Optional reactive watch sources. The renderer is re-registered when `name`, `agentId`, or any of these sources change. Include any reactive values your `render` closes over (refs, getters) so it stays current. Defaults to an empty array.
+</PropertyReference>
+
+## Render Props
+
+`render` receives a discriminated union (`RenderToolProps`) keyed on `status`. `name` and `toolCallId` are present in all states.
+
+<PropertyReference name="name" type="string" required>
+  The tool name.
+</PropertyReference>
+
+<PropertyReference name="toolCallId" type="string" required>
+  The unique id of this tool call.
+</PropertyReference>
+
+<PropertyReference name="status" type='"inProgress" | "executing" | "complete"' required>
+  The current lifecycle stage of the tool call.
+</PropertyReference>
+
+<PropertyReference name="parameters" type="Partial<T> | T" required>
+  The parsed tool arguments, typed from the `parameters` schema. `Partial<T>` while `inProgress` (arguments still streaming), fully resolved `T` once `executing` or `complete`.
+</PropertyReference>
+
+<PropertyReference name="result" type="string | undefined">
+  The tool result string. `undefined` until `status` is `"complete"`.
+</PropertyReference>
+
+The three states are:
+
+- `{ status: "inProgress", parameters: Partial<T>, result: undefined }` -- arguments are still being streamed.
+- `{ status: "executing", parameters: T, result: undefined }` -- arguments are fully resolved; the tool is executing.
+- `{ status: "complete", parameters: T, result: string }` -- execution finished and a result is available.
+
+## Behavior
+
+- Builds a renderer entry with `defineToolCallRenderer` and registers it on the active CopilotKit instance via `addHookRenderToolCall`.
+- Maps the internal `args` prop onto `parameters` before calling `render`, so your render function always sees `parameters`.
+- Deduplicates by `agentId:name` key (latest registration wins).
+- Intentionally does not remove the renderer on cleanup, so previous chat history can still render.
+- Re-registers reactively (via `watch`, `immediate: true`) when `name`, `agentId`, or any value in `deps` changes. Include changing reactive captures in `deps`.
+
+## Usage
+
+### Named tool renderer (render function)
+
+```vue
+<script setup lang="ts">
+import { h } from "vue";
+import { z } from "zod";
+import { useRenderTool } from "@copilotkit/vue/v2";
+
+useRenderTool({
+  name: "searchDocs",
+  parameters: z.object({ query: z.string() }),
+  render: (props) => {
+    if (props.status === "inProgress") {
+      return h("div", `Preparing ${props.name}...`);
+    }
+    if (props.status === "executing") {
+      return h("div", `Searching for: ${props.parameters.query}`);
+    }
+    return h("div", `Done: ${props.result}`);
+  },
+});
+</script>
+
+<template>
+  <slot />
+</template>
+```
+
+### Named tool renderer (Vue component)
+
+Pass a Vue component instead of a render function. The render props become the component's props.
+
+```vue
+<!-- SearchDocsRenderer.vue -->
+<script setup lang="ts">
+defineProps<{
+  name: string;
+  toolCallId: string;
+  status: "inProgress" | "executing" | "complete";
+  parameters: { query?: string };
+  result?: string;
+}>();
+</script>
+
+<template>
+  <div v-if="status === 'inProgress'">Preparing {{ name }}...</div>
+  <div v-else-if="status === 'executing'">Searching for: {{ parameters.query }}</div>
+  <div v-else>Done: {{ result }}</div>
+</template>
+```
+
+```vue
+<!-- App.vue -->
+<script setup lang="ts">
+import { z } from "zod";
+import { useRenderTool } from "@copilotkit/vue/v2";
+import SearchDocsRenderer from "./SearchDocsRenderer.vue";
+
+useRenderTool({
+  name: "searchDocs",
+  parameters: z.object({ query: z.string() }),
+  render: SearchDocsRenderer,
+});
+</script>
+
+<template>
+  <slot />
+</template>
+```
+
+### Wildcard fallback renderer
+
+Omit `parameters` and use `name: "*"` to provide a generic UI for any unhandled tool call.
+
+```vue
+<script setup lang="ts">
+import { h } from "vue";
+import { useRenderTool } from "@copilotkit/vue/v2";
+
+useRenderTool({
+  name: "*",
+  render: (props) =>
+    h("div", `${props.status === "complete" ? "done" : "running"} ${props.name}`),
+});
+</script>
+
+<template>
+  <slot />
+</template>
+```
+
+### Reacting to changing values with `deps`
+
+`deps` are Vue `WatchSource` values (refs or getters), not a dependency array. Pass them when `render` reads reactive state so the renderer re-registers on change.
+
+```vue
+<script setup lang="ts">
+import { h, ref } from "vue";
+import { z } from "zod";
+import { useRenderTool } from "@copilotkit/vue/v2";
+
+const locale = ref("en");
+
+useRenderTool(
+  {
+    name: "searchDocs",
+    parameters: z.object({ query: z.string() }),
+    render: (props) =>
+      h("div", `[${locale.value}] ${props.name}: ${props.status}`),
+  },
+  [locale],
+);
+</script>
+
+<template>
+  <slot />
+</template>
+```
+
+## Related
+
+- `defineToolCallRenderer` -- build a renderer entry directly
+- [`useFrontendTool`](/reference/vue/hooks/useFrontendTool) -- register tools with handlers
+- [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) -- provide the CopilotKit instance to the tree

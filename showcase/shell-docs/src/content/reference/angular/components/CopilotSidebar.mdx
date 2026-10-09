@@ -1,0 +1,54 @@
+---
+title: "CopilotSidebar"
+description: "Responsive docked or overlay Copilot chat sidebar for Angular."
+---
+
+`CopilotSidebar` renders a left- or right-positioned assistant in docked or
+overlay mode. It is a standalone, OnPush component with the selector
+`copilot-sidebar`.
+
+```ts
+import { Component, signal } from "@angular/core";
+import { CopilotSidebar } from "@copilotkit/angular";
+
+@Component({
+  imports: [CopilotSidebar],
+  template: `
+    <copilot-sidebar
+      [(open)]="open"
+      mode="docked"
+      position="right"
+      [width]="480"
+      title="Workspace assistant"
+    />
+  `,
+})
+export class WorkspaceAssistant {
+  readonly open = signal(false);
+}
+```
+
+## Inputs and model
+
+| Name                  | Type                         | Default       | Behavior                             |
+| --------------------- | ---------------------------- | ------------- | ------------------------------------ |
+| `open`                | `ModelSignal<boolean>`       | `true`        | Two-way bindable open state          |
+| `mode`                | `"docked" \| "overlay"`      | `"docked"`    | Desktop presentation mode            |
+| `position`            | `"left" \| "right"`          | `"right"`     | Logical side of the viewport         |
+| `width`               | `number \| string`           | `480`         | Pixel number or CSS dimension        |
+| `title`               | `string`                     | `"Copilot"`   | Landmark/dialog name and header text |
+| `clickOutsideToClose` | `boolean`                    | `false`       | Opts into overlay backdrop closing   |
+| `chatComponent`       | `Type<unknown>`              | `CopilotChat` | Replacement chat body component      |
+| `headerComponent`     | `Type<unknown> \| undefined` | `undefined`   | Replacement header component         |
+
+Overlay mode uses modal dialog semantics, focus trapping, Escape closing, and
+launcher-focus restoration. Docked mode uses a complementary landmark and
+adjusts the document's logical body margin. Compact viewports always use the
+modal presentation.
+
+Only one docked sidebar may own document layout at a time. A second open docked
+sidebar is rejected and logs a clear warning; independent overlay sidebars are
+allowed. On close or destroy, the owner restores the exact prior body margin
+and removes its media-query listener. DOM and media-query work is browser-only
+and begins after render, so SSR remains inert. Keep `open`, `mode`, and
+`position` stable through hydration.

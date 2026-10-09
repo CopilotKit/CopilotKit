@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import searchIndex from "@/data/search-index.json";
+import { canonicalDemoPath } from "@/lib/frontend-route";
 
 interface SearchResult {
   type: "integration" | "feature" | "demo" | "page" | "reference" | "ag-ui";
@@ -73,7 +74,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
             type: "demo",
             title: d.name,
             subtitle: `${i.name} · ${d.description}`,
-            href: `/integrations/${i.slug}/${d.id}`,
+            href: canonicalDemoPath("react", i.slug, d.id),
           });
         }
       }

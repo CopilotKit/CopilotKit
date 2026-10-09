@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-adk / byoc (declarative-hashbrown)",
+    "sourceFile": "d5-byoc.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "byoc (declarative-hashbrown) \u2014 Sales Dashboard pill. The agent returns structured JSON that the BYOC custom renderer parses into metric cards + charts. The response must include enough structure for the demo renderer to materialise [data-testid='metric-card'] and [data-testid='bar-chart'] or [data-testid='pie-chart'].",
+      "match": {
+        "userMessage": "Show me a Q4 sales dashboard. Include a total-revenue metric card, a pie chart of revenue by segment, and a bar chart of monthly revenue.",
+        "hasToolResult": false,
+        "context": "google-adk"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_byoc_dashboard_001",
+            "name": "render_dashboard",
+            "arguments": "{\"metrics\":[{\"label\":\"Total Revenue\",\"value\":\"$2.4M\",\"change\":\"+12%\"},{\"label\":\"New Customers\",\"value\":\"1,847\",\"change\":\"+8%\"},{\"label\":\"Conversion Rate\",\"value\":\"3.2%\",\"change\":\"+0.4%\"}],\"charts\":[{\"type\":\"pie\",\"title\":\"Revenue by Segment\",\"data\":[{\"label\":\"Enterprise\",\"value\":1200000},{\"label\":\"Mid-Market\",\"value\":720000},{\"label\":\"SMB\",\"value\":480000}]},{\"type\":\"bar\",\"title\":\"Monthly Revenue\",\"data\":[{\"label\":\"Oct\",\"value\":780000},{\"label\":\"Nov\",\"value\":810000},{\"label\":\"Dec\",\"value\":810000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "byoc \u2014 follow-up content after render_dashboard tool result returns.",
+      "match": {
+        "userMessage": "Show me a Q4 sales dashboard. Include a total-revenue metric card, a pie chart of revenue by segment, and a bar chart of monthly revenue.",
+        "toolCallId": "call_d6_byoc_dashboard_001",
+        "context": "google-adk"
+      },
+      "response": {
+        "content": "Q4 sales dashboard rendered above \u2014 total revenue hit $2.4M (+12%), with Enterprise leading segment revenue. Monthly trend shows steady growth across Oct-Dec."
+      }
+    }
+  ]
+}

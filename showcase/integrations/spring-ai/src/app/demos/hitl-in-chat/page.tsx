@@ -1,5 +1,7 @@
 "use client";
 
+// @region[hitl-hook]
+// @region[time-slots]
 import React from "react";
 import {
   CopilotKit,
@@ -11,11 +13,12 @@ import { z } from "zod";
 import { TimePickerCard, TimeSlot } from "./time-picker-card";
 
 const DEFAULT_SLOTS: TimeSlot[] = [
-  { label: "Tomorrow 10:00 AM", iso: "2026-04-25T10:00:00-07:00" },
-  { label: "Tomorrow 2:00 PM", iso: "2026-04-25T14:00:00-07:00" },
-  { label: "Monday 9:00 AM", iso: "2026-04-27T09:00:00-07:00" },
-  { label: "Monday 3:30 PM", iso: "2026-04-27T15:30:00-07:00" },
+  { label: "Tomorrow 10:00 AM", iso: "2026-04-19T10:00:00-07:00" },
+  { label: "Tomorrow 2:00 PM", iso: "2026-04-19T14:00:00-07:00" },
+  { label: "Monday 9:00 AM", iso: "2026-04-21T09:00:00-07:00" },
+  { label: "Monday 3:30 PM", iso: "2026-04-21T15:30:00-07:00" },
 ];
+// @endregion[time-slots]
 
 export default function HitlInChatDemo() {
   return (
@@ -35,7 +38,11 @@ function Chat() {
       {
         title: "Book a call with sales",
         message:
-          "Please book an intro call with the sales team to discuss pricing. Use the schedule_meeting tool.",
+          "Please book an intro call with the sales team to discuss pricing.",
+      },
+      {
+        title: "Schedule a 1:1 with Alice",
+        message: "Schedule a 1:1 with Alice next week to review Q2 goals.",
       },
     ],
     available: "always",
@@ -64,6 +71,7 @@ function Chat() {
       />
     ),
   });
+  // @endregion[hitl-hook]
 
   return <CopilotChat agentId="hitl-in-chat" className="h-full rounded-2xl" />;
 }

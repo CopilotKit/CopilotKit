@@ -4,6 +4,10 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { createDeclarativeGenUIAgent } from "@/lib/factory/a2ui-factory";
+// Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
+// into ALS for the factory's `forwardingFetch` to re-attach on outbound
+// LLM calls. See @/lib/header-forwarding for the full rationale.
+import { withForwardedHeaders } from "@/lib/header-forwarding";
 
 // Dedicated runtime for the Declarative Generative UI (A2UI — Dynamic
 // Schema) demo.
@@ -17,10 +21,14 @@ import { createDeclarativeGenUIAgent } from "@/lib/factory/a2ui-factory";
 // `a2ui_operations` container in the tool result and streams rendered
 // surfaces to the frontend.
 const runtime = new CopilotRuntime({
-  agents: { default: createDeclarativeGenUIAgent() },
+  agents: { "declarative-gen-ui": createDeclarativeGenUIAgent() },
   runner: new InMemoryAgentRunner(),
   a2ui: {
     injectA2UITool: false,
+    // Models follow the tool-usage guide and omit `catalogId`, and the
+    // middleware then falls back to the unregistered spec basic catalog
+    // ("Catalog not found" render error). Pin the catalog the page registers.
+    defaultCatalogId: "declarative-gen-ui-catalog",
   },
 });
 
@@ -39,6 +47,9 @@ async function withProbeCompat(req: Request): Promise<Response> {
   return res;
 }
 
-export const GET = (req: Request) => handler(req);
-export const POST = (req: Request) => withProbeCompat(req);
-export const OPTIONS = (req: Request) => handler(req);
+export const GET = (req: Request) =>
+  withForwardedHeaders(req, () => handler(req));
+export const POST = (req: Request) =>
+  withForwardedHeaders(req, () => withProbeCompat(req));
+export const OPTIONS = (req: Request) =>
+  withForwardedHeaders(req, () => handler(req));

@@ -9,11 +9,11 @@ import {
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
-} from "@copilotkitnext/runtime";
+  BuiltInAgent,
+} from "@copilotkit/runtime/v2";
 import { handle } from "hono/vercel";
-import { BuiltInAgent } from "@copilotkitnext/agent";
 
-const MODEL = "openai/gpt-5.2";
+const MODEL = "openai/gpt-5-mini";
 
 const agent = new BuiltInAgent({
   model: MODEL,

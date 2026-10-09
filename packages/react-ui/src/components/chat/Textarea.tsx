@@ -15,6 +15,7 @@ interface AutoResizingTextareaProps {
   onCompositionStart?: () => void;
   onCompositionEnd?: () => void;
   autoFocus?: boolean;
+  "data-testid"?: string;
 }
 
 const AutoResizingTextarea = forwardRef<
@@ -31,6 +32,7 @@ const AutoResizingTextarea = forwardRef<
       onCompositionStart,
       onCompositionEnd,
       autoFocus,
+      "data-testid": dataTestId,
     },
     ref,
   ) => {
@@ -69,6 +71,7 @@ const AutoResizingTextarea = forwardRef<
     return (
       <textarea
         ref={internalTextareaRef}
+        data-testid={dataTestId}
         value={value}
         onChange={onChange}
         onKeyDown={onKeyDown}

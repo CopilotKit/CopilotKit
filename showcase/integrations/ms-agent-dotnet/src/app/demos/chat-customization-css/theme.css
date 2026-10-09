@@ -1,102 +1,628 @@
-/* Scoped theme for the chat-customization-css demo.
- * All selectors are prefixed with `.chat-css-demo-scope` so they do not
- * leak out and affect the rest of the showcase app.
+/* HALCYON — a warm-paper editorial theme for CopilotChat.
  *
- * Targets the CopilotKit built-in classes documented at
- * https://docs.copilotkit.ai/custom-look-and-feel/customize-built-in-ui-components
+ * The point of this demo is to show how far a single stylesheet can take
+ * CopilotChat away from the default look without touching components or
+ * slots. Every selector is namespaced under `.chat-css-demo-scope` so this
+ * theme cannot leak into the rest of the showcase.
+ *
+ * Two layers do the work:
+ *   1. v2 token overrides on `[data-copilotkit]` recolor every Tailwind
+ *      utility (cpk:bg-muted, cpk:text-foreground, cpk:border, …) the
+ *      runtime relies on — see @copilotkit/react-core/v2/styles.css.
+ *   2. Targeted class rules on `.copilotKitChat`, `.copilotKitMessage*`,
+ *      and `.copilotKitInput` add the editorial details: parchment grain,
+ *      corner brackets, serif voice, mono dispatch, ember accents.
+ *
+ * Class-name reference:
+ *   https://docs.copilotkit.ai/custom-look-and-feel/customize-built-in-ui-components
  */
 
-/* @region[css-variables] */
-/* CopilotKit CSS variable overrides (accent colors, etc.) */
+/* @region[google-fonts] */
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");
+/* @endregion[google-fonts] */
+
+/* @region[design-tokens] */
+/* HALCYON palette — a private library at golden hour. The whole theme is
+ * one warm parchment hue, one warm ink, and a deep copper ember used
+ * sparingly so it actually reads as a signal. */
 .chat-css-demo-scope {
-  --copilot-kit-primary-color: #ff006e;
-  --copilot-kit-contrast-color: #ffffff;
-  --copilot-kit-background-color: #fff8f0;
-  --copilot-kit-input-background-color: #fef3c7;
-  --copilot-kit-secondary-color: #fde047;
-  --copilot-kit-secondary-contrast-color: #2c1810;
-  --copilot-kit-separator-color: #ff006e;
-  --copilot-kit-muted-color: #c2185b;
-}
-/* @endregion[css-variables] */
+  --halcyon-paper: #f4efe6;
+  --halcyon-paper-soft: #ece6d9;
+  --halcyon-paper-elevated: #fbf8f2;
+  --halcyon-card: #ffffff;
+  --halcyon-rule: #d6cfbe;
+  --halcyon-rule-strong: #aea48a;
+  --halcyon-ink: #1a1714;
+  --halcyon-ink-soft: #3d362e;
+  --halcyon-ink-mute: #7a7468;
+  --halcyon-ember: #c44a1f;
+  --halcyon-ember-bright: #e45f2b;
+  --halcyon-ember-soft: #f3d7c5;
+  --halcyon-champagne: #98794a;
 
-/* Messages container – swap the font for the entire chat */
-.chat-css-demo-scope .copilotKitMessages {
-  font-family: "Georgia", "Cambria", "Times New Roman", serif;
-  background-color: #fff8f0;
-  color: #2c1810;
-  padding: 1.5rem 0;
-}
+  --halcyon-display:
+    "Instrument Serif", ui-serif, "Iowan Old Style", Georgia, serif;
+  --halcyon-serif:
+    "Fraunces", "Source Serif Pro", ui-serif, Georgia, "Times New Roman", serif;
+  --halcyon-sans:
+    "Inter Tight", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --halcyon-mono:
+    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
-/* User message bubble – hot pink, bold white serif text, large */
-.chat-css-demo-scope .copilotKitMessage.copilotKitUserMessage {
-  background: linear-gradient(135deg, #ff006e 0%, #c2185b 100%);
-  color: #ffffff;
-  font-family: "Georgia", "Cambria", "Times New Roman", serif;
-  font-size: 1.25rem;
-  font-weight: 700;
-  padding: 14px 20px;
-  border-radius: 22px 22px 4px 22px;
-  box-shadow: 0 6px 16px rgba(255, 0, 110, 0.35);
-  border: 2px solid #ff6fa5;
-  letter-spacing: 0.01em;
+  --halcyon-shadow-soft:
+    0 1px 0 rgba(26, 23, 20, 0.04), 0 12px 32px -18px rgba(26, 23, 20, 0.18);
+  --halcyon-shadow-ember:
+    0 1px 0 rgba(196, 74, 31, 0.18), 0 14px 36px -16px rgba(196, 74, 31, 0.42);
 }
+/* @endregion[design-tokens] */
 
-/* Assistant message bubble – amber, monospace, boxy, dark text */
-.chat-css-demo-scope .copilotKitMessage.copilotKitAssistantMessage {
-  background: #fde047;
-  color: #1e1b4b;
-  font-family:
-    "JetBrains Mono", "Fira Code", "SF Mono", Menlo, Consolas, monospace;
-  font-size: 1rem;
-  padding: 16px 20px;
-  border-radius: 4px 22px 22px 22px;
-  border: 2px solid #1e1b4b;
-  box-shadow: 4px 4px 0 #1e1b4b;
-  max-width: 80%;
-  margin-right: auto;
-  margin-bottom: 1rem;
+/* @region[v2-token-overrides] */
+/* CopilotKit v2 reads these on the [data-copilotkit] root inside the chat.
+ * Re-pointing them under our scope retints every Tailwind utility the
+ * runtime renders (user message bubble, prose, borders, focus rings, …)
+ * without us having to touch any individual class. */
+.chat-css-demo-scope [data-copilotkit] {
+  --background: var(--halcyon-paper);
+  --foreground: var(--halcyon-ink);
+  --card: var(--halcyon-card);
+  --card-foreground: var(--halcyon-ink);
+  --popover: var(--halcyon-paper-elevated);
+  --popover-foreground: var(--halcyon-ink);
+  --primary: var(--halcyon-ember);
+  --primary-foreground: var(--halcyon-paper-elevated);
+  --secondary: var(--halcyon-paper-soft);
+  --secondary-foreground: var(--halcyon-ink);
+  --muted: var(--halcyon-paper-soft);
+  --muted-foreground: var(--halcyon-ink-mute);
+  --accent: var(--halcyon-ember-soft);
+  --accent-foreground: var(--halcyon-ember);
+  --destructive: #b3361b;
+  --destructive-foreground: var(--halcyon-paper-elevated);
+  --border: var(--halcyon-rule);
+  --input: var(--halcyon-rule);
+  --ring: var(--halcyon-ember);
+  --radius: 0px;
 }
+/* @endregion[v2-token-overrides] */
 
-/* Make markdown inside assistant bubble inherit our theme */
-.chat-css-demo-scope
-  .copilotKitMessage.copilotKitAssistantMessage
-  .copilotKitMarkdown,
-.chat-css-demo-scope
-  .copilotKitMessage.copilotKitAssistantMessage
-  .copilotKitMarkdown
-  p,
-.chat-css-demo-scope .copilotKitMessage.copilotKitAssistantMessage p {
-  color: #1e1b4b;
-  font-family: inherit;
-  font-size: inherit;
-}
-
-/* Input area – themed border and font */
-.chat-css-demo-scope .copilotKitInput {
-  font-family: "Georgia", "Cambria", "Times New Roman", serif;
-  background-color: #fef3c7;
-  border: 3px dashed #ff006e;
-  border-radius: 18px;
-  padding: 16px 18px;
-  min-height: 80px;
-}
-
-.chat-css-demo-scope .copilotKitInput > textarea {
-  font-family: "Georgia", "Cambria", "Times New Roman", serif;
-  font-size: 1.1rem;
-  color: #2c1810;
-}
-
-.chat-css-demo-scope .copilotKitInput > textarea::placeholder {
-  color: #c2185b;
-  font-style: italic;
-}
-
-.chat-css-demo-scope .copilotKitInputContainer {
-  background: #fff8f0;
-}
-
+/* @region[chat-shell] */
+/* The chat surface — warm parchment with a single ambient ember glow,
+ * a barely-perceptible paper grain via inline SVG noise, and architectural
+ * corner brackets. Sharp 90° corners are deliberate; the default look is
+ * rounded, so squaring everything off is the fastest visual signal that
+ * "this is a different brand". */
 .chat-css-demo-scope .copilotKitChat {
-  background-color: #fff8f0;
+  font-family: var(--halcyon-sans);
+  color: var(--halcyon-ink);
+  background-color: var(--halcyon-paper);
+  background-image:
+    radial-gradient(
+      900px 460px at 0% -10%,
+      rgba(228, 95, 43, 0.14),
+      transparent 62%
+    ),
+    radial-gradient(
+      720px 380px at 100% 110%,
+      rgba(152, 121, 74, 0.08),
+      transparent 65%
+    ),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.10 0 0 0 0 0.09 0 0 0 0 0.07 0 0 0 0.045 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  border: 1px solid var(--halcyon-rule);
+  border-radius: 0;
+  box-shadow: var(--halcyon-shadow-soft);
+  position: relative;
+  overflow: hidden;
 }
+
+/* The masthead label — a small mono bar pinned to the top of the surface,
+ * playing against the editorial serif voice. Lives on ::before so it
+ * tracks the chat root and shows in every state (welcome, mid-thread,
+ * empty after clear). */
+.chat-css-demo-scope .copilotKitChat::before {
+  content: "CopilotChat  ·  Customized with CSS";
+  position: absolute;
+  top: 18px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: var(--halcyon-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--halcyon-ink-mute);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* @endregion[chat-shell] */
+
+/* @region[welcome] */
+/* The welcome screen — the page-one impression. The default heading is
+ * sans-serif and tidy; we replace it with a large italic display serif
+ * that wraps the question like a magazine cover line. */
+.chat-css-demo-scope [data-testid="copilot-welcome-screen"] {
+  padding-top: 4rem;
+}
+
+.chat-css-demo-scope [data-testid="copilot-welcome-screen"] h1 {
+  font-family: var(--halcyon-display);
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  font-weight: 400;
+  font-style: italic;
+  color: var(--halcyon-ink);
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  text-align: center;
+  margin: 0 auto 0.6rem;
+  max-width: 22ch;
+  position: relative;
+}
+
+/* A small mono eyebrow above the heading. */
+.chat-css-demo-scope [data-testid="copilot-welcome-screen"] h1::before {
+  content: "CopilotKit";
+  display: block;
+  font-family: var(--halcyon-mono);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--halcyon-ember);
+  margin-bottom: 1.2rem;
+}
+
+/* A short rule under the heading as a visual settle point. */
+.chat-css-demo-scope [data-testid="copilot-welcome-screen"] h1::after {
+  content: "";
+  display: block;
+  width: 36px;
+  height: 1px;
+  background: var(--halcyon-rule-strong);
+  margin: 1.4rem auto 0;
+}
+/* @endregion[welcome] */
+
+/* @region[messages-container] */
+.chat-css-demo-scope .copilotKitMessages {
+  font-family: var(--halcyon-sans);
+  background: transparent;
+  color: var(--halcyon-ink);
+  padding: 5rem 0 2rem;
+  line-height: 1.6;
+}
+/* @endregion[messages-container] */
+
+/* @region[user-message] */
+/* User message — a "transmission" in JetBrains Mono on a paper card. The
+ * outer wrapper is the right-aligning flex column; we leave it transparent
+ * and style the inner bubble (which uses cpk:bg-muted, hence we also
+ * target the substring class as a stable hook). */
+.chat-css-demo-scope .copilotKitMessage.copilotKitUserMessage {
+  background: transparent;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+}
+
+.chat-css-demo-scope
+  .copilotKitMessage.copilotKitUserMessage
+  > [class*="bg-muted"] {
+  font-family: var(--halcyon-mono);
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--halcyon-ink);
+  background: var(--halcyon-paper-elevated);
+  border: 1px solid var(--halcyon-rule);
+  border-left: 2px solid var(--halcyon-ember);
+  border-radius: 0;
+  padding: 12px 16px 12px 18px;
+  letter-spacing: -0.005em;
+  line-height: 1.55;
+  box-shadow: 0 1px 0 rgba(26, 23, 20, 0.03);
+  position: relative;
+}
+
+/* A mono "→" marker before the user's text to read like a CLI prompt. */
+.chat-css-demo-scope
+  .copilotKitMessage.copilotKitUserMessage
+  > [class*="bg-muted"]::before {
+  content: "→";
+  display: inline-block;
+  margin-right: 10px;
+  color: var(--halcyon-ember);
+  font-weight: 500;
+}
+/* @endregion[user-message] */
+
+/* @region[assistant-message] */
+/* Assistant message — editorial Fraunces serif, no bubble, just generous
+ * paragraphs offset by a thin ember rule on the left. Reads like the
+ * voice of a publication, not a chatbot. */
+.chat-css-demo-scope .copilotKitMessage.copilotKitAssistantMessage {
+  background: transparent;
+  color: var(--halcyon-ink);
+  font-family: var(--halcyon-serif);
+  font-size: 1.0625rem;
+  font-weight: 400;
+  padding: 4px 0 4px 22px;
+  border: none;
+  border-radius: 0;
+  margin-right: auto;
+  margin-bottom: 1.25rem;
+  max-width: 78ch;
+  position: relative;
+}
+
+/* The editorial left rule. */
+.chat-css-demo-scope .copilotKitMessage.copilotKitAssistantMessage::before {
+  content: "";
+  position: absolute;
+  top: 0.45em;
+  bottom: 0.45em;
+  left: 0;
+  width: 1px;
+  background: var(--halcyon-ember);
+}
+
+.chat-css-demo-scope .copilotKitMessage.copilotKitAssistantMessage .prose,
+.chat-css-demo-scope .copilotKitMessage.copilotKitAssistantMessage .prose p {
+  font-family: var(--halcyon-serif);
+  font-size: inherit;
+  color: inherit;
+  line-height: 1.7;
+  font-feature-settings: "ss01", "ss02", "ss03", "kern";
+  margin: 0 0 0.85em;
+}
+
+/* Headings inside assistant content swap to the display serif so a long
+ * answer reads like a structured article. */
+.chat-css-demo-scope
+  .copilotKitMessage.copilotKitAssistantMessage
+  .prose
+  :is(h1, h2, h3, h4) {
+  font-family: var(--halcyon-display);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  color: var(--halcyon-ink);
+  margin: 1em 0 0.4em;
+  line-height: 1.15;
+}
+
+.chat-css-demo-scope .copilotKitMessage.copilotKitAssistantMessage .prose h1 {
+  font-size: 2rem;
+}
+.chat-css-demo-scope .copilotKitMessage.copilotKitAssistantMessage .prose h2 {
+  font-size: 1.55rem;
+}
+.chat-css-demo-scope .copilotKitMessage.copilotKitAssistantMessage .prose h3 {
+  font-size: 1.25rem;
+}
+
+/* Lists — looser, with serif numerals. */
+.chat-css-demo-scope
+  .copilotKitMessage.copilotKitAssistantMessage
+  .prose
+  :is(ul, ol) {
+  margin: 0.5em 0 1em;
+  padding-left: 1.4em;
+}
+
+.chat-css-demo-scope .copilotKitMessage.copilotKitAssistantMessage .prose li {
+  margin: 0.25em 0;
+}
+
+.chat-css-demo-scope
+  .copilotKitMessage.copilotKitAssistantMessage
+  .prose
+  ol
+  > li::marker {
+  color: var(--halcyon-ember);
+  font-feature-settings: "tnum";
+  font-weight: 500;
+}
+
+.chat-css-demo-scope
+  .copilotKitMessage.copilotKitAssistantMessage
+  .prose
+  ul
+  > li::marker {
+  color: var(--halcyon-ember);
+}
+
+/* Blockquote — pull-quote treatment in italic display serif. */
+.chat-css-demo-scope
+  .copilotKitMessage.copilotKitAssistantMessage
+  .prose
+  blockquote {
+  border-left: 0;
+  margin: 1.2em 0;
+  padding: 0 0 0 1em;
+  font-family: var(--halcyon-display);
+  font-style: italic;
+  font-size: 1.25em;
+  color: var(--halcyon-ink-soft);
+  position: relative;
+}
+
+.chat-css-demo-scope
+  .copilotKitMessage.copilotKitAssistantMessage
+  .prose
+  blockquote::before {
+  content: "“";
+  position: absolute;
+  left: -0.05em;
+  top: -0.4em;
+  font-size: 2.4em;
+  color: var(--halcyon-ember);
+  line-height: 1;
+}
+
+/* Inline code — small ember chip on a tinted card. */
+.chat-css-demo-scope .copilotKitMessage.copilotKitAssistantMessage .prose code {
+  font-family: var(--halcyon-mono);
+  font-size: 0.86em;
+  font-weight: 500;
+  color: var(--halcyon-ember);
+  background: var(--halcyon-ember-soft);
+  border: 1px solid color-mix(in srgb, var(--halcyon-ember) 22%, transparent);
+  border-radius: 0;
+  padding: 1px 6px;
+}
+
+/* Code block — dark ink card flipped against the parchment. The contrast
+ * is deliberate; it reads like a code excerpt set in a printed book. */
+.chat-css-demo-scope .copilotKitMessage.copilotKitAssistantMessage .prose pre,
+.chat-css-demo-scope
+  .copilotKitMessage.copilotKitAssistantMessage
+  div[data-streamdown="code-block"]
+  > pre {
+  background: var(--halcyon-ink) !important;
+  color: #e8e2d5;
+  border: 1px solid var(--halcyon-ink);
+  border-radius: 0;
+  padding: 14px 16px;
+  margin: 1em 0;
+  font-family: var(--halcyon-mono);
+  font-size: 0.86em;
+  line-height: 1.55;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    var(--halcyon-shadow-soft);
+}
+
+.chat-css-demo-scope
+  .copilotKitMessage.copilotKitAssistantMessage
+  .prose
+  pre
+  code {
+  background: transparent;
+  color: inherit;
+  border: none;
+  padding: 0;
+}
+
+/* Anchor links — ember underline in classic editorial style. */
+.chat-css-demo-scope .copilotKitMessage.copilotKitAssistantMessage .prose a {
+  color: var(--halcyon-ember);
+  text-decoration-line: underline;
+  text-decoration-color: color-mix(
+    in srgb,
+    var(--halcyon-ember) 35%,
+    transparent
+  );
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 160ms ease;
+}
+
+.chat-css-demo-scope
+  .copilotKitMessage.copilotKitAssistantMessage
+  .prose
+  a:hover {
+  text-decoration-color: var(--halcyon-ember);
+}
+
+/* Horizontal rule — short, centered, ornament-like. */
+.chat-css-demo-scope .copilotKitMessage.copilotKitAssistantMessage .prose hr {
+  border: none;
+  height: 1px;
+  background: var(--halcyon-rule);
+  width: 64px;
+  margin: 1.6em auto;
+}
+/* @endregion[assistant-message] */
+
+/* @region[input-composer] */
+/* Composer — a sharp paper card with an ember focus rule. The default
+ * pill is rounded; squaring it off is again the visual cue that this is
+ * a different brand. The wrapper around .copilotKitInput uses a fixed
+ * white background in v2, so we override it directly. */
+.chat-css-demo-scope .copilotKitInput {
+  font-family: var(--halcyon-sans) !important;
+  background: var(--halcyon-card) !important;
+  border: 1px solid var(--halcyon-rule);
+  border-radius: 0 !important;
+  padding: 14px 16px;
+  min-height: 56px;
+  box-shadow:
+    0 1px 0 rgba(26, 23, 20, 0.03),
+    0 8px 24px -16px rgba(26, 23, 20, 0.18);
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    transform 120ms ease;
+}
+
+.chat-css-demo-scope .copilotKitInput:focus-within {
+  border-color: var(--halcyon-ember);
+  box-shadow:
+    0 0 0 3px rgba(196, 74, 31, 0.12),
+    0 1px 0 rgba(196, 74, 31, 0.18),
+    0 14px 36px -16px rgba(196, 74, 31, 0.22);
+  transform: translateY(-1px);
+}
+
+.chat-css-demo-scope .copilotKitInput textarea {
+  font-family: var(--halcyon-sans) !important;
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--halcyon-ink);
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+}
+
+.chat-css-demo-scope .copilotKitInput textarea::placeholder {
+  color: var(--halcyon-ink-mute);
+  font-style: italic;
+  opacity: 1;
+}
+/* @endregion[input-composer] */
+
+/* @region[input-buttons] */
+/* The send button — a square ember chit, not the default circular pill.
+ * v2 ships this as `<Button variant="chatInputToolbarPrimary"
+ * size="chatInputToolbarIcon" data-testid="copilot-send-button">`, which
+ * compiles to `cpk:bg-black cpk:text-white cpk:rounded-full cpk:h-9
+ * cpk:w-9`. We override every one of those tokens so the brand wins. */
+.chat-css-demo-scope button[data-testid="copilot-send-button"] {
+  background-color: var(--halcyon-ember) !important;
+  color: var(--halcyon-paper-elevated) !important;
+  border: 1px solid var(--halcyon-ember) !important;
+  border-radius: 2px !important;
+  height: 36px !important;
+  width: 36px !important;
+  box-shadow: var(--halcyon-shadow-ember);
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+}
+
+.chat-css-demo-scope button[data-testid="copilot-send-button"]:hover {
+  background-color: var(--halcyon-ember-bright) !important;
+  transform: translateY(-1px);
+}
+
+.chat-css-demo-scope button[data-testid="copilot-send-button"]:disabled {
+  background-color: var(--halcyon-paper-soft) !important;
+  color: var(--halcyon-ink-mute) !important;
+  border-color: var(--halcyon-rule) !important;
+  box-shadow: none;
+  transform: none;
+  opacity: 1 !important;
+}
+
+.chat-css-demo-scope button[data-testid="copilot-send-button"] svg {
+  color: inherit;
+}
+
+/* Secondary input chrome (add-menu plus, mic, transcribe) — ghost squares
+ * with an ember tint on hover. v2's `chatInputToolbarSecondary` variant
+ * uses transparent bg + #444 text, which we re-tint to match the brand. */
+.chat-css-demo-scope
+  .copilotKitInput
+  button:not([data-testid="copilot-send-button"]) {
+  border-radius: 2px !important;
+  color: var(--halcyon-ink-soft) !important;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.chat-css-demo-scope
+  .copilotKitInput
+  button:not([data-testid="copilot-send-button"]):hover {
+  color: var(--halcyon-ember) !important;
+  background-color: var(--halcyon-ember-soft) !important;
+}
+/* @endregion[input-buttons] */
+
+/* @region[suggestions] */
+/* Suggestion pills — sharp outlined chips, not rounded balloons. The
+ * inner suggestion text uses the editorial mono so it reads like a
+ * curated set of dispatch options. */
+.chat-css-demo-scope [class*="copilotKitSuggestion"] {
+  background: transparent;
+  color: var(--halcyon-ink-soft);
+  border: 1px solid var(--halcyon-rule);
+  border-radius: 0;
+  padding: 8px 14px;
+  font-family: var(--halcyon-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease;
+}
+
+.chat-css-demo-scope [class*="copilotKitSuggestion"]:hover {
+  color: var(--halcyon-ember);
+  border-color: var(--halcyon-ember);
+  background: var(--halcyon-ember-soft);
+  transform: translateY(-1px);
+}
+/* @endregion[suggestions] */
+
+/* @region[scrollbar] */
+.chat-css-demo-scope [data-copilotkit] ::-webkit-scrollbar {
+  width: 4px;
+}
+
+.chat-css-demo-scope [data-copilotkit] ::-webkit-scrollbar-thumb {
+  background: var(--halcyon-rule-strong);
+  border-radius: 0;
+}
+
+.chat-css-demo-scope [data-copilotkit] ::-webkit-scrollbar-thumb:hover {
+  background: var(--halcyon-ember);
+}
+
+.chat-css-demo-scope [data-copilotkit] * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--halcyon-rule-strong) transparent;
+}
+/* @endregion[scrollbar] */
+
+/* @region[selection] */
+.chat-css-demo-scope ::selection {
+  background: var(--halcyon-ember-soft);
+  color: var(--halcyon-ember);
+}
+/* @endregion[selection] */
+
+/* @region[motion] */
+/* A single, restrained entrance for the welcome screen — staggered fade-up
+ * on the eyebrow / heading / rule. No infinite loops, no bouncy easing. */
+@keyframes halcyon-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chat-css-demo-scope [data-testid="copilot-welcome-screen"] h1 {
+  animation: halcyon-rise 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.chat-css-demo-scope [data-testid="copilot-welcome-screen"] h1::before {
+  animation: halcyon-rise 600ms cubic-bezier(0.2, 0.7, 0.2, 1) 80ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-css-demo-scope [data-testid="copilot-welcome-screen"] h1,
+  .chat-css-demo-scope [data-testid="copilot-welcome-screen"] h1::before {
+    animation: none;
+  }
+}
+/* @endregion[motion] */

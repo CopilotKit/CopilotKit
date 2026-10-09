@@ -1,10 +1,10 @@
 import React from "react";
-import { Suggestion } from "@copilotkit/core";
-import { renderSlot, WithSlots } from "../../lib/slots";
+import type { Suggestion } from "@copilotkit/core";
+import type { WithSlots } from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
 import { cn } from "../../lib/utils";
-import CopilotChatSuggestionPill, {
-  CopilotChatSuggestionPillProps,
-} from "./CopilotChatSuggestionPill";
+import type { CopilotChatSuggestionPillProps } from "./CopilotChatSuggestionPill";
+import CopilotChatSuggestionPill from "./CopilotChatSuggestionPill";
 
 const DefaultContainer = React.forwardRef<
   HTMLDivElement,
@@ -16,7 +16,7 @@ const DefaultContainer = React.forwardRef<
       data-copilotkit
       data-testid="copilot-suggestions"
       className={cn(
-        "cpk:flex cpk:flex-wrap cpk:items-center cpk:gap-1.5 cpk:sm:gap-2 cpk:pl-0 cpk:pr-4 cpk:sm:px-0 cpk:pointer-events-none",
+        "cpk:flex cpk:flex-wrap cpk:items-center cpk:gap-1.5 cpk:sm:gap-2 cpk:pl-0 cpk:pr-4 cpk:@3xl:px-0 cpk:pointer-events-none",
         className,
       )}
       {...props}

@@ -1,22 +1,65 @@
-import {
+import type {
   AbstractAgent,
   AgentSubscriber,
-  HttpAgent,
   Message,
   RunAgentResult,
+  ResumeEntry,
   Tool,
   ToolCall,
+  ContentPart,
 } from "@ag-ui/client";
-import { randomUUID, logger, schemaToJsonSchema } from "@copilotkit/shared";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { randomUUID, logger } from "@copilotkit/shared";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
 import { CopilotKitCoreErrorCode } from "./core";
 import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
+import { isAbortError } from "../utils/abort-error";
+import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
+import {
+  isForwardedToClientPlaceholder,
+  toToolResultContent,
+} from "./tool-result-content";
+import { createToolSchema } from "./tool-schema";
+import { WebMCPRegistry } from "./webmcp";
+
+/**
+ * Live approvals cancelled by stopping their own run, keyed by the handler's
+ * signal. The value reports whether that stop is still current: no reconnect
+ * has started and the thread is unchanged, so nothing will restore the call.
+ *
+ * Kept here rather than in `AbortSignal.reason`: React Native's global
+ * `AbortController` is the `abort-controller@3` polyfill, whose `abort()`
+ * takes no reason and whose signals never expose one.
+ */
+const liveHITLStops = new WeakMap<AbortSignal, () => boolean>();
+
+// Explicitly stopping a live approval must retain its error result. History
+// restoration and thread-switch cancellation instead discard the old result.
+function discardAbortedResult(
+  signal: AbortSignal | undefined,
+  discardOnAbort: boolean,
+  errorMessage?: string,
+): boolean {
+  return !!(
+    discardOnAbort &&
+    signal?.aborted &&
+    !(liveHITLStops.get(signal)?.() && errorMessage)
+  );
+}
 
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
   forwardedProps?: Record<string, unknown>;
+  /**
+   * Optional caller-supplied run identifier forwarded to the underlying AG-UI
+   * agent. When omitted, the agent creates one.
+   */
+  runId?: string;
+  /**
+   * Per-interrupt responses addressing every open AG-UI interrupt from the
+   * previous run. Forwarded to the agent as the standard `resume` array.
+   */
+  resume?: ResumeEntry[];
 }
 
 export interface CopilotKitCoreConnectAgentParams {
@@ -63,18 +106,113 @@ export interface CopilotKitCoreRunToolResult {
  * Internal result from the shared tool handler execution logic.
  */
 interface ExecuteToolHandlerResult {
+  /** The tool message content: a string, or content parts from the handler. */
+  content: string | ContentPart[];
+  /** The string form of `content`, for surfaces typed as `result: string`. */
   result: string;
   error?: string;
   isArgumentError: boolean;
 }
 
 /**
+ * A registered A2UI catalog component, as exposed to the inspector via
+ * `CopilotKitCore.catalogComponents`. `schema` is an opaque JSON-schema-ish
+ * value (the built catalog's Zod schema or a serialized form); the inspector
+ * treats it as unknown. `description` is optional because the built
+ * `ComponentApi` does not carry descriptions.
+ */
+export interface CopilotKitCoreCatalogComponent {
+  name: string;
+  description?: string;
+  schema: unknown;
+}
+
+/**
+ * Absolute safety cap on the depth of recursive follow-up runs triggered by
+ * `processAgentResult`. Without this, any scenario that keeps
+ * `needsFollowUp = true` (e.g. the LLM repeatedly calling the same tool, a
+ * backend that errors after receiving tool results, or input processors that
+ * reprocess tool messages) would loop indefinitely, silently consuming API
+ * quota and potentially DOS'ing the backend.
+ *
+ * The cap is deliberately high so that legitimate multi-step agent workflows
+ * (search → fill form → confirm → update → send email, etc.) are never
+ * affected; it only trips on runaway recursion.
+ */
+const MAX_FOLLOW_UP_DEPTH = 100;
+
+/**
+ * Name of the catch-all frontend tool. A tool registered under this name
+ * handles any tool call that has no exact match (see `executeWildcardTool`),
+ * and is never advertised to the agent.
+ */
+const WILDCARD_TOOL_NAME = "*";
+
+/**
  * Handles agent execution, tool calling, and agent connectivity for CopilotKitCore.
  * Manages the complete lifecycle of agent runs including tool execution and follow-ups.
  */
 export class RunHandler {
+  /**
+   * Tools owned by the framework provider, replaced wholesale by
+   * {@link initialize} and {@link setTools} whenever the provider re-syncs its
+   * props or runtime feature flags.
+   */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _tools: FrontendTool<any>[] = [];
+  private _propTools: FrontendTool<any>[] = [];
+
+  /**
+   * Tools registered imperatively via {@link addTool} — `useFrontendTool`,
+   * `useHumanInTheLoop`, and direct `core.addTool()` callers. Held separately
+   * from {@link _propTools} so a provider re-sync cannot wipe them: they shared
+   * one array before, so the `/info` response flipping `openGenerativeUI` (or
+   * any other provider-prop change) silently dropped every hook-registered
+   * tool (#4952). Key = `capabilityKey(name, agentId)`.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _hookTools: Map<string, FrontendTool<any>> = new Map();
+
+  /**
+   * Memoized merge of both buckets, invalidated on every registry write.
+   *
+   * This is about identity, not speed: `tools` is public and used to return the
+   * same array instance until something mutated the registry, so consumers can
+   * hold it or use it as an effect dependency. Rebuilding the merge on every
+   * read would hand out a new array each time.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _cachedMergedTools: FrontendTool<any>[] | null = null;
+
+  /**
+   * The full list of A2UI catalog components registered by the provider.
+   * Order is preserved for display in the inspector.
+   */
+  private _catalogComponents: CopilotKitCoreCatalogComponent[] = [];
+
+  /**
+   * Names of catalog components the caller has explicitly disabled. A name
+   * absent from this set is enabled (default). Survives re-registration so a
+   * catalog identity change does not silently re-enable a disabled component.
+   */
+  private _disabledCatalogComponents: Set<string> = new Set();
+
+  /**
+   * Keys of frontend tools explicitly disabled at runtime via the Inspector's
+   * Capabilities tool (`setToolEnabled`). Kept independently of each tool's own
+   * `available` flag so a hook re-registering the tool (which resets
+   * `available`) does not clobber the override. Key = `capabilityKey(name, agentId)`.
+   */
+  private _disabledToolKeys = new Set<string>();
+
+  /**
+   * Registry keys already reported by {@link warnOnMissingToolParameters}.
+   * Development only, and per instance rather than per module so tests and
+   * multiple cores stay independent. Deliberately NOT cleared by
+   * {@link removeTool}: `useFrontendTool` tears down and re-registers on every
+   * dependency change, so clearing it would turn one warning into one per
+   * render. Key = `capabilityKey(name, agentId)`.
+   */
+  private _warnedMissingToolParameters = new Set<string>();
 
   /**
    * Tracks whether the current run (including in-flight tool execution)
@@ -92,6 +230,13 @@ export class RunHandler {
   private _runDepth = 0;
 
   /**
+   * Keeps tools that opt in via `webmcp` registered on the page's WebMCP model
+   * context (`document.modelContext`), in addition to the normal agent
+   * registration. Reconciled on every tool registry mutation.
+   */
+  private _webmcpRegistry = new WebMCPRegistry();
+
+  /**
    * Tracks the threadId of the most recent `connectAgent` call so we
    * can distinguish a fresh thread restore (different threadId than
    * last time — chat is rebuilding state from scratch, must clear
@@ -107,7 +252,23 @@ export class RunHandler {
    * downstream churn into duplicate `cpki_event_id` rows in the
    * inspector and intermittent "Message not found" toasts.
    */
-  private _lastConnectedThreadId: string | null = null;
+  private _lastConnectedThreadIdsByAgent = new Map<string, string | null>();
+  private _lastActiveThreadIdsByAgent = new Map<string, string | null>();
+  private _anonymousAgentIds = new WeakMap<AbstractAgent, string>();
+  private _nextAnonymousAgentId = 0;
+
+  /** Prevent reconnects from starting an interaction already executing locally. */
+  private _executingToolCalls = new WeakMap<AbstractAgent, Set<string>>();
+
+  private _connectionGenerations = new WeakMap<AbstractAgent, object>();
+
+  private _interactionAbortControllers = new WeakMap<
+    AbstractAgent,
+    {
+      threadId: string | null;
+      controllers: Set<AbortController>;
+    }
+  >();
 
   constructor(private core: CopilotKitCore) {}
 
@@ -116,8 +277,16 @@ export class RunHandler {
    * that in-flight tool handlers should stop and `processAgentResult` should
    * not start a follow-up run.
    */
-  abortCurrentRun(): void {
+  abortCurrentRun(agent: AbstractAgent): void {
     this._runAbortController?.abort();
+    const replay = this._interactionAbortControllers.get(agent);
+    if (replay) {
+      for (const controller of replay.controllers) controller.abort();
+      this._interactionAbortControllers.delete(agent);
+      // Cancellation is cooperative: an old handler may never settle. Let a
+      // reconnect restore it without waiting for its execution marker to clear.
+      this._executingToolCalls.delete(agent);
+    }
   }
 
   /**
@@ -129,45 +298,141 @@ export class RunHandler {
   }
 
   /**
-   * Get all tools as a readonly array
+   * Return a stable restore-tracking key for the logical agent being
+   * connected. Named agents share their last-thread marker across proxy
+   * instances; anonymous agents fall back to object identity.
+   */
+  private getConnectRestoreKey(agent: AbstractAgent): string {
+    if (agent.agentId) {
+      return `agent:${agent.agentId}`;
+    }
+
+    const existing = this._anonymousAgentIds.get(agent);
+    if (existing) {
+      return existing;
+    }
+
+    const anonymousId = `anonymous:${this._nextAnonymousAgentId}`;
+    this._nextAnonymousAgentId += 1;
+    this._anonymousAgentIds.set(agent, anonymousId);
+    return anonymousId;
+  }
+
+  /**
+   * Get all tools as a readonly array: provider-owned tools in registration
+   * order, with imperatively-added tools appended and taking precedence over a
+   * provider tool of the same name + agentId.
    */
   get tools(): Readonly<FrontendTool<any>[]> {
-    return this._tools;
+    if (this._hookTools.size === 0) {
+      return this._propTools;
+    }
+    if (this._cachedMergedTools) {
+      return this._cachedMergedTools;
+    }
+    // Merge: hook entries override prop entries with the same key. Overriding
+    // an existing key keeps the prop entry's position, so provider order is
+    // preserved and only genuinely new hook tools land at the end.
+    const merged = new Map<string, FrontendTool<any>>();
+    for (const tool of this._propTools) {
+      merged.set(this.capabilityKey(tool.name, tool.agentId), tool);
+    }
+    for (const [key, tool] of this._hookTools) {
+      merged.set(key, tool);
+    }
+    this._cachedMergedTools = Array.from(merged.values());
+    return this._cachedMergedTools;
   }
 
   /**
    * Initialize with tools
    */
   initialize(tools: FrontendTool<any>[]): void {
-    this._tools = tools;
+    // Copied, like `setTools` does: the merged view is memoized, so holding the
+    // caller's array would let an in-place mutation of it go unnoticed. (It
+    // also used to be mutated from this side — `addTool` pushed straight onto
+    // the array the provider passed in.)
+    this._propTools = [...tools];
+    this._cachedMergedTools = null;
+    this.warnOnMissingToolParameters(this._propTools);
+    this.syncWebMCP();
   }
 
   /**
-   * Add a tool to the registry
+   * Add a tool to the registry. Survives provider re-syncs ({@link setTools}),
+   * and shadows a provider tool of the same name + agentId.
    */
   addTool<T extends Record<string, unknown> = Record<string, unknown>>(
     tool: FrontendTool<T>,
   ): void {
-    // Check if a tool with the same name and agentId already exists
-    const existingToolIndex = this._tools.findIndex(
-      (t) => t.name === tool.name && t.agentId === tool.agentId,
-    );
+    const key = this.capabilityKey(tool.name, tool.agentId);
 
-    if (existingToolIndex !== -1) {
+    // Only a competing imperative registration is a conflict. A provider tool
+    // of the same name is shadowed rather than treated as a duplicate — hooks
+    // mount after the provider and are the more specific registration.
+    if (this._hookTools.has(key)) {
       logger.warn(
         `Tool already exists: '${tool.name}' for agent '${tool.agentId || "global"}', skipping.`,
       );
       return;
     }
 
-    this._tools.push(tool);
+    this._hookTools.set(key, tool);
+    this._cachedMergedTools = null;
+    this.warnOnMissingToolParameters([tool]);
+    this.syncWebMCP();
+  }
+
+  /**
+   * Report, once per tool and at development time only, a tool registered with
+   * no `parameters` schema.
+   *
+   * `createToolSchema` substitutes `{ type: "object", properties: {} }` for a
+   * missing `parameters` and returns silently, and `parameters` is optional on
+   * `FrontendTool`, so nothing — not the compiler, not the runtime — tells the
+   * developer that the model was handed a tool with nothing to fill in. It then
+   * calls the tool with no arguments. `useComponent`, `useFrontendTool` and
+   * `useHumanInTheLoop` all funnel into {@link addTool}; the provider's `tools`
+   * prop funnels into {@link initialize} and {@link setTools}.
+   *
+   * A parameterless tool is legitimate (a HITL confirm dialog, say), so this
+   * stays a warning rather than an error. An explicit empty schema
+   * (`parameters: z.object({})`) is the way to say "takes none on purpose": it
+   * satisfies the check below and `createToolSchema` reduces it to the same
+   * advertised `{ type: "object", properties: {} }` that omitting `parameters`
+   * produces, so silencing the warning costs nothing on the wire.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private warnOnMissingToolParameters(tools: FrontendTool<any>[]): void {
+    if (process.env.NODE_ENV === "production") {
+      return;
+    }
+
+    for (const tool of tools) {
+      if (tool.parameters) {
+        continue;
+      }
+      const key = this.capabilityKey(tool.name, tool.agentId);
+      if (this._warnedMissingToolParameters.has(key)) {
+        continue;
+      }
+      this._warnedMissingToolParameters.add(key);
+      logger.warn(
+        `Tool has no parameters schema: '${tool.name}' for agent '${tool.agentId || "global"}'. ` +
+          `The model is told it takes no arguments and will call it with none. ` +
+          `Add \`parameters\` (a Zod or Standard Schema object) if it should ` +
+          `receive arguments, or \`parameters: z.object({})\` to declare that it ` +
+          `takes none and silence this warning.`,
+      );
+    }
   }
 
   /**
    * Remove a tool by name and optionally by agentId
    */
   removeTool(id: string, agentId?: string): void {
-    this._tools = this._tools.filter((tool) => {
+    this._hookTools.delete(this.capabilityKey(id, agentId));
+    this._propTools = this._propTools.filter((tool) => {
       // Remove tool if both name and agentId match
       if (agentId !== undefined) {
         return !(tool.name === id && tool.agentId === agentId);
@@ -175,6 +440,8 @@ export class RunHandler {
       // If no agentId specified, only remove global tools with matching name
       return !(tool.name === id && !tool.agentId);
     });
+    this._cachedMergedTools = null;
+    this.syncWebMCP();
   }
 
   /**
@@ -184,10 +451,11 @@ export class RunHandler {
    */
   getTool(params: CopilotKitCoreGetToolParams): FrontendTool<any> | undefined {
     const { toolName, agentId } = params;
+    const tools = this.tools;
 
     // If agentId is provided, first look for agent-specific tool
     if (agentId) {
-      const agentTool = this._tools.find(
+      const agentTool = tools.find(
         (tool) => tool.name === toolName && tool.agentId === agentId,
       );
       if (agentTool) {
@@ -196,14 +464,51 @@ export class RunHandler {
     }
 
     // Fall back to global tool (no agentId)
-    return this._tools.find((tool) => tool.name === toolName && !tool.agentId);
+    return tools.find((tool) => tool.name === toolName && !tool.agentId);
   }
 
   /**
-   * Set all tools at once. Replaces existing tools.
+   * Set all provider-owned tools at once. Replaces the previous provider set;
+   * tools registered via {@link addTool} are unaffected.
    */
   setTools(tools: FrontendTool<any>[]): void {
-    this._tools = [...tools];
+    this._propTools = [...tools];
+    this._cachedMergedTools = null;
+    this.warnOnMissingToolParameters(this._propTools);
+    this.syncWebMCP();
+  }
+
+  /**
+   * Return the registered A2UI catalog components (readonly).
+   */
+  get catalogComponents(): ReadonlyArray<CopilotKitCoreCatalogComponent> {
+    return this._catalogComponents;
+  }
+
+  /**
+   * Replace the registered catalog component list. Preserves the disabled set
+   * (by name) so re-registration does not re-enable disabled components.
+   */
+  setCatalogComponents(components: CopilotKitCoreCatalogComponent[]): void {
+    this._catalogComponents = [...components];
+  }
+
+  /**
+   * Enable or disable a catalog component by name.
+   */
+  setCatalogComponentEnabled(name: string, enabled: boolean): void {
+    if (enabled) {
+      this._disabledCatalogComponents.delete(name);
+    } else {
+      this._disabledCatalogComponents.add(name);
+    }
+  }
+
+  /**
+   * Whether a catalog component is enabled. Unknown names default to enabled.
+   */
+  isCatalogComponentEnabled(name: string): boolean {
+    return !this._disabledCatalogComponents.has(name);
   }
 
   /**
@@ -212,16 +517,39 @@ export class RunHandler {
   async connectAgent({
     agent,
   }: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult> {
+    const connection = {};
+    this._connectionGenerations.set(agent, connection);
+    const incomingThreadId = agent.threadId ?? null;
+    const previousReplay = this._interactionAbortControllers.get(agent);
+    if (previousReplay && previousReplay.threadId !== incomingThreadId) {
+      for (const controller of previousReplay.controllers) controller.abort();
+      this._interactionAbortControllers.delete(agent);
+      // Old handlers retain their own set until they settle. They must not
+      // prevent a fresh restoration when navigating back to this thread.
+      this._executingToolCalls.delete(agent);
+    }
     try {
-      const incomingThreadId = agent.threadId ?? null;
-      const isFreshRestore = incomingThreadId !== this._lastConnectedThreadId;
-      this._lastConnectedThreadId = incomingThreadId;
+      const restoreKey = this.getConnectRestoreKey(agent);
+      const previousThreadId = this._lastActiveThreadIdsByAgent.get(restoreKey);
+      const isFreshRestore =
+        incomingThreadId !==
+        (previousThreadId ??
+          this._lastConnectedThreadIdsByAgent.get(restoreKey) ??
+          null);
 
       // Detach any active run before connecting to avoid previous runs
       // interfering. This stays unconditional — both fresh restores and
       // churn re-connects need the previous socket torn down before a new
       // one can open.
       await agent.detachActiveRun();
+      if (
+        this._connectionGenerations.get(agent) !== connection ||
+        (agent.threadId ?? null) !== incomingThreadId
+      ) {
+        return { result: undefined, newMessages: [] };
+      }
+      this._lastConnectedThreadIdsByAgent.set(restoreKey, incomingThreadId);
+      this._lastActiveThreadIdsByAgent.set(restoreKey, incomingThreadId);
 
       // State reset + replay-cursor clear are gated on actually moving
       // to a different thread. On same-thread churn, the local
@@ -231,44 +559,108 @@ export class RunHandler {
       if (isFreshRestore) {
         agent.setMessages([]);
         agent.setState({});
-        const proxied = agent as { clearReplayCursor?: (id: string) => void };
         if (
-          incomingThreadId &&
-          typeof proxied.clearReplayCursor === "function"
+          previousThreadId !== undefined &&
+          previousThreadId !== incomingThreadId
         ) {
-          proxied.clearReplayCursor(incomingThreadId);
+          agent.pendingInterrupts = [];
+        }
+        const cursorAware = agent as {
+          clearReconnectCursor?: (id: string) => void;
+          clearReplayCursor?: (id: string) => void;
+        };
+        if (incomingThreadId) {
+          if (typeof cursorAware.clearReplayCursor === "function") {
+            cursorAware.clearReplayCursor(incomingThreadId);
+          }
+          if (typeof cursorAware.clearReconnectCursor === "function") {
+            cursorAware.clearReconnectCursor(incomingThreadId);
+          }
         }
       }
 
-      if (agent instanceof HttpAgent) {
-        agent.headers = {
-          ...this._internal.headers,
-        };
+      // Re-apply core headers (merged on top of the agent's own headers) so a
+      // late header update is picked up without clobbering per-agent headers.
+      this._internal.applyHeadersToAgent(agent);
+
+      // Notify subscribers (e.g. the inspector) about the agent that is about
+      // to run. Per-thread clones are not in the agent registry, so
+      // onAgentsChanged never fires for them and they would otherwise be
+      // invisible to subscribers.
+      await this._internal.notifySubscribers(
+        (subscriber) =>
+          subscriber.onAgentRunStarted?.({
+            copilotkit: this.core,
+            agent,
+          }),
+        "Subscriber onAgentRunStarted error:",
+      );
+      if (
+        this._connectionGenerations.get(agent) !== connection ||
+        (agent.threadId ?? null) !== incomingThreadId
+      ) {
+        return { result: undefined, newMessages: [] };
       }
 
       const runAgentResult = await agent.connectAgent(
         {
           forwardedProps: this._internal.properties,
           tools: this.buildFrontendTools(agent.agentId),
-          context: Object.values(this._internal.context),
+          context: this._internal.getContextForAgent(agent.agentId),
         },
         this.createAgentErrorSubscriber(agent),
       );
 
-      return this.processAgentResult({ runAgentResult, agent });
+      // Connecting ends when history is restored, not when a human answers.
+      // Keeping this promise open would block run-activity reconnects while
+      // another client answers the same interaction.
+      if (
+        this._connectionGenerations.get(agent) !== connection ||
+        (agent.threadId ?? null) !== incomingThreadId
+      )
+        return runAgentResult;
+      const controller = new AbortController();
+      const replay = this._interactionAbortControllers.get(agent) ?? {
+        threadId: incomingThreadId,
+        controllers: new Set<AbortController>(),
+      };
+      replay.controllers.add(controller);
+      this._interactionAbortControllers.set(agent, replay);
+      void this.processAgentResult({
+        runAgentResult,
+        agent,
+        toolExecutionMode: "restore",
+        signal: controller.signal,
+      })
+        .catch(async (error: unknown) => {
+          await this._internal.emitError({
+            error: error instanceof Error ? error : new Error(String(error)),
+            code: CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED,
+            context: { agentId: agent.agentId, threadId: incomingThreadId },
+          });
+        })
+        .finally(() => {
+          replay.controllers.delete(controller);
+          if (
+            replay.controllers.size === 0 &&
+            this._interactionAbortControllers.get(agent) === replay
+          ) {
+            this._interactionAbortControllers.delete(agent);
+          }
+        });
+      return runAgentResult;
     } catch (error) {
       const connectError =
         error instanceof Error ? error : new Error(String(error));
-      // Silently ignore abort errors (e.g. from navigation during active requests)
-      const isAbort =
-        connectError.name === "AbortError" ||
-        connectError.message === "Fetch is aborted" ||
-        connectError.message === "signal is aborted without reason" ||
-        connectError.message === "component unmounted";
-      if (!isAbort) {
+      // Silently ignore abort errors (e.g. from navigation during active
+      // requests).
+      if (!isAbortError(connectError)) {
         const context: Record<string, any> = {};
         if (agent.agentId) {
           context.agentId = agent.agentId;
+        }
+        if (incomingThreadId) {
+          context.threadId = incomingThreadId;
         }
         await this._internal.emitError({
           error: connectError,
@@ -276,27 +668,25 @@ export class RunHandler {
           context,
         });
       }
-      return { newMessages: [] };
+      return { result: undefined, newMessages: [] };
     }
   }
 
   /**
    * Run an agent
    */
-  async runAgent({
-    agent,
-    forwardedProps,
-  }: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {
+  async runAgent(
+    { agent, forwardedProps, resume, runId }: CopilotKitCoreRunAgentParams,
+    continuationHandoff?: CopilotKitCoreContinuationHandoff,
+  ): Promise<RunAgentResult> {
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
       void this._internal.suggestionEngine.clearSuggestions(agent.agentId);
     }
 
-    if (agent instanceof HttpAgent) {
-      agent.headers = {
-        ...this._internal.headers,
-      };
-    }
+    // Re-apply core headers (merged on top of the agent's own headers) so a
+    // late header update is picked up without clobbering per-agent headers.
+    this._internal.applyHeadersToAgent(agent);
 
     // Detach any active run (e.g. a long-lived connectAgent pipeline) before
     // starting a new run.  We await the detach to ensure the previous pipeline
@@ -313,8 +703,30 @@ export class RunHandler {
     // (ConnectNotImplementedError → EMPTY) always runs the finalize block,
     // so the completion promise now resolves reliably.
     if (agent.detachActiveRun) {
-      await agent.detachActiveRun();
+      try {
+        await agent.detachActiveRun();
+      } catch (error) {
+        continuationHandoff?.cancel();
+        throw error;
+      }
     }
+
+    const resumedRunId = this._internal.stateManager.getContinuationRunId(
+      agent,
+      {
+        threadId: agent.threadId,
+        resume,
+        forwardedProps,
+      },
+    );
+    const logicalHandoff =
+      continuationHandoff ??
+      (resumedRunId
+        ? this._internal.stateManager.markNextRunAsContinuation(
+            agent,
+            resumedRunId,
+          )
+        : undefined);
 
     // Set up abort controller and agent.abortRun() intercept only for the
     // top-level call. Recursive follow-up calls from processAgentResult
@@ -334,24 +746,85 @@ export class RunHandler {
         controller.abort();
         originalAbortRun!();
       };
+
+      // Notify subscribers (e.g. the inspector) about the agent that is about
+      // to run. Per-thread clones are not in the agent registry, so
+      // onAgentsChanged never fires for them and they would otherwise be
+      // invisible to subscribers. Fired once per top-level run; recursive
+      // follow-up runs reuse the same instance and need no re-notification.
+      await this._internal.notifySubscribers(
+        (subscriber) =>
+          subscriber.onAgentRunStarted?.({
+            copilotkit: this.core,
+            agent,
+          }),
+        "Subscriber onAgentRunStarted error:",
+      );
     }
 
     this._runDepth++;
 
     try {
-      const runAgentResult = await agent.runAgent(
-        {
-          forwardedProps: {
-            ...this._internal.properties,
-            ...forwardedProps,
-          },
-          tools: this.buildFrontendTools(agent.agentId),
-          context: Object.values(this._internal.context),
+      let logicalRunId = resumedRunId ?? runId;
+      const agentSubscriber = this.createAgentErrorSubscriber(agent);
+      let started = false;
+      const onRunStartedEvent = agentSubscriber.onRunStartedEvent;
+      const onRunInitialized = agentSubscriber.onRunInitialized;
+      agentSubscriber.onRunInitialized = async (params) => {
+        this._lastActiveThreadIdsByAgent.set(
+          this.getConnectRestoreKey(agent),
+          params.input.threadId,
+        );
+        logicalHandoff?.bind(params.input);
+        return onRunInitialized?.(params);
+      };
+      agentSubscriber.onRunStartedEvent = async (params) => {
+        started = true;
+        // A continuation keeps reporting under the run it continues; only an
+        // ordinary run adopts the id the transport assigned it.
+        if (!logicalHandoff) {
+          logicalRunId = params.input.runId;
+        }
+        return onRunStartedEvent?.(params);
+      };
+      // An internal continuation (a human-in-the-loop tool resolved and this is
+      // the recursive follow-up) deliberately does NOT pin the originating run
+      // id on the wire. Pinning it made the transport treat the follow-up as a
+      // resumption of a run it had already completed: it re-delivered that
+      // run's applied half — duplicating every tool call already on the
+      // message, each duplicate carrying empty arguments — and the follow-up's
+      // own tool call never reached client state, so its card never rendered.
+      //
+      // One logical run is still what everything downstream sees: the state
+      // manager re-stamps the continuation's events onto `runId` (passed to
+      // markNextRunAsContinuation), and `logicalRunId` below keeps the result
+      // reported under it. So external tracing still gets a single run without
+      // the wire having to lie about which invocation this is.
+      const pinRunIdOnWire = runId !== undefined && !continuationHandoff;
+      const agentRunInput = {
+        forwardedProps: {
+          ...this._internal.properties,
+          ...forwardedProps,
         },
-        this.createAgentErrorSubscriber(agent),
+        ...(resume !== undefined ? { resume } : {}),
+        ...(pinRunIdOnWire ? { runId } : {}),
+        tools: this.buildFrontendTools(agent.agentId),
+        context: this._internal.getContextForAgent(agent.agentId),
+      };
+      const runAgentResult = await agent.runAgent(
+        agentRunInput,
+        agentSubscriber,
       );
-      return await this.processAgentResult({ runAgentResult, agent });
+      if (!started) {
+        logicalHandoff?.cancel();
+      }
+      return await this.processAgentResult({
+        runAgentResult,
+        agent,
+        runId: logicalRunId,
+      });
     } catch (error) {
+      logicalHandoff?.cancel();
       const runError =
         error instanceof Error ? error : new Error(String(error));
       const context: Record<string, any> = {};
@@ -363,7 +836,7 @@ export class RunHandler {
         code: CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
         context,
       });
-      return { newMessages: [] };
+      return { result: undefined, newMessages: [] };
     } finally {
       this._runDepth--;
       // Restore original abortRun when the entire chain (including
@@ -380,9 +853,15 @@ export class RunHandler {
   private async processAgentResult({
     runAgentResult,
     agent,
+    runId,
+    toolExecutionMode = "all",
+    signal = this._runAbortController?.signal,
   }: {
     runAgentResult: RunAgentResult;
     agent: AbstractAgent;
+    runId?: string;
+    toolExecutionMode?: "all" | "restore";
+    signal?: AbortSignal;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
@@ -390,65 +869,239 @@ export class RunHandler {
 
     let needsFollowUp = false;
 
-    for (const message of newMessages) {
+    const threadId = agent.threadId;
+    const executing = this._executingToolCalls.get(agent) ?? new Set<string>();
+    this._executingToolCalls.set(agent, executing);
+
+    // One restoration pass owns the pending sequence. Skipping only the first
+    // executing call would start later calls concurrently and replace a HITL
+    // hook's response resolver. A saved remote answer releases this barrier.
+    if (
+      toolExecutionMode === "restore" &&
+      agent.messages.some(
+        (message) =>
+          message.role === "assistant" &&
+          message.toolCalls?.some(
+            (call) =>
+              executing.has(JSON.stringify([threadId, call.id])) &&
+              !agent.messages.some(
+                (result) =>
+                  result.role === "tool" &&
+                  result.toolCallId === call.id &&
+                  !this.isFrontendPlaceholderResult(result),
+              ),
+          ),
+      )
+    ) {
+      return runAgentResult;
+    }
+
+    // Reconnect deltas omit messages already hydrated by earlier replays.
+    // Reconcile the current history so a remote answer can unblock a pending
+    // call that was already present. Snapshot it because handlers insert results.
+    const messagesToProcess =
+      toolExecutionMode === "restore" ? [...agent.messages] : newMessages;
+    for (const message of messagesToProcess) {
       if (message.role === "assistant") {
         for (const toolCall of message.toolCalls || []) {
-          if (
-            newMessages.findIndex(
-              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-            ) === -1
-          ) {
-            const tool = this.getTool({
-              toolName: toolCall.function.name,
+          const tool = this.getTool({
+            toolName: toolCall.function.name,
+            agentId: agent.agentId,
+          });
+
+          let wildcardTool: FrontendTool<any> | undefined;
+          const getWildcardTool = () => {
+            if (tool || wildcardTool) {
+              return wildcardTool;
+            }
+            wildcardTool = this.getTool({
+              toolName: WILDCARD_TOOL_NAME,
               agentId: agent.agentId,
             });
-            if (tool) {
-              const followUp = await this.executeSpecificTool(
-                tool,
-                toolCall,
-                message,
-                agent,
-                agentId,
+            return wildcardTool;
+          };
+
+          const executableTool = tool ?? getWildcardTool();
+          // Restoring history runs only handlers that are safe to run again:
+          // human-in-the-loop prompts, and tools that opt in with
+          // reconnectBehavior "resume-pending" (#6101). Every other tool stays
+          // passive, so a reload never repeats its side effects.
+          if (
+            toolExecutionMode === "restore" &&
+            (!executableTool?.handler ||
+              (executableTool.type !== "human-in-the-loop" &&
+                executableTool.reconnectBehavior !== "resume-pending"))
+          ) {
+            continue;
+          }
+          const executionKey = JSON.stringify([threadId, toolCall.id]);
+          if (
+            signal?.aborted ||
+            agent.threadId !== threadId ||
+            executing.has(executionKey)
+          ) {
+            continue;
+          }
+
+          const existingResultIndex = newMessages.findIndex(
+            (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+          );
+          // Live messages may contain a remote answer received while an
+          // earlier handler awaited input; never replace it with stale replay.
+          let existingResult =
+            agent.messages.find(
+              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+            ) ?? newMessages[existingResultIndex];
+
+          if (
+            existingResult &&
+            executableTool?.handler &&
+            this.isFrontendPlaceholderResult(existingResult)
+          ) {
+            if (existingResultIndex !== -1)
+              newMessages.splice(existingResultIndex, 1);
+            existingResult = undefined;
+
+            const agentMsgIdx = agent.messages.findIndex(
+              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+            );
+            if (agentMsgIdx !== -1) {
+              agent.messages.splice(agentMsgIdx, 1);
+            }
+          }
+
+          if (!existingResult) {
+            executing.add(executionKey);
+            // Live HITL handlers need the same thread-switch cancellation as
+            // restored ones, so returning to this thread can open a fresh UI.
+            const interactionController =
+              toolExecutionMode === "all" &&
+              executableTool?.type === "human-in-the-loop"
+                ? new AbortController()
+                : undefined;
+            const interactions = this._interactionAbortControllers.get(
+              agent,
+            ) ?? {
+              threadId: threadId ?? null,
+              controllers: new Set<AbortController>(),
+            };
+            const abortInteraction = () => {
+              if (!interactionController) return;
+              const connectionGeneration =
+                this._connectionGenerations.get(agent);
+              liveHITLStops.set(
+                interactionController.signal,
+                () =>
+                  this._connectionGenerations.get(agent) ===
+                    connectionGeneration && agent.threadId === threadId,
               );
-              if (followUp) {
-                needsFollowUp = true;
-              }
-            } else {
-              // Wildcard fallback for undefined tools
-              const wildcardTool = this.getTool({
-                toolName: "*",
-                agentId: agent.agentId,
+              interactionController.abort();
+            };
+            if (interactionController) {
+              interactions.controllers.add(interactionController);
+              this._interactionAbortControllers.set(agent, interactions);
+              signal?.addEventListener("abort", abortInteraction, {
+                once: true,
               });
-              if (wildcardTool) {
-                const followUp = await this.executeWildcardTool(
-                  wildcardTool,
+              if (signal?.aborted) abortInteraction();
+            }
+            const executionSignal = interactionController?.signal ?? signal;
+            const discardOnAbort =
+              toolExecutionMode === "restore" || !!interactionController;
+            try {
+              if (tool) {
+                const followUp = await this.executeSpecificTool(
+                  tool,
                   toolCall,
                   message,
                   agent,
                   agentId,
+                  executionSignal,
+                  discardOnAbort,
+                  toolExecutionMode === "restore",
                 );
                 if (followUp) {
                   needsFollowUp = true;
                 }
+              } else {
+                const fallbackTool = getWildcardTool();
+                if (fallbackTool) {
+                  const followUp = await this.executeWildcardTool(
+                    fallbackTool,
+                    toolCall,
+                    message,
+                    agent,
+                    agentId,
+                    executionSignal,
+                    discardOnAbort,
+                    toolExecutionMode === "restore",
+                  );
+                  if (followUp) {
+                    needsFollowUp = true;
+                  }
+                }
+              }
+            } finally {
+              executing.delete(executionKey);
+              if (interactionController) {
+                signal?.removeEventListener("abort", abortInteraction);
+                interactions.controllers.delete(interactionController);
+                if (
+                  interactions.controllers.size === 0 &&
+                  this._interactionAbortControllers.get(agent) === interactions
+                ) {
+                  this._interactionAbortControllers.delete(agent);
+                }
               }
             }
+            if (interactionController?.signal.aborted) return runAgentResult;
           }
         }
       }
     }
 
-    if (needsFollowUp && !this._runAbortController?.signal.aborted) {
-      // Yield to the framework scheduler before the follow-up run so that any
-      // deferred state updates (e.g. React useEffect in useAgentContext) can
-      // complete and write fresh values into the context store before runAgent
-      // reads it. The base implementation is a no-op; React overrides this.
-      await this._internal.waitForPendingFrameworkUpdates();
-      return await this.runAgent({ agent });
+    if (needsFollowUp && agent.threadId === threadId && !signal?.aborted) {
+      // Circuit breaker: bail out instead of recursing once the follow-up
+      // chain exceeds an absolute safety cap. `_runDepth` reflects the current
+      // depth of nested runAgent calls (it is incremented in runAgent and
+      // decremented in its finally block), so a runaway loop — repeated
+      // identical tool calls, a backend that keeps erroring after tool
+      // results, reprocessed tool messages, etc. — eventually trips this
+      // guard rather than looping forever and exhausting API quota.
+      if (this._runDepth >= MAX_FOLLOW_UP_DEPTH) {
+        logger.warn(
+          `[CopilotKit] Follow-up depth limit (${MAX_FOLLOW_UP_DEPTH}) reached for agent "${agentId}". ` +
+            `Stopping recursive follow-up runs to prevent an infinite loop. ` +
+            `This usually indicates a tool that keeps requesting a follow-up (e.g. the LLM repeatedly ` +
+            `calling the same tool). Consider setting "followUp: false" on the offending tool.`,
+        );
+      } else {
+        // Yield to the framework scheduler before the follow-up run so that any
+        // deferred state updates (e.g. React useEffect in useAgentContext) can
+        // complete and write fresh values into the context store before runAgent
+        // reads it. The base implementation is a no-op; React overrides this.
+        await this._internal.waitForPendingFrameworkUpdates();
+        const continuationHandoff =
+          this._internal.stateManager.markNextRunAsContinuation(agent, runId);
+        return await this.runAgent(
+          {
+            agent,
+            ...(runId !== undefined ? { runId } : {}),
+          },
+          continuationHandoff,
+        );
+      }
     }
 
     void this._internal.suggestionEngine.reloadSuggestions(agentId);
 
     return runAgentResult;
+  }
+
+  private isFrontendPlaceholderResult(message: Message): boolean {
+    return (
+      message.role === "tool" && isForwardedToClientPlaceholder(message.content)
+    );
   }
 
   /**
@@ -464,6 +1117,9 @@ export class RunHandler {
     handlerArgs,
     toolType,
     messageId,
+    signal = this._runAbortController?.signal,
+    discardOnAbort = false,
+    isReplay = false,
   }: {
     tool: FrontendTool<any>;
     toolCall: { id: string; function: { name: string; arguments: string } };
@@ -472,8 +1128,12 @@ export class RunHandler {
     handlerArgs: unknown;
     toolType: string;
     messageId?: string;
+    signal?: AbortSignal;
+    discardOnAbort?: boolean;
+    isReplay?: boolean;
   }): Promise<ExecuteToolHandlerResult> {
-    let toolCallResult = "";
+    let toolCallResult: string | ContentPart[] = "";
+    let toolCallText = "";
     let errorMessage: string | undefined;
     let isArgumentError = false;
 
@@ -516,36 +1176,34 @@ export class RunHandler {
         const result = await tool.handler!(parsedArgs as any, {
           toolCall: toolCall as any,
           agent,
-          signal: this._runAbortController?.signal,
+          signal,
+          ...(isReplay ? { isReplay } : {}),
         });
-        if (result === undefined || result === null) {
-          toolCallResult = "";
-        } else if (typeof result === "string") {
-          toolCallResult = result;
-        } else {
-          toolCallResult = JSON.stringify(result);
-        }
+        ({ content: toolCallResult, text: toolCallText } =
+          toToolResultContent(result));
       } catch (error) {
         const handlerError =
           error instanceof Error ? error : new Error(String(error));
         errorMessage = handlerError.message;
-        await this._internal.emitError({
-          error: handlerError,
-          code: CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
-          context: {
-            agentId,
-            toolCallId: toolCall.id,
-            toolName: toolCall.function.name,
-            parsedArgs,
-            toolType,
-            ...(messageId ? { messageId } : {}),
-          },
-        });
+        if (!discardAbortedResult(signal, discardOnAbort, errorMessage)) {
+          await this._internal.emitError({
+            error: handlerError,
+            code: CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
+            context: {
+              agentId,
+              toolCallId: toolCall.id,
+              toolName: toolCall.function.name,
+              parsedArgs,
+              toolType,
+              ...(messageId ? { messageId } : {}),
+            },
+          });
+        }
       }
     }
 
     if (errorMessage) {
-      toolCallResult = `Error: ${errorMessage}`;
+      toolCallResult = toolCallText = `Error: ${errorMessage}`;
     }
 
     await this._internal.notifySubscribers(
@@ -555,13 +1213,18 @@ export class RunHandler {
           toolCallId: toolCall.id,
           agentId,
           toolName: toolCall.function.name,
-          result: errorMessage ? "" : toolCallResult,
+          result: errorMessage ? "" : toolCallText,
           error: errorMessage,
         }),
       "Subscriber onToolExecutionEnd error:",
     );
 
-    return { result: toolCallResult, error: errorMessage, isArgumentError };
+    return {
+      content: toolCallResult,
+      result: toolCallText,
+      error: errorMessage,
+      isArgumentError,
+    };
   }
 
   /**
@@ -573,7 +1236,11 @@ export class RunHandler {
     message: Message,
     agent: AbstractAgent,
     agentId: string,
+    signal?: AbortSignal,
+    discardOnAbort = false,
+    isReplay = false,
   ): Promise<boolean> {
+    const threadId = agent.threadId;
     // Check if tool is constrained to a specific agent
     if (tool?.agentId && tool.agentId !== agent.agentId) {
       // Tool is not available for this agent, skip it
@@ -581,6 +1248,7 @@ export class RunHandler {
     }
 
     let handlerResult: ExecuteToolHandlerResult = {
+      content: "",
       result: "",
       error: undefined,
       isArgumentError: false,
@@ -595,24 +1263,47 @@ export class RunHandler {
         handlerArgs: toolCall.function.arguments,
         toolType: "specific",
         messageId: message.id,
+        signal,
+        discardOnAbort,
+        isReplay,
       });
     }
 
     {
       const messageIndex = agent.messages.findIndex((m) => m.id === message.id);
-      if (messageIndex === -1) {
-        // Parent message no longer in agent's messages (e.g. thread was switched
-        // while the tool handler was still executing). Skip result insertion and
-        // do not request a follow-up to avoid mutating the wrong thread.
+      if (
+        discardAbortedResult(signal, discardOnAbort, handlerResult.error) ||
+        agent.threadId !== threadId ||
+        messageIndex === -1 ||
+        agent.messages.some(
+          (m) =>
+            m.role === "tool" &&
+            m.toolCallId === toolCall.id &&
+            !this.isFrontendPlaceholderResult(m),
+        )
+      ) {
+        // The interaction was removed, the thread changed, or another client
+        // already answered. Do not insert a stale answer or start a follow-up.
         return false;
+      }
+      // Find the correct insertion point: after the parent assistant message
+      // and any tool-result messages already inserted for earlier tool calls
+      // in the same batch. This preserves tool-result ordering relative to
+      // the toolCalls array, which some providers (OpenAI) require.
+      let insertAt = messageIndex + 1;
+      while (
+        insertAt < agent.messages.length &&
+        agent.messages[insertAt]?.role === "tool"
+      ) {
+        insertAt++;
       }
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
         toolCallId: toolCall.id,
-        content: handlerResult.result,
+        content: handlerResult.content,
       };
-      agent.messages.splice(messageIndex + 1, 0, toolMessage);
+      agent.messages.splice(insertAt, 0, toolMessage);
 
       if (!handlerResult.error && tool?.followUp !== false) {
         return true; // Needs follow-up
@@ -634,16 +1325,20 @@ export class RunHandler {
     message: Message,
     agent: AbstractAgent,
     agentId: string,
+    signal?: AbortSignal,
+    discardOnAbort = false,
+    isReplay = false,
   ): Promise<boolean> {
+    const threadId = agent.threadId;
     // Check if wildcard tool is constrained to a specific agent
     if (wildcardTool?.agentId && wildcardTool.agentId !== agent.agentId) {
       // Wildcard tool is not available for this agent, skip it
       return false;
     }
 
-    let toolCallResult = "";
+    let toolCallResult: string | ContentPart[] = "";
+    let toolCallText = "";
     let errorMessage: string | undefined;
-    let isArgumentError = false;
 
     if (wildcardTool?.handler) {
       let parsedArgs: unknown;
@@ -656,7 +1351,6 @@ export class RunHandler {
         const parseError =
           error instanceof Error ? error : new Error(String(error));
         errorMessage = parseError.message;
-        isArgumentError = true;
         await this._internal.emitError({
           error: parseError,
           code: CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED,
@@ -693,35 +1387,36 @@ export class RunHandler {
           const result = await wildcardTool.handler(wildcardArgs as any, {
             toolCall,
             agent,
+            // Use the same execution signal as named tools, including the
+            // replay-specific signal when restoring a wildcard HITL handler.
+            signal,
+            ...(isReplay ? { isReplay } : {}),
           });
-          if (result === undefined || result === null) {
-            toolCallResult = "";
-          } else if (typeof result === "string") {
-            toolCallResult = result;
-          } else {
-            toolCallResult = JSON.stringify(result);
-          }
+          ({ content: toolCallResult, text: toolCallText } =
+            toToolResultContent(result));
         } catch (error) {
           const handlerError =
             error instanceof Error ? error : new Error(String(error));
           errorMessage = handlerError.message;
-          await this._internal.emitError({
-            error: handlerError,
-            code: CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
-            context: {
-              agentId: agentId,
-              toolCallId: toolCall.id,
-              toolName: toolCall.function.name,
-              parsedArgs: wildcardArgs,
-              toolType: "wildcard",
-              messageId: message.id,
-            },
-          });
+          if (!discardAbortedResult(signal, discardOnAbort, errorMessage)) {
+            await this._internal.emitError({
+              error: handlerError,
+              code: CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
+              context: {
+                agentId: agentId,
+                toolCallId: toolCall.id,
+                toolName: toolCall.function.name,
+                parsedArgs: wildcardArgs,
+                toolType: "wildcard",
+                messageId: message.id,
+              },
+            });
+          }
         }
       }
 
       if (errorMessage) {
-        toolCallResult = `Error: ${errorMessage}`;
+        toolCallResult = toolCallText = `Error: ${errorMessage}`;
       }
 
       await this._internal.notifySubscribers(
@@ -731,7 +1426,7 @@ export class RunHandler {
             toolCallId: toolCall.id,
             agentId: agentId,
             toolName: toolCall.function.name,
-            result: errorMessage ? "" : toolCallResult,
+            result: errorMessage ? "" : toolCallText,
             error: errorMessage,
           }),
         "Subscriber onToolExecutionEnd error:",
@@ -740,11 +1435,31 @@ export class RunHandler {
 
     {
       const messageIndex = agent.messages.findIndex((m) => m.id === message.id);
-      if (messageIndex === -1) {
-        // Parent message no longer in agent's messages (e.g. thread was switched
-        // while the tool handler was still executing). Skip result insertion and
-        // do not request a follow-up to avoid mutating the wrong thread.
+      if (
+        discardAbortedResult(signal, discardOnAbort, errorMessage) ||
+        agent.threadId !== threadId ||
+        messageIndex === -1 ||
+        agent.messages.some(
+          (m) =>
+            m.role === "tool" &&
+            m.toolCallId === toolCall.id &&
+            !this.isFrontendPlaceholderResult(m),
+        )
+      ) {
+        // The interaction was removed, the thread changed, or another client
+        // already answered. Do not insert a stale answer or start a follow-up.
         return false;
+      }
+      // Find the correct insertion point: after the parent assistant message
+      // and any tool-result messages already inserted for earlier tool calls
+      // in the same batch. This preserves tool-result ordering relative to
+      // the toolCalls array, which some providers (OpenAI) require.
+      let insertAt = messageIndex + 1;
+      while (
+        insertAt < agent.messages.length &&
+        agent.messages[insertAt]?.role === "tool"
+      ) {
+        insertAt++;
       }
       const toolMessage = {
         id: randomUUID(),
@@ -752,7 +1467,7 @@ export class RunHandler {
         toolCallId: toolCall.id,
         content: toolCallResult,
       };
-      agent.messages.splice(messageIndex + 1, 0, toolMessage);
+      agent.messages.splice(insertAt, 0, toolMessage);
 
       if (!errorMessage && wildcardTool?.followUp !== false) {
         return true; // Needs follow-up
@@ -799,20 +1514,19 @@ export class RunHandler {
 
     // 3. Create assistant message with tool call
     const toolCallId = randomUUID();
+    const assistantToolCall = {
+      id: toolCallId,
+      type: "function" as const,
+      function: {
+        name,
+        arguments: JSON.stringify(parameters),
+      },
+    };
     const assistantMessage: Message = {
       id: randomUUID(),
       role: "assistant",
       content: "",
-      toolCalls: [
-        {
-          id: toolCallId,
-          type: "function",
-          function: {
-            name,
-            arguments: JSON.stringify(parameters),
-          },
-        },
-      ],
+      toolCalls: [assistantToolCall],
     };
 
     // 4. Push assistant message into agent's messages
@@ -820,6 +1534,7 @@ export class RunHandler {
 
     // 5. Execute the tool handler (if it has one)
     let handlerResult: ExecuteToolHandlerResult = {
+      content: "",
       result: "",
       error: undefined,
       isArgumentError: false,
@@ -828,7 +1543,7 @@ export class RunHandler {
     if (tool.handler) {
       handlerResult = await this.executeToolHandler({
         tool,
-        toolCall: assistantMessage.toolCalls![0],
+        toolCall: assistantToolCall,
         agent,
         agentId: resolvedAgentId,
         handlerArgs: parameters,
@@ -841,7 +1556,7 @@ export class RunHandler {
       id: randomUUID(),
       role: "tool",
       toolCallId,
-      content: handlerResult.result,
+      content: handlerResult.content,
     };
 
     const assistantIndex = agent.messages.findIndex(
@@ -881,22 +1596,94 @@ export class RunHandler {
     };
   }
 
+  /** Stable identity for a tool override: agent-scope + name (NUL-separated). */
+  private capabilityKey(name: string, agentId?: string): string {
+    return `${agentId ?? ""}\u0000${name}`;
+  }
+
+  /**
+   * Enable/disable a registered frontend tool at runtime without unregistering
+   * it. A disabled tool is omitted from {@link buildFrontendTools}, so the agent
+   * never receives it. Unlike the per-tool `available` flag, this override
+   * survives the tool being re-registered.
+   */
+  setToolEnabled(name: string, enabled: boolean, agentId?: string): void {
+    const key = this.capabilityKey(name, agentId);
+    if (enabled) {
+      this._disabledToolKeys.delete(key);
+    } else {
+      this._disabledToolKeys.add(key);
+    }
+    this.syncWebMCP();
+  }
+
+  /** Whether a tool is currently enabled (not overridden off). Defaults true. */
+  isToolEnabled(name: string, agentId?: string): boolean {
+    return !this._disabledToolKeys.has(this.capabilityKey(name, agentId));
+  }
+
   /**
    * Build frontend tools for an agent
    */
   buildFrontendTools(agentId?: string): Tool[] {
-    return this._tools
+    return this.tools
       .filter(
         (tool) =>
+          // A wildcard tool is a local catch-all handler (see
+          // `executeWildcardTool`), not something the model can call —
+          // advertising it would offer the agent a tool named `*`.
+          tool.name !== WILDCARD_TOOL_NAME &&
           tool.available !== false &&
-          tool.available !== "disabled" &&
-          (!tool.agentId || tool.agentId === agentId),
+          (tool.available as boolean | string | undefined) !== "disabled" &&
+          (!tool.agentId || tool.agentId === agentId) &&
+          this.isToolEnabled(tool.name, tool.agentId),
       )
       .map((tool) => ({
         name: tool.name,
         description: tool.description ?? "",
         parameters: createToolSchema(tool),
       }));
+  }
+
+  /**
+   * Reconcile the WebMCP registrations with the current tool registry. Tools
+   * opt in via `webmcp: true` or `webmcp: { annotations }`; the same
+   * availability rules as `buildFrontendTools` apply. WebMCP tools are
+   * page-level, so unlike the agent tool list they are not filtered by
+   * agentId — a name collision across agentIds keeps the first registration.
+   */
+  private syncWebMCP(): void {
+    const desired = new Map<string, FrontendTool<any>>();
+    const warnedCollisions = new Set<string>();
+    for (const tool of this.tools) {
+      if (!tool.webmcp) {
+        continue;
+      }
+      if (tool.name === WILDCARD_TOOL_NAME) {
+        continue;
+      }
+      if (
+        tool.available === false ||
+        (tool.available as boolean | string | undefined) === "disabled"
+      ) {
+        continue;
+      }
+      if (!this.isToolEnabled(tool.name, tool.agentId)) {
+        continue;
+      }
+      if (desired.has(tool.name)) {
+        if (!warnedCollisions.has(tool.name)) {
+          warnedCollisions.add(tool.name);
+          logger.warn(
+            `[CopilotKit] Multiple WebMCP tools share the name '${tool.name}'. ` +
+              `Only the first registration is exposed to browser agents.`,
+          );
+        }
+        continue;
+      }
+      desired.set(tool.name, tool);
+    }
+    this._webmcpRegistry.sync(desired);
   }
 
   /**
@@ -930,6 +1717,19 @@ export class RunHandler {
         });
       },
       onRunErrorEvent: async ({ event }) => {
+        // A user-initiated stop (stopAgent / agent.abortRun) makes the agent
+        // emit a terminal RUN_ERROR — often code "abort" — as its cancellation
+        // signal. That is expected, not a failure: surfacing it would pop an
+        // error banner on Stop (#5966, follow-up to #5812). Mirror the
+        // local-abort suppression on the runAgent/connectAgent paths and skip
+        // it. Prefer the abort controller (the client's own record that it
+        // initiated the stop) over the agent-supplied `code`, which is not
+        // standardized across agents.
+        const runWasAborted = this._runAbortController?.signal.aborted === true;
+        if (runWasAborted || event?.code === "abort") {
+          return;
+        }
+
         const eventError =
           event?.rawEvent instanceof Error
             ? event.rawEvent
@@ -959,62 +1759,6 @@ export class RunHandler {
         );
       },
     };
-  }
-}
-
-/**
- * Empty tool schema constant
- */
-const EMPTY_TOOL_SCHEMA = {
-  type: "object",
-  properties: {},
-} as const satisfies Record<string, unknown>;
-
-/**
- * Create a JSON schema from a tool's parameters
- */
-function createToolSchema(tool: FrontendTool<any>): Record<string, unknown> {
-  if (!tool.parameters) {
-    return { ...EMPTY_TOOL_SCHEMA };
-  }
-
-  const rawSchema = schemaToJsonSchema(tool.parameters, { zodToJsonSchema });
-
-  if (!rawSchema || typeof rawSchema !== "object") {
-    return { ...EMPTY_TOOL_SCHEMA };
-  }
-
-  const { $schema, ...schema } = rawSchema as Record<string, unknown>;
-
-  if (typeof schema.type !== "string") {
-    schema.type = "object";
-  }
-  if (typeof schema.properties !== "object" || schema.properties === null) {
-    schema.properties = {};
-  }
-
-  stripAdditionalProperties(schema);
-  return schema;
-}
-
-function stripAdditionalProperties(schema: unknown): void {
-  if (!schema || typeof schema !== "object") {
-    return;
-  }
-
-  if (Array.isArray(schema)) {
-    schema.forEach(stripAdditionalProperties);
-    return;
-  }
-
-  const record = schema as Record<string, unknown>;
-
-  if (record.additionalProperties !== undefined) {
-    delete record.additionalProperties;
-  }
-
-  for (const value of Object.values(record)) {
-    stripAdditionalProperties(value);
   }
 }
 

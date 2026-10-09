@@ -11,13 +11,14 @@
 // tools via the standard `tools` field in the AG-UI request; the MCP
 // activity rendering is driven entirely by the runtime + frontend.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
@@ -26,6 +27,11 @@ function createAgent(): AbstractAgent {
 }
 
 const agents: Record<string, AbstractAgent> = {
+  // headless-complete shares this runtime (its page wires
+  // runtimeUrl="/api/copilotkit-mcp-apps") but is backed by the shared
+  // Spring-AI ChatClient at "/" — the same backend the main route
+  // registers it against.
+  "headless-complete": createAgent(),
   "mcp-apps": createAgent(),
 };
 
@@ -47,12 +53,12 @@ const runtime = new CopilotRuntime({
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-mcp-apps",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime,
+      basePath: "/api/copilotkit-mcp-apps",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };
     return NextResponse.json(

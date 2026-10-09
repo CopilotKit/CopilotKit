@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-python / gen-ui-open-advanced",
+    "sourceScript": "d5-gen-ui-open-advanced.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-open-advanced pill — Inline expression evaluator. The D5 script asserts an iframe[sandbox*='allow-scripts'] or [data-testid='gen-ui-open-advanced-iframe'] mounts. The response must include a generateSandboxedUi tool call that produces a sandboxed iframe.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_advanced_eval_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Building expression evaluator...\"],\"css\":\"body{margin:0;background:#0f172a;font-family:system-ui;color:#e2e8f0;display:flex;align-items:center;justify-content:center;min-height:100vh}.wrap{background:#1e293b;padding:24px;border-radius:12px;width:280px}.display{background:#0f172a;padding:12px;border-radius:8px;font-family:monospace;font-size:16px;min-height:24px;margin-bottom:12px;text-align:right}input{width:100%;padding:10px;background:#334155;border:1px solid #475569;border-radius:8px;color:#e2e8f0;font-family:monospace;font-size:14px;box-sizing:border-box}button{margin-top:8px;width:100%;padding:10px;background:#2563eb;border:0;border-radius:8px;color:white;font-size:14px;cursor:pointer}button:hover{background:#3b82f6}\",\"html\":\"<div class='wrap' data-testid='ogui-expr-eval'><div class='display' id='result'>0</div><input id='expr' placeholder='e.g. 2 + 3 * 4' /><button id='calc'>Evaluate</button></div>\",\"jsFunctions\":\"(function(){var expr=document.getElementById('expr');var result=document.getElementById('result');document.getElementById('calc').addEventListener('click',async function(){try{var res=await Websandbox.connection.remote.evaluateExpression({expression:expr.value});if(res&&res.ok){result.textContent=String(res.value);}else{result.textContent='Error';}}catch(e){result.textContent='Error';}});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": true,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Expression evaluator rendered in a sandboxed iframe. Type a math expression and click Evaluate to compute the result via the host bridge."
+      }
+    }
+  ]
+}

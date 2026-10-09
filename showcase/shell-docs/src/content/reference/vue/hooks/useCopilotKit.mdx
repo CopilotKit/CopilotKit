@@ -1,0 +1,235 @@
+---
+title: "useCopilotKit"
+description: "Low-level Vue 3 composable for accessing the CopilotKit context"
+---
+
+## Overview
+
+`useCopilotKit` is a low-level Vue 3 composable that injects the CopilotKit provider context, giving direct access to the core instance and provider-level reactive state. Because the values it returns are Vue refs, reading them inside a `computed`, `watch`, or template keeps your code reactive to runtime changes such as connection status or in-flight tool calls.
+
+<Callout type="info">
+  `useCopilotKit` is a low-level composable. Most applications should use
+  higher-level composables like `useAgent` or `useFrontendTool` instead.
+</Callout>
+
+**Throws an error** if called outside of a `CopilotKitProvider`. The composable injects the provider context, so it must run within a component tree that has `CopilotKitProvider` as an ancestor.
+
+## Signature
+
+```ts
+import { useCopilotKit } from "@copilotkit/vue/v2";
+
+function useCopilotKit(): CopilotKitContextValue;
+```
+
+## Parameters
+
+This composable takes no parameters.
+
+## Return Value
+
+The composable returns the `CopilotKitContextValue` object. Every member is a Vue ref (or computed ref), so access the underlying value with `.value` (or let the template unwrap it for you).
+
+<PropertyReference name="copilotkit" type="ShallowRef<CopilotKitCoreVue>">
+  A `shallowRef` holding the live CopilotKit core instance. `CopilotKitCoreVue` extends the framework-agnostic `CopilotKitCore`, so `copilotkit.value` is the central coordinator that manages agents, tools, suggestions, and runtime communication. It exposes:
+  - Agent management (`agents`, `getAgent`)
+  - Tool registration and execution (`runTool`)
+  - Suggestion configuration and retrieval
+  - Runtime connection management
+  - Event subscription via `subscribe()`
+
+  The core instance is created once per `CopilotKitProvider` and is stable for the lifetime of the provider.
+</PropertyReference>
+
+<PropertyReference name="executingToolCallIds" type="Ref<ReadonlySet<string>>">
+  A ref to the set of tool call IDs currently being executed. This is tracked at the provider level so that tool execution events are captured even before child components mount, which matters for scenarios like human-in-the-loop reconnection where pending tool calls may already exist when the component tree mounts.
+</PropertyReference>
+
+<PropertyReference name="a2uiTheme" type="ComputedRef<A2UITheme | undefined>">
+  A computed ref to the A2UI theme configured on the provider, or `undefined` if no theme was supplied.
+</PropertyReference>
+
+<PropertyReference name="a2uiCatalog" type="ComputedRef<unknown>">
+  A computed ref to the A2UI component catalog configured on the provider.
+</PropertyReference>
+
+<PropertyReference name="a2uiLoadingComponent" type="ComputedRef<unknown>">
+  A computed ref to the component rendered while an A2UI surface is loading.
+</PropertyReference>
+
+<PropertyReference name="a2uiIncludeSchema" type="ComputedRef<boolean>">
+  A computed ref indicating whether the A2UI schema is included.
+</PropertyReference>
+
+## Usage
+
+### Accessing the Core Instance
+
+```vue
+<script setup lang="ts">
+import { computed } from "vue";
+import { useCopilotKit } from "@copilotkit/vue/v2";
+
+const { copilotkit } = useCopilotKit();
+
+const agentIds = computed(() => Object.keys(copilotkit.value.agents ?? {}));
+</script>
+
+<template>
+  <div>
+    <h3>Registered Agents</h3>
+    <ul>
+      <li v-for="id in agentIds" :key="id">{{ id }}</li>
+    </ul>
+  </div>
+</template>
+```
+
+### Subscribing to Core Events
+
+Subscribe in `onMounted` and tear the subscription down in `onUnmounted`.
+
+```vue
+<script setup lang="ts">
+import { onMounted, onUnmounted } from "vue";
+import { useCopilotKit } from "@copilotkit/vue/v2";
+
+const { copilotkit } = useCopilotKit();
+
+let subscription: { unsubscribe: () => void } | undefined;
+
+onMounted(() => {
+  subscription = copilotkit.value.subscribe({
+    onRuntimeConnectionStatusChanged: () => {
+      console.log("Runtime connection status changed");
+    },
+  });
+});
+
+onUnmounted(() => {
+  subscription?.unsubscribe();
+});
+</script>
+```
+
+### Running a Tool Programmatically
+
+`copilotkit.value.runTool()` lets you execute a registered frontend tool directly from code, with no LLM turn required. The tool's handler runs, render components appear in the UI, and both the tool call and its result are added to the agent's message history.
+
+```vue
+<script setup lang="ts">
+import { z } from "zod";
+import { useCopilotKit, useFrontendTool } from "@copilotkit/vue/v2";
+
+const { copilotkit } = useCopilotKit();
+
+// Register the tool
+useFrontendTool({
+  name: "exportData",
+  description: "Export data as CSV",
+  parameters: z.object({ format: z.string() }),
+  handler: async ({ format }) => {
+    const csv = await generateCsv(format);
+    downloadFile(csv);
+    return `Exported as ${format}`;
+  },
+});
+
+// Trigger it from a button, no LLM needed
+async function handleExport() {
+  try {
+    const { result, error } = await copilotkit.value.runTool({
+      name: "exportData",
+      parameters: { format: "csv" },
+    });
+    // `error` is set when the handler itself throws.
+    if (error) console.error(error);
+  } catch (err) {
+    // `runTool` rejects if the tool (or its agent) cannot be found.
+    console.error(err);
+  }
+}
+</script>
+
+<template>
+  <button @click="handleExport">Export CSV</button>
+</template>
+```
+
+#### `runTool` Parameters
+
+<PropertyReference name="params" type="CopilotKitCoreRunToolParams">
+  <PropertyReference name="name" type="string" required>
+    Name of the registered frontend tool to execute.
+  </PropertyReference>
+
+<PropertyReference name="agentId" type="string">
+  Agent ID for tool and message scoping. Defaults to `"default"`.
+</PropertyReference>
+
+<PropertyReference
+  name="parameters"
+  type="Record<string, unknown>"
+  default="{}"
+>
+  Arguments passed to the tool handler.
+</PropertyReference>
+
+  <PropertyReference name="followUp" type="string | false" default="false">
+    Controls whether an LLM follow-up is triggered after execution:
+    - `false`, execute tool and stop (default)
+    - `"generate"`, trigger an agent run so the LLM responds to the tool result
+    - Any other string, add a user message with this text, then trigger an agent run
+  </PropertyReference>
+</PropertyReference>
+
+#### `runTool` Return Value
+
+<PropertyReference name="result" type="CopilotKitCoreRunToolResult">
+  <PropertyReference name="toolCallId" type="string">
+    Unique ID of the tool call, matching the message added to history.
+  </PropertyReference>
+
+<PropertyReference name="result" type="string">
+  Stringified return value from the tool handler (empty string for render-only
+  tools).
+</PropertyReference>
+
+  <PropertyReference name="error" type="string | undefined">
+    Error message if the handler threw. The tool result message will contain `"Error: ..."`. Note that `runTool` itself **rejects** (throws) when the tool or its agent cannot be found — those lookup failures surface as a rejected promise, not via this field — so wrap the call in `try`/`catch` as well as checking `error`.
+  </PropertyReference>
+</PropertyReference>
+
+### Checking Tool Execution State
+
+Because `executingToolCallIds` is a ref, drive UI off it with a `computed` or read it directly in the template.
+
+```vue
+<script setup lang="ts">
+import { computed } from "vue";
+import { useCopilotKit } from "@copilotkit/vue/v2";
+
+const { executingToolCallIds } = useCopilotKit();
+
+const executingCount = computed(() => executingToolCallIds.value.size);
+</script>
+
+<template>
+  <div v-if="executingCount > 0">
+    Executing {{ executingCount }} tool call(s)...
+  </div>
+</template>
+```
+
+## Behavior
+
+- **Error on missing provider**: Throws `useCopilotKit must be used within CopilotKitProvider` if the composable is called outside of a `CopilotKitProvider`.
+- **Refs, not plain values**: Every returned member is a Vue ref or computed ref. Read `copilotkit.value` to reach the core instance and `executingToolCallIds.value` to reach the live set. Keep usage reactive with `computed`, `watch`, or template bindings.
+- **Stable core reference**: The `copilotkit` ref is a `shallowRef` created once per provider and remains stable for the provider's lifetime. Only `executingToolCallIds` changes as tool calls begin and complete.
+- **Provider-level tool tracking**: `executingToolCallIds` is tracked at the provider level rather than in individual components, so tool execution start events fired before child components mount are not lost.
+
+## Related
+
+- [`useAgent`](/reference/vue/hooks/useAgent) -- High-level composable for accessing agent instances
+- [`useFrontendTool`](/reference/vue/hooks/useFrontendTool) -- Register frontend tools that `runTool()` can execute
+- [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) -- The provider component that creates the context

@@ -5,7 +5,7 @@
   "scripts": {
     "postinstall": "cd ../scripts && npm install --no-audit --no-fund --silent",
     "predev": "tsx ../scripts/generate-registry.ts && tsx ../scripts/probe-docs.ts",
-    "dev": "next dev --turbopack --port 3002",
+    "dev": "next dev --port 3002",
     "prebuild": "tsx ../scripts/generate-registry.ts && tsx ../scripts/probe-docs.ts",
     "build": "next build",
     "start": "next start --port 3002",
@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:visual": "playwright test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "compatibility:audit": "tsx scripts/audit-compatibility.ts"
   },
   "dependencies": {
     "next": "^15.0.0",
@@ -30,8 +31,11 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.2.0",
+    "croner": "^9.1.0",
     "jsdom": "^29.0.2",
     "postcss": "^8.5.0",
+    "saxes": "^6.0.0",
+    "semver": "7.7.4",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",

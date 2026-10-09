@@ -7,17 +7,21 @@
 <div align=center>
 
 [Docs](https://docs.copilotkit.ai/?ref=github_readme) ·
-[Examples](https://www.copilotkit.ai/examples) ·
-[Enterprise Intelligence Platform](https://go.copilotkit.ai/enterprise-intelligence-platform) ·
+[Examples](https://www.copilotkit.ai/examples?ref=github_readme) ·
+[CopilotKit Intelligence](https://go.copilotkit.ai/enterprise-intelligence-platform) ·
 [Discord](https://discord.gg/6dffbvGU3D?ref=github_readme)
 
 </div>
 
-Build **agent-native applications** with generative UI, shared state, and human-in-the-loop workflows.
+Build **agent-native applications** — on any framework, on any surface.
+
+Generative UI, shared state, and human-in-the-loop workflows for React, Angular, Vue, React Native, and in Slack and Microsoft Teams.
+
+Add **CopilotKit Intelligence** when it goes to production: rich threads that persist with generative UI, user memories, and agents that automatically learn from real use.
 
 </div>
 
-[![CopilotKit](https://github.com/user-attachments/assets/aeb56c28-c766-44a5-810c-5d999bb6a32a)](https://go.copilotkit.ai/copilotkit-docs)
+[![Bring Your Own Agent. Any Channel. — CopilotKit and AG-UI connect any agent framework to Slack, Microsoft Teams, Discord, WhatsApp, and Telegram, with more channels on the roadmap.](assets/bring-your-own-agent-any-channel.png)](https://go.copilotkit.ai/copilotkit-docs)
 
 <div align="center" style="display:flex;justify-content:start;gap:16px;height:20px;margin: 0;">
   <a href="https://www.npmjs.com/package/@copilotkit/react-core" target="_blank">
@@ -33,11 +37,6 @@ Build **agent-native applications** with generative UI, shared state, and human-
   </a>
   </div>
   <br/>
-  <div>
-    <a href="https://www.producthunt.com/posts/copilotkit" target="_blank">
-  </a>
-
-<div />
   <div align="center">
       <a href="https://trendshift.io/repositories/5730" target="_blank"><img src="https://trendshift.io/api/badge/repositories/5730" alt="CopilotKit%2FCopilotKit | Trendshift"                         style="width: 250px; height: 55px;" width="250" height="55"/>
     </a>
@@ -49,66 +48,118 @@ Build **agent-native applications** with generative UI, shared state, and human-
 
 ---
 
-## What is CopilotKit
+## What is CopilotKit?
 
 CopilotKit is a best-in-class SDK for building full-stack agentic applications, Generative UI, and chat applications.
 
-We are the company behind the **[AG-UI Protocol](https://github.com/ag-ui-protocol/ag-ui)** - adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
+What started as a React library is now the **horizontal layer between your agents and your users**: the same agent can power your web app, your mobile app, and your team's Slack or Microsoft Teams workspace.
 
-https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
-
-<div align="center"> Add AI to your app in 1 minute</div>
-
-**Features:**
-
-- **Chat UI** – A React-based chat interface that supports message streaming, tool calls, and agent responses.
-- **Backend Tool Rendering** – Enables agents to call backend tools that return UI components rendered directly in the client.
-- **Generative UI** – Allows agents to generate and update UI components dynamically at runtime based on user intent and agent state.
-- **Shared State** – A synchronized state layer that both agents and UI components can read from and write to in real time.
-- **Human-in-the-Loop** – Lets agents pause execution to request user input, confirmation, or edits before continuing.
-
-https://github.com/user-attachments/assets/55bf6714-62a7-4d5d-9232-07747cc0763b
+We are the company behind the **[AG-UI Protocol](https://github.com/ag-ui-protocol/ag-ui)** — adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
 
 ## Quick Start
 
-### New projects:
+### Setup with your coding agent
 
-```bash
-npx copilotkit@latest create -f <framework>
+Use your coding agent to add CopilotKit to your app. It will inspect your project and guide the integration.
+
+**Give your coding agent this prompt:**
+
+```text
+Help me get started with CopilotKit. From the root of my project, run this
+command and follow the instructions:
+
+npx --yes copilotkit@latest onboard start
 ```
 
-### Existing projects:
+### Want to use our agent skills?
+
+Already using CopilotKit or just finished setup? Add our [agent skills](https://docs.copilotkit.ai/build-with-agents?ref=github_readme) to help your coding agent build features and debug issues.
 
 ```bash
-npx copilotkit@latest init
+npx copilotkit@latest skills install
+```
+
+### Start a new project
+
+Scaffolds a project in its own directory. It does not modify an app you already have.
+
+```bash
+npx copilotkit@latest create
 ```
 
 https://github.com/user-attachments/assets/7372b27b-8def-40fb-a11d-1f6585f556ad
 
-What this gives you:
+## What you can build
 
-- **CopilotKit installed** – Core packages are fully set up in your app
-- **Provider configured** – Context, state, and hooks ready to use
-- **Agent <> UI connected** – Agents can stream actions and render UI immediately
-- **Deployment-ready** – Your app is ready to deploy
+https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
 
-[Complete getting started guide →](https://docs.copilotkit.ai/langgraph/quickstart)
+**Features:**
 
-## How it works:
+- **Chat UI** – A fully customizable chat interface that supports message streaming, tool calls, and agent responses.
+- **Backend Tool Rendering** – Enables agents to call backend tools that return UI components rendered directly in the client.
+- **Generative UI** – Allows agents to generate and update UI components dynamically at runtime based on user intent and agent state.
+- **Shared State** – A synchronized state layer that both agents and UI components can read from and write to in real time.
+- **Human-in-the-Loop** – Lets agents pause execution to request user input, confirmation, or edits before continuing.
+- **Rich Threads** – Conversations that survive reloads, devices, and sessions, with their generative UI intact.
+- **Automatic Learning** – Agents that improve from real usage: completed threads become reviewed Skills, with no fine-tuning pipeline.
+
+## 🪁 CopilotKit Intelligence
+
+**CopilotKit Intelligence** adds rich threads with generative UI, user memories, product analytics, inspection, and automatic learning to your agents. It works with your existing CopilotKit app and agent framework. Use our hosted platform or deploy it in your own infrastructure.
+
+- **[Rich Threads](https://docs.copilotkit.ai/threads?ref=github_readme)** – Conversations survive reloads, devices, and sessions, with messages, generative UI, and live runs restored as they were.
+- **[User Memories](https://docs.copilotkit.ai/intelligence/memories?ref=github_readme)** – Durable facts and preferences carried across conversations, recalled semantically rather than by keyword.
+- **[Automatic Learning](https://docs.copilotkit.ai/learning?ref=github_readme)** – Completed threads become evidence-backed Insights and reviewed, reusable Skills you publish yourself. No fine-tuning pipeline.
+- **[Product Analytics](https://www.copilotkit.ai/copilotkit-intelligence?ref=github_readme#analytics-insights)** – See what your agents do and where users get value, from the same interaction data.
+- **[Self-hosting](https://docs.copilotkit.ai/intelligence/self-hosting?ref=github_readme)** – The same platform inside your own Kubernetes cluster, VPC, or data boundary.
+
+See the [Intelligence overview](https://docs.copilotkit.ai/intelligence/overview?ref=github_readme) for what each plan includes.
+
+👉 **[Connect Intelligence in 5 minutes →](https://docs.copilotkit.ai/intelligence/quickstart?ref=github_readme)**
+
+## How it works
 
 CopilotKit connects your UI, agents, and tools into a single interaction loop.
 
-![CopilotKit Diagram — Motion x2 6 sec version](https://github.com/user-attachments/assets/6f175d86-bd22-4c26-a13a-6013654ed542)
+![How CopilotKit connects your UI, your agents, and your tools in one loop](https://github.com/user-attachments/assets/6f175d86-bd22-4c26-a13a-6013654ed542)
 
 This enables:
 
 - Agents that ask users for input
 - Tools that render UI
 - Stateful workflows across steps and sessions
+- One agent, deployed across web, mobile, and chat platforms
+
+## 🧩 Works With Your Stack
+
+One agent backend. Every frontend.
+
+| Platform                         | Status                                                   | Get Started                                                                                                                         |
+| -------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| ⚛️ React / Next.js               | ✅ GA                                                    | [Quickstart](https://docs.copilotkit.ai/quickstart?ref=github_readme)                                                               |
+| 🅰️ Angular                       | ✅ Supported                                             | [Source Code & Quickstart](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular)                                     |
+| 💚 Vue                           | ✅ Supported                                             | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/vue)                             |
+| 📱 React Native                  | ✅ Supported                                             | [Quickstart](https://docs.copilotkit.ai/react-native?ref=github_readme)                                                             |
+| 💬 Slack / Microsoft Teams       | ✅ Supported                                             | [Channels](https://www.copilotkit.ai/channels?ref=github_readme) · [Quickstart](https://docs.copilotkit.ai/slack?ref=github_readme) |
+| 💬 Discord / WhatsApp / Telegram | ✅ Channels SDK adapter (managed connection coming soon) | [Channels](https://www.copilotkit.ai/channels?ref=github_readme)                                                                    |
+| 🔜 Google Chat / iMessage / SMS  | 🟡 On the roadmap                                        | [Channels](https://www.copilotkit.ai/channels?ref=github_readme)                                                                    |
+
+Your agent logic stays the same — AG-UI handles the wire protocol, CopilotKit handles the UI layer for each framework and channel.
+
+## 💬 Channels: One Agent, Every Chat App
+
+<img width="1920" height="1080" alt="Write it once, run every channel" src="https://github.com/user-attachments/assets/883e5ede-0387-4ae8-a361-48da3adf8f22" />
+
+The **Channels SDK** takes the agent you already built and drops it into the chat apps your users live in — same tools, same shared state, same human-in-the-loop, no rewrite (**[Learn more](https://www.copilotkit.ai/channels?ref=github_readme)**).
+
+- **Slack** – Agents as first-class Slack apps: threads, tool calls, and human-in-the-loop approvals right in the channel.
+- **Microsoft Teams** – Bring agentic workflows to the enterprise, where your org already lives.
+
+👉 **[Explore Channels →](https://www.copilotkit.ai/channels?ref=github_readme)**
 
 ## ⭐️ useAgent Hook
 
-The `useAgent` hook is a proper superset of `useCoAgent` and sits directly on AG-UI, giving more control over the agent connection.
+The `useAgent` hook sits directly on AG-UI, giving you full programmatic control over the agent connection.
 
 ```ts
 // Programmatically access and control your agents
@@ -123,7 +174,7 @@ return <div>
 </div>
 ```
 
-Check out the [useAgent docs](https://go.copilotkit.ai/useagent-docs) to learn more.
+Check out the [useAgent docs](https://docs.copilotkit.ai/programmatic-control?ref=github_readme) to learn more.
 
 https://github.com/user-attachments/assets/67928406-8abc-49a1-a851-98018b52174f
 
@@ -135,49 +186,47 @@ https://github.com/user-attachments/assets/3cfacac0-4ffd-457a-96f9-d7951e4ab7b6
 
 ### Compare the Three Types
 
-<img width="708" height="311" alt="image" src="https://github.com/user-attachments/assets/962f49c2-31ea-43c5-b2a3-7cdde114705a" />
+<img width="708" height="311" alt="The three generative UI types compared" src="https://github.com/user-attachments/assets/962f49c2-31ea-43c5-b2a3-7cdde114705a" />
 
 #### Explore:
 
-- [Static (AG-UI Protocol)](https://docs.copilotkit.ai/ag-ui-protocol)
-- [Declarative (A2UI)](https://docs.copilotkit.ai/generative-ui/specs/a2ui#using-a2ui-with-copilotkit)
-- [Open-Ended (MCP Apps & Open JSON)](https://docs.copilotkit.ai/generative-ui/specs/mcp-apps)
+- [Static (AG-UI Protocol)](https://docs.copilotkit.ai/agentic-protocols/ag-ui?ref=github_readme)
+- [Declarative (A2UI)](https://docs.copilotkit.ai/generative-ui/a2ui?ref=github_readme#using-a2ui-with-copilotkit)
+- [Open-Ended (MCP Apps & Open JSON)](https://docs.copilotkit.ai/generative-ui/mcp-apps?ref=github_readme)
 
 [Generative UI educational repo →](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/generative-ui)
 
 ## 🖥️ AG-UI: The Agent–User Interaction Protocol
 
-Connect agent workflow to user-facing apps, with deep partnerships and 1st-party integrations across the agentic stack—including LangGraph, CrewAI, and more.
+Connect agent workflows to user-facing apps, with deep partnerships and 1st-party integrations across the agentic stack—including LangChain, CrewAI, Mastra, PydanticAI, and more.
 
 [![AG-UI](https://github.com/user-attachments/assets/a625237a-cfc1-45fc-8d0c-637316b81291)](https://go.copilotkit.ai/ag-ui)
 
----
+Start a new AG-UI agent app:
 
-```
+```bash
 npx create-ag-ui-app my-agent-app
 ```
 
-  <a href="https://github.com/ag-ui-protocol/ag-ui" target="_blank">
-   Learn more in the AG-UI README →
-  </a>
+[Learn more in the AG-UI README →](https://github.com/ag-ui-protocol/ag-ui)
 
 ## 🤝 Community
 
-- [What's New](https://docs.copilotkit.ai/whats-new)
+- [What's New](https://docs.copilotkit.ai/whats-new?ref=github_readme)
 <h3>Have questions or need help?</h3>
   <a href="https://discord.gg/6dffbvGU3D?ref=github_readme" target="_blank">
    Join our Discord →
-  </a> </br>
+  </a> <br />
     <a href="https://docs.copilotkit.ai/?ref=github_readme" target="_blank">
   Read the Docs →
-  </a> </br>
-    <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
-   Try Copilot Cloud →
+  </a> <br />
+    <a href="https://dashboard.operations.copilotkit.ai?ref=github_readme" target="_blank">
+   Try CopilotKit Intelligence →
   </a>
 <h3>Stay up to date with our latest releases!</h3>
   <a href="https://www.linkedin.com/company/copilotkit/" target="_blank">
    Follow us on LinkedIn →
-  </a> </br>
+  </a> <br />
     <a href="https://x.com/copilotkit" target="_blank">
    Follow us on X →
   </a>
@@ -192,41 +241,7 @@ Here are a few useful resources to help you get started:
 
 - For code contributions, [CONTRIBUTING.md](./CONTRIBUTING.md).
 - For documentation-related contributions, [check out the documentation contributions guide](https://docs.copilotkit.ai/contributing/docs-contributions?ref=github_readme).
-
 - Want to contribute but not sure how? [Join our Discord](https://discord.gg/6dffbvGU3D) and we'll help you out!
-
-## Install as a Claude Code plugin
-
-The CopilotKit monorepo doubles as a Claude Code plugin — all 9 skills (3 package meta-skills + 6 lifecycle journey skills) are available once installed.
-
-Add the repo as a Claude Code marketplace:
-
-```bash
-claude plugin marketplace add https://github.com/CopilotKit/CopilotKit
-claude plugin install copilotkit
-```
-
-Skills are discovered from `skills/<slug>/SKILL.md` at the repo root. The three package meta-skills (`runtime`, `react-core`, `a2ui-renderer`) are **generated mirrors** of the source-of-truth files at `packages/<pkg>/skills/<pkg>/` — do not edit the mirror directly. To update content, edit the source under `packages/*/skills/` and run:
-
-```bash
-pnpm sync:plugin-skills
-```
-
-A lefthook pre-commit check (`pnpm check:plugin-skills`) rejects commits that drift the mirror. The plugin version is pinned to `packages/runtime/package.json` and is also kept in sync by the same script.
-
-### Skill inventory
-
-| Slug                     | Type      | Source                                         |
-| ------------------------ | --------- | ---------------------------------------------- |
-| `runtime`                | core      | `packages/runtime/skills/runtime/`             |
-| `react-core`             | framework | `packages/react-core/skills/react-core/`       |
-| `a2ui-renderer`          | framework | `packages/a2ui-renderer/skills/a2ui-renderer/` |
-| `0-to-working-chat`      | lifecycle | `skills/0-to-working-chat/`                    |
-| `spa-without-runtime`    | lifecycle | `skills/spa-without-runtime/`                  |
-| `go-to-production`       | lifecycle | `skills/go-to-production/`                     |
-| `scale-to-multi-agent`   | lifecycle | `skills/scale-to-multi-agent/`                 |
-| `v1-to-v2-migration`     | lifecycle | `skills/v1-to-v2-migration/`                   |
-| `debug-and-troubleshoot` | lifecycle | `skills/debug-and-troubleshoot/`               |
 
 ## 📄 License
 

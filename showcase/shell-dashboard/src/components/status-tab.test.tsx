@@ -36,7 +36,12 @@ function entry(
 describe("StatusTab", () => {
   it("renders schedule table and running panel", () => {
     const { getByTestId } = render(
-      <StatusTab entries={[entry()]} onTrigger={async () => {}} />,
+      <StatusTab
+        entries={[entry()]}
+        onTrigger={async () => {}}
+        selectedProbeId={null}
+        onSelectProbe={() => {}}
+      />,
     );
     expect(getByTestId("status-table")).toBeDefined();
     expect(getByTestId("status-running-panel")).toBeDefined();
@@ -45,7 +50,12 @@ describe("StatusTab", () => {
   it("forwards trigger callback when row trigger is invoked", async () => {
     const onTrigger = vi.fn(async () => {});
     const { getByTestId, getByText } = render(
-      <StatusTab entries={[entry()]} onTrigger={onTrigger} />,
+      <StatusTab
+        entries={[entry()]}
+        onTrigger={onTrigger}
+        selectedProbeId={null}
+        onSelectProbe={() => {}}
+      />,
     );
     fireEvent.click(getByTestId("status-trigger-smoke"));
     fireEvent.click(getByText("Run all"));
@@ -54,7 +64,12 @@ describe("StatusTab", () => {
 
   it("renders idle panel when no entries provided", () => {
     const { getByTestId } = render(
-      <StatusTab entries={[]} onTrigger={async () => {}} />,
+      <StatusTab
+        entries={[]}
+        onTrigger={async () => {}}
+        selectedProbeId={null}
+        onSelectProbe={() => {}}
+      />,
     );
     expect(getByTestId("running-idle")).toBeDefined();
   });

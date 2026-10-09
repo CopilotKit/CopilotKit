@@ -7,6 +7,24 @@
       }
     },
     {
+      "match": { "userMessage": "theme to orange" },
+      "response": {
+        "content": "Sure! I'll change the background to orange for you. 🎨 I'm calling the `change_theme_color` tool with `#f97316` (a nice orange). You should see the app background update in real-time."
+      }
+    },
+    {
+      "match": { "userMessage": "proverb about AI" },
+      "response": {
+        "content": "Here's a proverb about AI: \"A wise AI knows what it doesn't know.\" I'm adding it to the proverbs list via the `add_proverb` tool — you should see it appear on the page momentarily."
+      }
+    },
+    {
+      "match": { "userMessage": "weather in SF" },
+      "response": {
+        "content": "Let me check the weather in San Francisco for you! 🌤️ According to my data, the weather in San Francisco is sunny and 70 degrees. Perfect weather for a stroll along the Embarcadero!"
+      }
+    },
+    {
       "match": {},
       "response": {
         "content": "You're currently running against aimock (a mock LLM server). This response is a catch-all for requests that don't match any test fixture. To use a real LLM: (1) Add your OPENAI_API_KEY to .env, (2) Remove or unset OPENAI_BASE_URL from your environment so requests go to OpenAI instead of aimock, (3) Restart with `pnpm dev`."

@@ -1,7 +1,13 @@
 {
   "dependencies": ["."],
+  "http": {
+    "configurable_headers": {
+      "include": ["x-*"]
+    }
+  },
   "graphs": {
     "sample_agent": "./src/agents/src/agent.py:graph",
+    "gen_ui_agent": "./src/agents/src/gen_ui_agent.py:graph",
     "beautiful_chat": "./src/agents/src/beautiful_chat.py:graph",
     "headless_complete": "./src/agents/src/headless_complete.py:graph",
     "multimodal": "./src/agents/src/multimodal_agent.py:graph",
@@ -12,6 +18,7 @@
     "interrupt_agent": "./src/agents/src/interrupt_agent.py:graph",
     "a2ui_dynamic": "./src/agents/src/a2ui_dynamic.py:graph",
     "a2ui_fixed": "./src/agents/src/a2ui_fixed.py:graph",
+    "a2ui_recovery": "./src/agents/src/recovery_agent.py:graph",
     "mcp_apps": "./src/agents/src/mcp_apps_agent.py:graph",
     "frontend_tools": "./src/agents/src/frontend_tools.py:graph",
     "frontend_tools_async": "./src/agents/src/frontend_tools_async.py:graph",
@@ -24,6 +31,9 @@
     "open_gen_ui": "./src/agents/src/open_gen_ui_agent.py:graph",
     "open_gen_ui_advanced": "./src/agents/src/open_gen_ui_advanced_agent.py:graph",
     "shared_state_read_write": "./src/agents/src/shared_state_read_write.py:graph",
-    "subagents": "./src/agents/src/subagents.py:graph"
+    "subagents": "./src/agents/src/subagents.py:graph",
+    "agentic_chat": "./src/agents/src/agentic_chat.py:graph",
+    "gen_ui_tool_based": "./src/agents/src/gen_ui_tool_based.py:graph",
+    "shared_state_streaming": "./src/agents/src/shared_state_streaming.py:graph"
   }
 }

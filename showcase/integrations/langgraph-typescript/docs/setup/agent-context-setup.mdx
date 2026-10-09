@@ -1,0 +1,20 @@
+<Steps>
+  <Step>
+    ### Install the CopilotKit LangGraph SDK
+
+    ```bash
+    npm install @copilotkit/sdk-js
+    ```
+
+  </Step>
+  <Step>
+    ### Read CopilotKit context in your graph
+
+    `useAgentContext` entries arrive on `state.copilotkit.context`. Extend
+    your graph state with `CopilotKitStateAnnotation`, then prepend that
+    read-only context as a system message before invoking the model.
+
+    <DemoCode file="src/agent/readonly-state.ts" region="agent-context-setup" />
+
+  </Step>
+</Steps>

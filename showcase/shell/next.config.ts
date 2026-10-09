@@ -1,135 +1,38 @@
 import type { NextConfig } from "next";
-import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+// Logic lives in src/lib so vitest can cover it (missing-file warning,
+// TCP-port validation) — see src/lib/local-backends-env.test.ts.
+import { localBackendsEnv } from "./src/lib/local-backends-env";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-function localBackendsEnv(): string {
-  if (process.env.SHOWCASE_LOCAL !== "1") return "";
-  const portsPath = path.resolve(__dirname, "..", "shared", "local-ports.json");
-  if (!fs.existsSync(portsPath)) return "";
-  const ports = JSON.parse(fs.readFileSync(portsPath, "utf-8")) as Record<
-    string,
-    number
-  >;
-  const map: Record<string, string> = {};
-  for (const [slug, port] of Object.entries(ports)) {
-    map[slug] = `http://localhost:${port}`;
-  }
-  return JSON.stringify(map);
-}
+const LOCAL_PORTS_PATH = path.resolve(
+  __dirname,
+  "..",
+  "shared",
+  "local-ports.json",
+);
 
-// Read registry to get the list of framework slugs owned by the docs
-// shell. Any path whose first segment is a framework slug must 301 to
-// docs.showcase.copilotkit.ai. This list is derived at build time so
-// the redirect table tracks registry changes automatically — no manual
-// sync between next.config.ts and the docs shell's ownership list.
-function frameworkSlugs(): string[] {
-  const registryPath = path.resolve(__dirname, "src", "data", "registry.json");
-  if (!fs.existsSync(registryPath)) {
-    // In production the registry is a required build-time artifact; missing
-    // it means our redirect table is wrong. Fail loud so the deploy stops
-    // rather than silently shipping a site where /<slug> 404s. In dev the
-    // file may legitimately not exist yet (e.g. before generate-registry.ts
-    // has run) so we stay quiet — returning [] matches dev-server behavior.
-    if (process.env.NODE_ENV === "production") {
-      throw new Error(
-        `[next.config] registry.json missing at ${registryPath} — ` +
-          `framework redirects cannot be built. Run generate-registry.ts before building.`,
-      );
-    }
-    return [];
-  }
-  try {
-    const registry = JSON.parse(fs.readFileSync(registryPath, "utf-8")) as {
-      integrations?: { slug: string }[];
-    };
-    return (registry.integrations ?? []).map((i) => i.slug);
-  } catch (err) {
-    // Corrupt registry: in production, rip the cord — every /<slug> redirect
-    // would vanish and we'd silently serve 404s for every framework route.
-    // In dev, log and keep going so the dev loop isn't fatally broken by a
-    // transient mid-write or bad hand edit.
-    const message = (err as Error).message;
-    if (process.env.NODE_ENV === "production") {
-      throw new Error(
-        `[next.config] registry.json at ${registryPath} is unparseable: ${message}. ` +
-          `Refusing to build with missing framework redirects.`,
-      );
-    }
-    console.warn(
-      `[next.config] registry.json at ${registryPath} is unparseable: ${message}. ` +
-        `Framework redirects will be empty until fixed.`,
-    );
-    return [];
-  }
-}
-
-const DOCS_HOST = "https://docs.showcase.copilotkit.ai";
+// NOTE: the docs-host 308s (/docs, /ag-ui, /reference and the
+// /<framework-slug> routes) intentionally do NOT live here. A
+// next.config `redirects()` table is baked into the build artifact, so
+// the destination host would freeze to whatever was current at Docker
+// build (staging shells 301'd to the PROD docs host). They are issued
+// by src/middleware.ts instead, resolving the docs host from runtime
+// config (DOCS_HOST env var) on every request — see
+// src/lib/docs-redirects.ts.
 
 const nextConfig: NextConfig = {
   env: {
-    NEXT_PUBLIC_BASE_URL:
-      process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000",
-    NEXT_PUBLIC_LOCAL_BACKENDS: localBackendsEnv(),
+    // NEXT_PUBLIC_BASE_URL intentionally NOT listed here: it must be
+    // read at request time via runtime-config (otherwise `next build`
+    // re-bakes the build-time value into every chunk). NEXT_PUBLIC_LOCAL_BACKENDS
+    // is fine to bake because it is computed from `shared/local-ports.json`
+    // (a JSON file on disk, not an env var) and only used in local-dev.
+    NEXT_PUBLIC_LOCAL_BACKENDS: localBackendsEnv(LOCAL_PORTS_PATH),
   },
-  serverExternalPackages: ["@copilotkit/runtime", "@copilotkitnext/runtime"],
-  async redirects() {
-    const slugs = frameworkSlugs();
-    // Fixed docs-route redirects — whole sections (docs, ag-ui, reference)
-    // now live on docs.showcase.copilotkit.ai. Use 301 (permanent) so
-    // search engines carry authority over to the new host.
-    const fixed = [
-      {
-        source: "/docs",
-        destination: `${DOCS_HOST}`,
-        permanent: true,
-      },
-      {
-        source: "/docs/:path*",
-        destination: `${DOCS_HOST}/:path*`,
-        permanent: true,
-      },
-      {
-        source: "/ag-ui",
-        destination: `${DOCS_HOST}/ag-ui`,
-        permanent: true,
-      },
-      {
-        source: "/ag-ui/:path*",
-        destination: `${DOCS_HOST}/ag-ui/:path*`,
-        permanent: true,
-      },
-      {
-        source: "/reference",
-        destination: `${DOCS_HOST}/reference`,
-        permanent: true,
-      },
-      {
-        source: "/reference/:path*",
-        destination: `${DOCS_HOST}/reference/:path*`,
-        permanent: true,
-      },
-    ];
-    // Framework-scoped routes — /<slug> and /<slug>/... both go to the
-    // docs host. Enumerated from registry rather than a `:slug*` wildcard
-    // so we DON'T blanket-redirect /integrations or /matrix (which are
-    // owned by shell).
-    const frameworkRedirects = slugs.flatMap((slug) => [
-      {
-        source: `/${slug}`,
-        destination: `${DOCS_HOST}/${slug}`,
-        permanent: true,
-      },
-      {
-        source: `/${slug}/:path*`,
-        destination: `${DOCS_HOST}/${slug}/:path*`,
-        permanent: true,
-      },
-    ]);
-    return [...fixed, ...frameworkRedirects];
-  },
+  serverExternalPackages: ["@copilotkit/runtime"],
 };
 
 export default nextConfig;

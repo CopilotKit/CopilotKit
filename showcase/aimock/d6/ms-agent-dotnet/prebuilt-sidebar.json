@@ -1,0 +1,20 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ms-agent-dotnet / prebuilt-sidebar",
+    "sourceFile": "d5-prebuilt-sidebar.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "prebuilt-sidebar single turn — the D5 assertion verifies .copilotKitSidebar root is visible AND the assistant response lands inside it.",
+      "match": {
+        "userMessage": "hi from the sidebar test",
+        "turnIndex": 0,
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "content": "Hello from the sidebar — the CopilotSidebar prebuilt component is wired up and reachable. Anything else you would like me to confirm from inside the sidebar?"
+      }
+    }
+  ]
+}

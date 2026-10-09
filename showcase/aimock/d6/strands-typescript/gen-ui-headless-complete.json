@@ -1,0 +1,119 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for strands / gen-ui-headless-complete",
+    "sourceFile": "headless-complete.json",
+    "copiedFrom": "langgraph-python",
+    "_note": "Each prompt has two legs: an ungated leg that emits the tool call, and a narration leg gated on that call's toolCallId. No turn-position matcher, so a pill works wherever it lands in the session."
+  },
+  "fixtures": [
+    {
+      "_comment": "Narration leg, gated on the tool-call id the leg above emits.",
+      "match": {
+        "userMessage": "What's the weather in Tokyo",
+        "context": "strands-typescript",
+        "toolCallId": "call_d5_headless_weather_001"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy. The headless WeatherCard above shows the sunny snapshot from the tool."
+      }
+    },
+    {
+      "_comment": "Narration leg, gated on the tool-call id the leg above emits.",
+      "match": {
+        "userMessage": "price of AAPL right now",
+        "context": "strands-typescript",
+        "toolCallId": "call_d5_headless_stock_001"
+      },
+      "response": {
+        "content": "AAPL is at $189.42, up 1.27% on the day."
+      }
+    },
+    {
+      "_comment": "Narration leg, gated on the tool-call id the leg above emits.",
+      "match": {
+        "userMessage": "ship the demo on Friday",
+        "context": "strands-typescript",
+        "toolCallId": "call_d5_headless_highlight_001"
+      },
+      "response": {
+        "content": "Highlighted 'ship the demo on Friday' for you above."
+      }
+    },
+    {
+      "_comment": "Narration leg, gated on the tool-call id the leg above emits.",
+      "match": {
+        "userMessage": "chart of revenue over the last six months",
+        "context": "strands-typescript",
+        "toolCallId": "call_d5_headless_revenue_chart_001"
+      },
+      "response": {
+        "content": "Here is the chart of revenue over the last six months \u2014 quarterly revenue grew steadily, peaking in June."
+      }
+    },
+    {
+      "_comment": "Tool-call leg. Ungated on turn position: `sequenceIndex: 0` only matched the first call of the D6 session, so every later pill fell through to the narration leg and no card was ever requested.",
+      "match": {
+        "userMessage": "What's the weather in Tokyo",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_headless_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Tool-call leg. Ungated on turn position: `sequenceIndex: 0` only matched the first call of the D6 session, so every later pill fell through to the narration leg and no card was ever requested.",
+      "match": {
+        "userMessage": "price of AAPL right now",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_headless_stock_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Tool-call leg. Ungated on turn position: `sequenceIndex: 0` only matched the first call of the D6 session, so every later pill fell through to the narration leg and no card was ever requested.",
+      "match": {
+        "userMessage": "ship the demo on Friday",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_headless_highlight_001",
+            "name": "highlight_note",
+            "arguments": "{\"text\":\"ship the demo on Friday\",\"color\":\"yellow\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Tool-call leg. Ungated on turn position: `sequenceIndex: 0` only matched the first call of the D6 session, so every later pill fell through to the narration leg and no card was ever requested.",
+      "match": {
+        "userMessage": "chart of revenue over the last six months",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "Pulling the revenue chart for the last six months...",
+        "toolCalls": [
+          {
+            "id": "call_d5_headless_revenue_chart_001",
+            "name": "get_revenue_chart",
+            "arguments": "{}"
+          }
+        ]
+      }
+    }
+  ]
+}
