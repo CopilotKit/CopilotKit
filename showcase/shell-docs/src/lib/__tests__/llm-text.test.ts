@@ -32,7 +32,7 @@ test("Hashbrown guide exports each bundled framework's complete source", () => {
   const entries = Object.entries(bundle.demos).filter(([key]) =>
     key.endsWith("::declarative-hashbrown"),
   );
-  expect(entries.length).toBeGreaterThanOrEqual(15);
+  expect(entries).toHaveLength(15);
 
   for (const [key, demo] of entries) {
     const framework = key.split("::")[0];
@@ -59,6 +59,17 @@ test("Hashbrown guide exports each bundled framework's complete source", () => {
     }
     expect(output, key).not.toContain("<!-- snippet skipped:");
     expect(output, key).not.toContain("useUiKit({ catalog, value:");
+
+    if (["langgraph-python", "google-antigravity"].includes(framework)) {
+      const prompt = demo.files.find((file) =>
+        file.filename.endsWith("/byoc_hashbrown_prompt.py"),
+      );
+      expect(prompt, `${key}: agent prompt`).toBeDefined();
+      expect(prompt?.highlighted, `${key}: agent prompt`).toBe(true);
+      expect(prompt?.content).toContain("BYOC_HASHBROWN_SYSTEM_PROMPT =");
+      expect(prompt?.content).toContain('"ui"');
+      expect(prompt?.content).toContain("pieChart");
+    }
   }
 
   const output = renderPageToLlmText({

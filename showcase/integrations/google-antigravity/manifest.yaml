@@ -519,6 +519,7 @@ demos:
     animated_preview_url:
     highlight:
       - src/agents/byoc_hashbrown.py
+      - src/agents/byoc_hashbrown_prompt.py
       - src/app/demos/declarative-hashbrown/page.tsx
       - src/app/demos/declarative-hashbrown/chat.tsx
       - src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
