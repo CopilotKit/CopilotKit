@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /** Read-only Ruby promotion bridge; stdout contains only classifier results. */
-import { readFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
+import { readFileSync, realpathSync } from "node:fs";
 import {
   classifyRailwayInventory,
   isDenseArray,
@@ -121,10 +120,18 @@ async function main(): Promise<void> {
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(process.argv[1]).href
-) {
+/** Match aliases to the CLI source while keeping imports with synthetic argv inert. */
+function isDirectRun(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return realpathSync(entry) === realpathSync(new URL(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectRun()) {
   main().catch((error: unknown) => {
     process.stderr.write(
       `classify-railway-lifecycle: ${error instanceof Error ? error.message : "classification failed"}\n`,

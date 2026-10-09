@@ -1,8 +1,9 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { pathToFileURL } from "node:url";
+import { afterEach, beforeEach, expect, it, test } from "vitest";
 import { classifyInventoryPayload } from "./classify-railway-lifecycle";
 import {
   DISPOSABLE_LIFECYCLE_POLICY,
@@ -197,5 +198,129 @@ it.each([
       ),
     ).toEqual(result);
     expect(JSON.parse(JSON.stringify(result))).toEqual(result);
+  },
+);
+
+/** Isolate real CLI aliases and their evidence without changing the parent process. */
+function setupCliEntrypoint() {
+  const root = mkdtempSync(join(tmpdir(), "lifecycle entrypoint "));
+  const script = resolve(__dirname, "classify-railway-lifecycle.ts");
+  const alias = join(root, "classifier alias.ts");
+  const records = join(root, "records.json");
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: records,
+  };
+  delete env.FORCE_COLOR;
+  symlinkSync(script, alias);
+  writeFileSync(records, JSON.stringify({ schemaVersion: 1, runs: [] }));
+  return {
+    root,
+    script,
+    alias,
+    records,
+    run(entry: string, input: string) {
+      return spawnSync(
+        resolve(__dirname, "../../node_modules/.bin/tsx"),
+        [entry],
+        {
+          input,
+          encoding: "utf8",
+          timeout: 10_000,
+          env,
+        },
+      );
+    },
+    teardown() {
+      rmSync(root, { recursive: true, force: true });
+    },
+  };
+}
+
+test.each(["script", "alias"] as const)(
+  "runs the classifier through its %s entrypoint",
+  (entry) => {
+    const fixture = setupCliEntrypoint();
+    const input = JSON.stringify({
+      ...inventory,
+      services: [
+        { ...temporary, name: "aimock", serviceId: SERVICES.aimock.serviceId },
+      ],
+    });
+
+    try {
+      const result = fixture.run(fixture[entry], input);
+
+      expect(result.error).toBeUndefined();
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).not.toBe("");
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        services: [
+          {
+            name: "aimock",
+            serviceId: SERVICES.aimock.serviceId,
+            classification: "permanent",
+          },
+        ],
+        failures: [],
+        excludedServices: [],
+      });
+    } finally {
+      fixture.teardown();
+    }
+  },
+);
+
+test.each(["absent", "missing", "directory", "other-file"] as const)(
+  "imports without running the classifier with %s argv",
+  (argv) => {
+    const fixture = setupCliEntrypoint();
+    const importer = join(fixture.root, "import-only.mjs");
+    const entry =
+      argv === "absent"
+        ? undefined
+        : argv === "missing"
+          ? join(fixture.root, "missing.ts")
+          : argv === "directory"
+            ? fixture.root
+            : importer;
+    writeFileSync(
+      importer,
+      `process.argv = ${JSON.stringify(entry === undefined ? ["node"] : ["node", entry])};
+import(${JSON.stringify(pathToFileURL(fixture.alias).href)}).then((module) => {
+  if (typeof module.classifyInventoryPayload !== "function") throw new Error("Missing export");
+  process.stdout.write(${JSON.stringify("import-only\n")});
+});
+`,
+    );
+
+    try {
+      const result = fixture.run(importer, "malformed stdin must stay unread");
+
+      expect(result.error).toBeUndefined();
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stderr).toBe("");
+      expect(result.stdout).toBe("import-only\n");
+    } finally {
+      fixture.teardown();
+    }
+  },
+);
+
+test.each(["", "{"])(
+  "rejects missing or malformed JSON through an alias: %j",
+  (input) => {
+    const fixture = setupCliEntrypoint();
+
+    try {
+      const result = fixture.run(fixture.alias, input);
+
+      expect(result.error).toBeUndefined();
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toContain("Invalid lifecycle inventory JSON");
+    } finally {
+      fixture.teardown();
+    }
   },
 );
