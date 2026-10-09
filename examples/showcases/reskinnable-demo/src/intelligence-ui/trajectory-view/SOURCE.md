@@ -40,3 +40,7 @@ The only changes are the data layer and the labels that came from its sample tri
 - A component attaches to the agent's next message unless another component comes first or no
   message follows (ChatGPT); then it gets its own agent row right after the tool call that drew
   it, and the rest of that trace becomes its own group.
+- Agent-trace steps that follow each other form one collapsed group row, even when they come
+  from two threads (the in-app agent and ChatGPT running side by side), and a lone tool call is
+  a group of one, so no tool call sits in the timeline as its own card. The group summary counts
+  calls, sums their durations, shows one chip per tool with a count, and a red error count.
