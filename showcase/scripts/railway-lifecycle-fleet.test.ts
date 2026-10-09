@@ -15,7 +15,6 @@ import emitted from "./railway-envs.generated.json";
 import { reconcileExitCode, reconcileStaging } from "./reconcile-staging";
 import { runRedeploy } from "./redeploy-env";
 import {
-  expectedPolicyFor,
   runAutoUpdatesGate,
   summarizeAutoUpdatesFailures,
 } from "./verify-autoupdates";
@@ -185,27 +184,36 @@ describe("permanent fleet lifecycle isolation", () => {
   });
 
   it("ignores temporary and unmanaged live auto-update settings while checking permanent services", async () => {
-    const fetchEnvConfig = vi.fn(async (environmentId: string) => {
-      const env = Object.keys(ENV_ID_BY_NAME).find(
-        (name) => ENV_ID_BY_NAME[name] === environmentId,
-      )!;
-      return {
-        services: Object.fromEntries([
-          ...Object.values(SERVICES).map((entry) => [
-            entry.serviceId,
-            {
-              source: {
-                autoUpdates:
-                  expectedPolicyFor(entry, env) === "disabled"
-                    ? null
-                    : { type: "minor" },
-              },
-            },
-          ]),
-          [TEMP_ID, { source: { autoUpdates: { type: "minor" } } }],
+    // Provider values are independent of the gate's policy resolver.
+    const liveConfig = {
+      services: Object.fromEntries([
+        ...Object.values(SERVICES).map((entry) => [
+          entry.serviceId,
+          { source: { autoUpdates: null } },
         ]),
-      };
+        ...Object.values(INTELLIGENCE_IDS).map((id) => [
+          id,
+          { source: { autoUpdates: { type: "minor" } } },
+        ]),
+        [TEMP_ID, { source: { autoUpdates: { type: "minor" } } }],
+      ]),
+    };
+    const fetchEnvConfig = vi.fn(async (_environmentId: string) => liveConfig);
+    const stagingResult = await runAutoUpdatesGate({
+      services: SERVICES,
+      envIds: { staging: STAGING_ENV_ID },
+      fetchEnvConfig,
     });
+    expect(stagingResult).toEqual({
+      checked: 43,
+      skipped: 0,
+      violations: [],
+      perEnv: { staging: { expected: 43, checked: 43, skipped: 0 } },
+    });
+    expect(summarizeAutoUpdatesFailures(stagingResult).shouldFail).toBe(false);
+    expect(fetchEnvConfig).toHaveBeenCalledExactlyOnceWith(STAGING_ENV_ID);
+
+    fetchEnvConfig.mockClear();
     const result = await runAutoUpdatesGate({
       services: SERVICES,
       envIds: ENV_ID_BY_NAME,
@@ -218,6 +226,21 @@ describe("permanent fleet lifecycle isolation", () => {
     expect(fetchEnvConfig.mock.calls.map(([id]) => id).sort()).toEqual(
       Object.values(ENV_ID_BY_NAME).sort(),
     );
+    expect(
+      Object.fromEntries(
+        Object.entries(SERVICES)
+          .filter(([, entry]) => entry.autoUpdates?.staging === "unmanaged")
+          .map(([name, entry]) => [name, entry.serviceId]),
+      ),
+    ).toEqual(INTELLIGENCE_IDS);
+    for (const id of Object.values(INTELLIGENCE_IDS)) {
+      expect(liveConfig.services[id]).toEqual({
+        source: { autoUpdates: { type: "minor" } },
+      });
+    }
+    expect(liveConfig.services[TEMP_ID]).toEqual({
+      source: { autoUpdates: { type: "minor" } },
+    });
   });
 
   it.each(["empty", "invalid"] as const)(
