@@ -987,3 +987,176 @@ test("allows a custom-scheme deep link (only script/HTML schemes are blocked)", 
   );
   openSpy.mockRestore();
 });
+
+// ---------------------------------------------------------------------------
+// ui/request-display-mode: the Angular surface. The negotiation itself is
+// proven at the shared-package level; these cases prove the <dialog> surface,
+// the host-initiated exits and that the widget is told about each change.
+// ---------------------------------------------------------------------------
+
+function outgoingMessages(
+  postMessage: ReturnType<typeof vi.spyOn>,
+): Array<Record<string, any>> {
+  return postMessage.mock.calls.map(
+    ([message]) => message as Record<string, any>,
+  );
+}
+
+function contextChanges(
+  postMessage: ReturnType<typeof vi.spyOn>,
+): Array<Record<string, any>> {
+  return outgoingMessages(postMessage)
+    .filter((m) => m?.method === "ui/notifications/host-context-changed")
+    .map((m) => m.params);
+}
+
+async function requestDisplayMode(
+  fixture: { whenStable: () => Promise<unknown>; detectChanges: () => void },
+  frame: HTMLIFrameElement,
+  id: string,
+  mode: string,
+): Promise<void> {
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    id,
+    method: "ui/request-display-mode",
+    params: { mode },
+  });
+  await settle(fixture);
+  await settle(fixture);
+}
+
+const exitFullscreenButton = (fixture: { nativeElement: HTMLElement }) =>
+  fixture.nativeElement.querySelector<HTMLButtonElement>(
+    "button[aria-label='Exit fullscreen']",
+  );
+
+test("advertises the display mode and the modes on offer at initialize", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { postMessage } = await bootWidget(agent);
+
+  const response = outgoingMessages(postMessage).find(
+    (m) => m?.id === "initialize" && "result" in m,
+  );
+  expect(response?.result?.hostContext).toMatchObject({
+    displayMode: "inline",
+    availableDisplayModes: ["inline", "fullscreen"],
+  });
+});
+
+test("grants fullscreen: exit button, top-layer dialog, frame filling the surface", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { fixture, frame, postMessage } = await bootWidget(agent);
+
+  await requestDisplayMode(fixture, frame, "fs", "fullscreen");
+
+  const response = outgoingMessages(postMessage).find(
+    (m) => m?.id === "fs" && "result" in m,
+  );
+  expect(response?.result).toEqual({ mode: "fullscreen" });
+  expect(exitFullscreenButton(fixture)).not.toBeNull();
+  const dialog = frame.closest("dialog");
+  expect(dialog?.getAttribute("data-mcp-app-display-mode")).toBe("fullscreen");
+  expect(
+    dialog?.classList.contains("copilot-mcp-apps-container--fullscreen"),
+  ).toBe(true);
+  expect(frame.style.height).toBe("100%");
+  expect(contextChanges(postMessage).map((p) => p.displayMode)).toEqual([
+    "fullscreen",
+  ]);
+});
+
+test("the exit button returns to inline, restores the reported height and notifies the widget", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { fixture, frame, postMessage } = await bootWidget(agent);
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    method: "ui/notifications/size-changed",
+    params: { height: 240 },
+  });
+  await settle(fixture);
+  expect(frame.style.height).toBe("240px");
+  await requestDisplayMode(fixture, frame, "fs", "fullscreen");
+  expect(frame.style.height).toBe("100%");
+
+  exitFullscreenButton(fixture)!.click();
+  await settle(fixture);
+  await settle(fixture);
+
+  expect(exitFullscreenButton(fixture)).toBeNull();
+  expect(
+    frame.closest("dialog")?.getAttribute("data-mcp-app-display-mode"),
+  ).toBe("inline");
+  expect(frame.style.height).toBe("240px");
+  expect(contextChanges(postMessage)).toEqual([
+    expect.objectContaining({ displayMode: "fullscreen" }),
+    { displayMode: "inline" },
+  ]);
+});
+
+test("Escape on the modal dialog returns to inline and notifies the widget", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { fixture, frame, postMessage } = await bootWidget(agent);
+  await requestDisplayMode(fixture, frame, "fs", "fullscreen");
+  expect(exitFullscreenButton(fixture)).not.toBeNull();
+
+  // Escape on a modal <dialog> fires `cancel`; jsdom does not derive it from
+  // a keydown, so dispatch what the browser would.
+  frame
+    .closest("dialog")!
+    .dispatchEvent(new Event("cancel", { cancelable: true }));
+  await settle(fixture);
+  await settle(fixture);
+
+  expect(exitFullscreenButton(fixture)).toBeNull();
+  expect(contextChanges(postMessage).map((p) => p.displayMode)).toEqual([
+    "fullscreen",
+    "inline",
+  ]);
+});
+
+test("refuses a mode the app did not declare and leaves the surface inline", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { fixture, frame, postMessage } = await bootWidget(agent);
+  // A second initialize replaces the declared capabilities on the bridge.
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    id: "init-inline-only",
+    method: "ui/initialize",
+    params: {
+      appInfo: { name: "test", version: "1" },
+      appCapabilities: { availableDisplayModes: ["inline"] },
+      protocolVersion: "2026-01-26",
+    },
+  });
+  await settle(fixture);
+
+  await requestDisplayMode(fixture, frame, "fs", "fullscreen");
+
+  const response = outgoingMessages(postMessage).find(
+    (m) => m?.id === "fs" && "result" in m,
+  );
+  expect(response?.result).toEqual({ mode: "inline" });
+  expect(exitFullscreenButton(fixture)).toBeNull();
+  expect(contextChanges(postMessage)).toHaveLength(0);
+});
+
+test("locks the page scroll while fullscreen and restores it on exit", async () => {
+  configureTestingModule();
+  document.body.style.overflow = "";
+  const agent = createAgent();
+  const { fixture, frame } = await bootWidget(agent);
+
+  await requestDisplayMode(fixture, frame, "fs", "fullscreen");
+  expect(document.body.style.overflow).toBe("hidden");
+
+  exitFullscreenButton(fixture)!.click();
+  await settle(fixture);
+  await settle(fixture);
+  expect(document.body.style.overflow).toBe("");
+});
