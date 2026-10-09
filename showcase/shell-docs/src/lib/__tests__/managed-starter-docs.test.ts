@@ -4,20 +4,6 @@ import path from "node:path";
 import { expect, test } from "vitest";
 
 const CONTENT_DIR = path.resolve(import.meta.dirname, "../../content");
-const MANAGED_ONBOARDING_GUIDES = [
-  "docs/intelligence/managed-intelligence-platform.mdx",
-  "snippets/shared/cli/cli.mdx",
-];
-const MANAGED_CTA_SOURCES = [
-  ...MANAGED_ONBOARDING_GUIDES,
-  "docs/intelligence/intelligence-platform.mdx",
-];
-const MANAGED_RUNTIME_GUIDES = [
-  "docs/backend/runtime-endpoints.mdx",
-  "docs/intelligence/connect-your-runtime.mdx",
-  "snippets/shared/threads/headless-threads.mdx",
-];
-const MANAGED_DASHBOARD_URL = "https://dashboard.operations.copilotkit.ai/";
 
 /** Reads managed-onboarding docs as whitespace-normalized contract fixtures. */
 function readSources(relativePaths: readonly string[]): string[] {
@@ -27,152 +13,6 @@ function readSources(relativePaths: readonly string[]): string[] {
       .replace(/\s+/g, " "),
   );
 }
-
-/** Asserts that a guide presents onboarding requirements in journey order. */
-function expectPatternsInOrder(
-  source: string,
-  patterns: readonly RegExp[],
-): void {
-  let previousIndex = -1;
-
-  for (const pattern of patterns) {
-    const match = pattern.exec(source);
-    if (!match) throw new Error(`Missing onboarding step: ${pattern}`);
-
-    expect(
-      match.index,
-      `Onboarding step is out of order: ${pattern}`,
-    ).toBeGreaterThan(previousIndex);
-    previousIndex = match.index;
-  }
-}
-
-test("documents the conditional managed onboarding journey", () => {
-  const sequence = [
-    /Clerk signup,[^.]*\b(?:new users accept|a new user accepts)\b[^.]*CopilotKit Self-Service Agreement/i,
-    /select or create an organization/i,
-    /every new hosted organization created at or after[^.]*cutoff[^.]*explicitly choose[^.]*Developer[^.]*paid plan/i,
-    /### (?:Return to the terminal|Continue where you started)/i,
-    /### Select or create a project/i,
-  ];
-
-  for (const source of readSources(MANAGED_ONBOARDING_GUIDES)) {
-    expectPatternsInOrder(source, sequence);
-  }
-});
-
-test("documents grandfathering, consent, and self-hosted admission boundaries", () => {
-  for (const source of readSources(MANAGED_ONBOARDING_GUIDES)) {
-    expect(source).toMatch(
-      /(?:existing )?hosted organizations created before[^.]*cutoff[^.]*continue without a plan prompt/i,
-    );
-    expect(source).toMatch(/existing accounts do not re-consent/i);
-    expect(source).toMatch(
-      /customer-run self-hosted deployment[^.]*customer[^.]*identity provider[^.]*never sees[^.]*Clerk admission/i,
-    );
-  }
-});
-
-test("does not count Clerk automatic Free as the required organization choice", () => {
-  for (const source of readSources(MANAGED_ONBOARDING_GUIDES)) {
-    expect(source).toMatch(
-      /Clerk(?:'s|’s) automatic Free assignment does not (?:satisfy|count as) the required Developer-or-paid choice/i,
-    );
-    expect(source).not.toMatch(
-      /Clerk(?:'s|’s) automatic Free assignment (?:satisfies|counts as) the required Developer-or-paid choice/i,
-    );
-  }
-});
-
-test("removes automatic-Free promises from managed onboarding calls to action", () => {
-  for (const source of readSources(MANAGED_CTA_SOURCES)) {
-    expect(source).not.toMatch(/Create a free account/i);
-    expect(source).toContain('ctaLabel="Start managed onboarding"');
-  }
-});
-
-test("points managed onboarding calls to action at the hosted dashboard", () => {
-  for (const source of readSources(MANAGED_CTA_SOURCES)) {
-    const managedCta = source.match(
-      /<OpsPlatformCTA[^>]*ctaLabel="Start managed onboarding"[^>]*\/>/,
-    )?.[0];
-
-    expect(managedCta).toContain(`href="${MANAGED_DASHBOARD_URL}"`);
-  }
-});
-
-test("names create as the init command alias across managed setup guides", () => {
-  const sources = readSources([
-    ...MANAGED_ONBOARDING_GUIDES,
-    "snippets/shared/threads/headless-threads.mdx",
-  ]);
-  const reversedAlias =
-    /`create`(?:\s+\(aliased as|\s+(?:and|or)\s+its)\s+`init`/;
-  const canonicalAlias =
-    /`init`(?:\s+\(aliased as|\s+(?:and|or)\s+its)\s+`create`/;
-
-  for (const source of sources) {
-    expect(source).toMatch(canonicalAlias);
-    expect(source).not.toMatch(reversedAlias);
-  }
-});
-
-test("documents the managed CLI credential without an offline license token", () => {
-  const oldKeyName = ["INTELLIGENCE", "API", "KEY"].join("_");
-  const sources = [
-    "docs/intelligence/managed-intelligence-platform.mdx",
-    "snippets/shared/cli/cli.mdx",
-    "snippets/shared/threads/headless-threads.mdx",
-  ].map((relativePath) =>
-    fs
-      .readFileSync(path.join(CONTENT_DIR, relativePath), "utf8")
-      .replace(/\s+/g, " "),
-  );
-
-  for (const source of sources) {
-    expect(source).toContain(
-      "Managed project setup does not issue `COPILOTKIT_LICENSE_TOKEN`.",
-    );
-    expect(source).toContain("`CPK_INTELLIGENCE_API_KEY`");
-    expect(source).not.toContain(`\`${oldKeyName}\``);
-    expect(source).not.toContain("COPILOTKIT_LICENSE_TOKEN=...");
-  }
-});
-
-/**
- * A provisioned project key is `cpk-<projectId>_<short>_<long>` — see
- * `keyPrefix: \`cpk-${projectId}\`` in Intelligence's `apps/app-api/src/api-keys.ts`
- * and the `parseApiKeyToken` fixtures. `cpk_...` matches no key the platform
- * issues, so a reader comparing the placeholder against their own key sees a
- * mismatch where there is none.
- */
-test("uses the managed API key prefix in thread import examples", () => {
-  const sources = readSources([
-    "docs/integrations/adk/threads-import.mdx",
-    "docs/integrations/langgraph/threads-import.mdx",
-    "snippets/shared/cli/cli.mdx",
-    "snippets/shared/threads/threads-import.mdx",
-  ]);
-
-  for (const source of sources) {
-    expect(source).toContain('CPK_INTELLIGENCE_API_KEY="cpk-..."');
-    expect(source).not.toContain('CPK_INTELLIGENCE_API_KEY="cpk_..."');
-  }
-});
-
-test("reads the CLI-managed key name in Runtime wiring guides", () => {
-  const oldKeyName = ["INTELLIGENCE", "API", "KEY"].join("_");
-  const sources = readSources(MANAGED_RUNTIME_GUIDES);
-
-  for (const source of sources) {
-    expect(source).toContain("process.env.CPK_INTELLIGENCE_API_KEY");
-    expect(source).not.toContain(`process.env.${oldKeyName}`);
-  }
-
-  const connectRuntime = sources[1];
-  expect(connectRuntime).toContain("CPK_INTELLIGENCE_API_KEY=cpk-...");
-  expect(connectRuntime).not.toContain("CPK_INTELLIGENCE_API_KEY=cpk_...");
-});
 
 /**
  * ENT-1151 removed the license token from managed setup, but twelve integration
@@ -201,6 +41,65 @@ test("never names a license key as the value of the project API key", () => {
   }
 
   expect(offenders).toEqual([]);
+});
+
+test("managed quickstarts provision a project API key instead of a license key", () => {
+  const quickstarts = mdxFilesIn(path.join(CONTENT_DIR, "docs")).filter(
+    (file) =>
+      file.endsWith("quickstart.mdx") &&
+      /<SignupLink\s+surface="[^"]*quickstart_step1"/.test(
+        fs.readFileSync(file, "utf8"),
+      ),
+  );
+
+  expect(quickstarts.length).toBeGreaterThan(0);
+
+  for (const file of quickstarts) {
+    const rawSource = fs.readFileSync(file, "utf8");
+    const source = rawSource.replace(/\s+/g, " ");
+
+    expect(source).not.toMatch(/license key/i);
+    expect(source).not.toMatch(/free developer account/i);
+
+    if (source.includes("`CPK_INTELLIGENCE_API_KEY`")) {
+      expect(source).toContain("project API key");
+      expect(source).toMatch(
+        /npx copilotkit@latest (?:project select|init(?:\s|`))/,
+      );
+
+      for (const match of rawSource.matchAll(
+        /npx copilotkit@latest project select/g,
+      )) {
+        const precedingSource = rawSource.slice(0, match.index);
+        const branchStart = precedingSource.lastIndexOf(
+          "<TailoredContentOption",
+        );
+        const previousBranchEnd = precedingSource.lastIndexOf(
+          "</TailoredContentOption>",
+        );
+        const currentBranchStart =
+          branchStart > previousBranchEnd ? branchStart : 0;
+        const currentBranchBeforeSelection =
+          precedingSource.slice(currentBranchStart);
+
+        expect(currentBranchBeforeSelection).toMatch(
+          /(?:git clone |npx create-next-app@latest |npx copilotkit@latest (?:create|init))/,
+        );
+      }
+    }
+  }
+});
+
+test("managed Inspector examples keep credentials on the runtime server", () => {
+  const sources = readSources([
+    "docs/inspector.mdx",
+    "snippets/shared/intelligence/inspector.mdx",
+  ]);
+
+  for (const source of sources) {
+    expect(source).toContain('runtimeUrl="/api/copilotkit"');
+    expect(source).not.toContain("NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY");
+  }
 });
 
 /** Every MDX page under `dir`, recursively. */

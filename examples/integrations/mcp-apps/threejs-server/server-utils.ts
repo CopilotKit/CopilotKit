@@ -25,7 +25,16 @@ export async function startServer(
 ): Promise<void> {
   const { port, name = "MCP Server" } = options;
 
-  const app = createMcpExpressApp({ host: "0.0.0.0" });
+  // This MCP server is unauthenticated, so it binds to loopback. MCP_HOST is the
+  // deliberate opt-out (reaching it from another device, or a container).
+  const host = process.env.MCP_HOST ?? "127.0.0.1";
+
+  // `host` here is NOT a bind address — the bind is the app.listen() below.
+  // In the MCP SDK this option only selects the DNS-rebinding policy:
+  // "127.0.0.1" / "localhost" / "::1" enable Host-header validation, and any
+  // other value (this previously passed "0.0.0.0") disables it. Passing the
+  // value we actually bind with keeps the policy in step with the bind.
+  const app = createMcpExpressApp({ host });
   app.use(cors());
 
   app.all("/mcp", async (req: Request, res: Response) => {
@@ -54,12 +63,12 @@ export async function startServer(
     }
   });
 
-  const httpServer = app.listen(port, (err) => {
+  const httpServer = app.listen(port, host, (err) => {
     if (err) {
       console.error("Failed to start server:", err);
       process.exit(1);
     }
-    console.log(`${name} listening on http://localhost:${port}/mcp`);
+    console.log(`${name} listening on http://${host}:${port}/mcp`);
   });
 
   const shutdown = () => {

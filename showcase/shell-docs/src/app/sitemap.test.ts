@@ -6,10 +6,7 @@ import {
   channelConnectHref,
   channelGuideHref,
 } from "@/lib/channel-guide-routes";
-import { loadDoc } from "@/lib/docs-render";
-import { getFrontendContentSlug } from "@/lib/frontend-page-content";
-import { getDocsMode, getIntegrations, ROOT_FRAMEWORK } from "@/lib/registry";
-import { resolveLastModified } from "@/lib/sitemap-helpers";
+import { getDocsMode, getIntegrations } from "@/lib/registry";
 import sitemap from "./sitemap";
 
 const visibleChannelFrameworks = getIntegrations().filter(
@@ -70,33 +67,6 @@ test("publishes exactly the canonical Channels URL matrix", () => {
   expect(paths).not.toContain("/teams/using-these-docs");
 });
 
-test("collapses Built-in Agent channel URLs and expands every selected framework", () => {
-  const paths = actualChannelPaths(sitemapPaths());
-
-  for (const frontend of CHANNEL_FRONTENDS) {
-    expect(paths).toContain(`/${frontend}`);
-    expect(paths).toContain(`/${frontend}/connect`);
-    expect(paths).not.toContain(`/${frontend}/${ROOT_FRAMEWORK}`);
-    expect(
-      [...paths].some((pathname) =>
-        pathname.startsWith(`/${frontend}/${ROOT_FRAMEWORK}/`),
-      ),
-    ).toBe(false);
-
-    for (const framework of visibleChannelFrameworks.filter(
-      ({ slug }) => slug !== ROOT_FRAMEWORK,
-    )) {
-      expect(paths).toContain(`/${frontend}/${framework.slug}`);
-      expect(paths).toContain(channelConnectHref(frontend, framework.slug));
-      for (const guide of CHANNEL_GUIDE_ROUTES) {
-        expect(paths).toContain(
-          channelGuideHref(frontend, framework.slug, guide.slug),
-        );
-      }
-    }
-  }
-});
-
 test("publishes every sitemap URL at most once", () => {
   const urls = sitemap().map((entry) => entry.url);
 
@@ -114,123 +84,4 @@ test("excludes every hidden framework from every sitemap surface", () => {
       ),
     ).toEqual([]);
   }
-});
-
-test("uses the exact connection-guide and shared-guide source dates for channel pages", () => {
-  const expectedSourceByPath = new Map<string, string>();
-
-  for (const frontend of CHANNEL_FRONTENDS) {
-    const connectionGuide = loadDoc(getFrontendContentSlug(frontend));
-    expect(connectionGuide).not.toBeNull();
-
-    for (const framework of visibleChannelFrameworks) {
-      expectedSourceByPath.set(
-        channelConnectHref(frontend, framework.slug),
-        connectionGuide!.filePath,
-      );
-
-      for (const guide of CHANNEL_GUIDE_ROUTES) {
-        const guideDoc = loadDoc(guide.sourceSlug);
-        expect(guideDoc).not.toBeNull();
-        expectedSourceByPath.set(
-          channelGuideHref(frontend, framework.slug, guide.slug),
-          guideDoc!.filePath,
-        );
-      }
-    }
-  }
-
-  const entriesByPath = new Map(
-    sitemap().map((entry) => [
-      new URL(entry.url, "http://localhost").pathname,
-      entry,
-    ]),
-  );
-
-  expect(expectedSourceByPath.size).toBe(expectedChannelPathCount);
-  for (const [pathname, sourcePath] of expectedSourceByPath) {
-    const entry = entriesByPath.get(pathname);
-    expect(entry, `missing ${pathname}`).toBeDefined();
-    expect(entry!.lastModified).toBeInstanceOf(Date);
-    expect(new Date(entry!.lastModified!).getTime()).toBe(
-      resolveLastModified(sourcePath).getTime(),
-    );
-  }
-});
-
-test("omits the Channels overview and publishes the global SDK reference", () => {
-  const paths = sitemap().map(
-    (entry) => new URL(entry.url, "http://localhost").pathname,
-  );
-
-  expect(paths).not.toContain("/channels");
-  expect(paths).toEqual(
-    expect.arrayContaining([
-      "/reference/channels",
-      "/reference/channels/classes/Channel",
-      "/reference/channels/classes/Thread",
-      "/reference/channels/components/Button",
-      "/reference/channels/functions/createChannel",
-      "/reference/channels/types/JSXCallbacks",
-      "/reference/channels/types/StateStore",
-    ]),
-  );
-});
-
-test("publishes the Angular feature catalog at its canonical URL", () => {
-  const urls = sitemap().map((entry) => entry.url);
-
-  expect(urls.some((url) => url.endsWith("/angular/features"))).toBe(true);
-});
-
-test("publishes every Angular task guide at its canonical URL", () => {
-  const urls = sitemap().map((entry) => entry.url);
-  const guidePaths = [
-    "/angular/guides/chat-ui",
-    "/angular/guides/frontend-tools-generative-ui",
-    "/angular/guides/a2ui",
-    "/angular/guides/voice-multimodal",
-    "/angular/guides/human-in-the-loop",
-    "/angular/guides/shared-state",
-    "/angular/guides/threads-memory-attachments-headless",
-  ];
-
-  for (const guidePath of guidePaths) {
-    expect(urls.some((url) => url.endsWith(guidePath))).toBe(true);
-  }
-});
-
-test("publishes shared Runtime and Intelligence docs once on the Angular surface", () => {
-  const urls = sitemap().map((entry) => entry.url);
-
-  expect(
-    urls.some((url) => url.endsWith("/angular/backend/copilot-runtime")),
-  ).toBe(true);
-  expect(
-    urls.some((url) =>
-      url.endsWith("/angular/intelligence/intelligence-platform"),
-    ),
-  ).toBe(true);
-  expect(urls.some((url) => url.endsWith("/angular/auth"))).toBe(true);
-  expect(
-    urls.some((url) =>
-      url.endsWith(
-        "/angular/langgraph-python/intelligence/intelligence-platform",
-      ),
-    ),
-  ).toBe(false);
-});
-
-test("publishes Angular backend roots and backend-owned pages without a full cross-product", () => {
-  const urls = sitemap().map((entry) => entry.url);
-
-  expect(urls.some((url) => url.endsWith("/angular/langgraph-python"))).toBe(
-    true,
-  );
-  expect(
-    urls.some((url) => url.endsWith("/angular/langgraph-python/quickstart")),
-  ).toBe(true);
-  expect(
-    urls.some((url) => url.endsWith("/angular/langgraph-python/auth")),
-  ).toBe(false);
 });

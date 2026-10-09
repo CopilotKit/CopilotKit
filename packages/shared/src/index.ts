@@ -1,13 +1,46 @@
 export * from "./types";
 export * from "./utils";
 export * from "./constants";
-export * from "./telemetry";
+// Telemetry is split deliberately. `TelemetryClient` imports
+// `@segment/analytics-node`, which imports `node-fetch`, which imports the
+// Node built-ins `stream`, `http`, `https` and `zlib`. Browser bundlers
+// resolve the whole module graph before they tree-shake, so re-exporting
+// that module here made every browser build of a dependent package print
+// "Module ... has been externalized for browser compatibility" warnings,
+// even when the consumer never touched telemetry (#4151). Only the
+// browser-safe telemetry surface is re-exported from this entry. Server
+// code that needs the client imports it from `@copilotkit/shared/telemetry`.
+// This mirrors the license-verifier note below.
+export { isTelemetryDisabled } from "./telemetry/telemetry-disabled";
+export * from "./telemetry/sampling";
+// Pure string classification with no imports, so it carries no runtime edge
+// into browser builds — same reasoning as `sampling` above.
+export * from "./telemetry/model-host";
+export {
+  firstNonBlankTelemetryId,
+  lambdaClient,
+  parseTelemetryIdFromLicense,
+  parseAndWarnTelemetryId,
+} from "./telemetry/lambda-client";
+export type { LambdaSendOptions } from "./telemetry/lambda-client";
+// Types only: erased at build time, so they add no runtime edge to
+// `telemetry-client.ts` and therefore none to @segment/analytics-node.
+export type {
+  TelemetryCapture,
+  TelemetryIdentity,
+} from "./telemetry/telemetry-client";
 export * from "./debug";
 export * from "./standard-schema";
 export * from "./attachments";
 
 export { logger } from "./logger";
-export { finalizeRunEvents } from "./finalize-events";
+export {
+  createRunEventFinalizer,
+  finalizeRunEvents,
+  type FinalizeRunOptions,
+  type RunEventFinalizer,
+} from "./finalize-events";
+export { stripIntelligenceRoutingFields } from "./intelligence-routing-fields";
 
 export {
   TranscriptionErrorCode,
@@ -106,7 +139,8 @@ export function createLicenseContextValue(
   const activeEntitlement = featureAuthority?.active ? featureAuthority : null;
   const resolvedStatus = activeEntitlement
     ? "valid"
-    : readyEntitlement?.source === "managedOrgSubscription"
+    : readyEntitlement?.source === "managedOrgSubscription" ||
+        readyEntitlement?.source === "awsMarketplaceDeploymentLicense"
       ? "none"
       : featureAuthority
         ? (status ?? "none")
@@ -143,3 +177,5 @@ export {
 } from "./a2ui-prompts";
 
 export type { DebugEventEnvelope } from "./debug-event-envelope";
+
+export { GENERATE_SANDBOXED_UI_DESCRIPTION } from "./open-generative-ui-prompts";

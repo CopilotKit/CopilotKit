@@ -10,12 +10,14 @@
 // Both entry points arrive as slots, so each surface can supply its own wiring
 // (prompt text, quickstart href, analytics dimensions) while the layout, order
 // and spacing stay identical everywhere. The row stacks vertically on narrow
-// viewports and sits side by side from `sm` up.
+// viewports and sits side by side from `sm` up. One muted line under the row
+// says which folder to open the coding agent in (PE-301).
 
 import React from "react";
 import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
 import { ArrowRight } from "lucide-react";
+import { PromptGuidance } from "./prompt-pill";
 
 type QuickstartVariant = "primary" | "secondary";
 
@@ -30,7 +32,7 @@ const QUICKSTART_BASE_CLASS =
 // accent and underline it inside MDX-rendered pages.
 const QUICKSTART_VARIANT_CLASS: Record<QuickstartVariant, string> = {
   primary:
-    "shell-docs-primary-cta border-[var(--accent)] bg-[var(--accent)] text-[var(--primary-foreground)] hover:bg-[var(--accent-strong)]",
+    "shell-docs-primary-cta border-[var(--accent-fill)] bg-[var(--accent-fill)] text-[var(--primary-foreground)] hover:bg-[var(--accent-strong)]",
   secondary:
     "shell-docs-cta-link border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text)] hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
 };
@@ -45,12 +47,14 @@ export function QuickstartLinkButton({
   backend,
   fromPath,
   variant = "primary",
+  label = "Quickstart",
 }: {
   href: string;
   frontend?: string;
   backend?: string;
   fromPath?: string;
   variant?: QuickstartVariant;
+  label?: string;
 }) {
   const posthog = usePostHog();
 
@@ -74,9 +78,17 @@ export function QuickstartLinkButton({
       onClick={handleClick}
       className={`${QUICKSTART_BASE_CLASS} ${QUICKSTART_VARIANT_CLASS[variant]}`}
     >
-      Quickstart
+      {label}
       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
     </Link>
+  );
+}
+
+// Shown under every prompt pill row, the hero and the page tools alike, so
+// the line reads the same everywhere. The words live in `@/lib/prompt-guidance`.
+export function PromptFolderHint() {
+  return (
+    <PromptGuidance className="text-sm leading-snug text-[var(--text-muted)]" />
   );
 }
 
@@ -88,9 +100,12 @@ export function HeroStartActions({
   quickstart: React.ReactNode;
 }) {
   return (
-    <div className="flex max-w-[820px] flex-col gap-3 sm:flex-row sm:items-center">
-      {prompt}
-      {quickstart}
+    <div className="flex max-w-[820px] flex-col gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        {prompt}
+        {quickstart}
+      </div>
+      <PromptFolderHint />
     </div>
   );
 }

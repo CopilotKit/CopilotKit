@@ -5,7 +5,7 @@ This is a starter template for building AI agents using [CrewAI Flows](https://d
 ## Prerequisites
 
 - Node.js 18+
-- Python 3.10+
+- Python 3.10–3.13
 - [uv](https://docs.astral.sh/uv/) - Fast Python package installer and resolver
 - Any of the following package managers:
   - npm (default)

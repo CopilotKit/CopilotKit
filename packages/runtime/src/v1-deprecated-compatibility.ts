@@ -4,7 +4,7 @@
  * This is the deprecated v1 entrypoint `@copilotkit/runtime`. Use v2 instead.
  * Migrate to `@copilotkit/runtime/v2` and follow each export's specific
  * IDE deprecation warning below; renamed APIs are not safe search-and-replaces.
- * This entrypoint currently exposes 66 deprecated public exports.
+ * This entrypoint currently exposes 69 deprecated public exports.
  * V2 source entrypoint: packages/runtime/src/v2/index.ts
  * V2 docs: https://docs.copilotkit.ai/
  * V2 reference docs: https://docs.copilotkit.ai/reference/v2
@@ -44,7 +44,8 @@ export {
   LangGraphAgent,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
-   * No 1:1 v2 replacement is available.
+   * Use `HttpAgent` from `@ag-ui/client`, passed to the v2 `CopilotRuntime`.
+   * Exception: a v1 client still resuming interrupts through `forwardedProps.command.resume` — `LangGraphHttpAgent` keeps a back-compat bridge for that channel.
    * Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
    * Start with `@copilotkit/runtime/v2`.
    * V2 docs: https://docs.copilotkit.ai/
@@ -100,11 +101,13 @@ export {
 export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
-   * No 1:1 v2 replacement is available.
-   * Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
-   * Start with `@copilotkit/runtime/v2`.
-   * V2 docs: https://docs.copilotkit.ai/
-   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
+   * Use `createCopilotRuntimeHandler` from `@copilotkit/runtime/v2` instead.
+   * Import and usage example:
+   * ```ts
+   * import { createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
+   * const v2CreateCopilotRuntimeHandler = createCopilotRuntimeHandler;
+   * ```
+   * See https://docs.copilotkit.ai/runtime-server-adapter
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   copilotRuntimeNextJSAppRouterEndpoint,
@@ -136,11 +139,13 @@ export {
 export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
-   * No 1:1 v2 replacement is available.
-   * Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
-   * Start with `@copilotkit/runtime/v2`.
-   * V2 docs: https://docs.copilotkit.ai/
-   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
+   * Use `createCopilotExpressHandler` from `@copilotkit/runtime/v2/express` instead.
+   * Import and usage example:
+   * ```ts
+   * import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
+   * const v2CreateCopilotExpressHandler = createCopilotExpressHandler;
+   * ```
+   * See https://docs.copilotkit.ai/runtime-server-adapter
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   copilotRuntimeNodeExpressEndpoint,
@@ -149,11 +154,13 @@ export {
 export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
-   * No 1:1 v2 replacement is available.
-   * Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
-   * Start with `@copilotkit/runtime/v2`.
-   * V2 docs: https://docs.copilotkit.ai/
-   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
+   * Use `createCopilotRuntimeHandler` from `@copilotkit/runtime/v2` instead.
+   * Import and usage example:
+   * ```ts
+   * import { createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
+   * const v2CreateCopilotRuntimeHandler = createCopilotRuntimeHandler;
+   * ```
+   * See https://docs.copilotkit.ai/runtime-server-adapter
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   copilotRuntimeNodeHttpEndpoint,
@@ -232,6 +239,15 @@ export {
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type GraphQLContext,
+  /**
+   * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
+   * No 1:1 v2 replacement is available.
+   * Start with `@copilotkit/runtime/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
+   * Migration guide: https://docs.copilotkit.ai/migrate/v2
+   */
+  type GraphQLRequestContext,
 } from "./v1-deprecated/lib/integrations/shared";
 
 export {
@@ -472,6 +488,15 @@ export {
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type AnthropicPromptCachingConfig,
+  /**
+   * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
+   * No 1:1 v2 replacement is available.
+   * Start with `@copilotkit/runtime/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
+   * Migration guide: https://docs.copilotkit.ai/migrate/v2
+   */
+  FilterThinkingTextBuffer,
 } from "./v1-deprecated/service-adapters/anthropic/anthropic-adapter";
 
 export {
@@ -708,6 +733,15 @@ export {
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   getSdkClientOptions,
+  /**
+   * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
+   * No 1:1 v2 replacement is available.
+   * Start with `@copilotkit/runtime/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
+   * Migration guide: https://docs.copilotkit.ai/migrate/v2
+   */
+  type SdkClientLike,
 } from "./v1-deprecated/service-adapters/shared/sdk-client-utils";
 
 export {

@@ -1,3 +1,5 @@
+import type { ModelHostClass } from "@copilotkit/shared";
+
 export type AnalyticsEvents = {
   "oss.runtime.instance_created": RuntimeInstanceCreatedInfo;
   "oss.runtime.copilot_request_created": {
@@ -42,6 +44,16 @@ export interface RuntimeInstanceCreatedInfo {
 }
 
 export interface AgentExecutionResponseInfo {
+  /**
+   * Which vendor the runtime actually sent the completion to, as a closed
+   * vocabulary — see `classifyModelHost`. Distinct from `provider` below,
+   * which the upstream reports as a model name and which cannot tell Azure,
+   * OpenRouter or a local server apart from OpenAI.
+   *
+   * `unknown` when the developer handed us an already-built model, because
+   * the endpoint is unrecoverable from one.
+   */
+  llmHostClass?: ModelHostClass;
   provider?: string;
   model?: string;
   langGraphHost?: string;

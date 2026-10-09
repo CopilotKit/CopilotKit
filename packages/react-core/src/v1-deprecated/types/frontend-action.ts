@@ -40,6 +40,12 @@
  *   V2 docs: https://docs.copilotkit.ai/
  *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
+ * @copilotkit/react-core — CatchAllActionRenderPropsWait:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
  * @copilotkit/react-core — CatchAllFrontendAction:
  *   No 1:1 v2 replacement is available.
  *   Related v2 docs (Tool-based generative UI): https://docs.copilotkit.ai/generative-ui/tool-based
@@ -74,6 +80,7 @@
  */
 
 import { ActionInputAvailability } from "@copilotkit/runtime-client-gql";
+import type { WebMCPToolConfig } from "@copilotkit/core";
 import type {
   Action,
   Parameter,
@@ -237,6 +244,12 @@ export type FrontendAction<
   available?: FrontendActionAvailability;
   pairedAction?: string;
   followUp?: boolean;
+  /**
+   * Also expose this action to browser agents through the WebMCP API
+   * (`document.modelContext`). `true` uses default annotations;
+   * `{ annotations }` provides WebMCP annotations.
+   */
+  webmcp?: boolean | WebMCPToolConfig;
 } & (
     | {
         render?:

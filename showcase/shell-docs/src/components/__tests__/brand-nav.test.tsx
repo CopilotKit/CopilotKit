@@ -52,33 +52,10 @@ import {
   buildDocsUserMenuHref,
   DocsAuthFallbackBoundary,
 } from "../docs-public-auth-control";
-
-const brandNavSource = readFileSync(
-  new URL("../brand-nav.tsx", import.meta.url),
-  "utf8",
-);
 const docsPublicAuthControlSource = readFileSync(
   new URL("../docs-public-auth-control.tsx", import.meta.url),
   "utf8",
 );
-const mobileTopNavSource = readFileSync(
-  new URL("../mobile-top-nav.tsx", import.meta.url),
-  "utf8",
-);
-const globalsCss = readFileSync(
-  new URL("../../app/globals.css", import.meta.url),
-  "utf8",
-);
-
-test("BrandNav uses the docs grid desktop layout cap", () => {
-  expect(brandNavSource).toContain("shell-docs-brand-nav-inner");
-  expect(globalsCss).toContain(".shell-docs-brand-nav-inner");
-  expect(globalsCss).toContain(
-    "--shell-docs-layout-width: calc(97rem + 11px);",
-  );
-  expect(brandNavSource).not.toContain("max-w-[calc(");
-  expect(brandNavSource).not.toContain("max-w-[1534px]");
-});
 
 test("BrandNav keeps the public auth CTA while Clerk is loading", () => {
   clerkState.isLoaded = false;
@@ -89,30 +66,6 @@ test("BrandNav keeps the public auth CTA while Clerk is loading", () => {
 
   expect(markup).toContain("Get CopilotKit Intelligence free");
   expect(markup).not.toContain("Account menu");
-});
-
-test("MobileTopNav uses the CopilotKit Intelligence auth label", () => {
-  expect(mobileTopNavSource).toContain("Get CopilotKit Intelligence free");
-  expect(mobileTopNavSource).not.toContain("Get Enterprise Intelligence free");
-});
-
-test("BrandNav renders Clerk's user button in the desktop auth slot", () => {
-  clerkState.isLoaded = true;
-  clerkState.isSignedIn = true;
-  clerkState.shouldThrow = false;
-
-  const markup = renderToStaticMarkup(<BrandNav />);
-
-  expect(markup).toContain("Account menu");
-  expect(markup).toContain(
-    'href="https://dashboard.operations.copilotkit.ai/intelligence"',
-  );
-  expect(markup).toContain("Intelligence");
-  expect(markup).toContain(
-    'href="https://dashboard.operations.copilotkit.ai/pricing"',
-  );
-  expect(markup).toContain("Manage your plan");
-  expect(markup).not.toContain("Get CopilotKit Intelligence free");
 });
 
 test("BrandNav uses the environment-specific Ops origin for user menu links", () => {

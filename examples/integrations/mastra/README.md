@@ -87,11 +87,6 @@ Neither message proves the provider app is installed, reachable, or that
 anyone can message it — verify that separately (invite the bot, then message
 it) before treating the Channel as working.
 
-Unlike the other starters, this one has no `typecheck:channel` script: the
-host's import chain reaches `src/mastra/**`, which carries a pre-existing
-type error unrelated to the Channel host (see the comment in
-`tsconfig.channel.json`).
-
 ## Available Scripts
 
 The following scripts can also be run using your preferred package manager:
@@ -103,6 +98,7 @@ The following scripts can also be run using your preferred package manager:
 - `build` - Builds the application for production
 - `start` - Starts the production server
 - `channel` - Holds an Intelligence Channel open (see "Running a Channel" above)
+- `typecheck:channel` - Type-checks the Channel host and the agent tree it imports
 
 ## Documentation
 

@@ -159,7 +159,7 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   // to parse around prose or code fences. Passed via `modelKwargs` so it
   // survives the LangChain → OpenAI chat-completions mapping.
   const model = makeChatOpenAI(config, {
-    model: "gpt-4o-mini",
+    model: "gpt-5-mini",
     temperature: 0.2,
     modelKwargs: { response_format: { type: "json_object" } },
   });

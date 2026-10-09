@@ -779,6 +779,21 @@ describe("BuiltInAgent classic interrupt tools", () => {
 // native tool-result so the factory continues.
 // ---------------------------------------------------------------------------
 
+function approvalMessages(ids: string[]) {
+  return ids.map((id) => ({
+    id: `assistant-${id}`,
+    role: "assistant" as const,
+    content: "",
+    toolCalls: [
+      {
+        id,
+        type: "function" as const,
+        function: { name: "bookFlight", arguments: "{}" },
+      },
+    ],
+  }));
+}
+
 describe("BuiltInAgent factory native approval interrupts", () => {
   it("aisdk: tool-approval-request → outcome:interrupt keyed by toolCallId", async () => {
     const agent = createAgent("aisdk", [
@@ -839,7 +854,14 @@ describe("BuiltInAgent factory native approval interrupts", () => {
       { interruptId: "tc-1", status: "resolved", payload: { approved: true } },
       { interruptId: "tc-2", status: "cancelled" },
     ];
-    await collectEvents(agent.run(createDefaultInput({ resume })));
+    await collectEvents(
+      agent.run(
+        createDefaultInput({
+          resume,
+          messages: approvalMessages(resume.map((entry) => entry.interruptId)),
+        }),
+      ),
+    );
     const toolMsgs = captured!.messages.filter(
       (m) => m.role === "tool",
     ) as any[];
@@ -943,7 +965,12 @@ describe("BuiltInAgent factory native approval interrupts", () => {
       { interruptId: "tc-1", status: "resolved", payload: { approved: true } },
     ];
     const events = await collectEvents(
-      agent.run(createDefaultInput({ resume })),
+      agent.run(
+        createDefaultInput({
+          resume,
+          messages: approvalMessages(resume.map((entry) => entry.interruptId)),
+        }),
+      ),
     );
 
     // Normal completion on the resume run (no re-interrupt).
@@ -976,7 +1003,14 @@ describe("BuiltInAgent factory native approval interrupts", () => {
     const resume: ResumeEntry[] = [
       { interruptId: "tc-9", status: "cancelled" },
     ];
-    await collectEvents(agent.run(createDefaultInput({ resume })));
+    await collectEvents(
+      agent.run(
+        createDefaultInput({
+          resume,
+          messages: approvalMessages(resume.map((entry) => entry.interruptId)),
+        }),
+      ),
+    );
 
     const toolMsg = captured!.messages.find(
       (m) => m.role === "tool" && (m as any).toolCallId === "tc-9",

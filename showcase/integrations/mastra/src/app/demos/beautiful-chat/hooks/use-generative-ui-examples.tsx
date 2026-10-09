@@ -34,8 +34,15 @@ export const useGenerativeUIExamples = () => {
         .number()
         .describe("Duration of the meeting in minutes"),
     }),
-    render: ({ respond, status, args }) => {
-      return <MeetingTimePicker status={status} respond={respond} {...args} />;
+    render: ({ respond, status, args, result }) => {
+      return (
+        <MeetingTimePicker
+          status={status}
+          respond={respond}
+          result={result}
+          {...args}
+        />
+      );
     },
   });
 

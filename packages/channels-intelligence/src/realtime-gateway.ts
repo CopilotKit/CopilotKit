@@ -195,6 +195,14 @@ export interface ConnectRealtimeGatewayOptions {
 const ERROR_WITHOUT_CLOSE_GRACE_MS = 100;
 
 /**
+ * Phoenix heartbeat interval for the Channels socket. Phoenix defaults to 30s,
+ * which equals a common reverse-proxy WebSocket idle timeout (e.g. Azure
+ * Application Gateway behind AGIC); the proxy timeout must exceed the client
+ * ping interval, so ping well inside it. Matches the runner socket default.
+ */
+const HEARTBEAT_INTERVAL_MS = 15_000;
+
+/**
  * Connection-health states a {@link ConnectedRealtimeGatewaySession} surfaces to
  * a supervising manager via {@link ConnectedRealtimeGatewaySession.onStateChange}.
  *
@@ -596,6 +604,7 @@ export async function connectRealtimeGateway(
 
   const socket = new Socket(config.wsUrl, {
     authToken: config.apiKey,
+    heartbeatIntervalMs: HEARTBEAT_INTERVAL_MS,
     transport: transport as ConstructorParameters<typeof Socket>[1] extends {
       transport?: infer T;
     }

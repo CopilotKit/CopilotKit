@@ -104,11 +104,13 @@ Everything else (mainly your graph) stays the same.
         ```
     </Step>
     <Step>
-        ### Then, in your `CopilotRuntime` instantiation, use the new `LangGraphHttpAgent`
+        ### Then, in your `CopilotRuntime` instantiation, point an `HttpAgent` at that endpoint
         ```typescript
+        import { HttpAgent } from "@ag-ui/client";
+
         let runtime = new CopilotRuntime({
             agents: {
-                'sample_agent': new LangGraphHttpAgent({
+                'sample_agent': new HttpAgent({
                     url: "http://localhost:8000/agent/sample_agent",
                 }),
             }

@@ -294,7 +294,7 @@ internal sealed partial class SubagentsSerializerContext : JsonSerializerContext
 /// </summary>
 public sealed class SubagentsAgentFactory
 {
-    private const string SubAgentModel = "gpt-4o-mini";
+    private const string SubAgentModel = "gpt-5-mini";
 
     // Each sub-agent is a single-shot ChatClient call (built per-delegation
     // in DelegateAsync) with its own system prompt. They don't share memory
@@ -357,7 +357,7 @@ public sealed class SubagentsAgentFactory
 
     public AIAgent CreateAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
 
         // Each sub-agent is exposed to the supervisor LLM as an AIFunction
         // tool. When the supervisor invokes one, DelegateAsync runs a fresh

@@ -142,10 +142,15 @@ export function matchesAcceptFilter(file: File, accept: string): boolean {
 /**
  * Convert an InputContentSource to a usable URL string.
  * For data sources, returns a base64 data URL; for URL sources, returns the URL directly.
+ * A provider file handle (AG-UI 1.0 `file` source) has no address a browser
+ * can load, so it returns an empty string and the caller shows no preview.
  */
 export function getSourceUrl(source: InputContentSource): string {
   if (source.type === "url") {
     return source.value;
+  }
+  if (source.type === "file") {
+    return "";
   }
   return `data:${source.mimeType};base64,${source.value}`;
 }

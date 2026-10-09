@@ -1,0 +1,124 @@
+/*
+ * Metric tile (KPI card).
+ *
+ * A compact stat card: a sentence-case sans label with a quiet glyph, a large
+ * tabular value, and a trend Badge with its caption. The trend Badge carries
+ * a semantic hue (good / bad / neutral) paired with a direction arrow so the
+ * signal survives a monochrome or color-blind reading. A value that is a
+ * status ("Loading…", "Unavailable") renders as quiet muted text instead of
+ * the figure style. Every color resolves through a token.
+ *
+ * WARN-TOKEN DECISION: the `warn` state maps to `--cpki-color-warning` (amber),
+ * not `--cpki-color-danger` (red). This surface uses a three-tier signal:
+ * success (a healthy metric), warning (a metric that crossed an attention
+ * threshold, still operating), and danger (a hard failure, reserved for the
+ * load-error card in metric-states.css).
+ */
+
+.metric-tile {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  gap: 0.35rem;
+  align-content: start;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border, var(--cpki-color-border));
+  border-radius: var(--analytics-radius-card, 12px);
+  background: var(--card, var(--cpki-color-surface-raised));
+  min-width: 0;
+  padding: 1rem 1.05rem;
+}
+
+.metric-tile__head {
+  align-items: center;
+  display: flex;
+  gap: 0.6rem;
+  justify-content: space-between;
+}
+
+.metric-tile__icon {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  color: var(--cpki-color-muted-foreground);
+  opacity: 0.7;
+}
+
+.metric-tile__label,
+.metric-tile__value {
+  margin: 0;
+  min-width: 0;
+}
+
+.metric-tile__label {
+  color: var(--muted-foreground, var(--cpki-color-muted-foreground));
+  font-family: var(--font-sans, var(--cpki-font-sans));
+  font-size: var(--text-control, 0.75rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.4;
+  text-transform: none;
+}
+
+.metric-tile__value {
+  color: var(--cpki-color-foreground);
+  font-size: clamp(1.5rem, 1.6vw, 1.85rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+/* A status in the value slot reads as text, not as a figure. */
+.metric-tile__value[data-compact='true'] {
+  color: var(--muted-foreground, var(--cpki-color-muted-foreground));
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.5;
+}
+
+.metric-tile__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+/* Trend change: the shared Badge with an arrow and tabular figures. */
+.metric-tile__pill {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-tile__delta {
+  color: var(--muted-foreground, var(--cpki-color-muted-foreground));
+  font-size: var(--text-caption, 0.6875rem);
+  line-height: 1.35;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * State dot: shown only when a tile has no trend pill, so a card always leads
+ * its foot with a signal. Pairs the semantic hue with a shape.
+ */
+.metric-tile__dot {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 999px;
+  background: var(--cpki-color-muted-foreground);
+}
+
+.metric-tile--good .metric-tile__dot {
+  background: var(--cpki-color-success);
+}
+
+.metric-tile--warn .metric-tile__dot {
+  background: var(--cpki-color-warning);
+}

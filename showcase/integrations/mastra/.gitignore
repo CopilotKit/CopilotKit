@@ -5,6 +5,7 @@ node_modules/
 *.pyc
 __pycache__/
 .venv/
+.mastra/
 dist/
 playwright-report/
 test-results/

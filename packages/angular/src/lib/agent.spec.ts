@@ -7,7 +7,7 @@ import {
 } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AbstractAgent } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import type {
   AgentSubscriber,
   BaseEvent,
@@ -123,6 +123,32 @@ class MockAgent extends AbstractAgent {
         state: this.state,
         agent: this,
         input: DUMMY_RUN_INPUT,
+      });
+    }
+  }
+
+  emitRunError() {
+    for (const subscriber of this.subscribers) {
+      subscriber.onRunErrorEvent?.({
+        event: { type: EventType.RUN_ERROR, message: "Saved failure" },
+        messages: this.messages,
+        state: this.state,
+        agent: this,
+      });
+    }
+  }
+
+  emitRunStarted() {
+    for (const subscriber of this.subscribers) {
+      subscriber.onRunStartedEvent?.({
+        event: {
+          type: EventType.RUN_STARTED,
+          threadId: this.threadId,
+          runId: "successor",
+        },
+        messages: this.messages,
+        state: this.state,
+        agent: this,
       });
     }
   }
@@ -250,6 +276,21 @@ describe("injectAgentStore", () => {
     agent.emitRunInitialized();
     expect(store?.isRunning()).toBe(true);
 
+    // Replayed errors are history; the connection still owns the busy state.
+    agent.isRunning = true;
+    agent.emitRunError();
+    expect(store?.isRunning()).toBe(true);
+    agent.isRunning = false;
+    agent.emitRunError();
+    expect(store?.isRunning()).toBe(false);
+    // A successor turn changes only run status, without messages/state updates.
+    agent.isRunning = true;
+    agent.emitRunStarted();
+    expect(store?.isRunning()).toBe(true);
+    agent.emitRunFinalized();
+    expect(store?.isRunning()).toBe(false);
+
+    agent.emitRunInitialized();
     agent.emitRunFailed();
     expect(store?.isRunning()).toBe(false);
   });

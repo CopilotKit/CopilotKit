@@ -17,20 +17,30 @@ import type {
 } from "@ag-ui/aws-strands";
 import type { RunAgentInput } from "@ag-ui/core";
 import { Agent, tool } from "@strands-agents/sdk";
-import { OpenAIModel } from "@strands-agents/sdk/models/openai";
 import { parse } from "csv-parse/sync";
 import dotenv from "dotenv";
-import OpenAI from "openai";
+import type OpenAI from "openai";
 import { z } from "zod";
 
 import { forwardingFetch } from "./header-forwarding.js";
+import {
+  createChatCompletionsClient,
+  createStrandsModel,
+  resolveAgentModel,
+} from "./model.js";
+import {
+  APP_CATALOG_ID,
+  buildA2uiOperations,
+  DYNAMIC_A2UI_SYSTEM_PROMPT,
+  parseRenderA2uiArguments,
+  RENDER_A2UI_TOOL,
+} from "./a2ui-contract.js";
 
 const agentDir = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(agentDir, "../../.env") });
 dotenv.config();
 
 const AIMOCK_CONTEXT = "strands-typescript";
-const APP_CATALOG_ID = "copilotkit://app-dashboard-catalog";
 const FLIGHT_SURFACE_ID = "flight-search-results";
 const FLIGHT_SCHEMA = JSON.parse(
   readFileSync(
@@ -170,18 +180,19 @@ const searchFlights = tool({
     ),
 });
 
-let openaiClient: OpenAI | undefined;
+// COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") picks the model
+// for BOTH model sites below; unset, both use MODEL_ID or gpt-4o on OpenAI.
+const agentModel = resolveAgentModel();
+const clientExtras = {
+  defaultHeaders: { "x-aimock-context": AIMOCK_CONTEXT },
+  fetch: forwardingFetch,
+};
 
-function getOpenAIClient(): OpenAI {
-  openaiClient ??= new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    ...(process.env.OPENAI_BASE_URL
-      ? { baseURL: process.env.OPENAI_BASE_URL }
-      : {}),
-    defaultHeaders: { "x-aimock-context": AIMOCK_CONTEXT },
-    fetch: forwardingFetch,
-  });
-  return openaiClient;
+let chatClient: OpenAI | undefined;
+
+function getChatClient(): OpenAI {
+  chatClient ??= createChatCompletionsClient(agentModel, clientExtras);
+  return chatClient;
 }
 
 const generateA2ui = tool({
@@ -190,38 +201,16 @@ const generateA2ui = tool({
     "Design and render a dashboard with A2UI components for the user's request.",
   inputSchema: z.object({ user_intent: z.string() }),
   callback: async ({ user_intent }) => {
-    const response = await getOpenAIClient().chat.completions.create({
-      model: process.env.MODEL_ID ?? "gpt-4o",
+    const response = await getChatClient().chat.completions.create({
+      model: agentModel.model,
       messages: [
         {
           role: "system",
-          content:
-            "Design an A2UI dashboard. Use a flat component array with root id 'root'. Available components: Card, Column, Row, Text, Metric, PieChart, BarChart, DataTable, StatusBadge, InfoRow, PrimaryButton.",
+          content: DYNAMIC_A2UI_SYSTEM_PROMPT,
         },
         { role: "user", content: user_intent },
       ],
-      tools: [
-        {
-          type: "function",
-          function: {
-            name: "render_a2ui",
-            description: "Return the dashboard surface definition.",
-            parameters: {
-              type: "object",
-              properties: {
-                surfaceId: { type: "string" },
-                catalogId: { type: "string" },
-                components: {
-                  type: "array",
-                  items: { type: "object", additionalProperties: true },
-                },
-                data: { type: "object", additionalProperties: true },
-              },
-              required: ["surfaceId", "components"],
-            },
-          },
-        },
-      ],
+      tools: [RENDER_A2UI_TOOL],
       tool_choice: { type: "function", function: { name: "render_a2ui" } },
     });
 
@@ -229,41 +218,13 @@ const generateA2ui = tool({
     if (!call || call.type !== "function") {
       throw new Error("The UI model did not return an A2UI surface.");
     }
-    const args = JSON.parse(call.function.arguments) as {
-      surfaceId?: string;
-      catalogId?: string;
-      components?: Array<Record<string, unknown>>;
-      data?: Record<string, unknown>;
-    };
-    const surfaceId = args.surfaceId || "dynamic-dashboard";
-    const operations = [
-      createSurface(surfaceId, args.catalogId || APP_CATALOG_ID),
-      updateComponents(surfaceId, args.components ?? []),
-    ];
-    if (args.data) operations.push(updateDataModel(surfaceId, args.data));
+    const args = parseRenderA2uiArguments(call.function.arguments);
+    const operations = buildA2uiOperations(args);
     return JSON.parse(JSON.stringify({ [A2UI_OPERATIONS_KEY]: operations }));
   },
 });
 
-const apiKey = process.env.OPENAI_API_KEY;
-if (!apiKey) {
-  throw new Error(
-    "OPENAI_API_KEY is required. Add it to the starter's .env file.",
-  );
-}
-
-const model = new OpenAIModel({
-  apiKey,
-  modelId: process.env.MODEL_ID ?? "gpt-4o",
-  api: "chat",
-  clientConfig: {
-    ...(process.env.OPENAI_BASE_URL
-      ? { baseURL: process.env.OPENAI_BASE_URL }
-      : {}),
-    defaultHeaders: { "x-aimock-context": AIMOCK_CONTEXT },
-    fetch: forwardingFetch,
-  },
-});
+const model = createStrandsModel(agentModel, clientExtras);
 
 const config: StrandsAgentConfig = {
   stateContextBuilder: buildStatePrompt,

@@ -135,11 +135,6 @@ const SUBPATH_RENAMES: { specId: string; from: string; to: string }[] = [
     to: "generative-ui/your-components/display-only",
   },
   {
-    specId: "S9",
-    from: "generative-ui/tool-based",
-    to: "generative-ui/tool-rendering",
-  },
-  {
     specId: "S10",
     from: "custom-look-and-feel/bring-your-own-components",
     to: "custom-look-and-feel/slots",
@@ -465,6 +460,35 @@ const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
     source: "/direct-to-llm/guides/mcp",
     destination: "/build-with-agents",
   },
+  // `/direct-to-llm/guides/premium/*` pages were deleted in cc8c945893
+  // ("refactor(docs): optimize structure, content and navigability",
+  // 2026-02-23) without redirects. The R16 `/direct-to-llm/:path*` wildcard
+  // strips the prefix and the remainder falls through to the docs home, so
+  // the page is lost rather than 404'd — quieter and harder to notice.
+  // Exact entries land each one on its current equivalent in one hop.
+  {
+    id: "INTEL-d2l-guides-overview",
+    source: "/direct-to-llm/guides/premium/overview",
+    destination: "/intelligence/overview",
+  },
+  {
+    id: "INTEL-d2l-guides-headless-ui",
+    source: "/direct-to-llm/guides/premium/headless-ui",
+    destination: "/intelligence/headless-ui",
+  },
+  {
+    // The observability page is retired; the overview is its standing
+    // destination everywhere else (INTEL-observability-*).
+    id: "INTEL-d2l-guides-observability",
+    source: "/direct-to-llm/guides/premium/observability",
+    destination: "/intelligence/overview",
+  },
+  {
+    // Inspector moved out of the Intelligence folder rather than retiring.
+    id: "INTEL-d2l-guides-inspector",
+    source: "/direct-to-llm/guides/premium/inspector",
+    destination: "/inspector",
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -644,7 +668,7 @@ const MOVED_ROOT_REDIRECTS: RedirectEntry[] = [
   {
     id: "MV-gs-open-json-ui",
     source: "/generative-ui/specs/open-json-ui",
-    destination: "/generative-ui/open-json-ui",
+    destination: "/generative-ui/a2ui",
   },
   {
     id: "MV-gs-root",
@@ -995,6 +1019,15 @@ const PREMIUM_URL_FRAMEWORKS: string[] = [
 // ---------------------------------------------------------------------------
 
 const RETIRED_INTELLIGENCE_REDIRECTS: RedirectEntry[] = [
+  // Agents fetch the `.md`/`.mdx` variant, and released CLI onboarding
+  // prompts (4.14.0 and older) cite `connect-your-runtime.md`. An exact
+  // entry matches only the path it names, so each variant needs its own
+  // entry or it 404s (PE-328).
+  ...["", ".md", ".mdx"].map((suffix) => ({
+    id: `INTEL-connect-runtime${suffix}`,
+    source: `/intelligence/connect-your-runtime${suffix}`,
+    destination: `/intelligence/quickstart${suffix}`,
+  })),
   // Sources keep the legacy `premium` segment (that is the URL the SEO
   // surface saw); destinations follow the `premium/` → `intelligence/`
   // folder rename (OSS-1078). These are EXACT entries, so middleware
@@ -1024,15 +1057,32 @@ const RETIRED_INTELLIGENCE_REDIRECTS: RedirectEntry[] = [
       "intelligence/overview",
     ),
   })),
+  // The inspector page MOVED out of the Intelligence folder — it was not
+  // retired. cc8c945893 renamed `(root)/premium/inspector.mdx` to
+  // `(root)/inspector.mdx` (R100, identical content) and added no redirect,
+  // so `/premium/inspector` has 404'd ever since. It needs an exact entry for
+  // the same reason observability does: INTEL-rename-wild would rewrite it to
+  // a nonexistent `/intelligence/inspector`.
+  {
+    id: "INTEL-inspector-root",
+    source: "/premium/inspector",
+    destination: "/inspector",
+  },
+  ...PREMIUM_URL_FRAMEWORKS.map((framework) => ({
+    id: `INTEL-inspector×${framework}`,
+    source: `/${framework}/premium/inspector`,
+    destination: destinationPath(canonicalSlug(framework), "inspector"),
+  })),
 ];
 
 // ---------------------------------------------------------------------------
 // `premium/` → `intelligence/` content-folder rename (OSS-1078).
 //
 // Only the parent segment changed — every page slug under the folder
-// (`overview`, `managed-intelligence-platform`, `connect-your-runtime`,
-// `self-hosting`, `intelligence-platform`, `threads-explained`,
-// `headless-ui`) is unchanged. So this is expressed as WILDCARDS rather
+// (`overview`, `managed-intelligence-platform`, `self-hosting`,
+// `intelligence-platform`, `threads-explained`, `headless-ui`) is unchanged.
+// `connect-your-runtime` is not a live page. `/intelligence/connect-your-runtime`
+// redirects to the quickstart. So this is expressed as WILDCARDS rather
 // than one SUBPATH_RENAMES entry per page: `/premium/:path*` →
 // `/intelligence/:path*` covers today's pages, their `.md`/`.mdx` LLM
 // variants, and any page added under `intelligence/` later without

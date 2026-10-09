@@ -11,9 +11,12 @@
 // this transformer, our `<MdxCodeBlock>` `pre` override has no way to
 // see the author's `title="main.py"` value.
 //
-// The transformer pushes `meta.title` onto `pre.properties["data-title"]`
-// and the resolved Shiki language onto `pre.properties["data-language"]`
-// so React reads them via the standard `data-*` prop bridge.
+// The transformer pushes `meta.title`, the resolved Shiki language, and the
+// original source onto the `<pre>`. `MdxCodeBlock` consumes (and does not
+// forward) the source prop. Keeping the source as one string is important:
+// production React Server Component serialization can stream the highlighted
+// child tree in chunks, so reconstructing source by walking those children can
+// observe only the first chunk during hydration.
 
 import type { ShikiTransformer } from "shiki";
 
@@ -26,12 +29,12 @@ export function transformerMeta(): ShikiTransformer {
     name: "shell-docs:meta-passthrough",
     pre(node) {
       const meta = this.options.meta as ShikiMeta | undefined;
+      node.properties = node.properties || {};
+      node.properties["data-raw-code"] = this.source;
       if (meta?.title) {
-        node.properties = node.properties || {};
         node.properties["data-title"] = meta.title;
       }
       if (this.options.lang) {
-        node.properties = node.properties || {};
         node.properties["data-language"] = this.options.lang;
       }
       return node;

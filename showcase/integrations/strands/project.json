@@ -1,0 +1,21 @@
+{
+  "name": "showcase-strands-todo-tests",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python3 -m pytest showcase/integrations/strands/tests/python/test_sales_todos_native_state.py showcase/integrations/strands/tests/python/test_sales_state_from_args.py"
+      },
+      "dependsOn": [],
+      "cache": false
+    },
+    "test:native": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python3 -m pytest showcase/integrations/strands/tests/native"
+      },
+      "dependsOn": [],
+      "cache": false
+    }
+  }
+}

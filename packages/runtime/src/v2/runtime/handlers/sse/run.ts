@@ -1,5 +1,5 @@
 import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
-import type { ResolvedDebugConfig } from "@copilotkit/shared";
+import type { ResolvedDebugConfig, ModelHostClass } from "@copilotkit/shared";
 import type { CopilotRuntimeLogger } from "../../../../v1-deprecated/lib/logger";
 import type { CopilotRuntimeLike } from "../../core/runtime";
 import { getRuntimeErrorReporter } from "../../core/runtime-error-reporter";
@@ -36,6 +36,15 @@ export function handleSseRun({
     runtimeErrorReporter: getRuntimeErrorReporter(runtime),
     startTime,
     telemetry: runtime.telemetry,
+    keepAliveIntervalSeconds: runtime.sseKeepAliveIntervalSeconds,
+    // Read structurally rather than via `instanceof BuiltInAgent`, which would
+    // pull the agent module into this handler. Any agent can opt in by
+    // exposing the same property.
+    executionSeed: {
+      llmHostClass:
+        (agent as { modelHostClass?: ModelHostClass }).modelHostClass ??
+        "unknown",
+    },
     observableFactory: () =>
       runtime.runner.run({
         threadId: input.threadId,

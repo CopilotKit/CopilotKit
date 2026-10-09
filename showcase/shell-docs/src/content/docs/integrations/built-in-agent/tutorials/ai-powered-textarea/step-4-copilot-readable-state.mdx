@@ -10,20 +10,20 @@ Let's quickly review how our app's state works. Open up the [`lib/hooks/use-emai
 
 At a glance, we can see that the file exposes a provider (`EmailsProvider`) which holds our `emails`. This is the context we need to provide to our copilot to get AI autocompletions.
 
-## The `useCopilotReadable` hook
+## The `useAgentContext` hook
 
-Our goal is to make our copilot aware of this state, so that it can provide more accurate and helpful responses. We can easily achieve this by using the [`useCopilotReadable`](/reference/v1/hooks/useCopilotReadable) hook.
+Our goal is to make our copilot aware of this state, so that it can provide more accurate and helpful responses. We can easily achieve this by using the [`useAgentContext`](/reference/hooks/useAgentContext) hook.
 
 ```tsx title="libs/hooks/use-emails.tsx"
 // ... the rest of the file
 
-import { useCopilotReadable } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
 
 export const EmailsProvider = ({ children }: { children: ReactNode }) => {
   const [emails, setEmails] = useState<Email[]>(emailHistory);
 
   // [!code highlight:4]
-  useCopilotReadable({
+  useAgentContext({
     description: "The history of this email thread",
     value: emails,
   });
@@ -32,7 +32,7 @@ export const EmailsProvider = ({ children }: { children: ReactNode }) => {
 };
 ```
 
-In this example, we use the `useCopilotReadable` hook to provide the copilot with the state of our email thread.
+In this example, we use the `useAgentContext` hook to provide the copilot with the state of our email thread.
 
 - For the `description` property, we provide a concise description that tells the copilot what this piece of readable data means.
 - For the `value` property, we pass the entire state as a JSON string.

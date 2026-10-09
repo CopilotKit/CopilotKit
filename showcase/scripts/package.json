@@ -19,7 +19,8 @@
     "bundle-setup-content": "tsx bundle-setup-content.ts",
     "extract-starter": "tsx extract-starter.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "probe-backend-tool-history": "node probe-backend-tool-history.mjs"
   },
   "dependencies": {
     "@copilotkit/aimock": "1.37.4",
@@ -28,6 +29,7 @@
     "ajv-formats": "^3.0.1",
     "chalk": "^5.4.0",
     "glob": "^10.4.0",
+    "gray-matter": "^4.0.3",
     "js-yaml": "^4.1.0",
     "playwright": "^1.59.1",
     "prompts": "^2.4.2",

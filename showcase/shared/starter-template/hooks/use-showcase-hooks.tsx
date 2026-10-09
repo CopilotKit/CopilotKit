@@ -25,8 +25,15 @@ export const useShowcaseHooks = () => {
         .number()
         .describe("Duration of the meeting in minutes"),
     }),
-    render: ({ respond, status, args }) => {
-      return <MeetingTimePicker status={status} respond={respond} {...args} />;
+    render: ({ respond, status, args, result }) => {
+      return (
+        <MeetingTimePicker
+          status={status}
+          respond={respond}
+          result={result}
+          {...args}
+        />
+      );
     },
   });
 
@@ -35,6 +42,7 @@ export const useShowcaseHooks = () => {
     name: "pieChart",
     description: "Controlled Generative UI that displays data as a pie chart.",
     parameters: PieChartProps,
+    followUp: false,
     render: PieChart,
   });
 
@@ -42,6 +50,7 @@ export const useShowcaseHooks = () => {
     name: "barChart",
     description: "Controlled Generative UI that displays data as a bar chart.",
     parameters: BarChartProps,
+    followUp: false,
     render: BarChart,
   });
 

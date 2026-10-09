@@ -149,6 +149,24 @@ test("getRuntimeEntitlements normalizes an inactive self-hosted App API response
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 
+test("getRuntimeEntitlements accepts an AWS Marketplace App API response", async () => {
+  const client = runtimeEntitlementsClient();
+  const response = {
+    status: "ready",
+    entitlement: {
+      source: "awsMarketplaceDeploymentLicense",
+      active: true,
+      features: { deployment_via_helm_chart: true },
+      limits: { "threads.max_count": 25_000 },
+      planCode: "enterprise",
+    },
+  } as const;
+  fetchMock.mockReturnValue(jsonResponse(response));
+
+  await expect(client.getRuntimeEntitlements()).resolves.toEqual(response);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
 test("recursive forbidden-key control detects identity and credential leaks", () => {
   const leakedProjection = {
     organizationId: "org-leaked",
@@ -398,6 +416,77 @@ describe("CopilotKitIntelligence", () => {
     });
   });
 
+  it("passes the renewal's abort signal to fetch without sending it in the body", async () => {
+    fetchMock.mockReturnValue(
+      jsonResponse({
+        threadId: "t-1",
+        runId: "r-1",
+        ttlSeconds: 120,
+        status: "renewed",
+      }),
+    );
+    const controller = new AbortController();
+
+    await client.ɵrenewThreadLock({
+      threadId: "t-1",
+      runId: "r-1",
+      ttlSeconds: 20,
+      signal: controller.signal,
+    });
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    expect(init.signal).toBe(controller.signal);
+    expect(JSON.parse(init.body)).toEqual({ runId: "r-1", ttlSeconds: 20 });
+  });
+
+  describe("ɵrenewThreadLock errors", () => {
+    const renew = () =>
+      client.ɵrenewThreadLock({
+        threadId: "t-1",
+        runId: "r-1",
+        ttlSeconds: 20,
+      });
+
+    it.each([
+      [500, true],
+      [409, false],
+    ])(
+      "carries the platform's retryable flag for a %i response",
+      async (status, retryable) => {
+        fetchMock.mockReturnValue(
+          jsonResponse(
+            {
+              error: {
+                code: "SOME_CODE",
+                message: "failed",
+                category: "internal",
+                retryable,
+              },
+              requestId: "req-1",
+              traceId: "trace-1",
+            },
+            status,
+          ),
+        );
+
+        await expect(renew()).rejects.toMatchObject({
+          name: "PlatformRequestError",
+          status,
+          retryable,
+        });
+      },
+    );
+
+    it("leaves retryable unset when the error body is not the platform envelope", async () => {
+      fetchMock.mockReturnValue(textResponse("Bad Gateway", 502));
+
+      const error = await renew().catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(PlatformRequestError);
+      expect((error as PlatformRequestError).status).toBe(502);
+      expect((error as PlatformRequestError).retryable).toBeUndefined();
+    });
+  });
+
   it("strips trailing slash from apiUrl", async () => {
     const c = new CopilotKitIntelligence({
       apiUrl: "https://api.example.com/",
@@ -421,6 +510,48 @@ describe("CopilotKitIntelligence", () => {
     expect(c.ɵgetRunnerWsUrl()).toBe("wss://ws.example.com/runner");
     expect(c.ɵgetClientWsUrl()).toBe("wss://ws.example.com/client");
     expect(c.ɵgetChannelsWsUrl()).toBe("wss://ws.example.com/channels");
+  });
+
+  describe("apiKey validation", () => {
+    it.each([
+      ["an absent key", undefined],
+      ["an empty key", ""],
+      ["a whitespace-only key", "   "],
+    ])("rejects %s at construction, naming the variable", (_label, apiKey) => {
+      expect(
+        () =>
+          new CopilotKitIntelligence({
+            apiKey: apiKey as unknown as string,
+          }),
+      ).toThrow(/CPK_INTELLIGENCE_API_KEY/);
+    });
+
+    it("names the command that provisions a key", () => {
+      expect(() => new CopilotKitIntelligence({ apiKey: "" })).toThrow(
+        /copilotkit project select/,
+      );
+    });
+
+    it("does not echo the rejected key value", () => {
+      // The key is a `cpk-…` secret end to end, so the message must name the
+      // variable and never the value — see `parseProjectIdFromApiKey`, which
+      // omits it for the same reason.
+      const construct = () => new CopilotKitIntelligence({ apiKey: "\t\t" });
+      let message = "";
+      try {
+        construct();
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).toMatch(/CPK_INTELLIGENCE_API_KEY/);
+      expect(message).not.toContain("\t\t");
+    });
+
+    it("accepts a non-blank key", () => {
+      expect(
+        new CopilotKitIntelligence({ apiKey: "cpk-1_key" }),
+      ).toBeInstanceOf(CopilotKitIntelligence);
+    });
   });
 
   describe("managed platform URL defaults", () => {
@@ -892,6 +1023,84 @@ describe("CopilotKitIntelligence", () => {
       const [url, opts] = fetchMock.mock.calls[0];
       expect(url).toBe("https://api.example.com/api/threads/t-1?userId=user-1");
       expect(opts.method).toBe("GET");
+    });
+  });
+
+  describe("getOrCreateThread", () => {
+    const thread = { id: "t-1", name: null };
+    const params = { threadId: "t-1", userId: "user-1", agentId: "agent-1" };
+
+    it("creates a thread its lookup did not find without logging an error", async () => {
+      const loggerError = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => {});
+      const loggerDebug = vi
+        .spyOn(logger, "debug")
+        .mockImplementation(() => {});
+      fetchMock
+        .mockReturnValueOnce(jsonResponse({ code: "THREAD_NOT_FOUND" }, 404))
+        .mockReturnValueOnce(jsonResponse({ thread }));
+
+      const result = await client.getOrCreateThread(params);
+
+      expect(result).toEqual({ thread, created: true });
+      expect(loggerError).not.toHaveBeenCalled();
+      expect(loggerDebug).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 404 }),
+        "Intelligence platform request returned an expected status",
+      );
+      loggerError.mockRestore();
+      loggerDebug.mockRestore();
+    });
+
+    it("reads the thread another request created without logging an error", async () => {
+      const loggerError = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => {});
+      fetchMock
+        .mockReturnValueOnce(jsonResponse({ code: "THREAD_NOT_FOUND" }, 404))
+        .mockReturnValueOnce(jsonResponse({ code: "THREAD_EXISTS" }, 409))
+        .mockReturnValueOnce(jsonResponse({ thread }));
+
+      const result = await client.getOrCreateThread(params);
+
+      expect(result).toEqual({ thread, created: false });
+      expect(loggerError).not.toHaveBeenCalled();
+      loggerError.mockRestore();
+    });
+
+    it("still logs a lookup that fails for another reason as an error", async () => {
+      const loggerError = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => {});
+      fetchMock.mockReturnValueOnce(jsonResponse({ code: "INTERNAL" }, 500));
+
+      await expect(client.getOrCreateThread(params)).rejects.toMatchObject({
+        status: 500,
+      });
+      expect(loggerError).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 500 }),
+        "Intelligence platform request failed",
+      );
+      loggerError.mockRestore();
+    });
+
+    it("still logs a 404 from a direct getThread call as an error", async () => {
+      const loggerError = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => {});
+      fetchMock.mockReturnValueOnce(
+        jsonResponse({ code: "THREAD_NOT_FOUND" }, 404),
+      );
+
+      await expect(
+        client.getThread({ threadId: "t-1", userId: "user-1" }),
+      ).rejects.toMatchObject({ status: 404 });
+      expect(loggerError).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 404 }),
+        "Intelligence platform request failed",
+      );
+      loggerError.mockRestore();
     });
   });
 

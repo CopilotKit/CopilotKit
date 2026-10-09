@@ -20,6 +20,8 @@ import {
   resolveLearningContainerSelector,
 } from "../../core/learning";
 import { getPlatformErrorStatus } from "../shared/intelligence-utils";
+import { startThreadLockHeartbeat } from "../../intelligence-platform/thread-lock-heartbeat";
+import type { ThreadSummary } from "../../intelligence-platform";
 
 /**
  * Builds browser-facing realtime connection metadata owned by the runtime.
@@ -91,6 +93,15 @@ export async function handleIntelligenceRun({
   }
   const userId = user.id;
 
+  const proxyRequest = (
+    input.forwardedProps as Record<string, unknown> | undefined
+  )?.__proxiedMCPRequest;
+  const isDirectResourceRead =
+    input.forwardedProps?.__copilotkitMcpResourceReadOnly === true &&
+    proxyRequest &&
+    typeof proxyRequest === "object" &&
+    (proxyRequest as { method?: unknown }).method === "resources/read";
+
   let learningContainerId: string | undefined;
   try {
     const selector = runtime.intelligence.ɵgetLearningContainerId?.();
@@ -117,13 +128,16 @@ export async function handleIntelligenceRun({
     );
   }
 
+  let thread: ThreadSummary;
   try {
-    const { thread, created } = await runtime.intelligence.getOrCreateThread({
+    const initialized = await runtime.intelligence.getOrCreateThread({
       threadId: input.threadId,
       userId,
       agentId,
       ...(learningContainerId !== undefined ? { learningContainerId } : {}),
     });
+    thread = initialized.thread;
+    const { created } = initialized;
 
     if (created && runtime.generateThreadNames && !thread.name?.trim()) {
       void generateThreadNameForNewThread({
@@ -155,11 +169,52 @@ export async function handleIntelligenceRun({
     );
   }
 
+  // MCP App resources are presentation data. Initialize the thread through the
+  // usual path, then fetch without claiming its mutation lock so an approval
+  // can continue while the resource server is still answering.
+  if (isDirectResourceRead) {
+    try {
+      if (thread.agentId && thread.agentId !== agentId) {
+        return Response.json(
+          { error: "Thread belongs to another agent" },
+          { status: 403 },
+        );
+      }
+      agent.threadId = thread.id;
+      const run = await agent.runAgent({
+        runId: input.runId,
+        tools: input.tools,
+        context: input.context,
+        forwardedProps: input.forwardedProps,
+      });
+      return Response.json({
+        kind: "mcp-resource-read",
+        threadId: thread.id,
+        runId: input.runId,
+        result: run.result ?? null,
+      });
+    } catch (error) {
+      logger.error("MCP resource read failed:", error);
+      const status = getPlatformErrorStatus(error);
+      return Response.json(
+        { error: "MCP resource read failed" },
+        { status: status && status >= 400 && status < 500 ? status : 502 },
+      );
+    }
+  }
+
   let canonicalThreadId = input.threadId;
   let canonicalRunId = input.runId;
   let joinToken: string | undefined;
+  let backendThreadId: string | undefined;
+  let lockTtlSeconds: number | undefined;
+  let lockRequestedAt = 0;
   try {
+    // The platform starts the lock's TTL when it handles the request, so time
+    // the lifetime from the send rather than from the response.
+    lockRequestedAt = Date.now();
     const lockResult = await runtime.intelligence.ɵacquireThreadLock({
+      supportsBackendThreadId: true,
       threadId: input.threadId,
       runId: input.runId,
       userId,
@@ -173,6 +228,8 @@ export async function handleIntelligenceRun({
     canonicalThreadId = lockResult.threadId;
     canonicalRunId = lockResult.runId;
     joinToken = lockResult.joinToken;
+    backendThreadId = lockResult.backendThreadId;
+    lockTtlSeconds = lockResult.ttlSeconds;
   } catch (error) {
     logger.error("Thread lock denied:", error);
     const platformStatus = getPlatformErrorStatus(error);
@@ -244,43 +301,44 @@ export async function handleIntelligenceRun({
 
   runtimeTelemetry.capture("oss.runtime.agent_execution_stream_started", {});
 
-  // Start heartbeat timer to renew the thread lock.
-  let heartbeatStopped = false;
-  let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
-  heartbeatTimer = setInterval(() => {
-    runtime.intelligence
-      .ɵrenewThreadLock({
+  // Keep the thread lock alive while the run executes. Transient renewal
+  // failures are retried within the lock's remaining TTL; only a lost lock
+  // (or running out of time) aborts the run.
+  const heartbeat = startThreadLockHeartbeat({
+    renew: (signal) =>
+      runtime.intelligence.ɵrenewThreadLock({
         threadId: canonicalThreadId,
         runId: canonicalRunId,
         ttlSeconds: runtime.lockTtlSeconds,
         ...(runtime.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: runtime.lockKeyPrefix }
           : {}),
-      })
-      .catch((err) => {
-        if (heartbeatStopped) {
-          return;
-        }
-
-        logger.error("Failed to renew thread lock:", err);
-        clearHeartbeat();
-        try {
-          agent.abortRun();
-        } catch (abortError) {
-          logger.error(
-            "Failed to abort agent after lock renewal failure:",
-            abortError,
-          );
-        }
-      });
-  }, runtime.lockHeartbeatIntervalSeconds * 1_000);
+        signal,
+      }),
+    intervalMs: runtime.lockHeartbeatIntervalSeconds * 1_000,
+    fallbackTtlSeconds: runtime.lockTtlSeconds,
+    // The acquire round trip and the history lookup above both run between
+    // the lock request and now, so pass the lifetime the platform set minus
+    // the time already spent.
+    initialTtlSeconds:
+      lockTtlSeconds === undefined
+        ? undefined
+        : lockTtlSeconds - (Date.now() - lockRequestedAt) / 1_000,
+    onLost: (err) => {
+      logger.error("Failed to renew thread lock:", err);
+      try {
+        agent.abortRun();
+      } catch (abortError) {
+        logger.error(
+          "Failed to abort agent after lock renewal failure:",
+          abortError,
+        );
+      }
+    },
+  });
 
   const clearHeartbeat = () => {
-    heartbeatStopped = true;
-    if (heartbeatTimer !== undefined) {
-      clearInterval(heartbeatTimer);
-      heartbeatTimer = undefined;
-    }
+    heartbeat.stop();
   };
 
   const runStarted = { current: false };
@@ -289,6 +347,7 @@ export async function handleIntelligenceRun({
 
   const runRequest: AgentRunnerRunRequest = {
     threadId: canonicalThreadId,
+    ...(backendThreadId === undefined ? {} : { backendThreadId }),
     agent,
     input: canonicalInput,
     ...(persistedInputMessages !== undefined ? { persistedInputMessages } : {}),
@@ -299,6 +358,11 @@ export async function handleIntelligenceRun({
   const reportAgentError = (error: unknown, phase: RuntimeErrorPhase) => {
     if (agentErrorReported) return;
     agentErrorReported = true;
+    // Analytics describes the outcome; only the application-owned reporter
+    // receives diagnostics that may contain customer or upstream content.
+    runtimeTelemetry.capture("oss.runtime.agent_execution_stream_errored", {
+      error: "AGENT_EXECUTION_FAILED",
+    });
     runtimeErrorReporter?.report({
       request,
       error,
@@ -357,13 +421,12 @@ export async function handleIntelligenceRun({
         } else {
           cleanupLock("runner-error");
         }
-        runtimeTelemetry.capture("oss.runtime.agent_execution_stream_errored", {
-          error: error instanceof Error ? error.message : String(error),
-        });
         logger.error("Error running agent:", error);
       },
       complete: () => {
         clearHeartbeat();
+        // Preserve the existing completion count even when the stream contains
+        // RUN_ERROR. Failure reporting is separate and carries only a safe code.
         runtimeTelemetry.capture(
           "oss.runtime.agent_execution_stream_ended",
           {},

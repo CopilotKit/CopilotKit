@@ -7,10 +7,11 @@ hideTOC: true
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
-<IntelligenceOnboardingPrompt
-  feature="learning"
-  surface="docs_langgraph_quickstart"
-/>
+## Start with your coding agent
+
+Use this prompt to connect your LangGraph agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
+
+<PageAgentPrompt />
 
 ## Prerequisites
 
@@ -21,13 +22,23 @@ Before you begin, you'll need the following:
 - Your favorite package manager
 - (Optional) A LangSmith API key - only required if using an existing LangGraph agent
 
+<Callout type="info" title="Zod version for TypeScript agents">
+When adding `@copilotkit/sdk-js` 1.71.0 to a TypeScript agent, install Zod 3 alongside it:
+
+```bash
+npm install @copilotkit/sdk-js@1.71.0 zod@3
+```
+
+An unversioned `zod` install selects Zod 4, which does not satisfy this SDK release's peer dependency. Use `zod@3` with pnpm or Yarn too. If your agent already requires Zod 4, check SDK compatibility before changing its dependencies; do not bypass the conflict with `--force` or `--legacy-peer-deps`.
+</Callout>
+
 ## Getting started
 
 <Steps>
     <Step>
-        ### Create a free account
+        ### Set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_langgraph_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence to get a license key. You'll use it later to enable persistent threads and the inspector.
+        <SignupLink surface="docs_langgraph_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. Cloud-hosted setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create it below.
     </Step>
 
     <Step>
@@ -73,6 +84,8 @@ Before you begin, you'll need the following:
                 OPENAI_API_KEY=your_openai_api_key
                 ```
 
+                <ApiKeyHint provider="openai" />
+
                 <Callout type="info" title="What about other models?">
                   The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by LangGraph.
                 </Callout>
@@ -114,38 +127,121 @@ Before you begin, you'll need the following:
           <Step>
               ### Initialize your agent project
 
-              If you don't already have a Python project set up, create one using `uv`:
+              <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+                <Tab value="Python">
+                  If you don't already have a Python project set up, create one using `uv`:
 
-              ```bash
-              uv init my-agent
-              cd my-agent
-              ```
+                  ```bash
+                  uv init my-agent
+                  cd my-agent
+                  ```
+                </Tab>
+                <Tab value="TypeScript">
+                  If you don't already have a Node.js project set up, create one with `npm`:
+
+                  ```bash
+                  mkdir my-agent
+                  cd my-agent
+                  npm init -y
+                  ```
+                </Tab>
+              </Tabs>
           </Step>
           <Step>
               ### Install LangGraph
 
               Add the packages the agent code below imports:
 
-              ```bash
-              uv add langgraph langchain-openai langchain-core python-dotenv
-              ```
+              <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+                <Tab value="Python">
+                  ```bash
+                  uv add langgraph langchain-openai langchain-core python-dotenv
+                  ```
 
-              Both tabs below import all four. The **FastAPI** tab installs what
-              its own code needs on top of these — `ag-ui-langgraph`, `fastapi`,
-              `uvicorn` and `copilotkit` — in its own step; the LangSmith path
-              imports none of them, so they are not in this line.
+                  Both tabs in the next step import all four. The **FastAPI** tab installs what
+                  its own code needs on top of these — `ag-ui-langgraph`, `fastapi`,
+                  `uvicorn` and `copilotkit` — in its own step; the LangSmith path
+                  imports none of them, so they are not in this line.
 
-              <Callout type="warn" title="Project with pinned dependencies?">
-                `uv add` resolves and rewrites your lockfile. If your project
-                pins exact versions (`==`), add these to your dependency file by
-                hand instead so the rest of your pins stay put.
-              </Callout>
+                  <Callout type="warn" title="Project with pinned dependencies?">
+                    `uv add` resolves and rewrites your lockfile. If your project
+                    pins exact versions (`==`), add these to your dependency file by
+                    hand instead so the rest of your pins stay put.
+                  </Callout>
+                </Tab>
+                <Tab value="TypeScript">
+                  ```bash
+                  npm install @langchain/langgraph @langchain/core @langchain/openai
+                  ```
+
+                  The agent does not need `dotenv`. The LangGraph CLI loads the
+                  `.env` file that `langgraph.json` names in the next step.
+                </Tab>
+              </Tabs>
           </Step>
           <Step>
             ### Expose your agent via AG-UI
 
             If you already have a LangGraph agent written, just reference the following code. In this step
             we create a simple LangGraph agent for the sake of demonstration.
+
+            <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+              <Tab value="TypeScript">
+                A TypeScript agent runs on the LangGraph API server, with the
+                `@langchain/langgraph-cli` tool. This is the **LangSmith**
+                path. The **FastAPI** path is Python only.
+
+                Create the agent in `src/agent.ts`:
+
+                ```ts title="src/agent.ts" doctest="component"
+                import { SystemMessage } from "@langchain/core/messages";
+                import { ChatOpenAI } from "@langchain/openai";
+                import {
+                  END,
+                  MessagesAnnotation,
+                  START,
+                  StateGraph,
+                } from "@langchain/langgraph";
+
+                async function mockLlm(state: typeof MessagesAnnotation.State) {
+                  const model = new ChatOpenAI({ model: "gpt-4.1-mini" });
+                  const response = await model.invoke([
+                    new SystemMessage("You are a helpful assistant."),
+                    ...state.messages,
+                  ]);
+                  return { messages: response };
+                }
+
+                // [!code highlight:5]
+                export const graph = new StateGraph(MessagesAnnotation)
+                  .addNode("mock_llm", mockLlm)
+                  .addEdge(START, "mock_llm")
+                  .addEdge("mock_llm", END)
+                  .compile();
+                ```
+
+                Do not pass a `checkpointer` to `compile()`. The LangGraph API
+                server supplies persistence at run time.
+
+                Then add a `langgraph.json` in the agent directory:
+
+                ```json title="langgraph.json"
+                {
+                  "node_version": "20",
+                  "dependencies": ["."],
+                  "graphs": {
+                    "sample_agent": "./src/agent.ts:graph"
+                  },
+                  "env": ".env"
+                }
+                ```
+
+                The `graphs` entry is `<file>:<export>`. It must name the
+                exported `graph` constant, or the CLI fails with
+                "graph is nullish". The key `sample_agent` is the `graphId`
+                that the runtime route below connects to.
+              </Tab>
+              <Tab value="Python">
               <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
                 <Tab value="LangSmith">
                   First, we'll create a simple LangGraph agent:
@@ -290,6 +386,8 @@ Before you begin, you'll need the following:
                   you pick a different one.
                 </Tab>
               </Tabs>
+              </Tab>
+            </Tabs>
 
               <Callout type="info" title="What is AG-UI?">
                 AG-UI is an open protocol for frontend-agent communication.
@@ -303,6 +401,8 @@ Before you begin, you'll need the following:
               ```plaintext title=".env"
               OPENAI_API_KEY=your_openai_api_key
               ```
+
+              <ApiKeyHint provider="openai" />
 
               <Callout type="info" title="What about other models?">
                 The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by LangGraph.
@@ -325,7 +425,7 @@ Before you begin, you'll need the following:
               npm install @copilotkit/react-core @copilotkit/runtime
               ```
 
-              The components used below (`CopilotKit`, `CopilotSidebar`) and the
+              The components used below (`CopilotKitProvider`, `CopilotSidebar`) and the
               stylesheet all come from `@copilotkit/react-core/v2`, so
               `@copilotkit/react-ui` is not needed for this setup.
           </Step>
@@ -338,22 +438,25 @@ Before you begin, you'll need the following:
               mkdir -p app/api/copilotkit && touch app/api/copilotkit/route.ts
               ```
 
-              <Callout type="warn" title="This route is enough for chat, not for Threads or the Inspector">
-                A single `POST /api/copilotkit` is the *minimum* wiring: it runs
-                the runtime in single-route mode, which is all chat needs.
-                Persistent Threads and the Inspector's saved-Threads list need the
-                multi-route handler instead — a catch-all
-                `app/api/copilotkit/[[...slug]]/route.ts` that exports `GET`,
-                `POST`, `PATCH` and `DELETE`, so list, rename, archive and delete
-                requests can reach the runtime. If the Inspector shows **Finish
-                setting up Rich Threads**, this is why. See
-                [Runtime HTTP endpoints](/backend/runtime-endpoints#enable-rich-threads-routes)
-                for the route and the provider setup that goes with it.
+              <Callout type="info" title="One route supports the full Intelligence experience">
+                A current client and Runtime can carry chat, AG-UI Streams, User Memory,
+                annotations, and Inspector requests through one `POST`
+                endpoint. They negotiate this support before sending resource
+                requests. The example below uses that mode.
+
+                The [Intelligence quickstart](/intelligence/quickstart) mounts a
+                catch-all route (`app/api/copilotkit/[[...slug]]/route.ts`) for
+                `GET`, `POST`, `PATCH`, and `DELETE` instead. Both handlers work.
+                Pick one, and set `useSingleEndpoint` on the provider to match it.
               </Callout>
+
+              If your agent is in TypeScript, use the **LangSmith** tab.
+              `LangGraphAgent` connects to the LangGraph API server that
+              `@langchain/langgraph-cli` starts.
 
               <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
                 <Tab value="LangSmith">
-                  ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
+                  ```tsx title="app/api/copilotkit/route.ts"
                   import {
                     CopilotKitIntelligence,
                     CopilotRuntime,
@@ -385,26 +488,26 @@ Before you begin, you'll need the following:
                   const handler = createCopilotRuntimeHandler({
                     runtime,
                     basePath: "/api/copilotkit",
+                    mode: "single-route",
                   });
 
-                  export const GET = handler;
                   export const POST = handler;
                 ```
               </Tab>
               <Tab value="FastAPI">
-                ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
+                ```tsx title="app/api/copilotkit/route.ts" doctest="component"
                 import {
                   CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
                 } from "@copilotkit/runtime/v2";
                 // [!code highlight]
-                import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
+                import { HttpAgent } from "@ag-ui/client";
 
                 const runtime = new CopilotRuntime({
                   agents: {
                     // [!code highlight:3]
-                    sample_agent: new LangGraphHttpAgent({
+                    sample_agent: new HttpAgent({
                       url:  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
                     }),
                   },
@@ -422,18 +525,23 @@ Before you begin, you'll need the following:
                 const handler = createCopilotRuntimeHandler({
                   runtime,
                   basePath: "/api/copilotkit",
+                  mode: "single-route",
                 });
 
-                export const GET = handler;
                 export const POST = handler;
               ```
               </Tab>
             </Tabs>
 
-              The runtime reads the project API key from step 1. Add it to the app that serves
-              this route:
+              From this frontend app directory, connect the runtime to an Intelligence project:
 
-              ```plaintext title=".env.local"
+              ```bash title="Terminal"
+              npx copilotkit@latest project select
+              ```
+
+              The command writes the server-side project API key to `.env`. The runtime reads it here:
+
+              ```plaintext title=".env"
               CPK_INTELLIGENCE_API_KEY=cpk-...
               ```
 
@@ -441,7 +549,7 @@ Before you begin, you'll need the following:
                 Drop the `intelligence` and `identifyUser` options and the runtime falls back
                 to SSE mode with an in-memory runner. Chat still works, but Threads and the
                 Inspector stay locked and the key is never read. See
-                [Connect your runtime to Intelligence](/intelligence/connect-your-runtime) for the
+                [Connect your runtime to Intelligence](/intelligence/quickstart) for the
                 full constructor and how to confirm the key is in use.
               </Callout>
           </Step>
@@ -450,20 +558,32 @@ Before you begin, you'll need the following:
 
               Wrap your application with the CopilotKit provider:
 
-              <Callout type="info" title="Which provider goes with which handler?">
-                `<CopilotKit>` here is the backward-compatible wrapper, and every
-                released version pins it to the single-route transport — which is why
-                it needs the explicit `useSingleEndpoint={false}` below to reach the
-                multi-route `createCopilotRuntimeHandler` route above.
-                `<CopilotKitProvider>` is the v2 provider from the same package and
-                detects the transport from `/info` on its own. They are not aliases —
-                see
+              <Callout type="info" title="Match the provider to the handler">
+                `useSingleEndpoint` pins the provider to the single-route
+                handler above. See
                 [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
               </Callout>
 
+              ```tsx title="app/providers.tsx"
+              "use client";
+
+              import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+              export function Providers({ children }: { children: React.ReactNode }) {
+                return (
+                  <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="sample_agent" useSingleEndpoint>
+                    {children}
+                  </CopilotKitProvider>
+                );
+              }
+              ```
+
+              `app/layout.tsx` is a server component and cannot import the provider
+              directly, so it renders your client file instead:
+
               ```tsx title="app/layout.tsx"
               // [!code highlight:2]
-              import { CopilotKit } from "@copilotkit/react-core/v2";
+              import { Providers } from "./providers";
               import "@copilotkit/react-core/v2/styles.css";
               import './globals.css';
 
@@ -474,9 +594,9 @@ Before you begin, you'll need the following:
                   <html lang="en">
                     <body>
                       {/* [!code highlight:3] */}
-                      <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent" useSingleEndpoint={false}>
+                      <Providers>
                         {children}
-                      </CopilotKit>
+                      </Providers>
                     </body>
                   </html>
                 );
@@ -497,6 +617,8 @@ Before you begin, you'll need the following:
             Add the CopilotSidebar component to your page:
 
             ```tsx title="app/page.tsx"
+            "use client"; // [!code highlight]
+
             import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
             export default function Page() {
@@ -514,6 +636,17 @@ Before you begin, you'll need the following:
               ### Start your agent
               From your agent directory, start the agent server:
 
+              <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+                <Tab value="TypeScript">
+                  ```bash
+                  cd ..
+                  npx @langchain/langgraph-cli dev --port 8123 --no-browser
+                  ```
+
+                  `--port 8123` matches the `http://localhost:8123` fallback in
+                  the runtime route. A bare `langgraph dev` serves on **2024**.
+                </Tab>
+                <Tab value="Python">
               <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
                 <Tab value="LangSmith">
                   ```bash
@@ -540,6 +673,8 @@ Before you begin, you'll need the following:
 
                   This serves on **8123**, the port set in `main.py`'s
                   `uvicorn.run(...)` call.
+                </Tab>
+              </Tabs>
                 </Tab>
               </Tabs>
 

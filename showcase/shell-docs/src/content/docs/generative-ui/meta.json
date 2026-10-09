@@ -2,6 +2,7 @@
   "title": "Build Generative UI",
   "icon": "lucide/Paintbrush",
   "pages": [
+    "index",
     {
       "title": "Controlled",
       "icon": "lucide/Component",
@@ -9,16 +10,22 @@
       "pages": ["tool-based", "tool-rendering", "state-rendering"]
     },
     {
+      "title": "Frontend-Driven",
+      "icon": "lucide/MousePointerClick",
+      "defaultOpen": true,
+      "pages": ["frontend-cards"]
+    },
+    {
       "title": "Declarative",
       "icon": "lucide/FileJson",
       "defaultOpen": true,
-      "pages": ["...a2ui"]
+      "pages": ["...a2ui", "json-render", "hashbrown"]
     },
     {
       "title": "Open-Ended",
       "icon": "lucide/Globe",
       "defaultOpen": true,
-      "pages": ["mcp-apps"]
+      "pages": ["mcp-apps", "open-generative-ui"]
     }
   ]
 }

@@ -1,0 +1,125 @@
+.formField {
+  display: grid;
+  gap: var(--cpki-space-2);
+}
+
+.formField label {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-1);
+  font-weight: 600;
+}
+
+.formField textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
+.fieldHint {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--text-caption);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Use the readable danger role on a subdued error surface. */
+.dialogError {
+  background: var(--danger-subtle);
+  border: 1px solid color-mix(in oklch, var(--destructive) 24%, var(--border));
+  border-radius: var(--radius-control);
+  color: var(--destructive);
+  font-size: var(--text-control);
+  line-height: 1.6;
+  margin: 0;
+  padding: 12px 14px;
+}
+
+.runSummary {
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+}
+
+.runSummary div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px 16px;
+}
+
+.runSummary div + div {
+  border-left: 1px solid var(--border);
+}
+
+.runSummary dt {
+  color: var(--muted-foreground);
+  font-size: var(--text-caption);
+  line-height: 1.5;
+}
+
+.runSummary dd {
+  color: var(--foreground);
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Warning notice on the quiet warning surface, as other workspace notices. */
+.runWarning {
+  align-items: flex-start;
+  background: var(--warning-subtle);
+  border: 1px solid color-mix(in oklch, var(--warning) 24%, var(--border));
+  border-radius: var(--radius-control);
+  color: var(--foreground);
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.runWarning svg {
+  color: var(--warning);
+  flex: 0 0 auto;
+  height: 15px;
+  margin-top: 1px;
+  width: 15px;
+}
+
+.runWarningCopy {
+  display: grid;
+  gap: 2px;
+}
+
+.runWarningCopy strong {
+  font-size: var(--text-control);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.runWarningCopy span {
+  color: var(--muted-foreground);
+  font-size: var(--text-control);
+  line-height: 1.6;
+}
+
+@media (max-width: 560px) {
+  .runSummary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .runSummary div + div {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+}
+
+/* The form lives in the shared dialog body; its footer is the shared footer. */
+.dialogForm {
+  display: grid;
+  gap: var(--cpki-space-4);
+}

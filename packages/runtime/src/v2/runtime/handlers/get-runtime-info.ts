@@ -1,5 +1,6 @@
 import type { AgentCapabilities } from "@ag-ui/core";
 import type { CopilotRuntimeLike } from "../core/runtime";
+import { hasLearningContainerConfiguration } from "../core/learning";
 import {
   isA2UIEnabled,
   isIntelligenceRuntime,
@@ -42,7 +43,11 @@ function resolveCompatibilityLicenseStatus(
   runtimeEntitlements: RuntimeEntitlementResponse | undefined,
 ): RuntimeLicenseStatus {
   if (runtimeEntitlements?.status === "ready") {
-    if (runtimeEntitlements.entitlement.source === "managedOrgSubscription") {
+    if (
+      runtimeEntitlements.entitlement.source === "managedOrgSubscription" ||
+      runtimeEntitlements.entitlement.source ===
+        "awsMarketplaceDeploymentLicense"
+    ) {
       return runtimeEntitlements.entitlement.active ? "valid" : "none";
     }
 
@@ -67,6 +72,7 @@ interface HandleGetRuntimeInfoParameters {
   runtime: CopilotRuntimeLike;
   request: Request;
   threadEndpointsEnabled?: boolean;
+  singleRouteResourceOperationsEnabled?: boolean;
 }
 
 /**
@@ -112,6 +118,7 @@ export async function handleGetRuntimeInfo({
   runtime,
   request,
   threadEndpointsEnabled = true,
+  singleRouteResourceOperationsEnabled = false,
 }: HandleGetRuntimeInfoParameters) {
   try {
     const runtimeEntitlementsPromise = resolveRuntimeEntitlements(runtime);
@@ -163,6 +170,14 @@ export async function handleGetRuntimeInfo({
         runtime,
         threadEndpointsEnabled && webEnabled,
       ),
+      ...(singleRouteResourceOperationsEnabled
+        ? {
+            singleRoute: {
+              resourceOperations: true,
+              threadEndpoints: resolveThreadEndpointInfo(runtime, webEnabled),
+            },
+          }
+        : {}),
       // Advertised unconditionally. Multi-route runtimes expose the dedicated
       // POST /agent/:agentId/suggest path; single-route clients fall back to a
       // client-side run (they don't construct the single-route envelope for
@@ -174,6 +189,9 @@ export async function handleGetRuntimeInfo({
               wsUrl: runtime.intelligence.ɵgetClientWsUrl(),
             },
             inspectorMetadata: true,
+            ...(hasLearningContainerConfiguration(runtime)
+              ? { inspectorLearning: true }
+              : {}),
           }
         : {}),
       // Legacy flat flag, kept for older clients. The `a2ui` object below is

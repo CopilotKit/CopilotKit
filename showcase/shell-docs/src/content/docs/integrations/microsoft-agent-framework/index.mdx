@@ -3,63 +3,94 @@ title: Introduction
 icon: "custom/microsoft"
 description: Bring your Microsoft Agent Framework agents to your users with CopilotKit via AG-UI.
 hideHeader: true
+# The landing page carries its own prompt button in the hero; the page-tools
+# row above the title would put a second one on the page, which the data-record
+# partner pages do not have.
+hidePageActions: true
 hideTOC: true
 ---
 
 <FrameworkOverview
   frameworkName="Microsoft Agent Framework"
-  frameworkIcon={<MicrosoftIcon className="h-10 w-10 text-primary" width={40} height={40} />}
+  frameworkIcon={<MicrosoftIcon className="h-12 w-12" />}
   header="Bring your Microsoft Agent Framework agents to your users"
-  subheader="Give your Microsoft Agent Framework agents real user-interactivity using CopilotKit and AG-UI. Build rich, interactive, agent-powered applications."
-  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+  subheader="The Microsoft Agent Framework runs your agents. CopilotKit gives them a surface your users can see, interrupt and steer."
   guideLink="/microsoft-agent-framework/quickstart"
   initCommand="npx copilotkit@latest init"
-  featuresLink="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/agentic_chat"
+  lede="The Microsoft Agent Framework gives you the agent: tools, threads and the host that runs them, in Python or .NET. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the run while it is running, and a moment for a person to step in. Each capability below builds on something your agent already does."
   supportedFeatures={[
     {
       title: "Generative UI",
-      description: "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
-      documentationLink: "/microsoft-agent-framework/generative-ui",
-      demoLink: "https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/backend_tool_rendering",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
+      iconKey: "paintbrush",
+      description:
+        "Your agent calls tools and updates state as it runs. CopilotKit streams both to the browser and renders them as React components your users watch update while the agent works.",
+      documentationLink: "/microsoft-agent-framework/generative-ui"
     },
     {
-      title: "Human in the Loop",
-      description: "Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.",
-      documentationLink: "/microsoft-agent-framework/human-in-the-loop",
-      demoLink: "https://feature-viewer.copilotkit.ai",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+      title: "Human-in-the-loop",
+      iconKey: "user",
+      description:
+        "Your agent can pause for a decision, or call a tool that lives in the browser. CopilotKit renders your own UI for either and resumes the run with the user's answer.",
+      documentationLink: "/microsoft-agent-framework/human-in-the-loop"
     },
     {
-      title: "Shared State",
-      description: "Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.",
-      documentationLink: "/microsoft-agent-framework/shared-state",
-      demoLink: "https://feature-viewer.copilotkit.ai",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
+      title: "Shared state",
+      iconKey: "repeat",
+      description:
+        "Threads carry state between turns on the server. CopilotKit mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+      documentationLink: "/microsoft-agent-framework/shared-state"
     }
   ]}
-  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/microsoft-agent-framework/maf-ag-ui.png"
-  liveDemos={[
-    {
-      type: "feature-viewer",
-      title: "Feature Viewer",
-      description: "Explore all of the capabilities of the Microsoft Agent Framework combined with CopilotKit.",
-      iframeUrl: "https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/agentic_chat"
+  capabilitiesFootnote={{
+    text: "Chat surfaces, headless UI, frontend tools and multi-agent flows work with the Microsoft Agent Framework too.",
+    linkLabel: "And more",
+    href: "/microsoft-agent-framework/build-with-agents"
+  }}
+  connect={{
+    intro:
+      "Your agent keeps running as its own service, with the AG-UI bridge from agent_framework_ag_ui in front of it. CopilotKit reaches that service over HTTP, so nothing inside the agent changes.",
+    filename: "app/api/copilotkit/route.ts",
+    language: "ts",
+    guideLink: "/microsoft-agent-framework/quickstart"
+  }}
+  showcase={{
+    integration: "ms-agent-python",
+    integrationBySlug: {
+      "ms-agent-python": "ms-agent-python",
+      "ms-agent-dotnet": "ms-agent-dotnet",
+      "ms-agent-harness-dotnet": "ms-agent-harness-dotnet"
     },
-  ]}
-  afterFeatures={
-    <OpsPlatformCTA
-      variant="card"
-      title="Bring your Agent Framework agents to production"
-      body="Add persistent threads and the inspector with CopilotKit Intelligence."
-      ctaLabel="Create a free account"
-      surface="docs_microsoft_agent_framework_overview"
-    />
-  }
-  tutorialLink="/microsoft-agent-framework/quickstart"
-/>
+    intro:
+      "The Microsoft Agent Framework and CopilotKit running together, in the React frontend. Every demo below is the same integration with one capability turned on.",
+    demos: [
+      { slug: "agentic-chat", title: "Pre-Built: CopilotChat" },
+      { slug: "hitl-in-chat", title: "Human In the Loop: In-chat" },
+      { slug: "shared-state-read-write", title: "Shared State: Read + Write" },
+      { slug: "gen-ui-agent", title: "Generative UI: Agent State" }
+    ]
+  }}
+>
 
-## Resources
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import { HttpAgent } from "@ag-ui/client";
 
-- [Agent Framework User Guide](https://learn.microsoft.com/en-us/agent-framework/user-guide/overview)
-- [Agent Framework Tutorials](https://learn.microsoft.com/en-us/agent-framework/tutorials/overview)
+const runtime = new CopilotRuntime({
+  agents: {
+    my_agent: new HttpAgent({ url: process.env.AGENT_URL! }),
+  },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handler;
+export const POST = handler;
+```
+
+</FrameworkOverview>

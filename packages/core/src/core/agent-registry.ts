@@ -1,5 +1,6 @@
 import type { AbstractAgent } from "@ag-ui/client";
-import { HttpAgent } from "@ag-ui/client";
+import type { HttpAgent } from "@ag-ui/client";
+import { ɵisHttpAgent } from "../utils/http-agent";
 import type {
   RuntimeInfo,
   RuntimeMode,
@@ -32,6 +33,7 @@ import {
   RUNTIME_REQUEST_WATCHDOG_MS,
   runtimeRequestMeta,
 } from "../utils/runtime-request";
+import { createSingleRouteResourceRequest } from "../utils/single-route-resource-request";
 
 type ResolvedCopilotRuntimeTransport = Exclude<CopilotRuntimeTransport, "auto">;
 
@@ -83,6 +85,8 @@ interface RuntimeConnectionAttempt {
 
 interface RuntimeAgentConnection {
   runtimeUrl: string;
+  /** The caller-supplied URL the proxy was built with (trailing slash intact). */
+  endpointUrl?: string;
   transport: CopilotRuntimeTransport;
 }
 
@@ -126,6 +130,8 @@ export class AgentRegistry {
   private readonly mintedThreadIds = new WeakMap<AbstractAgent, string>();
 
   private _runtimeUrl?: string;
+  /** The runtime URL as the caller supplied it; the single-route endpoint uses it verbatim. */
+  private _runtimeEndpointUrl?: string;
   // Tracks an in-flight `/info` connection so concurrent calls targeting the
   // same runtime (url + requested transport) collapse to a single request
   // instead of each firing their own. See #5801.
@@ -152,7 +158,9 @@ export class AgentRegistry {
   private _runtimeMode: RuntimeMode = RUNTIME_MODE_SSE;
   private _intelligence?: IntelligenceRuntimeInfo;
   private _threadEndpoints?: ThreadEndpointRuntimeInfo;
+  private _singleRouteResourceOperations = false;
   private _suggestions?: boolean;
+  private _inspectorLearning: boolean = false;
   private _inspectorMetadata?: InspectorMetadataV1;
   private _inspectorMetadataSupported: boolean = false;
   private inspectorMetadataRefreshReady: boolean = false;
@@ -238,6 +246,10 @@ export class AgentRegistry {
     return this._suggestions;
   }
 
+  get inspectorLearning(): boolean {
+    return this._inspectorLearning;
+  }
+
   get inspectorMetadata(): InspectorMetadataV1 | undefined {
     return this._inspectorMetadata;
   }
@@ -284,6 +296,7 @@ export class AgentRegistry {
     this.localAgents = this.assignAgentIds(agents);
     this.applyHeadersToAgents(this.localAgents);
     this.applyCredentialsToAgents(this.localAgents);
+    this.applyMessageFilterToAgents(this.localAgents);
     this.applyRuntimeFetchToAgents(this.localAgents);
     this._agents = this.localAgents;
   }
@@ -298,8 +311,12 @@ export class AgentRegistry {
     const normalizedRuntimeUrl = runtimeUrl
       ? runtimeUrl.replace(/\/$/, "")
       : undefined;
+    const runtimeEndpointUrl = runtimeUrl || undefined;
 
-    if (this._runtimeUrl === normalizedRuntimeUrl) {
+    if (
+      this._runtimeUrl === normalizedRuntimeUrl &&
+      this._runtimeEndpointUrl === runtimeEndpointUrl
+    ) {
       return;
     }
 
@@ -310,7 +327,9 @@ export class AgentRegistry {
     // before subscribers observe the replacement target connecting.
     this._licenseStatus = undefined;
     this._runtimeEntitlements = undefined;
+    this._singleRouteResourceOperations = false;
     this._runtimeUrl = normalizedRuntimeUrl;
+    this._runtimeEndpointUrl = runtimeEndpointUrl;
 
     // Deferred construction (see CopilotKitCore.connect / #5801): record the URL
     // so getters/hooks see it synchronously, but do NOT start the `/info` fetch
@@ -366,6 +385,7 @@ export class AgentRegistry {
     this.resetRuntimeEntitlementRetry();
     this._requestedTransport = runtimeTransport;
     this._runtimeTransport = runtimeTransport;
+    this._singleRouteResourceOperations = false;
     void this.updateRuntimeConnection({
       preserveOnFailure: this.hasLiveRuntimeKnowledgeToProtect(),
     });
@@ -430,6 +450,7 @@ export class AgentRegistry {
     this._agents = { ...this.localAgents, ...this.remoteAgents };
     this.applyHeadersToAgents(this._agents);
     this.applyCredentialsToAgents(this._agents);
+    this.applyMessageFilterToAgents(this._agents);
     this.applyRuntimeFetchToAgents(this._agents);
     void this.notifyAgentsChanged();
   }
@@ -484,7 +505,7 @@ export class AgentRegistry {
     const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
     const debug = friends.debug;
     const agent = new ProxiedCopilotRuntimeAgent({
-      runtimeUrl: this._runtimeUrl,
+      runtimeUrl: this._runtimeEndpointUrl ?? this._runtimeUrl,
       agentId,
       runtimeAgentId,
       transport: this._runtimeTransport,
@@ -500,6 +521,7 @@ export class AgentRegistry {
         : RUNTIME_MODE_SSE,
       intelligence: this._intelligence,
       debug: debug ? resolveDebugConfig(debug) : undefined,
+      messageFilter: friends.messageFilter,
     });
     this.applyHeadersToAgent(agent);
     this.applyRuntimeFetchToAgent(agent);
@@ -553,7 +575,7 @@ export class AgentRegistry {
    * because only `HttpAgent` carries a `headers` field. See #5635.
    */
   applyHeadersToAgent(agent: AbstractAgent): void {
-    if (agent instanceof HttpAgent) {
+    if (ɵisHttpAgent(agent)) {
       // Capture the agent's construction-time headers once, before any core
       // headers overwrite them. On every subsequent apply we rebuild from this
       // baseline so re-applying core headers (e.g. via setHeaders) never loses
@@ -597,6 +619,65 @@ export class AgentRegistry {
     });
   }
 
+  /**
+   * Carry the mode a fresh `/info` reported onto a proxy this re-sync kept.
+   *
+   * `canReuseRuntimeAgent` deliberately ignores the mode: a preserved proxy is
+   * backing an open conversation, and replacing the instance to change one
+   * field would drop it. The mode is therefore pushed onto the survivor here,
+   * the same way headers and credentials are. Without it the mode was fixed at
+   * construction, so a runtime that flipped `intelligence` → `sse` under an
+   * open page left every later run on the delegate path. See #7130.
+   */
+  applyRuntimeModeToAgent(
+    agent: AbstractAgent,
+    runtimeInfo: RuntimeInfo,
+  ): void {
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      agent.adoptRuntimeMode(
+        runtimeInfo.mode ?? RUNTIME_MODE_SSE,
+        runtimeInfo.intelligence,
+      );
+    }
+  }
+
+  /**
+   * Apply the core's message filter to an agent.
+   *
+   * The test is the class, not which bucket the agent is registered in: every
+   * `ProxiedCopilotRuntimeAgent` gets the core filter, whether it came from
+   * `/info` or from `registerProxiedAgent` (which files its proxy under
+   * `localAgents`). Agents of any other class are left untouched — an
+   * `AbstractAgent` the app built has no such hook, and its owner already has
+   * the AG-UI middleware seam.
+   *
+   * This is the sole writer of `agent.messageFilter` in normal operation. The
+   * public setter exists for the registry and for tests; a value written
+   * directly onto an agent is replaced the next time the registry sweeps, the
+   * same way per-agent credentials are.
+   */
+  applyMessageFilterToAgent(agent: AbstractAgent): void {
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      agent.messageFilter = (
+        this.core as unknown as CopilotKitCoreFriendsAccess
+      ).messageFilter;
+    }
+  }
+
+  /**
+   * Apply the core's message filter to all agents
+   */
+  applyMessageFilterToAgents(agents: Record<string, AbstractAgent>): void {
+    Object.values(agents).forEach((agent) => {
+      this.applyMessageFilterToAgent(agent);
+    });
+  }
+
+  /** Preserve the exact configured URL when posting to a single endpoint. */
+  get runtimeEndpointUrl(): string | undefined {
+    return this._runtimeEndpointUrl;
+  }
+
   createRuntimeFetch(): typeof fetch {
     if (!this.runtimeFetch) {
       this.runtimeFetch = (async (
@@ -606,7 +687,23 @@ export class AgentRegistry {
         const meta = () => runtimeRequestMeta(init);
         const watchdog = this.armRuntimeRequestWatchdog(meta());
         try {
-          const response = await fetch(input, init);
+          const singleRouteRequest =
+            this._runtimeTransport === "single" &&
+            this._singleRouteResourceOperations &&
+            this._runtimeUrl
+              ? await createSingleRouteResourceRequest(
+                  input,
+                  init,
+                  // The endpoint itself is the POST target here, so it has to be
+                  // the caller's URL verbatim - a trailing slash can select a
+                  // different proxy location. `_runtimeUrl` is the slash-stripped
+                  // form kept for path joins (issue #7028).
+                  this._runtimeEndpointUrl ?? this._runtimeUrl,
+                )
+              : null;
+          const response = singleRouteRequest
+            ? await fetch(singleRouteRequest.input, singleRouteRequest.init)
+            : await fetch(input, init);
           watchdog.clear();
           this.handleRuntimeRequestOutcome(
             response.ok ? "ok" : meta()?.nonCritical ? "ignored" : "failed",
@@ -731,7 +828,7 @@ export class AgentRegistry {
         const response =
           resolvedTransport === "single"
             ? await this.fetchInspectorMetadataSingle({
-                runtimeUrl,
+                runtimeUrl: this.singleEndpointUrlFor(runtimeUrl),
                 headers,
                 credentials,
                 signal: abortController.signal,
@@ -852,6 +949,7 @@ export class AgentRegistry {
 
   private invalidateInspectorMetadataConnection(): void {
     this._inspectorMetadataSupported = false;
+    this._inspectorLearning = false;
     this.inspectorMetadataRefreshReady = false;
     this.inspectorMetadataConnectionGeneration += 1;
     this.inspectorMetadataGeneration += 1;
@@ -1096,7 +1194,9 @@ export class AgentRegistry {
 
   /** Return the stable key that scopes connection and entitlement retries. */
   private runtimeConnectionKey(): string {
-    return `${this._runtimeUrl ?? ""}::${this._requestedTransport}`;
+    // The endpoint URL is part of the identity: a change that only adds or
+    // drops the trailing slash targets a different single-route endpoint.
+    return `${this._runtimeEndpointUrl ?? this._runtimeUrl ?? ""}::${this._requestedTransport}`;
   }
 
   /** Return whether a proxy still targets this Runtime connection. */
@@ -1111,6 +1211,7 @@ export class AgentRegistry {
     const connection = this.remoteAgentConnections.get(agent);
     return (
       connection?.runtimeUrl === runtimeUrl.replace(/\/$/, "") &&
+      connection.endpointUrl === this._runtimeEndpointUrl &&
       connection.transport === transport
     );
   }
@@ -1211,7 +1312,9 @@ export class AgentRegistry {
       this._runtimeMode = RUNTIME_MODE_SSE;
       this._intelligence = undefined;
       this._threadEndpoints = undefined;
+      this._singleRouteResourceOperations = false;
       this._suggestions = undefined;
+      this._inspectorLearning = false;
       this._a2uiEnabled = false;
       this._a2uiAgents = undefined;
       this._openGenerativeUIEnabled = false;
@@ -1297,11 +1400,13 @@ export class AgentRegistry {
             ) {
               this.applyHeadersToAgent(existing);
               this.applyCredentialsToAgent(existing);
+              this.applyMessageFilterToAgent(existing);
               this.applyRuntimeFetchToAgent(existing);
+              this.applyRuntimeModeToAgent(existing, runtimeInfoResponse);
               return [id, existing];
             }
             const agent = new ProxiedCopilotRuntimeAgent({
-              runtimeUrl,
+              runtimeUrl: this._runtimeEndpointUrl ?? runtimeUrl,
               agentId: id, // Runtime agents always have their ID set correctly
               description: description,
               transport: this._runtimeTransport,
@@ -1310,6 +1415,9 @@ export class AgentRegistry {
               intelligence: runtimeInfoResponse.intelligence,
               capabilities,
               debug: rawDebug ? resolveDebugConfig(rawDebug) : undefined,
+              messageFilter: (
+                this.core as unknown as CopilotKitCoreFriendsAccess
+              ).messageFilter,
             });
             this.applyHeadersToAgent(agent);
             this.applyRuntimeFetchToAgent(agent);
@@ -1321,6 +1429,7 @@ export class AgentRegistry {
             }
             this.remoteAgentConnections.set(agent, {
               runtimeUrl,
+              endpointUrl: this._runtimeEndpointUrl,
               transport: this._runtimeTransport,
             });
             return [id, agent];
@@ -1340,8 +1449,14 @@ export class AgentRegistry {
         runtimeInfoResponse.audioFileTranscriptionEnabled ?? false;
       this._runtimeMode = runtimeInfoResponse.mode ?? RUNTIME_MODE_SSE;
       this._intelligence = runtimeInfoResponse.intelligence;
-      this._threadEndpoints = runtimeInfoResponse.threadEndpoints;
+      this._singleRouteResourceOperations =
+        resolvedTransport === "single" &&
+        runtimeInfoResponse.singleRoute?.resourceOperations === true;
+      this._threadEndpoints = this._singleRouteResourceOperations
+        ? runtimeInfoResponse.singleRoute?.threadEndpoints
+        : runtimeInfoResponse.threadEndpoints;
       this._suggestions = runtimeInfoResponse.suggestions;
+      this._inspectorLearning = runtimeInfoResponse.inspectorLearning === true;
       this._inspectorMetadataSupported =
         runtimeInfoResponse.inspectorMetadata === true;
       this.inspectorMetadataRefreshReady = false;
@@ -1419,7 +1534,9 @@ export class AgentRegistry {
         this._runtimeMode = RUNTIME_MODE_SSE;
         this._intelligence = undefined;
         this._threadEndpoints = undefined;
+        this._singleRouteResourceOperations = false;
         this._suggestions = undefined;
+        this._inspectorLearning = false;
         this._a2uiEnabled = false;
         this._a2uiAgents = undefined;
         this._openGenerativeUIEnabled = false;
@@ -1473,7 +1590,7 @@ export class AgentRegistry {
     if (runtimeTransport === "single") {
       return {
         runtimeInfo: await this.fetchRuntimeInfoSingle(
-          runtimeUrl,
+          this.singleEndpointUrlFor(runtimeUrl),
           headers,
           credentials,
           signal,
@@ -1504,6 +1621,19 @@ export class AgentRegistry {
       runtimeInfo: (await response.json()) as RuntimeInfo,
       resolvedTransport: "rest",
     };
+  }
+
+  /**
+   * The URL a single-route request targets: the runtime URL as the caller
+   * supplied it. `runtimeUrl` is the slash-stripped form used for path joins;
+   * a trailing slash can select a different proxy location, so the endpoint
+   * itself keeps it.
+   */
+  private singleEndpointUrlFor(runtimeUrl: string): string {
+    return this._runtimeEndpointUrl !== undefined &&
+      this._runtimeUrl === runtimeUrl
+      ? this._runtimeEndpointUrl
+      : runtimeUrl;
   }
 
   private async fetchRuntimeInfoSingle(
@@ -1558,7 +1688,7 @@ export class AgentRegistry {
     }
 
     const runtimeInfo = await this.fetchRuntimeInfoSingle(
-      runtimeUrl,
+      this.singleEndpointUrlFor(runtimeUrl),
       { ...headers },
       credentials,
       signal,

@@ -43,7 +43,13 @@ const TEST_SLUG = "test-integration-tmp";
 // Regression test uses its own slug so the generator always has fresh work to
 // do; the primary slug is already consumed by earlier tests in the file.
 const REGRESSION_SLUG = "test-integration-tmp-regression-guard";
-const TEST_SLUGS: readonly string[] = [TEST_SLUG, REGRESSION_SLUG];
+/** The column slug the starter-disposition suite scaffolds. */
+const DISPOSITION_SLUG = "test-starter-disposition-tmp";
+const TEST_SLUGS: readonly string[] = [
+  TEST_SLUG,
+  REGRESSION_SLUG,
+  DISPOSITION_SLUG,
+];
 
 // Inline fixture workflow YAMLs — just enough structural anchors for the
 // generator's regex-based edits to match. Previously the test seeded from
@@ -111,9 +117,35 @@ jobs:
 };
 const WORKFLOW_BASENAMES: readonly string[] = Object.keys(WORKFLOW_FIXTURES);
 
+/**
+ * Hermetic stand-in for `showcase/tests/e2e/starter-smoke.spec.ts`.
+ *
+ * The generator now writes BOTH halves of the smoke-matrix pair, so without a
+ * path override these tests would edit the REAL spec in the repo. Deliberately
+ * heterogeneous — a one-line entry and a multi-line object — because the real
+ * array is, and the insertion anchors on the array's TERMINATOR rather than on
+ * "the last entry" precisely so a multi-line tail cannot break it.
+ */
+const SMOKE_SPEC_FIXTURE = `import { test } from "@playwright/test";
+
+const DEFAULT_STARTER = { hasAppMode: false };
+
+const STARTERS: Starter[] = [
+  { ...DEFAULT_STARTER, slug: "fixture-a" },
+  {
+    ...DEFAULT_STARTER,
+    slug: "fixture-b",
+    chatMessage: "hello",
+  },
+];
+
+test("noop", () => {});
+`;
+
 // Lazily populated in `beforeAll` — cast via ! below because TypeScript can't
 // follow that these are always set before any test runs.
 let TMP_ROOT!: string;
+let TMP_SMOKE_SPEC!: string;
 let TMP_PACKAGES_DIR!: string;
 let TMP_WORKFLOWS_DIR!: string;
 let TEST_DIR!: string;
@@ -141,6 +173,7 @@ beforeAll(() => {
   TMP_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), "create-integration-"));
   TMP_PACKAGES_DIR = path.join(TMP_ROOT, "integrations");
   TMP_WORKFLOWS_DIR = path.join(TMP_ROOT, "workflows");
+  TMP_SMOKE_SPEC = path.join(TMP_ROOT, "starter-smoke.spec.ts");
   TEST_DIR = path.join(TMP_PACKAGES_DIR, TEST_SLUG);
   REGRESSION_DIR = path.join(TMP_PACKAGES_DIR, REGRESSION_SLUG);
 
@@ -158,6 +191,13 @@ beforeAll(() => {
     fs.writeFileSync(dst, content);
     WORKFLOW_BASELINES.set(dst, content);
   }
+
+  // The smoke spec is restored by `cleanup()` alongside the workflows, for the
+  // same reason: the generator mutates it and a leaked mutation would make the
+  // next case's assertions depend on run order.
+  const specContent = Buffer.from(SMOKE_SPEC_FIXTURE, "utf-8");
+  fs.writeFileSync(TMP_SMOKE_SPEC, specContent);
+  WORKFLOW_BASELINES.set(TMP_SMOKE_SPEC, specContent);
 });
 
 beforeEach(cleanup);
@@ -173,6 +213,31 @@ afterAll(() => {
  *
  *  Sets `CREATE_INTEGRATION_{PACKAGES,WORKFLOWS}_DIR` so the generator
  *  writes entirely inside our per-suite tmpdir. */
+/** The hermetic smoke-spec's current content. */
+function readFileSyncSpec(): string {
+  return fs.readFileSync(TMP_SMOKE_SPEC, "utf-8");
+}
+
+/**
+ * Run the generator expecting a NON-ZERO exit, and return its stderr.
+ *
+ * Asserting only `toThrow()` is not enough and this helper exists because of a
+ * concrete near-miss: with the mutually-exclusive check weakened to
+ * `hasPath && hasReason`, a run with NEITHER flag fell through and crashed with
+ * a TypeError on `undefined.trim()` — non-zero exit, `toThrow()` green, the
+ * guard gone. Matching the usage text is what distinguishes "rejected with a
+ * usage error" from "crashed".
+ */
+function expectGeneratorError(args: readonly string[]): string {
+  try {
+    runGenerator(args);
+  } catch (err) {
+    const e = err as { stderr?: Buffer | string; stdout?: Buffer | string };
+    return String(e.stderr ?? "") + String(e.stdout ?? "");
+  }
+  throw new Error("expected the generator to exit non-zero, but it succeeded");
+}
+
 function runGenerator(args: readonly string[]): { stdout: string } {
   const baseOpts = execOptsFor(SCRIPTS_DIR);
   const stdout = execFileSync(
@@ -184,6 +249,7 @@ function runGenerator(args: readonly string[]): { stdout: string } {
         ...process.env,
         CREATE_INTEGRATION_PACKAGES_DIR: TMP_PACKAGES_DIR,
         CREATE_INTEGRATION_WORKFLOWS_DIR: TMP_WORKFLOWS_DIR,
+        CREATE_INTEGRATION_SMOKE_SPEC: TMP_SMOKE_SPEC,
       },
     },
   );
@@ -205,6 +271,8 @@ describe("Template Generator", () => {
       "python",
       "--features",
       "agentic-chat,hitl-in-chat",
+      "--starter-reason",
+      "No starter template exists for this test fixture integration.",
     ]);
 
     // Check directory exists
@@ -255,6 +323,8 @@ describe("Template Generator", () => {
       "typescript",
       "--features",
       "agentic-chat,tool-rendering,mcp-apps",
+      "--starter-reason",
+      "No starter template exists for this test fixture integration.",
     ]);
 
     const manifest = yaml.parse(
@@ -291,6 +361,8 @@ describe("Template Generator", () => {
       "python",
       "--features",
       "agentic-chat,hitl-in-chat,subagents",
+      "--starter-reason",
+      "No starter template exists for this test fixture integration.",
     ]);
 
     const demoIds = ["agentic-chat", "hitl-in-chat", "subagents"];
@@ -337,6 +409,8 @@ describe("Template Generator", () => {
       "typescript",
       "--features",
       "agentic-chat",
+      "--starter-reason",
+      "No starter template exists for this test fixture integration.",
     ]);
 
     const demoDir = path.join(TEST_DIR, "src", "app", "demos", "agentic-chat");
@@ -368,6 +442,8 @@ describe("Template Generator", () => {
       "python",
       "--features",
       features.join(","),
+      "--starter-reason",
+      "No starter template exists for this test fixture integration.",
     ]);
 
     const manifest = yaml.parse(
@@ -401,6 +477,8 @@ describe("Template Generator", () => {
       "python",
       "--features",
       "agentic-chat",
+      "--starter-reason",
+      "No starter template exists for this test fixture integration.",
     ]);
 
     // Try to create again — the generator should refuse.
@@ -416,6 +494,8 @@ describe("Template Generator", () => {
         "python",
         "--features",
         "agentic-chat",
+        "--starter-reason",
+        "No starter template exists for this test fixture integration.",
       ]);
       expect.fail("Should have thrown");
     } catch (e: any) {
@@ -487,6 +567,8 @@ describe("Template Generator", () => {
       "python",
       "--features",
       "agentic-chat",
+      "--starter-reason",
+      "No starter template exists for this test fixture integration.",
     ]);
 
     // Capture pre-sentinel content so we can prove the append was observed
@@ -560,19 +642,36 @@ describe("Template Generator", () => {
       "python",
       "--features",
       "agentic-chat",
+      // This pair asserts the smoke-matrix append and then the idempotent
+      // skip, so it needs the branch that actually touches the smoke files.
+      // The path is a REAL directory that is NOT in the fixture matrix, and
+      // deliberately one whose basename differs from the column slug: the
+      // matrix and the spec list EXAMPLE slugs, and appending the column slug
+      // into them was the namespace bug this change fixes.
+      "--starter-path",
+      "examples/integrations/claude-sdk-python",
     ];
+    const STARTER_SLUG = "claude-sdk-python";
 
-    // First run: scaffolds the package, appends the slug to the
-    // `starter:` matrix in test_smoke-starter.yml, AND inserts
-    // options/outputs/filters/build-job entries into showcase_deploy.yml.
+    // First run: scaffolds the package, appends the STARTER slug to the
+    // `starter:` matrix in test_smoke-starter.yml and to STARTERS in the smoke
+    // spec, AND inserts options/outputs/filters/build-job entries into
+    // showcase_deploy.yml.
     runGenerator(args);
     const smokePath = path.join(TMP_WORKFLOWS_DIR, "test_smoke-starter.yml");
     const deployPath = path.join(TMP_WORKFLOWS_DIR, "showcase_deploy.yml");
     const afterFirstRun = fs.readFileSync(smokePath, "utf-8");
     const deployAfterFirstRun = fs.readFileSync(deployPath, "utf-8");
     expect(afterFirstRun).toMatch(
+      new RegExp(`^\\s+- ${STARTER_SLUG}\\s*$`, "m"),
+    );
+    // The column slug must NOT land in the matrix — that is the namespace bug.
+    expect(afterFirstRun).not.toMatch(
       new RegExp(`^\\s+- ${REGRESSION_SLUG}\\s*$`, "m"),
     );
+    // BOTH halves of the pair moved.
+    const specAfterFirstRun = fs.readFileSync(TMP_SMOKE_SPEC, "utf-8");
+    expect(specAfterFirstRun).toContain(`slug: "${STARTER_SLUG}"`);
     // showcase_deploy.yml insertions use the underscored `slugVar`
     // (hyphens → underscores). This is the form the idempotency
     // guards must look for on re-run. (VT-M2-F regression anchor.)
@@ -597,12 +696,15 @@ describe("Template Generator", () => {
     // "zero entries" degenerate-case error text.
     const { stdout } = runGenerator(args);
     expect(stdout).toMatch(/already present in starter matrix/);
+    expect(stdout).toMatch(/already present in STARTERS/);
     expect(stdout).not.toMatch(/has zero entries/);
 
     // test_smoke-starter.yml must be unchanged bit-for-bit across the
     // second run (no duplicate insert, no formatting drift).
     const afterSecondRun = fs.readFileSync(smokePath, "utf-8");
     expect(afterSecondRun).toBe(afterFirstRun);
+    // …and so must the spec: exactly one entry, no duplicate insert.
+    expect(fs.readFileSync(TMP_SMOKE_SPEC, "utf-8")).toBe(specAfterFirstRun);
 
     // showcase_deploy.yml MUST also be unchanged bit-for-bit across the
     // second run. This is the VT-M2-F regression: prior to the fix the
@@ -657,6 +759,8 @@ describe("Template Generator — hardening regressions", () => {
         "python",
         "--features",
         "agentic-chat,not-a-real-feature",
+        "--starter-reason",
+        "No starter template exists for this test fixture integration.",
       ]);
       expect.fail("Should have rejected unknown feature id");
     } catch (e: any) {
@@ -817,6 +921,8 @@ describe("Template Generator — hardening regressions", () => {
       "typescript",
       "--features",
       "agentic-chat",
+      "--starter-reason",
+      "No starter template exists for this test fixture integration.",
     ]);
 
     const healthRoute = fs.readFileSync(
@@ -847,6 +953,8 @@ describe("Template Generator — hardening regressions", () => {
       "python",
       "--features",
       "agentic-chat",
+      "--starter-reason",
+      "No starter template exists for this test fixture integration.",
     ]);
 
     const healthRoute = fs.readFileSync(
@@ -870,6 +978,8 @@ describe("Template Generator — hardening regressions", () => {
       "python",
       "--features",
       "agentic-chat",
+      "--starter-reason",
+      "No starter template exists for this test fixture integration.",
     ]);
 
     const testFile = fs.readFileSync(
@@ -896,6 +1006,8 @@ describe("Template Generator — hardening regressions", () => {
       "python",
       "--features",
       "agentic-chat",
+      "--starter-reason",
+      "No starter template exists for this test fixture integration.",
     ]);
 
     const layout = fs.readFileSync(
@@ -1310,6 +1422,8 @@ describe("Template Generator — hardening regressions", () => {
       "python",
       "--features",
       "tool-rendering",
+      "--starter-reason",
+      "No starter template exists for this test fixture integration.",
     ]);
 
     const readme = fs.readFileSync(
@@ -1321,5 +1435,185 @@ describe("Template Generator — hardening regressions", () => {
     expect(readme).not.toContain("\\`");
     // Must still contain backticked code references (e.g. \`get_weather\`)
     expect(readme).toMatch(/`get_weather`/);
+  });
+});
+
+// ── The manifest PRODUCER's starter disposition ────────────────────────────
+//
+// Every consumer sweep for this change looked for code that READS the starter
+// keyspace. This script WRITES the two artifacts the starter-validation drift
+// assertions grade, and before this change it satisfied neither: it emitted no
+// `starter_validation:` block at all (and the schema deliberately does not put
+// the key in `required`, so validation could not catch the omission), and it
+// appended to `test_smoke-starter.yml`'s matrix while nothing appended to the
+// smoke spec's `STARTERS`.
+//
+// So the first integration anyone scaffolded after the ladder shipped would
+// have landed drift assertions 3 and 4 RED in an unrelated author's PR, whose
+// cheapest repair is an allowlist — the exact guard-weakening lever
+// `EXCLUDED_STARTERS` was deleted to disarm.
+//
+// All four cases below are RED against the pre-change generator: the first two
+// because no `starter_validation` key was emitted at all, the third because the
+// spec was never touched, the fourth because the flags did not exist so the run
+// exited 0 instead of 1.
+describe("Template Generator — starter disposition (manifest producer)", () => {
+  const baseArgs = (extra: readonly string[]) => [
+    "--name",
+    "Starter Disposition",
+    "--slug",
+    DISPOSITION_SLUG,
+    "--category",
+    "agent-framework",
+    "--language",
+    "python",
+    "--features",
+    "agentic-chat",
+    ...extra,
+  ];
+  const readManifest = () =>
+    yaml.parse(
+      fs.readFileSync(
+        path.join(TMP_PACKAGES_DIR, DISPOSITION_SLUG, "manifest.yaml"),
+        "utf-8",
+      ),
+    );
+  const smokeMatrix = () =>
+    fs.readFileSync(
+      path.join(TMP_WORKFLOWS_DIR, "test_smoke-starter.yml"),
+      "utf-8",
+    );
+
+  it("--starter-reason emits the {supported:false, reason} branch and touches NEITHER smoke file", () => {
+    cleanup();
+    const before = { matrix: smokeMatrix(), spec: readFileSyncSpec() };
+    runGenerator(
+      baseArgs([
+        "--starter-reason",
+        "This framework has no starter template in examples/integrations.",
+      ]),
+    );
+    const block = readManifest().starter_validation;
+    expect(block).toEqual({
+      supported: false,
+      reason:
+        "This framework has no starter template in examples/integrations.",
+    });
+    // A column with no in-repo starter is not a smoke-matrix member. Appending
+    // it would put a COLUMN slug into a list of EXAMPLE slugs.
+    expect(smokeMatrix()).toBe(before.matrix);
+    expect(readFileSyncSpec()).toBe(before.spec);
+  });
+
+  it("--starter-path emits {path} and appends basename(path) to BOTH smoke files", () => {
+    cleanup();
+    runGenerator(
+      baseArgs(["--starter-path", "examples/integrations/claude-sdk-python"]),
+    );
+    expect(readManifest().starter_validation).toEqual({
+      path: "examples/integrations/claude-sdk-python",
+    });
+    expect(smokeMatrix()).toMatch(/^\s+- claude-sdk-python\s*$/m);
+    expect(readFileSyncSpec()).toContain('slug: "claude-sdk-python"');
+    // The COLUMN slug must appear in neither — they are a different namespace.
+    expect(smokeMatrix()).not.toContain(DISPOSITION_SLUG);
+    expect(readFileSyncSpec()).not.toContain(DISPOSITION_SLUG);
+  });
+
+  it("--starter-path --starter-service emits the service too", () => {
+    cleanup();
+    runGenerator(
+      baseArgs([
+        "--starter-path",
+        "examples/integrations/claude-sdk-python",
+        "--starter-service",
+        "starter-claude-sdk-python",
+      ]),
+    );
+    expect(readManifest().starter_validation).toEqual({
+      path: "examples/integrations/claude-sdk-python",
+      service: "starter-claude-sdk-python",
+    });
+  });
+
+  it("a second identical run is a no-op on both smoke files (idempotence)", () => {
+    cleanup();
+    const args = baseArgs([
+      "--starter-path",
+      "examples/integrations/claude-sdk-python",
+    ]);
+    runGenerator(args);
+    const afterFirst = { matrix: smokeMatrix(), spec: readFileSyncSpec() };
+    fs.rmSync(path.join(TMP_PACKAGES_DIR, DISPOSITION_SLUG), {
+      recursive: true,
+      force: true,
+    });
+    runGenerator(args);
+    expect(smokeMatrix()).toBe(afterFirst.matrix);
+    expect(readFileSyncSpec()).toBe(afterFirst.spec);
+  });
+
+  it("neither flag is a USAGE error, not a crash; both flags is a usage error too", () => {
+    cleanup();
+    // There is deliberately no default: a defaulted `reason` would be
+    // schema-valid (`minLength: 1`) and would ship an unreviewed capability
+    // claim to users.
+    //
+    // The message is asserted, not just the non-zero exit. Weakening the
+    // mutual-exclusion check to `hasPath && hasReason` ALSO exits non-zero —
+    // by crashing on `undefined.trim()` — so a bare `toThrow()` stays green
+    // while the guard is gone. This matching is what reds that mutation.
+    expect(expectGeneratorError(baseArgs([]))).toMatch(
+      /a starter disposition is required/,
+    );
+    cleanup();
+    expect(
+      expectGeneratorError(
+        baseArgs([
+          "--starter-path",
+          "examples/integrations/claude-sdk-python",
+          "--starter-reason",
+          "Both supplied, which must be rejected as a usage error.",
+        ]),
+      ),
+    ).toMatch(/mutually exclusive/);
+    cleanup();
+    expect(
+      expectGeneratorError(
+        baseArgs([
+          "--starter-reason",
+          "No starter exists for this framework at all, anywhere.",
+          "--starter-service",
+          "starter-nope",
+        ]),
+      ),
+    ).toMatch(/--starter-service is only meaningful with --starter-path/);
+  });
+
+  it("--starter-path is checked against the filesystem at authoring time", () => {
+    cleanup();
+    // Satisfies drift assertion 1b (path reality) when the author runs the
+    // scaffolder, rather than in someone else's CI run.
+    expect(
+      expectGeneratorError(
+        baseArgs(["--starter-path", "examples/integrations/no-such-starter"]),
+      ),
+    ).toMatch(/does not exist/);
+  });
+
+  it("--starter-reason rejects a placeholder", () => {
+    cleanup();
+    expect(
+      expectGeneratorError(baseArgs(["--starter-reason", "TODO"])),
+    ).toMatch(/must be a real sentence/);
+    cleanup();
+    expect(
+      expectGeneratorError(
+        baseArgs([
+          "--starter-reason",
+          "TODO: work out whether this framework has a starter template.",
+        ]),
+      ),
+    ).toMatch(/TODO\/FIXME\/TBD placeholder/);
   });
 });

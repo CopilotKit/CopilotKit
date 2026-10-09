@@ -1,0 +1,260 @@
+.tableViewport {
+  inline-size: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  inline-size: 100%;
+  min-inline-size: 36rem;
+  border-collapse: collapse;
+  color: var(--cpki-color-foreground, #023047);
+  font-size: 0.875rem;
+}
+
+.caption {
+  padding-block-end: 0.5rem;
+  color: var(--cpki-color-muted-foreground, #4f6b7a);
+  font-weight: 500;
+  text-align: start;
+}
+
+.visuallyHidden {
+  position: absolute;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  white-space: nowrap;
+}
+
+.headCell {
+  border-block-end: 1px solid var(--cpki-color-border, #d7e3e8);
+  color: var(--cpki-color-muted-foreground, #4f6b7a);
+  font-weight: 600;
+  text-align: start;
+}
+
+.cell,
+.headCell {
+  padding: 0.625rem 0.75rem;
+  vertical-align: middle;
+}
+
+.cellContent {
+  align-items: center;
+  display: flex;
+  min-block-size: 1.5rem;
+}
+
+.row {
+  border-block-end: 1px solid var(--cpki-color-border-subtle, #edf4f7);
+}
+
+.row:last-child {
+  border-block-end: 0;
+}
+
+.alignStart {
+  text-align: start;
+}
+
+.alignCenter {
+  text-align: center;
+}
+
+.alignCenter .cellContent {
+  justify-content: center;
+}
+
+.alignEnd {
+  text-align: end;
+}
+
+.alignEnd .cellContent {
+  justify-content: flex-end;
+}
+
+.emptyCell {
+  padding: 1rem 0.75rem;
+  color: var(--cpki-color-muted-foreground, #4f6b7a);
+  text-align: center;
+}
+
+.descriptionList {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) minmax(0, 1fr);
+  gap: 0;
+  color: var(--cpki-color-foreground, #023047);
+  font-size: 0.875rem;
+}
+
+.descriptionTerm,
+.descriptionDetails {
+  padding: 0.5rem 0;
+  border-block-end: 1px solid var(--cpki-color-border-subtle, #edf4f7);
+}
+
+.descriptionTerm {
+  padding-inline-end: 1rem;
+  color: var(--cpki-color-muted-foreground, #4f6b7a);
+  font-weight: 600;
+}
+
+.descriptionDetails {
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.codeBlock {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.codeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.codeLabel {
+  color: var(--cpki-color-muted-foreground, #4f6b7a);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.pre {
+  overflow-x: auto;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--cpki-color-border, #d7e3e8);
+  border-radius: 2px;
+  background: var(--cpki-color-surface-subtle, #f8fbfc);
+  color: var(--cpki-color-foreground, #023047);
+  font-family: var(
+    --cpki-font-mono,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace
+  );
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+/*
+ * The base-design (Ops) CopyButton: a plain text <button> with only this
+ * class, so page rules such as `.row button` still win over it. The workspace
+ * design renders the shared Button instead, which never carries this class.
+ */
+.copyButton {
+  min-inline-size: 5.5rem;
+  min-block-size: 2rem;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid var(--cpki-color-border, #d7e3e8);
+  border-radius: 2px;
+  background: var(--cpki-color-surface, #ffffff);
+  color: var(--cpki-color-foreground, #023047);
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.copyButton:hover {
+  border-color: var(--cpki-color-accent, #219ebc);
+}
+
+.copyButton:focus-visible {
+  outline: 2px solid var(--cpki-color-focus-ring, #219ebc);
+  outline-offset: 2px;
+}
+
+.copyButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (max-width: 48rem) {
+  .descriptionList {
+    grid-template-columns: 1fr;
+  }
+
+  .descriptionTerm {
+    padding-block-end: 0.125rem;
+    border-block-end: 0;
+  }
+
+  .descriptionDetails {
+    padding-block-start: 0;
+  }
+}
+
+/* Workspace collections use the same frame and header as the AG Grid surfaces. */
+:global(:root[data-cpki-design='workspace']) .tableViewport {
+  position: relative;
+  border: 1px solid var(--cpki-color-border);
+  border-radius: var(--cpki-radius-panel);
+  background: var(--cpki-color-background);
+  overflow: auto;
+}
+:global(:root[data-cpki-design='workspace']) .table {
+  min-inline-size: 32rem;
+  font-size: var(--text-body);
+}
+:global(:root[data-cpki-design='workspace']) .headCell {
+  background: var(--muted);
+  font-size: var(--text-caption);
+  font-weight: 500;
+}
+:global(:root[data-cpki-design='workspace']) :is(.cell, .headCell) {
+  padding: 12px 16px;
+}
+/* Comfortable density: resource lists with row actions (API keys, projects). */
+:global(:root[data-cpki-design='workspace'])
+  .tableViewport[data-density='comfortable']
+  .table {
+  min-inline-size: 36rem;
+}
+:global(:root[data-cpki-design='workspace'])
+  .tableViewport[data-density='comfortable']
+  .headCell {
+  block-size: 2.5rem;
+  padding: 0.5rem 1rem;
+}
+:global(:root[data-cpki-design='workspace'])
+  .tableViewport[data-density='comfortable']
+  :is(.cell, .emptyCell) {
+  block-size: 3.25rem;
+  padding: 0.625rem 1rem;
+}
+:global(:root[data-cpki-design='workspace']) .row[tabindex] {
+  cursor: pointer;
+}
+:global(:root[data-cpki-design='workspace']) .row[tabindex]:hover {
+  background: var(--cpki-color-surface-hover);
+}
+:global(:root[data-cpki-design='workspace']) .row[tabindex]:focus-visible {
+  outline: 2px solid var(--cpki-color-focus-ring);
+  outline-offset: -2px;
+}
+
+/* Long tables keep their header and show quiet edges while rows continue. */
+:global(:root[data-cpki-design='workspace']) .headCell {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  transition: box-shadow 160ms ease;
+}
+:global(:root[data-cpki-design='workspace'])
+  .tableViewport[data-scroll-top='true']
+  .headCell {
+  box-shadow: 0 8px 10px -8px var(--scroll-edge-shadow, rgb(0 0 0 / 10%));
+}
+:global(:root[data-cpki-design='workspace'])
+  .tableViewport[data-scroll-bottom='true'] {
+  box-shadow: inset 0 -14px 12px -12px
+    var(--scroll-edge-shadow, rgb(0 0 0 / 10%));
+}

@@ -590,3 +590,11 @@ demos:
       - src/main/java/com/copilotkit/showcase/springai/InterruptAgentController.java
       - src/app/demos/interrupt-headless/page.tsx
       - src/app/api/copilotkit/route.ts
+
+# Starter VALIDATION ladder (dashboard). NOT the `starter:` key.
+# A POSITIVE, reviewed declaration that this framework has no starter —
+# absence is never inferred from a missing block.
+starter_validation:
+  supported: false
+  reason: >-
+    Spring AI has no starter template in examples/integrations and is not in the starter-smoke matrix.

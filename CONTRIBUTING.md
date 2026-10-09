@@ -32,6 +32,9 @@ If you don't feel ready to make a code contribution yet, no problem! You can als
 There are two documentation domains — make sure your change goes to the right place, or it won't reach the live site:
 
 - **CopilotKit docs** (docs.copilotkit.ai) are authored in **`showcase/shell-docs/src/content/`** (`docs/`, `reference/`, `snippets/`, `framework-overviews/`). When adding a page, update the relevant `meta.json` so it appears in navigation. Top-level `docs/` is only a symlink to `showcase/shell-docs/`; do not recreate the old `docs/content/docs/` tree.
+
+Merged docs changes update [docs staging](https://docs.staging.copilotkit.ai). Production (`docs.copilotkit.ai`) updates when a maintainer merges the bot-opened `release/docs/prod` PR. Do not run **Showcase: Promote** for docs-only changes.
+
 - **AG-UI protocol docs** (docs.ag-ui.com) are authored upstream in [`ag-ui-protocol/ag-ui`](https://github.com/ag-ui-protocol/ag-ui), not in this repo. The `showcase/shell-docs/src/content/ag-ui/` copy is a downstream mirror.
 
 # How do I make a code contribution?
@@ -63,7 +66,7 @@ git clone https://github.com/<your-GitHub-username>/CopilotKit
 ### 1) Install Prerequisites
 
 - Node.js 20.x or later
-- pnpm v9.x installed globally (npm i -g pnpm@^9)
+- pnpm v10.x installed globally (npm i -g pnpm@^10)
 
 > **Windows users:** Enable **Developer Mode** (Settings > System > For developers > Developer Mode → On) to allow symlink creation. This is required for Next.js standalone builds and pnpm to work correctly.
 
@@ -190,6 +193,19 @@ fix(server): missing entity on init
 - **perf**: A code change that improves performance
 - **test**: Adding missing or correcting existing tests
 - **chore**: Changes to the build process or auxiliary tools and libraries such as documentation generation
+
+### Breaking changes
+
+If your change can break code that works today, add `!` after the type and a `BREAKING CHANGE:` line with the migration steps:
+
+```
+feat(react-core)!: rename oldHook to newHook
+
+BREAKING CHANGE: oldHook is removed.
+Call newHook instead. It takes the same arguments.
+```
+
+Put the same marks in the pull request title and description. The release notes list these changes in a "Breaking Changes" section. See [VERSIONING.md](VERSIONING.md) for the full policy.
 
 ## Code of conduct
 

@@ -1,5 +1,5 @@
 // Inspector-side anonymous telemetry. V1 events fire from index.ts for
-// What's new and thread-inspection interactions. POSTs directly from the
+// the launcher HUD, What's new, and thread-inspection interactions. POSTs directly from the
 // browser to the CopilotKit telemetry sink at
 // `telemetry.copilotkit.ai/ingest`, where a Lambda fan-out forwards events to
 // PostHog / Reo / Scarf.
@@ -10,7 +10,7 @@
 // Privacy invariants enforced here:
 //   - We never send message content, agent state, prompts, completions,
 //     or announcement markdown. Feature-specific properties are scoped to
-//     event metadata only (banner_id/timestamp, cta location). Reviewers
+//     event metadata only (notification UUID, cta location). Reviewers
 //     should grep call sites for any unintended payload.
 //   - The opt-out short-circuits before any network call. There is no
 //     buffer, no retry queue.
@@ -33,6 +33,14 @@ export const TELEMETRY_EVENTS = {
   whatsNewSignalViewed: "oss.inspector.whats_new_signal_viewed",
   errorSignalViewed: "oss.inspector.error_signal_viewed",
   whatsNewClicked: "oss.inspector.whats_new_clicked",
+  hudViewed: "oss.inspector.hud_viewed",
+  hudNotificationViewed: "oss.inspector.hud_notification_viewed",
+  hudNotificationClicked: "oss.inspector.hud_notification_clicked",
+  hudFeatureToggleViewed: "oss.inspector.hud_feature_toggle_viewed",
+  hudFeatureToggleClicked: "oss.inspector.hud_feature_toggle_clicked",
+  hudFeatureClicked: "oss.inspector.hud_feature_clicked",
+  hudHideViewed: "oss.inspector.hud_hide_viewed",
+  hudHideClicked: "oss.inspector.hud_hide_clicked",
   threadsTabClicked: "oss.inspector.threads_tab_clicked",
   threadsTryFromHereClicked: "oss.inspector.threads_try_from_here_clicked",
   threadsLockedViewed: "oss.inspector.threads_locked_viewed",
@@ -52,8 +60,16 @@ export const TELEMETRY_EVENTS = {
   threadsExampleTourCompleted: "oss.inspector.threads_example_tour_completed",
   threadsExampleTourReopened: "oss.inspector.threads_example_tour_reopened",
   memoriesTabClicked: "oss.inspector.memories_tab_clicked",
+  learningPaneViewed: "oss.inspector.learning_pane_viewed",
+  learningSetupPromptClicked: "oss.inspector.learning_setup_prompt_clicked",
+  learningSnapshotLoaded: "oss.inspector.learning_snapshot_loaded",
+  learningSkillToggled: "oss.inspector.learning_skill_toggled",
+  learningEvidenceOpened: "oss.inspector.learning_evidence_opened",
+  learningPageChanged: "oss.inspector.learning_page_changed",
+  learningWebAppOpened: "oss.inspector.learning_web_app_opened",
   homeViewed: "oss.inspector.home_viewed",
   homeCtaClicked: "oss.inspector.home_cta_clicked",
+  homeFeaturePromptClicked: "oss.inspector.home_feature_prompt_clicked",
   // Carries the CLI's own `onboarding_run_id`, which is the whole point: it is
   // the first event that can be joined to `cli.onboarding.completed` on the
   // Intelligence side. `home_cta_clicked` only ever proved someone clicked a
@@ -172,9 +188,8 @@ export function track(
 
 /**
  * Where an announcement was rendered when the event fired. What's new is the
- * only surface that carries one, so the value is currently a constant — it
- * stays a stamped property rather than an inferred one so a second surface
- * can be added without changing the event's shape.
+ * only surface of `whats_new_viewed`. The HUD has its own notification event,
+ * so its impressions do not change the meaning of this event.
  */
 export type WhatsNewSurface = "whats_new";
 
@@ -208,6 +223,7 @@ export type InspectorErrorSignalSource =
  */
 export function trackWhatsNewViewed(props: {
   banner_id: string;
+  notification_id?: string;
   surface: WhatsNewSurface;
   cta_label?: string;
 }): void {
@@ -217,11 +233,75 @@ export function trackWhatsNewViewed(props: {
 /** Fires when the unread launcher signal is presented in a visible tab. */
 export function trackWhatsNewSignalViewed(props: {
   banner_id: string;
+  notification_id?: string;
   surface: "launcher";
   presentation: WhatsNewSignalPresentation;
   cta_label?: string;
 }): void {
   track(TELEMETRY_EVENTS.whatsNewSignalViewed, props);
+}
+
+export type HudFeature = "threads" | "learning";
+
+/**
+ * What opened the HUD presentation. `intro` is the automatic preview that
+ * plays after every mount, `user` is a pointer or keyboard open. A user who
+ * takes over a playing intro keeps `intro`, because the presentation itself
+ * was not requested.
+ */
+export type HudTrigger = "intro" | "user";
+
+/** One impression per rendered HUD presentation in a visible tab. */
+export function trackHudViewed(props: { trigger: HudTrigger }): void {
+  track(TELEMETRY_EVENTS.hudViewed, props);
+}
+
+/** The UUID identifies the notification consistently across HUD and article events. */
+export function trackHudNotificationViewed(props: {
+  banner_id: string;
+  notification_id: string;
+  trigger: HudTrigger;
+}): void {
+  track(TELEMETRY_EVENTS.hudNotificationViewed, props);
+}
+
+export function trackHudNotificationClicked(props: {
+  banner_id: string;
+  notification_id: string;
+  action: "open" | "dismiss";
+  trigger: HudTrigger;
+}): void {
+  track(TELEMETRY_EVENTS.hudNotificationClicked, props);
+}
+
+export function trackHudFeatureToggleViewed(props: {
+  feature: HudFeature;
+  trigger: HudTrigger;
+}): void {
+  track(TELEMETRY_EVENTS.hudFeatureToggleViewed, props);
+}
+
+export function trackHudFeatureToggleClicked(props: {
+  feature: HudFeature;
+  trigger: HudTrigger;
+}): void {
+  track(TELEMETRY_EVENTS.hudFeatureToggleClicked, props);
+}
+
+export function trackHudFeatureClicked(props: {
+  feature: HudFeature;
+  control: "row" | "action" | "learn_more";
+  trigger: HudTrigger;
+}): void {
+  track(TELEMETRY_EVENTS.hudFeatureClicked, props);
+}
+
+export function trackHudHideViewed(props: { trigger: HudTrigger }): void {
+  track(TELEMETRY_EVENTS.hudHideViewed, props);
+}
+
+export function trackHudHideClicked(props: { trigger: HudTrigger }): void {
+  track(TELEMETRY_EVENTS.hudHideClicked, props);
 }
 
 /**
@@ -270,6 +350,7 @@ export function trackErrorSignalViewed(props: {
  */
 export function trackWhatsNewClicked(props: {
   banner_id: string;
+  notification_id?: string;
   cta: "body";
   cta_label?: string;
 }): void {
@@ -592,6 +673,95 @@ export function trackMemoriesTabClicked(
   track(TELEMETRY_EVENTS.memoriesTabClicked, props);
 }
 
+export type InspectorLearningViewState =
+  | "loading"
+  | "error"
+  | "selection_required"
+  | "invalid"
+  | "results"
+  | "first_run"
+  | "ready"
+  | "empty"
+  | "setup"
+  | "landing";
+export type InspectorLearningCountBucket =
+  | "zero"
+  | "one"
+  | "two_to_five"
+  | "six_to_twenty"
+  | "twenty_one_plus";
+export type InspectorLearningDurationBucket =
+  | "under_250ms"
+  | "250ms_to_1s"
+  | "1s_to_3s"
+  | "3s_plus";
+
+export function learningCountBucket(
+  value: number,
+): InspectorLearningCountBucket {
+  if (value <= 0) return "zero";
+  if (value === 1) return "one";
+  if (value <= 5) return "two_to_five";
+  if (value <= 20) return "six_to_twenty";
+  return "twenty_one_plus";
+}
+
+export function learningDurationBucket(
+  durationMs: number,
+): InspectorLearningDurationBucket {
+  if (durationMs < 250) return "under_250ms";
+  if (durationMs < 1_000) return "250ms_to_1s";
+  if (durationMs < 3_000) return "1s_to_3s";
+  return "3s_plus";
+}
+
+export function trackLearningPaneViewed(props: {
+  state: InspectorLearningViewState;
+}): void {
+  track(TELEMETRY_EVENTS.learningPaneViewed, props);
+}
+
+export function trackLearningSetupPromptClicked(props: {
+  outcome: "success" | "failure";
+  /** The id substituted into the copied prompt, so the click joins its CLI run. */
+  onboarding_run_id: string;
+}): void {
+  track(TELEMETRY_EVENTS.learningSetupPromptClicked, props);
+}
+
+export function trackLearningSnapshotLoaded(props: {
+  outcome: "success" | "unsupported" | "failure";
+  duration_bucket: InspectorLearningDurationBucket;
+  skills_bucket: InspectorLearningCountBucket;
+  insights_bucket: InspectorLearningCountBucket;
+  pending_threads_bucket: InspectorLearningCountBucket;
+}): void {
+  track(TELEMETRY_EVENTS.learningSnapshotLoaded, props);
+}
+
+export function trackLearningSkillToggled(props: {
+  action: "expanded" | "collapsed";
+}): void {
+  track(TELEMETRY_EVENTS.learningSkillToggled, props);
+}
+
+export function trackLearningEvidenceOpened(): void {
+  track(TELEMETRY_EVENTS.learningEvidenceOpened);
+}
+
+export function trackLearningPageChanged(props: {
+  section: "skills" | "insights";
+  direction: "previous" | "next";
+}): void {
+  track(TELEMETRY_EVENTS.learningPageChanged, props);
+}
+
+export function trackLearningWebAppOpened(props: {
+  category: "learning" | "runs" | "candidates";
+}): void {
+  track(TELEMETRY_EVENTS.learningWebAppOpened, props);
+}
+
 export type InspectorMetadataTelemetryModule = "identity" | "plan" | "action";
 export type InspectorMetadataLicenseBucket =
   | "valid"
@@ -621,6 +791,23 @@ export function trackHomeCtaClicked(props: InspectorHomeTelemetryProps): void {
     action_kind: props.action_kind,
     group_key: props.group_key ?? "home",
     leaf_key: props.leaf_key ?? "home",
+  });
+}
+
+/**
+ * Correlates a copied feature setup prompt with its onboarding run. The run ID
+ * is generated locally for this click, not derived from account or runtime
+ * data, so it can be safely joined with the onboarding flow downstream.
+ */
+export function trackHomeFeaturePromptClicked(props: {
+  feature_id: string;
+  onboarding_run_id: string;
+}): void {
+  track(TELEMETRY_EVENTS.homeFeaturePromptClicked, {
+    feature_id: props.feature_id,
+    onboarding_run_id: props.onboarding_run_id,
+    group_key: "home",
+    leaf_key: "home",
   });
 }
 
