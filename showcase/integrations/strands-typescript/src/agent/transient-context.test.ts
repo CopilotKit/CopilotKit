@@ -2,41 +2,11 @@ import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { RunAgentInputSchema } from "@ag-ui/core";
-import { Agent, FileStorage, Model, SessionManager } from "@strands-agents/sdk";
-import type {
-  BaseModelConfig,
-  Message,
-  ModelStreamEvent,
-  StreamOptions,
-  MessageData,
-} from "@strands-agents/sdk";
+import type { RunAgentInput } from "@ag-ui/core";
+import { Agent, FileStorage, SessionManager } from "@strands-agents/sdk";
+import type { MessageData } from "@strands-agents/sdk";
+import { RecordingModel } from "./test-support/recording-model";
 import { ShowcaseStrandsAgent } from "./agent";
-
-class RecordingModel extends Model<BaseModelConfig> {
-  requests: string[] = [];
-  private config: BaseModelConfig = { modelId: "context-regression" };
-  updateConfig(config: BaseModelConfig): void {
-    this.config = { ...this.config, ...config };
-  }
-  getConfig(): BaseModelConfig {
-    return this.config;
-  }
-  async *stream(
-    messages: Message[],
-    options?: StreamOptions,
-  ): AsyncIterable<ModelStreamEvent> {
-    this.requests.push(JSON.stringify({ messages, options }));
-    yield { type: "modelMessageStartEvent", role: "assistant" };
-    yield { type: "modelContentBlockStartEvent" };
-    yield {
-      type: "modelContentBlockDeltaEvent",
-      delta: { type: "textDelta", text: "Done." },
-    };
-    yield { type: "modelContentBlockStopEvent" };
-    yield { type: "modelMessageStopEvent", stopReason: "endTurn" };
-  }
-}
 
 test("delivers current context across eight native session reloads without persisting it in messages", async () => {
   const directory = await mkdtemp(join(tmpdir(), "strands-transient-context-"));
@@ -64,7 +34,7 @@ test("delivers current context across eight native session reloads without persi
       });
       const prompt = `Show my current preferences, turn ${turn}.`;
       prompts.push(prompt);
-      const input = RunAgentInputSchema.parse({
+      const input: RunAgentInput = {
         threadId: "context-thread",
         runId: `run-${turn}`,
         messages: [{ id: `user-${turn}`, role: "user", content: prompt }],
@@ -75,7 +45,7 @@ test("delivers current context across eight native session reloads without persi
         },
         tools: [],
         forwardedProps: {},
-      });
+      };
       const events = [];
       for await (const event of adapter.run(input)) events.push(event);
       expect(events.filter((event) => event.type === "RUN_ERROR")).toEqual([]);

@@ -44,25 +44,19 @@ Capture retains full URLs, page titles, referrers, element text, attributes, con
   <Step>
     ### Pass `learning` to the provider
 
-    A Trajectory groups the events of one session. Your app decides where a Trajectory starts. Here, each page load starts one.
+    A Trajectory groups the events of one session. Here, each page load starts one.
 
     ```tsx title="app/providers.tsx"
     "use client";
 
     import { httpSink } from "@copilotkit/learning";
     import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-    import { useState } from "react";
 
     const sink = httpSink("/api/learning-events");
 
     export function Providers({ children }: { children: React.ReactNode }) {
-      const [trajectoryId] = useState(() => crypto.randomUUID());
-
       return (
-        <CopilotKitProvider
-          runtimeUrl="/api/copilotkit"
-          learning={{ sink, trajectoryId }}
-        >
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" learning={{ sink }}>
           {children}
         </CopilotKitProvider>
       );
@@ -70,6 +64,8 @@ Capture retains full URLs, page titles, referrers, element text, attributes, con
     ```
 
     Capture starts after the provider mounts and stops when it unmounts. CopilotKit's own runtime requests are never captured.
+
+    The provider generates the Trajectory ID. It stays the same across rerenders and reconnects while capture is on. Turning capture off and on again starts a new Trajectory with a new ID. Read the active ID from `copilotkit.trajectoryId`. To use your own ID, pass `learning={{ sink, trajectoryId }}`.
 
   </Step>
   <Step>
@@ -151,7 +147,18 @@ The event carries the open Thread. Built-in names such as `click` are reserved.
 
 ## Start and stop a Trajectory yourself
 
-Leave out `trajectoryId` on the prop, then call Core when your app decides a session starts:
+Set `autoStart: false` on the prop. The provider then waits for your app to start capture:
+
+```tsx
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  learning={{ sink, autoStart: false }}
+>
+  {children}
+</CopilotKitProvider>
+```
+
+Call Core when your app decides a session starts:
 
 ```tsx
 import { useCopilotKit } from "@copilotkit/react-core/v2";
@@ -165,6 +172,8 @@ function StartCaptureButton({ projectId }: { projectId: string }) {
   );
 }
 ```
+
+Pass your own ID to `startTrajectory()`, as above, or leave it out to get a generated one. With `autoStart: false`, a `trajectoryId` on the prop is ignored with a console warning.
 
 One Trajectory runs at a time. Starting the same ID again does nothing. `copilotkit.stopTrajectory()` removes every listener and sends queued events once. It does not wait for delivery or retry a failed send.
 

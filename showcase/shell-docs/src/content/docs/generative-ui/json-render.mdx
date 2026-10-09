@@ -1,105 +1,31 @@
 ---
 title: JSON Render
-description: Bring your own component library. Have the agent emit a JSON spec and let json-render render it against a Zod-validated catalog of React components.
+description: Bring your own component library. Have the agent emit a JSON spec and render allowed component types through a typed React registry.
 icon: "lucide/Component"
 snippet_cell: declarative-json-render
 ---
 
-<InlineDemo demo="declarative-json-render" />
+<InlineDemo
+  demo="declarative-json-render"
+  showAllFiles
+  llmFiles="src/app/demos/declarative-json-render/chat.tsx,src/app/demos/declarative-json-render/json-render-renderer.tsx,src/app/demos/declarative-json-render/catalog.ts,src/app/demos/declarative-json-render/registry.tsx"
+/>
 
-You have a chat surface and you want the agent to draw a dashboard from a typed JSON spec. By the end of this guide, the agent will emit a `{ root, elements }` object, [`@json-render/react`](https://www.npmjs.com/package/@json-render/react) will validate it against a Zod-described catalog, and the user sees the dashboard render as a single React tree.
+You have a chat surface and you want the agent to draw a dashboard from a typed JSON spec. By the end of this guide, the agent will emit a `{ root, elements }` object, and [`@json-render/react`](https://www.npmjs.com/package/@json-render/react) will render it through your React component registry.
 
 ## When to use this
 
-- **Structured UI with a typed contract** where the agent's output is validated against a known schema before it touches the DOM.
-- **Tolerance for prose preamble + code fences** in the agent's output (json-render's parser handles them).
-- **Cases where you already use json-render** elsewhere or prefer Zod-validated catalogs.
+- **Structured UI with a typed contract** where the renderer accepts known component types.
+- **Tolerance for prose preamble + code fences** in the agent's output (the demo's parser handles them).
+- **Cases where you already use json-render** elsewhere or prefer a Zod-described catalog.
 
-If you'd rather have a streaming progressive render rather than a one-shot validated render, see the sibling page [Hashbrown](/generative-ui/hashbrown) for the same scenario with `@hashbrownai/react`.
+If you'd rather have a streaming progressive render than a one-shot JSON render, see the sibling page [Hashbrown](/generative-ui/hashbrown) for the same scenario with `@hashbrownai/react`.
 
 ## Frontend
 
-The integration point is `<CopilotChat>`'s `messageView.assistantMessage` slot. Swap the default renderer for a json-render-backed one:
+The integration point is `<CopilotChat>`'s `messageView.assistantMessage` slot. The demo's **Code** tab has the complete framework-specific files, and the Markdown version of this page includes the key frontend source files. These demos use `@json-render/react` and `@json-render/core` version `0.18.0` with Zod 4 for the catalog. Check the selected demo's `package.json` in the repository for later version changes. Demos that also use Zod 3 import Zod 4 through the `zod4` package alias. `page.tsx` provides `<CopilotKit>`, `chat.tsx` installs `JsonRenderAssistantMessage` in the chat slot, and `json-render-renderer.tsx` parses the assistant content. The Code tab also shows the runtime route for the selected framework.
 
-```tsx title="frontend/src/app/page.tsx"
-import {
-  CopilotKit,
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
-import { JsonRenderAssistantMessage } from "./json-render-renderer";
-
-export default function ByocJsonRenderDemo() {
-  useConfigureSuggestions({
-    suggestions: [
-      { title: "Sales dashboard", message: "Show me a sales dashboard." },
-      { title: "Region breakdown", message: "Break down sales by region." },
-    ],
-    available: "always",
-  });
-
-  return (
-    <CopilotKit runtimeUrl="/api/copilotkit-byoc-json-render" agent="byoc_json_render">
-      <CopilotChat
-        messageView={{ assistantMessage: JsonRenderAssistantMessage }}
-      />
-    </CopilotKit>
-  );
-}
-```
-
-The custom renderer parses the streaming assistant content (tolerating partial tokens, code fences, and prose preamble), validates each element against a Zod-typed catalog, and feeds the resulting spec into `<Renderer />`:
-
-```tsx title="frontend/src/app/json-render-renderer.tsx"
-import { Renderer } from "@json-render/react";
-import { catalog } from "./registry";
-
-export function JsonRenderAssistantMessage({ message }: { message: AssistantMessage }) {
-  const spec = parseSpec(message.content ?? "");
-  if (!spec) return null;
-  return <Renderer spec={spec} catalog={catalog} />;
-}
-
-function parseSpec(content: string) {
-  const cleaned = stripCodeFencesAndPrelude(content);
-  const partial = tolerantJsonParse(cleaned);
-  return validateAgainstCatalog(partial);
-}
-```
-
-The catalog lives next to the renderer and pairs each component with a Zod schema describing its props:
-
-```tsx title="frontend/src/app/registry.tsx"
-import { z } from "zod";
-import { MetricCard } from "./metric-card";
-import { BarChart } from "./charts/bar-chart";
-import { PieChart } from "./charts/pie-chart";
-
-export const catalog = {
-  MetricCard: {
-    component: MetricCard,
-    propsSchema: z.object({
-      title: z.string(),
-      value: z.number(),
-      delta: z.number().optional(),
-    }),
-  },
-  BarChart: {
-    component: BarChart,
-    propsSchema: z.object({
-      data: z.array(z.object({ label: z.string(), value: z.number() })),
-    }),
-  },
-  PieChart: {
-    component: PieChart,
-    propsSchema: z.object({
-      data: z.array(z.object({ label: z.string(), value: z.number() })),
-    }),
-  },
-};
-```
-
-Validation is the safety net: anything the agent emits that doesn't match a registered schema is rejected before it hits React, so the chat can't render arbitrary garbage.
+The renderer imports `registry` from `registry.tsx`, wraps `<Renderer spec={spec} registry={registry} />` in `<JSONUIProvider registry={registry}>`, and falls back to the normal assistant message until it can parse a spec. `catalog.ts` defines component names and Zod prop schemas with `defineCatalog`; `registry.tsx` uses `defineRegistry(catalog, …)` to bind those names to React components. Copy both files with the renderer. The demo's `parseSpec` allowlists component types and checks the basic object shape, but does **not** validate emitted props against the Zod schemas at runtime. Validate props before rendering if you rely on that guarantee.
 
 ## Backend
 
@@ -107,25 +33,29 @@ The agent emits a `{ root, elements }` JSON object as the assistant message cont
 
 ```json title="example agent output"
 {
-  "root": "dashboard",
+  "root": "revenue-card",
   "elements": {
-    "dashboard": {
-      "type": "Stack",
-      "children": ["revenue-card", "by-region"]
-    },
     "revenue-card": {
       "type": "MetricCard",
-      "props": { "title": "Total revenue", "value": 184302 }
+      "props": { "label": "Total revenue", "value": "$184,302", "trend": "+12%" },
+      "children": ["by-region"]
     },
     "by-region": {
       "type": "BarChart",
-      "props": { "data": [...] }
+      "props": {
+        "title": "Revenue by region",
+        "description": null,
+        "data": [
+          { "label": "North America", "value": 112000 },
+          { "label": "EMEA", "value": 72302 }
+        ]
+      }
     }
   }
 }
 ```
 
-Anything else (free-form text, code fences around the JSON, a "Here's your dashboard:" preamble) is stripped by the renderer's tolerant parser before validation. The agent doesn't need to be perfectly clean.
+The example uses a `MetricCard` root and its registered `BarChart` child. The renderer tolerates a prose preamble or code fence around the JSON, but the agent prompts ask for plain JSON.
 
 ## Comparing the two patterns
 
