@@ -122,7 +122,7 @@ The Built-in Agent picks the OpenAI API from that host:
 - OpenAI (`api.openai.com`, `*.api.openai.com`) and Azure OpenAI hosts use the
   Responses API.
 - Any other host uses the Chat Completions API, because most OpenAI-compatible
-  servers serve only `/chat/completions`. The runtime logs this once at startup.
+  servers serve only `/chat/completions`. The runtime logs this on the first run.
 
 To choose the API yourself, set `COPILOTKIT_OPENAI_API` to `responses` or
 `chat`. For example, a proxy in front of OpenAI (such as LiteLLM or Portkey)
