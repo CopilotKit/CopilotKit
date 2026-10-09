@@ -247,6 +247,11 @@ function getContextInternals(inspector: WebInspectorElement) {
   return inspector as unknown as InspectorContextInternals;
 }
 
+/** Save a launcher position the way the inspector persists it. */
+function saveButtonState(button: Record<string, unknown>) {
+  localStorage.setItem("cpk:inspector:state", JSON.stringify({ button }));
+}
+
 type TelemetryPost = { event: string; properties: Record<string, unknown> };
 
 /** Decode the `oss.inspector.*` payloads a stubbed fetch received. */
@@ -485,6 +490,142 @@ describe("WebInspectorElement", () => {
     controller.simulateSetState({ counter: 5 });
     await inspector.updateComplete;
     expect(internals.agentStates.get("counter")).toEqual({ counter: 5 });
+  });
+
+  describe("default anchor", () => {
+    type Corner = {
+      horizontal: "left" | "right";
+      vertical: "top" | "bottom";
+    };
+    const buttonAnchor = (inspector: WebInspectorElement) =>
+      (
+        inspector as unknown as {
+          contextState: { button: { anchor: Corner } };
+        }
+      ).contextState.button.anchor;
+
+    const mount = async (defaultAnchor?: Corner) => {
+      const { core } = createMockCore();
+      const inspector = new WebInspectorElement();
+      configureWebInspectorElement(
+        inspector,
+        core as unknown as CopilotKitCore,
+        undefined,
+        { defaultAnchor },
+      );
+      document.body.appendChild(inspector);
+      await inspector.updateComplete;
+      return inspector;
+    };
+
+    it("starts the launcher in the top-right corner when none is set", async () => {
+      const inspector = await mount();
+
+      expect(buttonAnchor(inspector)).toEqual({
+        horizontal: "right",
+        vertical: "top",
+      });
+    });
+
+    it("starts the launcher in the configured corner", async () => {
+      const inspector = await mount({ horizontal: "left", vertical: "top" });
+
+      expect(buttonAnchor(inspector)).toEqual({
+        horizontal: "left",
+        vertical: "top",
+      });
+      expect(inspector.style.transform).toBe("translate3d(16px, 16px, 0)");
+    });
+
+    it("falls back to the top-right corner for an invalid anchor", async () => {
+      const inspector = await mount({
+        horizontal: "middle",
+        vertical: "top",
+      } as unknown as Corner);
+
+      expect(buttonAnchor(inspector)).toEqual({
+        horizontal: "right",
+        vertical: "top",
+      });
+    });
+
+    it("ignores a saved corner the launcher was never dragged to", async () => {
+      saveButtonState({
+        anchor: { horizontal: "right", vertical: "top" },
+        anchorOffset: { x: 16, y: 16 },
+        hasCustomPosition: false,
+      });
+
+      const inspector = await mount({ horizontal: "left", vertical: "bottom" });
+
+      expect(buttonAnchor(inspector)).toEqual({
+        horizontal: "left",
+        vertical: "bottom",
+      });
+    });
+
+    it("keeps the corner the user dragged the launcher to", async () => {
+      saveButtonState({
+        anchor: { horizontal: "right", vertical: "bottom" },
+        anchorOffset: { x: 16, y: 16 },
+        hasCustomPosition: true,
+      });
+
+      const inspector = await mount({ horizontal: "left", vertical: "top" });
+
+      expect(buttonAnchor(inspector)).toEqual({
+        horizontal: "right",
+        vertical: "bottom",
+      });
+    });
+
+    it("saves a dragged corner so it wins on the next load", async () => {
+      const inspector = await mount({ horizontal: "left", vertical: "top" });
+      const handlers = inspector as unknown as Record<
+        "handlePointerDown" | "handlePointerMove" | "handlePointerUp",
+        (event: unknown) => void
+      >;
+      const pointer = (clientX: number, clientY: number) => ({
+        pointerId: 1,
+        clientX,
+        clientY,
+        target: null,
+        currentTarget: {
+          dataset: { dragContext: "button" },
+          setPointerCapture: () => {},
+          hasPointerCapture: () => false,
+        },
+        preventDefault: () => {},
+      });
+
+      handlers.handlePointerDown(pointer(20, 20));
+      handlers.handlePointerMove(
+        pointer(window.innerWidth - 20, window.innerHeight - 20),
+      );
+      handlers.handlePointerUp(
+        pointer(window.innerWidth - 20, window.innerHeight - 20),
+      );
+      inspector.remove();
+
+      const reloaded = await mount({ horizontal: "left", vertical: "top" });
+      expect(buttonAnchor(reloaded)).toEqual({
+        horizontal: "right",
+        vertical: "bottom",
+      });
+    });
+
+    it("moves the launcher when the default changes after mount", async () => {
+      const inspector = await mount();
+
+      inspector.defaultAnchor = { horizontal: "left", vertical: "top" };
+      await inspector.updateComplete;
+
+      expect(buttonAnchor(inspector)).toEqual({
+        horizontal: "left",
+        vertical: "top",
+      });
+      expect(inspector.style.transform).toBe("translate3d(16px, 16px, 0)");
+    });
   });
 
   describe("small viewports", () => {
