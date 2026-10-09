@@ -124,6 +124,24 @@ describe("CopilotChat icon buttons", () => {
     expect(clicked).toHaveBeenCalledTimes(1);
   });
 
+  it("renders the stop affordance while running and still emits clicks", () => {
+    const fixture = TestBed.createComponent(CopilotChatSendButton);
+    const clicked = vi.fn();
+    fixture.componentInstance.clicked.subscribe(clicked);
+    fixture.componentRef.setInput("running", true);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector(
+      "button",
+    ) as HTMLButtonElement;
+    expect(button.getAttribute("aria-label")).toBe("Stop generating");
+    expect(button.querySelector("rect")?.getAttribute("fill")).toBe(
+      "currentColor",
+    );
+    button.click();
+    expect(clicked).toHaveBeenCalledOnce();
+  });
+
   it("names every icon-only control in the default chat input", () => {
     TestBed.configureTestingModule({
       providers: defaultInputProviders,

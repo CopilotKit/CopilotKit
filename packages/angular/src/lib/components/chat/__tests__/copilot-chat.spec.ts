@@ -419,6 +419,49 @@ describe("CopilotChat", () => {
     });
   });
 
+  describe("stopping a run", () => {
+    let agent: StreamingAgent;
+    let context: ReturnType<typeof createChatFixture>;
+    beforeEach(() => {
+      agent = new StreamingAgent();
+      context = createChatFixture(agent);
+    });
+
+    test("offers stop only while a run is in flight on a non-empty transcript", async () => {
+      const { chat, core } = context;
+      expect(chat.canStop()).toBe(false);
+      const external = core.runAgent({ agent });
+      await vi.waitFor(() => expect(chat.isRunning()).toBe(true));
+      // Like React's shouldAllowStop: no Stop on the empty welcome screen.
+      expect(chat.canStop()).toBe(false);
+
+      agent.addMessage({ id: "user-1", role: "user", content: "hi" });
+      await vi.waitFor(() => expect(chat.canStop()).toBe(true));
+
+      agent.finish();
+      await external;
+      await vi.waitFor(() => expect(chat.canStop()).toBe(false));
+    });
+
+    test("stops the run through Core", () => {
+      const { chat, core } = context;
+      const stop = vi.spyOn(core, "stopAgent");
+      chat.stopRun();
+      expect(stop).toHaveBeenCalledWith({ agent });
+    });
+
+    test("falls back to abortRun when Core fails to stop", () => {
+      const { chat, core } = context;
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      vi.spyOn(core, "stopAgent").mockImplementation(() => {
+        throw new Error("stop failed");
+      });
+      const abort = vi.spyOn(agent, "abortRun");
+      chat.stopRun();
+      expect(abort).toHaveBeenCalledOnce();
+    });
+  });
+
   describe("sending messages", () => {
     let agent: StreamingAgent;
     let context: ReturnType<typeof createChatFixture>;

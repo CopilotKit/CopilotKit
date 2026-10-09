@@ -148,6 +148,11 @@ export class CopilotChat extends ChatState {
   override readonly attachmentsUploading = computed(() =>
     this.attachments().some((attachment) => attachment.status === "uploading"),
   );
+  override readonly isRunning = computed(() => this.agentStore().isRunning());
+  // Match React's shouldAllowStop: no Stop on the empty welcome screen.
+  override readonly canStop = computed(
+    () => this.isRunning() && this.messages().length > 0,
+  );
 
   private generatedThreadId: string = randomUUID();
   private submissionQueue: Promise<void> = Promise.resolve();
@@ -423,6 +428,20 @@ export class CopilotChat extends ChatState {
 
   changeInput(value: string): void {
     this.inputValue.set(value);
+  }
+
+  override stopRun(): void {
+    const agent = this.agentStore().agent;
+    try {
+      this.copilotKit.core.stopAgent({ agent });
+    } catch (error) {
+      console.error("[CopilotKit] stopAgent failed:", error);
+      try {
+        agent.abortRun();
+      } catch (abortError) {
+        console.error("[CopilotKit] abortRun fallback failed:", abortError);
+      }
+    }
   }
 
   override async finishTranscription(audioBlob: Blob): Promise<void> {

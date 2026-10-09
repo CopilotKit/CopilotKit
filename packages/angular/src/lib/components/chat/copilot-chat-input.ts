@@ -17,7 +17,7 @@ import {
 import { CommonModule } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { injectChatLabels } from "../../chat-config";
-import { ArrowUp, CopilotIcon } from "../icons/copilot-icon";
+import { ArrowUp, CopilotIcon, Square } from "../icons/copilot-icon";
 import { CopilotChatTextarea } from "./copilot-chat-textarea";
 import { CopilotChatAudioRecorder } from "./copilot-chat-audio-recorder";
 import {
@@ -42,6 +42,10 @@ import { CopilotKit } from "../../copilotkit";
  */
 export interface SendButtonContext {
   send: () => void;
+  /** Stops the in-flight run. */
+  stop: () => void;
+  /** True while the button acts as Stop rather than Send. */
+  isRunning: boolean;
   disabled: boolean;
   value: string;
 }
@@ -231,12 +235,15 @@ export interface ToolbarContext {
           <div class="cpk:mr-[10px]">
             <button
               type="button"
-              aria-label="Send message"
+              [attr.aria-label]="showStop() ? 'Stop generating' : 'Send message'"
               [class]="sendButtonClass() || defaultButtonClass"
               [disabled]="sendButtonDisabled()"
-              (click)="send()"
+              (click)="handleSendButtonClick()"
             >
-              <copilot-icon [img]="ArrowUpIcon" [size]="18"></copilot-icon>
+              <copilot-icon
+                [img]="showStop() ? SquareIcon : ArrowUpIcon"
+                [size]="18"
+              ></copilot-icon>
             </button>
           </div>
         }
@@ -372,6 +379,7 @@ export class CopilotChatInput implements OnDestroy {
 
   // Icons and default classes
   readonly ArrowUpIcon = ArrowUp;
+  readonly SquareIcon = Square;
   readonly defaultButtonClass = cn(
     // Base button styles
     "cpk:inline-flex cpk:items-center cpk:justify-center cpk:gap-2 cpk:whitespace-nowrap cpk:rounded-md cpk:text-sm cpk:font-medium",
@@ -436,11 +444,17 @@ export class CopilotChatInput implements OnDestroy {
       ? () => this.handleAddFile()
       : undefined,
   );
-  sendButtonDisabled = computed(
-    () =>
-      !this.computedValue().trim() ||
-      this.computedMode() === "processing" ||
-      this.chatState.attachmentsUploading(),
+  /** A run is in flight and the composer is not recording audio. */
+  isProcessing = computed(
+    () => this.computedMode() !== "transcribe" && this.chatState.isRunning(),
+  );
+  showStop = computed(() => this.isProcessing() && this.chatState.canStop());
+  sendButtonDisabled = computed(() =>
+    this.isProcessing()
+      ? !this.chatState.canStop()
+      : !this.computedValue().trim() ||
+        this.computedMode() === "processing" ||
+        this.chatState.attachmentsUploading(),
   );
 
   computedClass = computed(() => {
@@ -468,6 +482,8 @@ export class CopilotChatInput implements OnDestroy {
   // Context for slots (reactive via signals)
   sendButtonContext = computed<SendButtonContext>(() => ({
     send: () => this.send(),
+    stop: () => this.chatState.stopRun(),
+    isRunning: this.showStop(),
     disabled: this.sendButtonDisabled(),
     value: this.computedValue(),
   }));
@@ -536,7 +552,10 @@ export class CopilotChatInput implements OnDestroy {
     clicked: () => this.handleStartTranscribe(),
   };
   // Support both `clicked` (idiomatic in our slots) and `click` (legacy)
-  sendButtonOutputs = { clicked: () => this.send(), click: () => this.send() };
+  sendButtonOutputs = {
+    clicked: () => this.handleSendButtonClick(),
+    click: () => this.handleSendButtonClick(),
+  };
 
   ngOnDestroy(): void {
     // Clean up any resources
@@ -555,8 +574,23 @@ export class CopilotChatInput implements OnDestroy {
 
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      this.send();
+      // Like React: Enter with text always sends, even mid-run (the send waits
+      // for the active run). Enter on an empty composer is the stop shortcut.
+      if (this.isProcessing() && !this.computedValue().trim()) {
+        if (this.chatState.canStop()) this.chatState.stopRun();
+      } else {
+        this.send();
+      }
     }
+  }
+
+  /** While a run is in flight the button is Stop, whatever the composer holds. */
+  handleSendButtonClick(): void {
+    if (this.isProcessing()) {
+      if (this.chatState.canStop()) this.chatState.stopRun();
+      return;
+    }
+    this.send();
   }
 
   handleValueChange(value: string): void {
