@@ -6,6 +6,31 @@ const ctx = { now: () => new Date("2026-04-20T00:00:00Z"), logger, env: {} };
 const AIMOCK_URL = "https://showcase-aimock-production.up.railway.app";
 
 describe("aimock-wiring probe", () => {
+  it("ignores staging-only Intelligence infrastructure while checking demo backends", async () => {
+    const checked: string[] = [];
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [
+          { name: "showcase-intelligence-api" },
+          { name: "showcase-intelligence-composite" },
+          { name: "showcase-intelligence-gateway" },
+          { name: "showcase-intelligence-gateway-proxy" },
+          { name: "showcase-intelligence-postgres" },
+          { name: "showcase-intelligence-redis" },
+          { name: "showcase-agno" },
+        ],
+        getServiceEnv: async (name) => {
+          checked.push(name);
+          return {};
+        },
+      },
+      ctx,
+    );
+    expect(checked).toEqual(["showcase-agno"]);
+    expect(r.signal.unwired).toEqual(["showcase-agno"]);
+  });
+
   it("returns green when every LLM-calling service routes through aimock", async () => {
     const r = await aimockWiringProbe.run(
       {

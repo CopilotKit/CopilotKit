@@ -59,9 +59,7 @@ def test_writes_processed_todos_to_native_agent_state(agent_mod):
 
     agent_mod.manage_sales_todos(todos=todos, tool_context=_tool_context(state))
 
-    assert state.get("todos") == [
-        dict(t) for t in agent_mod.manage_sales_todos_impl(todos)
-    ]
+    assert state.get("todos") == [dict(t) for t in agent_mod.manage_todos_impl(todos)]
 
 
 def test_return_message_is_unchanged(agent_mod):
@@ -85,7 +83,7 @@ def test_latest_call_replaces_the_stored_list(agent_mod):
     )
 
     stored = state.get("todos")
-    assert [(t["id"], t["completed"]) for t in stored] == [("t1", True)]
+    assert [(t["id"], t["status"]) for t in stored] == [("t1", "completed")]
 
 
 def test_leaves_other_state_keys_alone(agent_mod):
@@ -130,3 +128,15 @@ def test_new_item_ids_differ_between_tool_calls(agent_mod):
     )
 
     assert first.get("todos")[0]["id"] != second.get("todos")[0]["id"]
+
+
+def test_board_contract_and_authoritative_read(agent_mod):
+    state = _AgentState()
+    todos = [{"title": "Cedar", "description": "Follow up Cedar", "status": "pending"}]
+    agent_mod.manage_sales_todos(todos=todos, tool_context=_tool_context(state))
+    saved = state.get("todos")
+    assert saved[0]["description"] == "Follow up Cedar"
+    assert saved[0]["status"] == "pending"
+    assert "completed" not in saved[0]
+    assert agent_mod.get_sales_todos(tool_context=_tool_context(state)) == saved
+    assert agent_mod.get_sales_todos(tool_context=_tool_context(_AgentState())) == []

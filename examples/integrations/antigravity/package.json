@@ -17,8 +17,8 @@
   "dependencies": {
     "@ag-ui/client": "1.0.2",
     "@copilotkit/channels": "0.11.0",
-    "@copilotkit/react-core": "1.76.0",
-    "@copilotkit/runtime": "1.76.0",
+    "@copilotkit/react-core": "1.78.0",
+    "@copilotkit/runtime": "1.78.0",
     "@hono/node-server": "^1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -47,5 +47,13 @@
     "@ag-ui/core": "1.0.2",
     "@ag-ui/encoder": "1.0.2",
     "@ag-ui/proto": "1.0.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "@ag-ui/client": "1.0.2",
+      "@ag-ui/core": "1.0.2",
+      "@ag-ui/encoder": "1.0.2",
+      "@ag-ui/proto": "1.0.2"
+    }
   }
 }

@@ -85,6 +85,13 @@ const EXCLUDE_SERVICES: ReadonlySet<string> = new Set([
   "showcase-dojo",
   "showcase-pocketbase",
   "showcase-webhooks",
+  // Independently deployed staging-only Intelligence infrastructure.
+  "showcase-intelligence-api",
+  "showcase-intelligence-composite",
+  "showcase-intelligence-gateway",
+  "showcase-intelligence-gateway-proxy",
+  "showcase-intelligence-postgres",
+  "showcase-intelligence-redis",
 ]);
 
 /**

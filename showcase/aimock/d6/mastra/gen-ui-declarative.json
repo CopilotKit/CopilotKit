@@ -51,6 +51,51 @@
       "chunkSize": 9999
     },
     {
+      "_comment": "FAC-227 reported prompt — inner secondary LLM (tool_choice forced on render_a2ui) emits the flat A2UI components. Discriminated by toolName so it wins over the outer generate_a2ui fixture whose userMessage matches the same prompt. Hero surface: bare 4-tile KPI Metric row + PieChart + BarChart (no surrounding Card), satisfying the driver's minCounts metric:4 pie:1 bar:1.",
+      "match": {
+        "userMessage": "Draw a sales Dashboard",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fac227_decl_dash_design_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"sales-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"kpi-row\",\"charts-row\"]},{\"id\":\"kpi-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"metric-revenue\",\"metric-new-customers\",\"metric-win-rate\",\"metric-deal-size\"]},{\"id\":\"metric-revenue\",\"component\":\"Metric\",\"label\":\"Quarterly Revenue\",\"value\":\"$4.2M\",\"trend\":\"up\"},{\"id\":\"metric-new-customers\",\"component\":\"Metric\",\"label\":\"New Customers\",\"value\":\"186\",\"trend\":\"up\"},{\"id\":\"metric-win-rate\",\"component\":\"Metric\",\"label\":\"Win Rate\",\"value\":\"31%\",\"trend\":\"down\"},{\"id\":\"metric-deal-size\",\"component\":\"Metric\",\"label\":\"Avg Deal Size\",\"value\":\"$22.6k\",\"trend\":\"up\"},{\"id\":\"charts-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"region-pie\",\"monthly-bar\"]},{\"id\":\"region-pie\",\"component\":\"PieChart\",\"title\":\"Revenue by Region\",\"description\":\"Quarter revenue split across North America, EMEA, APAC, and LATAM.\",\"data\":[{\"label\":\"North America\",\"value\":1900000},{\"label\":\"EMEA\",\"value\":1300000},{\"label\":\"APAC\",\"value\":720000},{\"label\":\"LATAM\",\"value\":280000}]},{\"id\":\"monthly-bar\",\"component\":\"BarChart\",\"title\":\"Monthly Revenue\",\"description\":\"Revenue trend from Jan through Jun.\",\"data\":[{\"label\":\"Jan\",\"value\":1210000},{\"label\":\"Feb\",\"value\":1340000},{\"label\":\"Mar\",\"value\":1650000},{\"label\":\"Apr\",\"value\":1380000},{\"label\":\"May\",\"value\":1420000},{\"label\":\"Jun\",\"value\":1400000}]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "FAC-227 reported prompt — outer agent narration after generate_a2ui returns.",
+      "match": {
+        "context": "mastra",
+        "toolCallId": "call_fac227_decl_dash_outer_001"
+      },
+      "response": {
+        "content": "Here's your Q2 sales dashboard."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "FAC-227 reported prompt — outer agent emits generate_a2ui (no args).",
+      "match": {
+        "userMessage": "Draw a sales Dashboard",
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fac227_decl_dash_outer_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"messages\": [{\"role\": \"user\", \"content\": \"Draw a sales Dashboard\"}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
       "_comment": "pill team-performance — inner secondary LLM emits a DataTable + BarChart (driver minCounts data-table:1 bar:1).",
       "match": {
         "userMessage": "How are our sales reps performing against quota?",

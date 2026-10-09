@@ -16,6 +16,8 @@ from google.adk.tools import ToolContext
 from google.genai import types
 from pydantic import BaseModel, Field
 
+from model import resolve_model
+
 load_dotenv()
 
 
@@ -138,7 +140,9 @@ def simple_after_model_modifier(
 
 proverbs_agent = LlmAgent(
     name="ProverbsAgent",
-    model="gemini-2.5-flash",
+    # COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this;
+    # unset, the agent uses gemini-3.8-flash.
+    model=resolve_model("google:gemini-3.8-flash"),
     instruction="""
         When a user asks you to do anything regarding proverbs, you MUST use the set_proverbs tool.
 

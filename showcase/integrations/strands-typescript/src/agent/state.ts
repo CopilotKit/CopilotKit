@@ -14,8 +14,8 @@ import type {
   StatePayload,
 } from "@ag-ui/aws-strands";
 import type { RunAgentInput } from "@ag-ui/core";
-import { manageSalesTodosImpl } from "./lib/tool-impls";
-import type { SalesTodo } from "./lib/tool-impls";
+import { manageTodosImpl } from "../../shared-tools/todos";
+import type { BoardTodo } from "../../shared-tools/todos";
 
 /** Parse a tool's input (string JSON or already-parsed object). */
 function parseToolInput(raw: unknown): unknown {
@@ -86,11 +86,11 @@ export const SALES_TODOS_STATE_KEY = "todos";
  * built from the args and the copy the tool stores name each item the same way.
  */
 export function salesTodosForCall(
-  todos: Partial<SalesTodo>[],
+  todos: Record<string, unknown>[],
   toolUseId: string | undefined,
-): SalesTodo[] {
-  if (!toolUseId) return manageSalesTodosImpl(todos);
-  return manageSalesTodosImpl(
+): BoardTodo[] {
+  if (!toolUseId) return manageTodosImpl(todos);
+  return manageTodosImpl(
     todos.map((todo, index) =>
       todo.id ? todo : { ...todo, id: `${toolUseId}-${index}` },
     ),
@@ -237,6 +237,36 @@ function flattenResult(resultData: unknown): string {
     if (typeof t === "string") return t;
   }
   return JSON.stringify(resultData);
+}
+
+/** Republish authoritative reads so a reconnect can rebuild an empty board. */
+export function salesStateFromResult(
+  ctx: Pick<ToolResultContext, "resultData">,
+): StatePayload {
+  const result = ctx.resultData;
+  // Parsed native records may carry arbitrary metadata, including "text".
+  // Only transport text blocks should pass through flattenResult.
+  const nativeList =
+    Array.isArray(result) &&
+    result.every(
+      (todo) =>
+        todo &&
+        typeof todo === "object" &&
+        !Array.isArray(todo) &&
+        ("title" in todo || !("text" in todo)),
+    );
+  const todos: unknown = nativeList
+    ? result
+    : JSON.parse(flattenResult(result));
+  if (
+    !Array.isArray(todos) ||
+    todos.some(
+      (todo) => !todo || typeof todo !== "object" || Array.isArray(todo),
+    )
+  ) {
+    throw new Error("get_sales_todos returned an invalid todo list");
+  }
+  return { todos };
 }
 
 /**

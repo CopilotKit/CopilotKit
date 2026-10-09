@@ -58,15 +58,20 @@ const agent = new BuiltInAgent({
 
 | Model                 | Specifier                      |
 | --------------------- | ------------------------------ |
-| Gemini 2.5 Pro        | `google:gemini-2.5-pro`        |
-| Gemini 2.5 Flash      | `google:gemini-2.5-flash`      |
-| Gemini 2.5 Flash Lite | `google:gemini-2.5-flash-lite` |
+| Gemini 3.8 Flash      | `google:gemini-3.8-flash`      |
+| Gemini 3.5 Flash      | `google:gemini-3.5-flash`      |
+| Gemini 3.5 Flash Lite | `google:gemini-3.5-flash-lite` |
 
 ```typescript
 const agent = new BuiltInAgent({
-  model: "google:gemini-2.5-pro",
+  model: "google:gemini-3.8-flash",
 });
 ```
+
+Use `gemini-3.5-flash-lite` for lower cost and latency. Google no longer gives
+new API keys access to the Gemini 2.5 models. A key that used them before can
+still call them, but a new key gets a 404. See Google's
+[model list](https://ai.google.dev/gemini-api/docs/models).
 
 ### MiniMax
 
@@ -100,6 +105,32 @@ MINIMAX_API_KEY=...
 
 # Optional: use the China endpoint
 MINIMAX_BASE_URL=https://api.minimaxi.com/v1
+```
+
+### OpenAI-compatible endpoints
+
+To send `openai:` model strings to another OpenAI-compatible endpoint, set
+`OPENAI_BASE_URL`:
+
+```bash
+OPENAI_BASE_URL=https://api.groq.com/openai/v1
+OPENAI_API_KEY=gsk_...
+```
+
+The Built-in Agent picks the OpenAI API from that host:
+
+- OpenAI (`api.openai.com`, `*.api.openai.com`) and Azure OpenAI hosts use the
+  Responses API.
+- Any other host uses the Chat Completions API, because most OpenAI-compatible
+  servers serve only `/chat/completions`. The runtime logs this on the first run.
+
+To choose the API yourself, set `COPILOTKIT_OPENAI_API` to `responses` or
+`chat`. For example, a proxy in front of OpenAI (such as LiteLLM or Portkey)
+needs `responses` to keep Responses-only features, such as reasoning summaries:
+
+```bash
+OPENAI_BASE_URL=https://my-gateway.example.com/v1
+COPILOTKIT_OPENAI_API=responses
 ```
 
 Alternatively, pass the API key directly in your configuration:
@@ -216,7 +247,7 @@ The Built-in Agent resolves model strings to AI SDK provider instances:
 | ------------------------------- | ------------------- | -------------------------------- |
 | `"openai:gpt-5.4-mini"`         | `@ai-sdk/openai`    | `openai("gpt-5.4-mini")`         |
 | `"anthropic:claude-sonnet-4-6"` | `@ai-sdk/anthropic` | `anthropic("claude-sonnet-4-6")` |
-| `"google:gemini-2.5-pro"`       | `@ai-sdk/google`    | `google("gemini-2.5-pro")`       |
+| `"google:gemini-3.8-flash"`     | `@ai-sdk/google`    | `google("gemini-3.8-flash")`     |
 
 Both `"provider:model"` and `"provider/model"` separators are supported and work identically.
 

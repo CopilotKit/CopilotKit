@@ -36,7 +36,7 @@ Loaded from `agent-myelin/.env` first, then the app's `../.env`.
 | `MYELIN_API_BASE`   | `http://localhost:3000/api/myelin/v1` | the app's REST API           |
 | `MYELIN_AGENT_PORT` | `8125`                                |                              |
 
-**Switching to Gemini is one env var:** `MYELIN_MODEL=gemini-2.5-flash` (plus
+**Switching to Gemini is one env var:** `MYELIN_MODEL=gemini-3.8-flash` (plus
 `GOOGLE_API_KEY`). A `gemini*` name is passed to ADK directly and runs on native
 Gemini; anything else goes through ADK's `LiteLlm` wrapper. Nothing else changes.
 

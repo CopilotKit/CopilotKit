@@ -1,6 +1,6 @@
 """Dynamic A2UI tool: LLM-generated UI from conversation context.
 
-A secondary LLM (langchain_openai) generates v0.9 A2UI components via a
+A secondary LLM (LangChain, see src/model.py) generates v0.9 A2UI components via a
 structured tool call. The generate_a2ui tool wraps the output as
 a2ui_operations, which the middleware/runtime detects and renders
 automatically. Identical surface to the canonical demo's tool —
@@ -14,9 +14,10 @@ from typing import Any, Dict, List
 
 from copilotkit import a2ui
 from langchain_core.messages import SystemMessage
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 from strands import tool
+
+from src.model import create_chat_model
 
 CATALOG_ID = "copilotkit://app-dashboard-catalog"
 
@@ -35,13 +36,13 @@ def generate_a2ui(user_intent: str) -> str:
     A secondary LLM designs the UI schema and data. The result is returned
     as an a2ui_operations container for the runtime to detect and render.
     """
-    model = ChatOpenAI(model="gpt-5-mini")
+    # COPILOTKIT_AGENT_MODEL overrides this site too; unset, it uses gpt-5-mini.
+    model = create_chat_model("openai:gpt-5-mini")
+    # Name the forced tool as a string: LangChain translates it for every
+    # provider, while the OpenAI-shaped dict only works for OpenAI.
     model_with_tool = model.bind_tools(
         [_A2UIRenderArgs.model_json_schema()],
-        tool_choice={
-            "type": "function",
-            "function": {"name": "_A2UIRenderArgs"},
-        },
+        tool_choice="_A2UIRenderArgs",
     )
     try:
         response = model_with_tool.invoke([SystemMessage(content=user_intent)])
