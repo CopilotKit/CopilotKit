@@ -48,8 +48,8 @@ export function parseAgentModel(value: string): AgentModelSpec {
  */
 export function resolveAgentModel(): AgentModelSpec {
   return parseAgentModel(
-    process.env.COPILOTKIT_AGENT_MODEL ||
-      `openai:${process.env.MODEL_ID ?? "gpt-4o"}`,
+    process.env.COPILOTKIT_AGENT_MODEL?.trim() ||
+      `openai:${process.env.MODEL_ID?.trim() || "gpt-4o"}`,
   );
 }
 
