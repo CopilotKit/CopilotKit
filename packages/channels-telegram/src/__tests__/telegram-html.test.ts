@@ -61,6 +61,20 @@ describe("telegramHtml", () => {
     );
   });
 
+  // Telegram does not allow a code entity inside a link, so inline code in
+  // link text renders as its plain text rather than an internal placeholder.
+  it("inline code in link text keeps its text", () => {
+    expect(telegramHtml("See [`useAgent`](https://x.io/a) now")).toBe(
+      'See <a href="https://x.io/a">useAgent</a> now',
+    );
+  });
+
+  it("link URL with balanced parentheses is kept whole", () => {
+    expect(
+      telegramHtml("[Foo](https://en.wikipedia.org/wiki/Foo_(bar)) done"),
+    ).toBe('<a href="https://en.wikipedia.org/wiki/Foo_(bar)">Foo</a> done');
+  });
+
   it("empty input returns empty", () => {
     expect(telegramHtml("")).toBe("");
   });

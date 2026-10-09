@@ -31,6 +31,12 @@ describe("markdownToMrkdwn", () => {
     );
   });
 
+  it("link URL with balanced parentheses is kept whole", () => {
+    expect(
+      markdownToMrkdwn("[Foo](https://en.wikipedia.org/wiki/Foo_(bar)) done"),
+    ).toBe("<https://en.wikipedia.org/wiki/Foo_(bar)|Foo> done");
+  });
+
   it("bullet markers (- * +) → •", () => {
     const input = "- one\n* two\n+ three";
     const expected = "•  one\n•  two\n•  three";
