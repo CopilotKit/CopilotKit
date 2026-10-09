@@ -228,6 +228,19 @@ export type InspectorOpenOptions = {
   messageId?: string;
 };
 
+/**
+ * Resolve the attached core's request headers at send time. A core released
+ * before `resolveHeaders()` existed has only the static `headers` map, so an
+ * inspector attached to it falls back to a copy of that map.
+ */
+function resolveAttachedCoreHeaders(
+  core: CopilotKitCore,
+): Record<string, string> | Promise<Record<string, string>> {
+  return typeof core.resolveHeaders === "function"
+    ? core.resolveHeaders()
+    : { ...core.headers };
+}
+
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
 
@@ -6833,7 +6846,8 @@ export class WebInspectorElement extends LitElement {
   // resolves against whichever core is currently attached.
   private readonly resolveCoreHeaders = ():
     | Record<string, string>
-    | Promise<Record<string, string>> => this._core?.resolveHeaders() ?? {};
+    | Promise<Record<string, string>> =>
+    this._core ? resolveAttachedCoreHeaders(this._core) : {};
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
   private coreUnsubscribe: (() => void) | null = null;
   private _memories: Memory[] = [];
@@ -16620,7 +16634,7 @@ export class WebInspectorElement extends LitElement {
     }
     const baseUrl = core.runtimeUrl.replace(/\/+$/, "");
     const encodedThreadId = encodeURIComponent(thread.id);
-    const headers = { ...(await core.resolveHeaders()) };
+    const headers = { ...(await resolveAttachedCoreHeaders(core)) };
     const [messagesResponse, stateResponse] = await Promise.all([
       fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
         headers,

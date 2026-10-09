@@ -886,7 +886,7 @@ test("a mid-session status round trip restarts the standalone run-activity store
   expect(coreMocks.createThreadStore).toHaveBeenCalledTimes(1);
 });
 
-test("a headers builder's per-resolve object churn does not re-dispatch the run-activity store context (#1937 fix-round-1)", async () => {
+test("a headers builder's per-resolve object churn does not re-dispatch the run-activity store context (#1937)", async () => {
   // A headers builder resolves to a NEW object identity on every request
   // (`copilotkit.headers`'s reference changes) even when nothing meaningful
   // changed — `copilotkit.ɵheadersGeneration` only bumps on `setSource`.

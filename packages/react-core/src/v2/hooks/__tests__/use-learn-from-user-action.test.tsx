@@ -147,7 +147,7 @@ describe("useLearnFromUserAction", () => {
     );
   });
 
-  it("does not forward a copilotkit.headers snapshot (#1937 fix-round-1)", async () => {
+  it("does not forward a copilotkit.headers snapshot (#1937)", async () => {
     // `copilotkit.headers` is a resolved-headers SNAPSHOT that can be stale
     // (e.g. from before the current builder source was set, or before the
     // in-flight builder call settled) — `ɵruntimeFetch` is the one that

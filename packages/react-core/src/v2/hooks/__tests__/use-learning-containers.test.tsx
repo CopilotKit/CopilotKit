@@ -223,7 +223,7 @@ test("unmount → emits reset [project] for the captured threadId", async () => 
   restore();
 });
 
-// ─── #1937 fix-round-1: neither emit forwards a copilotkit.headers snapshot ──
+// ─── #1937: neither emit forwards a copilotkit.headers snapshot ──
 
 /**
  * A fetch stub that records the headers it actually received AND overlays a

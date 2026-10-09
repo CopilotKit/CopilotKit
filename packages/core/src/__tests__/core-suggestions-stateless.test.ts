@@ -498,9 +498,9 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
     // An async headers builder gives `clearSuggestions` a real window to
     // cancel BEFORE the /suggest request is ever built and sent — the
     // generation is still awaiting the builder, so the HttpAgent hasn't run
-    // yet and no fresh AbortController has been installed for it. See #1937
-    // fix-round-1: without an `aborted` check after that await, the run
-    // proceeds anyway once the builder resolves.
+    // yet and no fresh AbortController has been installed for it. Without an
+    // `aborted` check after that await (#1937), the run proceeds anyway once
+    // the builder resolves.
     const { fetchMock, suggestRequests } = setupRoutedFetch({
       suggestions: [{ title: "Stale", message: "Stale suggestion" }],
     });

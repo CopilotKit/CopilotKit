@@ -404,6 +404,34 @@ test("a real setHeaders change reloads the selected thread exactly once, against
   }
 });
 
+// An inspector can be attached to a core released before `resolveHeaders()`
+// existed. Thread inspection must fall back to that core's static `headers`
+// instead of throwing on the missing method.
+test("falls back to the static headers of an attached core that has no resolveHeaders", async () => {
+  const context = await setup({ Authorization: "Bearer static" });
+  try {
+    // Shadow the public method only. Core's own requests resolve through its
+    // internal accessors, so the owned store keeps working.
+    Reflect.set(context.core, "resolveHeaders", undefined);
+
+    await context.open();
+    await context.selectThread();
+
+    await waitFor(
+      () => context.requestsOf("messages").length > 0,
+      "the selected thread's messages request",
+    );
+    expect(context.requestsOf("messages")[0]?.headers.Authorization).toBe(
+      "Bearer static",
+    );
+    expect(context.requestsOf("events")[0]?.headers.Authorization).toBe(
+      "Bearer static",
+    );
+  } finally {
+    context.teardown();
+  }
+});
+
 // This test isolates CpkThreadInspector's OWN load-key gate (currentLoadKey /
 // headersGeneration) from the inspector-owned thread store: dispatching a new
 // list-store context (via `core.setHeaders` -> onHeadersChanged) always
@@ -499,7 +527,7 @@ test("does not reload thread inspection on a token rotation, but reloads exactly
   }
 });
 
-// M7: `.headers` was dropped when `resolveHeaders`/`headersGeneration`
+// `.headers` was dropped when `resolveHeaders`/`headersGeneration`
 // replaced it, silently breaking a host that only ever set `.headers`. It's
 // restored as a deprecated fallback, used only when `resolveHeaders` is left
 // at its default (unset).
