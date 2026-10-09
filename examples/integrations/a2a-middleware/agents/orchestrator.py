@@ -14,11 +14,14 @@ import uvicorn
 from fastapi import FastAPI
 from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
 from _banner import print_banner
+from _model import adk_model
 from google.adk.agents import LlmAgent
 
 orchestrator_agent = LlmAgent(
     name="OrchestratorAgent",
-    model="gemini-2.5-pro",
+    # COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this
+    # and the other two agents; unset, the orchestrator uses gemini-3.8-flash.
+    model=adk_model("google:gemini-3.8-flash"),
     instruction="""
     You are an orchestrator agent that coordinates research and analysis tasks.
 

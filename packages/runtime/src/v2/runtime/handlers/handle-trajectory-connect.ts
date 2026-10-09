@@ -35,7 +35,7 @@ export async function handleTrajectoryConnect({
   }
   if (!isIntelligenceRuntime(runtime)) {
     return trajectoryErrorResponse(
-      "CONNECTION_FAILED",
+      "INTELLIGENCE_RUNTIME_REQUIRED",
       "Trajectory capture requires an Intelligence runtime",
       503,
     );

@@ -16,6 +16,43 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.78.0 - 2026-10-09
+
+### Features
+
+- feat(react-core)!: start Trajectory capture for every learning object (#7747) (d38d016)
+
+### Fixes
+
+- fix(runtime): let COPILOTKIT_OPENAI_API choose the OpenAI API, and log the Chat Completions switch (refs PE-706) (#7754) (9158409)
+- fix(runtime): keep slash model ids intact and use chat completions on OpenAI-compatible endpoints (refs PE-706) (#7726) (d1bdd92)
+- fix(react-core,vue,angular): keep features enabled when the entitlement lookup times out (refs PE-533) (#7652) (be3a15c)
+- fix(runtime): log a not-yet-created thread lookup at debug, not error (refs PE-678) (#7728) (c88c376)
+- fix(runtime): default GoogleGenerativeAIAdapter to gemini-3.5-flash (#7716) (6b550dc)
+
+### Other Changes
+
+- docs: recommend Gemini 3.x model ids new API keys can call (refs PE-690) (#7715) (4dc033a)
+
+### Breaking Changes
+
+- fix(runtime): let COPILOTKIT_OPENAI_API choose the OpenAI API, and log the Chat Completions switch (refs PE-706) (#7754) (9158409)
+  With `OPENAI_BASE_URL` set to a host other than OpenAI or Azure,
+  `"openai/..."` model strings now use the Chat Completions API (#7726).
+  Through a proxy in front of OpenAI (LiteLLM, Portkey, Helicone), models and
+  options that only the Responses API supports, such as reasoning summaries,
+  stop working. Set `COPILOTKIT_OPENAI_API=responses` to keep the Responses API.
+- feat(react-core)!: start Trajectory capture for every learning object (#7747) (d38d016)
+  A `learning` object without `trajectoryId` now starts capture after mount.
+  To keep starting capture yourself with `startTrajectory()`, add
+  `autoStart: false`, for example `learning={{ onError, autoStart: false }}`.
+
+## 1.77.2 - 2026-10-08
+
+### Features
+
+- feat(runtime): tell apart Trajectory setup errors at connect (#7699) (8bd4389)
+
 ## 1.77.1 - 2026-10-07
 
 ### Features

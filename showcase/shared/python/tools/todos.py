@@ -8,6 +8,25 @@ because a frontend toggle updates only status.
 from __future__ import annotations
 
 import uuid
+from typing import Literal
+from typing_extensions import NotRequired, Required, TypedDict
+
+
+class BoardTodoInput(TypedDict, total=False):
+    """Complete board item. Copy existing ids exactly; omit id only for new items."""
+
+    id: NotRequired[str]
+    title: Required[str]
+    description: str
+    emoji: str
+    status: Literal["pending", "completed"]
+    # Preserve optional sales metadata and accept older saved todo records.
+    stage: str
+    value: float
+    dueDate: str
+    assignee: str
+    completed: bool
+    notes: str
 
 
 def manage_todos_impl(todos: list[dict]) -> list[dict]:
@@ -22,7 +41,7 @@ def manage_todos_impl(todos: list[dict]) -> list[dict]:
             raise ValueError(f"Unsupported todo status: {status!r}")
         item.update(
             id=item.get("id") or str(uuid.uuid4()),
-            title=item.get("title", ""),
+            title=item.get("title", item.get("name", "")),
             description=item.get("description", item.get("notes", "")),
             emoji=item.get("emoji", "🎯"),
             status=status,

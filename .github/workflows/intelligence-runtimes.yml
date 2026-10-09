@@ -3,31 +3,21 @@ name: test / intelligence runtimes
 on:
   pull_request:
     branches: [main]
+  # No `paths` filter: the scope job's gate.mjs is the single source of truth
+  # for which changes need the matrix, and it skips the matrix otherwise.
   push:
     branches: [main]
-    paths:
-      - "packages/runtime/**"
-      - "packages/runtime-python/**"
-      - "packages/runtime-go/**"
-      - "packages/runtime-ruby/**"
-      - "packages/runtime-dotnet/**"
-      - "packages/core/**"
-      - "packages/shared/**"
-      - "packages/aimock/**"
-      - "tools/runtime-conformance/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - "nx.json"
-      - "tsconfig*.json"
-      - ".github/workflows/intelligence-runtimes.yml"
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Each push to main gets its own group: the scope job diffs only that push,
+  # so a later unrelated push must not cancel or replace an earlier runtime run.
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -55,7 +45,11 @@ jobs:
       - name: Find runtime changes
         id: scope
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          # pull_request diffs the merge commit against its first parent, so
+          # BASE_SHA stays empty there; PR_HEAD_SHA confirms that commit is
+          # GitHub's merge of the PR head. workflow_dispatch runs everything.
+          BASE_SHA: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event_name == 'push' && github.event.before || '' }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node tools/runtime-conformance/gate.mjs scope >> "$GITHUB_OUTPUT"
 
   conformance:
@@ -67,7 +61,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [typescript, python, go, ruby, dotnet]
+        # Ruby runs as two legs so the Rack and Rails suites run in parallel.
+        # The gate job reads the aggregate matrix result, so both must pass.
+        language: [typescript, python, go, ruby-rack, ruby-rails, dotnet]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -78,7 +74,7 @@ jobs:
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
       - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22.x"
 
@@ -103,7 +99,7 @@ jobs:
           cache-dependency-path: packages/runtime-go/go.sum
 
       - name: Setup Ruby
-        if: matrix.language == 'ruby'
+        if: startsWith(matrix.language, 'ruby-')
         uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
         with:
           ruby-version: "3.3"
@@ -132,7 +128,9 @@ jobs:
 
       - name: TypeScript shared conformance
         if: matrix.language == 'typescript'
-        run: pnpm nx run runtime-conformance:conformance -- -- node tools/runtime-conformance/typescript-driver.mjs
+        run: |
+          pnpm nx run runtime-conformance:conformance -- -- node tools/runtime-conformance/typescript-driver.mjs
+          touch "$RUNNER_TEMP/conformance-suite-ran"
 
       - name: Install Python dependencies
         if: matrix.language == 'python'
@@ -144,7 +142,9 @@ jobs:
 
       - name: Python shared conformance
         if: matrix.language == 'python'
-        run: pnpm nx run runtime-conformance:conformance -- -- packages/runtime-python/.venv/bin/python packages/runtime-python/examples/conformance.py
+        run: |
+          pnpm nx run runtime-conformance:conformance -- -- packages/runtime-python/.venv/bin/python packages/runtime-python/examples/conformance.py
+          touch "$RUNNER_TEMP/conformance-suite-ran"
 
       - name: Install Go dependencies
         if: matrix.language == 'go'
@@ -161,28 +161,39 @@ jobs:
       - name: Go shared conformance
         if: matrix.language == 'go'
         # Run the binary directly so shutdown cannot leave a go-run child behind.
-        run: pnpm nx run runtime-conformance:conformance -- -- "$RUNNER_TEMP/runtime-go-conformance"
-
-      - name: Install Ruby and Rails dependencies
-        if: matrix.language == 'ruby'
         run: |
-          bundle install --gemfile packages/runtime-ruby/Gemfile
-          # The checked-in Rails lock currently contains only arm64-darwin-23.
-          # Add the runner platform without changing the source Gemfile.
-          bundle lock --gemfile packages/runtime-ruby/examples/rails/Gemfile --add-platform x86_64-linux
-          bundle install --gemfile packages/runtime-ruby/examples/rails/Gemfile
+          pnpm nx run runtime-conformance:conformance -- -- "$RUNNER_TEMP/runtime-go-conformance"
+          touch "$RUNNER_TEMP/conformance-suite-ran"
+
+      - name: Install Ruby dependencies
+        if: matrix.language == 'ruby-rack'
+        run: bundle install --gemfile packages/runtime-ruby/Gemfile
+
+      - name: Install Rails dependencies
+        if: matrix.language == 'ruby-rails'
+        run: |
+          # The checked-in Rails lock lists x86_64-linux and a nokogiri with a
+          # precompiled Ruby 3.3 build, so nokogiri no longer compiles from
+          # source. Smaller native gems such as psych, date, and bigdecimal
+          # still do. Frozen mode fails the step instead of re-resolving if
+          # the lock goes stale.
+          BUNDLE_FROZEN=true bundle install --gemfile packages/runtime-ruby/examples/rails/Gemfile
 
       - name: Validate Ruby library
-        if: matrix.language == 'ruby'
+        if: matrix.language == 'ruby-rack'
         run: BUNDLE_GEMFILE="$PWD/packages/runtime-ruby/Gemfile" bundle exec pnpm nx run-many -t test,lint,build -p runtime-ruby
 
       - name: Ruby Rack shared conformance
-        if: matrix.language == 'ruby'
-        run: pnpm nx run runtime-ruby:test-rack
+        if: matrix.language == 'ruby-rack'
+        run: |
+          pnpm nx run runtime-ruby:test-rack
+          touch "$RUNNER_TEMP/conformance-suite-ran"
 
       - name: Real Rails shared conformance
-        if: matrix.language == 'ruby'
-        run: pnpm nx run runtime-ruby:test-rails
+        if: matrix.language == 'ruby-rails'
+        run: |
+          pnpm nx run runtime-ruby:test-rails
+          touch "$RUNNER_TEMP/conformance-suite-ran"
 
       - name: Restore .NET dependencies
         if: matrix.language == 'dotnet'
@@ -197,7 +208,21 @@ jobs:
 
       - name: .NET shared conformance
         if: matrix.language == 'dotnet'
-        run: pnpm nx run runtime-conformance:conformance -- -- dotnet packages/runtime-dotnet/driver/bin/Release/net8.0/Runtime.Driver.dll
+        run: |
+          pnpm nx run runtime-conformance:conformance -- -- dotnet packages/runtime-dotnet/driver/bin/Release/net8.0/Runtime.Driver.dll
+          touch "$RUNNER_TEMP/conformance-suite-ran"
+
+      - name: Require a shared conformance suite
+        # Each shared conformance step above writes this marker. A matrix value
+        # or step condition that selects none of them would otherwise pass the
+        # leg after only the shared setup, so fail the leg instead.
+        env:
+          LANGUAGE: ${{ matrix.language }}
+        run: |
+          if [ ! -f "$RUNNER_TEMP/conformance-suite-ran" ]; then
+            echo "::error::No shared conformance suite ran for matrix leg '$LANGUAGE'."
+            exit 1
+          fi
 
   gate:
     name: Intelligence runtime conformance

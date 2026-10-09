@@ -4,6 +4,7 @@
       "ag-ui-langgraph",
       "copilotkit",
       "fastapi",
+      "langchain",
       "langchain-core",
       "langchain-openai",
       "langgraph",

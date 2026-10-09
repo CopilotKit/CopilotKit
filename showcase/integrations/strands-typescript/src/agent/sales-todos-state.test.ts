@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 /**
  * The sales pipeline lives in two places, and they must agree.
  *
@@ -11,7 +14,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { Agent, Model } from "@strands-agents/sdk";
+import { Agent, Model, SessionManager, FileStorage } from "@strands-agents/sdk";
 import type {
   BaseModelConfig,
   Message,
@@ -19,10 +22,10 @@ import type {
 } from "@strands-agents/sdk";
 import type { ToolCallContext } from "@ag-ui/aws-strands";
 
-import { manageSalesTodos } from "./tools";
+import { manageSalesTodos, getSalesTodos } from "./tools";
 import { SALES_TODOS_STATE_KEY, salesStateFromArgs } from "./state";
 
-type Call = { toolUseId: string; input: unknown };
+type Call = { toolUseId: string; input: unknown; name?: string };
 
 /** Replays one `manage_sales_todos` call per scripted turn, then ends the turn. */
 class ScriptedModel extends Model<BaseModelConfig> {
@@ -50,7 +53,7 @@ class ScriptedModel extends Model<BaseModelConfig> {
         type: "modelContentBlockStartEvent",
         start: {
           type: "toolUseStart",
-          name: "manage_sales_todos",
+          name: call.name ?? "manage_sales_todos",
           toolUseId: call.toolUseId,
         },
       };
@@ -76,7 +79,7 @@ class ScriptedModel extends Model<BaseModelConfig> {
 async function runCalls(calls: Call[]): Promise<Agent> {
   const agent = new Agent({
     model: new ScriptedModel(calls),
-    tools: [manageSalesTodos],
+    tools: [manageSalesTodos, getSalesTodos],
     printer: false,
   });
   await agent.invoke("update the pipeline");
@@ -137,20 +140,18 @@ describe("manage_sales_todos durable state", () => {
       {
         id: "st-001",
         title: "Call Acme about renewal",
-        stage: "prospect",
         value: 50000,
-        dueDate: "",
-        assignee: "",
-        completed: false,
+        description: "",
+        emoji: "🎯",
+        status: "pending",
       },
       {
         id: expect.any(String),
         title: "Send DataViz contract",
         stage: "negotiation",
-        value: 0,
-        dueDate: "",
-        assignee: "",
-        completed: false,
+        description: "",
+        emoji: "🎯",
+        status: "pending",
       },
     ]);
   });
@@ -180,4 +181,79 @@ describe("manage_sales_todos durable state", () => {
       "Sales todos updated. Tracking 1 item(s).",
     ]);
   });
+});
+
+it("preserves the board contract in durable and emitted state", async () => {
+  const call: Call = {
+    toolUseId: "board-create",
+    input: {
+      todos: [
+        { title: "Cedar", description: "Follow up Cedar", status: "pending" },
+        {
+          id: "maple",
+          title: "Maple",
+          description: "Prepare Maple demo",
+          status: "completed",
+        },
+      ],
+    },
+  };
+  const agent = await runCalls([call]);
+  const stored = agent.appState.get(SALES_TODOS_STATE_KEY);
+  expect(stored).toEqual(await uiSnapshotTodos(call));
+  expect(stored).toEqual([
+    {
+      id: "board-create-0",
+      title: "Cedar",
+      description: "Follow up Cedar",
+      emoji: "🎯",
+      status: "pending",
+    },
+    {
+      id: "maple",
+      title: "Maple",
+      description: "Prepare Maple demo",
+      emoji: "🎯",
+      status: "completed",
+    },
+  ]);
+});
+
+it("reads restored native state and isolates new sessions", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "strands-todos-"));
+  try {
+    const agent = await runCalls([FIRST]);
+    const saved = agent.appState.get(SALES_TODOS_STATE_KEY);
+    const manager = new SessionManager({
+      sessionId: "saved",
+      storage: { snapshot: new FileStorage(dir) },
+    });
+    await manager.saveSnapshot({ target: agent, isLatest: true });
+    const restored = new Agent({
+      model: new ScriptedModel([
+        { toolUseId: "read", name: "get_sales_todos", input: {} },
+      ]),
+      tools: [getSalesTodos],
+      printer: false,
+    });
+    expect(await manager.restoreSnapshot({ target: restored })).toBe(true);
+    await restored.invoke("What are my tasks?");
+    expect(JSON.parse(toolResultTexts(restored).at(-1)!)).toEqual(saved);
+    expect(restored.appState.get(SALES_TODOS_STATE_KEY)).toEqual(saved);
+    const isolated = await runCalls([
+      { toolUseId: "empty-read", name: "get_sales_todos", input: {} },
+    ]);
+    expect(JSON.parse(toolResultTexts(isolated).at(-1)!)).toEqual([]);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+it("fails instead of reporting empty or saved todos without native context", async () => {
+  await expect(getSalesTodos.invoke({})).rejects.toThrow(
+    "get_sales_todos requires an agent context",
+  );
+  await expect(manageSalesTodos.invoke({ todos: [] })).rejects.toThrow(
+    "manage_sales_todos requires an agent context",
+  );
 });
