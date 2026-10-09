@@ -215,6 +215,92 @@ function replaceMessagesForTest(
 
 describe("IntelligenceAgent", () => {
   describe("run kickoff", () => {
+    it("returns a proxied MCP resource without opening a realtime run", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          kind: "mcp-resource-read",
+          threadId: "thread-1",
+          runId: "read-1",
+          result: { contents: [{ uri: "ui://app", text: "html" }] },
+        }),
+      );
+      const agent = createAgent();
+      const events: BaseEvent[] = [];
+      await new Promise<void>((resolve, reject) => {
+        agent
+          .run({
+            ...defaultInput,
+            runId: "read-1",
+            forwardedProps: {
+              __copilotkitMcpResourceReadOnly: true,
+              __proxiedMCPRequest: {
+                method: "resources/read",
+                params: { uri: "ui://app" },
+              },
+            },
+          })
+          .subscribe({
+            next: (event) => events.push(event),
+            error: reject,
+            complete: resolve,
+          });
+      });
+      expect(events.map((event) => event.type)).toEqual([
+        EventType.RUN_STARTED,
+        EventType.RUN_FINISHED,
+      ]);
+      expect(events[1]).toMatchObject({
+        result: { contents: [{ uri: "ui://app", text: "html" }] },
+      });
+      expect(getSocket(agent)).toBeNull();
+      expect(getChannel(agent)).toBeNull();
+    });
+
+    it("keeps an in-flight realtime approval connected during a resource read", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse(runtimeCredentials({ runId: "approval" })),
+      );
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          kind: "mcp-resource-read",
+          threadId: "thread-1",
+          runId: "read",
+          result: { contents: [{ uri: "ui://app", text: "html" }] },
+        }),
+      );
+      const agent = createAgent();
+      const approval = agent
+        .run({ ...defaultInput, runId: "approval" })
+        .subscribe({ error: () => {} });
+      await waitForConnection(agent);
+      const socket = getSocket(agent);
+      const channel = getChannel(agent);
+      const events: BaseEvent[] = [];
+      await new Promise<void>((resolve, reject) => {
+        agent
+          .run({
+            ...defaultInput,
+            runId: "read",
+            forwardedProps: {
+              __copilotkitMcpResourceReadOnly: true,
+              __proxiedMCPRequest: { method: "resources/read" },
+            },
+          })
+          .subscribe({
+            next: (event) => events.push(event),
+            error: reject,
+            complete: resolve,
+          });
+      });
+      expect(events.at(-1)).toMatchObject({
+        type: EventType.RUN_FINISHED,
+        runId: "read",
+      });
+      expect(getSocket(agent)).toBe(socket);
+      expect(getChannel(agent)).toBe(channel);
+      approval.unsubscribe();
+    });
+
     it("fetches joinToken before connecting the socket", async () => {
       let resolveFetch: ((value: Response) => void) | null = null;
       mockFetch.mockReturnValueOnce(

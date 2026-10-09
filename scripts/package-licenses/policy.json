@@ -90,6 +90,12 @@
     "notice": "LICENSE"
   },
   {
+    "directory": "packages/learning",
+    "names": ["@copilotkit/learning"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
     "directory": "packages/mcp-apps-renderer",
     "names": ["@copilotkit/mcp-apps-renderer"],
     "license": "MIT",

@@ -740,6 +740,11 @@ export class AgentRegistry {
     });
   }
 
+  /** Preserve the exact configured URL when posting to a single endpoint. */
+  get runtimeEndpointUrl(): string | undefined {
+    return this._runtimeEndpointUrl;
+  }
+
   createRuntimeFetch(): typeof fetch {
     if (!this.runtimeFetch) {
       this.runtimeFetch = (async (

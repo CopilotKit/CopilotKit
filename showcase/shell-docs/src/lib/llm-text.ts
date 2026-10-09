@@ -15,7 +15,7 @@
 //   - resolves `<Snippet />` tags to fenced code blocks by reading the
 //     same `demo-content.json` that the runtime <Snippet> component does
 //   - strips `<InlineDemo />` (no body content — it's a live iframe demo),
-//     optionally preserving an explicitly selected `llmRegion` source excerpt
+//     optionally preserving selected `llmRegion` or `llmFiles` source excerpts
 //   - keeps every other JSX tag verbatim (Tabs / Callout / Card render
 //     visually but their inner Markdown is still readable as prose)
 //
@@ -770,8 +770,8 @@ function expandLearningSetupPrompts(body: string): string {
  * Drop `<InlineDemo ... />` tags — these mount live iframes in the browser;
  * in plain markdown they're noise. Leave a short note so the LLM still knows
  * a demo exists at that point in the page. Authors may select one bundled
- * `llmRegion` when the interactive Code tab contains essential implementation
- * detail that would otherwise disappear from the raw Markdown route.
+ * `llmRegion` or `llmFiles` when the interactive Code tab contains essential
+ * implementation detail that would otherwise disappear from raw Markdown.
  */
 function expandInlineDemos(
   body: string,
@@ -785,16 +785,25 @@ function expandInlineDemos(
         ? `\n<!-- interactive demo: ${demoAttr[1]} -->\n`
         : "\n<!-- interactive demo -->\n";
       const llmRegion = /llmRegion\s*=\s*["']([^"']+)["']/.exec(inner)?.[1];
-      if (!demoAttr || !llmRegion) return note;
+      const llmFiles = /llmFiles\s*=\s*["']([^"']+)["']/.exec(inner)?.[1];
+      if (!demoAttr || (!llmRegion && !llmFiles)) return note;
 
-      const snippet = resolveSnippet(
-        { cell: demoAttr[1], region: llmRegion },
-        framework,
-        demoAttr[1],
+      const sources = llmRegion
+        ? [{ region: llmRegion }]
+        : llmFiles!.split(",").map((file) => ({ file: file.trim() }));
+      const snippets = sources.map((source) =>
+        resolveSnippet(
+          { cell: demoAttr[1], ...source },
+          framework,
+          demoAttr[1],
+        ),
       );
-      return snippet.startsWith("<!-- snippet skipped:")
-        ? note
-        : `${note}\n${snippet}\n`;
+      const visible = !llmRegion
+        ? snippets
+        : snippets.filter(
+            (snippet) => !snippet.startsWith("<!-- snippet skipped:"),
+          );
+      return visible.length ? `${note}\n${visible.join("\n\n")}\n` : note;
     },
   );
 }

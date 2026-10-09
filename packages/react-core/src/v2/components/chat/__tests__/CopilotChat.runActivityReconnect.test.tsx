@@ -190,6 +190,7 @@ function createTestCore(
     ɵruntimeFetch: vi.fn() as unknown as typeof fetch,
     subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
     subscribeToAgentWithOptions: vi.fn(() => ({ unsubscribe: vi.fn() })),
+    registerOpenThread: vi.fn(() => ({ update: vi.fn(), unregister: vi.fn() })),
     reloadSuggestions: vi.fn(),
     runAgent,
     threadEndpoints: options.threadEndpoints ?? { realtimeMetadata: true },

@@ -72,6 +72,10 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
 
             On 1.63.x or earlier, prefer upgrading to 1.64.0+. If you cannot — because you are matching a pinned `@copilotkit/runtime` — the same `CopilotKitProvider`, `useAgent` and `useCopilotKit` are exported from the package root, so dropping `/headless` from the import path is the whole code change. It is not a free swap, though: on those versions the root barrel statically imports `expo-document-picker` and `expo-file-system`, so you must also install (or stub) both, or your release bundle fails with `Unable to resolve module expo-document-picker`. See [Import surfaces](#import-surfaces).
         </Callout>
+
+        <Callout type="info" title="TypeScript: use bundler module resolution">
+            The `/headless`, `/components` and `/polyfills` subpaths are published through the package `exports` map, which TypeScript's legacy `"moduleResolution": "node"` (`node10`) ignores. Under that setting, type checking fails with `Cannot find module '@copilotkit/react-native/headless'` even though Metro bundles the app. Set `"moduleResolution": "bundler"` in `tsconfig.json`; if `module` is `commonjs` or unset, also set `"module": "esnext"`. `@react-native/typescript-config` and Expo's base config already use `bundler`.
+        </Callout>
     </Step>
     <Step>
         ### Add polyfills
@@ -506,7 +510,7 @@ The runtime from the quickstart hosts a `BuiltInAgent` and serves it with `creat
 ```ts
 new BuiltInAgent({ model: "openai:gpt-5-mini", prompt: "..." });      // OPENAI_API_KEY
 new BuiltInAgent({ model: "anthropic:claude-sonnet-4-6", prompt: "..." }); // ANTHROPIC_API_KEY
-new BuiltInAgent({ model: "google:gemini-2.5-pro", prompt: "..." });  // GOOGLE_API_KEY
+new BuiltInAgent({ model: "google:gemini-3.8-flash", prompt: "..." }); // GOOGLE_API_KEY
 ```
 
 The string form reads the matching provider API key from the environment. You can also pass `apiKey` on the config, or an already-constructed AI SDK `LanguageModel` instance in place of the string.
@@ -520,6 +524,8 @@ export OPENAI_BASE_URL=https://your-gateway.example.com/v1
 export OPENAI_API_KEY=sk-...
 npx tsx server.ts
 ```
+
+On a host other than OpenAI or Azure, `openai:` models use the Chat Completions API. To keep the Responses API through a gateway in front of OpenAI, also set `COPILOTKIT_OPENAI_API=responses`. See [Model Selection](/model-selection#openai-compatible-endpoints).
 
 The same applies to `ANTHROPIC_BASE_URL` and `GOOGLE_GENERATIVE_AI_BASE_URL`. When the variable is unset, the provider falls back to its default endpoint, so this is fully backward compatible — you do **not** need to build a custom model instance just to change the base URL.
 

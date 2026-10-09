@@ -16,6 +16,74 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.77.2 - 2026-10-08
+
+### Features
+
+- feat(runtime): tell apart Trajectory setup errors at connect (#7699) (8bd4389)
+
+## 1.77.1 - 2026-10-07
+
+### Features
+
+- feat(react-core): add groupMessages to CopilotChatMessageView (#7650) (0143a22)
+- feat(web-inspector): remote HUD copy and destinations (#7667) (b111c24)
+- feat(core): link chat Threads to authenticated Trajectories after a run starts (#7645) (9a0db13)
+- feat(core): let a frontend tool resume its pending calls on reconnect (#7615) (a0480fa)
+
+### Fixes
+
+- fix(runtime): keep MCP resource reads off conversation locks (#7678) (e7c023f)
+- fix(shared): guide generated UI handlers to render results (#7679) (8a458e7)
+- fix(runtime): retry thread-lock renewal within the lock TTL (#7569) (abf8182)
+- fix(runtime): ping Intelligence sockets every 15s so 30s proxy idle timeouts don't drop runs (#7568) (75f5721)
+- fix(runtime): a thread that does not exist yet is not a server error on read (#7430) (b8c331e)
+- fix(opengenui): define the ready-DOM initialization contract (#7662) (d966b88)
+- fix(react-core): wait for thread replay before sending prompts (#7657) (0a2e6d0)
+- fix(runtime): let the v2 runtime start on Cloudflare Workers (#7609) (7f40d35)
+- fix(react-core): make useCoAgent's start, run and stop work, through the v2 core (#7610) (6373ce7)
+- fix(runtime): stop naming a stale middleware version in the MCP Apps policy error (#7612) (f21e006)
+
+### Other Changes
+
+- chore(deps): bump @ag-ui/\* to 1.0.2 (PNI-551) (#7648) (d4afb51)
+
+## 1.77.0 - 2026-10-02
+
+### Features
+
+- feat(react-core): make intelligence indicator auto-mount configurable (#6612) (a161b38)
+- feat(learning): capture raw browser activity as AG-UI events (#7556) (1840e7c)
+- feat(mcp-apps): consolidate the Vue and Angular hosts onto the shared package (#7161) (06f61ae)
+- feat(web-inspector): add an option to hide the Inspector indefinitely (#7542) (20ee84c)
+
+### Fixes
+
+- fix(deps): bump @ag-ui/langgraph to 0.0.44 so a stop cancels the LangGraph run (#7600) (f1a9bb6)
+- fix(a2ui): keep generated controls from submitting host forms (#7392) (214614a)
+- fix(react, vue): preserve popup rounded corners (#6473) (0629f84)
+- fix(a2ui-renderer): contain malformed component values (#7583) (a9b1c26)
+- fix(core): pass ContentPart[] tool handler results through to the tool message (#7544) (579d0f7)
+- fix(web-inspector): send onboarding_run_id on the Learning setup prompt click (#7561) (c69b965)
+- fix: preserve LangGraph catalogs with merged AG-UI properties (#7558) (9c6f1dd)
+
+### Other Changes
+
+- Improve Inspector conversation readability and tool-call presentation (#7374) (632b050)
+- docs(runtime): document the agentId the Intelligence threads list requires (refs PE-476) (#7562) (16dbbdf)
+
+## 1.76.0 - 2026-09-30
+
+### Features
+
+- feat: AG-UI 1.0 for CopilotKit (#7270) (7693a04)
+
+### Fixes
+
+- fix(runtime): stop reusing per-response provider ids as message ids (#7522) (5832fff)
+- fix(web-inspector): fit and scale the Inspector on small screens (#7529) (5135c56)
+- fix(runtime): prefix MCP tools whose names collide instead of dropping them (#7495) (c7c4538)
+
 ## 1.75.2 - 2026-09-30
 
 ### Fixes

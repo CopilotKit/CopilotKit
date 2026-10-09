@@ -1,3 +1,4 @@
+// @region[a2ui-context]
 /**
  * Server-side read of the A2UI schema context the `@ag-ui/mastra` bridge
  * forwards onto Mastra's request context.
@@ -40,3 +41,4 @@ export function systemPromptFrom(
     .filter((value): value is string => typeof value === "string" && !!value)
     .join("\n\n");
 }
+// @endregion[a2ui-context]

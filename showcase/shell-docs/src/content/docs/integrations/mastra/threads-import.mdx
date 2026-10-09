@@ -1,11 +1,170 @@
 ---
-title: Add AG-UI Streams to Existing Threads
+title: Add AG-UI Streams to Mastra Conversations
 nav_title: Add to Existing Threads
 description: "Add Intelligence’s AG-UI streams to your existing agent conversations, with optional historical import for supported stores."
 icon: "lucide/Repeat"
 doc_type: how-to
 ---
 
-import ImportThreadHistory from "@/snippets/shared/threads/threads-import.mdx";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
-<ImportThreadHistory components={props.components} />
+<span id="what-is-this" />
+
+## Add Intelligence to your existing app
+
+Give users reconnection, catch-up, and delivery across devices around your Mastra agent. Follow the [Intelligence quickstart](/intelligence/quickstart) to connect your existing CopilotKit app and Runtime, then verify that a new conversation is saved. This enables AG-UI streams for runs through CopilotKit; no historical import is required.
+
+Keep your Mastra agent and its durable storage connected so you can continue the same conversations after importing them. See [how streams work with framework storage](/intelligence/threads-explained#how-threads-work-with-framework-storage).
+
+## Include earlier conversations (optional)
+
+To let users reopen conversations recorded before Intelligence was connected, use the importer below to copy supported historical content. Importing does not enable live delivery or establish ongoing database replication, and it cannot recover history the source no longer exposes.
+
+The Mastra importer reads saved conversations from a local LibSQL database or a Mastra server. It brings over saved messages, rich tool results, attachments, and agent state where available. Some interactive content, such as MCP app views, may not have been saved in the original history.
+
+The following prerequisites and commands apply only to that historical import. Use Threads Drawer or [Headless Threads](/headless-threads) to open imported and new conversations through the same UI.
+
+## Prerequisites
+
+- A CopilotKit app with CopilotKit Intelligence enabled.
+- Saved Mastra conversations in a persistent store. In-memory conversations cannot be imported.
+- Access to the Mastra database file or server and the agent and resource IDs for the conversations you want to import.
+
+## Confirm the target project
+
+Choose the Intelligence project that will receive the history. Its app-api URL and project-scoped runtime key select the destination. You will export those values before importing.
+
+For a CLI-created app, you can select a cloud-hosted project:
+
+```bash title="Terminal"
+npx copilotkit@latest project select
+```
+
+The command updates the project selected for the current directory and writes its project-scoped runtime key to the app's generated `.env`.
+
+## Configure the source
+
+Set the agent and resource whose conversations you want to import:
+
+```bash title="Terminal"
+export MASTRA_IMPORT_SOURCE_ID="my-mastra-app"
+export MASTRA_IMPORT_AGENT_ID="support"
+export MASTRA_IMPORT_RESOURCE_ID="customer-123"
+export MASTRA_IMPORT_END_USER_ID="user-123"
+```
+
+Use your native Mastra agent ID and the resource ID that owns those conversations. Set `MASTRA_IMPORT_END_USER_ID` to the same application user ID your Runtime returns from `identifyUser`, so that user can find the imported conversations. Repeat the import with the appropriate values for each resource and user.
+
+`MASTRA_IMPORT_SOURCE_ID` is a name you choose for this Mastra store. Keep it the same when you import again, including when switching between database and server access.
+
+Choose how to read the saved conversations:
+
+<Tabs groupId="mastra_import_backend" items={['Database', 'Server']}>
+  <Tab value="Database">
+    ```bash title="Terminal"
+    export MASTRA_IMPORT_BACKEND="database"
+    export MASTRA_IMPORT_MEMORY_URL="file:/absolute/path/mastra.db"
+    ```
+
+    Local database import supports file-backed LibSQL and requires Node.js 22.13 or later. If your workflow snapshots use a separate database file, also set `MASTRA_IMPORT_WORKFLOW_URL` to that file's URL.
+
+    Working memory defaults to resource scope. If your agent uses thread-scoped working memory, set `MASTRA_IMPORT_WORKING_MEMORY_SCOPE="thread"`.
+  </Tab>
+  <Tab value="Server">
+    ```bash title="Terminal"
+    export MASTRA_IMPORT_BACKEND="server"
+    export MASTRA_IMPORT_API_URL="https://your-mastra-server/api"
+    export MASTRA_IMPORT_API_TOKEN="..."
+    ```
+
+    Include your server's API prefix in the URL. Omit `MASTRA_IMPORT_API_TOKEN` if your server does not require a bearer token.
+  </Tab>
+</Tabs>
+
+Run the import while these conversations are idle.
+
+## Run a dry run
+
+Preview the import before writing anything.
+
+```bash title="Terminal"
+npx copilotkit@latest import --source mastra --dry-run
+```
+
+The dry run counts conversations, reports conversations that cannot be imported, and estimates upload size. It does not need a CopilotKit Intelligence URL or API key.
+
+## Map Mastra agents to CopilotKit agent IDs
+
+Map the Mastra agent ID you set in `MASTRA_IMPORT_AGENT_ID` to the `agentId` your live CopilotKit runtime uses.
+
+```json title="agent-map.json"
+{
+  "support": "support-agent"
+}
+```
+
+Using the same `agentId` as live traffic keeps imported history and future conversations grouped together.
+
+## Prepare the CopilotKit Intelligence destination
+
+A real import needs the destination app-api URL and project-scoped runtime key. A CLI-created starter writes them to `.env`, but the importer reads the current process environment and does not load `.env` or `.copilotkit/project.json` automatically.
+
+Copy the generated values into your shell before importing:
+
+```bash title="Terminal"
+export INTELLIGENCE_API_URL="https://..."
+export CPK_INTELLIGENCE_API_KEY="cpk-..."
+```
+
+You can also pass the destination directly with `--api-url` and `--api-key` instead.
+
+## Import the conversations
+
+Run the import after the dry run and agent map look right.
+
+```bash title="Terminal"
+npx copilotkit@latest import \
+  --source mastra \
+  --agent-map ./agent-map.json
+```
+
+For self-hosted CopilotKit Intelligence, pass the target connection explicitly:
+
+```bash title="Terminal"
+npx copilotkit@latest import \
+  --source mastra \
+  --api-url "$INTELLIGENCE_API_URL" \
+  --api-key "$CPK_INTELLIGENCE_API_KEY" \
+  --agent-map ./agent-map.json \
+  --yes
+```
+
+Conversations without an end-user ID are omitted by default. Set `MASTRA_IMPORT_END_USER_ID` before importing.
+
+## Verify the imported conversations
+
+Open the Threads Drawer, select an imported Mastra conversation, and confirm that its history appears in the chat.
+
+## Re-run or replace
+
+Already-imported conversations are skipped by default.
+
+Use `--replace` to refresh them; running or continued conversations are left unchanged:
+
+```bash title="Terminal"
+npx copilotkit@latest import \
+  --source mastra \
+  --agent-map ./agent-map.json \
+  --replace
+```
+
+## Continue using Mastra persistence
+
+Importing copies supported history; it does not establish ongoing database replication. Intelligence rename, archive, and delete operations affect only Intelligence records, leaving the native Mastra records unchanged.
+
+Your app sends future conversations through CopilotKit to CopilotKit Intelligence. Keep the original Mastra agent and its durable storage connected, and reopen the imported conversation from the Threads Drawer to pick up where you left off, including supported pending approvals and requests for input.
+
+- **Threads Drawer:** already included in CLI-created starters. Use the [Threads Drawer guide](/prebuilt-components/copilot-threads-drawer) to customize its ready-made thread UI.
+- **Headless Threads:** use the [Headless Threads guide](/headless-threads) only when you need a custom UI. Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.
+
+Open an imported conversation and send a follow-up to continue it.

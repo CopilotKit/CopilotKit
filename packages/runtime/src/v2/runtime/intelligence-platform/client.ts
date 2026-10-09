@@ -12,6 +12,11 @@ import type {
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import type { GetLearningContainerId } from "../core/learning";
+import {
+  parseTrajectoryConnectionGrant,
+  trajectoryResponseError,
+} from "./trajectories";
+import type { TrajectoryConnectionGrant } from "./trajectories";
 
 import {
   LearnedSkillsError,
@@ -202,6 +207,12 @@ const MANAGED_INTELLIGENCE_WS_URL = "wss://realtime.intelligence.copilotkit.ai";
 const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
 const INSPECTOR_LEARNING_REQUEST_TIMEOUT_MS = 5_000;
 
+/** A 404 the caller expects: a thread lookup made before the thread exists. */
+const NOT_FOUND: ReadonlySet<number> = new Set([404]);
+
+/** A 409 the caller expects: another request created the thread first. */
+const CONFLICT: ReadonlySet<number> = new Set([409]);
+
 /**
  * Error thrown when a CopilotKit Intelligence HTTP request returns a non-2xx
  * status. Carries the HTTP {@link status} code so callers can branch on
@@ -229,6 +240,25 @@ export class PlatformRequestError extends Error {
   ) {
     super(message);
     this.name = "PlatformRequestError";
+  }
+}
+
+/**
+ * Read the platform's `retryable` hint from an error response body. The
+ * platform sends `{ error: { code, message, category, retryable } }`; anything
+ * else (non-JSON, proxies, older platforms) yields `undefined`.
+ */
+function readErrorBodyRetryable(text: string): boolean | undefined {
+  if (!text) return undefined;
+  try {
+    const body: unknown = JSON.parse(text);
+    if (typeof body !== "object" || body === null) return undefined;
+    const error = (body as { error?: unknown }).error;
+    if (typeof error !== "object" || error === null) return undefined;
+    const retryable = (error as { retryable?: unknown }).retryable;
+    return typeof retryable === "boolean" ? retryable : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -499,6 +529,12 @@ export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
   backendThreadId?: string;
   /** Canonical platform run identifier for the acquired lock. */
   runId: string;
+  /**
+   * Seconds the lock remains valid from acquisition, as set by the platform.
+   * The platform may ignore the requested TTL, so callers should trust this
+   * value. Absent on platforms that predate the field.
+   */
+  ttlSeconds?: number;
 }
 
 /**
@@ -632,6 +668,8 @@ export interface RenewThreadLockRequest {
   ttlSeconds: number;
   /** Must match the prefix used when acquiring. */
   lockKeyPrefix?: string;
+  /** Aborts the request, e.g. when the heartbeat gives up on this attempt. */
+  signal?: AbortSignal;
 }
 
 export interface CleanupThreadLockRequest {
@@ -640,7 +678,20 @@ export interface CleanupThreadLockRequest {
 }
 
 export interface RenewThreadLockResponse {
+  /**
+   * Seconds the lock remains valid from now, as set by the platform. The
+   * platform may ignore the requested TTL, so callers should trust this value.
+   * `0` when {@link status} is `"completed"`.
+   */
   ttlSeconds: number;
+  threadId?: string;
+  runId?: string;
+  /**
+   * `"renewed"` when the lock was extended; `"completed"` when the run already
+   * reached a terminal event, so nothing was renewed and none is needed.
+   * Absent on platforms that predate the field.
+   */
+  status?: "renewed" | "completed";
 }
 
 export interface ThreadLockInfo {
@@ -1360,11 +1411,73 @@ export class CopilotKitIntelligence {
     }
   }
 
+  /** Mint a browser capture grant using only the Runtime's project and user. */
+  async ɵconnectTrajectory(params: {
+    trajectoryId: string;
+    user: { id: string; name: string };
+    signal?: AbortSignal;
+  }): Promise<TrajectoryConnectionGrant> {
+    let response: Response;
+    try {
+      response = await fetch(`${this.#apiUrl}/api/trajectories/join`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.#apiKey}`,
+          "Content-Type": "application/json",
+        },
+        // Project scope comes from the API key. Containers remain unassigned
+        // until there is a server-side selector with Trajectory context.
+        body: JSON.stringify({
+          trajectoryId: params.trajectoryId,
+          appUserId: params.user.id,
+        }),
+        signal: params.signal,
+        redirect: "error",
+      });
+    } catch (error) {
+      // An abort means the browser went away, not that Intelligence is unreachable.
+      if (!params.signal?.aborted) {
+        // Error messages can carry the request URL and any credentials in it,
+        // so log only fixed fields. Node's fetch keeps the reason in `cause`.
+        logger.warn(
+          {
+            error: error instanceof Error ? error.name : typeof error,
+            causeCode: networkErrorCode(
+              error instanceof Error ? error.cause : undefined,
+            ),
+            host: urlHost(this.#apiUrl),
+          },
+          "Could not reach Intelligence to connect a Trajectory",
+        );
+      }
+      throw error;
+    }
+    const payload: unknown = await response.json().catch(() => undefined);
+    if (!response.ok) {
+      throw trajectoryResponseError(payload, response.status, this.#apiKey);
+    }
+    return parseTrajectoryConnectionGrant(
+      payload,
+      params.trajectoryId,
+      this.ɵgetClientWsUrl(),
+    );
+  }
+
+  /**
+   * Sends one request to the platform and parses its JSON body.
+   *
+   * @param expectedStatuses - Non-2xx statuses the caller handles as a normal
+   *   outcome, such as the 404 of a thread that does not exist yet. They are
+   *   logged at debug instead of error, and still throw.
+   * @throws {@link PlatformRequestError} on every non-2xx response.
+   */
   async #request<T>(
     method: string,
     path: string,
     body?: unknown,
     extraHeaders?: Record<string, string>,
+    signal?: AbortSignal,
+    expectedStatuses?: ReadonlySet<number>,
   ): Promise<T> {
     const url = `${this.#apiUrl}${path}`;
 
@@ -1378,17 +1491,26 @@ export class CopilotKitIntelligence {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
+      signal,
     });
 
     if (!response.ok) {
       const text = await response.text().catch(() => "");
-      logger.error(
-        { status: response.status, body: text, path },
-        "Intelligence platform request failed",
-      );
+      if (expectedStatuses?.has(response.status)) {
+        logger.debug(
+          { status: response.status, path },
+          "Intelligence platform request returned an expected status",
+        );
+      } else {
+        logger.error(
+          { status: response.status, body: text, path },
+          "Intelligence platform request failed",
+        );
+      }
       throw new PlatformRequestError(
         `Intelligence platform error ${response.status}: ${text || response.statusText}`,
         response.status,
+        readErrorBodyRetryable(text),
       );
     }
 
@@ -1654,6 +1776,17 @@ export class CopilotKitIntelligence {
    *   same `threadId` already exists.
    */
   async createThread(params: CreateThreadRequest): Promise<ThreadSummary> {
+    return this.#createThread(params);
+  }
+
+  /**
+   * Creates a thread. {@link getOrCreateThread} passes 409 as expected,
+   * because there it means another request created the thread first.
+   */
+  async #createThread(
+    params: CreateThreadRequest,
+    expectedStatuses?: ReadonlySet<number>,
+  ): Promise<ThreadSummary> {
     const response = await this.#request<ThreadEnvelope>(
       "POST",
       `/api/threads`,
@@ -1666,6 +1799,9 @@ export class CopilotKitIntelligence {
           ? { learningContainerId: params.learningContainerId }
           : {}),
       },
+      undefined,
+      undefined,
+      expectedStatuses,
     );
     this.#invokeLifecycleCallback("onThreadCreated", response.thread);
     return response.thread;
@@ -1682,10 +1818,25 @@ export class CopilotKitIntelligence {
     threadId: string;
     userId: string;
   }): Promise<ThreadSummary> {
+    return this.#getThread(params);
+  }
+
+  /**
+   * Fetches a thread. {@link getOrCreateThread} passes 404 as expected,
+   * because there it means the thread is about to be created (PE-678).
+   */
+  async #getThread(
+    params: { threadId: string; userId: string },
+    expectedStatuses?: ReadonlySet<number>,
+  ): Promise<ThreadSummary> {
     const qs = new URLSearchParams({ userId: params.userId }).toString();
     const response = await this.#request<ThreadEnvelope>(
       "GET",
       `/api/threads/${encodeURIComponent(params.threadId)}?${qs}`,
+      undefined,
+      undefined,
+      undefined,
+      expectedStatuses,
     );
     return response.thread;
   }
@@ -1709,10 +1860,10 @@ export class CopilotKitIntelligence {
     params: CreateThreadRequest,
   ): Promise<{ thread: ThreadSummary; created: boolean }> {
     try {
-      const thread = await this.getThread({
-        threadId: params.threadId,
-        userId: params.userId,
-      });
+      const thread = await this.#getThread(
+        { threadId: params.threadId, userId: params.userId },
+        NOT_FOUND,
+      );
       return { thread, created: false };
     } catch (error) {
       if (!(error instanceof PlatformRequestError && error.status === 404)) {
@@ -1721,7 +1872,7 @@ export class CopilotKitIntelligence {
     }
 
     try {
-      const thread = await this.createThread(params);
+      const thread = await this.#createThread(params, CONFLICT);
       return { thread, created: true };
     } catch (error) {
       // Another request created the thread between our get and create — retry get.
@@ -1978,6 +2129,8 @@ export class CopilotKitIntelligence {
           ? { lockKeyPrefix: params.lockKeyPrefix }
           : {}),
       },
+      undefined,
+      params.signal,
     );
   }
 
@@ -2099,6 +2252,26 @@ function deriveRunnerWsUrl(wsUrl: string): string {
   }
 
   return `${wsUrl}/runner`;
+}
+
+/** A system error code such as ECONNREFUSED, or undefined for anything else. */
+function networkErrorCode(cause: unknown): string | undefined {
+  const code =
+    typeof cause === "object" && cause !== null && "code" in cause
+      ? cause.code
+      : undefined;
+  return typeof code === "string" && /^[A-Z][A-Z0-9_]{0,63}$/.test(code)
+    ? code
+    : undefined;
+}
+
+/** The host of a URL without its credentials, path or query. */
+function urlHost(url: string): string | undefined {
+  try {
+    return new URL(url).host;
+  } catch {
+    return undefined;
+  }
 }
 
 function deriveClientWsUrl(wsUrl: string): string {

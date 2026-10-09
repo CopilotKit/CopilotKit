@@ -734,6 +734,36 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     return cloned;
   }
 
+  /** Run presentation-only MCP reads on a separate client agent so their
+   * lifecycle cannot replace an in-flight approval's detach/completion state. */
+  public async ɵrunMcpResourceRead(
+    parameters: RunAgentParameters,
+  ): Promise<RunAgentResult> {
+    const request = (
+      parameters.forwardedProps as Record<string, unknown> | undefined
+    )?.__proxiedMCPRequest;
+    if (
+      typeof request !== "object" ||
+      request === null ||
+      (request as { method?: unknown }).method !== "resources/read"
+    ) {
+      throw new Error("Only MCP resources/read can use the read-only path");
+    }
+    await this.ensureRuntimeConfiguration();
+    // Only the renderer's dedicated read path opts into the direct response.
+    // Other MCP callers still receive the normal realtime run protocol.
+    const resourceParameters = {
+      ...parameters,
+      forwardedProps: {
+        ...parameters.forwardedProps,
+        __copilotkitMcpResourceReadOnly: true,
+      },
+    };
+    return this.runtimeMode === RUNTIME_MODE_INTELLIGENCE
+      ? this.clone().runAgent(resourceParameters)
+      : this.runAgent(resourceParameters);
+  }
+
   /**
    * Drop the delegate's cached `lastSeenEventId` for this thread so
    * the next connect requests a full historical replay from the

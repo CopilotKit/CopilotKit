@@ -5,6 +5,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
 COPY . .
 RUN npm run build
+RUN npm run typecheck:json-render
 
 # Stage 2: Build Python venv with agent deps
 #

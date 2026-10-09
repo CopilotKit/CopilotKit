@@ -43,6 +43,9 @@ import type {
 import { StateManager } from "./state-manager";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
+import { LearningBridge } from "./learning-bridge";
+import type { LearningConfig, TrajectoryStartOptions } from "./learning-bridge";
+import type { JsonValue, StartResult } from "@copilotkit/learning";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
 import type { ɵMemoryStore } from "../memory";
@@ -88,9 +91,25 @@ export interface CopilotKitCoreConfig {
   suggestionsConfig?: SuggestionsConfig[];
   /** Enable debug logging for the client-side event pipeline. */
   debug?: DebugConfig;
+  /**
+   * Turns on interaction capture (`@copilotkit/learning`). Capture starts only
+   * when {@link CopilotKitCore.startTrajectory} authenticates and joins the
+   * capture channel. The default path captures outside-chat activity. An explicit
+   * legacy sink also receives Thread, message, tool call, and run context.
+   * Update future captures with
+   * {@link CopilotKitCore.setLearningConfig}.
+   */
+  learning?: LearningConfig;
 }
 
 export type { CopilotKitMessageFilter } from "./message-filter";
+export type {
+  LearningConfig,
+  LegacyLearningConfig,
+  TrajectoryStartOptions,
+  OpenThreadRegistration,
+} from "./learning-bridge";
+export type { JsonValue, StartResult } from "@copilotkit/learning";
 
 export type {
   CopilotKitCoreAddAgentParams,
@@ -157,6 +176,10 @@ export enum CopilotKitCoreErrorCode {
 }
 
 export interface CopilotKitCoreSubscriber {
+  onTrajectoryChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    trajectoryId: string | null;
+  }) => void | Promise<void>;
   onRuntimeConnectionStatusChanged?: (event: {
     copilotkit: CopilotKitCore;
     status: CopilotKitCoreRuntimeConnectionStatus;
@@ -441,6 +464,9 @@ export class CopilotKitCore {
   private runHandler: RunHandler;
   private stateManager: StateManager;
   private threadStoreRegistry: ThreadStoreRegistry;
+  private learningBridge: LearningBridge;
+  private notifiedTrajectoryId: string | null = null;
+  private readonly learningConfiguredListeners = new Set<() => void>();
   /**
    * The single core-owned memory store, created lazily on first
    * `getMemoryStore()` and kept user-scoped for the lifetime of the core.
@@ -468,6 +494,7 @@ export class CopilotKitCore {
     tools = [],
     suggestionsConfig = [],
     debug,
+    learning,
   }: CopilotKitCoreConfig) {
     this.headerSource = new HeaderSourceResolver((error) => {
       void this.emitError({
@@ -495,6 +522,10 @@ export class CopilotKitCore {
     this.runHandler.initialize(tools);
     this.suggestionEngine.initialize(suggestionsConfig);
     this.stateManager.initialize();
+    // After agent initialization: the bridge reads the initial agents.
+    this.learningBridge = new LearningBridge(this, learning, () =>
+      this.notifyTrajectoryChanged(),
+    );
 
     this.agentRegistry.setRuntimeTransport(runtimeTransport);
     this.agentRegistry.setRuntimeUrl(runtimeUrl, {
@@ -783,6 +814,11 @@ export class CopilotKitCore {
     return this.agentRegistry.runtimeConnectionStatus;
   }
 
+  /** @internal The verbatim single-endpoint URL, including any trailing slash. */
+  get ɵruntimeEndpointUrl(): string | undefined {
+    return this.agentRegistry.runtimeEndpointUrl;
+  }
+
   get ɵruntimeFetch(): typeof fetch {
     return this.agentRegistry.createRuntimeFetch();
   }
@@ -989,6 +1025,95 @@ export class CopilotKitCore {
 
   getAgent(id: string): AbstractAgent | undefined {
     return this.agentRegistry.getAgent(id);
+  }
+
+  /** Updates settings for the next capture. Removing the config stops capture. */
+  setLearningConfig(config: LearningConfig | undefined): void {
+    const wasConfigured = this.ɵlearningConfigured;
+    this.learningBridge.setConfig(config);
+    this.notifyTrajectoryChanged();
+    if (this.ɵlearningConfigured === wasConfigured) return;
+    for (const listener of this.learningConfiguredListeners) {
+      try {
+        listener();
+      } catch (error) {
+        console.error("Learning configured listener error:", error);
+      }
+    }
+  }
+
+  /**
+   * @internal Whether a `learning` config is set. Unlike {@link trajectoryId},
+   * it does not change with capture start, connection failures or reconnects.
+   */
+  get ɵlearningConfigured(): boolean {
+    return this.learningBridge.isConfigured;
+  }
+
+  /** @internal Calls `listener` when {@link ɵlearningConfigured} changes. */
+  ɵsubscribeToLearningConfigured(listener: () => void): () => void {
+    this.learningConfiguredListeners.add(listener);
+    return () => {
+      this.learningConfiguredListeners.delete(listener);
+    };
+  }
+
+  /** The active capture's Trajectory ID, or null while capture is stopped. */
+  get trajectoryId(): string | null {
+    return this.learningBridge.trajectoryId;
+  }
+
+  private notifyTrajectoryChanged(): void {
+    const trajectoryId = this.trajectoryId;
+    if (trajectoryId === this.notifiedTrajectoryId) return;
+    this.notifiedTrajectoryId = trajectoryId;
+    void this.notifySubscribers(
+      (subscriber) =>
+        subscriber.onTrajectoryChanged?.({ copilotkit: this, trajectoryId }),
+      "Subscriber onTrajectoryChanged error:",
+    );
+  }
+
+  /**
+   * Starts one Trajectory after Runtime authorization and the Gateway join.
+   * Omit the ID to create one. Repeated starts await the active connection;
+   * a different ID stops the previous capture. Explicit sinks retain the
+   * prototype's synchronous capture and require a stop before changing IDs.
+   *
+   * @example copilotkit.startTrajectory({ trajectoryId: crypto.randomUUID() })
+   */
+  startTrajectory(options: TrajectoryStartOptions = {}): Promise<StartResult> {
+    const result = this.learningBridge.start(options);
+    this.notifyTrajectoryChanged();
+    return result;
+  }
+
+  /** Cancels pending work and stops capture, attempting one final batch without waiting for its ACK. */
+  stopTrajectory() {
+    this.learningBridge.stop();
+    this.notifyTrajectoryChanged();
+  }
+
+  /**
+   * Records an outcome that clicks cannot show, such as a saved report or an
+   * approved deal. The wire adds `value.seq`; arrays, primitives, and objects
+   * already containing `seq` are preserved under `value.data`. Explicit legacy
+   * sinks retain object-only events with open-Thread enrichment.
+   * No-op while no Trajectory runs. Events emitted during connection recovery
+   * count as dropped. Built-in names such as `click` are rejected.
+   *
+   * @example copilotkit.emitTrajectoryEvent("deal.approved", { dealId: "deal-1" })
+   */
+  emitTrajectoryEvent(name: string, value: JsonValue = {}) {
+    this.learningBridge.emit(name, value);
+  }
+
+  /**
+   * Tells Core that a view shows this Thread, so captured interactions can link to it.
+   * Framework bindings call this; call it yourself only without a CopilotKit provider.
+   */
+  registerOpenThread(params: { agentId: string; threadId: string }) {
+    return this.learningBridge.registerOpenThread(params);
   }
 
   /**

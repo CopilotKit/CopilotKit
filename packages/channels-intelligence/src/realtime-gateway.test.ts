@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   connectRealtimeGateway,
   RealtimeGatewayPushError,
@@ -299,6 +299,43 @@ describe("connectRealtimeGateway", () => {
       },
     ]);
     session.disconnect();
+  });
+});
+
+describe("connectRealtimeGateway — heartbeat", () => {
+  it("sends a Phoenix heartbeat every 15s, inside a 30s proxy idle timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+      const session = await connectRealtimeGateway({
+        wsUrl: "wss://gateway.example/channels",
+        apiKey: "cpk-test",
+        projectId: 7,
+        join: {
+          protocol: "channel_delivery_v1",
+          runtimeInstanceId: "rti_1",
+          channels: [{ channelName: "opentag", adapter: "slack" }],
+        },
+        webSocket: FakeWebSocket,
+      });
+      const heartbeats = () =>
+        instances[0]!.frames.filter(
+          (frame) =>
+            Array.isArray(frame) &&
+            frame[2] === "phoenix" &&
+            frame[3] === "heartbeat",
+        ).length;
+
+      expect(heartbeats()).toBe(0);
+      await vi.advanceTimersByTimeAsync(14_999);
+      expect(heartbeats()).toBe(0);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(heartbeats()).toBe(1);
+
+      session.disconnect();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
