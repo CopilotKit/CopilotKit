@@ -253,9 +253,6 @@ export class IntelligenceAgentRunner extends AgentRunner {
       const channel = socket.channel(`ingestion:${input.runId}`, {
         thread_id: threadId,
         run_id: input.runId,
-        // New gateways defer disconnect errors while this runner rejoins and
-        // replays its pending events. Older gateways ignore the capability.
-        capabilities: ["runner_reconnect_v1"],
       });
 
       let cancelRun!: () => void;

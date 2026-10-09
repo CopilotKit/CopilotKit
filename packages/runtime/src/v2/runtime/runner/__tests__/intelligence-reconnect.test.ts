@@ -49,13 +49,12 @@ function setup() {
   };
 }
 
-test("runner advertises reconnect support so a transport close does not terminalize the run", () => {
+test("runner joins without obsolete reconnect capability negotiation", () => {
   const { channel, teardown } = setup();
   try {
     expect(channel).toHaveBeenCalledWith("ingestion:run-reconnect", {
       thread_id: "thread-reconnect",
       run_id: "run-reconnect",
-      capabilities: ["runner_reconnect_v1"],
     });
   } finally {
     teardown();
