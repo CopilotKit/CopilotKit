@@ -52,6 +52,20 @@ vi.mock("@copilotkit/runtime/v2/node", () => ({
   createCopilotNodeListener: fakes.createCopilotNodeListener,
 }));
 vi.mock("./tools/index.js", () => ({ appTools: [] }));
+vi.mock("./tools/render-mrr.js", () => ({
+  renderMrrTool: { name: "render_mrr" },
+}));
+vi.mock("./tools/render-carousel.js", () => ({
+  renderCarouselTool: { name: "render_carousel" },
+  carouselCommand: { name: "carousel" },
+}));
+vi.mock("./showcase/index.js", () => ({
+  showcaseTools: [],
+  showcaseCommands: [],
+}));
+vi.mock("./render/brand.js", () => ({
+  loadBrandRender: async () => ({ fonts: [], stylesheets: [] }),
+}));
 vi.mock("./context/app-context.js", () => ({ appContext: [] }));
 vi.mock("./commands/index.js", () => ({ appCommands: [] }));
 vi.mock("./sender-context.js", () => ({ senderContext: vi.fn() }));

@@ -1,0 +1,52 @@
+---
+title: Render and carousel
+description: Mix native channel UI with React snapshots in one message using Render and Carousel.
+icon: "lucide/Images"
+---
+
+You want native text plus React cards in one message. A header, a sale note, and a Buy button sit next to a product card that your app already draws in React.
+
+Wrap each snapshot in `<Render alt>`. Group the slides in `<Carousel>`. The SDK draws each snapshot to a PNG and keeps the rest as native channel UI.
+
+```tsx
+<Message>
+  <Header>This week</Header>
+  <Carousel>
+    <CarouselCard>
+      <Header>Shoes</Header>
+      <Render alt="Red shoes" width={400}>
+        <ProductCard product={shoes} />
+      </Render>
+      <Section>On sale</Section>
+      <Button value="buy-shoes">Buy</Button>
+    </CarouselCard>
+    <Render alt="Hat">
+      <ProductCard product={hat} />
+    </Render>
+  </Carousel>
+</Message>
+```
+
+`alt` is required on `<Render>`. Slack and other platforms need that text.
+
+`<Image url>` is still a public URL image. It does not take children.
+
+<Callout type="warn" title="No Channels Button inside Render">
+  A Channels `<Button>` inside `<Render>` throws. A host HTML button is fine. The snapshot is a PNG, so that HTML button does not receive clicks.
+</Callout>
+
+Set fonts and styles once on `createChannel({ render })`. See [Posting JSX as images](/channels/posting-jsx-as-images).
+
+The Slack example posts this mix with `/carousel` or by asking the bot to show a carousel (`render_carousel` in `examples/slack`).
+
+This feature targets managed Slack and Teams:
+
+- **Slack:** the SDK stores each PNG and puts its file handle in `slack_file.id`. Intelligence stages the image in Slack before posting the native message or carousel. Native buttons keep their action callbacks.
+- **Teams:** the SDK embeds snapshots as data URIs in an Adaptive Card. The complete delivery packet, including all images, text, and actions, must fit the existing **64 KiB** limit. Oversized cards fail with an error explaining the limit. Reduce the snapshot dimensions, use public `<Image url>` images, or post a larger snapshot separately with `thread.post(jsx)`, which uses the managed upload path.
+
+Run `pnpm channel` in `examples/slack` for the managed example. Existing direct adapters and Discord, Telegram, and WhatsApp behavior are unchanged.
+
+| Managed platform | Carousel output |
+| --- | --- |
+| Slack | Native carousel with interactive buttons |
+| Teams | Adaptive Card carousel with interactive actions |

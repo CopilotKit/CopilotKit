@@ -36,6 +36,8 @@ import type {
   UserQuery,
   ReplyContinuationOptions,
   ResolvedChannelMemory,
+  StageFileArgs,
+  StagedFile,
 } from "@copilotkit/channels-core";
 import { ChannelDeliveryTerminatedError } from "@copilotkit/channels-core";
 import {
@@ -137,6 +139,8 @@ export interface DeliveryAdapterOptions {
 
 /** Managed Channels adapter backed by the dedicated delivery boundary. */
 export class DeliveryAdapter implements PlatformAdapter {
+  readonly supportsJsxImages = true;
+
   readonly platform = "intelligence";
   readonly __intelligenceChannel = true;
   readonly supportsIntelligenceMemory = true;
@@ -882,6 +886,28 @@ export class DeliveryAdapter implements PlatformAdapter {
       });
     });
     return { ok: true, assetId: handle };
+  }
+
+  /** Stage snapshots without sending a visible message or changing delivery state. */
+  async stageFile(
+    targetValue: ReplyTarget,
+    args: StageFileArgs,
+  ): Promise<StagedFile> {
+    const target = asDeliveryTarget(targetValue);
+    if (target.delivery.adapter === "teams") {
+      return {
+        dataUrl: `data:image/png;base64,${Buffer.from(args.bytes).toString("base64")}`,
+      };
+    }
+    // The gateway resolves handles in slack_file, uploads unshared and waits
+    // for Slack file readiness as part of the subsequent message effect.
+    const handle = await target.claimedDelivery.uploadFile(
+      mintId("response_"),
+      args,
+    );
+    if (!handle)
+      throw new Error("Channel stageFile: upload returned no handle");
+    return { fileId: handle };
   }
 
   /** Retries canonical persistence without repeating provider delivery. */
