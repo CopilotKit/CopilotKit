@@ -14,10 +14,12 @@
 #   resolve-digest     Resolve an image reference to its content digest via GHCR.
 #   lint-prod          Verify production is fully digest-pinned (CI gate).
 #
-# Stdlib only — no Bundler, no Gemfile. Ruby 3.x.
+# Ruby dependencies: stdlib only — no Bundler, no Gemfile. Ruby 3.x.
+# With SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE set, lifecycle validation invokes
+# repository-local `node_modules/.bin/tsx`; promotion probes invoke `npx --yes tsx`.
 #
 # Auth: RAILWAY_TOKEN env var, or ~/.railway/config.json (token field).
-# Never invokes `railway login` / `railway logout` / `op` / any external CLI.
+# Never invokes `railway login`, `railway logout`, or `op`.
 #
 # Production protection: --yes + typed env confirmation (unless --non-interactive).
 #
