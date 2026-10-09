@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
+import { findDelegationAnchorToolCallIds } from "./subagent-anchor";
 import { resolveSubagentLineDepth } from "./subagent-depth";
 import {
   useAgent,
@@ -59,6 +60,12 @@ export interface SubagentInfo {
   subagentRunId: string;
   name: string;
   parentSubagentRunId?: string;
+  /**
+   * The `task` tool call that started this subagent, from `SUBAGENT_STARTED`.
+   * On a top-level subagent it names the parent's delegation, which is how a
+   * console finds the one run it belongs to.
+   */
+  parentToolCallId?: string;
   status: "running" | "finished" | "error";
 }
 
@@ -116,45 +123,25 @@ export const useSubagentActivity = (): SubagentActivity =>
   useContext(SubagentActivityContext);
 
 /**
- * The tool-call id of the run's FIRST delegation — a stable place to anchor a
- * single surface (a console, a progress panel) for the whole of a subagent run.
+ * The tool-call ids that each anchor one surface (a console, a progress panel):
+ * the first `task` call of every delegating user turn, in order.
  *
- * Derived from MESSAGE ORDER, deliberately, not from the live event stream.
- * Anchoring on "a `task` call the events have not tagged as a subagent's" looks
- * equivalent and is not: the tag arrives asynchronously and, on a RESTORED
- * thread, never — `agent.subscribe` only sees a live run. The set is then empty,
- * every nested `task` call looks like the parent's, and the anchored surface
- * renders once per delegation. Measured: six consoles in one transcript.
- *
- * Message order has neither problem. The parent's delegation is always the
- * first `task` in the thread, before any subagent could have made one, and the
- * ordering is persisted rather than observed.
+ * Message order is used deliberately: it survives restore, and the first
+ * `task` after a user turn must belong to the parent before any nested
+ * subagent can emit another `task`. See `findDelegationAnchorToolCallIds`.
  */
-export const useFirstDelegationToolCallId = (
+export const useDelegationAnchorToolCallIds = (
   toolName = "task",
-): string | undefined => {
+): ReadonlySet<string> => {
   const { agent } = useAgent({
     updates: [UseAgentUpdate.OnMessagesChanged],
     throttleMs: 200,
   });
-  const messages = agent?.messages;
-  return useMemo(() => {
-    for (const message of messages ?? []) {
-      const m = message as {
-        role?: string;
-        toolCalls?: {
-          id: string;
-          function?: { name?: string };
-          name?: string;
-        }[];
-      };
-      if (m.role !== "assistant") continue;
-      for (const call of m.toolCalls ?? []) {
-        if ((call.function?.name ?? call.name) === toolName) return call.id;
-      }
-    }
-    return undefined;
-  }, [messages, toolName]);
+  return useMemo(
+    () =>
+      new Set(findDelegationAnchorToolCallIds(agent?.messages ?? [], toolName)),
+    [agent?.messages, toolName],
+  );
 };
 
 // ── event shaping ───────────────────────────────────────────────────────────
@@ -258,11 +245,15 @@ const foldEvent = (acc: Accum, event: unknown): Accum => {
       const parent = e.parentSubagentRunId
         ? str(e.parentSubagentRunId)
         : undefined;
+      const parentToolCallId = e.parentToolCallId
+        ? str(e.parentToolCallId)
+        : undefined;
       acc.subagents.set(tag, {
         subagentRunId: tag,
         name: str(e.name) || "subagent",
         status: "running",
         ...(parent ? { parentSubagentRunId: parent } : {}),
+        ...(parentToolCallId ? { parentToolCallId } : {}),
       });
       acc.lines.set(`${tag}-started`, {
         key: `${tag}-started`,
