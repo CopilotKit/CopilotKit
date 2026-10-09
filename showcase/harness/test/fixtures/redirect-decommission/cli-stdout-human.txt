@@ -1,8 +1,8 @@
 === SEO Redirect Decommission Report (last 30 days) ===
-Total redirects defined: 395
+Total redirects defined: 382
 Total hits: 12,537
 Redirects with hits: 13
-Zero-hit candidates: 382
+Zero-hit candidates: 369
 
 Top 10 most-hit redirects:
   D1                        5,432 hits
@@ -374,19 +374,6 @@ Decommission candidates (zero hits):
   S8×microsoft-agent-framework /microsoft-agent-framework/generative-ui/render-only → /ms-agent-dotnet/generative-ui/your-components/display-only
   S8×pydantic-ai            /pydantic-ai/generative-ui/render-only → /pydantic-ai/generative-ui/your-components/display-only
   S8×unselected             /unselected/generative-ui/render-only → /built-in-agent/generative-ui/your-components/display-only
-  S9×a2a                    /a2a/generative-ui/tool-based → /a2a/generative-ui/tool-rendering
-  S9×adk                    /adk/generative-ui/tool-based → /google-adk/generative-ui/tool-rendering
-  S9×ag2                    /ag2/generative-ui/tool-based → /ag2/generative-ui/tool-rendering
-  S9×agent-spec             /agent-spec/generative-ui/tool-based → /agent-spec/generative-ui/tool-rendering
-  S9×agno                   /agno/generative-ui/tool-based → /agno/generative-ui/tool-rendering
-  S9×aws-strands            /aws-strands/generative-ui/tool-based → /strands/generative-ui/tool-rendering
-  S9×crewai-flows           /crewai-flows/generative-ui/tool-based → /crewai-crews/generative-ui/tool-rendering
-  S9×langgraph              /langgraph/generative-ui/tool-based → /langgraph-python/generative-ui/tool-rendering
-  S9×llamaindex             /llamaindex/generative-ui/tool-based → /llamaindex/generative-ui/tool-rendering
-  S9×mastra                 /mastra/generative-ui/tool-based → /mastra/generative-ui/tool-rendering
-  S9×microsoft-agent-framework /microsoft-agent-framework/generative-ui/tool-based → /ms-agent-dotnet/generative-ui/tool-rendering
-  S9×pydantic-ai            /pydantic-ai/generative-ui/tool-based → /pydantic-ai/generative-ui/tool-rendering
-  S9×unselected             /unselected/generative-ui/tool-based → /built-in-agent/generative-ui/tool-rendering
   SR-root×adk               /adk → /google-adk
   SR-root×aws-strands       /aws-strands → /strands
   SR-root×crewai-flows      /crewai-flows → /crewai-crews

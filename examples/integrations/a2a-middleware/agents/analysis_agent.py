@@ -24,6 +24,7 @@ from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.utils import new_agent_text_message
 from _banner import print_banner
+from _model import adk_model
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
@@ -58,9 +59,11 @@ class AnalysisAgent:
         )
 
     def _build_agent(self) -> LlmAgent:
-        model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        # COPILOTKIT_AGENT_MODEL overrides this agent too; unset, it uses
+        # GEMINI_MODEL or gemini-3.8-flash.
+        model = adk_model(f"google:{os.getenv('GEMINI_MODEL', 'gemini-3.8-flash')}")
         return LlmAgent(
-            model=model_name,
+            model=model,
             name="analysis_agent",
             description="An agent that analyzes research findings and provides insights",
             instruction="""

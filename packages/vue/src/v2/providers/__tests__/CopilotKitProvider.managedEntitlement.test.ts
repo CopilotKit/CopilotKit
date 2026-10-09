@@ -233,7 +233,7 @@ test("a retryable managed lookup keeps every Vue gate pending and hides stale wa
   }
 });
 
-test("a persistent retryable lookup denies every Vue gate after Core's bounded retry settles", async () => {
+test("a persistent retryable lookup keeps every Vue gate enabled after Core's bounded retry settles", async () => {
   vi.useFakeTimers();
   const { dispose, fetchMock, readAuthority } = setupRuntimeAuthority(
     retryableRuntimeInfo(),
@@ -252,7 +252,7 @@ test("a persistent retryable lookup denies every Vue gate after Core's bounded r
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(readAuthority()).toBe(
-      "status:unknown chat:false sidebar:false popup:false threads:false",
+      "status:unknown chat:true sidebar:true popup:true threads:true",
     );
 
     await vi.advanceTimersByTimeAsync(30_000);

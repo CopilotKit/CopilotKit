@@ -12,4 +12,5 @@ dependencies = [
   "google-genai",
   "ag-ui-adk==0.7.0",
   "ag-ui-protocol==0.1.18",
+  "litellm>=1.84,<2",
 ]

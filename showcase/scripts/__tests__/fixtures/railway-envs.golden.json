@@ -271,6 +271,60 @@
       "repoName": "showcase-google-antigravity"
     }
   },
+  "showcase-intelligence-api": {
+    "staging": {
+      "instanceId": "fa59ca5f-7319-4fde-867e-cf8de453e442",
+      "domain": null,
+      "probe": false,
+      "driver": "shell",
+      "repoName": "showcase-intelligence-api"
+    }
+  },
+  "showcase-intelligence-composite": {
+    "staging": {
+      "instanceId": "9dadebd1-6320-4e38-9fb0-2fc06b5ecbf0",
+      "domain": null,
+      "probe": false,
+      "driver": "shell",
+      "repoName": "showcase-intelligence-composite"
+    }
+  },
+  "showcase-intelligence-gateway": {
+    "staging": {
+      "instanceId": "b898bdc3-6602-41ad-acbc-0df88002c13b",
+      "domain": null,
+      "probe": false,
+      "driver": "shell",
+      "repoName": "showcase-intelligence-gateway"
+    }
+  },
+  "showcase-intelligence-gateway-proxy": {
+    "staging": {
+      "instanceId": "1ee4af98-0935-4b3e-a434-a7f023e506b9",
+      "domain": null,
+      "probe": false,
+      "driver": "shell",
+      "repoName": "showcase-intelligence-gateway-proxy"
+    }
+  },
+  "showcase-intelligence-postgres": {
+    "staging": {
+      "instanceId": "66e32c98-00ad-42e3-83a2-eba4ba6c1be2",
+      "domain": null,
+      "probe": false,
+      "driver": "shell",
+      "repoName": "showcase-intelligence-postgres"
+    }
+  },
+  "showcase-intelligence-redis": {
+    "staging": {
+      "instanceId": "4695150f-0de8-4b3b-b302-7a377621a200",
+      "domain": null,
+      "probe": false,
+      "driver": "shell",
+      "repoName": "showcase-intelligence-redis"
+    }
+  },
   "showcase-langgraph-fastapi": {
     "prod": {
       "instanceId": "105b7e01-acd0-48e2-9a09-541e2103e8d2",
