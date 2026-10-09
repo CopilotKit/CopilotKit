@@ -66,7 +66,7 @@ def create_llm(
         openai_class: The OpenAI LLM class to use for the openai provider.
     """
     provider, model = parse_agent_model(
-        os.getenv("COPILOTKIT_AGENT_MODEL") or default_spec
+        (os.getenv("COPILOTKIT_AGENT_MODEL") or "").strip() or default_spec
     )
     if provider == "anthropic":
         from llama_index.llms.anthropic import Anthropic

@@ -129,6 +129,16 @@ class StableApiTests(unittest.TestCase):
                 base_url=base_url,
             )
 
+    def test_blank_agent_model_means_unset(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"OPENAI_API_KEY": "test-key", "COPILOTKIT_AGENT_MODEL": "   "},
+            clear=True,
+        ):
+            client = self.build_chat_client()
+        self.assertIsInstance(client, OpenAIChatClient)
+        self.assertEqual(client.model, "gpt-4o-mini")
+
     def test_agent_model_requires_the_provider_key(self) -> None:
         with (
             patch.dict(

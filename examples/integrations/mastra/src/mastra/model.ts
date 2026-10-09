@@ -73,7 +73,7 @@ export function usesChatCompletions(): boolean {
  */
 export function createLanguageModel(defaultSpec: string) {
   const { provider, model } = parseAgentModel(
-    process.env.COPILOTKIT_AGENT_MODEL || defaultSpec,
+    process.env.COPILOTKIT_AGENT_MODEL?.trim() || defaultSpec,
   );
   switch (provider) {
     case "anthropic":

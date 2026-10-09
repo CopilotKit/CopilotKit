@@ -33,7 +33,7 @@ const PROVIDER_ALIASES: Record<string, "openai" | "anthropic" | "google"> = {
  * past that fix; until then BuiltInAgent calls the Responses API there.
  */
 export function resolveAgentModel(defaultSpec: string): string {
-  const value = process.env.COPILOTKIT_AGENT_MODEL || defaultSpec;
+  const value = process.env.COPILOTKIT_AGENT_MODEL?.trim() || defaultSpec;
   const match = /^([A-Za-z0-9-]+)[:/](.+)$/.exec(value.trim());
   const provider = match && PROVIDER_ALIASES[match[1].toLowerCase()];
   if (!match || !provider) {

@@ -44,7 +44,7 @@ def resolve_model(default_spec: str) -> str | BaseLlm:
         default_spec: The default when the variable is unset, e.g. ``"google:gemini-3.8-flash"``.
     """
     provider, model = parse_agent_model(
-        os.getenv("COPILOTKIT_AGENT_MODEL") or default_spec
+        (os.getenv("COPILOTKIT_AGENT_MODEL") or "").strip() or default_spec
     )
     if provider == "google":
         return model

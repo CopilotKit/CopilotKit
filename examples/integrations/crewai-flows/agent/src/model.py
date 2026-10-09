@@ -49,6 +49,6 @@ def resolve_model(default_spec: str) -> str:
         default_spec: The default when the variable is unset, e.g. ``"openai:gpt-5-mini"``.
     """
     provider, model = parse_agent_model(
-        os.getenv("COPILOTKIT_AGENT_MODEL") or default_spec
+        (os.getenv("COPILOTKIT_AGENT_MODEL") or "").strip() or default_spec
     )
     return f"{_LITELLM_PREFIXES[provider]}/{model}"

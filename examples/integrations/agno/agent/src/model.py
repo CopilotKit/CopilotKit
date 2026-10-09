@@ -46,6 +46,6 @@ def create_model(default_spec: str) -> Model:
         default_spec: The default when the variable is unset, e.g. ``"openai:gpt-4o"``.
     """
     provider, model = parse_agent_model(
-        os.getenv("COPILOTKIT_AGENT_MODEL") or default_spec
+        (os.getenv("COPILOTKIT_AGENT_MODEL") or "").strip() or default_spec
     )
     return get_model(f"{provider}:{model}")

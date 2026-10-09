@@ -52,7 +52,7 @@ export function createChatModel(
   openaiFields: ConstructorParameters<typeof ChatOpenAI>[0] = {},
 ): BaseChatModel {
   const { provider, model } = parseAgentModel(
-    process.env.COPILOTKIT_AGENT_MODEL || defaultSpec,
+    process.env.COPILOTKIT_AGENT_MODEL?.trim() || defaultSpec,
   );
   switch (provider) {
     case "anthropic":

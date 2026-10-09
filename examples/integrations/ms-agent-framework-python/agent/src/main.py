@@ -68,7 +68,7 @@ def _build_chat_client() -> SupportsChatGetResponse:
     # uses OPENAI_CHAT_MODEL_ID or gpt-4o-mini on OpenAI. An OpenAI-compatible
     # provider is openai:<its model id> plus OPENAI_BASE_URL, which the OpenAI
     # clients read themselves (see _openai_client_class for which client).
-    agent_model = os.getenv("COPILOTKIT_AGENT_MODEL")
+    agent_model = (os.getenv("COPILOTKIT_AGENT_MODEL") or "").strip()
     if agent_model and not azure_endpoint:
         provider, model = parse_agent_model(agent_model)
         if provider != "openai":

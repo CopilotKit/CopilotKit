@@ -54,7 +54,7 @@ def create_chat_model(default_spec: str, **openai_kwargs) -> BaseChatModel:
         **openai_kwargs: Extra ChatOpenAI options, applied only for OpenAI.
     """
     provider, model = parse_agent_model(
-        os.getenv("COPILOTKIT_AGENT_MODEL") or default_spec
+        (os.getenv("COPILOTKIT_AGENT_MODEL") or "").strip() or default_spec
     )
     kwargs = openai_kwargs if provider == "openai" else {}
     return init_chat_model(
@@ -70,7 +70,7 @@ def create_strands_model(default_spec: str, openai_params: dict | None = None) -
         openai_params: Extra request params, applied only for OpenAI.
     """
     provider, model = parse_agent_model(
-        os.getenv("COPILOTKIT_AGENT_MODEL") or default_spec
+        (os.getenv("COPILOTKIT_AGENT_MODEL") or "").strip() or default_spec
     )
     if provider == "anthropic":
         from strands.models.anthropic import AnthropicModel
