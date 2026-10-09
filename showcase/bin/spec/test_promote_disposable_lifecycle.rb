@@ -291,4 +291,45 @@ class PromoteDisposableLifecycleTest < Minitest::Test
         assert_equal ["prod-aimock"], @gql.pinned_services.map(&:first)
     end
 
+    def test_disposable_exclusion_preserves_same_service_id_in_another_environment
+        cmd = command("aimock", temporary: false)
+        shared_service_id = "shared-provider-service-id"
+        owned_identity = [Railway::STAGING_ENV_ID, shared_service_id]
+        staging_service = @fixture.make_staging_service("scoped-run").merge("service_id" => shared_service_id)
+        prod_service = @fixture.make_prod_service("scoped-run").merge("service_id" => shared_service_id)
+        cmd.instance_variable_get(:@staging_snapshot)["services"] << staging_service
+        cmd.instance_variable_get(:@prod_snapshot)["services"] << prod_service
+        bridge = lambda do |*_args, **kwargs|
+            services = JSON.parse(kwargs.fetch(:stdin_data)).fetch("services").map do |service|
+                identity = [service["environmentId"], service["serviceId"]]
+                classification = if identity == owned_identity
+                    "owned-disposable"
+                elsif service["serviceId"] == shared_service_id
+                    "unknown"
+                else
+                    "permanent"
+                end
+                service.merge("classification" => classification)
+            end
+            result = {
+                "services" => services,
+                "excludedServices" => [{ "projectId" => Railway::PROJECT_ID,
+                    "environmentId" => owned_identity.first, "serviceId" => owned_identity.last }],
+                "excludedEnvironments" => [], "diagnostics" => [],
+                "failures" => [{ "code" => "unknown-service", "message" => "Unregistered observed identity" }],
+            }
+            [JSON.generate(result), "", Struct.new(:success?).new(true)]
+        end
+        rc = nil
+        out, err = Open3.stub(:capture3, bridge) { capture_io { rc = cmd.run } }
+        assert_equal 0, rc, out + err
+        refute_includes cmd.instance_variable_get(:@full_staging_snapshot)["services"].map { |service| service["service_id"] }, shared_service_id
+        assert_includes cmd.instance_variable_get(:@full_prod_snapshot)["services"].map { |service| service["service_id"] }, shared_service_id,
+            "excluding the staging identity must retain the same service ID in production"
+        refute_includes cmd.instance_variable_get(:@staging_snapshot)["services"].map { |service| service["service_id"] }, shared_service_id
+        refute_includes cmd.instance_variable_get(:@prod_snapshot)["services"].map { |service| service["service_id"] }, shared_service_id
+        refute @gql.calls.any? { |_, vars| vars[:serviceId] == shared_service_id }
+        assert_equal ["prod-aimock"], @gql.pinned_services.map(&:first)
+    end
+
 end
