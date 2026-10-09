@@ -350,6 +350,44 @@ it.each(["emit", "stop", "pagehide"])(
   },
 );
 
+it("records input before a fast Enter-to-send network response outside a form", async () => {
+  const beforeSend = vi.fn<NonNullable<CollectorOptions["beforeSend"]>>(
+    (event) => event,
+  );
+  const { collector } = setup({ beforeSend });
+  document.body.innerHTML = "<input>";
+  collector.start({ trajectoryId: "enter-session" });
+  const input = document.querySelector("input")!;
+  let response: Promise<Response> | undefined;
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    response = fetch("/todos", { method: "POST" });
+    input.value = "";
+  });
+  input.value = "Buy milk";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  await vi.advanceTimersByTimeAsync(100);
+  input.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+  );
+  await response;
+  await vi.advanceTimersByTimeAsync(0);
+
+  const events = beforeSend.mock.calls.map(([event]) => event);
+  expect(events.map((event) => event.name)).toEqual([
+    "page",
+    "input",
+    "network",
+  ]);
+  expect(events.map((event) => event.value.seq)).toEqual([1, 2, 3]);
+  expect(events[1]).toMatchObject({
+    timestamp: NOW + 100,
+    value: { target: { value: "Buy milk" } },
+  });
+  await vi.advanceTimersByTimeAsync(300);
+  expect(beforeSend).toHaveBeenCalledTimes(3);
+});
+
 it("network capture does not flush or delay pending text in the batched collector", async () => {
   const beforeSend = vi.fn<NonNullable<CollectorOptions["beforeSend"]>>(
     (event) => event,
