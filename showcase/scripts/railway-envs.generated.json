@@ -1,4 +1,207 @@
 {
+  "disposableLifecyclePolicy": {
+    "projectId": "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479",
+    "forbiddenEnvironmentIds": ["b14919f4-6417-429f-848d-c6ae2201e04f"],
+    "permanentServices": [
+      {
+        "name": "aimock",
+        "serviceId": "0fa0435d-8a66-46f0-84fd-e4250b580013"
+      },
+      {
+        "name": "dashboard",
+        "serviceId": "4d5dfd74-be61-40b2-8564-b53b7dd4c15b"
+      },
+      {
+        "name": "docs",
+        "serviceId": "7badfb8d-4228-414c-9145-b4026803714f"
+      },
+      {
+        "name": "dojo",
+        "serviceId": "7ad1ece7-2228-49cd-8a78-bddf30322907"
+      },
+      {
+        "name": "harness",
+        "serviceId": "3a14bfed-0537-4d71-897b-7c593dca161d"
+      },
+      {
+        "name": "harness-workers",
+        "serviceId": "c2aa8a0b-350e-4b76-8541-3012dfac41d0"
+      },
+      {
+        "name": "pocketbase",
+        "serviceId": "ba11e854-d695-4738-9a45-2b0776788824"
+      },
+      {
+        "name": "shell",
+        "serviceId": "40eea0da-6071-4ea8-bdb9-39afb19225ec"
+      },
+      {
+        "name": "showcase-ag2",
+        "serviceId": "4a37481b-f264-4eb7-a9cd-0a9ebb9ac05c"
+      },
+      {
+        "name": "showcase-agno",
+        "serviceId": "32cab80b-e329-45bd-9c73-c4e1ddc94305"
+      },
+      {
+        "name": "showcase-built-in-agent",
+        "serviceId": "f4f8371a-bc46-45b2-b6d4-9c9af608bdbf"
+      },
+      {
+        "name": "showcase-claude-sdk-python",
+        "serviceId": "b122ab65-9854-4cb2-a68e-b50ff13f7481"
+      },
+      {
+        "name": "showcase-claude-sdk-typescript",
+        "serviceId": "18a98727-5700-44aa-b497-b60795dbbd6a"
+      },
+      {
+        "name": "showcase-crewai-conversational-flows",
+        "serviceId": "11859593-da4e-486c-a810-6cdffeff9750"
+      },
+      {
+        "name": "showcase-crewai-crews",
+        "serviceId": "0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4"
+      },
+      {
+        "name": "showcase-google-adk",
+        "serviceId": "87f60507-5a3d-4b8a-9e23-2b1de85d939c"
+      },
+      {
+        "name": "showcase-google-antigravity",
+        "serviceId": "6441783f-3e93-40cf-b75d-872c6713d7f2"
+      },
+      {
+        "name": "showcase-langgraph-fastapi",
+        "serviceId": "06cccb5c-59f4-46b5-8adc-7113e77011a4"
+      },
+      {
+        "name": "showcase-langgraph-python",
+        "serviceId": "90d03214-4569-41b0-b4c1-6438a8a7b203"
+      },
+      {
+        "name": "showcase-langgraph-typescript",
+        "serviceId": "66246d3b-a18e-46f0-be51-5f3ff7a36e5a"
+      },
+      {
+        "name": "showcase-langroid",
+        "serviceId": "6dd9cb0a-66cc-46f1-972e-7cd74756157d"
+      },
+      {
+        "name": "showcase-llamaindex",
+        "serviceId": "285386e8-492d-4cb8-b632-0a7d4607378f"
+      },
+      {
+        "name": "showcase-mastra",
+        "serviceId": "d7979eb7-2405-4aab-ad21-438f4a1b08af"
+      },
+      {
+        "name": "showcase-ms-agent-dotnet",
+        "serviceId": "beeb2dd6-87a4-4599-aa07-0578f7bd6519"
+      },
+      {
+        "name": "showcase-ms-agent-harness-dotnet",
+        "serviceId": "6343d7f9-6c3f-4c8d-9a6e-79f03d2f1e37"
+      },
+      {
+        "name": "showcase-ms-agent-python",
+        "serviceId": "655db75a-af8d-427d-a4f9-441570ae5003"
+      },
+      {
+        "name": "showcase-pydantic-ai",
+        "serviceId": "0a106173-2282-4887-a994-0ca276a99d69"
+      },
+      {
+        "name": "showcase-spring-ai",
+        "serviceId": "eed5d041-91be-4282-b414-beea00843401"
+      },
+      {
+        "name": "showcase-strands",
+        "serviceId": "92e1cfad-ad53-403f-ab2b-5ab380832232"
+      },
+      {
+        "name": "showcase-strands-typescript",
+        "serviceId": "d6f47c8c-a0a1-4dbe-991c-50f8463fd68d"
+      },
+      {
+        "name": "showcase-intelligence-api",
+        "serviceId": "2cf17267-31c4-4e92-8270-5ad92bd7ad19"
+      },
+      {
+        "name": "showcase-intelligence-composite",
+        "serviceId": "70b24c88-81a5-469d-ae57-3df0daea2b3c"
+      },
+      {
+        "name": "showcase-intelligence-gateway",
+        "serviceId": "f2eec3fd-d841-481b-9a9d-c8fd94c27870"
+      },
+      {
+        "name": "showcase-intelligence-gateway-proxy",
+        "serviceId": "12513b2b-e368-4f7a-8141-1c28ab4f6f09"
+      },
+      {
+        "name": "showcase-intelligence-postgres",
+        "serviceId": "6c2d2998-e7ae-413d-997d-7277f9fd6e07"
+      },
+      {
+        "name": "showcase-intelligence-redis",
+        "serviceId": "7b99fa95-2124-4d19-838a-652464e351da"
+      },
+      {
+        "name": "starter-adk",
+        "serviceId": "37691009-c0b2-4af7-8960-9f0b3f0a6be3"
+      },
+      {
+        "name": "starter-agno",
+        "serviceId": "5ab3c37e-18a5-44e5-8329-26243dd98da8"
+      },
+      {
+        "name": "starter-crewai-crews",
+        "serviceId": "2a9a4230-e6cd-4c1d-92a5-36e5c624371a"
+      },
+      {
+        "name": "starter-langgraph-fastapi",
+        "serviceId": "6ae57213-52ea-4fea-b4a0-7bc304cbc80e"
+      },
+      {
+        "name": "starter-langgraph-js",
+        "serviceId": "d044c3e5-bb27-4d5e-a2bf-e3b382981372"
+      },
+      {
+        "name": "starter-langgraph-python",
+        "serviceId": "10dca514-7c8f-4a32-9708-9f29a944da36"
+      },
+      {
+        "name": "starter-llamaindex",
+        "serviceId": "3255b27f-ea84-44b7-b587-b1687b409363"
+      },
+      {
+        "name": "starter-mastra",
+        "serviceId": "6548403e-3fee-4443-9d59-d8b041a3d43a"
+      },
+      {
+        "name": "starter-ms-agent-framework-dotnet",
+        "serviceId": "1b4c5296-97f6-463d-90af-6e04d7919957"
+      },
+      {
+        "name": "starter-ms-agent-framework-python",
+        "serviceId": "225d0a06-d1cd-4b82-ae9c-2d1e8ecbaf86"
+      },
+      {
+        "name": "starter-pydantic-ai",
+        "serviceId": "c01d0d24-af88-4631-8a9a-23cffef2b36a"
+      },
+      {
+        "name": "starter-strands-python",
+        "serviceId": "321735ab-c14d-4e45-a1c2-e47f2b29d774"
+      },
+      {
+        "name": "webhooks",
+        "serviceId": "ba6acc13-7585-41fe-a5ee-585b34a58fcd"
+      }
+    ],
+    "approvedImages": []
+  },
   "projectId": "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479",
   "envIds": {
     "staging": "8edfef02-ea09-4a20-8689-261f21cc2849",
@@ -12,6 +215,11 @@
       "stagingInstanceId": "9f260dfd-d9d4-43e9-98fe-49696f87fe50",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "showcase-aimock",
       "repoNameOverride": {
         "prod": "showcase-aimock",
@@ -47,6 +255,11 @@
       "stagingInstanceId": "aea7332e-17a0-4fab-921c-ed5baad2a6f2",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "shell-dashboard",
       "repoNameOverride": {
         "prod": "showcase-shell-dashboard",
@@ -75,6 +288,11 @@
       "stagingInstanceId": "d5caa51d-73ee-4669-bfea-d87bf1488b02",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "shell-docs",
       "repoNameOverride": {
         "prod": "showcase-shell-docs",
@@ -103,6 +321,11 @@
       "stagingInstanceId": "1284d717-0ff5-432c-9326-fab12661df61",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "shell-dojo",
       "repoNameOverride": {
         "prod": "showcase-shell-dojo",
@@ -130,6 +353,11 @@
       "stagingInstanceId": "0811f68f-fac4-440e-a350-3a7ca5855b80",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "showcase-harness",
       "repoNameOverride": {
         "prod": "showcase-harness",
@@ -161,6 +389,11 @@
       "stagingInstanceId": "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
       "ciBuilt": false,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "repoNameOverride": {
         "prod": "showcase-harness",
         "staging": "showcase-harness"
@@ -211,6 +444,11 @@
       "stagingInstanceId": "0bc7db7b-5a43-4b33-af46-d07fb53c8610",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "showcase-pocketbase",
       "repoNameOverride": {
         "prod": "showcase-pocketbase",
@@ -238,6 +476,11 @@
       "stagingInstanceId": "25b7de41-188c-4f2e-ac07-538212eaeb91",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "shell",
       "repoNameOverride": {
         "prod": "showcase-shell",
@@ -269,6 +512,11 @@
       "stagingInstanceId": "ecaf81b3-93a8-4862-92b6-04a016b634ed",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "ag2",
       "domains": {
         "staging": "showcase-ag2-staging.up.railway.app",
@@ -303,6 +551,11 @@
       "stagingInstanceId": "68964ab6-75ca-4095-a64a-52cacfb684f5",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "agno",
       "domains": {
         "staging": "showcase-agno-staging.up.railway.app",
@@ -337,6 +590,11 @@
       "stagingInstanceId": "b89ae7b3-01cc-4ed4-aca6-23aaa63cd59e",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "built-in-agent",
       "domains": {
         "staging": "showcase-built-in-agent-staging.up.railway.app",
@@ -371,6 +629,11 @@
       "stagingInstanceId": "1ef25aec-5fbd-40b9-8685-57c2681bd45d",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "claude-sdk-python",
       "domains": {
         "staging": "showcase-claude-sdk-python-staging.up.railway.app",
@@ -409,6 +672,11 @@
       "stagingInstanceId": "92305747-2f55-4122-aad4-882e989558ab",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "claude-sdk-typescript",
       "domains": {
         "staging": "showcase-claude-sdk-typescript-staging.up.railway.app",
@@ -443,6 +711,11 @@
       "stagingInstanceId": "3d44daba-b417-4c6c-a366-d1b94e5fe8fa",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "crewai-conversational-flows",
       "domains": {
         "staging": "showcase-crewai-conversational-flows-staging.up.railway.app",
@@ -477,6 +750,11 @@
       "stagingInstanceId": "88c2a14f-435b-499e-a811-ee4f4be18fd8",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "crewai-crews",
       "domains": {
         "staging": "showcase-crewai-crews-staging.up.railway.app",
@@ -511,6 +789,11 @@
       "stagingInstanceId": "7efe2fa0-fa78-4585-bc4c-6d39c326e6d1",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "google-adk",
       "domains": {
         "staging": "showcase-google-adk-staging.up.railway.app",
@@ -545,6 +828,11 @@
       "stagingInstanceId": "a2abd2e8-55a8-4c6e-8052-fd385d3bb3cc",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "google-antigravity",
       "domains": {
         "staging": "showcase-google-antigravity-staging.up.railway.app",
@@ -579,6 +867,11 @@
       "stagingInstanceId": "fa59ca5f-7319-4fde-867e-cf8de453e442",
       "ciBuilt": false,
       "gateValidated": false,
+      "gateIgnore": true,
+      "gatePolicy": {
+        "presence": "optional",
+        "image": "ignored"
+      },
       "onlyEnvironment": "staging",
       "domains": {
         "staging": "",
@@ -601,6 +894,11 @@
       "stagingInstanceId": "9dadebd1-6320-4e38-9fb0-2fc06b5ecbf0",
       "ciBuilt": false,
       "gateValidated": false,
+      "gateIgnore": true,
+      "gatePolicy": {
+        "presence": "optional",
+        "image": "ignored"
+      },
       "onlyEnvironment": "staging",
       "domains": {
         "staging": "",
@@ -623,6 +921,11 @@
       "stagingInstanceId": "b898bdc3-6602-41ad-acbc-0df88002c13b",
       "ciBuilt": false,
       "gateValidated": false,
+      "gateIgnore": true,
+      "gatePolicy": {
+        "presence": "optional",
+        "image": "ignored"
+      },
       "onlyEnvironment": "staging",
       "domains": {
         "staging": "",
@@ -645,6 +948,11 @@
       "stagingInstanceId": "1ee4af98-0935-4b3e-a434-a7f023e506b9",
       "ciBuilt": false,
       "gateValidated": false,
+      "gateIgnore": true,
+      "gatePolicy": {
+        "presence": "optional",
+        "image": "ignored"
+      },
       "onlyEnvironment": "staging",
       "domains": {
         "staging": "",
@@ -667,6 +975,11 @@
       "stagingInstanceId": "66e32c98-00ad-42e3-83a2-eba4ba6c1be2",
       "ciBuilt": false,
       "gateValidated": false,
+      "gateIgnore": true,
+      "gatePolicy": {
+        "presence": "optional",
+        "image": "ignored"
+      },
       "onlyEnvironment": "staging",
       "domains": {
         "staging": "",
@@ -689,6 +1002,11 @@
       "stagingInstanceId": "4695150f-0de8-4b3b-b302-7a377621a200",
       "ciBuilt": false,
       "gateValidated": false,
+      "gateIgnore": true,
+      "gatePolicy": {
+        "presence": "optional",
+        "image": "ignored"
+      },
       "onlyEnvironment": "staging",
       "domains": {
         "staging": "",
@@ -711,6 +1029,11 @@
       "stagingInstanceId": "7899afe0-141b-4217-8dbb-5907813231dc",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "langgraph-fastapi",
       "domains": {
         "staging": "showcase-langgraph-fastapi-staging.up.railway.app",
@@ -745,6 +1068,11 @@
       "stagingInstanceId": "04d29664-a776-4670-9db3-b1d18bce1669",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "langgraph-python",
       "domains": {
         "staging": "showcase-langgraph-python-staging.up.railway.app",
@@ -779,6 +1107,11 @@
       "stagingInstanceId": "481ab37f-da8a-4015-bd88-2b28d9eb261a",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "langgraph-typescript",
       "domains": {
         "staging": "showcase-langgraph-typescript-staging.up.railway.app",
@@ -813,6 +1146,11 @@
       "stagingInstanceId": "a213f7d9-2117-4944-988b-05e68d819dd5",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "langroid",
       "domains": {
         "staging": "showcase-langroid-staging.up.railway.app",
@@ -847,6 +1185,11 @@
       "stagingInstanceId": "17899ea7-355c-43f2-a152-28cb0b7fa864",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "llamaindex",
       "domains": {
         "staging": "showcase-llamaindex-staging.up.railway.app",
@@ -881,6 +1224,11 @@
       "stagingInstanceId": "eec22411-aab5-47a1-8f5b-d097e233d7f8",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "mastra",
       "domains": {
         "staging": "showcase-mastra-staging.up.railway.app",
@@ -915,6 +1263,11 @@
       "stagingInstanceId": "9826bc58-c472-41e6-b050-29249d4b2a52",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "ms-agent-dotnet",
       "domains": {
         "staging": "showcase-ms-agent-dotnet-staging.up.railway.app",
@@ -949,6 +1302,11 @@
       "stagingInstanceId": "6b0fe181-9156-4a40-9e44-90befe09833a",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "ms-agent-harness-dotnet",
       "domains": {
         "staging": "showcase-ms-agent-harness-dotnet-staging.up.railway.app",
@@ -983,6 +1341,11 @@
       "stagingInstanceId": "741725ce-5fa1-4327-aff5-53dcc000c29c",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "ms-agent-python",
       "domains": {
         "staging": "showcase-ms-agent-python-staging.up.railway.app",
@@ -1017,6 +1380,11 @@
       "stagingInstanceId": "6edf5ca5-6a56-4d28-92c3-2a3360c735db",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "pydantic-ai",
       "domains": {
         "staging": "showcase-pydantic-ai-staging.up.railway.app",
@@ -1051,6 +1419,11 @@
       "stagingInstanceId": "189ac76f-bd77-45c0-9c45-3853dae763cc",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "spring-ai",
       "domains": {
         "staging": "showcase-spring-ai-staging.up.railway.app",
@@ -1085,6 +1458,11 @@
       "stagingInstanceId": "f8a9d2ed-50ec-4f06-85d6-230baced8471",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "strands",
       "domains": {
         "staging": "showcase-strands-staging.up.railway.app",
@@ -1119,6 +1497,11 @@
       "stagingInstanceId": "3f917b9f-c3f0-4d8b-96ca-7f455e06b5ba",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "strands-typescript",
       "domains": {
         "staging": "showcase-strands-typescript-staging.up.railway.app",
@@ -1153,6 +1536,11 @@
       "stagingInstanceId": "208a160a-0d7d-44b2-a94d-39e13b24e21a",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "starter-adk",
       "domains": {
         "staging": "starter-adk-staging.up.railway.app",
@@ -1187,6 +1575,11 @@
       "stagingInstanceId": "9944eb97-7f58-47f8-a49d-65603e209609",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "starter-agno",
       "domains": {
         "staging": "starter-agno-staging.up.railway.app",
@@ -1221,6 +1614,11 @@
       "stagingInstanceId": "820895fb-f65c-4834-a07d-d454035d39c4",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "starter-crewai-crews",
       "domains": {
         "staging": "starter-crewai-crews-staging.up.railway.app",
@@ -1255,6 +1653,11 @@
       "stagingInstanceId": "5f10e976-e121-48a5-bc18-2619798f2f10",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "starter-langgraph-fastapi",
       "domains": {
         "staging": "starter-langgraph-fastapi-staging.up.railway.app",
@@ -1289,6 +1692,11 @@
       "stagingInstanceId": "43db83fe-fafb-445b-a19a-51bb086c71b9",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "starter-langgraph-js",
       "domains": {
         "staging": "starter-langgraph-js-staging.up.railway.app",
@@ -1323,6 +1731,11 @@
       "stagingInstanceId": "58105e79-4020-4692-8749-c1a63ab63f2c",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "starter-langgraph-python",
       "domains": {
         "staging": "starter-langgraph-python-staging.up.railway.app",
@@ -1357,6 +1770,11 @@
       "stagingInstanceId": "44446803-0505-456a-b0c4-01fe82fb3832",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "starter-llamaindex",
       "domains": {
         "staging": "starter-llamaindex-staging.up.railway.app",
@@ -1391,6 +1809,11 @@
       "stagingInstanceId": "b246e52d-52d8-4015-bb06-89bd09d54f8f",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "starter-mastra",
       "domains": {
         "staging": "starter-mastra-staging.up.railway.app",
@@ -1425,6 +1848,11 @@
       "stagingInstanceId": "6684c246-e8fd-45a7-86e4-c529a439976f",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "starter-ms-agent-framework-dotnet",
       "domains": {
         "staging": "starter-ms-agent-framework-dotnet-staging.up.railway.app",
@@ -1459,6 +1887,11 @@
       "stagingInstanceId": "a162348a-f768-4c3f-815c-f617819f64e6",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "starter-ms-agent-framework-python",
       "domains": {
         "staging": "starter-ms-agent-framework-python-staging.up.railway.app",
@@ -1493,6 +1926,11 @@
       "stagingInstanceId": "25f4eb93-501a-4e5e-b7cf-343eb08ea613",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "starter-pydantic-ai",
       "domains": {
         "staging": "starter-pydantic-ai-staging.up.railway.app",
@@ -1527,6 +1965,11 @@
       "stagingInstanceId": "adc24096-584a-4ef3-93de-0bc92d49235c",
       "ciBuilt": true,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "starter-strands-python",
       "domains": {
         "staging": "starter-strands-python-staging.up.railway.app",
@@ -1561,6 +2004,11 @@
       "stagingInstanceId": "450e87e0-aba5-4aba-afaf-15f4deab03f0",
       "ciBuilt": false,
       "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
       "dispatchName": "webhooks",
       "repoNameOverride": {
         "prod": "showcase-eval-webhook",

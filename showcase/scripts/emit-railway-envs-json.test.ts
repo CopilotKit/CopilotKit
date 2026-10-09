@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { SERVICES, computePromoteClosure } from "./railway-envs";
+import {
+  SERVICES,
+  computePromoteClosure,
+  effectiveStaticGatePolicy,
+  DISPOSABLE_LIFECYCLE_POLICY,
+} from "./railway-envs";
 
 const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
 const EMITTER = resolve(SCRIPTS_DIR, "emit-railway-envs-json.ts");
@@ -45,6 +50,25 @@ describe("emit-railway-envs-json closure block", () => {
   });
 
   afterAll(() => cleanup?.());
+
+  it("emits separate disposable approval and effective static policy", () => {
+    expect(parsed.disposableLifecyclePolicy).toEqual(
+      DISPOSABLE_LIFECYCLE_POLICY,
+    );
+    const services = parsed.services as Array<Record<string, unknown>>;
+    for (const service of services) {
+      const entry = SERVICES[service.name as string];
+      expect(service.gateIgnore).toBe(entry.gateIgnore ?? false);
+      expect(service.gatePolicy).toEqual(effectiveStaticGatePolicy(entry));
+    }
+    const intelligence = services.filter((service) =>
+      (service.name as string).startsWith("showcase-intelligence-"),
+    );
+    expect(intelligence).toHaveLength(6);
+    expect(intelligence.every((service) => service.gateIgnore === true)).toBe(
+      true,
+    );
+  });
 
   it("emits a top-level `closure` block matching computePromoteClosure(all)", () => {
     const expected = computePromoteClosure(Object.keys(SERVICES));

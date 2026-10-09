@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, test, expect, vi } from "vitest";
 import { z } from "zod";
 import { withCache, cacheKey } from "./caching-source.js";
 import { DiscoverySourceAuthError, DiscoverySourceError } from "./errors.js";
@@ -421,6 +421,102 @@ describe("CachingDiscoverySource", () => {
     expect(warnCall!.meta!.errorMessage).toBe("401 Unauthorized");
     expect(warnCall!.meta!.errorSource).toBe("test-src");
   });
+
+  it("invalidates prior fallback when a source requires a fresh result", async () => {
+    let available = true;
+    const source: DiscoverySource<string> = {
+      name: "authoritative",
+      configSchema: z.object({}),
+      cachePolicy: (ctx) =>
+        ctx.env.FRESH === "1" ? "fresh-only" : "stale-on-error",
+      async enumerate() {
+        if (available) return ["previous roster"];
+        throw new DiscoverySourceAuthError("authoritative", "unavailable");
+      },
+    };
+    const tracker = makeTracker();
+    const cached = withCache(source, { ttlMs: TTL, authTracker: tracker });
+    const ordinary = makeCtx();
+    expect(await cached.enumerate(ordinary, {})).toEqual(["previous roster"]);
+    available = false;
+
+    await expect(
+      cached.enumerate({ ...ordinary, env: { FRESH: "1" } }, {}),
+    ).rejects.toBeInstanceOf(DiscoverySourceAuthError);
+    expect(tracker.recordFailure).toHaveBeenLastCalledWith(
+      "authoritative",
+      expect.any(DiscoverySourceAuthError),
+      "no-cache",
+    );
+    await expect(cached.enumerate(ordinary, {})).rejects.toBeInstanceOf(
+      DiscoverySourceAuthError,
+    );
+  });
+
+  it("never makes a fresh-only result available to later stale fallback", async () => {
+    let available = true;
+    const source: DiscoverySource<string> = {
+      name: "authoritative",
+      configSchema: z.object({}),
+      cachePolicy: (ctx) =>
+        ctx.env.FRESH === "1" ? "fresh-only" : "stale-on-error",
+      async enumerate() {
+        if (available) return ["ownership-filtered roster"];
+        throw new DiscoverySourceAuthError("authoritative", "unavailable");
+      },
+    };
+    const tracker = makeTracker();
+    const cached = withCache(source, { ttlMs: TTL, authTracker: tracker });
+    const ordinary = makeCtx();
+    expect(
+      await cached.enumerate({ ...ordinary, env: { FRESH: "1" } }, {}),
+    ).toEqual(["ownership-filtered roster"]);
+    expect(tracker.recordSuccess).toHaveBeenCalledWith("authoritative");
+    available = false;
+
+    await expect(cached.enumerate(ordinary, {})).rejects.toBeInstanceOf(
+      DiscoverySourceAuthError,
+    );
+  });
+
+  it.each(["stale-on-error", "fresh-only"] as const)(
+    "does not join an in-flight %s call when a fresh result is required",
+    async (initialPolicy) => {
+      let finish!: (value: string[]) => void;
+      const error = new DiscoverySourceAuthError(
+        "authoritative",
+        "current failure",
+      );
+      const source: DiscoverySource<string> = {
+        name: "authoritative",
+        configSchema: z.object({}),
+        cachePolicy: (ctx) =>
+          ctx.env.FRESH === "1" ? "fresh-only" : "stale-on-error",
+        async enumerate(ctx) {
+          if (ctx.env.NEXT === "1") throw error;
+          return new Promise<string[]>((resolve) => {
+            finish = resolve;
+          });
+        },
+      };
+      const cached = withCache(source, { ttlMs: TTL });
+      const ctx = makeCtx();
+      const pending = cached.enumerate(
+        {
+          ...ctx,
+          env: { FRESH: initialPolicy === "fresh-only" ? "1" : undefined },
+        },
+        {},
+      );
+      const next = cached.enumerate(
+        { ...ctx, env: { FRESH: "1", NEXT: "1" } },
+        {},
+      );
+      finish(["previous roster"]);
+      await expect(next).rejects.toBe(error);
+      await expect(pending).resolves.toEqual(["previous roster"]);
+    },
+  );
 });
 
 describe("cacheKey", () => {
@@ -471,4 +567,146 @@ describe("cacheKey", () => {
     expect(typeof key).toBe("string");
     expect(key.length).toBeGreaterThan(0);
   });
+});
+
+/** A promise whose settlement order is controlled by the test. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+/** Isolated cache and source calls for policy-transition races. */
+function setupCacheGeneration(freshFails = false) {
+  const old = deferred<string[]>();
+  const replacement = deferred<string[]>();
+  const error = new DiscoverySourceAuthError("generation", "unavailable");
+  const upstream = vi.fn(async (ctx: DiscoveryContext) => {
+    if (ctx.env.REQUEST === "old") return old.promise;
+    if (ctx.env.REQUEST === "replacement") return replacement.promise;
+    if (ctx.env.REQUEST === "fresh" && !freshFails) return ["fresh"];
+    throw error;
+  });
+  const source = makeSource("generation", upstream);
+  source.cachePolicy = (ctx) =>
+    ctx.env.REQUEST === "fresh" ? "fresh-only" : "stale-on-error";
+  const cached = withCache(source, { ttlMs: 60_000 });
+  const ctx = makeCtx();
+  const enumerate = (request: string, config: unknown = {}) =>
+    cached.enumerate({ ...ctx, env: { REQUEST: request } }, config);
+  return { old, replacement, error, upstream, enumerate };
+}
+
+test.each([
+  { freshFails: false, oldFirst: false },
+  { freshFails: false, oldFirst: true },
+  { freshFails: true, oldFirst: false },
+  { freshFails: true, oldFirst: true },
+])(
+  "cache generation revokes A: fresh failure=$freshFails, A finishes before C=$oldFirst",
+  async ({ freshFails, oldFirst }) => {
+    const { old, error, upstream, enumerate } =
+      setupCacheGeneration(freshFails);
+    const a = enumerate("old");
+    if (freshFails) await expect(enumerate("fresh")).rejects.toBe(error);
+    else await expect(enumerate("fresh")).resolves.toEqual(["fresh"]);
+    if (oldFirst) {
+      old.resolve(["old"]);
+      await expect(a).resolves.toEqual(["old"]);
+    }
+    const c = enumerate("outage");
+    const observedC = c.then(
+      (value) => ({ value }),
+      (reason) => ({ error: reason }),
+    );
+    if (!oldFirst) {
+      old.resolve(["old"]);
+      await expect(a).resolves.toEqual(["old"]);
+    }
+
+    expect(await observedC).toEqual({ error });
+    expect(upstream).toHaveBeenCalledTimes(3);
+    await expect(enumerate("outage")).rejects.toBe(error);
+  },
+);
+
+test("revoked cache call cannot remove replacement inflight work or overwrite its result", async () => {
+  const { old, replacement, enumerate } = setupCacheGeneration();
+  const a = enumerate("old");
+  await enumerate("fresh");
+  const c = enumerate("replacement");
+  expect(c).not.toBe(a);
+  old.resolve(["old"]);
+  await expect(a).resolves.toEqual(["old"]);
+  const d = enumerate("outage");
+  expect(d).toBe(c);
+  replacement.resolve(["current"]);
+
+  await expect(c).resolves.toEqual(["current"]);
+  await expect(d).resolves.toEqual(["current"]);
+  await expect(enumerate("outage")).resolves.toEqual(["current"]);
+});
+
+test("revoked cache failure cannot read a replacement generation", async () => {
+  const { old, replacement, error, enumerate } = setupCacheGeneration();
+  const a = enumerate("old");
+  await enumerate("fresh");
+  const c = enumerate("replacement");
+  expect(c).not.toBe(a);
+  replacement.resolve(["current"]);
+  await c;
+  old.reject(error);
+
+  await expect(a).rejects.toBe(error);
+  await expect(enumerate("outage")).resolves.toEqual(["current"]);
+});
+
+test("fresh-only invalidation revokes fallback while auth tracking is pending", async () => {
+  const tracking = deferred<void>();
+  const enteredTracking = deferred<void>();
+  const error = new DiscoverySourceAuthError("generation", "unavailable");
+  const source = makeSource("generation", async (ctx) => {
+    if (ctx.env.REQUEST === "outage") throw error;
+    return [ctx.env.REQUEST];
+  });
+  source.cachePolicy = (ctx) =>
+    ctx.env.REQUEST === "fresh" ? "fresh-only" : "stale-on-error";
+  const cached = withCache(source, {
+    ttlMs: 60_000,
+    authTracker: {
+      recordSuccess: async () => {},
+      recordFailure: async () => {
+        enteredTracking.resolve();
+        await tracking.promise;
+      },
+    },
+  });
+  const ctx = makeCtx();
+  await cached.enumerate({ ...ctx, env: { REQUEST: "warm" } }, {});
+  const pending = cached.enumerate({ ...ctx, env: { REQUEST: "outage" } }, {});
+  await enteredTracking.promise;
+  await cached.enumerate({ ...ctx, env: { REQUEST: "fresh" } }, {});
+  tracking.resolve();
+
+  await expect(pending).rejects.toBe(error);
+});
+
+test("ordinary cache calls still deduplicate and retain fallback across other keys' invalidation", async () => {
+  const { old, enumerate, upstream } = setupCacheGeneration();
+  const a = enumerate("old", { key: "ordinary" });
+  const b = enumerate("outage", { key: "ordinary" });
+  expect(b).toBe(a);
+  await enumerate("fresh", { key: "different" });
+  old.resolve(["ordinary"]);
+
+  await expect(a).resolves.toEqual(["ordinary"]);
+  await expect(b).resolves.toEqual(["ordinary"]);
+  await expect(enumerate("outage", { key: "ordinary" })).resolves.toEqual([
+    "ordinary",
+  ]);
+  expect(upstream).toHaveBeenCalledTimes(3);
 });

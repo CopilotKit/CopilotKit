@@ -179,6 +179,9 @@ const defaultSleep: SleepFn = (ms) =>
  *   3. With NO cache available, re-throw the last error (preserves the
  *      current hard-fail behavior on a fresh boot — without a catalog
  *      there is nothing to enqueue).
+ * Fresh-only sources still retry transient failures, but invalidate previous
+ * catalogs and never store or reuse results as a fallback. Earlier calls lose
+ * cache access even if their source request or retry finishes afterward.
  *
  * The retry+cache wrapper sits OUTSIDE the per-service mapping step
  * (operator slug-scoping + driver-input projection still re-applies on a
@@ -195,7 +198,7 @@ async function enumerateWithRetryAndCache(opts: {
   filter: { namePrefix: string; nameExcludes?: string[] };
   logger: Logger;
   driverKind: string;
-  cache: { current: CatalogCache | null };
+  cache: { current: CatalogCache | null; generation: number };
   sleep: SleepFn;
   now: () => number;
   retrySchedule: readonly number[];
@@ -210,6 +213,13 @@ async function enumerateWithRetryAndCache(opts: {
     sleep,
     now,
   } = opts;
+  const allowStale = source.cachePolicy?.(discoveryCtx) !== "fresh-only";
+  if (!allowStale) {
+    cache.generation += 1;
+    cache.current = null;
+  }
+  const generation = cache.generation;
+  const canUseCache = () => allowStale && cache.generation === generation;
   const retrySchedule = opts.retrySchedule;
   // attempt 0 is the initial try; attempt 1..N are the retries.
   const maxAttempt = retrySchedule.length;
@@ -229,7 +239,7 @@ async function enumerateWithRetryAndCache(opts: {
       const services = await source.enumerate(discoveryCtx, filter);
       // Persist the latest successful catalog so a later transient failure
       // can fall back to it.
-      cache.current = { services, cachedAtMs: now() };
+      if (canUseCache()) cache.current = { services, cachedAtMs: now() };
       return services;
     } catch (err) {
       lastErr = err;
@@ -246,7 +256,7 @@ async function enumerateWithRetryAndCache(opts: {
   // otherwise re-throw the last transient error so the producer's
   // `enumerate-failed` path runs (current hard-fail behavior — without a
   // catalog there is nothing to enqueue).
-  if (cache.current !== null) {
+  if (canUseCache() && cache.current !== null) {
     const ageMs = now() - cache.current.cachedAtMs;
     logger.warn("fleet.producer.enumerate-failed-using-cache", {
       driverKind,
@@ -552,7 +562,10 @@ export function createServiceEnumerator(
   // instance across ticks, so this cache survives tick-to-tick within the
   // process. A fresh process boots with `current === null` (first
   // enumerate fail still hard-fails, preserving the current behavior).
-  const cache: { current: CatalogCache | null } = { current: null };
+  const cache: { current: CatalogCache | null; generation: number } = {
+    current: null,
+    generation: 0,
+  };
 
   // Hoist the (now-validated) prefix so TS sees `string`, not `string |
   // undefined` — the guard above already failed loud on a missing prefix

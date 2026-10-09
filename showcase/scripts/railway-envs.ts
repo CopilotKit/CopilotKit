@@ -30,6 +30,8 @@
  * widening — accessors resolve any registered env name.
  */
 
+import type { RailwayLifecyclePolicy } from "../harness/src/shared/railway-lifecycle";
+
 export const PROJECT_ID = "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479";
 
 export const PRODUCTION_ENV_ID = "b14919f4-6417-429f-848d-c6ae2201e04f";
@@ -346,6 +348,23 @@ export type AutoUpdatesPolicy = "disabled" | "minor" | "unmanaged";
  */
 export type AutoUpdatesByEnv = Record<EnvName, AutoUpdatesPolicy>;
 
+export interface StaticGatePolicy {
+  readonly presence: "required" | "optional";
+  readonly image: "showcase-convention" | "ignored";
+}
+
+/** Resolve static flags once for presence and image consumers; reject contradictory intent. */
+export function effectiveStaticGatePolicy(
+  entry: Pick<ServiceEntry, "gateValidated" | "gateIgnore">,
+): StaticGatePolicy {
+  if (entry.gateValidated && entry.gateIgnore) {
+    throw new Error("gateValidated:true and gateIgnore:true are contradictory");
+  }
+  return entry.gateValidated
+    ? { presence: "required", image: "showcase-convention" }
+    : { presence: "optional", image: "ignored" };
+}
+
 export interface ServiceEntry {
   /** Railway service ID (env-independent). */
   serviceId: string;
@@ -410,16 +429,16 @@ export interface ServiceEntry {
    */
   imageOf?: string;
   /**
-   * Opt-out flag for the image-ref gate. When `true`, the gate ignores
-   * this service entirely in BOTH the SSOT→Railway direction (no
-   * "missing from Railway" failure if absent) AND the Railway→SSOT
-   * direction (no "untracked Railway service" failure if Railway has
-   * a service with this name that is not WS4-managed). Default: false.
+   * Marks independently deployed services whose image policy does not match
+   * the Showcase build pipeline. Use with `gateValidated: false`;
+   * `gateValidated: true` together with `gateIgnore: true` is invalid.
    *
-   * Intentionally narrow: this exists for independently deployed services
-   * whose image policy does not match the Showcase build pipeline. Single-env
-   * services are fully supported by the gate when they are validated. The
-   * default for every Showcase-managed service is `false` (omitted).
+   * This flag does not grant inventory membership. Permanent identity still
+   * requires the exact registered service name and `serviceId`.
+   * `effectiveStaticGatePolicy` resolves presence and image policy:
+   * `gateValidated: false` means optional presence and ignored image policy,
+   * even when `gateIgnore` is omitted. Single-env services remain supported
+   * when validated. Default: `false` (omitted) for Showcase-managed services.
    */
   gateIgnore?: boolean;
   /**
@@ -1543,9 +1562,9 @@ export const SERVICES: Record<
   },
   // Staging-only Intelligence stack, deployed outside showcase_build.yml.
   // These six services use pinned Intelligence/Caddy/database images rather
-  // than the Showcase staging :latest convention. Keep them in the SSOT so
-  // the image gate recognizes their Railway names, but do not build, probe,
-  // validate image shape, or promote them through the Showcase pipeline.
+  // than the Showcase staging :latest convention. Their registered names and
+  // service IDs establish permanent identity in the image gate. Do not build,
+  // probe, validate image shape, or promote them through the Showcase pipeline.
   // The superseded init service is intentionally absent: Composite runs migrations.
   "showcase-intelligence-api": {
     serviceId: "2cf17267-31c4-4e92-8270-5ad92bd7ad19",
@@ -2845,3 +2864,17 @@ assertImageConsumersValid();
 assertEnvRegistryConsistent();
 assertServiceAndInstanceIdsUnique();
 assertClosureValid();
+
+// Validate all static policies on load, including entries absent from live inventory.
+for (const entry of Object.values(SERVICES)) effectiveStaticGatePolicy(entry);
+
+/** Independent committed approval policy. Receipts cannot add approved pins or permanent entries. */
+export const DISPOSABLE_LIFECYCLE_POLICY: RailwayLifecyclePolicy = {
+  projectId: PROJECT_ID,
+  forbiddenEnvironmentIds: [PRODUCTION_ENV_ID],
+  permanentServices: Object.entries(SERVICES).map(([name, entry]) => ({
+    name,
+    serviceId: entry.serviceId,
+  })),
+  approvedImages: [],
+};
