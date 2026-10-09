@@ -5,15 +5,15 @@ set -e
 # Agent process-tree kill.
 #
 # The agent is launched as a compound command through a process substitution:
-#   cd /app/src/agent && ... npm start &> >(awk …) &
+#   cd /app/src/agent && ... npm start &> >(while read …) &
 # so $AGENT_PID (=$!) is the *outer subshell* wrapping that pipeline — NOT the
 # `npm` wrapper nor the `node` server it forks.  A plain `kill -9 $AGENT_PID`
 # therefore reaps only the subshell: `npm` and `node` are reparented to PID 1
-# and KEEP RUNNING — still bound to :8123, still holding the bloated in-memory
-# state.  The size-gate's whole promise ("kill agent → container restart →
+# and KEEP RUNNING — still bound to the agent port, still holding the bloated
+# in-memory state.  The size-gate's whole promise ("kill agent → container restart →
 # boot-purge") is then broken: the frontend proxies to a dead-but-not-restarted
 # agent forever (edge 502s), and even if the container does exit, a surviving
-# orphan can still hold :8123 across the restart.
+# orphan can still hold the agent port across the restart.
 #
 # We cannot `kill -- -$PGID` because a non-interactive script has job control
 # OFF: the agent subshell, npm, node, next.js AND the main shell all share the
@@ -50,12 +50,25 @@ _agent_descendants() {
     # the LONGEST prefix up to the LAST ") ", and no field after the real
     # closing paren contains ")", so even a comm like "(evil) S 1)" parses to
     # the true PPID — the last ") " is always the comm's real terminator.
-    stat=$(cat "/proc/$pid/stat" 2>/dev/null) || continue
+    # Read the line with a REDIRECTION into the `read` builtin, not `$(cat …)`.
+    # Both work, but `$(cat …)` forks a subshell AND execs /bin/cat once per
+    # /proc entry, which is the very fork-storm the `read` below is here to
+    # avoid — a `cat` per PID undoes the saving from not running `awk` per PID.
+    # The clear-then-test guard, not a bare `|| continue`, covers TWO cases:
+    # the PID vanishing between the `ls` and this line (the redirection fails,
+    # and `2>/dev/null` keeps bash quiet about it), and a read that returns
+    # non-zero purely because the line carried no trailing newline yet still
+    # filled $stat. Clearing $stat first is what makes the emptiness test safe —
+    # without it a failed read would leave the PREVIOUS iteration's line in
+    # place and this PID would be scored against another process's PPID.
+    stat=""
+    read -r stat < "/proc/$pid/stat" 2>/dev/null || true
+    [ -n "$stat" ] || continue
     # The remainder after the comm's terminating ") " is "STATE PPID PGRP …", so
-    # PPID is the 2nd whitespace-separated field.  Use the `read` builtin instead
-    # of `echo … | awk` to avoid forking awk once per /proc entry (a fork-storm
-    # under a large process table).  `read` word-splits on IFS; discard STATE
-    # into _state, capture PPID, discard the rest into _rest.
+    # PPID is the 2nd whitespace-separated field.  Same reason as above: use the
+    # `read` builtin rather than `echo … | awk`, so no external process is
+    # spawned per /proc entry.  `read` word-splits on IFS; discard STATE into
+    # _state, capture PPID, discard the rest into _rest.
     read -r _state ppid _rest <<< "${stat##*) }"
     if [ "$ppid" = "$root" ]; then
       _agent_descendants "$pid"
@@ -66,11 +79,11 @@ _agent_descendants() {
 
 _kill_agent_tree() {
   # SIGKILL the agent subshell AND its npm→node descendants so the real server
-  # actually dies and frees :8123 — not just the log-pipeline subshell.
+  # actually dies and frees the agent port — not just the log-pipeline subshell.
   #
   # A single snapshot-then-kill is racy: a descendant that forks a new child (or
   # a child that reparents) BETWEEN the scan and the kill is missed by the walk,
-  # reparents to PID 1, and keeps :8123 bound — defeating the whole tree-kill.
+  # reparents to PID 1, and keeps the agent port bound — defeating the tree-kill.
   # So we re-scan in a BOUNDED loop, killing the currently-live descendants
   # deepest-first each pass, until a scan comes back empty (or the bound is
   # hit). Crucially we keep the ROOT alive as the walk anchor across passes and
@@ -189,13 +202,45 @@ _require_int() {
   esac
 }
 
+# Process handles the EXIT/SIGTERM trap reads. Declared (empty) BEFORE the trap
+# is installed because cleanup() can fire on a path where some of them are not
+# assigned yet: the `exit 1` below when the agent fails to start (Next.js and the
+# watchdog do not exist yet), a SIGTERM during the `sleep 3` right after the agent
+# launch, and the `rm -rf "$PERSIST_DIR"` purge failing under `set -e` (nothing is
+# started yet at all). With them unset, cleanup() printed "[proctree] WARNING:
+# refusing tree-kill for non-numeric PID ''" plus a swallowed `kill` usage error,
+# burying the one line an operator needs in the Railway log ("ERROR: Agent server
+# failed to start"). The guards in cleanup() skip each kill whose handle is still
+# empty, so the shutdown path stays silent about processes that were never started.
+#
+# AGENT_PID uses `${AGENT_PID:-}` and NOT a bare `""`: the --check-size-once test
+# seam below is invoked with AGENT_PID supplied in the ENVIRONMENT, so a hard
+# `AGENT_PID=""` here would wipe the caller's PID before the seam ever reads it and
+# turn every seam run into the "unset or non-numeric — skipping size check" branch.
+# On the normal boot path AGENT_PID is not in the environment, so this is empty.
+AGENT_PID="${AGENT_PID:-}"
+NEXTJS_PID=""
+WATCHDOG_PID=""
+
+# Set once cleanup() has run, so it cannot run twice. With a single
+# `trap cleanup EXIT INT TERM`, a SIGTERM ran cleanup for the TERM trap, then
+# bash exited and ran it AGAIN for the EXIT trap — two full /proc walks per
+# shutdown, on the normal Railway redeploy path. Same guard as mastra.
+_CLEANED=0
+
 cleanup() {
+  if [ "$_CLEANED" = "1" ]; then
+    return 0
+  fi
+  _CLEANED=1
   # Tree-kill the agent (not a bare `kill $AGENT_PID`): $AGENT_PID is the
   # process-sub subshell, so a single-PID kill on the normal shutdown path
   # (graceful exit / SIGTERM on every Railway redeploy/rollover) would reap
   # only the subshell and ORPHAN the real npm→node server — reparented to
-  # PID 1, still holding :8123 across the restart.  See _kill_agent_tree.
-  _kill_agent_tree "$AGENT_PID"
+  # PID 1, still holding the agent port across the restart.  See _kill_agent_tree.
+  if [ -n "$AGENT_PID" ]; then
+    _kill_agent_tree "$AGENT_PID"
+  fi
   # Tree-kill Next.js too: NEXTJS_PID is ALSO a process-sub subshell wrapping
   # `npx next start` (which forks npm→node), exactly like AGENT_PID.  A bare
   # `kill $NEXTJS_PID` would reap only the wrapper subshell and ORPHAN the real
@@ -205,21 +250,64 @@ cleanup() {
   # the same guarded walk.)  WATCHDOG_PID is a genuine single-PID subshell we
   # spawn directly (`( … ) &`, not process-sub-wrapped).  It DOES fork one child
   # — the size sub-loop (SIZE_PID) — but a bare `kill $WATCHDOG_PID` is still
-  # correct because the watchdog subshell arms its OWN inner EXIT trap that reaps
-  # that child (a $BASHPID PPID-walk, arm-then-spawn, no leak window) whenever the
-  # subshell exits, including on this SIGTERM.  So the outer cleanup only needs to
-  # signal the watchdog; the watchdog cleans up its own subtree.  SIZE_PID is
-  # local to the watchdog subshell and never visible here, so this outer shell
-  # cannot (and need not) kill it directly.
-  _kill_agent_tree "$NEXTJS_PID"
-  kill $WATCHDOG_PID 2>/dev/null || true
+  # correct because the watchdog subshell arms its own reaping trap on
+  # `EXIT INT TERM` (a $BASHPID PPID-walk, arm-then-spawn, no leak window), so the
+  # plain SIGTERM sent below runs that trap and the sub-loop is reaped with it.
+  # The signal list there is load-bearing: with an EXIT-only trap this SIGTERM
+  # would kill the watchdog subshell BY SIGNAL, bash would NOT run its EXIT trap
+  # (see the note under `trap cleanup` below), and the size sub-loop would be
+  # orphan-reparented to PID 1 — left spinning `while sleep 60` against a stale
+  # AGENT_PID for the container's life.  So the outer cleanup only needs to signal
+  # the watchdog; the watchdog cleans up its own subtree.  SIZE_PID is local to the
+  # watchdog subshell and never visible here, so this outer shell cannot (and need
+  # not) kill it directly.
+  if [ -n "$NEXTJS_PID" ]; then
+    _kill_agent_tree "$NEXTJS_PID"
+  fi
+  if [ -n "$WATCHDOG_PID" ]; then
+    kill "$WATCHDOG_PID" 2>/dev/null || true
+  fi
   # NOTE: the size sub-loop is intentionally NOT killed here.  It is spawned
   # inside the watchdog subshell ( ) & so its PID is never visible in this outer
-  # shell.  The watchdog subshell registers its own EXIT trap (armed BEFORE the
+  # shell.  The watchdog subshell registers its own reaping trap (armed BEFORE the
   # spawn) that reaps the sub-loop via a $BASHPID PPID-walk on any exit path,
-  # including the SIGTERM the `kill $WATCHDOG_PID` above delivers; see the
-  # "trap ... EXIT" inside the ( ) & block below.
+  # including the SIGTERM the `kill "$WATCHDOG_PID"` above delivers; see the
+  # "trap ... EXIT INT TERM" inside the ( ) & block below.
+  # Explicit success. With every handle empty (the agent-failed-to-start path) the
+  # last `if` evaluates false, so cleanup() would return non-zero. Bash keeps the
+  # pre-trap exit status, so that does not change the script's exit code today —
+  # but this trap also runs on INT/TERM and under `set -e`, and a function that
+  # reports failure purely because it had nothing to kill is a trap waiting for the
+  # next edit. Pin it to 0.
+  return 0
 }
+# EXIT alone does NOT cover SIGTERM. An untrapped SIGTERM kills bash BY SIGNAL,
+# and bash does not run the EXIT trap in that case — so on a Railway
+# redeploy/rollover (which is exactly a SIGTERM) cleanup never ran and the real
+# npm→node agent server was orphan-reparented to PID 1, still holding the agent
+# port across the restart. That is the precise scenario this tree-kill
+# apparatus exists to prevent, so the signals must be trapped explicitly.
+#
+# SEPARATE SIGNAL AND EXIT TRAPS, matching mastra. A single
+# `trap cleanup EXIT INT TERM` left the signal path falling back into the
+# script: `wait -n` was INTERRUPTED rather
+# than reaping a child, so `wait -n -p REAPED_PID` never assigned REAPED_PID and
+# the diagnostic below printed "A process (PID: unknown) exited with code 143"
+# on every clean SIGTERM — an anomaly-shaped log line for what is the ordinary
+# redeploy path. Handling the signal and exiting inside the handler means that
+# diagnostic is only ever reached when a child really did die on its own.
+_on_signal() {
+  echo "[entrypoint] Received shutdown signal — terminating children"
+  cleanup
+  # 128 + signal number, the shell convention, so the container's exit status
+  # still says WHICH signal stopped it. `docker stop` sends TERM, so 143.
+  case "$1" in
+    INT) exit 130 ;;
+    *) exit 143 ;;
+  esac
+}
+trap '_on_signal INT' INT
+trap '_on_signal TERM' TERM
 trap cleanup EXIT
 
 # ---------------------------------------------------------------------------
@@ -290,7 +378,7 @@ _watchdog_check_size_once() {
     # so it fires only when state has grown dangerously large.
     # Tree-kill (not a bare `kill -9 $agent_pid`): $agent_pid is the process-sub
     # subshell, so a single-PID kill would orphan the real npm→node server,
-    # leaving :8123 bound and the boot-purge never re-run.  See _kill_agent_tree.
+    # leaving the agent port bound and the boot-purge never re-run.  See _kill_agent_tree.
     _kill_agent_tree "$agent_pid"
     return 1
   fi
@@ -304,12 +392,20 @@ _watchdog_check_size_once() {
 # Exit code: 0 = under threshold (no kill), 1 = threshold exceeded (kill issued).
 # ---------------------------------------------------------------------------
 if [ "${1:-}" = "--check-size-once" ]; then
-  # In test-seam mode the caller owns the agent PID lifecycle.  Clearing the
-  # EXIT trap ensures cleanup() does NOT send a spurious SIGTERM to AGENT_PID
-  # on the way out, which would mask whether the size gate actually fired
-  # (gate fires → SIGKILL; cleanup fires → SIGTERM; both make poll() non-None,
-  # but only SIGKILL proves the gate killed the right PID).
-  trap - EXIT
+  # In test-seam mode the caller owns the agent PID lifecycle.  Clearing the trap
+  # ensures cleanup() does NOT send a spurious SIGTERM to AGENT_PID on the way out,
+  # which would mask whether the size gate actually fired (gate fires → SIGKILL;
+  # cleanup fires → SIGTERM; both make poll() non-None, but only SIGKILL proves the
+  # gate killed the right PID).
+  #
+  # Clear the FULL signal list the trap was armed with (`EXIT INT TERM`), not EXIT
+  # alone.  A bare `trap - EXIT` left INT and TERM still armed, so when a harness
+  # interrupts or times out this seam — the normal way a test kills a hung child —
+  # cleanup() still ran and `_kill_agent_tree "$AGENT_PID"` SIGKILLed the
+  # CALLER-OWNED agent.  That is worse than the SIGTERM this clear exists to
+  # prevent: it manufactures the very SIGKILL the test uses as proof that the size
+  # gate fired.
+  trap - EXIT INT TERM
   PERSIST_DIR=${LANGGRAPH_PERSIST_DIR_OVERRIDE:-/app/src/agent/.langgraph_api}
   SIZE_THRESHOLD_MB=${LANGGRAPH_SIZE_THRESHOLD_MB:-200}
   _require_int SIZE_THRESHOLD_MB 200 "LangGraph persistence size threshold (MB)"
@@ -372,6 +468,39 @@ fi
 # size-watchdog has nothing to fill and never trips under probe load.
 export LANGGRAPH_DISABLE_FILE_PERSISTENCE=true
 
+# Agent listen port. Deliberately AGENT_PORT and NOT PORT: this container still
+# runs Next.js on $PORT, and two processes cannot bind the same port — pointing
+# the agent at $PORT would collide and break the container. The fallback is
+# 8123 (NOT 8000) because that is the port this integration listens on today;
+# AGENT_PORT is unset in every deploy, so behaviour is byte-for-byte unchanged.
+# It exists so the agent's port becomes a knob for the later single-process
+# layout without another edit here.
+#
+# AGENT_PORT IS NOT A STANDALONE KNOB. It moves ONLY the agent's listen port.
+# All THIRTEEN demo routes in src/app/api/copilotkit* read
+# `process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123"` — with ONE
+# exception: copilotkit-voice checks `process.env.AGENT_URL` FIRST and only then
+# falls back to LANGGRAPH_DEPLOYMENT_URL. So setting AGENT_PORT alone moves the
+# agent away from the port the frontend still dials — every demo breaks
+# while this entrypoint's watchdog (which follows AGENT_PORT) keeps reporting
+# healthy. To change the agent port you MUST set LANGGRAPH_DEPLOYMENT_URL to
+# match, e.g.
+#   AGENT_PORT=9000 LANGGRAPH_DEPLOYMENT_URL=http://localhost:9000
+# That is enough for all thirteen, voice included — voice only PREFERS
+# AGENT_URL, which is unset in every deploy, so it falls through to the value
+# set here. Do NOT set a stale AGENT_URL alongside it: voice would then dial the
+# stale URL while the other twelve follow LANGGRAPH_DEPLOYMENT_URL. The same
+# caveat applies to the non-demo src/app/api/debug route, which also reads
+# `AGENT_URL || LANGGRAPH_DEPLOYMENT_URL || "unknown"`.
+#
+# server.mjs reads `process.env.PORT`, so the value is handed over as a
+# command-scoped `PORT=` prefix on the npm invocation below (that prefix binds
+# to that single exec only — it does NOT clobber the outer $PORT that Next.js
+# uses). The liveness sidecar on :8124 (HEALTH_PORT in liveness.mjs) is a
+# SEPARATE port and is intentionally left alone — the watchdog probes it, not
+# the agent port, because it comes up within ms of node boot.
+AGENT_PORT="${AGENT_PORT:-8123}"
+
 # Start LangGraph agent server in background.
 # `npm start` runs `node --import tsx liveness.mjs` (see src/agent/package.json).
 # liveness.mjs binds :8124/ok immediately using only node:http, then dynamic-
@@ -390,16 +519,23 @@ export LANGGRAPH_DISABLE_FILE_PERSISTENCE=true
 # --host 0.0.0.0 via HOST env; binds IPv4+IPv6 so the Next.js frontend can
 # reach the agent regardless of how `localhost` resolves in the container.
 #
-# Log prefixing uses bash process substitution (`&> >(awk …)`) rather than a
-# pipe (`| sed …`) so `$!` (captured below as AGENT_PID) refers to the agent's
-# own launch process and NOT the awk log-formatter — `wait -n $AGENT_PID` thus
-# monitors the agent side, not the log pipeline.  Note `$!`/AGENT_PID is the
+# Log prefixing uses bash process substitution (`&> >(while read …)`) rather
+# than a pipe (`| sed …`) so `$!` (captured below as AGENT_PID) refers to the
+# agent's own launch process and NOT the log-formatter — `wait -n $AGENT_PID`
+# thus monitors the agent side, not the log pipeline.
+# The prefixer is a bash `while read`/`printf` loop and NOT `awk`: the images
+# ship mawk, which block-buffers its INPUT, so `fflush()` never fired for a
+# long-lived child and its lines never reached `docker logs` at all.  Full
+# explanation in showcase/integrations/mastra/entrypoint.sh — do not go back
+# to awk.
+# Note `$!`/AGENT_PID is the
 # WRAPPING SUBSHELL of the `... &` compound command, NOT the real npm→node
 # server it forks (the server is a DESCENDANT, reached only via the tree-kill —
 # see the file header and _kill_agent_tree).  Never `kill $AGENT_PID` directly:
-# that reaps only the wrapper subshell and orphans the real server on :8123.
-echo "[entrypoint] Starting LangGraph TS agent on port 8123 (prod mode, no CLI)..."
-cd /app/src/agent && PORT=8123 HOST=0.0.0.0 npm start &> >(awk '{print "[agent] " $0; fflush()}') &
+# that reaps only the wrapper subshell and orphans the real server on the
+# agent port.
+echo "[entrypoint] Starting LangGraph TS agent on port ${AGENT_PORT} (prod mode, no CLI)..."
+cd /app/src/agent && PORT="$AGENT_PORT" HOST=0.0.0.0 npm start &> >(while IFS= read -r line; do printf '[agent] %s\n' "$line"; done) &
 AGENT_PID=$!
 cd /app
 sleep 3
@@ -419,18 +555,18 @@ PORT=${PORT:-10000}
 # container environment. `ENV NODE_ENV=production` at the image level would
 # leak into every child process (agent, shell, healthchecks). `env` prefix
 # binds the value to this single exec.
-env NODE_ENV=production npx next start --port $PORT &> >(awk '{print "[nextjs] " $0; fflush()}') &
+env NODE_ENV=production npx next start --port $PORT &> >(while IFS= read -r line; do printf '[nextjs] %s\n' "$line"; done) &
 NEXTJS_PID=$!
 
 echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 
 # Watchdog: Railway deploys of showcase packages have been observed to hit a
 # silent agent hang — the langgraph process stays alive (so `wait -n` never
-# fires and the container never restarts) but stops responding on :8123.
+# fires and the container never restarts) but stops responding on :$AGENT_PORT.
 # Poll the liveness sidecar on :8124/ok every 30s (bound by liveness.mjs
 # BEFORE server.mjs is dynamic-imported, so it is up within ms of node boot —
 # independent of the multi-minute @langchain/langgraph-api top-level import
-# that gates the main Hono bind on :8123). After 3 consecutive failures
+# that gates the main Hono bind on :$AGENT_PORT). After 3 consecutive failures
 # (~90s of unreachable agent), kill the agent process so `wait -n` returns
 # and Railway restarts the container. Generalized from
 # showcase/integrations/crewai-crews/entrypoint.sh (PRs #4114 + #4115).
@@ -438,7 +574,7 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 # Startup grace: the prod path (see above — we deliberately avoid
 # `langgraph-cli dev`) still pays a heavy cold-start from the top-level
 # `@langchain/langgraph-api` import (schema extraction + graph compile) that
-# gates the main Hono bind on :8123. On fresh Railway containers this routinely
+# gates the main Hono bind on :$AGENT_PORT. On fresh Railway containers this routinely
 # exceeds the 90s (3-strike) budget introduced in PR #4116, producing the 04-20
 # restart loop seen on deployment
 # 58bbebe8-7a94-4f99-b6e4-ffcbb4eb78b9. Wait up to 180s for the first
@@ -508,6 +644,17 @@ _require_int HEALTH_STRIKE_LIMIT      3 "LangGraph health strike limit"
   # direct `kill "$SIZE_PID"` below is RETAINED as a belt-and-suspenders backstop
   # to the $BASHPID PPID-walk (do not remove it): if the walk ever misses the
   # sub-loop, the explicit PID kill still reaps it.
+  #
+  # SIGNAL LIST: `EXIT INT TERM`, never EXIT alone.  The ONE path that matters is
+  # the outer cleanup()'s `kill "$WATCHDOG_PID"` — a plain SIGTERM.  EXIT alone
+  # does NOT cover SIGTERM (see the note under the outer `trap cleanup` above): an
+  # untrapped SIGTERM kills this subshell BY SIGNAL and bash does not run its EXIT
+  # trap.  With an EXIT-only trap both reaping mechanisms below — the $BASHPID walk
+  # AND the belt-and-suspenders `kill "$SIZE_PID"` — were dead code on exactly that
+  # path, so every Railway redeploy/rollover orphan-reparented the size sub-loop to
+  # PID 1, where it kept looping `while sleep $SIZE_CHECK_INTERVAL` against a stale
+  # AGENT_PID for the container's life.  That is the precise orphan class this whole
+  # apparatus exists to prevent, so the signals must be trapped explicitly.
   _reap_watchdog_children() {
     local sp
     for sp in $(_agent_descendants "$BASHPID"); do
@@ -516,7 +663,7 @@ _require_int HEALTH_STRIKE_LIMIT      3 "LangGraph health strike limit"
     [ -n "${SIZE_PID:-}" ] && kill "$SIZE_PID" 2>/dev/null || true
     return 0
   }
-  trap _reap_watchdog_children EXIT
+  trap _reap_watchdog_children EXIT INT TERM
 
   # Size-gated restart sub-loop: periodically check the persistence dir size
   # and kill the agent if it exceeds SIZE_THRESHOLD_MB. The container restart
@@ -591,7 +738,7 @@ _require_int HEALTH_STRIKE_LIMIT      3 "LangGraph health strike limit"
         echo "[watchdog] Agent unresponsive for ~$((HEALTH_CHECK_INTERVAL * HEALTH_STRIKE_LIMIT))s — killing PID $AGENT_PID (and its npm→node tree) to trigger container restart"
         # Tree-kill for the same reason as the size gate: $AGENT_PID is the
         # process-sub subshell; a single-PID kill would orphan npm→node and
-        # leave :8123 bound to a hung agent that `wait -n` never observes dying.
+        # leave :$AGENT_PORT bound to a hung agent that `wait -n` never observes dying.
         _kill_agent_tree "$AGENT_PID"
         break
       fi

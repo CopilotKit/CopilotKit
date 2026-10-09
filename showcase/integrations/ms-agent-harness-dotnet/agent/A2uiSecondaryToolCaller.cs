@@ -13,12 +13,16 @@ internal static class A2uiSecondaryToolCaller
         string systemPrompt,
         string userContent,
         ILogger logger,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? designToolName = null)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(systemPrompt);
         ArgumentNullException.ThrowIfNull(userContent);
         ArgumentNullException.ThrowIfNull(logger);
+        var toolName = string.IsNullOrWhiteSpace(designToolName)
+            ? DesignToolName
+            : designToolName;
 
         var endpoint = ApiKeyResolver.ResolveEndpoint(configuration).TrimEnd('/');
         var apiKey = ApiKeyResolver.ResolveApiKey(configuration, logger);
@@ -59,7 +63,7 @@ internal static class A2uiSecondaryToolCaller
                     type = "function",
                     function = new
                     {
-                        name = DesignToolName,
+                        name = toolName,
                         description = "Render a dynamic A2UI v0.9 surface.",
                         parameters = new
                         {
@@ -79,7 +83,7 @@ internal static class A2uiSecondaryToolCaller
             tool_choice = new
             {
                 type = "function",
-                function = new { name = DesignToolName },
+                function = new { name = toolName },
             },
         };
 
@@ -132,15 +136,15 @@ internal static class A2uiSecondaryToolCaller
             return null;
         }
 
-        var toolName = function.TryGetProperty("name", out var nameElement)
+        var actualToolName = function.TryGetProperty("name", out var nameElement)
             ? nameElement.GetString()
             : null;
-        if (!string.Equals(toolName, DesignToolName, StringComparison.Ordinal))
+        if (!string.Equals(actualToolName, toolName, StringComparison.Ordinal))
         {
             logger.LogWarning(
                 "[a2ui-secondary] unexpected tool name (expected {Expected}, got {Actual})",
-                DesignToolName,
-                toolName ?? "<null>");
+                toolName,
+                actualToolName ?? "<null>");
             return null;
         }
 

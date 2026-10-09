@@ -11,6 +11,7 @@ partner_docs: https://docs.copilotkit.ai/integrations/mastra
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/mastra
 copilotkit_version: 2.0.0
 deployed: true
+demo_frontend: unified
 docs_mode: authored
 sort_order: 20
 generative_ui:
@@ -58,8 +59,17 @@ features:
   - shared-state-read-write
   - subagents
   - beautiful-chat
-  - byoc-hashbrown
-  - byoc-json-render
+  # DROPPED: `byoc-hashbrown` / `byoc-json-render`. Both ids are marked
+  # `deprecated` in showcase/shared/feature-registry.json, superseded by
+  # `declarative-hashbrown` / `declarative-json-render`. This package's demo
+  # folders already carry the NEW names and the unified app only ships pages for
+  # the new ids, so the legacy ids named nothing in this app: they sat in
+  # `features` with no `demos[]` row, which made the cell resolve as supported
+  # and then 404 at POST /api/mastra/<id>. Re-adding them under the NEW ids is a
+  # follow-up: the agents ARE served (src/agent_server.ts DEMO_ENDPOINT_BINDINGS
+  # mounts agentName "byoc-hashbrown-demo" and "byoc_json_render", flat at
+  # /byoc-hashbrown-demo and /byoc_json_render), so the rows need
+  # `id: declarative-*` with `agent.name` + `agent.path` set to those flat mounts.
   - multimodal
   - open-gen-ui
   - open-gen-ui-advanced
@@ -82,6 +92,8 @@ a2ui_pattern: llm-driven
 interrupt_pattern: native
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest
+agent_kind: http
+agent_url_env: AGENT_URL
 demos:
   - id: cli-start
     name: CLI Start Command
@@ -102,6 +114,9 @@ demos:
       - src/mastra/tools/index.ts
       - src/app/demos/agentic-chat/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /agentic_chat
+      name: agentic_chat
   - id: hitl-in-chat
     name: In-Chat HITL (useHumanInTheLoop — ergonomic API)
     description:
@@ -116,6 +131,8 @@ demos:
       - src/app/demos/hitl-in-chat/page.tsx
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /hitl-in-chat
   - id: hitl-in-app
     name: In-App Human in the Loop (Frontend Tools + async HITL)
     description:
@@ -130,6 +147,8 @@ demos:
       - src/app/demos/hitl-in-app/page.tsx
       - src/app/demos/hitl-in-app/approval-dialog.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /hitl-in-app
   - id: tool-rendering
     name: Tool Rendering
     description: Custom per-tool renderers plus a wildcard catch-all for every other tool
@@ -144,6 +163,8 @@ demos:
       - shared-tools/schedule-meeting.ts
       - src/app/demos/tool-rendering/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /tool-rendering
   - id: tool-rendering-default-catchall
     name: Tool Rendering (Default Catch-all)
     description: Out-of-the-box tool rendering — backend defines tools; frontend
@@ -156,6 +177,8 @@ demos:
       - src/mastra/tools/index.ts
       - src/app/demos/tool-rendering-default-catchall/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /tool-rendering-default-catchall
   - id: tool-rendering-custom-catchall
     name: Tool Rendering (Custom Catch-all)
     description: Single branded wildcard renderer via useDefaultRenderTool
@@ -168,6 +191,8 @@ demos:
       - src/app/demos/tool-rendering-custom-catchall/page.tsx
       - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /tool-rendering-custom-catchall
   - id: gen-ui-agent
     name: Agentic Generative UI
     description: Long-running agent tasks with generated UI
@@ -178,6 +203,8 @@ demos:
     highlight:
       - src/app/demos/gen-ui-agent/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /gen-ui-agent
   - id: shared-state-streaming
     name: State Streaming
     description: Per-token state delta streaming from agent to UI
@@ -188,6 +215,8 @@ demos:
     highlight:
       - src/app/demos/shared-state-streaming/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /shared-state-streaming
   - id: readonly-state-agent-context
     name: Readonly State (Agent Context)
     description: Frontend provides read-only context to the agent via useAgentContext
@@ -198,6 +227,8 @@ demos:
     highlight:
       - src/app/demos/readonly-state-agent-context/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /readonly-state-agent-context
   - id: prebuilt-sidebar
     name: "Pre-Built: Sidebar"
     description: Docked sidebar chat via <CopilotSidebar />
@@ -208,6 +239,8 @@ demos:
     highlight:
       - src/app/demos/prebuilt-sidebar/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /prebuilt-sidebar
   - id: prebuilt-popup
     name: "Pre-Built: Popup"
     description: Floating popup chat via <CopilotPopup />
@@ -218,6 +251,8 @@ demos:
     highlight:
       - src/app/demos/prebuilt-popup/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /prebuilt-popup
   - id: chat-slots
     name: Chat Customization (Slots)
     description: Customize CopilotChat via its slot system
@@ -229,6 +264,8 @@ demos:
       - src/app/demos/chat-slots/page.tsx
       - src/app/api/copilotkit/route.ts
       - src/app/demos/chat-slots/slot-wrappers.tsx
+    agent:
+      path: /chat-slots
   - id: chat-customization-css
     name: Chat Customization (CSS)
     description: Default CopilotChat re-themed via CopilotKitCSSProperties
@@ -240,6 +277,8 @@ demos:
       - src/app/demos/chat-customization-css/page.tsx
       - src/app/demos/chat-customization-css/theme.css
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /chat-customization-css
   - id: headless-simple
     name: Headless Chat (Simple)
     description: Minimal custom chat surface built on useAgent
@@ -250,6 +289,8 @@ demos:
     highlight:
       - src/app/demos/headless-simple/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /headless-simple
   - id: frontend-tools
     name: Frontend Tools (In-App Actions)
     description: Agent invokes client-side handlers registered with useFrontendTool
@@ -260,6 +301,9 @@ demos:
     highlight:
       - src/app/demos/frontend-tools/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /frontend_tools
+      name: frontend_tools
   - id: frontend-tools-async
     name: Frontend Tools (Async)
     description:
@@ -273,6 +317,8 @@ demos:
       - src/app/demos/frontend-tools-async/page.tsx
       - src/app/demos/frontend-tools-async/notes-card.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /frontend-tools-async
   - id: agent-config
     name: Agent Config Object
     description:
@@ -288,6 +334,9 @@ demos:
       - src/app/demos/agent-config/use-agent-config.ts
       - src/app/demos/agent-config/config-types.ts
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /agent-config-demo
+      name: agent-config-demo
   - id: declarative-gen-ui
     name: Declarative Generative UI (A2UI — Dynamic Schema)
     description: Dynamic A2UI surfaces generated by the `generate_a2ui` tool;
@@ -303,6 +352,12 @@ demos:
       - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
       - src/mastra/tools/index.ts
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /declarative-gen-ui
+    runtime:
+      a2ui:
+        injectA2UITool: false
+        defaultCatalogId: "declarative-gen-ui-catalog"
   - id: a2ui-recovery
     name: A2UI Error Recovery
     description:
@@ -319,6 +374,12 @@ demos:
       - src/app/demos/a2ui-recovery/suggestions.ts
       - src/mastra/agents/index.ts
       - src/app/api/copilotkit-a2ui-recovery/route.ts
+    agent:
+      path: /a2ui-recovery
+    runtime:
+      a2ui:
+        injectA2UITool: false
+        defaultCatalogId: "declarative-gen-ui-catalog"
   - id: a2ui-fixed-schema
     name: A2UI Fixed Schema
     description: Frontend-owned component tree; agent streams data into the data
@@ -337,6 +398,12 @@ demos:
       - src/mastra/tools/a2ui-context.ts
       - src/mastra/tools/index.ts
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /a2ui-fixed-schema
+    runtime:
+      a2ui:
+        injectA2UITool: false
+        defaultCatalogId: "copilotkit://flight-fixed-catalog"
   - id: headless-complete
     name: Headless Chat (Complete)
     description: Full chat-from-scratch on useAgent — custom bubbles, manual
@@ -359,6 +426,14 @@ demos:
       - src/app/demos/headless-complete/tools/stock-card.tsx
       - src/app/demos/headless-complete/tools/chart-card.tsx
       - src/app/demos/headless-complete/tools/highlight-note.tsx
+    agent:
+      path: /headlessCompleteAgent
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
   - id: auth
     name: Authentication
     description: Bearer-token gate enforced by the V2 runtime's onRequest hook —
@@ -373,6 +448,28 @@ demos:
       - src/app/demos/auth/auth-banner.tsx
       - src/app/demos/auth/demo-token.ts
       - src/app/api/copilotkit-auth/[[...slug]]/route.ts
+    agent:
+      path: /auth-demo
+      name: auth-demo
+  - id: shared-state-read
+    name: "Shared State: Read-only"
+    description:
+      "Recipe editor publishes form state via agent.setState; the agent
+      reads the recipe context but does not mutate it (no backend tool — neutral
+      default agent)."
+    tags:
+      - agent-state
+    route: /demos/shared-state-read
+    animated_preview_url:
+    highlight:
+      - src/app/demos/shared-state-read/page.tsx
+      - src/app/demos/shared-state-read/recipe-card.tsx
+      - src/app/api/copilotkit/route.ts
+    # `shared-state-read` is a flat mount: it is listed in
+    # src/agent-registry.ts `demoAgentNames` and mapped to `weatherAgent`, so
+    # agent_server.ts mounts it at /shared-state-read (and /shared-state-read/).
+    agent:
+      path: /shared-state-read
   - id: shared-state-read-write
     name: Shared State (Read + Write)
     description: Bidirectional shared state — UI writes preferences via
@@ -389,6 +486,8 @@ demos:
       - src/app/demos/shared-state-read-write/preferences-card.tsx
       - src/app/demos/shared-state-read-write/notes-card.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /shared-state-read-write
   - id: subagents
     name: Sub-Agents
     description:
@@ -404,6 +503,8 @@ demos:
       - src/app/demos/subagents/page.tsx
       - src/app/demos/subagents/delegation-log.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /subagents
   - id: beautiful-chat
     name: Beautiful Chat (Flagship)
     description:
@@ -417,6 +518,18 @@ demos:
     highlight:
       - src/app/demos/beautiful-chat/page.tsx
       - src/app/api/copilotkit-beautiful-chat/route.ts
+    agent:
+      path: /beautiful-chat
+    runtime:
+      openGenerativeUI: true
+      a2ui:
+        injectA2UITool: false
+        defaultCatalogId: "copilotkit://app-dashboard-catalog"
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: beautiful_chat_mcp
   - id: multimodal
     name: Multimodal Attachments
     description: Image + PDF uploads forwarded to a vision-capable Mastra agent (gpt-4o)
@@ -428,6 +541,9 @@ demos:
       - src/mastra/agents/index.ts
       - src/app/demos/multimodal/page.tsx
       - src/app/api/copilotkit-multimodal/route.ts
+    agent:
+      path: /multimodal-demo
+      name: multimodal-demo
   - id: open-gen-ui
     name: Open Generative UI
     description:
@@ -440,6 +556,13 @@ demos:
     highlight:
       - src/app/demos/open-gen-ui/page.tsx
       - src/app/api/copilotkit-ogui/route.ts
+    agent:
+      path: /open-gen-ui
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
   - id: open-gen-ui-advanced
     name: Open Generative UI (Advanced)
     description:
@@ -454,6 +577,13 @@ demos:
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
       - src/app/demos/open-gen-ui-advanced/suggestions.ts
       - src/app/api/copilotkit-ogui/route.ts
+    agent:
+      path: /open-gen-ui-advanced
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
   - id: voice
     name: Voice Input
     description: Mic-to-text input via OpenAI Whisper, streamed into the chat composer
@@ -465,6 +595,9 @@ demos:
       - src/app/demos/voice/page.tsx
       - src/app/demos/voice/sample-audio-button.tsx
       - src/app/api/copilotkit-voice/[[...slug]]/route.ts
+    agent:
+      path: /voice-demo
+      name: voice-demo
   - id: gen-ui-tool-based
     name: Tool-Based Generative UI
     description: Agent uses a frontend tool to trigger rich generative UI inline in the chat
@@ -475,6 +608,8 @@ demos:
     highlight:
       - src/app/demos/gen-ui-tool-based/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /gen-ui-tool-based
   - id: hitl
     name: Human in the Loop (Step Selection)
     description:
@@ -488,6 +623,9 @@ demos:
     highlight:
       - src/app/demos/hitl/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /human_in_the_loop
+      name: human_in_the_loop
   - id: hitl-in-chat-booking
     name: In-Chat HITL (Booking)
     description: Time-picker card rendered inline via useHumanInTheLoop for a
@@ -500,6 +638,9 @@ demos:
       - src/app/demos/hitl-in-chat/page.tsx
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /hitl-in-chat
+      name: hitl-in-chat
   - id: mcp-apps
     name: MCP Apps
     description: MCP server-driven UI rendered inline via the runtime's mcpApps
@@ -512,6 +653,14 @@ demos:
       - src/mastra/agents/index.ts
       - src/app/demos/mcp-apps/page.tsx
       - src/app/api/copilotkit-mcp-apps/route.ts
+    agent:
+      path: /mcp-apps
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
   - id: tool-rendering-reasoning-chain
     name: Tool Rendering + Reasoning Chain
     description: Sequential tool calls rendered with per-tool components plus a
@@ -527,6 +676,8 @@ demos:
       - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
       - src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /tool-rendering-reasoning-chain
   - id: reasoning-default
     name: "Reasoning: Default"
     description: Built-in CopilotChatReasoningMessage rendering with no slot
@@ -539,6 +690,8 @@ demos:
       - src/app/demos/reasoning-default/page.tsx
       - src/app/demos/reasoning-default/suggestions.ts
       - src/mastra/agents/index.ts
+    agent:
+      path: /reasoning-default
   - id: reasoning-custom
     name: "Reasoning: Custom"
     description:
@@ -552,6 +705,8 @@ demos:
       - src/app/demos/reasoning-custom/reasoning-block.tsx
       - src/mastra/agents/index.ts
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /reasoning-custom
   - id: gen-ui-interrupt
     name: Gen UI Interrupt (Frontend Tool)
     description:
@@ -567,6 +722,8 @@ demos:
       - src/app/demos/gen-ui-interrupt/page.tsx
       - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /gen-ui-interrupt
   - id: interrupt-headless
     name: Headless Interrupt (Frontend Tool)
     description:
@@ -580,6 +737,8 @@ demos:
       - src/mastra/agents/index.ts
       - src/app/demos/interrupt-headless/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /interrupt-headless
   - id: background-agents
     name: Background Agents
     description: A long-running deep-research tool dispatched as a Mastra
@@ -594,6 +753,8 @@ demos:
       - src/app/demos/background-agents/page.tsx
       - src/app/demos/background-agents/activity-card.tsx
       - src/app/api/copilotkit-background-agents/route.ts
+    agent:
+      path: /background-agents
   - id: browser-use
     name: Browser Use (Local Browser)
     description:
@@ -613,6 +774,8 @@ demos:
       - src/app/demos/browser-use/chat.tsx
       - src/app/demos/browser-use/browse-results-card.tsx
       - src/app/api/copilotkit-browser-use/route.ts
+    agent:
+      path: /browser-use
   - id: observational-memory
     name: Observational Memory
     description: Mastra Observational Memory compresses and activates
@@ -627,6 +790,8 @@ demos:
       - src/app/demos/observational-memory/page.tsx
       - src/app/demos/observational-memory/activity-renderer.tsx
       - src/app/api/copilotkit-observational-memory/route.ts
+    agent:
+      path: /observational-memory
 
 # Starter VALIDATION ladder (dashboard). NOT the `starter:` key — that one
 # drives the public "Full Starter" section on the integration profile page.

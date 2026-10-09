@@ -31,7 +31,18 @@ public class AgentController {
                 .body(emitter);
     }
 
-    @GetMapping("/health")
+    /**
+     * Liveness probe.
+     *
+     * <p>{@code /api/health} is an ALIAS of {@code /health} — same handler, same
+     * response. Railway's {@code healthcheckPath} is {@code /api/health}, which
+     * the Next.js half of this container serves today. Answering it here as well
+     * means that when the Next.js process is removed and the agent becomes the
+     * only listener, the existing Railway healthcheck keeps working with no
+     * dashboard change. Today it is a pure addition: the agent's port is not the
+     * one Railway probes.
+     */
+    @GetMapping({"/health", "/api/health"})
     public ResponseEntity<Map<String, String>> health() {
         return ResponseEntity.ok(Map.of("status", "ok"));
     }

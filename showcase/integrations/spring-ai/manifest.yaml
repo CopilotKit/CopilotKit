@@ -15,6 +15,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/spring-ai
 copilotkit_version: 2.0.0
 deployed: true
+demo_frontend: unified
 docs_mode: hidden
 sort_order: 170
 generative_ui:
@@ -96,6 +97,8 @@ agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest
 demos:
   - id: agentic-chat
+    agent:
+      name: agentic_chat
     name: Agentic Chat
     description: Natural conversation with frontend tool execution
     tags:
@@ -119,6 +122,8 @@ demos:
       - src/app/demos/chat-customization-css/theme.css
       - src/app/api/copilotkit/route.ts
   - id: frontend-tools
+    agent:
+      name: frontend_tools
     name: Frontend Tools (In-App Actions)
     description: Agent invokes client-side handlers registered with useFrontendTool
     tags:
@@ -142,6 +147,8 @@ demos:
       - src/app/demos/frontend-tools-async/notes-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent
+    agent:
+      path: /gen-ui-agent/run
     name: Agentic Generative UI
     description: Long-running agent tasks with generated UI
     tags:
@@ -203,6 +210,8 @@ demos:
       - src/app/demos/readonly-state-agent-context/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: auth
+    agent:
+      name: auth-demo
     name: Authentication
     description:
       Bearer-token gate via runtime onRequest hook with unauthenticated /
@@ -218,6 +227,11 @@ demos:
       - src/app/demos/auth/demo-token.ts
       - src/app/api/copilotkit-auth/[[...slug]]/route.ts
   - id: open-gen-ui
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
     name: Open Generative UI (Minimal)
     description:
       Agent streams HTML + CSS into a sandboxed iframe via the built-in
@@ -230,6 +244,11 @@ demos:
       - src/app/demos/open-gen-ui/page.tsx
       - src/app/api/copilotkit-ogui/route.ts
   - id: open-gen-ui-advanced
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
     name: Open Generative UI (Advanced)
     description: Sandboxed UI can call host-side functions (evaluateExpression,
       notifyHost) via the provider's sandboxFunctions registration
@@ -243,6 +262,8 @@ demos:
       - src/app/demos/open-gen-ui-advanced/suggestions.ts
       - src/app/api/copilotkit-ogui/route.ts
   - id: voice
+    agent:
+      name: voice-demo
     name: Voice
     description: CopilotChat mic button via a runtime mounted with
       TranscriptionServiceOpenAI; transcribed text is forwarded to the Spring AI
@@ -256,6 +277,9 @@ demos:
       - src/app/demos/voice/sample-audio-button.tsx
       - src/app/api/copilotkit-voice/[[...slug]]/route.ts
   - id: agent-config
+    agent:
+      path: /agent-config/run
+      name: agent-config-demo
     name: Agent Config Object
     description:
       Frontend forwards typed config (tone, expertise, responseLength) to
@@ -272,6 +296,8 @@ demos:
       - src/app/demos/agent-config/config-types.ts
       - src/app/api/copilotkit-agent-config/route.ts
   - id: a2ui-fixed-schema
+    agent:
+      path: /a2ui-fixed-schema/run
     name: A2UI Fixed Schema
     description:
       Dedicated Spring tool emits a fixed flight-card component tree plus
@@ -289,6 +315,12 @@ demos:
       - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
       - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
   - id: headless-complete
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
     name: Headless Chat (Complete)
     description: Full chat built from scratch on useAgent plus low-level render
       hooks (useRenderToolCall, useRenderActivityMessage,
@@ -310,6 +342,11 @@ demos:
       - src/app/demos/headless-complete/tools/chart-card.tsx
       - src/app/demos/headless-complete/tools/highlight-note.tsx
   - id: beautiful-chat
+    runtime:
+      openGenerativeUI: true
+      a2ui:
+        injectA2UITool: false
+        defaultCatalogId: "copilotkit://app-dashboard-catalog"
     name: Beautiful Chat
     description:
       Polished brand-themed chat surface over the Spring AI agent with
@@ -337,6 +374,10 @@ demos:
       - src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
   - id: declarative-gen-ui
+    runtime:
+      a2ui:
+        injectA2UITool: false
+        defaultCatalogId: declarative-gen-ui-catalog
     name: Declarative Generative UI
     description: A2UI dynamic-schema against a branded catalog; backend owns the
       `generate_a2ui` tool
@@ -382,6 +423,8 @@ demos:
       - src/app/demos/shared-state-streaming/document-view.tsx
       - src/app/api/copilotkit-shared-state-streaming/route.ts
   - id: subagents
+    agent:
+      path: /subagents/run
     name: Sub-Agents
     description:
       Supervisor delegates to research / writing / critique sub-agents
@@ -397,6 +440,8 @@ demos:
       - src/app/demos/subagents/delegation-log.tsx
       - src/app/api/copilotkit-subagents/route.ts
   - id: multimodal
+    agent:
+      name: multimodal-demo
     name: Multimodal Attachments
     description: CopilotChat AttachmentsConfig for images + PDFs; sample files
       inject through the same pipeline as the paperclip upload
@@ -433,6 +478,8 @@ demos:
       - src/app/demos/hitl-in-app/approval-dialog.tsx
       - src/app/api/copilotkit/route.ts
   - id: hitl
+    agent:
+      name: human_in_the_loop
     name: Human in the Loop (Steps)
     description:
       Multi-step HITL flow where the agent pauses for user confirmation
@@ -504,6 +551,8 @@ demos:
       - src/main/java/com/copilotkit/showcase/springai/AgentConfig.java
       - src/app/api/copilotkit/route.ts
   - id: hitl-in-chat-booking
+    agent:
+      name: hitl-in-chat
     name: In-Chat HITL (Booking)
     description: Time-picker card rendered inline via useHumanInTheLoop for a
       booking flow against the Spring AI agent
@@ -516,6 +565,12 @@ demos:
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: mcp-apps
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
     name: MCP Apps
     description:
       MCP server-driven UI via the runtime mcpApps middleware; sandboxed
@@ -528,6 +583,9 @@ demos:
       - src/app/demos/mcp-apps/page.tsx
       - src/app/api/copilotkit-mcp-apps/route.ts
   - id: declarative-hashbrown
+    agent:
+      path: /byoc-hashbrown/run
+      name: declarative-hashbrown-demo
     name: "Declarative UI: Hashbrown"
     description: Streaming structured output via @hashbrownai/react, rendering a sales dashboard catalog (MetricCard + PieChart + BarChart)
     tags:
@@ -545,6 +603,9 @@ demos:
       - src/app/demos/declarative-hashbrown/suggestions.ts
       - src/app/api/copilotkit-declarative-hashbrown/route.ts
   - id: declarative-json-render
+    agent:
+      path: /byoc-json-render/run
+      name: byoc_json_render
     name: "Declarative UI: json-render"
     description: Streaming structured output via @json-render/react, rendering a sales dashboard catalog (MetricCard + PieChart + BarChart)
     tags:
@@ -562,6 +623,8 @@ demos:
       - src/app/demos/declarative-json-render/suggestions.ts
       - src/app/api/copilotkit-declarative-json-render/route.ts
   - id: gen-ui-interrupt
+    agent:
+      path: /interrupt-adapted
     name: Generative UI (Interrupt)
     description:
       Time-picker card rendered inline via useFrontendTool with an async
@@ -577,6 +640,8 @@ demos:
       - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: interrupt-headless
+    agent:
+      path: /interrupt-adapted
     name: Headless Interrupt
     description:
       Time-picker popup rendered in the app surface (outside the chat)

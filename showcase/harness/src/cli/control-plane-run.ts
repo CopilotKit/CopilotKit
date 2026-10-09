@@ -47,6 +47,7 @@ import { railwayServicesSource } from "../probes/discovery/railway-services.js";
 
 import type { Logger } from "../types/index.js";
 import type { LocalConfig } from "./config.js";
+import { getSlugContainerOrigins } from "./config.js";
 import type { TestTarget } from "./targets.js";
 import type { TerminalResult } from "./results.js";
 import { demosForSlug, loadManifest } from "./targets.js";
@@ -152,10 +153,37 @@ export function dedupeScopes(targets: TestTarget[]): SlugScope[] {
 }
 
 /**
- * Build the `LOCAL_SERVICES_JSON` discovery roster the enumerator reads. If
- * the env already supplies it (the control-plane container's value), reuse it
- * verbatim; otherwise synthesize the canonical local record per requested
- * slug, matching the compose overlay shape exactly.
+ * Build the `LOCAL_SERVICES_JSON` discovery roster the enumerator reads.
+ *
+ * TWO ROSTER PATHS EXIST, and they must agree for the same slug:
+ *
+ *  1. COMPOSE-SUPPLIED. `docker-compose.local.yml` sets `LOCAL_SERVICES_JSON`
+ *     on the `harness-control-plane` service, and `apply_isolation()` in
+ *     `showcase/scripts/cli/_common.sh` rewrites that same line for an
+ *     `--isolate` run. When the variable is present this function returns it
+ *     VERBATIM — the container's own roster wins.
+ *  2. SYNTHESISED (below). The host CLI path, when nothing supplied a roster.
+ *
+ * Both now carry BOTH AXES per record — `publicUrl` (where the demos are
+ * served) and `agentBaseUrl` (where the agent answers) — and both derive
+ * `publicUrl` from the SAME source of truth, the `demo_frontend` field in
+ * `showcase/integrations/<slug>/manifest.yaml`:
+ *
+ *   - this function reads it through `getSlugContainerOrigins`, which resolves
+ *     `config.unifiedFrontendSlugs` (loaded from the manifests by
+ *     `loadConfig`);
+ *   - the compose file reads it through `${LOCAL_SERVICE_URL_<SLUG>}`, which
+ *     `_common.sh` exports from `showcase/local-services.generated.env` —
+ *     emitted from the same manifests by
+ *     `showcase/scripts/emit-local-services-env.ts`.
+ *
+ * `local-services-roster-parity.test.ts` asserts the two paths produce the same
+ * `publicUrl` and `agentBaseUrl` for the same slug, so this is a checked claim
+ * rather than a comment. THIS IS THE THIRD-DIVERGENCE GUARD: before it, this
+ * function hardcoded `http://${slug}:10000` and emitted no agent axis at all,
+ * so `showcase test <slug> --d6` (the fleet path, and the default — `--direct`
+ * is labelled legacy/debug) could not honour a migration, while the
+ * compose-supplied roster could.
  *
  * Per-slug demo scoping:
  *   - When the caller explicitly typed `<slug>:<demo>`, this synthesizes
@@ -177,24 +205,34 @@ export function buildLocalServicesJson(
   if (fromEnv && fromEnv.trim().length > 0) {
     return fromEnv;
   }
-  const records = scopes.map(({ slug, demo }) => ({
-    name: `showcase-${slug}`,
-    publicUrl: `http://${slug}:10000`,
-    demos: demo
-      ? [demo]
-      : level === "d5"
-        ? ["agentic-chat"]
-        : demosForSlug(slug, config),
-    // Thread the manifest's `not_supported_features` into the roster so the
-    // worker's D6 driver reclassifies architecturally/upstream-blocked
-    // features as `skipped-incapable` instead of red — LOCAL==STAGING parity.
-    // Without this the discovery local-injection seam reads `[]` and NOTHING
-    // gets skipped. Mirrors the legacy `--direct` path (`buildFullInputs` /
-    // `buildDeepInputs` in `targets.ts`); `LocalServiceSchema` already accepts
-    // the field and the enumerator already forwards it downstream.
-    notSupportedFeatures:
-      loadManifest(slug, config).not_supported_features ?? [],
-  }));
+  const records = scopes.map(({ slug, demo }) => {
+    // BOTH AXES, derived from the manifest's `demo_frontend`. `demoBaseUrl` is
+    // where the pages are (the integration's container, or
+    // `http://frontend-nextjs:3000/<slug>` once migrated); `agentBaseUrl` is
+    // always the integration's own container. Emitting only the first is what
+    // made the fleet path unusable for a migrated slug; emitting the first
+    // AS the agent URL would make a live frontend green a dead agent.
+    const origins = getSlugContainerOrigins(slug, config);
+    return {
+      name: `showcase-${slug}`,
+      publicUrl: origins.demoBaseUrl,
+      agentBaseUrl: origins.agentBaseUrl,
+      demos: demo
+        ? [demo]
+        : level === "d5"
+          ? ["agentic-chat"]
+          : demosForSlug(slug, config),
+      // Thread the manifest's `not_supported_features` into the roster so the
+      // worker's D6 driver reclassifies architecturally/upstream-blocked
+      // features as `skipped-incapable` instead of red — LOCAL==STAGING parity.
+      // Without this the discovery local-injection seam reads `[]` and NOTHING
+      // gets skipped. Mirrors the legacy `--direct` path (`buildFullInputs` /
+      // `buildDeepInputs` in `targets.ts`); `LocalServiceSchema` already accepts
+      // the field and the enumerator already forwards it downstream.
+      notSupportedFeatures:
+        loadManifest(slug, config).not_supported_features ?? [],
+    };
+  });
   return JSON.stringify(records);
 }
 
@@ -292,15 +330,206 @@ interface StatusRow {
   updated: string;
 }
 
+// ───────────────────────────────────────────────────────────────────────
+// CORRELATION GATE — read back THIS invocation's OWN jobs, never a
+// foreign row that happens to share the probeKey.
+//
+// ── THE BUG THIS EXISTS TO PREVENT ──────────────────────────────────────
+// The control-plane container runs its OWN producer on a cron, enqueuing
+// jobs for the same services out of `LOCAL_SERVICES_JSON`. Those jobs carry
+// the SAME `probe_key` (`d6:<slug>`) and therefore land on the SAME
+// dashboard `status` row as the CLI's job.
+//
+// The CLI used to wait ONLY on `status` rows keyed by `probe_key`, freshness-
+// filtered by `updated >= <tick time>`. That is not a correlation — it is a
+// race. Observed: one invocation exited 0 with "1 passed" in 9.9 SECONDS,
+// reading a foreign row, while its own 41-cell job had only just been claimed
+// and ran for five more minutes before finishing RED. A second invocation
+// exited 1 off a different foreign row. Every D6 verdict the CLI printed was
+// a coin flip on which row landed first — a FALSE GREEN generator.
+//
+// ── THE FIX ─────────────────────────────────────────────────────────────
+// Correlate on `probe_jobs.run_id`, which is the `runId` the producer tick we
+// fired minted and returned (`TickResult.runId`, unique per tick per producer
+// instance — see `defaultRunIdFactory`) and which the queue client denormalises
+// onto every row it enqueues. Two phases:
+//
+//   1. Wait until EVERY `probe_jobs` row with `run_id = <our runId>` is
+//      terminal (`done`/`failed`) AND `result_processed = true` — i.e. OUR
+//      jobs finished and the result-consumer aggregated them. No foreign
+//      row can satisfy this gate, and the CLI can no longer return before
+//      its own work is done.
+//   2. Take the verdict from OUR OWN job's `result` (`ServiceJobResult`)
+//      wherever it covers an expected key. For d6 it always does: the
+//      result carries `aggregateKey` = `d6:<slug>` and one `cells[].cellKey`
+//      = `d6:<slug>/<featureId>` per cell. Any key our own results do NOT
+//      cover falls back to a `status` row read — but only AFTER phase 1, so
+//      the aggregator has already written this run's rows.
+// ───────────────────────────────────────────────────────────────────────
+
+/** `probe_jobs` statuses that mean the worker is finished with the job. */
+const TERMINAL_JOB_STATUSES = new Set(["done", "failed"]);
+
+/** The `probe_jobs` row fields the correlation gate reads. */
+interface RunJobRow {
+  id: string;
+  probe_key: string;
+  status: string;
+  result?: unknown;
+  result_processed?: boolean;
+}
+
+/** Escape a value for interpolation into a PocketBase filter string literal. */
+function pbFilterLiteral(value: string): string {
+  return JSON.stringify(value);
+}
+
+/** List every `probe_jobs` row stamped with `runId`. */
+async function pbFetchRunJobs(
+  url: string,
+  token: string,
+  runId: string,
+): Promise<RunJobRow[]> {
+  const qs = new URLSearchParams({
+    perPage: "500",
+    filter: `run_id = ${pbFilterLiteral(runId)}`,
+    sort: "created",
+  });
+  const res = await fetch(
+    `${url}/api/collections/probe_jobs/records?${qs.toString()}`,
+    { headers: { Authorization: token } },
+  );
+  if (!res.ok) {
+    throw new Error(`PocketBase probe_jobs read failed: ${res.status}`);
+  }
+  const body = (await res.json()) as { items?: RunJobRow[] };
+  return body.items ?? [];
+}
+
+/**
+ * Phase 1 of the correlation gate. Block until all `expectedJobCount` rows
+ * stamped with OUR `runId` exist, are terminal, and have been processed by the
+ * result-consumer. Throws on timeout naming exactly which of our jobs is
+ * outstanding — never falls through to a key-only read.
+ */
+export async function pollRunJobsUntilProcessed(
+  pbUrl: string,
+  token: string,
+  runId: string,
+  expectedJobCount: number,
+  timeoutMs: number,
+  pollIntervalMs: number,
+  logger: Logger,
+): Promise<RunJobRow[]> {
+  if (runId.trim() === "") {
+    // A tick that never ran mints the empty-string runId sentinel. Filtering
+    // on it would match every row that has no run_id — the exact class of
+    // foreign-row read this gate exists to prevent.
+    throw new Error(
+      "control-plane run produced an empty runId — refusing to poll for " +
+        "results that cannot be correlated to this invocation's jobs",
+    );
+  }
+  const deadline = Date.now() + timeoutMs;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const rows = await pbFetchRunJobs(pbUrl, token, runId);
+    const terminal = rows.filter((r) => TERMINAL_JOB_STATUSES.has(r.status));
+    const processed = terminal.filter((r) => r.result_processed === true);
+    if (rows.length >= expectedJobCount && processed.length === rows.length) {
+      return processed;
+    }
+    logger.info("cli.control-plane.awaiting-own-jobs", {
+      runId,
+      seen: rows.length,
+      want: expectedJobCount,
+      terminal: terminal.length,
+      processed: processed.length,
+      pending: rows
+        .filter((r) => !TERMINAL_JOB_STATUSES.has(r.status))
+        .map((r) => `${r.probe_key}=${r.status}`),
+    });
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `control-plane run ${runId} timed out after ${Math.round(
+          timeoutMs / 1000,
+        )}s waiting for its OWN ${expectedJobCount} job(s) to finish — ` +
+          `saw ${rows.length} row(s), ${terminal.length} terminal, ` +
+          `${processed.length} processed` +
+          (rows.length > 0
+            ? `: ${rows.map((r) => `${r.probe_key}=${r.status}`).join(", ")}`
+            : ""),
+      );
+    }
+    await sleep(pollIntervalMs);
+  }
+}
+
+/**
+ * Phase 2 of the correlation gate. Project the per-key verdicts OUR OWN jobs
+ * reported: `aggregateKey` → `aggregateState`, plus one entry per
+ * `cells[].cellKey` → `cells[].state`. Rows whose `result` is missing or
+ * unparseable contribute nothing (the caller then falls back to the `status`
+ * row for those keys).
+ *
+ * Exported for unit testing.
+ */
+export function verdictsFromOwnJobs(rows: RunJobRow[]): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const row of rows) {
+    let result = row.result;
+    if (typeof result === "string") {
+      try {
+        result = JSON.parse(result) as unknown;
+      } catch {
+        continue;
+      }
+    }
+    if (result === null || typeof result !== "object") continue;
+    const r = result as {
+      aggregateKey?: unknown;
+      aggregateState?: unknown;
+      cells?: unknown;
+    };
+    if (
+      typeof r.aggregateKey === "string" &&
+      r.aggregateKey.trim() !== "" &&
+      typeof r.aggregateState === "string"
+    ) {
+      out.set(r.aggregateKey.trim(), r.aggregateState);
+    }
+    if (Array.isArray(r.cells)) {
+      for (const cell of r.cells) {
+        if (cell === null || typeof cell !== "object") continue;
+        const c = cell as { cellKey?: unknown; state?: unknown };
+        if (
+          typeof c.cellKey === "string" &&
+          c.cellKey.trim() !== "" &&
+          typeof c.state === "string"
+        ) {
+          out.set(c.cellKey.trim(), c.state);
+        }
+      }
+    }
+  }
+  return out;
+}
+
 /**
  * Poll PocketBase `status` for the run's expected keys, returning once every
- * key reached a terminal state newer than `sinceIso` (so we read THIS run's
- * cells, not a stale prior run's). Throws on timeout.
+ * key reached a terminal state newer than `sinceIso`.
+ *
+ * FALLBACK ONLY. This is a key-keyed read and therefore cannot distinguish our
+ * run's row from a foreign producer's row for the same `probe_key` — that is
+ * exactly the false-green defect the correlation gate above exists to close.
+ * It survives for the keys our own job results do not project (today: the d5
+ * aggregate row), and it is called STRICTLY AFTER phase 1 has confirmed our own
+ * jobs finished and were aggregated, so the row it reads is this run's in every
+ * non-adversarial ordering. Never call it as the primary verdict source.
  */
 async function pollStatusUntilTerminal(
   pbUrl: string,
-  email: string,
-  password: string,
+  token: string,
   keys: string[],
   sinceIso: string,
   timeoutMs: number,
@@ -308,7 +537,6 @@ async function pollStatusUntilTerminal(
   logger: Logger,
 ): Promise<Map<string, StatusRow>> {
   const deadline = Date.now() + timeoutMs;
-  const token = await pbAuth(pbUrl, email, password);
   const sinceMs = Date.parse(sinceIso.replace(/^(\d{4}-\d{2}-\d{2}) /, "$1T"));
 
   // eslint-disable-next-line no-constant-condition
@@ -493,10 +721,14 @@ export async function runViaControlPlane(
   producer.start();
   let enqueued = 0;
   let enqueueFailures = 0;
+  // The run batch id THIS invocation minted. It is the correlation key for the
+  // result read-back — see the CORRELATION GATE block above.
+  let runId = "";
   try {
     const tick = await producer.tick({ triggered: true });
     enqueued = tick.enqueued;
     enqueueFailures = tick.enqueueFailures ?? 0;
+    runId = tick.runId;
     console.log(
       `  \x1b[2mEnqueued ${tick.enqueued} job(s) (runId ${tick.runId})\x1b[0m`,
     );
@@ -542,25 +774,70 @@ export async function runViaControlPlane(
     `  \x1b[2mWaiting for worker fleet to produce cells: ${allKeys.join(", ")}\x1b[0m`,
   );
 
-  const terminalRows = await pollStatusUntilTerminal(
+  const token = await pbAuth(creds.url, creds.email, creds.password);
+  const deadlineMs = Date.now() + timeoutMs;
+
+  // ── PHASE 1: correlation gate ────────────────────────────────────────────
+  // Block on OUR OWN jobs (`probe_jobs.run_id = runId`). This is what makes the
+  // verdict trustworthy: the control-plane container's cron producer enqueues
+  // jobs with the SAME probe_key onto the SAME status row, and a key-only read
+  // would happily return whichever landed first. It once returned "1 passed" in
+  // 9.9s while this invocation's own 41-cell job was still running (and later
+  // finished RED).
+  const ownJobs = await pollRunJobsUntilProcessed(
     creds.url,
-    creds.email,
-    creds.password,
-    allKeys,
-    sinceIso,
+    token,
+    runId,
+    enqueued,
     timeoutMs,
     pollIntervalMs,
     logger,
   );
+  const ownVerdicts = verdictsFromOwnJobs(ownJobs);
+  logger.info("cli.control-plane.own-jobs-processed", {
+    runId,
+    jobs: ownJobs.length,
+    projectedKeys: ownVerdicts.size,
+  });
+
+  // ── PHASE 2: verdicts ───────────────────────────────────────────────────
+  // Prefer OUR job's own reported state. For d6 this covers every expected key
+  // (`aggregateKey` = `d6:<slug>`, one `cells[].cellKey` per cell), so the
+  // verdict never touches the shared status row at all. Only keys our own
+  // results do not project fall back to a status read — and only now, after
+  // phase 1 proved the aggregator wrote this run's rows.
+  const fallbackKeys = allKeys.filter((k) => !ownVerdicts.has(k));
+  let terminalRows = new Map<string, StatusRow>();
+  if (fallbackKeys.length > 0) {
+    logger.info("cli.control-plane.status-fallback", {
+      runId,
+      keys: fallbackKeys,
+      reason:
+        "these keys are not projected by this run's own job results; " +
+        "falling back to the shared status row",
+    });
+    terminalRows = await pollStatusUntilTerminal(
+      creds.url,
+      token,
+      fallbackKeys,
+      sinceIso,
+      Math.max(pollIntervalMs, deadlineMs - Date.now()),
+      pollIntervalMs,
+      logger,
+    );
+  }
 
   const results: TerminalResult[] = [];
   for (const key of allKeys) {
-    const row = terminalRows.get(key);
+    const ownState = ownVerdicts.get(key);
+    const state = (ownState ??
+      terminalRows.get(key)?.state ??
+      "error") as TerminalResult["state"];
     results.push({
       key,
-      state: (row?.state ?? "error") as TerminalResult["state"],
+      state,
       durationMs: 0,
-      error: row && row.state !== "green" ? `state=${row.state}` : undefined,
+      error: state !== "green" ? `state=${state}` : undefined,
     });
   }
   return results;

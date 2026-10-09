@@ -5,6 +5,7 @@ import path from "path";
 import { execFileSync } from "child_process";
 import {
   FileSnapshotRestorer,
+  NEEDS_SHELL_FOR_CMD,
   SAFE_EXEC_OPTS,
   execOptsFor,
   restoreFromGitHead,
@@ -341,6 +342,17 @@ describe("SAFE_EXEC_OPTS", () => {
   it("freezes the inner stdio array (not just the outer object)", () => {
     expect(Object.isFrozen(SAFE_EXEC_OPTS)).toBe(true);
     expect(Object.isFrozen(SAFE_EXEC_OPTS.stdio)).toBe(true);
+  });
+
+  it("asks for a shell on Windows ONLY", () => {
+    // Every suite that spreads these options invokes `npx`, which is `npx.cmd`
+    // on Windows — a name `execFileSync` cannot resolve, so the call threw
+    // `spawnSync npx ENOENT` in `beforeAll` and took whole describes with it.
+    // Pinned in BOTH directions: `shell: true` on POSIX would push the
+    // argv-style arguments these suites deliberately use back through a shell
+    // parser, which is the hazard the argv style exists to avoid.
+    expect(SAFE_EXEC_OPTS.shell).toBe(process.platform === "win32");
+    expect(NEEDS_SHELL_FOR_CMD).toBe(process.platform === "win32");
   });
 });
 

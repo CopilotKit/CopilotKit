@@ -266,10 +266,9 @@
       }
     },
     {
-      "_comment": "Chat-demo weather pill — emit get_weather. toolName gate added so the bare 'weather' substring only fires when the requesting agent actually registers get_weather. Without it, the tool-free voice agent's prompt 'What is the weather in Tokyo?' (substring 'weather') leaked into this fixture, emitting a get_weather call the voice agent could never resolve → the voice cell hung (done-signal-missing). Mirrors the toolName gate used by d6 tool-rendering.json's get_weather fixture.",
+      "_comment": "Disabled: bare userMessage 'weather' leaked into the D6 voice prompt 'What is the weather in Tokyo?' (d4 loads before d6). toolName:get_weather did NOT stop it — aimock still matched the tool-free /voice/run request and emitted get_weather (call_fp_get_weather_001). Same LGP sentinel as aimock/d4/langgraph-python/chat.json. D6 fixtures own get_weather now.",
       "match": {
-        "userMessage": "weather",
-        "toolName": "get_weather",
+        "userMessage": "_d4_unused_weather_probe_tokyo",
         "hasToolResult": false,
         "context": "llamaindex"
       },

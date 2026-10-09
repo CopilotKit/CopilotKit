@@ -1,0 +1,140 @@
+{
+  "_meta": {
+    "description": "Fleet-index head for D6 tool-rendering-reasoning-chain. Full probe prompts so this file does not exact-collide with scoped d6 userMessage keys. Sequential one-tool legs (not dual). First-leg has no hasToolResult gate so later pills still match. Follow-ups are toolCallId-anchored and ordered first. chunkSize 9999 keeps reasoning in one chunk so Responses-API backends can mount reasoning-block.",
+    "created": "2026-08-14"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Compare AAPL and MSFT stocks for me.",
+        "toolCallId": "call_rc_stock_msft_001"
+      },
+      "response": {
+        "content": "AAPL is at $338.37 (-2.96% on the day) while MSFT is at $412.18 (+1.08%). MSFT is outpacing AAPL by roughly 4 points today — strong day for MSFT, rough one for AAPL."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Compare AAPL and MSFT stocks for me.",
+        "toolCallId": "call_rc_stock_aapl_001"
+      },
+      "response": {
+        "reasoning": "AAPL quote is in hand. The user explicitly asked to compare AAPL with MSFT, so I'll fetch MSFT next and then summarize the side-by-side.",
+        "content": "Now pulling MSFT to complete the comparison.",
+        "toolCalls": [
+          {
+            "id": "call_rc_stock_msft_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"MSFT\",\"price_usd\":412.18,\"change_pct\":1.08}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "match": {
+        "userMessage": "Compare AAPL and MSFT stocks for me."
+      },
+      "response": {
+        "reasoning": "The user asked to compare AAPL and MSFT. I'll fetch AAPL first, then MSFT, then summarize the deltas in a single sentence so the comparison is the punchline.",
+        "content": "Pulling the AAPL quote first.",
+        "toolCalls": [
+          {
+            "id": "call_rc_stock_aapl_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die for me and compare it to a smaller one.",
+        "toolCallId": "call_rc_dice_d6_001"
+      },
+      "response": {
+        "content": "The d20 came up 14, and a d6 for contrast landed on 4 — the d20's range is much wider, which is the whole point of the comparison."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die for me and compare it to a smaller one.",
+        "toolCallId": "call_rc_dice_d20_001"
+      },
+      "response": {
+        "reasoning": "Got the d20 result. The user explicitly asked to compare it to a smaller die — a d6 is a natural choice.",
+        "content": "Now rolling a d6 for contrast.",
+        "toolCalls": [
+          {
+            "id": "call_rc_dice_d6_001",
+            "name": "roll_dice",
+            "arguments": "{\"sides\":6}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die for me and compare it to a smaller one."
+      },
+      "response": {
+        "reasoning": "The user asked for a d20 roll and wants to compare it against a smaller die. I'll roll the d20 first, then chain a smaller die.",
+        "content": "Rolling the d20 now.",
+        "toolCalls": [
+          {
+            "id": "call_rc_dice_d20_001",
+            "name": "roll_dice",
+            "arguments": "{\"sides\":20}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "match": {
+        "userMessage": "Find flights from SFO to JFK and show me the weather there.",
+        "toolCallId": "call_rc_weather_jfk_001"
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289). JFK is currently 68°F and sunny — easy travel weather on the receiving end."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Find flights from SFO to JFK and show me the weather there.",
+        "toolCallId": "call_rc_flights_jfk_001"
+      },
+      "response": {
+        "reasoning": "Flights are in hand. The user explicitly asked for the destination weather, so pulling JFK weather next.",
+        "content": "Pulling JFK weather to round out the trip plan.",
+        "toolCalls": [
+          {
+            "id": "call_rc_weather_jfk_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"JFK\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "match": {
+        "userMessage": "Find flights from SFO to JFK and show me the weather there."
+      },
+      "response": {
+        "reasoning": "The user wants flights from SFO to JFK AND the destination weather. I'll call search_flights first, then chain get_weather on JFK.",
+        "content": "Searching SFO→JFK flights.",
+        "toolCalls": [
+          {
+            "id": "call_rc_flights_jfk_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    }
+  ]
+}

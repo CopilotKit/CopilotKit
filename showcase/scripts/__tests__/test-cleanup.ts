@@ -33,11 +33,17 @@
 // around the mutation window.
 //
 // WINDOWS: callers in sibling test files (create-integration.test.ts,
-// generate-registry.test.ts, bundle-demo-content.test.ts) invoke `npx`
-// through `execFileSync` — these will fail on Windows because `npx` is a
-// `.cmd` there and `execFileSync("npx", ...)` without `shell: true` fails.
-// Showcase tests currently run on Ubuntu/macOS CI only; if we ever add
-// Windows CI those call sites need a `process.platform === "win32"` gate.
+// generate-registry.test.ts, generate-catalog.test.ts,
+// integration-smoke-registry.test.ts, bundle-demo-content.test.ts) invoke
+// `npx` through `execFileSync`. On Windows `npx` is `npx.cmd`, and
+// `execFileSync` does not consult a shell, so a bare `execFileSync("npx", …)`
+// throws `spawnSync npx ENOENT` — which fires in `beforeAll` and takes the
+// WHOLE describe with it, silently costing real coverage on a Windows
+// checkout. `SAFE_EXEC_OPTS` therefore carries `shell` gated on the platform
+// (see NEEDS_SHELL_FOR_CMD below); every suite that builds its options through
+// `execOptsFor` inherits the fix. Suites that pass inline options instead
+// (emit-railway-envs-json.test.ts, sync-promote-service-options.test.ts) set
+// the same gate themselves.
 
 import fs from "fs";
 import os from "os";
@@ -75,7 +81,16 @@ function errorWithCause(message: string, cause: unknown): Error {
  *
  *  `timeout: 30000` — generators shell out to npx/tsx which cold-boots on
  *  first run; 15s produced flakes on slow CI runners.
- */
+ *
+ *  DELIBERATELY NOT RAISED FOR WINDOWS, even though 30s is measurably too
+ *  short there: with `shell: true` the chain becomes
+ *  cmd.exe -> npx.cmd -> node -> tsx -> generator and the observed failure is
+ *  `spawnSync C:\WINDOWS\system32\cmd.exe ETIMEDOUT` on most invocations.
+ *  Raising it here would change nothing, because `vitest.config.ts` sets
+ *  `testTimeout`/`hookTimeout` to the same 30000 and vitest wins the race. A
+ *  Windows-green run needs BOTH raised together, which is a config-wide
+ *  decision for every suite in this package rather than a local tweak — so the
+ *  number stays honest and the blocker stays visible. */
 // Frozen at runtime (the test-cleanup.test.ts unit asserts the inner array
 // is frozen so suites can't mutate it) but typed as `StdioOptions` — NOT a
 // narrower `readonly` tuple — so spreading `SAFE_EXEC_OPTS` into
@@ -87,11 +102,23 @@ const SAFE_STDIO: StdioOptions = Object.freeze([
   "pipe",
 ]) as StdioOptions;
 
+/** Whether `execFileSync`/`spawnSync` need a shell to resolve a `.cmd` shim.
+ *
+ *  `npx`, `tsc`, `pnpm` and friends ship as `npx.cmd` on Windows. `execFile`
+ *  spawns the named file DIRECTLY — no PATHEXT resolution, no shell — so
+ *  `execFileSync("npx", …)` fails with `spawnSync npx ENOENT` on Windows while
+ *  working fine on Linux/macOS where `npx` is a real executable. Gated on the
+ *  platform rather than always-on: `shell: true` re-introduces shell quoting
+ *  rules for every argument, which is exactly what the argv-style call sites
+ *  were written to avoid. */
+export const NEEDS_SHELL_FOR_CMD = process.platform === "win32";
+
 export const SAFE_EXEC_OPTS = Object.freeze({
   encoding: "utf-8" as const,
   timeout: 30000,
   maxBuffer: 10 * 1024 * 1024,
   stdio: SAFE_STDIO,
+  shell: NEEDS_SHELL_FOR_CMD,
 });
 
 /** Build exec options scoped to a specific cwd. Shared helper so suites don't
@@ -136,12 +163,22 @@ function gitEnv(): NodeJS.ProcessEnv {
  *  signing prompt, network filesystem) would otherwise wedge the suite.
  *
  *  Frozen for symmetry with `execOptsFor` — callers can't accidentally
- *  mutate shared options. */
+ *  mutate shared options.
+ *
+ *  `shell: false` OVERRIDES the SAFE_EXEC_OPTS default ON PURPOSE. That default
+ *  exists only so `npx` resolves to `npx.cmd` on Windows; `git` is a real
+ *  executable on every platform and needs no shell. Inheriting `shell: true`
+ *  here would push every git argument through cmd.exe's parser, where a
+ *  pathspec containing `^ & | < > ( )` — all legal in a filename — is
+ *  reinterpreted. These calls include `git checkout HEAD -- <paths>`, so a
+ *  mis-parsed pathspec is a mis-restored working tree. Do not "simplify" this
+ *  line away. */
 function gitExecOpts(cwd: string) {
   return Object.freeze({
     ...SAFE_EXEC_OPTS,
     cwd,
     env: gitEnv(),
+    shell: false,
   });
 }
 

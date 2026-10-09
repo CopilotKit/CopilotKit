@@ -37,8 +37,8 @@ import {
   formatRow,
   buildHeader,
   routeToDirName,
-  type PackageIssue,
 } from "../validate-parity.js";
+import type { PackageIssue } from "../validate-parity.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -883,7 +883,7 @@ describe("validate-parity", () => {
           );
           expect(missingQa.length).toBe(0);
           const listingFailedQa = report.warnings.filter(
-            (w) => w.category === "listing-failed" && /\/qa$/.test(w.path),
+            (w) => w.category === "listing-failed" && w.path.endsWith("/qa"),
           );
           expect(listingFailedQa.length).toBe(0);
           // Aggregate qa-under-coverage warning also suppressed — an
@@ -2157,7 +2157,7 @@ Object.freeze = function(o) {
           expectedDir: "chat",
         }),
       ).toBe(
-        "demo 'chat' declared in manifest but no demos/chat/ (or legacy src/app/demos/chat/) directory",
+        "demo 'chat' declared in manifest but no frontends/nextjs/src/app/[integration]/demos/chat/ or legacy src/app/demos/chat/ directory",
       );
     });
 
@@ -2169,8 +2169,29 @@ Object.freeze = function(o) {
           expectedDir: "hitl",
         }),
       ).toBe(
-        "demo 'hitl-in-chat' declared in manifest but no demos/hitl/ (or legacy src/app/demos/hitl/) directory (resolved from route)",
+        "demo 'hitl-in-chat' declared in manifest but no frontends/nextjs/src/app/[integration]/demos/hitl/ or legacy src/app/demos/hitl/ directory (resolved from route)",
       );
+    });
+
+    it("names exactly the roots resolveDemoDir consults — no dead per-column demos/ root", () => {
+      // Regression guard for the two-validators-one-rule fix. The message used
+      // to open with "no demos/<dir>/", advertising a per-column
+      // `<pkg>/demos/<dir>/` layout that NOTHING produces and that
+      // `resolveDemoDir` — hence bundle-demo-content.ts — cannot read. A demo
+      // placed there passed parity here and then hard-threw out of the
+      // bundler. Sending an operator to a root the build rejects is worse than
+      // saying nothing, so the message must name the unified root and the
+      // legacy root and NOTHING else.
+      const msg = deriveMessage({
+        category: "missing-demo-dir",
+        demoId: "chat",
+        expectedDir: "chat",
+      });
+      expect(msg).toContain(
+        "frontends/nextjs/src/app/[integration]/demos/chat/",
+      );
+      expect(msg).toContain("legacy src/app/demos/chat/");
+      expect(msg).not.toMatch(/but no demos\//);
     });
 
     it("renders unreadable-demos-dir including the failing path", () => {

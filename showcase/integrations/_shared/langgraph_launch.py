@@ -48,7 +48,7 @@ def main() -> None:
         try:
             run_server(
                 host="0.0.0.0",
-                port=8123,
+                port=int(os.environ.get("AGENT_PORT") or "8123"),
                 reload=False,
                 graphs=graphs,
                 open_browser=False,

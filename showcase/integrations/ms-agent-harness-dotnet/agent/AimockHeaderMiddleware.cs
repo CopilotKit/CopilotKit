@@ -52,10 +52,58 @@ public class AimockHeaderMiddleware
         // _next returns; the captured headers live on this request's HttpContext
         // and die with it, so there is no finally-wipe to race the SSE tail.
         AimockHeaderContext.Set(context, headers);
+        await TryStashLastUserMessageAsync(context);
         // CVDIAG inbound breadcrumb: the x-* headers (incl. x-diag-run-id /
         // x-diag-hops / x-aimock-context) have now been captured onto
         // HttpContext.Items for this request.
         CvDiag.LogInbound(_logger, "backend-ms-agent-harness-dotnet", AimockHeaderContext.Get(context));
         await _next(context);
+    }
+
+    private static async Task TryStashLastUserMessageAsync(HttpContext context)
+    {
+        try
+        {
+            context.Request.EnableBuffering();
+            using var reader = new StreamReader(context.Request.Body, leaveOpen: true);
+            var body = await reader.ReadToEndAsync();
+            context.Request.Body.Position = 0;
+            AimockHeaderContext.SetLastUserMessage(context, ExtractLastUserText(body));
+        }
+        catch
+        {
+            try { context.Request.Body.Position = 0; } catch { /* ignore */ }
+        }
+    }
+
+    private static string? ExtractLastUserText(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(body);
+            if (!doc.RootElement.TryGetProperty("messages", out var messages) ||
+                messages.ValueKind != System.Text.Json.JsonValueKind.Array)
+            {
+                return null;
+            }
+            for (var i = messages.GetArrayLength() - 1; i >= 0; i--)
+            {
+                var msg = messages[i];
+                var role = msg.TryGetProperty("role", out var roleEl) ? roleEl.GetString() : null;
+                if (!string.Equals(role, "user", StringComparison.OrdinalIgnoreCase)) continue;
+                if (msg.TryGetProperty("content", out var content) &&
+                    content.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    var text = content.GetString();
+                    if (!string.IsNullOrWhiteSpace(text)) return text;
+                }
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+        return null;
     }
 }

@@ -612,8 +612,9 @@
       }
     },
     {
+      "_comment": "D4 toolbar 'Summarize' button — narrowed from bare 'summarize' to 'Summarize the sales pipeline' (verbatim D4 toolbar probe), matching langgraph-python. Bare 'summarize' substring-matched the D6 gen-ui-agent pill 'Research our top competitor and summarize their strengths and weaknesses.' On the fleet index (shared + d4 + d6, first-match-wins) that returned sales-pipeline text instead of set_steps, so the competitor card kept the previous offsite steps.",
       "match": {
-        "userMessage": "summarize",
+        "userMessage": "Summarize the sales pipeline",
         "context": "pydantic-ai"
       },
       "response": {

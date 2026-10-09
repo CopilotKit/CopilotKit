@@ -10,7 +10,26 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { parseManifest, createDemoId, type DemoId } from "../manifest.js";
+import { fileURLToPath } from "url";
+import {
+  parseManifest,
+  createDemoId,
+  AGENT_KINDS,
+  DEMO_FRONTENDS,
+  DEFAULT_DEMO_FRONTEND,
+  composePublicUrlFor,
+  demoFrontendOf,
+} from "../manifest.js";
+import type { DemoId } from "../manifest.js";
+
+const SCHEMA_PATH = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+  "shared",
+  "manifest.schema.json",
+);
 
 // chmod-enforcement probe so tests that rely on EACCES can be cleanly
 // skipped on CI runners that ignore chmod (running as root, certain
@@ -56,6 +75,15 @@ function tmpdir(prefix = "lib-manifest-"): string {
 function write(file: string, body: string): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, body, "utf-8");
+}
+
+/** Write `body` to a fresh manifest file under `root` and return its path.
+ *  Lets one test parse several manifests without clobbering itself. */
+let tmpManifestSeq = 0;
+function writeTmp(root: string, body: string): string {
+  const file = path.join(root, `manifest-${tmpManifestSeq++}.yaml`);
+  write(file, body);
+  return file;
 }
 
 describe("parseManifest", () => {
@@ -536,6 +564,1196 @@ describe("parseManifest", () => {
     }
   });
 
+  // --- agent mapping + per-demo runtime overrides ------------------------
+  //
+  // `agent_kind` / `agent_url_env` / `agent_defaults` (top level) and
+  // `agent` / `runtime` (per demo) are ALL optional. The single most
+  // important property is backward compatibility: every manifest written
+  // before these fields existed must still parse unchanged.
+
+  it("returns {kind:'ok'} for a manifest that declares none of the agent fields", () => {
+    // Backward-compat anchor. A pre-existing manifest shape must parse
+    // clean and leave every new field undefined — not defaulted, not
+    // null, not a placeholder object.
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      "slug: mypkg\nname: My Pkg\ndeployed: true\ndemos:\n  - id: agentic-chat\n    name: Chat\n    route: /demos/agentic-chat\n",
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      expect(r.manifest.agent_kind).toBeUndefined();
+      expect(r.manifest.agent_url_env).toBeUndefined();
+      expect(r.manifest.agent_defaults).toBeUndefined();
+      const first = r.manifest.demos[0];
+      expect(first?.agent).toBeUndefined();
+      expect(first?.runtime).toBeUndefined();
+    }
+  });
+
+  it("returns {kind:'malformed'} when agent.graph and agent.path are both set, naming slug and demo id", () => {
+    // graph and path are two addressing schemes for the same agent.
+    // Silently preferring one would make the ignored field look
+    // effective, so the parser rejects the pair outright.
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      [
+        "slug: mypkg",
+        "agent_kind: langgraph",
+        "demos:",
+        "  - id: a2ui-dynamic",
+        "    agent:",
+        "      graph: a2ui_dynamic",
+        "      path: /subagents/agui",
+        "",
+      ].join("\n"),
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/mutually exclusive/i);
+      expect(r.error).toContain("mypkg");
+      expect(r.error).toContain("a2ui-dynamic");
+    }
+  });
+
+  it("returns {kind:'malformed'} when agent.graph is used under agent_kind: http", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      [
+        "slug: mypkg",
+        "agent_kind: http",
+        "demos:",
+        "  - id: a2ui-dynamic",
+        "    agent:",
+        "      graph: a2ui_dynamic",
+        "",
+      ].join("\n"),
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/graph.*langgraph/i);
+      expect(r.error).toContain("mypkg");
+      expect(r.error).toContain("a2ui-dynamic");
+    }
+  });
+
+  it("returns {kind:'malformed'} when agent.graph is used with agent_kind omitted (implicit http)", () => {
+    // The omitted case must behave like an explicit "http": the default
+    // is http, so a graph id is just as wrong here.
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      "slug: mypkg\ndemos:\n  - id: a2ui-dynamic\n    agent:\n      graph: a2ui_dynamic\n",
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/langgraph/i);
+    }
+  });
+
+  // ---------------------------------------------------------------------
+  // MIRROR RULE: agent.path requires agent_kind: http.
+  //
+  // The `graph` half of this pair was checked three times over (the two tests
+  // above plus an `allOf` guard in manifest.schema.json) while the `path` half
+  // was checked nowhere, so a path under a non-http kind passed BOTH validators
+  // and failed only at request time.
+  // ---------------------------------------------------------------------
+
+  it("returns {kind:'malformed'} when agent.path is used under agent_kind: langgraph", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      [
+        "slug: mypkg",
+        "agent_kind: langgraph",
+        "demos:",
+        "  - id: agentic-chat",
+        "    agent:",
+        "      path: /subagents/agui",
+        "",
+      ].join("\n"),
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/path.*http/i);
+      expect(r.error).toContain("langgraph");
+      // Cross-field errors must name the slug AND the demo id — a numeric
+      // index alone cannot locate the entry across 20 manifests.
+      expect(r.error).toContain("mypkg");
+      expect(r.error).toContain("agentic-chat");
+    }
+  });
+
+  it("returns {kind:'malformed'} when agent.path is used under agent_kind: in-process", () => {
+    // in-process dials no URL at all (the agent is resolved by NAME through
+    // IN_PROCESS_AGENT_FACTORIES), so a sub-path is inert rather than wrong-ish.
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      "slug: built-in-agent\nagent_kind: in-process\ndemos:\n  - id: agentic-chat\n    agent:\n      path: /agui\n",
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/path.*http/i);
+      expect(r.error).toContain("in-process");
+    }
+  });
+
+  it("returns {kind:'ok'} for agent.path under explicit and implicit http", () => {
+    // Both spellings of "http" must stay legal: ~60 demos rely on `path`, and
+    // most manifests omit `agent_kind` entirely.
+    for (const body of [
+      "slug: mypkg\nagent_kind: http\ndemos:\n  - id: agentic-chat\n    agent:\n      path: /agui\n",
+      "slug: mypkg\ndemos:\n  - id: agentic-chat\n    agent:\n      path: /agui\n",
+      // A bare "/" is the explicit spelling of the absent-path default.
+      "slug: mypkg\ndemos:\n  - id: agentic-chat\n    agent:\n      path: /\n",
+    ]) {
+      const r = parseManifest(writeTmp(root, body));
+      expect(r.kind, JSON.stringify(body)).toBe("ok");
+    }
+  });
+
+  // ---------------------------------------------------------------------
+  // features <-> demos[].id, BOTH directions.
+  // ---------------------------------------------------------------------
+
+  it("returns {kind:'malformed'} when a features id has no demos entry", () => {
+    // THE CHECK THAT WOULD HAVE CAUGHT ALL 20 BROKEN PAIRS. resolveDemoSupport
+    // returns "supported" from `features` alone, so this manifest renders
+    // shared-state-read as a LIVE cell (and a static demo page for it exists),
+    // then 404s at POST /api/mypkg/shared-state-read because there is no
+    // demos[] row to resolve an agent from.
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      [
+        "slug: mypkg",
+        "features:",
+        "  - agentic-chat",
+        "  - shared-state-read",
+        "demos:",
+        "  - id: agentic-chat",
+        "",
+      ].join("\n"),
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toContain("shared-state-read");
+      expect(r.error).toContain("mypkg");
+      expect(r.error).toMatch(/features/);
+      expect(r.error).toMatch(/demos/);
+      // The wired id must NOT be blamed.
+      expect(r.error).not.toContain("agentic-chat");
+    }
+  });
+
+  it("does not accept not_supported_features as a substitute for a demos entry", () => {
+    // `not_supported_features` satisfies the FORWARD direction (a demos row may
+    // be declared there instead of in `features`). It must not satisfy the
+    // reverse one: an id in `features` is what makes the cell live, and listing
+    // it in both lists does not conjure a demos row.
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      [
+        "slug: mypkg",
+        "features:",
+        "  - shared-state-read",
+        "not_supported_features:",
+        "  - shared-state-read",
+        "demos: []",
+        "",
+      ].join("\n"),
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toContain("shared-state-read");
+    }
+  });
+
+  it("returns {kind:'ok'} when every features id has a demos entry", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      [
+        "slug: mypkg",
+        "features:",
+        "  - agentic-chat",
+        "  - cli-start",
+        "not_supported_features:",
+        "  - gen-ui-interrupt",
+        "demos:",
+        "  - id: agentic-chat",
+        "    route: /demos/agentic-chat",
+        // Informational demo: `command` instead of `route`, and no on-disk
+        // folder. It still carries a demos[] row, which is why the reverse
+        // check needs no informational exemption.
+        "  - id: cli-start",
+        "    command: npx degit copilotkit/starter",
+        // Declared non-supported ids are exempt from the reverse check: they
+        // are not in `features`, so no cell claims to be live.
+        "  - id: gen-ui-interrupt",
+        "    route: /demos/gen-ui-interrupt",
+        "",
+      ].join("\n"),
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+  });
+
+  it("skips both features<->demos directions when features is absent", () => {
+    // "Did not say" (test fixtures, pre-schema manifests). The JSON schema makes
+    // `features` required with minItems: 1 for real manifests, so skipping here
+    // does not weaken the gate.
+    const r = parseManifest(
+      writeTmp(root, "slug: mypkg\ndemos:\n  - id: agentic-chat\n"),
+    );
+    expect(r.kind).toBe("ok");
+  });
+
+  // ---------------------------------------------------------------------
+  // EVERY DEMO ROW MUST BE REACHABLE: route (a page) or command (an
+  // informational cell).
+  //
+  // A row carrying only { id, name, description, tags } passed this parser,
+  // the frontend's assertManifest AND the JSON schema, and then 404ed at
+  // request time: no route means no page and no on-disk folder, no command
+  // means nothing to display instead. Gated on a declared `features` key,
+  // like the two cross-field checks above, so fixture manifests that predate
+  // the schema (audit / validate-parity tests write dozens of them) still
+  // parse.
+  // ---------------------------------------------------------------------
+
+  it("returns {kind:'malformed'} for a demo with neither route nor command", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      [
+        "slug: mypkg",
+        "features:",
+        "  - agentic-chat",
+        "demos:",
+        "  - id: agentic-chat",
+        "    name: Chat",
+        "",
+      ].join("\n"),
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toContain("agentic-chat");
+      expect(r.error).toContain("mypkg");
+      // Names BOTH repairs, because which one is right depends on the demo.
+      expect(r.error).toMatch(/route/);
+      expect(r.error).toMatch(/command/);
+    }
+  });
+
+  it("accepts a command-only row (informational) and a route-only row", () => {
+    // The two legal spellings. `cli-start` is command-only in all 20 real
+    // manifests; everything else is route-only.
+    const r = parseManifest(
+      writeTmp(
+        root,
+        [
+          "slug: mypkg",
+          "features:",
+          "  - agentic-chat",
+          "  - cli-start",
+          "demos:",
+          "  - id: agentic-chat",
+          "    route: /demos/agentic-chat",
+          "  - id: cli-start",
+          "    command: npx copilotkit@latest init",
+          "",
+        ].join("\n"),
+      ),
+    );
+    expect(r.kind).toBe("ok");
+  });
+
+  it("skips the route/command requirement when features is absent", () => {
+    // The fixture-compat gate, pinned: audit.test.ts / validate-parity.test.ts
+    // write dozens of `demos:\n  - id: chat` manifests with no `features` key,
+    // and the JSON schema (where `features` is required) carries the matching
+    // `anyOf` for real manifests.
+    const r = parseManifest(
+      writeTmp(root, "slug: mypkg\ndemos:\n  - id: chat\n    name: Chat\n"),
+    );
+    expect(r.kind).toBe("ok");
+  });
+
+  it("rejects a route the JSON schema rejects — '/demos/' + newline", () => {
+    // THE REVERSE SPLIT GATE. The schema pattern is `^/demos/.` and `.` never
+    // matches a line terminator, so the schema REJECTED this while the parser
+    // accepted it: it starts with the prefix and is 8 characters long. One
+    // validator's verdict depended on which validator ran.
+    const r = parseManifest(
+      writeTmp(root, 'slug: x\ndemos:\n  - id: foo\n    route: "/demos/\\n"\n'),
+    );
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/route/i);
+    }
+  });
+
+  it("deep-freezes agent_defaults, agent.config and demos[].runtime", () => {
+    // `Object.freeze` is SHALLOW, so one `Object.freeze({ ...block })` left
+    // every value below the first level mutable — while the docstrings promised
+    // a deep freeze and a consumer mutating a nested option in place would
+    // change what a second consumer, holding the same parsed manifest, reads.
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      [
+        "slug: mypkg",
+        "agent_defaults:",
+        "  nested:",
+        "    limit: 100",
+        "demos:",
+        "  - id: mcp-apps",
+        "    route: /demos/mcp-apps",
+        "    agent:",
+        "      config:",
+        "        nested:",
+        "          limit: 25",
+        "    runtime:",
+        "      mcpApps:",
+        "        servers:",
+        "          - serverId: excalidraw",
+        "",
+      ].join("\n"),
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind !== "ok") return;
+    const defaults = r.manifest.agent_defaults as { nested: object };
+    expect(Object.isFrozen(defaults.nested)).toBe(true);
+    const config = r.manifest.demos[0]?.agent?.config as { nested: object };
+    expect(Object.isFrozen(config.nested)).toBe(true);
+    const runtime = r.manifest.demos[0]?.runtime as {
+      mcpApps: { servers: object[] };
+    };
+    expect(Object.isFrozen(runtime.mcpApps)).toBe(true);
+    expect(Object.isFrozen(runtime.mcpApps.servers)).toBe(true);
+    expect(Object.isFrozen(runtime.mcpApps.servers[0])).toBe(true);
+    expect(() => {
+      (runtime.mcpApps.servers[0] as Record<string, unknown>).serverId = "x";
+    }).toThrow();
+  });
+
+  it("returns {kind:'ok'} for a langgraph manifest with a per-demo graph", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      [
+        "slug: langgraph-python",
+        "agent_kind: langgraph",
+        "agent_url_env: LANGGRAPH_URL",
+        "agent_defaults:",
+        "  recursion_limit: 100",
+        "demos:",
+        "  - id: a2ui-dynamic",
+        "    agent:",
+        "      graph: a2ui_dynamic",
+        "      name: dynamic_agent",
+        "      config:",
+        "        recursion_limit: 25",
+        "",
+      ].join("\n"),
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      expect(r.manifest.agent_kind).toBe("langgraph");
+      expect(r.manifest.agent_url_env).toBe("LANGGRAPH_URL");
+      expect(r.manifest.agent_defaults).toEqual({ recursion_limit: 100 });
+      const agent = r.manifest.demos[0]?.agent;
+      expect(agent?.graph).toBe("a2ui_dynamic");
+      expect(agent?.name).toBe("dynamic_agent");
+      expect(agent?.path).toBeUndefined();
+      // Per-demo agent-construction override of agent_defaults. NOT a
+      // `runtime` key — `runtime` is CopilotRuntime options only.
+      expect(agent?.config).toEqual({ recursion_limit: 25 });
+      expect(Object.isFrozen(agent?.config)).toBe(true);
+      expect(Object.isFrozen(agent)).toBe(true);
+    }
+  });
+
+  it("accepts agent.config on an http demo with no graph", () => {
+    // `agent.config` is agent-construction config for ANY framework; it
+    // is not langgraph-only and does not require `agent.graph`.
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      [
+        "slug: mypkg",
+        "demos:",
+        "  - id: agentic-chat",
+        "    agent:",
+        "      config:",
+        "        maxSteps: 12",
+        "",
+      ].join("\n"),
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      expect(r.manifest.demos[0]?.agent?.config).toEqual({ maxSteps: 12 });
+      expect(r.manifest.demos[0]?.agent?.graph).toBeUndefined();
+    }
+  });
+
+  it("returns {kind:'malformed'} when agent.config is not a mapping", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      [
+        "slug: mypkg",
+        "demos:",
+        "  - id: d1",
+        "    agent:",
+        "      config: 42",
+        "",
+      ].join("\n"),
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/agent\.config.*number/i);
+      expect(r.error).toContain("mypkg");
+      expect(r.error).toContain("d1");
+    }
+  });
+
+  it("returns {kind:'ok'} for an http manifest with a per-demo path and runtime overrides", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      [
+        "slug: mypkg",
+        "agent_kind: http",
+        "demos:",
+        "  - id: a2ui-dynamic",
+        "    agent:",
+        "      path: /subagents/agui",
+        "    runtime:",
+        "      a2ui:",
+        "        injectA2UITool: false",
+        "",
+      ].join("\n"),
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      const demo = r.manifest.demos[0];
+      expect(demo?.agent?.path).toBe("/subagents/agui");
+      expect(demo?.agent?.graph).toBeUndefined();
+      expect(demo?.runtime).toEqual({ a2ui: { injectA2UITool: false } });
+      expect(Object.isFrozen(demo?.runtime)).toBe(true);
+    }
+  });
+
+  it("returns {kind:'malformed'} for an unknown agent_kind", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: mypkg\nagent_kind: grpc\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/agent_kind/i);
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // demo_frontend — the single tracked source of truth for the unified-frontend
+  // migration. Every consumer derives from it, so a value that parses wrong (or
+  // a bad value that parses at all) propagates into the compose roster and the
+  // harness's origin resolution at once.
+  // ─────────────────────────────────────────────────────────────────────────
+  it("parses demo_frontend: unified", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: mypkg\ndemo_frontend: unified\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      expect(r.manifest.demo_frontend).toBe("unified");
+      expect(demoFrontendOf(r.manifest)).toBe("unified");
+    }
+  });
+
+  it("parses demo_frontend: integration", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: mypkg\ndemo_frontend: integration\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      expect(r.manifest.demo_frontend).toBe("integration");
+      expect(demoFrontendOf(r.manifest)).toBe("integration");
+    }
+  });
+
+  it("leaves demo_frontend undefined when absent, and demoFrontendOf defaults it", () => {
+    // The parsed value stays round-trippable (same policy as agent_kind), but
+    // no CONSUMER sees a third "did not say" state — demoFrontendOf collapses
+    // it once, in one place.
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: mypkg\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      expect(r.manifest.demo_frontend).toBeUndefined();
+      expect(demoFrontendOf(r.manifest)).toBe(DEFAULT_DEMO_FRONTEND);
+      expect(DEFAULT_DEMO_FRONTEND).toBe("integration");
+    }
+  });
+
+  it("returns {kind:'malformed'} for an unknown demo_frontend", () => {
+    // A typo must not silently read as un-migrated: that is exactly the
+    // half-migrated state (demos served by one frontend, everything else
+    // believing the other) that this field exists to make impossible.
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: mypkg\ndemo_frontend: unifed\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/demo_frontend/i);
+      expect(r.error).toMatch(/integration \| unified/);
+    }
+  });
+
+  it("returns {kind:'malformed'} when demo_frontend is not a string", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: mypkg\ndemo_frontend: true\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.error).toMatch(/demo_frontend.*boolean/i);
+    }
+  });
+
+  it("DEMO_FRONTENDS matches the schema's demo_frontend enum exactly", () => {
+    // Same pin as AGENT_KINDS: JSON cannot import TypeScript, so the schema
+    // copy cannot be deleted. generate-registry.ts enforces this at build time
+    // via assertSchemaDemoFrontendsMatch; this is the unit-level mirror.
+    const schema = JSON.parse(fs.readFileSync(SCHEMA_PATH, "utf-8")) as {
+      properties: { demo_frontend: { enum: string[]; default: string } };
+    };
+    expect([...schema.properties.demo_frontend.enum].sort()).toEqual(
+      [...DEMO_FRONTENDS].sort(),
+    );
+    // And the schema's declared default must be the one the parser applies, or
+    // schema-driven tooling would materialise a different answer than the code.
+    expect(schema.properties.demo_frontend.default).toBe(DEFAULT_DEMO_FRONTEND);
+  });
+
+  it("composePublicUrlFor derives the container URL for each value", () => {
+    expect(composePublicUrlFor("mastra", "integration")).toBe(
+      "http://mastra:10000",
+    );
+    // The /<slug> segment is load-bearing: consumers append /demos/<id>.
+    expect(composePublicUrlFor("mastra", "unified")).toBe(
+      "http://frontend-nextjs:3000/mastra",
+    );
+  });
+
+  it("every real manifest declares a demo_frontend the parser accepts", () => {
+    // The field IS the tracked state; a manifest that omits it hides the axis
+    // from anyone reading the file, even though the default would cover it.
+    //
+    // The per-slug value is PINNED, not merely "one of the two". A migration
+    // must be a deliberate, live-verified edit: if this goes red, someone
+    // changed a slug's demo_frontend and owes a full D6 matrix run through the
+    // default fleet path before updating MIGRATED_SLUGS below.
+    //
+    // langgraph-python: migrated and verified live (41-cell D6 matrix, demos
+    // served from the unified app at <origin>/langgraph-python/demos/*, agent
+    // still on the integration's own container origin).
+    //
+    // built-in-agent: migrated and verified live (41-cell D6 matrix before AND
+    // after the flip, both through the default fleet path; 30 green / 7 red /
+    // 4 skipped-incapable in BOTH runs, zero regressions). Its `agent_kind` is
+    // `in-process`, so the agent axis is nominal once migrated — the runtime
+    // requests were observed on frontend-nextjs:3000/api/built-in-agent/<demo>,
+    // the same origin as the demo pages.
+    //
+    // mastra: migrated and verified live (43-cell D6 matrix before AND after
+    // the flip, the largest matrix). Baseline 34 green / 9 red / 0 skipped;
+    // migrated 35 green / 8 red / 0 skipped — zero regressions, one
+    // fail -> pass (hitl-approve-deny). `agent_kind: http`, so the agent axis
+    // stayed on the integration's own origin (the unified runtime route proxies
+    // to AGENT_URL_MASTRA = http://mastra:8000).
+    //
+    // ms-agent-python: migrated and verified live (40-cell D6 matrix before AND
+    // after the flip, both through the default fleet path). 34 green / 4 red /
+    // 2 skipped-incapable in BOTH runs, zero regressions, and all four
+    // pre-existing reds (gen-ui-agent, gen-ui-declarative, multimodal,
+    // tool-rendering-reasoning-chain) failed with BYTE-IDENTICAL error strings
+    // — checked, not assumed. `agent_kind: http`, so the agent axis stayed on
+    // the integration's own origin: the pages moved to
+    // frontend-nextjs:3000/ms-agent-python/demos/*, whose runtime route proxies
+    // server-side to AGENT_URL_MS_AGENT_PYTHON (http://ms-agent-python:8000) —
+    // verified by observing the agent POSTs still arriving at the
+    // ms-agent-python container.
+    //
+    // strands: migrated and verified live (40-cell D6 matrix before AND after
+    // the flip, both through the default fleet path). 32 green / 4 red / 4
+    // skipped-incapable in BOTH runs, zero regressions. Three of the four
+    // pre-existing reds (gen-ui-agent, gen-ui-headless-complete, multimodal)
+    // failed with byte-identical strings. The fourth, frontend-tools, did NOT:
+    // same failure mode and reason code (`waitForTurnComplete` timeout at
+    // 60000ms, reason=done-signal-missing, count=10) but the run counters
+    // differ (runsFinished 49 -> 48, runStartCount 50 -> 49). That is
+    // run-to-run jitter in the same wedged-stream failure, not a new failure
+    // wearing an old one's clothes — recorded here rather than normalised away
+    // so the next reader can re-judge it instead of trusting this note.
+    // `agent_kind: http`, so the agent axis stayed on the integration's own
+    // origin (AG-UI POSTs still observed arriving at the strands container).
+    //
+    // spring-ai: migrated and verified live (38-cell D6 matrix before AND after
+    // the flip, both through the default fleet path). 29 green / 6 red / 3
+    // skipped-incapable in BOTH runs, zero regressions, and ALL SIX
+    // pre-existing reds (gen-ui-agent, gen-ui-declarative,
+    // gen-ui-headless-complete, mcp-apps, multimodal, shared-state-streaming)
+    // failed with BYTE-IDENTICAL error strings — compared, not assumed.
+    // The only JVM cell in the fleet: `agent_kind: http`, so the agent axis
+    // stayed on the integration's own container, where the Spring Boot
+    // AimockHeaderInterceptor logged the inbound AG-UI POSTs on port 8000
+    // while the demo pages were served from
+    // frontend-nextjs:3000/spring-ai/demos/*.
+    //
+    // NOTE on this slug's `not_supported_features`: it declares FIVE entries
+    // but only THREE become skipped cells. `not_supported_features` is matched
+    // against D5 FEATURE TYPES (see `incapableSet` in
+    // `harness/src/probes/drivers/d6-all-pills.ts`), not against demo ids, so
+    // `reasoning-default-render` and `agentic-chat-reasoning` are INERT — no
+    // D5 feature type carries either name. Do not read the count as a bug in
+    // the skip logic; the skip count and the NSF count are not the same fact.
+    //
+    // ms-agent-dotnet: migrated and verified live (41-cell D6 matrix before
+    // AND after the flip, both through the default fleet path). 34 green /
+    // 5 red / 2 skipped-incapable in BOTH runs, zero regressions.
+    // reasoning-display stayed GREEN: the unified runtime applies
+    // `frontends/nextjs/src/lib/reasoning-shim.ts` because this manifest lists
+    // reasoning-default, reasoning-custom, and
+    // tool-rendering-reasoning-chain under `synthetic_reasoning_demos`.
+    // All five pre-existing reds failed with BYTE-IDENTICAL error strings.
+    // `agent_kind: http`. Pages moved to
+    // frontend-nextjs:3000/ms-agent-dotnet/demos/*.
+    //
+    // ms-agent-harness-dotnet: migrated and verified live (40-cell D6 matrix
+    // before AND after the flip). 32 green / 5 red / 3 skipped-incapable in
+    // BOTH runs, zero regressions. Same synthetic reasoning list.
+    // reasoning-display stayed GREEN. All five pre-existing reds failed with
+    // BYTE-IDENTICAL error strings. `agent_kind: http`.
+    //
+    // strands-typescript: migrated and verified live (40-cell D6 matrix
+    // before AND after the flip). 32 green / 4 red / 4 skipped-incapable in
+    // BOTH runs, zero regressions. gen-ui-agent and multimodal were
+    // byte-identical. frontend-tools kept reason=done-signal-missing with
+    // count 10 -> 11. gen-ui-headless-complete stayed red but swapped
+    // assertion (text-unstable turn 3 -> missing headless-revenue-chart).
+    // Not an aimock-miss sweep. Did not port forwardingProxyFetch.
+    // `agent_kind: http`.
+    //
+    // agno: migrated and verified live (39-cell D6 matrix before AND after
+    // the flip). 24 green / 11 red / 4 skipped-incapable in BOTH runs,
+    // zero regressions. None of the nine lift cells went green from the
+    // page move alone. `agent_kind: http`.
+    //
+    // claude-sdk-python: migrated and verified live (40-cell D6 matrix
+    // before AND after the flip). 36 green / 2 red / 2 skipped-incapable
+    // in BOTH runs, zero regressions. Same two reds (gen-ui-agent,
+    // tool-rendering-reasoning-chain). `agent_kind: http`.
+    //
+    // google-adk: migrated and verified live (40-cell D6 matrix before
+    // AND after the flip). 37 green / 3 red / 0 skipped-incapable in BOTH
+    // runs. Counts match; red set does not. multimodal lifted after the
+    // frontend-nextjs sample.png rebuild. New red: gen-ui-interrupt
+    // (confirmed on a single-cell re-run). `agent_kind: http`.
+    //
+    // langgraph-fastapi: migrated and verified live (41-cell D6 matrix
+    // before AND after the flip). Baseline 37 / 2 / 2; migrated 36 / 3 / 2.
+    // New red: a2ui-recovery (confirmed on a single-cell re-run).
+    // `agent_kind: langgraph`.
+    //
+    // ag2: migrated and verified live (37-cell D6). Baseline 31 / 2 / 4;
+    // migrated 32 / 1 / 4. Zero regressions. multimodal lifted after
+    // the frontend-nextjs sample.png rebuild. Remaining red:
+    // gen-ui-agent (fleet fixture). `agent_kind: http`.
+    //
+    // pydantic-ai: migrated and verified live (40-cell D6). Baseline
+    // 33 / 3 / 4; migrated 34 / 2 / 4. Zero regressions. multimodal
+    // lifted the same way. Remaining reds: gen-ui-agent,
+    // reasoning-display. `agent_kind: http`.
+    //
+    // claude-sdk-typescript: migrated and verified live (40-cell D6).
+    // 35 / 3 / 2 in BOTH runs, zero regressions. Same three reds.
+    // `agent_kind: http`.
+    //
+    // langgraph-typescript: migrated and verified live (41-cell D6).
+    // 36 / 3 / 2 in BOTH runs, zero regressions. Same three reds.
+    // `agent_kind: langgraph`.
+    //
+    // crewai-crews: last remaining integration-frontend wave, flipped
+    // with langroid and llamaindex. 38-cell baseline 25 / 7 / 6.
+    // Flip-only; D6 after flip not run here. Implicit `agent_kind: http`.
+    //
+    // langroid: same wave. 38-cell baseline 27 / 6 / 5.
+    // Implicit `agent_kind: http`.
+    //
+    // llamaindex: same wave. 39-cell baseline 28 / 6 / 5.
+    // Implicit `agent_kind: http`.
+    const MIGRATED_SLUGS = new Set([
+      "ag2",
+      "agno",
+      "built-in-agent",
+      "claude-sdk-python",
+      "claude-sdk-typescript",
+      "crewai-crews",
+      "google-adk",
+      "langgraph-fastapi",
+      "langgraph-python",
+      "langgraph-typescript",
+      "langroid",
+      "llamaindex",
+      "mastra",
+      "ms-agent-dotnet",
+      "ms-agent-harness-dotnet",
+      "ms-agent-python",
+      "pydantic-ai",
+      "spring-ai",
+      "strands",
+      "strands-typescript",
+    ]);
+    const integrationsDir = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "../../../integrations",
+    );
+    const slugs = fs
+      .readdirSync(integrationsDir, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && !e.name.startsWith("_"))
+      .map((e) => e.name);
+    expect(slugs.length).toBeGreaterThan(0);
+    // The pin only bites while every named slug actually exists.
+    for (const slug of MIGRATED_SLUGS) expect(slugs).toContain(slug);
+    for (const slug of slugs) {
+      const r = parseManifest(
+        path.join(integrationsDir, slug, "manifest.yaml"),
+        slug,
+      );
+      expect(r.kind, slug).toBe("ok");
+      if (r.kind === "ok") {
+        expect(r.manifest.demo_frontend, slug).toBeDefined();
+        expect(demoFrontendOf(r.manifest), slug).toBe(
+          MIGRATED_SLUGS.has(slug) ? "unified" : "integration",
+        );
+      }
+    }
+  });
+
+  it("returns {kind:'malformed'} when agent_url_env is the empty string", () => {
+    // `process.env[""]` is always undefined, so an empty name silently
+    // degrades to "no agent URL" instead of failing.
+    const f = path.join(root, "manifest.yaml");
+    write(f, 'slug: mypkg\nagent_url_env: ""\n');
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.error).toMatch(/agent_url_env/i);
+    }
+  });
+
+  it("returns {kind:'malformed'} when agent_defaults is not a mapping", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: mypkg\nagent_defaults: 42\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.error).toMatch(/agent_defaults.*number/i);
+    }
+  });
+
+  it("returns {kind:'ok'} for a bare agent.path of '/'", () => {
+    // Five integrations (ag2, ms-agent-harness-dotnet, spring-ai,
+    // crewai-crews, langroid) mount their shared agent at exactly
+    // `${AGENT_URL}/`, so "/" is the natural transcription. An earlier
+    // revision required a non-empty segment after the slash, which
+    // forced those demos to carry no `agent:` block at all.
+    const f = path.join(root, "manifest.yaml");
+    write(f, 'slug: mypkg\ndemos:\n  - id: foo\n    agent:\n      path: "/"\n');
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      expect(r.manifest.demos[0]?.agent?.path).toBe("/");
+    }
+  });
+
+  it("returns {kind:'malformed'} when agent.path does not start with a slash", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      "slug: mypkg\ndemos:\n  - id: foo\n    agent:\n      path: subagents/agui\n",
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.error).toMatch(/agent\.path/i);
+    }
+  });
+
+  it("returns {kind:'malformed'} when agent.name is not a string", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: mypkg\ndemos:\n  - id: foo\n    agent:\n      name: 42\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.error).toMatch(/agent\.name/i);
+    }
+  });
+
+  it("returns {kind:'malformed'} when demos[i].agent is not a mapping", () => {
+    // Only the nested `agent.config: 42` case was covered. `agent: 42` (a
+    // mis-indented block, so the whole mapping collapses to a scalar) took a
+    // different branch — the one that runs BEFORE any per-key check — and had
+    // no test. The error must name the slug and demo id, like its siblings.
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: mypkg\ndemos:\n  - id: d1\n    agent: 42\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/demos\[0\]\.agent.*number/i);
+      expect(r.error).toContain("mypkg");
+      expect(r.error).toContain("d1");
+    }
+  });
+
+  it("returns {kind:'malformed'} when agent_kind is not a string", () => {
+    // The unknown-string case (`agent_kind: grpc`) was covered, the
+    // non-string one was not, and they take different halves of the same
+    // condition — a number would otherwise have to be reported by the
+    // `"${candidate}"` branch that assumes a string.
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: mypkg\nagent_kind: 42\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/agent_kind/i);
+      expect(r.error).toMatch(/number/);
+    }
+  });
+
+  // --- backend_url ------------------------------------------------------
+  //
+  // capture-previews.ts navigates to this URL. It is optional, but an empty
+  // string is worse than absent: the caller's `if (manifest.backend_url)`
+  // check reads the same as "not deployed", while a typo'd `backend_url: ~`
+  // looks set in the YAML.
+
+  it("returns {kind:'ok'} and preserves a well-formed backend_url", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: mypkg\nbackend_url: https://mypkg.up.railway.app\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      expect(r.manifest.backend_url).toBe("https://mypkg.up.railway.app");
+    }
+  });
+
+  it("returns {kind:'ok'} with backend_url undefined when it is omitted", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: mypkg\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      expect(r.manifest.backend_url).toBeUndefined();
+    }
+  });
+
+  it("returns {kind:'malformed'} when backend_url is not a string", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: mypkg\nbackend_url: 42\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/backend_url.*number/i);
+    }
+  });
+
+  it("returns {kind:'malformed'} when backend_url is the empty string", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(f, 'slug: mypkg\nbackend_url: ""\n');
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/backend_url/i);
+    }
+  });
+
+  // --- demos[i].command -------------------------------------------------
+  //
+  // `command` is what marks a demo INFORMATIONAL (e.g. cli-start): parity
+  // and bundling skip such demos because they have no on-disk folder. An
+  // unvalidated field here decides whether a demo is expected to exist.
+
+  it("returns {kind:'ok'} and preserves demos[i].command", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      "slug: mypkg\ndemos:\n  - id: cli-start\n    command: npx copilotkit@latest init\n",
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      expect(r.manifest.demos[0]?.command).toBe("npx copilotkit@latest init");
+      expect(Object.isFrozen(r.manifest.demos[0])).toBe(true);
+    }
+  });
+
+  it("returns {kind:'ok'} with command undefined when it is omitted", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: mypkg\ndemos:\n  - id: foo\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      expect(r.manifest.demos[0]?.command).toBeUndefined();
+    }
+  });
+
+  it("returns {kind:'malformed'} when demos[i].command is not a string", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: mypkg\ndemos:\n  - id: foo\n    command: 42\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/demos\[0\]\.command.*number/i);
+    }
+  });
+
+  it("returns {kind:'malformed'} when demos[i].command is the empty string", () => {
+    // An empty command would render an empty "copy this" row in the
+    // dashboard while still marking the demo informational, so parity
+    // silently stops expecting a folder for a demo that has neither.
+    const f = path.join(root, "manifest.yaml");
+    write(f, 'slug: mypkg\ndemos:\n  - id: foo\n    command: ""\n');
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/demos\[0\]\.command/i);
+    }
+  });
+
+  // --- explicit-null policy ---------------------------------------------
+
+  it("rejects an explicit null for every field except top-level demos", () => {
+    // THE POLICY, pinned. YAML `~` is an easy authoring slip and the parser
+    // treats it in exactly two ways:
+    //
+    //   - top-level `demos: ~` is ACCEPTED as "no demos declared", because
+    //     the field is a collection whose absence is normal and a null there
+    //     has one obvious meaning (the guard is `obj.demos != null`);
+    //   - every other field REJECTS null, because a null value there is
+    //     indistinguishable from a typo and defaulting it would silently
+    //     drop what the author meant to say.
+    //
+    // Both halves are asserted together so a future change cannot make one
+    // lenient without a test noticing.
+    //
+    // `features` and `not_supported_features` are listed EXPLICITLY below.
+    // They used to be missing from this loop while `parseFeatureIdList`
+    // treated `obj[key] == null` as "not declared" — so this test asserted a
+    // policy the parser did not have, precisely where it did not have it.
+    // That gap was not cosmetic: all three cross-field checks are gated on
+    // `features !== undefined`, so `features: ~` silently switched off the
+    // features→demos check, the demos→features check AND the route/command
+    // reachability check at once. The last body below is that exact manifest.
+    expect(parseManifest(writeTmp(root, "slug: x\ndemos: ~\n")).kind).toBe(
+      "ok",
+    );
+    for (const body of [
+      "slug: x\nname: ~\n",
+      "slug: x\ndeployed: ~\n",
+      "slug: x\nbackend_url: ~\n",
+      "slug: x\nfeatures: ~\n",
+      "slug: x\nnot_supported_features: ~\n",
+      "slug: x\nfeatures: ~\ndemos:\n  - id: foo\n",
+      "slug: x\ndemos:\n  - ~\n",
+      "slug: x\ndemos:\n  - id: foo\n    route: ~\n",
+      "slug: x\ndemos:\n  - id: foo\n    command: ~\n",
+      "slug: x\ndemos:\n  - id: foo\n    agent: ~\n",
+      "slug: x\ndemos:\n  - id: foo\n    runtime: ~\n",
+    ]) {
+      const r = parseManifest(writeTmp(root, body));
+      expect(r.kind, JSON.stringify(body)).toBe("malformed");
+    }
+  });
+
+  it("distinguishes an ABSENT feature list from an explicit null and from []", () => {
+    // The three states must stay distinguishable, because they mean three
+    // different things to the cross-field checks:
+    //
+    //   absent      -> "did not say"; the checks are skipped (test fixtures,
+    //                  pre-schema manifests). Value stays `undefined`.
+    //   `~` (null)  -> REJECTED. See the policy test above.
+    //   `[]`        -> declared-and-empty; the checks RUN, so a demos[] row
+    //                  with no matching feature id is caught.
+    //
+    // Asserting all three together is what makes the null rejection load-
+    // bearing rather than incidental: if a future change re-collapses null
+    // into "absent", the middle case flips to "ok" and this fails.
+    const absent = parseManifest(writeTmp(root, "slug: x\n"));
+    expect(absent.kind).toBe("ok");
+    if (absent.kind === "ok") {
+      expect(absent.manifest.features).toBeUndefined();
+      expect(absent.manifest.not_supported_features).toBeUndefined();
+    }
+
+    // Absent `features` + a demos row => checks skipped => ok.
+    expect(
+      parseManifest(writeTmp(root, "slug: x\ndemos:\n  - id: foo\n")).kind,
+    ).toBe("ok");
+
+    // Explicit null is rejected, and the message says so rather than falling
+    // through to the generic "got null" shape error.
+    const nulled = parseManifest(writeTmp(root, "slug: x\nfeatures: ~\n"));
+    expect(nulled.kind).toBe("malformed");
+    if (nulled.kind === "malformed") {
+      expect(nulled.subkind).toBe("shape");
+      expect(nulled.error).toMatch(/features/);
+      expect(nulled.error).toMatch(/explicit null/i);
+    }
+
+    // `features: []` declares the key, so the demos→features check RUNS and
+    // catches the unlisted row. This is the assertion that proves the gate is
+    // driven by "declared", not by "non-empty".
+    const emptyList = parseManifest(
+      writeTmp(root, "slug: x\nfeatures: []\ndemos:\n  - id: foo\n"),
+    );
+    expect(emptyList.kind).toBe("malformed");
+    if (emptyList.kind === "malformed") {
+      expect(emptyList.error).toMatch(/foo/);
+    }
+  });
+
+  it("leaves an omitted agent_url_env undefined rather than defaulting it", () => {
+    // There is no DEFAULT_AGENT_URL_ENV constant any more (the field is dead —
+    // agent-resolution.ts reads AGENT_URL_<SLUG> and only that), and the parser
+    // substitutes nothing. Leaving the field undefined is what lets a consumer
+    // tell "declared AGENT_URL" from "did not say", and keeps the parsed
+    // manifest round-trippable back to YAML.
+    const omitted = parseManifest(writeTmp(root, "slug: mypkg\n"));
+    expect(omitted.kind).toBe("ok");
+    if (omitted.kind === "ok") {
+      expect(omitted.manifest.agent_url_env).toBeUndefined();
+    }
+    const declared = parseManifest(
+      writeTmp(root, "slug: mypkg\nagent_url_env: AGENT_URL\n"),
+    );
+    expect(declared.kind).toBe("ok");
+    if (declared.kind === "ok") {
+      expect(declared.manifest.agent_url_env).toBe("AGENT_URL");
+    }
+  });
+
+  it("returns {kind:'ok'} for a scalar runtime option value (openGenerativeUI: true)", () => {
+    // Regression guard: an earlier revision required every runtime
+    // option value to be an object, which rejected `openGenerativeUI:
+    // true` — a real value used by strands-typescript,
+    // claude-sdk-typescript and agno. Option values are passed through
+    // to CopilotRuntime untouched and must NOT be shape-checked.
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      "slug: mypkg\ndemos:\n  - id: foo\n    runtime:\n      openGenerativeUI: true\n",
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      expect(r.manifest.demos[0]?.runtime).toEqual({ openGenerativeUI: true });
+    }
+  });
+
+  it("returns {kind:'ok'} for mixed runtime option value types on one demo", () => {
+    // The same option name takes different types across integrations
+    // (`openGenerativeUI` is `true` in strands-typescript but
+    // `{ agents: [...] }` in ag2), and a single demo mixes booleans,
+    // objects and nested arrays. All must round-trip untouched.
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      [
+        "slug: mypkg",
+        "demos:",
+        "  - id: foo",
+        "    runtime:",
+        "      openGenerativeUI:",
+        "        agents:",
+        "          - beautiful-chat",
+        "      a2ui:",
+        "        injectA2UITool: false",
+        "        defaultCatalogId: copilotkit://app-dashboard-catalog",
+        "      mcpApps:",
+        "        servers:",
+        "          - name: demo",
+        "",
+      ].join("\n"),
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      expect(r.manifest.demos[0]?.runtime).toEqual({
+        openGenerativeUI: { agents: ["beautiful-chat"] },
+        a2ui: {
+          injectA2UITool: false,
+          defaultCatalogId: "copilotkit://app-dashboard-catalog",
+        },
+        mcpApps: { servers: [{ name: "demo" }] },
+      });
+    }
+  });
+
+  it("returns {kind:'malformed'} when runtime itself is not a mapping", () => {
+    // The top-level `runtime` block must still be a mapping — a scalar
+    // there means the author mis-indented, and every consumer would
+    // TypeError iterating it. Only the option VALUES are unvalidated.
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: mypkg\ndemos:\n  - id: foo\n    runtime: 42\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/runtime.*number/i);
+    }
+  });
+
   it.skipIf(cannotEnforceEacces)(
     "returns {kind:'unreadable'} when the parent dir is unreadable (EACCES on stat)",
     () => {
@@ -546,10 +1764,10 @@ describe("parseManifest", () => {
       // exact anti-pattern probeDir in validate-parity.ts was written
       // to avoid. parseManifest must use statSync + errno inspection
       // so EACCES/ENOTDIR/etc route to `{kind:"unreadable"}`.
-      const root = fs.mkdtempSync(
+      const eaccesRoot = fs.mkdtempSync(
         path.join(os.tmpdir(), "lib-manifest-parent-eacces-"),
       );
-      const parentDir = path.join(root, "locked");
+      const parentDir = path.join(eaccesRoot, "locked");
       fs.mkdirSync(parentDir);
       const manifestFile = path.join(parentDir, "manifest.yaml");
       fs.writeFileSync(manifestFile, "slug: ok\n");
@@ -563,7 +1781,7 @@ describe("parseManifest", () => {
         } catch {
           // best-effort
         }
-        fs.rmSync(root, { recursive: true, force: true });
+        fs.rmSync(eaccesRoot, { recursive: true, force: true });
       }
     },
   );
@@ -674,6 +1892,26 @@ describe("parseManifest", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe("AGENT_KINDS", () => {
+  it("matches the agent_kind enum in manifest.schema.json", () => {
+    // The list existed as THREE independent copies, each documented as "the"
+    // runtime-checkable one. This pins two of them together (JSON cannot import
+    // TypeScript, so the schema copy cannot be deleted), and generate-registry.ts
+    // enforces the same equality on every build. The third copy —
+    // showcase/frontends/nextjs/src/lib/agent-resolution.ts — still cannot
+    // import this package, but it no longer goes unchecked until request time:
+    // agent-resolution.test.ts ("AGENT_KINDS") reads the same schema file off
+    // disk and asserts the same set equality. All three are pinned to the
+    // schema, so the schema is the one place to edit the list.
+    const schema = JSON.parse(fs.readFileSync(SCHEMA_PATH, "utf-8")) as {
+      properties: { agent_kind: { enum: string[] } };
+    };
+    expect([...schema.properties.agent_kind.enum].sort()).toEqual(
+      [...AGENT_KINDS].sort(),
+    );
   });
 });
 

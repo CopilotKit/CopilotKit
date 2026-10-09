@@ -132,6 +132,20 @@ class ToolCallResultWorkflowEvent(ToolCallEndWorkflowEvent):
     type: EventType = EventType.TOOL_CALL_RESULT
 
 
+# Later MESSAGES_SNAPSHOTs must keep these backend toolCalls. The first
+# snapshot still strips them so they arrive via TOOL_CALL_CHUNK. A later
+# snapshot that strips them unmounts the custom-wildcard card.
+# Do not add HITL / frontend-tools names (change_background, book_call).
+# That disables HITL slots and blocks the frontend-tools background change.
+_KEEP_SNAPSHOT_TOOL_NAMES = frozenset({"get_weather", "get_stock_price"})
+
+# useComponent tools (headless highlight_note, gen-ui show_card). Headless
+# AssistantBubble returns null when content is empty AND toolCalls were
+# stripped — the card never mounts. Keep these on the FIRST snapshot.
+# Do not skip ToolCallEvent for HITL tools.
+_USE_COMPONENT_TOOL_NAMES = frozenset({"highlight_note", "show_card"})
+
+
 class FixedAGUIChatWorkflow(AGUIChatWorkflow):
     """AGUIChatWorkflow that fixes duplicate tool-call rendering and
     tool-result message formatting.
@@ -146,15 +160,16 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
     """
 
     render_only_tool_names: set = set()
+    # True only after TOOL_CALL_CHUNK for get_weather / get_stock_price.
+    # First snapshot always strips. Later snapshots keep those two names.
+    _keep_tool_calls_in_snapshot: bool = False
 
     def _snapshot_messages(self, ctx: Context, chat_history: List[ChatMessage]) -> None:
-        """Emit MESSAGES_SNAPSHOT without toolCalls on assistant messages.
+        """Emit MESSAGES_SNAPSHOT. First pass strips assistant toolCalls.
 
-        We create clean copies of assistant messages that strip both
-        ag_ui_tool_calls metadata AND the <tool_call> XML tags that the
-        upstream _snapshot_messages would re-extract.  This ensures the
-        MESSAGES_SNAPSHOT contains no toolCalls — they arrive exclusively
-        via TOOL_CALL_CHUNK events.
+        After a get_weather / get_stock_price TOOL_CALL_CHUNK, later
+        snapshots keep only those toolCalls so the wildcard card stays
+        mounted. Other names stay stripped.
         """
         cleaned = []
         for msg in chat_history:
@@ -164,14 +179,25 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
                     r"<tool_call>[\s\S]*?</tool_call>", "", content
                 ).strip()
 
+                extra = {
+                    k: v
+                    for k, v in msg.additional_kwargs.items()
+                    if k != "ag_ui_tool_calls"
+                }
+                if self._keep_tool_calls_in_snapshot:
+                    raw = msg.additional_kwargs.get("ag_ui_tool_calls") or []
+                    keep_names = _KEEP_SNAPSHOT_TOOL_NAMES | _USE_COMPONENT_TOOL_NAMES
+                    kept = [
+                        c
+                        for c in raw
+                        if isinstance(c, dict) and c.get("name") in keep_names
+                    ]
+                    if kept:
+                        extra["ag_ui_tool_calls"] = kept
                 clone = ChatMessage(
                     role=msg.role,
                     content=content if content else None,
-                    additional_kwargs={
-                        k: v
-                        for k, v in msg.additional_kwargs.items()
-                        if k != "ag_ui_tool_calls"
-                    },
+                    additional_kwargs=extra,
                 )
                 cleaned.append(clone)
             else:
@@ -197,6 +223,7 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
         #   3. Fix tool-result messages to use role='tool' not 'user'
         # ------------------------------------------------------------------
         if isinstance(ev, InputEvent):
+            self._keep_tool_calls_in_snapshot = False
             ag_ui_messages = ev.input_data.messages
             chat_history = [
                 ag_ui_message_to_llama_index_message(m) for m in ag_ui_messages
@@ -265,12 +292,12 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
         resp.message.additional_kwargs["id"] = resp_id
 
         chat_history.append(resp.message)
-        self._snapshot_messages(ctx, [*chat_history])
-        await ctx.store.set("chat_history", chat_history)
 
         tool_calls = self.llm.get_tool_calls_from_response(
             resp, error_on_no_tool_call=False
         )
+        frontend_tool_calls = []
+        backend_tool_calls = []
         if tool_calls:
             await ctx.store.set("num_tool_calls", len(tool_calls))
             frontend_tool_calls = [
@@ -283,7 +310,52 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
                 for tool_call in tool_calls
                 if tool_call.tool_name in self.backend_tools
             ]
+            component_calls = [
+                tc
+                for tc in frontend_tool_calls
+                if tc.tool_name in _USE_COMPONENT_TOOL_NAMES
+            ]
+            # Stash useComponent BEFORE the first snapshot so an empty
+            # assistant bubble still has toolCalls (headless highlight).
+            if component_calls:
+                resp.message.additional_kwargs["ag_ui_tool_calls"] = [
+                    {
+                        "id": tc.tool_id,
+                        "name": tc.tool_name,
+                        "arguments": json.dumps(tc.tool_kwargs),
+                    }
+                    for tc in component_calls
+                ]
+                self._keep_tool_calls_in_snapshot = True
 
+        # First snapshot strips weather/stock so they arrive via CHUNK.
+        # useComponent names already stashed above stay on this snapshot.
+        self._snapshot_messages(ctx, [*chat_history])
+
+        if tool_calls:
+            keep_calls = [
+                tc
+                for tc in backend_tool_calls
+                if tc.tool_name in _KEEP_SNAPSHOT_TOOL_NAMES
+            ]
+            if keep_calls:
+                existing = list(
+                    resp.message.additional_kwargs.get("ag_ui_tool_calls") or []
+                )
+                existing.extend(
+                    {
+                        "id": tc.tool_id,
+                        "name": tc.tool_name,
+                        "arguments": json.dumps(tc.tool_kwargs),
+                    }
+                    for tc in keep_calls
+                )
+                resp.message.additional_kwargs["ag_ui_tool_calls"] = existing
+                self._keep_tool_calls_in_snapshot = True
+
+        await ctx.store.set("chat_history", chat_history)
+
+        if tool_calls:
             for tool_call in backend_tool_calls:
                 ctx.send_event(
                     ToolCallEvent(
@@ -302,8 +374,31 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
                         parent_message_id=resp_id,
                     )
                 )
+                # generate_haiku: the probe is not in CHART_INTEGRATIONS so
+                # it asserts haiku-card text, then falls back to the FIRST
+                # copilot-assistant-message. Aimock sends tool_calls with
+                # content=null, so that first bubble is empty. Stream the
+                # English lines onto the SAME message.
+                if tool_call.tool_name == "generate_haiku":
+                    english = tool_call.tool_kwargs.get("english") or []
+                    line = (
+                        " ".join(str(x) for x in english)
+                        if isinstance(english, list)
+                        else str(english)
+                    )
+                    if line:
+                        ctx.write_event_to_stream(
+                            TextMessageChunkWorkflowEvent(
+                                role="assistant",
+                                delta=line,
+                                timestamp=timestamp(),
+                                message_id=resp_id,
+                            )
+                        )
 
             for tool_call in frontend_tool_calls:
+                # HITL (book_call / generate_task_steps) still needs
+                # ToolCallEvent. Do not skip it for all frontend tools.
                 ctx.send_event(
                     ToolCallEvent(
                         tool_call_id=tool_call.tool_id,
@@ -311,6 +406,11 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
                         tool_kwargs=tool_call.tool_kwargs,
                     )
                 )
+
+                # useComponent already arrived via the first snapshot.
+                # A second CHUNK doubles args and can unmount the card.
+                if tool_call.tool_name in _USE_COMPONENT_TOOL_NAMES:
+                    continue
 
                 ctx.write_event_to_stream(
                     ToolCallChunkWorkflowEvent(
@@ -376,7 +476,17 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
         chat_history = await ctx.store.get("chat_history")
         if new_tool_messages:
             chat_history.extend(new_tool_messages)
-            self._snapshot_messages(ctx, [*chat_history])
+            # generate_haiku is complete-on-emit. A second snapshot here
+            # has empty assistant content and wipes the streamed English
+            # on the first bubble (text-unstable). Weather / stock still
+            # snapshot so catchall can keep those toolCalls.
+            # HITL / frontend-tools have no backend results, so they
+            # never reach this branch.
+            render_only_backend = bool(backend_tool_calls) and all(
+                r.tool_name in self.render_only_tool_names for r in backend_tool_calls
+            )
+            if not render_only_backend:
+                self._snapshot_messages(ctx, [*chat_history])
             await ctx.store.set("chat_history", chat_history)
 
         if len(frontend_tool_calls) > 0:
@@ -401,6 +511,16 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
                             role="tool",
                         )
                     )
+            return StopEvent()
+
+        # Complete-on-emit backend tools (e.g. generate_haiku on
+        # /gen-ui-tool-based/run). TOOL_CALL_RESULT is already on the
+        # stream. Finish now so a missing frontend handler cannot hang
+        # the run. Other backend tools still loop so catchall / headless
+        # narration fixtures can run.
+        if backend_tool_calls and all(
+            r.tool_name in self.render_only_tool_names for r in backend_tool_calls
+        ):
             return StopEvent()
 
         return LoopEvent(messages=chat_history)

@@ -44,16 +44,18 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
-# Auto-summary so the Responses API surfaces reasoning content as
-# reasoning items (which the AG-UI bridge then forwards as THINKING /
-# REASONING events). Without a summary the API can omit the reasoning
-# payload from the streamed response.
-_REASONING_MODEL = os.environ.get("REASONING_MODEL", "gpt-5")
+# `detailed` matches LGP (`reasoning={"effort":"medium","summary":"detailed"}`).
+# `auto` lets the model skip the summary, so THINKING / REASONING events
+# never land and the reasoning-display probe sees 0 reasoning-role messages.
+_REASONING_MODEL = os.environ.get(
+    "REASONING_MODEL", os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4")
+)
 
 agent = Agent(
     model=OpenAIResponsesModel(_REASONING_MODEL),
     model_settings=OpenAIResponsesModelSettings(
-        openai_reasoning_summary="auto",
+        openai_reasoning_effort="medium",
+        openai_reasoning_summary="detailed",
     ),
     system_prompt=SYSTEM_PROMPT,
 )

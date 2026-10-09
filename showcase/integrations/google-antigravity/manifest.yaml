@@ -11,6 +11,9 @@ partner_docs: https://antigravity.google/product/antigravity-sdk/
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/google-antigravity
 copilotkit_version: 2.0.0
 deployed: true
+# Not migrated to the unified frontend yet: its demos stay on its own Next.js
+# container until it is migrated and verified like the other integrations.
+demo_frontend: integration
 docs_mode: hidden
 sort_order: 61
 generative_ui:

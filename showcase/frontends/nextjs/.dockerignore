@@ -1,0 +1,85 @@
+# .dockerignore for the unified showcase frontend.
+#
+# READ THIS BEFORE EDITING — which file Docker actually honours depends on the
+# build context:
+#
+#   * The compose build uses `context: ../` (the REPOSITORY ROOT). Docker only
+#     applies the .dockerignore at the CONTEXT ROOT, so the file that filters
+#     that build is `/.dockerignore` at the repo root. It already excludes
+#     **/node_modules, **/.next, **/.git, **/dist, **/build, **/coverage,
+#     **/__pycache__, **/.venv, **/*.log and the env files — everything this
+#     image needs kept out. Crucially it does NOT exclude
+#     showcase/integrations/*/manifest.yaml, which the Dockerfile's `manifests`
+#     stage bind-mounts and MUST be able to see. (Named stage, never an ordinal
+#     like "stage 2" — the Dockerfile bans ordinal references because renumbering
+#     silently rots them; see its header.) Do not add an `integrations` exclusion
+#     to the root file: every demo URL would then render as
+#     "Invalid Showcase route".
+#
+#   * THIS FILE IS CURRENTLY INERT ON EVERY PATH, and that is worth knowing
+#     before you edit it expecting an effect. It would only be honoured by a
+#     build using THIS directory as the context (`docker build
+#     showcase/frontends/nextjs`) — but no such build can run: the Dockerfile's
+#     first instruction is `COPY showcase/frontends/nextjs/package.json …`,
+#     a REPO-ROOT-relative path that does not exist inside an app-directory
+#     context, so the build fails on that line rather than proceeding without
+#     the manifests. The exclusions below are kept as documentation of what
+#     such a build would need to drop, and so the file does not read as an
+#     oversight — not because they filter anything today. If you need to
+#     exclude something from the real image, the root `/.dockerignore` is the
+#     file that does it.
+#
+# Same convention, and same reasoning, as showcase/shell-dashboard/.dockerignore.
+#
+# Files the build DOES need here (keep these visible):
+#   package.json, package-lock.json, .npmrc, next.config.ts, tsconfig.json,
+#   postcss.config.mjs, components.json, src/, public/
+
+# Installed / generated trees — rebuilt inside the image.
+node_modules
+.next
+out
+dist
+build
+*.tsbuildinfo
+
+# Test and tooling output.
+coverage
+test-results
+playwright-report
+.nyc_output
+.turbo
+.swc
+
+# Secrets and local environment.
+.env
+.env.local
+.env.*.local
+
+# VCS, editor and OS noise.
+.git
+.gitignore
+.vscode
+.idea
+.DS_Store
+*.log
+
+# Test tooling. SCOPE WARNING: these patterns do NOT apply to the supported build.
+# That build uses `context: ../`, so only the repo-root /.dockerignore is honoured
+# (see the header) and the root file has no test exclusions — its
+# `COPY showcase/frontends/nextjs/ ./` therefore brings every *.test.ts / *.test.tsx
+# under src/ plus vitest.config.ts into the `builder` stage. Nothing in the FINAL
+# image runs them (the `runner` stage copies only .next, node_modules,
+# package.json, public and next.config.ts, none of which carry test files), so the
+# shipped image is clean either way; and these patterns buy NOTHING today, because
+# the app-directory build they would apply to cannot run at all — see the header.
+# To keep the tests out of the builder layer as well, the same patterns must be
+# added to the repo-root /.dockerignore — prefixed with
+# `showcase/frontends/nextjs/`, because root patterns are matched against
+# context-root-relative paths.
+vitest.config.ts
+playwright.config.ts
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx

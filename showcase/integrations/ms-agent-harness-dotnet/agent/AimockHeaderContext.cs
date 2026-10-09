@@ -19,6 +19,7 @@ public static class AimockHeaderContext
 {
     // Key under which the filtered x-* header map is stored on HttpContext.Items.
     private const string ItemsKey = "__aimock_forwarded_headers__";
+    private const string LastUserKey = "__aimock_last_user_message__";
 
     /// <summary>
     /// Stash the inbound x-* headers onto the request's HttpContext.Items so the
@@ -46,5 +47,20 @@ public static class AimockHeaderContext
             return new Dictionary<string, string>(headers);
         }
         return new();
+    }
+
+    public static void SetLastUserMessage(HttpContext context, string? text)
+    {
+        if (context is null || string.IsNullOrWhiteSpace(text)) return;
+        context.Items[LastUserKey] = text;
+    }
+
+    public static string? LastUserMessage(HttpContext? context)
+    {
+        if (context?.Items.TryGetValue(LastUserKey, out var value) == true)
+        {
+            return value as string;
+        }
+        return null;
     }
 }

@@ -24,6 +24,60 @@ The feature UI is a shared / near-identical frontend, so a cell looks and render
 - **What a violation looks like:** one integration's frontend component diverging from the others for the same feature.
 - **How to satisfy it:** edit the shared frontend source; verify parity by screenshot/diff, don't diverge per-integration.
 
+> **TWO COPIES OF EVERY DEMO PAGE EXIST RIGHT NOW — EDIT THE RIGHT ONE.**
+> A unified frontend is being introduced at `showcase/frontends/nextjs`, which
+> holds a ported copy of every demo folder at
+> `src/app/[integration]/demos/<demo-id>/`. Both copies are live:
+>
+> - The per-integration copy at `showcase/integrations/<slug>/src/app/demos/<demo-id>/`
+>   is what that integration's own container still serves. No integration has
+>   been switched over yet.
+>
+> **WHICH frontend serves a slug is TRACKED, in exactly one place:**
+> `demo_frontend` in `showcase/integrations/<slug>/manifest.yaml` —
+> `integration` (the default; its own container serves `/demos/<id>`) or
+> `unified` (the shared app serves `<origin>/<slug>/demos/<id>`). Every slug is
+> `integration` today. To migrate one:
+>
+> ```
+> # 1. edit ONE tracked field
+> #    showcase/integrations/<slug>/manifest.yaml:  demo_frontend: unified
+> # 2. regenerate the compose bridge
+> npx tsx showcase/scripts/emit-local-services-env.ts
+> ```
+>
+> Do NOT hand-set `LOCAL_SERVICE_URL_<SLUG>` in `showcase/.env` and do NOT look
+> for `SHOWCASE_UNIFIED_FRONTEND_SLUGS` (removed). Those were two uncompared
+> knobs, and a slug migrated in one but not the other looked healthy while its
+> cells 404ed. Everything now derives from the manifest field: the harness reads
+> the manifests directly, the compose roster reads the generated
+> `showcase/local-services.generated.env` (tracked; exported by
+> `scripts/cli/_common.sh`), and `_common.sh` ABORTS with
+> `UNIFIED_FRONTEND_SOURCE_DISAGREEMENT` if `showcase/.env` contradicts a
+> manifest.
+>
+> **The demo axis and the agent axis are separate.** A migration moves the demo
+> PAGES only; the AG-UI agent stays on the integration's own origin. Every
+> roster and driver input carries both (`publicUrl`/`frontendBaseUrl` for demos,
+> `agentBaseUrl`/`backendUrl` for the agent). Collapsing them is what lets a
+> live unified frontend green a cell whose agent is dead.
+>
+> - The unified copy is what the demo-content bundler PREFERS.
+>   `resolveDemoDir` in `showcase/scripts/bundle-demo-content.ts` checks the
+>   unified root FIRST and unconditionally, so the `/code` viewer and the
+>   generated docs are built from it whenever it exists — which is now, for all
+>   43 ported folders.
+>
+> So fixing only the per-integration copy leaves the docs and the code viewer
+> showing the old code, with nothing failing to tell you. Change both, or state
+> in your PR why only one applies. The ported copies are NOT verbatim — each
+> carries hand-edits for the unified app (`useParams`, a rewritten `runtimeUrl`,
+> a corrected agent id) — so a blind copy-paste between them is also wrong.
+>
+> Nothing in this file forbids editing either copy. If you read a comment in the
+> tree claiming AGENTS.md forbids editing ported demo folders, that claim is
+> false and should be deleted; it was invented and briefly propagated.
+
 ### 3. Minimal backends — the thinnest thing that drives the feature
 
 Each integration's backend is the minimal glue needed to drive the feature. No per-integration logic that actually belongs in shared.
@@ -60,6 +114,34 @@ To check whether a path is still a proper symlink:
 ```
 ls -l showcase/integrations/<slug>/shared-tools   # should print "-> ../../shared/..."
 ```
+
+### Windows: NEVER point a junction at the repo (this has wiped tracked files twice)
+
+On a checkout with `core.symlinks=false` — the default on Windows without
+Developer Mode — every one of these symlinks materialises as a small plain TEXT
+file whose contents are the link target (e.g. a 29-byte file containing
+`../../shared/typescript/tools`). Node and `tsx` cannot resolve
+`@copilotkit/showcase-shared-tools` through that, so an integration will not boot
+until you materialise the path for real.
+
+The obvious workaround is a directory junction, and it is a trap:
+
+- **`rm -rf` on a junction FOLLOWS it and deletes the TARGET's contents.** A
+  junction pointing at `showcase/shared/typescript/tools` therefore empties that
+  tracked directory the first time anything cleans up. This has happened twice.
+- Remove a junction with `cmd /c rmdir <path>`, which does not follow it.
+
+If you must materialise one of these paths locally:
+
+1. Copy the shared tools into your scratchpad directory.
+2. Point the junction at the SCRATCHPAD copy, never into the repo.
+3. Remove it with `cmd /c rmdir`, then restore the tracked payload with
+   `git checkout HEAD -- <path>` and confirm `git status` is clean.
+
+Verify afterwards, every time: the symlink path is back to its exact tracked
+bytes AND `git diff HEAD -- showcase/shared/` is empty. A green build proves
+nothing here — the wipe leaves the build passing and the loss only shows up as
+missing files in a later diff.
 
 ---
 

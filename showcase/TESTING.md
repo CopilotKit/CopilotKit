@@ -38,6 +38,31 @@ exercises the same producer→queue→worker pipeline Railway uses, so local
 results are apples-to-apples with staging. `--direct` is opt-out legacy:
 useful for fast in-process debugging when you don't need the queue.
 
+### How a control-plane verdict is correlated to YOUR run
+
+The control-plane container runs its OWN cron producer over the same
+`LOCAL_SERVICES_JSON` roster, so a foreign job for your slug carries the SAME
+`probe_key` (`d6:<slug>`) and writes to the SAME dashboard `status` row as your
+job. The CLI therefore does NOT read that row to decide your verdict. It:
+
+1. fires one operator-triggered producer tick, which mints a unique `runId`;
+2. blocks until every `probe_jobs` row stamped with THAT `runId` is terminal
+   (`done`/`failed`) and processed by the result-consumer;
+3. reads the verdict out of YOUR job's own `result` — `aggregateKey`
+   (`d6:<slug>`) plus one `cells[].cellKey` per cell.
+
+Two operator-visible consequences:
+
+- **A `--d6` invocation cannot finish faster than your own job.** If it returns
+  in seconds, your job really was that fast. Before this correlation existed,
+  an invocation was observed exiting 0 with "1 passed" in 9.9 seconds off a
+  foreign row while its own 41-cell job ran for five more minutes and finished
+  RED. Any verdict recorded before that fix is untrustworthy.
+- **Timeouts now name your own outstanding job** (`waiting for its OWN N
+job(s) to finish`) instead of naming a status key. A timeout here means your
+  job never finished or the result-consumer never processed it — check the
+  worker and control-plane containers, not the dashboard.
+
 `--isolate` (post-A21+A21b) scopes the rebuild to the target slug — infra
 services (aimock, pocketbase, dashboard, harness, harness-pool-worker) reuse
 cached images from the local Docker store. Cold-build is ~30s–2 min per slug

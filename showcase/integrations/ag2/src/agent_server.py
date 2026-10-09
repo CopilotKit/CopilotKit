@@ -87,7 +87,8 @@ from agents.tool_rendering_reasoning_chain import (
 app = FastAPI(title="AG2 Agent Server")
 
 
-# Serve /health via middleware so it short-circuits BEFORE route resolution.
+# Serve /health (and its /api/health alias) via middleware so it short-circuits
+# BEFORE route resolution.
 # A plain `@app.get("/health")` decorator is shadowed by the subsequent
 # `app.mount("/", ...)` call: Starlette's Mount at "/" matches every path
 # (including /health) and the decorated route never fires. Middleware runs
@@ -95,7 +96,14 @@ app = FastAPI(title="AG2 Agent Server")
 # of what the framework-specific AG-UI adapter mounts at root.
 class HealthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
-        if request.url.path == "/health" and request.method == "GET":
+        # ``/api/health`` is an ALIAS of ``/health`` — same handler, same
+        # response. Railway's healthcheckPath is ``/api/health``, which the
+        # Next.js half of this container serves today. Answering it here as
+        # well means that when the Next.js process is removed and the agent
+        # becomes the only listener, the existing Railway healthcheck keeps
+        # working with no dashboard change. Today it is a pure addition: the
+        # agent's port is not the one Railway probes.
+        if request.url.path in ("/health", "/api/health") and request.method == "GET":
             return JSONResponse({"status": "ok"})
         return await call_next(request)
 
@@ -115,8 +123,8 @@ class HealthMiddleware(BaseHTTPMiddleware):
 # Resulting outer→inner execution order:
 #   CORS → RequestUserMessage → HeaderForwarding → Health → routes/mounts
 
-# Innermost: serve /health via middleware so it short-circuits BEFORE
-# route resolution. (Already declared above as HealthMiddleware.)
+# Innermost: serve /health + /api/health via middleware so they short-circuit
+# BEFORE route resolution. (Already declared above as HealthMiddleware.)
 app.add_middleware(HealthMiddleware)
 
 # Capture inbound CopilotKit `x-*` headers (e.g. `x-aimock-context`) into a

@@ -75,7 +75,7 @@ function createAgentConfigAgent() {
       const props = (input.forwardedProps ?? {}) as Record<string, unknown>;
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
       return chat({
-        adapter: openaiText("gpt-4o", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-5.5", { fetch: forwardingFetch }),
         messages,
         systemPrompts: [buildConfigSystemPrompt(props), ...systemPrompts],
         tools: [],

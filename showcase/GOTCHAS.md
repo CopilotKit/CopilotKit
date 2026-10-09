@@ -127,6 +127,36 @@ What we learned from getting all 18 integrations to D5 green. Many of these are 
 
 ---
 
+## Probes must recognise BOTH runtime URL shapes
+
+A migrated integration (`demo_frontend: unified`) serves its demo pages from the
+unified app and mounts the runtime at `/api/<slug>/<demo>`. An unmigrated one
+mounts it at `/api/copilotkit` or `/api/copilotkit-<demo>`. Any probe that
+recognises the runtime request by the literal `copilotkit` segment sees NOTHING
+on a migrated integration.
+
+**The symptom is a FALSE RED, and it is easy to misread.** With the runtime
+request invisible, the page-side SSE counter never increments and
+`waitForTurnComplete`'s SSE conjunct never fires, so the turn times out with
+`reason=sse-missing, runsFinished=0` — on a demo whose agent-side logs prove it
+ran. The request-body capture in `d5-readonly-state-context` reports
+`captured body: (none)` for the same reason. Only cells that consult the SSE
+conjunct or capture traffic regress; the ~36 cells that assert on DOM surfaces
+stay green, which makes the pattern look integration-specific rather than
+transport-wide.
+
+**There is ONE shared predicate:
+`harness/src/probes/helpers/runtime-endpoint.ts`.** Use
+`isCopilotkitRuntimeRequest(url, method)`, or
+`COPILOTKIT_RUNTIME_URL_PATTERN` where the seam can only filter on a URL
+(Playwright `page.route`). It matches the `copilotkit` family AND the
+two-segment `/api/<slug>/<demo>` shape, gated on a non-safe HTTP method so a
+demo page's `/api/health` GET can never win the SSE interceptor's single
+tracking slot. Never hardcode a slug in a probe — that violates iron rule 1
+(`AGENTS.md`) and is worse than the bug it fixes.
+
+---
+
 ## Aimock & Fixture Edge Cases
 
 **Check fixtures FIRST.** When an agent misbehaves through aimock, the fixture determines behavior — the real LLM is never consulted.

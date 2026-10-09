@@ -14,7 +14,7 @@ import {
 import { withForwardedHeaders } from "@/lib/header-forwarding";
 
 // Shared runtime for the three reasoning demos. The default tanstack
-// factory uses a non-reasoning model (gpt-4o) — these demos need a
+// factory uses a non-reasoning model (gpt-5.4) — these demos need a
 // reasoning-capable variant so REASONING_* events flow. They live on
 // their own basePath so a single page only spins up the reasoning model
 // when actually viewing a reasoning demo.

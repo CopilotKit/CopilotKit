@@ -44,10 +44,20 @@ class _FakeRequest:
 
 
 def _install_fake_openai(monkeypatch: pytest.MonkeyPatch, response: Any) -> None:
-    """Replace ``_call_openai`` with a coroutine that returns *response*."""
+    """Replace ``_call_openai`` with a coroutine that returns *response*
+    on the first call, then an empty text message.
+
+    After a backend TOOL_CALL_RESULT the adapter calls the LLM again
+    so toolCallId narration fixtures can run. Tests that pin a single
+    tool-call response must not re-emit that same call on the follow-up.
+    """
+    calls = {"n": 0}
 
     async def _fake_call_openai(messages, tools, model):
-        return response
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return response
+        return SimpleNamespace(content="", tool_calls=None)
 
     monkeypatch.setattr(agui_adapter, "_call_openai", _fake_call_openai)
 

@@ -76,7 +76,7 @@ async function drain(res: Response): Promise<void> {
 const OPTS = {
   slug: "built-in-agent",
   agentName: "default",
-  modelId: "gpt-4o",
+  modelId: "gpt-5.5",
   provider: "openai",
 } as const;
 

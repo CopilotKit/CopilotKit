@@ -106,6 +106,87 @@ describe("createD6ServiceEnumerator", () => {
     expect(cr?.probeKey).toBe("d6:crewai");
   });
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // THE TWO AXES. `toDriverInputs` is the ONE place the fleet path projects a
+  // discovered service onto driver inputs, so it is the one place a migration
+  // onto the unified frontend is honoured — or silently lost. The d6 driver
+  // reads `backendUrl ?? publicUrl` for the AGENT and
+  // `frontendBaseUrl ?? backendUrl` for where the DEMOS are served.
+  // ─────────────────────────────────────────────────────────────────────────
+  it("migrated slug: frontendBaseUrl carries the demo origin and backendUrl the agent origin", async () => {
+    const source = fakeSource([
+      svc({
+        name: "showcase-langgraph-python",
+        // Demos moved onto the unified frontend...
+        publicUrl: "http://frontend-nextjs:3000/langgraph-python",
+        // ...the agent did NOT.
+        agentBaseUrl: "http://langgraph-python:10000",
+      }),
+    ]);
+    const enumerate = createD6ServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+    });
+
+    const [spec] = await enumerate(CTX);
+
+    // Navigation goes through the unified frontend, WITH the /<slug> segment.
+    expect(spec.driverInputs?.frontendBaseUrl).toBe(
+      "http://frontend-nextjs:3000/langgraph-python",
+    );
+    // The agent is dialled at the integration's own container. THE FALSE-GREEN
+    // GUARD: if backendUrl ever became the frontend origin, a live unified
+    // frontend would green a cell whose agent is dead.
+    expect(spec.driverInputs?.backendUrl).toBe("http://langgraph-python:10000");
+    expect(spec.driverInputs?.backendUrl).not.toContain("frontend-nextjs");
+    // And the inputs must still satisfy the driver's own schema.
+    expect(e2eFullDriver.inputSchema.safeParse(spec.driverInputs).success).toBe(
+      true,
+    );
+  });
+
+  it("unmigrated slug: frontendBaseUrl is OMITTED so the shape is unchanged", async () => {
+    // When the two origins coincide the driver's documented fallback
+    // (`frontendBaseUrl ?? backendUrl`) already produces the right value.
+    // Emitting a second copy would restate a default and drift this serialized
+    // shape from every pre-existing job.
+    const source = fakeSource([svc({ agentBaseUrl: undefined })]);
+    const enumerate = createD6ServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+    });
+
+    const [spec] = await enumerate(CTX);
+
+    expect(spec.driverInputs).not.toHaveProperty("frontendBaseUrl");
+    expect(spec.driverInputs?.backendUrl).toBe("http://langgraph-python:10000");
+  });
+
+  it("an agentBaseUrl equal to publicUrl still omits frontendBaseUrl", async () => {
+    // Explicit-but-identical must behave exactly like absent, or the same
+    // topology would serialize two different ways depending on who built the
+    // roster.
+    const source = fakeSource([
+      svc({
+        publicUrl: "http://langgraph-python:10000",
+        agentBaseUrl: "http://langgraph-python:10000",
+      }),
+    ]);
+    const enumerate = createD6ServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+    });
+
+    const [spec] = await enumerate(CTX);
+    expect(spec.driverInputs).not.toHaveProperty("frontendBaseUrl");
+  });
+
   it("passes the d6 discovery filter (namePrefix + nameExcludes) to the source", async () => {
     const source = fakeSource([svc()]);
     const enumerate = createD6ServiceEnumerator({

@@ -91,7 +91,10 @@ from agents.agent_config_agent import (
 )
 from agents.byoc_hashbrown_agent import agent as byoc_hashbrown_agent
 from agents.byoc_json_render_agent import agent as byoc_json_render_agent
+from agents.beautiful_chat import agent as beautiful_chat_agent
+from agents.frontend_tools_async import agent as frontend_tools_async_agent
 from agents.gen_ui_agent import agent as gen_ui_agent
+from agents.headless_complete import agent as headless_complete_agent
 from agents.interrupt_agent import agent as interrupt_agent
 from agents.main import agent as main_agent
 from agents.mcp_apps_agent import agent as mcp_apps_agent
@@ -779,6 +782,9 @@ agent_os = AgentOS(
     agents=[
         main_agent,
         interrupt_agent,
+        beautiful_chat_agent,
+        frontend_tools_async_agent,
+        headless_complete_agent,
         a2ui_dynamic_agent,
         a2ui_fixed_agent,
         agent_config_agent,
@@ -833,6 +839,12 @@ app = agent_os.get_app()
 # silently dropped by ``extract_agui_user_input()``.
 _attach_hitl_aware_route(app, main_agent, "")
 
+# Dedicated thin agents. HITL-aware so frontend tool results (query_notes,
+# highlight_note, scheduleTime) come back on the second leg.
+_attach_hitl_aware_route(app, frontend_tools_async_agent, "/frontend-tools-async")
+_attach_hitl_aware_route(app, headless_complete_agent, "/headless-complete")
+_attach_hitl_aware_route(app, beautiful_chat_agent, "/beautiful-chat")
+
 # Interrupt-adapted scheduling agent. Shared by gen-ui-interrupt and
 # interrupt-headless demos -- backend has tools=[], the frontend provides
 # `schedule_meeting` via `useFrontendTool` with an async Promise handler.
@@ -863,10 +875,18 @@ _attach_state_aware_route(app, gen_ui_agent, "/gen-ui-agent")
 _attach_agent_config_route(app, "/agent-config")
 
 
-# Serve /health via middleware so it short-circuits BEFORE route resolution.
+# Serve /health (and its /api/health alias) via middleware so it short-circuits
+# BEFORE route resolution.
 class HealthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
-        if request.url.path == "/health" and request.method == "GET":
+        # ``/api/health`` is an ALIAS of ``/health`` — same handler, same
+        # response. Railway's healthcheckPath is ``/api/health``, which the
+        # Next.js half of this container serves today. Answering it here as
+        # well means that when the Next.js process is removed and the agent
+        # becomes the only listener, the existing Railway healthcheck keeps
+        # working with no dashboard change. Today it is a pure addition: the
+        # agent's port is not the one Railway probes.
+        if request.url.path in ("/health", "/api/health") and request.method == "GET":
             return JSONResponse({"status": "ok"})
         return await call_next(request)
 

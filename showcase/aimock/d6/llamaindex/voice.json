@@ -7,10 +7,21 @@
   },
   "fixtures": [
     {
-      "_comment": "Voice probe fast-path: exact-match content-only response.",
+      "_comment": "Voice probe fast-path: exact-match content-only response. recorded.json has the same userMessage and used to win first (emits get_weather). That file is now gated on toolName:get_weather so this tool-free /voice/run turn can match.",
       "match": {
         "userMessage": "What is the weather in Tokyo?",
         "turnIndex": 0,
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
+      }
+    },
+    {
+      "_comment": "Voice narration after a leaked get_weather tool result (d4 'weather' substring). Must come after the content-only turnIndex:0 fixture so a tool-free first leg still hits content-only. toolCallId-less + hasToolResult so any get_weather id works.",
+      "match": {
+        "userMessage": "What is the weather in Tokyo?",
+        "hasToolResult": true,
         "context": "llamaindex"
       },
       "response": {

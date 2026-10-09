@@ -43,6 +43,11 @@
  */
 
 import type { Frame, Page } from "playwright";
+import {
+  COPILOTKIT_RUNTIME_URL_PATTERN,
+  NON_RUNTIME_METHOD_LIST,
+  isRuntimeCapableMethod,
+} from "./runtime-endpoint.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- CDP payload typing
    intentionally unconstrained: we narrow at the read-site rather than
@@ -96,12 +101,17 @@ export interface SseCapture {
  *
  * - `endpointPattern`     URL filter for which response stream to watch.
  *                         Matches against the full URL (string `includes`
- *                         or regex `test`). Defaults to
- *                         `/\/api\/copilotkit(\/|-|$|\?)/` so that all
- *                         five runtime URL shapes the v2 client emits
- *                         match (see `DEFAULT_ENDPOINT_PATTERN` for the
- *                         full enumeration); covers every showcase
- *                         integration without per-demo configuration.
+ *                         or regex `test`). Defaults to the SHARED
+ *                         `COPILOTKIT_RUNTIME_URL_PATTERN`
+ *                         (`runtime-endpoint.ts`), which covers BOTH the
+ *                         per-integration `/api/copilotkit[-<demo>]`
+ *                         family and the unified frontend's
+ *                         `/api/<slug>/<demo>` runtime route — every
+ *                         showcase integration, migrated or not, with no
+ *                         per-demo and no per-integration configuration.
+ *                         A universal method gate applies on top of this
+ *                         pattern even when it is overridden; see
+ *                         `isRuntimeCapableMethod`.
  * - `toolCallEventTypes`  SSE event-type values that signal a new tool-call
  *                         beginning. Defaults to `["TOOL_CALL_START"]`
  *                         which is the canonical ag-ui event; a list lets
@@ -136,46 +146,34 @@ export interface SseInterceptorHandle {
 /**
  * Default URL filter for the SSE runtime endpoint.
  *
- * Must match every URL CopilotKit's v2 client actually hits — the
- * shapes that flow are:
+ * Delegates to the SHARED shape rule in `runtime-endpoint.ts` — read that
+ * module's header for the full enumeration of the URL shapes CopilotKit's v2
+ * client actually hits (per-integration `/api/copilotkit`,
+ * `/api/copilotkit-<demo>`, their v2 REST sub-paths, AND the unified
+ * frontend's `/api/<slug>/<demo>` runtime route), plus what the shape
+ * deliberately excludes.
  *
- *   (a) `/api/copilotkit`                            — v2 single-route
- *       transport (the showcase's default; runtimeUrl is hit verbatim
- *       with NO trailing slash and NO `/agent/<id>/run` suffix).
- *       `ProxiedCopilotRuntimeAgent` strips a trailing `/` from
- *       `runtimeUrl` and uses that exact string as the run URL when
- *       `transport === "single"` (`packages/core/src/agent.ts:117-125`).
- *   (b) `/api/copilotkit/agent/<id>/run`              — v2 REST
- *       transport (the URL `ProxiedCopilotRuntimeAgent` constructs in
- *       non-single mode at the same call site).
- *   (c) `/api/copilotkit/info`                        — v2 REST runtime
- *       info GET; not an SSE stream but kept under one filter so
- *       future probes don't have to re-derive what "the runtime URL"
- *       means.
- *   (d) `/api/copilotkit-<demo>` and
- *       `/api/copilotkit-<demo>/...`                  — per-demo
- *       dedicated runtime endpoints (declarative-hashbrown, ogui,
- *       multimodal, mcp-apps, auth, voice, beautiful-chat, …). Each
- *       has its own Next.js route handler; the v2 client still hits
- *       `<runtimeUrl>` in single mode and `<runtimeUrl>/agent/<id>/run`
- *       in REST mode.
+ * Two earlier filters are worth remembering, because each was a live false
+ * red:
  *
- * The previous filter `/\/api\/copilotkit\//` required a TRAILING
- * SLASH after `copilotkit` and so failed (a) entirely — the s7
- * mechanism-GREEN test used a `page.route` fake that served from
- * `…/api/copilotkit/agent/runtime` (an `/agent/…` URL that matches the
- * old filter), masking the production mismatch. Against the real
- * showcase runtime the wrapper saw a `/api/copilotkit` POST, ignored
- * it, and `__hk_runsFinished` stayed at 0 even though the assistant
- * rendered text. `waitForTurnComplete`'s SSE conjunct then never
- * fired and the turn timed out with reason=sse-missing.
+ *   - `/\/api\/copilotkit\//` required a TRAILING SLASH after `copilotkit`, so
+ *     it missed the single-route `POST /api/copilotkit` entirely. The s7
+ *     mechanism-GREEN test used a `page.route` fake serving from
+ *     `…/api/copilotkit/agent/runtime` (an `/agent/…` URL that matched the old
+ *     filter), masking the production mismatch: against the real runtime the
+ *     wrapper saw a bare `/api/copilotkit` POST, ignored it, and
+ *     `__hk_runsFinished` stayed at 0 even though the assistant rendered text.
+ *   - `/\/api\/copilotkit(\/|-|$|\?)/` fixed that but still keyed on the
+ *     literal `copilotkit` segment, so it missed EVERY runtime request from a
+ *     `demo_frontend: unified` integration (`/api/<slug>/<demo>`). Same
+ *     symptom, same `reason=sse-missing` timeout, on a demo whose agent had
+ *     demonstrably run.
  *
- * The new filter accepts `/api/copilotkit` followed by `/`, `-`,
- * end-of-string, or `?` so all five shapes above match while
- * `/api/copilotkit_underscore_suffix` or `/api/copilotkitfoo` still
- * fall through.
+ * Note the ONE shape the current rule drops on purpose: a GET
+ * `/api/copilotkit/info`. It is not an SSE stream, and excluding safe verbs is
+ * what makes the widened two-segment shape safe (see `runtime-endpoint.ts`).
  */
-const DEFAULT_ENDPOINT_PATTERN = /\/api\/copilotkit(\/|-|$|\?)/;
+const DEFAULT_ENDPOINT_PATTERN = COPILOTKIT_RUNTIME_URL_PATTERN;
 const DEFAULT_TOOL_CALL_EVENT_TYPES = ["TOOL_CALL_START"];
 
 /**
@@ -523,12 +521,33 @@ function buildPageSideCounterScript(endpointPattern: string | RegExp): string {
           pattern = patternSpec.value;
         }
       } catch (_) {
-        pattern = '/api/copilotkit/';
+        // Rebuilding the serialized pattern failed (should be unreachable).
+        // Fall back to the BROADEST substring rather than to a copilotkit-only
+        // literal: that literal silently missed every unified-frontend runtime
+        // URL (/api/<slug>/<demo>) and the counter stayed 0, which reads as
+        // reason=sse-missing. Broad is safe HERE because this counter only ever
+        // increments on a RUN_FINISHED event, so a teed non-runtime stream
+        // cannot move it.
+        pattern = '/api/';
       }
       function matches(url) {
         if (!url) return false;
         if (typeof pattern === 'string') return url.indexOf(pattern) !== -1;
         try { return pattern.test(url); } catch (_) { return false; }
+      }
+      // Mirrors isRuntimeCapableMethod in runtime-endpoint.ts: safe verbs are
+      // never a runtime call, an absent/unknown method stays matchable.
+      var nonRuntimeMethods = ${JSON.stringify(NON_RUNTIME_METHOD_LIST)};
+      function methodOk(input, init) {
+        var m = '';
+        if (init && typeof init.method === 'string') m = init.method;
+        else if (input && typeof input === 'object' && typeof input.method === 'string') m = input.method;
+        if (!m) return true;
+        m = m.toUpperCase();
+        for (var k = 0; k < nonRuntimeMethods.length; k++) {
+          if (nonRuntimeMethods[k] === m) return false;
+        }
+        return true;
       }
       function urlOf(input) {
         if (typeof input === 'string') return input;
@@ -592,7 +611,7 @@ function buildPageSideCounterScript(endpointPattern: string | RegExp): string {
       g.fetch = function(input, init) {
         var url = urlOf(input);
         var p = originalFetch.call(this, input, init);
-        if (!matches(url)) return p;
+        if (!matches(url) || !methodOk(input, init)) return p;
         return p.then(function(response) {
           try {
             var cloned = response.clone();
@@ -871,6 +890,12 @@ export async function attachSseInterceptor(
   const onRequestWillBeSent = (params: any): void => {
     if (trackedRequestId !== null) return;
     const url: string = params?.request?.url ?? "";
+    // Method gate is UNIVERSAL (it applies even when the caller supplied a
+    // custom `endpointPattern`): it is what keeps the widened two-segment URL
+    // shape from latching a demo page's `/api/health`-style GET ahead of the
+    // real runtime POST. An ABSENT method is treated as matchable — see
+    // `isRuntimeCapableMethod`.
+    if (!isRuntimeCapableMethod(params?.request?.method)) return;
     if (!matchesEndpoint(url, endpointPattern)) return;
     trackedRequestId = String(params.requestId);
     // CDP gives `wallTime` (seconds since epoch) on requestWillBeSent —

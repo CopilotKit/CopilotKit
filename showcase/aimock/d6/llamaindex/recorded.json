@@ -114,7 +114,7 @@
       }
     },
     {
-      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T22-01-34-384Z-edf48666.json",
+      "_comment": "Was a recorded get_weather emit for the exact voice prompt. That shadowed voice.json (same userMessage, this file loads first) and hung /voice/run (tool-free router, no RUN_FINISHED). Content-only now, same text as voice.json, so whichever fixture wins the voice turn finishes.",
       "match": {
         "userMessage": "What is the weather in Tokyo?",
         "model": "gpt-4o-mini",
@@ -123,13 +123,7 @@
         "context": "llamaindex"
       },
       "response": {
-        "toolCalls": [
-          {
-            "name": "get_weather",
-            "arguments": "{\"location\":\"Tokyo\"}",
-            "id": "call_0uXBAr4ySTrLQGQgszQYFtEJ"
-          }
-        ]
+        "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
       }
     },
     {

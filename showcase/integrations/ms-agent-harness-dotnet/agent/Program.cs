@@ -147,7 +147,14 @@ app.MapAGUI("/shared-state-read-write", sharedStateReadWriteFactory.CreateAgent(
 var subagentsFactory = new SubagentsAgentFactory(openAiClient, loggerFactory, jsonOptions);
 app.MapAGUI("/subagents", subagentsFactory.CreateAgent());
 
+// /api/health is an ALIAS of /health — same handler, same response.
+// Railway's healthcheckPath is /api/health, which the Next.js half of this
+// container serves today. Answering it here as well means that when the
+// Next.js process is removed and the agent becomes the only listener, the
+// existing Railway healthcheck keeps working with no dashboard change. Today
+// it is a pure addition: the agent's port is not the one Railway probes.
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }));
 
 await app.RunAsync();
 

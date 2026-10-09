@@ -14,6 +14,7 @@ import yaml from "yaml";
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
 import { validateManifestConstraints } from "./validate-constraints.js";
+import { AGENT_KINDS, DEMO_FRONTENDS } from "./lib/manifest.js";
 // The catalog flatten (cross-join + parity tiers) is the SINGLE flattening
 // authority (finding 1), factored into the harness so BOTH this codegen and the
 // harness `GET /api/matrix` read-model (T13) call the ONE implementation. It
@@ -314,7 +315,83 @@ function readJsonOrExit(filePath: string, label: string): any {
 }
 
 function loadSchema() {
-  return readJsonOrExit(SCHEMA_PATH, "schema");
+  const schema = readJsonOrExit(SCHEMA_PATH, "schema");
+  assertSchemaAgentKindsMatch(schema);
+  assertSchemaDemoFrontendsMatch(schema);
+  return schema;
+}
+
+/**
+ * Cross-check the schema's `demo_frontend` enum against `DEMO_FRONTENDS` in
+ * lib/manifest.ts. Exactly the same hazard, and exactly the same fix, as
+ * `assertSchemaAgentKindsMatch` below — JSON cannot import TypeScript, so the
+ * schema copy cannot be deleted, and this check is what makes it a spelling of
+ * one list rather than a second opinion.
+ *
+ * `demo_frontend` is the tracked source of truth for the unified-frontend
+ * migration, so a value that validates in one place and not the other is worse
+ * here than for `agent_kind`: the manifest would pass the registry build while
+ * `parseManifest` (and therefore the compose-roster emitter that reads it)
+ * rejected it, leaving the slug with no derived roster entry at all.
+ */
+export function assertSchemaDemoFrontendsMatch(schema: unknown): void {
+  const enumValues = (
+    schema as { properties?: { demo_frontend?: { enum?: unknown } } }
+  )?.properties?.demo_frontend?.enum;
+  const expected = [...DEMO_FRONTENDS].sort().join(",");
+  const actual = Array.isArray(enumValues)
+    ? [...enumValues].map(String).sort().join(",")
+    : null;
+  if (actual !== expected) {
+    console.error(
+      `ERROR: ${SCHEMA_PATH} declares demo_frontend enum ` +
+        `${JSON.stringify(enumValues)} but DEMO_FRONTENDS in ` +
+        `scripts/lib/manifest.ts is ${JSON.stringify(DEMO_FRONTENDS)}. The two ` +
+        `are one list with two spellings — add the value to both (and, if you ` +
+        `are adding the KEY rather than a value, to MANIFEST_KEYS in ` +
+        `showcase/frontends/nextjs/src/lib/integration-support.ts, which ` +
+        `cannot import either and takes the whole unified app down when it ` +
+        `disagrees with this schema).`,
+    );
+    process.exit(1);
+  }
+}
+
+/**
+ * Cross-check the schema's `agent_kind` enum against `AGENT_KINDS` in
+ * lib/manifest.ts.
+ *
+ * The list of legal kinds existed as THREE independent copies — this enum,
+ * `AGENT_KINDS` in lib/manifest.ts, and `AGENT_KINDS` in the frontend's
+ * agent-resolution.ts — each documented as "the" runtime-checkable one. JSON
+ * cannot import TypeScript, so the schema copy cannot be deleted; this check is
+ * what makes it a spelling of the same list instead of a fourth opinion. A kind
+ * added to one and not the other now fails the build, on the same labeled
+ * stderr + exit(1) contract as the {slug} check (consumers run this script with
+ * stdout ignored and stderr inherited).
+ *
+ * The frontend copy remains independent — it cannot import this package, which
+ * the app does not depend on and the deployed image does not stage.
+ */
+export function assertSchemaAgentKindsMatch(schema: unknown): void {
+  const enumValues = (
+    schema as { properties?: { agent_kind?: { enum?: unknown } } }
+  )?.properties?.agent_kind?.enum;
+  const expected = [...AGENT_KINDS].sort().join(",");
+  const actual = Array.isArray(enumValues)
+    ? [...enumValues].map(String).sort().join(",")
+    : null;
+  if (actual !== expected) {
+    console.error(
+      `ERROR: ${SCHEMA_PATH} declares agent_kind enum ` +
+        `${JSON.stringify(enumValues)} but AGENT_KINDS in scripts/lib/manifest.ts ` +
+        `is ${JSON.stringify(AGENT_KINDS)}. The two are one list with two ` +
+        `spellings — add the kind to both (and to AGENT_KINDS in ` +
+        `showcase/frontends/nextjs/src/lib/agent-resolution.ts, which cannot ` +
+        `import either).`,
+    );
+    process.exit(1);
+  }
 }
 
 function loadFeatureRegistry() {
@@ -391,14 +468,42 @@ function loadDocsLinks(packageDir: string, errors: string[]): DocsLinks {
   }
 }
 
+/**
+ * Whether `candidate` is a directory, FOLLOWING symlinks.
+ *
+ * One `statSync` in a try/catch (not `existsSync` + `statSync`, which is a
+ * time-of-check/time-of-use race). Mirrors `isDirectory` in
+ * showcase/frontends/nextjs/src/lib/integration-support.ts.
+ */
+function isDirectoryFollowingLinks(candidate: string): boolean {
+  try {
+    return fs.statSync(candidate).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 function findManifests(): string[] {
   if (!fs.existsSync(PACKAGES_DIR)) {
     return [];
   }
 
+  // `withFileTypes` has LSTAT semantics: a symlink POINTING AT a directory
+  // reports isSymbolicLink() === true and isDirectory() === false, so the bare
+  // `d.isDirectory()` filter dropped it wordlessly — no manifest, no registry
+  // entry, no error. The frontend does NOT drop it: `readManifests` in
+  // integration-support.ts deliberately follows such a link ("This repo already
+  // links integration content this way"), so the same tree yielded a manifest
+  // to the app and nothing to the registry, and the two disagreed silently
+  // about which integrations exist. `statSync` follows the link.
   const dirs = fs
     .readdirSync(PACKAGES_DIR, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
+    .filter(
+      (d) =>
+        d.isDirectory() ||
+        (d.isSymbolicLink() &&
+          isDirectoryFollowingLinks(path.join(PACKAGES_DIR, d.name))),
+    )
     .map((d) => d.name);
 
   const manifests: string[] = [];
@@ -411,7 +516,7 @@ function findManifests(): string[] {
   return manifests;
 }
 
-function validateManifest(
+export function validateManifest(
   manifest: Record<string, unknown>,
   validate: ReturnType<Ajv["compile"]>,
   featureIds: Set<string>,
@@ -439,6 +544,28 @@ function validateManifest(
 
   // Validate demo IDs reference declared features
   const demos = (manifest.demos as Array<{ id: string }>) || [];
+  // DUPLICATE demos[].id. Draft-07 cannot express "unique on one property of
+  // array items" (`uniqueItems` compares whole items, so two rows differing in
+  // any other field slip past it), and this schema is the only validator this
+  // script runs — so a duplicate id passed the gate that matters while BOTH
+  // runtime parsers reject it (parseManifest in lib/manifest.ts, assertManifest
+  // in the frontend). Every read of demos[] resolves an id with `.find`, so the
+  // second row is unreachable: its route, agent and runtime are ignored with no
+  // diagnostic anywhere.
+  const demoIdOwners = new Map<string, number>();
+  for (const [index, demo] of demos.entries()) {
+    const owner = demoIdOwners.get(demo.id);
+    if (owner !== undefined) {
+      errors.push(
+        `${filePath}: Demo id "${demo.id}" is declared twice, at demos[${owner}] ` +
+          `and demos[${index}] — every read resolves an id with .find, so the ` +
+          `second entry is unreachable (its route, agent and runtime are ` +
+          `ignored). Merge the two entries or rename one.`,
+      );
+    } else {
+      demoIdOwners.set(demo.id, index);
+    }
+  }
   for (const demo of demos) {
     if (!featureIds.has(demo.id)) {
       errors.push(

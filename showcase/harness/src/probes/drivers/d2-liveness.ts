@@ -20,9 +20,15 @@ import type { ProbeContext, ProbeResult } from "../../types/index.js";
  *      `writer.write()` on the returned result just like every other
  *      driver, so the primary tick participates in the standard
  *      status-writer / alert-engine pipeline with no special-casing.
+ *
+ *      IT IS THE CELL VERDICT, NOT THE RAW /health STATUS: a green /health
+ *      with a RED agent probe returns RED (see the fold at the end of
+ *      `run()`). The CLI collects only this returned result, so leaving it
+ *      green would exit 0 on a cell whose agent is dead.
  *   2. `agent:<slug>` — side-emission via `ctx.writer.write()`. L2
- *      coverage: POSTs to `${backendUrl}/api/copilotkit/` with an empty
- *      JSON body and asserts the response is non-404. Matches the
+ *      coverage: POSTs to `${agentBaseUrl}/api/copilotkit/` with an empty
+ *      JSON body and asserts the response is non-404. This is the
+ *      per-axis breakdown that survives the fold above. Matches the
  *      contract of `checkAgentEndpoint` in the e2e helpers — any
  *      non-404 response from the CopilotKit runtime proves it's mounted,
  *      a 404 means the route isn't wired (Next.js 404 page, wrong agent
@@ -51,9 +57,13 @@ import type { ProbeContext, ProbeResult } from "../../types/index.js";
  *     manipulation. The `url` field is kept for backwards-compatibility
  *     with existing static-mode YAML configs even though the smoke
  *     endpoint itself is no longer probed.
- *   - Discovery: `{ key, name, imageRef, publicUrl, env }`. The base
- *     URL is `publicUrl`; slug is `name` with the `showcase-`
- *     prefix stripped (`showcase-ag2` → `ag2`). `imageRef` + `env` are
+ *   - Discovery: `{ key, name, imageRef, publicUrl, agentBaseUrl?, env }`.
+ *     TWO independent base URLs: `publicUrl` is where the DEMOS are served
+ *     and drives the health probe; `agentBaseUrl` is where the AGENT is and
+ *     drives the agent probe. `agentBaseUrl` is optional and defaults to
+ *     `publicUrl` (single-origin callers, i.e. every unmigrated slug).
+ *     Slug is `name` with the `showcase-` prefix stripped
+ *     (`showcase-ag2` → `ag2`). `imageRef` + `env` are
  *     ignored by this driver but declared in the schema so the
  *     railway-services record passes through without a translation
  *     hop — same pattern image-drift uses.
@@ -108,8 +118,25 @@ const discoveryLivenessInputSchema = z
     key: z.string().min(1),
     /** Discovery mode: Railway service name (`showcase-<slug>`). */
     name: z.string().min(1),
-    /** Discovery mode: `https://<domain>` base URL. The driver appends `/api/health` per shape. */
+    /**
+     * Discovery mode: base URL the slug's DEMOS are served from. May carry a
+     * path prefix (`http://frontend-nextjs:3000/<slug>`) once the slug is on
+     * the unified frontend. The health URL is derived from this value's
+     * ORIGIN — see `deriveUrls`.
+     */
     publicUrl: z.string().url(),
+    /**
+     * Discovery mode: base URL the slug's AGENT answers on. Optional; when
+     * absent it defaults to `publicUrl`, which reproduces the pre-split
+     * behaviour byte-for-byte for any caller that has only one origin.
+     *
+     * MUST stay a SEPARATE field. Deriving the agent URL from `publicUrl`
+     * means a live demo-serving frontend greens `health:<slug>` while the
+     * agent behind it is unreachable — a migration that looks verified and
+     * is not. `d2-liveness.test.ts` has a regression test that fails if the
+     * two axes are ever collapsed back onto one input.
+     */
+    agentBaseUrl: z.string().url().optional(),
     /**
      * Deployment shape tag from the discovery source
      * (`discovery/railway-services.ts`). Only `"package"` shape exists.
@@ -173,6 +200,16 @@ const livenessInputSchema = z
           "liveness input: `shape` is only valid with discovery mode (`name`+`publicUrl`)",
       });
     }
+    if (
+      hasUrl &&
+      (raw as { agentBaseUrl?: unknown }).agentBaseUrl !== undefined
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "liveness input: `agentBaseUrl` is only valid with discovery mode (`name`+`publicUrl`)",
+      });
+    }
   });
 
 type LivenessDriverInput = z.infer<typeof livenessInputSchema>;
@@ -192,7 +229,10 @@ type NormalisedLivenessInput =
       mode: "discovery";
       key: string;
       name: string;
+      /** Demo-serving base URL. */
       publicUrl: string;
+      /** Agent origin. `undefined` ⇒ same origin as `publicUrl`. */
+      agentBaseUrl?: string;
       shape?: ShowcaseServiceShape;
     };
 
@@ -301,6 +341,36 @@ export const livenessDriver: ProbeDriver<
     });
     await sideEmit(ctx, agentResult, agentKey);
 
+    // THE PRIMARY VERDICT IS THE AND OF BOTH AXES.
+    //
+    // `run()`'s return value is the ONLY thing the CLI collects: `bin/showcase
+    // test <slug> --smoke` builds its terminal line and its exit code from it
+    // (`runDriverInputs` in `src/cli/runner.ts` pushes the returned result and
+    // nothing else). Side-emitted rows reach PocketBase and the dashboard but
+    // are invisible to the CLI verdict.
+    //
+    // So returning `healthResult` alone means: demo-serving origin up + agent
+    // dead ⇒ green smoke, exit 0, "migration verified". That is the failure
+    // this driver exists to prevent, and it is not hypothetical — the two URLs
+    // used to be derived from one input, so the agent probe could not even
+    // disagree with the health probe.
+    //
+    // Both must therefore fail the cell. The `agent:<slug>` side row keeps the
+    // per-axis breakdown, so folding loses no diagnostic detail: an operator
+    // still sees WHICH half broke, and `errorDesc`/`url` below name the agent
+    // endpoint directly.
+    if (healthResult.state === "green" && agentResult.state !== "green") {
+      return {
+        ...healthResult,
+        state: agentResult.state,
+        signal: {
+          ...agentResult.signal,
+          // Report the AGENT url — the endpoint that actually failed.
+          errorDesc: `agent unreachable: ${agentResult.signal.errorDesc ?? `status ${agentResult.signal.status ?? "?"}`}`,
+        },
+      };
+    }
+
     return healthResult;
   },
 };
@@ -347,6 +417,10 @@ function normaliseMode(input: unknown): NormalisedLivenessInput {
       key: raw.key,
       name: raw.name,
       publicUrl: raw.publicUrl,
+      agentBaseUrl:
+        typeof raw.agentBaseUrl === "string" && raw.agentBaseUrl.length > 0
+          ? raw.agentBaseUrl
+          : undefined,
       shape,
     };
   }
@@ -639,32 +713,54 @@ interface DerivedUrls {
 /**
  * Derive the two per-target URLs from the input shape.
  *
- *   - Discovery mode (`publicUrl` present): health = `${publicUrl}/api/health`,
- *     agent = `${publicUrl}/api/copilotkit/`.
- *     The trailing slash on the agent path mirrors the runtime router's
- *     expectation — CopilotKit Hono routes are mounted at
- *     `/api/copilotkit/` with a trailing slash in every showcase.
- *   - Static mode (`url` present): historically the YAML `url` field
- *     points at `/smoke`; health is derived via `deriveHealthUrl`, agent
- *     by swapping the trailing `/smoke` for `/api/copilotkit/`. The
- *     `/smoke` endpoint itself is no longer probed.
+ * THE TWO URLS COME FROM TWO DIFFERENT INPUTS. That separation is the
+ * point of this function, not an implementation detail:
  *
- * Static-mode agent URL derivation is the weak link — the YAML URL
- * doesn't carry the agent-path convention — but static mode is a
- * fallback for operator-authored test configs, not the production
- * path (which is discovery). When the discovery migration completes,
- * static-mode callers can pass an explicit agent URL in a future
- * schema extension if needed.
+ *   - `healthUrl` answers "is the thing that SERVES THE DEMOS up?" and is
+ *     derived from `publicUrl`.
+ *   - `agentUrl` answers "is the AGENT reachable?" and is derived from
+ *     `agentBaseUrl`.
+ *
+ * Before the split both came from `publicUrl`. Once a slug's demos move to
+ * the unified frontend (`publicUrl = <frontend-origin>/<slug>`) while its
+ * agent stays on its own origin, one value cannot express both — and the
+ * collapsed version FAILED SILENTLY: `health:<slug>` went green on the
+ * frontend's health endpoint while the agent behind it was dead, so a
+ * migration read as verified when nothing had been verified. See the
+ * "two axes" regression test in `d2-liveness.test.ts`.
+ *
+ * Discovery mode:
+ *   - health = `<origin of publicUrl>/api/health`. ORIGIN-relative, because
+ *     the unified frontend serves `/api/health` at its root, not under the
+ *     per-slug path prefix (`showcase/frontends/nextjs/src/app/api/health`).
+ *     For an unmigrated slug `publicUrl` carries no path, so this is
+ *     byte-identical to the previous `${publicUrl}/api/health`.
+ *   - agent = `${agentBaseUrl ?? publicUrl}/api/copilotkit/`. Path-appending
+ *     (not origin-relative) so an agent published under a path prefix keeps
+ *     it. The trailing slash mirrors the runtime router's expectation —
+ *     CopilotKit Hono routes are mounted at `/api/copilotkit/` with a
+ *     trailing slash in every showcase. When `agentBaseUrl` is absent this
+ *     is byte-identical to the previous behaviour.
+ *
+ * Static mode (`url` present): historically the YAML `url` field points at
+ * `/smoke`; health is derived via `deriveHealthUrl`, agent by swapping the
+ * trailing `/smoke` for `/api/copilotkit/`. The `/smoke` endpoint itself is
+ * no longer probed. Static mode CANNOT express the two axes — it carries one
+ * URL by construction — so it is unchanged and remains an operator-authored
+ * fallback, never the migration path. A static-mode caller that needs the
+ * split must move to the discovery shape.
  */
 function deriveUrls(
   input: NormalisedLivenessInput,
   _shape: ShowcaseServiceShape,
 ): DerivedUrls {
   if (input.mode === "discovery") {
-    const base = input.publicUrl.replace(/\/$/, "");
     return {
-      healthUrl: `${base}/api/health`,
-      agentUrl: `${base}/api/copilotkit/`,
+      healthUrl: deriveOriginHealthUrl(input.publicUrl),
+      // `?? publicUrl` is the back-compat default for single-origin callers,
+      // NOT a re-collapse: a caller with two origins passes both and the two
+      // probes then hit two different hosts.
+      agentUrl: `${(input.agentBaseUrl ?? input.publicUrl).replace(/\/$/, "")}/api/copilotkit/`,
     };
   }
   // Static mode. The discriminated union guarantees `url` is present
@@ -673,6 +769,26 @@ function deriveUrls(
   const healthUrl = deriveHealthUrl(input.url);
   const agentUrl = deriveAgentUrl(input.url);
   return { healthUrl, agentUrl };
+}
+
+/**
+ * `/api/health` on the ORIGIN of `demoBaseUrl`, dropping any path prefix.
+ *
+ * The demo-serving base URL may carry a `/<slug>` prefix (unified frontend);
+ * the health route is mounted at the origin root, so the prefix must not be
+ * kept. When the input has no path — every unmigrated slug — the result is
+ * byte-identical to the old `${publicUrl.replace(/\/$/,"")}/api/health`.
+ *
+ * Falls back to naive concatenation if the URL is unparseable, so a malformed
+ * base still produces a URL that fetch() rejects with a readable reason
+ * rather than throwing out of the driver.
+ */
+function deriveOriginHealthUrl(demoBaseUrl: string): string {
+  try {
+    return `${new URL(demoBaseUrl).origin}/api/health`;
+  } catch {
+    return `${demoBaseUrl.replace(/\/$/, "")}/api/health`;
+  }
 }
 
 /**

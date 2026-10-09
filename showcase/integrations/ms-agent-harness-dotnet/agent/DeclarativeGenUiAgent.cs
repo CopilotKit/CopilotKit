@@ -25,8 +25,7 @@ public class DeclarativeGenUiAgent
 
     private const string Instructions = @"You are an assistant that helps the user visualise information with dynamic UI.
 Whenever the user asks for a dashboard, chart, status report, or any rich visual output,
-ALWAYS call the `generate_a2ui` tool with a short natural-language description of what
-should be rendered. Keep any textual reply to one short sentence — the UI speaks for itself.";
+ALWAYS call the `generate_a2ui` tool. It takes no arguments. Keep any textual reply to one short sentence — the UI speaks for itself.";
 
     private readonly IConfiguration _configuration;
     private readonly OpenAIClient _openAiClient;
@@ -81,9 +80,13 @@ should be rendered. Keep any textual reply to one short sentence — the UI spea
         context ??= "";
 
         var errorId = Guid.NewGuid().ToString("n")[..16];
-        var userContent = string.IsNullOrWhiteSpace(context)
-            ? "KPI dashboard with 3-4 metrics, pie chart sales by region, bar chart quarterly revenue, status report."
-            : context;
+        var lastUser = AimockHeaderContext.LastUserMessage(
+            AimockHeaderPolicy.HttpContextAccessor?.HttpContext);
+        var userContent = !string.IsNullOrWhiteSpace(context)
+            ? context
+            : !string.IsNullOrWhiteSpace(lastUser)
+                ? lastUser
+                : "Show me my sales dashboard for this quarter.";
         _logger.LogInformation("DeclarativeGenUi: Generating A2UI (errorId={ErrorId}) for: {Request}", errorId, userContent);
 
         string? content;
@@ -94,7 +97,8 @@ should be rendered. Keep any textual reply to one short sentence — the UI spea
                 BeautifulChatA2ui.DesignSystemPrompt(BeautifulChatA2ui.DeclarativeGenUiCatalogId),
                 userContent,
                 _logger,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                designToolName: "render_a2ui").ConfigureAwait(false);
         }
         catch (HttpRequestException ex)
         {

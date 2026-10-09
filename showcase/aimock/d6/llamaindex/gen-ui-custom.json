@@ -1,0 +1,40 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for llamaindex / gen-ui-custom (haiku path)",
+    "sourceFile": "harness/fixtures/d5/gen-ui-custom.json",
+    "_note": "Probe treats llamaindex as the haiku path (slug is not in CHART_INTEGRATIONS). Do not send the pie prompt. generate_haiku is a complete-on-emit / render-only backend tool on /gen-ui-tool-based/run.",
+    "created": "2026-08-13"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-custom haiku — emit generate_haiku. Complete-on-emit on the backend so the run finishes without a frontend handler.",
+      "match": {
+        "userMessage": "Write me a haiku about nature",
+        "hasToolResult": false,
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "Haiku generated above — a beautiful verse about nature with an accompanying image.",
+        "toolCalls": [
+          {
+            "id": "call_d5_generate_haiku_001",
+            "name": "generate_haiku",
+            "arguments": "{\"japanese\":[\"古池や\",\"蛙飛び込む\",\"水の音\"],\"english\":[\"An old silent pond\",\"A frog jumps into the pond\",\"Splash! Silence again.\"],\"image_name\":\"Mount_Fuji_Lake_Reflection_Cherry_Blossoms_Sakura_Spring.jpg\",\"gradient\":\"linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "gen-ui-custom haiku — safety-net narration if the runtime loops after the tool result.",
+      "match": {
+        "userMessage": "Write me a haiku about nature",
+        "hasToolResult": true,
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "Haiku generated above — a beautiful verse about nature with an accompanying image."
+      }
+    }
+  ]
+}

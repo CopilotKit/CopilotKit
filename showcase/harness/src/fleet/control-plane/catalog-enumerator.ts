@@ -476,24 +476,46 @@ function deriveSlug(name: string): string {
 /**
  * Map one discovered `RailwayServiceInfo` into the d6 driver input the worker
  * re-hydrates. Field names match the d6 `inputSchema`
- * (`key`/`backendUrl`/`demos`/`notSupportedFeatures`/`shape`/`deployedAt`/
- * `name`). The driver reads `backendUrl ?? publicUrl`; we set `backendUrl` to
- * the discovered `publicUrl` (the live URL the spec navigates against — local
- * container host or Railway public domain) and emit ONLY `backendUrl` — the
- * driver's `??` fallback never needs a second copy under `publicUrl`, and
- * emitting both would drift the serialized shape from the documented contract.
- * `key` is the `d6:<slug>` aggregate key so the driver emits the exact
- * dashboard row keys.
+ * (`key`/`backendUrl`/`frontendBaseUrl`/`demos`/`notSupportedFeatures`/`shape`/
+ * `deployedAt`/`name`). `key` is the `d6:<slug>` aggregate key so the driver
+ * emits the exact dashboard row keys.
+ *
+ * TWO AXES, and this is the ONLY place they are projected for the fleet path.
+ * The d6 driver reads `backendUrl ?? publicUrl` for the AGENT and
+ * `frontendBaseUrl ?? backendUrl` for where the DEMOS are served (see
+ * `d6-all-pills.ts`). So:
+ *
+ *   - `backendUrl`      <- `svc.agentBaseUrl ?? svc.publicUrl` (agent origin)
+ *   - `frontendBaseUrl` <- `svc.publicUrl` (demo origin), emitted ONLY when it
+ *                          differs from the agent origin.
+ *
+ * WHY `frontendBaseUrl` IS CONDITIONAL. When the two origins are equal — every
+ * Railway service today, and every local slug still on
+ * `demo_frontend: integration` — the driver's own documented fallback already
+ * produces the right value, so emitting a second copy would restate a default
+ * and drift this serialized shape from what every existing job carries. When
+ * they differ (a slug migrated onto the unified frontend) the key is REQUIRED:
+ * without it the driver would navigate to the agent's origin, which for a
+ * migrated slug no longer serves the demo mounts, and every cell would probe a
+ * 404. Conversely, sending the demo origin as `backendUrl` would dial the agent
+ * at the frontend — a live frontend greening a dead agent, the false-green the
+ * two-axis split exists to prevent.
+ *
+ * This mapper is shared by EVERY family built on `createServiceEnumerator`
+ * (d5, d6, …), so the fleet path honours a migration once, here.
  */
 function toDriverInputs(
   svc: RailwayServiceInfo,
   slug: string,
   probeKey: string,
 ): Record<string, unknown> {
+  const demoBaseUrl = svc.publicUrl;
+  const agentBaseUrl = svc.agentBaseUrl ?? svc.publicUrl;
   return {
     key: probeKey,
     name: svc.name,
-    backendUrl: svc.publicUrl,
+    backendUrl: agentBaseUrl,
+    ...(demoBaseUrl !== agentBaseUrl ? { frontendBaseUrl: demoBaseUrl } : {}),
     demos: [...svc.demos],
     notSupportedFeatures: [...svc.notSupportedFeatures],
     shape: svc.shape,

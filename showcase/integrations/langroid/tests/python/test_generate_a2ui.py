@@ -173,8 +173,8 @@ def test_tool_tuples_contain_only_tool_message_subclasses():
     # ALL_TOOLS = BACKEND_TOOLS + FRONTEND_TOOLS — count pin so a new tool
     # not wired into ALL_TOOLS gets caught here too.
     assert len(ALL_TOOLS) == len(BACKEND_TOOLS) + len(FRONTEND_TOOLS)
-    assert len(ALL_TOOLS) == 9, (
-        f"ALL_TOOLS should have 9 entries (6 backend + 3 frontend); got "
+    assert len(ALL_TOOLS) == 11, (
+        f"ALL_TOOLS should have 11 entries (8 backend + 3 frontend); got "
         f"{len(ALL_TOOLS)}"
     )
 

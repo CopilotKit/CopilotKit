@@ -1,5 +1,6 @@
 {
   "dependencies": ["."],
+  "env": ".env",
   "http": {
     "configurable_headers": {
       "include": ["x-*"]

@@ -44,6 +44,21 @@ const INFRA_PORTS: Record<string, number> = {
   aimock: 4010 + _INFRA_OFFSET,
   pocketbase: 8090 + _INFRA_OFFSET,
   dashboard: 3210 + _INFRA_OFFSET,
+  // The UNIFIED frontend (`showcase/frontends/nextjs`). It is in the `infra`
+  // compose profile, so every `up` path already STARTS it — but it has no
+  // entry in `shared/local-ports.json` (that file maps integration slugs to
+  // their own container ports, and the frontend is not an integration), so
+  // before this entry existed `up()` never WAITED for it. A probe could then
+  // launch against a frontend that was not yet listening: the browser gets
+  // ECONNREFUSED, the cell reports a ~0.0s red, and the cause looks like a
+  // broken demo rather than a race.
+  //
+  // 3200 is the host port `docker-compose.local.yml` publishes ("3200:3000").
+  // The same literal is listed in the `infra_ports` array of
+  // `showcase/scripts/cli/_common.sh` (used for slot port-collision probing),
+  // so `--isolate` already offsets it there; `_INFRA_OFFSET` keeps this in
+  // step. That file is NOT edited by this change — the literal is only read.
+  "frontend-nextjs": 3200 + _INFRA_OFFSET,
 };
 
 /** Health-check endpoint overrides per service type. */
@@ -51,6 +66,12 @@ const HEALTH_ENDPOINTS: Record<string, string> = {
   aimock: "/health",
   pocketbase: "/api/health",
   dashboard: "/",
+  // Matches the compose healthcheck for the service, which probes the
+  // dedicated route `src/app/api/health/route.ts` rather than `/` (rendering
+  // the home page would couple liveness to the middleware/routing layer).
+  // This is also DEFAULT_HEALTH_ENDPOINT's value; stated explicitly so a
+  // future change to the default cannot silently re-point the frontend gate.
+  "frontend-nextjs": "/api/health",
 };
 
 /** Default health endpoint for integration services.

@@ -6,7 +6,6 @@ import os
 
 from copilotkit import CopilotKitMiddleware
 from langchain.agents import create_agent
-from langchain.tools import tool
 from langchain_openai import ChatOpenAI
 
 
@@ -48,33 +47,13 @@ SYSTEM_PROMPT = (
 )
 
 
-@tool
-def generate_a2ui() -> dict:
-    """Generate a dynamic A2UI dashboard surface from the current conversation.
-
-    Takes no arguments. The CopilotKit runtime middleware
-    (`a2ui.injectA2UITool: true`) intercepts the call and drives a
-    secondary-LLM `render_a2ui` planner to emit the surface ops; this
-    Python body should NEVER execute in normal operation. It exists only
-    so the LP agent's declared `tools=` list mirrors the ADK sibling
-    (`declarative_gen_ui_agent.py`) and the SYSTEM_PROMPT's
-    `generate_a2ui` reference resolves to a registered tool name.
-
-    If this body actually runs, the CopilotKit a2ui middleware is
-    misconfigured and silently returning an empty surface would hide the
-    real bug — fail loud per `fail-loud-discipline`.
-    """
-    raise RuntimeError(
-        "generate_a2ui called directly — CopilotKit a2ui.injectA2UITool "
-        "middleware should intercept this call before it reaches the "
-        "agent. Check the route configuration at "
-        "app/api/copilotkit-declarative-gen-ui/route.ts."
-    )
-
+# Do not register a Python `generate_a2ui` stub. CopilotKitMiddleware
+# injects the real A2UI tool when `inject_a2ui_tool` is set. A stub with
+# the same name blocks that inject and then fails loud on every call.
 
 graph = create_agent(
-    model=ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o")),
-    tools=[generate_a2ui],
+    model=ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-5.5")),
+    tools=[],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,
 )

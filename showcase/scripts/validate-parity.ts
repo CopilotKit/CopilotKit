@@ -6,16 +6,32 @@
  *   1. Reads manifest.yaml to extract declared demo IDs.
  *   2. Lists tests/e2e/*.spec.ts files.
  *   3. Lists qa/*.md files.
- *   4. Lists src/app/demos/<id>/ directories.
+ *   4. Resolves each demo's folder across the TWO roots that actually hold
+ *      demo source, in `resolveDemoDir`'s preference order:
+ *        a. the UNIFIED frontend app,
+ *           showcase/frontends/nextjs/src/app/[integration]/demos/<dir>/
+ *           ("[integration]" is a literal directory name — a Next.js dynamic
+ *           segment); this is where ported demos live and where most resolve
+ *           from;
+ *        b. TEMPORARY, while the port runs — the package's own
+ *           src/app/demos/<dir>/.
+ *      `resolveDemoDir` is imported from bundle-demo-content.ts so the
+ *      bundler and this validator cannot disagree about where a demo lives.
+ *      Note <dir> comes from `demo.route` ("/demos/<dir>"), which may differ
+ *      from the catalog `id`.
  *
  * MUST checks (fail -> exit 1):
  *   - manifest.yaml exists and is parseable.
- *   - Every declared demo has a matching src/app/demos/<id>/ directory.
+ *   - Every declared demo has a folder at one of the two roots above.
  *
  * SHOULD checks (warn on stderr, do not fail):
  *   - Every declared demo has a matching tests/e2e/<id>.spec.ts.
  *   - Every declared demo has a matching qa/<id>.md.
- *   - Package demo count matches the baseline (default: BASELINE_DEMO_COUNT).
+ *   - Package demo count matches the reference demo count. The reference is
+ *     DERIVED from the manifests on disk by default (the modal per-package
+ *     auditable-demo count — see `deriveReferenceDemoCount`); --baseline=N,
+ *     VALIDATE_PARITY_BASELINE and the explicit function parameter override
+ *     it, and BASELINE_DEMO_COUNT is only the last-resort fallback.
  *   - spec count >= demo count (spec count exceeding demo count is
  *     legitimate — e.g. when a cross-demo spec covers renderer selection
  *     for multiple demos — so only UNDER-coverage is flagged).
@@ -45,6 +61,12 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { parseManifest } from "./lib/manifest.js";
 import type { Manifest, ManifestDemo } from "./lib/manifest.js";
+// Single-sourced two-root demo-folder resolution. Importing it (rather than
+// re-implementing the same prefer-unified/fall-back-to-integration logic here)
+// is what keeps this file honest about the "keep in sync with
+// bundle-demo-content.ts" promise above. The import is side-effect free:
+// bundle-demo-content.ts only runs main() when it is the process entrypoint.
+import { resolveDemoDir } from "./bundle-demo-content.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // ROOT = showcase/ (NOT the repo root). validate-parity.ts lives at
@@ -54,15 +76,32 @@ const ROOT = path.resolve(__dirname, "..");
 const DEFAULT_PACKAGES_DIR = path.join(ROOT, "integrations");
 
 /**
- * Baseline expected demo count per package. Packages that deviate from
- * this are flagged as warnings (e.g. ones being built out).
+ * LAST-RESORT fallback demo count per package, used only when no reference
+ * count can be derived from the manifests on disk (see
+ * `deriveReferenceDemoCount`) and no explicit override was given.
  *
- * RECIPROCAL: the CI workflow .github/workflows/showcase_validate.yml
- * reads `baselineDemoCount` from showcase/scripts/fail-baseline.json
- * when enforcing the per-package e2e-spec-count floor — there is no
- * hardcoded MIN in the workflow anymore. Keep this default in sync
- * with `baselineDemoCount` in fail-baseline.json; if one moves,
- * move both. The sync is enforced by
+ * THIS IS NOT THE REAL PER-PACKAGE DEMO COUNT, and deliberately cannot be.
+ * The same number has TWO consumers that want incompatible values:
+ *
+ *   1. this validator's `baseline-deviation` warning, which wants the demo
+ *      count a complete column actually has (currently 35-42), and
+ *   2. .github/workflows/showcase_validate.yml, which reads
+ *      `baselineDemoCount` from showcase/scripts/fail-baseline.json and uses
+ *      it as the per-package e2e-spec-count FLOOR (`count -lt $MIN` fails
+ *      the job). The lowest per-package spec count in the fleet is 10, so
+ *      raising this number to a realistic demo count would fail that gate
+ *      for every package below it.
+ *
+ * Pinning it at 9 made consumer 1 useless: EVERY package deviated, so the
+ * warning carried no information and buried the genuine missing-spec /
+ * missing-qa warnings. The fix is to stop pinning consumer 1's expectation
+ * here and derive it at run time instead; this constant keeps serving
+ * consumer 2 (the low, CI-safe spec floor) and the no-manifests fallback.
+ * Giving the workflow its own field is the real cleanup, and it has to touch
+ * showcase_validate.yml.
+ *
+ * RECIPROCAL: keep this in sync with `baselineDemoCount` in
+ * fail-baseline.json; if one moves, move both. The sync is enforced by
  * __tests__/baseline-sync.test.ts so drift is caught in CI rather than
  * relying on the comment above.
  */
@@ -269,12 +308,20 @@ export function deriveMessage(issue: PackageIssue): string {
       // from `demo.route` ("/demos/<dir>" → `src/app/demos/<dir>/`).
       // Rendering only the id here hid route/id mismatches — operators
       // saw the error but not the path the validator actually probed.
-      // Mention both the new per-column layout (<pkg>/demos/<dir>/) and
-      // the legacy shared-tree layout (<pkg>/src/app/demos/<dir>/) since
-      // auditPackage unions both locations when checking existence.
-      return issue.demoId === issue.expectedDir
-        ? `demo '${issue.demoId}' declared in manifest but no demos/${issue.expectedDir}/ (or legacy src/app/demos/${issue.expectedDir}/) directory`
-        : `demo '${issue.demoId}' declared in manifest but no demos/${issue.expectedDir}/ (or legacy src/app/demos/${issue.expectedDir}/) directory (resolved from route)`;
+      // Name BOTH roots auditPackage unions when checking existence: the
+      // UNIFIED frontend app (frontends/nextjs/src/app/[integration]/demos/
+      // <dir>/ — where ported demos now live, and the root most demos actually
+      // resolve from) and the legacy shared tree (<pkg>/src/app/demos/<dir>/).
+      // Omitting the unified root sent operators looking in the package for a
+      // folder that was never meant to be there. These are exactly the roots
+      // `resolveDemoDir` knows, so the path list an operator is handed here is
+      // the path list the bundler will actually try.
+      return (
+        `demo '${issue.demoId}' declared in manifest but no ` +
+        `frontends/nextjs/src/app/[integration]/demos/${issue.expectedDir}/ ` +
+        `or legacy src/app/demos/${issue.expectedDir}/ directory` +
+        (issue.demoId === issue.expectedDir ? "" : " (resolved from route)")
+      );
     case "unreadable-demos-dir":
       return `unreadable demos directory: failed to read directory ${issue.path}: ${issue.error}`;
     case "unreadable-specs-dir":
@@ -354,6 +401,22 @@ type ProbeResult =
   | { kind: "ok" }
   | { kind: "unreadable"; error: string };
 
+/**
+ * Whether `candidate` is a directory, FOLLOWING symlinks.
+ *
+ * One `statSync` in a try/catch (not `existsSync` + `statSync`, which is a
+ * time-of-check/time-of-use race). Mirrors `isDirectoryFollowingLinks` in
+ * generate-registry.ts / bundle-demo-content.ts and `isDirectory` in
+ * showcase/frontends/nextjs/src/lib/integration-support.ts.
+ */
+function isDirectoryFollowingLinks(candidate: string): boolean {
+  try {
+    return fs.statSync(candidate).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 function probeDir(p: string): ProbeResult {
   try {
     // Deliberately do NOT check isDirectory() here — a non-directory
@@ -402,9 +465,19 @@ export function listDirs(p: string): ListResult {
     return { entries: [], warnings: [issue] };
   }
   try {
+    // `withFileTypes` has LSTAT semantics: a symlink POINTING AT a directory
+    // reports isSymbolicLink() === true and isDirectory() === false, so a bare
+    // `d.isDirectory()` filter drops it wordlessly. That silently turns a
+    // symlinked demo folder into a `missing-demo-dir` MUST failure naming a
+    // path that is right there on disk. `statSync` follows the link.
     const entries = fs
       .readdirSync(p, { withFileTypes: true })
-      .filter((d) => d.isDirectory())
+      .filter(
+        (d) =>
+          d.isDirectory() ||
+          (d.isSymbolicLink() &&
+            isDirectoryFollowingLinks(path.join(p, d.name))),
+      )
       .map((d) => d.name)
       .sort();
     return { entries, warnings: [] };
@@ -507,6 +580,86 @@ export function loadManifest(
   }
 }
 
+/**
+ * The demos in a manifest that have an on-disk footprint worth auditing.
+ * Informational-only demos (identified by a `command:` field, e.g.
+ * `cli-start`) live in the registry but own no folder, spec or QA doc.
+ *
+ * Shared by `auditPackage` and `deriveReferenceDemoCount` so the two can
+ * never disagree about what "demo count" means — a derived reference built
+ * from a different filter than the counts it is compared against would emit
+ * off-by-N deviations for every package.
+ */
+export function auditableDemos(manifest: Manifest): readonly ManifestDemo[] {
+  return manifest.demos.filter((d) => !(d as { command?: string }).command);
+}
+
+/**
+ * Derive the expected per-package demo count from the manifests themselves:
+ * the MODE (most common) auditable-demo count across `slugs`, breaking ties
+ * toward the higher count.
+ *
+ * WHY DERIVE INSTEAD OF PINNING A CONSTANT
+ * `BASELINE_DEMO_COUNT` cannot hold this value — it is shared with the CI
+ * e2e-spec floor, which must stay low (see that constant's docstring). A
+ * pinned 9 against real counts of 35-42 made all 20 packages warn, which is
+ * the same as no check at all. The mode is the empirical answer to the
+ * question the check was always asking: "how many demos does a column in
+ * this fleet have?"
+ *
+ * WHY NOT THE MAXIMUM
+ * The max is set by whichever single package is furthest ahead (mastra, 42),
+ * so every other package warns forever — the same "fires for all 20" failure
+ * as the pinned 9, with a different number.
+ *
+ * Packages whose manifest is missing / unreadable / malformed contribute no
+ * sample: they already produce their own MUST error, and letting them push a
+ * 0 into the sample would drag the reference down. Packages with zero
+ * auditable demos are excluded for the same reason — a not-yet-built column
+ * is not evidence about what a complete one looks like.
+ *
+ * Returns `undefined` when no package yielded a count; the caller then falls
+ * back to `BASELINE_DEMO_COUNT`.
+ */
+export function deriveReferenceDemoCount(
+  slugs: readonly string[],
+  packagesDir: string = DEFAULT_PACKAGES_DIR,
+): number | undefined {
+  const frequency = new Map<number, number>();
+  for (const slug of slugs) {
+    let manifest: Manifest | null;
+    try {
+      manifest = loadManifest(slug, packagesDir);
+    } catch {
+      // Missing / unreadable / malformed manifests are reported as MUST
+      // errors by auditPackage; swallowing here keeps the reference
+      // derivation from double-reporting or from being aborted by one bad
+      // package.
+      continue;
+    }
+    if (!manifest) continue;
+    const count = auditableDemos(manifest).length;
+    if (count === 0) continue;
+    frequency.set(count, (frequency.get(count) ?? 0) + 1);
+  }
+
+  let best: number | undefined;
+  let bestFrequency = 0;
+  for (const [count, freq] of frequency) {
+    // Strictly-greater keeps the first-seen winner; the tie branch prefers
+    // the higher count so a 50/50 split resolves toward the fuller column
+    // (under-coverage is the signal we want, so erring high is correct).
+    if (
+      freq > bestFrequency ||
+      (freq === bestFrequency && best !== undefined && count > best)
+    ) {
+      best = count;
+      bestFrequency = freq;
+    }
+  }
+  return best;
+}
+
 export function auditPackage(
   slug: string,
   packagesDir: string = DEFAULT_PACKAGES_DIR,
@@ -535,36 +688,55 @@ export function auditPackage(
   // still shows accurate counts even if manifest parsing fails. MUST
   // errors still gate the exit code — this only affects the table.
   //
-  // Demos can live at either <pkg>/demos/<cell>/ (per-column container
-  // layout with one folder per cell containing frontend/ + backend/) OR
-  // <pkg>/src/app/demos/<cell>/ (legacy shared-tree layout). Union the
-  // two listings so the check is permissive during the transition — a
-  // cell declared in manifest passes as long as either directory exists.
+  // Demo folders live at exactly TWO roots, and `resolveDemoDir` (imported
+  // from bundle-demo-content.ts) is the single authority on both: the unified
+  // frontend app, and — TEMPORARY, while the port runs — the package's own
+  // <pkg>/src/app/demos/<cell>/.
+  //
+  // A THIRD root, a per-column <pkg>/demos/<cell>/ container layout, used to be
+  // listed here too. It was removed because it was a root NOTHING produces and
+  // the bundler cannot read: no package under showcase/integrations/ has a
+  // top-level demos/ directory, and `resolveDemoDir` knows only the two roots
+  // above. So a demo placed there would have PASSED the demo-dir MUST here and
+  // then hard-thrown out of bundle-demo-content.ts ("demo folder does not exist
+  // at …"), i.e. this validator was accepting a layout that breaks the build it
+  // is supposed to gate. Two validators, one rule — if the container layout is
+  // ever revived, teach `resolveDemoDir` first and this listing follows.
   const specResult = listFiles(path.join(pkgDir, "tests", "e2e"), ".spec.ts");
   const qaResult = listFiles(path.join(pkgDir, "qa"), ".md");
-  const topLevelDemosDir = path.join(pkgDir, "demos");
   const legacyDemosDir = path.join(pkgDir, "src", "app", "demos");
-  const topLevelDemoDirResult = listDirs(topLevelDemosDir);
+  // Third root: the unified frontend app. Frontend demo source now lives in
+  // ONE shared copy at
+  // showcase/frontends/nextjs/src/app/[integration]/demos/<demo-id>/
+  // ("[integration]" is a literal directory name — a Next.js dynamic
+  // segment), so a demo can be present for this package without any folder
+  // under the package itself. Derived from `packagesDir` rather than the
+  // exported constant so tests pointing at a fixture tree get a
+  // fixture-relative (normally non-existent) unified root instead of the
+  // real repo's.
+  const unifiedDemosDir = path.join(
+    packagesDir,
+    "..",
+    "frontends",
+    "nextjs",
+    "src",
+    "app",
+    "[integration]",
+    "demos",
+  );
   const legacyDemoDirResult = listDirs(legacyDemosDir);
-  const demoDirResult: ListResult = {
-    entries: Array.from(
-      new Set([
-        ...topLevelDemoDirResult.entries,
-        ...legacyDemoDirResult.entries,
-      ]),
-    ),
-    // Forward ALL listing-failed warnings from both probes regardless of
-    // whether the other probe returned entries. An EACCES on one path
-    // must not be silently swallowed just because the other path
-    // happened to be readable — callers rely on these warnings to
-    // elevate to unreadable-demos-dir MUSTs. A genuinely-missing path
-    // (ENOENT) produces no warning from listDirs, so this does not add
-    // noise for columns using only one of the two layouts.
-    warnings: [
-      ...topLevelDemoDirResult.warnings,
-      ...legacyDemoDirResult.warnings,
-    ],
-  };
+  // Probe the unified root with probeDir, NOT existsSync. This root is reached
+  // through `resolveDemoDir`, which uses `existsSync` — and `existsSync`
+  // returns false for EACCES exactly as it does for ENOENT (see the probeDir
+  // docstring). So an unreadable unified demos dir used to make every demo of
+  // every package report a FALSE `missing-demo-dir` MUST and exit 1 with
+  // nothing naming the real cause. Folding the probe in restores the
+  // all-or-nothing suppression the comment below claims across all THREE roots.
+  const unifiedDemosProbe = probeDir(unifiedDemosDir);
+  // Only the legacy root is LISTED. The unified root is probed instead
+  // (`unifiedDemosProbe` above) because `resolveDemoDir` stats one demo folder
+  // at a time there rather than enumerating it.
+  const demoDirResult: ListResult = legacyDemoDirResult;
 
   const specFiles = specResult.entries;
   const qaFiles = qaResult.entries;
@@ -577,8 +749,8 @@ export function auditPackage(
   // the respective list call returned a listing-failed warning for the
   // target path specifically (not an unrelated path).
   // For the unreadable-demos-dir elevation, accept a listing-failed
-  // warning at EITHER candidate path (new top-level demos/ or legacy
-  // src/app/demos/). Report the failing path verbatim so the operator
+  // warning at the legacy src/app/demos/ listing OR an unreadable probe of
+  // the unified root. Report the failing path verbatim so the operator
   // sees which location couldn't be read.
   const specsDirPath = path.join(pkgDir, "tests", "e2e");
   const qaDirPath = path.join(pkgDir, "qa");
@@ -590,25 +762,41 @@ export function auditPackage(
       (w): w is Extract<PackageIssue, { category: "listing-failed" }> =>
         w.category === "listing-failed" && w.path === target,
     );
-  const topLevelDemosUnreadable = findListingFailed(
-    demoDirResult,
-    topLevelDemosDir,
-  );
   const legacyDemosUnreadable = findListingFailed(
     demoDirResult,
     legacyDemosDir,
   );
-  // Collect all demos-dir listing failures so BOTH paths are surfaced on
+  // Collect all demos-dir listing failures so BOTH roots are surfaced on
   // the MUST when both fail (previously only the first match was
   // reported, hiding the second EACCES root cause).
   const demosDirUnreadableAll: Extract<
     PackageIssue,
     { category: "listing-failed" }
   >[] = [];
-  if (topLevelDemosUnreadable)
-    demosDirUnreadableAll.push(topLevelDemosUnreadable);
   if (legacyDemosUnreadable) demosDirUnreadableAll.push(legacyDemosUnreadable);
-  const demosDirUnreadable = demosDirUnreadableAll[0];
+  // The unified root is the OTHER root the missing-demo-dir union consults. It
+  // is never listed with listDirs (resolveDemoDir stats one demo folder at a
+  // time), so its probe result is folded in here — otherwise an EACCES there
+  // stayed invisible and cascaded into false missing-demo-dir MUSTs.
+  if (unifiedDemosProbe.kind === "unreadable") {
+    demosDirUnreadableAll.push({
+      category: "listing-failed",
+      path: unifiedDemosDir,
+      error: unifiedDemosProbe.error,
+    });
+  }
+  // Boolean gate for the missing-demo-dir cascade, derived from the WHOLE
+  // list rather than pulling `[0]` out of it. Keeping a single-issue variable
+  // around and using it as a truthiness test read as "suppress on the first
+  // failing root", which is not what it did.
+  //
+  // Suppression is deliberately all-or-nothing and CANNOT be made per-root:
+  // the missing-demo-dir check is a UNION across both roots, so as soon
+  // as ANY root is unreadable we cannot prove a demo is absent, and emitting
+  // the per-demo MUSTs would be a guess. Nothing is masked by this — each
+  // failing root already pushes its own unreadable-demos-dir MUST below, so
+  // the run still fails with the EACCES as the root cause.
+  const demosDirUnreadable = demosDirUnreadableAll.length > 0;
   const specsDirUnreadable = findListingFailed(specResult, specsDirPath);
   const qaDirUnreadable = findListingFailed(qaResult, qaDirPath);
 
@@ -637,9 +825,10 @@ export function auditPackage(
   if (demosDirUnreadableAll.length === 0) {
     warnings.push(...demoDirResult.warnings);
   } else {
-    // Emit one unreadable-demos-dir MUST per failing path — if BOTH the
-    // top-level and legacy demos/ directories EACCES'd, report both so
-    // operators see every root cause rather than just the first.
+    // Emit one unreadable-demos-dir MUST per failing path — if several of the
+    // three roots (top-level demos/, legacy src/app/demos/, unified frontend)
+    // EACCES'd, report all of them so operators see every root cause rather
+    // than just the first.
     for (const failing of demosDirUnreadableAll) {
       mustErrors.push({
         category: "unreadable-demos-dir",
@@ -714,14 +903,12 @@ export function auditPackage(
   // null-valued `demos:` to a shared EMPTY_DEMOS sentinel), so no
   // nullish fallback is needed here — dropping the `?? []` keeps the
   // Manifest contract single-sourced at parseManifest.
-  const demos = manifest.demos;
   // Informational-only demos (e.g. cli-start with a `command:` field)
-  // live in the registry but have no on-disk folder to audit. They're
-  // identified by the `command` field; exclude them from parity checks.
-  const auditableDemos = demos.filter(
-    (d) => !(d as { command?: string }).command,
-  );
-  const demoIds = auditableDemos.map((d) => d.id);
+  // live in the registry but have no on-disk folder to audit. The filter
+  // lives in `auditableDemos` so `deriveReferenceDemoCount` counts exactly
+  // the same set this function compares against.
+  const auditable = auditableDemos(manifest);
+  const demoIds = auditable.map((d) => d.id);
 
   const demoDirSet = new Set(demoDirs);
   const specIdSet = new Set(specFiles.map((f) => f.replace(/\.spec\.ts$/, "")));
@@ -737,10 +924,23 @@ export function auditPackage(
   // idiom. Suppressed entirely when the demos/ dir itself is unreadable
   // — a single unreadable-demos-dir MUST is clearer than N cascaded
   // missing-demo-dir errors that all trace to the same EACCES root cause.
+  //
+  // A demo counts as present when its folder exists at EITHER root: the
+  // unified frontend app, or — TEMPORARY — the package's own
+  // `src/app/demos/<dir>/` (which `demoDirSet` also lists). `resolveDemoDir`
+  // (imported from bundle-demo-content.ts) owns both and encodes the
+  // preference order, so the bundler and this validator cannot drift apart.
+  //
+  // TEMPORARY FALLBACK — the `src/app/demos/` branch inside `resolveDemoDir`
+  // exists only while the port runs. DELETE it (there, not here) once every
+  // demo is ported to the unified frontend.
   if (!demosDirUnreadable) {
-    for (const demo of auditableDemos) {
+    for (const demo of auditable) {
       const expectedDir = routeToDirName(demo.route) ?? demo.id;
-      if (!demoDirSet.has(expectedDir)) {
+      if (
+        !demoDirSet.has(expectedDir) &&
+        !resolveDemoDir(pkgDir, expectedDir, unifiedDemosDir)
+      ) {
         mustErrors.push({
           category: "missing-demo-dir",
           demoId: demo.id,
@@ -1105,11 +1305,8 @@ function runParityImpl(
     }
   }
 
-  const resolvedBaseline =
-    baselineDemoCount ??
-    cliOpts.baseline ??
-    envBaselineCoerced ??
-    BASELINE_DEMO_COUNT;
+  // NB: the baseline is resolved AFTER the slug listing below, because the
+  // default is derived from the manifests those slugs point at.
 
   // Use statSync (not existsSync) so ENOENT and EACCES surface with
   // distinct diagnostics — existsSync returns false in both cases and
@@ -1135,9 +1332,22 @@ function runParityImpl(
   // behaviour.
   let slugs: string[];
   try {
+    // `withFileTypes` has LSTAT semantics: a symlink POINTING AT a directory
+    // reports isSymbolicLink() === true and isDirectory() === false, so the
+    // bare `d.isDirectory()` filter dropped it wordlessly — the slug was never
+    // audited and nothing said so. generate-registry.ts DOES follow such a link
+    // (see `findManifests` there, and `readManifests` in the frontend's
+    // integration-support.ts), so a symlinked integration got a registry entry
+    // and was served by the app while this validator never checked its parity.
+    // `statSync` follows the link.
     slugs = fs
       .readdirSync(resolvedPackagesDir, { withFileTypes: true })
-      .filter((d) => d.isDirectory())
+      .filter(
+        (d) =>
+          d.isDirectory() ||
+          (d.isSymbolicLink() &&
+            isDirectoryFollowingLinks(path.join(resolvedPackagesDir, d.name))),
+      )
       // `_shared` is the shared-code directory (cvdiag emitters/schema staged
       // into each integration via the per-integration `_shared` symlink), not
       // an integration: it has no manifest.yaml and must not be audited for
@@ -1158,6 +1368,20 @@ function runParityImpl(
     console.error(`[FAIL] no packages found under ${resolvedPackagesDir}`);
     return EXIT_MUST_FAILURE;
   }
+
+  // Resolution order, highest precedence first: explicit parameter, then
+  // --baseline=N, then VALIDATE_PARITY_BASELINE, then the value derived from
+  // the manifests, then BASELINE_DEMO_COUNT as a last resort. Deriving is the
+  // DEFAULT rather than the fallback because BASELINE_DEMO_COUNT is pinned
+  // low for the CI e2e-spec floor it shares (see its docstring), and using it
+  // as the demo-count expectation made the warning fire for every package.
+  const derivedBaseline = deriveReferenceDemoCount(slugs, resolvedPackagesDir);
+  const resolvedBaseline =
+    baselineDemoCount ??
+    cliOpts.baseline ??
+    envBaselineCoerced ??
+    derivedBaseline ??
+    BASELINE_DEMO_COUNT;
 
   // Per-slug isolation: each slug's audit is wrapped in try/catch so a
   // crash in one slug (e.g. a bug that surfaces a
@@ -1200,6 +1424,24 @@ function runParityImpl(
   const slugWidth = Math.max(
     ...reports.map((r) => r.slug.length),
     "package".length,
+  );
+
+  // Name the reference count AND where it came from. A bare "deviates from
+  // baseline 39" leaves the operator unable to tell an intentional override
+  // from a value the tool inferred, which is half of why the pinned 9 went
+  // unquestioned for so long.
+  const baselineSource =
+    baselineDemoCount !== undefined
+      ? "explicit parameter"
+      : cliOpts.baseline !== undefined
+        ? "--baseline"
+        : envBaselineCoerced !== null
+          ? "VALIDATE_PARITY_BASELINE"
+          : derivedBaseline !== undefined
+            ? "derived from manifests (modal demo count)"
+            : "BASELINE_DEMO_COUNT fallback";
+  console.log(
+    `\nreference demo count: ${resolvedBaseline} (${baselineSource})`,
   );
 
   const header = buildHeader(slugWidth);

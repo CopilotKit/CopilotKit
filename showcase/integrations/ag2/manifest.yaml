@@ -11,6 +11,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/ag2
 copilotkit_version: 2.0.0
 deployed: true
+demo_frontend: unified
 docs_mode: authored
 sort_order: 100
 generative_ui:
@@ -80,6 +81,8 @@ demos:
       - chat-ui
     command: "npx copilotkit@latest init --framework ag2"
   - id: agentic-chat
+    agent:
+      name: agentic_chat
     name: Agentic Chat
     description: Natural conversation with frontend tool execution
     tags:
@@ -105,6 +108,8 @@ demos:
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: hitl-in-chat-booking
+    agent:
+      name: hitl-in-chat
     name: In-Chat HITL (Booking)
     description: Time-picker card rendered inline via useHumanInTheLoop for a
       booking flow — same surface as hitl-in-chat with a booking-focused framing
@@ -132,6 +137,8 @@ demos:
       - src/app/demos/hitl-in-app/approval-dialog.tsx
       - src/app/api/copilotkit/route.ts
   - id: hitl
+    agent:
+      name: human_in_the_loop
     name: In-Chat Human in the Loop (Original)
     description: User approves agent actions before execution
     tags:
@@ -184,6 +191,8 @@ demos:
       - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent
+    agent:
+      path: /gen-ui-agent/
     name: Agentic Generative UI
     description: Long-running agent tasks with generated UI
     tags:
@@ -273,6 +282,14 @@ demos:
       - src/app/demos/headless-simple/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: headless-complete
+    agent:
+      path: /headless-complete/
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
     name: Headless Chat (Complete)
     description: Full chat implementation built from scratch on useAgent
     tags:
@@ -304,6 +321,8 @@ demos:
       - src/app/demos/readonly-state-agent-context/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: frontend-tools
+    agent:
+      name: frontend_tools
     name: Frontend Tools (In-App Actions)
     description: Agent invokes client-side handlers registered with useFrontendTool
     tags:
@@ -329,6 +348,8 @@ demos:
       - src/app/demos/frontend-tools-async/notes-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: shared-state-read-write
+    agent:
+      path: /shared-state-read-write/
     name: Shared State (Read + Write)
     description: Bidirectional agent state — UI writes preferences, agent writes
       notes back via AG2 ContextVariables
@@ -343,6 +364,8 @@ demos:
       - src/app/demos/shared-state-read-write/notes-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: subagents
+    agent:
+      path: /subagents/
     name: Sub-Agents
     description: Supervisor delegates tasks to research, writing, and critique
       sub-agents with a live delegation log
@@ -356,6 +379,8 @@ demos:
       - src/app/demos/subagents/delegation-log.tsx
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-interrupt
+    agent:
+      path: /interrupt-adapted/
     name: Gen UI Interrupt (Frontend Tool + async Promise)
     description:
       In-chat time-picker card via useFrontendTool with an async handler
@@ -371,6 +396,8 @@ demos:
       - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: interrupt-headless
+    agent:
+      path: /interrupt-adapted/
     name: Headless Interrupt (Frontend Tool + async Promise)
     description:
       Time-picker popup rendered outside the chat in the app surface via
@@ -385,6 +412,11 @@ demos:
       - src/app/demos/interrupt-headless/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: declarative-gen-ui
+    agent:
+      path: /declarative-gen-ui/
+    runtime:
+      a2ui:
+        defaultCatalogId: declarative-gen-ui-catalog
     name: Declarative Generative UI (A2UI Dynamic Schema)
     description:
       Agent dynamically composes UI from a registered catalog of branded
@@ -401,6 +433,11 @@ demos:
       - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
       - src/app/api/copilotkit-declarative-gen-ui/route.ts
   - id: a2ui-fixed-schema
+    agent:
+      path: /a2ui-fixed-schema/
+    runtime:
+      a2ui:
+        injectA2UITool: false
     name: A2UI (Fixed Schema)
     description:
       Agent streams data into a frontend-authored fixed component schema;
@@ -418,6 +455,14 @@ demos:
       - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
       - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
   - id: mcp-apps
+    agent:
+      path: /mcp-apps/
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
     name: MCP Apps
     description: Runtime mcpApps middleware injects an MCP server's tools and
       renders associated UI resources inline
@@ -430,6 +475,13 @@ demos:
       - src/app/demos/mcp-apps/page.tsx
       - src/app/api/copilotkit-mcp-apps/route.ts
   - id: open-gen-ui
+    agent:
+      path: /open-gen-ui/
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
     name: Open Generative UI (Minimal)
     description:
       Agent streams a single generateSandboxedUi tool call; the runtime
@@ -443,6 +495,13 @@ demos:
       - src/app/demos/open-gen-ui/page.tsx
       - src/app/api/copilotkit-ogui/route.ts
   - id: open-gen-ui-advanced
+    agent:
+      path: /open-gen-ui-advanced/
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
     name: Open Generative UI (Advanced)
     description: Sandboxed iframe UIs invoke host-page sandbox functions via
       Websandbox.connection.remote
@@ -457,6 +516,8 @@ demos:
       - src/app/demos/open-gen-ui-advanced/suggestions.ts
       - src/app/api/copilotkit-ogui/route.ts
   - id: tool-rendering-reasoning-chain
+    agent:
+      path: /tool-rendering-reasoning-chain/
     name: Tool Rendering (Reasoning Chain)
     description:
       Sequential tool calls combined with a custom reasoningMessage slot
@@ -474,6 +535,8 @@ demos:
       - src/app/demos/tool-rendering-reasoning-chain/reasoning-block.tsx
       - src/app/api/copilotkit/route.ts
   - id: auth
+    agent:
+      name: auth-demo
     name: Authentication
     description:
       Bearer-token gate via runtime onRequest hook with unauthenticated /
@@ -489,6 +552,9 @@ demos:
       - src/app/demos/auth/demo-token.ts
       - src/app/api/copilotkit-auth/[[...slug]]/route.ts
   - id: agent-config
+    agent:
+      path: /agent-config/
+      name: agent-config-demo
     name: Agent Config Object
     description:
       Forward a typed config object (tone / expertise / response length)
@@ -505,6 +571,8 @@ demos:
       - src/app/demos/agent-config/config-types.ts
       - src/app/api/copilotkit/route.ts
   - id: voice
+    agent:
+      name: voice-demo
     name: Voice Input
     description: Speech-to-text via @copilotkit/voice with a bundled sample audio button
     tags:
@@ -517,6 +585,9 @@ demos:
       - src/app/demos/voice/sample-audio-button.tsx
       - src/app/api/copilotkit-voice/[[...slug]]/route.ts
   - id: multimodal
+    agent:
+      path: /multimodal/
+      name: multimodal-demo
     name: Multimodal Attachments
     description:
       Image and PDF uploads via CopilotChat attachments, processed by a
@@ -531,6 +602,15 @@ demos:
       - src/app/demos/multimodal/sample-attachment-buttons.tsx
       - src/app/api/copilotkit-multimodal/route.ts
   - id: beautiful-chat
+    agent:
+      path: /beautiful-chat/
+    runtime:
+      a2ui:
+        injectA2UITool: false
+        defaultCatalogId: "copilotkit://app-dashboard-catalog"
+      openGenerativeUI:
+        agents:
+          - beautiful-chat
     name: Beautiful Chat
     description: Simplified flagship cell that combines A2UI Dynamic + Open
       Generative UI on a single dedicated runtime — agent picks branded catalog
