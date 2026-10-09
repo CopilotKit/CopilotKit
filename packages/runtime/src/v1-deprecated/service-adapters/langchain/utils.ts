@@ -217,6 +217,14 @@ export async function streamLangChainResponse({
     maybeSendActionExecutionResultIsMessage(eventStream$, actionExecution);
 
     let reader = result.getReader();
+    // Cancelling the reader ends the pending read and stops the model stream,
+    // so a stopped run does not keep streaming (and billing) in the background.
+    const cancelReader = () => {
+      void reader.cancel().catch(() => {});
+    };
+    eventStream$.signal?.addEventListener("abort", cancelReader, {
+      once: true,
+    });
 
     let mode: "function" | "message" | null = null;
     let currentMessageId: string;
@@ -334,6 +342,7 @@ export async function streamLangChainResponse({
         break;
       }
     }
+    eventStream$.signal?.removeEventListener("abort", cancelReader);
   } else if (actionExecution) {
     eventStream$.sendActionExecutionResult({
       actionExecutionId: actionExecution.id,

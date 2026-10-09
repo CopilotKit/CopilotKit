@@ -424,4 +424,40 @@ describe("LegacyServiceAdapterAgent.abortRun", () => {
     expect(seen).not.toContain(EventType.RUN_ERROR);
     expect(process).toHaveBeenCalledTimes(1);
   });
+
+  it("cancels the model stream of a LangChainAdapter on Stop", async () => {
+    // Without this the run ends for the user, but the model keeps streaming
+    // (and billing) in the background until it finishes on its own.
+    let pulls = 0;
+    let cancelled = false;
+    const endless = new ReadableStream<AIMessageChunk>({
+      async pull(controller) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        pulls++;
+        controller.enqueue(new AIMessageChunk({ content: `tok${pulls} ` }));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const agent = new LegacyServiceAdapterAgent(
+      new LangChainAdapter({ chainFn: async () => endless as never }),
+    );
+
+    await new Promise<void>((resolve) => {
+      agent.run(baseInput()).subscribe({
+        next: (event) => {
+          if (event.type === EventType.TEXT_MESSAGE_CONTENT) agent.abortRun();
+        },
+        complete: () => resolve(),
+        error: () => resolve(),
+      });
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const pullsAfterStop = pulls;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(cancelled).toBe(true);
+    expect(pulls).toBe(pullsAfterStop);
+  });
 });
