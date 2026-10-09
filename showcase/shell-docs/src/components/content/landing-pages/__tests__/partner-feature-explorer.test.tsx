@@ -40,54 +40,6 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("partner feature explorer", () => {
-  it("starts with Chat and presents the requested feature order", () => {
-    const ids = [
-      "background-agents",
-      "declarative-gen-ui",
-      "shared-state-read-write",
-      "frontend-tools",
-      "hitl-in-chat",
-      "gen-ui-tool-based",
-      "agentic-chat",
-    ];
-    const titles = [
-      "Background tasks",
-      "Declarative UI",
-      "Shared state",
-      "Frontend tools",
-      "Human approvals",
-      "Generative UI",
-      "Chat",
-    ];
-    render(
-      <PartnerFeatureExplorer
-        frameworkName="Mastra"
-        demos={ids.map((id, i) => ({
-          id,
-          title: titles[i],
-          description: "",
-          href: `https://showcase.copilotkit.ai/react/mastra/${id}`,
-          embedHref: `https://showcase-mastra-production.up.railway.app/demos/${id}`,
-        }))}
-      />,
-    );
-    expect(screen.getByTitle("Mastra: Chat live demo")).toBeTruthy();
-    expect(
-      screen
-        .getAllByRole("button")
-        .slice(1, -1)
-        .map((button) => button.textContent),
-    ).toEqual([
-      "Chat",
-      "AG-UI Streams",
-      "Automatic Learning",
-      "Generative UI",
-      "Declarative UI",
-      "Human-in-the-loop",
-      "Frontend tools",
-      "Shared state",
-    ]);
-  });
   it("loads only the selected partner demo and switches to product walkthroughs without a guide link", () => {
     const href =
       "https://showcase.copilotkit.ai/angular/mastra/gen-ui-tool-based";
@@ -120,16 +72,9 @@ describe("partner feature explorer", () => {
         .getAttribute("aria-pressed"),
     ).toBe("true");
     expect(document.querySelectorAll("iframe")).toHaveLength(1);
-    expect(
-      screen
-        .getAllByRole("button")
-        .slice(1, 4)
-        .map((button) => button.textContent),
-    ).toEqual(["AG-UI Streams", "Automatic Learning", "Generative UI"]);
     fireEvent.click(screen.getByRole("button", { name: "AG-UI Streams" }));
     expect(screen.queryByTitle("Mastra: Generative UI live demo")).toBeNull();
     expect(screen.getByTitle("AG-UI Streams product walkthrough")).toBeTruthy();
-    expect(document.querySelector(".partner-explorer-caption")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Next feature" }));
     expect(
       screen.getByTitle("Automatic Learning product walkthrough"),

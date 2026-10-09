@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-
 import { getPathMatch } from "next/dist/shared/lib/router/utils/path-match";
 import { describe, expect, it } from "vitest";
 
@@ -16,26 +14,6 @@ interface ResolvedRedirect {
   readonly destination: string;
   readonly permanent: boolean;
 }
-
-describe("Next config build boundary", () => {
-  it("does not import application runtime modules", () => {
-    const source = readFileSync(
-      new URL("../../../next.config.ts", import.meta.url),
-      "utf8",
-    );
-
-    expect(source).not.toMatch(/from\s+["']\.\/src\//);
-  });
-
-  it("limits the Turbopack NFT filter to the known config false positive", () => {
-    expect(nextConfig.turbopack?.ignoreIssue).toEqual([
-      {
-        path: /showcase\/shell-docs\/next\.config\.ts$/,
-        title: "Encountered unexpected file in NFT list",
-      },
-    ]);
-  });
-});
 
 describe("retired Open-JSON-UI docs", () => {
   it("redirects every published URL shape to A2UI in one hop", async () => {

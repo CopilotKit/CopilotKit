@@ -324,16 +324,19 @@ export class CopilotThreadsDrawer {
       retryableRuntimeEntitlementFailure &&
       (this.copilotkit.runtimeEntitlementRetryPending?.() ?? false) &&
       !hasLegacyRuntimeEntitlementFallback;
-    const runtimeEntitlementFailureSettled =
+    // Only a terminal failure denies features. A retryable failure (a
+    // timeout, a network error, a 5xx) says nothing about what the project
+    // may use.
+    const terminalRuntimeEntitlementFailure =
       hasNonReadyRuntimeEntitlement &&
-      !runtimeEntitlementRetryInProgress &&
+      !retryableRuntimeEntitlementFailure &&
       !hasLegacyRuntimeEntitlementFallback;
     const runtimeLicenseContext = createLicenseContextValue(
       runtimeEntitlementRetryInProgress ? undefined : runtimeLicenseStatus,
       runtimeEntitlements,
     );
 
-    if (!runtimeEntitlementFailureSettled) {
+    if (!terminalRuntimeEntitlementFailure) {
       return runtimeLicenseContext;
     }
 

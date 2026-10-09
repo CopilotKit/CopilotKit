@@ -21,7 +21,7 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 
 ## Essentials
 
-- **Nx monorepo** — always run tasks through `nx` (`nx run`, `nx run-many`, `nx affected`), never the underlying tooling directly.
+- **Nx monorepo** — run workspace tasks through `nx` (`nx run`, `nx run-many`, `nx affected`). **Dashboard exception:** `showcase/shell-dashboard` is deliberately outside the workspace and has no Nx targets. Use its [standalone verification instructions](showcase/shell-dashboard/README.md#verification) instead of the general Nx rule. Do not add it to the workspace or change its lockfile to make an Nx command work.
 - **Flat package structure** — All packages live under `packages/` with the `@copilotkit/` scope. Dual-version packages keep deprecated implementation code under `src/v1-deprecated/`, route the package root through `src/v1-deprecated-compatibility.ts`, and keep current code under `src/v2/`. These remain one published package; the deprecated source directory is not a public subpath.
 - **Simplicity** — prefer the simplest correct solution. For non-trivial changes, consider if there's a cleaner approach before committing.
 - **No changesets** — releases are conventional-commit-driven (`scripts/release/` reads commit subjects). This repo migrated off Changesets; never create `.changeset/*` files — nothing consumes them and CI fails on them. Describe the change in the commit subject instead, and leave `package.json` versions and `CHANGELOG.md` files to the release tooling.

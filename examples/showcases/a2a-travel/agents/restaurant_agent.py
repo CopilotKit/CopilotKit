@@ -71,7 +71,7 @@ class RestaurantAgent:
         )
 
     def _build_agent(self) -> LlmAgent:
-        model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        model_name = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 
         return LlmAgent(
             model=model_name,
