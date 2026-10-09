@@ -37,20 +37,15 @@ history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 ### Breaking Changes
 
 - fix(runtime): let COPILOTKIT_OPENAI_API choose the OpenAI API, and log the Chat Completions switch (refs PE-706) (#7754) (9158409)
-  with OPENAI_BASE_URL set to a host other than OpenAI or
-  Azure, "openai/..." model strings now use the Chat Completions API (#7726).
+  With `OPENAI_BASE_URL` set to a host other than OpenAI or Azure,
+  `"openai/..."` model strings now use the Chat Completions API (#7726).
   Through a proxy in front of OpenAI (LiteLLM, Portkey, Helicone), models and
   options that only the Responses API supports, such as reasoning summaries,
-  stop working. Set COPILOTKIT_OPENAI_API=responses to keep the Responses API.
+  stop working. Set `COPILOTKIT_OPENAI_API=responses` to keep the Responses API.
 - feat(react-core)!: start Trajectory capture for every learning object (#7747) (d38d016)
-  a `learning` object without `trajectoryId` now starts
-  capture after mount.
+  A `learning` object without `trajectoryId` now starts capture after mount.
   To keep starting capture yourself with `startTrajectory()`, add
-  `autoStart: false`, for example `learning={{ onError, autoStart: false
-}}`.
-  a `learning` object without `trajectoryId` now starts capture after mount.
-  To keep starting capture yourself with `startTrajectory()`, add `autoStart: false`,
-  for example `learning={{ onError, autoStart: false }}`.
+  `autoStart: false`, for example `learning={{ onError, autoStart: false }}`.
 
 ## 1.77.2 - 2026-10-08
 
