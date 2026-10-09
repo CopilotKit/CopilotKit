@@ -40,6 +40,18 @@ export interface TraceStep {
   readonly durationMs?: number;
   readonly text?: string;
   readonly at: number;
+  /** The refusal code a failed call came back with, e.g. UNRESOLVED. */
+  readonly code?: string;
+  /**
+   * The generative UI this call drew: the app's own component and the props it
+   * was drawn from. The trajectory view renders the real component.
+   */
+  readonly ui?: GenUiRecord;
+}
+
+export interface GenUiRecord {
+  readonly component: string;
+  readonly props: Record<string, unknown>;
 }
 
 export interface TrajectoryThread {

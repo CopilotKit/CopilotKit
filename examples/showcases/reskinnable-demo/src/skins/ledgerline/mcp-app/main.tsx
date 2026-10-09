@@ -91,7 +91,8 @@ function Root() {
   return (
     <ReviewMatchesCard
       view={view}
-      outcome={outcome}
+      // A host replaying a confirmed card (Intelligence) hands its outcome in.
+      outcome={outcome ?? view.outcome ?? null}
       confirm={async () => {
         const r = (await app.callServerTool({
           name: "confirmMatches",

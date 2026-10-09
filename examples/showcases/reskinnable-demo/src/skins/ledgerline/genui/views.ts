@@ -50,6 +50,8 @@ export interface ReviewView {
     periodLabel: string;
   };
   status: "open" | "closed";
+  /** Set only when a host replays a card the person already confirmed. */
+  outcome?: ReviewOutcome;
   pairs: {
     transaction: {
       id: string;

@@ -102,7 +102,7 @@ export function OverviewScreen() {
             {
               label: "Trajectories",
               value: value(trajectories.status, rows.length),
-              delta: "Captured in Ledgerline",
+              delta: "Captured in Ledgerline and ChatGPT",
               icon: Activity,
             },
             {
@@ -187,7 +187,7 @@ export function OverviewScreen() {
                 rows={rows.slice(0, RECENT_ROWS).map((t) => ({
                   id: t.trajectoryId,
                   name: t.title,
-                  endUserId: t.user.id,
+                  endUserId: t.user.name,
                   surface: t.surfaces.map(surfaceName).join(", "),
                   updatedAt: new Date(t.lastEventAt).toISOString(),
                 }))}

@@ -119,7 +119,7 @@ export function LearnedSkillTools() {
   return null;
 }
 
-function LearnedSkillCard({
+export function LearnedSkillCard({
   name,
   result,
 }: {

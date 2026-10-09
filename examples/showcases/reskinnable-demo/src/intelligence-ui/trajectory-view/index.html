@@ -597,6 +597,18 @@ pre.code {
 .k-facts b { color: var(--k-ink); font-weight: 600; }
 .gen .props { margin-top: 8px; }
 
+/* Real generative UI: Ledgerline's own component, in a frame sized to it */
+.gen-real { max-width: 100%; width: 27rem; }
+.gen-real.wide { width: 40rem; }
+.a-bubble .gen-real { margin-top: 12px; }
+.msg.agent .body > .gen-real { margin-top: 2px; }
+.gen-cap { display: block; margin: 0 0 6px; font-family: var(--mono); font-size: 10.5px; line-height: 1.5; letter-spacing: 0.02em; color: var(--ink-3); }
+.gen-cap .ms { font-size: 14px; vertical-align: -3px; margin-right: 4px; color: var(--ink-3); }
+.gen-cap b { font-weight: 600; color: var(--ink-2); }
+.genui-slot { min-height: 72px; }
+.genui-frame { display: block; width: 100%; height: 160px; border: 0; background: transparent; color-scheme: light; }
+@media (max-width: 720px) { .gen-real { width: 100%; } }
+
 /* Placeholder generative UI: the trace has the component name, schema and props, not the component itself */
 .gen-frame { display: grid; grid-template-columns: minmax(0, 1fr) 26px; align-items: stretch; }
 .gen-frame .k-card { border-top-right-radius: 0; border-bottom-right-radius: 0; }
@@ -811,8 +823,8 @@ pre.code {
     <button class="project" type="button"><span class="pt">L</span><span><b>Ledgerline</b><small>Expense agent</small></span><span class="ms" aria-hidden="true">unfold_more</span></button>
     <nav class="nav">
       <a class="nav-item" href="/intelligence/overview"><span class="ms">home</span>Overview</a>
-      <a class="nav-item" href="#"><span class="ms">lightbulb</span>Product Insights</a>
-      <a class="nav-item" href="#"><span class="ms">monitoring</span>Product Analytics</a>
+      <a class="nav-item" href="/intelligence/insights"><span class="ms">lightbulb</span>Product Insights</a>
+      <a class="nav-item" href="/intelligence/analytics"><span class="ms">monitoring</span>Product Analytics</a>
       <a class="nav-item" href="/intelligence/learning"><span class="ms">model_training</span>Automatic Learning</a>
     </nav>
     <nav class="nav" aria-labelledby="nav-res">
@@ -1091,18 +1103,24 @@ function renderChat(e) {
       <div class="bubble">${esc(e.text)}</div></div>`;
   }
   let gen = "";
+  let real = false;
   if (e.gen) {
-    const g = GEN[e.gen] ?? DATA.genericGen(e.gen, e.genProps);
+    const g = GEN[e.gen] ?? DATA.genericGen(e.gen, e.genProps, e.genRef);
     const open = state.pop?.id === e.id;
-    gen = `<div class="gen">
+    real = Boolean(g.real);
+    // The app's own component (rendered live from the recording) needs no placeholder bar.
+    gen = g.real
+      ? `<div class="gen gen-real${g.wide ? " wide" : ""}">${g.html()}</div>`
+      : `<div class="gen">
       <div class="gen-frame">${g.html()}<button class="ph-bar" type="button" data-connect="${e.id}" data-gen="${e.gen}" data-key="ph-${e.id}" aria-haspopup="dialog" aria-expanded="${open}" aria-label="Placeholder component: show details" title="Placeholder: click for details"><span class="ph-label">Placeholder</span>${ms("info")}</button></div>
     </div>`;
   }
+  const solo = real && e.text.length === 0;
   return `<div class="msg agent" data-row="${e.id}" id="ev-${e.id}">
     <span class="avatar" aria-hidden="true">${ms(e.icon || "smart_toy")}</span>
     <div class="body">
       <div class="who"><b>${esc(e.who || DATA.agentName)}</b><span class="num">${e.t}</span></div>
-      <div class="a-bubble"><div class="text">${e.text.map((p) => `<p>${esc(p)}</p>`).join("")}</div>${gen}</div>
+      ${solo ? gen : `<div class="a-bubble"><div class="text">${e.text.map((p) => `<p>${esc(p)}</p>`).join("")}</div>${gen}</div>`}
     </div></div>`;
 }
 
@@ -1248,15 +1266,61 @@ function syncFilters() {
 
 /* ---------------- Render ---------------- */
 const stream = document.getElementById("stream");
+
+/*
+ * Generative UI frames. Each recorded component is Ledgerline's real React
+ * component, rendered by /intelligence/genui/<trajectory>/<step> in its own
+ * iframe. The stream re-renders as HTML on every toggle, so the frames are
+ * parked off-screen before it and moved back into their slots after, with
+ * moveBefore (which keeps a moved iframe loaded) where the browser has it.
+ */
+const GENUI_FRAMES = new Map();
+const GENUI_PARK = document.createElement("div");
+GENUI_PARK.setAttribute("aria-hidden", "true");
+GENUI_PARK.style.cssText = "position:absolute;left:-10000px;top:0;width:27rem;visibility:hidden;";
+document.body.append(GENUI_PARK);
+const moveInto = (parent, node) =>
+  typeof parent.moveBefore === "function" && node.isConnected
+    ? parent.moveBefore(node, null)
+    : parent.append(node);
+function parkGenUi() {
+  for (const frame of GENUI_FRAMES.values())
+    if (frame.parentNode !== GENUI_PARK) moveInto(GENUI_PARK, frame);
+}
+function placeGenUi() {
+  stream.querySelectorAll("[data-genui-slot]").forEach((slot) => {
+    const key = slot.dataset.genuiSlot;
+    let frame = GENUI_FRAMES.get(key);
+    if (!frame) {
+      frame = document.createElement("iframe");
+      frame.className = "genui-frame";
+      frame.title = slot.dataset.title || "Generative UI";
+      frame.src = slot.dataset.src;
+      frame.dataset.genui = key;
+      GENUI_FRAMES.set(key, frame);
+    }
+    moveInto(slot, frame);
+  });
+}
+addEventListener("message", (event) => {
+  if (event.origin !== location.origin) return;
+  const d = event.data;
+  if (!d || d.type !== "ledgerline-genui-height" || !(d.height > 0)) return;
+  const frame = GENUI_FRAMES.get(d.id);
+  if (frame) frame.style.height = `${d.height}px`;
+});
 function render(focusKey) {
   syncFilters();
   const rows = buildRows();
   document.getElementById("stream-count").textContent = `${EVENTS.filter(isVisible).length} of ${EVENTS.length} events`;
   stream.classList.toggle("no-int", !state.f.interaction);
   stream.classList.toggle("is-empty", rows.length === 0);
+  // Live generative UI frames survive the re-render (see parkGenUi / placeGenUi).
+  parkGenUi();
   stream.innerHTML = rows.length
     ? rows.map((r) => (r.type === "chat" ? renderChat(r.e) : renderGroup(r))).join("")
     : `<div class="empty">Nothing to show. Turn on a layer under <b>Show</b>.</div>`;
+  placeGenUi();
   const groups = rows.filter((r) => r.type === "group" && r.items.length > 1);
   const allOpen = groups.length > 0 && groups.every((r) => state.open.has(r.g));
   const bx = document.getElementById("btn-expand");
