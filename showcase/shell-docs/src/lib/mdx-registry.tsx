@@ -371,9 +371,11 @@ export const docsComponents = {
   InlineDemo: ({
     integration,
     demo,
+    showAllFiles,
   }: {
     integration?: string;
     demo?: string;
+    showAllFiles?: boolean;
   }) => {
     if (!integration || !demo) {
       warnSilentNull(
@@ -448,7 +450,11 @@ export const docsComponents = {
           </div>
         </DocsTab>
         <DocsTab value="Code">
-          <DemoSource integration={integration} demo={demo} />
+          <DemoSource
+            integration={integration}
+            demo={demo}
+            onlyHighlighted={!showAllFiles}
+          />
         </DocsTab>
       </DocsTabs>
     );

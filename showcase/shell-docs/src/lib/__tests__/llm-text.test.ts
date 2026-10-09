@@ -9,6 +9,36 @@ import {
   rewriteScopedDocsLinks,
 } from "../llm-text";
 
+test("includes JSON Render wiring in framework Markdown exports", () => {
+  const doc = loadDoc("generative-ui/json-render");
+  expect(doc).not.toBeNull();
+
+  for (const framework of ["google-adk", "strands-typescript"]) {
+    const output = renderPageToLlmText({
+      url: `${framework}/generative-ui/json-render`,
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+      loadSlug: "generative-ui/json-render",
+      framework,
+    });
+
+    expect(output).toMatch(
+      /\/\/ src\/app\/demos\/declarative-json-render\/chat\.tsx[\s\S]*?assistantMessage:\s*JsonRenderAssistantMessage/,
+    );
+    expect(output).toMatch(
+      /\/\/ src\/app\/demos\/declarative-json-render\/json-render-renderer\.tsx[\s\S]*?<JSONUIProvider registry=\{registry\}>[\s\S]*?<Renderer[\s\S]*?registry=\{registry\}/,
+    );
+    expect(output).toMatch(
+      /\/\/ src\/app\/demos\/declarative-json-render\/catalog\.ts[\s\S]*?defineCatalog\(schema, \{/,
+    );
+    expect(output).toMatch(
+      /\/\/ src\/app\/demos\/declarative-json-render\/registry\.tsx[\s\S]*?defineRegistry\(catalog, \{/,
+    );
+    expect(output).not.toContain("snippet skipped");
+  }
+});
+
 test("expands Intelligence capability cards into readable Markdown links", () => {
   const page = getAllLlmPages().find(
     (entry) => entry.url === "intelligence/overview",
