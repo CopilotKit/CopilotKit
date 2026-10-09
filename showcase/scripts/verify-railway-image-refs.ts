@@ -35,6 +35,8 @@
 import { fileURLToPath } from "url";
 import {
   ENV_ID_BY_NAME,
+  DISPOSABLE_LIFECYCLE_POLICY,
+  effectiveStaticGatePolicy,
   PROJECT_ID,
   SERVICES,
   repoNameFor,
@@ -45,6 +47,14 @@ import {
   sanitizeErrorBody,
 } from "./lib/railway-graphql";
 import { RailwayTokenError, resolveRailwayToken } from "./lib/railway-token";
+
+import { classifyRailwayInventory } from "../harness/src/shared/railway-lifecycle";
+import type {
+  LifecycleIssue,
+  RailwayInventoryClassification,
+  RailwayLifecyclePolicy,
+} from "../harness/src/shared/railway-lifecycle";
+import { readRailwayLifecycleEvidence } from "../harness/src/shared/railway-lifecycle-records";
 
 const RAILWAY_API = RAILWAY_GRAPHQL_ENDPOINT;
 
@@ -228,13 +238,7 @@ export function findMissingServices(
 ): string[] {
   const missing: string[] = [];
   for (const [name, entry] of Object.entries(SERVICES)) {
-    // S2: the 12 starter-<slug> services are now SSOT-managed +
-    // gateValidated, exactly like a showcase-* agent — no starter carve-out
-    // here. They are REQUIRED in the SSOT→Railway direction in any env they
-    // declare. The `!entry.gateValidated` guard below is the single gate
-    // membership filter; a starter that is gateValidated:true is demanded
-    // just like every other tracked service.
-    if (!entry.gateValidated) continue;
+    if (effectiveStaticGatePolicy(entry).presence !== "required") continue;
     // Only require the service in an env it actually DECLARES. A service
     // that does not exist in `env` (a single-env worker) is not "missing"
     // from that env — it was never expected there. (Every gateValidated
@@ -290,6 +294,7 @@ export interface FailureSummaryInput {
   untracked: string[];
   checked: number;
   skipped: number;
+  lifecycleFailures?: readonly LifecycleIssue[];
 }
 
 export interface FailureSummaryOutput {
@@ -321,8 +326,12 @@ export function summarizeFailures(
     (sum, env) => sum + missingByEnv[env].length,
     0,
   );
+  const lifecycleFailures = input.lifecycleFailures ?? [];
   const shouldFail =
-    violations.length > 0 || totalMissing > 0 || untracked.length > 0;
+    violations.length > 0 ||
+    totalMissing > 0 ||
+    untracked.length > 0 ||
+    lifecycleFailures.length > 0;
   const lines: string[] = [];
 
   if (!shouldFail) return { shouldFail, lines };
@@ -349,6 +358,11 @@ export function summarizeFailures(
     lines.push(`    current:  <present on Railway, absent from SSOT>`);
     lines.push(
       `    reason:   Railway service "${name}" is not in the SSOT. Either add it to SERVICES in showcase/scripts/railway-envs.ts (preferred), or mark an existing entry with gateIgnore: true if it is deliberately unmanaged by WS4.`,
+    );
+  }
+  for (const issue of lifecycleFailures) {
+    lines.push(
+      `  [lifecycle:${issue.code}] ${issue.message}${issue.runId ? ` (run ${issue.runId})` : ""}${issue.serviceId ? ` service ${issue.serviceId}` : ""}${issue.environmentId ? ` environment ${issue.environmentId}` : ""}`,
     );
   }
   lines.push(
@@ -409,7 +423,7 @@ async function railwayGql<T = unknown>(
   return json.data as T;
 }
 
-interface ProjectServicesWithInstances {
+export interface ProjectServicesWithInstances {
   // Railway returns project: null (no GraphQL `errors` block) when the
   // PROJECT_ID is wrong OR the token lacks access — type accordingly so
   // the null-check in main() is enforced by the compiler.
@@ -433,6 +447,154 @@ interface ProjectServicesWithInstances {
   } | null;
 }
 
+export interface ImageGateResult extends FailureSummaryInput {
+  summary: FailureSummaryOutput;
+  lifecycle: RailwayInventoryClassification;
+}
+
+/**
+ * Read configured ownership evidence and check a complete project response.
+ * main uses this runner; fixture callers may inject separately approved policy and time.
+ */
+export async function runRailwayImageGate(input: {
+  data: ProjectServicesWithInstances;
+  recordsFile?: string;
+  now?: Date;
+  policy?: RailwayLifecyclePolicy;
+}): Promise<ImageGateResult> {
+  const { data } = input;
+  if (!data.project) {
+    throw new Error(
+      `Railway project ${PROJECT_ID} returned null — check PROJECT_ID and that the Railway token has access to this project.`,
+    );
+  }
+  const staticPolicies = new Map(
+    Object.entries(SERVICES).map(([name, entry]) => [
+      name,
+      effectiveStaticGatePolicy(entry),
+    ]),
+  );
+  const now = input.now ?? new Date();
+  const policy = input.policy ?? DISPOSABLE_LIFECYCLE_POLICY;
+  const evidence = await readRailwayLifecycleEvidence(
+    input.recordsFile,
+    policy,
+    now,
+  );
+  const runs = evidence.status === "valid" ? evidence.snapshot.runs : [];
+  const observed = data.project.services.edges.flatMap(({ node }) =>
+    node.serviceInstances.edges.map(({ node: instance }) => ({
+      name: node.name,
+      serviceId: node.id,
+      environmentId: instance.environmentId,
+      image: instance.source?.image ?? null,
+    })),
+  );
+  // This is a project-wide query, so absence in every registered/recorded env is known.
+  const lifecycle = classifyRailwayInventory({
+    policy,
+    evidence,
+    now,
+    projectId: PROJECT_ID,
+    observedEnvironmentIds: [
+      ...new Set([
+        ...Object.values(ENV_ID_BY_NAME),
+        ...runs.map((run) => run.environmentId),
+        ...observed.map((service) => service.environmentId),
+      ]),
+    ],
+    services: observed,
+  });
+  // Preserve only the established unregistered permanent starter carveout.
+  // A disposable name or ID claim, or invalid evidence, cannot use that carveout.
+  const toleratedStarter = (name: string, serviceId: string): boolean =>
+    !Object.hasOwn(SERVICES, name) &&
+    isStarterFleetService(name) &&
+    evidence.status !== "invalid" &&
+    !runs.some((run) =>
+      run.services.some(
+        (service) => service.name === name || service.serviceId === serviceId,
+      ),
+    );
+  const lifecycleFailures = lifecycle.failures.filter(
+    (issue) =>
+      issue.code !== "unknown-service" ||
+      !observed.some(
+        (service) =>
+          service.serviceId === issue.serviceId &&
+          service.environmentId === issue.environmentId &&
+          toleratedStarter(service.name, service.serviceId),
+      ),
+  );
+  const violations: Violation[] = [];
+  let checked = 0;
+  let skipped = 0;
+  const seenByEnv: Record<EnvName, Set<string>> = Object.fromEntries(
+    Object.keys(ENV_ID_BY_NAME).map((env) => [env, new Set<string>()]),
+  );
+  const untrackedNames = new Set<string>();
+  for (const { node: service } of data.project.services.edges) {
+    const entry = Object.hasOwn(SERVICES, service.name)
+      ? SERVICES[service.name]
+      : undefined;
+    const instances = lifecycle.services.filter(
+      (instance) =>
+        instance.serviceId === service.id && instance.name === service.name,
+    );
+    const exactPermanent = entry?.serviceId === service.id;
+    if (!exactPermanent) {
+      if (
+        !toleratedStarter(service.name, service.id) &&
+        (instances.length === 0 ||
+          instances.some(
+            (instance) => instance.classification !== "owned-disposable",
+          ))
+      )
+        untrackedNames.add(service.name);
+      continue;
+    }
+    if (staticPolicies.get(service.name)!.image === "ignored") {
+      skipped++;
+      continue;
+    }
+    for (const env of Object.keys(entry.environments)) {
+      const instance = instances.find(
+        (candidate) =>
+          candidate.environmentId === ENV_ID_BY_NAME[env] &&
+          candidate.classification === "permanent",
+      );
+      if (!instance) continue;
+      seenByEnv[env].add(service.name);
+      checked++;
+      const violation = validateImage(instance.image, {
+        env,
+        repoName: repoNameFor(service.name, env),
+      });
+      if (violation) violations.push({ ...violation, service: service.name });
+    }
+  }
+  const missingByEnv = Object.fromEntries(
+    Object.keys(ENV_ID_BY_NAME).map((env) => [
+      env,
+      findMissingServices(env, seenByEnv[env]),
+    ]),
+  );
+  const untracked = [...untrackedNames].sort();
+  const result = {
+    violations,
+    missingByEnv,
+    untracked,
+    checked,
+    skipped,
+    lifecycleFailures,
+  };
+  return {
+    ...result,
+    lifecycle: { ...lifecycle, failures: lifecycleFailures },
+    summary: summarizeFailures(result),
+  };
+}
+
 async function main(): Promise<void> {
   const data = await railwayGql<ProjectServicesWithInstances>(
     `query project($id: String!) {
@@ -451,109 +613,16 @@ async function main(): Promise<void> {
     { id: PROJECT_ID },
   );
 
-  // Railway returns project: null with NO `errors` array when PROJECT_ID
-  // is wrong or the token lacks access — without this guard, reading
-  // `data.project.services` throws a confusing TypeError.
-  if (data.project === null || data.project === undefined) {
-    throw new Error(
-      `Railway project ${PROJECT_ID} returned null — check PROJECT_ID and that the Railway token has access to this project.`,
+  const { summary, checked, skipped, lifecycle } = await runRailwayImageGate({
+    data,
+    recordsFile: process.env.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE,
+  });
+
+  for (const issue of lifecycle.diagnostics) {
+    console.log(
+      `[lifecycle:${issue.code}] ${issue.message}${issue.runId ? ` (run ${issue.runId})` : ""}`,
     );
   }
-
-  const violations: Violation[] = [];
-  let checked = 0;
-  let skipped = 0;
-  // Per-env set of SSOT-known, gateValidated service names we actually
-  // saw in the Railway response. Used post-loop for coverage assertion.
-  // Keyed by every registered env name (not a hardcoded prod/staging pair)
-  // so the gate generalizes to any env the SSOT declares.
-  const seenByEnv: Record<EnvName, Set<string>> = Object.fromEntries(
-    Object.keys(ENV_ID_BY_NAME).map((env) => [env, new Set<string>()]),
-  );
-  // Names Railway actually reported back, used post-loop for the
-  // Railway -> SSOT coverage assertion (findUntrackedServices).
-  const railwayReportedNames = new Set<string>();
-
-  for (const edge of data.project.services.edges) {
-    const svc = edge.node;
-    railwayReportedNames.add(svc.name);
-    const entry = SERVICES[svc.name];
-
-    // Railway -> SSOT direction is handled post-loop via
-    // findUntrackedServices(); do NOT log a warning here. An unknown
-    // service that ALSO has a shape problem will surface in the
-    // post-loop failure block under the "untracked" class, which is
-    // the right shape (we can't validate shape without an expected
-    // repo name, and there is no SSOT entry to derive one from).
-    if (!entry) continue;
-
-    // gateIgnore: deliberately unmanaged. Skip both shape validation
-    // and Railway->SSOT membership reporting (the helper also honours
-    // this flag for that direction).
-    if (entry.gateIgnore) {
-      skipped++;
-      continue;
-    }
-
-    // Per-WS-C gate scope: only services explicitly marked
-    // gateValidated. After WS-C lands the 5-service flip this is
-    // every entry in SERVICES — the Phase-2 deferral is retired.
-    if (!entry.gateValidated) {
-      skipped++;
-      continue;
-    }
-
-    // Iterate the envs THIS service actually declares in the SSOT
-    // (`environments`), not a hardcoded prod/staging pair. Each env name
-    // resolves to its Railway env-id via the registry. A dual-env service
-    // visits prod+staging exactly as before; a single-env service visits
-    // only its declared env.
-    for (const env of Object.keys(entry.environments)) {
-      const envId = ENV_ID_BY_NAME[env];
-      // Defense-in-depth: an env name with no registry entry cannot be
-      // resolved to a Railway env-id, so we cannot validate it. Skip it
-      // rather than guess (a future env name must be registered).
-      if (!envId) continue;
-      const instance = svc.serviceInstances.edges.find(
-        (e) => e.node.environmentId === envId,
-      );
-      // A gateValidated SSOT service with no serviceInstance for this
-      // env is genuine drift; don't count it as "seen" so the coverage
-      // assertion catches it.
-      if (!instance) continue;
-      seenByEnv[env].add(svc.name);
-
-      const image = instance.node.source?.image ?? null;
-
-      checked++;
-      const repoName = repoNameFor(svc.name, env);
-      const v = validateImage(image, { env, repoName });
-      if (v) {
-        violations.push({ ...v, service: svc.name });
-      }
-    }
-  }
-
-  // Coverage assertions:
-  //   - SSOT->Railway: a gateValidated SSOT service that did not show
-  //     up in the Railway response is drift.
-  //   - Railway->SSOT: a Railway service that has no SSOT entry (and
-  //     is not opted out via gateIgnore) is drift.
-  const missingByEnv: Record<EnvName, string[]> = Object.fromEntries(
-    Object.keys(ENV_ID_BY_NAME).map((env) => [
-      env,
-      findMissingServices(env, seenByEnv[env]),
-    ]),
-  );
-  const untracked = findUntrackedServices(railwayReportedNames);
-
-  const summary = summarizeFailures({
-    violations,
-    missingByEnv,
-    untracked,
-    checked,
-    skipped,
-  });
 
   if (summary.shouldFail) {
     for (const line of summary.lines) console.error(line);

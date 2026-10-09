@@ -30,6 +30,8 @@
  * widening — accessors resolve any registered env name.
  */
 
+import type { RailwayLifecyclePolicy } from "../harness/src/shared/railway-lifecycle";
+
 export const PROJECT_ID = "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479";
 
 export const PRODUCTION_ENV_ID = "b14919f4-6417-429f-848d-c6ae2201e04f";
@@ -345,6 +347,23 @@ export type AutoUpdatesPolicy = "disabled" | "minor" | "unmanaged";
  * have no policy.
  */
 export type AutoUpdatesByEnv = Record<EnvName, AutoUpdatesPolicy>;
+
+export interface StaticGatePolicy {
+  readonly presence: "required" | "optional";
+  readonly image: "showcase-convention" | "ignored";
+}
+
+/** Resolve static flags once for presence and image consumers; reject contradictory intent. */
+export function effectiveStaticGatePolicy(
+  entry: Pick<ServiceEntry, "gateValidated" | "gateIgnore">,
+): StaticGatePolicy {
+  if (entry.gateValidated && entry.gateIgnore) {
+    throw new Error("gateValidated:true and gateIgnore:true are contradictory");
+  }
+  return entry.gateValidated
+    ? { presence: "required", image: "showcase-convention" }
+    : { presence: "optional", image: "ignored" };
+}
 
 export interface ServiceEntry {
   /** Railway service ID (env-independent). */
@@ -2845,3 +2864,17 @@ assertImageConsumersValid();
 assertEnvRegistryConsistent();
 assertServiceAndInstanceIdsUnique();
 assertClosureValid();
+
+// Validate all static policies on load, including entries absent from live inventory.
+for (const entry of Object.values(SERVICES)) effectiveStaticGatePolicy(entry);
+
+/** Independent committed approval policy. Receipts cannot add approved pins or permanent entries. */
+export const DISPOSABLE_LIFECYCLE_POLICY: RailwayLifecyclePolicy = {
+  projectId: PROJECT_ID,
+  forbiddenEnvironmentIds: [PRODUCTION_ENV_ID],
+  permanentServices: Object.entries(SERVICES).map(([name, entry]) => ({
+    name,
+    serviceId: entry.serviceId,
+  })),
+  approvedImages: [],
+};
