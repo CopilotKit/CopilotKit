@@ -54,9 +54,9 @@ export async function buildShowcaseAgent(): Promise<StrandsAgent> {
   const config: StrandsAgentConfig = {
     toolBehaviors: {
       // The tool keeps the sales pipeline in appState; this snapshot, built
-      // from the args, only carries it to the UI.
+      // from the args, only carries it to the UI. Keep the call/result in
+      // message snapshots too so completed threads can replay them.
       manage_sales_todos: {
-        skipMessagesSnapshot: true,
         stateFromArgs: salesStateFromArgs,
       },
       // Shared State (Read + Write) — notes panel.

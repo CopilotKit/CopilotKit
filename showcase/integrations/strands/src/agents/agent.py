@@ -1386,7 +1386,7 @@ def build_showcase_agent(
     shared_state_config = StrandsAgentConfig(
         tool_behaviors={
             "manage_sales_todos": ToolBehavior(
-                skip_messages_snapshot=True,
+                # State updates also need their call/result in replayable history.
                 state_from_args=sales_state_from_args,
             ),
             # Shared State (Read + Write) — the agent writes notes to
