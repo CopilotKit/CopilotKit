@@ -631,6 +631,26 @@ describe("image gate runner lifecycle orchestration", () => {
     expect(result.untracked).toContain("starter-future");
   });
 
+  it("rejects a permanent service ID renamed into the starter carveout", async () => {
+    const data = permanentInventory();
+    const name = "starter-renamed-intelligence-api";
+    const serviceId = SERVICES["showcase-intelligence-api"].serviceId;
+    addService(data, name, serviceId, [ENV_ID_BY_NAME.staging], OTHER_PIN);
+
+    const result = await withRecords(data, []);
+
+    expect(result.summary.shouldFail).toBe(true);
+    expect(result.untracked).toContain(name);
+    expect(result.lifecycle.failures).toContainEqual(
+      expect.objectContaining({
+        code: "unknown-service",
+        serviceId,
+        environmentId: ENV_ID_BY_NAME.staging,
+      }),
+    );
+    expect(result.missingByEnv).toEqual({ prod: [], staging: [] });
+  });
+
   it("configured evidence read failure fails even when all permanent services pass", async () => {
     const result = await runRailwayImageGate({
       data: permanentInventory(),

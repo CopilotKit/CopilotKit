@@ -505,10 +505,14 @@ export async function runRailwayImageGate(input: {
     ],
     services: observed,
   });
+  const permanentServiceIds = new Set(
+    Object.values(SERVICES).map((entry) => entry.serviceId),
+  );
   // Preserve only the established unregistered permanent starter carveout.
-  // A disposable name or ID claim, or invalid evidence, cannot use that carveout.
+  // Permanent IDs, disposable claims, and invalid evidence cannot use it.
   const toleratedStarter = (name: string, serviceId: string): boolean =>
     !Object.hasOwn(SERVICES, name) &&
+    !permanentServiceIds.has(serviceId) &&
     isStarterFleetService(name) &&
     evidence.status !== "invalid" &&
     !runs.some((run) =>
