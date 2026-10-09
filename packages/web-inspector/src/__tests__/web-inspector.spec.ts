@@ -247,6 +247,35 @@ function getContextInternals(inspector: WebInspectorElement) {
   return inspector as unknown as InspectorContextInternals;
 }
 
+/** A pointer event aimed at the launcher, enough for the drag handlers. */
+function launcherPointer(clientX: number, clientY: number) {
+  return {
+    pointerId: 1,
+    clientX,
+    clientY,
+    target: null,
+    currentTarget: {
+      dataset: { dragContext: "button" },
+      setPointerCapture: () => {},
+      hasPointerCapture: () => false,
+    },
+    preventDefault: () => {},
+  };
+}
+
+/** Drag the launcher from the top-left area to the bottom-right corner. */
+function dragLauncherToBottomRight(inspector: WebInspectorElement) {
+  const handlers = inspector as unknown as Record<
+    "handlePointerDown" | "handlePointerMove" | "handlePointerUp",
+    (event: unknown) => void
+  >;
+  const end = launcherPointer(window.innerWidth - 20, window.innerHeight - 20);
+
+  handlers.handlePointerDown(launcherPointer(20, 20));
+  handlers.handlePointerMove(end);
+  handlers.handlePointerUp(end);
+}
+
 /** Save a launcher position the way the inspector persists it. */
 function saveButtonState(button: Record<string, unknown>) {
   localStorage.setItem("cpk:inspector:state", JSON.stringify({ button }));
@@ -581,34 +610,25 @@ describe("WebInspectorElement", () => {
 
     it("saves a dragged corner so it wins on the next load", async () => {
       const inspector = await mount({ horizontal: "left", vertical: "top" });
-      const handlers = inspector as unknown as Record<
-        "handlePointerDown" | "handlePointerMove" | "handlePointerUp",
-        (event: unknown) => void
-      >;
-      const pointer = (clientX: number, clientY: number) => ({
-        pointerId: 1,
-        clientX,
-        clientY,
-        target: null,
-        currentTarget: {
-          dataset: { dragContext: "button" },
-          setPointerCapture: () => {},
-          hasPointerCapture: () => false,
-        },
-        preventDefault: () => {},
-      });
 
-      handlers.handlePointerDown(pointer(20, 20));
-      handlers.handlePointerMove(
-        pointer(window.innerWidth - 20, window.innerHeight - 20),
-      );
-      handlers.handlePointerUp(
-        pointer(window.innerWidth - 20, window.innerHeight - 20),
-      );
+      dragLauncherToBottomRight(inspector);
       inspector.remove();
 
       const reloaded = await mount({ horizontal: "left", vertical: "top" });
       expect(buttonAnchor(reloaded)).toEqual({
+        horizontal: "right",
+        vertical: "bottom",
+      });
+    });
+
+    it("keeps a dragged corner when the default changes after mount", async () => {
+      const inspector = await mount();
+
+      dragLauncherToBottomRight(inspector);
+      inspector.defaultAnchor = { horizontal: "left", vertical: "top" };
+      await inspector.updateComplete;
+
+      expect(buttonAnchor(inspector)).toEqual({
         horizontal: "right",
         vertical: "bottom",
       });
