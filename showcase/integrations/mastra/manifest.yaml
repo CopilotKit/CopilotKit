@@ -161,7 +161,6 @@ demos:
       - shared-tools/get-weather.ts
       - shared-tools/query-data.ts
       - shared-tools/schedule-meeting.ts
-      - shared-tools/search-flights.ts
       - src/app/demos/tool-rendering/page.tsx
       - src/app/api/copilotkit/route.ts
     agent:
@@ -395,6 +394,8 @@ demos:
       - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
+      - src/mastra/tools/a2ui-generate.ts
+      - src/mastra/tools/a2ui-context.ts
       - src/mastra/tools/index.ts
       - src/app/api/copilotkit/route.ts
     agent:
@@ -791,3 +792,9 @@ demos:
       - src/app/api/copilotkit-observational-memory/route.ts
     agent:
       path: /observational-memory
+
+# Starter VALIDATION ladder (dashboard). NOT the `starter:` key — that one
+# drives the public "Full Starter" section on the integration profile page.
+starter_validation:
+  path: examples/integrations/mastra
+  service: starter-mastra

@@ -1,24 +1,23 @@
-import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER } from "@copilotkit/shared";
-import { useCopilotContext } from "@copilotkit/react-core";
 import { useCallback } from "react";
-import {
-  CopilotRuntimeClient,
-  Message,
-  Role,
-  TextMessage,
-  convertGqlOutputToMessages,
-  convertMessagesToGqlInput,
-  filterAgentStateMessages,
-  CopilotRequestType,
-} from "@copilotkit/runtime-client-gql";
-import { retry } from "../../lib/retry";
-import {
+import type {
   EditingEditorState,
   Generator_InsertionOrEditingSuggestion,
 } from "../../types/base/autosuggestions-bare-function";
-import { InsertionsApiConfig } from "../../types/autosuggestions-config/insertions-api-config";
-import { EditingApiConfig } from "../../types/autosuggestions-config/editing-api-config";
-import { DocumentPointer } from "@copilotkit/react-core";
+import type { InsertionsApiConfig } from "../../types/autosuggestions-config/insertions-api-config";
+import type { EditingApiConfig } from "../../types/autosuggestions-config/editing-api-config";
+import type { DocumentPointer } from "@copilotkit/react-core";
+
+let warnedDeprecated = false;
+
+function warnDeprecatedOnce() {
+  if (warnedDeprecated) return;
+  warnedDeprecated = true;
+  console.warn(
+    "[CopilotKit] CopilotTextarea insertion and editing are no longer functional. " +
+      "@copilotkit/react-textarea is a deprecated v1 package and the backend it called was " +
+      "removed in v1.50.0. There is no 1:1 v2 replacement; start from @copilotkit/react-core/v2.",
+  );
+}
 
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
@@ -39,51 +38,20 @@ export function useMakeStandardInsertionOrEditingFunction(
   insertionApiConfig: InsertionsApiConfig,
   editingApiConfig: EditingApiConfig,
 ): Generator_InsertionOrEditingSuggestion {
-  const runtimeClient: any = {
-    generateCopilotResponse: (...args: any[]) => {},
-  };
-  const { getContextString, copilotApiConfig } = useCopilotContext();
-  const headers = copilotApiConfig.publicApiKey
-    ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
-    : {};
-
-  async function runtimeClientResponseToStringStream(
-    responsePromise: ReturnType<typeof runtimeClient.generateCopilotResponse>,
-  ) {
-    const messagesStream = runtimeClient.asStream(responsePromise);
-
-    return new ReadableStream({
-      async start(controller) {
-        const reader = messagesStream.getReader();
-        let sentContent = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            break;
-          }
-
-          const messages = convertGqlOutputToMessages(
-            value.generateCopilotResponse.messages,
-          );
-
-          let newContent = "";
-
-          for (const message of messages) {
-            if (message.isTextMessage()) {
-              newContent += message.content;
-            }
-          }
-          if (newContent) {
-            const contentToSend = newContent.slice(sentContent.length);
-            controller.enqueue(contentToSend);
-            sentContent += contentToSend;
-          }
-        }
+  // The GraphQL transport this hook used to call was removed in v1.50.0, and
+  // the request was stubbed out at the same time. The stub left behind had no
+  // `asStream`, so reaching this path raised
+  // `TypeError: runtimeClient.asStream is not a function` the first time a user
+  // triggered an insertion or an edit. Return an empty stream instead, matching
+  // the sibling autosuggestions hook, and say once why nothing happened.
+  const emptySuggestionStream = () => {
+    warnDeprecatedOnce();
+    return new ReadableStream<string>({
+      start(controller) {
         controller.close();
       },
     });
-  }
+  };
 
   const insertionFunction = useCallback(
     async (
@@ -92,53 +60,9 @@ export function useMakeStandardInsertionOrEditingFunction(
       documents: DocumentPointer[],
       abortSignal: AbortSignal,
     ) => {
-      const res = await retry(async () => {
-        const messages: Message[] = [
-          new TextMessage({
-            role: Role.System,
-            content: insertionApiConfig.makeSystemPrompt(
-              textareaPurpose,
-              getContextString(documents, contextCategories),
-            ),
-          }),
-          ...insertionApiConfig.fewShotMessages,
-          new TextMessage({
-            role: Role.User,
-            content: `<TextAfterCursor>${editorState.textAfterCursor}</TextAfterCursor>`,
-          }),
-          new TextMessage({
-            role: Role.User,
-            content: `<TextBeforeCursor>${editorState.textBeforeCursor}</TextBeforeCursor>`,
-          }),
-          new TextMessage({
-            role: Role.User,
-            content: `<InsertionPrompt>${insertionPrompt}</InsertionPrompt>`,
-          }),
-        ];
-
-        return runtimeClientResponseToStringStream(
-          runtimeClient.generateCopilotResponse({
-            data: {
-              frontend: {
-                actions: [],
-                url: window.location.href,
-              },
-              messages: convertMessagesToGqlInput(
-                filterAgentStateMessages(messages),
-              ),
-              metadata: {
-                requestType: CopilotRequestType.TextareaCompletion,
-              },
-            },
-            properties: copilotApiConfig.properties,
-            signal: abortSignal,
-          }),
-        );
-      });
-
-      return res;
+      return emptySuggestionStream();
     },
-    [insertionApiConfig, getContextString, contextCategories, textareaPurpose],
+    [insertionApiConfig, contextCategories, textareaPurpose],
   );
 
   const editingFunction = useCallback(
@@ -148,57 +72,9 @@ export function useMakeStandardInsertionOrEditingFunction(
       documents: DocumentPointer[],
       abortSignal: AbortSignal,
     ) => {
-      const res = await retry(async () => {
-        const messages: Message[] = [
-          new TextMessage({
-            role: Role.System,
-            content: editingApiConfig.makeSystemPrompt(
-              textareaPurpose,
-              getContextString(documents, contextCategories),
-            ),
-          }),
-          ...editingApiConfig.fewShotMessages,
-          new TextMessage({
-            role: Role.User,
-            content: `<TextBeforeCursor>${editorState.textBeforeCursor}</TextBeforeCursor>`,
-          }),
-          new TextMessage({
-            role: Role.User,
-            content: `<TextToEdit>${editorState.selectedText}</TextToEdit>`,
-          }),
-          new TextMessage({
-            role: Role.User,
-            content: `<TextAfterCursor>${editorState.textAfterCursor}</TextAfterCursor>`,
-          }),
-          new TextMessage({
-            role: Role.User,
-            content: `<EditingPrompt>${editingPrompt}</EditingPrompt>`,
-          }),
-        ];
-
-        return runtimeClientResponseToStringStream(
-          runtimeClient.generateCopilotResponse({
-            data: {
-              frontend: {
-                actions: [],
-                url: window.location.href,
-              },
-              messages: convertMessagesToGqlInput(
-                filterAgentStateMessages(messages),
-              ),
-              metadata: {
-                requestType: CopilotRequestType.TextareaCompletion,
-              },
-            },
-            properties: copilotApiConfig.properties,
-            signal: abortSignal,
-          }),
-        );
-      });
-
-      return res;
+      return emptySuggestionStream();
     },
-    [editingApiConfig, getContextString, contextCategories, textareaPurpose],
+    [editingApiConfig, contextCategories, textareaPurpose],
   );
 
   const insertionOrEditingFunction = useCallback(

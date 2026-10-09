@@ -111,7 +111,7 @@ Generation guidance:
 
     public AIAgent CreateAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
 
         // No backend tools. The `generateSandboxedUi` frontend tool is
         // injected by the runtime's OGUI middleware, and the sandbox

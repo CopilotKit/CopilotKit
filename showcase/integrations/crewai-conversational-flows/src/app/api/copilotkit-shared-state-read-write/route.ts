@@ -6,15 +6,14 @@
 // call so the UI's `useAgent` subscription sees live updates of
 // `state.notes` without waiting for the next turn. See
 // `src/agents/shared_state_read_write.py` for the full rationale on why
-// this demo cannot share the `LatestAiDevelopment` crew on "/".
+// this demo cannot run on a crew endpoint.
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 import crypto from "node:crypto";
@@ -58,12 +57,12 @@ function logRouteError(err: unknown): string {
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-shared-state-read-write",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime,
+      basePath: "/api/copilotkit-shared-state-read-write",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     const errorId = logRouteError(error);
     return NextResponse.json(

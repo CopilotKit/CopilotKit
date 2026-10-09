@@ -2,9 +2,16 @@
 
 import { useState } from "react";
 import { CopilotChat } from "@copilotkit/react-core/v2";
+import { SubagentFilteredAssistantMessage } from "@/shell/subagents/subagent-message-filter";
 import type { CopilotChatProps } from "@copilotkit/react-core/v2";
 
 import { useSkin } from "@/shell/skin-provider";
+import {
+  COMPOSER_ACCEPT,
+  COMPOSER_MAX_SIZE,
+  reportUploadFailure,
+  uploadAttachment,
+} from "@/shell/attach";
 import { ChatPanelHeader } from "./chat-panel-header";
 import { ChatInbox } from "./chat-inbox";
 import { useChatInbox } from "./chat-inbox-context";
@@ -37,17 +44,25 @@ export function ChatPanel({ threadId }: { threadId: string }) {
   const skin = useSkin();
   const [showArchived, setShowArchived] = useState(false);
   const { isInboxOpen } = useChatInbox();
+  const inboxRight = skin.layoutDefaults?.inboxSide === "right";
+  // A skin with inboxPlacement "column" gets its rail from ShellFrame instead
+  // (see ThreadsColumn), as a column of its own outside this card.
+  const inColumn = skin.layoutDefaults?.inboxPlacement === "column";
+  const rail =
+    isInboxOpen && !inColumn ? (
+      <div
+        className={`nw-chat-rail min-h-0 shrink-0 border-hairline ${inboxRight ? "border-l" : "border-r"}`}
+      >
+        <ChatInbox
+          showArchived={showArchived}
+          onShowArchivedChange={setShowArchived}
+        />
+      </div>
+    ) : null;
 
   return (
     <div className="nw-chat nw-chat-cluster flex h-full min-h-0">
-      {isInboxOpen && (
-        <div className="nw-chat-rail min-h-0 shrink-0 border-r border-hairline">
-          <ChatInbox
-            showArchived={showArchived}
-            onShowArchivedChange={setShowArchived}
-          />
-        </div>
-      )}
+      {inboxRight ? null : rail}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <ChatPanelHeader />
@@ -55,6 +70,12 @@ export function ChatPanel({ threadId }: { threadId: string }) {
           <CopilotChat
             agentId={skin.id}
             threadId={threadId}
+            // Route a SUBAGENT's narration to whatever surface the skin uses for
+            // it (banking: a CLI console) instead of inlining it in the
+            // conversation. Inert for a skin whose agent has no subagents — the
+            // suppression set is keyed by `subagentRunId` and stays empty. See
+            // `shell/subagents/subagent-message-filter.tsx`.
+            messageView={{ assistantMessage: SubagentFilteredAssistantMessage }}
             // Custom suggestion pills: the eight registered via
             // useConfigureSuggestions. This slot owns the empty-state layout and
             // routes each click through the active skin first
@@ -65,13 +86,25 @@ export function ChatPanel({ threadId }: { threadId: string }) {
               DemoSuggestionsView as CopilotChatProps["suggestionView"]
             }
             // Multimodal attachments: officers can drop a PDF (e.g. a vendor
-            // invoice) or an image into the composer. With no custom onUpload the
-            // built-in handler base64-encodes the file and sends it as a document
-            // part on the message, so the model can read it.
+            // invoice), an image, or a spreadsheet into the composer.
+            //
+            // PDFs and images ride as-is — the built-in handler base64-encodes
+            // them into a document part the model reads directly. Spreadsheets
+            // cannot: the pinned `@ai-sdk/openai@3` converter rejects every media
+            // type but `image/*` and `application/pdf`, and an .xlsx therefore
+            // kills the run rather than degrading. `uploadAttachment` renders one
+            // into a readable document first; see `shell/attach/upload-attachment.ts`.
+            //
+            // `onUploadFailed` is wired for the case the framework otherwise
+            // treats as a silent no-op: a file that fails `accept`/`maxSize`, or a
+            // sheet that cannot be parsed, is DROPPED with no trace, which on
+            // stage reads as a dead click rather than as a rejected file.
             attachments={{
               enabled: true,
-              accept: "application/pdf,image/*",
-              maxSize: 20 * 1024 * 1024,
+              accept: COMPOSER_ACCEPT,
+              maxSize: COMPOSER_MAX_SIZE,
+              onUpload: uploadAttachment,
+              onUploadFailed: reportUploadFailure,
             }}
             // Drop the "AI can make mistakes…" line under the composer.
             input={{ showDisclaimer: false }}
@@ -84,6 +117,7 @@ export function ChatPanel({ threadId }: { threadId: string }) {
           />
         </div>
       </div>
+      {inboxRight ? rail : null}
     </div>
   );
 }

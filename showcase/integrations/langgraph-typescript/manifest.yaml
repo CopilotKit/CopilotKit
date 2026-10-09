@@ -706,3 +706,9 @@ demos:
     agent:
       graph: agent_config_agent
       name: agent-config-demo
+
+# Starter VALIDATION ladder (dashboard). NOT the `starter:` key — that one
+# drives the public "Full Starter" section on the integration profile page.
+starter_validation:
+  path: examples/integrations/langgraph-js
+  service: starter-langgraph-js

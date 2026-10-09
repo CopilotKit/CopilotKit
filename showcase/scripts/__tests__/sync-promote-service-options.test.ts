@@ -1,5 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -17,6 +18,7 @@ import type { ServiceEntry } from "../railway-envs";
 import { NEEDS_SHELL_FOR_CMD } from "./test-cleanup";
 
 const SCRIPT = resolve(__dirname, "..", "sync-promote-service-options.ts");
+const TSX_CLI = createRequire(import.meta.url).resolve("tsx/cli");
 
 // The REAL, committed workflow file that GitHub validates the `service`
 // workflow_dispatch choice against server-side. `gh workflow run` is rejected
@@ -557,10 +559,13 @@ describe("sync-promote-service-options", () => {
         `process.stdout.write("IMPORT_OK\\n");`,
       ].join("\n"),
     );
-    const result = spawnSync("npx", ["tsx", importer], {
+    // Resolve tsx from this workspace before switching to the isolated temp
+    // cwd. Running `npx tsx` from there can fall back to a registry download
+    // and hang offline CI instead of exercising the import guard.
+    const result = spawnSync(process.execPath, [TSX_CLI, importer], {
       encoding: "utf8",
       cwd: workDir,
-      shell: NEEDS_SHELL_FOR_CMD,
+      timeout: 10_000,
     });
     // The import completed cleanly...
     expect(result.status).toBe(0);

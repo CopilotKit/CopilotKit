@@ -78,6 +78,7 @@ demos:
     command: "npx copilotkit@latest init --framework crewai-crews"
   - id: agentic-chat
     agent:
+      path: /chat
       name: agentic_chat
     name: Agentic Chat
     description: Natural conversation with frontend tool execution
@@ -92,6 +93,8 @@ demos:
       - chat-ui
     route: /demos/prebuilt-sidebar
     animated_preview_url:
+    agent:
+      path: /chat
   - id: prebuilt-popup
     name: "Pre-Built: Popup"
     description: Floating popup chat via <CopilotPopup />
@@ -99,6 +102,8 @@ demos:
       - chat-ui
     route: /demos/prebuilt-popup
     animated_preview_url:
+    agent:
+      path: /chat
   - id: chat-slots
     name: Chat Customization (Slots)
     description: Customize CopilotChat via its slot system
@@ -106,6 +111,8 @@ demos:
       - chat-ui
     route: /demos/chat-slots
     animated_preview_url:
+    agent:
+      path: /chat
   - id: chat-customization-css
     name: Chat Customization (CSS)
     description: Default CopilotChat re-themed via CopilotKitCSSProperties
@@ -113,6 +120,8 @@ demos:
       - chat-ui
     route: /demos/chat-customization-css
     animated_preview_url:
+    agent:
+      path: /chat
   - id: headless-simple
     name: Headless Chat (Simple)
     description: Minimal custom chat surface built on useAgent
@@ -120,6 +129,8 @@ demos:
       - chat-ui
     route: /demos/headless-simple
     animated_preview_url:
+    agent:
+      path: /chat
   - id: headless-complete
     runtime:
       mcpApps:
@@ -133,6 +144,8 @@ demos:
       - chat-ui
     route: /demos/headless-complete
     animated_preview_url:
+    agent:
+      path: /tool-rendering
   - id: reasoning-default
     agent:
       path: /reasoning
@@ -164,8 +177,11 @@ demos:
       - interactivity
     route: /demos/hitl-in-chat
     animated_preview_url:
+    agent:
+      path: /frontend-tools
   - id: hitl-in-chat-booking
     agent:
+      path: /frontend-tools
       name: hitl-in-chat
     name: In-Chat HITL (Booking)
     description: Time-picker card rendered inline via useHumanInTheLoop for a booking flow
@@ -186,8 +202,11 @@ demos:
       - interactivity
     route: /demos/hitl-in-app
     animated_preview_url:
+    agent:
+      path: /frontend-tools
   - id: hitl
     agent:
+      path: /frontend-tools
       name: human_in_the_loop
     name: In-Chat Human in the Loop (original)
     description: Original CrewAI HITL demo — kept for backwards-compat
@@ -268,6 +287,8 @@ demos:
     highlight:
       - src/app/demos/gen-ui-tool-based/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /gen-ui-tool-based
   - id: frontend-tools
     agent:
       path: /frontend-tools
@@ -346,6 +367,8 @@ demos:
       - agent-state
     route: /demos/readonly-state-agent-context
     animated_preview_url:
+    agent:
+      path: /chat
   - id: open-gen-ui
     runtime:
       openGenerativeUI:
@@ -361,6 +384,8 @@ demos:
     highlight:
       - src/app/demos/open-gen-ui/page.tsx
       - src/app/api/copilotkit-ogui/route.ts
+    agent:
+      path: /frontend-tools
   - id: open-gen-ui-advanced
     runtime:
       openGenerativeUI:
@@ -379,8 +404,11 @@ demos:
       - src/app/demos/open-gen-ui-advanced/page.tsx
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
       - src/app/api/copilotkit-ogui/route.ts
+    agent:
+      path: /frontend-tools
   - id: agent-config
     agent:
+      path: /chat
       name: agent-config-demo
     name: Agent Config Object
     description:
@@ -392,6 +420,7 @@ demos:
     animated_preview_url:
   - id: auth
     agent:
+      path: /chat
       name: auth-demo
     name: Authentication
     description: Runtime-level bearer-token auth via the V2 onRequest hook
@@ -401,6 +430,7 @@ demos:
     animated_preview_url:
   - id: voice
     agent:
+      path: /chat
       name: voice-demo
     name: Voice Input
     description: Speech-to-text transcription via @copilotkit/voice mounted on a
@@ -545,3 +575,9 @@ demos:
       - src/agents/interrupt_flow.py
       - src/app/demos/interrupt-headless/page.tsx
       - src/app/api/copilotkit/route.ts
+
+# Starter VALIDATION ladder (dashboard). NOT the `starter:` key — that one
+# drives the public "Full Starter" section on the integration profile page.
+starter_validation:
+  path: examples/integrations/crewai-crews
+  service: starter-crewai-crews

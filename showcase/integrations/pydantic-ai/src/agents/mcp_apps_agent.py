@@ -59,10 +59,10 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
-# gpt-4o-mini for speed — Excalidraw element emission is simple JSON
+# gpt-5-mini for speed — Excalidraw element emission is simple JSON
 # and we're biasing hard toward sub-30s generation. A faster model
 # produces shorter, quicker outputs with acceptable layouts.
 agent = Agent(
-    model=OpenAIResponsesModel("gpt-4o-mini"),
+    model=OpenAIResponsesModel("gpt-5-mini"),
     system_prompt=SYSTEM_PROMPT,
 )

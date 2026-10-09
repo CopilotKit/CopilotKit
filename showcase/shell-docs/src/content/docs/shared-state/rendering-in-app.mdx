@@ -15,6 +15,7 @@ your tree and render it however you like.
 near the chat. Call it in your main-view component, read `agent.state`, and render:
 
 ```tsx title="components/Canvas.tsx"
+import { useEffect } from "react";
 import { useAgent } from "@copilotkit/react-core/v2";
 
 type CanvasState = {
@@ -22,10 +23,36 @@ type CanvasState = {
   items: { id: string; label: string; done: boolean }[];
 };
 
+const INITIAL_CANVAS_STATE: CanvasState = {
+  title: "Project launch",
+  items: [
+    { id: "research", label: "Research user needs", done: true },
+    { id: "prototype", label: "Build a prototype", done: false },
+  ],
+};
+
 export function Canvas() {
   // No agentId means the "default" agent. Pass { agentId } to target another.
-  const { agent } = useAgent();
+  const { agent, isReady } = useAgent();
   const state = (agent.state ?? {}) as Partial<CanvasState>;
+
+  useEffect(() => {
+    if (!isReady) return;
+
+    const current = (agent.state ?? {}) as Partial<CanvasState>;
+    const updates: Partial<CanvasState> = {};
+
+    if (current.title === undefined) {
+      updates.title = INITIAL_CANVAS_STATE.title;
+    }
+    if (current.items === undefined) {
+      updates.items = INITIAL_CANVAS_STATE.items;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      agent.setState({ ...(agent.state ?? {}), ...updates });
+    }
+  }, [agent, isReady, state.title, state.items]);
 
   return (
     <main className="canvas">
@@ -41,6 +68,11 @@ export function Canvas() {
   );
 }
 ```
+
+The `INITIAL_CANVAS_STATE` value is UI-owned initial state for this example.
+It makes the canvas visible before the agent writes state. The effect sets only
+`undefined` fields and preserves all other state. If the backend owns the initial
+state, define it in the shared-state setup for that framework.
 
 Every time the agent mutates its state, whether from a tool call, node
 transition, or [streamed update](/shared-state/streaming), `useAgent` re-renders this component
@@ -74,7 +106,6 @@ export default function Page() {
 <Callout type="info">
 `<Canvas>` and `<CopilotSidebar>` both call `useAgent()` for the same `agentId`,
 so they share one agent instance and one state object. There's nothing chat-specific
-about reading `agent.state`. The sidebar is not special.
 about reading `agent.state`. The sidebar is not special.
 </Callout>
 

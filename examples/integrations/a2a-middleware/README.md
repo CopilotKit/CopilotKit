@@ -53,6 +53,15 @@ This will start:
 - **Research Agent**: http://localhost:9001
 - **Analysis Agent**: http://localhost:9002
 
+> **The three agent ports are not loopback-only.** All three agents bind every
+> interface (`0.0.0.0`), so anything that can reach this machine on your local
+> network can reach them, and they are unauthenticated. That is deliberate — it
+> is what lets containers and other devices talk to them — and each agent's
+> startup banner now prints its `Network:` address alongside the `localhost`
+> one so you can see it. To keep an agent on loopback instead, set its host
+> variable: `ORCHESTRATOR_HOST=127.0.0.1`, `RESEARCH_HOST=127.0.0.1`, or
+> `ANALYSIS_HOST=127.0.0.1`.
+
 ## Usage
 
 Try asking:
@@ -95,7 +104,7 @@ npm run typecheck:channel
 ## Running a Channel
 
 `channel-host.mts` mounts the orchestrator agent as an Intelligence
-Channel (Slack, Teams). It requires `INTELLIGENCE_API_KEY` and a declared
+Channel (Slack, Teams). It requires `CPK_INTELLIGENCE_API_KEY` and a declared
 Channel in `.copilotkit/channels.json` — set both up with `copilotkit init` or
 `copilotkit channels add`, which write that file and the credentials your
 `.env` needs, then:

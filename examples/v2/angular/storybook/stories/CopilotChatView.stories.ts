@@ -1,19 +1,24 @@
 import type { Meta, StoryObj } from "@storybook/angular";
-import { moduleMetadata } from "@storybook/angular";
+import { applicationConfig, moduleMetadata } from "@storybook/angular";
 import { CommonModule } from "@angular/common";
 import {
+  ChatState,
   CopilotChatView,
   CopilotChatMessageView,
   CopilotChatInput,
   provideCopilotChatLabels,
   provideCopilotKit,
 } from "@copilotkit/angular";
+import { StoryChatState } from "./story-chat-state";
 import type { Message } from "@ag-ui/client";
 
 const meta: Meta<CopilotChatView> = {
   title: "UI/CopilotChatView/Basic Examples",
   component: CopilotChatView,
   decorators: [
+    applicationConfig({
+      providers: [provideCopilotKit()],
+    }),
     moduleMetadata({
       imports: [
         CommonModule,
@@ -22,12 +27,12 @@ const meta: Meta<CopilotChatView> = {
         CopilotChatInput,
       ],
       providers: [
-        provideCopilotKit({}),
         provideCopilotChatLabels({
           chatInputPlaceholder: "Type a message...",
           chatDisclaimerText:
             "AI can make mistakes. Please verify important information.",
         }),
+        { provide: ChatState, useClass: StoryChatState },
       ],
     }),
   ],

@@ -23,7 +23,6 @@ export default function Home() {
   return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
-      showDevConsole="auto"
       useSingleEndpoint={false}
       a2ui={{ theme }}
       renderActivityMessages={activityRenderers}

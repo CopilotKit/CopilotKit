@@ -9,8 +9,10 @@ import type {
 } from "@ag-ui/client";
 import type {
   AgentContentPart,
+  ApplicationUser,
   ChannelNode,
   EmojiValue,
+  EphemeralResult,
   MessageRef,
   ProviderActor,
   ThreadMessage,
@@ -103,6 +105,8 @@ export interface CanonicalChannelRunArgs {
   threadId: string;
   runId: string;
   userId: string;
+  /** Canonical application user when the Channel identity strategy resolved one. */
+  user?: ApplicationUser | null;
   memory?: ResolvedChannelMemory;
   agentId: string;
   tools: readonly AgentToolDescriptor[];
@@ -147,7 +151,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     supportsReactions: true,
     supportsStreaming: true,
     supportsBlockingChoice: false,
-    supportsEphemeral: false,
+    supportsEphemeral: true,
   };
   readonly conversationStore: ConversationStore = {
     seedsInboundTurn: true,
@@ -303,6 +307,51 @@ export class DeliveryAdapter implements PlatformAdapter {
     emoji: EmojiValue,
   ): Promise<{ ok: boolean; error?: string }> {
     return this.applyReaction(targetValue, messageRefValue, emoji, "remove");
+  }
+
+  /**
+   * A message only one person sees, on the managed path (Slack only).
+   *
+   * The delivery boundary posts to the turn's own fenced recipient and rejects
+   * the effect when the asserted user disagrees with it, so this cannot deliver
+   * to whoever the caller names — it can only confirm who the caller meant.
+   * Which is why a request for anybody other than this turn's actor is refused
+   * here rather than sent: the boundary would refuse it anyway, and doing it
+   * locally says which user was expected.
+   *
+   * Never falls back to a DM: the managed path has no DM route, and the caller
+   * asked for `fallbackToDM` only as a courtesy. `usedFallback` stays false.
+   */
+  async postEphemeral(
+    targetValue: ReplyTarget,
+    user: ProviderActor | string,
+    ir: ChannelNode[],
+  ): Promise<EphemeralResult | null> {
+    const target = asDeliveryTarget(targetValue);
+    if (target.delivery.adapter !== "slack") return null;
+    const requested = typeof user === "string" ? user : user.id;
+    const recipient = target.delivery.turn.actor?.externalUserId;
+    if (!recipient) {
+      return { ok: false, error: "This turn has no identified recipient" };
+    }
+    if (requested !== recipient) {
+      return {
+        ok: false,
+        error: `A managed ephemeral message reaches only this turn's own recipient (${recipient})`,
+      };
+    }
+    target.claimedDelivery.expectProviderOutput?.();
+    assertProviderElements(ir, "slack");
+    const rendered = renderSlackMessage(ir);
+    await target.claimedDelivery.effect(mintId("ephemeral_"), {
+      kind: "slack.message.ephemeral",
+      user: recipient,
+      text: slackFallbackText(ir),
+      blocks: rendered.blocks as unknown as Array<Record<string, unknown>>,
+    });
+    // No ref: Slack returns `message_ts` for an ephemeral post, which no API
+    // accepts back, so there is nothing to update or delete later.
+    return { ok: true, usedFallback: false };
   }
 
   private async applyReaction(
@@ -485,6 +534,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       threadId,
       runId,
       userId: target.delivery.appUserId,
+      user: args.user ?? null,
       memory: args.memory,
       agentId: this.options.channelName,
       tools: args.tools,

@@ -11,8 +11,9 @@
 # `starter-*` service in the orchestrator's project (paralleling smoke's
 # `showcase-*` filter), and the driver fans out one invocation per service.
 #
-# Each driver invocation issues FOUR HTTP checks against the deployed base
-# URL and side-emits one row per smoke level plus an aggregate primary
+# Each driver invocation issues FOUR HTTP checks against the deployed base URL
+# and side-emits one row per smoke level, one row per LADDER rung (derived from
+# those same four observations, no extra requests), plus an aggregate primary
 # (see drivers/starter-smoke.ts). The deployed starters mount the v2 runtime
 # in its default PATH-BASED `mode:"multi-route"` at `/api/copilotkit`, so the
 # checks dispatch by URL path (the dead single-route envelope POST to bare
@@ -31,17 +32,68 @@
 #                 with no usable map (Accept: text/event-stream) → AG-UI SSE
 #                 stream asserting ≥1 TEXT_MESSAGE_CONTENT delta + terminal
 #                 RUN_FINISHED + NO RUN_ERROR
-#   - interaction GET  `${base}/`                    → 200 (app shell serves)
+#   - interaction GET  `${base}/`                    → 200 (the root URL
+#                                                     returned 2xx — NOT a
+#                                                     claim that the app shell
+#                                                     serves, which is already
+#                                                     false for the langgraph
+#                                                     trio: 200 on `/` from a
+#                                                     materially older build)
+#
+# ── PHASE 0 DUAL-WRITE: the three LADDER rungs ─────────────────────────────
+#
+# Alongside the four legacy levels above, each invocation also side-emits the
+# depth-ordered validation ladder. These are DERIVED FROM THE SAME
+# OBSERVATIONS — zero additional HTTP calls against 12 scale-to-zero services
+# inside the 120s cap — and every key is DISJOINT from every legacy key, so
+# this is a genuine ADDITIVE dual-write: no legacy row is touched, and
+# stopping it is a clean delete of three keyspaces.
+#
+#   - S1 shell    GET  `${base}/` → 2xx. IDENTICAL to legacy `interaction`:
+#                 same request, same assertion, same observation. Expected
+#                 delta exactly zero.
+#   - S2 runtime  legacy `agent` PLUS a STRICTER agent-id resolution: prefer
+#                 the literal key `default`; else, if the map has exactly ONE
+#                 key, that key; else RED with `agent-id-ambiguous`. The legacy
+#                 rung fell back to the FIRST NON-EMPTY KEY, an arbitrary pick
+#                 for a multi-agent starter that reported green. May be red
+#                 where `agent` is green; never the reverse.
+#   - S3 agentrun legacy `chat` PLUS four AG-UI ORDERING assertions, folded
+#                 into the same request: RUN_STARTED precedes the first text
+#                 event, TEXT_MESSAGE_START/END bracket the content when the
+#                 bracketed form is used at all, threadId/runId are echoed on
+#                 RUN_STARTED, and RUN_FINISHED is last. Failures are reported
+#                 BY NAME so the Phase-0 exit criterion can record the first
+#                 failing assertion per column. May be red where `chat` is
+#                 green; never the reverse.
+#
+# S3 keys `agentrun` and NOT `chat`. Its assertion set is a strict SUPERSET of
+# legacy `chat`'s, so writing it to `chat` would be an OVERWRITE that could
+# flip the live, unflagged Chat row red and move its `fail_count` /
+# `first_failure_at` — history that stopping the write does not restore.
+#
+# EXIT CRITERION (before the ladder renders): for >=3 consecutive hourly ticks,
+# all three new keys present for all 12 provisioned columns, with a per-column
+# legacy-vs-new comparison recorded. Stated expected delta: `shell` ==
+# `interaction` exactly; `runtime` == `agent` with ZERO new reds; `agentrun` ==
+# `chat` with ZERO new reds. Any non-zero delta on `runtime` or `agentrun` is a
+# finding to be explained — as a real framework defect, with the column named,
+# or as a validator defect to be fixed. "Weaken the assertion" is not one of
+# the two outcomes.
 #
 # Rows emitted per invocation:
 #   - Primary `starter:<column-slug>`           aggregate { total, passed,
-#                                               failed[], errorClass }.
-#                                               Green iff all four levels
-#                                               passed; red if ANY flipped.
-#   - Side    `starter:<column-slug>/<level>`   one per level ∈
-#                                               {health,agent,chat,
-#                                               interaction}; green/red with
-#                                               a keyed `errorClass`
+#                                               failed[], errorClass } over the
+#                                               four LEGACY levels only.
+#                                               Green iff all four passed; red
+#                                               if ANY flipped.
+#   - Side    `starter:<column-slug>/<level>`   SEVEN rows during the
+#                                               dual-write: level ∈
+#                                               {health,agent,chat,interaction}
+#                                               (legacy) ∪
+#                                               {shell,runtime,agentrun}
+#                                               (ladder); green/red with a
+#                                               keyed `errorClass`
 #                                               (transport-error |
 #                                               smoke-failed | aborted) and a
 #                                               Slack-safe `errorDesc`.

@@ -1,0 +1,61 @@
+This Rack example uses Ruby 3.1 or later and the [Ruby runtime gem](https://rubygems.org/gems/copilotkit-runtime). Add this `Gemfile`, then run `bundle install`:
+
+```ruby
+source 'https://rubygems.org'
+gem 'copilotkit-runtime', '0.1.0.rc.1'
+gem 'rack', '~> 3.1'
+gem 'rackup', '~> 2.2'
+gem 'puma', '~> 6.0'
+```
+
+Set these variables in the server environment. Start your AG-UI agent at `AG_UI_AGENT_URL` before sending a message:
+
+```bash
+export CPK_INTELLIGENCE_API_KEY="your-project-api-key"
+export AG_UI_AGENT_URL="http://localhost:8001/agent"
+export APP_AUTH_TOKEN="replace-with-a-random-local-development-token"
+export APP_USER_ID="local-user"
+```
+
+This local example verifies one application token and maps it to a server-owned user ID. Use a different value for the application token and the Intelligence API key. In production, replace the lookup with your application's verified session or token lookup. Never trust a browser-supplied user ID.
+
+Save this as `config.ru`:
+
+```ruby
+require 'rack'
+require 'copilotkit/runtime'
+
+token = ENV.fetch('APP_AUTH_TOKEN')
+user_id = ENV.fetch('APP_USER_ID')
+raise 'APP_AUTH_TOKEN and APP_USER_ID must not be empty' if token.empty? || user_id.empty?
+
+runtime = CopilotKit::Runtime.new(
+  api_key: ENV.fetch('CPK_INTELLIGENCE_API_KEY'),
+  agents: {
+    'default' => CopilotKit::HttpAgent.new(url: ENV.fetch('AG_UI_AGENT_URL'))
+  },
+  cors_origins: ['http://localhost:3000'],
+  identify_user: lambda do |env|
+    supplied = env.fetch('HTTP_AUTHORIZATION', '')
+    if Rack::Utils.secure_compare(supplied, "Bearer #{token}")
+      { id: user_id }
+    end
+  end
+)
+
+at_exit { runtime.close(timeout: 10) }
+
+map '/api/copilotkit' do
+  run runtime
+end
+```
+
+Start a single-process server:
+
+```bash
+bundle exec puma config.ru --bind tcp://127.0.0.1:8200 --workers 0
+```
+
+The multi-route runtime URL is `http://localhost:8200/api/copilotkit`. Rack strips the mount prefix, so leave the runtime's `base_path` at its empty default. Send `Authorization: Bearer <APP_AUTH_TOKEN>` with frontend requests, and keep `CPK_INTELLIGENCE_API_KEY` on the server. Replace the allowed `http://localhost:3000` origin for your deployment.
+
+The exit handler closes this single-process runtime. For a worker-based deployment, create one runtime after each worker forks and call `runtime.close(timeout: 10)` from its worker shutdown hook. `HttpAgent` accepts a `headers:` hash for server-owned agent credentials; it does not forward browser credentials.

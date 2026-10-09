@@ -36,6 +36,32 @@ This self-hosted adapter remains fully supported. Choose it when you want the pr
 
 ```sh
 pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-teams
+pnpm add @microsoft/agents-hosting @microsoft/agents-activity
+```
+
+The Microsoft 365 Agents SDK packages are **optional peer dependencies**, so
+they are not installed for you. Add them as shown above — this adapter is the
+self-hosted path, and it needs them to run the Teams ingress.
+
+`express` is an optional peer too, but you only need it if you use the built-in
+listener, `createTeamsServer`. It is loaded lazily inside `start()`, so a bot
+that serves `POST /api/messages` from its own HTTP server does not install it:
+
+```sh
+pnpm add express   # only for createTeamsServer
+```
+
+They are optional because the managed path does not need them. Managed Channels
+reach this package only through the `./render` subpath, which never touches the
+Microsoft SDK, so an app that installs `@copilotkit/runtime` for a plain chat UI
+no longer pulls the whole Microsoft Agents stack, or the exact `zod` pin that
+comes with it.
+
+If you import the adapter without them, Node fails at import time and names the
+package to install:
+
+```
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@microsoft/agents-hosting'
 ```
 
 ## Quickstart
@@ -57,9 +83,9 @@ bot.onMessage(({ thread, message }) => thread.post(`Echo: ${message.text}`));
 // The runtime owns the channel's lifecycle — there is no `bot.start()`.
 const runtime = new CopilotRuntime({
   intelligence: new CopilotKitIntelligence({
-    // apiUrl and wsUrl default to the managed Intelligence platform — override
+    // apiUrl and wsUrl default to cloud-hosted CopilotKit Intelligence — override
     // both together only for a self-hosted deployment.
-    apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
+    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!, // free tier available
   }),
   channels: [bot],
 });

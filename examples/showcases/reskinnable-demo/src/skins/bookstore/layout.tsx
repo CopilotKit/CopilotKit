@@ -7,6 +7,7 @@ import { HelpCircle, RotateCcw, ShoppingBag } from "lucide-react";
 import { useAgentContext } from "@copilotkit/react-core/v2";
 import { useSkin, useSkinData } from "@/shell/skin-provider";
 import { usePresenterReset } from "@/shell/presenter-reset-context";
+import { GovernancePopover } from "@/shell/governance-popover";
 import {
   Tooltip,
   TooltipContent,
@@ -192,6 +193,12 @@ export function BookstoreLayout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="mt-auto flex flex-col gap-3">
+          {/* Which CUSTOMER is signed in, and how much memory they are allowed.
+              Shell-owned — every skin scopes memory through the same two runtime
+              callbacks — but placed in the skin's own chrome, beside its shopper
+              switcher, because together they answer one question: the memory
+              bucket is <organization>:<shopper>. */}
+          <GovernancePopover />
           {/* Meta-utility strip — skin-authored chrome, pinned to the bottom; the
               shell provides no Reset and no Help for free. Deliberately NO
               ThemeToggle: this skin ships no dark palette (theme.css sets no

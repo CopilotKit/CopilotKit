@@ -30,7 +30,15 @@ class PromoteP5Test < Minitest::Test
     # Helper: a serving-digest recheck response. The NEW deployment has reached
     # the given status and serves the given digest. Defaults to the SUCCESS +
     # pinned-digest happy path.
-    def serving(digest:, status: "SUCCESS", deploy_id: NEW_DEPLOY_ID)
+    def serving(digest:, status: "SUCCESS", deploy_id: NEW_DEPLOY_ID,
+                restart_policy_type: nil)
+        meta = { "imageDigest" => digest }
+        if restart_policy_type
+            meta["serviceManifest"] = {
+                "deploy" => { "restartPolicyType" => restart_policy_type },
+            }
+        end
+
         {
             data: {
                 "serviceInstance" => {
@@ -39,7 +47,7 @@ class PromoteP5Test < Minitest::Test
                     "updatedAt" => "2026-05-28T03:00:00Z",
                     "latestDeployment" => {
                         "id" => deploy_id, "status" => status,
-                        "meta" => { "imageDigest" => digest },
+                        "meta" => meta,
                     },
                 },
             },
@@ -141,6 +149,29 @@ class PromoteP5Test < Minitest::Test
         Railway::PromoteCommand.pin_and_verify(gql,
             service_id: "s", env_id: "e", image: "ghcr.io/copilotkit/x@sha256:NEW",
             sleeper: ->(_n) {})
+    end
+
+    def test_keeps_polling_when_old_success_matches_digest_and_restart_policy_before_new_deployment_is_latest
+        # Bug (false-success): right after DeployV2 spawns new_deployment_id,
+        # latestDeployment may still briefly point to the OLD deployment. Even
+        # if that stale deployment reports SUCCESS, the expected pinned digest,
+        # and the requested restartPolicyType, promote must not return until the
+        # NEW deployment id is latest and satisfies those same checks.
+        gql = FakeGQL.new([
+            pre("2026-05-27T00:00:00Z"),
+            { data: { "serviceInstanceUpdate" => true } },
+            deploy_ok,
+            post(image: "ghcr.io/copilotkit/x@sha256:NEW", ts: "2026-05-28T01:00:00Z"),
+            serving(digest: "sha256:NEW", deploy_id: "dep-old",
+                restart_policy_type: "ON_FAILURE"),
+            serving(digest: "sha256:NEW", deploy_id: NEW_DEPLOY_ID,
+                restart_policy_type: "ON_FAILURE"),
+        ])
+        Railway::PromoteCommand.pin_and_verify(gql,
+            service_id: "s", env_id: "e", image: "ghcr.io/copilotkit/x@sha256:NEW",
+            restart_policy_type: "ON_FAILURE",
+            sleeper: ->(_n) {})
+        assert_equal 6, gql.calls.size
     end
 
     def test_refuses_when_image_advanced_but_updatedAt_did_NOT_advance

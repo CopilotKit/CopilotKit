@@ -1,58 +1,27 @@
-import { expect, test, vi } from "vitest";
-
+import { expect, test } from "vitest";
 import {
-  CHANNEL_FRONTENDS,
-  CHANNEL_GUIDE_ROUTES,
-  channelConnectHref,
-} from "@/lib/channel-guide-routes";
+  CURATED_FRAMEWORK_PAGES,
+  CURATED_LLM_PAGES,
+} from "@/lib/curated-llm-pages";
 import { getAllLlmPages } from "@/lib/llm-text";
-import { getDocsMode, getIntegrations } from "@/lib/registry";
+import { getBaseUrl } from "@/lib/sitemap-helpers";
 import { GET } from "./route";
 
-vi.mock("@/lib/llm-text", async (importOriginal) => {
-  const actual = (await importOriginal()) as Record<string, unknown> & {
-    getAllLlmPages: typeof getAllLlmPages;
-  };
-  return {
-    ...actual,
-    getAllLlmPages: vi.fn(actual.getAllLlmPages),
-  };
-});
-
-test("publishes every channel/framework discovery URL from the all mode", async () => {
+test("exports unique curated links that resolve to published pages and the full corpus", async () => {
   const response = GET();
   const body = await response.text();
-  const visibleFrameworks = getIntegrations().filter(
-    (integration) => getDocsMode(integration.slug) !== "hidden",
-  );
-
-  expect(getAllLlmPages).toHaveBeenCalledWith({
-    channelGuideVariants: "all",
-  });
-  for (const frontend of CHANNEL_FRONTENDS) {
-    for (const integration of visibleFrameworks) {
-      expect(body).toContain(
-        `/${channelConnectHref(frontend, integration.slug).slice(1)})`,
-      );
-    }
-  }
-  expect(body).toContain("/slack/mastra/tools)");
-  expect(body).toContain("/teams/langgraph-fastapi/interactive)");
-  expect(body).not.toContain("/channels/tools");
-
-  const expectedScopedCount =
-    CHANNEL_FRONTENDS.length *
-    visibleFrameworks.length *
-    (CHANNEL_GUIDE_ROUTES.length + 1);
-  const pages = vi.mocked(getAllLlmPages).mock.results[0]?.value as
-    | ReturnType<typeof getAllLlmPages>
-    | undefined;
-  expect(
-    pages?.filter((page) =>
-      CHANNEL_FRONTENDS.some(
-        (frontend) =>
-          page.url === frontend || page.url.startsWith(`${frontend}/`),
-      ),
+  const baseUrl = getBaseUrl();
+  const pages = [...CURATED_FRAMEWORK_PAGES, ...CURATED_LLM_PAGES];
+  const published = new Set(
+    getAllLlmPages({ channelGuideVariants: "content-unique" }).map(
+      (page) => page.url,
     ),
-  ).toHaveLength(expectedScopedCount);
+  );
+  expect(response.headers.get("content-type")).toContain("text/plain");
+  expect(body).toContain("](" + baseUrl + "/llms-full.txt)");
+  expect(new Set(pages.map((page) => page.url)).size).toBe(pages.length);
+  for (const page of pages) {
+    expect(body).toContain("](" + baseUrl + "/" + page.url + ")");
+    if (page.url) expect(published.has(page.url), page.url).toBe(true);
+  }
 });

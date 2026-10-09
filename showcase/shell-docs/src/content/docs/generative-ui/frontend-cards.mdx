@@ -1,0 +1,140 @@
+---
+title: Frontend-Driven Cards
+icon: "lucide/MousePointerClick"
+description: Insert a card into the chat transcript from frontend code, without a tool call and without adding to the conversation.
+---
+
+## What is this?
+
+Sometimes your application, not your agent, has something to show in the chat.
+A background job finishes, a websocket pushes an alert, or the user clicks a
+button. You want a card in the transcript, but there is no agent turn to hang it
+on, and you do not want to add a fake message to the conversation.
+
+Activity messages solve this. An activity message is a message with
+`role: "activity"`. It renders in the transcript like any other message, and it
+is stripped from the payload sent to your agent on every run. The agent and the
+model never see it.
+
+## When should I use this?
+
+Use a frontend-driven card when:
+
+- A frontend event, not the agent, is the source of the card.
+- The card must not become part of the conversation the model reads.
+- Session-only is acceptable. The card is not persisted with the thread.
+
+Use [tool-based generative UI](/generative-ui/tool-based) instead when the
+agent decides to show the card, or when the card must survive a page reload.
+
+## How it works in code
+
+### 1. Write the renderer
+
+A renderer pairs an `activityType` with a component and a schema for the card's
+content.
+
+```tsx title="app/event-card.tsx"
+import { z } from "zod";
+import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
+
+const contentSchema = z.object({
+  title: z.string(),
+  detail: z.string().optional(),
+});
+
+export const eventCardRenderer: ReactActivityMessageRenderer<
+  z.infer<typeof contentSchema>
+> = {
+  activityType: "app-event-card", // [!code highlight]
+  content: contentSchema,
+  render: ({ content }) => (
+    <div className="rounded-lg border p-4">
+      <strong>{content.title}</strong>
+      {content.detail ? <p>{content.detail}</p> : null}
+    </div>
+  ),
+};
+```
+
+### 2. Register it on the provider
+
+```tsx title="app/page.tsx"
+import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import { eventCardRenderer } from "./event-card";
+
+export default function Page() {
+  return (
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      renderActivityMessages={[eventCardRenderer]} // [!code highlight]
+    >
+      <CopilotChat />
+    </CopilotKit>
+  );
+}
+```
+
+### 3. Add the card from frontend code
+
+Get the live agent with `useAgent()`, then call `addMessage` with
+`role: "activity"`.
+
+```tsx title="app/deployment-watcher.tsx"
+import { useEffect } from "react";
+import { useAgent } from "@copilotkit/react-core/v2";
+
+export function DeploymentWatcher() {
+  const { agent } = useAgent();
+
+  useEffect(() => {
+    const socket = new WebSocket("wss://example.com/deployments");
+    socket.onmessage = (event) => {
+      const deployment = JSON.parse(event.data);
+      agent.addMessage({
+        id: crypto.randomUUID(),
+        role: "activity", // [!code highlight]
+        activityType: "app-event-card",
+        content: { title: "Deployment finished", detail: deployment.sha },
+      });
+    };
+    return () => socket.close();
+  }, [agent]);
+
+  return null;
+}
+```
+
+<Callout type="warn">
+  Use the agent returned by `useAgent()`. An agent instance you construct and
+  hold yourself is not the instance the chat renders, so messages added to it
+  never appear.
+</Callout>
+
+The same works inside an `agent.subscribe` handler, a button `onClick`, or any
+other frontend code that can reach the agent.
+
+## What the agent receives
+
+Activity messages stay in `agent.messages` so the transcript renders them, and
+`prepareRunAgentInput` removes them before the run payload leaves the browser.
+
+Given a transcript of one user message and one card:
+
+| Where | Roles present |
+| --- | --- |
+| `agent.messages` (what the chat renders) | `user`, `activity` |
+| Run payload (what your agent receives) | `user` |
+
+A `MESSAGES_SNAPSHOT` from the backend does not remove your card either. The
+snapshot merge preserves activity messages, so a card added in the browser
+survives a server-side history replay.
+
+## Limitations
+
+- **Not persisted.** The card never reaches the backend, so it is gone after a
+  reload. If you need the card to come back, emit it from the agent as an
+  activity event instead.
+- **One renderer per activity type.** Register a renderer whose `activityType`
+  matches, or use `"*"` as a wildcard. An activity message with no matching
+  renderer renders nothing.

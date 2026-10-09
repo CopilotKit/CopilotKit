@@ -1,4 +1,9 @@
-import type { AbstractAgent, Context, State } from "@ag-ui/client";
+import type {
+  AbstractAgent,
+  Context,
+  State,
+  RunAgentInput,
+} from "@ag-ui/client";
 import type { AgentSubscriber } from "@ag-ui/client";
 import { Throttler } from "@tanstack/pacer";
 import type {
@@ -17,6 +22,7 @@ import type {
   CopilotKitCoreRegisterProxiedAgentParams,
   CopilotKitCoreRegisterProxiedAgentResult,
 } from "./agent-registry";
+import type { CopilotKitMessageFilter } from "./message-filter";
 import { AgentRegistry } from "./agent-registry";
 import type { ScopedContext } from "./context-store";
 import { ContextStore } from "./context-store";
@@ -30,10 +36,16 @@ import type {
   CopilotKitCoreCatalogComponent,
 } from "./run-handler";
 import { RunHandler } from "./run-handler";
-import type { DebugConfig } from "@copilotkit/shared";
+import type {
+  DebugConfig,
+  RuntimeEntitlementResponse,
+} from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
+import { LearningBridge } from "./learning-bridge";
+import type { LearningConfig, TrajectoryStartOptions } from "./learning-bridge";
+import type { JsonValue, StartResult } from "@copilotkit/learning";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
 import type { ɵMemoryStore } from "../memory";
@@ -63,6 +75,12 @@ export interface CopilotKitCoreConfig {
   headers?: Record<string, string>;
   /** Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies). */
   credentials?: RequestCredentials;
+  /**
+   * Rewrites the message list sent to runtime agents on every run. Use it when
+   * the backend already stores the conversation and re-sending it is waste or
+   * duplication. See `setMessageFilter` and {@link CopilotKitMessageFilter}.
+   */
+  messageFilter?: CopilotKitMessageFilter;
   /** Properties sent as `forwardedProps` to the AG-UI agent. */
   properties?: Record<string, unknown>;
   /** Ordered collection of frontend tools available to the core. */
@@ -71,7 +89,25 @@ export interface CopilotKitCoreConfig {
   suggestionsConfig?: SuggestionsConfig[];
   /** Enable debug logging for the client-side event pipeline. */
   debug?: DebugConfig;
+  /**
+   * Turns on interaction capture (`@copilotkit/learning`). Capture starts only
+   * when {@link CopilotKitCore.startTrajectory} authenticates and joins the
+   * capture channel. The default path captures outside-chat activity. An explicit
+   * legacy sink also receives Thread, message, tool call, and run context.
+   * Update future captures with
+   * {@link CopilotKitCore.setLearningConfig}.
+   */
+  learning?: LearningConfig;
 }
+
+export type { CopilotKitMessageFilter } from "./message-filter";
+export type {
+  LearningConfig,
+  LegacyLearningConfig,
+  TrajectoryStartOptions,
+  OpenThreadRegistration,
+} from "./learning-bridge";
+export type { JsonValue, StartResult } from "@copilotkit/learning";
 
 export type {
   CopilotKitCoreAddAgentParams,
@@ -133,6 +169,10 @@ export enum CopilotKitCoreErrorCode {
 }
 
 export interface CopilotKitCoreSubscriber {
+  onTrajectoryChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    trajectoryId: string | null;
+  }) => void | Promise<void>;
   onRuntimeConnectionStatusChanged?: (event: {
     copilotkit: CopilotKitCore;
     status: CopilotKitCoreRuntimeConnectionStatus;
@@ -254,6 +294,7 @@ const SUBSCRIBE_TO_AGENT_KEYS = [
   "onMessagesChanged",
   "onStateChanged",
   "onRunInitialized",
+  "onRunStartedEvent",
   "onRunFinalized",
   "onRunFailed",
   "onRunErrorEvent",
@@ -270,8 +311,8 @@ const ALLOWED_KEYS: ReadonlySet<(typeof SUBSCRIBE_TO_AGENT_KEYS)[number]> =
  * The subset of `AgentSubscriber` callbacks accepted by
  * {@link CopilotKitCore.subscribeToAgentWithOptions}. Only the callbacks
  * listed in {@link SUBSCRIBE_TO_AGENT_KEYS} are supported:
- * `onMessagesChanged`, `onStateChanged`, and the four run lifecycle
- * callbacks (`onRunInitialized`, `onRunFinalized`, `onRunFailed`,
+ * `onMessagesChanged`, `onStateChanged`, and the run lifecycle
+ * callbacks (`onRunInitialized`, `onRunStartedEvent`, `onRunFinalized`, `onRunFailed`,
  * `onRunErrorEvent`).
  *
  * Two categories of `AgentSubscriber` members are excluded:
@@ -286,16 +327,15 @@ const ALLOWED_KEYS: ReadonlySet<(typeof SUBSCRIBE_TO_AGENT_KEYS)[number]> =
  *   same data at a coarser granularity, and throttling per-item callbacks
  *   would have different semantic expectations.
  *
- * `onRunErrorEvent` is technically an AG-UI event handler (its return type
- * includes `stopPropagation`), but it is included here because all
- * framework consumers need it to reset `isRunning` on protocol-level
- * `RUN_ERROR` events — distinct from `onRunFailed` which handles local
- * exceptions like network errors. In practice, consumers return `void`
- * from this callback, so the `stopPropagation` semantics are unused.
+ * `onRunErrorEvent` and `onRunStartedEvent` are AG-UI event handlers whose
+ * return types include `stopPropagation`. They are included so framework
+ * consumers can reflect running-state changes while a connection stays open:
+ * a live error clears busy and a successor run marks it busy again. Consumers
+ * use these callbacks for notification and return `void`.
  *
  * Note: the included lifecycle callbacks return
  * `Omit<AgentStateMutation, "stopPropagation">` (or full
- * `AgentStateMutation` in the case of `onRunErrorEvent`). On the error
+ * `AgentStateMutation` for the included AG-UI event handlers). On the error
  * path, `safeCall` discards those return values (see its inline
  * documentation).
  *
@@ -344,6 +384,7 @@ export interface CopilotKitCoreFriendsAccess {
   // Getters for internal state
   readonly headers: Readonly<Record<string, string>>;
   readonly credentials: RequestCredentials | undefined;
+  readonly messageFilter: CopilotKitMessageFilter | undefined;
   readonly properties: Readonly<Record<string, unknown>>;
   readonly context: Readonly<Record<string, Context>>;
   readonly debug?: DebugConfig;
@@ -373,6 +414,10 @@ export interface CopilotKitCoreFriendsAccess {
   waitForPendingFrameworkUpdates(): Promise<void>;
 
   readonly stateManager: {
+    getContinuationRunId(
+      agent: AbstractAgent,
+      input: Pick<RunAgentInput, "threadId" | "resume" | "forwardedProps">,
+    ): string | undefined;
     markNextRunAsContinuation(
       agent: AbstractAgent,
       expectedRunId?: string,
@@ -399,6 +444,7 @@ function normalizeHeaders(
 export class CopilotKitCore {
   private _headers: Record<string, string>;
   private _credentials?: RequestCredentials;
+  private _messageFilter?: CopilotKitMessageFilter;
   private _properties: Record<string, unknown>;
   private _defaultThrottleMs?: number;
   private _debug?: DebugConfig;
@@ -412,6 +458,9 @@ export class CopilotKitCore {
   private runHandler: RunHandler;
   private stateManager: StateManager;
   private threadStoreRegistry: ThreadStoreRegistry;
+  private learningBridge: LearningBridge;
+  private notifiedTrajectoryId: string | null = null;
+  private readonly learningConfiguredListeners = new Set<() => void>();
   /**
    * The single core-owned memory store, created lazily on first
    * `getMemoryStore()` and kept user-scoped for the lifetime of the core.
@@ -433,14 +482,17 @@ export class CopilotKitCore {
     deferInitialConnection = false,
     headers = {},
     credentials,
+    messageFilter,
     properties = {},
     agents__unsafe_dev_only = {},
     tools = [],
     suggestionsConfig = [],
     debug,
+    learning,
   }: CopilotKitCoreConfig) {
     this._headers = normalizeHeaders(headers);
     this._credentials = credentials;
+    this._messageFilter = messageFilter;
     this._properties = properties;
     this._debug = debug;
 
@@ -457,6 +509,10 @@ export class CopilotKitCore {
     this.runHandler.initialize(tools);
     this.suggestionEngine.initialize(suggestionsConfig);
     this.stateManager.initialize();
+    // After agent initialization: the bridge reads the initial agents.
+    this.learningBridge = new LearningBridge(this, learning, () =>
+      this.notifyTrajectoryChanged(),
+    );
 
     this.agentRegistry.setRuntimeTransport(runtimeTransport);
     this.agentRegistry.setRuntimeUrl(runtimeUrl, {
@@ -664,6 +720,10 @@ export class CopilotKitCore {
     return this._credentials;
   }
 
+  get messageFilter(): CopilotKitMessageFilter | undefined {
+    return this._messageFilter;
+  }
+
   get properties(): Readonly<Record<string, unknown>> {
     return this._properties;
   }
@@ -714,6 +774,15 @@ export class CopilotKitCore {
     return this.agentRegistry.runtimeConnectionStatus;
   }
 
+  /** @internal The verbatim single-endpoint URL, including any trailing slash. */
+  get ɵruntimeEndpointUrl(): string | undefined {
+    return this.agentRegistry.runtimeEndpointUrl;
+  }
+
+  get ɵruntimeFetch(): typeof fetch {
+    return this.agentRegistry.createRuntimeFetch();
+  }
+
   get audioFileTranscriptionEnabled(): boolean {
     return this.agentRegistry.audioFileTranscriptionEnabled;
   }
@@ -732,6 +801,11 @@ export class CopilotKitCore {
 
   get suggestions(): boolean | undefined {
     return this.agentRegistry.suggestions;
+  }
+
+  /** Whether the connected Runtime exposes debug-authorized Learning data. */
+  get inspectorLearning(): boolean {
+    return this.agentRegistry.inspectorLearning;
   }
 
   /** Trusted, optional metadata advertised by the connected runtime. */
@@ -762,6 +836,16 @@ export class CopilotKitCore {
 
   get licenseStatus(): RuntimeLicenseStatus | undefined {
     return this.agentRegistry.licenseStatus;
+  }
+
+  /** Structured Runtime entitlement authority advertised by `/info`. */
+  get runtimeEntitlements(): RuntimeEntitlementResponse | undefined {
+    return this.agentRegistry.runtimeEntitlements;
+  }
+
+  /** Whether Core still has a bounded Runtime entitlement retry to settle. */
+  get runtimeEntitlementRetryPending(): boolean {
+    return this.agentRegistry.runtimeEntitlementRetryPending;
   }
 
   get telemetryDisabled(): boolean {
@@ -825,6 +909,20 @@ export class CopilotKitCore {
     this.agentRegistry.handleCredentialsChanged();
   }
 
+  /**
+   * Replace the message filter applied to every runtime agent.
+   *
+   * Applies to agents already discovered as well as ones discovered later, so
+   * a filter set before `/info` lands is not lost. Pass `undefined` to go back
+   * to sending the full thread.
+   */
+  setMessageFilter(messageFilter: CopilotKitMessageFilter | undefined): void {
+    this._messageFilter = messageFilter;
+    this.agentRegistry.applyMessageFilterToAgents(
+      this.agentRegistry.agents as Record<string, AbstractAgent>,
+    );
+  }
+
   setProperties(properties: Record<string, unknown>): void {
     this._properties = properties;
     void this.notifySubscribers(
@@ -879,6 +977,95 @@ export class CopilotKitCore {
 
   getAgent(id: string): AbstractAgent | undefined {
     return this.agentRegistry.getAgent(id);
+  }
+
+  /** Updates settings for the next capture. Removing the config stops capture. */
+  setLearningConfig(config: LearningConfig | undefined): void {
+    const wasConfigured = this.ɵlearningConfigured;
+    this.learningBridge.setConfig(config);
+    this.notifyTrajectoryChanged();
+    if (this.ɵlearningConfigured === wasConfigured) return;
+    for (const listener of this.learningConfiguredListeners) {
+      try {
+        listener();
+      } catch (error) {
+        console.error("Learning configured listener error:", error);
+      }
+    }
+  }
+
+  /**
+   * @internal Whether a `learning` config is set. Unlike {@link trajectoryId},
+   * it does not change with capture start, connection failures or reconnects.
+   */
+  get ɵlearningConfigured(): boolean {
+    return this.learningBridge.isConfigured;
+  }
+
+  /** @internal Calls `listener` when {@link ɵlearningConfigured} changes. */
+  ɵsubscribeToLearningConfigured(listener: () => void): () => void {
+    this.learningConfiguredListeners.add(listener);
+    return () => {
+      this.learningConfiguredListeners.delete(listener);
+    };
+  }
+
+  /** The active capture's Trajectory ID, or null while capture is stopped. */
+  get trajectoryId(): string | null {
+    return this.learningBridge.trajectoryId;
+  }
+
+  private notifyTrajectoryChanged(): void {
+    const trajectoryId = this.trajectoryId;
+    if (trajectoryId === this.notifiedTrajectoryId) return;
+    this.notifiedTrajectoryId = trajectoryId;
+    void this.notifySubscribers(
+      (subscriber) =>
+        subscriber.onTrajectoryChanged?.({ copilotkit: this, trajectoryId }),
+      "Subscriber onTrajectoryChanged error:",
+    );
+  }
+
+  /**
+   * Starts one Trajectory after Runtime authorization and the Gateway join.
+   * Omit the ID to create one. Repeated starts await the active connection;
+   * a different ID stops the previous capture. Explicit sinks retain the
+   * prototype's synchronous capture and require a stop before changing IDs.
+   *
+   * @example copilotkit.startTrajectory({ trajectoryId: crypto.randomUUID() })
+   */
+  startTrajectory(options: TrajectoryStartOptions = {}): Promise<StartResult> {
+    const result = this.learningBridge.start(options);
+    this.notifyTrajectoryChanged();
+    return result;
+  }
+
+  /** Cancels pending work and stops capture, attempting one final batch without waiting for its ACK. */
+  stopTrajectory() {
+    this.learningBridge.stop();
+    this.notifyTrajectoryChanged();
+  }
+
+  /**
+   * Records an outcome that clicks cannot show, such as a saved report or an
+   * approved deal. The wire adds `value.seq`; arrays, primitives, and objects
+   * already containing `seq` are preserved under `value.data`. Explicit legacy
+   * sinks retain object-only events with open-Thread enrichment.
+   * No-op while no Trajectory runs. Events emitted during connection recovery
+   * count as dropped. Built-in names such as `click` are rejected.
+   *
+   * @example copilotkit.emitTrajectoryEvent("deal.approved", { dealId: "deal-1" })
+   */
+  emitTrajectoryEvent(name: string, value: JsonValue = {}) {
+    this.learningBridge.emit(name, value);
+  }
+
+  /**
+   * Tells Core that a view shows this Thread, so captured interactions can link to it.
+   * Framework bindings call this; call it yourself only without a CopilotKit provider.
+   */
+  registerOpenThread(params: { agentId: string; threadId: string }) {
+    return this.learningBridge.registerOpenThread(params);
   }
 
   /**
@@ -953,13 +1140,13 @@ export class CopilotKitCore {
   /**
    * Lazily creates, starts, and context-syncs the core-owned memory store on
    * first access, then returns it. Subsequent calls return the existing store.
-   * The store is constructed with a bound `globalThis.fetch` and immediately
-   * has its runtime context synced from the current connection state.
+   * The store uses the Core Runtime fetch so REST and single-route transports
+   * share the same resource behavior. Its Runtime context is synced at once.
    */
   private ensureMemoryStore(): ɵMemoryStore {
     if (!this._memoryStore) {
       this._memoryStore = ɵcreateMemoryStore({
-        fetch: globalThis.fetch.bind(globalThis),
+        fetch: this.ɵruntimeFetch,
       });
       this._memoryStore.start();
       this.syncMemoryContext();
@@ -1186,6 +1373,11 @@ export class CopilotKitCore {
         guarded.onRunInitialized = (params) =>
           safeCall("onRunInitialized", fn, params);
       }
+      if (sub.onRunStartedEvent) {
+        const fn = sub.onRunStartedEvent;
+        guarded.onRunStartedEvent = (params) =>
+          safeCall("onRunStartedEvent", fn, params);
+      }
       if (sub.onRunFinalized) {
         const fn = sub.onRunFinalized;
         guarded.onRunFinalized = (params) =>
@@ -1267,6 +1459,8 @@ export class CopilotKitCore {
     const lifecycleOnly: SubscribeToAgentSubscriber = {};
     if (subscriber.onRunInitialized)
       lifecycleOnly.onRunInitialized = subscriber.onRunInitialized;
+    if (subscriber.onRunStartedEvent)
+      lifecycleOnly.onRunStartedEvent = subscriber.onRunStartedEvent;
     if (subscriber.onRunFinalized)
       lifecycleOnly.onRunFinalized = subscriber.onRunFinalized;
     if (subscriber.onRunFailed)
@@ -1312,7 +1506,7 @@ export class CopilotKitCore {
   }
 
   stopAgent(params: CopilotKitCoreStopAgentParams): void {
-    this.runHandler.abortCurrentRun();
+    this.runHandler.abortCurrentRun(params.agent);
     params.agent.abortRun();
   }
 
@@ -1350,6 +1544,18 @@ export class CopilotKitCore {
     messageId: string,
   ): string | undefined {
     return this.stateManager.getRunIdForMessage(agentId, threadId, messageId);
+  }
+
+  getRawEventForMessage(
+    agentId: string,
+    threadId: string,
+    messageId: string,
+  ): unknown {
+    return this.stateManager.getRawEventForMessage(
+      agentId,
+      threadId,
+      messageId,
+    );
   }
 
   getRunIdsForThread(agentId: string, threadId: string): string[] {

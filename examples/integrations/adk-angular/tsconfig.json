@@ -10,8 +10,7 @@
     "forceConsistentCasingInFileNames": true,
     "noPropertyAccessFromIndexSignature": false,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "baseUrl": "."
+    "emitDecoratorMetadata": true
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,

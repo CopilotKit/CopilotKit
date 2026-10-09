@@ -312,6 +312,39 @@ describe("IntelligenceAgentRunner", () => {
     sub.unsubscribe();
   });
 
+  it("sends Phoenix heartbeats every 15s on the runner socket by default", () => {
+    const threadId = "t-heartbeat-default";
+    const input = createRunInput({ threadId, runId: "r-heartbeat-default" });
+    const agent = new MockAgent();
+
+    const sub = runner.run({ threadId, agent, input }).subscribe();
+
+    expect(mockSockets[0]?.opts).toMatchObject({
+      heartbeatIntervalMs: 15_000,
+    });
+
+    sub.unsubscribe();
+  });
+
+  it("passes a configured heartbeatIntervalMs to the runner socket", () => {
+    runner = new IntelligenceAgentRunner({
+      url: "ws://localhost:4000/runner",
+      heartbeatIntervalMs: 5_000,
+    });
+
+    const threadId = "t-heartbeat-override";
+    const input = createRunInput({ threadId, runId: "r-heartbeat-override" });
+    const agent = new MockAgent();
+
+    const sub = runner.run({ threadId, agent, input }).subscribe();
+
+    expect(mockSockets[0]?.opts).toMatchObject({
+      heartbeatIntervalMs: 5_000,
+    });
+
+    sub.unsubscribe();
+  });
+
   it("uses a per-run Phoenix authToken instead of the configured token", () => {
     runner = new IntelligenceAgentRunner({
       url: "ws://localhost:4000/runner",
@@ -2061,7 +2094,9 @@ describe("IntelligenceAgentRunner", () => {
         false,
       );
       expect(agent.aborted).toBe(false);
-      expect(await runner.stop({ threadId, runId: "r-current" })).toBe(true);
+      const stopping = runner.stop({ threadId, runId: "r-current" });
+      mockChannels[0].triggerJoin("ok");
+      expect(await stopping).toBe(true);
       expect(agent.aborted).toBe(true);
       sub.unsubscribe();
     });
@@ -2072,7 +2107,9 @@ describe("IntelligenceAgentRunner", () => {
       const agent = new MockAgent();
       const sub = runner.run({ threadId, agent, input }).subscribe();
 
-      const result = await runner.stop({ threadId });
+      const stopping = runner.stop({ threadId });
+      mockChannels[0].triggerJoin("ok");
+      const result = await stopping;
 
       expect(result).toBe(true);
       expect(agent.aborted).toBe(true);
@@ -2093,8 +2130,10 @@ describe("IntelligenceAgentRunner", () => {
       const agent = new MockAgent();
       const sub = runner.run({ threadId, agent, input }).subscribe();
 
-      expect(await runner.stop({ threadId })).toBe(true);
+      const stopping = runner.stop({ threadId });
       expect(await runner.stop({ threadId })).toBe(false);
+      mockChannels[0].triggerJoin("ok");
+      expect(await stopping).toBe(true);
       sub.unsubscribe();
     });
   });

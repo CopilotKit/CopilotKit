@@ -1,0 +1,28 @@
+{
+  "name": "fizzy-maps",
+  "private": true,
+  "type": "module",
+  "description": "Fizzy Maps: an MCP App built with mcp-use that draws orders on a Leaflet map.",
+  "scripts": {
+    "dev": "mcp-use dev --port 3001 --no-open",
+    "build": "mcp-use build",
+    "start": "mcp-use start --port 3001",
+    "deploy": "mcp-use deploy",
+    "typecheck": "mcp-use typecheck"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4",
+    "mcp-use": "2.7.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-leaflet": "^5.0.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.22",
+    "@types/node": "^22.20.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^7.0.2"
+  }
+}

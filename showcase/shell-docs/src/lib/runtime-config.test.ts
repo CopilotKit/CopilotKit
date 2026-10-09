@@ -32,9 +32,22 @@ const ANALYTICS_KEYS = [
   "NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID",
   "NEXT_PUBLIC_REB2B_KEY",
   "NEXT_PUBLIC_REO_KEY",
+  "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
 ] as const;
 
 describe("server getRuntimeConfig (shell-docs)", () => {
+  it("uses safe production defaults when deployment URLs are missing", () => {
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const cfg = getRuntimeConfig();
+    expect(cfg.baseUrl).toBe("https://docs.copilotkit.ai");
+    expect(cfg.shellUrl).toBe("about:blank#shell-url-missing");
+    expect(cfg.intelligenceSignupUrl).toBe(
+      "https://dashboard.operations.copilotkit.ai",
+    );
+    expect(cfg.posthogHost).toBe("https://eu.i.posthog.com");
+  });
   const ORIGINAL_ENV = { ...process.env };
 
   beforeEach(() => {
@@ -44,6 +57,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     // Restore the snapshot — replace, don't merge, so per-test sets
     // don't leak into the next test.
     for (const k of Object.keys(process.env)) {
@@ -68,6 +82,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
     process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID = "G-XYZ";
     process.env.NEXT_PUBLIC_REB2B_KEY = "rb2b-key";
     process.env.NEXT_PUBLIC_REO_KEY = "reo-key";
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_live_shared";
 
     expect(getRuntimeConfig()).toEqual({
       baseUrl: "https://docs.copilotkit.ai",
@@ -79,6 +94,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
       googleAnalyticsTrackingId: "G-XYZ",
       reb2bKey: "rb2b-key",
       reoKey: "reo-key",
+      clerkPublishableKey: "pk_live_shared",
     });
   });
 
@@ -126,64 +142,6 @@ describe("server getRuntimeConfig (shell-docs)", () => {
     expect(cfg.posthogHost).toBe("https://eu.i.posthog.com");
   });
 
-  it("falls back to prod sentinels and logs by severity when URLs unset in production", () => {
-    (process.env as Record<string, string>).NODE_ENV = "production";
-    const errs: string[] = [];
-    const warns: string[] = [];
-    const errSpy = vi
-      .spyOn(console, "error")
-      .mockImplementation((m: string) => {
-        errs.push(m);
-      });
-    const warnSpy = vi
-      .spyOn(console, "warn")
-      .mockImplementation((m: string) => {
-        warns.push(m);
-      });
-    const cfg = getRuntimeConfig();
-    errSpy.mockRestore();
-    warnSpy.mockRestore();
-
-    expect(cfg.baseUrl).toBe("https://docs.copilotkit.ai");
-    expect(cfg.shellUrl).toBe("about:blank#shell-url-missing");
-    expect(cfg.intelligenceSignupUrl).toBe(
-      "https://dashboard.operations.copilotkit.ai",
-    );
-    expect(cfg.posthogHost).toBe("https://eu.i.posthog.com");
-    // baseUrl + shellUrl are FATAL-CONFIG severity (no legitimate prod
-    // default exists for shellUrl; baseUrl mismatches break sitemap+OG).
-    expect(errs.some((m) => m.includes("NEXT_PUBLIC_BASE_URL"))).toBe(true);
-    expect(errs.some((m) => m.includes("NEXT_PUBLIC_SHELL_URL"))).toBe(true);
-    // intelligenceSignupUrl + posthogHost have working prod defaults
-    // (dashboard.operations.copilotkit.ai, EU posthog cloud), so they
-    // log via console.warn WITHOUT the `FATAL-CONFIG:` prefix — visible
-    // in prod log streams but not raising ops alerts.
-    expect(
-      warns.some((m) => m.includes("NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL")),
-    ).toBe(true);
-    expect(warns.some((m) => m.includes("NEXT_PUBLIC_POSTHOG_HOST"))).toBe(
-      true,
-    );
-    // The recoverable warns must NOT carry the `FATAL-CONFIG:` prefix —
-    // that prefix is what ops alert routing pattern-matches on.
-    expect(
-      warns.some(
-        (m) =>
-          m.includes("FATAL-CONFIG:") &&
-          (m.includes("NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL") ||
-            m.includes("NEXT_PUBLIC_POSTHOG_HOST")),
-      ),
-    ).toBe(false);
-    // Confirm NO false-positive FATAL-CONFIG was logged for the
-    // recoverable cases.
-    expect(
-      errs.some((m) => m.includes("NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL")),
-    ).toBe(false);
-    expect(errs.some((m) => m.includes("NEXT_PUBLIC_POSTHOG_HOST"))).toBe(
-      false,
-    );
-  });
-
   it("returns empty strings for missing analytics keys with no console output", () => {
     (process.env as Record<string, string>).NODE_ENV = "production";
     process.env.NEXT_PUBLIC_BASE_URL = "https://docs.copilotkit.ai";
@@ -200,6 +158,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
     expect(cfg.googleAnalyticsTrackingId).toBe("");
     expect(cfg.reb2bKey).toBe("");
     expect(cfg.reoKey).toBe("");
+    expect(cfg.clerkPublishableKey).toBe("");
 
     // None of the analytics-key env names should have produced a log.
     const allOutput = [

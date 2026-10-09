@@ -4,11 +4,12 @@ import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
   CopilotRuntimeTransport,
-  type CopilotKitCoreGetSuggestionsResult,
-  type IntelligenceRuntimeInfo,
-  type RuntimeLicenseStatus,
-  type SuggestionsConfig,
-  type ThreadEndpointRuntimeInfo,
+  CopilotKitCoreGetSuggestionsResult,
+  CopilotKitMessageFilter,
+  IntelligenceRuntimeInfo,
+  RuntimeLicenseStatus,
+  SuggestionsConfig,
+  ThreadEndpointRuntimeInfo,
 } from "@copilotkit/core";
 import {
   Injectable,
@@ -29,12 +30,8 @@ import {
   A2UI_DEFAULT_DESIGN_GUIDELINES,
   A2UI_DEFAULT_GENERATION_GUIDELINES,
   schemaToJsonSchema,
+  RuntimeEntitlementResponse,
 } from "@copilotkit/shared";
-import {
-  A2UI_SCHEMA_CONTEXT_DESCRIPTION,
-  buildCatalogContextValue,
-  extractCatalogComponentSchemas,
-} from "@copilotkit/a2ui-renderer/web-components";
 import {
   ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
   RenderActivityMessageConfig,
@@ -44,6 +41,12 @@ import { injectCopilotKitConfig } from "./config";
 import { HumanInTheLoop } from "./human-in-the-loop";
 import { ensureLicenseWatermark } from "./license-watermark";
 import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
+import {
+  A2UI_SCHEMA_CONTEXT_DESCRIPTION,
+  buildCatalogContextValue,
+  extractCatalogComponentSchemas,
+} from "./components/a2ui/a2ui-catalog-context";
+import { CopilotA2UIRenderToolCall } from "./components/a2ui/a2ui-render-tool-call";
 import { CopilotA2UIToolRenderer } from "./components/a2ui/a2ui-tool-renderer";
 import {
   AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
@@ -56,11 +59,12 @@ import {
   GENERATE_SANDBOXED_UI_TOOL_NAME,
   GenerateSandboxedUiArgsSchema,
   OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
-  type GenerateSandboxedUiArgs,
+  GenerateSandboxedUiArgs,
 } from "./open-generative-ui";
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { standardSchemaZodToJsonSchema } from "./standard-schema-zod";
+import { CopilotInspector } from "./inspector";
 
 /**
  * Advertise a client-provided A2UI catalog to the runtime without mutating the
@@ -85,6 +89,7 @@ export class CopilotKit {
   );
   readonly #hitl = inject(HumanInTheLoop);
   readonly #rootInjector = inject(Injector);
+  readonly #inspector = inject(CopilotInspector);
   /** Whether unknown tools may use the built-in text-only fallback renderer. */
   readonly defaultToolRenderingEnabled =
     this.#config.defaultToolRendering === true;
@@ -103,6 +108,8 @@ export class CopilotKit {
   readonly runtimeTransport = this.#runtimeTransport.asReadonly();
   readonly #headers = signal<Record<string, string>>({});
   readonly headers = this.#headers.asReadonly();
+  readonly #credentials = signal<RequestCredentials | undefined>(undefined);
+  readonly credentials = this.#credentials.asReadonly();
   readonly #threadEndpoints = signal<ThreadEndpointRuntimeInfo | undefined>(
     undefined,
   );
@@ -113,6 +120,14 @@ export class CopilotKit {
    * consumers re-run when `/info` lands.
    */
   readonly threadEndpoints = this.#threadEndpoints.asReadonly();
+  readonly #audioFileTranscriptionEnabled = signal(false);
+  /**
+   * Voice transcription capability advertised by the connected runtime's
+   * `/info` response. The value remains false until the runtime explicitly
+   * reports support.
+   */
+  readonly audioFileTranscriptionEnabled =
+    this.#audioFileTranscriptionEnabled.asReadonly();
   readonly #intelligence = signal<IntelligenceRuntimeInfo | undefined>(
     undefined,
   );
@@ -132,6 +147,21 @@ export class CopilotKit {
    * the threads drawer's license gate — re-run once the status resolves.
    */
   readonly licenseStatus = this.#licenseStatus.asReadonly();
+  readonly #runtimeEntitlements = signal<
+    RuntimeEntitlementResponse | undefined
+  >(undefined);
+  /**
+   * Structured entitlement authority from the connected runtime's `/info`
+   * response. Ready managed entitlements override legacy license status.
+   */
+  readonly runtimeEntitlements = this.#runtimeEntitlements.asReadonly();
+  readonly #runtimeEntitlementRetryPending = signal(false);
+  /**
+   * Whether Core still owes the one bounded retry for a retryable entitlement
+   * lookup. Gated UI stays pending until that retry settles.
+   */
+  readonly runtimeEntitlementRetryPending =
+    this.#runtimeEntitlementRetryPending.asReadonly();
   readonly #suggestionsByAgent = signal<
     Record<string, CopilotKitCoreGetSuggestionsResult>
   >({});
@@ -140,6 +170,8 @@ export class CopilotKit {
   readonly core = new CopilotKitCore({
     runtimeUrl: this.#config.runtimeUrl,
     headers: this.#config.headers,
+    credentials: this.#config.credentials,
+    messageFilter: this.#config.messageFilter,
     agents__unsafe_dev_only: {
       ...this.#config.agents,
       ...this.#config.selfManagedAgents,
@@ -195,18 +227,28 @@ export class CopilotKit {
 
   #openGenerativeUIToolRegistered = false;
   #openGenerativeUIContextIds: string[] = [];
+  #warnedMissingA2UICatalog = false;
   #a2UIContextIds: string[] = [];
 
   constructor() {
+    void this.#inspector.isInspectorEnabled;
     ensureLicenseWatermark(this.#config.headers);
 
     this.#runtimeConnectionStatus.set(this.core.runtimeConnectionStatus);
     this.#runtimeUrl.set(this.core.runtimeUrl);
     this.#runtimeTransport.set(this.core.runtimeTransport);
     this.#headers.set(this.core.headers);
+    this.#credentials.set(this.core.credentials);
     this.#threadEndpoints.set(this.core.threadEndpoints);
+    this.#audioFileTranscriptionEnabled.set(
+      this.core.audioFileTranscriptionEnabled,
+    );
     this.#intelligence.set(this.core.intelligence);
     this.#licenseStatus.set(this.core.licenseStatus);
+    this.#runtimeEntitlements.set(this.core.runtimeEntitlements);
+    this.#runtimeEntitlementRetryPending.set(
+      this.core.runtimeEntitlementRetryPending,
+    );
     this.#config.renderToolCalls?.forEach((renderConfig) => {
       this.addRenderToolCall(renderConfig);
     });
@@ -233,6 +275,17 @@ export class CopilotKit {
       this.addHumanInTheLoop(humanInTheLoopTool);
     });
 
+    // The core constructor registers dev agents without announcing them, so
+    // its run tracking (per-run state, subagents) never subscribes to them.
+    // Publish them once, as the React provider does on mount.
+    const devAgents = {
+      ...this.#config.agents,
+      ...this.#config.selfManagedAgents,
+    };
+    if (Object.keys(devAgents).length > 0) {
+      this.core.setAgents__unsafe_dev_only(devAgents);
+    }
+
     this.core.subscribe({
       onAgentsChanged: () => {
         this.#agents.set(this.core.agents);
@@ -245,8 +298,15 @@ export class CopilotKit {
         // `/info` resolves.
         this.#runtimeConnectionStatus.set(status);
         this.#threadEndpoints.set(this.core.threadEndpoints);
+        this.#audioFileTranscriptionEnabled.set(
+          this.core.audioFileTranscriptionEnabled,
+        );
         this.#intelligence.set(this.core.intelligence);
         this.#licenseStatus.set(this.core.licenseStatus);
+        this.#runtimeEntitlements.set(this.core.runtimeEntitlements);
+        this.#runtimeEntitlementRetryPending.set(
+          this.core.runtimeEntitlementRetryPending,
+        );
         this.#syncBuiltInActivityMessageRenderers();
         this.#syncBuiltInOpenGenerativeUI();
       },
@@ -292,6 +352,14 @@ export class CopilotKit {
     },
   ): FrontendTool {
     const { injector, handler, ...frontendCandidate } = clientToolWithInjector;
+
+    // A display-only registration declares no handler, and core has its own path
+    // for that: it inserts an empty tool result and completes the turn. Binding a
+    // wrapper here regardless would call `undefined` on the first tool call, and
+    // substituting a stub would put an invented result into the thread instead.
+    if (!handler) {
+      return frontendCandidate;
+    }
 
     return {
       ...frontendCandidate,
@@ -367,8 +435,7 @@ export class CopilotKit {
       {
         name: RENDER_A2UI_TOOL_NAME,
         args: RenderA2UIArgsSchema,
-        component: CopilotA2UIToolRenderer,
-        passAgent: true,
+        component: CopilotA2UIRenderToolCall,
       },
       {
         name: AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
@@ -380,19 +447,32 @@ export class CopilotKit {
     this.#syncA2UIContexts();
   }
 
-  #getA2UICatalog(): unknown {
-    return this.#config.a2ui?.catalog;
-  }
-
-  /** Return whether runtime capability or an explicit catalog enables A2UI. */
+  /**
+   * A2UI renders only with a configured catalog. Without one, the runtime may
+   * still enable it, but surfaces could not render, so CopilotKit registers no
+   * renderers or agent context and says how to fix it.
+   */
   #isA2UIActive(): boolean {
-    return this.core.a2uiEnabled || this.#getA2UICatalog() !== undefined;
+    const hasCatalog = this.#config.a2ui?.catalog !== undefined;
+    if (
+      this.core.a2uiEnabled &&
+      !hasCatalog &&
+      !this.#warnedMissingA2UICatalog
+    ) {
+      this.#warnedMissingA2UICatalog = true;
+      console.warn(
+        "[CopilotKit] The runtime enables A2UI, but no `a2ui.catalog` is configured, so A2UI stays off. " +
+          "Pass `basicCatalog` or a catalog from `createAngularCatalog`, both in `@copilotkit/angular/a2ui`.",
+      );
+    }
+    return hasCatalog;
   }
 
   #syncA2UIContexts(): void {
     this.#removeA2UIContexts();
 
-    const catalog = this.#getA2UICatalog();
+    const catalog = this.#config.a2ui?.catalog;
+    if (!catalog) return;
     this.#a2UIContextIds.push(
       this.core.addContext({
         description:
@@ -526,8 +606,13 @@ export class CopilotKit {
   ): FrontendTool {
     return {
       ...humanInTheLoopTool,
-      handler: (args, { toolCall }) => {
-        return this.#hitl.onResult(toolCall.id, humanInTheLoopTool.name);
+      type: "human-in-the-loop",
+      handler: (args, { toolCall, signal: abortSignal }) => {
+        return this.#hitl.onResult(
+          toolCall.id,
+          humanInTheLoopTool.name,
+          abortSignal,
+        );
       },
     };
   }
@@ -598,6 +683,8 @@ export class CopilotKit {
     runtimeUrl?: string;
     runtimeTransport?: CopilotRuntimeTransport;
     headers?: Record<string, string>;
+    credentials?: RequestCredentials;
+    messageFilter?: CopilotKitMessageFilter;
     properties?: Record<string, unknown>;
     agents?: Record<string, AbstractAgent>;
     selfManagedAgents?: Record<string, AbstractAgent>;
@@ -613,6 +700,15 @@ export class CopilotKit {
     if (options.headers !== undefined) {
       this.core.setHeaders(options.headers);
       this.#headers.set(options.headers);
+    }
+    if ("credentials" in options) {
+      this.core.setCredentials(options.credentials);
+      this.#credentials.set(options.credentials);
+    }
+    // `in`, not `!== undefined`: clearing the filter is a real instruction, and
+    // `undefined` is the value that expresses it.
+    if ("messageFilter" in options) {
+      this.core.setMessageFilter(options.messageFilter);
     }
     if (options.properties !== undefined) {
       this.core.setProperties(

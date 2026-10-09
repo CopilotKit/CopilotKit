@@ -1,0 +1,16 @@
+{
+  "fixtures": [
+    {
+      "match": { "userMessage": "Hello" },
+      "response": {
+        "content": "The CrewAI Flows assistant is ready. How can I help you?"
+      }
+    },
+    {
+      "match": {},
+      "response": {
+        "content": "You're currently running against aimock. Add your OpenAI API key and unset OPENAI_BASE_URL to use a real model."
+      }
+    }
+  ]
+}

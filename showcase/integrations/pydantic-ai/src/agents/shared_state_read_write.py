@@ -79,7 +79,7 @@ _BASE_SYSTEM_PROMPT = (
 
 
 agent = Agent(
-    model=OpenAIResponsesModel("gpt-4o-mini"),
+    model=OpenAIResponsesModel("gpt-5-mini"),
     deps_type=StateDeps[SharedStateRWState],
     system_prompt=_BASE_SYSTEM_PROMPT,
 )

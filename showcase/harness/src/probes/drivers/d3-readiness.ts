@@ -5,6 +5,7 @@ import { showcaseShapeSchema } from "../discovery/railway-services.js";
 import type { ProbeDriver } from "../types.js";
 import type { Logger, ProbeContext, ProbeResult } from "../../types/index.js";
 import type { BrowserPool } from "../helpers/browser-pool.js";
+import { clearRemoteThreads } from "../helpers/clear-remote-threads.js";
 
 /**
  * Phase 4B.1 — e2e-demos driver.
@@ -865,6 +866,10 @@ export function createE2eDemosDriver(
             });
           }
         }
+        // Fresh probe UUIDs otherwise accumulate forever in the default
+        // runner's process-wide store. The voice catch-all is intentional:
+        // it is the ungated route that accepts the service-wide clear path.
+        await clearRemoteThreads(backendUrl, slug, ctx.logger);
       }
     },
   };

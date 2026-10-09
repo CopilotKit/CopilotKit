@@ -5,18 +5,37 @@ open-source packages.
 - We do not sell or share telemetry data with third parties.
 - We do not use cookies or trackers for open-source telemetry.
 
-Runtime events may carry the telemetry ID from a configured Intelligence or
-license token. Runtime events without that ID are sampled. Inspector events use
-a persistent anonymous Inspector ID stored in your browser.
+Runtime uses the first nonblank telemetry identity that is valid in an HTTP
+header, in this order: explicit `telemetryId`, `CPK_TELEMETRY_ID`, then the
+identity carried by `COPILOTKIT_LICENSE_TOKEN`.
+
+`CPK_TELEMETRY_ID` is optional and non-secret. The CopilotKit CLI does not
+create or write `CPK_TELEMETRY_ID`, and a value you choose does not automatically
+link Runtime events to a CLI scaffold event. Setting it does not enable
+telemetry, grant product access, or replace the project's Intelligence API key.
+
+Cloud-hosted Intelligence starters use `CPK_INTELLIGENCE_API_KEY` for platform access.
+The project API key is not a telemetry identity.
+
+Cloud-hosted setup does not issue `COPILOTKIT_LICENSE_TOKEN`. That token is
+only for offline or self-hosted licensing, so a cloud-hosted starter carries no
+license-token identity. When a self-hosted deployment sets the token, it
+supplies the fallback identity. With none of these identities, Runtime sends
+anonymous telemetry.
+
+The Inspector stores a random browser ID in local storage and sends it directly
+with feature-use events. CopilotKit signup links can carry that ID so we can
+measure the path from Inspector use to signup. Inspector delivery does not
+depend on `CPK_TELEMETRY_ID`.
 
 ## Inspector metadata events
 
 The Inspector sends coarse events when trusted project-context modules become
 visible and when a user follows a plan action:
 
-| Event | Feature-specific properties |
-| --- | --- |
-| `oss.inspector.metadata_module_viewed` | `module`, `license_bucket`, and `action_kind` when the visible module is an action |
+| Event                                   | Feature-specific properties                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `oss.inspector.metadata_module_viewed`  | `module`, `license_bucket`, and `action_kind` when the visible module is an action               |
 | `oss.inspector.metadata_action_clicked` | `module: "action"`, `action_kind`, and `license_bucket` for **Manage plan** and **Renew** clicks |
 
 `module` is `identity`, `plan`, or `action`. `action_kind` is `manage_plan`,
@@ -40,13 +59,6 @@ event timestamp.
 Set `COPILOTKIT_TELEMETRY_DISABLED=true` in your runtime environment. This
 disables telemetry for both the CopilotRuntime and Inspector. We also respect
 [Do Not Track (DNT)](https://consoledonottrack.com/).
-
-## How to adjust the telemetry sample rate
-
-The default sample rate for Runtime events without a telemetry ID is `0.05`
-(5%). Runtime callers with a telemetry ID bypass sampling. Set
-`COPILOTKIT_TELEMETRY_SAMPLE_RATE` to a value from 0 through 1 to change the
-anonymous Runtime sample rate.
 
 ## Get in touch
 

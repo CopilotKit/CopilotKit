@@ -16,14 +16,44 @@ export const routes: Routes = [
       ),
   },
   {
+    path: "mcp-apps",
+    title: "MCP Apps Demo",
+    loadComponent: () =>
+      import("./routes/mcp-apps/mcp-apps.component").then(
+        (m) => m.MCPAppsComponent,
+      ),
+  },
+  {
+    path: "a2ui-angular",
+    title: "Angular A2UI",
+    loadComponent: () =>
+      import("./routes/a2ui-angular/a2ui-angular-demo.component").then(
+        (m) => m.A2UIAngularDemoComponent,
+      ),
+  },
+  {
+    path: "a2ui-web-components",
+    title: "A2UI: Angular + Web Components",
+    loadComponent: () =>
+      import("./routes/a2ui-web-components/a2ui-web-components-demo.component").then(
+        (m) => m.A2UIWebComponentsDemoComponent,
+      ),
+  },
+  {
+    path: "a2ui-recovery",
+    title: "A2UI Recovery",
+    loadComponent: () =>
+      import("./routes/a2ui-recovery/a2ui-recovery-demo.component").then(
+        (m) => m.A2UIRecoveryDemoComponent,
+      ),
+  },
+  {
     path: "headless",
     title: "Headless Chat",
     loadComponent: () =>
       import("./routes/headless/headless-chat.component").then(
         (m) => m.HeadlessChatComponent,
       ),
-    // The web inspector is hidden on the headless route.
-    data: { inspector: false },
   },
   {
     path: "custom-input",

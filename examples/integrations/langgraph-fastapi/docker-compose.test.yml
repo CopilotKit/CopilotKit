@@ -37,7 +37,15 @@ services:
       context: .
       dockerfile: docker/Dockerfile.app
     environment:
-      - LANGGRAPH_DEPLOYMENT_URL=http://agent:8123
+      # This starter's runtime route builds a `LangGraphHttpAgent` and reads
+      # `AGENT_URL` — NOT `LANGGRAPH_DEPLOYMENT_URL`, which this file used to
+      # set because it was copied from langgraph-python (whose `createDefaultAgent`
+      # falls back through BOTH names). The app therefore dialled its own
+      # `http://localhost:8123` default and every chat run ended in ECONNREFUSED →
+      # RUN_ERROR, which the old @chat assertion rendered as an assistant message
+      # and passed. Keep this name in step with `src/app/api/copilotkit/**` and
+      # `docker-route-override.ts`, both of which read `AGENT_URL`.
+      - AGENT_URL=http://agent:8123
     depends_on:
       agent:
         condition: service_healthy

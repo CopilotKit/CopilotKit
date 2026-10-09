@@ -34,7 +34,7 @@ public sealed class D5ParityAgentFactory
 
     public AIAgent CreateGenUiToolBasedAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
         var inner = chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,
             HarnessMaxOutputTokens,
@@ -61,7 +61,7 @@ public sealed class D5ParityAgentFactory
 
     public AIAgent CreateReadonlyStateAgentContext()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
         var inner = chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,
             HarnessMaxOutputTokens,
@@ -103,7 +103,7 @@ public sealed class D5ParityAgentFactory
                 SerializerOptions = _jsonSerializerOptions,
             });
 
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
         var inner = chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,
             HarnessMaxOutputTokens,
@@ -149,7 +149,7 @@ public sealed class D5ParityAgentFactory
                 SerializerOptions = _jsonSerializerOptions,
             });
 
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
         var inner = chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,
             HarnessMaxOutputTokens,
@@ -205,7 +205,7 @@ public sealed class D5ParityAgentFactory
                 in one short sentence. Never fabricate data a tool could provide.
                 """;
 
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
         // Do not wrap the chain agent in ReasoningAgent — that XML splitter
         // stops the sequential tool loop at the first card. The unified
         // runtime injects REASONING_* via synthetic_reasoning_demos.
@@ -259,7 +259,7 @@ public sealed class D5ParityAgentFactory
             result. Never fabricate data a tool could provide.
             """;
 
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
         return chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,
             HarnessMaxOutputTokens,
@@ -278,7 +278,7 @@ public sealed class D5ParityAgentFactory
 
     public AIAgent CreateVoiceAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
         return chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,
             HarnessMaxOutputTokens,

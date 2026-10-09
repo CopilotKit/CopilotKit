@@ -612,6 +612,7 @@ demos:
       - src/app/demos/voice/page.tsx
       - src/app/demos/voice/sample-audio-button.tsx
       - src/lib/factory/tanstack-factory.ts
+      - src/lib/transcription-service.ts
       - src/app/api/copilotkit-voice/[[...slug]]/route.ts
     agent:
       name: voice-demo
@@ -662,3 +663,13 @@ demos:
 #   2. add the `demos:` row here (route: /demos/threadid-frontend-tool-roundtrip);
 #   3. add the id back to `features:` above.
 # Do NOT do step 3 on its own.
+# list it. Add it to that allowlist first (separate owner) to surface it as a
+# catalog demo.
+
+# Starter VALIDATION ladder (dashboard). NOT the `starter:` key.
+# A POSITIVE, reviewed declaration that this framework has no starter —
+# absence is never inferred from a missing block.
+starter_validation:
+  supported: false
+  reason: >-
+    CopilotKit's built-in agent needs no framework starter template — there is no external agent runtime to scaffold.

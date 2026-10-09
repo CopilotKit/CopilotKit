@@ -1,15 +1,15 @@
 import { phoenixExponentialBackoff } from "@copilotkit/shared";
-import type { Observable } from "rxjs";
 import {
   EMPTY,
   asapScheduler,
   defer,
   firstValueFrom,
+  from,
   merge,
+  Observable,
   observeOn,
   of,
 } from "rxjs";
-import { fromFetch } from "rxjs/fetch";
 import {
   catchError,
   concatWith,
@@ -594,6 +594,7 @@ interface MemoryStore {
 
 const MEMORY_METADATA_EVENT = "memory_metadata";
 
+/** Runs a memory request through the injected fetch and aborts on unsubscribe. */
 function memoryFromFetch<T>(
   input: string,
   init: RequestInit & {
@@ -601,7 +602,37 @@ function memoryFromFetch<T>(
     fetch: typeof fetch;
   },
 ): Observable<T> {
-  return fromFetch(input, init);
+  const {
+    selector,
+    fetch: fetchImplementation,
+    signal: outerSignal,
+    ...requestInit
+  } = init;
+
+  return new Observable<T>((subscriber) => {
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    if (outerSignal?.aborted) {
+      controller.abort();
+    } else {
+      outerSignal?.addEventListener("abort", abort);
+    }
+
+    const subscription = from(
+      fetchImplementation(input, {
+        ...requestInit,
+        signal: controller.signal,
+      }),
+    )
+      .pipe(mergeMap((response) => from(selector(response))))
+      .subscribe(subscriber);
+
+    return () => {
+      outerSignal?.removeEventListener("abort", abort);
+      controller.abort();
+      subscription.unsubscribe();
+    };
+  });
 }
 
 /**

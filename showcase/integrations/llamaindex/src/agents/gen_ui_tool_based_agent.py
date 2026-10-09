@@ -49,7 +49,7 @@ if os.environ.get("OPENAI_BASE_URL"):
 
 async def _gen_ui_tool_based_workflow_factory():
     wf = FixedAGUIChatWorkflow(
-        llm=OpenAI(model="gpt-4o-mini", **_openai_kwargs),
+        llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
         frontend_tools=[],
         backend_tools=[generate_haiku],
         system_prompt=SYSTEM_PROMPT,

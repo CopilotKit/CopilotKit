@@ -324,6 +324,7 @@ function assertOptionalStringList(
  * Showcase route", every API route 500s). Nothing else should import these.
  */
 export const MANIFEST_KEYS = [
+  "a2ui_agent_form",
   "a2ui_pattern",
   "agent_config_pattern",
   "agent_defaults",
@@ -361,6 +362,7 @@ export const MANIFEST_KEYS = [
   "slug",
   "sort_order",
   "starter",
+  "starter_validation",
   // Demo ids whose backend cannot emit AG-UI REASONING_* events, so the
   // unified runtime synthesises them. READ by `agent-resolution.ts`
   // (`needsSyntheticReasoning`) — the shape check for it lives in

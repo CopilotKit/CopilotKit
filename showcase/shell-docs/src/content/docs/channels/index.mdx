@@ -2,9 +2,15 @@
 title: Channels
 nav_title: Overview
 icon: "lucide/MessagesSquare"
-description: Run one AG-UI agent in Slack, Microsoft Teams, and more through managed CopilotKit Intelligence connections.
+description: Run one AG-UI agent in Slack, Microsoft Teams, and more through cloud-hosted Intelligence connections.
 doc_type: explanation
 ---
+
+## Start with your coding agent
+
+Copy this prompt into your coding agent to choose a framework, set up your agent,
+and connect it to Slack or Microsoft Teams with CopilotKit Intelligence.
+Prefer to work through the setup yourself? Follow the guides below.
 
 <ChannelsStartPrompt />
 
@@ -21,20 +27,20 @@ between those systems and the path each message takes.
 
 <Image
   src="/images/channels/channels-architecture-light.png"
-  alt="Channels architecture showing agent frameworks connected through AG-UI and the CopilotKit Runtime to the Channels SDK, with the channel runner — Enterprise Intelligence's managed runner or your own — connecting to Slack, Microsoft Teams, WhatsApp, Discord, and more."
+  alt="Channels architecture showing agent frameworks connected through AG-UI and the CopilotKit Runtime to the Channels SDK, with the channel runner — CopilotKit Intelligence's managed runner or your own — connecting to Slack, Microsoft Teams, WhatsApp, Discord, and more."
   width={4000}
   height={2608}
   className="block dark:hidden my-8 w-full rounded-xl"
 />
 <Image
-  src="/images/channels/channels-architecture-light.png"
-  alt="Channels architecture showing agent frameworks connected through AG-UI and the CopilotKit Runtime to the Channels SDK, with the channel runner — Enterprise Intelligence's managed runner or your own — connecting to Slack, Microsoft Teams, WhatsApp, Discord, and more."
+  src="/images/channels/channels-architecture-dark.png"
+  alt="Channels architecture showing agent frameworks connected through AG-UI and the CopilotKit Runtime to the Channels SDK, with the channel runner — CopilotKit Intelligence's managed runner or your own — connecting to Slack, Microsoft Teams, WhatsApp, Discord, and more."
   width={4000}
   height={2608}
   className="hidden dark:block my-8 w-full rounded-xl"
 />
 
-As explained in the [Enterprise Intelligence overview](/premium/overview),
+As explained in the [CopilotKit Intelligence overview](/intelligence/overview),
 the dividing line between CopilotKit open source and CopilotKit Intelligence
 is durable data: functionality that runs without it is open source, while
 functionality built on connections to durable data — databases and the state
@@ -42,15 +48,15 @@ kept in them — is part of CopilotKit Intelligence. A channel runner needs
 durable data to run correctly in production: simultaneous participants, race
 conditions, retries, and delivery guarantees all depend on it. CopilotKit
 Intelligence provides the managed channel runner, and channels running on it
-also get the rest of CopilotKit Intelligence, including product analytics,
-automatic learning, and governance. You can absolutely build and operate your
+also get the rest of CopilotKit Intelligence, including Product Analytics,
+Automatic Learning, and governance. You can absolutely build and operate your
 own channel runner on the open-source Channels SDK — you implement the
 durable-data layer yourself.
 
 <OpsPlatformCTA
   variant="inline"
   title="More channels are on the way"
-  body="Managed Slack is available now. Managed Teams is a controlled integration target. Direct SDK adapters also support Teams, Discord, WhatsApp, and Telegram."
+  body="Slack and Microsoft Teams are generally available on cloud-hosted Intelligence. Direct SDK adapters also support Teams, Discord, WhatsApp, and Telegram."
   ctaLabel="Book time with an engineer"
   surface="docs_channels_more_channels_contact"
   href="https://copilotkit.ai/talk-to-an-engineer"
@@ -79,7 +85,7 @@ your agent, tools, or business logic into CopilotKit.
 | Tools and approval business logic      | Runtime registration, health, and reconnects  |
 | Deployment, logs, and application auth | Conversation-history delivery to the listener |
 
-## Production self-hosting: Run Enterprise Intelligence in your own infrastructure
+## Production self-hosting: Run CopilotKit Intelligence in your own infrastructure
 
 Production self-hosting keeps your Channels configuration, provider credentials,
 delivery state, and platform operations inside your network, giving your

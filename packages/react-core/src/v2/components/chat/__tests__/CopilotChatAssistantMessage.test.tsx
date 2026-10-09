@@ -4,7 +4,8 @@ import { vi } from "vitest";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
-import { AssistantMessage } from "@ag-ui/core";
+import type { AssistantMessage } from "@ag-ui/core";
+import { CopilotKitInspectorContextProvider } from "../../CopilotKitInspectorContext";
 
 // No mocks needed - Vitest handles ES modules natively!
 
@@ -96,6 +97,238 @@ describe("CopilotChatAssistantMessage", () => {
       expect(screen.queryByRole("button", { name: /thumbs down/i })).toBeNull();
       expect(screen.queryByRole("button", { name: /read aloud/i })).toBeNull();
       expect(screen.queryByRole("button", { name: /regenerate/i })).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: /copilotkit inspector/i }),
+      ).toBeNull();
+    });
+
+    it("renders the local Inspector button and opens it from the toolbar", async () => {
+      const openInspector = vi.fn();
+
+      renderWithProvider(
+        <CopilotKitInspectorContextProvider
+          value={{ isInspectorEnabled: true, openInspector }}
+        >
+          <CopilotChatAssistantMessage message={basicMessage} />
+        </CopilotKitInspectorContextProvider>,
+      );
+
+      const inspectorButton = screen.getByRole("button", {
+        name: "CopilotKit Inspector (local only)",
+      });
+      const inspectorIcon = screen.getByTestId("copilot-inspector-icon");
+
+      expect(inspectorIcon.classList.contains("lucide-wrench")).toBe(true);
+      expect(inspectorButton.textContent).toBe("");
+      expect(screen.queryByRole("menu")).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: /save as snippet/i }),
+      ).toBeNull();
+
+      fireEvent.pointerEnter(inspectorButton, { pointerType: "mouse" });
+      await waitFor(() =>
+        expect(
+          screen.getByRole("menuitem", {
+            name: "View in Inspector Open this message in the Inspector",
+          }),
+        ).toBeDefined(),
+      );
+
+      fireEvent.click(
+        screen.getByRole("menuitem", {
+          name: "View in Inspector Open this message in the Inspector",
+        }),
+      );
+
+      expect(openInspector).toHaveBeenCalledWith({
+        messageId: basicMessage.id,
+        threadId: TEST_THREAD_ID,
+        agentId: "default",
+      });
+    });
+
+    it.each(["click", "hover then click", "Enter", " "])(
+      "opens Inspector directly on %s",
+      async (interaction) => {
+        const openInspector = vi.fn();
+        renderWithProvider(
+          <CopilotKitInspectorContextProvider
+            value={{ isInspectorEnabled: true, openInspector }}
+          >
+            <CopilotChatAssistantMessage message={basicMessage} />
+          </CopilotKitInspectorContextProvider>,
+        );
+        const trigger = screen.getByTestId("copilot-inspector-button");
+        if (interaction === "hover then click") {
+          fireEvent.pointerEnter(trigger, { pointerType: "mouse" });
+          expect(screen.getByRole("menu")).toBeDefined();
+        }
+        if (interaction.includes("click")) {
+          fireEvent.pointerDown(trigger, { button: 0 });
+          if (interaction === "click") {
+            expect(screen.queryByRole("menu")).toBeNull();
+          }
+          fireEvent.click(trigger);
+        } else {
+          fireEvent.keyDown(trigger, { key: interaction });
+        }
+        expect(openInspector).toHaveBeenCalledExactlyOnceWith({
+          messageId: basicMessage.id,
+          threadId: TEST_THREAD_ID,
+          agentId: "default",
+        });
+        await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+      },
+    );
+
+    it.each(["hover", "keyboard"])(
+      "preserves the appropriate focus when opening by %s",
+      async (interaction) => {
+        renderWithProvider(
+          <CopilotKitInspectorContextProvider
+            value={{ isInspectorEnabled: true, openInspector: vi.fn() }}
+          >
+            <textarea aria-label="Chat input" />
+            <CopilotChatAssistantMessage message={basicMessage} />
+          </CopilotKitInspectorContextProvider>,
+        );
+        const input = screen.getByRole("textbox", { name: "Chat input" });
+        input.focus();
+        const trigger = screen.getByTestId("copilot-inspector-button");
+        if (interaction === "hover") {
+          fireEvent.pointerEnter(trigger, { pointerType: "mouse" });
+        } else {
+          trigger.focus();
+          fireEvent.keyDown(trigger, { key: "ArrowDown" });
+        }
+        const menu = await screen.findByRole("menu");
+        if (interaction === "hover") {
+          expect(document.activeElement).toBe(input);
+        } else {
+          await waitFor(() =>
+            expect(menu.contains(document.activeElement)).toBe(true),
+          );
+        }
+      },
+    );
+
+    it("dismisses the hover menu when the pointer leaves", async () => {
+      renderWithProvider(
+        <CopilotKitInspectorContextProvider
+          value={{ isInspectorEnabled: true, openInspector: vi.fn() }}
+        >
+          <CopilotChatAssistantMessage message={basicMessage} />
+        </CopilotKitInspectorContextProvider>,
+      );
+      const trigger = screen.getByTestId("copilot-inspector-button");
+      fireEvent.pointerEnter(trigger, { pointerType: "mouse" });
+      const menu = await screen.findByRole("menu");
+      fireEvent.pointerLeave(trigger, { pointerType: "mouse" });
+      fireEvent.pointerEnter(menu, { pointerType: "mouse" });
+      await new Promise((resolve) => setTimeout(resolve, 220));
+      expect(screen.getByRole("menu")).toBeDefined();
+      fireEvent.pointerLeave(menu, { pointerType: "mouse" });
+      await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+    });
+
+    it("does not expose a custom Inspector slot when Inspector is disabled", () => {
+      renderWithProvider(
+        <CopilotChatAssistantMessage
+          message={basicMessage}
+          inspectorButton={() => <button>Custom inspect</button>}
+        >
+          {({ inspectorButton }) => inspectorButton}
+        </CopilotChatAssistantMessage>,
+      );
+      expect(
+        screen.queryByRole("button", { name: "Custom inspect" }),
+      ).toBeNull();
+    });
+
+    it("replaces the default Inspector button with a custom slot component", () => {
+      const openInspector = vi.fn();
+      const CustomInspectorButton = ({
+        onClick,
+      }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+        <button onClick={onClick}>Custom inspect</button>
+      );
+      renderWithProvider(
+        <CopilotKitInspectorContextProvider
+          value={{ isInspectorEnabled: true, openInspector }}
+        >
+          <CopilotChatAssistantMessage
+            message={basicMessage}
+            inspectorButton={CustomInspectorButton}
+          />
+        </CopilotKitInspectorContextProvider>,
+      );
+      expect(screen.queryByTestId("copilot-inspector-button")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Custom inspect" }));
+      expect(openInspector).toHaveBeenCalledExactlyOnceWith({
+        messageId: basicMessage.id,
+        threadId: TEST_THREAD_ID,
+        agentId: "default",
+      });
+    });
+
+    it("lets Inspector slot props override the default click action", () => {
+      const openInspector = vi.fn();
+      const customClick = vi.fn();
+      renderWithProvider(
+        <CopilotKitInspectorContextProvider
+          value={{ isInspectorEnabled: true, openInspector }}
+        >
+          <CopilotChatAssistantMessage
+            message={basicMessage}
+            inspectorButton={{ onClick: customClick }}
+          />
+        </CopilotKitInspectorContextProvider>,
+      );
+      fireEvent.click(screen.getByTestId("copilot-inspector-button"));
+      expect(customClick).toHaveBeenCalledTimes(1);
+      expect(openInspector).not.toHaveBeenCalled();
+    });
+
+    it("lets a custom toolbar replace all default message actions", () => {
+      renderWithProvider(
+        <CopilotKitInspectorContextProvider
+          value={{ isInspectorEnabled: true, openInspector: vi.fn() }}
+        >
+          <CopilotChatAssistantMessage
+            message={basicMessage}
+            toolbar={() => <button>My action</button>}
+          />
+        </CopilotKitInspectorContextProvider>,
+      );
+      expect(screen.getByRole("button", { name: "My action" })).toBeDefined();
+      expect(screen.queryByTestId("copilot-inspector-button")).toBeNull();
+      expect(screen.queryByRole("button", { name: /copy/i })).toBeNull();
+    });
+
+    it("preserves props added to the bound Inspector button", () => {
+      renderWithProvider(
+        <CopilotKitInspectorContextProvider
+          value={{ isInspectorEnabled: true, openInspector: vi.fn() }}
+        >
+          <CopilotChatAssistantMessage message={basicMessage}>
+            {({ inspectorButton }) =>
+              React.cloneElement(
+                inspectorButton as React.ReactElement<
+                  React.ButtonHTMLAttributes<HTMLButtonElement>
+                >,
+                {
+                  className: "custom-inspector-button",
+                },
+              )
+            }
+          </CopilotChatAssistantMessage>
+        </CopilotKitInspectorContextProvider>,
+      );
+
+      const inspectorButton = screen.getByRole("button", {
+        name: "CopilotKit Inspector (local only)",
+      });
+      expect(inspectorButton.className).toContain("custom-inspector-button");
     });
 
     it("renders all buttons when all callbacks provided", () => {
@@ -699,4 +932,38 @@ describe("CopilotChatAssistantMessage", () => {
       expect(screen.queryByRole("button", { name: /copy/i })).toBeNull();
     });
   });
+});
+
+// This preference lasts for the document's lifetime, so exercise hiding last.
+it("hides every message shortcut until reload without disabling Inspector", async () => {
+  const openInspector = vi.fn();
+  const messages = ["first", "second"].map((id) => ({
+    id,
+    role: "assistant" as const,
+    content: id,
+  }));
+  const renderMessages = () =>
+    renderWithProvider(
+      <CopilotKitInspectorContextProvider
+        value={{ isInspectorEnabled: true, openInspector }}
+      >
+        {messages.map((message) => (
+          <CopilotChatAssistantMessage key={message.id} message={message} />
+        ))}
+      </CopilotKitInspectorContextProvider>,
+    );
+  const view = renderMessages();
+  expect(screen.getAllByTestId("copilot-inspector-button")).toHaveLength(2);
+  fireEvent.pointerEnter(screen.getAllByTestId("copilot-inspector-button")[0], {
+    pointerType: "mouse",
+  });
+  fireEvent.click(
+    await screen.findByRole("menuitem", { name: /hide this icon/i }),
+  );
+  expect(screen.queryByTestId("copilot-inspector-button")).toBeNull();
+  expect(screen.getAllByRole("button", { name: "Copy" })).toHaveLength(2);
+  expect(openInspector).not.toHaveBeenCalled();
+  view.unmount();
+  renderMessages();
+  expect(screen.queryByTestId("copilot-inspector-button")).toBeNull();
 });

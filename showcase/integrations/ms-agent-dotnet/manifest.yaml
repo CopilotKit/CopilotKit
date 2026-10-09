@@ -704,3 +704,9 @@ demos:
     agent:
       name: agent-config-demo
       path: "/agent-config"
+
+# Starter VALIDATION ladder (dashboard). NOT the `starter:` key — that one
+# drives the public "Full Starter" section on the integration profile page.
+starter_validation:
+  path: examples/integrations/ms-agent-framework-dotnet
+  service: starter-ms-agent-framework-dotnet

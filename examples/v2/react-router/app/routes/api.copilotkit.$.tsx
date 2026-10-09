@@ -6,6 +6,7 @@ import {
   BuiltInAgent,
   convertInputToTanStackAI,
   convertMessagesToVercelAISDKMessages,
+  convertToolsToVercelAITools,
 } from "@copilotkit/runtime/v2";
 import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
@@ -31,17 +32,55 @@ const BOOKING_SYSTEM_PROMPT =
   "values). Each `bookFlight` result is FINAL and reports that flight's booking " +
   "status (booked or declined). Never call `bookFlight` again for a flight that " +
   "already returned a result. Once every requested flight has a result, reply " +
-  "with a one-line summary and call no further tools.";
+  "with a one-line summary and call no further tools. " +
+  "If the user asks to crash a tool or test a tool error, call the `crash` tool. " +
+  "Do not call tools when the user asks to crash the run.";
+
+function lastUserText(messages: unknown): string {
+  if (!Array.isArray(messages)) return "";
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i] as { role?: string; content?: unknown };
+    if (message?.role !== "user") continue;
+    if (typeof message.content === "string") return message.content;
+    if (!Array.isArray(message.content)) continue;
+    const text = message.content
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (
+          part &&
+          typeof part === "object" &&
+          "text" in part &&
+          typeof (part as { text?: unknown }).text === "string"
+        ) {
+          return (part as { text: string }).text;
+        }
+        return "";
+      })
+      .join(" ");
+    if (text.trim()) return text;
+  }
+  return "";
+}
+
+/** Chat phrase that fails the agent run on the server before the model is called. */
+function shouldFailRun(input: { messages?: unknown }): boolean {
+  const text = lastUserText(input.messages).toLowerCase();
+  return text.includes("crash the run") || text.includes("fail this run");
+}
 
 // --- AI SDK agent: native `needsApproval` on a tool() with no execute --------
 const aisdkAgent = new BuiltInAgent({
   type: "aisdk",
-  factory: ({ input, abortSignal }) =>
-    streamText({
+  factory: ({ input, abortSignal }) => {
+    if (shouldFailRun(input)) {
+      throw new Error("Inspector lab: the agent run failed.");
+    }
+    return streamText({
       model: openai("gpt-5.5"),
       system: BOOKING_SYSTEM_PROMPT,
       messages: convertMessagesToVercelAISDKMessages(input.messages),
       tools: {
+        ...convertToolsToVercelAITools(input.tools ?? []),
         bookFlight: tool({
           description: "Book a flight for the user. Requires human approval.",
           inputSchema: bookFlightInput,
@@ -49,7 +88,8 @@ const aisdkAgent = new BuiltInAgent({
         }),
       },
       abortSignal,
-    }),
+    });
+  },
 });
 
 // --- TanStack AI agent: native `needsApproval` on a toolDefinition ------------
@@ -74,13 +114,16 @@ const tanstackBookFlight = toolDefinition({
 const tanstackAgent = new BuiltInAgent({
   type: "tanstack",
   factory: ({ input, abortController }) => {
-    const { messages, systemPrompts } = convertInputToTanStackAI(input);
+    if (shouldFailRun(input)) {
+      throw new Error("Inspector lab: the agent run failed.");
+    }
+    const { messages, systemPrompts, tools } = convertInputToTanStackAI(input);
 
     return chat({
       adapter: openaiText("gpt-5.5"),
       messages,
       systemPrompts: [BOOKING_SYSTEM_PROMPT, ...systemPrompts],
-      tools: [tanstackBookFlight],
+      tools: [...tools, tanstackBookFlight],
       abortController,
     });
   },
@@ -99,10 +142,75 @@ const handler = createCopilotRuntimeHandler({
   basePath: "/api/copilotkit",
 });
 
+const FAIL_THREADS_COOKIE = "cpk_lab_fail_threads=1";
+const FAIL_MEMORIES_COOKIE = "cpk_lab_fail_memories=1";
+const LAB_MEMORY_WS_URL = "ws://127.0.0.1:9/memories";
+
+function shouldFailThreadList(request: Request): boolean {
+  const cookie = request.headers.get("cookie") ?? "";
+  if (!cookie.includes(FAIL_THREADS_COOKIE)) return false;
+  const path = new URL(request.url).pathname;
+  return request.method === "GET" && path.endsWith("/threads");
+}
+
+function hasCookie(request: Request, cookie: string): boolean {
+  return (request.headers.get("cookie") ?? "").includes(cookie);
+}
+
+function handleLabMemoryRequest(request: Request): Response | null {
+  const path = new URL(request.url).pathname;
+  if (request.method === "GET" && path.endsWith("/memories")) {
+    if (hasCookie(request, FAIL_MEMORIES_COOKIE)) {
+      return new Response(JSON.stringify({ error: "memory list refused" }), {
+        status: 503,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify({ memories: [] }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
+  // The lab needs a memory REST failure, not a live Intelligence connection.
+  // A 422 is the SDK's supported silent-degrade signal for this optional feed.
+  if (path.endsWith("/memories/subscribe")) {
+    return new Response(null, { status: 422 });
+  }
+
+  return null;
+}
+
+async function handleLabRequest(request: Request): Promise<Response> {
+  const memoryResponse = handleLabMemoryRequest(request);
+  if (memoryResponse) return memoryResponse;
+
+  const response = await handler(request);
+  const path = new URL(request.url).pathname;
+  if (request.method !== "GET" || !path.endsWith("/info") || !response.ok) {
+    return response;
+  }
+
+  const runtimeInfo = (await response.json()) as Record<string, unknown>;
+  return Response.json(
+    {
+      ...runtimeInfo,
+      intelligence: { wsUrl: LAB_MEMORY_WS_URL },
+    },
+    { status: response.status, headers: response.headers },
+  );
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
-  return handler(request);
+  if (shouldFailThreadList(request)) {
+    return new Response(JSON.stringify({ error: "list refused" }), {
+      status: 503,
+      headers: { "content-type": "application/json" },
+    });
+  }
+  return handleLabRequest(request);
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  return handler(request);
+  return handleLabRequest(request);
 }

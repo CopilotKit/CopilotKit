@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 // The agent backend runs as a separate process on port 8000.
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
@@ -21,8 +22,8 @@ const ROUTE_DEBUG =
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
-function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
+function createAgent(path = "/") {
+  return new HttpAgent({ url: `${AGENT_URL}${path}` });
 }
 
 // Register the same agent under all names used by demo pages.
@@ -49,8 +50,8 @@ const agentNames = [
   "headless-simple",
   "headless-complete",
   // Reasoning
-  "agentic-chat-reasoning",
-  "reasoning-default-render",
+  "reasoning-default",
+  "reasoning-custom",
   // Frontend tools
   "frontend_tools",
   "frontend-tools-async",
@@ -81,14 +82,26 @@ const agentNames = [
   "open-gen-ui-advanced",
   // Polished chat shell (simplified port — wave 2 follow-up)
   "beautiful-chat",
-  // Interrupt demos (Strategy B — frontend-tool async handler)
+  // Interrupt demos, served by the dedicated native-interrupt agent below
   "gen-ui-interrupt",
   "interrupt-headless",
 ];
 
+// Agent names whose backend is a dedicated sub-application rather than the
+// shared agent at the root. The interrupt demos need a `schedule_meeting` that
+// pauses natively; the reasoning demos need the Responses API with reasoning
+// summaries, which the shared chat-completions agent does not emit.
+const dedicatedAgentPaths: Record<string, string> = {
+  "gen-ui-interrupt": "/interrupt/",
+  "interrupt-headless": "/interrupt/",
+  "reasoning-default": "/reasoning/",
+  "reasoning-custom": "/reasoning/",
+  "tool-rendering-reasoning-chain": "/reasoning-chain/",
+};
+
 const agents: Record<string, AbstractAgent> = {};
 for (const name of agentNames) {
-  agents[name] = createAgent();
+  agents[name] = createAgent(dedicatedAgentPaths[name] ?? "/");
 }
 agents["default"] = createAgent();
 
@@ -106,16 +119,16 @@ export const POST = async (req: NextRequest) => {
   }
 
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime: new CopilotRuntime({
         // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
       }),
+      basePath: "/api/copilotkit",
+      mode: "single-route",
     });
 
-    const response = await handleRequest(req);
+    const response = await copilotHandler(req);
     if (!response.ok) {
       console.log(`[copilotkit/route] Response status: ${response.status}`);
     } else if (ROUTE_DEBUG) {

@@ -68,6 +68,15 @@ trap _on_signal INT TERM
 # `python -u` on the langgraph_cli invocation below.
 export PYTHONUNBUFFERED=1
 
+# Cap glibc malloc arena fragmentation. `langgraph dev` runs as a long-lived
+# in-memory dev server; on the many-core Railway host glibc otherwise spawns a
+# per-CPU malloc-arena pool (up to 8*ncpu arenas) and never trims freed pages
+# back to the OS, so steady-state RSS balloons far above live heap. Cap arenas
+# to 2 and lower the trim threshold so freed chunks are released back promptly.
+# `${VAR:-default}` so an explicit Railway override still wins.
+export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-2}"
+export MALLOC_TRIM_THRESHOLD_="${MALLOC_TRIM_THRESHOLD_:-131072}"
+
 echo "========================================="
 echo "[entrypoint] Starting showcase: langgraph-python"
 echo "[entrypoint] Time: $(date -u)"
@@ -155,8 +164,8 @@ echo "========================================="
 # Disable langgraph_runtime_inmem's pickle-flush-to-disk loop. Without this,
 # the inmem runtime periodically flushes unbounded thread/checkpoint state to
 # .langgraph_api/*.pckl files, which is a slow-burn OOM risk on Railway.
-# The env var is checked at import time in langgraph_runtime_inmem
-# _persistence.py and checkpoint.py (langgraph-api==0.7.101 / runtime==0.27.4).
+# The CLI overrides this variable, so the shared launcher passes the flag
+# directly to the pinned langgraph-api run_server entrypoint.
 export LANGGRAPH_DISABLE_FILE_PERSISTENCE=true
 
 # `python -u` forces unbuffered stdout/stderr at the interpreter level
@@ -172,12 +181,10 @@ export LANGGRAPH_DISABLE_FILE_PERSISTENCE=true
 # to awk.
 # `--no-reload` disables watchfiles hot-reload, which fires on every request
 # and causes "1 change detected" log spam → Railway 500-logs/sec kill.
-python -u -m langgraph_cli dev \
-  --config langgraph.json \
-  --host 0.0.0.0 \
-  --port "$AGENT_PORT" \
-  --no-browser \
-  --no-reload &> >(while IFS= read -r line; do printf '[langgraph] %s\n' "$line"; done) &
+# `_shared.langgraph_launch` reads the listen port from AGENT_PORT (default
+# 8123), so export it for the launcher.
+export AGENT_PORT
+python -u -m _shared.langgraph_launch &> >(while IFS= read -r line; do printf '[langgraph] %s\n' "$line"; done) &
 LANGGRAPH_PID=$!
 
 # Give langgraph a moment to start

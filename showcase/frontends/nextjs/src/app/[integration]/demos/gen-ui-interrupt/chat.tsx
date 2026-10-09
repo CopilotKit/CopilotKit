@@ -37,6 +37,66 @@ export function GenUiInterruptChat({
   );
 }
 
+// Shape the backend `schedule_meeting` tool pauses with. `slots` is absent on
+// some paths (e.g. Strands passes only topic and attendee), so the picker
+// falls back to generated slots.
+type SchedulingPayload = {
+  topic?: string;
+  attendee?: string;
+  slots?: TimeSlot[];
+};
+
+/**
+ * JSON.parse that never throws and never returns a primitive. The reader runs
+ * inside a React render callback, where a throw takes the whole pane down.
+ */
+function parseObject(raw: string | undefined): Record<string, unknown> | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+// Read the tool's `interrupt()` payload off an AG-UI interrupt.
+//
+// Bridges expose it on different channels: `ag_ui_strands` (Python) carries
+// the reason object under `metadata.reason`, while the published
+// `@ag-ui/aws-strands` JSON-encodes it into `message`. The legacy event value
+// (LangGraph and adapters that pass the payload through unwrapped) is read
+// last, so one page serves every native-interrupt backend.
+function readSchedulingPayload(
+  interrupt: { metadata?: unknown; message?: string } | null | undefined,
+  eventValue: unknown,
+): SchedulingPayload {
+  const metadata = interrupt?.metadata as
+    | { reason?: SchedulingPayload }
+    | undefined;
+  if (metadata?.reason && typeof metadata.reason === "object") {
+    return metadata.reason;
+  }
+
+  const decoded = parseObject(interrupt?.message);
+  if (decoded) {
+    const nested = (decoded as { reason?: SchedulingPayload }).reason;
+    return nested && typeof nested === "object"
+      ? nested
+      : (decoded as SchedulingPayload);
+  }
+
+  const legacy =
+    typeof eventValue === "string" ? parseObject(eventValue) : eventValue;
+  if (!legacy || typeof legacy !== "object") return {};
+  const wrapped = (legacy as { metadata?: { reason?: SchedulingPayload } })
+    .metadata?.reason;
+  if (wrapped && typeof wrapped === "object") return wrapped;
+  return legacy as SchedulingPayload;
+}
+
 // @region[frontend-useinterrupt-render]
 function NativeInterruptChat() {
   useGenUiInterruptSuggestions();
@@ -49,15 +109,8 @@ function NativeInterruptChat() {
   useInterrupt({
     agentId: "gen-ui-interrupt",
     renderInChat: true,
-    render: ({ event, resolve }) => {
-      // The AG-UI adapter JSON-stringifies interrupt values, so parse
-      // when needed to extract the structured payload.
-      const raw = event.value ?? {};
-      const payload = (typeof raw === "string" ? JSON.parse(raw) : raw) as {
-        topic?: string;
-        attendee?: string;
-        slots?: TimeSlot[];
-      };
+    render: ({ event, interrupt, resolve }) => {
+      const payload = readSchedulingPayload(interrupt, event.value);
       const slots =
         payload.slots && payload.slots.length > 0
           ? payload.slots

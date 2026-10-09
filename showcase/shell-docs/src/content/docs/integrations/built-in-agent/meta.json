@@ -11,7 +11,7 @@
     "---Basics---",
     "prebuilt-components",
     {
-      "title": "Rich Threads",
+      "title": "AG-UI Streams",
       "defaultOpen": true,
       "pages": [
         "threads",
@@ -37,7 +37,7 @@
     "advanced-configuration",
     "telemetry",
     "---Runtime---",
-    "---Intelligence Platform---",
+    "---Intelligence---",
     "---Deploy---",
     "---Platforms---",
     "---Other---"

@@ -240,6 +240,14 @@ export interface WorkerProvisioning {
    * layer-(b) grace is retuned, raise this in lockstep.
    */
   drainingSeconds?: number;
+  /**
+   * Railway deployment restart policy for routine worker recycling. The
+   * harness-workers fleet exits cleanly after planned max-job teardown and
+   * relies on Railway, not an internal supervisor, to start the replacement.
+   * This SSOT intentionally records ONLY the policy type; do not add
+   * restartPolicyMaxRetries for the worker.
+   */
+  restartPolicyType: "ALWAYS";
 }
 
 /**
@@ -302,9 +310,9 @@ export interface EnvironmentConfig {
 /**
  * Railway auto-updates policy for a service in ONE env — the tracked SSOT form
  * of the Railway `source.autoUpdates` setting. This is PER-ENV (see
- * {@link AutoUpdatesByEnv}) to support a staging-first rollout. Both staging
- * and prod are now managed-"disabled" (prod was migrated off "unmanaged" once
- * its live autoUpdates were flipped to disabled).
+ * {@link AutoUpdatesByEnv}) to support a staging-first rollout. Showcase-
+ * managed services use "disabled" in both environments; independently
+ * deployed staging-only Intelligence services use "unmanaged".
  *
  * - "minor"     — Railway's ENABLED form (`source.autoUpdates.type = "minor"`):
  *                 Railway watches the GHCR registry and AUTO-redeploys the
@@ -333,9 +341,8 @@ export type AutoUpdatesPolicy = "disabled" | "minor" | "unmanaged";
 /**
  * Per-env auto-updates policy, keyed by the SAME env names as
  * `ServiceEntry.environments` ("prod" / "staging" / …). Every env a service
- * declares carries its own {@link AutoUpdatesPolicy}. Today both staging and
- * prod are managed-"disabled" (drift-gate enforced); prod was migrated off
- * "unmanaged" once its live autoUpdates were flipped to disabled.
+ * declares carries its own {@link AutoUpdatesPolicy}. Omitted environments
+ * have no policy.
  */
 export type AutoUpdatesByEnv = Record<EnvName, AutoUpdatesPolicy>;
 
@@ -343,11 +350,9 @@ export interface ServiceEntry {
   /** Railway service ID (env-independent). */
   serviceId: string;
   /**
-   * Railway auto-updates policy, PER-ENV. REQUIRED. Today every showcase
-   * service is `{ staging: "disabled", prod: "disabled" }`: both envs are
-   * drift-gate-enforced to "disabled" so the CI-explicit redeploy is the single
-   * deploy path. Prod was migrated off "unmanaged" once its live autoUpdates
-   * were flipped to disabled. See {@link AutoUpdatesByEnv}.
+   * Railway auto-updates policy, PER-ENV. REQUIRED for each declared env.
+   * Showcase-managed services use "disabled"; independently deployed
+   * services use "unmanaged" so the drift gate leaves them alone.
    */
   autoUpdates: AutoUpdatesByEnv;
   /**
@@ -369,15 +374,9 @@ export interface ServiceEntry {
    */
   ciBuilt: boolean;
   /**
-   * True iff `verify-railway-image-refs.ts` validates this service's
-   * image refs. As of WS-C completion this is `true` for every service
-   * in `SERVICES` except the `gateIgnore` `harness-workers` entry — the
-   * historic Phase-2 deferral on dashboard, docs,
-   * dojo, shell, and harness has been retired. New services added to
-   * the SSOT MUST land with `gateValidated: true` (and a per-env
-   * `repoName` if the Railway service name does not match the GHCR repo
-   * name); use the optional `gateIgnore: true` field only for
-   * deliberately-untracked third-party / domainless / single-env services.
+   * True iff `verify-railway-image-refs.ts` validates this service's image
+   * refs. Showcase-managed services use `true`. Independently deployed
+   * services with different image policies use `false` with `gateIgnore: true`.
    */
   gateValidated: boolean;
   /**
@@ -417,9 +416,10 @@ export interface ServiceEntry {
    * direction (no "untracked Railway service" failure if Railway has
    * a service with this name that is not WS4-managed). Default: false.
    *
-   * Intentionally narrow: this exists for deliberately-untracked
-   * third-party relays, domainless workers, or single-env services. The
-   * default for every WS4-managed service is `false` (omitted).
+   * Intentionally narrow: this exists for independently deployed services
+   * whose image policy does not match the Showcase build pipeline. Single-env
+   * services are fully supported by the gate when they are validated. The
+   * default for every Showcase-managed service is `false` (omitted).
    */
   gateIgnore?: boolean;
   /**
@@ -821,6 +821,7 @@ export const SERVICES: Record<
         // showcase/RAILWAY.md "Deploy rollover".
         overlapSeconds: 45,
         drainingSeconds: 180,
+        restartPolicyType: "ALWAYS",
       },
       staging: {
         // EFFECTIVE = multiRegionConfig.us-west2.numReplicas (Railway honors this).
@@ -838,6 +839,7 @@ export const SERVICES: Record<
         // showcase/RAILWAY.md "Deploy rollover".
         overlapSeconds: 45,
         drainingSeconds: 180,
+        restartPolicyType: "ALWAYS",
       },
     },
   },
@@ -1049,6 +1051,42 @@ export const SERVICES: Record<
       },
     },
   },
+  "showcase-crewai-conversational-flows": {
+    serviceId: "11859593-da4e-486c-a810-6cdffeff9750",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
+    // Built and pushed by showcase_build.yml's ALL_SERVICES matrix. The
+    // production build workflow entry and dispatch name are added together,
+    // so this service belongs in CI_BUILT_SERVICES and follows the same
+    // staging redeploy path as the other showcase integrations.
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "crewai-conversational-flows",
+    probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic at
+    // the env-local aimock, so a cluster promote pulls aimock (tier-0) into the
+    // closure — same wiring as its `showcase-crewai-crews` sibling.
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    // The production serviceInstance was provisioned from staging via Railway
+    // environment sync, then deployed and health-verified. Both env entries
+    // below are read verbatim from the live Railway service so the image-ref
+    // gate and promote workflow now manage the integration in both envs.
+    environments: {
+      prod: {
+        instanceId: "209031fe-2e02-4fbb-8f12-1276457d1916",
+        healthcheckPath: "/api/health",
+        domain:
+          "showcase-crewai-conversational-flows-production.up.railway.app",
+        probe: true,
+      },
+      staging: {
+        instanceId: "3d44daba-b417-4c6c-a366-d1b94e5fe8fa",
+        healthcheckPath: "/api/health",
+        domain: "showcase-crewai-conversational-flows-staging.up.railway.app",
+        probe: true,
+      },
+    },
+  },
   "showcase-crewai-crews": {
     serviceId: "0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4",
     autoUpdates: { staging: "disabled", prod: "disabled" },
@@ -1101,6 +1139,34 @@ export const SERVICES: Record<
         instanceId: "7efe2fa0-fa78-4585-bc4c-6d39c326e6d1",
         healthcheckPath: "/api/health",
         domain: "showcase-google-adk-staging.up.railway.app",
+        probe: true,
+      },
+    },
+  },
+  "showcase-google-antigravity": {
+    serviceId: "6441783f-3e93-40cf-b75d-872c6713d7f2",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "google-antigravity",
+    probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep as google-adk's: the agent's native
+    // Gemini traffic goes to the env-local aimock through
+    // GOOGLE_GEMINI_BASE_URL, so a cluster promote pulls aimock (tier-0)
+    // into the closure.
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "GOOGLE_GEMINI_BASE_URL", target: "aimock" }],
+    environments: {
+      prod: {
+        instanceId: "ad2c3bc8-7006-4ac6-b6f5-1f34e35a5b98",
+        healthcheckPath: "/api/health",
+        domain: "showcase-google-antigravity-production.up.railway.app",
+        probe: true,
+      },
+      staging: {
+        instanceId: "a2abd2e8-55a8-4c6e-8052-fd385d3bb3cc",
+        healthcheckPath: "/api/health",
+        domain: "showcase-google-antigravity-staging.up.railway.app",
         probe: true,
       },
     },
@@ -1472,6 +1538,96 @@ export const SERVICES: Record<
         healthcheckPath: "/api/health",
         domain: "showcase-strands-typescript-staging.up.railway.app",
         probe: true,
+      },
+    },
+  },
+  // Staging-only Intelligence stack, deployed outside showcase_build.yml.
+  // These six services use pinned Intelligence/Caddy/database images rather
+  // than the Showcase staging :latest convention. Keep them in the SSOT so
+  // the image gate recognizes their Railway names, but do not build, probe,
+  // validate image shape, or promote them through the Showcase pipeline.
+  // The superseded init service is intentionally absent: Composite runs migrations.
+  "showcase-intelligence-api": {
+    serviceId: "2cf17267-31c4-4e92-8270-5ad92bd7ad19",
+    autoUpdates: { staging: "unmanaged" },
+    ciBuilt: false,
+    gateValidated: false,
+    gateIgnore: true,
+    probeDriver: "shell", // inert: staging probe is disabled
+    environments: {
+      staging: {
+        instanceId: "fa59ca5f-7319-4fde-867e-cf8de453e442",
+        probe: false,
+      },
+    },
+  },
+  "showcase-intelligence-composite": {
+    serviceId: "70b24c88-81a5-469d-ae57-3df0daea2b3c",
+    autoUpdates: { staging: "unmanaged" },
+    ciBuilt: false,
+    gateValidated: false,
+    gateIgnore: true,
+    probeDriver: "shell", // inert: staging probe is disabled
+    environments: {
+      staging: {
+        instanceId: "9dadebd1-6320-4e38-9fb0-2fc06b5ecbf0",
+        probe: false,
+      },
+    },
+  },
+  "showcase-intelligence-gateway": {
+    serviceId: "f2eec3fd-d841-481b-9a9d-c8fd94c27870",
+    autoUpdates: { staging: "unmanaged" },
+    ciBuilt: false,
+    gateValidated: false,
+    gateIgnore: true,
+    probeDriver: "shell", // inert: staging probe is disabled
+    environments: {
+      staging: {
+        instanceId: "b898bdc3-6602-41ad-acbc-0df88002c13b",
+        probe: false,
+      },
+    },
+  },
+  "showcase-intelligence-gateway-proxy": {
+    serviceId: "12513b2b-e368-4f7a-8141-1c28ab4f6f09",
+    autoUpdates: { staging: "unmanaged" },
+    ciBuilt: false,
+    gateValidated: false,
+    gateIgnore: true,
+    probeDriver: "shell", // inert: staging probe is disabled
+    environments: {
+      staging: {
+        instanceId: "1ee4af98-0935-4b3e-a434-a7f023e506b9",
+        probe: false,
+      },
+    },
+  },
+  "showcase-intelligence-postgres": {
+    serviceId: "6c2d2998-e7ae-413d-997d-7277f9fd6e07",
+    autoUpdates: { staging: "unmanaged" },
+    ciBuilt: false,
+    gateValidated: false,
+    gateIgnore: true,
+    probeDriver: "shell", // inert: staging probe is disabled
+    environments: {
+      staging: {
+        instanceId: "66e32c98-00ad-42e3-83a2-eba4ba6c1be2",
+        probe: false,
+      },
+    },
+  },
+  "showcase-intelligence-redis": {
+    serviceId: "7b99fa95-2124-4d19-838a-652464e351da",
+    autoUpdates: { staging: "unmanaged" },
+    ciBuilt: false,
+    gateValidated: false,
+    gateIgnore: true,
+    probeDriver: "shell", // inert: staging probe is disabled
+    environments: {
+      staging: {
+        instanceId: "4695150f-0de8-4b3b-b302-7a377621a200",
+        probe: false,
       },
     },
   },
@@ -2275,7 +2431,7 @@ export function computePromoteClosure(
   const skipped: ClosureSkip[] = [];
   for (const key of closure) {
     const entry = services[key];
-    // No prod env → cannot be promoted (the staging-only worker today).
+    // No prod env → cannot be promoted (a staging-only service today).
     const envs = entry.environments ?? {};
     if (!Object.hasOwn(envs, "prod")) {
       skipped.push({

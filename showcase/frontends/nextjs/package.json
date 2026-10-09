@@ -10,18 +10,11 @@
     "vs langgraph-python), green in production. The demo code is written in a both-majors subset.",
     "Demo folders are copied VERBATIM by the starter CLI, which may not edit source — so never rewrite a",
     "demo's zod import when porting it here.",
-    "The `zod4` alias is NOT used by anything in this app today: a grep for `zod4` across",
-    "frontends/nextjs (excluding node_modules and the .next build cache) matches only this",
-    "package.json and package-lock.json — no source file imports it. This app's single copy of the demo,",
-    "src/app/[integration]/demos/declarative-json-render/catalog.ts, imports from \"zod\".",
-    "It stays purely for the starter CLI's copy-verbatim guarantee. These two integration files",
-    "DO import the literal `zod4` specifier and are not ported here yet:",
-    "integrations/claude-sdk-python/src/app/demos/declarative-json-render/catalog.ts and",
-    "integrations/claude-sdk-typescript/src/app/demos/declarative-json-render/catalog.ts",
-    "(claude-sdk-typescript also has src/claude-agent-sdk-adapter.ts importing \"zod4/v4\").",
-    "Because the CLI may not edit copied demo source, porting either folder would land a `zod4`",
-    "import here unchanged, and the alias is what keeps that resolvable. Delete it only together",
-    "with the lockfile entry, and only once those demos are confirmed ported or dropped."
+    "The `zod4` alias IS used: src/app/[integration]/demos/declarative-json-render/catalog.ts",
+    "imports from \"zod4\", byte-identical to the canonical integration copy",
+    "(integrations/langgraph-python/src/app/demos/declarative-json-render/catalog.ts). Because the",
+    "starter CLI may not edit copied demo source, the alias is what keeps that import resolvable.",
+    "Delete it only together with the lockfile entry and that import."
   ],
   "//scripts": [
     "No `test:e2e`. Every integration has one (`playwright test`) because every",
@@ -61,12 +54,12 @@
   "dependencies": {
     "@ag-ui/client": "0.0.57",
     "@ag-ui/core": "0.0.57",
-    "@copilotkit/a2ui-renderer": "1.61.2",
-    "@copilotkit/react-core": "1.61.2",
-    "@copilotkit/react-ui": "1.61.2",
-    "@copilotkit/runtime": "1.61.2",
-    "@copilotkit/shared": "1.61.2",
-    "@copilotkit/voice": "1.61.2",
+    "@copilotkit/a2ui-renderer": "1.68.2",
+    "@copilotkit/react-core": "1.68.2",
+    "@copilotkit/react-ui": "1.68.2",
+    "@copilotkit/runtime": "1.68.2",
+    "@copilotkit/shared": "1.68.2",
+    "@copilotkit/voice": "1.68.2",
     "@hashbrownai/core": "0.5.0-beta.4",
     "@hashbrownai/react": "0.5.0-beta.4",
     "@json-render/core": "0.18.0",
@@ -109,7 +102,7 @@
   },
   "overrides": {
     "@copilotkit/web-inspector": {
-      "@copilotkit/core": "1.61.2"
+      "@copilotkit/core": "1.68.2"
     }
   }
 }

@@ -38,7 +38,7 @@ Angular injection context. They use the owning `DestroyRef`:
 
 | API family                                                                                                  | Owned lifecycle work                                            | Cleanup behavior                                                               |
 | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `injectAgentStore`                                                                                          | Agent subscription and signal projection                        | Replaces the subscription when `agentId` changes; unsubscribes on destroy      |
+| `injectAgentStore`                                                                                          | Agent subscription, signal projection, interrupt controller     | Replaces the subscription when `agentId` changes; unsubscribes and destroys the controller on destroy |
 | `connectAgentContext`                                                                                       | Reactive context registration                                   | Removes the context when the owning effect is destroyed                        |
 | `registerFrontendTool`, `registerRenderToolCall`, `registerHumanInTheLoop`                                  | Runtime renderer or tool registration                           | Removes registrations matching the same name and optional agent ID on destroy  |
 | `registerRenderActivityMessage`                                                                             | Activity renderer registration                                  | Removes the exact renderer object on destroy                                   |
@@ -83,7 +83,7 @@ hydration. Follow these rules:
    operations during server rendering.
 3. Put application-owned `window`, `document`, observer, media-query, and media
    API access behind `isPlatformBrowser` or `afterNextRender`.
-4. Allow A2UI custom elements, Open Generative UI sandboxes, audio recording,
+4. Allow A2UI surfaces, Open Generative UI sandboxes, audio recording,
    and MCP Apps iframes to activate in the browser after hydration.
 5. Do not branch the pre-hydration template on browser globals. Change UI state
    through signals after hydration instead.

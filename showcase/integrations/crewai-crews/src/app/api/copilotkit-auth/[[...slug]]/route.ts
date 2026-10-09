@@ -32,7 +32,7 @@ import { DEMO_AUTH_HEADER } from "@/app/demos/auth/demo-token";
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
+  return new HttpAgent({ url: `${AGENT_URL}/chat` });
 }
 
 const runtime = new CopilotRuntime({

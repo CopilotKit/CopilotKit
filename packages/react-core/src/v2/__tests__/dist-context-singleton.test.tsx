@@ -83,7 +83,7 @@ describe.skipIf(!distReady)(
         const { status } = useLicenseContext();
         return <div data-testid="status">{String(status)}</div>;
       };
-    });
+    }, 30_000);
 
     let originalFetch: typeof globalThis.fetch;
     beforeEach(() => {

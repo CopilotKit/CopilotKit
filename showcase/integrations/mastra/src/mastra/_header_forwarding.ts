@@ -174,7 +174,7 @@ const forwardingFetch: typeof fetch = (input, init) => {
 
 /**
  * Drop-in replacement for `import { openai } from "@ai-sdk/openai"`.
- * Same call signature: `openai("gpt-4o")` returns a model that uses the
+ * Same call signature: `openai("gpt-5-mini")` returns a model that uses the
  * forwarding fetch on every outbound LLM call.
  */
 export const openai = createOpenAI({

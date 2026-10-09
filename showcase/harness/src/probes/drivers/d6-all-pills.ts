@@ -48,6 +48,11 @@ import type { CvdiagPbWriter } from "../../cvdiag/pb-writer.js";
 import type { ProbeDriver } from "../types.js";
 import type { Logger, ProbeContext, ProbeResult } from "../../types/index.js";
 import type { BrowserPool } from "../helpers/browser-pool.js";
+import { clearRemoteThreads } from "../helpers/clear-remote-threads.js";
+import {
+  captureProbeThreads,
+  cleanupProbeThreads,
+} from "../helpers/probe-langgraph-threads.js";
 import type playwright from "playwright";
 
 /**
@@ -244,7 +249,7 @@ export interface E2eFullPage extends Page {
   route?(
     url: string | RegExp,
     handler: (
-      route: { continue(): Promise<void> },
+      route: { continue(options?: { postData?: string }): Promise<void> },
       request: { url(): string; method(): string; postData(): string | null },
     ) => void | Promise<void>,
   ): Promise<unknown>;
@@ -1662,6 +1667,10 @@ export function createE2eFullDriver(
             });
           }
         }
+        // Fresh probe UUIDs otherwise accumulate forever in the default
+        // runner's process-wide store. The voice catch-all is intentional:
+        // it is the ungated route that accepts the service-wide clear path.
+        await clearRemoteThreads(backendUrl, slug, ctx.logger);
       }
     },
   };
@@ -1768,6 +1777,7 @@ async function runFeature(opts: {
 
   let context: E2eFullBrowserContext | undefined;
   let page: E2eFullPage | undefined;
+  let threadIds = new Set<string>();
   try {
     // D6 sets per-feature context headers: X-AIMock-Context and X-Test-Id.
     //
@@ -1803,6 +1813,7 @@ async function runFeature(opts: {
       }),
     );
     page = await context.newPage();
+    threadIds = await captureProbeThreads(page, testId);
 
     logger.debug("probe.e2e-full.runFeature.navigating", {
       url,
@@ -2052,6 +2063,7 @@ async function runFeature(opts: {
         /* browser.close() in outer finally picks up remnants */
       }
     }
+    await cleanupProbeThreads(buildCtx.baseUrl, testId, threadIds, logger);
   }
 }
 

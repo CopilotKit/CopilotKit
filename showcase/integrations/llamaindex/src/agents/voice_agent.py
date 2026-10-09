@@ -36,7 +36,7 @@ async def get_weather(
 
 async def _voice_workflow_factory():
     return FixedAGUIChatWorkflow(
-        llm=OpenAI(model="gpt-4.1", **_openai_kwargs),
+        llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
         frontend_tools=[],
         backend_tools=[get_weather],
         system_prompt=SYSTEM_PROMPT,

@@ -51,7 +51,7 @@ STABLE_WF="$REPO_ROOT/.github/workflows/stable-release.yml"
 CANARY_WF="$REPO_ROOT/.github/workflows/canary.yml"
 
 # Documented non-scope sentinel options to ignore. Space-separated.
-SENTINELS="all"
+SENTINELS="all learning-preview"
 
 for f in "$CONFIG" "$PUBLISH_WF" "$STABLE_WF" "$CANARY_WF"; do
   if [ ! -f "$f" ]; then
@@ -324,6 +324,9 @@ check_workflow "canary.yml"          "$CANARY_WF"  || rc=1
 check_sentinel_placement "publish-release.yml" "$PUBLISH_WF" "all" required  || rc=1
 check_sentinel_placement "canary.yml"          "$CANARY_WF"  "all" required  || rc=1
 check_sentinel_placement "stable-release.yml"  "$STABLE_WF"  "all" forbidden || rc=1
+check_sentinel_placement "publish-release.yml" "$PUBLISH_WF" "learning-preview" required || rc=1
+check_sentinel_placement "canary.yml"          "$CANARY_WF"  "learning-preview" required || rc=1
+check_sentinel_placement "stable-release.yml"  "$STABLE_WF"  "learning-preview" forbidden || rc=1
 check_notify_case "$PUBLISH_WF" || rc=1
 
 if [ "$rc" -ne 0 ]; then

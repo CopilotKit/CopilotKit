@@ -1,6 +1,9 @@
 import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
-import { RunAgentInputSchema } from "@ag-ui/client";
-import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
+import { RunAgentInputSchema } from "@ag-ui/core/schemas";
+import {
+  A2UIMiddleware,
+  OpenGenerativeUIMiddleware,
+} from "@copilotkit/shared/event-transforms";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { MCPMiddleware } from "@ag-ui/mcp-middleware";
 import type { CopilotRuntimeLike } from "../../core/runtime";
@@ -9,7 +12,6 @@ import {
   isIntelligenceRuntime,
   resolveAgents,
 } from "../../core/runtime";
-import { OpenGenerativeUIMiddleware } from "../../open-generative-ui-middleware";
 import {
   INTELLIGENCE_MEMORY_GRANT_HEADER,
   INTELLIGENCE_USER_ID_HEADER,
@@ -20,7 +22,7 @@ import {
 } from "../header-utils";
 import { resolveMcpAppsServers } from "./mcp-apps-servers";
 import { resolveIntelligenceUser } from "./resolve-intelligence-user";
-import { resolveWebMemory } from "./memory-policy";
+import { grantAllowsMemory, resolveWebMemory } from "./memory-policy";
 import { errorResponse } from "./json-response";
 import { logger } from "@copilotkit/shared";
 
@@ -90,8 +92,16 @@ export function configureAgentForRequest(params: {
    * has to also set `a2ui.injectA2UITool` on the runtime.
    */
   providerA2UIHasCatalog?: boolean;
+  /** Retain proxy rejection even when no server is available to this agent. */
+  isMcpProxyRequest?: boolean;
 }): void {
-  const { runtime, request, agentId, providerA2UIHasCatalog } = params;
+  const {
+    runtime,
+    request,
+    agentId,
+    providerA2UIHasCatalog,
+    isMcpProxyRequest,
+  } = params;
   const agent = params.agent as MiddlewareCapableAgent;
 
   // A2UI is on when the runtime explicitly enables it, OR when the provider
@@ -124,7 +134,19 @@ export function configureAgentForRequest(params: {
     }
   }
 
-  if (runtime.mcpApps?.servers?.length) {
+  if (isIntelligenceRuntime(runtime) && typeof agent.use === "function") {
+    // Ordinary runs need no middleware without selected servers. Proxy requests
+    // still need the upstream guard so they cannot fall through to the model.
+    const mcpServers = resolveMcpAppsServers(
+      runtime.mcpApps?.servers ?? [],
+      agentId,
+    );
+    if (mcpServers.length > 0 || isMcpProxyRequest) {
+      agent.use(
+        new MCPAppsMiddleware({ mcpServers, discoveryFailureMode: "throw" }),
+      );
+    }
+  } else if (runtime.mcpApps?.servers?.length) {
     const mcpServers = resolveMcpAppsServers(runtime.mcpApps.servers, agentId);
 
     if (mcpServers.length > 0 && typeof agent.use === "function") {
@@ -162,7 +184,16 @@ export function configureAgentForRequest(params: {
 }
 
 /**
- * Attach the Intelligence platform's MCP tools to the agent run when
+ * Shared by the two places a run meets a middleware-less agent: before Memory
+ * is resolved (nothing left to resolve) and after (Memory resolved to nothing).
+ */
+const NO_MIDDLEWARE_WARNING =
+  "CopilotKitIntelligence.enableEnterpriseLearning is enabled, but the agent " +
+  "does not support middleware (no `.use()` method); Intelligence tools were " +
+  "not attached for this run.";
+
+/**
+ * Attach CopilotKit Intelligence's MCP tools to the agent run when
  * `CopilotKitIntelligence` was constructed with
  * `enableEnterpriseLearning: true`. Uses `@ag-ui/mcp-middleware`, so the
  * tools are available uniformly across agent frameworks (not just
@@ -189,29 +220,18 @@ export async function attachIntelligenceEnterpriseLearning(params: {
   const { runtime, request } = params;
   const agent = params.agent as MiddlewareCapableAgent;
 
-  if (
-    !isIntelligenceRuntime(runtime) ||
-    (runtime.memory === undefined &&
-      !runtime.intelligence?.ɵisEnterpriseLearningEnabled?.())
-  ) {
-    return;
-  }
+  if (!isIntelligenceRuntime(runtime)) return;
 
-  // Enterprise learning is enabled, but this agent's framework can't take
-  // middleware — surface it rather than silently shipping a run with none
-  // of the tools the operator opted into.
-  if (typeof agent.use !== "function") {
-    if (runtime.memory) {
-      return errorResponse(
-        "Memory is configured, but this agent does not support middleware",
-        500,
-      );
-    }
-    logger.warn(
-      "CopilotKitIntelligence.enableEnterpriseLearning is enabled, but the agent " +
-        "does not support middleware (no `.use()` method); Intelligence tools were " +
-        "not attached for this run.",
-    );
+  const learningEnabled =
+    runtime.intelligence?.ɵisEnterpriseLearningEnabled?.() === true;
+  if (runtime.memory === undefined && !learningEnabled) return;
+
+  // Nothing here is resolvable for an agent whose framework can't take
+  // middleware and whose runtime configures no Memory — bail before paying for
+  // `identifyUser`, so an enterprise-learning-only run keeps warning rather
+  // than acquiring a new way to fail.
+  if (runtime.memory === undefined && typeof agent.use !== "function") {
+    logger.warn(NO_MIDDLEWARE_WARNING);
     return;
   }
 
@@ -219,6 +239,37 @@ export async function attachIntelligenceEnterpriseLearning(params: {
   if (userResult instanceof Response) return userResult;
   const access = await resolveWebMemory(runtime, request, userResult, "agent");
   if (access instanceof Response) return access;
+
+  const memoryGranted =
+    runtime.memory !== undefined && grantAllowsMemory(access.grant);
+
+  // A policy that grants no scope means this run gets no Memory — it does NOT
+  // mean the run is refused. Attach nothing and let the conversation proceed,
+  // exactly as a Channel does when its grant asks for nothing
+  // (`hasMemoryAccess` in @copilotkit/channels-core). Returning a 403 here
+  // instead fails the whole run, so switching Memory off for one tenant would
+  // leave that tenant with no assistant, and the only signal is a run error the
+  // chat surface has no reason to render.
+  //
+  // Enterprise learning rides the SAME MCP server, so "no Memory" must not cost
+  // an operator the learning tools too. When it is on, attach anyway and let
+  // Intelligence filter: it registers one Memory tool per granted scope and
+  // none at all for an all-none grant, leaving the learning tools untouched.
+  if (!memoryGranted && !learningEnabled) return;
+
+  // Whatever is left to attach needs middleware. Failing the run is right only
+  // when Memory was actually granted and cannot be delivered; a run that merely
+  // wanted learning tools warns and proceeds, as it always has.
+  if (typeof agent.use !== "function") {
+    if (memoryGranted) {
+      return errorResponse(
+        "Memory is configured, but this agent does not support middleware",
+        500,
+      );
+    }
+    logger.warn(NO_MIDDLEWARE_WARNING);
+    return;
+  }
 
   agent.use(
     new MCPMiddleware([
@@ -242,12 +293,172 @@ export async function attachIntelligenceEnterpriseLearning(params: {
   );
 }
 
+// Intentional local exception: HTTP request parsing runs before AG-UI's event
+// compatibility boundary. Mirror its historically accepted optional-null rules
+// and its legacy binary-part upgrade here, without depending on a new public
+// AG-UI helper (AG-UI does not export one). Keep these aligned
+// with client/src/middleware/compatibility-boundary.ts and AG-UI's migration guide.
+// Required nulls and nulls within application data must remain untouched.
+function warnCompatibility(what: string, replacement: string) {
+  if (
+    typeof process !== "undefined" &&
+    typeof process.env !== "undefined" &&
+    process.env.SUPPRESS_TRANSFORMATION_WARNINGS
+  )
+    return;
+  console.warn(
+    `[ag-ui][compat] Converting deprecated ${what} to ${replacement}. The old shape leaves the protocol after its shim window — see the repo-root DEPRECATIONS.md. Set SUPPRESS_TRANSFORMATION_WARNINGS=true to silence.`,
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function omitLegacyNull(
+  value: unknown,
+  field: string,
+  context: string,
+): unknown {
+  if (!isRecord(value) || value[field] !== null) return value;
+  warnCompatibility(`${context}.${field}: null`, "an absent field");
+  const { [field]: _null, ...rest } = value;
+  return rest;
+}
+
+function mapProtocolArray(
+  value: unknown,
+  field: string,
+  normalize: (entry: unknown) => unknown,
+): unknown {
+  if (!isRecord(value) || !Array.isArray(value[field])) return value;
+  const original = value[field];
+  const entries = original.map(normalize);
+  return entries.some((entry, index) => entry !== original[index])
+    ? { ...value, [field]: entries }
+    : value;
+}
+
+function mediaTypeFor(
+  mimeType: string,
+): "image" | "audio" | "video" | "document" {
+  if (mimeType.startsWith("image/")) return "image";
+  if (mimeType.startsWith("audio/")) return "audio";
+  if (mimeType.startsWith("video/")) return "video";
+  return "document";
+}
+
+function sameSource(part: unknown, converted: Record<string, unknown>) {
+  if (!isRecord(part) || part.type !== converted.type) return false;
+  const a = part.source;
+  const b = converted.source as Record<string, unknown>;
+  return (
+    isRecord(a) &&
+    a.type === b.type &&
+    a.value === b.value &&
+    a.mimeType === b.mimeType
+  );
+}
+
+/**
+ * The 0.x `{ type: "binary" }` part, which 1.0 retired and main accepted.
+ * Mirrors AG-UI's outgoing upgrade (client/src/middleware/legacy-content.ts):
+ * data or url becomes the media part its mime type names, and a binary part
+ * that only mirrors a modern part already in the message is dropped. A part
+ * with only an `id` has no 1.0 form; it is dropped with a warning instead of
+ * failing the whole request, which is what BuiltInAgent already did with it.
+ */
+function upgradeLegacyBinaryParts(content: unknown[]): unknown[] {
+  return content.flatMap((part) => {
+    if (
+      !isRecord(part) ||
+      part.type !== "binary" ||
+      typeof part.mimeType !== "string"
+    )
+      return [part];
+    const kind =
+      typeof part.data === "string"
+        ? "data"
+        : typeof part.url === "string"
+          ? "url"
+          : null;
+    if (kind === null) {
+      console.warn(
+        "[CopilotKit] Dropping a legacy binary content part that has no data or url; AG-UI 1.0 has no equivalent for it.",
+      );
+      return [];
+    }
+    warnCompatibility("binary input content", "the modern media content part");
+    const converted: Record<string, unknown> = {
+      type: mediaTypeFor(part.mimeType),
+      source: {
+        type: kind,
+        value: kind === "data" ? part.data : part.url,
+        mimeType: part.mimeType,
+      },
+      ...(typeof part.filename === "string"
+        ? { metadata: { filename: part.filename } }
+        : {}),
+    };
+    return content.some((other) => sameSource(other, converted))
+      ? []
+      : [converted];
+  });
+}
+
+function normalizeLegacyMessageContent(message: unknown): unknown {
+  const upgraded =
+    isRecord(message) &&
+    Array.isArray(message.content) &&
+    message.content.some((part) => isRecord(part) && part.type === "binary")
+      ? {
+          ...message,
+          content: upgradeLegacyBinaryParts(message.content),
+        }
+      : message;
+  return mapProtocolArray(upgraded, "content", (part) => {
+    if (!isRecord(part)) return part;
+    switch (part.type) {
+      case "image":
+      case "audio":
+      case "video":
+      case "document":
+        return omitLegacyNull(part, "metadata", `${part.type} input content`);
+      default:
+        return part;
+    }
+  });
+}
+
+function normalizeLegacyRunAgentInput(input: unknown): unknown {
+  let normalized = omitLegacyNull(input, "forwardedProps", "RunAgentInput");
+  normalized = mapProtocolArray(normalized, "tools", (tool) =>
+    omitLegacyNull(tool, "parameters", "Tool"),
+  );
+  normalized = mapProtocolArray(normalized, "resume", (entry) =>
+    omitLegacyNull(entry, "payload", "ResumeEntry"),
+  );
+  return mapProtocolArray(
+    normalized,
+    "messages",
+    normalizeLegacyMessageContent,
+  );
+}
+
+function parseRunAgentInput(value: unknown): RunAgentInput {
+  // With strictNullChecks disabled, Zod infers some required nested fields
+  // (such as image.source) as optional. The schema still validates them.
+  return RunAgentInputSchema.parse(
+    normalizeLegacyRunAgentInput(value),
+  ) as RunAgentInput;
+}
+
 export async function parseRunRequest(
   request: Request,
 ): Promise<RunAgentInput | Response> {
   try {
     const requestBody = await request.json();
-    return RunAgentInputSchema.parse(requestBody);
+    return parseRunAgentInput(requestBody);
   } catch (error) {
     logger.error("Invalid run request body:", error);
     return new Response(
@@ -272,7 +483,7 @@ export async function parseConnectRequest(request: Request): Promise<
 > {
   try {
     const requestBody = await request.json();
-    const input = RunAgentInputSchema.parse(requestBody);
+    const input = parseRunAgentInput(requestBody);
     let lastSeenEventId: string | null = null;
 
     if (

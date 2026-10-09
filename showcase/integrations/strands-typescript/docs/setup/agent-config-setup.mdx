@@ -1,0 +1,35 @@
+<Steps>
+  <Step>
+    ### Send application context with each run
+
+    `useAgentContext` adds configuration to the current AG-UI request. The
+    Strands adapter exposes it during model calls without saving it as user
+    text. Add UI-owned state to a copy of that request's context:
+
+    <DemoCode
+      file="src/agent/state.ts"
+      region="agent-config-context-builder"
+      title="src/agent/state.ts"
+    />
+
+  </Step>
+  <Step>
+    ### Apply current state before running the adapter
+
+    This wrapper runs for every request, including tool continuations. Changed
+    frontend context and state apply to the next run; messages retain their
+    original content. Do not prepend context with `stateContextBuilder`, whose
+    output becomes native message history.
+
+    <DemoCode
+      file="src/agent/agent.ts"
+      region="agent-config-context-registration"
+      title="src/agent/agent.ts"
+    />
+
+    Existing histories created with a prompt-rewriting builder retain that
+    content. Start a new conversation for clean history; importing an old
+    conversation preserves its original text without guessing which parts to remove.
+
+  </Step>
+</Steps>

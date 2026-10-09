@@ -43,6 +43,16 @@ import "@copilotkit/react-core/v2/styles.css";
   object to extend the default.
 </PropertyReference>
 
+<PropertyReference name="inspectorTools" type="boolean" default="true">
+  Controls Inspector message shortcuts for this chat. An explicit
+  `enableInspector` value on the `CopilotKit` provider takes priority: provider
+  `true` overrides chat `false`, and provider `false` overrides chat `true`.
+  When the provider omits the prop, `inspectorTools={false}` hides this chat's
+  shortcuts. Shortcuts only appear on localhost/loopback in development and
+  remain hidden while Inspector is temporarily dismissed. This prop does not
+  control the shared Inspector launcher.
+</PropertyReference>
+
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
   Error handler scoped to this chat's agent. Fires in addition to the provider-level `onError` (does not suppress it). Only receives errors whose `context.agentId` matches this chat's agent, plus errors without an `agentId` context.
 

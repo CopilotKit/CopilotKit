@@ -356,7 +356,7 @@ def _generate_a2ui(user_text: str, forwarded: dict) -> str:
     if not user_text:
         user_text = "Generate a useful dashboard UI."
     response = client.chat.completions.create(
-        model="gpt-4.1",
+        model="gpt-5-mini",
         messages=[
             {
                 "role": "system",
@@ -444,7 +444,7 @@ if os.environ.get("OPENAI_BASE_URL"):
 def _a2ui_dynamic_workflow_factory() -> Callable[[], Awaitable[Workflow]]:
     async def factory() -> Workflow:
         return _A2UIRenderToolCallWorkflow(
-            llm=OpenAI(model="gpt-4.1", **_openai_kwargs),
+            llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
             frontend_tools=[],
             backend_tools=[generate_a2ui],
             system_prompt=SYSTEM_PROMPT,

@@ -5,7 +5,12 @@ import {
   useComponent,
   useHumanInTheLoop,
   useFrontendTool,
+  useRenderTool,
 } from "@copilotkit/react-core/v2";
+import { ExpenseHarnessReport } from "@/skins/banking/components/expense-harness-report";
+import { HarnessConsole } from "@/skins/banking/components/harness-console";
+import { useFirstDelegationToolCallId } from "@/shell/subagents/subagent-activity";
+import type { HarnessSummary } from "@/skins/banking/harness/types";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useSkin } from "@/shell/skin-provider";
@@ -61,6 +66,22 @@ export const AVAILABLE_OPERATIONS_PER_PAGE = {
 // the over-limit gate (proven in scripts/over-limit-gate-smoke.mjs). This text
 // lands in the thread, which is how the agent recalls the procedure later in the
 // SAME session. The agent only ever sees the code, never its human label.
+// The expense report tool's result reaches the client as a STRING (the runtime
+// stringifies whatever the tool returned), so the report card's props have to be
+// recovered from it. Tolerant on purpose: a run that failed comes back as an
+// error string, and the renderer must degrade to a readable line rather than
+// throwing inside the transcript and taking the conversation down with it.
+const parseHarnessSummary = (result: string): HarnessSummary | null => {
+  try {
+    const parsed: unknown = JSON.parse(result);
+    return parsed && typeof parsed === "object" && "verdicts" in parsed
+      ? (parsed as HarnessSummary)
+      : null;
+  } catch {
+    return null;
+  }
+};
+
 const canonicalProcedure = (code: string): string =>
   `Saved workflow for clearing an over-limit charge: (1) open a policy ` +
   `exception against the transaction with code ${code}, (2) finalize the ` +
@@ -106,6 +127,9 @@ const answeredPinChanges = new Map<
 // on.
 export function BankingTools() {
   const { currentUser } = useAuthContext();
+  // The run's first `task` call — the parent's one delegation to the analyst,
+  // and the console's stable home. See the console block below.
+  const consoleAnchorId = useFirstDelegationToolCallId();
   const skin = useSkin();
   const skinHref = useSkinHref(skin.id);
   const router = useRouter();
@@ -854,6 +878,76 @@ export function BankingTools() {
       ),
     },
     [policies],
+  );
+
+  // ── The offsite-expenses CLI console ───────────────────────────────────────
+  //
+  // Anchored on the run's FIRST `task` call — the parent's single delegation to
+  // `expense-analyst`. That slot opens when the harness starts and stays for the
+  // whole run, which is what the Codex-era console got from
+  // `analyzeOffsiteExpenses`.
+  //
+  // The nested `task` calls (analyst → researchers) must NOT each render their
+  // own console. An earlier version excluded them by asking the live event
+  // stream which tool calls a subagent had made, which fails on a RESTORED
+  // thread: those events never replay, the set is empty, and all six
+  // delegations render a console. Message order is the durable answer — see
+  // `useFirstDelegationToolCallId`.
+  useRenderTool(
+    {
+      name: "task",
+      parameters: z.object({}).passthrough(),
+      render: ({ toolCallId }) =>
+        toolCallId === consoleAnchorId ? <HarnessConsole /> : <></>,
+    },
+    [consoleAnchorId],
+  );
+
+  // ── The offsite-expenses report card ───────────────────────────────────────
+  //
+  // `useRenderTool`, NOT `useComponent`, and the difference is load-bearing:
+  // `useComponent` hands its render ONLY the tool's parsed args, so `status` and
+  // `result` would both be permanently undefined. `useRenderTool` registers a
+  // renderer in the shared registry WITHOUT also registering a frontend tool of
+  // that name — exactly right for a tool executed somewhere else entirely.
+  //
+  // "Somewhere else" is the point: `submit_expense_report` is executed by the
+  // PYTHON deep agent (`agent/agent.py`), not by anything in this process. The
+  // renderer matches on tool NAME against the AG-UI event stream, and a
+  // TOOL_CALL_START/ARGS/END/RESULT quartet looks identical whether a
+  // `BuiltInAgent` in this Node process or a remote LangChain agent produced it.
+  // That is why this beat needed no new client surface.
+  useRenderTool(
+    {
+      name: "submit_expense_report",
+      // The renderer takes no parameters of its own — it reads the tool's
+      // result. `z.object({})` keeps the registration shape while making it
+      // explicit that nothing here validates the agent's arguments.
+      parameters: z.object({}),
+      render: ({ status, result }) => {
+        // The agent's reasoning and tool calls have been streaming into the
+        // transcript for minutes by the time this slot appears, so it does not
+        // need to narrate the run — it only has to not look broken while the
+        // report's arguments finish streaming.
+        if (status !== "complete") {
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink/60 shadow-soft">
+              Compiling the expense report…
+            </div>
+          );
+        }
+        const summary = parseHarnessSummary(result);
+        if (!summary) {
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink/60 shadow-soft">
+              The expense analysis did not finish: {result}
+            </div>
+          );
+        }
+        return <ExpenseHarnessReport summary={summary} />;
+      },
+    },
+    [],
   );
 
   useComponent(

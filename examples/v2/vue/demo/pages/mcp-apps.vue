@@ -9,7 +9,7 @@ npm start`;
 </script>
 
 <template>
-  <CopilotKitProvider runtime-url="/api/copilotkit-mcp" show-dev-console="auto">
+  <CopilotKitProvider runtime-url="/api/copilotkit-mcp">
     <div
       class="relative min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-200"
     >

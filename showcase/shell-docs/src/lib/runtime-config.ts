@@ -15,13 +15,14 @@
 // window.__SHOWCASE_CONFIG__ which the root layout injects.
 
 import { unstable_noStore as noStore } from "next/cache";
+import { PRODUCTION_DOCS_ORIGIN } from "./production-docs-origin";
 
 export interface RuntimeConfig {
   /** Canonical docs base URL — sitemap, robots, canonical links. */
   baseUrl: string;
   /** Showcase shell host — search-modal, integration-grid, cross-host hrefs. */
   shellUrl: string;
-  /** Intelligence platform signup URL — signup-link, ops-platform-cta. */
+  /** CopilotKit Intelligence signup URL — signup-link, ops-platform-cta. */
   intelligenceSignupUrl: string;
   /** Analytics keys (empty string = analytics disabled in that channel). */
   posthogKey: string;
@@ -30,9 +31,11 @@ export interface RuntimeConfig {
   googleAnalyticsTrackingId: string;
   reb2bKey: string;
   reoKey: string;
+  /** Clerk public key for public-page auth state only. Empty string disables Clerk. */
+  clerkPublishableKey: string;
 }
 
-export const PRODUCTION_DOCS_ORIGIN = "https://docs.copilotkit.ai";
+export { PRODUCTION_DOCS_ORIGIN };
 const PROD_INVALID_SHELL_URL = "about:blank#shell-url-missing";
 const PROD_DEFAULT_SIGNUP_URL = "https://dashboard.operations.copilotkit.ai/";
 const PROD_DEFAULT_POSTHOG_HOST = "https://eu.i.posthog.com";
@@ -114,6 +117,7 @@ export function getRuntimeConfig(
     ),
     reb2bKey: readKey("NEXT_PUBLIC_REB2B_KEY"),
     reoKey: readKey("NEXT_PUBLIC_REO_KEY"),
+    clerkPublishableKey: readKey("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"),
   };
 }
 

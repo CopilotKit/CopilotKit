@@ -15,7 +15,7 @@
  */
 
 export * from "./react-renderer/index.js";
-export { DEFAULT_SURFACE_ID } from "./a2ui-types.js";
+export { DEFAULT_SURFACE_ID, ROOT_COMPONENT_ID } from "./a2ui-types.js";
 export type { Theme, A2UIClientEventMessage } from "./a2ui-types.js";
 
 // Backward compat: viewerTheme (v0.9 themes handled internally)

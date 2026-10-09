@@ -73,8 +73,8 @@ module Railway
     # EXPECTED_DOMAINS is derived from showcase/scripts/railway-envs.generated.json
     # (canonical source: showcase/scripts/railway-envs.ts). The CI guard
     # `npx tsx showcase/scripts/emit-railway-envs-json.ts --check` ensures the
-    # JSON artifact stays in sync with the TS SSOT on every PR. Only public
-    # (non-`*.up.railway.app`) hosts are included, preserving the original set.
+    # JSON artifact stays in sync with the TS SSOT on every PR. Only non-empty
+    # public (non-`*.up.railway.app`) hosts are included.
     # Shared SSOT load — read once at class-load, derive both EXPECTED_DOMAINS
     # and STAGING_SERVICES from the same generated.json so they cannot drift.
     SSOT_DATA = begin
@@ -92,8 +92,8 @@ module Railway
             domains = svc.fetch("domains")
             prod = domains.fetch("prod")
             staging = domains.fetch("staging")
-            by_env[PRODUCTION_ENV_ID] << prod unless prod.end_with?(".up.railway.app")
-            by_env[STAGING_ENV_ID] << staging unless staging.end_with?(".up.railway.app")
+            by_env[PRODUCTION_ENV_ID] << prod unless prod.empty? || prod.end_with?(".up.railway.app")
+            by_env[STAGING_ENV_ID] << staging unless staging.empty? || staging.end_with?(".up.railway.app")
         end
         by_env.transform_values { |v| v.sort.uniq.freeze }.freeze
     end
@@ -1007,7 +1007,14 @@ module Railway
             parser.parse!(argv)
             Railway.die!("--env required") unless options[:env]
             Railway.die!("--service required") unless options[:service]
-
+            if options[:service] == "harness-workers"
+                Railway.die!(
+                    "Direct rollback is disabled for harness-workers; use " \
+                    "`bin/railway pin --env <env> --service harness-workers " \
+                    "--image <prior-ref@sha256:digest>` to pin the prior image " \
+                    "while preserving the current restart policy.",
+                )
+            end
             env_id = Railway.env_id_for(options[:env])
             Railway.confirm_destructive!(
                 env_label: options[:env],
@@ -1194,6 +1201,23 @@ module Railway
             digest
         end
 
+        def self.restart_policy_type_from_deployment(deployment)
+            return nil unless deployment.is_a?(Hash)
+
+            meta = deployment["meta"]
+            meta = (JSON.parse(meta) rescue nil) if meta.is_a?(String)
+            return nil unless meta.is_a?(Hash)
+
+            service_manifest = meta["serviceManifest"]
+            return nil unless service_manifest.is_a?(Hash)
+
+            deploy = service_manifest["deploy"]
+            return nil unless deploy.is_a?(Hash)
+
+            restart_policy_type = deploy["restartPolicyType"]
+            restart_policy_type if restart_policy_type.is_a?(String)
+        end
+
         # Pin + verify: confirms the boolean mutation result AND re-queries
         # serviceInstance to confirm BOTH source.image advanced to the new
         # digest AND updatedAt strictly advanced past the pre-mutation value.
@@ -1222,7 +1246,9 @@ module Railway
         # replica on redeploy — the confirmed harness-workers -> 1 de-scale
         # incident. When nil/empty, the key is OMITTED (never sent as null), so a
         # service without an override keeps its live config untouched.
-        def self.pin_and_verify(gql, service_id:, env_id:, image:, healthcheck_path: nil, replica_config: nil, sleeper: ->(n) { sleep(n) })
+        def self.pin_and_verify(gql, service_id:, env_id:, image:,
+                healthcheck_path: nil, replica_config: nil,
+                restart_policy_type: nil, sleeper: ->(n) { sleep(n) })
             # Upfront guard: this method's contract is to pin a DIGEST-form
             # image. Pre-fix, a stray tag ref would fall through to retries
             # (since expected_digest stayed nil and image_ok was always false)
@@ -1249,8 +1275,8 @@ module Railway
             # an explicit null, which Railway would treat as "clear this field"),
             # so a service tracking neither keeps its live config untouched.
             mutation, vars = RestoreCommand.build_update_image_mutation(
-                image: image, healthcheck_path: healthcheck_path,
-                replica_config: replica_config)
+                image: image, healthcheck_path: healthcheck_path, replica_config: replica_config)
+            vars[:input][:restartPolicyType] = restart_policy_type if restart_policy_type
             updated = gql.query(mutation,
                 { serviceId: service_id, envId: env_id }.merge(vars))
             unless updated && updated["serviceInstanceUpdate"] == true
@@ -1320,6 +1346,7 @@ module Railway
             verify_serving_digest!(gql,
                 service_id: service_id, env_id: env_id, image: image,
                 expected_digest: expected_digest, new_deployment_id: new_deployment_id,
+                restart_policy_type: restart_policy_type,
                 sleeper: sleeper)
 
             config_inst
@@ -1331,9 +1358,11 @@ module Railway
         # the new deployment never converges within the retry budget.
         def self.verify_serving_digest!(gql, service_id:, env_id:, image:,
                                         expected_digest:, new_deployment_id:,
+                                        restart_policy_type: nil,
                                         sleeper: ->(n) { sleep(n) })
             last_status = nil
             last_serving = nil
+            last_restart_policy = nil
 
             SERVING_RETRY_COUNT.times do |i|
                 data = gql.query(SERVICE_INSTANCE_RECHECK_QUERY,
@@ -1364,9 +1393,22 @@ module Railway
 
                 if status == "SUCCESS"
                     serving = serving_digest_from_deployment(deploy)
+                    active_restart_policy =
+                        restart_policy_type_from_deployment(deploy)
                     last_serving = serving
-                    if serving == expected_digest
+                    last_restart_policy = active_restart_policy
+                    policy_ok = restart_policy_type.nil? ||
+                        active_restart_policy == restart_policy_type
+                    if deploy && deploy["id"] == new_deployment_id && serving == expected_digest && policy_ok
                         return inst
+                    end
+                    if serving == expected_digest &&
+                            deploy && deploy["id"] == new_deployment_id
+                        raise MutationError,
+                            "P5: new deployment #{new_deployment_id} for #{service_id} succeeded with " \
+                            "digest #{serving.inspect} but active restartPolicyType " \
+                            "#{active_restart_policy.inspect}, expected #{restart_policy_type.inspect}. " \
+                            "Refusing to declare promote successful — prod is not serving with the required policy."
                     end
                     # SUCCESS but serving a different digest: only acceptable if
                     # this is still the OLD deployment (Railway eventual
@@ -1387,7 +1429,8 @@ module Railway
             raise MutationError,
                 "P5: prod did not converge to SERVING the pinned digest #{expected_digest.inspect} for " \
                 "#{service_id} -> #{image} after #{SERVING_RETRY_COUNT} retries " \
-                "(last deploy status=#{last_status.inspect}, last serving digest=#{last_serving.inspect}). " \
+                "(last deploy status=#{last_status.inspect}, last serving digest=#{last_serving.inspect}, " \
+                "last restartPolicyType=#{last_restart_policy.inspect}). " \
                 "Refusing to declare promote successful — prod may be serving a stale image."
         end
 
@@ -2158,12 +2201,19 @@ module Railway
             # (NOTE: the 12 starter-<slug> demos are NO LONGER staging-only —
             # S2 brought them under the SSOT in BOTH envs, so they are normal
             # dual-env services that satisfy parity on their own; they are not
-            # an exemption case here.) Full-fleet promotes (target nil) retain
-            # full-strictness parity on both arms — there, any env-shape
-            # asymmetry across the whole fleet is a genuine REFUSE.
+            # an exemption case here.) Full-fleet promotes (target nil) exempt
+            # only asymmetry explicitly declared by the generated SSOT. Any
+            # unknown live Railway asymmetry remains a genuine REFUSE.
             if target
                 staging_only = staging_only & [target]
                 prod_only    = prod_only & [target]
+            else
+                staging_only.reject! do |name|
+                    (ssot_service(name) || {})["onlyEnvironment"] == "staging"
+                end
+                prod_only.reject! do |name|
+                    (ssot_service(name) || {})["onlyEnvironment"] == "prod"
+                end
             end
             findings << "REFUSE: services in staging not in prod: #{staging_only.join(', ')}" unless staging_only.empty?
             findings << "REFUSE: services in prod not in staging: #{prod_only.join(', ')}" unless prod_only.empty?
@@ -2481,12 +2531,15 @@ module Railway
                     # pin_and_verify then OMITS multiRegionConfig rather than
                     # touching it.
                     ssot_replicas = ssot_replica_config(svc["name"], "prod")
+                    ssot_restart_policy = (ssot_service(svc["name"]) || {})
+                        .dig("workerProvisioning", "prod", "restartPolicyType")
                     PromoteCommand.pin_and_verify(gql,
                         service_id: pmatch["service_id"],
                         env_id: PRODUCTION_ENV_ID,
                         image: image,
                         healthcheck_path: ssot_healthcheck,
-                        replica_config: ssot_replicas)
+                        replica_config: ssot_replicas,
+                        restart_policy_type: ssot_restart_policy)
                     puts "promoted #{svc['name']} -> #{image}"
                     already_pinned << svc["name"]
                 # Broadened rescue: a transient GraphQL or network error
@@ -2557,8 +2610,25 @@ module Railway
                 return 0
             end
 
-            RestoreCommand.pin_and_redeploy(gql,
-                service_id: service_id, env_id: env_id, image: image)
+            if options[:service] == "harness-workers"
+                ssot_env = env_id == PRODUCTION_ENV_ID ? "prod" : "staging"
+                promote_helper = PromoteCommand.new([])
+                ssot_entry = promote_helper.ssot_service(options[:service]) || {}
+                ssot_healthcheck = ssot_entry.dig("healthcheckPath", ssot_env)
+                ssot_replicas = promote_helper.ssot_replica_config(options[:service], ssot_env)
+                ssot_restart_policy = ssot_entry.dig("workerProvisioning", ssot_env, "restartPolicyType")
+
+                PromoteCommand.pin_and_verify(gql,
+                    service_id: service_id,
+                    env_id: env_id,
+                    image: image,
+                    healthcheck_path: ssot_healthcheck,
+                    replica_config: ssot_replicas,
+                    restart_policy_type: ssot_restart_policy)
+            else
+                RestoreCommand.pin_and_redeploy(gql,
+                    service_id: service_id, env_id: env_id, image: image)
+            end
             puts "pinned #{options[:service]} -> #{image}"
             0
         end

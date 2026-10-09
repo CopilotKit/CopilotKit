@@ -206,10 +206,10 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
     # Define the model
 
     try:
-        model = ChatOpenAI(model="gpt-4o-mini")
+        model = ChatOpenAI(model="gpt-5-mini")
     except Exception as e:
         print(e)
-        model = ChatOpenAI(model="gpt-4o")
+        model = ChatOpenAI(model="gpt-5-mini")
 
     # Define config for the model
     if config is None:
@@ -371,7 +371,7 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
 #     Don't just repeat a list of steps, come up with a creative but short description (3 sentences max) of how you are performing the task.
 #     """
 
-#     final_response = await ChatOpenAI(model="gpt-4o").ainvoke([
+#     final_response = await ChatOpenAI(model="gpt-5-mini").ainvoke([
 #         SystemMessage(content=final_prompt),
 #         {"role": "user", "content": user_response}
 #     ], config)

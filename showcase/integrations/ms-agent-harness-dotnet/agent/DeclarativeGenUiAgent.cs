@@ -51,7 +51,7 @@ ALWAYS call the `generate_a2ui` tool. It takes no arguments. Keep any textual re
 
     public AIAgent Create()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
 
         return chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,

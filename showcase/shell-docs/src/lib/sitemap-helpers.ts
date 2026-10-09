@@ -6,7 +6,6 @@
 //   1. Bare unscoped docs   — /<slug>           (excluding integrations/ trees)
 //   2. Framework-scoped     — /<framework>/<slug>
 //   3. Reference docs       — /reference/<slug> (from src/content/reference)
-//   4. AG-UI                — /ag-ui/<slug>
 //
 // Each entry's `lastModified` is resolved from MDX frontmatter `lastmod`
 // when present, falling back to the file's mtime, then `new Date()`.
@@ -21,7 +20,6 @@ export const REFERENCE_CONTENT_DIR = path.join(
   process.cwd(),
   "src/content/reference",
 );
-export const AG_UI_CONTENT_DIR = path.join(process.cwd(), "src/content/ag-ui");
 
 export interface MdxEntry {
   /** URL slug (no leading slash, route groups stripped, trailing /index dropped). */
@@ -164,14 +162,6 @@ export function getFrameworkOverridePages(folder: string): MdxEntry[] {
 export function getReferencePages(): MdxEntry[] {
   if (!fs.existsSync(REFERENCE_CONTENT_DIR)) return [];
   return walkMdx(REFERENCE_CONTENT_DIR).filter((e) => e.slug.length > 0);
-}
-
-/**
- * AG-UI pages under `src/content/ag-ui/`.
- */
-export function getAgUiPages(): MdxEntry[] {
-  if (!fs.existsSync(AG_UI_CONTENT_DIR)) return [];
-  return walkMdx(AG_UI_CONTENT_DIR).filter((e) => e.slug.length > 0);
 }
 
 /**
