@@ -50,6 +50,35 @@ export function convertMessageToLangChainMessage(
   }
 }
 
+/**
+ * Folds an assistant turn back into one message. A v1 history carries each
+ * tool call as its own message (plus an empty text message before them), so
+ * parallel calls arrive as several `AIMessage`s in a row. OpenAI rejects that
+ * shape: an assistant message with `tool_calls` must be followed directly by
+ * the results for each of its calls.
+ */
+export function mergeAssistantToolCalls(
+  messages: BaseMessage[],
+): BaseMessage[] {
+  const merged: BaseMessage[] = [];
+  for (const message of messages) {
+    const previous = merged[merged.length - 1];
+    if (
+      isAIMessage(previous) &&
+      isAIMessage(message) &&
+      message.tool_calls?.length
+    ) {
+      merged[merged.length - 1] = new AIMessage({
+        content: previous.content || message.content,
+        tool_calls: [...(previous.tool_calls ?? []), ...message.tool_calls],
+      });
+      continue;
+    }
+    merged.push(message);
+  }
+  return merged;
+}
+
 export function convertActionInputToLangChainTool(
   actionInput: ActionInput,
 ): any {
@@ -128,21 +157,19 @@ export async function streamLangChainResponse({
   // 1. string
 
   if (typeof result === "string") {
-    if (!actionExecution || actionExecution?.returnDirect) {
+    // LangChainAdapter never passes `actionExecution`, so a plain string
+    // reply read `.id` off `undefined` here and the documented string return
+    // type always failed.
+    if (actionExecution) {
+      eventStream$.sendActionExecutionResult({
+        actionExecutionId: actionExecution.id,
+        actionName: actionExecution.name,
+        result: result,
+      });
+    }
+    if (!actionExecution || actionExecution.returnDirect) {
       // Just send one chunk with the string as the content.
-      eventStream$.sendActionExecutionResult({
-        actionExecutionId: actionExecution.id,
-        actionName: actionExecution.name,
-        result: result,
-      });
       eventStream$.sendTextMessage(randomId(), result);
-    } else {
-      // Send as a result
-      eventStream$.sendActionExecutionResult({
-        actionExecutionId: actionExecution.id,
-        actionName: actionExecution.name,
-        result: result,
-      });
     }
   }
 
@@ -151,8 +178,9 @@ export async function streamLangChainResponse({
   else if (isAIMessage(result)) {
     maybeSendActionExecutionResultIsMessage(eventStream$, actionExecution);
 
-    if (result.content) {
-      eventStream$.sendTextMessage(randomId(), result.content as string);
+    const text = contentToText(result.content);
+    if (text) {
+      eventStream$.sendTextMessage(randomId(), text);
     }
     for (const toolCall of result.tool_calls) {
       eventStream$.sendActionExecution({
@@ -168,8 +196,9 @@ export async function streamLangChainResponse({
   else if (isBaseMessageChunk(result)) {
     maybeSendActionExecutionResultIsMessage(eventStream$, actionExecution);
 
-    if (result.lc_kwargs?.content) {
-      eventStream$.sendTextMessage(randomId(), result.content as string);
+    const text = contentToText(result.lc_kwargs?.content);
+    if (text) {
+      eventStream$.sendTextMessage(randomId(), text);
     }
     if (result.lc_kwargs?.tool_calls) {
       for (const toolCall of result.lc_kwargs?.tool_calls) {
@@ -188,9 +217,21 @@ export async function streamLangChainResponse({
     maybeSendActionExecutionResultIsMessage(eventStream$, actionExecution);
 
     let reader = result.getReader();
+    // Cancelling the reader ends the pending read and stops the model stream,
+    // so a stopped run does not keep streaming (and billing) in the background.
+    const cancelReader = () => {
+      void reader.cancel().catch(() => {});
+    };
+    eventStream$.signal?.addEventListener("abort", cancelReader, {
+      once: true,
+    });
 
     let mode: "function" | "message" | null = null;
     let currentMessageId: string;
+    // The tool call that was started and not yet ended. `toolCallId` below is
+    // the id of the chunk being read, which has already moved on to the next
+    // call when the index changes, or is undefined once the stream is done.
+    let openToolCallId: string | undefined;
 
     const toolCallDetails = {
       name: null,
@@ -207,12 +248,7 @@ export async function streamLangChainResponse({
         let toolCallId: string | undefined = undefined;
         let toolCallArgs: string | undefined = undefined;
         let hasToolCall: boolean = false;
-        let content = "";
-        if (value && value.content) {
-          content = Array.isArray(value.content)
-            ? (((value.content[0] as any)?.text ?? "") as string)
-            : value.content;
-        }
+        const content = contentToText(value?.content);
 
         if (isAIMessageChunk(value)) {
           let chunk = value.tool_call_chunks?.[0];
@@ -250,8 +286,9 @@ export async function streamLangChainResponse({
         } else if (mode === "function" && (!hasToolCall || done)) {
           mode = null;
           eventStream$.sendActionExecutionEnd({
-            actionExecutionId: toolCallId,
+            actionExecutionId: openToolCallId,
           });
+          openToolCallId = undefined;
         }
 
         if (done) {
@@ -262,6 +299,7 @@ export async function streamLangChainResponse({
         if (mode === null) {
           if (hasToolCall && toolCallId && toolCallName) {
             mode = "function";
+            openToolCallId = toolCallId;
             eventStream$.sendActionExecutionStart({
               actionExecutionId: toolCallId,
               actionName: toolCallName,
@@ -284,8 +322,9 @@ export async function streamLangChainResponse({
           // For calls of the same tool with different index, we seal last tool call and register a new one
           if (toolCallDetails.index !== toolCallDetails.prevIndex) {
             eventStream$.sendActionExecutionEnd({
-              actionExecutionId: toolCallId,
+              actionExecutionId: openToolCallId,
             });
+            openToolCallId = toolCallId;
             eventStream$.sendActionExecutionStart({
               actionExecutionId: toolCallId,
               actionName: toolCallName,
@@ -303,6 +342,7 @@ export async function streamLangChainResponse({
         break;
       }
     }
+    eventStream$.signal?.removeEventListener("abort", cancelReader);
   } else if (actionExecution) {
     eventStream$.sendActionExecutionResult({
       actionExecutionId: actionExecution.id,
@@ -317,6 +357,20 @@ export async function streamLangChainResponse({
   }
 
   eventStream$.complete();
+}
+
+/**
+ * Message content as plain text. Some providers (Anthropic) return an array of
+ * content parts, where text sits next to `tool_use` and other parts.
+ */
+function contentToText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((part) =>
+      part?.type === "text" && typeof part.text === "string" ? part.text : "",
+    )
+    .join("");
 }
 
 function encodeResult(result: any): string {

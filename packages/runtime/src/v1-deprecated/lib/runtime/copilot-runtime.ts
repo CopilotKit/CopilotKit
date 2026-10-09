@@ -132,8 +132,9 @@ import {
 // +++ MCP Imports +++
 import { extractParametersFromSchema } from "./mcp-tools-utils";
 import type { MCPClient, MCPEndpointConfig, MCPTool } from "./mcp-tools-utils";
-import { BuiltInAgent } from "../../../agent";
+import { BuiltInAgent, resolveModel } from "../../../agent";
 import type { BuiltInAgentClassicConfig } from "../../../agent";
+import { LegacyServiceAdapterAgent } from "./legacy-service-adapter-agent";
 import { resolveMCPToolNames } from "../../../agent/mcp-tool-names";
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (
@@ -434,6 +435,22 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
   lockTtlSeconds?: CopilotIntelligenceRuntimeOptions["lockTtlSeconds"];
   lockKeyPrefix?: CopilotIntelligenceRuntimeOptions["lockKeyPrefix"];
   lockHeartbeatIntervalSeconds?: CopilotIntelligenceRuntimeOptions["lockHeartbeatIntervalSeconds"];
+}
+
+/**
+ * Whether the adapter's `provider/model` strings name a model BuiltInAgent can
+ * build. `BedrockAdapter` sets `provider = "bedrock"`, which it cannot.
+ */
+function canResolveModel(serviceAdapter: CopilotServiceAdapter): boolean {
+  if (!serviceAdapter.provider || !serviceAdapter.model) {
+    return false;
+  }
+  try {
+    resolveModel(`${serviceAdapter.provider}/${serviceAdapter.model}`);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -739,21 +756,25 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       if (languageModel) {
         // Adapter exposes a pre-configured LanguageModel (e.g. OpenAI/Anthropic adapters)
         agentsList.default = new BuiltInAgent({ model: languageModel });
-      } else if (serviceAdapter.provider && serviceAdapter.model) {
-        // Adapter exposes provider/model strings
+      } else if (canResolveModel(serviceAdapter)) {
+        // Adapter exposes provider/model strings BuiltInAgent understands
         agentsList.default = new BuiltInAgent({
           model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
         });
-      } else {
+      } else if (serviceAdapter.name === "OpenAIAssistantAdapter") {
+        // Its `process()` needs the OpenAI thread and run ids carried between
+        // requests, and the Assistants API it calls was shut down by OpenAI on
+        // 2026-08-26. Fail clearly rather than run it and fail on the network.
         throw new CopilotKitMisuseError({
           message:
-            `Service adapter "${serviceAdapter.name ?? "unknown"}" does not provide model information. ` +
-            `When using adapters like LangChainAdapter without an explicit agents list, ` +
-            `please provide a default agent in the runtime config. Example:\n` +
-            `  new CopilotRuntime({\n` +
-            `    agents: { default: new BuiltInAgent({ model: "openai/gpt-4o" }) }\n` +
-            `  })`,
+            `OpenAIAssistantAdapter is not supported: OpenAI shut down the Assistants API ` +
+            `on 2026-08-26. Use OpenAIAdapter, or a BuiltInAgent in the runtime's agents.`,
         });
+      } else {
+        // Everything else -- LangChainAdapter's `chainFn`, BedrockAdapter
+        // ("bedrock" is not a BuiltInAgent provider), custom adapters -- runs
+        // through its own `process()`, as in v1 (#3217).
+        agentsList.default = new LegacyServiceAdapterAgent(serviceAdapter);
       }
     }
 

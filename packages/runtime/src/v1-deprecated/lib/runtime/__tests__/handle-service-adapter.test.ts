@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { BuiltInAgent } from "../../../../agent";
 import type { CopilotServiceAdapter } from "../../../service-adapters";
 import { CopilotRuntime } from "../copilot-runtime";
+import { LegacyServiceAdapterAgent } from "../legacy-service-adapter-agent";
 import { resolveAgents } from "../../../../v2/runtime/core/runtime";
 
 /**
@@ -77,52 +78,77 @@ describe("CopilotRuntime#handleServiceAdapter (#3217)", () => {
 
     runtime.handleServiceAdapter(
       makeAdapter({
-        name: "GroqAdapter",
-        provider: "groq",
-        model: "llama-3.3-70b-versatile",
+        name: "CustomOpenAIAdapter",
+        provider: "openai",
+        model: "gpt-4o",
       }),
     );
 
     const agent = await getDefaultAgent(runtime);
     expect(agent).toBeInstanceOf(BuiltInAgent);
-    expect(getBuiltInAgentModel(agent as BuiltInAgent)).toBe(
-      "groq/llama-3.3-70b-versatile",
-    );
+    expect(getBuiltInAgentModel(agent as BuiltInAgent)).toBe("openai/gpt-4o");
   });
 
-  it("throws CopilotKitMisuseError when no model source is available (LangChainAdapter regression)", async () => {
+  it("runs an adapter with no model source through its own process() (LangChainAdapter)", async () => {
     const runtime = new CopilotRuntime();
 
     runtime.handleServiceAdapter(makeAdapter({ name: "LangChainAdapter" }));
 
-    await expect(resolvedAgents(runtime)).rejects.toBeInstanceOf(
-      CopilotKitMisuseError,
-    );
-    await expect(resolvedAgents(runtime)).rejects.toThrow(
-      /Service adapter "LangChainAdapter" does not provide model information/,
+    expect(await getDefaultAgent(runtime)).toBeInstanceOf(
+      LegacyServiceAdapterAgent,
     );
   });
 
-  it("falls back to 'unknown' in the thrown error when the adapter has no name", async () => {
+  it("runs an adapter whose provider BuiltInAgent cannot resolve through process() (BedrockAdapter)", async () => {
+    // BedrockAdapter sets provider = "bedrock". BuiltInAgent has no such
+    // provider, so a "bedrock/..." model string failed on the first run.
     const runtime = new CopilotRuntime();
 
-    runtime.handleServiceAdapter(makeAdapter({ name: undefined }));
+    runtime.handleServiceAdapter(
+      makeAdapter({
+        name: "LangChainAdapter",
+        provider: "bedrock",
+        model: "amazon.nova-lite-v1:0",
+      }),
+    );
 
-    await expect(resolvedAgents(runtime)).rejects.toThrow(
-      /Service adapter "unknown" does not provide model information/,
+    expect(await getDefaultAgent(runtime)).toBeInstanceOf(
+      LegacyServiceAdapterAgent,
     );
   });
 
-  it("does not throw when provider is set without a model — but must not emit 'undefined/undefined'", async () => {
+  it("never synthesizes 'provider/undefined' when only provider is set", async () => {
     // Guards the specific #3217 regression: when only one half of the pair is
-    // present, we must NOT synthesize a bogus "provider/undefined" string.
+    // present, we must NOT build a BuiltInAgent from a bogus model string.
     const runtime = new CopilotRuntime();
 
     runtime.handleServiceAdapter(
       makeAdapter({ name: "PartialAdapter", provider: "openai" }),
     );
 
+    expect(await getDefaultAgent(runtime)).toBeInstanceOf(
+      LegacyServiceAdapterAgent,
+    );
+  });
+
+  it("rejects OpenAIAssistantAdapter with a clear error", async () => {
+    const runtime = new CopilotRuntime();
+
+    runtime.handleServiceAdapter(
+      makeAdapter({ name: "OpenAIAssistantAdapter" }),
+    );
+
     await expect(resolvedAgents(runtime)).rejects.toThrow(
+      /OpenAIAssistantAdapter is not supported: OpenAI shut down the Assistants API/,
+    );
+  });
+
+  it("still rejects EmptyAdapter with no agents", async () => {
+    const runtime = new CopilotRuntime();
+
+    runtime.handleServiceAdapter(makeAdapter({ name: "EmptyAdapter" }));
+
+    await expect(resolvedAgents(runtime)).rejects.toBeInstanceOf(
       CopilotKitMisuseError,
     );
   });
