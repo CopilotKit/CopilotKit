@@ -282,7 +282,7 @@ export function parseRunRecordsSnapshot(
           );
         unique(
           resourceIds,
-          `environment:${environmentId}`,
+          JSON.stringify(["environment", environmentId]),
           "environment ownership",
         );
         const startedAt = timestamp(run.startedAt, "run.startedAt");
@@ -357,7 +357,7 @@ export function parseRunRecordsSnapshot(
               "environment-mismatch",
               "environment resource must match run environment",
             );
-          const key = `${kind}:${id}`;
+          const key = JSON.stringify([kind, id]);
           unique(localResources, key, "run resources");
           if (kind !== "environment")
             unique(resourceIds, key, "resource ownership");

@@ -563,6 +563,124 @@ describe("strict snapshot and policy validation", () => {
   });
 });
 
+describe("resource identity tuples", () => {
+  it.each<[string, Partial<RunRecord>[], string | null]>([
+    [
+      "distinct colon-bearing pairs in one run",
+      [
+        {
+          resources: [
+            { kind: "volume", id: "region:123" },
+            { kind: "volume:region", id: "123" },
+          ],
+        },
+      ],
+      null,
+    ],
+    [
+      "distinct colon-bearing pairs across runs",
+      [
+        { resources: [{ kind: "volume", id: "region:123" }] },
+        { resources: [{ kind: "volume:region", id: "123" }] },
+      ],
+      null,
+    ],
+    [
+      "explicit resource distinct from its run's implicit environment",
+      [
+        {
+          environmentId: "region:123",
+          resources: [{ kind: "environment:region", id: "123" }],
+        },
+      ],
+      null,
+    ],
+    [
+      "explicit resource distinct from a later implicit environment",
+      [
+        { resources: [{ kind: "environment:region", id: "123" }] },
+        { environmentId: "region:123", resources: [] },
+      ],
+      null,
+    ],
+    [
+      "matching explicit environment resource",
+      [
+        {
+          environmentId: "region:123",
+          resources: [{ kind: "environment", id: "region:123" }],
+        },
+      ],
+      null,
+    ],
+    [
+      "repeated exact pair in one run",
+      [
+        {
+          resources: [
+            { kind: "volume:region", id: "123" },
+            { kind: "volume:region", id: "123" },
+          ],
+        },
+      ],
+      "duplicate-claim",
+    ],
+    [
+      "repeated exact pair across runs",
+      [
+        { resources: [{ kind: "volume:region", id: "123" }] },
+        { resources: [{ kind: "volume:region", id: "123" }] },
+      ],
+      "duplicate-claim",
+    ],
+    [
+      "repeated implicit environment across runs",
+      [
+        { environmentId: "region:123", resources: [] },
+        { environmentId: "region:123", resources: [] },
+      ],
+      "duplicate-claim",
+    ],
+    [
+      "mismatched explicit environment resource",
+      [
+        {
+          environmentId: "region:123",
+          resources: [{ kind: "environment", id: "region:456" }],
+        },
+      ],
+      "environment-mismatch",
+    ],
+    [
+      "service identity in non-service resources",
+      [{ resources: [{ kind: "service", id: "service:123" }] }],
+      "invalid-resource-kind",
+    ],
+  ])(
+    "validates %s without flattening tuple fields",
+    (_name, overrides, error) => {
+      const snapshot = {
+        schemaVersion: 1,
+        runs: overrides.map((run, index) =>
+          record({
+            runId: `run-${index}`,
+            environmentId: `environment-${index}`,
+            phase: "complete",
+            services: [],
+            ...run,
+          }),
+        ),
+      };
+      const result = parseRunRecordsSnapshot(snapshot, policy, NOW);
+      if (error) {
+        expect(result).toMatchObject({ ok: false, issues: [{ code: error }] });
+      } else {
+        expect(result).toEqual({ ok: true, value: snapshot });
+      }
+    },
+  );
+});
+
 describe("durable record reader", () => {
   it("distinguishes unset configuration from an explicit no-run snapshot", async () => {
     expect(await readRailwayLifecycleEvidence(undefined, policy, NOW)).toEqual({
