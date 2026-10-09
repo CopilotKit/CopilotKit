@@ -142,9 +142,10 @@ that map, deploy/reconcile selectors, auto-update policy, or promotion closure.
 `{presence: "optional", image: "ignored"}`. Simultaneous `gateValidated: true`
 and `gateIgnore: true` is invalid. Generated entries expose `gateIgnore` and
 `gatePolicy`. The six static `showcase-intelligence-*` entries remain permanent,
-independently managed services with ignored gates, unmanaged auto-updates, and
-disabled probes. Existing staging `:latest` and production exact-repository
-digest rules remain unchanged.
+independently managed services with optional presence, ignored image policy,
+unmanaged auto-updates, and disabled probes. Their inventory identity still
+requires the exact registered name and `serviceId`. Existing staging `:latest`
+and production exact-repository digest rules remain unchanged.
 
 ## Presence and exclusions
 

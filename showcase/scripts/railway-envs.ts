@@ -429,16 +429,16 @@ export interface ServiceEntry {
    */
   imageOf?: string;
   /**
-   * Opt-out flag for the image-ref gate. When `true`, the gate ignores
-   * this service entirely in BOTH the SSOT→Railway direction (no
-   * "missing from Railway" failure if absent) AND the Railway→SSOT
-   * direction (no "untracked Railway service" failure if Railway has
-   * a service with this name that is not WS4-managed). Default: false.
+   * Marks independently deployed services whose image policy does not match
+   * the Showcase build pipeline. Use with `gateValidated: false`;
+   * `gateValidated: true` together with `gateIgnore: true` is invalid.
    *
-   * Intentionally narrow: this exists for independently deployed services
-   * whose image policy does not match the Showcase build pipeline. Single-env
-   * services are fully supported by the gate when they are validated. The
-   * default for every Showcase-managed service is `false` (omitted).
+   * This flag does not grant inventory membership. Permanent identity still
+   * requires the exact registered service name and `serviceId`.
+   * `effectiveStaticGatePolicy` resolves presence and image policy:
+   * `gateValidated: false` means optional presence and ignored image policy,
+   * even when `gateIgnore` is omitted. Single-env services remain supported
+   * when validated. Default: `false` (omitted) for Showcase-managed services.
    */
   gateIgnore?: boolean;
   /**
@@ -1562,9 +1562,9 @@ export const SERVICES: Record<
   },
   // Staging-only Intelligence stack, deployed outside showcase_build.yml.
   // These six services use pinned Intelligence/Caddy/database images rather
-  // than the Showcase staging :latest convention. Keep them in the SSOT so
-  // the image gate recognizes their Railway names, but do not build, probe,
-  // validate image shape, or promote them through the Showcase pipeline.
+  // than the Showcase staging :latest convention. Their registered names and
+  // service IDs establish permanent identity in the image gate. Do not build,
+  // probe, validate image shape, or promote them through the Showcase pipeline.
   // The superseded init service is intentionally absent: Composite runs migrations.
   "showcase-intelligence-api": {
     serviceId: "2cf17267-31c4-4e92-8270-5ad92bd7ad19",

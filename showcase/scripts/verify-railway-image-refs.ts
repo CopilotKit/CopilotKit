@@ -75,9 +75,11 @@ const STARTER_FLEET_PREFIX = "starter-";
  * both drift directions exactly like a showcase-* agent, with NO carve-out.
  * This predicate is retained for a single NARROW purpose: tolerating a
  * stray/in-flight `starter-<slug>` live service that is provisioned ahead of
- * (or absent from) its SSOT entry. `findUntrackedServices` consults it ONLY
- * after the SSOT-membership check, so an SSOT-managed starter never reaches
- * this carve-out. It does NOT exempt any SSOT starter from the gate.
+ * (or absent from) its SSOT entry. The current runner's `toleratedStarter`
+ * wrapper checks name, ID, and lifecycle evidence before allowing that
+ * exception. The legacy name-only `findUntrackedServices` helper also uses
+ * this predicate after its name lookup. The predicate alone grants no
+ * exemption from the current gate.
  *
  * The `starter_smoke` probe still auto-discovers `starter-*` services at
  * runtime (railway-services source, `namePrefix: "starter-"`), independent of
@@ -251,18 +253,14 @@ export function findMissingServices(
 }
 
 /**
- * Coverage assertion — Railway → SSOT direction. Returns the names of
- * Railway services that are NOT present in the SSOT. A non-empty result
- * means the gate should fail (drift in the Railway→SSOT direction: an
- * out-of-band service was added to the Railway project without updating
- * the SSOT).
+ * Retained name-only helper used by legacy tests. Returns names that fail
+ * its SERVICES name lookup and do not have the starter-fleet prefix.
+ * It receives no service IDs and cannot validate them.
  *
- * Pure / unit-testable. Caller (main()) is responsible for collecting
- * the set of Railway-reported service names from the GraphQL response.
- *
- * Note: complements `findMissingServices` (SSOT→Railway direction); see
- * its docstring above. The two directions are NOT the same check — do
- * NOT collapse them.
+ * The current runner (`runRailwayImageGate`, called by `main`) does not use
+ * this helper for inventory authorization. It requires an own-name SERVICES
+ * entry with the exact `serviceId` before applying ignored image policy;
+ * lifecycle ownership and `toleratedStarter` handle its allowed exceptions.
  */
 export function findUntrackedServices(
   railwayServiceNames: ReadonlySet<string>,
@@ -270,18 +268,11 @@ export function findUntrackedServices(
   const untracked: string[] = [];
   for (const name of railwayServiceNames) {
     const entry = SERVICES[name];
-    // Any SSOT entry — gateIgnored or not — is known/accounted-for in
-    // the Railway->SSOT direction. Only absence from the SSOT counts. The
-    // 12 starter-<slug> services are now SSOT entries (S2), so they take
-    // this branch and are tolerated exactly like every other tracked
-    // service — no special-case skip.
+    // This legacy lookup skips truthy SERVICES[name] values regardless of
+    // gate flags. It does not check own properties or service IDs.
     if (entry) continue;
-    // Narrow carve-out for a starter-* live service that is NOT (yet) in the
-    // SSOT. The 12 known starters are SSOT-managed above; this only tolerates
-    // a stray/in-flight `starter-<slug>` provisioned ahead of its SSOT entry
-    // (the starter_smoke probe auto-discovers it by namePrefix "starter-").
-    // It does NOT exempt any SSOT-managed starter from drift — those are
-    // handled by the `if (entry) continue` branch and ARE gate-validated.
+    // The legacy helper also skips starter-* names after the lookup above.
+    // The current runner applies the stricter toleratedStarter checks.
     if (isStarterFleetService(name)) continue;
     untracked.push(name);
   }
