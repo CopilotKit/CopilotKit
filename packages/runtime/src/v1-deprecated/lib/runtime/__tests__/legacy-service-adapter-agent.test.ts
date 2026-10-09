@@ -93,6 +93,19 @@ describe("LangChainAdapter through the v1 endpoint (#3217)", () => {
     expect(content.delta).toBe("Hi there");
   });
 
+  it("streams a plain string reply", async () => {
+    const events = await runThroughEndpoint(
+      async () => "Just a string",
+      baseInput(),
+    );
+
+    const content = events.find(
+      (e) => e.type === EventType.TEXT_MESSAGE_CONTENT,
+    ) as { delta: string } & BaseEvent;
+    expect(content?.delta).toBe("Just a string");
+    expect(types(events).at(-1)).toBe(EventType.RUN_FINISHED);
+  });
+
   it("advertises frontend tools to chainFn and ends the run on a frontend tool call", async () => {
     const chainFn = vi.fn<ChainFn>(
       async () =>
