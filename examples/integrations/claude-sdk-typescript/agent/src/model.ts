@@ -30,13 +30,12 @@ function agentModelFromEnv(): string | undefined {
  * Resolve the Claude model id from the environment. `COPILOTKIT_AGENT_MODEL`
  * (anthropic only) wins and overrides every model site in the agent; then
  * CLAUDE_MODEL, then ANTHROPIC_MODEL, then the default. A dotted marketing
- * name in CLAUDE_MODEL / ANTHROPIC_MODEL (e.g. "claude-sonnet-4.6") is
- * normalized to the API id ("claude-sonnet-4-6").
+ * name from any of them (e.g. "claude-sonnet-4.6") is normalized to the API
+ * id ("claude-sonnet-4-6").
  */
 export function resolveModel(): string {
-  const fromSpec = agentModelFromEnv();
-  if (fromSpec) return fromSpec;
   const model =
+    agentModelFromEnv() ||
     process.env.CLAUDE_MODEL ||
     process.env.ANTHROPIC_MODEL ||
     DEFAULT_CLAUDE_MODEL;
