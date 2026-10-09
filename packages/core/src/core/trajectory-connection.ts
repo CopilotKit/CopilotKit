@@ -12,6 +12,7 @@ import type {
 } from "@copilotkit/learning";
 import type { CopilotKitCore } from "./core";
 import type { CopilotRuntimeTransport } from "../types";
+import { abortable, isPromiseLike } from "./header-source";
 
 const TIMEOUT_MS = 10_000;
 const BATCH_INTERVAL_MS = 2_000;
@@ -464,6 +465,15 @@ export class TrajectoryConnection {
         if (!this.current(session, connection)) return;
       }
       const rest = transport === "rest";
+      // Resolved fresh, not the last snapshot: with a builder, `core.headers`
+      // is `{}` before the first request and an old token after that (#1937).
+      // Only an async builder is awaited, so a sync source still sends in the
+      // same tick.
+      const resolved = this.core.resolveHeaders();
+      const coreHeaders = isPromiseLike(resolved)
+        ? await abortable(resolved, connection.abort.signal)
+        : resolved;
+      if (!this.current(session, connection)) return;
       const response = await fetch(
         rest
           ? `${runtimeUrl}/trajectory/${encodeURIComponent(session.trajectoryId)}/connect`
@@ -472,7 +482,7 @@ export class TrajectoryConnection {
           method: "POST",
           redirect: "error",
           signal: connection.abort.signal,
-          headers: { ...this.core.headers, "Content-Type": "application/json" },
+          headers: { ...coreHeaders, "Content-Type": "application/json" },
           credentials: this.core.credentials,
           body: JSON.stringify(
             rest

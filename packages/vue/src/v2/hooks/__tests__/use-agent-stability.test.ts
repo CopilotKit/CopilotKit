@@ -30,6 +30,7 @@ describe("useAgent stability during runtime connection", () => {
     runtimeTransport: string;
     headers: Record<string, string>;
     agents: Record<string, AbstractAgent>;
+    applyHeadersToAgent: (agent: AbstractAgent) => void;
     // Added after the hook moved to consume the shared core API. Mocks only
     // need a no-op subscription object here; stability/ref-identity behavior
     // is orthogonal to subscribe internals.
@@ -49,6 +50,16 @@ describe("useAgent stability during runtime connection", () => {
       runtimeTransport: "rest",
       headers: {},
       agents: {},
+      // Additive stand-in for core's merge (core headers ON TOP of the
+      // agent's own). These tests only assert agent identity / threadId and
+      // never remove a header, so this approximation is sufficient; it does
+      // NOT model core's frozen construction-time baseline.
+      applyHeadersToAgent: (agent) => {
+        const target = agent as { headers?: Record<string, string> };
+        if (target.headers) {
+          target.headers = { ...target.headers, ...mockCopilotkit.headers };
+        }
+      },
       subscribeToAgentWithOptions: vi.fn(() => ({ unsubscribe: vi.fn() })),
       applyHeadersToAgent: vi.fn(),
     });

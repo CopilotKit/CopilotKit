@@ -55,7 +55,6 @@ const mockFetch = (
 const installCopilotKit = (
   overrides: {
     runtimeUrl?: string | null;
-    headers?: Record<string, string>;
   } = {},
 ) => {
   mockUseCopilotKit.mockReturnValue({
@@ -64,7 +63,6 @@ const installCopilotKit = (
         overrides.runtimeUrl === undefined
           ? "https://bff.example.com/api/copilotkit"
           : overrides.runtimeUrl,
-      headers: overrides.headers,
     },
   });
 };
@@ -149,18 +147,46 @@ describe("useLearnFromUserAction", () => {
     );
   });
 
-  it("includes the customer headers from copilotkit.headers", async () => {
-    installCopilotKit({ headers: { "X-Customer": "abc" } });
-    const { calls, fetch } = mockFetch([
+  it("does not forward a copilotkit.headers snapshot (#1937)", async () => {
+    // `copilotkit.headers` is a resolved-headers SNAPSHOT that can be stale
+    // (e.g. from before the current builder source was set, or before the
+    // in-flight builder call settled) — `ɵruntimeFetch` is the one that
+    // resolves and overlays the CURRENT headers at send time. Give the mock
+    // a snapshot containing a key the request must NOT carry: if the hook
+    // regresses to spreading `copilotkit.headers` again, this key reappears
+    // and the test fails. (Unlike a prior version of this test, the mock
+    // `ɵruntimeFetch` here does NOT unconditionally overwrite this key, so a
+    // regression is not masked.)
+    const { calls, fetch: rawFetch } = mockFetch([
       { status: 200, body: { id: "1", duplicate: false } },
     ]);
-    globalThis.fetch = fetch;
+    const runtimeFetch = vi.fn((url: RequestInfo | URL, init?: RequestInit) =>
+      rawFetch(url, {
+        ...init,
+        headers: {
+          ...(init?.headers as Record<string, string>),
+          "X-Customer": "Bearer tok-2",
+        },
+      }),
+    ) as unknown as typeof globalThis.fetch;
+
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "https://bff.example.com/api/copilotkit",
+        // A stale snapshot the hook must NOT read from directly.
+        headers: { "X-Stale-Snapshot": "old-value" },
+        ɵruntimeFetch: runtimeFetch,
+      },
+    });
 
     const { result } = renderHook(() => useLearnFromUserAction());
     await result.current({ threadId: "t", title: "x" });
 
+    expect(calls).toHaveLength(1);
     const headers = calls[0]!.init?.headers as Record<string, string>;
-    expect(headers["X-Customer"]).toBe("abc");
+    expect(headers["X-Stale-Snapshot"]).toBeUndefined();
+    // The current header still arrives, via ɵruntimeFetch, not the snapshot.
+    expect(headers["X-Customer"]).toBe("Bearer tok-2");
     expect(headers["Content-Type"]).toBe("application/json");
   });
 

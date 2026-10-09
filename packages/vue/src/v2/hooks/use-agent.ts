@@ -210,7 +210,6 @@ export function useAgent(props: UseAgentProps = {}) {
     id: string,
     runtimeUrl: string,
     transport: CopilotRuntimeTransport,
-    headers: Record<string, string>,
   ) => {
     const provisional = new ProxiedCopilotRuntimeAgent({
       runtimeUrl,
@@ -218,7 +217,10 @@ export function useAgent(props: UseAgentProps = {}) {
       transport,
       runtimeMode: "pending",
     });
-    provisional.headers = { ...headers };
+    // Never invokes the headers builder — installs `ɵruntimeFetch` and
+    // own-only headers on this proxied agent, so a request it actually sends
+    // resolves the current headers at send time (#1937).
+    copilotkit.value.applyHeadersToAgent(provisional);
     return provisional;
   };
 
@@ -268,7 +270,7 @@ export function useAgent(props: UseAgentProps = {}) {
 
       const cachedProxy = provisionalAgentCache.get(id);
       if (cachedProxy) {
-        cachedProxy.headers = { ...core.headers };
+        core.applyHeadersToAgent(cachedProxy);
         agent.value = cachedProxy;
         subscriptionAgent.value = cachedProxy;
         return;
@@ -281,7 +283,7 @@ export function useAgent(props: UseAgentProps = {}) {
         transport: core.runtimeTransport,
         runtimeMode: "pending",
       });
-      provisionalProxy.headers = { ...core.headers };
+      core.applyHeadersToAgent(provisionalProxy);
       provisionalAgentCache.set(id, provisionalProxy);
       agent.value = provisionalProxy;
       subscriptionAgent.value = provisionalProxy;
@@ -312,7 +314,7 @@ export function useAgent(props: UseAgentProps = {}) {
     ) {
       const cached = provisionalAgentCache.get(id);
       if (cached) {
-        cached.headers = { ...core.headers };
+        core.applyHeadersToAgent(cached);
         agent.value = cached;
         subscriptionAgent.value = cached;
         return;
@@ -322,7 +324,6 @@ export function useAgent(props: UseAgentProps = {}) {
         id,
         core.runtimeUrl!,
         core.runtimeTransport,
-        core.headers,
       );
       provisionalAgentCache.set(id, provisional);
       agent.value = provisional;
@@ -343,20 +344,30 @@ export function useAgent(props: UseAgentProps = {}) {
     );
   };
 
+  // Keyed on `ɵheadersGeneration`, not header VALUES: a builder's returned
+  // token can change on every resolution without a new source ever being
+  // set (a run refreshing the snapshot), and this must not re-run
+  // `resolveAgent` (and force-trigger `agent`) on that (#1937).
+  // A genuine source change (a real `setHeaders()` call) still re-runs it,
+  // refreshing a cached provisional's headers via the branches above.
+  //
+  // `registeredProxy` is wrapped as a getter (`() => registeredProxy.value`)
+  // rather than passed directly: Vue's multi-source `watch` sets
+  // `forceTrigger = true` for the WHOLE array whenever any raw element is
+  // itself a shallowRef/reactive object, which makes the callback run on
+  // ANY dependency dirtying regardless of whether a source's value actually
+  // changed — silently defeating the `ɵheadersGeneration` rekey above (and
+  // every other source's diffing) the moment `registeredProxy` is present.
+  // A getter reads the same value without contributing to that flag.
   watch(
     [
       agentId,
-      registeredProxy,
+      () => registeredProxy.value,
       () => copilotkit.value.agents,
       () => copilotkit.value.runtimeConnectionStatus,
       () => copilotkit.value.runtimeUrl,
       () => copilotkit.value.runtimeTransport,
-      () =>
-        JSON.stringify(
-          Object.entries(copilotkit.value.headers ?? {}).sort(([a], [b]) =>
-            a.localeCompare(b),
-          ),
-        ),
+      () => copilotkit.value.ɵheadersGeneration,
     ],
     resolveAgent,
     { immediate: true },
@@ -381,16 +392,11 @@ export function useAgent(props: UseAgentProps = {}) {
     { immediate: true },
   );
 
+  // Keyed on `ɵheadersGeneration`, not header VALUES: a builder's returned
+  // token can change on every resolution without a new source ever being set,
+  // and this watcher must not re-fire on that (see #1937).
   watch(
-    [
-      subscriptionAgent,
-      () =>
-        JSON.stringify(
-          Object.entries(copilotkit.value.headers ?? {}).sort(([a], [b]) =>
-            a.localeCompare(b),
-          ),
-        ),
-    ],
+    [subscriptionAgent, () => copilotkit.value.ɵheadersGeneration],
     ([currentAgent]) => {
       if (ɵisHttpAgent(currentAgent)) {
         copilotkit.value.applyHeadersToAgent(currentAgent);
