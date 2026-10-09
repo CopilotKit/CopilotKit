@@ -489,6 +489,36 @@ describe("CopilotChat", () => {
       await queued;
     });
 
+    test("two sends during an active run run one after another instead of pre-empting each other", async () => {
+      const { chat, core } = context;
+      const external = core.runAgent({ agent });
+      await vi.waitFor(() => expect(agent.inputs).toHaveLength(1));
+      const first = chat.submitInput("first");
+      const second = chat.submitInput("second");
+
+      agent.finish();
+      await external;
+      await vi.waitFor(() => expect(agent.inputs).toHaveLength(2));
+      // runAgent detaches the finished run when the first send starts; from
+      // here on nothing may detach the first send's run.
+      const detach = vi.spyOn(agent, "detachActiveRun");
+      // The second send must wait for the first send's run, not abort it.
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      expect(agent.inputs).toHaveLength(2);
+      expect(agent.messages).toMatchObject([{ content: "first" }]);
+      expect(detach).not.toHaveBeenCalled();
+
+      agent.finish();
+      await first;
+      await vi.waitFor(() => expect(agent.inputs).toHaveLength(3));
+      expect(agent.messages).toMatchObject([
+        { content: "first" },
+        { content: "second" },
+      ]);
+      agent.finish();
+      await second;
+    });
+
     test("an upload started during the wait restores the submitted text and prevents dispatch", async () => {
       const { chat, core } = context;
       const external = core.runAgent({ agent });
