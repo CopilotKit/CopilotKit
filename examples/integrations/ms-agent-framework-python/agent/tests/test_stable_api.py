@@ -175,6 +175,8 @@ class StableApiTests(unittest.TestCase):
             (None, OpenAIChatClient),
             ("https://openrouter.ai/api/v1", OpenAIChatCompletionClient),
             ("https://api.openai.com/v1", OpenAIChatClient),
+            ("https://eu.api.openai.com/v1", OpenAIChatClient),
+            ("https://myres.openai.azure.com/openai/v1", OpenAIChatClient),
             ("not a url", OpenAIChatClient),
         )
         for agent_model in (None, "openai:meta-llama/llama-3.3-70b"):

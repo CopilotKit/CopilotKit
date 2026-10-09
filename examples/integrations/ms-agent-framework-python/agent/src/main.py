@@ -28,25 +28,36 @@ _COMPATIBLE_BASE_URLS = {
 _API_KEY_VARIABLES = {"anthropic": "ANTHROPIC_API_KEY", "google": "GOOGLE_API_KEY"}
 
 
-def _openai_client_class() -> type[OpenAIChatClient] | type[OpenAIChatCompletionClient]:
-    """The OpenAI client class for the configured endpoint.
+def uses_chat_completions() -> bool:
+    """Whether ``OPENAI_BASE_URL`` points at an OpenAI-compatible provider.
 
-    OpenAIChatClient calls the Responses API, which most OpenAI-compatible
-    providers do not serve (they offer only ``{base}/chat/completions``). So
-    when OPENAI_BASE_URL points at a host other than api.openai.com the starter
-    uses the Chat Completions client; OpenAI itself, an unset variable and an
-    unparseable URL keep the Responses API.
+    Most compatible providers serve only ``{base}/chat/completions``, not the
+    Responses API (which OpenAIChatClient calls), so those get the Chat
+    Completions client. OpenAI's own hosts
+    (``api.openai.com``, regional ``*.api.openai.com``), Azure OpenAI
+    (``*.openai.azure.com``), an unset variable and an unparseable URL keep
+    the Responses API. Same rule as the CopilotKit runtime (PE-706).
     """
-    base_url = os.getenv("OPENAI_BASE_URL")
+    base_url = (os.getenv("OPENAI_BASE_URL") or "").strip()
     if not base_url:
-        return OpenAIChatClient
+        return False
     try:
-        hostname = urlparse(base_url).hostname
+        hostname = (urlparse(base_url).hostname or "").lower()
     except ValueError:
-        return OpenAIChatClient
-    if hostname and hostname != "api.openai.com":
-        return OpenAIChatCompletionClient
-    return OpenAIChatClient
+        return False
+    if not hostname:
+        return False
+    is_openai_host = (
+        hostname == "api.openai.com"
+        or hostname.endswith(".api.openai.com")
+        or hostname.endswith(".openai.azure.com")
+    )
+    return not is_openai_host
+
+
+def _openai_client_class() -> type[OpenAIChatClient] | type[OpenAIChatCompletionClient]:
+    """The OpenAI client class for the configured endpoint (see uses_chat_completions)."""
+    return OpenAIChatCompletionClient if uses_chat_completions() else OpenAIChatClient
 
 
 def _build_chat_client() -> SupportsChatGetResponse:
