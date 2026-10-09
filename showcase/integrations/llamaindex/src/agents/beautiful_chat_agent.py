@@ -80,7 +80,7 @@ if os.environ.get("OPENAI_BASE_URL"):
 # injected tools, the request 404s in aimock, and the run emits RUN_ERROR
 # (sse-missing) instead of RUN_FINISHED. See agents/_request_tools.py.
 beautiful_chat_router = make_request_aware_router(
-    llm=OpenAI(model="gpt-4o-mini", **_openai_kwargs),
+    llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
     frontend_tools=[],
     # search_flights is a backend tool the page's "Search Flights" pill exercises
     # (mirrors langgraph-python/beautiful_chat.py). The page-injected frontend

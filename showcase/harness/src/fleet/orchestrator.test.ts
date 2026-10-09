@@ -13,7 +13,6 @@ import type {
 } from "./contracts.js";
 import type { Logger } from "../types/index.js";
 import { drainFleetWorker, makeRecycleExit } from "../orchestrator.js";
-import { WORKER_RECYCLE_EXIT_CODE } from "./worker/worker-loop.js";
 import { BrowserPool } from "../probes/helpers/browser-pool.js";
 import type {
   LaunchBrowser,
@@ -197,7 +196,7 @@ describe("runWorker default (self-contained) boot", () => {
 
 describe("runWorker recycle exit — deregister-first before process.exit", () => {
   it(
-    "forwards the injected recycle exit to the loop so a WORKER_MAX_JOBS recycle runs drainFleetWorker (deregister) BEFORE exiting non-zero",
+    "forwards the injected recycle exit to the loop so a WORKER_MAX_JOBS recycle runs drainFleetWorker (deregister) BEFORE exiting cleanly",
     { timeout: 20000 },
     async () => {
       // The GAP this guards: a WORKER_MAX_JOBS recycle must deregister the roster
@@ -220,11 +219,9 @@ describe("runWorker recycle exit — deregister-first before process.exit", () =
       const shutdownPool = async (): Promise<void> => {
         order.push("shutdownPool");
       };
-      const exitCodes: number[] = [];
-      const processExit = (code: number): void => {
-        order.push("processExit");
-        exitCodes.push(code);
-      };
+      const processExit = vi.fn((code: number): void => {
+        order.push(`processExit:${code}`);
+      });
 
       // Late-bound worker handle (assigned by runWorker below) — mirrors the
       // production wiring: the exit only dereferences it at recycle time.
@@ -245,11 +242,12 @@ describe("runWorker recycle exit — deregister-first before process.exit", () =
           shutdownPool,
         });
       };
-      const exit = makeRecycleExit({
+      const recycleExit = makeRecycleExit({
         gracefulTeardown,
         logger: silentLogger,
         processExit,
       });
+      const forwardedExit = vi.fn<() => void>(() => recycleExit());
 
       // Safety net: if a regression drops the forwarding, the loop's DEFAULT exit
       // is the real `process.exit` — stub it so a broken test can't kill the
@@ -279,7 +277,7 @@ describe("runWorker recycle exit — deregister-first before process.exit", () =
           pollIntervalMs: 1,
           launchBrowser: makeNoopLauncher(),
           cgroupPidsReader: headroomPidsReader,
-          exit,
+          exit: forwardedExit,
         });
         // The threshold was read at construction; unstub NOW so a lazy-threshold-
         // read regression (reading the knob at recycle time instead) sees the
@@ -288,14 +286,16 @@ describe("runWorker recycle exit — deregister-first before process.exit", () =
         vi.unstubAllEnvs();
 
         // One job settles → recycle fires → the forwarded exit runs to completion.
-        await vi.waitFor(
-          () => expect(exitCodes).toContain(WORKER_RECYCLE_EXIT_CODE),
-          { timeout: 5000 },
-        );
+        await vi.waitFor(() => expect(processExit).toHaveBeenCalledWith(0), {
+          timeout: 5000,
+        });
+        expect(forwardedExit).toHaveBeenCalledTimes(1);
+        expect(forwardedExit).toHaveBeenCalledWith();
+        expect(processExit).toHaveBeenCalledTimes(1);
 
         // Deregister-first: the roster delete ran BEFORE the process exit.
         const deregisterAt = order.indexOf("deregister");
-        const exitAt = order.indexOf("processExit");
+        const exitAt = order.indexOf("processExit:0");
         expect(deregisterAt).toBeGreaterThanOrEqual(0);
         expect(exitAt).toBeGreaterThanOrEqual(0);
         expect(deregisterAt).toBeLessThan(exitAt);

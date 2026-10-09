@@ -3,11 +3,7 @@ import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
 </script>
 
 <template>
-  <CopilotKitProvider
-    runtime-url="/api/copilotkit"
-    :a2ui="{}"
-    show-dev-console="auto"
-  >
+  <CopilotKitProvider runtime-url="/api/copilotkit" :a2ui="{}">
     <div style="height: 100vh; margin: 0; padding: 0; overflow: hidden">
       <CopilotChat agent-id="demo-button" thread-id="a2ui-demo-thread" />
     </div>

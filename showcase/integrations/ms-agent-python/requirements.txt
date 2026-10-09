@@ -1,6 +1,11 @@
-agent-framework-ag-ui==1.0.1
-agent-framework-openai==1.12.0
-agent-framework-core==1.13.0
+# The `[a2ui]` extra pulls `ag-ui-a2ui-toolkit` (imported lazily by the
+# adapter), which powers the backend-owned A2UI recovery loop used by the
+# a2ui-recovery demo (src/agents/recovery_agent.py). A2UI first shipped in
+# agent-framework-ag-ui 1.2.0.
+agent-framework-ag-ui[a2ui]==1.2.0
+agent-framework-openai==1.14.0
+agent-framework-core==1.15.0
+ag-ui-a2ui-toolkit==0.0.4
 httpx>=0.28.0
 python-dotenv==1.0.1
 uvicorn==0.37.0

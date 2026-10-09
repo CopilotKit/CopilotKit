@@ -35,10 +35,11 @@ from agents.a2ui_recovery_flow import a2ui_recovery_flow  # noqa: E402
 from agents.beautiful_chat_flow import beautiful_chat_flow  # noqa: E402
 from agents.byoc_hashbrown_agent import ByocHashbrown  # noqa: E402
 from agents.byoc_json_render_agent import ByocJsonRender  # noqa: E402
-from agents.crew import LatestAiDevelopment  # noqa: E402
+from agents.chat_flow import PromptedChatFlow  # noqa: E402
 from agents.declarative_gen_ui import declarative_gen_ui_flow  # noqa: E402
 from agents.frontend_tool_flow import frontend_tool_flow  # noqa: E402
 from agents.gen_ui_agent import gen_ui_agent_flow  # noqa: E402
+from agents.gen_ui_tool_based import gen_ui_tool_based_flow  # noqa: E402
 from agents.interrupt_flow import interrupt_flow  # noqa: E402
 from agents.mcp_apps_agent import MCPApps  # noqa: E402
 from agents.multimodal_flow import multimodal_flow  # noqa: E402
@@ -63,7 +64,7 @@ app = FastAPI(title="CrewAI (Crews) Agent Server")
 
 
 class HealthMiddleware(BaseHTTPMiddleware):
-    """Keep health reachable despite the shared root catch-all endpoint."""
+    """Keep the backend health contract independent of agent endpoints."""
 
     async def dispatch(self, request, call_next):
         if request.url.path == "/health" and request.method == "GET":
@@ -81,7 +82,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Dedicated endpoints must be registered before the shared root catch-all.
+# Cells that only need a plain assistant share the neutral chat Flow. A Flow
+# owns its own prompt, so they get no CrewAI crew-chat boilerplate.
+add_crewai_flow_fastapi_endpoint(app, PromptedChatFlow(), "/chat")
+
 add_crewai_flow_fastapi_endpoint(app, declarative_gen_ui_flow, "/declarative-gen-ui")
 add_crewai_flow_fastapi_endpoint(app, a2ui_fixed_flow, "/a2ui-fixed-schema")
 add_crewai_crew_fastapi_endpoint(app, ByocHashbrown(), "/byoc-hashbrown")
@@ -101,6 +105,7 @@ add_crewai_flow_fastapi_endpoint(app, frontend_tool_flow, "/frontend-tools")
 add_crewai_flow_fastapi_endpoint(app, a2ui_recovery_flow, "/a2ui-recovery")
 add_crewai_flow_fastapi_endpoint(app, subagents_flow, "/subagents")
 add_crewai_flow_fastapi_endpoint(app, gen_ui_agent_flow, "/gen-ui-agent")
+add_crewai_flow_fastapi_endpoint(app, gen_ui_tool_based_flow, "/gen-ui-tool-based")
 add_crewai_flow_fastapi_endpoint(app, reasoning_flow, "/reasoning")
 add_crewai_flow_fastapi_endpoint(
     app,
@@ -114,5 +119,3 @@ if tool_rendering_flow is not None:
 add_crewai_flow_fastapi_endpoint(
     app, tool_rendering_reasoning_flow, "/tool-rendering-reasoning"
 )
-
-add_crewai_crew_fastapi_endpoint(app, LatestAiDevelopment(), "/")

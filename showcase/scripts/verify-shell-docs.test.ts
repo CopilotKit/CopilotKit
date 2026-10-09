@@ -269,7 +269,7 @@ describe("checkClaudeQuickstarts", () => {
     - \`src/agents/claude_agent_sdk_adapter.py\` - adapter
     - \`src/app/api/copilotkit/route.ts\` - runtime
     ANTHROPIC_API_KEY=your_anthropic_api_key
-    ANTHROPIC_MODEL=claude-sonnet-4-6
+    ANTHROPIC_MODEL=claude-opus-4-8
     AGENT_URL=http://localhost:8000
   </TailoredContentOption>
   <TailoredContentOption id="bring-your-own" title="Use an existing agent" description="byoa">
@@ -291,7 +291,7 @@ describe("checkClaudeQuickstarts", () => {
         return {"status": "ok"}
     @app.post("/")
     async def run_agent(input_data: RunAgentInput):
-        adapter = ClaudeAgentAdapter(model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6"))
+        adapter = ClaudeAgentAdapter(model=os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8"))
         async def event_stream():
             try:
                 async for event in adapter.run(input_data):
@@ -308,8 +308,10 @@ describe("checkClaudeQuickstarts", () => {
 
     \`\`\`ts title="app/api/copilotkit/route.ts"
     import { HttpAgent } from "@ag-ui/client";
-    import { CopilotRuntime, ExperimentalEmptyAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
+    import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
     const runtime = new CopilotRuntime({ agents: { claude_agent: new HttpAgent({ url: process.env.AGENT_URL ?? "http://localhost:8000" }) } });
+    const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit", mode: "single-route" });
+    export const POST = (req: NextRequest) => handler(req);
     \`\`\`
 
     \`\`\`tsx title="app/layout.tsx"
@@ -336,7 +338,7 @@ describe("checkClaudeQuickstarts", () => {
     - \`src/app/api/copilotkit/route.ts\` - runtime
     - \`src/app/page.tsx\` - frontend
     ANTHROPIC_API_KEY=your_anthropic_api_key
-    CLAUDE_MODEL=claude-sonnet-4-6
+    CLAUDE_MODEL=claude-opus-4-8
     AGENT_URL=http://localhost:8000
   </TailoredContentOption>
   <TailoredContentOption id="bring-your-own" title="Use an existing agent" description="byoa">
@@ -372,8 +374,10 @@ describe("checkClaudeQuickstarts", () => {
 
     \`\`\`ts title="app/api/copilotkit/route.ts"
     import { HttpAgent } from "@ag-ui/client";
-    import { CopilotRuntime, ExperimentalEmptyAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
+    import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
     const runtime = new CopilotRuntime({ agents: { claude_agent: new HttpAgent({ url: process.env.AGENT_URL ?? "http://localhost:8000" }) } });
+    const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit", mode: "single-route" });
+    export const POST = (req: NextRequest) => handler(req);
     \`\`\`
 
     \`\`\`tsx title="app/layout.tsx"

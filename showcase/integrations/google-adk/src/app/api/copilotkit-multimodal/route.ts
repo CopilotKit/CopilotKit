@@ -10,12 +10,12 @@
 // ADK's HttpAgent + AGENT_URL backend pattern (see copilotkit-byoc-hashbrown
 // for the same pattern).
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
 
@@ -41,13 +41,13 @@ export const POST = async (req: NextRequest) => {
       },
     });
 
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-multimodal",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime,
+      basePath: "/api/copilotkit-multimodal",
+      mode: "single-route",
     });
 
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };
     return NextResponse.json(

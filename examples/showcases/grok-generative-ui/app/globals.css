@@ -316,13 +316,3 @@ aside:not(.chat-rail) [data-testid="copilot-chat-textarea"] {
   border-color: var(--line-hi);
   color: var(--text);
 }
-
-/**
- * @copilotkit/web-inspector auto-mounts <cpk-web-inspector> and floats a
- * launcher + announcement toast bottom-right. `showDevConsole={false}` does not
- * remove it. Hidden here so it stays out of the recording. Stable custom-element
- * tag, not a hashed class, so this selector will not rot.
- */
-cpk-web-inspector {
-  display: none !important;
-}

@@ -62,6 +62,36 @@ You must provide at least one of `runtimeUrl`, `publicApiKey`, or `publicLicense
   Indicates whether the user agent should send or receive cookies for cross-origin requests. Set to `"include"` to enable HTTP-only cookie authentication (configure CORS with credentials on your runtime endpoint to match).
 </PropertyReference>
 
+<PropertyReference name="messageFilter" type="(messages: Message[], context: { agentId: string }) => Message[]">
+  Rewrites the message list sent to the agent on every run.
+
+CopilotKit sends the whole thread with each request. When your agent already
+stores the conversation — a LangGraph checkpointer, a Mastra memory store, a
+Strands `SessionManager` — most of that payload is waste, and an agent that
+merges the inbound list with its own store can show the model every turn twice.
+
+Return the messages to send:
+
+```vue
+<CopilotKitProvider
+  runtime-url="/api/copilotkit"
+  :message-filter="(messages) => messages.slice(-1)"
+>
+  <YourApp />
+</CopilotKitProvider>
+```
+
+The filter changes the request body only. The transcript the UI renders is
+untouched, so the chat still shows the full conversation. Broken tool-call pairs
+are repaired before the request goes out, so a filter this blunt cannot strand a
+tool result mid-approval.
+
+Agents reached through your CopilotRuntime honor this. An agent your app
+constructs itself and passes in directly does not. CopilotKit Intelligence runs
+and suggestion runs are never filtered.
+
+</PropertyReference>
+
 <PropertyReference name="defaultThrottleMs" type="number">
   Default throttle interval (in milliseconds) applied to `useAgent` composables that do not specify their own `throttleMs`. Must be a non-negative finite number; invalid values log an error and fall back to unthrottled.
 </PropertyReference>
@@ -74,14 +104,14 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
 </PropertyReference>
 
 <PropertyReference name="publicLicenseKey" type="string">
-  Your public license key for accessing Enterprise Intelligence Platform features.
+  Your public license key for accessing CopilotKit Intelligence features.
 
 Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one for free.
 
 </PropertyReference>
 
 <PropertyReference name="licenseToken" type="string">
-  Signed license token for offline verification of Enterprise Intelligence Platform features. Obtain it from https://dashboard.operations.copilotkit.ai.
+  Signed license token for offline verification of CopilotKit Intelligence features. Obtain it from https://dashboard.operations.copilotkit.ai.
 </PropertyReference>
 
 <PropertyReference name="properties" type="Record<string, unknown>" default="{}">
@@ -136,8 +166,15 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
   Configuration for Open Generative UI. `sandboxFunctions` exposes host functions to generated sandboxed UI (callable via `Websandbox.connection.remote`), and `designSkill` overrides the default design guidelines provided to the generation tool. `sandboxFunctions` must be a stable array.
 </PropertyReference>
 
-<PropertyReference name="showDevConsole" type="boolean | &quot;auto&quot;" default="false">
-  Whether to show the dev console and inspector. `true` always shows it, `false` always hides it, and `"auto"` shows it only on `localhost` / `127.0.0.1`.
+<PropertyReference name="enableInspector" type="boolean">
+  Controls the CopilotKit Inspector during development. It is enabled by
+  default in browser development builds and is never loaded in production or
+  during SSR. In a Vue template, pass `:enable-inspector="false"` to disable it.
+</PropertyReference>
+
+<PropertyReference name="showDevConsole" type="boolean | &quot;auto&quot;">
+  **Deprecated:** use `enableInspector`. This prop no longer controls the
+  Inspector.
 </PropertyReference>
 
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
@@ -179,10 +216,6 @@ function handleError(event: {
 </template>
 ```
 
-</PropertyReference>
-
-<PropertyReference name="inspectorDefaultAnchor" type="{ horizontal: &quot;left&quot; | &quot;right&quot;; vertical: &quot;top&quot; | &quot;bottom&quot; }" default='{ horizontal: "right", vertical: "top" }'>
-  Default anchor corner for the inspector button and window. Used only on first load, before the user drags it to a custom position.
 </PropertyReference>
 
 <PropertyReference name="debug" type="DebugConfig">

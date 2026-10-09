@@ -187,6 +187,10 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
   Replaces the fetch credentials mode and re-applies it to existing agents. Core clears trusted Inspector metadata before refreshing it with the new mode.
 </PropertyReference>
 
+<PropertyReference name="setMessageFilter(messageFilter: CopilotKitMessageFilter | undefined): void" type="method">
+  Replaces the filter applied to the outbound message list and re-applies it to existing agents. Agents discovered later pick it up too, so a filter set before `/info` lands is not lost. Pass `undefined` to go back to sending the full thread.
+</PropertyReference>
+
 <PropertyReference name="setProperties(properties: Record<string, unknown>): void" type="method">
   Replaces the forwarded properties sent to agents.
 </PropertyReference>

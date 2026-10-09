@@ -7,6 +7,15 @@ import {
 import type { IdentifyUserCallback } from "@copilotkit/runtime/v2";
 import { handle } from "hono/vercel";
 import { agentRegistry, agentIds } from "@/shell/agent-registry";
+import {
+  MEMORY_GRANT_COOKIE,
+  TENANT_COOKIE,
+  isDemoTenant,
+  postureById,
+  readRequestCookie,
+} from "@/shell/governance";
+import type { MemoryGrant } from "@/shell/governance";
+import { createSpreadsheetBridge } from "@/shell/attach/spreadsheet-model-format";
 import { defaultSkinId } from "@/shell/skins-config";
 
 // One BuiltInAgent per registered skin, keyed by the skin id (=== agentId). The
@@ -16,8 +25,71 @@ import { defaultSkinId } from "@/shell/skins-config";
 // module load (the factories are cheap and stateless per process).
 function buildAgents() {
   return Object.fromEntries(
-    agentIds.map((id) => [id, agentRegistry[id].createAgent()]),
+    agentIds.map((id) => [
+      id,
+      withSpreadsheetSupport(agentRegistry[id].createAgent()),
+    ]),
   );
+}
+
+/**
+ * Rewrite a converted spreadsheet attachment to the PDF media type its bytes
+ * actually are, on the model leg only.
+ *
+ * `run` is public on `AbstractAgent`, and the runtime has already taken its copy
+ * of the input for persistence and for the echoed message snapshot by the time
+ * it calls this — so the swap reaches the model and nothing else. Doing it at
+ * the API-route level instead rewrites the body the runtime persists, and every
+ * chip in the transcript then reads PDF forever after (measured).
+ *
+ * ── WHY A PROTOTYPE AND NOT AN INSTANCE PROPERTY ────────────────────────────
+ * The runtime CLONES an agent per run, and `AbstractAgent.clone()` is
+ * `Object.create(Object.getPrototypeOf(this))` plus a fixed list of copied
+ * fields — `run` is not on that list. Assigning `agent.run = ...` therefore
+ * survives exactly until the first clone, after which the original `run` is back
+ * and the model receives the spreadsheet media type it cannot read. The failure
+ * is remote from the cause: the run dies with a bare "terminated" from the
+ * agent transport, which reads like a dead service rather than a bad payload.
+ *
+ * Splicing an extra prototype into the chain puts the override where `clone()`
+ * preserves it, and keeps this generic over every agent class the registry
+ * returns (banking's `HttpAgent`, everyone else's in-process agent).
+ */
+function withSpreadsheetSupport<T extends object>(agent: T): T {
+  type Observerish = {
+    next: (value: unknown) => void;
+    error: (err: unknown) => void;
+    complete: () => void;
+  };
+  type Streamish = {
+    subscribe: (observer: Observerish) => unknown;
+    constructor: new (subscribe: (observer: Observerish) => unknown) => unknown;
+  };
+
+  const base = Object.getPrototypeOf(agent) as {
+    run: (input: unknown) => Streamish;
+  };
+  const shim = Object.create(base) as typeof base;
+
+  shim.run = function run(this: T, input: unknown) {
+    // A bridge PER RUN, so the payloads it remembers cannot leak between runs.
+    const bridge = createSpreadsheetBridge();
+    const source = base.run.call(this, bridge.toModel(input));
+    // The stream's own class, reused rather than imported: rxjs is not a direct
+    // dependency of this app, and taking one just to map a stream would pin a
+    // second copy against the runtime's.
+    const Stream = source.constructor;
+    return new Stream((observer: Observerish) =>
+      source.subscribe({
+        next: (event) => observer.next(bridge.fromModel(event)),
+        error: (err) => observer.error(err),
+        complete: () => observer.complete(),
+      }),
+    ) as Streamish;
+  };
+
+  Object.setPrototypeOf(agent, shim);
+  return agent;
 }
 
 /**
@@ -38,12 +110,12 @@ function buildAgents() {
  *
  *   INTELLIGENCE_API_URL          e.g. http://localhost:4201
  *   INTELLIGENCE_GATEWAY_WS_URL   e.g. ws://localhost:4401
- *   INTELLIGENCE_API_KEY          e.g. cpk_...
+ *   CPK_INTELLIGENCE_API_KEY          e.g. cpk_...
  *   COPILOTKIT_LICENSE_TOKEN      (optional) read automatically by the runtime
  */
 const intelligenceApiUrl = process.env.INTELLIGENCE_API_URL;
 const intelligenceWsUrl = process.env.INTELLIGENCE_GATEWAY_WS_URL;
-const intelligenceApiKey = process.env.INTELLIGENCE_API_KEY;
+const intelligenceApiKey = process.env.CPK_INTELLIGENCE_API_KEY;
 
 const intelligenceEnabled = Boolean(
   intelligenceApiUrl && intelligenceWsUrl && intelligenceApiKey,
@@ -145,6 +217,40 @@ function genericIdentity(): { id: string; name: string } {
   return { id: "reskin-demo-user", name: "Reskinnable Demo User" };
 }
 
+/**
+ * ── THE DEMO'S STAND-IN FOR YOUR AUTH ───────────────────────────────────────
+ *
+ * Both callbacks below read a cookie off the raw `Request`. A real deployment
+ * reads a verified JWT or session in exactly these two places instead; the
+ * mechanism being demonstrated is unchanged — `identifyUser` and `memory.access`
+ * each receive the whole `Request`, so identity and policy come from something
+ * the SERVER can verify rather than from anything the client forwards.
+ *
+ * The tenant roster and the posture list live in `src/shell/governance.ts` so
+ * the popover that sets these cookies and the policy that reads them cannot
+ * drift apart.
+ */
+
+/** Resolved tenant for this request, or undefined when the demo is unscoped. */
+function demoTenant(request: Request): string | undefined {
+  const raw = readRequestCookie(request, TENANT_COOKIE);
+  return isDemoTenant(raw) ? raw : undefined;
+}
+
+/**
+ * Resolve this request's grant. `consumer` is threaded through so a posture can
+ * later close the browser's view while leaving the agent's recall intact; today
+ * every posture answers both callers the same, and the parameter documents that
+ * the runtime asks SEPARATELY rather than implying one answer covers both.
+ */
+function memoryGrant(
+  request: Request,
+  consumer: "agent" | "client",
+): MemoryGrant {
+  void consumer;
+  return postureById(readRequestCookie(request, MEMORY_GRANT_COOKIE)).grant;
+}
+
 const identifyUser: IdentifyUserCallback = async (request: Request) => {
   const agentId = agentIdFromUrl(request.url);
   // Skin-scoped routes resolve through their target skin; agentId-less
@@ -152,9 +258,16 @@ const identifyUser: IdentifyUserCallback = async (request: Request) => {
   const resolve = agentId
     ? agentRegistry[agentId]?.identifyUser
     : agentRegistry[defaultSkinId]?.identifyUser;
-  if (!resolve) return genericIdentity();
-  const properties = await readForwardedProperties(request);
-  return resolve(properties);
+  const base = resolve
+    ? resolve(await readForwardedProperties(request))
+    : genericIdentity();
+
+  // Namespace the resolved id under the tenant. Two people with the SAME
+  // per-skin persona id in different tenants now land in different memory
+  // buckets, which is the property the whole isolation story rests on.
+  const tenant = demoTenant(request);
+  if (!tenant) return base;
+  return { id: `${tenant}:${base.id}`, name: `${base.name} (${tenant})` };
 };
 
 function createRuntime(): CopilotRuntime {
@@ -184,6 +297,23 @@ function createRuntime(): CopilotRuntime {
       agents: buildAgents(),
       intelligence,
       identifyUser,
+      // ── THE CONTROL THE TENANT-ISOLATION STORY ACTUALLY RESTS ON ──────────
+      //
+      // Resolved per request, for each caller separately ("agent" = the memory
+      // MCP tools attached to a run, "client" = the browser-facing /memories
+      // routes), and IMMUTABLE once returned. The runtime serialises it onto
+      // the wire as `x-cpki-memory-grant` BEFORE the agent is handed its memory
+      // tools, so `project: "none"` is not an instruction the model may ignore
+      // — the write is not a capability it has.
+      //
+      // OMITTING THIS WHOLE OPTION IS NOT NEUTRAL. With no `memory` config the
+      // runtime falls back to `{ user: "read-write", project: "read-write" }`
+      // (packages/runtime/.../handlers/shared/memory-policy.ts) — both scopes
+      // open. Isolation is something you switch ON, which is the single most
+      // useful sentence to say out loud when someone asks how it is enforced.
+      memory: {
+        access: ({ request, consumer }) => memoryGrant(request, consumer),
+      },
       // Opt in to the client-facing /memories/* proxy routes (default off) so the
       // product web-inspector's Memory tab can list + recall memories in this
       // demo. Only meaningful in Intelligence mode; does not affect the agent's

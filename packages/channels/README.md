@@ -55,9 +55,9 @@ channel.onMessage(({ thread, message }) =>
 // The runtime owns the Channel's lifecycle — there is no `channel.start()`.
 const runtime = new CopilotRuntime({
   intelligence: new CopilotKitIntelligence({
-    // apiUrl and wsUrl default to the managed Intelligence platform — override
+    // apiUrl and wsUrl default to cloud-hosted CopilotKit Intelligence — override
     // both together only for a self-hosted deployment.
-    apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
+    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!, // free tier available
   }),
   channels: [channel],
 });
@@ -78,6 +78,18 @@ await listener.channels.ready(); // listener.channels.stop() tears it down
 
 One package version gives you a tested snapshot of the core engine, JSX/UI vocabulary,
 testing helpers, and every adapter listed above.
+
+`@copilotkit/channels/teams` needs the Microsoft 365 Agents SDK, which is an
+**optional peer dependency** and is not installed for you:
+
+```sh
+pnpm add @microsoft/agents-hosting @microsoft/agents-activity
+```
+
+Only the self-hosted Teams adapter needs it. `@copilotkit/channels/teams/render`
+does not, which is why the SDK stays out of installs that never run a Teams
+ingress. `express` is an optional peer as well, loaded lazily and needed only by
+the built-in `createTeamsServer` listener.
 
 For adapter authoring or a selective dependency graph, install
 `@copilotkit/channels-core` plus the direct adapter package you need, for example:

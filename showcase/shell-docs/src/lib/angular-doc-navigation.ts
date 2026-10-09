@@ -3,6 +3,7 @@ import {
   buildFrameworkOnlyNav,
   buildRootSurfaceNav,
   loadDoc,
+  normalizeSidebarNav,
 } from "./docs-render";
 import type { NavNode } from "./docs-render";
 import {
@@ -68,10 +69,16 @@ export function resolveAngularDoc(
   backendFramework: string | null,
   slugPath: string,
 ): AngularDocResolution | null {
+  // `frontends/angular` IS the Angular quickstart — it is backend-scoped and
+  // swaps its runtime step with the sidebar's selection. Without this mapping
+  // `quickstart` falls through to `integrations/<backend>/quickstart`, the
+  // React page that opens with `npx create-next-app`.
   const angularContentSlug =
     slugPath === "using-these-docs"
       ? "frontends/angular/docs-status"
-      : `frontends/angular/${slugPath}`;
+      : slugPath === "quickstart"
+        ? "frontends/angular"
+        : `frontends/angular/${slugPath}`;
   if (loadDoc(angularContentSlug)) {
     return {
       slugPath,
@@ -102,11 +109,12 @@ function filterResolvableAngularNodes(
     if (node.type === "page") {
       if (node.slug === "" || node.slug === "quickstart") return [];
       const canonicalSlug = getFrontendCanonicalSlug("angular", node.slug);
-      if (publishedSlugs.has(canonicalSlug)) {
+      const isIntelligenceOverview = canonicalSlug === "intelligence/overview";
+      if (publishedSlugs.has(canonicalSlug) && !isIntelligenceOverview) {
         return [];
       }
       if (!resolveAngularDoc(backendFramework, canonicalSlug)) return [];
-      publishedSlugs.add(canonicalSlug);
+      if (!isIntelligenceOverview) publishedSlugs.add(canonicalSlug);
       return [{ ...node, slug: canonicalSlug }];
     }
 
@@ -178,5 +186,5 @@ export function getAngularDocsNavTree(
     ),
   );
 
-  return [...prefixPages, ...backendNodes];
+  return normalizeSidebarNav([...prefixPages, ...backendNodes], false);
 }

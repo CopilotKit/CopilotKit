@@ -77,7 +77,7 @@ describe("Content Bundler", () => {
 
     // Backend agent file (from manifest.highlight) should be present.
     const agentFile = agenticChat.files.find((f: any) =>
-      /agents\/agentic_chat\.py$/.test(f.filename),
+      f.filename.endsWith("agents/agentic_chat.py"),
     );
     expect(agentFile).toBeDefined();
     expect(agentFile.language).toBe("python");
@@ -108,10 +108,30 @@ describe("Content Bundler", () => {
     const lgDemo = content.demos["langgraph-python::agentic-chat"];
     expect(lgDemo).toBeDefined();
     const lgAgent = lgDemo.files.find((f: any) =>
-      /src\/agents\/agentic_chat\.py$/.test(f.filename),
+      f.filename.endsWith("src/agents/agentic_chat.py"),
     );
     expect(lgAgent).toBeDefined();
     expect(lgAgent.language).toBe("python");
+  });
+
+  it("exposes the Mastra fixed-schema tool's required companion file", () => {
+    const demo = runBundlerAndRead().demos["mastra::a2ui-fixed-schema"];
+    const tool = demo.files.find(
+      (file: any) => file.filename === "src/mastra/tools/a2ui-generate.ts",
+    );
+    const context = demo.files.find(
+      (file: any) => file.filename === "src/mastra/tools/a2ui-context.ts",
+    );
+
+    expect(tool.content).toContain('from "./a2ui-context"');
+    expect(context).toMatchObject({
+      highlighted: true,
+      language: "typescript",
+    });
+    expect(context.content).toContain(
+      "export function readForwardedA2uiContext",
+    );
+    expect(context.content).toContain("export function systemPromptFrom");
   });
 
   it("includes core langgraph-python demos", () => {
@@ -151,6 +171,30 @@ describe("Content Bundler", () => {
       highlightOrder: 1,
     });
     expect(toolsFile.content).not.toContain("@region[");
+
+    const stateFile = demo.files.find(
+      (file: any) => file.filename === "src/agent/state.ts",
+    );
+    expect(stateFile).toMatchObject({
+      filename: "src/agent/state.ts",
+      language: "typescript",
+      highlighted: true,
+      highlightOrder: 2,
+    });
+    expect(stateFile.content).toContain("makeSubagentStateFromResult");
+    expect(stateFile.content).toContain("Promise<StatePayload | null>");
+    expect(stateFile.content).not.toContain("@region[");
+
+    const stateFromResult = demo.regions["subagent-state-from-result"];
+    expect(stateFromResult).toMatchObject({
+      file: "src/agent/state.ts",
+      language: "typescript",
+    });
+    expect(stateFromResult.code).toContain(
+      "export function makeSubagentStateFromResult",
+    );
+    expect(stateFromResult.code).toContain("function readSubagentTask");
+    expect(stateFromResult.code).toContain("StateSnapshotEvent");
 
     const setup = demo.regions["subagent-setup"];
     expect(setup).toMatchObject({

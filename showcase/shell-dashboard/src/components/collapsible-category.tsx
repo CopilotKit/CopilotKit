@@ -80,6 +80,14 @@ export interface CategoryHeaderRowProps {
   colSpan: number;
   isOpen: boolean;
   onToggle: () => void;
+  /**
+   * Hover text for the `count`, for a denominator that is not self-evident.
+   * The starter group's `<green>/<provisioned>` counts only columns with a
+   * deployed service, so the columns OUTSIDE the denominator have to be named
+   * somewhere or the number reads as "the rest are failing". Optional: every
+   * other group's `<wired>/<all>` needs no gloss and passes nothing.
+   */
+  countTitle?: string;
 }
 
 /**
@@ -92,6 +100,7 @@ export function CategoryHeaderRow({
   colSpan,
   isOpen,
   onToggle,
+  countTitle,
 }: CategoryHeaderRowProps) {
   return (
     <tr data-testid="collapsible-category">
@@ -111,7 +120,10 @@ export function CategoryHeaderRow({
           <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
             {name}
           </span>
-          <span className="text-[10px] tabular-nums text-[var(--text-muted)]">
+          <span
+            className="text-[10px] tabular-nums text-[var(--text-muted)]"
+            title={countTitle}
+          >
             {count}
           </span>
         </button>

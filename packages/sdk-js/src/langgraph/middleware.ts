@@ -21,13 +21,55 @@ const a2uiThreadKey = (state: any): string =>
   (state?.thread_id as string) || A2UI_DEFAULT_THREAD_KEY;
 
 /**
+ * Merge AG-UI defaults with CopilotKit overrides. Dictionaries recurse; every
+ * conflicting leaf uses CopilotKit, including false, null and empty values.
+ * Arrays and serialized strings are atomic: no positional pairing or decoding.
+ */
+const isPropertyBag = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+
+const mergeProperties = (
+  base: Record<string, unknown>,
+  overrides: Record<string, unknown>,
+): Record<string, unknown> =>
+  Object.fromEntries(
+    Array.from(new Set([...Object.keys(base), ...Object.keys(overrides)])).map(
+      (key) => {
+        const value = Object.prototype.hasOwnProperty.call(overrides, key)
+          ? isPropertyBag(base[key]) && isPropertyBag(overrides[key])
+            ? mergeProperties(base[key], overrides[key])
+            : overrides[key]
+          : base[key];
+        return [key, value];
+      },
+    ),
+  );
+
+const effectiveProperties = (state: unknown): Record<string, unknown> => {
+  const source = isPropertyBag(state) ? state : {};
+  return mergeProperties(
+    isPropertyBag(source["ag-ui"]) ? source["ag-ui"] : {},
+    isPropertyBag(source.copilotkit) ? source.copilotkit : {},
+  );
+};
+
+const decodeCatalogValue = (value: unknown): unknown => {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
+/**
  * Find the frontend-registered A2UI catalog wherever it was passed. Returns
  * `{ compositionGuide?, catalogId? }` when a catalog is present, else `null`
- * (so the tool is never advertised when the client can't render A2UI). Two
+ * independently of the explicit tool-injection decision. Two
  * delivery paths, depending on how the agent is served:
  *  - AG-UI native endpoint → `state["ag-ui"].a2ui_schema` (JSON
  *    `{ catalogId, components }`); the toolkit reads it from state itself.
- *  - CopilotKit runtime proxy → a `state.copilotkit.context` entry describing
+ *  - Runtime proxy → an effective `context` entry describing
  *    the A2UI catalog (catalog id + component schemas as text), passed to the
  *    subagent via `compositionGuide`.
  * `catalogId` binds generated surfaces to the frontend's catalog so BYOC
@@ -36,7 +78,8 @@ const a2uiThreadKey = (state: any): string =>
 const resolveA2uiCatalog = (
   state: any,
 ): { compositionGuide?: string; catalogId?: string } | null => {
-  const a2uiSchema = state?.["ag-ui"]?.a2ui_schema;
+  const properties = effectiveProperties(state);
+  const a2uiSchema = properties.a2ui_schema;
   if (a2uiSchema) {
     let catalogId: string | undefined;
     try {
@@ -48,11 +91,17 @@ const resolveA2uiCatalog = (
     }
     return { catalogId };
   }
-  const context = state?.copilotkit?.context;
+  const context = decodeCatalogValue(properties.context);
   for (const entry of Array.isArray(context) ? context : []) {
-    const description = entry?.description ?? "";
-    const value = entry?.value ?? "";
-    if (!description.includes("A2UI catalog") || !value) continue;
+    const description = entry?.description;
+    const value = decodeCatalogValue(entry?.value);
+    if (
+      typeof description !== "string" ||
+      typeof value !== "string" ||
+      !description.includes("A2UI catalog") ||
+      !value
+    )
+      continue;
     const match = /^\s*-\s+(\S+)/m.exec(value);
     return { compositionGuide: value, catalogId: match?.[1] };
   }
@@ -67,7 +116,7 @@ const resolveA2uiCatalog = (
  * no signal (off, or no A2UI middleware in the pipeline) → no auto-injection.
  */
 const a2uiInjectDecision = (state: any): boolean | string | undefined =>
-  state?.["ag-ui"]?.inject_a2ui_tool;
+  effectiveProperties(state).inject_a2ui_tool as boolean | string | undefined;
 
 type WithJsonSchema<T> = T extends { "~standard": infer S }
   ? Omit<T, "~standard"> & {
@@ -216,9 +265,18 @@ const applyStateNote = (request: any, expose: ExposeStateOption): any => {
   );
   if (!note) return request;
 
+  const existingMessage = request.systemMessage;
+  if (existingMessage != null) {
+    const separator = existingMessage.text === "" ? "" : "\n\n";
+    return {
+      ...request,
+      systemMessage: existingMessage.concat(`${separator}${note}`),
+    };
+  }
+
   const existing = request.systemPrompt;
   if (existing == null) {
-    return { ...request, systemPrompt: new SystemMessage({ content: note }) };
+    return { ...request, systemPrompt: note };
   }
   // existing may be a string OR a SystemMessage
   const baseText =
@@ -229,7 +287,7 @@ const applyStateNote = (request: any, expose: ExposeStateOption): any => {
         : String(existing.content);
   return {
     ...request,
-    systemPrompt: new SystemMessage({ content: `${baseText}\n\n${note}` }),
+    systemPrompt: `${baseText}\n\n${note}`,
   };
 };
 
@@ -241,7 +299,10 @@ const createAppContextBeforeAgent = (state, runtime) => {
   }
 
   // Get app context from runtime
-  const appContext = state["copilotkit"]?.context ?? runtime?.context;
+  const properties = effectiveProperties(state);
+  const appContext = Object.prototype.hasOwnProperty.call(properties, "context")
+    ? properties.context
+    : runtime?.context;
 
   // Check if appContext is missing or empty
   const isEmptyContext =
@@ -347,18 +408,25 @@ const createAppContextBeforeAgent = (state, runtime) => {
  * });
  * ```
  */
-const copilotKitStateSchema = z.object({
-  copilotkit: zodState(
-    z
-      .object({
-        actions: z.array(z.any()),
-        context: z.any().optional(),
-        interceptedToolCalls: z.array(z.any()).optional(),
-        originalAIMessageId: z.string().optional(),
-      })
-      .optional(),
-  ),
-});
+const copilotKitStateSchema = z
+  .object({
+    "ag-ui": zodState(z.record(z.string(), z.unknown()).optional()),
+    copilotkit: zodState(
+      z
+        .object({
+          actions: z
+            .union([z.array(z.any()), z.literal(false)])
+            .nullable()
+            .optional(),
+          context: z.any().optional(),
+          interceptedToolCalls: z.array(z.any()).optional(),
+          originalAIMessageId: z.string().optional(),
+        })
+        .passthrough()
+        .optional(),
+    ),
+  })
+  .passthrough();
 
 const isToolCallContentBlock = (block: unknown) =>
   typeof block === "object" &&
@@ -464,12 +532,40 @@ const buildMiddlewareInput = (
         (request.tools || []).map((t: any) => t?.name),
       );
       if (!existingNames.has(candidate.name)) {
+        // ToolNode derives tool runtime state from its config, ignoring an
+        // overridden middleware request.state. Adapt the tool's invocation
+        // config so the toolkit sees the same effective properties.
+        const invoke = candidate.invoke.bind(candidate);
+        candidate.invoke = (input, config) => {
+          const state =
+            config && "state" in config && isPropertyBag(config.state)
+              ? config.state
+              : request.state;
+          const properties = effectiveProperties(state);
+          const schema = properties.a2ui_schema;
+          const context = decodeCatalogValue(properties.context);
+          return invoke(input, {
+            ...config,
+            state: {
+              ...state,
+              "ag-ui": {
+                ...properties,
+                context: Array.isArray(context) ? context : [],
+                // The toolkit interpolates the native schema into its prompt.
+                a2ui_schema: isPropertyBag(schema)
+                  ? JSON.stringify(schema)
+                  : schema,
+              },
+            },
+          });
+        };
         a2uiTool = candidate;
         a2uiToolsByThread.set(a2uiThreadKey(request.state), a2uiTool);
       }
     }
 
-    let frontendTools = request.state["copilotkit"]?.actions ?? [];
+    const actions = effectiveProperties(request.state).actions;
+    let frontendTools = Array.isArray(actions) ? actions : [];
     if (a2uiTool) {
       // Our generate_a2ui replaces the runtime's render tool — don't advertise
       // both. Drop the render tool the A2UI middleware injected.
@@ -557,7 +653,8 @@ const buildMiddlewareInput = (
 
   // Intercept frontend tool calls after model returns, before ToolNode executes
   afterModel: (state) => {
-    const frontendTools = state["copilotkit"]?.actions ?? [];
+    const actions = effectiveProperties(state).actions;
+    const frontendTools = Array.isArray(actions) ? actions : [];
     if (frontendTools.length === 0) return;
 
     const frontendToolNames = new Set(

@@ -3,7 +3,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SignupLink } from "../signup-link";
 import { OpsPlatformCTA } from "../ops-platform-cta";
-import { DocsTrackedCopy, DocsTrackedLink } from "../docs-conversion";
+import { DocsTrackedLink } from "../docs-conversion";
 
 // These tests exercise the SSR path of "use client" components whose
 // render-time bodies call `new URL(getRuntimeConfig().<url>)`. During
@@ -47,6 +47,8 @@ describe("client component SSR safety (shell-docs)", () => {
       </SignupLink>,
     );
     const url = new URL(hrefFromStaticMarkup(html));
+    expect(url.pathname).toBe("/sign-in");
+    expect(url.searchParams.get("post_auth_redirect")).toBe("ready");
     expect(url.searchParams.get("utm_frontend")).toBe("angular");
     expect(url.searchParams.get("utm_backend")).toBe("langgraph-python");
   });
@@ -73,6 +75,8 @@ describe("client component SSR safety (shell-docs)", () => {
       }),
     );
     const url = new URL(hrefFromStaticMarkup(html));
+    expect(url.pathname).toBe("/sign-in");
+    expect(url.searchParams.get("post_auth_redirect")).toBe("ready");
     expect(url.searchParams.get("utm_frontend")).toBe("angular");
     expect(url.searchParams.get("utm_backend")).toBe("google-adk");
   });
@@ -90,6 +94,7 @@ describe("client component SSR safety (shell-docs)", () => {
     expect(`${url.origin}${url.pathname}`).toBe(
       "https://copilotkit.ai/talk-to-an-engineer",
     );
+    expect(url.searchParams.has("post_auth_redirect")).toBe(false);
     expect(url.searchParams.get("utm_content")).toBe("test-surface");
   });
 
@@ -101,14 +106,5 @@ describe("client component SSR safety (shell-docs)", () => {
     );
     expect(hrefFromStaticMarkup(html)).toBe("/threads-import");
     expect(html).toContain('data-docs-conversion-surface="test-surface"');
-  });
-
-  it("DocsTrackedCopy exposes its analytics surface", () => {
-    const html = renderToStaticMarkup(
-      <DocsTrackedCopy surface="test-copy-surface">
-        <code>npx copilotkit@latest init</code>
-      </DocsTrackedCopy>,
-    );
-    expect(html).toContain('data-docs-copy-surface="test-copy-surface"');
   });
 });

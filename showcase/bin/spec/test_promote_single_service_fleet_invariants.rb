@@ -251,6 +251,23 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
         Railway::PromoteCommand.new(argv + ["--non-interactive", "--yes"])
     end
 
+    # No live service is single-environment today. Inject a minimal synthetic
+    # SSOT record so the parity behavior for future staging-first rollouts stays
+    # covered without coupling this unit test to whichever slug is currently in
+    # that rollout phase.
+    def build_cmd_with_staging_only_ssot_service(service)
+        cmd = build_cmd([])
+        live_ssot_lookup = cmd.method(:ssot_service)
+        cmd.define_singleton_method(:ssot_service) do |name|
+            if name == service
+                { "name" => name, "onlyEnvironment" => "staging" }
+            else
+                live_ssot_lookup.call(name)
+            end
+        end
+        cmd
+    end
+
     # Zero the promote retry back-off for the duration of the block so the 3x
     # eventual-consistency retry loop in pin_and_verify doesn't add real wall
     # time. RETRY_DELAY_SEC is a process-global constant, so this is a global
@@ -429,12 +446,14 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
     # by the SSOT. This keeps a staging-first rollout from blocking the documented
     # no-argument promote path without hiding unknown fleet drift.
     def test_full_fleet_parity_tolerates_ssot_declared_staging_only_service
+        service = "showcase-staging-only-fixture"
         staging = {
-            "services" => [{ "name" => "showcase-crewai-conversational-flows" }],
+            "services" => [{ "name" => service }],
         }
         prod = { "services" => [] }
 
-        findings = build_cmd([]).check_service_set_parity(staging, prod)
+        cmd = build_cmd_with_staging_only_ssot_service(service)
+        findings = cmd.check_service_set_parity(staging, prod)
 
         assert_empty findings
     end
@@ -449,11 +468,12 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
     end
 
     def test_targeted_promote_still_refuses_ssot_declared_staging_only_service
-        service = "showcase-crewai-conversational-flows"
+        service = "showcase-staging-only-fixture"
         staging = { "services" => [{ "name" => service }] }
         prod = { "services" => [] }
 
-        findings = build_cmd([service]).check_service_set_parity(
+        cmd = build_cmd_with_staging_only_ssot_service(service)
+        findings = cmd.check_service_set_parity(
             staging, prod, target: service,
         )
 

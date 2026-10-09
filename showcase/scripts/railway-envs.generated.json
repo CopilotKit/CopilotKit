@@ -186,7 +186,8 @@
           "BROWSER_POOL_MAX_CONTEXTS": 40,
           "HARNESS_POOL_COUNT": 3,
           "overlapSeconds": 45,
-          "drainingSeconds": 180
+          "drainingSeconds": 180,
+          "restartPolicyType": "ALWAYS"
         },
         "staging": {
           "effectiveReplicas": 6,
@@ -194,7 +195,8 @@
           "BROWSER_POOL_MAX_CONTEXTS": 40,
           "HARNESS_POOL_COUNT": 2,
           "overlapSeconds": 45,
-          "drainingSeconds": 180
+          "drainingSeconds": 180,
+          "restartPolicyType": "ALWAYS"
         }
       },
       "autoUpdates": {
@@ -437,19 +439,18 @@
     {
       "name": "showcase-crewai-conversational-flows",
       "serviceId": "11859593-da4e-486c-a810-6cdffeff9750",
-      "prodInstanceId": "11859593-da4e-486c-a810-6cdffeff9750",
+      "prodInstanceId": "209031fe-2e02-4fbb-8f12-1276457d1916",
       "stagingInstanceId": "3d44daba-b417-4c6c-a366-d1b94e5fe8fa",
       "ciBuilt": true,
       "gateValidated": true,
-      "onlyEnvironment": "staging",
       "dispatchName": "crewai-conversational-flows",
       "domains": {
         "staging": "showcase-crewai-conversational-flows-staging.up.railway.app",
-        "prod": ""
+        "prod": "showcase-crewai-conversational-flows-production.up.railway.app"
       },
       "probe": {
         "staging": true,
-        "prod": false,
+        "prod": true,
         "driver": "agent"
       },
       "promoteTier": 2,
@@ -461,6 +462,7 @@
         }
       ],
       "healthcheckPath": {
+        "prod": "/api/health",
         "staging": "/api/health"
       },
       "autoUpdates": {
@@ -534,6 +536,172 @@
       "autoUpdates": {
         "staging": "disabled",
         "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-google-antigravity",
+      "serviceId": "6441783f-3e93-40cf-b75d-872c6713d7f2",
+      "prodInstanceId": "ad2c3bc8-7006-4ac6-b6f5-1f34e35a5b98",
+      "stagingInstanceId": "a2abd2e8-55a8-4c6e-8052-fd385d3bb3cc",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "google-antigravity",
+      "domains": {
+        "staging": "showcase-google-antigravity-staging.up.railway.app",
+        "prod": "showcase-google-antigravity-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "GOOGLE_GEMINI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-intelligence-api",
+      "serviceId": "2cf17267-31c4-4e92-8270-5ad92bd7ad19",
+      "prodInstanceId": "2cf17267-31c4-4e92-8270-5ad92bd7ad19",
+      "stagingInstanceId": "fa59ca5f-7319-4fde-867e-cf8de453e442",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "onlyEnvironment": "staging",
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "unmanaged"
+      }
+    },
+    {
+      "name": "showcase-intelligence-composite",
+      "serviceId": "70b24c88-81a5-469d-ae57-3df0daea2b3c",
+      "prodInstanceId": "70b24c88-81a5-469d-ae57-3df0daea2b3c",
+      "stagingInstanceId": "9dadebd1-6320-4e38-9fb0-2fc06b5ecbf0",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "onlyEnvironment": "staging",
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "unmanaged"
+      }
+    },
+    {
+      "name": "showcase-intelligence-gateway",
+      "serviceId": "f2eec3fd-d841-481b-9a9d-c8fd94c27870",
+      "prodInstanceId": "f2eec3fd-d841-481b-9a9d-c8fd94c27870",
+      "stagingInstanceId": "b898bdc3-6602-41ad-acbc-0df88002c13b",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "onlyEnvironment": "staging",
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "unmanaged"
+      }
+    },
+    {
+      "name": "showcase-intelligence-gateway-proxy",
+      "serviceId": "12513b2b-e368-4f7a-8141-1c28ab4f6f09",
+      "prodInstanceId": "12513b2b-e368-4f7a-8141-1c28ab4f6f09",
+      "stagingInstanceId": "1ee4af98-0935-4b3e-a434-a7f023e506b9",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "onlyEnvironment": "staging",
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "unmanaged"
+      }
+    },
+    {
+      "name": "showcase-intelligence-postgres",
+      "serviceId": "6c2d2998-e7ae-413d-997d-7277f9fd6e07",
+      "prodInstanceId": "6c2d2998-e7ae-413d-997d-7277f9fd6e07",
+      "stagingInstanceId": "66e32c98-00ad-42e3-83a2-eba4ba6c1be2",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "onlyEnvironment": "staging",
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "unmanaged"
+      }
+    },
+    {
+      "name": "showcase-intelligence-redis",
+      "serviceId": "7b99fa95-2124-4d19-838a-652464e351da",
+      "prodInstanceId": "7b99fa95-2124-4d19-838a-652464e351da",
+      "stagingInstanceId": "4695150f-0de8-4b3b-b302-7a377621a200",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "onlyEnvironment": "staging",
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "unmanaged"
       }
     },
     {
@@ -1474,11 +1642,19 @@
         "tier": 2
       },
       {
+        "name": "showcase-crewai-conversational-flows",
+        "tier": 2
+      },
+      {
         "name": "showcase-crewai-crews",
         "tier": 2
       },
       {
         "name": "showcase-google-adk",
+        "tier": 2
+      },
+      {
+        "name": "showcase-google-antigravity",
         "tier": 2
       },
       {
@@ -1584,7 +1760,27 @@
     ],
     "skipped": [
       {
-        "name": "showcase-crewai-conversational-flows",
+        "name": "showcase-intelligence-api",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      },
+      {
+        "name": "showcase-intelligence-composite",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      },
+      {
+        "name": "showcase-intelligence-gateway",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      },
+      {
+        "name": "showcase-intelligence-gateway-proxy",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      },
+      {
+        "name": "showcase-intelligence-postgres",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      },
+      {
+        "name": "showcase-intelligence-redis",
         "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
       }
     ]

@@ -275,7 +275,7 @@ async def run_mcp_apps_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
     try:
         stream_kwargs: dict[str, Any] = {
             "model": normalize_claude_model(
-                os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4.6")
+                os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8")
             ),
             "max_tokens": 4096,
             "system": SYSTEM_PROMPT,

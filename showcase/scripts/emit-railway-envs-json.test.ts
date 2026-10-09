@@ -91,7 +91,7 @@ describe("emit-railway-envs-json closure block", () => {
     expect(agent?.promoteTier).toBe(2);
   });
 
-  it("marks only single-environment services with their declared environment", () => {
+  it("omits onlyEnvironment after CrewAI conversational flows becomes dual-env", () => {
     const services = parsed.services as Array<{
       name: string;
       onlyEnvironment?: string;
@@ -101,7 +101,7 @@ describe("emit-railway-envs-json closure block", () => {
       services.find(
         (service) => service.name === "showcase-crewai-conversational-flows",
       )?.onlyEnvironment,
-    ).toBe("staging");
+    ).toBeUndefined();
     expect(
       services.find((service) => service.name === "showcase-crewai-crews")
         ?.onlyEnvironment,

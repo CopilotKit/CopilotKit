@@ -10,15 +10,14 @@
     "---Basics---",
     "prebuilt-components",
     {
-      "title": "Rich Threads",
+      "title": "AG-UI Streams",
       "defaultOpen": true,
       "pages": [
         "threads",
         "prebuilt-components/copilot-threads-drawer",
         "headless-threads",
         "threads-lifecycle",
-        "threads-import",
-        "threads-self-managed"
+        "threads-import"
       ]
     },
     "custom-look-and-feel",
@@ -31,11 +30,12 @@
     "shared-state",
     "readables",
     "---AG2---",
+    "multi-agent/subagents",
     "auth",
     "---Backend---",
     "copilot-runtime",
     "ag-ui",
-    "---Intelligence Platform---",
+    "---Intelligence---",
     "---Troubleshooting---",
     "...troubleshooting",
     "---Other---",

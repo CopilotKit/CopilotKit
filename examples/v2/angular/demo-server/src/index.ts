@@ -2,19 +2,23 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import {
+  BasicAgent,
   BuiltInAgent,
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
+import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime/v2";
 import { createOpenAI } from "@ai-sdk/openai";
 import { SlowToolCallStreamingAgent } from "@copilotkit/demo-agents";
+import { A2UIDashboardAgent } from "./agents/a2ui-dashboard.js";
+import { A2UIRecoveryAgent } from "./agents/a2ui-recovery.js";
 
 const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
 const openAIApiKey = process.env.OPENAI_API_KEY?.trim();
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
-const DEFAULT_OPENROUTER_MODEL = "anthropic/claude-sonnet-4.6";
+const DEFAULT_OPENROUTER_MODEL = "anthropic/claude-opus-4-8";
 const DEFAULT_OPENROUTER_MAX_OUTPUT_TOKENS = 16_384;
 
 function determineOpenRouterModelId(): string {
@@ -60,10 +64,10 @@ function determineModel(): BuiltInAgentClassicConfig["model"] {
     return "openai/gpt-5.2";
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
-    return "anthropic/claude-3-7-sonnet-20250219";
+    return "anthropic/claude-opus-4-8";
   }
   if (process.env.GOOGLE_API_KEY?.trim()) {
-    return "google/gemini-2.5-pro";
+    return "google/gemini-3.8-flash";
   }
   return "openai/gpt-5.2";
 }
@@ -80,14 +84,52 @@ const builtInAgent = new BuiltInAgent({
     ...(!openAIApiKey &&
       !openRouterApiKey &&
       !!process.env.ANTHROPIC_API_KEY?.trim() && {
-        anthropic: { thinking: { type: "enabled", budgetTokens: 5000 } },
+        anthropic: { thinking: { type: "adaptive" } },
       }),
   },
 });
 
+// --- MCP Apps ---------------------------------------------------------------
+// Same scope as the React demo (examples/v2/react/demo): a BasicAgent wrapped in
+// MCPAppsMiddleware, pointed at the same ext-apps servers, so the Angular host
+// renders the same widgets.
+//
+// React exposes this as a SECOND runtime endpoint and re-points the provider per
+// page. Angular resolves `provideCopilotKit` from the root injector, so a
+// lazy-route override never takes effect; the agent is therefore registered by
+// name on the existing runtime and the page selects it with `[agentId]`.
+const mcpAgent = new BasicAgent({
+  model: determineModel(),
+  prompt: "You are a helpful AI assistant with access to MCP apps and tools.",
+  temperature: 0.7,
+}).use(
+  new MCPAppsMiddleware({
+    // Port assignments - verified by checking each server's tools
+    mcpServers: [
+      { type: "http", url: "http://localhost:3101/mcp" }, // basic-server-react (get-time)
+      { type: "http", url: "http://localhost:3102/mcp" }, // basic-server-vanillajs (get-time)
+      { type: "http", url: "http://localhost:3103/mcp" }, // budget-allocator-server (get-budget-data)
+      { type: "http", url: "http://localhost:3104/mcp" }, // cohort-heatmap-server (get-cohort-data)
+      { type: "http", url: "http://localhost:3105/mcp" }, // customer-segmentation-server (get-customer-data)
+      { type: "http", url: "http://localhost:3106/mcp" }, // integration-server (get-time)
+      { type: "http", url: "http://localhost:3107/mcp" }, // scenario-modeler-server (get-scenario-data)
+      { type: "http", url: "http://localhost:3108/mcp" }, // sheet-music-server (play-sheet-music)
+      { type: "http", url: "http://localhost:3109/mcp" }, // system-monitor-server (get-system-stats)
+      { type: "http", url: "http://localhost:3110/mcp" }, // threejs-server (show_threejs_scene)
+      { type: "http", url: "http://localhost:3111/mcp" }, // video-resource-server (play_video)
+      { type: "http", url: "http://localhost:3112/mcp" }, // wiki-explorer-server (get-first-degree-links)
+    ],
+  }),
+);
+
 const agents = {
   default: builtInAgent,
   "slow-tools": new SlowToolCallStreamingAgent(),
+  "mcp-apps": mcpAgent,
+  // Scripted A2UI agent for the /a2ui-angular route; needs no API key.
+  "a2ui-dashboard": new A2UIDashboardAgent(),
+  // Scripted A2UI recovery lifecycle for the /a2ui-recovery route.
+  "a2ui-recovery": new A2UIRecoveryAgent(),
 };
 
 const runtime = new CopilotRuntime({

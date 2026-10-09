@@ -1,12 +1,13 @@
-import type { AbstractAgent } from "@ag-ui/client";
 import {
   ChannelDuplicateDefaultError,
   ChannelInvalidAgentIdError,
 } from "./channel-agent-errors.js";
+import type { ChannelAgentInput } from "./create-channel.js";
 
+/** An agent, or a factory that returns one per conversation thread id. */
 export type ChannelAgentSource =
-  | AbstractAgent
-  | ((threadId: string) => AbstractAgent);
+  | ChannelAgentInput
+  | ((threadId: string) => ChannelAgentInput);
 
 /**
  * Lookup ids a Channel accepts on `runAgent({ agentId })`.

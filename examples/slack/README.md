@@ -9,8 +9,8 @@ the platform adapters.
 
 **Slack goes through CopilotKit Intelligence.** `app/index.ts` does not open
 Socket Mode and does not use `SLACK_BOT_TOKEN`. Intelligence owns Slack
-ingress and egress. Set `INTELLIGENCE_API_KEY` (or a `cpk-{projectId}_...`
-`COPILOTKIT_API_KEY`) and `INTELLIGENCE_CHANNEL_NAME` to match the Channel
+ingress and egress. Set `CPK_INTELLIGENCE_API_KEY` (a `cpk-{projectId}_...`
+key) and `INTELLIGENCE_CHANNEL_NAME` to match the Channel
 in your Intelligence project. Everything else in `app/` (tools,
 components, the `confirm_write` HITL gate, chart/diagram/table rendering) is
 platform-agnostic and shared verbatim — set the secrets for whichever
@@ -87,7 +87,7 @@ bot.onMention(async ({ thread, message }) => {
 });
 
 const intelligence = new CopilotKitIntelligence({
-  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
 });
 const runtime = new CopilotRuntime({
   agents: {},
@@ -288,7 +288,7 @@ several from one process).
 ```bash
 cp .env.example .env
 # Fill in:
-#   INTELLIGENCE_API_KEY                       (REQUIRED — cpk-{projectId}_... key)
+#   CPK_INTELLIGENCE_API_KEY                   (REQUIRED — cpk-{projectId}_... key)
 #   INTELLIGENCE_CHANNEL_NAME                  (Channel name in that project)
 #   AGENT_URL                                  (http://localhost:8200/api/copilotkit/agent/triage/run)
 #   OPENAI_API_KEY  (or ANTHROPIC_API_KEY / GOOGLE_API_KEY + AGENT_MODEL)
@@ -298,7 +298,8 @@ cp .env.example .env
 ```
 
 Slack does **not** use `SLACK_BOT_TOKEN` in this example. Connect Slack to the
-Channel in Intelligence. The key must look like `cpk-{projectId}_...`. Linear
+Channel in Intelligence. The key must look like `cpk-{projectId}_...`.
+`COPILOTKIT_API_KEY` is a deprecated alias, still read as a fallback. Linear
 and Notion are independent. Set only the ones you want.
 
 ### 3. Notion MCP sidecar (only if using Notion)
@@ -372,7 +373,7 @@ do.
 
 > **PDFs and images need a vision/document-capable model.** The default
 > `openai/gpt-5.5` reads both natively through this path, as do recent Claude
-> (`anthropic/claude-sonnet-4-6`) and Gemini (`google/gemini-2.5-*`) models.
+> (`anthropic/claude-sonnet-4-6`) and Gemini (`google/gemini-3.8-flash`) models.
 > An older text-only model will ignore the attached document.
 
 Try it: drop a CSV and say _"chart revenue by month"_, _"diagram this incident

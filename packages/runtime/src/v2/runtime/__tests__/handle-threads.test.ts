@@ -13,6 +13,7 @@ import {
 } from "../handlers/handle-threads";
 import { CopilotRuntime } from "../core/runtime";
 import { InMemoryAgentRunner } from "../runner/in-memory";
+import { PlatformRequestError } from "../intelligence-platform/client";
 
 describe("thread handlers", () => {
   const createIdentifyUser = () =>
@@ -108,6 +109,43 @@ describe("thread handlers", () => {
 
     expect(response.status).toBe(400);
     expect(intelligence.listThreads).not.toHaveBeenCalled();
+  });
+
+  // backend/runtime-endpoints documents agentId as required with Intelligence.
+  it("returns 400 when the thread list request has no agentId", async () => {
+    const intelligence = {
+      listThreads: vi.fn(),
+    };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleListThreads({
+      runtime,
+      request: new Request("https://example.com/threads"),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Valid agentId query param is required",
+    });
+    expect(intelligence.listThreads).not.toHaveBeenCalled();
+  });
+
+  it("lists every local thread when the request has no agentId", async () => {
+    const runtime = new CopilotRuntime({
+      agents: {},
+      runner: new InMemoryAgentRunner(),
+    });
+
+    const response = await handleListThreads({
+      runtime,
+      request: new Request("https://example.com/threads"),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      threads: [],
+      nextCursor: null,
+    });
   });
 
   it("returns 400 when identifyUser returns an invalid name for thread list", async () => {
@@ -409,7 +447,7 @@ describe("thread handlers", () => {
     // either branch (in-memory map mutation or platform no-op), so it
     // returns a plain Response rather than a Promise. The other handlers
     // in this suite are awaited because they either parse JSON or hit
-    // the Intelligence platform; this one does neither.
+    // CopilotKit Intelligence; this one does neither.
     it("clears in-memory threads and returns 204 for InMemoryAgentRunner", () => {
       const runner = new InMemoryAgentRunner();
       const clearThreadsSpy = vi.spyOn(runner, "clearThreads");
@@ -923,6 +961,139 @@ describe("thread handlers", () => {
         runtime,
         request: new Request("https://example.com/threads/thread-1/state"),
         threadId: "thread-1",
+      });
+
+      expect(response.status).toBe(500);
+    });
+  });
+  /**
+   * The platform answers a missing thread and another user's thread with the
+   * same 404, so that a caller cannot learn which threads exist. The runtime
+   * cannot tell the two apart, so it must not turn that 404 into an empty
+   * result: doing so would answer a foreign-thread read with 200, which the
+   * shared `access.thread-identity-*` conformance cases reject. It forwards the
+   * 404 instead of flattening it into a 500, which is what native runtimes do.
+   */
+  describe("a thread the platform reports as not found, on the Intelligence path", () => {
+    const notFound = () =>
+      vi
+        .fn()
+        .mockRejectedValue(new PlatformRequestError("Thread not found.", 404));
+
+    it("forwards the 404 on a events read rather than a server error", async () => {
+      const intelligence = { getThreadEvents: notFound() };
+      const runtime = createIntelligenceRuntime({
+        intelligence,
+        identifyUser: createIdentifyUser(),
+      });
+
+      const response = await handleGetThreadEvents({
+        runtime,
+        request: new Request("https://example.com/threads/t1/events"),
+        threadId: "t1",
+      });
+
+      expect(response.status).toBe(404);
+    });
+
+    it("forwards the 404 on a messages read rather than a server error", async () => {
+      const intelligence = { getThreadMessages: notFound() };
+      const runtime = createIntelligenceRuntime({
+        intelligence,
+        identifyUser: createIdentifyUser(),
+      });
+
+      const response = await handleGetThreadMessages({
+        runtime,
+        request: new Request("https://example.com/threads/t1/messages"),
+        threadId: "t1",
+      });
+
+      expect(response.status).toBe(404);
+    });
+
+    it("forwards the 404 on a state read rather than a server error", async () => {
+      const intelligence = { getThreadState: notFound() };
+      const runtime = createIntelligenceRuntime({
+        intelligence,
+        identifyUser: createIdentifyUser(),
+      });
+
+      const response = await handleGetThreadState({
+        runtime,
+        request: new Request("https://example.com/threads/t1/state"),
+        threadId: "t1",
+      });
+
+      expect(response.status).toBe(404);
+    });
+
+    /**
+     * A platform that is down is the runtime's dependency failing, not the
+     * runtime itself, so it surfaces as 502 rather than 500.
+     */
+    it("still reports a platform outage, as 502", async () => {
+      const intelligence = {
+        getThreadEvents: vi
+          .fn()
+          .mockRejectedValue(new PlatformRequestError("boom", 500)),
+      };
+      const runtime = createIntelligenceRuntime({
+        intelligence,
+        identifyUser: createIdentifyUser(),
+      });
+
+      const response = await handleGetThreadEvents({
+        runtime,
+        request: new Request("https://example.com/threads/t1/events"),
+        threadId: "t1",
+      });
+
+      expect(response.status).toBe(502);
+    });
+
+    /**
+     * A platform 401 rejects the runtime's own credentials (e.g. a rotated
+     * key), which neither the user nor the browser can fix, so it must not
+     * reach the client as a user auth error. A 403 denies this user an action
+     * and is the client's to handle, so it is forwarded.
+     */
+    it.each([
+      [401, 502],
+      [403, 403],
+    ])("reports a platform %i as %i", async (status, expected) => {
+      const intelligence = {
+        getThreadEvents: vi
+          .fn()
+          .mockRejectedValue(new PlatformRequestError("denied", status)),
+      };
+      const runtime = createIntelligenceRuntime({
+        intelligence,
+        identifyUser: createIdentifyUser(),
+      });
+
+      const response = await handleGetThreadEvents({
+        runtime,
+        request: new Request("https://example.com/threads/t1/events"),
+        threadId: "t1",
+      });
+
+      expect(response.status).toBe(expected);
+    });
+
+    it("still reports a non-platform failure, as 500", async () => {
+      const intelligence = {
+        getThreadEvents: vi.fn().mockRejectedValue(new Error("unexpected")),
+      };
+      const runtime = createIntelligenceRuntime({
+        intelligence,
+        identifyUser: createIdentifyUser(),
+      });
+
+      const response = await handleGetThreadEvents({
+        runtime,
+        request: new Request("https://example.com/threads/t1/events"),
+        threadId: "t1",
       });
 
       expect(response.status).toBe(500);

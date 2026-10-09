@@ -1,7 +1,7 @@
 /**
  * Shared-state plumbing for the Strands showcase agent.
  *
- * Mirrors the Python sibling's `build_state_prompt` + `*_state_from_args` /
+ * Mirrors the Python sibling's `with_state_context` + `*_state_from_args` /
  * `*_state_from_result` hooks: the UI owns certain state slots (preferences,
  * notes, steps, sales todos, delegations) and the adapter emits
  * `StateSnapshotEvent`s the moment a tool fires so the corresponding panel
@@ -14,10 +14,8 @@ import type {
   StatePayload,
 } from "@ag-ui/aws-strands";
 import type { RunAgentInput } from "@ag-ui/core";
-import { manageSalesTodosImpl } from "./lib/tool-impls";
-
-/** Marker returned by a sub-agent tool body when its LLM call failed. */
-export const SUBAGENT_FAILURE_MARKER = "__SUBAGENT_FAILED__:";
+import { manageTodosImpl } from "../../shared-tools/todos";
+import type { BoardTodo } from "../../shared-tools/todos";
 
 /** Parse a tool's input (string JSON or already-parsed object). */
 function parseToolInput(raw: unknown): unknown {
@@ -31,7 +29,7 @@ function parseToolInput(raw: unknown): unknown {
   return raw;
 }
 
-// ---- stateContextBuilder -------------------------------------------------
+// ---- transient request context -------------------------------------------------
 
 function formatPreferencesBlock(prefs: unknown): string | null {
   if (!prefs || typeof prefs !== "object") return null;
@@ -52,62 +50,52 @@ function formatPreferencesBlock(prefs: unknown): string | null {
   );
 }
 
-/**
- * Format the AG-UI `context` array into a prompt block.
- *
- * `RunAgentInput.context` is populated by the frontend's `useAgentContext`
- * (readonly-state-agent-context), by `openGenerativeUI.designSkill`, and by
- * sandbox-function descriptors (open-gen-ui / advanced). The Strands adapter
- * does NOT surface `context` to the model on its own, so without lifting it
- * here the agent never sees readonly context ("Who am I?") nor the
- * open-gen-ui design skill / "call generateSandboxedUi" guidance. Mirrors
- * langgraph's lift-context-into-prompt pattern; the Python sibling does the
- * same in `build_state_prompt`.
- */
-function formatContextBlock(context: unknown): string | null {
-  if (!Array.isArray(context) || context.length === 0) return null;
-  const lines: string[] = [];
-  for (const item of context) {
-    if (!item || typeof item !== "object") continue;
-    const c = item as Record<string, unknown>;
-    if (c.description == null || c.value == null) continue;
-    lines.push(`- ${String(c.description)}: ${String(c.value)}`);
+/** Keep application context transient; never rewrite persisted user messages. */
+// @region[agent-config-context-builder]
+export function withStateContext(inputData: RunAgentInput): RunAgentInput {
+  const state =
+    inputData.state && typeof inputData.state === "object"
+      ? (inputData.state as Record<string, unknown>)
+      : {};
+  const context = [...inputData.context];
+  const preferences = formatPreferencesBlock(state.preferences);
+  if (preferences) {
+    context.push({
+      description: "Current user preferences",
+      value: preferences,
+    });
   }
-  if (lines.length === 0) return null;
-  return (
-    "Context for this conversation (treat as authoritative — use it to answer questions about the user and follow any instructions it contains):\n" +
-    lines.join("\n")
-  );
-}
-
-/**
- * Inject UI-owned shared-state slots and AG-UI context into the outgoing
- * prompt. Degrades to the original prompt when no relevant slot is present.
- */
-export function buildStatePrompt(
-  inputData: RunAgentInput,
-  prompt: string,
-): string {
-  const state = (inputData.state ?? {}) as Record<string, unknown>;
-
-  const blocks: string[] = [];
-  if (state && typeof state === "object") {
-    const prefsBlock = formatPreferencesBlock(state.preferences);
-    if (prefsBlock) blocks.push(prefsBlock);
-    if ("todos" in state) {
-      blocks.push(
-        `Current sales pipeline:\n${JSON.stringify(state.todos, null, 2)}`,
-      );
-    }
+  if ("todos" in state) {
+    context.push({
+      description: "Current sales pipeline",
+      value: JSON.stringify(state.todos, null, 2),
+    });
   }
-  const contextBlock = formatContextBlock(inputData.context);
-  if (contextBlock) blocks.push(contextBlock);
-
-  if (blocks.length === 0) return prompt;
-  return `${blocks.join("\n\n")}\n\nUser request: ${prompt}`;
+  return { ...inputData, context };
 }
+// @endregion[agent-config-context-builder]
 
 // ---- state-from-args hooks -----------------------------------------------
+
+/** The Strands `appState` key `manage_sales_todos` keeps the pipeline under. */
+export const SALES_TODOS_STATE_KEY = "todos";
+
+/**
+ * Normalize the list one `manage_sales_todos` call carries. A todo the model
+ * sent without an id gets one derived from the call id, so the UI snapshot
+ * built from the args and the copy the tool stores name each item the same way.
+ */
+export function salesTodosForCall(
+  todos: Record<string, unknown>[],
+  toolUseId: string | undefined,
+): BoardTodo[] {
+  if (!toolUseId) return manageTodosImpl(todos);
+  return manageTodosImpl(
+    todos.map((todo, index) =>
+      todo.id ? todo : { ...todo, id: `${toolUseId}-${index}` },
+    ),
+  );
+}
 
 /** manage_sales_todos → { todos } */
 export async function salesStateFromArgs(
@@ -123,7 +111,7 @@ export async function salesStateFromArgs(
     return null;
   }
   if (!Array.isArray(todos)) return null;
-  return { todos: manageSalesTodosImpl(todos as never[]) };
+  return { todos: salesTodosForCall(todos as never[], ctx.toolUseId) };
 }
 
 /** set_notes → { notes } */
@@ -186,6 +174,10 @@ export async function documentStateFromArgs(
 
 // ---- sub-agents (delegation log) -----------------------------------------
 
+// @region[subagent-state-from-result]
+/** Marker returned by a sub-agent tool body when its LLM call failed. */
+export const SUBAGENT_FAILURE_MARKER = "__SUBAGENT_FAILED__:";
+
 interface Delegation {
   id: string;
   sub_agent: string;
@@ -212,6 +204,19 @@ function seedDelegations(threadId: string, state: unknown): Delegation[] {
   return seeded;
 }
 
+function readSubagentTask(raw: unknown): string {
+  let input = raw;
+  if (typeof raw === "string") {
+    try {
+      input = JSON.parse(raw);
+    } catch {
+      return "";
+    }
+  }
+  if (!input || typeof input !== "object" || Array.isArray(input)) return "";
+  return String((input as Record<string, unknown>).task ?? "");
+}
+
 function flattenResult(resultData: unknown): string {
   if (resultData == null) return "";
   if (typeof resultData === "string") return resultData;
@@ -234,6 +239,36 @@ function flattenResult(resultData: unknown): string {
   return JSON.stringify(resultData);
 }
 
+/** Republish authoritative reads so a reconnect can rebuild an empty board. */
+export function salesStateFromResult(
+  ctx: Pick<ToolResultContext, "resultData">,
+): StatePayload {
+  const result = ctx.resultData;
+  // Parsed native records may carry arbitrary metadata, including "text".
+  // Only transport text blocks should pass through flattenResult.
+  const nativeList =
+    Array.isArray(result) &&
+    result.every(
+      (todo) =>
+        todo &&
+        typeof todo === "object" &&
+        !Array.isArray(todo) &&
+        ("title" in todo || !("text" in todo)),
+    );
+  const todos: unknown = nativeList
+    ? result
+    : JSON.parse(flattenResult(result));
+  if (
+    !Array.isArray(todos) ||
+    todos.some(
+      (todo) => !todo || typeof todo !== "object" || Array.isArray(todo),
+    )
+  ) {
+    throw new Error("get_sales_todos returned an invalid todo list");
+  }
+  return { todos };
+}
+
 /**
  * Factory for a `stateFromResult` hook bound to a sub-agent name. On each
  * delegation it appends a Delegation entry to the per-thread scratchpad and
@@ -244,11 +279,7 @@ export function makeSubagentStateFromResult(subAgentName: string) {
     const threadId = ctx.inputData.threadId || "default";
     const existing = seedDelegations(threadId, ctx.inputData.state);
 
-    const input = parseToolInput(ctx.toolInput);
-    let task = "";
-    if (input && typeof input === "object" && !Array.isArray(input)) {
-      task = String((input as Record<string, unknown>).task ?? "");
-    }
+    const task = readSubagentTask(ctx.toolInput);
 
     const resultText = flattenResult(ctx.resultData);
     let status: Delegation["status"];
@@ -275,3 +306,4 @@ export function makeSubagentStateFromResult(subAgentName: string) {
     return { delegations: updated.map((d) => ({ ...d })) };
   };
 }
+// @endregion[subagent-state-from-result]

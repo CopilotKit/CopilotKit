@@ -13,11 +13,15 @@ import os
 import uvicorn
 from fastapi import FastAPI
 from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+from _banner import print_banner
+from _model import adk_model
 from google.adk.agents import LlmAgent
 
 orchestrator_agent = LlmAgent(
     name="OrchestratorAgent",
-    model="gemini-2.5-pro",
+    # COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this
+    # and the other two agents; unset, the orchestrator uses gemini-3.8-flash.
+    model=adk_model("google:gemini-3.8-flash"),
     instruction="""
     You are an orchestrator agent that coordinates research and analysis tasks.
 
@@ -82,5 +86,8 @@ if __name__ == "__main__":
         print()
 
     port = int(os.getenv("ORCHESTRATOR_PORT", 9000))
-    print(f"🚀 Starting Orchestrator Agent (ADK + AG-UI) on http://localhost:{port}")
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    # Wide on purpose: the other dev processes and containers reach this agent.
+    # One variable feeds both the banner and the bind so they cannot drift.
+    host = os.getenv("ORCHESTRATOR_HOST", "0.0.0.0")
+    print_banner("🚀 Starting Orchestrator Agent (ADK + AG-UI)", host, port)
+    uvicorn.run(app, host=host, port=port)

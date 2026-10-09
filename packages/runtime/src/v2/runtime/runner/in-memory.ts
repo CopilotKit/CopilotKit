@@ -187,7 +187,7 @@ interface HistoricRun {
 
 /**
  * Lightweight thread summary returned by {@link InMemoryAgentRunner.listThreads}.
- * Shape matches the Intelligence platform's ThreadRecord so the same HTTP
+ * Shape matches CopilotKit Intelligence's ThreadRecord so the same HTTP
  * response envelope can be used for both backends.
  */
 export interface InMemoryThread {
@@ -705,12 +705,36 @@ export class InMemoryAgentRunner extends AgentRunner {
         // the "skip an immediate throw that emitted nothing" check is dead.
         const preFinalizeEventCount = currentRunEvents.length;
 
+        // Stop can arrive before the agent sends its first event.
+        if (
+          finalizeControl.stopRequested &&
+          !currentRunEvents.some(
+            (event) => event.type === EventType.RUN_STARTED,
+          )
+        ) {
+          const started: RunStartedEvent = {
+            type: EventType.RUN_STARTED,
+            threadId: request.threadId,
+            runId: request.input.runId,
+            input: {
+              ...request.input,
+              messages: request.input.messages.filter(
+                (message) => !historicMessageIds.has(message.id),
+              ),
+            },
+          };
+          currentRunEvents.unshift(started);
+          runSubject.next(started);
+          nextSubject.next(started);
+        }
+
         // Finalize against THIS run's own captured stop-intent — never the
         // shared `store.stopRequested`, which a superseding run resets. An
         // aborted run is thus finalized as a clean RUN_FINISHED, not a synthetic
         // RUN_ERROR.
         const appendedEvents = finalizeRunEvents(currentRunEvents, {
           stopRequested: finalizeControl.stopRequested,
+          protocolVersion: request.input.protocolVersion,
           ...(isError ? { interruptionMessage: opts.interruptionMessage } : {}),
         });
         for (const event of appendedEvents) {
@@ -724,12 +748,15 @@ export class InMemoryAgentRunner extends AgentRunner {
 
         // Store this run's events. Guard on the per-run id (not the shared
         // `store.currentRunId`): a superseded run no longer owns the store, so
-        // it must not push history — and never under a newer run's id, which
-        // would corrupt the thread's history. On the error path also require at
-        // least one real (pre-finalize) event, so an immediate throw with
-        // nothing emitted does not create a phantom historic run holding only
-        // the synthetic terminal.
-        if (ownsThread && (!isError || preFinalizeEventCount > 0)) {
+        // it must not push history under a newer run's id.
+        // Keep explicit stops even when abort rejects before the first event.
+        // Other immediate errors with no real events must not create history.
+        if (
+          ownsThread &&
+          (!isError ||
+            preFinalizeEventCount > 0 ||
+            finalizeControl.stopRequested)
+        ) {
           // Compact the events before storing (like SQLite does)
           const compactedEvents = compactEvents(currentRunEvents);
           sharedStore.appendRun(request.threadId, {
@@ -976,9 +1003,9 @@ export class InMemoryAgentRunner extends AgentRunner {
    * of the most recent run.
    *
    * This powers the local-dev fallback for `GET /threads/:threadId/messages`
-   * when the Intelligence platform is not configured. The returned `Message[]`
+   * when CopilotKit Intelligence is not configured. The returned `Message[]`
    * objects come directly from the ag-ui agent, so their shape is compatible
-   * with the Intelligence platform's `ThreadMessage` type.
+   * with CopilotKit Intelligence's `ThreadMessage` type.
    */
   getThreadMessages(threadId: string): Message[] {
     const store = sharedStore.peek(threadId);
@@ -1003,7 +1030,7 @@ export class InMemoryAgentRunner extends AgentRunner {
    * Returns all AG-UI events for a thread, compacted across historic runs.
    *
    * Powers the local-dev fallback for `GET /threads/:threadId/events` when the
-   * Intelligence platform is not configured. The compaction logic matches
+   * CopilotKit Intelligence is not configured. The compaction logic matches
    * the connection-replay path in {@link connect}, so the stream a
    * late-joining inspector sees matches what this method returns.
    */

@@ -124,8 +124,22 @@ describe("contribution lattices + config", () => {
     expect(contributionToColor("GREEN_FRESH")).toBe("green");
   });
 
-  it("first-strike config: starter soft/2, D4 any/2, D3/D5/D6 disabled", () => {
-    expect(firstStrikeConfig.starter).toEqual({
+  it("first-strike config: S1-S3 soft/2, D4 any/2, D3/D5/D6 disabled", () => {
+    // The former aggregate `starter` rule, inherited unchanged by all three v1
+    // starter rungs: each is one HTTP call over the public internet, so each is
+    // equally exposed to a transient transport error.
+    for (const kind of ["S1", "S2", "S3"] as const) {
+      expect(firstStrikeConfig[kind]).toEqual({
+        enabled: true,
+        threshold: 2,
+        requireSoftClass: true,
+      });
+    }
+    // S4-S6 are designed and deferred; they must not carry a live rule.
+    for (const kind of ["S4", "S5", "S6"] as const) {
+      expect(firstStrikeConfig[kind]).toEqual({ enabled: false });
+    }
+    expect(firstStrikeConfig.S1).toEqual({
       enabled: true,
       threshold: 2,
       requireSoftClass: true,
@@ -272,13 +286,13 @@ describe("classifyRung — §3 rules", () => {
       signal: { errorClass: "smoke-failed" },
       failCount: 1,
     });
-    expect(classifyRung(raw("starter", [soft1]), NOW).contribution).toBe(
+    expect(classifyRung(raw("S1", [soft1]), NOW).contribution).toBe(
       "FIRST_STRIKE_FRESH",
     );
-    expect(classifyRung(raw("starter", [soft2]), NOW).contribution).toBe(
+    expect(classifyRung(raw("S1", [soft2]), NOW).contribution).toBe(
       "FAIL_FRESH",
     );
-    expect(classifyRung(raw("starter", [hard]), NOW).contribution).toBe(
+    expect(classifyRung(raw("S1", [hard]), NOW).contribution).toBe(
       "FAIL_FRESH",
     );
   });
@@ -380,7 +394,7 @@ describe("classifyRung — §3 rules", () => {
       signal: { errorClass: "transport-error" },
       failCount: 1,
     });
-    const c = classifyRung(raw("starter", [soft5, soft1]), NOW);
+    const c = classifyRung(raw("S1", [soft5, soft1]), NOW);
     expect(c.contribution).toBe("FAIL_FRESH");
     expect(contributionToColor(c.contribution)).toBe("red");
   });

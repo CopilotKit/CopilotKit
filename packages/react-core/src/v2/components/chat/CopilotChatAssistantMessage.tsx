@@ -25,12 +25,23 @@ import { renderSlot } from "../../lib/slots";
 import { Streamdown } from "streamdown";
 import { copyToClipboard } from "@copilotkit/shared";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";
+import { useCopilotKitInspector } from "../CopilotKitInspectorContext";
+import {
+  CopilotChatInspectorButton,
+  useInspectorShortcutsHidden,
+} from "./CopilotChatInspectorButton";
+import type { CopilotKitInspectorOpenRequest } from "../CopilotKitInspectorContext";
+
+export type CopilotChatFeedbackMessage = AssistantMessage & {
+  rawEvent?: unknown;
+};
 
 export type CopilotChatAssistantMessageProps = WithSlots<
   {
     markdownRenderer: typeof CopilotChatAssistantMessage.MarkdownRenderer;
     toolbar: typeof CopilotChatAssistantMessage.Toolbar;
     copyButton: typeof CopilotChatAssistantMessage.CopyButton;
+    inspectorButton: typeof CopilotChatAssistantMessage.InspectorButton;
     thumbsUpButton: typeof CopilotChatAssistantMessage.ThumbsUpButton;
     thumbsDownButton: typeof CopilotChatAssistantMessage.ThumbsDownButton;
     readAloudButton: typeof CopilotChatAssistantMessage.ReadAloudButton;
@@ -38,22 +49,64 @@ export type CopilotChatAssistantMessageProps = WithSlots<
     toolCallsView: typeof CopilotChatToolCallsView;
   },
   {
-    onThumbsUp?: (message: AssistantMessage) => void;
-    onThumbsDown?: (message: AssistantMessage) => void;
+    onThumbsUp?: (message: CopilotChatFeedbackMessage) => void;
+    onThumbsDown?: (message: CopilotChatFeedbackMessage) => void;
     onReadAloud?: (message: AssistantMessage) => void;
     onRegenerate?: (message: AssistantMessage) => void;
     message: AssistantMessage;
     messages?: Message[];
     isRunning?: boolean;
+    /**
+     * Whether this is the last message the chat renders. The message view
+     * passes it, because the rendered list can differ from `messages` when
+     * `transformMessages` drops, replaces or reorders messages. Defaults to
+     * comparing against the last entry of `messages`.
+     */
+    isLatest?: boolean;
     additionalToolbarItems?: React.ReactNode;
     toolbarVisible?: boolean;
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
+/**
+ * Binds the Inspector action to the active chat without making the full
+ * assistant message subscribe to chat configuration changes.
+ */
+function BoundInspectorButton({
+  inspectorButton,
+  messageId,
+  openInspector,
+  ...props
+}: {
+  inspectorButton: CopilotChatAssistantMessageProps["inspectorButton"];
+  messageId: string;
+  openInspector: (request: CopilotKitInspectorOpenRequest) => void;
+} & Omit<
+  React.ButtonHTMLAttributes<HTMLButtonElement>,
+  "onClick"
+>): React.ReactElement {
+  const chatConfiguration = useCopilotChatConfiguration();
+
+  return renderSlot(
+    inspectorButton,
+    CopilotChatAssistantMessage.InspectorButton,
+    {
+      ...props,
+      onClick: () =>
+        openInspector({
+          messageId,
+          threadId: chatConfiguration?.threadId,
+          agentId: chatConfiguration?.agentId,
+        }),
+    },
+  );
+}
+
 export function CopilotChatAssistantMessage({
   message,
   messages,
   isRunning,
+  isLatest,
   onThumbsUp,
   onThumbsDown,
   onReadAloud,
@@ -63,6 +116,7 @@ export function CopilotChatAssistantMessage({
   markdownRenderer,
   toolbar,
   copyButton,
+  inspectorButton,
   thumbsUpButton,
   thumbsDownButton,
   readAloudButton,
@@ -73,6 +127,9 @@ export function CopilotChatAssistantMessage({
   ...props
 }: CopilotChatAssistantMessageProps) {
   useKatexStyles();
+  const { isInspectorEnabled, openInspector } = useCopilotKitInspector();
+  const shortcutsHidden = useInspectorShortcutsHidden();
+  const showInspectorShortcut = isInspectorEnabled && !shortcutsHidden;
 
   const boundMarkdownRenderer = renderSlot(
     markdownRenderer,
@@ -101,6 +158,16 @@ export function CopilotChatAssistantMessage({
     {
       onClick: onThumbsUp ? () => onThumbsUp(message) : undefined,
     },
+  );
+
+  const boundInspectorButton = showInspectorShortcut ? (
+    <BoundInspectorButton
+      inspectorButton={inspectorButton}
+      messageId={message.id}
+      openInspector={openInspector}
+    />
+  ) : (
+    <></>
   );
 
   const boundThumbsDownButton = renderSlot(
@@ -132,13 +199,14 @@ export function CopilotChatAssistantMessage({
     CopilotChatAssistantMessage.Toolbar,
     {
       children: (
-        <div className="cpk:flex cpk:items-center cpk:gap-1">
+        <div className="cpk:flex cpk:w-full cpk:items-center cpk:gap-1">
           {boundCopyButton}
           {(onThumbsUp || thumbsUpButton) && boundThumbsUpButton}
           {(onThumbsDown || thumbsDownButton) && boundThumbsDownButton}
           {(onReadAloud || readAloudButton) && boundReadAloudButton}
           {(onRegenerate || regenerateButton) && boundRegenerateButton}
           {additionalToolbarItems}
+          {showInspectorShortcut && boundInspectorButton}
         </div>
       ),
     },
@@ -157,18 +225,25 @@ export function CopilotChatAssistantMessage({
   const hasContent = !!(message.content && message.content.trim().length > 0);
   const isLatestAssistantMessage =
     message.role === "assistant" &&
-    messages?.[messages.length - 1]?.id === message.id;
+    (isLatest ?? messages?.[messages.length - 1]?.id === message.id);
   const shouldShowToolbar =
-    toolbarVisible && hasContent && !(isRunning && isLatestAssistantMessage);
+    toolbarVisible &&
+    (hasContent || showInspectorShortcut) &&
+    !(isRunning && isLatestAssistantMessage);
 
   if (children) {
     return (
-      <div data-copilotkit style={{ display: "contents" }}>
+      <div
+        data-copilotkit
+        data-message-id={message.id}
+        style={{ display: "contents" }}
+      >
         {children({
           markdownRenderer: boundMarkdownRenderer,
           toolbar: boundToolbar,
           toolCallsView: boundToolCallsView,
           copyButton: boundCopyButton,
+          inspectorButton: boundInspectorButton,
           thumbsUpButton: boundThumbsUpButton,
           thumbsDownButton: boundThumbsDownButton,
           readAloudButton: boundReadAloudButton,
@@ -236,9 +311,11 @@ export namespace CopilotChatAssistantMessage {
   export const ToolbarButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement> & {
       title: string;
+      tooltip?: React.ReactNode;
+      tooltipClassName?: string;
       children: React.ReactNode;
     }
-  > = ({ title, children, ...props }) => {
+  > = ({ title, tooltip, tooltipClassName, children, ...props }) => {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
@@ -251,8 +328,8 @@ export namespace CopilotChatAssistantMessage {
             {children}
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p>{title}</p>
+        <TooltipContent side="bottom" className={tooltipClassName}>
+          {tooltip ?? <p>{title}</p>}
         </TooltipContent>
       </Tooltip>
     );
@@ -310,6 +387,10 @@ export namespace CopilotChatAssistantMessage {
       </ToolbarButton>
     );
   };
+
+  export const InspectorButton: React.FC<
+    React.ButtonHTMLAttributes<HTMLButtonElement>
+  > = CopilotChatInspectorButton;
 
   export const ThumbsUpButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement>
@@ -382,6 +463,8 @@ CopilotChatAssistantMessage.Toolbar.displayName =
   "CopilotChatAssistantMessage.Toolbar";
 CopilotChatAssistantMessage.CopyButton.displayName =
   "CopilotChatAssistantMessage.CopyButton";
+CopilotChatAssistantMessage.InspectorButton.displayName =
+  "CopilotChatAssistantMessage.InspectorButton";
 CopilotChatAssistantMessage.ThumbsUpButton.displayName =
   "CopilotChatAssistantMessage.ThumbsUpButton";
 CopilotChatAssistantMessage.ThumbsDownButton.displayName =

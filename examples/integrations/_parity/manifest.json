@@ -125,6 +125,7 @@
         "entrypoint.sh",
         "serve.py",
         "scripts/**",
+        "docker-route-override.ts",
         "src/components/threads-drawer/**",
         "src/app/page.tsx",
         "next.config.ts"
@@ -173,6 +174,29 @@
         "scripts.install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat"
       }
     },
+    "strands-typescript": {
+      "role": "instance",
+      "agent": {
+        "language": "typescript",
+        "runtime": "strands-ag-ui"
+      },
+      "allowedDivergence": [
+        "agent/**",
+        "src/app/api/copilotkit/**",
+        "Dockerfile",
+        "docker/Dockerfile.agent",
+        "docker-compose.test.yml",
+        "entrypoint.sh",
+        "serve.py",
+        "scripts/**",
+        "docker-route-override.ts",
+        "src/app/declarative-generative-ui/renderers.tsx"
+      ],
+      "packageJsonOverrides": {
+        "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
+        "scripts.install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat"
+      }
+    },
     "claude-sdk-python": {
       "role": "instance",
       "agent": {
@@ -193,7 +217,6 @@
         "src/components/example-canvas/index.tsx",
         "src/components/example-canvas/todo-list.tsx",
         "src/components/example-layout/mode-toggle.tsx",
-        "src/components/generative-ui/charts/bar-chart.tsx",
         "src/components/headless-chat.tsx",
         "src/components/tool-rendering.tsx",
         "src/components/ui/spinner.tsx"
@@ -223,7 +246,6 @@
         "src/components/example-canvas/index.tsx",
         "src/components/example-canvas/todo-list.tsx",
         "src/components/example-layout/mode-toggle.tsx",
-        "src/components/generative-ui/charts/bar-chart.tsx",
         "src/components/headless-chat.tsx",
         "src/components/tool-rendering.tsx",
         "src/components/ui/spinner.tsx"

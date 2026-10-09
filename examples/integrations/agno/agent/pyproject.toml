@@ -13,4 +13,8 @@ dependencies = [
   "ag-ui-protocol>=0.1.8",
   "packaging>=25.0.0",
   "python-dotenv>=1.0.0",
+  # anthropic 1.x moved to httpx2 and rejects the httpx client Agno's Claude
+  # model hands it ("Invalid `http_client` argument"), so stay on 0.x.
+  "anthropic>=0.108.0,<1",
+  "google-genai>=2.29.0,<3",
 ]

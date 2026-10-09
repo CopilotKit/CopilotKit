@@ -4,17 +4,16 @@
 // the FastAPI agent server. The flow uses `copilotkit_stream` to emit
 // AG-UI tool-call events for every tool call, so the frontend's
 // `useRenderTool` hook sees the tool calls and renders custom cards
-// (e.g. WeatherCard). The default `ChatWithCrewFlow` does NOT emit
-// these events for backend-executed tools, which is why the catch-all
-// crew endpoint cannot serve tool-rendering.
+// (e.g. WeatherCard). `ChatWithCrewFlow` does NOT emit these events
+// for backend-executed tools, which is why a crew endpoint cannot serve
+// tool-rendering.
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 import crypto from "node:crypto";
@@ -55,12 +54,12 @@ function logRouteError(err: unknown): string {
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-tool-rendering",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime,
+      basePath: "/api/copilotkit-tool-rendering",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     const errorId = logRouteError(error);
     return NextResponse.json(

@@ -143,7 +143,7 @@ Each top-level key is a named fixture. Switch between them from the fixture drop
 
 ## AG-UI Inspector
 
-You're running a CopilotKit runtime and something in an agent interaction is off — a tool call isn't firing, a state delta is wrong, or the run ends before the UI settles. The **AG-UI Inspector** sidebar opens a dedicated SSE connection to your runtime's `/cpk-debug-events` endpoint and renders every event in a filterable, color-coded stream. Click any event row to expand the full JSON payload.
+You're running a CopilotKit runtime and something in an agent interaction is off — a tool call isn't firing, a state delta is wrong, or the run ends before the UI settles. The **AG-UI Inspector** sidebar opens a dedicated SSE connection to `{runtimeUrl}/cpk-debug-events` and renders every event in a filterable, color-coded stream. Click any event row to expand the full JSON payload. That path is relative to the base path the runtime is mounted at, so give the panel the full runtime URL rather than just the origin.
 
 <Callout type="info">
   Full walkthrough, event-type color reference, and production guard details: [AG-UI Event Inspector](/troubleshooting/event-inspector).

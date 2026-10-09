@@ -19,11 +19,14 @@ Import these symbols from `@copilotkit/angular`.
 
 <!-- public-api:root:start -->
 
+- `A2UICatalog`
+- `A2UIClientEventMessage`
 - `A2UIConfig`
 - `A2UIDebugExposure`
 - `A2UILifecycleContent`
 - `A2UILifecycleStatus`
 - `A2UIRecoveryOptions`
+- `A2UISurfaceError`
 - `AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME`
 - `ActivityRenderer`
 - `AgentStore`
@@ -54,6 +57,7 @@ Import these symbols from `@copilotkit/angular`.
 - `CopilotA2UIProgress`
 - `CopilotA2UIRecovery`
 - `CopilotA2UIToolRenderer`
+- `CopilotActivity`
 - `CopilotChat`
 - `CopilotChatAddFileButton`
 - `CopilotChatAssistantMessage`
@@ -179,6 +183,7 @@ Import these symbols from `@copilotkit/angular`.
 - `RENDER_A2UI_TOOL_NAME`
 - `ReadAloudButtonContext`
 - `RegenerateButtonContext`
+- `RegisterComponentConfig`
 - `RenderA2UIArgs`
 - `RenderA2UIArgsSchema`
 - `RenderActivityMessageConfig`
@@ -195,6 +200,7 @@ Import these symbols from `@copilotkit/angular`.
 - `SendButtonContext`
 - `SlotConfig`
 - `SlotContext`
+- `SlotOutputs`
 - `SlotRegistryEntry`
 - `SlotValue`
 - `StaticSuggestionsConfig`
@@ -241,6 +247,7 @@ Import these symbols from `@copilotkit/angular`.
 - `provideCopilotKit`
 - `provideSlots`
 - `readA2UILifecycleContent`
+- `registerComponent`
 - `registerFrontendTool`
 - `registerHumanInTheLoop`
 - `registerRenderActivityMessage`
@@ -251,12 +258,46 @@ Import these symbols from `@copilotkit/angular`.
 
 ### Internal extension points
 
-The following exported Angular DI token exists only so CopilotKit-maintained
-secondary entry points can contribute built-in renderers. Applications must
-not depend on it; its `ɵ` prefix and TSDoc mark it internal.
+The following exported Angular DI tokens exist only so CopilotKit-maintained
+code can hook Inspector development mode and built-in renderers. Applications
+must not depend on them; the `ɵ` prefix and TSDoc mark them internal.
 
 - `ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS`
+- `ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE`
 <!-- public-api:root:end -->
+
+## A2UI Angular catalog entry point
+
+Import these symbols from `@copilotkit/angular/a2ui` to render A2UI with your
+own Angular components; see the [package README](./README.md#a2ui-with-angular-components).
+
+<!-- public-api:a2ui:start -->
+
+- `A2UICatalogDefinitions`
+- `A2UIChildRef`
+- `A2UIComponentContext`
+- `A2UIComponentDefinition`
+- `A2UIProps`
+- `A2UIWebComponent`
+- `A2UI_COMPONENT_CONTEXT`
+- `A2uiWebComponentElement`
+- `ActionSchema`
+- `ChildListSchema`
+- `CopilotA2UICatalog`
+- `CopilotA2UICatalogEntry`
+- `CopilotA2UIChild`
+- `CopilotA2UIComponentImplementation`
+- `CopilotA2UISurface`
+- `CreateAngularCatalogOptions`
+- `DynamicBooleanSchema`
+- `DynamicNumberSchema`
+- `DynamicStringSchema`
+- `WebComponentImplementation`
+- `basicCatalog`
+- `createAngularCatalog`
+- `injectA2UIComponentContext`
+
+<!-- public-api:a2ui:end -->
 
 ## MCP Apps entry point
 

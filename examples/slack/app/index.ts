@@ -46,17 +46,33 @@ const required = (...names: string[]): string => {
 };
 
 /**
+ * Resolves the Intelligence project key. `CPK_INTELLIGENCE_API_KEY` is the
+ * name `copilotkit project select` provisions. `COPILOTKIT_API_KEY` is a
+ * deprecated alias, still read so an existing `.env` keeps working.
+ *
  * Prefer a key that carries `cpk-{projectId}_...`. Some COPILOTKIT_API_KEY
  * values use `cpk_` and cannot activate a Channel.
  */
 function intelligenceApiKey(): string {
-  const candidates = [
-    firstEnv("INTELLIGENCE_API_KEY"),
-    firstEnv("COPILOTKIT_API_KEY"),
-  ].filter((value): value is string => Boolean(value));
+  const names = [
+    "CPK_INTELLIGENCE_API_KEY",
+    "INTELLIGENCE_API_KEY",
+    "COPILOTKIT_API_KEY",
+  ];
+  if (
+    !firstEnv("CPK_INTELLIGENCE_API_KEY", "INTELLIGENCE_API_KEY") &&
+    firstEnv("COPILOTKIT_API_KEY")
+  ) {
+    console.warn(
+      "COPILOTKIT_API_KEY is a deprecated alias; rename it to CPK_INTELLIGENCE_API_KEY.",
+    );
+  }
+  const candidates = names
+    .map((name) => firstEnv(name))
+    .filter((value): value is string => Boolean(value));
   const matching = candidates.find((key) => /^cpk-\d+_/.test(key));
   if (matching) return matching;
-  return required("INTELLIGENCE_API_KEY", "COPILOTKIT_API_KEY");
+  return required(...names);
 }
 
 const channelName = firstEnv("INTELLIGENCE_CHANNEL_NAME") ?? "triage";

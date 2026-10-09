@@ -1,0 +1,164 @@
+.page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 24px 28px 30px;
+}
+.page > :global(.shell-page__header) {
+  margin-bottom: 24px;
+}
+.nextStep {
+  margin: 0 0 32px;
+}
+.sectionTitle {
+  color: var(--foreground);
+  font-size: var(--text-section);
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+.toolbar {
+  flex: 0 0 auto;
+  margin-bottom: 12px;
+}
+
+/* Same frame as the shared DataTable: bordered card, muted header, canvas rows. */
+.results {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+.resultsEmpty {
+  background: transparent;
+  border: 0;
+  overflow: visible;
+}
+.columnHead {
+  background: var(--muted);
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
+  display: grid;
+  font-size: var(--text-caption);
+  font-weight: 500;
+  gap: 16px;
+  grid-template-columns:
+    minmax(0, 2fr) minmax(80px, 0.7fr) minmax(130px, 1fr)
+    minmax(110px, 0.8fr);
+  padding: 12px 16px;
+}
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.list li + li {
+  border-top: 1px solid var(--border);
+}
+.row {
+  align-items: center;
+  color: var(--foreground);
+  display: grid;
+  font-size: var(--text-control);
+  font-variant-numeric: tabular-nums;
+  gap: 16px;
+  grid-template-columns:
+    minmax(0, 2fr) minmax(80px, 0.7fr) minmax(130px, 1fr)
+    minmax(110px, 0.8fr);
+  min-height: 56px;
+  padding: 10px 16px;
+  text-decoration: none;
+}
+.row:hover,
+.row:focus-visible {
+  background: var(--muted);
+}
+.row:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+.row > span:last-child {
+  color: var(--muted-foreground);
+}
+.name {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.name strong {
+  font-size: var(--text-body);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+/* The space ID is an identifier: sans with tabular figures, like other IDs. */
+.name small {
+  color: var(--muted-foreground);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+/* Runs whose events are gone, under the last analysis. */
+.history {
+  display: block;
+  font-size: var(--text-caption);
+  line-height: 1.4;
+  margin-top: 3px;
+}
+.page [data-slot='pagination'] {
+  flex: 0 0 auto;
+  padding: 12px 0;
+}
+@media (max-width: 767px) {
+  .page {
+    padding: 22px 18px 28px;
+  }
+  .row {
+    gap: 6px 12px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 14px 16px;
+  }
+  .columnHead {
+    display: none;
+  }
+  .row > span:nth-child(2) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .row > span:nth-child(3),
+  .row > span:nth-child(4) {
+    grid-column: 1 / -1;
+  }
+}
+
+/* All projects: a Project column after the space name. */
+.results[data-columns='project'] .columnHead,
+.results[data-columns='project'] .row {
+  grid-template-columns:
+    minmax(0, 1.6fr) minmax(0, 1fr) minmax(80px, 0.6fr) minmax(130px, 0.9fr)
+    minmax(110px, 0.8fr);
+}
+.project {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 767px) {
+  .results[data-columns='project'] .row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .results[data-columns='project'] .row > .project {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    color: var(--muted-foreground);
+  }
+  .results[data-columns='project'] .row > span:nth-child(3) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .results[data-columns='project'] .row > span:nth-child(4),
+  .results[data-columns='project'] .row > span:nth-child(5) {
+    grid-column: 1 / -1;
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-antigravity / agentic-chat. Text-only by design: `agentic_chat` is backed by the neutral agent (src/agents/chat.py, no tools) and the page registers none, so a `generate_haiku` tool call has nowhere to render and would abort the run with `unknown_tool` on the Antigravity harness. The haiku pair that came over with the mirrored fixture was removed for that reason.",
+    "sourceFile": "d5-all.json",
+    "created": "2026-05-21",
+    "copiedFrom": "langgraph-python"
+  },
+  "fixtures": [
+    {
+      "_comment": "agentic-chat turn 1 — goldfish name. No turnIndex gate: the probe sends 3 sequential turns in one thread; turnIndex would restrict this to the first turn only, causing turns 2-3 to fall through to proxy.",
+      "match": {
+        "userMessage": "good name for a goldfish",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "How about Bubbles? It is friendly, classic, and easy to call out at the tank. If you want alternatives: Goldie, Finley, or Mango."
+      }
+    },
+    {
+      "_comment": "agentic-chat turn 2 — tank name. No turnIndex gate (multi-turn conversation).",
+      "match": {
+        "userMessage": "name for its tank",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Following the Bubbles theme, you could call the tank The Bubble Bowl. It pairs naturally with the goldfish's name and keeps the playful tone."
+      }
+    },
+    {
+      "_comment": "agentic-chat turn 3 — recall. No turnIndex gate (multi-turn conversation).",
+      "match": {
+        "userMessage": "what we named the goldfish",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "We named the goldfish Bubbles, and the tank The Bubble Bowl."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "analyze data and call the tool",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Reasoning step 1: I considered the query. Reasoning step 2: I decided to invoke the analysis tool. The tool returned its structured payload, and the reasoning chain wraps the rendered tool card. Both the reasoning block and the tool card should be visible in the transcript."
+      }
+    },
+    {
+      "_comment": "agentic-chat.spec.ts 'sends a typed message and gets an assistant response'.",
+      "match": {
+        "userMessage": "Say hello in one word",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Hello!"
+      }
+    },
+    {
+      "_comment": "agentic-chat.spec.ts 'multi-turn conversation maintains context', first turn.",
+      "match": {
+        "userMessage": "My name is Alice",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Nice to meet you, Alice!"
+      }
+    },
+    {
+      "_comment": "agentic-chat.spec.ts multi-turn, second turn: the answer must name Alice.",
+      "match": {
+        "userMessage": "What name did I just give you",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "You told me your name is Alice."
+      }
+    }
+  ]
+}

@@ -556,7 +556,7 @@ async function checkTypeScriptQuickstart() {
         ANTHROPIC_API_KEY: LIVE_ANTHROPIC
           ? process.env.ANTHROPIC_API_KEY
           : "test-key",
-        CLAUDE_MODEL: process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6",
+        CLAUDE_MODEL: process.env.CLAUDE_MODEL ?? "claude-opus-4-8",
       },
     });
 
@@ -679,7 +679,7 @@ async function checkPythonVersion(version: string) {
           ANTHROPIC_API_KEY: LIVE_ANTHROPIC
             ? process.env.ANTHROPIC_API_KEY
             : "test-key",
-          ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6",
+          ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL ?? "claude-opus-4-8",
         },
       },
     );

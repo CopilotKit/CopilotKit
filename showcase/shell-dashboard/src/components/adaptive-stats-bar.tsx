@@ -56,7 +56,7 @@ export interface AdaptiveStatsBarProps {
 /*  Shared primitives                                                  */
 /* ------------------------------------------------------------------ */
 
-/** Large number + small label (mirrors existing StatsBar Stat). */
+/** Large number with a small label. */
 function Stat({
   value,
   label,

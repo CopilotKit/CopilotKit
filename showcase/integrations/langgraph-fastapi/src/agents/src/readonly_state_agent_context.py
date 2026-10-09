@@ -20,7 +20,7 @@ from copilotkit import CopilotKitMiddleware
 
 # @region[agent-context-setup]
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-4o-mini"),
+    model=ChatOpenAI(model="gpt-5-mini"),
     tools=[],
     middleware=[CopilotKitMiddleware()],
     system_prompt=(

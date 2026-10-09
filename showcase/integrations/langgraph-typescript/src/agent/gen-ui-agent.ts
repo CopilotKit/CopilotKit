@@ -139,7 +139,7 @@ const SYSTEM_PROMPT =
 async function chatNode(state: AgentState, config: RunnableConfig) {
   const model = makeChatOpenAI(config, {
     temperature: 0,
-    model: "gpt-4o-mini",
+    model: "gpt-5-mini",
   });
 
   const modelWithTools = model.bindTools!([

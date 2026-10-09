@@ -254,6 +254,52 @@ describe("CopilotChatUserMessage", () => {
     });
   });
 
+  it("disables custom branch commands when no switch callback is available", async () => {
+    const message: UserMessage = {
+      id: "user-no-branch-handler",
+      role: "user",
+      timestamp: new Date(),
+      content: "Custom branch controls without a handler",
+    };
+
+    const wrapper = mount(CopilotChatUserMessage, {
+      props: {
+        message,
+        branchIndex: 0,
+        numberOfBranches: 2,
+      },
+      slots: {
+        "branch-navigation": ({
+          canGoPrev,
+          canGoNext,
+          goNext,
+        }: {
+          canGoPrev: boolean;
+          canGoNext: boolean;
+          goNext: () => void;
+        }) =>
+          h("div", [
+            h(
+              "span",
+              { "data-testid": "branch-capabilities" },
+              `${canGoPrev}:${canGoNext}`,
+            ),
+            h(
+              "button",
+              { "data-testid": "branch-next", onClick: goNext },
+              "next",
+            ),
+          ]),
+      },
+    });
+
+    expect(wrapper.get("[data-testid='branch-capabilities']").text()).toBe(
+      "false:false",
+    );
+    await wrapper.get("[data-testid='branch-next']").trigger("click");
+    expect(wrapper.emitted("switch-to-branch")).toBeUndefined();
+  });
+
   it("supports custom layout slot with all control callbacks", async () => {
     const onEditMessage = vi.fn();
     const onSwitchToBranch = vi.fn();
