@@ -9,7 +9,7 @@ import type {
   ModelStreamEvent,
 } from "@strands-agents/sdk";
 import type { RunAgentInput } from "@ag-ui/core";
-import { BoardStateStrandsAgent } from "./todo-state-sync";
+import { ShowcaseStrandsAgent } from "./agent";
 import { getSalesTodos } from "./tools";
 import { salesStateFromResult } from "./state";
 
@@ -73,7 +73,7 @@ function input(threadId: string, state: unknown): RunAgentInput {
   };
 }
 async function read(
-  adapter: BoardStateStrandsAgent,
+  adapter: ShowcaseStrandsAgent,
   threadId: string,
   state: unknown,
 ) {
@@ -102,7 +102,7 @@ describe("frontend todo edits in native state", () => {
       const saved = new Agent({ model: new ReadTodosModel(), printer: false });
       saved.appState.set("todos", original);
       await manager.saveSnapshot({ target: saved, isLatest: true });
-      const adapter = new BoardStateStrandsAgent({
+      const adapter = new ShowcaseStrandsAgent({
         agent: new Agent({
           model: new ReadTodosModel(),
           tools: [getSalesTodos],
@@ -132,7 +132,7 @@ describe("frontend todo edits in native state", () => {
   });
 
   it("isolates concurrent conversations and a later conversation with no board", async () => {
-    const adapter = new BoardStateStrandsAgent({
+    const adapter = new ShowcaseStrandsAgent({
       agent: new Agent({
         model: new ReadTodosModel(),
         tools: [getSalesTodos],

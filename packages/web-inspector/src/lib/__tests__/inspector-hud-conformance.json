@@ -1,0 +1,987 @@
+{
+  "defaults": {
+    "threads": {
+      "label": "Rich Threads",
+      "description": "Click to learn more",
+      "destination": "threads"
+    },
+    "learning": {
+      "label": "Automatic Learning",
+      "description": "Click to learn more",
+      "destination": "memories"
+    }
+  },
+  "supportedDestinations": [
+    "home",
+    "whats-new",
+    "playground",
+    "threads",
+    "memories",
+    "agents",
+    "ag-ui-events",
+    "frontend-tools",
+    "capabilities",
+    "agent-context"
+  ],
+  "scenarios": [
+    {
+      "name": "published feed",
+      "publishable": true,
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0 <2.0.0",
+            "features": {
+              "threads": {
+                "label": "Rich Threads Pro",
+                "description": "Open any past conversation with its full state.",
+                "destination": "threads"
+              },
+              "learning": {
+                "label": "Learning",
+                "destination": "home"
+              }
+            }
+          },
+          {
+            "framework": "react",
+            "sdkVersion": "1.76.0",
+            "features": {
+              "learning": {
+                "description": "Exact version rule."
+              }
+            }
+          },
+          {
+            "framework": "vue",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {
+                "destination": "memories"
+              }
+            }
+          },
+          {
+            "framework": "angular",
+            "sdkVersion": "~0.5.2",
+            "features": {
+              "learning": {
+                "label": "Auto Learning"
+              }
+            }
+          }
+        ]
+      },
+      "cases": [
+        {
+          "name": "react lower bound",
+          "context": {
+            "development": true,
+            "framework": "react",
+            "sdkVersion": "1.77.0"
+          },
+          "content": {
+            "threads": {
+              "label": "Rich Threads Pro",
+              "description": "Open any past conversation with its full state.",
+              "destination": "threads"
+            },
+            "learning": {
+              "label": "Learning",
+              "description": "Click to learn more",
+              "destination": "home"
+            }
+          }
+        },
+        {
+          "name": "react inside range",
+          "context": {
+            "development": true,
+            "framework": "react",
+            "sdkVersion": "1.77.5"
+          },
+          "content": {
+            "threads": {
+              "label": "Rich Threads Pro",
+              "description": "Open any past conversation with its full state.",
+              "destination": "threads"
+            },
+            "learning": {
+              "label": "Learning",
+              "description": "Click to learn more",
+              "destination": "home"
+            }
+          }
+        },
+        {
+          "name": "react upper bound excluded",
+          "context": {
+            "development": true,
+            "framework": "react",
+            "sdkVersion": "2.0.0"
+          },
+          "content": {
+            "threads": {
+              "label": "Rich Threads",
+              "description": "Click to learn more",
+              "destination": "threads"
+            },
+            "learning": {
+              "label": "Automatic Learning",
+              "description": "Click to learn more",
+              "destination": "memories"
+            }
+          }
+        },
+        {
+          "name": "react exact version",
+          "context": {
+            "development": true,
+            "framework": "react",
+            "sdkVersion": "1.76.0"
+          },
+          "content": {
+            "threads": {
+              "label": "Rich Threads",
+              "description": "Click to learn more",
+              "destination": "threads"
+            },
+            "learning": {
+              "label": "Automatic Learning",
+              "description": "Exact version rule.",
+              "destination": "memories"
+            }
+          }
+        },
+        {
+          "name": "react next to exact version",
+          "context": {
+            "development": true,
+            "framework": "react",
+            "sdkVersion": "1.76.1"
+          },
+          "content": {
+            "threads": {
+              "label": "Rich Threads",
+              "description": "Click to learn more",
+              "destination": "threads"
+            },
+            "learning": {
+              "label": "Automatic Learning",
+              "description": "Click to learn more",
+              "destination": "memories"
+            }
+          }
+        },
+        {
+          "name": "react prerelease",
+          "context": {
+            "development": true,
+            "framework": "react",
+            "sdkVersion": "1.77.0-beta.1"
+          },
+          "content": {
+            "threads": {
+              "label": "Rich Threads",
+              "description": "Click to learn more",
+              "destination": "threads"
+            },
+            "learning": {
+              "label": "Automatic Learning",
+              "description": "Click to learn more",
+              "destination": "memories"
+            }
+          }
+        },
+        {
+          "name": "react unknown version",
+          "context": {
+            "development": true,
+            "framework": "react"
+          },
+          "content": {
+            "threads": {
+              "label": "Rich Threads",
+              "description": "Click to learn more",
+              "destination": "threads"
+            },
+            "learning": {
+              "label": "Automatic Learning",
+              "description": "Click to learn more",
+              "destination": "memories"
+            }
+          }
+        },
+        {
+          "name": "react invalid version",
+          "context": {
+            "development": true,
+            "framework": "react",
+            "sdkVersion": "latest"
+          },
+          "content": {
+            "threads": {
+              "label": "Rich Threads",
+              "description": "Click to learn more",
+              "destination": "threads"
+            },
+            "learning": {
+              "label": "Automatic Learning",
+              "description": "Click to learn more",
+              "destination": "memories"
+            }
+          }
+        },
+        {
+          "name": "production inspector",
+          "context": {
+            "development": false,
+            "framework": "react",
+            "sdkVersion": "1.77.0"
+          },
+          "content": {
+            "threads": {
+              "label": "Rich Threads",
+              "description": "Click to learn more",
+              "destination": "threads"
+            },
+            "learning": {
+              "label": "Automatic Learning",
+              "description": "Click to learn more",
+              "destination": "memories"
+            }
+          }
+        },
+        {
+          "name": "unknown framework",
+          "context": {
+            "development": true,
+            "sdkVersion": "1.77.0"
+          },
+          "content": {
+            "threads": {
+              "label": "Rich Threads",
+              "description": "Click to learn more",
+              "destination": "threads"
+            },
+            "learning": {
+              "label": "Automatic Learning",
+              "description": "Click to learn more",
+              "destination": "memories"
+            }
+          }
+        },
+        {
+          "name": "vue partial override",
+          "context": {
+            "development": true,
+            "framework": "vue",
+            "sdkVersion": "1.77.0"
+          },
+          "content": {
+            "threads": {
+              "label": "Rich Threads",
+              "description": "Click to learn more",
+              "destination": "memories"
+            },
+            "learning": {
+              "label": "Automatic Learning",
+              "description": "Click to learn more",
+              "destination": "memories"
+            }
+          }
+        },
+        {
+          "name": "angular tilde range",
+          "context": {
+            "development": true,
+            "framework": "angular",
+            "sdkVersion": "0.5.2"
+          },
+          "content": {
+            "threads": {
+              "label": "Rich Threads",
+              "description": "Click to learn more",
+              "destination": "threads"
+            },
+            "learning": {
+              "label": "Auto Learning",
+              "description": "Click to learn more",
+              "destination": "memories"
+            }
+          }
+        },
+        {
+          "name": "angular outside tilde range",
+          "context": {
+            "development": true,
+            "framework": "angular",
+            "sdkVersion": "0.6.0"
+          },
+          "content": {
+            "threads": {
+              "label": "Rich Threads",
+              "description": "Click to learn more",
+              "destination": "threads"
+            },
+            "learning": {
+              "label": "Automatic Learning",
+              "description": "Click to learn more",
+              "destination": "memories"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "feature and destination from a newer SDK",
+      "publishable": false,
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {
+                "label": "Threads+",
+                "destination": "trajectories"
+              },
+              "skills": {
+                "label": "Skills"
+              }
+            }
+          }
+        ]
+      },
+      "cases": [
+        {
+          "name": "keeps the built-in destination and ignores the unknown feature",
+          "context": {
+            "development": true,
+            "framework": "react",
+            "sdkVersion": "1.77.0"
+          },
+          "content": {
+            "threads": {
+              "label": "Threads+",
+              "description": "Click to learn more",
+              "destination": "threads"
+            },
+            "learning": {
+              "label": "Automatic Learning",
+              "description": "Click to learn more",
+              "destination": "memories"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "framework from a newer SDK",
+      "publishable": false,
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "svelte",
+            "sdkVersion": ">=1.0.0",
+            "features": {
+              "learning": {
+                "label": "Svelte Learning"
+              }
+            }
+          },
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "learning": {
+                "label": "Learning"
+              }
+            }
+          }
+        ]
+      },
+      "cases": [
+        {
+          "name": "keeps rules for known frameworks",
+          "context": {
+            "development": true,
+            "framework": "react",
+            "sdkVersion": "1.77.0"
+          },
+          "content": {
+            "threads": {
+              "label": "Rich Threads",
+              "description": "Click to learn more",
+              "destination": "threads"
+            },
+            "learning": {
+              "label": "Learning",
+              "description": "Click to learn more",
+              "destination": "memories"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "overlapping ranges",
+      "publishable": false,
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.0.0",
+            "features": {
+              "learning": {
+                "label": "First"
+              }
+            }
+          },
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "learning": {
+                "label": "Second"
+              }
+            }
+          }
+        ]
+      },
+      "cases": [
+        {
+          "name": "first matching rule wins",
+          "context": {
+            "development": true,
+            "framework": "react",
+            "sdkVersion": "1.77.0"
+          },
+          "content": {
+            "threads": {
+              "label": "Rich Threads",
+              "description": "Click to learn more",
+              "destination": "threads"
+            },
+            "learning": {
+              "label": "First",
+              "description": "Click to learn more",
+              "destination": "memories"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "destination outside the editorial allowlist",
+      "publishable": false,
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "learning": {
+                "destination": "agents"
+              }
+            }
+          }
+        ]
+      },
+      "cases": [
+        {
+          "name": "consumer applies a destination it supports",
+          "context": {
+            "development": true,
+            "framework": "react",
+            "sdkVersion": "1.77.0"
+          },
+          "content": {
+            "threads": {
+              "label": "Rich Threads",
+              "description": "Click to learn more",
+              "destination": "threads"
+            },
+            "learning": {
+              "label": "Automatic Learning",
+              "description": "Click to learn more",
+              "destination": "agents"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "no rules",
+      "publishable": true,
+      "feed": {
+        "schemaVersion": 1,
+        "rules": []
+      },
+      "cases": [
+        {
+          "name": "built-in content",
+          "context": {
+            "development": true,
+            "framework": "react",
+            "sdkVersion": "1.77.0"
+          },
+          "content": {
+            "threads": {
+              "label": "Rich Threads",
+              "description": "Click to learn more",
+              "destination": "threads"
+            },
+            "learning": {
+              "label": "Automatic Learning",
+              "description": "Click to learn more",
+              "destination": "memories"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "invalidFeeds": [
+    {
+      "name": "unsupported schema version",
+      "feed": {
+        "schemaVersion": 2,
+        "rules": []
+      }
+    },
+    {
+      "name": "missing schema version",
+      "feed": {
+        "rules": []
+      }
+    },
+    {
+      "name": "unknown top-level key",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [],
+        "updatedAt": "2026-10-06"
+      }
+    },
+    {
+      "name": "rules is not an array",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": {}
+      }
+    },
+    {
+      "name": "feed is an array",
+      "feed": []
+    },
+    {
+      "name": "rule is not an object",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": ["react"]
+      }
+    },
+    {
+      "name": "rule without framework",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {
+                "label": "Rich Threads"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "rule without sdkVersion",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "features": {
+              "threads": {
+                "label": "Rich Threads"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "rule without features",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0"
+          }
+        ]
+      }
+    },
+    {
+      "name": "framework with invalid syntax",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "React!",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {
+                "label": "Rich Threads"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "framework is not a string",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": 42,
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {
+                "label": "Rich Threads"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid version range",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": "not-a-range",
+            "features": {
+              "threads": {
+                "label": "Rich Threads"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "empty version range",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": " ",
+            "features": {
+              "threads": {
+                "label": "Rich Threads"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "unknown rule key",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {
+                "label": "Rich Threads"
+              }
+            },
+            "priority": "High"
+          }
+        ]
+      }
+    },
+    {
+      "name": "empty features",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {}
+          }
+        ]
+      }
+    },
+    {
+      "name": "features is an array",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "feature key with invalid syntax",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "Threads": {
+                "label": "Rich Threads"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "empty feature entry",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "unknown feature field",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {
+                "label": "Rich Threads",
+                "icon": "Brain"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "blank label",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {
+                "label": "   "
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "label is not a string",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {
+                "label": 42
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "label longer than 32 characters",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {
+                "label": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "label with a line break",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {
+                "label": "Rich\nThreads"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "description longer than 140 characters",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {
+                "description": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "description with a control character",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {
+                "description": "Open\u0007 threads"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "destination with invalid syntax",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {
+                "destination": "Threads!"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "destination is not a string",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {
+                "destination": null
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "validFeeds": [
+    {
+      "name": "label of exactly 32 characters",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {
+                "label": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "description of exactly 140 characters",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {
+                "description": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "markup is plain text",
+      "feed": {
+        "schemaVersion": 1,
+        "rules": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.77.0",
+            "features": {
+              "threads": {
+                "label": "<b>Rich</b> Threads"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

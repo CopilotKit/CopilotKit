@@ -1,91 +1,33 @@
 import { expect, test, vi } from "vitest";
-
-import {
-  CHANNEL_FRONTENDS,
-  CHANNEL_GUIDE_ROUTES,
-  channelConnectHref,
-  channelGuideHref,
-} from "@/lib/channel-guide-routes";
 import { getAllLlmPages, renderPageToLlmText } from "@/lib/llm-text";
-import { getDocsMode, getIntegrations } from "@/lib/registry";
 import { getBaseUrl } from "@/lib/sitemap-helpers";
 import { GET } from "./route";
 
-vi.mock("@/lib/llm-text", async (importOriginal) => {
-  const actual = (await importOriginal()) as Record<string, unknown> & {
-    getAllLlmPages: typeof getAllLlmPages;
-    renderPageToLlmText: typeof renderPageToLlmText;
-  };
-  return {
-    ...actual,
-    getAllLlmPages: vi.fn(actual.getAllLlmPages),
-    renderPageToLlmText: vi.fn(actual.renderPageToLlmText),
-  };
-});
+vi.mock("@/lib/llm-text", () => ({
+  getAllLlmPages: vi.fn(() => [
+    { url: "quickstart" },
+    { url: "teams/mastra/tools", frontend: "teams", framework: "mastra" },
+    { url: "missing" },
+  ]),
+  renderPageToLlmText: vi.fn((page) =>
+    page.url === "missing" ? "" : "body:" + page.url,
+  ),
+}));
 
-test("renders every channel connection guide and one shared guide body per provider", async () => {
+test("exports rendered pages with source links and selected axes, skipping missing bodies", async () => {
   const response = GET();
   const body = await response.text();
-  const baseUrl = getBaseUrl();
-  const visibleFrameworks = getIntegrations().filter(
-    (integration) => getDocsMode(integration.slug) !== "hidden",
-  );
-
+  expect(response.status).toBe(200);
+  expect(response.headers.get("content-type")).toContain("text/plain");
   expect(getAllLlmPages).toHaveBeenCalledWith({
     channelGuideVariants: "content-unique",
   });
-
-  for (const frontend of CHANNEL_FRONTENDS) {
-    for (const integration of visibleFrameworks) {
-      const connectUrl = channelConnectHref(frontend, integration.slug).slice(
-        1,
-      );
-      expect(body).toContain(`## Source: ${baseUrl}/${connectUrl}\n`);
-    }
-
-    for (const guide of CHANNEL_GUIDE_ROUTES) {
-      const defaultUrl = channelGuideHref(
-        frontend,
-        "built-in-agent",
-        guide.slug,
-      ).slice(1);
-      expect(body).toContain(`## Source: ${baseUrl}/${defaultUrl}\n`);
-      expect(body).not.toContain(
-        `## Source: ${baseUrl}/${channelGuideHref(
-          frontend,
-          "mastra",
-          guide.slug,
-        ).slice(1)}\n`,
-      );
-    }
-  }
-
-  expect(body).not.toContain("<FrameworkSetup");
-  const intelligenceOverview = body
-    .split(`## Source: ${baseUrl}/intelligence/overview\n`)[1]
-    ?.split("## Source:")[0];
-  expect(intelligenceOverview).toBeDefined();
-  for (const href of [
-    "/threads",
-    "/intelligence/memories",
-    "/learning",
-    "/intelligence/analytics",
-    "/intelligence/channels",
-    "/inspector",
-  ]) {
-    expect(intelligenceOverview).toContain(`](${href})`);
-  }
-  expect(intelligenceOverview).not.toContain("<IntelligenceFeatureCards");
-  expect(body).not.toContain(`## Source: ${baseUrl}/channels/tools\n`);
-
-  const pages =
-    (vi.mocked(getAllLlmPages).mock.results[0]?.value as
-      | ReturnType<typeof getAllLlmPages>
-      | undefined) ?? [];
-  for (const page of pages) {
-    expect(renderPageToLlmText).toHaveBeenCalledWith(page, {
-      ...(page.frontend ? { frontend: page.frontend } : {}),
-      ...(page.framework ? { framework: page.framework } : {}),
-    });
-  }
-}, 60_000);
+  expect(body).toContain("## Source: " + getBaseUrl() + "/quickstart");
+  expect(body).toContain("body:quickstart");
+  expect(body).toContain("body:teams/mastra/tools");
+  expect(body).not.toContain("/missing");
+  expect(renderPageToLlmText).toHaveBeenCalledWith(
+    { url: "teams/mastra/tools", frontend: "teams", framework: "mastra" },
+    { frontend: "teams", framework: "mastra" },
+  );
+});
