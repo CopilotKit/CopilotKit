@@ -15,6 +15,7 @@ import {
   defer,
   dematerialize,
   merge,
+  of,
   switchMap,
   throwError,
 } from "rxjs";
@@ -102,6 +103,26 @@ interface ThreadJoinCredentials {
   runId: string | null;
   joinToken: string;
   realtime: RealtimeConnectionInfo;
+}
+
+interface McpResourceReadResponse {
+  kind: "mcp-resource-read";
+  threadId: string;
+  runId: string;
+  result: unknown;
+}
+
+function isMcpResourceRead(input: RunAgentInput): boolean {
+  const forwardedProps = input.forwardedProps as
+    | Record<string, unknown>
+    | undefined;
+  const request = forwardedProps?.__proxiedMCPRequest;
+  return (
+    forwardedProps?.__copilotkitMcpResourceReadOnly === true &&
+    typeof request === "object" &&
+    request !== null &&
+    (request as { method?: unknown }).method === "resources/read"
+  );
 }
 
 export class AgentThreadLockedError extends Error {
@@ -294,14 +315,32 @@ export class IntelligenceAgent extends AbstractAgent {
    * server-pushed AG-UI events to the Observable subscriber.
    */
   run(input: RunAgentInput): Observable<BaseEvent> {
-    this.threadId = input.threadId;
-    this.canonicalRunId = input.runId;
+    if (!isMcpResourceRead(input)) {
+      this.threadId = input.threadId;
+      this.canonicalRunId = input.runId;
+    }
 
     return defer(() => this.requestJoinCredentials$("run", input)).pipe(
       switchMap((credentials) => {
         if (credentials === null) {
           return throwError(
             () => new Error("REST run request returned no credentials"),
+          );
+        }
+
+        if ("kind" in credentials) {
+          return of(
+            {
+              type: EventType.RUN_STARTED,
+              threadId: credentials.threadId,
+              runId: credentials.runId,
+            } as BaseEvent,
+            {
+              type: EventType.RUN_FINISHED,
+              threadId: credentials.threadId,
+              runId: credentials.runId,
+              result: credentials.result,
+            } as BaseEvent,
           );
         }
 
@@ -399,10 +438,19 @@ export class IntelligenceAgent extends AbstractAgent {
   }
 
   private requestJoinCredentials$(
+    mode: "run",
+    input: RunAgentInput,
+  ): Observable<ThreadJoinCredentials | McpResourceReadResponse>;
+  private requestJoinCredentials$(
+    mode: "connect",
+    input: RunAgentInput,
+    replayCursor?: string | null,
+  ): Observable<ThreadJoinCredentials | null>;
+  private requestJoinCredentials$(
     mode: "run" | "connect",
     input: RunAgentInput,
     replayCursor?: string | null,
-  ): Observable<ThreadJoinCredentials | null> {
+  ): Observable<ThreadJoinCredentials | McpResourceReadResponse | null> {
     return defer(async () => {
       try {
         const requestFetch = this.config.fetch ?? globalFetch;
@@ -457,7 +505,31 @@ export class IntelligenceAgent extends AbstractAgent {
           );
         }
 
-        return this.normalizeJoinCredentials(await response.json(), input);
+        const payload: unknown = await response.json();
+        if (
+          mode === "run" &&
+          isMcpResourceRead(input) &&
+          typeof payload === "object" &&
+          payload !== null &&
+          (payload as { kind?: unknown }).kind === "mcp-resource-read"
+        ) {
+          const resource = payload as Partial<McpResourceReadResponse>;
+          if (
+            typeof resource.threadId !== "string" ||
+            !resource.threadId ||
+            typeof resource.runId !== "string" ||
+            !resource.runId
+          ) {
+            throw new Error("invalid MCP resource response identity");
+          }
+          return {
+            kind: "mcp-resource-read" as const,
+            threadId: resource.threadId,
+            runId: resource.runId,
+            result: resource.result,
+          };
+        }
+        return this.normalizeJoinCredentials(payload, input);
       } catch (error) {
         if (error instanceof AgentThreadLockedError) {
           throw error;
