@@ -1,0 +1,11 @@
+{
+  "name": "railway-disposable-proof",
+  "projectType": "library",
+  "targets": {
+    "preflight": {
+      "executor": "nx:run-commands",
+      "options": { "command": "pnpm exec tsx tools/railway-disposable-proof/preflight.ts" },
+      "cache": false
+    }
+  }
+}
