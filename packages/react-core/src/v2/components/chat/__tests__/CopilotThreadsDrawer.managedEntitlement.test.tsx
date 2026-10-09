@@ -257,6 +257,32 @@ test.each(["misconfigured", "degraded"] as const)(
   },
 );
 
+test("a persistent retryable outage keeps feature-only React consumers enabled", async () => {
+  vi.useFakeTimers();
+  const { dispose, fetchMock } = setupDrawerTest(
+    retryableRuntimeInfo(),
+    retryableRuntimeInfo(),
+  );
+
+  try {
+    render(
+      <CopilotKitProvider runtimeUrl="/api">
+        <FeatureProbe />
+      </CopilotKitProvider>,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("feature-probe").textContent).toBe("true");
+  } finally {
+    dispose();
+    vi.useRealTimers();
+  }
+});
+
 test.each(["valid", "expiring"] as const)(
   "a terminal managed failure preserves a legacy fallback with status %s",
   async (licenseStatus) => {
@@ -714,7 +740,8 @@ test("a persistent retryable outage falls back to the threads endpoint, never th
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     // `unknown` is unresolved, not negative: the list is fetched and the
-    // threads endpoint decides. Feature-only consumers stay denied.
+    // threads endpoint decides. Feature-only consumers stay enabled, because a
+    // slow lookup is not evidence that the project lacks the feature.
     expect(useThreadsMock).toHaveBeenLastCalledWith(
       expect.objectContaining({ enabled: true }),
     );
@@ -725,7 +752,7 @@ test("a persistent retryable outage falls back to the threads endpoint, never th
     expect(terminalDrawer?.loading).toBe(false);
     expect(terminalDrawer?.licensed).toBe(true);
     expect(screen.getByTestId("threads-feature-authority").textContent).toBe(
-      "status:unknown threads:false",
+      "status:unknown threads:true",
     );
 
     await act(async () => {
@@ -768,7 +795,8 @@ test("a failed retry request falls back to the threads endpoint, never the locke
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     // `unknown` is unresolved, not negative: the list is fetched and the
-    // threads endpoint decides. Feature-only consumers stay denied.
+    // threads endpoint decides. Feature-only consumers stay enabled, because a
+    // slow lookup is not evidence that the project lacks the feature.
     expect(useThreadsMock).toHaveBeenLastCalledWith(
       expect.objectContaining({ enabled: true }),
     );
@@ -779,7 +807,7 @@ test("a failed retry request falls back to the threads endpoint, never the locke
     expect(terminalDrawer?.loading).toBe(false);
     expect(terminalDrawer?.licensed).toBe(true);
     expect(screen.getByTestId("threads-feature-authority").textContent).toBe(
-      "status:unknown threads:false",
+      "status:unknown threads:true",
     );
   } finally {
     dispose();
