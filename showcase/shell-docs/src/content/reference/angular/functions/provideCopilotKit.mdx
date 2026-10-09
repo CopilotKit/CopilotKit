@@ -92,6 +92,19 @@ passing the key explicitly as `undefined`.
   server-side rendering, even when explicitly set to `true`.
 </PropertyReference>
 
+<PropertyReference name="inspectorDefaultAnchor" type="{ horizontal: &quot;left&quot; | &quot;right&quot;; vertical: &quot;top&quot; | &quot;bottom&quot; }" default="{ horizontal: &quot;right&quot;, vertical: &quot;top&quot; }">
+  The corner the Inspector launcher starts in. Use it when the default top-right
+  corner covers your own navigation. Once a user drags the launcher somewhere
+  else, that position is saved and wins over this option.
+
+```ts
+provideCopilotKit({
+  runtimeUrl: "/api/copilotkit",
+  inspectorDefaultAnchor: { horizontal: "left", vertical: "bottom" },
+});
+```
+</PropertyReference>
+
 <PropertyReference name="agents" type="Record<string, AbstractAgent>">
   A map of agent id to AG-UI agent instance. Use this to register agents
   directly in the client. These are merged with `selfManagedAgents` when the
