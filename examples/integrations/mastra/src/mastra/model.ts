@@ -39,17 +39,25 @@ export function parseAgentModel(value: string): AgentModelSpec {
  * Whether `OPENAI_BASE_URL` points at an OpenAI-compatible provider rather
  * than OpenAI itself. Most compatible providers serve only
  * `{base}/chat/completions`, not the Responses API that `openai(model)` uses,
- * so those get the Chat Completions model. OpenAI itself, an unset variable
- * and an unparseable URL keep the Responses API.
+ * so those get the Chat Completions model. OpenAI's own hosts
+ * (`api.openai.com`, regional `*.api.openai.com`), Azure OpenAI
+ * (`*.openai.azure.com`), an unset variable and an unparseable URL keep the
+ * Responses API. Same rule as the CopilotKit runtime (PE-706).
  */
 export function usesChatCompletions(): boolean {
-  const baseUrl = process.env.OPENAI_BASE_URL;
+  const baseUrl = process.env.OPENAI_BASE_URL?.trim();
   if (!baseUrl) return false;
+  let hostname: string;
   try {
-    return new URL(baseUrl).hostname !== "api.openai.com";
+    hostname = new URL(baseUrl).hostname.toLowerCase();
   } catch {
     return false;
   }
+  const isOpenAIHost =
+    hostname === "api.openai.com" ||
+    hostname.endsWith(".api.openai.com") ||
+    hostname.endsWith(".openai.azure.com");
+  return !isOpenAIHost;
 }
 
 /**
