@@ -16,16 +16,19 @@ Example:
 
 import json
 import re
-from typing import Any, Callable, Awaitable, ClassVar, Iterable, Optional, Union
+from collections.abc import Awaitable, Callable, Iterable
+from copy import copy, deepcopy
+from typing import Any, ClassVar
 
-from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from langchain.agents.middleware import (
     AgentMiddleware,
     AgentState,
     ModelRequest,
     ModelResponse,
 )
+from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from langgraph.runtime import Runtime
+from langgraph.types import interrupt
 
 from .header_propagation import install_httpx_hook, set_forwarded_headers
 from .langgraph import CopilotKitProperties
@@ -34,7 +37,7 @@ from .langgraph import CopilotKitProperties
 # Guarded so an older/skewed version without the factory degrades to
 # "no auto-A2UI" instead of breaking the whole middleware import.
 try:  # pragma: no cover - exercised indirectly via the a2ui injection path
-    from ag_ui_langgraph import get_a2ui_tools, A2UIToolParams
+    from ag_ui_langgraph import A2UIToolParams, get_a2ui_tools
 except Exception:  # noqa: BLE001 - any import failure means the feature is off
     get_a2ui_tools = None
     A2UIToolParams = None
@@ -61,6 +64,21 @@ _a2ui_tools_by_thread: dict[str, Any] = {}
 # acceptable edge — the deployed path always carries a thread id.
 _DEFAULT_THREAD_KEY = "__copilotkit_a2ui_default__"
 _FRONTEND_TOOL_RESULT_CONTENT = json.dumps({"status": "forwarded_to_frontend"})
+
+# ``reason`` on each frontend-tool interrupt, surfaced as AG-UI
+# ``Interrupt.reason``. "tool_call" is what CopilotKit's runtime uses for a tool
+# call awaiting its result, and what ``useInterrupt`` pairs with ``toolCallId``.
+_FE_TOOL_INTERRUPT_REASON = "tool_call"
+
+# What the AG-UI adapter hands ``interrupt()`` for a cancelled resume entry.
+# Only ag-ui-langgraph >= 0.0.43 has ``resume[]`` entries (and this sentinel);
+# older versions never send a cancelled entry, so there is nothing to match.
+try:
+    from ag_ui_langgraph.interrupts import (
+        DEFAULT_RESUME_SENTINEL_CANCELLED as _AGUI_CANCELLED_KEY,
+    )
+except ImportError:  # ag-ui-langgraph < 0.0.43
+    _AGUI_CANCELLED_KEY = None
 
 
 def _current_thread_id() -> "str | None":
@@ -158,7 +176,7 @@ def _extract_forwarded_headers_from_config() -> None:
         # headers from previous calls in the same async context do not leak
         # into this one.
         set_forwarded_headers(headers)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - best-effort headers; logged and cleared below
         # Header forwarding is best-effort.  Never block the LLM call.
         # Clear the ContextVar so stale headers from a prior request do not
         # leak through on failure.
@@ -249,6 +267,24 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             model (the host cannot supply the live, header-hooked model), and
             folds the registered catalog id + component schema into the params
             unless the host already set them — so host values win.
+        interrupt_frontend_tools: Experimental. Await frontend tool results in
+            the same turn via LangGraph's ``interrupt()``, instead of the default
+            strip-and-restore that only delivers them on the next run.
+
+            Requires a client that resumes each call by interrupt id. Today's
+            React client does not: it still runs the frontend handler, and its
+            follow-up run fails on the pending interrupt. Requires Python 3.11+
+            when the graph runs async.
+
+            Each call pauses on its own ``interrupt()`` in the tool node, with
+            ``{"reason": "tool_call", "toolCallId", "name", "args"}`` as the
+            value. The resume value for that interrupt becomes the call's
+            ``ToolMessage``. Parallel calls pause in parallel, so resuming more
+            than one needs ids — send ``RunAgentInput.resume[]`` through
+            ``LangGraphAGUIAgent`` with ``emit_interrupt_outcome=True``
+            (ag-ui-langgraph >= 0.0.43). The legacy
+            ``forwardedProps.command.resume`` carries no id, so it can only
+            answer a lone pending call.
     """
 
     state_schema = StateSchema
@@ -257,12 +293,13 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     def __init__(
         self,
         *,
-        expose_state: Union[bool, Iterable[str]] = False,
-        a2ui_params: "Optional[A2UIToolParams]" = None,
+        expose_state: bool | Iterable[str] = False,
+        a2ui_params: "A2UIToolParams | None" = None,
+        interrupt_frontend_tools: bool = False,
     ):
         super().__init__()
         if isinstance(expose_state, bool):
-            self._expose_state: Union[bool, frozenset[str]] = expose_state
+            self._expose_state: bool | frozenset[str] = expose_state
         else:
             self._expose_state = frozenset(expose_state)
         # Host-supplied A2UI tool overrides (guidelines, catalog id, tool name,
@@ -270,26 +307,45 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         # bleed into the middleware. ``model`` + the registered catalog are
         # layered in at build time; everything here is host-owned and wins.
         self._a2ui_params: dict = dict(a2ui_params or {})
+        self._interrupt_frontend_tools = interrupt_frontend_tools
 
     @property
     def name(self) -> str:
         return "CopilotKitMiddleware"
 
     @staticmethod
-    def _has_copilotkit_payload(candidate: Any) -> bool:
-        return isinstance(candidate, dict) and (
-            bool(candidate.get("actions")) or bool(candidate.get("context"))
-        )
+    def _merge_properties(base: Any, override: Any) -> Any:
+        """Merge dictionaries recursively; all other values are atomic leaves.
+
+        Lists (including context entries) are replaced, never concatenated or
+        paired by position. Serialized JSON remains a string, not an implicit
+        mapping. Empty/false/null leaves are deliberate overrides. Copies keep
+        consumers from mutating state, runtime context or config carriers.
+        """
+        if isinstance(base, dict) and isinstance(override, dict):
+            result = deepcopy(base)
+            for key, value in override.items():
+                result[key] = (
+                    CopilotKitMiddleware._merge_properties(base[key], value)
+                    if key in base
+                    else deepcopy(value)
+                )
+            return result
+        return deepcopy(override)
 
     @staticmethod
-    def _copilotkit_from_runtime_context(runtime_context: Any) -> dict[str, Any]:
-        if not isinstance(runtime_context, dict):
+    def _properties_from_carrier(carrier: Any, namespace: str) -> dict:
+        if not isinstance(carrier, dict):
             return {}
-        nested = runtime_context.get("copilotkit")
-        if CopilotKitMiddleware._has_copilotkit_payload(nested):
+        nested = carrier.get(namespace)
+        if isinstance(nested, dict) and nested:
             return nested
-        if CopilotKitMiddleware._has_copilotkit_payload(runtime_context):
-            return runtime_context
+        # Legacy unnamespaced CopilotKit runtime/config carriers only. Never
+        # expose an arbitrary runtime context (tenant ids, headers, etc.).
+        if namespace == "copilotkit" and any(
+            key in carrier for key in ("actions", "context")
+        ):
+            return carrier
         return {}
 
     @staticmethod
@@ -297,35 +353,44 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         state: dict,
         runtime_context: Any = None,
     ) -> dict:
-        """Read copilotkit context from state, runtime context, then config carriers.
+        """Resolve each namespace's carrier, then merge CopilotKit over AG-UI.
 
-        When the agent runs as a subgraph, the parent may not propagate the
-        copilotkit state key onto child state, but it may still be present on
-        the model request/runtime context. Current LangGraph prefers
-        ``config["context"]`` for run-scoped context and older paths still rely on
-        ``config["configurable"]``, so we check both.
+        Carrier precedence remains state > runtime > config.context >
+        config.configurable. An empty namespace is absent; a namespace with an
+        explicit empty/false property is present. Interception bookkeeping alone
+        must not hide a subgraph's runtime/config properties.
         """
-        ck = state.get("copilotkit") or {}
-        if CopilotKitMiddleware._has_copilotkit_payload(ck):
-            return ck
-        runtime_ck = CopilotKitMiddleware._copilotkit_from_runtime_context(
-            runtime_context
-        )
-        if runtime_ck:
-            return runtime_ck
+        bookkeeping = {
+            "intercepted_tool_calls",
+            "original_ai_message_id",
+            "original_tool_calls",
+        }
+        resolved = {}
+        carriers = [runtime_context]
         try:
             from langgraph.config import get_config
 
             cfg = get_config() or {}
-            for carrier in (cfg.get("context"), cfg.get("configurable")):
-                candidate = CopilotKitMiddleware._copilotkit_from_runtime_context(
-                    carrier or {}
-                )
-                if candidate:
-                    return candidate
-            return ck
-        except Exception:  # noqa: BLE001 - no active context / older langgraph
-            return ck
+            carriers.extend((cfg.get("context"), cfg.get("configurable")))
+        except (ImportError, RuntimeError):
+            # No runnable context (e.g. direct middleware calls).
+            pass
+        for namespace in ("ag-ui", "copilotkit"):
+            properties = state.get(namespace)
+            if not isinstance(properties, dict):
+                properties = {}
+            if not properties.keys() - bookkeeping:
+                for carrier in carriers:
+                    candidate = CopilotKitMiddleware._properties_from_carrier(
+                        carrier, namespace
+                    )
+                    if candidate.keys() - bookkeeping:
+                        properties = candidate
+                        break
+            resolved[namespace] = properties
+        return CopilotKitMiddleware._merge_properties(
+            resolved["ag-ui"], resolved["copilotkit"]
+        )
 
     # ------------------------------------------------------------------
     # State-to-prompt surfacing
@@ -396,18 +461,15 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         state: dict[str, Any],
         runtime_context: Any = None,
     ) -> str | None:
+        # Only render explicitly structured AG-UI/CopilotKit context
+        # (from state or namespaced runtime/config carriers, resolved via
+        # ``_get_copilotkit_context``). Never fall back to dumping the raw
+        # ``runtime_context`` dict: with ag-ui-langgraph>=0.0.42 the LangGraph
+        # runtime context carries ``config["configurable"]`` (thread_id,
+        # tenant/user ids, ...), which must not reach the model-visible
+        # system prompt. See #7077.
         copilotkit_state = self._get_copilotkit_context(state, runtime_context)
         app_context = copilotkit_state.get("context")
-
-        if not app_context:
-            if isinstance(runtime_context, dict):
-                app_context = {
-                    k: v
-                    for k, v in runtime_context.items()
-                    if k != "copilotkit_forwarded_headers"
-                }
-            else:
-                app_context = runtime_context
 
         if isinstance(app_context, dict):
             app_context = {
@@ -461,7 +523,19 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _resolve_a2ui_catalog(state: dict) -> "tuple[str | None, str | None] | None":
+    def _decode_catalog_value(value: Any) -> Any:
+        """Decode JSON only at the catalog/toolkit boundary, never while merging."""
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except ValueError:
+                pass  # Plain-text catalog descriptions are also supported.
+        return value
+
+    @staticmethod
+    def _resolve_a2ui_catalog(
+        state: dict, runtime_context: Any = None
+    ) -> "tuple[str | None, str | None] | None":
         """Find the frontend-registered A2UI catalog wherever it was passed.
 
         Returns ``(component_schema, catalog_id)`` when a catalog is present,
@@ -471,17 +545,19 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
 
         - **AG-UI native endpoint** → ``state["ag-ui"]["a2ui_schema"]``, a JSON
           string ``{"catalogId": ..., "components": [...]}``.
-        - **CopilotKit runtime proxy** → a ``state["copilotkit"]["context"]``
-          entry describing the A2UI catalog (catalog id + component schemas as
-          text).
+        - **Context** → the effective ``context`` from AG-UI plus CopilotKit
+          overrides: a list of entries (or its JSON serialization), with an
+          entry describing the catalog id + component schemas as text.
 
         ``component_schema`` is the text/JSON the subagent should compose from;
         ``catalog_id`` binds generated surfaces to the frontend's catalog (so
         BYOC custom catalogs render their own components, not the basic one).
         """
         # AG-UI native path.
-        ag_ui = state.get("ag-ui") or {}
-        a2ui_schema = ag_ui.get("a2ui_schema")
+        properties = CopilotKitMiddleware._get_copilotkit_context(
+            state, runtime_context
+        )
+        a2ui_schema = properties.get("a2ui_schema")
         if a2ui_schema:
             catalog_id = None
             try:
@@ -499,15 +575,20 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             return None, catalog_id
 
         # CopilotKit runtime-proxy path: the catalog arrives as a context entry.
-        context = (
-            CopilotKitMiddleware._get_copilotkit_context(state).get("context") or []
-        )
-        for entry in context:
+        context = CopilotKitMiddleware._decode_catalog_value(properties.get("context"))
+        for entry in context if isinstance(context, list) else []:
+            if hasattr(entry, "model_dump"):
+                entry = entry.model_dump()
             if not isinstance(entry, dict):
                 continue
             description = entry.get("description") or ""
-            value = entry.get("value") or ""
-            if "A2UI catalog" not in description or not value:
+            value = CopilotKitMiddleware._decode_catalog_value(entry.get("value"))
+            if (
+                not isinstance(description, str)
+                or "A2UI catalog" not in description
+                or not isinstance(value, str)
+                or not value
+            ):
                 continue
             # The value lists catalogs as "- <catalogId>" lines; the first is
             # the custom catalog the client registered.
@@ -518,7 +599,9 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         return None
 
     @staticmethod
-    def _a2ui_inject_decision(state: dict) -> "bool | str | None":
+    def _a2ui_inject_decision(
+        state: dict, runtime_context: Any = None
+    ) -> "bool | str | None":
         """Return the A2UI ``injectA2UITool`` decision, or ``None``.
 
         The ``@ag-ui/a2ui-middleware`` forwards its ``injectA2UITool`` setting on
@@ -528,7 +611,9 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         means no signal at all (off, or no A2UI middleware in the pipeline), in
         which case we do not auto-inject.
         """
-        return (state.get("ag-ui") or {}).get("inject_a2ui_tool")
+        return CopilotKitMiddleware._get_copilotkit_context(state, runtime_context).get(
+            "inject_a2ui_tool"
+        )
 
     def _maybe_build_a2ui_tool(self, request: ModelRequest) -> Any | None:
         """Build a ``generate_a2ui`` tool bound to the agent's own model when
@@ -557,11 +642,12 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         state = request.state or {}
 
         # (1) Opt-in: only inject when the host turned the A2UI tool on.
-        if not self._a2ui_inject_decision(state):
+        runtime_context = getattr(request.runtime, "context", None)
+        if not self._a2ui_inject_decision(state, runtime_context):
             return None
 
         # Bind to the frontend's catalog when one was registered (optional).
-        resolved = self._resolve_a2ui_catalog(state)
+        resolved = self._resolve_a2ui_catalog(state, runtime_context)
         component_schema, catalog_id = resolved if resolved else (None, None)
 
         # Shared A2UIToolParams: a single params object owned by the toolkit.
@@ -569,7 +655,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         # recovery) so a host can steer the subagent, then layer in only what
         # the host cannot know — the bound model, and the registered catalog id
         # + component schema — without clobbering any host-set value.
-        params: "A2UIToolParams" = dict(self._a2ui_params)
+        params: A2UIToolParams = dict(self._a2ui_params)
         params["model"] = request.model
         if catalog_id and "default_catalog_id" not in params:
             params["default_catalog_id"] = catalog_id
@@ -610,14 +696,19 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         request = self._apply_app_context_note(request)
 
         a2ui_tool = self._maybe_build_a2ui_tool(request)
-        frontend_tools = self._get_copilotkit_context(
-            request.state or {},
-            getattr(request.runtime, "context", None),
-        ).get("actions", [])
+        frontend_tools = (
+            self._get_copilotkit_context(
+                request.state or {},
+                getattr(request.runtime, "context", None),
+            ).get("actions")
+            or []
+        )
         if a2ui_tool is not None:
             # Our generate_a2ui replaces the runtime's render tool — don't
             # advertise both. Drop the render tool the A2UI middleware injected.
-            decision = self._a2ui_inject_decision(request.state or {})
+            decision = self._a2ui_inject_decision(
+                request.state or {}, getattr(request.runtime, "context", None)
+            )
             drop = decision if isinstance(decision, str) else "render_a2ui"
             frontend_tools = [
                 t
@@ -980,14 +1071,19 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         request = self._apply_app_context_note(request)
 
         a2ui_tool = self._maybe_build_a2ui_tool(request)
-        frontend_tools = self._get_copilotkit_context(
-            request.state or {},
-            getattr(request.runtime, "context", None),
-        ).get("actions", [])
+        frontend_tools = (
+            self._get_copilotkit_context(
+                request.state or {},
+                getattr(request.runtime, "context", None),
+            ).get("actions")
+            or []
+        )
         if a2ui_tool is not None:
             # Our generate_a2ui replaces the runtime's render tool — don't
             # advertise both. Drop the render tool the A2UI middleware injected.
-            decision = self._a2ui_inject_decision(request.state or {})
+            decision = self._a2ui_inject_decision(
+                request.state or {}, getattr(request.runtime, "context", None)
+            )
             drop = decision if isinstance(decision, str) else "render_a2ui"
             frontend_tools = [
                 t
@@ -1021,14 +1117,64 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             and getattr(request, "tool", None) is None
             and request.tool_call.get("name") == tool.name
         ):
-            return request.override(tool=tool)
+            # The toolkit reads native a2ui_schema from runtime.state. Give it
+            # the same effective properties used to build the tool, without
+            # rewriting either namespace in the persisted graph state.
+            properties = self._get_copilotkit_context(
+                request.state, getattr(request.runtime, "context", None)
+            )
+            context = self._decode_catalog_value(properties.get("context"))
+            properties["context"] = context if isinstance(context, list) else []
+            if isinstance(properties.get("a2ui_schema"), dict):
+                properties["a2ui_schema"] = json.dumps(properties["a2ui_schema"])
+            state = {**request.state, "ag-ui": properties}
+            runtime = copy(request.runtime)
+            runtime.state = state
+            return request.override(tool=tool, state=state, runtime=runtime)
         return request
+
+    def _await_frontend_tool_call(self, request: Any) -> ToolMessage | None:
+        """Interrupt mode: pause this frontend call until the client answers it.
+
+        ``create_agent`` sends every tool call to the tool node as its own task,
+        so each call gets its own interrupt, id and resume value. Returns None
+        for anything that is not an unregistered frontend tool.
+        """
+        call = request.tool_call
+        if not self._interrupt_frontend_tools or request.tool is not None:
+            return None
+        state = request.state if isinstance(request.state, dict) else {}
+        if call.get("name") not in self._frontend_tool_names(state, request.runtime):
+            return None
+
+        # Not wrapped in try/except — interrupt() signals the pause by raising.
+        answer = interrupt(
+            {
+                "reason": _FE_TOOL_INTERRUPT_REASON,
+                "toolCallId": call["id"],
+                "name": call["name"],
+                "args": call.get("args") or {},
+            }
+        )
+
+        status = "success"
+        if isinstance(answer, dict) and answer.get(_AGUI_CANCELLED_KEY):
+            answer, status = {"ok": False, "error": "cancelled"}, "error"
+        return ToolMessage(
+            content=answer if isinstance(answer, str) else json.dumps(answer),
+            tool_call_id=call["id"],
+            name=call["name"],
+            status=status,
+        )
 
     def wrap_tool_call(
         self,
         request: Any,
         handler: Callable[[Any], Any],
     ) -> Any:
+        awaited = self._await_frontend_tool_call(request)
+        if awaited is not None:
+            return awaited
         return handler(self._resolve_a2ui_request(request))
 
     async def awrap_tool_call(
@@ -1036,6 +1182,9 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         request: Any,
         handler: Callable[[Any], Awaitable[Any]],
     ) -> Any:
+        awaited = self._await_frontend_tool_call(request)
+        if awaited is not None:
+            return awaited
         return await handler(self._resolve_a2ui_request(request))
 
     # Inject app context before agent runs
@@ -1054,22 +1203,44 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         # Delegate to sync implementation
         return self.before_agent(state, runtime)
 
-    # Intercept frontend tool calls after model returns, before ToolNode executes
+    @classmethod
+    def _frontend_tool_names(
+        cls,
+        state: StateSchema,
+        runtime: Runtime[Any],
+    ) -> set[str]:
+        """Names of the frontend tools the client forwarded for this run."""
+        frontend_tools = (
+            cls._get_copilotkit_context(
+                state,
+                getattr(runtime, "context", None),
+            ).get("actions")
+            or []
+        )
+        return {
+            (t.get("function") or {}).get("name") or t.get("name")
+            for t in frontend_tools
+        }
+
     def after_model(
         self,
         state: StateSchema,
         runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
-        frontend_tools = self._get_copilotkit_context(
-            state,
-            getattr(runtime, "context", None),
-        ).get("actions", [])
-        if not frontend_tools:
+        # Interrupt mode leaves the calls for the tool node (wrap_tool_call).
+        if self._interrupt_frontend_tools:
             return None
+        return self._strip_frontend_tool_calls(state, runtime)
 
-        frontend_tool_names = {
-            t.get("function", {}).get("name") or t.get("name") for t in frontend_tools
-        }
+    def _strip_frontend_tool_calls(
+        self,
+        state: StateSchema,
+        runtime: Runtime[Any],
+    ) -> dict[str, Any] | None:
+        """Default path: park frontend calls until the next run answers them."""
+        frontend_tool_names = self._frontend_tool_names(state, runtime)
+        if not frontend_tool_names:
+            return None
 
         # Find last AI message with tool calls
         messages = state.get("messages", [])

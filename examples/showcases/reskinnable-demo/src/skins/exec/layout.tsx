@@ -24,6 +24,7 @@ import {
 import { ResetDemoError, useExecLedger } from "./data/ledger-context";
 import { cn } from "@/lib/utils";
 
+import { GovernancePopover } from "@/shell/governance-popover";
 const SIDEBAR_WIDTH_PX = 240;
 
 export function ExecLayout({ children }: { children: ReactNode }) {
@@ -229,6 +230,12 @@ export function ExecLayout({ children }: { children: ReactNode }) {
             persona — unlike logistics' planner switcher, there is no
             role-switcher block stacked below it. */}
         <div className="mt-auto">
+          {/* Which CUSTOMER is signed in, and how much memory they are allowed.
+              Shell-owned — every skin scopes memory through the same two runtime
+              callbacks — but placed here, in the skin's own chrome, because it
+              answers "who am I signed in as". Vantage has one persona and no
+              switcher, so this is the only identity control it carries. */}
+          <GovernancePopover />
           <TooltipProvider>
             <div className="flex items-center gap-1 border-t border-hairline px-1 pt-3">
               {resetEnabled && (

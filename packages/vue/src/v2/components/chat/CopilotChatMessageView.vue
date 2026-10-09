@@ -8,7 +8,7 @@ import {
   useSlots,
   watch,
 } from "vue";
-import type { Component } from "vue";
+import type { Component, FunctionalComponent, VNodeChild } from "vue";
 import type {
   ActivityMessage,
   AssistantMessage,
@@ -328,9 +328,11 @@ function getMeta(
     ? Math.max(messageIdsInRun.indexOf(message.id), 0)
     : 0;
   const numberOfMessagesInRun = resolvedRunId ? messageIdsInRun.length : 1;
-  const stateSnapshot = resolvedRunId
-    ? core.getStateByRun(agentId, threadId, resolvedRunId)
-    : undefined;
+
+  // `getStateByRun` deep-clones the whole run state, so resolve it only when
+  // a consumer reads `stateSnapshot`, and at most once per meta object.
+  let stateSnapshot: unknown;
+  let stateSnapshotResolved = false;
 
   return {
     runId,
@@ -338,9 +340,36 @@ function getMeta(
     messageIndexInRun,
     numberOfMessagesInRun,
     agentId,
-    stateSnapshot,
+    get stateSnapshot() {
+      if (!stateSnapshotResolved) {
+        stateSnapshotResolved = true;
+        stateSnapshot = resolvedRunId
+          ? core.getStateByRun(agentId, threadId, resolvedRunId)
+          : undefined;
+      }
+      return stateSnapshot;
+    },
   };
 }
+
+// `Object.assign` onto the meta object keeps the lazy `stateSnapshot` getter.
+// A spread would call it.
+function getMessageSlotProps(
+  message: Message,
+  position: MessageMetaProps["position"],
+): MessageMetaProps {
+  return Object.assign(getMeta(message), { message, position });
+}
+
+// Calls a `#message-before` / `#message-after` slot with the meta object
+// itself. A template `<slot v-bind>` inside `v-for` goes through
+// `mergeProps`, which reads every key and so would clone the run state for
+// slots that never read `stateSnapshot`.
+const MessageMetaSlot: FunctionalComponent<{
+  render: (props: MessageMetaProps) => unknown;
+  slotProps: MessageMetaProps;
+}> = ({ render, slotProps }) => render(slotProps) as VNodeChild;
+MessageMetaSlot.props = ["render", "slotProps"];
 
 function getActivitySlotName(activityType: string): `activity-${string}` {
   return `activity-${activityType}`;
@@ -376,11 +405,7 @@ function resolveCustomMessageRenderer(
 
   return {
     renderer: selected.render as ResolvedCustomMessageRenderer["renderer"],
-    props: {
-      ...getMeta(message),
-      message,
-      position,
-    },
+    props: getMessageSlotProps(message, position),
   };
 }
 
@@ -441,17 +466,10 @@ function resolveToolMessage(
       v-for="message in rows"
       :key="rowRenderKeys.get(message.id) ?? message.id"
     >
-      <slot
+      <MessageMetaSlot
         v-if="componentSlots['message-before']"
-        name="message-before"
-        :message="message"
-        position="before"
-        :run-id="getMeta(message).runId"
-        :message-index="getMeta(message).messageIndex"
-        :message-index-in-run="getMeta(message).messageIndexInRun"
-        :number-of-messages-in-run="getMeta(message).numberOfMessagesInRun"
-        :agent-id="getMeta(message).agentId"
-        :state-snapshot="getMeta(message).stateSnapshot"
+        :render="componentSlots['message-before']"
+        :slot-props="getMessageSlotProps(message, 'before')"
       />
       <component
         v-else-if="resolveCustomMessageRenderer(message, 'before')"
@@ -534,17 +552,10 @@ function resolveToolMessage(
         </slot>
       </slot>
 
-      <slot
+      <MessageMetaSlot
         v-if="componentSlots['message-after']"
-        name="message-after"
-        :message="message"
-        position="after"
-        :run-id="getMeta(message).runId"
-        :message-index="getMeta(message).messageIndex"
-        :message-index-in-run="getMeta(message).messageIndexInRun"
-        :number-of-messages-in-run="getMeta(message).numberOfMessagesInRun"
-        :agent-id="getMeta(message).agentId"
-        :state-snapshot="getMeta(message).stateSnapshot"
+        :render="componentSlots['message-after']"
+        :slot-props="getMessageSlotProps(message, 'after')"
       />
       <component
         v-else-if="resolveCustomMessageRenderer(message, 'after')"

@@ -11,6 +11,7 @@ import { matchesSeoRedirectSource } from "../seo-redirects";
 import { resolveDocsHref } from "../docs-link-rewrite";
 import { CONTENT_DIR } from "../docs-render";
 import { FRONTEND_PAGE_IDS } from "../frontend-page-content";
+import { frameworkOverviews } from "@/data/frameworks";
 import {
   getDocsFolder,
   getDocsMode,
@@ -61,24 +62,7 @@ const KNOWN_BROKEN_LINKS: ReadonlyArray<readonly [string, string]> = [
 ];
 
 /** `meta.json` entries with no page behind them. Shrink-only, as above. */
-const KNOWN_MISSING_META_PAGES: ReadonlyArray<readonly [string, string]> = [
-  [
-    "docs -> index",
-    "the site root is rendered by app code, not by an MDX file",
-  ],
-  [
-    "docs/integrations/a2a -> index",
-    "sidebar opens with an entry that has no file",
-  ],
-  [
-    "docs/integrations/adk -> index",
-    "sidebar opens with an entry that has no file",
-  ],
-  [
-    "docs/integrations/agent-spec -> index",
-    "sidebar opens with an entry that has no file",
-  ],
-];
+const KNOWN_MISSING_META_PAGES: ReadonlyArray<readonly [string, string]> = [];
 
 function allMdx(dir: string): string[] {
   const out: string[] = [];
@@ -226,6 +210,22 @@ describe("every meta.json page entry has a page", () => {
     fs.existsSync(path.join(dir, name, "index.mdx")) ||
     isDir(path.join(dir, name));
 
+  // A literal `"index"` entry is the folder's root URL, and buildNavTree
+  // emits it whether or not an `index.mdx` exists. Two of those roots are
+  // rendered by app code rather than MDX, so they have a page with no file:
+  //   - the docs root `/`, which `app/[[...slug]]/page.tsx` renders as the
+  //     docs overview;
+  //   - `/<framework>` for a `generated` framework with a `frameworkOverviews`
+  //     record, which `app/[framework]/[[...slug]]/page.tsx` renders as the
+  //     data-driven FrameworkOverview (its Tier 1, gated the same way).
+  const appRenderedIndexDirs = new Set<string>([CONTENT_DIR]);
+  for (const slug of Object.keys(frameworkOverviews)) {
+    if (getDocsMode(slug) !== "generated") continue;
+    appRenderedIndexDirs.add(
+      path.join(CONTENT_DIR, "integrations", getDocsFolder(slug)),
+    );
+  }
+
   const missing: string[] = [];
   let entries = 0;
   for (const metaPath of allMetaJson(path.join(CONTENT_ROOT))) {
@@ -255,6 +255,7 @@ describe("every meta.json page entry has a page", () => {
         if (item.startsWith("...")) continue; // directory spread
         entries++;
         if (resolvesIn(dir, item)) continue;
+        if (item === "index" && appRenderedIndexDirs.has(dir)) continue;
         if (sharedDir && resolvesIn(sharedDir, item)) continue;
         missing.push(`${rel} -> ${item}`);
       }

@@ -25,10 +25,10 @@ from copilotkit import a2ui
 from dotenv import load_dotenv
 from langchain_core.messages import SystemMessage
 from langchain_core.tools import tool as lc_tool
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 from strands import Agent, tool
-from strands.models.openai import OpenAIModel
+
+from src.model import create_chat_model, create_strands_model
 
 # ---------------------------------------------------------------------------
 # Env loading (shared demo root pattern used by the other integration demos)
@@ -214,7 +214,8 @@ def generate_a2ui(user_intent: str, agent) -> str:
     )
     prompt = f"{context_text}\n\n{user_intent}" if context_text else user_intent
 
-    model = ChatOpenAI(model="gpt-5-mini")
+    # COPILOTKIT_AGENT_MODEL overrides this site too; unset, it uses gpt-5-mini.
+    model = create_chat_model("openai:gpt-5-mini")
     model_with_tool = model.bind_tools(
         [render_a2ui],
         tool_choice="render_a2ui",
@@ -298,11 +299,10 @@ shared_state_config = StrandsAgentConfig(
 # ---------------------------------------------------------------------------
 # Agent wiring
 # ---------------------------------------------------------------------------
-api_key = os.getenv("OPENAI_API_KEY", "")
-model = OpenAIModel(
-    client_args={"api_key": api_key},
-    model_id="gpt-5.4",
-    params={"parallel_tool_calls": False},
+# COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this and
+# every other model site in the agent; unset, this site uses gpt-5.4.
+model = create_strands_model(
+    "openai:gpt-5.4", openai_params={"parallel_tool_calls": False}
 )
 
 system_prompt = (

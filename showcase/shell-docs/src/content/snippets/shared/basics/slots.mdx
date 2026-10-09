@@ -166,6 +166,107 @@ export function Chat() {
 }
 ```
 
+## Reshaping the Message List
+
+Slots change how each message renders. To change _which_ messages render — hide some, replace them, reorder them — pass `transformMessages` to the message view. It receives the whole list and returns the list to render.
+
+```tsx title="page.tsx"
+import { useCallback } from "react";
+import { CopilotChat, type Message } from "@copilotkit/react-core/v2";
+
+export function Chat() {
+  // [!code highlight:4]
+  const transformMessages = useCallback(
+    (messages: Message[]) => messages.filter((m) => m.role !== "tool"),
+    [],
+  );
+
+  return <CopilotChat messageView={{ transformMessages }} />;
+}
+```
+
+A few things to know:
+
+- **Long threads stay virtualized.** Once a thread passes 50 messages the chat only mounts the rows on screen. It counts the messages `transformMessages` returns, so hidden messages take no row.
+- **Tool cards keep their results.** Tool-call renderers look up results in the full list, so hiding tool-result messages, as above, does not empty the cards that display them.
+- **Keep ids unique and stable.** Return each message id at most once. A message you build yourself, such as one that stands in for several, needs its own id, and that id must stay the same while the thread streams. Derive it from something fixed, like the id of the first message it replaces. The chat uses the last message you return to decide which one is still streaming.
+- **Pass a stable function.** The transform reruns whenever the messages or the function change. An inline function works, but reruns on every render.
+
+### Grouping messages into one row
+
+To render several messages together — a run of tool calls collapsed into one block, say — pass `groupMessages`. It receives the list (after `transformMessages`, if you use both) and returns rows: `messageRow(message)` for a message on its own, `messageGroup({ key, messages, wrapper })` for messages rendered together inside your `wrapper`.
+
+```tsx title="page.tsx"
+import { useCallback } from "react";
+import {
+  CopilotChat,
+  messageGroup,
+  messageRow,
+  type Message,
+  type MessageGroupWrapperProps,
+  type MessageRow,
+} from "@copilotkit/react-core/v2";
+
+// Define wrappers at module level. One created inside groupMessages is a new
+// component on every call, so React would remount it each time.
+function ToolActivity({
+  messages,
+  children,
+  state,
+  setState,
+}: MessageGroupWrapperProps<boolean>) {
+  const open = state ?? false;
+  return (
+    <div className="rounded-lg border">
+      <button onClick={() => setState(!open)}>
+        {messages.length} tool steps {open ? "▾" : "▸"}
+      </button>
+      {open && children}
+    </div>
+  );
+}
+
+// An assistant message that also carries text stays on its own row, so the
+// text (or a card waiting on the user) is never folded into a closed group.
+const isToolStep = (m: Message) =>
+  m.role === "tool" ||
+  (m.role === "assistant" && !!m.toolCalls?.length && !m.content);
+
+export function Chat() {
+  // [!code highlight:18]
+  const groupMessages = useCallback((messages: Message[]): MessageRow[] => {
+    const rows: MessageRow[] = [];
+    let run: Message[] = [];
+    const flush = () => {
+      if (run.length > 0) {
+        rows.push(
+          messageGroup({ key: run[0].id, messages: run, wrapper: ToolActivity }),
+        );
+      }
+      run = [];
+    };
+    for (const message of messages) {
+      if (isToolStep(message)) run.push(message);
+      else {
+        flush();
+        rows.push(messageRow(message));
+      }
+    }
+    flush();
+    return rows;
+  }, []);
+
+  return <CopilotChat messageView={{ groupMessages }} />;
+}
+```
+
+- **A group is one row.** Virtualization windows and measures it as a whole, and expanding it is just that row growing. The 50-message threshold still counts messages, so a long thread folded into a few groups stays virtualized.
+- **The wrapper's state outlives the row.** `state` and `setState` are kept by the chat under the group's `key`, so a block someone expanded is still expanded when they scroll back to it. They are dropped once the key no longer appears, and cleared when the thread changes. Key a group by the id of its first message: if the backend renames that message mid-stream (some LangChain providers swap a temporary `lc_run--…` id for the final one), the chat carries the group over the same way it does a single message, so it neither remounts nor loses its state. Any other key must stay the same while the thread streams.
+- **`children` is the default rendering** of the group's messages. Wrap it, hide it, or render the messages yourself from `messages`.
+- **Each message goes in at most one row.** In development the chat warns when a message renders twice or two groups share a key.
+
+If you pass the message view a `children` render function to lay out the rendered messages yourself, virtualization turns off and every message is mounted. Prefer `transformMessages` and `groupMessages` for list-level changes; in development the chat warns when `children` is what turned virtualization off.
+
 ## Labels
 
 Customize any text string in the UI via the `labels` prop. This does not use the slot system — it's a separate convenience prop on `CopilotChat`, `CopilotSidebar`, and `CopilotPopup`.

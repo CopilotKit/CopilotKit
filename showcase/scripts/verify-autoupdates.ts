@@ -2,7 +2,7 @@
 /**
  * verify-autoupdates.ts — Live Railway `autoUpdates` drift gate.
  *
- * Every showcase service in the CopilotKit Railway project must have Railway
+ * Every Showcase-managed service in the CopilotKit Railway project must have Railway
  * source auto-updates DISABLED: the deploy pipeline is the ONLY thing allowed
  * to move an image (staging floats `:latest` via CI redeploy, prod is
  * digest-pinned via `bin/railway promote`). If Railway's own auto-update
@@ -14,9 +14,10 @@
  * the *symptom* (a drifted ref).
  *
  * SSOT expectation: `railway-envs.ts` carries a required per-service
- * `autoUpdates` policy field (added alongside this gate); every service is
- * `"disabled"`. This gate does NOT hardcode the service list — it reads the
- * expectation from the SSOT and compares it against the LIVE Railway value.
+ * `autoUpdates` policy field (added alongside this gate). Showcase-managed
+ * services use `"disabled"`; independently deployed services use
+ * `"unmanaged"` and are skipped. This gate does NOT hardcode the service
+ * list — it reads the expectation from the SSOT.
  *
  * Live value source: `autoUpdates` is NOT exposed on the typed `ServiceSource`
  * GraphQL output. It lives in the `Environment.config` JSON scalar (the same

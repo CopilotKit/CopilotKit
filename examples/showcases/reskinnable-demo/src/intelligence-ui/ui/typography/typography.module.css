@@ -1,0 +1,123 @@
+.heading,
+.text,
+.monoText,
+.inlineCode {
+  box-sizing: border-box;
+}
+
+.heading {
+  color: var(--cpki-color-foreground, #181c1f);
+  font-family: var(
+    --cpki-font-sans,
+    'Plus Jakarta Sans',
+    system-ui,
+    sans-serif
+  );
+  font-weight: 600;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.heading[data-size='display'] {
+  font-size: var(--cpki-font-size-8, 3rem);
+  line-height: var(--cpki-line-height-display, 1.15);
+}
+
+.heading[data-size='page'] {
+  font-size: var(--cpki-font-size-7, 2.5rem);
+  line-height: var(--cpki-line-height-display, 1.15);
+}
+
+.heading[data-size='section'] {
+  font-size: var(--cpki-font-size-5, 1.5rem);
+  line-height: var(--cpki-line-height-tight, 1.25);
+}
+
+.heading[data-size='subsection'] {
+  font-size: var(--cpki-font-size-4, 1.25rem);
+  line-height: var(--cpki-line-height-tight, 1.25);
+}
+
+.text {
+  color: var(--cpki-color-foreground, #181c1f);
+  font-family: var(
+    --cpki-font-sans,
+    'Plus Jakarta Sans',
+    system-ui,
+    sans-serif
+  );
+  font-weight: 400;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.text[data-tone='muted'] {
+  color: var(--cpki-color-muted-foreground, #57575b);
+}
+
+.text[data-tone='danger'] {
+  color: var(--cpki-color-danger, #ef4444);
+}
+
+.text[data-size='lead'] {
+  font-size: var(--cpki-font-size-3, 1.125rem);
+  line-height: 1.34;
+}
+
+.text[data-size='body'] {
+  font-size: var(--cpki-font-size-2, 1rem);
+  line-height: var(--cpki-line-height-normal, 1.42);
+}
+
+.text[data-size='small'] {
+  font-size: var(--cpki-font-size-1, 0.875rem);
+  line-height: 1.38;
+}
+
+.text[data-size='caption'] {
+  font-size: var(--cpki-font-size-0, 0.75rem);
+  line-height: 1.35;
+}
+
+.monoText {
+  color: var(--cpki-color-muted-foreground, #57575b);
+  font-family: var(
+    --cpki-font-mono,
+    'Spline Sans Mono',
+    ui-monospace,
+    monospace
+  );
+  font-size: var(--cpki-font-size-0, 0.75rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.monoText[data-transform='uppercase'] {
+  text-transform: uppercase;
+}
+
+.monoText[data-tone='accent'] {
+  color: var(--cpki-color-accent, #757cf2);
+}
+
+.monoText[data-tone='default'] {
+  color: var(--cpki-color-foreground, #181c1f);
+}
+
+.inlineCode {
+  background: var(--cpki-color-surface-subtle, #f7f7f9);
+  border: 0;
+  border-radius: 2px;
+  color: var(--cpki-color-foreground, #181c1f);
+  font-family: var(
+    --cpki-font-mono,
+    'Spline Sans Mono',
+    ui-monospace,
+    monospace
+  );
+  font-size: 0.875em;
+  line-height: 1.3;
+  padding: 0.0625rem 0.25rem;
+}

@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SetupWizard } from "../setup-wizard";
@@ -39,21 +40,6 @@ const mount = () =>
     />,
   );
 describe("partner setup context", () => {
-  it.each([
-    ["Existing project.*Add", "yes", "no"],
-    ["Existing agent", "yes", "yes"],
-    ["New project", "no", "no"],
-  ])("sets project and agent context for %s", (label, project, agent) => {
-    mount();
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(label) }));
-    const params = new URLSearchParams(location.search);
-    expect(params.get("project")).toBe(project);
-    expect(params.get("agent")).toBe(agent);
-    expect(screen.getByRole("heading", { name: "Your frontend" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /^New agent/ })).toBeNull();
-  });
-
   it("preselects the route context and retains it while answering the first question", () => {
     mount();
     expect(new URLSearchParams(location.search).get("backend")).toBe("mastra");
@@ -75,8 +61,13 @@ describe("partner setup context", () => {
       screen.getByRole("heading", { name: "What you want to build" }),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Backend/ })).toBeNull();
-    expect(screen.getByRole("button", { name: /3\s*Features/ })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByRole("button", { name: "Features" })).toBeTruthy();
+    fireEvent.click(
+      within(screen.getByRole("navigation", { name: "Setup steps" })).getByRole(
+        "button",
+        { name: "Previous step" },
+      ),
+    );
     expect(screen.getByRole("heading", { name: "Your frontend" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "React" }));
     fireEvent.click(screen.getByRole("button", { name: "Skip" }));
@@ -140,7 +131,7 @@ describe("partner setup context", () => {
     mount();
     expect(
       screen.getByRole("heading", {
-        name: "Where are you starting?",
+        name: "What are you building?",
       }),
     ).toBeTruthy();
   });

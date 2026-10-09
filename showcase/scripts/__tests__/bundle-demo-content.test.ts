@@ -114,6 +114,26 @@ describe("Content Bundler", () => {
     expect(lgAgent.language).toBe("python");
   });
 
+  it("exposes the Mastra fixed-schema tool's required companion file", () => {
+    const demo = runBundlerAndRead().demos["mastra::a2ui-fixed-schema"];
+    const tool = demo.files.find(
+      (file: any) => file.filename === "src/mastra/tools/a2ui-generate.ts",
+    );
+    const context = demo.files.find(
+      (file: any) => file.filename === "src/mastra/tools/a2ui-context.ts",
+    );
+
+    expect(tool.content).toContain('from "./a2ui-context"');
+    expect(context).toMatchObject({
+      highlighted: true,
+      language: "typescript",
+    });
+    expect(context.content).toContain(
+      "export function readForwardedA2uiContext",
+    );
+    expect(context.content).toContain("export function systemPromptFrom");
+  });
+
   it("includes core langgraph-python demos", () => {
     const content = runBundlerAndRead();
 

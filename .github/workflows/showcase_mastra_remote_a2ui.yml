@@ -1,0 +1,97 @@
+name: "Showcase: Mastra remote A2UI"
+
+on:
+  pull_request:
+    paths:
+      - "showcase/integrations/mastra/**"
+      - "showcase/aimock/d6/mastra/gen-ui-declarative.json"
+      - "showcase/harness/src/probes/scripts/d6-gen-ui-remote.mjs"
+      - "showcase/shell-docs/src/content/docs/integrations/mastra/generative-ui/a2ui/dynamic-schema.mdx"
+      - "showcase/shell-docs/src/lib/docs-render.tsx"
+      - ".github/workflows/showcase_mastra_remote_a2ui.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  remote-a2ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Install test dependencies
+        run: |
+          pnpm --filter @copilotkit/showcase-scripts --filter @copilotkit/showcase-harness install --frozen-lockfile --ignore-scripts
+          npm ci --prefix showcase/integrations/mastra --legacy-peer-deps --ignore-scripts
+          pnpm --dir showcase/harness exec playwright install chromium
+          printf 'OPENAI_API_KEY=sk-aimock-ci\n' > showcase/.env
+
+      - name: Start aimock
+        run: |
+          showcase/scripts/node_modules/.bin/llmock --port 4010 --host 127.0.0.1 \
+            --fixtures showcase/aimock/shared \
+            --fixtures showcase/aimock/d4 \
+            --fixtures showcase/aimock/d5-recorded \
+            --fixtures showcase/aimock/d6 \
+            --validate-on-load > "$RUNNER_TEMP/aimock.log" 2>&1 &
+          echo "AIMOCK_PID=$!" >> "$GITHUB_ENV"
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:4010/__aimock/health > /dev/null 2>&1 && exit 0
+            sleep 1
+          done
+          tail -80 "$RUNNER_TEMP/aimock.log"
+          exit 1
+
+      - name: Start frontend and separate Mastra server
+        env:
+          OPENAI_API_KEY: sk-aimock-ci
+          OPENAI_BASE_URL: http://127.0.0.1:4010/v1
+        run: |
+          cd showcase/integrations/mastra
+          ./node_modules/.bin/next dev --turbopack > "$RUNNER_TEMP/frontend.log" 2>&1 &
+          echo "FRONTEND_PID=$!" >> "$GITHUB_ENV"
+          cd tests/fixtures/remote-a2ui
+          ../../../node_modules/.bin/mastra dev \
+            --dir "$PWD/mastra" --root "$PWD" \
+            --env "$GITHUB_WORKSPACE/showcase/.env" \
+            > "$RUNNER_TEMP/mastra.log" 2>&1 &
+          echo "MASTRA_PID=$!" >> "$GITHUB_ENV"
+          for i in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:3000/demos/declarative-gen-ui > /dev/null 2>&1 && break
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:3000/demos/declarative-gen-ui > /dev/null
+          for i in $(seq 1 60); do
+            curl -fsS -X POST -H 'Content-Type: application/json' \
+              -d '{"method":"info"}' http://127.0.0.1:4111/copilotkit \
+              > /dev/null 2>&1 && exit 0
+            sleep 2
+          done
+          tail -80 "$RUNNER_TEMP/mastra.log"
+          exit 1
+
+      - name: Verify remote A2UI surface
+        env:
+          FRONTEND_URL: http://127.0.0.1:3000
+          REMOTE_COPILOTKIT_URL: http://127.0.0.1:4111/copilotkit
+          PROMPT: Draw a sales Dashboard
+        run: node showcase/harness/src/probes/scripts/d6-gen-ui-remote.mjs
+
+      - name: Show server logs on failure
+        if: failure()
+        run: |
+          for file in aimock frontend mastra; do
+            if [ -f "$RUNNER_TEMP/$file.log" ]; then
+              echo "--- $file ---"
+              tail -80 "$RUNNER_TEMP/$file.log"
+            fi
+          done

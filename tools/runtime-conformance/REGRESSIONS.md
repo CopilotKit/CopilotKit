@@ -326,3 +326,34 @@ Reproduce the TypeScript failing case on the baseline:
 ```sh
 pnpm nx run runtime-conformance:conformance --args='--filter connect.active-run-identity -- node tools/runtime-conformance/typescript-driver.mjs'
 ```
+
+## Approval resume uses a fresh run ID
+
+Baseline: `6f66a91e7d`.
+Case: `runner.approval-resume-uses-fresh-run`.
+Source contract: [AG-UI interrupts](https://docs.ag-ui.com/concepts/interrupts).
+
+A resume uses a new run ID on the same thread. Each resume entry refers to an interrupt ID.
+This case checks the complete resume array, distinct run identities, one saved result per answer, and lock release.
+It keeps the gateway's terminal-run protection intact.
+
+This is added contract coverage, not the failing frontend regression.
+The original React regression failed because the hook sent the interrupted run ID.
+The core regression failed because a new wire run ID split logical history.
+The native factory regression failed because accepted answers did not produce saved `TOOL_CALL_RESULT` events.
+Those regressions live next to the changed implementations.
+
+The fixture tests passed: `pnpm nx run runtime-conformance:test` (27 tests).
+The new socket case passed locally for TypeScript, Python, and .NET:
+
+```powershell
+pnpm nx run runtime-conformance:conformance --args='--filter runner.approval-resume-uses-fresh-run -- node tools/runtime-conformance/typescript-driver.mjs'
+pnpm nx run runtime-conformance:conformance --args='--filter runner.approval-resume-uses-fresh-run -- packages/runtime-python/.venv/Scripts/python.exe packages/runtime-python/examples/conformance.py'
+pnpm nx run runtime-conformance:conformance --args='--filter runner.approval-resume-uses-fresh-run -- dotnet packages/runtime-dotnet/driver/bin/Release/net8.0/Runtime.Driver.dll'
+```
+
+Go and Ruby toolchains are not installed locally. The full five-language CI gate covers them.
+The local browser proof also passed approval, rejection, and cancellation for AI SDK and TanStack against production Intelligence.
+Each resumed run used a new run ID and saved exactly one answer.
+Stop during an AI SDK resumed run preserved the saved answer and produced a cancelled terminal event.
+A separate preexisting pending-interrupt validation failure during reconnect remains outside this approval fix.

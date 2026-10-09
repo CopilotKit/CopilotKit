@@ -5,14 +5,12 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
   signal,
-  effect,
   ChangeDetectorRef,
   Injector,
   computed,
   inject,
   viewChild,
   DestroyRef,
-  untracked,
 } from "@angular/core";
 
 import { CopilotChatView } from "./copilot-chat-view";
@@ -30,6 +28,7 @@ import { ChatState } from "../../chat-state";
 import { transcribeAudio } from "../../transcription";
 import { COPILOT_CHAT_CONFIGURATION } from "../../chat-configuration";
 import { connectActiveThread } from "../../active-thread-connector";
+import { explicitEffect } from "../../explicit-effect";
 
 /**
  * CopilotChat component - Angular equivalent of React's <CopilotChat>
@@ -206,8 +205,7 @@ export class CopilotChat extends ChatState {
 
     this.destroyRef.onDestroy(() => suggestionsSubscription.unsubscribe());
 
-    effect(() => {
-      const agentId = this.resolvedAgentId();
+    explicitEffect(this.resolvedAgentId, (agentId) => {
       this.syncSuggestionsFromCore(agentId);
       this.copilotKit.reloadSuggestions(agentId);
     });
@@ -219,32 +217,21 @@ export class CopilotChat extends ChatState {
       // `setActiveThreadId` no-ops — so a controlled config wins over the
       // input, matching React's prop-precedence. When `[threadId]` is unset,
       // the effect does nothing and the config drives as before.
-      effect(() => {
-        const inputThreadId = this.threadId();
+      explicitEffect(this.threadId, (inputThreadId) => {
         if (inputThreadId) {
           this.config!.setActiveThreadId(inputThreadId, { explicit: true });
         }
       });
-
-      // Both ambient and standalone threads use the same connection cleanup.
-      connectActiveThread(this.config, this.agentStore, (agent) =>
-        this.connectToAgent(agent),
-      );
-    } else {
-      // Standalone `<copilot-chat [threadId]>` usage with no configuration
-      // provider: the active thread is input-driven exactly as before.
-      effect((onCleanup) => {
-        const agent = this.agentRef();
-        const threadId = this.resolvedThreadId();
-
-        agent.threadId = threadId;
-
-        if (!this.hasExplicitThreadId()) return;
-
-        const handle = untracked(() => this.connectToAgent(agent));
-        onCleanup(() => handle.dispose());
-      });
     }
+    // Both ambient and standalone threads share reset and connection cleanup.
+    connectActiveThread(
+      this.config ?? {
+        threadId: this.resolvedThreadId,
+        hasExplicitThreadId: this.hasExplicitThreadId,
+      },
+      this.agentStore,
+      (agent) => this.connectToAgent(agent),
+    );
   }
 
   private connectToAgent(agent: AbstractAgent) {
@@ -252,6 +239,7 @@ export class CopilotChat extends ChatState {
     let initialized: RunAgentInput | undefined;
     let replaced = false;
     let completion: Promise<void> | undefined;
+    let detachCompletion: Promise<void> | undefined;
     const controller = new AbortController();
     if (ɵisHttpAgent(agent)) agent.abortController = controller;
 
@@ -290,10 +278,10 @@ export class CopilotChat extends ChatState {
     };
     const handle = {
       dispose: () => {
-        if (disposed) return;
+        if (disposed) return detachCompletion;
         disposed = true;
         const current = this.activeConnection === handle;
-        const detach = current && ownsPipeline();
+        const detach = current && (ownsPipeline() || !initialized);
         // A successor connect may reuse HttpAgent's controller.
         if (
           !replaced &&
@@ -303,7 +291,8 @@ export class CopilotChat extends ChatState {
           controller.abort();
         }
         cleanup();
-        if (detach) void agent.detachActiveRun().catch(() => {});
+        if (detach) detachCompletion = agent.detachActiveRun().catch(() => {});
+        return detachCompletion;
       },
     };
     this.activeConnection = handle;

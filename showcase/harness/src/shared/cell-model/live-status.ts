@@ -895,6 +895,12 @@ export const STARTER_COLUMNS: ReadonlySet<string> = new Set([
  * matrix starter with no root `Dockerfile`, so `build-starters` publishes no
  * `starter-crewai-flows` image and no Railway service exists to probe.
  *
+ * `google-antigravity` joined on 2026-09-28. Its starter is
+ * `examples/integrations/antigravity` (name drifts; declared in
+ * `UNPROBED_STARTER_TO_COLUMN`). It is in the CI smoke matrix, but the
+ * showcase package itself is not deployed yet, so `build-starters` publishes
+ * no `starter-antigravity` image and no Railway service exists to probe.
+ *
  * Membership is guarded against the filesystem by
  * `starter-mapping-drift.test.ts`: a column may only sit here if an
  * identically-named directory exists under `examples/integrations/`, and no
@@ -912,6 +918,7 @@ export const STARTER_COLUMNS_UNPROBED: ReadonlySet<string> = new Set([
   "claude-sdk-python",
   "claude-sdk-typescript",
   "crewai-conversational-flows",
+  "google-antigravity",
 ]);
 
 /**

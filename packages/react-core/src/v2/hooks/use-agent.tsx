@@ -404,6 +404,7 @@ export function useAgent({
 
     if (updateFlags.includes(UseAgentUpdate.OnRunStatusChanged)) {
       handlers.onRunInitialized = batchedForceUpdate;
+      handlers.onRunStartedEvent = batchedForceUpdate;
       handlers.onRunFinalized = batchedForceUpdate;
       handlers.onRunFailed = batchedForceUpdate;
       // Protocol-level RUN_ERROR event (distinct from onRunFailed which

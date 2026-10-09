@@ -701,6 +701,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       const FirstToolComponent: React.FC = () => {
         const tool: ReactFrontendTool<{ text: string }> = {
           name: "overridableTool",
+          followUp: false,
           parameters: z.object({ text: z.string() }),
           render: ({ name, args }) => (
             <div data-testid="first-version">
@@ -721,6 +722,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
 
         const tool: ReactFrontendTool<{ text: string }> = {
           name: "overridableTool",
+          followUp: false,
           parameters: z.object({ text: z.string() }),
           render: ({ name, args }) => (
             <div data-testid="second-version">

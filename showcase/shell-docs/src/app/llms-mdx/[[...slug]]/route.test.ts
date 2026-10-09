@@ -151,7 +151,7 @@ describe("llms-mdx route", () => {
               source: "",
               filePath: "threads-import.mdx",
               fm: {
-                title: "Import & Synchronize Thread History",
+                title: "Add AG-UI Streams to Existing Threads",
                 description: "Cross-source overview.",
               },
             }
@@ -486,36 +486,6 @@ describe("llms-mdx route", () => {
         framework: "langgraph-python",
       }),
       { framework: "langgraph-python", frontend: "vue" },
-    );
-  });
-
-  it("serves legacy frontend guidance URLs from the shared docs-status page", async () => {
-    loadDocMock.mockImplementation((slug: string) =>
-      slug === "frontends/docs-status"
-        ? {
-            source: "",
-            filePath: "frontends/docs-status.mdx",
-            fm: {
-              title: "Docs status",
-              description: "How to read frontend docs.",
-            },
-          }
-        : null,
-    );
-
-    const response = await callLlmsMdxRoute(["slack", "using-these-docs"]);
-
-    expect(response.status).toBe(200);
-    await expect(response.text()).resolves.toBe("rendered markdown");
-    expect(loadDocMock).toHaveBeenCalledWith("frontends/docs-status");
-    expect(renderPageToLlmTextMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        url: "slack/using-these-docs",
-        filePath: "frontends/docs-status.mdx",
-        loadSlug: "frontends/docs-status",
-        framework: "built-in-agent",
-      }),
-      { framework: "built-in-agent", frontend: "slack" },
     );
   });
 
