@@ -2351,6 +2351,36 @@ describe("railwayServicesSource disposable lifecycle", () => {
     });
   });
 
+  it("rejects a local identity from another environment with empty lifecycle evidence", async () => {
+    await withLifecycleEvidence([], async (filePath) => {
+      const { fetchImpl, calls } = makeFetch([]);
+      const ctx = makeCtx(fetchImpl, {
+        RAILWAY_PROJECT_ID: "proj-1",
+        RAILWAY_ENVIRONMENT_ID: "env-1",
+        SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: filePath,
+        LOCAL_SERVICES_JSON: JSON.stringify([
+          {
+            name: "showcase-local",
+            serviceId: "local-id",
+            environmentId: "env-other",
+            imageRef: LIFECYCLE_IMAGE,
+            publicUrl: "http://localhost:10000",
+          },
+        ]),
+      });
+      const enumeration = railwayServicesSource.enumerate(ctx, {
+        namePrefix: "showcase-",
+      });
+      await expect(enumeration).rejects.toBeInstanceOf(
+        DiscoverySourceSchemaError,
+      );
+      await expect(enumeration).rejects.toThrow(
+        "Configured lifecycle evidence requires each local serviceId and environmentId to identify the configured inventory",
+      );
+      expect(calls).toHaveLength(0);
+    });
+  });
+
   it("supports exact local identities without credentials", async () => {
     await withLifecycleEvidence([lifecycleRun()], async (filePath) => {
       const { ctx, calls } = lifecycleContext(filePath);
