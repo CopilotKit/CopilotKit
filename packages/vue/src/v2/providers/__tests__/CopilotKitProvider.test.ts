@@ -19,7 +19,10 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
   ToolCallStatus,
 } from "@copilotkit/core";
-import { defineWebInspector } from "@copilotkit/web-inspector";
+import {
+  configureWebInspectorElement,
+  defineWebInspector,
+} from "@copilotkit/web-inspector";
 import { z } from "zod";
 import CopilotKitProvider from "../CopilotKitProvider.vue";
 import { useCopilotKit } from "../useCopilotKit";
@@ -847,6 +850,29 @@ describe("CopilotKitProvider", () => {
       expect(inspector.coreAtConnection).toBe(providerCore);
       expect(inspector.autoAttachCoreAtConnection).toBe(false);
       expect(defineWebInspector).toHaveBeenCalledTimes(1);
+      view.unmount();
+    });
+
+    it("passes inspectorDefaultAnchor to the Inspector", async () => {
+      const view = render(CopilotKitProvider, {
+        props: {
+          runtimeUrl: "/api/copilotkit",
+          inspectorDefaultAnchor: { horizontal: "left", vertical: "bottom" },
+        },
+        slots: { default: "child" },
+      });
+
+      await waitFor(() => {
+        expect(
+          view.container.querySelector("cpk-web-inspector"),
+        ).not.toBeNull();
+      });
+      expect(configureWebInspectorElement).toHaveBeenLastCalledWith(
+        expect.any(HTMLElement),
+        expect.anything(),
+        expect.any(Object),
+        { defaultAnchor: { horizontal: "left", vertical: "bottom" } },
+      );
       view.unmount();
     });
 

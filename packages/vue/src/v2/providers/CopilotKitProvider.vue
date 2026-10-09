@@ -102,6 +102,7 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   useSingleEndpoint: undefined,
   a2ui: undefined,
   enableInspector: undefined,
+  inspectorDefaultAnchor: undefined,
 });
 
 const shouldRenderInspector = ref(false);
@@ -780,6 +781,7 @@ const showExpiringBanner = computed(
   <CopilotKitInspector
     v-if="shouldRenderInspector"
     :core="copilotkit"
+    :default-anchor="inspectorDefaultAnchor"
     :open-request="inspectorOpenRequest"
   />
   <!-- License warnings — driven by server-reported status -->

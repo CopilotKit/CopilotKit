@@ -14,6 +14,7 @@ import type {
   VueToolCallRenderer,
 } from "../types";
 import type { Component } from "vue";
+import type { Anchor } from "@copilotkit/web-inspector";
 
 export interface CopilotKitProviderProps {
   runtimeUrl?: string;
@@ -75,6 +76,13 @@ export interface CopilotKitProviderProps {
    * always disabled in production and during server rendering.
    */
   enableInspector?: boolean;
+  /**
+   * Corner the Inspector launcher starts in. Once the user drags the launcher,
+   * its saved position wins.
+   *
+   * @default { horizontal: "right", vertical: "top" }
+   */
+  inspectorDefaultAnchor?: Anchor;
   onError?: (event: {
     error: Error;
     code: CopilotKitCoreErrorCode;
