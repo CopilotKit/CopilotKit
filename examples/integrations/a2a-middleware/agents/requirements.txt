@@ -35,7 +35,7 @@ a2a-sdk[http-server]>=0.3,<1.0
 # litellm: Unified interface for multiple LLM providers; ADK runs OpenAI and
 #          Anthropic models through it when COPILOTKIT_AGENT_MODEL names them
 google-adk>=0.1.0
-litellm>=1.0.0
+litellm>=1.84,<2
 
 # ============================================================================
 # LangGraph Framework
