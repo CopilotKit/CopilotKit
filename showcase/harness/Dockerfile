@@ -146,6 +146,8 @@ COPY --from=build /repo/showcase/shared ./showcase/shared
 # (see the build stage above); we copy the result here so the runtime
 # image is hermetic (no network read at probe tick time).
 COPY --from=build /repo/showcase/shell/src/data/registry.json ./data/registry.json
+# Disposable ownership uses committed policy; runtime never fetches policy remotely.
+COPY --from=build /repo/showcase/scripts/railway-envs.generated.json ./data/railway-envs.generated.json
 # chown /app AND the playwright browser cache so the runtime user can
 # read the chromium tree at launch. Orchestrator today writes only to
 # mounted volumes (PB data dir, S3 backup buffer), so the /app chown

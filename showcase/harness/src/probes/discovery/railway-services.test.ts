@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { promises as fsp } from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -1985,3 +1986,490 @@ describe("railwayServicesSource — LOCAL_SERVICES_JSON injection", () => {
     expect(out[0]!.demos).toEqual(["agentic_chat"]);
   });
 });
+
+// Lifecycle fixtures use the real reader/classifier and only substitute the
+// separately committed policy, whose initial approval list is intentionally empty.
+const LIFECYCLE_IMAGE = `ghcr.io/test/intelligence/api@sha256:${"a".repeat(64)}`;
+const LIFECYCLE_POLICY = {
+  projectId: "proj-1",
+  forbiddenEnvironmentIds: ["production"],
+  permanentServices: [
+    { name: "showcase-permanent", serviceId: "permanent-id" },
+  ],
+  approvedImages: [LIFECYCLE_IMAGE],
+};
+
+/** Build a receipt for an already-created service, with a bounded lifetime. */
+function lifecycleRun(overrides: Record<string, unknown> = {}) {
+  const now = Date.now();
+  return {
+    runId: "run-1",
+    projectId: "proj-1",
+    environmentId: "env-1",
+    startedAt: new Date(now - 60_000).toISOString(),
+    expiresAt: new Date(now + 600_000).toISOString(),
+    phase: "ready",
+    services: [
+      {
+        name: "showcase-temporary",
+        serviceId: "temporary-id",
+        expectedImage: LIFECYCLE_IMAGE,
+      },
+    ],
+    resources: [],
+    ...overrides,
+  };
+}
+
+/** Publish a real temporary evidence file and inject only the policy file read. */
+async function withLifecycleEvidence(
+  runs: unknown[],
+  test: (filePath: string, policyReads: string[]) => Promise<void>,
+  options: {
+    realPolicy?: boolean;
+    policy?: unknown;
+    unreadablePolicy?: boolean;
+    recordRead?: (options: unknown) => Promise<string>;
+  } = {},
+) {
+  const dir = await fsp.mkdtemp(path.join(os.tmpdir(), "discovery-lifecycle-"));
+  const filePath = path.join(dir, "records.json");
+  await fsp.writeFile(filePath, JSON.stringify({ schemaVersion: 1, runs }));
+  const readFile = fsp.readFile.bind(fsp);
+  const policyReads: string[] = [];
+  const spy = vi
+    .spyOn(fsp, "readFile")
+    .mockImplementation(async (file, fsOptions) => {
+      if (String(file).endsWith("railway-envs.generated.json")) {
+        policyReads.push(String(file));
+        if (options.unreadablePolicy) throw new Error("ENOENT");
+        if (!options.realPolicy)
+          return JSON.stringify({
+            disposableLifecyclePolicy: options.policy ?? LIFECYCLE_POLICY,
+          });
+      }
+      if (String(file) === filePath && options.recordRead)
+        return options.recordRead(fsOptions);
+      return readFile(file, fsOptions);
+    });
+  syncBuiltinESMExports();
+  try {
+    await test(filePath, policyReads);
+  } finally {
+    spy.mockRestore();
+    syncBuiltinESMExports();
+    await fsp.rm(dir, { recursive: true, force: true });
+  }
+}
+
+const permanentObserved = {
+  id: "permanent-id",
+  name: "showcase-permanent",
+  image: "permanent:latest",
+};
+const temporaryObserved = {
+  id: "temporary-id",
+  name: "showcase-temporary",
+  image: LIFECYCLE_IMAGE,
+};
+
+/** Run actual discovery with response fixtures and a quiet inspectable logger. */
+function lifecycleContext(
+  filePath: string,
+  services = [permanentObserved, temporaryObserved],
+) {
+  const { fetchImpl, calls } = makeFetch([
+    { status: 200, body: railwayProjectResponse(services) },
+    ...services.map(() => ({ status: 200, body: { data: { variables: {} } } })),
+  ]);
+  const ctx = makeCtx(fetchImpl, {
+    ...BASE_ENV,
+    SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: filePath,
+  });
+  ctx.logger = { ...logger, info: vi.fn(), warn: vi.fn() };
+  return { ctx, calls };
+}
+
+describe("railwayServicesSource disposable lifecycle", () => {
+  it("excludes exact owned services before enrichment, including unhealthy deployments", async () => {
+    await withLifecycleEvidence(
+      [lifecycleRun()],
+      async (filePath, policyReads) => {
+        const { ctx, calls } = lifecycleContext(filePath);
+        const result = await railwayServicesSource.enumerate(ctx, {});
+        expect(result.map((service) => service.name)).toEqual([
+          "showcase-permanent",
+        ]);
+        expect(calls).toHaveLength(2);
+        expect(JSON.parse(calls[1]!.body).variables.serviceId).toBe(
+          "permanent-id",
+        );
+        expect(policyReads[0]).toMatch(
+          /showcase\/scripts\/railway-envs.generated.json$/,
+        );
+      },
+    );
+  });
+
+  it.each([
+    ["replacement ID", { ...temporaryObserved, id: "unrecorded-id" }, {}],
+    ["changed name", { ...temporaryObserved, name: "showcase-impostor" }, {}],
+    [
+      "foreign environment",
+      temporaryObserved,
+      { RAILWAY_ENVIRONMENT_ID: "env-other" },
+    ],
+    [
+      "foreign project",
+      temporaryObserved,
+      { RAILWAY_PROJECT_ID: "proj-other" },
+    ],
+  ])("keeps %s visible", async (_name, observed, env) => {
+    await withLifecycleEvidence([lifecycleRun()], async (filePath) => {
+      const { ctx } = lifecycleContext(filePath, [permanentObserved, observed]);
+      ctx.env = { ...ctx.env, ...env };
+      expect(
+        (await railwayServicesSource.enumerate(ctx, {})).map((s) => s.name),
+      ).toEqual(["showcase-permanent", observed.name]);
+    });
+  });
+
+  it.each(["malformed", "missing"])(
+    "rejects configured %s records with a typed error",
+    async (kind) => {
+      await withLifecycleEvidence([], async (filePath) => {
+        if (kind === "malformed") await fsp.writeFile(filePath, "not-json");
+        const { ctx, calls } = lifecycleContext(
+          kind === "missing" ? `${filePath}-missing` : filePath,
+        );
+        await expect(
+          railwayServicesSource.enumerate(ctx, { namePrefix: "unmatched-" }),
+        ).rejects.toBeInstanceOf(DiscoverySourceSchemaError);
+        expect(
+          calls.filter((call) => call.body.includes("query variables")),
+        ).toHaveLength(0);
+      });
+    },
+  );
+
+  it.each(["empty", "setup", "teardown", "ready"])(
+    "preserves permanent results with %s absent run",
+    async (phase) => {
+      await withLifecycleEvidence(
+        phase === "empty" ? [] : [lifecycleRun({ phase })],
+        async (filePath) => {
+          const { ctx } = lifecycleContext(filePath, [permanentObserved]);
+          expect(
+            (await railwayServicesSource.enumerate(ctx, {})).map((s) => s.name),
+          ).toEqual(["showcase-permanent"]);
+          if (phase === "ready")
+            expect(ctx.logger.warn).toHaveBeenCalledWith(
+              "discovery.railway-services.lifecycle-failure",
+              expect.objectContaining({ code: "ready-service-missing" }),
+            );
+        },
+      );
+    },
+  );
+
+  it("logs expired ownership before prefix filtering and still excludes it", async () => {
+    await withLifecycleEvidence(
+      [
+        lifecycleRun({
+          startedAt: "2020-01-01T00:00:00Z",
+          expiresAt: "2020-01-01T00:30:00Z",
+        }),
+      ],
+      async (filePath) => {
+        const { ctx, calls } = lifecycleContext(filePath);
+        await railwayServicesSource.enumerate(ctx, {
+          namePrefix: "showcase-permanent",
+        });
+        expect(ctx.logger.warn).toHaveBeenCalledWith(
+          "discovery.railway-services.lifecycle-failure",
+          expect.objectContaining({ code: "leftover-service" }),
+        );
+        expect(calls).toHaveLength(2);
+      },
+    );
+  });
+
+  it("uses the packaged production policy via ctx.env", async () => {
+    await withLifecycleEvidence([], async (filePath, policyReads) => {
+      const { ctx } = lifecycleContext(filePath, [permanentObserved]);
+      ctx.env = { ...ctx.env, NODE_ENV: "production" };
+      await railwayServicesSource.enumerate(ctx, {});
+      expect(policyReads).toEqual(["/app/data/railway-envs.generated.json"]);
+    });
+  });
+
+  it("rejects name-only local evidence even when the prefix excludes the name", async () => {
+    await withLifecycleEvidence([lifecycleRun()], async (filePath) => {
+      const { ctx, calls } = lifecycleContext(filePath);
+      ctx.env = {
+        SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: filePath,
+        LOCAL_SERVICES_JSON: JSON.stringify([
+          { name: "showcase-temporary", publicUrl: "http://localhost:10000" },
+        ]),
+      };
+      await expect(
+        railwayServicesSource.enumerate(ctx, { namePrefix: "unmatched-" }),
+      ).rejects.toBeInstanceOf(DiscoverySourceSchemaError);
+      expect(calls).toHaveLength(0);
+    });
+  });
+
+  it("supports exact local identities without credentials", async () => {
+    await withLifecycleEvidence([lifecycleRun()], async (filePath) => {
+      const { ctx, calls } = lifecycleContext(filePath);
+      ctx.env = {
+        RAILWAY_PROJECT_ID: "proj-1",
+        RAILWAY_ENVIRONMENT_ID: "env-1",
+        SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: filePath,
+        LOCAL_SERVICES_JSON: JSON.stringify(
+          [permanentObserved, temporaryObserved].map((s) => ({
+            name: s.name,
+            serviceId: s.id,
+            environmentId: "env-1",
+            imageRef: s.image,
+            publicUrl: "http://localhost:10000",
+          })),
+        ),
+      };
+      expect(
+        (await railwayServicesSource.enumerate(ctx, {})).map((s) => s.name),
+      ).toEqual(["showcase-permanent"]);
+      expect(calls).toHaveLength(0);
+    });
+  });
+});
+
+describe("railwayServicesSource lifecycle policy boundaries", () => {
+  it("reads the real committed policy from a source checkout", async () => {
+    await withLifecycleEvidence(
+      [],
+      async (filePath, policyReads) => {
+        const { ctx } = lifecycleContext(filePath, [permanentObserved]);
+        expect(
+          (await railwayServicesSource.enumerate(ctx, {})).map((s) => s.name),
+        ).toEqual(["showcase-permanent"]);
+        expect(policyReads).toHaveLength(1);
+      },
+      { realPolicy: true },
+    );
+  });
+
+  it.each(["unreadable", "invalid"])(
+    "rejects %s policy before enrichment",
+    async (kind) => {
+      await withLifecycleEvidence(
+        [],
+        async (filePath) => {
+          const { ctx, calls } = lifecycleContext(filePath);
+          await expect(
+            railwayServicesSource.enumerate(ctx, {}),
+          ).rejects.toBeInstanceOf(DiscoverySourceSchemaError);
+          expect(calls).toHaveLength(1);
+        },
+        kind === "unreadable" ? { unreadablePolicy: true } : { policy: {} },
+      );
+    },
+  );
+
+  it("leaves ordinary local injection independent of policy files and process.env", async () => {
+    const fetchImpl = vi.fn();
+    const readSpy = vi.spyOn(fsp, "readFile");
+    vi.stubEnv(
+      "SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE",
+      "/configured-only-outside-context",
+    );
+    try {
+      const ctx = makeCtx(fetchImpl, {
+        LOCAL_SERVICES_JSON: JSON.stringify([
+          { name: "showcase-local", publicUrl: "http://localhost:10000" },
+        ]),
+      });
+      expect(
+        (await railwayServicesSource.enumerate(ctx, {})).map((s) => s.name),
+      ).toEqual(["showcase-local"]);
+      expect(readSpy).not.toHaveBeenCalled();
+      expect(fetchImpl).not.toHaveBeenCalled();
+    } finally {
+      readSpy.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("keeps owned services excluded when their exact image is wrong", async () => {
+    await withLifecycleEvidence([lifecycleRun()], async (filePath) => {
+      const { ctx, calls } = lifecycleContext(filePath, [
+        permanentObserved,
+        { ...temporaryObserved, image: "wrong:latest" },
+      ]);
+      expect(
+        (await railwayServicesSource.enumerate(ctx, {})).map((s) => s.name),
+      ).toEqual(["showcase-permanent"]);
+      expect(ctx.logger.warn).toHaveBeenCalledWith(
+        "discovery.railway-services.lifecycle-failure",
+        expect.objectContaining({ code: "image-mismatch" }),
+      );
+      expect(calls).toHaveLength(2);
+    });
+  });
+
+  it("excludes present partial setup services without requiring readiness", async () => {
+    await withLifecycleEvidence(
+      [lifecycleRun({ phase: "setup" })],
+      async (filePath) => {
+        const { ctx } = lifecycleContext(filePath);
+        expect(
+          (await railwayServicesSource.enumerate(ctx, {})).map((s) => s.name),
+        ).toEqual(["showcase-permanent"]);
+        expect(ctx.logger.warn).not.toHaveBeenCalled();
+      },
+    );
+  });
+});
+
+describe("railwayServicesSource duplicate observed identities", () => {
+  it.each(["railway", "local"])(
+    "keeps a renamed unknown row sharing an owned ID visible in %s input",
+    async (mode) => {
+      await withLifecycleEvidence([lifecycleRun()], async (filePath) => {
+        const observed = [
+          temporaryObserved,
+          { ...temporaryObserved, name: "showcase-unknown" },
+        ];
+        const { ctx, calls } = lifecycleContext(filePath, observed);
+        if (mode === "local")
+          ctx.env = {
+            ...ctx.env,
+            RAILWAY_TOKEN: undefined,
+            LOCAL_SERVICES_JSON: JSON.stringify(
+              observed.map((s) => ({
+                name: s.name,
+                serviceId: s.id,
+                environmentId: "env-1",
+                imageRef: s.image,
+                publicUrl: "http://localhost:10000",
+              })),
+            ),
+          };
+        expect(
+          (await railwayServicesSource.enumerate(ctx, {})).map((s) => s.name),
+        ).toEqual(["showcase-unknown"]);
+        expect(calls).toHaveLength(mode === "local" ? 0 : 2);
+      });
+    },
+  );
+});
+
+it("cancels a pending lifecycle record read before the file finishes", async () => {
+  let started!: () => void;
+  const readStarted = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  let finishRead!: () => void;
+  let receivedSignal: AbortSignal | undefined;
+  await withLifecycleEvidence(
+    [],
+    async (filePath) => {
+      const controller = new AbortController();
+      const ctx = makeCtx(
+        vi.fn(),
+        {
+          ...BASE_ENV,
+          LOCAL_SERVICES_JSON: "[]",
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: filePath,
+        },
+        { abortSignal: controller.signal },
+      );
+      const enumeration = railwayServicesSource.enumerate(ctx, {}).then(
+        () => "resolved",
+        (error: unknown) => error,
+      );
+      await readStarted;
+      controller.abort(new DOMException("discovery cancelled", "AbortError"));
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const outcome = await Promise.race([
+          enumeration,
+          new Promise<string>((resolve) => {
+            timeout = setTimeout(() => resolve("still pending"), 100);
+          }),
+        ]);
+        expect(outcome).toBeInstanceOf(DOMException);
+        expect((outcome as DOMException).name).toBe("AbortError");
+        expect(receivedSignal).toBe(controller.signal);
+      } finally {
+        clearTimeout(timeout);
+        finishRead();
+        await enumeration;
+      }
+    },
+    {
+      recordRead: (options) => {
+        receivedSignal =
+          typeof options === "object" && options !== null && "signal" in options
+            ? (options.signal as AbortSignal | undefined)
+            : undefined;
+        started();
+        return new Promise<string>((resolve, reject) => {
+          finishRead = () =>
+            resolve(JSON.stringify({ schemaVersion: 1, runs: [] }));
+          receivedSignal?.addEventListener(
+            "abort",
+            () => reject(receivedSignal?.reason),
+            { once: true },
+          );
+        });
+      },
+    },
+  );
+});
+
+it("rejects already-cancelled lifecycle discovery without reading records", async () => {
+  const recordRead = vi.fn();
+  await withLifecycleEvidence(
+    [],
+    async (filePath) => {
+      const controller = new AbortController();
+      const reason = new DOMException("discovery cancelled", "AbortError");
+      controller.abort(reason);
+      const ctx = makeCtx(
+        vi.fn(),
+        {
+          ...BASE_ENV,
+          LOCAL_SERVICES_JSON: "[]",
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: filePath,
+        },
+        { abortSignal: controller.signal },
+      );
+      await expect(railwayServicesSource.enumerate(ctx, {})).rejects.toBe(
+        reason,
+      );
+      expect(recordRead).not.toHaveBeenCalled();
+    },
+    { recordRead },
+  );
+});
+
+it.each(["EACCES", "EIO"])(
+  "reports lifecycle record %s failures as invalid evidence",
+  async (code) => {
+    await withLifecycleEvidence(
+      [],
+      async (filePath) => {
+        const { ctx, calls } = lifecycleContext(filePath);
+        await expect(railwayServicesSource.enumerate(ctx, {})).rejects.toThrow(
+          "records-unreadable",
+        );
+        expect(calls).toHaveLength(1);
+      },
+      {
+        recordRead: () =>
+          Promise.reject(Object.assign(new Error(code), { code })),
+      },
+    );
+  },
+);
