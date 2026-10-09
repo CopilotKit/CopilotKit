@@ -323,6 +323,14 @@ export const denyDangerousSchemes: McpAppOpenLinkPolicy = (url) => {
     } catch {
       return undefined;
     }
+    // A leading "/" does not guarantee the resolution stays on the host: per the
+    // URL spec a backslash is normalized to "/" inside the path of a
+    // special-scheme base, so "/\evil.com" parses as a protocol-relative
+    // authority and resolves to "http://evil.com/". Rule 3 promises a relative
+    // link reaches a path of the HOST application, so require the origin to be
+    // unchanged. Only reachable through the relative branch, so an absolute URL
+    // is still handed back exactly as the widget wrote it.
+    if (parsed.origin !== window.location.origin) return undefined;
   }
   if (MCP_OPEN_LINK_BLOCKED_SCHEMES.has(parsed.protocol)) return undefined;
   if (parsed.username || parsed.password) return undefined;
