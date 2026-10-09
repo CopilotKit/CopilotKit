@@ -195,9 +195,15 @@ The `findings` count is also written to `$GITHUB_OUTPUT` so downstream jobs
 
 ## Tests
 
+From the repository root, with Node 22 and the pnpm version in `package.json`:
+
 ```sh
+pnpm install --frozen-lockfile --ignore-scripts
 ruby showcase/bin/spec/all_tests.rb
 ```
+
+The suite invokes the real TypeScript lifecycle classifier, which requires
+repository-local `node_modules/.bin/tsx`.
 
 Tests are minitest (stdlib). They cover:
 
