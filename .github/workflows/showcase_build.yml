@@ -626,6 +626,17 @@ jobs:
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
           build-args: ${{ steps.build-args.outputs.args }}
+          # Use the Docker Official Images ECR mirror to avoid Docker Hub pull limits in CI.
+          build-contexts: |
+            node:20-slim=docker-image://public.ecr.aws/docker/library/node:20-slim
+            node:22-slim=docker-image://public.ecr.aws/docker/library/node:22-slim
+            node:22-alpine=docker-image://public.ecr.aws/docker/library/node:22-alpine
+            node:22-bookworm-slim=docker-image://public.ecr.aws/docker/library/node:22-bookworm-slim
+            python:3.12.13=docker-image://public.ecr.aws/docker/library/python:3.12.13
+            python:3.12.13-slim=docker-image://public.ecr.aws/docker/library/python:3.12.13-slim
+            eclipse-temurin:21-jre=docker-image://public.ecr.aws/docker/library/eclipse-temurin:21-jre
+            maven:3-eclipse-temurin-21=docker-image://public.ecr.aws/docker/library/maven:3-eclipse-temurin-21
+            alpine:3.19=docker-image://public.ecr.aws/docker/library/alpine:3.19
 
       - name: Write per-slot build result
         if: always()
@@ -854,6 +865,12 @@ jobs:
           tags: ghcr.io/copilotkit/${{ matrix.starter.image }}:${{ github.sha }}
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
+          # Starter Dockerfiles use different Python tags from the showcase matrix.
+          build-contexts: |
+            node:20-slim=docker-image://public.ecr.aws/docker/library/node:20-slim
+            node:22-slim=docker-image://public.ecr.aws/docker/library/node:22-slim
+            python:3.12-slim=docker-image://public.ecr.aws/docker/library/python:3.12-slim
+            python:3.12.10-slim=docker-image://public.ecr.aws/docker/library/python:3.12.10-slim
 
       - name: Write per-slot starter build result
         if: always()
