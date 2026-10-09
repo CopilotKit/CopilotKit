@@ -16,8 +16,11 @@ it routes through the OpenAI Responses API for reasoning streaming.
 from random import choice, randint
 
 from langchain.agents import create_agent
+from langchain.agents.middleware import AgentState, before_model
 from langchain.tools import tool
+from langchain_core.messages import AIMessage, ToolMessage
 from langchain_openai import ChatOpenAI
+from langgraph.runtime import Runtime
 from copilotkit import CopilotKitMiddleware
 
 # Multi-tool-per-question prompt.
@@ -127,11 +130,28 @@ def roll_d20(value: int = 0) -> dict:
     return {"sides": 20, "value": rolled, "result": rolled}
 
 
+@before_model(can_jump_to=["end"])
+def stop_after_tool_failure(state: AgentState, runtime: Runtime) -> dict | None:
+    for message in reversed(state["messages"]):
+        if not isinstance(message, ToolMessage):
+            break
+        if message.status == "error":
+            return {
+                "messages": [
+                    AIMessage(
+                        content="The tool could not complete this request. Please retry."
+                    )
+                ],
+                "jump_to": "end",
+            }
+    return None
+
+
 model = ChatOpenAI(model="gpt-5.4")
 
 graph = create_agent(
     model=model,
     tools=[get_weather, search_flights, get_stock_price, roll_d20],
-    middleware=[CopilotKitMiddleware()],
+    middleware=[stop_after_tool_failure, CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,
 )

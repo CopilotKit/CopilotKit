@@ -6,9 +6,13 @@ snippet_framework: built-in-agent
 snippet_cell: declarative-hashbrown
 ---
 
-<InlineDemo demo="declarative-hashbrown" />
+<InlineDemo
+  demo="declarative-hashbrown"
+  showAllFiles
+  llmFiles="src/app/demos/declarative-hashbrown/page.tsx,src/app/demos/declarative-hashbrown/chat.tsx,src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx"
+/>
 
-Hashbrown renders a dashboard while the assistant streams JSON. The examples below come from the selected framework's showcase demo, so the page, chat, renderer, and Code tab stay in sync with runnable source. The bundled demos pin `@hashbrownai/core` and `@hashbrownai/react` to `0.5.0-beta.4`; the chart components also need `recharts` and `zod`. Use the versions in your selected integration's `package.json` when copying the files.
+Hashbrown renders a dashboard while the assistant streams JSON. For frameworks with this demo, the **Code** tab shows its runnable source, and the Markdown page includes the key frontend files. The bundled demos pin `@hashbrownai/core` and `@hashbrownai/react` to `0.5.0-beta.4`; the chart components also need `recharts` and `zod`. Use the versions in your integration's `package.json` when copying the files.
 
 ## When to use this
 
@@ -20,17 +24,11 @@ For a validated `{ root, elements }` spec that renders as one tree, see [JSON Re
 
 ## Frontend
 
-The page wraps the chat in `HashBrownDashboard`. That provider creates the UI kit once and shares it with the assistant-message renderer. The chat registers `HashBrownRenderMessage` in the `assistantMessage` slot:
+The page wraps the chat in `HashBrownDashboard`. That provider creates the UI kit once and shares it with the assistant-message renderer. The chat registers `HashBrownRenderMessage` in the `assistantMessage` slot.
 
-<Snippet file="src/app/demos/declarative-hashbrown/page.tsx" />
+The renderer exposes `metric`, `pieChart`, `barChart`, `dealCard`, and Markdown with their prop schemas. It passes `kit.schema` to `useJsonParser`, reads the parser's `value`, and calls `kit.render(value)`. Chart `data` is a JSON-encoded **string**; the chart wrappers parse it before passing an array to the chart components.
 
-<Snippet file="src/app/demos/declarative-hashbrown/chat.tsx" />
-
-The renderer exposes `metric`, `pieChart`, `barChart`, `dealCard`, and Markdown with their prop schemas. It passes `kit.schema` to `useJsonParser`, reads the parser's `value`, and calls `kit.render(value)`. Chart `data` is a JSON-encoded **string**; the chart wrappers parse it before passing an array to the chart components. This is the complete source for the kit, provider, and message renderer:
-
-<Snippet file="src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx" />
-
-The Code tab includes the imported `metric-card.tsx`, chart components, `types.ts`, suggestion setup, runtime route, and agent source.
+Where available, the Code tab also includes the imported `metric-card.tsx`, chart components, `types.ts`, suggestion setup, runtime route, and agent source.
 
 ## Backend
 
@@ -52,6 +50,6 @@ The agent sends **one JSON object** as the assistant message, without a Markdown
 }
 ```
 
-The selected integration's agent uses this envelope and the same component names. The parser can render finished parts of `ui` while the rest of the JSON is still streaming.
+The bundled agents use this envelope and the same component names. The parser can render finished parts of `ui` while the rest of the JSON is still streaming.
 
 <IntegrationGrid path="declarative-hashbrown" />

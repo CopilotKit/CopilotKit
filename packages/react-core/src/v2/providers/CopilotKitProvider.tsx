@@ -301,20 +301,22 @@ export interface CopilotKitProviderProps {
    */
   debug?: DebugConfig;
   /**
-   * Configures interaction capture (`@copilotkit/learning`). Without a sink,
-   * Core authenticates with the runtime and sends browser events to Intelligence.
-   * A custom sink keeps the standalone collector behavior. Updated settings apply
-   * to the next Trajectory; removing the prop or setting it to `false` stops
-   * capture and cancels startup.
+   * Turns on interaction capture (`@copilotkit/learning`). `learning` (short
+   * for `learning={true}`) records with the default options; pass an object
+   * for options. `false` or omitting the prop turns capture off and cancels
+   * startup. Without a sink, Core authenticates with the runtime and sends
+   * browser events to Intelligence; a custom sink keeps the standalone
+   * collector behavior. Updated settings apply to the next Trajectory.
    *
-   * `learning` or `learning={true}` generates a Trajectory ID and starts after
-   * mount with the default options. The ID stays the same across rerenders and
-   * reconnects; turning capture off and on again starts a new Trajectory. Read
-   * the active ID from `copilotkit.trajectoryId`.
+   * Capture starts after mount. Set `trajectoryId` to use your own ID;
+   * otherwise the provider generates one. The generated ID stays the same
+   * across rerenders, reconnects and option changes; turning capture off,
+   * setting `autoStart: false` or supplying a `trajectoryId` ends it, and the
+   * next generated Trajectory gets a new ID. Read the active ID from
+   * `copilotkit.trajectoryId`.
    *
-   * With an object, set `trajectoryId` to start after mount with your own ID;
-   * otherwise call `startTrajectory()`. Capture stops on unmount, including
-   * manually started Trajectories.
+   * Set `autoStart: false` to start capture yourself with `startTrajectory()`.
+   * Capture stops on unmount, including manually started Trajectories.
    *
    * @example
    * <CopilotKitProvider runtimeUrl="/api/copilotkit" learning>
@@ -323,6 +325,11 @@ export interface CopilotKitProviderProps {
 }
 
 type LearningProp = LearningConfig & {
+  /**
+   * Starts a Trajectory after mount. Defaults to `true`; set `false` to call
+   * `startTrajectory()` yourself.
+   */
+  autoStart?: boolean;
   trajectoryId?: string;
   /**
    * Used only by explicit custom sinks. Authenticated capture warns and ignores
@@ -339,8 +346,10 @@ function toLearningConfig(
   learning: boolean | LearningProp | undefined,
 ): LearningProp | undefined {
   if (learning === true) return DEFAULT_LEARNING;
-  if (learning === false) return undefined;
-  return learning;
+  if (learning === false || learning === undefined) return undefined;
+  // `autoStart` only controls the provider; Core never receives it.
+  const { autoStart: _autoStart, ...config } = learning;
+  return config;
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -395,7 +404,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   debug,
   learning,
 }) => {
-  const learningConfig = toLearningConfig(learning);
+  // Memoized so a stable `learning` object keeps a stable config after
+  // `autoStart` is removed.
+  const learningConfig = useMemo(() => toLearningConfig(learning), [learning]);
 
   // Keep the server render and the first client render identical. The
   // Inspector only runs in local development. Resolve its host and build
@@ -1014,11 +1025,17 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // CopilotKit's own runtime traffic is never captured. Under StrictMode the
   // start/stop/start sequence installs the capture hooks once.
   const learningEnabled = learningConfig !== undefined;
-  const generatesTrajectoryId = learning === true;
-  const suppliedTrajectoryId = learningConfig?.trajectoryId;
+  // `true` is the options-free form, so only an object can opt out.
+  const autoStart =
+    learningEnabled &&
+    (typeof learning !== "object" || learning.autoStart !== false);
+  const suppliedTrajectoryId = autoStart
+    ? learningConfig?.trajectoryId
+    : undefined;
+  const generatesTrajectoryId = autoStart && suppliedTrajectoryId === undefined;
   const learningContainerIdsRef = useRef(learningConfig?.learningContainerIds);
   // Kept outside the effect so StrictMode replays and dependency changes that
-  // keep the shorthand on restart the same Trajectory.
+  // keep generating restart the same Trajectory.
   const generatedTrajectoryIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     copilotkit.setLearningConfig(learningConfig);
@@ -1027,17 +1044,27 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     // the provider's container option is not part of startTrajectory() options.
     if (
       learningConfig?.sink === undefined &&
-      learningConfig?.trajectoryId === undefined &&
+      !autoStart &&
       learningConfig?.learningContainerIds !== undefined
     ) {
       console.warn(
         "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture does not assign Learning Containers; remove learningContainerIds from the capture options.",
       );
     }
-  }, [copilotkit, learningConfig]);
+  }, [copilotkit, learningConfig, autoStart]);
+
+  // Keyed on a boolean so an inline `learning` object warns once, not per render.
+  const ignoresTrajectoryId =
+    !autoStart && learningConfig?.trajectoryId !== undefined;
+  useEffect(() => {
+    if (!ignoresTrajectoryId) return;
+    console.warn(
+      "[CopilotKit] learning.trajectoryId is ignored when autoStart is false; pass the ID to startTrajectory() instead.",
+    );
+  }, [ignoresTrajectoryId]);
 
   useEffect(() => {
-    // Leaving the shorthand ends its Trajectory; turning it on again starts a new one.
+    // Leaving generation ends its Trajectory; generating again starts a new one.
     if (!generatesTrajectoryId) generatedTrajectoryIdRef.current = undefined;
     if (!learningEnabled) return;
     let disposed = false;
@@ -1178,20 +1205,22 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     retryableRuntimeEntitlementFailure &&
     runtimeEntitlementRetryPending &&
     !hasLegacyRuntimeEntitlementFallback;
-  const runtimeEntitlementFailureSettled =
+  // Only a terminal failure denies features. A retryable failure (a timeout,
+  // a network error, a 5xx) says nothing about what the project may use.
+  const terminalRuntimeEntitlementFailure =
     hasNonReadyRuntimeEntitlement &&
-    !runtimeEntitlementRetryInProgress &&
+    !retryableRuntimeEntitlementFailure &&
     !hasLegacyRuntimeEntitlementFallback;
   const licenseContextValue = useMemo<LicenseContextValue>(() => {
     const runtimeLicenseContext = createLicenseContextValue(
       runtimeEntitlementRetryInProgress ? undefined : runtimeLicenseStatus,
       runtimeEntitlements,
     );
-    if (!runtimeEntitlementFailureSettled) {
+    if (!terminalRuntimeEntitlementFailure) {
       return runtimeLicenseContext;
     }
 
-    // The Runtime has neither managed authority nor a usable legacy fallback.
+    // The Runtime reported a terminal failure and has no usable legacy fallback.
     // Keep its truthful status, but deny feature-only consumers.
     return {
       ...runtimeLicenseContext,
@@ -1199,7 +1228,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       getLimit: () => null,
     };
   }, [
-    runtimeEntitlementFailureSettled,
+    terminalRuntimeEntitlementFailure,
     runtimeEntitlementRetryInProgress,
     runtimeEntitlements,
     runtimeLicenseStatus,

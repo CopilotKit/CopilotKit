@@ -821,11 +821,6 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
-        source: "/unselected/generative-ui/tool-based",
-        destination: "/generative-ui/tool-rendering",
-        permanent: true,
-      },
-      {
         source: "/unselected/custom-look-and-feel/bring-your-own-components",
         destination: "/custom-look-and-feel/slots",
         permanent: true,

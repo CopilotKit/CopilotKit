@@ -65,9 +65,26 @@ Capture needs a Runtime configured with `intelligence` and `identifyUser`, and a
 </CopilotKitProvider>
 ```
 
-`learning` or `learning={true}` generates a Trajectory ID and starts capture after mount with the default options. The ID stays the same across rerenders, React StrictMode effect replays, and reconnects. `learning={false}` or removing the prop stops capture. Turning it on again starts a new Trajectory with a new ID. Unmounting the provider stops capture. Read the active ID from `copilotkit.trajectoryId`, or subscribe with `onTrajectoryChanged`.
+`learning` turns capture on. For options, pass an object, such as `learning={{ onError }}`. `learning={false}` or removing the prop turns capture off, which suits a consent switch: `learning={hasConsent}`.
 
-Pass an object to change the options, such as `onError`. An object starts capture automatically only with `learning.trajectoryId`; without it, call `startTrajectory()` to start.
+Capture starts after mount. Without `learning.trajectoryId`, the provider generates the Trajectory ID. The ID stays the same across rerenders, React StrictMode effect replays, reconnects, and option changes. Turning capture off and on again starts a new Trajectory with a new ID. Unmounting the provider stops capture. Read the active ID from `copilotkit.trajectoryId`, or subscribe with `onTrajectoryChanged`.
+
+Set `learning.trajectoryId` to use your own ID instead.
+
+To decide yourself when capture starts, set `autoStart: false`. The provider configures capture and waits for your app to call `copilotkit.startTrajectory()`:
+
+```tsx
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  learning={{ autoStart: false }}
+>
+  {children}
+</CopilotKitProvider>
+```
+
+With `autoStart: false`, the provider ignores `learning.trajectoryId` and logs a console warning. Pass the ID to `startTrajectory({ trajectoryId })` instead.
+
+Earlier versions waited for `startTrajectory()` when the object had no `trajectoryId`, for example `learning={{ onError }}`. Those objects now start capture after mount. Add `autoStart: false` to keep the manual start.
 
 ## Custom batch sinks
 
