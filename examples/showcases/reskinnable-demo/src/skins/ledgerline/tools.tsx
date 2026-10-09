@@ -9,7 +9,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useSkin } from "@/shell/skin-provider";
 import { useSkinHref } from "@/shell/skin-path";
-import { Check, ChevronRight, Loader2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Loader2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { API, useLedger } from "./data/client";
@@ -109,7 +109,7 @@ function ToolLine({
         ) : (
           <Check className="h-3.5 w-3.5 flex-none text-positive" />
         )}
-        <span className="font-medium text-ink">{label}</span>
+        <span className="ll-tool-label font-medium text-ink">{label}</span>
         {detail ? (
           <span className="ll-mono truncate text-[12px] text-[hsl(var(--ll-faint))]">
             {detail}
@@ -126,6 +126,24 @@ function ToolLine({
             open && "rotate-90",
           )}
         />
+      </button>
+      {/* Only the newest line of a run shows; this reveals the earlier ones
+          (theme.css hides them and shows this arrow only where some are hidden). */}
+      <button
+        type="button"
+        aria-label="Show every tool call"
+        data-testid="ledgerline-tool-expand"
+        onClick={(e) => {
+          const list = e.currentTarget.closest<HTMLElement>(
+            ".copilotKitMessages",
+          );
+          if (!list) return;
+          list.dataset.llTools = list.dataset.llTools === "open" ? "" : "open";
+        }}
+        className="ll-tool-expand ml-5 hidden items-center gap-1 text-[11px] text-[hsl(var(--ll-faint))] hover:text-ink"
+      >
+        <ChevronDown className="h-3 w-3 transition-transform" />
+        <span>All steps</span>
       </button>
       {open && typeof result === "string" ? (
         <pre className="ml-5 mt-1 max-h-48 overflow-auto whitespace-pre-wrap border-l border-hairline pl-3 text-[0.68rem] text-ink-muted">
