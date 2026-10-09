@@ -131,6 +131,18 @@ describe("CopilotRuntime#handleServiceAdapter (#3217)", () => {
     );
   });
 
+  it("rejects OpenAIAssistantAdapter with a clear error", async () => {
+    const runtime = new CopilotRuntime();
+
+    runtime.handleServiceAdapter(
+      makeAdapter({ name: "OpenAIAssistantAdapter" }),
+    );
+
+    await expect(resolvedAgents(runtime)).rejects.toThrow(
+      /OpenAIAssistantAdapter is not supported: OpenAI shut down the Assistants API/,
+    );
+  });
+
   it("still rejects EmptyAdapter with no agents", async () => {
     const runtime = new CopilotRuntime();
 

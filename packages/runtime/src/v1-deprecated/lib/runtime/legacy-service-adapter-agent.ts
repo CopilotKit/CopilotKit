@@ -62,6 +62,8 @@ export class LegacyServiceAdapterAgent extends AbstractAgent {
   /** Written by `assignToolsToAgents`, the same as on `BuiltInAgent`. */
   config: { tools?: BuiltInAgentClassicConfig["tools"] } = {};
 
+  private abortController?: AbortController;
+
   constructor(private readonly serviceAdapter: CopilotServiceAdapter) {
     super();
   }
@@ -73,15 +75,37 @@ export class LegacyServiceAdapterAgent extends AbstractAgent {
     return cloned;
   }
 
+  /**
+   * Stops the current run, which is what the runner calls when the user
+   * presses Stop. The adapter's in-flight stream is abandoned, no further
+   * `process()` step or server-side tool runs, and the run completes without
+   * a terminal event, the same as `BuiltInAgent`.
+   */
+  abortRun(): void {
+    this.abortController?.abort();
+  }
+
   run(input: RunAgentInput): Observable<BaseEvent> {
     return new Observable<BaseEvent>((subscriber) => {
-      let stopped = false;
+      const controller = new AbortController();
+      this.abortController = controller;
+      const { signal } = controller;
       const emit = (event: BaseEvent) => {
-        if (!stopped) subscriber.next(event);
+        if (!signal.aborted) subscriber.next(event);
+      };
+      const release = () => {
+        if (this.abortController === controller) {
+          this.abortController = undefined;
+        }
       };
 
-      this.execute(input, emit, () => stopped).then(
+      this.execute(input, emit, signal).then(
         () => {
+          release();
+          if (signal.aborted) {
+            subscriber.complete();
+            return;
+          }
           emit({
             type: EventType.RUN_FINISHED,
             threadId: input.threadId,
@@ -90,18 +114,22 @@ export class LegacyServiceAdapterAgent extends AbstractAgent {
           subscriber.complete();
         },
         (error: unknown) => {
+          release();
+          if (signal.aborted) {
+            subscriber.complete();
+            return;
+          }
           emit({
             type: EventType.RUN_ERROR,
             message: error instanceof Error ? error.message : String(error),
-            threadId: input.threadId,
-            runId: input.runId,
           } as BaseEvent);
           subscriber.error(error);
         },
       );
 
       return () => {
-        stopped = true;
+        controller.abort();
+        release();
       };
     });
   }
@@ -109,7 +137,7 @@ export class LegacyServiceAdapterAgent extends AbstractAgent {
   private async execute(
     input: RunAgentInput,
     emit: (event: BaseEvent) => void,
-    isStopped: () => boolean,
+    signal: AbortSignal,
   ): Promise<void> {
     emit({
       type: EventType.RUN_STARTED,
@@ -167,8 +195,9 @@ export class LegacyServiceAdapterAgent extends AbstractAgent {
       ...input.messages.filter((message) => V1_ROLES.has(message.role)),
     );
 
-    for (let step = 0; step < MAX_STEPS && !isStopped(); step++) {
-      const result = await this.runStep(input, messages, actions, emit);
+    for (let step = 0; step < MAX_STEPS; step++) {
+      const result = await this.runStep(input, messages, actions, emit, signal);
+      if (signal.aborted) return;
 
       const answered = new Set(result.results.map((r) => r.toolCallId));
       const pending = result.toolCalls.filter((call) => !answered.has(call.id));
@@ -193,6 +222,7 @@ export class LegacyServiceAdapterAgent extends AbstractAgent {
       }
 
       for (const call of serverCalls) {
+        if (signal.aborted) return;
         const content = await this.executeServerTool(
           serverTools.get(call.name)!,
           call,
@@ -250,6 +280,7 @@ export class LegacyServiceAdapterAgent extends AbstractAgent {
     messages: AguiMessage[],
     actions: ActionInput[],
     emit: (event: BaseEvent) => void,
+    signal: AbortSignal,
   ): Promise<StepResult> {
     let streamCallback:
       | ((eventStream$: RuntimeEventSubject) => Promise<void>)
@@ -273,7 +304,7 @@ export class LegacyServiceAdapterAgent extends AbstractAgent {
     });
 
     const result: StepResult = { text: "", toolCalls: [], results: [] };
-    if (!streamCallback) {
+    if (!streamCallback || signal.aborted) {
       return result;
     }
 
@@ -290,6 +321,9 @@ export class LegacyServiceAdapterAgent extends AbstractAgent {
         error: reject,
         complete: resolve,
       });
+      // Nothing can cancel an adapter's stream from outside, so on abort stop
+      // waiting for it; `emit` already drops anything it sends afterwards.
+      signal.addEventListener("abort", () => resolve(), { once: true });
     });
     // An adapter that returns without completing its stream is finished too.
     streamCallback(subject).then(
