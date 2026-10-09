@@ -35,6 +35,23 @@ import { channelActorIdentity } from "./identity.js";
 import { hasMemoryAccess, resolveMemoryGrant } from "./memory.js";
 import type { MemoryGrant, ResolvedChannelMemory } from "./memory.js";
 import type { ChannelComponentRenderContext } from "./channel-component.js";
+import {
+  ChannelAgentInterruptPendingError,
+  ChannelAgentResumeAmbiguousError,
+  ChannelAgentResumeNoneError,
+  ChannelNoDefaultAgentError,
+  ChannelUnknownAgentError,
+} from "./channel-agent-errors.js";
+import {
+  addInterruptWaiter,
+  listInterruptWaiters,
+  removeInterruptWaiter,
+} from "./interrupt-waiters.js";
+import {
+  canonicalAgentId,
+  checkpointThreadId,
+} from "./resolve-channel-agents.js";
+import type { ChannelRunAgentIdField } from "./resolve-channel-agents.js";
 
 /**
  * Default retention for a captured interrupt value (7 days) — deliberately the
@@ -95,7 +112,10 @@ export interface ThreadDeps {
   replyTarget: ReplyTarget;
   conversationKey: string;
   registry: ActionRegistry;
-  agentFactory: (threadId: string) => AbstractAgent;
+  /** Isolated factories keyed by agent id (`"default"` plus extras). */
+  agentFactories: Map<string, (threadId: string) => AbstractAgent>;
+  /** Present when a default agent was configured (`agent` or `agents.default`). */
+  defaultId: "default" | undefined;
   tools: Map<string, ChannelTool>;
   toolDescriptors: AgentToolDescriptor[];
   context: ContextEntry[];
@@ -108,6 +128,7 @@ export interface ThreadDeps {
     (args: {
       payload: unknown;
       thread: Thread;
+      agentId: string;
       user: ApplicationUser | null;
       actor: ProviderActor;
     }) => void | Promise<void>
@@ -134,8 +155,13 @@ export interface ThreadDeps {
   defaultPrompt?: string;
   user: ApplicationUser | null;
   actor: ProviderActor;
-  /** Declared Channel identity bound to one-use continuations. */
+  /** Channel identity bound to one-use HITL continuations. */
   channelName: string;
+  /**
+   * `createChannel({ name })` only. Used for `canonicalAgentId`.
+   * Not the HITL continuation identity.
+   */
+  declaredName?: string;
   /** Trusted canonical Thread identity bound to one-use continuations. */
   threadId: string;
   /** Action capability that created this interaction Thread. */
@@ -164,7 +190,9 @@ class ChannelAwaitChoiceNotSupportedError extends Error {
 }
 
 /** A concrete conversation thread: posts UI, runs the agent loop, and resolves HITL waiters. */
-export class Thread implements ThreadInterface {
+export class Thread<
+  TAgentId extends string = string,
+> implements ThreadInterface {
   readonly platform: string;
   /** Stable key identifying this conversation (used by transcript bridging). */
   readonly conversationKey: string;
@@ -174,6 +202,10 @@ export class Thread implements ThreadInterface {
   private implicitInboundConsumed = false;
   private activeContinuation?: ActionContinuationContext;
   private agentRunTail: Promise<void> = Promise.resolve();
+  /** Named agent whose run is posting UI right now. Unset outside a run. */
+  private currentAgentId?: string;
+  /** Named agent implied by the current interaction. Unset when none. */
+  implicitResumeAgentId?: string;
 
   constructor(private deps: ThreadDeps) {
     this.platform = deps.platform ?? deps.adapter.platform;
@@ -192,6 +224,7 @@ export class Thread implements ThreadInterface {
         platform: this.platform as ChannelComponentRenderContext["platform"],
         signal: new AbortController().signal,
       },
+      this.currentAgentId,
     );
   }
 
@@ -264,6 +297,7 @@ export class Thread implements ThreadInterface {
         this.deps.conversationKey,
         this.activeContinuation,
         renderContext,
+        this.currentAgentId,
       );
       const ref = await this.deps.adapter.post(
         this.deps.replyTarget,
@@ -462,8 +496,14 @@ export class Thread implements ThreadInterface {
     );
   }
 
-  private interruptEventKey(): string {
-    return `interruptevent:${this.deps.conversationKey}`;
+  /**
+   * One retained interrupt value per agent. The default agent keeps the
+   * original per-conversation key; extra agents add `::<agentId>` (like their
+   * checkpoint ids), so two agents waiting in one conversation never overwrite
+   * each other's value.
+   */
+  private interruptEventKey(agentId: string): string {
+    return `interruptevent:${checkpointThreadId(this.deps.conversationKey, agentId)}`;
   }
 
   /**
@@ -472,18 +512,21 @@ export class Thread implements ThreadInterface {
    *
    * PERSISTED, not in-memory, because the resume arrives in a DIFFERENT run —
    * possibly in a different process after a restart, which is the whole reason
-   * this HITL path exists. Stored per conversation, matching the fact that a
-   * renderer tracks a single pending interrupt: a second interrupt in the same
-   * conversation legitimately supersedes the first.
+   * this HITL path exists. Stored per conversation and agent, matching the
+   * fact that each agent has at most one pending interrupt: a second interrupt
+   * from the same agent legitimately supersedes the first.
    *
    * Best-effort: an agent that needs no correlation data (LangGraph) resumes
    * fine without this, so a store failure must not take the interrupt down.
    */
-  private async rememberInterruptEvent(value: unknown): Promise<void> {
+  private async rememberInterruptEvent(
+    agentId: string,
+    value: unknown,
+  ): Promise<void> {
     if (value === undefined) return;
     try {
       await this.store.kv.set(
-        this.interruptEventKey(),
+        this.interruptEventKey(agentId),
         value,
         this.deps.interruptRetentionMs ?? DEFAULT_INTERRUPT_RETENTION_MS,
       );
@@ -526,35 +569,30 @@ export class Thread implements ThreadInterface {
     });
   }
 
-  runAgent(input?: {
-    context?: ContextEntry[];
-    tools?: ChannelTool[];
-    /**
-     * A user message to inject before running. When the adapter's conversation
-     * store does not seed the in-flight turn, an omitted prompt defaults to
-     * non-empty inbound `message.contentParts` or `message.text`. Welcome
-     * handlers instead default to `"Introduce yourself to the channel!"`.
-     * Pass a prompt explicitly to override either default or when input isn't in
-     * reconstructed history — e.g. slash-command args, which are never posted to
-     * the channel.
-     */
-    prompt?: string | AgentContentPart[];
-    /**
-     * Auto-bridge cross-platform transcripts for this run. When truthy AND the
-     * thread has a resolved `userId` AND a `Transcripts` instance, this:
-     *   1. injects prior history (`transcripts.list`, default limit 20) as a
-     *      context entry,
-     *   2. appends the current user turn,
-     *   3. runs the agent,
-     *   4. captures the assistant reply and appends it.
-     * This flag OWNS the bridge — callers using it should NOT also manually
-     * append the same user/assistant turn via `channel.transcripts.append`.
-     * No-ops with a one-time warning when identity/transcripts aren't configured.
-     */
-    transcript?: boolean | { limit?: number };
-    /** Intelligence Memory access for this run only. Omission disables Memory. */
-    memory?: MemoryGrant;
-  }): Promise<MessageRef | undefined> {
+  runAgent(
+    ...args: "default" extends TAgentId
+      ? [
+          input?: {
+            context?: ContextEntry[];
+            tools?: ChannelTool[];
+            prompt?: string | AgentContentPart[];
+            transcript?: boolean | { limit?: number };
+            memory?: MemoryGrant;
+            agentId?: TAgentId;
+          },
+        ]
+      : [
+          input: {
+            context?: ContextEntry[];
+            tools?: ChannelTool[];
+            prompt?: string | AgentContentPart[];
+            transcript?: boolean | { limit?: number };
+            memory?: MemoryGrant;
+            agentId: TAgentId;
+          },
+        ]
+  ): Promise<MessageRef | undefined> {
+    const input = args[0];
     try {
       this.deps.adapter.assertRunAgentSupported?.(this.deps.replyTarget);
     } catch (error) {
@@ -608,81 +646,106 @@ export class Thread implements ThreadInterface {
 
   resume(
     value: unknown,
-    options?: {
+    extra?: {
       memory?: MemoryGrant;
       subject?: "initiator" | "actor";
-    },
+    } & ChannelRunAgentIdField<TAgentId>,
   ): Promise<MessageRef | undefined> {
     const memoryRequest =
-      options?.memory === undefined
+      extra?.memory === undefined
         ? undefined
-        : { user: options.memory.user, project: options.memory.project };
-    const subject = options?.subject;
+        : { user: extra.memory.user, project: extra.memory.project };
+    const subject = extra?.subject;
     const actionId = this.deps.interactionActionId;
-    if (!actionId) {
-      return Promise.reject(new ChannelContinuationRequiredError());
-    }
     return this.trackOperation(async () => {
-      const binding = {
-        channelName: this.deps.channelName,
-        conversationKey: this.deps.conversationKey,
-        threadId: this.deps.threadId,
-      };
-      const available = await this.deps.registry.getContinuation(
-        actionId,
-        binding,
-      );
-      const memory = this.resolveResumeMemory(
-        memoryRequest === undefined && subject === undefined
-          ? undefined
-          : { memory: memoryRequest, subject },
-        available,
-      );
-      const claimed = await this.deps.registry.claimContinuation(
-        actionId,
-        binding,
-      );
-      const continuation: ActionContinuationContext = {
-        channelName: claimed.channelName,
-        conversationKey: claimed.conversationKey,
-        threadId: claimed.threadId,
-        runChainId: claimed.runChainId,
-        initiator: claimed.initiator,
-      };
-      this.activeContinuation = continuation;
-      // Echo the originating interrupt back to the agent. Some AG-UI bridges
-      // (e.g. @ag-ui/mastra) key their resume off it — it carries the correlation
-      // ids identifying WHICH suspended call to continue — and silently ignore a
-      // resume without it. LangGraph needs no correlation data and ignores the
-      // extra field, so this is additive for existing agents.
-      //
-      // `consume` is atomic take-and-delete, matching the one-use continuation
-      // claimed just above: a replayed click must not resurrect a spent resume.
-      // Omitted entirely when absent, so the wire shape is byte-identical to
-      // before for any flow that never captured an interrupt value.
-      let interruptEvent: unknown;
-      try {
-        interruptEvent = await this.store.kv.consume(this.interruptEventKey());
-      } catch (err) {
-        console.warn(
-          "[channel] could not read the retained interrupt value; resuming " +
-            "without command.interruptEvent:",
-          err,
+      let memory: ResolvedChannelMemory | undefined;
+      let continuation: ActionContinuationContext | undefined;
+      if (actionId) {
+        const binding = {
+          channelName: this.deps.channelName,
+          conversationKey: this.deps.conversationKey,
+          threadId: this.deps.threadId,
+        };
+        const available = await this.deps.registry.getContinuation(
+          actionId,
+          binding,
         );
+        memory = this.resolveResumeMemory(
+          memoryRequest === undefined && subject === undefined
+            ? undefined
+            : { memory: memoryRequest, subject },
+          available,
+        );
+        const claimed = await this.deps.registry.claimContinuation(
+          actionId,
+          binding,
+        );
+        continuation = {
+          channelName: claimed.channelName,
+          conversationKey: claimed.conversationKey,
+          threadId: claimed.threadId,
+          runChainId: claimed.runChainId,
+          initiator: claimed.initiator,
+        };
+        this.activeContinuation = continuation;
       }
       try {
+        const agentId = await this.resolveResumeAgentId(extra?.agentId);
+        // Echo the originating interrupt back to the agent. Some AG-UI bridges
+        // (e.g. @ag-ui/mastra) key their resume off it — it carries the correlation
+        // ids identifying WHICH suspended call to continue — and silently ignore a
+        // resume without it. LangGraph needs no correlation data and ignores the
+        // extra field, so this is additive for existing agents.
+        //
+        // `consume` is atomic take-and-delete, matching the one-use continuation
+        // claimed just above: a replayed click must not resurrect a spent resume.
+        // Omitted entirely when absent, so the wire shape is byte-identical to
+        // before for any flow that never captured an interrupt value.
+        let interruptEvent: unknown;
+        try {
+          interruptEvent = await this.store.kv.consume(
+            this.interruptEventKey(agentId),
+          );
+        } catch (err) {
+          console.warn(
+            "[channel] could not read the retained interrupt value; resuming " +
+              "without command.interruptEvent:",
+            err,
+          );
+        }
         return await this.run(
           interruptEvent === undefined
             ? { resume: value }
             : { resume: value, interruptEvent },
-          { memory },
+          { memory, agentId },
         );
       } finally {
-        if (this.activeContinuation === continuation) {
+        if (continuation && this.activeContinuation === continuation) {
           this.activeContinuation = undefined;
         }
       }
     });
+  }
+
+  private async resolveResumeAgentId(
+    requestedAgentId?: string,
+  ): Promise<string> {
+    const waiters = await listInterruptWaiters(
+      this.store,
+      this.deps.conversationKey,
+    );
+    const agentId = requestedAgentId ?? this.implicitResumeAgentId;
+    if (!agentId) {
+      if (waiters.length === 0) throw new ChannelAgentResumeNoneError();
+      if (waiters.length >= 2) {
+        throw new ChannelAgentResumeAmbiguousError(waiters);
+      }
+      return waiters[0]!;
+    }
+    if (!waiters.includes(agentId)) {
+      throw new ChannelAgentResumeNoneError(agentId);
+    }
+    return agentId;
   }
 
   private resolveResumeMemory(
@@ -741,13 +804,42 @@ export class Thread implements ThreadInterface {
       prompt?: string | AgentContentPart[];
       transcript?: boolean | { limit?: number };
       memory?: ResolvedChannelMemory;
+      agentId?: string;
     },
   ): Promise<MessageRef | undefined> {
+    if (this.deps.agentFactories.size === 0) {
+      // No `agent` and no `agents`. The code lets delivery logs name the
+      // missing configuration (see channels-intelligence delivery-transport).
+      throw Object.assign(
+        new Error(
+          "createChannel: no agent configured (pass `agent` to use runAgent)",
+        ),
+        { code: "channel_agent_not_configured" },
+      );
+    }
+    const agentId = extra?.agentId ?? this.deps.defaultId;
+    if (agentId === undefined) {
+      throw new ChannelNoDefaultAgentError();
+    }
+    const factory = this.deps.agentFactories.get(agentId);
+    if (!factory) {
+      throw new ChannelUnknownAgentError(agentId);
+    }
+    if (!initialResume) {
+      const waiters = await listInterruptWaiters(
+        this.store,
+        this.deps.conversationKey,
+      );
+      if (waiters.includes(agentId)) {
+        throw new ChannelAgentInterruptPendingError(agentId);
+      }
+    }
     const session = await this.deps.adapter.conversationStore.getOrCreate(
       this.deps.conversationKey,
       this.deps.replyTarget,
-      this.deps.agentFactory,
+      (baseThreadId) => factory(checkpointThreadId(baseThreadId, agentId)),
     );
+    this.currentAgentId = agentId;
     try {
       // Inject an explicit user message when the input isn't in the adapter's
       // reconstructed history (e.g. a slash command's args, or inbound image/file
@@ -861,12 +953,13 @@ export class Thread implements ThreadInterface {
             // Retain BEFORE dispatching: the handler posts the picker, and the
             // click that resumes it can arrive at any later moment, so the value
             // has to already be durable by the time the button exists.
-            await this.rememberInterruptEvent(interrupt.value);
+            await this.rememberInterruptEvent(agentId, interrupt.value);
             const h = this.deps.interruptHandlers.get(interrupt.eventName);
             if (h)
               await h({
                 payload: interrupt.value,
-                thread: this,
+                thread: this as Thread,
+                agentId,
                 user: this.deps.user,
                 actor: this.deps.actor,
               });
@@ -883,6 +976,10 @@ export class Thread implements ThreadInterface {
               isResume: initialResume !== undefined,
               user: this.deps.user,
               memory: extra?.memory,
+              canonicalAgentId: canonicalAgentId(
+                this.deps.declaredName,
+                agentId,
+              ),
               execute: (subscriber, canonicalRun) =>
                 runAgentLoop({
                   ...loopArgs,
@@ -891,6 +988,19 @@ export class Thread implements ThreadInterface {
                 }),
             })
           : await runAgentLoop(loopArgs);
+        if (loopResult.interrupted) {
+          await addInterruptWaiter(
+            this.store,
+            this.deps.conversationKey,
+            agentId,
+          );
+        } else {
+          await removeInterruptWaiter(
+            this.store,
+            this.deps.conversationKey,
+            agentId,
+          );
+        }
         stage = "finalize";
         // Transcript auto-bridge (step 4): capture the assistant text this run
         // produced and append it. Only when the bridge actually applied (transcripts
@@ -950,6 +1060,9 @@ export class Thread implements ThreadInterface {
       });
       return undefined;
     } finally {
+      if (this.currentAgentId === agentId) {
+        this.currentAgentId = undefined;
+      }
       await session.release?.();
     }
   }

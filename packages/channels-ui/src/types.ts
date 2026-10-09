@@ -151,7 +151,10 @@ export interface Thread {
    * `awaitChoice<{ confirmed: boolean }>(<Picker/>)`.
    */
   awaitChoice<T = unknown>(ui: Renderable): Promise<T>;
-  runAgent(input?: unknown): Promise<MessageRef | undefined>;
+  runAgent(input?: {
+    agentId?: string;
+    [key: string]: unknown;
+  }): Promise<MessageRef | undefined>;
   resume(
     value: unknown,
     options?: {
@@ -160,6 +163,7 @@ export interface Thread {
         project?: "none" | "read" | "read-write";
       };
       subject?: "initiator" | "actor";
+      agentId?: string;
     },
   ): Promise<MessageRef | undefined>;
   stream(src: string | AsyncIterable<string>): Promise<MessageRef>;
