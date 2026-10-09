@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { createAgent } from "langchain";
-import { ChatOpenAI } from "@langchain/openai";
 import {
   copilotkitMiddleware,
   CopilotKitStateSchema,
@@ -17,14 +16,16 @@ import { todo_tools, TodoSchema } from "./todos.js";
 import { query_data } from "./query.js";
 import { search_flights } from "./a2ui_fixed_schema.js";
 import { generate_a2ui } from "./a2ui_dynamic_schema.js";
+import { createChatModel } from "./model.js";
 
 const AgentStateSchema = new StateSchema({
   todos: zodState(z.array(TodoSchema).default(() => [])),
   ...(CopilotKitStateSchema.fields as Record<string, any>),
 });
 
-const model = new ChatOpenAI({
-  model: "gpt-5.4",
+// COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this
+// and every other model site in the agent; unset, this site uses gpt-5.4.
+const model = createChatModel("openai:gpt-5.4", {
   modelKwargs: { parallel_tool_calls: false },
 });
 
