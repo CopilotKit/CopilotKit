@@ -47,18 +47,26 @@ def uses_chat_completions() -> bool:
     """Whether ``OPENAI_BASE_URL`` points at an OpenAI-compatible provider.
 
     Most compatible providers serve only ``{base}/chat/completions``, not the
-    Responses API, so those get Pydantic AI's Chat Completions model
-    (``openai-chat``). OpenAI itself, an unset variable and an unparseable URL
-    keep the Responses API.
+    Responses API, so those get Chat Completions. OpenAI's own hosts
+    (``api.openai.com``, regional ``*.api.openai.com``), Azure OpenAI
+    (``*.openai.azure.com``), an unset variable and an unparseable URL keep
+    the Responses API. Same rule as the CopilotKit runtime (PE-706).
     """
-    base_url = os.getenv("OPENAI_BASE_URL")
+    base_url = (os.getenv("OPENAI_BASE_URL") or "").strip()
     if not base_url:
         return False
     try:
-        hostname = urlparse(base_url).hostname
+        hostname = (urlparse(base_url).hostname or "").lower()
     except ValueError:
         return False
-    return bool(hostname) and hostname != "api.openai.com"
+    if not hostname:
+        return False
+    is_openai_host = (
+        hostname == "api.openai.com"
+        or hostname.endswith(".api.openai.com")
+        or hostname.endswith(".openai.azure.com")
+    )
+    return not is_openai_host
 
 
 def resolve_model(default_spec: str) -> str:
