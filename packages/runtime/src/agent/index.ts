@@ -129,9 +129,9 @@ export type BuiltInAgentModel =
   | "anthropic/claude-opus-4-8"
   | "anthropic/claude-haiku-4-5"
   // Google (Gemini) models
-  | "google/gemini-2.5-pro"
-  | "google/gemini-2.5-flash"
-  | "google/gemini-2.5-flash-lite"
+  | "google/gemini-3.8-flash"
+  | "google/gemini-3.5-flash"
+  | "google/gemini-3.5-flash-lite"
   // MiniMax models
   | "minimax/MiniMax-M3"
   | "minimax/MiniMax-M2.7"
@@ -293,7 +293,7 @@ export function resolveModel(
 
   if (!rawProvider) {
     throw new Error(
-      `Invalid model string "${spec}". Use "openai/gpt-5", "anthropic/claude-sonnet-4.5", or "google/gemini-2.5-pro".`,
+      `Invalid model string "${spec}". Use "openai/gpt-5", "anthropic/claude-sonnet-4.5", or "google/gemini-3.8-flash".`,
     );
   }
 
@@ -302,7 +302,7 @@ export function resolveModel(
 
   if (!model) {
     throw new Error(
-      `Invalid model string "${spec}". Use "openai/gpt-5", "anthropic/claude-sonnet-4.5", or "google/gemini-2.5-pro".`,
+      `Invalid model string "${spec}". Use "openai/gpt-5", "anthropic/claude-sonnet-4.5", or "google/gemini-3.8-flash".`,
     );
   }
 
@@ -344,7 +344,7 @@ export function resolveModel(
         // Honor a custom Google-compatible endpoint via GOOGLE_GENERATIVE_AI_BASE_URL (see OpenAI note).
         baseURL: process.env.GOOGLE_GENERATIVE_AI_BASE_URL,
       });
-      // Accepts any Gemini id, e.g. "gemini-2.5-pro", "gemini-2.5-flash"
+      // Accepts any Gemini id, e.g. "gemini-3.8-flash", "gemini-3.5-flash-lite"
       return google(model);
     }
 
