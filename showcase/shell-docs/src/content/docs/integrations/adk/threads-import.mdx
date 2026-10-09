@@ -14,13 +14,13 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 Give users reconnection, catch-up, and delivery across devices around your ADK agent. Follow the [Intelligence quickstart](/intelligence/quickstart) to connect your existing CopilotKit app and Runtime, then verify that a new conversation is saved. This enables AG-UI streams for runs through CopilotKit; no historical import is required.
 
-Keep ADK session storage and analytics configured for agent context and execution state. Maintain a stable mapping between CopilotKit `threadId` values and native ADK conversation identifiers so later runs reach the same conversation. See [how streams work with framework storage](/intelligence/threads-explained#how-threads-work-with-framework-storage).
+Keep your ADK agent and its durable storage connected so you can continue the same conversations after importing them. See [how streams work with framework storage](/intelligence/threads-explained#how-threads-work-with-framework-storage).
 
 ## Include earlier conversations (optional)
 
 To let users reopen conversations recorded before Intelligence was connected, use the importer below to copy supported historical content. Importing does not enable live delivery or establish ongoing database replication, and it cannot recover history the source no longer exposes.
 
-The ADK importer reads persisted sessions from ADK database session stores and Vertex/Agent Engine session history.
+The ADK importer reads persisted sessions from ADK database session stores and Vertex/Agent Engine session history. It brings over saved messages, rich tool results, attachments, and agent state where available. Some interactive content, such as MCP app views, may not have been saved in the original history.
 
 The following prerequisites and commands apply only to that historical import. Use Threads Drawer or [Headless Threads](/headless-threads) to open imported and new conversations through the same UI.
 
@@ -118,7 +118,7 @@ export INTELLIGENCE_API_URL="https://..."
 export CPK_INTELLIGENCE_API_KEY="cpk-..."
 ```
 
-`COPILOTKIT_API_KEY` is also accepted for the key. You can pass the destination directly with `--api-url` and `--api-key` instead.
+You can also pass the destination directly with `--api-url` and `--api-key` instead.
 
 ## Import the sessions
 
@@ -149,9 +149,9 @@ Sign in as the application user whose ID you imported. Open the conversation fro
 
 ## Re-run or replace
 
-Re-running the same import is idempotent. Sessions already imported from the same source are skipped.
+Already-imported sessions are skipped by default.
 
-Use `--replace` to refresh an earlier import. Running sessions and sessions continued after import remain unchanged:
+Use `--replace` to refresh them; running or continued sessions are left unchanged:
 
 ```bash title="Terminal"
 npx copilotkit@latest import \
@@ -164,11 +164,9 @@ npx copilotkit@latest import \
 
 Importing copies supported history; it does not establish ongoing database replication. Intelligence rename, archive, and delete operations affect only Intelligence records, leaving the native ADK session records unchanged.
 
-Your CLI-created app sends future CopilotKit conversations to CopilotKit Intelligence. To keep each conversation continuous, reopen it with the same CopilotKit `threadId`. If your agent remains wired to a durable ADK session service and retains its sessions, the same future runs continue to persist in ADK for its native storage and analytics.
+Your app sends future conversations through CopilotKit to CopilotKit Intelligence. Keep the original ADK agent and its durable storage connected, and reopen the imported conversation from the Threads Drawer to pick up where you left off, including supported pending approvals and requests for input.
 
 - **Threads Drawer:** already included in CLI-created starters. Use the [Threads Drawer guide](/prebuilt-components/copilot-threads-drawer) to customize its ready-made thread UI.
 - **Headless Threads:** use the [Headless Threads guide](/headless-threads) only when you need a custom UI. Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.
 
-Keep the mapping between CopilotKit thread IDs and ADK session IDs stable so a resumed thread reaches the expected ADK session.
-
-Create one new conversation through CopilotKit, then confirm that it appears in CopilotKit Intelligence and in the ADK session store that remains connected to your agent.
+Open an imported conversation and send a follow-up to continue it.
