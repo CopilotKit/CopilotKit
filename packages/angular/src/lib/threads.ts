@@ -371,7 +371,13 @@ export class ThreadsStore implements InjectThreadsResult {
       const active = isEnabled();
       const url = runtimeUrl();
       const status = runtimeStatus();
-      const headers = this.#copilotkit.headers();
+      // Keyed on the generation, not header VALUES: a builder's returned
+      // token can change on every resolution without a new source ever being
+      // set (e.g. a run refreshing the snapshot), and this must not
+      // re-dispatch the thread context on that (#1937). A real
+      // `setHeaders()` call still re-runs this effect: `ɵheadersGeneration`
+      // is set from `onHeadersChanged`, which fires only then.
+      const headersGeneration = this.#copilotkit.ɵheadersGeneration();
       const id = agentId();
       const archived = includeArchived();
       const pageLimit = limit();
@@ -408,26 +414,24 @@ export class ThreadsStore implements InjectThreadsResult {
           return;
         }
 
+        // Headers are deliberately NOT part of this context: the store's
+        // `fetch` is `ɵruntimeFetch`, which already resolves and overlays the
+        // current core headers at send time (#1937) — a header snapshot
+        // spread here would go stale the moment a builder's token rotates.
         const context: ɵThreadRuntimeContext = {
           runtimeUrl: url,
-          headers: { ...headers },
           wsUrl,
           agentId: id,
           includeArchived: archived,
           limit: pageLimit,
         };
 
-        // Build the dedup signature with header entries sorted, so a
-        // same-content header map with a different key order does not trigger
-        // a redundant setContext (and the refetch + resubscribe it causes).
-        // Mirrors react-core's `headersKey`. The dispatched context keeps its
-        // original header order; only the signature is normalized.
-        const signature = JSON.stringify({
-          ...context,
-          headers: Object.entries(headers).sort(([left], [right]) =>
-            left.localeCompare(right),
-          ),
-        });
+        // The dedup signature adds `headersGeneration` explicitly, even
+        // though it's absent from `context` itself: a real header source
+        // change must still force exactly one re-dispatch (a fresh
+        // subscribe/refetch), even when nothing else about the context
+        // changed. Mirrors react-core's `headersKey` dependency.
+        const signature = JSON.stringify({ ...context, headersGeneration });
         if (signature === lastDispatchedContext) {
           return;
         }

@@ -8,7 +8,16 @@ import {
 } from "./tools";
 import { LICENSE_WATERMARK_ENABLED } from "./license-watermark";
 import { RenderActivityMessageConfig } from "./activity-renderer";
-import { CopilotKitMessageFilter, SuggestionsConfig } from "@copilotkit/core";
+// Type-only: a VALUE import here would pull the whole `@copilotkit/core`
+// dist into the app's startup graph, since `config.ts` sits on it
+// (`provideCopilotKit` runs at bootstrap). The public-key header default is
+// wrapped in `copilotkit.ts` instead, which already imports core at runtime
+// (see `ɵresolvePublicKeyHeaderDefaults` below and #1937's bundle-size fix).
+import type {
+  CopilotKitHeadersSource,
+  CopilotKitMessageFilter,
+  SuggestionsConfig,
+} from "@copilotkit/core";
 import { OpenGenerativeUIConfig } from "./open-generative-ui";
 import { A2UICatalog } from "./components/a2ui/a2ui-types";
 
@@ -37,7 +46,11 @@ export interface A2UIRecoveryOptions {
 
 export interface CopilotKitConfig {
   runtimeUrl?: string;
-  headers?: Record<string, string>;
+  /**
+   * Headers sent with every runtime request: a record, or a sync or async
+   * builder evaluated when each request is sent. See #1937.
+   */
+  headers?: CopilotKitHeadersSource;
   /** Fetch credentials mode used for CopilotKit runtime requests. */
   credentials?: RequestCredentials;
   /**
@@ -117,7 +130,12 @@ function logLicenseWatermarkWarning(message: string): void {
 }
 
 function resolveLicense(config: CopilotKitConfig): ResolvedLicense {
-  const headerKey = config.headers?.[COPILOT_CLOUD_PUBLIC_API_KEY_HEADER];
+  // A builder is only evaluated at send time, so it can't be read here. Rely
+  // on `licenseKey` in that case (same fallback the record branch already has).
+  const headerKey =
+    typeof config.headers === "function"
+      ? undefined
+      : config.headers?.[COPILOT_CLOUD_PUBLIC_API_KEY_HEADER];
   const key = config.licenseKey ?? headerKey;
 
   if (!key) {
@@ -148,9 +166,28 @@ export function injectCopilotKitConfig(): CopilotKitConfig {
   return inject(COPILOT_KIT_CONFIG);
 }
 
+/**
+ * The public-key header default `provideCopilotKit` used to merge directly
+ * into `config.headers` (main's behavior, record-only). Now that `headers`
+ * can be a builder (#1937), the merge can't happen here — a builder is only
+ * evaluated at send time — so `copilotkit.ts` applies these defaults itself,
+ * via `ɵwithHeaderDefaults`, where `CopilotKitCore` is constructed and
+ * wherever `setHeaders` is called. Kept in this file (rather than
+ * `copilotkit.ts`) so the license-key condition has one definition, shared
+ * with `resolveLicense`'s watermark check below; this function itself stays
+ * a plain computation with no `@copilotkit/core` value import.
+ */
+export function ɵresolvePublicKeyHeaderDefaults(
+  config: CopilotKitConfig,
+): Record<string, string> {
+  const resolvedLicense = resolveLicense(config);
+  return !resolvedLicense.valid || !resolvedLicense.key
+    ? {}
+    : { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: resolvedLicense.key };
+}
+
 export function provideCopilotKit(config: CopilotKitConfig = {}): Provider {
   const resolvedLicense = resolveLicense(config);
-  const headers = config.headers ?? {};
   if (
     LICENSE_WATERMARK_ENABLED &&
     !resolvedLicense.valid &&
@@ -159,20 +196,8 @@ export function provideCopilotKit(config: CopilotKitConfig = {}): Provider {
     logLicenseWatermarkWarning(resolvedLicense.warning);
   }
 
-  const mergedHeaders = headers[COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]
-    ? headers
-    : !resolvedLicense.valid || !resolvedLicense.key
-      ? headers
-      : {
-          ...headers,
-          [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: resolvedLicense.key,
-        };
-
   return {
     provide: COPILOT_KIT_CONFIG,
-    useValue: {
-      ...config,
-      headers: mergedHeaders,
-    },
+    useValue: config,
   };
 }
