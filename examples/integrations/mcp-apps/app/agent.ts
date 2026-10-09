@@ -17,12 +17,13 @@ const PROVIDER_ALIASES: Record<string, "openai" | "anthropic" | "google"> = {
  * and google-gemini are aliases), and everything after the first `:` or `/`
  * is the model id, unchanged. An OpenAI-compatible provider is
  * `openai:<its model id>` plus `OPENAI_BASE_URL`, which the runtime reads.
- * The result is always re-emitted as `provider/model`: the runtime turns the
- * first `/` into its separator, so a model id that itself contains `/`
- * (e.g. `meta-llama/llama-3.3-70b`) survives only in that form.
- * Chat Completions on an OpenAI-compatible host comes from the runtime itself
- * (PE-706, CopilotKit #7726) once this starter's @copilotkit/runtime is bumped
- * past that fix; until then BuiltInAgent calls the Responses API there.
+ * The result is re-emitted as `provider/model`. The runtime reads its provider
+ * up to the first `:` or `/` and keeps the rest of the model id unchanged, so a
+ * model id that itself contains `/` (e.g. `meta-llama/llama-3.3-70b`) survives.
+ * On an OpenAI-compatible host (an `OPENAI_BASE_URL` that is not OpenAI's or
+ * Azure's), the runtime calls Chat Completions instead of the Responses API
+ * (PE-706, CopilotKit #7726). Set `COPILOTKIT_OPENAI_API=responses` (or
+ * `chat`) to choose the API yourself.
  */
 export function resolveAgentModel(defaultSpec: string): string {
   const value = process.env.COPILOTKIT_AGENT_MODEL?.trim() || defaultSpec;
