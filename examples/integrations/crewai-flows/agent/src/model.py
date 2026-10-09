@@ -43,7 +43,7 @@ _LITELLM_PREFIXES = {
 
 
 def resolve_model(default_spec: str) -> str:
-    """Return a LiteLLM model string, e.g. ``"anthropic/claude-sonnet-4-5"``.
+    """Return a LiteLLM model string, e.g. ``"anthropic/claude-sonnet-4-6"``.
 
     Args:
         default_spec: The default when the variable is unset, e.g. ``"openai:gpt-5-mini"``.

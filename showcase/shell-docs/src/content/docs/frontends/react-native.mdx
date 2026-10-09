@@ -523,6 +523,8 @@ export OPENAI_API_KEY=sk-...
 npx tsx server.ts
 ```
 
+On a host other than OpenAI or Azure, `openai:` models use the Chat Completions API. To keep the Responses API through a gateway in front of OpenAI, also set `COPILOTKIT_OPENAI_API=responses`. See [Model Selection](/model-selection#openai-compatible-endpoints).
+
 The same applies to `ANTHROPIC_BASE_URL` and `GOOGLE_GENERATIVE_AI_BASE_URL`. When the variable is unset, the provider falls back to its default endpoint, so this is fully backward compatible — you do **not** need to build a custom model instance just to change the base URL.
 
 <Callout type="info" title="Other BuiltInAgent options">
