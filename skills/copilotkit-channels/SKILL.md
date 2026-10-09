@@ -8,7 +8,7 @@ description: >
   scope, because the CLI or dashboard wizard performs it. Creating a Slack app for
   the first time is not: if no Slack app exists yet, use setup-slack-channel for
   the provider half and return here for the code.
-version: 1.1.0
+version: 1.2.0
 ---
 
 # CopilotKit Channels
@@ -49,8 +49,10 @@ For Teams, create the durable Channel draft in Intelligence before provisioning 
 - **Fast CLI setup (recommended):** copy the fully scoped command from the draft:
 
   ```bash
-  npx copilotkit@latest channels add --project-id <project-id> --channel-id <channel-id> --adapter teams --provision
+  npx copilotkit@latest channels add --project-id <project-id> --channel-id <channel-id> --adapter teams --provision --via skill:copilotkit-channels
   ```
+
+  Add `--via skill:copilotkit-channels` to the copied command, and keep it on every CLI command in this skill. It only tells CopilotKit's telemetry that the call came from this skill. If the CLI reports `Unknown option '--via'`, npx ran an old cached version: run the command again without the flag.
 
   It works outside a repository, reuses the CopilotKit login, confirms the Microsoft tenant, creates one single-tenant Teams-managed app, and sends the generated secret directly to encrypted Intelligence storage. It does not print the secret, write provider environment files, or modify runtime code.
 
@@ -112,7 +114,7 @@ Per-provider tools and context (`defaultSlackTools`, `defaultSlackContext`) are 
 ## Verify — either path
 
 ```bash
-npx copilotkit channels status
+npx copilotkit channels status --via skill:copilotkit-channels
 ```
 
 That compares three things that must agree — the declared configuration, the project source, and the server — and names whichever is missing. Then:
@@ -163,7 +165,7 @@ A token copied before that reinstall is the trap, because every check still pass
 
 The result is a Channel that is genuinely online and structurally deaf. Distinguishing it from the version disagreement above is easy once you know to look: that failure logs a rejected delivery, this one logs nothing, because there is nothing to reject.
 
-Fix it by reinstalling the Slack app, copying the reissued Bot User OAuth Token — reinstalling issues a new one — and rotating the stored credential (`npx copilotkit channels rotate <name> --adapter slack`).
+Fix it by reinstalling the Slack app, copying the reissued Bot User OAuth Token — reinstalling issues a new one — and rotating the stored credential (`npx copilotkit channels rotate <name> --adapter slack --via skill:copilotkit-channels`).
 
 Intelligence now refuses a short-scoped token when it is pasted, with `CHANNEL_ADAPTER_SLACK_TOKEN_SCOPES_INCOMPLETE`, and names the missing scopes. Treat that error as this problem caught early rather than as a setup failure. A Channel attached before that check existed can still be sitting in this state, and only a rotation clears it.
 
