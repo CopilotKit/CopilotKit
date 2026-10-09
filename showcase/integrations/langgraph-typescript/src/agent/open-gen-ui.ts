@@ -19,7 +19,7 @@
  * This is the minimal variant: no sandbox functions, no app-side tools.
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { AIMessage, SystemMessage } from "@langchain/core/messages";
 import {
   MemorySaver,

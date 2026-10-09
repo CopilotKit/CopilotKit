@@ -5,4 +5,7 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
+  define: {
+    "process.env.NODE_ENV": JSON.stringify("development"),
+  },
 });

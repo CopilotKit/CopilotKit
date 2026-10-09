@@ -3,10 +3,10 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
 import type { RuntimeMode } from "@copilotkit/shared";
-import type { NotificationFeed } from "../lib/notifications.js";
+import type { NotificationFeed } from "../domains/announcements/notifications.js";
 import { afterEach, expect, test, vi } from "vitest";
 import { WebInspectorElement, configureWebInspectorElement } from "../index.js";
-import { loadNotificationState } from "../lib/persistence.js";
+import { loadNotificationState } from "../domains/announcements/storage.js";
 
 const feed: NotificationFeed = {
   schemaVersion: 1,
@@ -31,12 +31,12 @@ const feed: NotificationFeed = {
 };
 // The loader owns one request per page. A test replaces that page-level boundary,
 // leaving feed validation and request caching covered by loader tests.
-vi.mock("../lib/notification-loader.js", () => ({
+vi.mock("../domains/announcements/notification-loader.js", () => ({
   loadNotificationFeed: vi.fn(async () => feed),
 }));
-import { loadNotificationFeed } from "../lib/notification-loader.js";
+import { loadNotificationFeed } from "../domains/announcements/notification-loader.js";
 // This suite never stubs fetch, so keep the HUD feed off the network too.
-vi.mock("../lib/hud-loader.js", () => ({
+vi.mock("../shell/launcher/hud-loader.js", () => ({
   loadHudFeed: vi.fn(async () => null),
 }));
 

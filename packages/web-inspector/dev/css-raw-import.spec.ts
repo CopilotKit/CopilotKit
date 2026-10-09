@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import viteConfig from "./vite.config.js";
 
 describe("web-inspector dev vite config", () => {
-  it("throws when the generated stylesheet import is missing from src/index.ts", () => {
+  it("throws when the generated stylesheet import is missing from the shell element", () => {
     const plugin = Array.isArray(viteConfig.plugins)
       ? viteConfig.plugins.find(
           (candidate) =>
@@ -25,8 +25,8 @@ describe("web-inspector dev vite config", () => {
     expect(() =>
       plugin.transform.call(
         {} as never,
-        'import tailwindStyles from "./styles/other.css";',
-        "/repo/packages/web-inspector/src/index.ts",
+        'import tailwindStyles from "../styles/other.css";',
+        "/repo/packages/web-inspector/src/shell/web-inspector-element.ts",
       ),
     ).toThrow("generated.css import");
   });

@@ -17,19 +17,19 @@ import type {
 import { afterEach, expect, test, vi } from "vitest";
 
 import { WebInspectorElement } from "../index.js";
-import { parseHudFeed } from "../lib/hud-config.js";
-import type { HudFeed } from "../lib/hud-config.js";
-import type { NotificationContext } from "../lib/notifications.js";
+import { parseHudFeed } from "../shell/launcher/hud-config.js";
+import type { HudFeed } from "../shell/launcher/hud-config.js";
+import type { NotificationContext } from "../domains/announcements/notifications.js";
 
 // The loader owns one request per page; its fetch and caching are covered by
 // loader tests, so each test here supplies the parsed feed directly.
 const hudFeedSource = vi.hoisted(() => ({
   feed: null as HudFeed | null,
 }));
-vi.mock("../lib/hud-loader.js", () => ({
+vi.mock("../shell/launcher/hud-loader.js", () => ({
   loadHudFeed: vi.fn(async () => hudFeedSource.feed),
 }));
-import { loadHudFeed } from "../lib/hud-loader.js";
+import { loadHudFeed } from "../shell/launcher/hud-loader.js";
 
 const RUNTIME_URL = "https://runtime.launcher-hud.test";
 const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
@@ -539,6 +539,26 @@ test("focusing the launcher opens the HUD; Escape closes it", async () => {
   );
   await settle(inspector);
   expect(hudOpen(inspector)).toBe(false);
+});
+
+test("pointer leave keeps the HUD open while an action has focus", async () => {
+  const { inspector, openHud } = await setup();
+  await openHud();
+  const wrapper = requireElement(
+    root(inspector).querySelector<HTMLElement>(".console-button-wrapper"),
+  );
+  const action = requireElement(
+    wrapper.querySelector<HTMLButtonElement>("[data-cpk-hud-action]"),
+  );
+  action.focus();
+  vi.useFakeTimers();
+
+  wrapper.dispatchEvent(new PointerEvent("pointerleave"));
+  await vi.advanceTimersByTimeAsync(160);
+  await settle(inspector);
+
+  expect(root(inspector).activeElement).toBe(action);
+  expect(hudOpen(inspector)).toBe(true);
 });
 
 const configuredLearning: InspectorLearningSnapshotV1 = {

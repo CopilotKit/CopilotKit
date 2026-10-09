@@ -15,7 +15,7 @@
  * system prompt teaches the LLM the sandbox-function calling contract.
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage } from "@langchain/core/messages";
 import {
   MemorySaver,

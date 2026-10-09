@@ -6,7 +6,10 @@ import type { InspectorMetadataV1 } from "@copilotkit/core";
 import { expect, test, vi } from "vitest";
 
 import { WebInspectorElement } from "../index.js";
-import { TELEMETRY_EVENTS, TELEMETRY_INGEST_URL } from "../lib/telemetry.js";
+import {
+  TELEMETRY_EVENTS,
+  TELEMETRY_INGEST_URL,
+} from "../shared/telemetry/transport.js";
 
 type TelemetryBody = {
   event: string;

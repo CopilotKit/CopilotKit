@@ -16,9 +16,11 @@ import {
   matchesAcceptFilter,
   randomUUID,
   readFileAsBase64,
-  type Attachment,
-  type AttachmentsConfig,
-  type InputContent,
+} from "@copilotkit/shared";
+import type {
+  Attachment,
+  AttachmentsConfig,
+  InputContent,
 } from "@copilotkit/shared";
 import { ChatState } from "../../chat-state";
 
