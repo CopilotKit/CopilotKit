@@ -114,6 +114,25 @@ export function DeploymentWatcher() {
 The same works inside an `agent.subscribe` handler, a button `onClick`, or any
 other frontend code that can reach the agent.
 
+### Updating a card
+
+Reuse the activity message `id` to update that card in place. `addMessage`
+replaces the previous `role: "activity"` entry with the same id, so a progress
+ticker can publish a hundred ticks and `agent.messages` keeps one activity
+message: the latest revision. The card stays where it was inserted.
+
+```tsx title="app/job-progress.tsx"
+agent.addMessage({
+  id: "job-42", // stable id for this card
+  role: "activity",
+  activityType: "app-event-card",
+  content: { title: "Deploying", detail: "20%" },
+});
+```
+
+User and assistant messages stay append-only, including when an id is reused.
+Only activity messages are upserted.
+
 ## What the agent receives
 
 Activity messages stay in `agent.messages` so the transcript renders them, and
