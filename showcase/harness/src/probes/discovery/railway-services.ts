@@ -809,6 +809,13 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
     const ownedKeys = await ownedDisposableServiceKeys(ctx, observed);
     const excludeSet = new Set(filter.nameExcludes ?? []);
     const services = inventory.filter((svc) => {
+      // Project membership alone does not establish an instance in this environment.
+      if (
+        !svc.serviceInstances.edges.some(
+          (edge) => edge.node.environmentId === environmentId,
+        )
+      )
+        return false;
       if (ownedKeys.has(serviceIdentityKey(svc.id, svc.name))) return false;
       if (filter.namePrefix && !svc.name.startsWith(filter.namePrefix)) {
         return false;

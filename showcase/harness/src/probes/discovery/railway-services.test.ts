@@ -63,6 +63,7 @@ function railwayProjectResponse(
     id: string;
     name: string;
     image: string | null;
+    environmentIds?: string[];
     domain?: string | null;
     variables?: Record<string, string>;
     /**
@@ -96,7 +97,9 @@ function railwayProjectResponse(
                 id: s.id,
                 name: s.name,
                 serviceInstances: {
-                  edges: [{ node }],
+                  edges: (s.environmentIds ?? ["env-1"]).map(
+                    (environmentId) => ({ node: { ...node, environmentId } }),
+                  ),
                 },
               },
             };
@@ -2076,7 +2079,10 @@ const temporaryObserved = {
 /** Run actual discovery with response fixtures and a quiet inspectable logger. */
 function lifecycleContext(
   filePath: string,
-  services = [permanentObserved, temporaryObserved],
+  services: Parameters<typeof railwayProjectResponse>[0] = [
+    permanentObserved,
+    temporaryObserved,
+  ],
 ) {
   const { fetchImpl, calls } = makeFetch([
     { status: 200, body: railwayProjectResponse(services) },
@@ -2115,11 +2121,6 @@ describe("railwayServicesSource disposable lifecycle", () => {
     ["replacement ID", { ...temporaryObserved, id: "unrecorded-id" }, {}],
     ["changed name", { ...temporaryObserved, name: "showcase-impostor" }, {}],
     [
-      "foreign environment",
-      temporaryObserved,
-      { RAILWAY_ENVIRONMENT_ID: "env-other" },
-    ],
-    [
       "foreign project",
       temporaryObserved,
       { RAILWAY_PROJECT_ID: "proj-other" },
@@ -2131,6 +2132,133 @@ describe("railwayServicesSource disposable lifecycle", () => {
       expect(
         (await railwayServicesSource.enumerate(ctx, {})).map((s) => s.name),
       ).toEqual(["showcase-permanent", observed.name]);
+    });
+  });
+
+  it("does not enrich a disposable service that exists only in another environment", async () => {
+    await withLifecycleEvidence(
+      [lifecycleRun({ environmentId: "env-disposable" })],
+      async (filePath) => {
+        const { ctx, calls } = lifecycleContext(filePath, [
+          permanentObserved,
+          { ...temporaryObserved, environmentIds: ["env-disposable"] },
+        ]);
+        const result = await railwayServicesSource.enumerate(ctx, {});
+        expect(result.map((service) => service.name)).toEqual([
+          "showcase-permanent",
+        ]);
+        expect(
+          calls
+            .filter((call) => call.body.includes("query variables"))
+            .map((call) => JSON.parse(call.body).variables.serviceId),
+        ).toEqual(["permanent-id"]);
+        expect(ctx.logger.warn).not.toHaveBeenCalled();
+      },
+    );
+  });
+
+  it("keeps an unowned actual instance visible when its receipt names another environment", async () => {
+    await withLifecycleEvidence(
+      [lifecycleRun({ environmentId: "env-other" })],
+      async (filePath) => {
+        const { ctx, calls } = lifecycleContext(filePath);
+        expect(
+          (await railwayServicesSource.enumerate(ctx, {})).map((s) => s.name),
+        ).toEqual(["showcase-permanent", "showcase-temporary"]);
+        expect(calls).toHaveLength(3);
+        expect(ctx.logger.warn).toHaveBeenCalledWith(
+          "discovery.railway-services.lifecycle-failure",
+          expect.objectContaining({ code: "unknown-service" }),
+        );
+      },
+    );
+  });
+
+  it("selects actual environment instances even without lifecycle evidence", async () => {
+    const services = [
+      permanentObserved,
+      {
+        id: "absent-id",
+        name: "showcase-absent",
+        image: null,
+        environmentIds: ["env-other"],
+      },
+      {
+        id: "empty-id",
+        name: "showcase-empty",
+        image: null,
+        environmentIds: [],
+      },
+      { id: "unknown-id", name: "showcase-unknown", image: null },
+    ];
+    const { fetchImpl, calls } = makeFetch([
+      { status: 200, body: railwayProjectResponse(services) },
+      ...services.map(() => ({
+        status: 200,
+        body: { data: { variables: {} } },
+      })),
+    ]);
+    const result = await railwayServicesSource.enumerate(
+      makeCtx(fetchImpl),
+      {},
+    );
+    expect(result.map((service) => service.name)).toEqual([
+      "showcase-permanent",
+      "showcase-unknown",
+    ]);
+    expect(
+      calls.slice(1).map((call) => JSON.parse(call.body).variables.serviceId),
+    ).toEqual(["permanent-id", "unknown-id"]);
+  });
+
+  it.each([false, true])(
+    "uses the selected instance of a multi-environment service (evidence: %s)",
+    async (configured) => {
+      await withLifecycleEvidence(
+        [lifecycleRun({ environmentId: "env-other" })],
+        async (filePath) => {
+          const response = railwayProjectResponse([
+            { ...temporaryObserved, environmentIds: ["env-other", "env-1"] },
+          ]);
+          Object.assign(
+            response.data.project.services.edges[0]!.node.serviceInstances
+              .edges[0]!.node,
+            { source: { image: "other:latest" } },
+          );
+          const { fetchImpl, calls } = makeFetch([
+            { status: 200, body: response },
+            { status: 200, body: { data: { variables: {} } } },
+          ]);
+          const ctx = makeCtx(fetchImpl, {
+            ...BASE_ENV,
+            ...(configured
+              ? { SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: filePath }
+              : {}),
+          });
+          const result = await railwayServicesSource.enumerate(ctx, {});
+          expect(result).toHaveLength(1);
+          expect(result[0]!.imageRef).toBe(LIFECYCLE_IMAGE);
+          expect(calls).toHaveLength(2);
+          expect(JSON.parse(calls[1]!.body).variables).toEqual({
+            projectId: "proj-1",
+            environmentId: "env-1",
+            serviceId: "temporary-id",
+          });
+        },
+      );
+    },
+  );
+
+  it("rejects invalid evidence even when no service has a selected-environment instance", async () => {
+    await withLifecycleEvidence([], async (filePath) => {
+      await fsp.writeFile(filePath, "not-json");
+      const { ctx, calls } = lifecycleContext(filePath, [
+        { ...temporaryObserved, environmentIds: ["env-other"] },
+      ]);
+      await expect(
+        railwayServicesSource.enumerate(ctx, {}),
+      ).rejects.toBeInstanceOf(DiscoverySourceSchemaError);
+      expect(calls).toHaveLength(1);
     });
   });
 
