@@ -279,3 +279,27 @@ test.each([
     }
   },
 );
+
+test("includes the Mastra A2UI context companion in fixed-schema Markdown", () => {
+  const slug = "generative-ui/a2ui/fixed-schema";
+  const doc = loadDoc(slug);
+  expect(doc).not.toBeNull();
+
+  const output = renderPageToLlmText(
+    {
+      url: `mastra/${slug}`,
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+      loadSlug: slug,
+      framework: "mastra",
+    },
+    { framework: "mastra" },
+  );
+
+  expect(output).toContain("Generate the schema dynamically");
+  expect(output).toContain("export function readForwardedA2uiContext");
+  expect(output).toContain("export function systemPromptFrom");
+  expect(output).not.toContain("Load the schema JSON at startup");
+  expect(output).not.toContain("Define the schema inline");
+});
