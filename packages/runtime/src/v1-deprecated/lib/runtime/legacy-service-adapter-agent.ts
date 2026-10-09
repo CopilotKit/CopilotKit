@@ -308,7 +308,7 @@ export class LegacyServiceAdapterAgent extends AbstractAgent {
       return result;
     }
 
-    const subject = new RuntimeEventSubject();
+    const subject = new RuntimeEventSubject(signal);
     const done = new Promise<void>((resolve, reject) => {
       subject.subscribe({
         next: (event) => {
