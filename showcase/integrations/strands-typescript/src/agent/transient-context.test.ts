@@ -3,40 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import type { RunAgentInput } from "@ag-ui/core";
-import { Agent, FileStorage, Model, SessionManager } from "@strands-agents/sdk";
-import type {
-  BaseModelConfig,
-  Message,
-  ModelStreamEvent,
-  StreamOptions,
-  MessageData,
-} from "@strands-agents/sdk";
+import { Agent, FileStorage, SessionManager } from "@strands-agents/sdk";
+import type { MessageData } from "@strands-agents/sdk";
+import { RecordingModel } from "./test-support/recording-model";
 import { ShowcaseStrandsAgent } from "./agent";
-
-class RecordingModel extends Model<BaseModelConfig> {
-  requests: string[] = [];
-  private config: BaseModelConfig = { modelId: "context-regression" };
-  updateConfig(config: BaseModelConfig): void {
-    this.config = { ...this.config, ...config };
-  }
-  getConfig(): BaseModelConfig {
-    return this.config;
-  }
-  async *stream(
-    messages: Message[],
-    options?: StreamOptions,
-  ): AsyncIterable<ModelStreamEvent> {
-    this.requests.push(JSON.stringify({ messages, options }));
-    yield { type: "modelMessageStartEvent", role: "assistant" };
-    yield { type: "modelContentBlockStartEvent" };
-    yield {
-      type: "modelContentBlockDeltaEvent",
-      delta: { type: "textDelta", text: "Done." },
-    };
-    yield { type: "modelContentBlockStopEvent" };
-    yield { type: "modelMessageStopEvent", stopReason: "endTurn" };
-  }
-}
 
 test("delivers current context across eight native session reloads without persisting it in messages", async () => {
   const directory = await mkdtemp(join(tmpdir(), "strands-transient-context-"));
