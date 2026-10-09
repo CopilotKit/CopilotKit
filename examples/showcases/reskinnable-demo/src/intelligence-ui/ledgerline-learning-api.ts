@@ -122,11 +122,23 @@ function toCandidate(
   };
 }
 
-function toSkill(skill: DemoSkill, createdAt: string): LearningSkill {
+function toSkill(
+  skill: DemoSkill,
+  createdAt: string,
+  insights: readonly DemoInsight[],
+): LearningSkill {
   // Extra field read by the demo's container-workspace: every Insight the Skill rests on.
   const links = { sourceInsightIds: skill.supportingInsightIds };
   return {
     ...links,
+    supportingInsights: insights
+      .filter((i) => skill.supportingInsightIds.includes(i.id))
+      .map((i) => ({
+        alias: i.id,
+        id: i.id,
+        impact: i.summary,
+        statement: i.title,
+      })),
     createdAt,
     description: skill.description,
     id: `skill:${skill.name}`,
@@ -484,7 +496,7 @@ export const ledgerlineLearningApi: LearningApi = {
     };
     return skills
       .filter((s) => s.status === "published")
-      .map((s) => toSkill(s, dated(s)));
+      .map((s) => toSkill(s, dated(s), insights));
   },
   listRuns: async () => allRuns(),
   runLearning: async () => runLearning(),
