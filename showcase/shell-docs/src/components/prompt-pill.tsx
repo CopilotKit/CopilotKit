@@ -3,21 +3,35 @@
 import Image from "next/image";
 import React, { useEffect, useId, useRef, useState } from "react";
 import { Check, Copy, Eye, X } from "lucide-react";
-import type { PromptApp } from "@/lib/launch-prompt";
-import { launchPrompt } from "@/lib/launch-prompt";
+import {
+  PROMPT_DESTINATION_HINT,
+  PROMPT_PHONE_HINT,
+} from "@/lib/prompt-guidance";
 import "./prompt-pill.css";
 
-export type PromptAction =
-  | "copy"
-  | "open_claude"
-  | "open_codex"
-  | "view_prompt"
-  | "copy_preview";
+export type PromptAction = "copy" | "view_prompt" | "copy_preview";
 
 export interface PromptPayload {
   text: string;
   onCopied?: (action: PromptAction) => void;
   onAction?: (action: PromptAction) => void;
+}
+
+/**
+ * Where the prompt goes. Both variants render, and CSS shows the phone one on a
+ * small touch screen, so the server and the first client render agree.
+ */
+export function PromptGuidance({
+  className = "",
+}: {
+  className?: string;
+}): React.JSX.Element {
+  return (
+    <p className={`prompt-guidance ${className}`.trim()}>
+      <span className="prompt-guidance-desktop">{PROMPT_DESTINATION_HINT}</span>
+      <span className="prompt-guidance-phone">{PROMPT_PHONE_HINT}</span>
+    </p>
+  );
 }
 
 /** Compact prompt actions shared by docs hero and page tools. */
@@ -72,8 +86,8 @@ export function PromptPill({
   async function copy(
     payload: PromptPayload,
     action: PromptAction,
-  ): Promise<void> {
-    if (pending.current) return;
+  ): Promise<boolean> {
+    if (pending.current) return false;
     pending.current = payload;
     setBusy(true);
     const current = ++generation.current;
@@ -86,16 +100,18 @@ export function PromptPill({
       } catch {
         /* Analytics cannot break copy. */
       }
-      if (!mounted.current || current !== generation.current) return;
+      if (!mounted.current || current !== generation.current) return false;
       setCopied(true);
       setMessage("Prompt copied");
       timer.current = setTimeout(() => {
         if (mounted.current && current === generation.current) setCopied(false);
       }, 1600);
+      return true;
     } catch {
-      if (!mounted.current || current !== generation.current) return;
+      if (!mounted.current || current !== generation.current) return false;
       setMessage("Copy blocked. Select and copy the prompt below.");
       showPrompt(payload);
+      return false;
     } finally {
       pending.current = null;
       if (mounted.current) setBusy(false);
@@ -111,7 +127,7 @@ export function PromptPill({
     }
   }
 
-  /** Copy from a direct control; internal app writes do not create copy intents. */
+  /** Copy from a direct control. */
   function copyFromControl(
     payload: PromptPayload,
     action: "copy" | "copy_preview",
@@ -125,30 +141,6 @@ export function PromptPill({
     const payload = createPrompt();
     recordAction(payload, "view_prompt");
     showPrompt(payload);
-  }
-
-  /** Dispatch before any asynchronous clipboard operation loses activation. */
-  function openApp(app: PromptApp): void {
-    const payload = pending.current ?? createPrompt();
-    const action = app === "claude" ? "open_claude" : "open_codex";
-    recordAction(payload, action);
-    if (app === "claude" && payload.text.length > 5000) {
-      setMessage(
-        "This prompt is too long for the Claude app link. Copy it below.",
-      );
-      showPrompt(payload);
-      return;
-    }
-    try {
-      launchPrompt(app, payload.text);
-      setMessage(
-        `${app === "claude" ? "Claude" : "Codex"} launch requested. If it did not open, copy the prompt.`,
-      );
-    } catch {
-      setMessage("The app link could not open. Copy the prompt below.");
-      showPrompt(payload);
-    }
-    copy(payload, action);
   }
 
   return (
@@ -170,37 +162,37 @@ export function PromptPill({
             <Copy aria-hidden="true" />
           )}
           <span>Copy Prompt</span>
+          {/* Say that the prompt belongs in a coding agent. Decoration only:
+              the logos open nothing, and a click on them copies (PE-381). */}
+          <span className="prompt-pill-logos" aria-hidden="true">
+            <span className="prompt-pill-divider" />
+            <Image
+              unoptimized
+              src="/images/prompt-claude.webp"
+              alt=""
+              width={18}
+              height={18}
+            />
+            <Image
+              unoptimized
+              src="/images/prompt-codex.webp"
+              alt=""
+              width={18}
+              height={18}
+            />
+          </span>
         </button>
-        <span className="prompt-pill-divider" aria-hidden="true" />
+        {/* A touch screen cannot hover to reveal the shelf, so View prompt
+            sits in the pill, as on the Intelligence Home. CSS shows this or
+            the shelf from the first paint; only one is ever displayed. */}
         <button
           type="button"
-          className="prompt-pill-app"
-          aria-label="Open in Claude Code"
-          title="Open in Claude Code"
-          onClick={() => openApp("claude")}
+          className="prompt-pill-view"
+          aria-label="View prompt"
+          title="View prompt"
+          onClick={viewPrompt}
         >
-          <Image
-            unoptimized
-            src="/images/prompt-claude.webp"
-            alt=""
-            width={18}
-            height={18}
-          />
-        </button>
-        <button
-          type="button"
-          className="prompt-pill-app"
-          aria-label="Open in Codex"
-          title="Open in Codex"
-          onClick={() => openApp("codex")}
-        >
-          <Image
-            unoptimized
-            src="/images/prompt-codex.webp"
-            alt=""
-            width={18}
-            height={18}
-          />
+          <Eye aria-hidden="true" />
         </button>
       </div>
       <div className="prompt-pill-shelf">
@@ -235,12 +227,7 @@ export function PromptPill({
             value={preview.text}
             onFocus={(event) => event.currentTarget.select()}
           />
-          <p>
-            {message.startsWith("Copy blocked") ||
-            message.startsWith("This prompt")
-              ? message
-              : ""}
-          </p>
+          <p>{message.startsWith("Copy blocked") ? message : ""}</p>
           <button
             type="button"
             className="prompt-pill-dialog-copy"

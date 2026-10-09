@@ -4,6 +4,7 @@ import React from "react";
 import { usePostHog } from "posthog-js/react";
 import { usePathname } from "next/navigation";
 import { PromptPill } from "./prompt-pill";
+import { PromptFolderHint } from "./hero-start-commands";
 import { ViewOptionsPopover } from "./ai/page-actions";
 import { pageSourceSentence } from "@/lib/onboarding-argument-templates";
 
@@ -34,48 +35,52 @@ export function DocsPromptActions({
   const posthog = usePostHog();
   const pathname = usePathname();
   const page = React.useContext(PageContext);
+  // The same line, in the same place, as under the docs hero (PE-340).
   return (
-    <div className="docs-page-tools docs-page-tools-prompt not-prose flex min-w-0 flex-row items-center">
-      <PromptPill
-        {...props}
-        createPrompt={() => {
-          const payload = createPrompt();
-          const properties = {
-            agent_framework: page?.agentFramework,
-            frontend: page?.frontend,
-            ...payload.analyticsProperties,
-            from_path: pathname,
-            surface: props.surface,
-          };
-          return {
-            text: includePageSource
-              ? payload.text +
-                pageSourceSentence(
-                  page?.markdownUrl ??
-                    `${pathname?.replace(/\/$/, "") || ""}.mdx`,
-                )
-              : payload.text,
-            onAction: (action) =>
-              posthog?.capture(
-                "docs.intelligence_onboarding_prompt_action_clicked",
-                { ...properties, action },
-              ),
-            onCopied: (action) =>
-              posthog?.capture(copiedEvent, {
-                ...properties,
-                action,
-              }),
-          };
-        }}
-      />
-      <ViewOptionsPopover
-        markdownUrl={
-          page?.markdownUrl ?? `${pathname?.replace(/\/$/, "") || ""}.mdx`
-        }
-        githubUrl={page?.githubUrl}
-        condensed
-        includeCopyPage
-      />
+    <div className="flex min-w-0 flex-col gap-3">
+      <div className="docs-page-tools docs-page-tools-prompt not-prose flex min-w-0 flex-row items-center">
+        <PromptPill
+          {...props}
+          createPrompt={() => {
+            const payload = createPrompt();
+            const properties = {
+              agent_framework: page?.agentFramework,
+              frontend: page?.frontend,
+              ...payload.analyticsProperties,
+              from_path: pathname,
+              surface: props.surface,
+            };
+            return {
+              text: includePageSource
+                ? payload.text +
+                  pageSourceSentence(
+                    page?.markdownUrl ??
+                      `${pathname?.replace(/\/$/, "") || ""}.mdx`,
+                  )
+                : payload.text,
+              onAction: (action) =>
+                posthog?.capture(
+                  "docs.intelligence_onboarding_prompt_action_clicked",
+                  { ...properties, action },
+                ),
+              onCopied: (action) =>
+                posthog?.capture(copiedEvent, {
+                  ...properties,
+                  action,
+                }),
+            };
+          }}
+        />
+        <ViewOptionsPopover
+          markdownUrl={
+            page?.markdownUrl ?? `${pathname?.replace(/\/$/, "") || ""}.mdx`
+          }
+          githubUrl={page?.githubUrl}
+          condensed
+          includeCopyPage
+        />
+      </div>
+      <PromptFolderHint />
     </div>
   );
 }

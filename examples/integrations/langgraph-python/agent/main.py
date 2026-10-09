@@ -14,9 +14,13 @@ from src.todos import AgentState, todo_tools
 from src.a2ui_dynamic_schema import generate_a2ui
 from src.a2ui_fixed_schema import search_flights
 
-from langchain_openai import ChatOpenAI
+from src.model import create_chat_model
 
-model = ChatOpenAI(model="gpt-5.4-mini", model_kwargs={"parallel_tool_calls": False})
+# COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this and
+# every other model site in the agent; unset, this site uses gpt-5.4-mini.
+model = create_chat_model(
+    "openai:gpt-5.4-mini", model_kwargs={"parallel_tool_calls": False}
+)
 
 SYSTEM_PROMPT = """
         You are a polished, professional demo assistant. Keep responses to 1-2 sentences.

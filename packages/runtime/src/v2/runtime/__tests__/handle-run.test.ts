@@ -8,6 +8,7 @@ import { CopilotRuntime } from "../core/runtime";
 import type { CopilotRuntimeMemoryConfig } from "../core/runtime";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
+import { PlatformRequestError } from "../intelligence-platform/client";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 
 describe("handleRunAgent", () => {
@@ -720,6 +721,7 @@ describe("handleRunAgent", () => {
         agentId: "my-agent",
       });
       expect(platform.ɵacquireThreadLock).toHaveBeenCalledWith({
+        supportsBackendThreadId: true,
         threadId: "thread-1",
         runId: "run-1",
         userId: "user-1",
@@ -875,6 +877,7 @@ describe("handleRunAgent", () => {
         agentId: "my-agent",
       });
       expect(platform.ɵacquireThreadLock).toHaveBeenCalledWith({
+        supportsBackendThreadId: true,
         threadId: "thread-1",
         runId: "run-1",
         userId: "resolved-user",
@@ -1229,7 +1232,9 @@ describe("handleRunAgent", () => {
           runId: "canonical-run",
           joinToken: "jt-123",
         }),
-        ɵrenewThreadLock: vi.fn().mockRejectedValue(new Error("lost lock")),
+        ɵrenewThreadLock: vi
+          .fn()
+          .mockRejectedValue(new PlatformRequestError("lost lock", 409, false)),
       };
       const runtime = createIntelligenceRuntime(baseAgent, platform, {
         lockHeartbeatIntervalSeconds: 1,
@@ -1251,6 +1256,7 @@ describe("handleRunAgent", () => {
           threadId: "canonical-thread",
           runId: "canonical-run",
           ttlSeconds: 5,
+          signal: expect.any(AbortSignal),
         });
         expect(runningAgent.abortRun).toHaveBeenCalledTimes(1);
       } finally {
@@ -1390,6 +1396,7 @@ describe("handleRunAgent", () => {
         agentId: "my-agent",
       });
       expect(platform.ɵacquireThreadLock).toHaveBeenCalledWith({
+        supportsBackendThreadId: true,
         threadId: "thread-1",
         runId: "run-1",
         userId: "user-1",

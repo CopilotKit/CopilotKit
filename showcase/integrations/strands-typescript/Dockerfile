@@ -5,6 +5,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
 COPY . .
 RUN npx next build
+RUN npm run typecheck:json-render
 
 # Stage 2: Install agent (Strands TS) dependencies
 FROM node:22-slim AS agent-deps
@@ -40,6 +41,7 @@ COPY --chown=app:app --from=frontend /app/public ./public
 # Agent code + prod-only deps (installed in agent-deps stage, not at runtime)
 COPY --chown=app:app --from=agent-deps /agent/node_modules ./src/agent/node_modules
 COPY --chown=app:app src/agent ./src/agent
+COPY --chown=app:app shared-tools/ ./shared-tools/
 COPY --chown=app:app src/cvdiag ./src/cvdiag
 
 # Entrypoint

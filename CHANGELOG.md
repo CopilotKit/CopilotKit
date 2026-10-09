@@ -16,6 +16,137 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.77.2 - 2026-10-08
+
+### Features
+
+- feat(runtime): tell apart Trajectory setup errors at connect (#7699) (8bd4389)
+
+## 1.77.1 - 2026-10-07
+
+### Features
+
+- feat(react-core): add groupMessages to CopilotChatMessageView (#7650) (0143a22)
+- feat(web-inspector): remote HUD copy and destinations (#7667) (b111c24)
+- feat(core): link chat Threads to authenticated Trajectories after a run starts (#7645) (9a0db13)
+- feat(core): let a frontend tool resume its pending calls on reconnect (#7615) (a0480fa)
+
+### Fixes
+
+- fix(runtime): keep MCP resource reads off conversation locks (#7678) (e7c023f)
+- fix(shared): guide generated UI handlers to render results (#7679) (8a458e7)
+- fix(runtime): retry thread-lock renewal within the lock TTL (#7569) (abf8182)
+- fix(runtime): ping Intelligence sockets every 15s so 30s proxy idle timeouts don't drop runs (#7568) (75f5721)
+- fix(runtime): a thread that does not exist yet is not a server error on read (#7430) (b8c331e)
+- fix(opengenui): define the ready-DOM initialization contract (#7662) (d966b88)
+- fix(react-core): wait for thread replay before sending prompts (#7657) (0a2e6d0)
+- fix(runtime): let the v2 runtime start on Cloudflare Workers (#7609) (7f40d35)
+- fix(react-core): make useCoAgent's start, run and stop work, through the v2 core (#7610) (6373ce7)
+- fix(runtime): stop naming a stale middleware version in the MCP Apps policy error (#7612) (f21e006)
+
+### Other Changes
+
+- chore(deps): bump @ag-ui/\* to 1.0.2 (PNI-551) (#7648) (d4afb51)
+
+## 1.77.0 - 2026-10-02
+
+### Features
+
+- feat(react-core): make intelligence indicator auto-mount configurable (#6612) (a161b38)
+- feat(learning): capture raw browser activity as AG-UI events (#7556) (1840e7c)
+- feat(mcp-apps): consolidate the Vue and Angular hosts onto the shared package (#7161) (06f61ae)
+- feat(web-inspector): add an option to hide the Inspector indefinitely (#7542) (20ee84c)
+
+### Fixes
+
+- fix(deps): bump @ag-ui/langgraph to 0.0.44 so a stop cancels the LangGraph run (#7600) (f1a9bb6)
+- fix(a2ui): keep generated controls from submitting host forms (#7392) (214614a)
+- fix(react, vue): preserve popup rounded corners (#6473) (0629f84)
+- fix(a2ui-renderer): contain malformed component values (#7583) (a9b1c26)
+- fix(core): pass ContentPart[] tool handler results through to the tool message (#7544) (579d0f7)
+- fix(web-inspector): send onboarding_run_id on the Learning setup prompt click (#7561) (c69b965)
+- fix: preserve LangGraph catalogs with merged AG-UI properties (#7558) (9c6f1dd)
+
+### Other Changes
+
+- Improve Inspector conversation readability and tool-call presentation (#7374) (632b050)
+- docs(runtime): document the agentId the Intelligence threads list requires (refs PE-476) (#7562) (16dbbdf)
+
+## 1.76.0 - 2026-09-30
+
+### Features
+
+- feat: AG-UI 1.0 for CopilotKit (#7270) (7693a04)
+
+### Fixes
+
+- fix(runtime): stop reusing per-response provider ids as message ids (#7522) (5832fff)
+- fix(web-inspector): fit and scale the Inspector on small screens (#7529) (5135c56)
+- fix(runtime): prefix MCP tools whose names collide instead of dropping them (#7495) (c7c4538)
+
+## 1.75.2 - 2026-09-30
+
+### Fixes
+
+- fix(react-core): use new run IDs for standard interrupt resumes (#7001) (081e745)
+- fix(vue): stop cloning run state six times per row for message slots (#7525) (bd39b04)
+
+## 1.75.1 - 2026-09-29
+
+### Features
+
+- feat(angular)!: render A2UI without Lit and support web component cat… (#7504) (b3d1aad)
+
+### Fixes
+
+- fix(core): distinguish Intelligence replay errors from live failures (#7353) (278a78d)
+- fix(mcp-apps-renderer): follow the host page's dark theme (#7467) (2476de1)
+- fix(runtime): forward imported backend thread identity (#7489) (5fd09ab)
+- fix: PE-440 onboarding docs gaps; un-deprecate sdk-js/langgraph (#7518) (7a7a500)
+- fix(react-core): compare purity-scan entry keys with forward slashes (#7445) (a1fbc07)
+
+### Breaking Changes
+
+- feat(angular)!: render A2UI without Lit and support web component cat… (#7504) (b3d1aad)
+
+## 1.75.0 - 2026-09-28
+
+### Features
+
+- feat(react-core): add transformMessages to CopilotChatMessageView (#7488) (eb460b3)
+
+### Fixes
+
+- fix(core): keep the reconnect cursor when a control frame repeats an old checkpoint (#7490) (d3c36bb)
+- fix(runtime): enforce basePath segment boundary in single-route mode (#7341) (15437bb)
+
+### Upgrade notes
+
+- `@copilotkit/react-core` now requires `@tanstack/react-virtual` `^3.14.13` (#7488).
+  A 3.13.x entry already in your lockfile satisfied the old `^3.13.0` range and keeps a
+  one-frame scroll twitch in long chats. If your lockfile has an older version, update it
+  (e.g. `pnpm update @tanstack/react-virtual`).
+
+## 1.74.0 - 2026-09-25
+
+### Features
+
+- feat(web-inspector): support targeted notifications in What's New (#6956) (9434edd)
+- feat: consume learned skills from multiple containers across SDKs (#7384) (6252d10)
+- feat(web-inspector): track launcher HUD impressions and actions (#7376) (bbf420b)
+
+### Fixes
+
+- fix(threads-drawer): never lock the drawer on an unresolved entitlement (#7441) (f3961c1)
+- fix(core): stop refreshing realtime credentials for a socket that never opens (#7421) (a933af0)
+- fix(react-core): stop per-message state cloning and the virtual-scroll tug of war (#7243) (5b02c02)
+- fix(runtime): stop a Memory policy that grants nothing from failing the run (#7352) (eb594d6)
+- fix(web-inspector): tell the automatic HUD intro apart from a user open (#7381) (ad5d77d)
+
+### Other Changes
+
+- Use first user message when thread naming fails (#7007) (8711d85)
+
 ## 1.73.3 - 2026-09-22
 
 ### Features

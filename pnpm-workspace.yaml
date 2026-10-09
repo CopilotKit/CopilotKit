@@ -3,6 +3,8 @@ packages:
   - "tools/runtime-conformance"
   - "tools/learned-skill-conformance"
   - "examples/v1/*"
+  - "examples/canvas/mastra-pm"
+  - "examples/v1/research-canvas/agents/typescript"
   - "examples/v2/*"
   - "examples/v2/*/apps/*"
   - "examples/v2/react/*"
@@ -11,6 +13,13 @@ packages:
   - "examples/v2/react-native/*"
   - "examples/v2/runtime/*"
   - "examples/showcases/generative-ui-playground"
+  # NOTE: `community/*` is intentionally NOT part of this workspace. Community
+  # packages are lightly supported and community-maintained: each ships its
+  # own lockfile and pins published `@copilotkit/*` versions exactly, so a
+  # CopilotKit change cannot break one in the same PR. Nx discovers projects
+  # through this file, so leaving them out also keeps them out of every
+  # repo-wide build/typecheck/test sweep; `.github/workflows/test_community.yml`
+  # gates them instead. See community/README.md.
   # NOTE: `examples/showcases/reskinnable-demo` is intentionally NOT part of
   # this pnpm workspace, for the same reason as `showcase/shell-dashboard`
   # below: it ships its own lockfile and installs its `@copilotkit/*` and
