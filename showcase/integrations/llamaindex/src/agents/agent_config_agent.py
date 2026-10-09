@@ -62,7 +62,7 @@ if os.environ.get("OPENAI_BASE_URL"):
     _openai_kwargs["api_base"] = os.environ["OPENAI_BASE_URL"]
 
 agent_config_router = get_ag_ui_workflow_router(
-    llm=OpenAI(model="gpt-4o-mini", temperature=0.4, **_openai_kwargs),
+    llm=OpenAI(model="gpt-5-mini", temperature=0.4, **_openai_kwargs),
     frontend_tools=[],
     backend_tools=[],
     system_prompt=DEFAULT_SYSTEM_PROMPT,

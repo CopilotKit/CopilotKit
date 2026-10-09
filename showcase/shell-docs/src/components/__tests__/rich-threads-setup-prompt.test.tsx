@@ -1,6 +1,4 @@
 // @vitest-environment jsdom
-
-import React from "react";
 import {
   cleanup,
   fireEvent,
@@ -8,172 +6,57 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import {
   RICH_THREADS_SETUP_PROMPT,
   RichThreadsSetupPrompt,
 } from "../rich-threads-setup-prompt";
 
-interface SetupResult {
-  writeText: ReturnType<typeof vi.fn>;
-  teardown: () => void;
-}
+beforeEach(() => {
+  HTMLDialogElement.prototype.showModal = function () {
+    this.open = true;
+  };
+  HTMLDialogElement.prototype.close = function () {
+    this.open = false;
+  };
+});
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
-interface DeferredCopy {
-  promise: Promise<void>;
-  resolve: () => void;
-  reject: (reason?: unknown) => void;
-}
-
-/** Creates a clipboard promise whose settlement order the test controls. */
-function createDeferredCopy(): DeferredCopy {
-  let resolve!: () => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise;
-    reject = rejectPromise;
-  });
-  return { promise, resolve, reject };
-}
-
-function setup(writeText = vi.fn().mockResolvedValue(undefined)): SetupResult {
-  const originalClipboard = Object.getOwnPropertyDescriptor(
-    navigator,
-    "clipboard",
-  );
-  Object.defineProperty(navigator, "clipboard", {
-    configurable: true,
-    value: { writeText },
+test("previews the exact setup prompt and recovers from blocked clipboard access", async () => {
+  Object.assign(navigator, {
+    clipboard: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
   });
   render(<RichThreadsSetupPrompt />);
-
-  return {
-    writeText,
-    teardown() {
-      cleanup();
-      if (originalClipboard) {
-        Object.defineProperty(navigator, "clipboard", originalClipboard);
-      } else {
-        Reflect.deleteProperty(navigator, "clipboard");
-      }
-    },
-  };
-}
-
-test("copies the canonical Rich Threads repair prompt and announces success", async () => {
-  const { writeText, teardown } = setup();
-
-  try {
-    fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
-
-    await waitFor(() =>
-      expect(writeText).toHaveBeenCalledWith(RICH_THREADS_SETUP_PROMPT),
-    );
-    expect(screen.getByRole("button", { name: "Copied" })).toBeTruthy();
-    expect(screen.getByText("Prompt copied")).toBeTruthy();
-  } finally {
-    teardown();
-  }
-});
-
-test("keeps the Rich Threads repair prompt anchored and safe for autonomous edits", () => {
-  expect(RICH_THREADS_SETUP_PROMPT).toContain(
-    "https://docs.copilotkit.ai/backend/runtime-endpoints#enable-rich-threads-routes",
-  );
-  expect(RICH_THREADS_SETUP_PROMPT).toContain(
-    "existing server-verified signed-in application user",
-  );
-  expect(RICH_THREADS_SETUP_PROMPT).toContain(
-    "Preserve existing authentication middleware and access checks",
-  );
-  expect(RICH_THREADS_SETUP_PROMPT).toContain(
-    "Never use a fixed demo identity in production",
-  );
-  expect(RICH_THREADS_SETUP_PROMPT).toContain(
-    "threadEndpoints.list, inspect, mutations, and realtimeMetadata as true",
-  );
-});
-
-test("reports a blocked Rich Threads prompt copy without claiming success", async () => {
-  const { teardown } = setup(
-    vi.fn().mockRejectedValue(new Error("clipboard denied")),
-  );
-
-  try {
-    fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
-
-    expect(
-      await screen.findByRole("button", { name: "Copy blocked" }),
-    ).toBeTruthy();
-    expect(screen.getByText("Prompt copy failed. Try again.")).toBeTruthy();
-    expect(screen.queryByText("Prompt copied")).toBeNull();
-  } finally {
-    teardown();
-  }
-});
-
-test("ignores an older Rich Threads clipboard failure", async () => {
-  const firstCopy = createDeferredCopy();
-  const writeText = vi
-    .fn()
-    .mockReturnValueOnce(firstCopy.promise)
-    .mockResolvedValueOnce(undefined);
-  const { teardown } = setup(writeText);
-
-  try {
-    fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
-    fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
-    expect(await screen.findByRole("button", { name: "Copied" })).toBeTruthy();
-
-    firstCopy.reject(new Error("stale clipboard rejection"));
-    await Promise.resolve();
-    expect(screen.getByRole("button", { name: "Copied" })).toBeTruthy();
-  } finally {
-    teardown();
-  }
-});
-
-test("does not schedule Rich Threads copy feedback after unmount", async () => {
-  const pendingCopy = createDeferredCopy();
-  const { teardown } = setup(vi.fn().mockReturnValue(pendingCopy.promise));
-
   fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
-  teardown();
-  const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
-
-  try {
-    pendingCopy.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(setTimeoutSpy).not.toHaveBeenCalled();
-  } finally {
-    setTimeoutSpy.mockRestore();
-  }
-});
-
-test("labels each Rich Threads prompt instance with its own title", () => {
-  render(
-    <>
-      <RichThreadsSetupPrompt />
-      <RichThreadsSetupPrompt />
-    </>,
+  await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
+  expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toMatch(
+    /https:\/\/copilotkit\.ai\/onboarding-prompts\/[a-f0-9]{12}\?intent=add-rich-threads/,
   );
-
-  try {
-    const regions = screen.getAllByRole("region", {
-      name: "Finish setup with your coding agent",
-    });
-    const titleIds = regions.map((region) =>
-      region.getAttribute("aria-labelledby"),
-    );
-
-    expect(regions).toHaveLength(2);
-    expect(new Set(titleIds).size).toBe(2);
-    for (const titleId of titleIds) {
-      expect(titleId).not.toBeNull();
-      expect(document.getElementById(titleId ?? "")).not.toBeNull();
-    }
-  } finally {
-    cleanup();
-  }
+  expect(screen.getByRole("status").textContent).toContain("Copy blocked");
 });
+
+test("sends the coding agent to the AG-UI Streams route and carries nothing else", () => {
+  // The route owns the guide links, the identity rules, the ownership checks
+  // and the Inspector proof this prompt used to repeat. A copy of them here
+  // drifts the next time the Runtime API changes, which is what OSS-1150
+  // retired.
+  expect(RICH_THREADS_SETUP_PROMPT).toContain(
+    "npx --yes copilotkit@latest onboard start --intent add-rich-threads",
+  );
+  // No run id: this string is static and llm-text inlines it into cached raw
+  // Markdown, so one minted here would be shared by every reader. That is also
+  // why it keeps the command rather than a link -- a run-id-less URL could be
+  // counted but never joined (PE-224).
+  expect(RICH_THREADS_SETUP_PROMPT).not.toContain("--run");
+});
+
+vi.mock("fumadocs-core/framework", () => ({
+  usePathname: () => "/quickstart",
+}));
+
+vi.mock("@/lib/runtime-config.client", () => ({
+  getRuntimeConfig: () => ({ baseUrl: "https://docs.copilotkit.ai" }),
+}));

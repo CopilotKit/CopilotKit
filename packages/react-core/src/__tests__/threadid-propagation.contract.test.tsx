@@ -3,6 +3,7 @@ import { render, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 import { useCopilotKit } from "../v2/context";
+import type * as ContextModule from "../v2/context";
 import { useAgent } from "../v2/hooks/use-agent";
 import { CopilotChatConfigurationProvider } from "../v2/providers/CopilotChatConfigurationProvider";
 import {
@@ -10,8 +11,10 @@ import {
   ProxiedCopilotRuntimeAgent,
 } from "@copilotkit/core";
 
-vi.mock("../v2/context", () => ({
+vi.mock("../v2/context", async (importOriginal) => ({
+  ...(await importOriginal<typeof ContextModule>()),
   useCopilotKit: vi.fn(),
+  useDefaultAgentId: vi.fn(() => undefined),
 }));
 
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;

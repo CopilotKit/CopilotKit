@@ -9,26 +9,29 @@ import {
 import { z } from "zod";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
-import { Observable, Subject } from "rxjs";
-import { defineToolCallRenderer, ReactToolCallRenderer } from "../../../types";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { Subject } from "rxjs";
+import type { ReactToolCallRenderer } from "../../../types";
+import { defineToolCallRenderer } from "../../../types";
 import { ToolCallStatus } from "@copilotkit/core";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
 import { CopilotChatView, CopilotChatViewProps } from "../CopilotChatView";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { ActivityMessage, AssistantMessage, Message } from "@ag-ui/core";
-import {
+import type { ActivityMessage, AssistantMessage, Message } from "@ag-ui/core";
+import type {
   ReactActivityMessageRenderer,
   ReactCustomMessageRenderer,
 } from "../../../types";
-import CopilotChatInput, { CopilotChatInputProps } from "../CopilotChatInput";
+import type { CopilotChatInputProps } from "../CopilotChatInput";
+import CopilotChatInput from "../CopilotChatInput";
 import { CopilotChatSuggestionView } from "../CopilotChatSuggestionView";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
+import {
+  runStartedEvent,
+  runFinishedEvent,
+} from "../../../__tests__/utils/test-helpers";
 
 // A controllable streaming agent to step through events deterministically
 class MockStepwiseAgent extends AbstractAgent {
@@ -124,7 +127,7 @@ describe("Tool Call Re-render Prevention", () => {
     const toolCallId = "tc_rerender_test";
 
     // Start the run
-    agent.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+    agent.emit(runStartedEvent());
 
     // Stream the tool call with complete args
     agent.emit({
@@ -213,7 +216,7 @@ describe("Tool Call Re-render Prevention", () => {
     expect(screen.getByTestId("location").textContent).toBe("Paris");
     expect(screen.getByTestId("result").textContent).toContain("temperature");
 
-    agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+    agent.emit(runFinishedEvent());
     agent.complete();
   });
 
@@ -265,7 +268,7 @@ describe("Tool Call Re-render Prevention", () => {
     const messageId = "m_search";
     const toolCallId = "tc_search";
 
-    agent.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+    agent.emit(runStartedEvent());
 
     // Stream complete tool call args
     agent.emit({
@@ -305,7 +308,7 @@ describe("Tool Call Re-render Prevention", () => {
     // since its arguments haven't changed
     expect(renderCountAfterText).toBe(renderCountAfterToolCall);
 
-    agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+    agent.emit(runFinishedEvent());
     agent.complete();
   });
 
@@ -358,7 +361,7 @@ describe("Tool Call Re-render Prevention", () => {
     const messageId = "m_search_update";
     const toolCallId = "tc_search_update";
 
-    agent.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+    agent.emit(runStartedEvent());
 
     // Stream partial args first
     agent.emit({
@@ -399,7 +402,7 @@ describe("Tool Call Re-render Prevention", () => {
     expect(capturedArgs).toContain("Rea");
     expect(capturedArgs).toContain("React hooks");
 
-    agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+    agent.emit(runFinishedEvent());
     agent.complete();
   });
 
@@ -451,7 +454,7 @@ describe("Tool Call Re-render Prevention", () => {
     const messageId = "m_data";
     const toolCallId = "tc_data";
 
-    agent.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+    agent.emit(runStartedEvent());
 
     // Send tool call
     agent.emit({
@@ -487,7 +490,7 @@ describe("Tool Call Re-render Prevention", () => {
     expect(capturedStatuses).toContain("inProgress");
     expect(capturedStatuses).toContain("complete");
 
-    agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+    agent.emit(runFinishedEvent());
     agent.complete();
   });
 });

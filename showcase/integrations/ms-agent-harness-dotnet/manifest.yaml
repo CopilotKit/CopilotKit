@@ -542,3 +542,11 @@ demos:
       - src/app/demos/agent-config/use-agent-config.ts
       - src/app/demos/agent-config/config-types.ts
       - src/app/api/copilotkit-agent-config/route.ts
+
+# Starter VALIDATION ladder (dashboard). NOT the `starter:` key.
+# A POSITIVE, reviewed declaration that this framework has no starter —
+# absence is never inferred from a missing block.
+starter_validation:
+  supported: false
+  reason: >-
+    The MS Agent harness is a test surface, not a user-facing template; the .NET starter is ms-agent-dotnet.

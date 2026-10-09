@@ -41,7 +41,12 @@ export {
 
 export {
   default as CopilotChatMessageView,
+  messageGroup,
+  messageRow,
   type CopilotChatMessageViewProps,
+  type MessageGroup,
+  type MessageGroupWrapperProps,
+  type MessageRow,
 } from "./CopilotChatMessageView";
 
 export {

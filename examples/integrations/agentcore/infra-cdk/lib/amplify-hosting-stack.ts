@@ -2,8 +2,8 @@ import * as cdk from "aws-cdk-lib";
 import * as amplify from "@aws-cdk/aws-amplify-alpha";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as iam from "aws-cdk-lib/aws-iam";
-import { Construct } from "constructs";
-import { AppConfig } from "./utils/config-manager";
+import type { Construct } from "constructs";
+import type { AppConfig } from "./utils/config-manager";
 
 export interface AmplifyStackProps extends cdk.NestedStackProps {
   config: AppConfig;

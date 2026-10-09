@@ -25,6 +25,8 @@ export class FakeAgent extends AbstractAgent {
   private script: FakeAgentScriptStep[];
   /** Number of `runAgent` invocations seen — handy for loop-termination asserts. */
   runAgentCalls = 0;
+  /** Every `runAgent` argument in order, for asserting what a run carried. */
+  runAgentParameters: Array<RunAgentParameters | undefined> = [];
   /** Flipped to true by `abortRun()`. */
   aborted = false;
 
@@ -44,10 +46,11 @@ export class FakeAgent extends AbstractAgent {
   }
 
   override async runAgent(
-    _parameters?: RunAgentParameters,
+    parameters?: RunAgentParameters,
     subscriber?: AgentSubscriber,
   ): Promise<RunAgentResult> {
     this.runAgentCalls += 1;
+    this.runAgentParameters.push(parameters);
     const step = this.script.shift();
     if (step && subscriber) {
       await step(subscriber);

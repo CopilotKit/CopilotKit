@@ -5,10 +5,9 @@
  * point, superseded by `createCopilotHonoHandler({ mode: "single-route" })`
  * but still exported.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { expect, test, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
-import { telemetry } from "../telemetry";
 import { createCopilotEndpointSingleRoute } from "../endpoints/hono-single";
 import { CopilotRuntime } from "../core/runtime";
 
@@ -18,19 +17,13 @@ function makeAgent(): AbstractAgent {
   return a as AbstractAgent;
 }
 
-describe("Hono single-route adapter — telemetry firing (integration)", () => {
-  let captureSpy: ReturnType<typeof vi.spyOn>;
+test("Hono single-route adapter fires instance_created on handler creation", async () => {
+  const runtime = new CopilotRuntime({ agents: { default: makeAgent() } });
+  const captureSpy = vi
+    .spyOn(runtime.telemetry, "capture")
+    .mockResolvedValue(undefined);
 
-  beforeEach(() => {
-    captureSpy = vi.spyOn(telemetry, "capture").mockResolvedValue(undefined);
-  });
-
-  afterEach(() => {
-    captureSpy.mockRestore();
-  });
-
-  it("fires instance_created on handler creation", async () => {
-    const runtime = new CopilotRuntime({ agents: { default: makeAgent() } });
+  try {
     createCopilotEndpointSingleRoute({ runtime, basePath: "/api/copilotkit" });
 
     await vi.waitFor(() => {
@@ -42,5 +35,7 @@ describe("Hono single-route adapter — telemetry firing (integration)", () => {
         }),
       );
     });
-  });
+  } finally {
+    captureSpy.mockRestore();
+  }
 });

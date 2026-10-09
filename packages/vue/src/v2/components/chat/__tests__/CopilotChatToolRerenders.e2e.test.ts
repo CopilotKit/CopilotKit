@@ -17,6 +17,10 @@ import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
 import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConfigurationProvider.vue";
 import CopilotChat from "../CopilotChat.vue";
 import type { VueFrontendTool } from "../../../types";
+import {
+  runStartedEvent,
+  runFinishedEvent,
+} from "../../../__tests__/utils/test-helpers";
 
 afterEach(() => {
   cleanup();
@@ -183,9 +187,7 @@ describe("Tool Call Re-render Prevention", () => {
     const messageId = "m_rerender_test";
     const toolCallId = "tc_rerender_test";
 
-    await agent.emit({
-      type: EventType.RUN_STARTED,
-    } as BaseEvent);
+    await agent.emit(runStartedEvent());
     await agent.emit({
       type: EventType.TOOL_CALL_CHUNK,
       toolCallId,
@@ -262,9 +264,7 @@ describe("Tool Call Re-render Prevention", () => {
     expect(screen.getByTestId("location").textContent).toBe("Paris");
     expect(screen.getByTestId("result").textContent).toContain("temperature");
 
-    await agent.emit({
-      type: EventType.RUN_FINISHED,
-    } as BaseEvent);
+    await agent.emit(runFinishedEvent());
     await agent.complete();
   });
 
@@ -312,9 +312,7 @@ describe("Tool Call Re-render Prevention", () => {
     const messageId = "m_search";
     const toolCallId = "tc_search";
 
-    await agent.emit({
-      type: EventType.RUN_STARTED,
-    } as BaseEvent);
+    await agent.emit(runStartedEvent());
     await agent.emit({
       type: EventType.TOOL_CALL_CHUNK,
       toolCallId,
@@ -348,9 +346,7 @@ describe("Tool Call Re-render Prevention", () => {
     const renderCountAfterText = toolRenderCount;
     expect(renderCountAfterText).toBe(renderCountAfterToolCall);
 
-    await agent.emit({
-      type: EventType.RUN_FINISHED,
-    } as BaseEvent);
+    await agent.emit(runFinishedEvent());
     await agent.complete();
   });
 
@@ -398,9 +394,7 @@ describe("Tool Call Re-render Prevention", () => {
     const messageId = "m_search_update";
     const toolCallId = "tc_search_update";
 
-    await agent.emit({
-      type: EventType.RUN_STARTED,
-    } as BaseEvent);
+    await agent.emit(runStartedEvent());
     await agent.emit({
       type: EventType.TOOL_CALL_CHUNK,
       toolCallId,
@@ -436,9 +430,7 @@ describe("Tool Call Re-render Prevention", () => {
     expect(capturedArgs).toContain("Rea");
     expect(capturedArgs).toContain("React hooks");
 
-    await agent.emit({
-      type: EventType.RUN_FINISHED,
-    } as BaseEvent);
+    await agent.emit(runFinishedEvent());
     await agent.complete();
   });
 
@@ -485,9 +477,7 @@ describe("Tool Call Re-render Prevention", () => {
     const messageId = "m_data";
     const toolCallId = "tc_data";
 
-    await agent.emit({
-      type: EventType.RUN_STARTED,
-    } as BaseEvent);
+    await agent.emit(runStartedEvent());
     await agent.emit({
       type: EventType.TOOL_CALL_CHUNK,
       toolCallId,
@@ -522,9 +512,7 @@ describe("Tool Call Re-render Prevention", () => {
     expect(capturedStatuses).toContain(ToolCallStatus.InProgress);
     expect(capturedStatuses).toContain(ToolCallStatus.Complete);
 
-    await agent.emit({
-      type: EventType.RUN_FINISHED,
-    } as BaseEvent);
+    await agent.emit(runFinishedEvent());
     await agent.complete();
   });
 });

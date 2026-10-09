@@ -1,38 +1,39 @@
 /**
- * AI-powered release notes generator + Notion draft creator.
+ * AI-powered release notes generator.
  *
  * 1. Reads the raw changelog from release-notes.md
  * 2. Calls Claude API to generate polished release notes
- * 3. Creates a Notion page with the draft (for human editing)
- * 4. Writes release-notes.md with the AI version
- * 5. Outputs the Notion page URL + ID for the workflow
+ * 3. Writes release-notes.md with the AI version
+ *
+ * release-notes.md is untracked scratch. write-changelog.ts records the result
+ * in the lane's CHANGELOG.md, which is the committed artifact, the review
+ * surface, and how the notes reach the publish job.
  *
  * Env vars:
- *   ANTHROPIC_API_KEY           — for AI generation (falls back to raw if missing)
- *   NOTION_API_KEY              — for creating the Notion draft (skipped if missing)
- *   NOTION_RELEASE_NOTES_PAGE   — parent page ID in Notion
+ *   ANTHROPIC_API_KEY — for AI generation (falls back to raw if missing)
  *
- * Usage: tsx scripts/release/generate-ai-release-notes.ts <version>
+ * Usage: tsx scripts/release/generate-ai-release-notes.ts <version> <scope>
  */
 
 import fs from "fs";
 import path from "path";
 import https from "https";
-import { spawnSync } from "child_process";
-import { ROOT } from "./lib/config.js";
-import { GIT_LOG_FORMAT, parseCommitLog } from "./lib/changes.js";
-import { createReleaseDraft } from "./lib/notion.js";
+import { ROOT, loadConfig } from "./lib/config.js";
+import type { ReleaseScope } from "./lib/config.js";
+import { getCommitsSinceLastRelease } from "./lib/changes.js";
 
-function getRecentCommits(count = 50): string {
-  const result = spawnSync(
-    "git",
-    ["log", `-${count}`, "--no-merges", `--format=${GIT_LOG_FORMAT}`],
-    { cwd: ROOT, encoding: "utf8" },
-  );
-  return parseCommitLog(result.stdout)
+/**
+ * Context for the model: the commits of THIS release lane, with bodies.
+ *
+ * This used to be a repo-wide `git log -50`, which fed an angular release the
+ * last fifty monorepo commits — showcase renames, other packages' work — as
+ * "context" for notes it had no business mentioning.
+ */
+function getScopeCommitContext(scope: ReleaseScope): string {
+  return getCommitsSinceLastRelease(scope)
     .map((commit) =>
       [
-        `commit ${commit.hash.slice(0, 7)}`,
+        `commit ${commit.hash.slice(0, 7)}${commit.pr ? ` (PR #${commit.pr})` : ""}`,
         `subject: ${commit.subject}`,
         commit.body ? `body:\n${commit.body}` : "",
       ]
@@ -46,7 +47,9 @@ function callAnthropic(apiKey: string, prompt: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
       model: "claude-opus-4-8",
-      max_tokens: 2048,
+      // A monorepo release can carry dozens of PRs; 2048 truncated the notes
+      // mid-section. Non-streaming, so stay under the HTTP timeout envelope.
+      max_tokens: 16000,
       messages: [{ role: "user", content: prompt }],
     });
 
@@ -67,8 +70,16 @@ function callAnthropic(apiKey: string, prompt: string): Promise<string> {
       res.on("end", () => {
         try {
           const parsed = JSON.parse(data);
-          if (parsed.content?.[0]) {
-            resolve(parsed.content[0].text);
+
+          // `content` is a union of block types and the text block is not
+          // guaranteed to be first (a thinking-enabled model puts a thinking
+          // block there). Select by type rather than by position.
+          const text = (parsed.content ?? []).find(
+            (block: { type?: string }) => block.type === "text",
+          )?.text;
+
+          if (typeof text === "string" && text.trim()) {
+            resolve(text);
           } else {
             reject(new Error(`Unexpected API response: ${data}`));
           }
@@ -86,10 +97,22 @@ function callAnthropic(apiKey: string, prompt: string): Promise<string> {
 
 async function main() {
   const version = process.argv[2];
-  if (!version) {
-    console.error("Usage: generate-ai-release-notes.ts <version>");
+  const scope = process.argv[3] as ReleaseScope | undefined;
+  const validScopes = Object.keys(loadConfig().scopes);
+
+  if (!version || !scope || !validScopes.includes(scope)) {
+    console.error(
+      `Usage: generate-ai-release-notes.ts <version> <scope>\n` +
+        `Valid scopes: ${validScopes.join(", ")}`,
+    );
     process.exit(1);
   }
+
+  const packages = loadConfig().scopes[scope].packages;
+  // Only the monorepo scope is titled `vX.Y.Z`; every other lane is
+  // `<scope>/vX.Y.Z`, and the notes must not claim otherwise.
+  const releaseTitle =
+    scope === "monorepo" ? `v${version}` : `${scope}/v${version}`;
 
   const releaseNotesPath = path.join(ROOT, "release-notes.md");
   if (!fs.existsSync(releaseNotesPath)) {
@@ -104,17 +127,20 @@ async function main() {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (anthropicKey) {
     console.log("Generating AI-enhanced release notes...");
-    const recentCommits = getRecentCommits();
+    const scopeCommits = getScopeCommitContext(scope);
 
-    const prompt = `You are writing release notes for CopilotKit v${version}, an open-source AI agent framework for React applications.
+    const prompt = `You are writing release notes for the \`${scope}\` release lane of CopilotKit, an open-source framework for building AI agent experiences.
 
-Here is the raw changelog extracted from git history:
+This release publishes exactly these npm packages at version ${version}:
+${packages.map((name) => `- ${name}`).join("\n")}
+
+Here is the raw changelog, already filtered to the commits that touched those packages:
 
 ${rawChangelog}
 
-Here are the recent git commits, including their bodies, for additional context:
+Here are those same commits with their full bodies, for additional context:
 
-${recentCommits}
+${scopeCommits}
 
 Write polished, user-facing release notes for a GitHub Release. Guidelines:
 - Start with a brief (1-2 sentence) summary of the release
@@ -124,7 +150,11 @@ Write polished, user-facing release notes for a GitHub Release. Guidelines:
 - Include any migration notes for breaking changes
 - Keep it concise — no filler, no marketing speak
 - Use markdown formatting
-- Do NOT include a title/header — the GitHub Release title will be "v${version}"
+- Write only about the packages listed above. Do not describe changes to other
+  CopilotKit packages, the docs site, or the examples, even if a commit body
+  mentions them.
+- Where a change has a PR number, reference it as (#1234) so it links on GitHub
+- Do NOT include a title/header — the GitHub Release title will be "${releaseTitle}"
 
 Output ONLY the release notes content, nothing else.`;
 
@@ -139,37 +169,6 @@ Output ONLY the release notes content, nothing else.`;
   } else {
     console.log(
       "No ANTHROPIC_API_KEY found. Using raw changelog as release notes.",
-    );
-  }
-
-  // Step 2: Create a Notion draft page for human editing
-  const notionKey = process.env.NOTION_API_KEY;
-  const notionParent = process.env.NOTION_RELEASE_NOTES_PAGE;
-
-  if (notionKey && notionParent) {
-    console.log("Creating Notion release notes draft...");
-    try {
-      const { pageId, url } = await createReleaseDraft(version, finalNotes);
-      console.log(`Notion draft created: ${url}`);
-
-      // Write the Notion reference so the publish workflow can find it
-      const notionRef = { pageId, url, version };
-      const refPath = path.join(ROOT, "release-notes-notion.json");
-      fs.writeFileSync(refPath, JSON.stringify(notionRef, null, 2) + "\n");
-
-      // Output for CI
-      const outputPath = process.env.GITHUB_OUTPUT;
-      if (outputPath) {
-        fs.appendFileSync(outputPath, `notion_url=${url}\n`);
-        fs.appendFileSync(outputPath, `notion_page_id=${pageId}\n`);
-      }
-    } catch (err: any) {
-      console.error(`Notion draft creation failed: ${err.message}`);
-      console.log("Continuing without Notion draft.");
-    }
-  } else {
-    console.log(
-      "No NOTION_API_KEY/NOTION_RELEASE_NOTES_PAGE found. Skipping Notion draft.",
     );
   }
 }

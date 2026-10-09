@@ -7,13 +7,16 @@
  *   1-2 below max     = amber — close but not at ceiling
  *   3+ below max      = red — significantly below ceiling
  *   D0                = gray — exists but no live probe data
- *   unshipped = transparent + dashed border, displays "--"
- *   unsupported = slate border + slate fill, displays "🚫"
+ *   unshipped = hollow + dashed border, displays "·" (not shipped)
+ *   unsupported = hollow + solid slate border, displays "∅"
  *                 (architectural limit — framework cannot support feature)
  *   regression = red (danger)
  *
  * Fallback (no maxDepth): D4+ green, D2-D3 amber, D0-D1 red.
  */
+
+import { StatusChip } from "@/components/badges";
+import { GLYPHS } from "@/lib/glyphs";
 
 export interface DepthChipProps {
   depth: 0 | 1 | 2 | 3 | 4 | 5 | 6;
@@ -35,7 +38,7 @@ export interface DepthChipProps {
   chipColor?: "green" | "amber" | "red" | "gray";
   /**
    * Pool COMMUNICATION error (REQ-B). When set, the chip renders a DISTINCT
-   * "couldn't reach the pool" treatment — an indigo fill with a "⚡"
+   * "couldn't reach the pool" treatment — a HOLLOW indigo chip with a "!"
    * glyph — that is visually unlike green/amber/red/gray, so an operator can
    * tell "the pool was unreachable" apart from "the test went red". The
    * underlying depth/colour is intentionally suppressed in favour of the
@@ -128,19 +131,28 @@ export function DepthChip({
 }: DepthChipProps) {
   // Pool comm-error overlay (REQ-B) takes precedence over every probe colour:
   // a "couldn't reach the pool" state must never be mistaken for a red test.
-  // A distinct indigo fill + ⚡ glyph, resolved BEFORE the unshipped/unsupported
-  // branches so an unreachable cell is always loud.
+  // A distinct HOLLOW indigo `!` chip, resolved BEFORE the unshipped/
+  // unsupported branches so an unreachable cell is always loud.
+  //
+  // This used to be a `⚡` on an indigo fill. `⚡` is U+26A1, an
+  // Emoji-presentation code point, so the browser drew it from the colour
+  // emoji font and the `text-indigo-300` this component promised in its own
+  // doc comment NEVER APPLIED — the glyph painted yellow, every time, since
+  // the day it landed. `!` is text-presentation, and it is the same mark the
+  // docs row already uses for "the check itself broke", so this is reuse.
   if (unreachable) {
     return (
-      <span
-        data-testid="depth-chip"
-        data-status="unreachable"
-        data-surface-state="unreachable"
-        className="inline-flex items-center justify-center min-w-[32px] h-5 px-1.5 rounded text-[10px] font-semibold tabular-nums border border-indigo-400/60 bg-indigo-500/20 text-indigo-300"
+      <StatusChip
+        testId="depth-chip"
+        dataAttrs={{
+          "data-status": "unreachable",
+          "data-surface-state": "unreachable",
+        }}
+        tone="blue"
+        size="md"
+        label={GLYPHS.fault.mark}
         title={commTooltip ?? "pool unreachable — comm error"}
-      >
-        ⚡
-      </span>
+      />
     );
   }
 
@@ -244,49 +256,58 @@ export function DepthChip({
       );
     }
 
-    // No-prior (never-run / first load): nothing to preserve — keep today's
-    // honest grey ⟳ chip exactly as before.
+    // No-prior (never-run / first load): nothing to preserve, so nothing was
+    // judged — the honest rendering is the HOLLOW ⟳ chip. (`⟳` U+27F3 is
+    // text-presentation and always obeyed CSS colour; only the fill is
+    // dropped, which moves it out of the verdict layer.)
     return (
-      <span
-        data-testid="depth-chip"
-        data-status="pending"
-        data-surface-state="pending"
-        data-refreshing="true"
-        data-has-prior="false"
-        className="inline-flex items-center justify-center min-w-[32px] h-5 px-1.5 rounded text-[10px] font-semibold tabular-nums border border-[var(--text-muted)]/40 bg-[var(--text-muted)]/20 text-[var(--text-muted)]"
+      <StatusChip
+        testId="depth-chip"
+        dataAttrs={{
+          "data-status": "pending",
+          "data-surface-state": "pending",
+          "data-refreshing": "true",
+          "data-has-prior": "false",
+        }}
+        tone="gray"
+        size="md"
+        label={GLYPHS.requeued.mark}
         title={commTooltip ?? "re-queued — pending re-run"}
-      >
-        ⟳
-      </span>
+      />
     );
   }
 
   if (status === "unshipped") {
+    // Same state as the main grid's "no demo shipped" cell, so it carries the
+    // same mark. The dashed hollow border was already right; only the glyph
+    // changes — `--` read as typographic filler AND collided with the
+    // ref-depth spacer's own `--`.
     return (
-      <span
-        data-testid="depth-chip"
-        data-status="unshipped"
-        className="inline-flex items-center justify-center min-w-[32px] h-5 px-1.5 rounded text-[10px] font-semibold tabular-nums border border-dashed border-[var(--text-muted)]/40 text-[var(--text-muted)]/60"
-        title="unshipped"
-      >
-        --
-      </span>
+      <StatusChip
+        testId="depth-chip"
+        dataAttrs={{ "data-status": "unshipped" }}
+        tone="gray"
+        size="md"
+        label={GLYPHS.notShipped.mark}
+        title="not shipped — in scope, not built yet"
+      />
     );
   }
 
   if (status === "unsupported") {
-    // Distinct from "unshipped": architectural limit, not undone work.
-    // A slate border + slate fill + 🚫 emoji + descriptive tooltip
-    // signals "cannot be supported" rather than "to be done".
+    // Distinct from "unshipped": architectural limit, not undone work. A
+    // hollow chip with a SOLID slate border (= a settled fact, vs the dashed
+    // "slot not filled in") plus `∅` and a descriptive tooltip signals
+    // "cannot be supported" rather than "to be done".
     return (
-      <span
-        data-testid="depth-chip"
-        data-status="unsupported"
-        className="inline-flex items-center justify-center min-w-[32px] h-5 px-1.5 rounded text-[10px] font-semibold tabular-nums border border-slate-500/40 bg-slate-500/10 text-slate-400"
+      <StatusChip
+        testId="depth-chip"
+        dataAttrs={{ "data-status": "unsupported" }}
+        tone="gray"
+        size="md"
+        label={GLYPHS.notSupported.mark}
         title="Not supported by this framework"
-      >
-        🚫
-      </span>
+      />
     );
   }
 

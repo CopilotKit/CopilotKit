@@ -67,7 +67,7 @@
  *
  * ### Example
  * A great example of this is in our Perplexity Clone where we render the progress of an agent's internet search as it is happening.
- * You can play around with it below or learn how to build it with its [demo](/coagents/videos/perplexity-clone).
+ * You can play around with it below or learn how to build it with the [state rendering guide](/generative-ui/state-rendering).
  *
  * <Callout type="info">
  *   This example is hosted on Vercel and may take a few seconds to load.

@@ -8,15 +8,15 @@ import type { WebInspectorElement } from "@copilotkit/web-inspector";
 import {
   ALL_SCENARIO_KEYS,
   CORE_SCENARIO_KEYS,
+  LEARNING_SCENARIO_KEYS,
   THREAD_REQUEST_KINDS,
+  canonicalScenarioUrl,
   clearThreadsStateLabNotificationState,
   clearThreadsStateLabStorage,
   consumedNotificationReplayUrl,
-  copyThreadsStateLabDirectLink,
   getThreadsStateScenario,
   installThreadsStateLabNavigation,
   installThreadsStateLabReducedMotion,
-  navigateThreadsStateLabScenario,
   notificationReplayUrl,
   parseScenarioKey,
   runtimeUrlFor,
@@ -29,6 +29,13 @@ import type {
   ThreadsStateScenario,
 } from "./threads-state-lab.js";
 import type { ThreadRequestLog } from "./threads-state-lab-server.js";
+import {
+  learningLabRuntimeUrl,
+  prepareLearningStateClient,
+  readyIntegratedLearningState,
+  settleLearningState,
+  waitForLearningConnection,
+} from "./learning-state-client.js";
 
 const scenarioSelect = requiredElement<HTMLSelectElement>("#scenario-select");
 const copyButton = requiredElement<HTMLButtonElement>("#copy-link");
@@ -49,8 +56,14 @@ const query = new URLSearchParams(window.location.search);
 const replayingNotification = query.get("replay-notification") === "1";
 const parsedScenario = parseScenarioKey(query.get("scenario"));
 const scenario = getThreadsStateScenario(parsedScenario.scenarioKey);
-const runtimeUrl = runtimeUrlFor(window.location.origin, scenario.key);
-const requestLogUrl = `${runtimeUrl}/request-log`;
+const SCENARIO_RESET_SESSION_PREFIX = "cpk:inspector:workbench-reset:";
+const scenarioResetSessionKey = `${SCENARIO_RESET_SESSION_PREFIX}${scenario.key}`;
+const runtimeUrl = scenario.learningState
+  ? learningLabRuntimeUrl(window.location.origin, scenario.learningState)
+  : runtimeUrlFor(window.location.origin, scenario.key);
+const requestLogUrl = scenario.learningState
+  ? null
+  : `${runtimeUrl}/request-log`;
 
 let core: CopilotKitCore | null = null;
 let inspector: WebInspectorElement | null = null;
@@ -65,6 +78,14 @@ function requiredElement<T extends Element>(selector: string): T {
   const element = document.querySelector<T>(selector);
   if (!element) throw new Error(`Missing lab element: ${selector}`);
   return element;
+}
+
+function applyClientQuery(url: URL): URL {
+  for (const key of ["sdk-version", "sdk-framework"]) {
+    const value = query.get(key);
+    if (value !== null) url.searchParams.set(key, value);
+  }
+  return url;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -127,6 +148,8 @@ function parseRequestLog(value: unknown): ThreadRequestLog {
 function populateScenarioSelect(): void {
   const coreGroup = document.createElement("optgroup");
   coreGroup.label = "Plan and capability matrix";
+  const learningGroup = document.createElement("optgroup");
+  learningGroup.label = "Automatic Learning";
   const edgeGroup = document.createElement("optgroup");
   edgeGroup.label = "Edge cases";
   for (const key of ALL_SCENARIO_KEYS) {
@@ -136,11 +159,15 @@ function populateScenarioSelect(): void {
     option.selected = key === scenario.key;
     if (CORE_SCENARIO_KEYS.some((coreKey) => coreKey === key)) {
       coreGroup.append(option);
+    } else if (
+      LEARNING_SCENARIO_KEYS.some((learningKey) => learningKey === key)
+    ) {
+      learningGroup.append(option);
     } else {
       edgeGroup.append(option);
     }
   }
-  scenarioSelect.replaceChildren(coreGroup, edgeGroup);
+  scenarioSelect.replaceChildren(coreGroup, learningGroup, edgeGroup);
 }
 
 function renderFixture(): void {
@@ -155,6 +182,9 @@ function renderFixture(): void {
     runtimeInfo: scenario.runtimeInfo,
     inspectorMetadataBody: scenario.inspectorMetadataBody ?? null,
     threads: scenario.threads,
+    learning: scenario.learning,
+    memories: scenario.memories,
+    learningState: scenario.learningState ?? null,
     expectedNewestThreadId: scenario.expectedNewestThreadId ?? null,
     expectedInitialRequests: scenario.expectedRequests,
     media: scenario.media,
@@ -218,6 +248,9 @@ function renderLedger(log: ThreadRequestLog): void {
 async function fetchRequestLog(
   signal?: AbortSignal,
 ): Promise<ThreadRequestLog> {
+  if (!requestLogUrl) {
+    throw new Error("The Thread request ledger does not apply to Learning.");
+  }
   const response = await fetch(requestLogUrl, {
     headers: { accept: "application/json" },
     signal,
@@ -228,8 +261,27 @@ async function fetchRequestLog(
   return parseRequestLog(await response.json());
 }
 
+function renderLearningLedger(): void {
+  for (const kind of THREAD_REQUEST_KINDS) {
+    const actualCell = requiredElement<HTMLElement>(`#actual-${kind}`);
+    const outcomeCell = requiredElement<HTMLElement>(`#outcome-${kind}`);
+    actualCell.textContent = "—";
+    outcomeCell.textContent = "Not used";
+    outcomeCell.dataset.state = "match";
+  }
+  const empty = document.createElement("li");
+  empty.textContent = "Learning uses the shared Inspector Learning Runtime.";
+  requestLogOutput.replaceChildren(empty);
+  ledgerStatus.textContent = "Not applicable to Learning fixtures.";
+  ledgerStatus.dataset.state = "match";
+}
+
 async function refreshLedger(): Promise<void> {
   if (teardownStarted) return;
+  if (scenario.learningState) {
+    renderLearningLedger();
+    return;
+  }
   ledgerAbortController?.abort();
   const controller = new AbortController();
   ledgerAbortController = controller;
@@ -322,16 +374,19 @@ async function openInspectorSurface(
     "the Web Inspector launcher",
   );
   launcher.click();
-  if (initialMenu === "threads") {
-    const threads = await waitForButton(
-      (button) => button.textContent?.trim() === "Threads",
-      "the Threads navigation button",
+  if (initialMenu !== "home") {
+    const menuLabel =
+      initialMenu === "memories" ? "Automatic Learning" : "Rich Threads";
+    const menuButton = await waitForButton(
+      (button) => button.textContent?.trim() === menuLabel,
+      `the ${menuLabel} navigation button`,
     );
-    threads.click();
+    menuButton.click();
   }
 }
 
 async function resetServerLedger(): Promise<void> {
+  if (!requestLogUrl) return;
   const response = await fetch(`${requestLogUrl}/reset`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -370,15 +425,19 @@ async function teardownAndReset(): Promise<void> {
 
 async function navigateToScenario(key: ScenarioKey): Promise<void> {
   actionStatus.textContent = "Closing the current fixture…";
-  await navigateThreadsStateLabScenario(window.location, key, teardownAndReset);
+  window.sessionStorage.removeItem(`${SCENARIO_RESET_SESSION_PREFIX}${key}`);
+  await teardownAndReset();
+  const directLink = applyClientQuery(
+    new URL(canonicalScenarioUrl(window.location.origin, key)),
+  );
+  window.location.assign(directLink.href);
 }
 
 async function copyDirectLink(): Promise<void> {
-  await copyThreadsStateLabDirectLink(
-    navigator.clipboard,
-    window.location.origin,
-    scenario.key,
+  const directLink = applyClientQuery(
+    new URL(canonicalScenarioUrl(window.location.origin, scenario.key)),
   );
+  await navigator.clipboard.writeText(directLink.href);
   actionStatus.textContent = "Direct link copied.";
 }
 
@@ -391,13 +450,15 @@ function reportFatalError(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
   actionStatus.textContent = message;
   actionStatus.dataset.state = "error";
+  document.body.dataset.labReady = "error";
+  document.documentElement.dataset.ready = "error";
   console.error("[Inspector Threads lab]", error);
 }
 
 async function boot(): Promise<void> {
   populateScenarioSelect();
   renderFixture();
-  document.title = `${scenario.label} · Inspector Threads lab`;
+  document.title = `${scenario.label} · Inspector state workbench`;
   document.body.dataset.scenario = scenario.key;
 
   if (parsedScenario.rejectedKey) {
@@ -428,10 +489,20 @@ async function boot(): Promise<void> {
     );
   }
 
-  if (query.get("reset") === "1") {
-    clearThreadsStateLabStorage(window.localStorage);
+  if (
+    query.get("reset") === "1" &&
+    window.sessionStorage.getItem(scenarioResetSessionKey) !== "1"
+  ) {
+    clearThreadsStateLabStorage(window.localStorage, document);
+    window.sessionStorage.setItem(scenarioResetSessionKey, "1");
     await resetServerLedger();
     actionStatus.textContent = "Inspector state and fixture ledger reset.";
+  }
+
+  if (scenario.learningState) {
+    prepareLearningStateClient({
+      state: scenario.learningState,
+    });
   }
 
   core = new CopilotKitCore({
@@ -440,6 +511,11 @@ async function boot(): Promise<void> {
     deferInitialConnection: true,
   });
   inspector = document.createElement(WEB_INSPECTOR_TAG);
+  inspector.notificationContext = {
+    development: true,
+    framework: clientFramework.value as "react" | "vue" | "angular",
+    sdkVersion: clientVersion.value,
+  };
   inspector.setAttribute("auto-attach-core", "false");
   inspector.core = core;
   inspectorHost.replaceChildren(inspector);
@@ -456,17 +532,31 @@ async function boot(): Promise<void> {
   refreshLedger().catch(reportFatalError);
   mediaTimer = window.setInterval(updateMediaStatus, 400);
   updateMediaStatus();
-  seedThreadsStateLabAgentEvents(inspector, scenario);
-  await inspector.updateComplete;
-  if (replayingNotification) {
-    actionStatus.textContent =
-      "Notification re-armed. Watch the closed launcher for the halo and dot.";
+  if (scenario.learningState) {
+    await waitForLearningConnection(core);
+    await readyIntegratedLearningState(scenario.learningState, inspector);
+    if (window.innerWidth <= 900) {
+      // The narrow Inspector remains truly docked, but the workbench itself
+      // must keep its normal viewport width so closing the Inspector reveals
+      // usable scenario controls instead of a page shifted off canvas.
+      document.body.style.marginLeft = "";
+    }
+    await settleLearningState();
+    document.body.dataset.learningState = scenario.learningState;
   } else {
-    await openInspectorSurface(scenario.initialMenu);
-    actionStatus.textContent = `Inspector open on ${
-      scenario.initialMenu === "home" ? "Home" : "Threads"
-    }.`;
+    seedThreadsStateLabAgentEvents(inspector, scenario);
+    await inspector.updateComplete;
   }
+  if (replayingNotification && !scenario.learningState) {
+    actionStatus.textContent = "";
+  } else if (!scenario.learningState) {
+    await openInspectorSurface(scenario.initialMenu);
+    actionStatus.textContent = "";
+  } else {
+    actionStatus.textContent = "";
+  }
+  document.body.dataset.labReady = "true";
+  document.documentElement.dataset.ready = "true";
 }
 
 const removeNavigationListeners = installThreadsStateLabNavigation(
@@ -491,4 +581,29 @@ window.addEventListener(
   },
 );
 
+const clientVersion = requiredElement<HTMLInputElement>("#sdk-version");
+const clientFramework = requiredElement<HTMLSelectElement>("#sdk-framework");
+clientVersion.value = query.get("sdk-version") ?? "1.70.2";
+clientFramework.value = ["react", "vue", "angular"].includes(
+  query.get("sdk-framework") ?? "",
+)
+  ? query.get("sdk-framework")!
+  : "react";
+for (const input of [clientVersion, clientFramework])
+  input.addEventListener("input", () => {
+    query.set("sdk-version", clientVersion.value);
+    query.set("sdk-framework", clientFramework.value);
+    history.replaceState(null, "", applyClientQuery(new URL(location.href)));
+    if (inspector)
+      inspector.notificationContext = {
+        development: true,
+        framework: clientFramework.value as "react" | "vue" | "angular",
+        sdkVersion: clientVersion.value,
+      };
+  });
 boot().catch(reportFatalError);
+
+requiredElement("#open-inspector").addEventListener("click", () => {
+  inspector?.openInspector("floating_button");
+});
+requiredElement("#scenario-description").textContent = scenario.description;

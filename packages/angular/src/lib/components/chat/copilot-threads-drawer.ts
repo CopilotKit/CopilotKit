@@ -306,12 +306,46 @@ export class CopilotThreadsDrawer {
   );
 
   /**
-   * Normalized license context derived from the core's runtime-reported status,
-   * via the same `@copilotkit/shared` helper the React provider uses.
+   * Normalized license context derived from Core's structured and legacy
+   * Runtime authority, with the same precedence as the React provider.
    */
-  private readonly licenseContext = computed(() =>
-    createLicenseContextValue(this.copilotkit.licenseStatus()),
-  );
+  private readonly licenseContext = computed(() => {
+    const runtimeLicenseStatus = this.copilotkit.licenseStatus();
+    const runtimeEntitlements = this.copilotkit.runtimeEntitlements?.();
+    const retryableRuntimeEntitlementFailure =
+      runtimeEntitlements?.status !== "ready" &&
+      runtimeEntitlements?.error.retryable === true;
+    const hasNonReadyRuntimeEntitlement =
+      runtimeEntitlements !== undefined &&
+      runtimeEntitlements.status !== "ready";
+    const hasLegacyRuntimeEntitlementFallback =
+      runtimeLicenseStatus === "valid" || runtimeLicenseStatus === "expiring";
+    const runtimeEntitlementRetryInProgress =
+      retryableRuntimeEntitlementFailure &&
+      (this.copilotkit.runtimeEntitlementRetryPending?.() ?? false) &&
+      !hasLegacyRuntimeEntitlementFallback;
+    // Only a terminal failure denies features. A retryable failure (a
+    // timeout, a network error, a 5xx) says nothing about what the project
+    // may use.
+    const terminalRuntimeEntitlementFailure =
+      hasNonReadyRuntimeEntitlement &&
+      !retryableRuntimeEntitlementFailure &&
+      !hasLegacyRuntimeEntitlementFallback;
+    const runtimeLicenseContext = createLicenseContextValue(
+      runtimeEntitlementRetryInProgress ? undefined : runtimeLicenseStatus,
+      runtimeEntitlements,
+    );
+
+    if (!terminalRuntimeEntitlementFailure) {
+      return runtimeLicenseContext;
+    }
+
+    return {
+      ...runtimeLicenseContext,
+      checkFeature: () => false,
+      getLimit: () => null,
+    };
+  });
 
   /**
    * Two-pronged license gate, mirroring the React wrapper. `checkFeature` fails
@@ -319,10 +353,12 @@ export class CopilotThreadsDrawer {
    * detect the no-license case; we therefore also require a positive
    * license-present signal. Only a resolved `valid`/`expiring` status counts as
    * present — a resolved `none`/`expired`/`invalid` gates the drawer to the
-   * locked view.
+   * locked view. `unknown` is an unrecovered retryable entitlement lookup, not
+   * a settled negative: fetch the list and let the threads endpoint decide.
    */
   protected readonly licensed = computed(() => {
     const ctx = this.licenseContext();
+    if (ctx.status === "unknown") return true;
     const licensePresent = ctx.status === "valid" || ctx.status === "expiring";
     return licensePresent && ctx.checkFeature("threads");
   });

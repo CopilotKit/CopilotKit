@@ -669,7 +669,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
             const messageId = testId(`m-${this.runCount}`);
             const toolCallId = testId(`tc-${this.runCount}`);
             const valueArg = this.runCount === 1 ? "first call" : "second call";
-            observer.next({ type: EventType.RUN_STARTED } as BaseEvent);
+            observer.next(runStartedEvent(_input));
             observer.next({
               type: EventType.TOOL_CALL_CHUNK,
               toolCallId,
@@ -677,7 +677,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
               parentMessageId: messageId,
               delta: JSON.stringify({ value: valueArg }),
             } as BaseEvent);
-            observer.next({ type: EventType.RUN_FINISHED } as BaseEvent);
+            observer.next(runFinishedEvent(_input));
             observer.complete();
             return () => {};
           });

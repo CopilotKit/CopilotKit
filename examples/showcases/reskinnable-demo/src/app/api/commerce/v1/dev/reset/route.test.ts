@@ -73,7 +73,7 @@ afterEach(() => {
 function configureIntelligence() {
   vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
   vi.stubEnv("INTELLIGENCE_API_URL", "http://localhost:7250");
-  vi.stubEnv("INTELLIGENCE_API_KEY", "cpk_test");
+  vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "cpk_test");
   vi.stubEnv("INTELLIGENCE_USER_ID", "");
 }
 
@@ -91,7 +91,7 @@ describe("POST /api/commerce/v1/dev/reset", () => {
   it("resets the store only, and claims only that, when Intelligence is unconfigured", async () => {
     vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
     vi.stubEnv("INTELLIGENCE_API_URL", "");
-    vi.stubEnv("INTELLIGENCE_API_KEY", "");
+    vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "");
     const res = await POST();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, reset: ["store"] });
@@ -451,7 +451,7 @@ describe("POST /api/commerce/v1/dev/reset", () => {
     function configureNamedBackend() {
       configureIntelligence();
       vi.stubEnv("INTELLIGENCE_API_URL", BACKEND);
-      vi.stubEnv("INTELLIGENCE_API_KEY", API_KEY);
+      vi.stubEnv("CPK_INTELLIGENCE_API_KEY", API_KEY);
       vi.stubEnv("INTELLIGENCE_GATEWAY_WS_URL", WS_URL);
     }
 

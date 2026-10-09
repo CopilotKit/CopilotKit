@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Dict, Optional
 
-from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint, AGUIToolset
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from google.adk.agents import LlmAgent
@@ -15,6 +15,8 @@ from google.adk.models.llm_response import LlmResponse
 from google.adk.tools import ToolContext
 from google.genai import types
 from pydantic import BaseModel, Field
+
+from model import resolve_model
 
 load_dotenv()
 
@@ -138,7 +140,9 @@ def simple_after_model_modifier(
 
 proverbs_agent = LlmAgent(
     name="ProverbsAgent",
-    model="gemini-2.5-flash",
+    # COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this;
+    # unset, the agent uses gemini-3.8-flash.
+    model=resolve_model("google:gemini-3.8-flash"),
     instruction="""
         When a user asks you to do anything regarding proverbs, you MUST use the set_proverbs tool.
 
@@ -166,7 +170,11 @@ proverbs_agent = LlmAgent(
         - "Whats the weather right now" → Use the location "Everywhere ever in the whole wide world"
         - Is it raining in London? → Use the tool with the location "London"
         """,
-    tools=[set_proverbs, get_weather],
+    # AGUIToolset exposes the frontend-registered tools (e.g. setThemeColor) to
+    # the LLM: ag_ui_adk swaps it for a ClientProxyToolset wired to the run's
+    # forwarded client tools. Without it, only the server tools below are visible
+    # and the agent can't call frontend tools.
+    tools=[set_proverbs, get_weather, AGUIToolset()],
     before_agent_callback=on_before_agent,
     before_model_callback=before_model_modifier,
     after_model_callback=simple_after_model_modifier,

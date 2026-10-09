@@ -119,7 +119,7 @@ bot.onMention(async ({ thread, message }) => {
 // lifecycle — it starts the direct Slack adapter for us.
 const intelligence = new CopilotKitIntelligence({
   // apiUrl/wsUrl default to cloud-hosted CopilotKit Intelligence.
-  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
 });
 const runtime = new CopilotRuntime({
   agents: {}, // the Channel supplies its own agent
@@ -332,7 +332,7 @@ several from one process).
 ```bash
 cp .env.example .env
 # Fill in (set SLACK_*, DISCORD_*, and/or TELEGRAM_BOT_TOKEN — whichever you want):
-#   INTELLIGENCE_API_KEY                         (REQUIRED — owns the Channel; free tier)
+#   CPK_INTELLIGENCE_API_KEY                         (REQUIRED — owns the Channel; free tier)
 #   SLACK_BOT_TOKEN / SLACK_APP_TOKEN          (to run on Slack)
 #   DISCORD_BOT_TOKEN / DISCORD_APP_ID         (to run on Discord; DISCORD_GUILD_ID optional)
 #   TELEGRAM_BOT_TOKEN                         (to run on Telegram)
@@ -342,7 +342,7 @@ cp .env.example .env
 #   NOTION_MCP_AUTH_TOKEN   (any strong string; shared between the sidecar and the agent)
 ```
 
-A Channel runs only through the Intelligence runtime, so `INTELLIGENCE_API_KEY` is
+A Channel runs only through the Intelligence runtime, so `CPK_INTELLIGENCE_API_KEY` is
 **required** (free tier; `COPILOTKIT_API_KEY` is a deprecated alias, still read as a
 fallback). There are no URLs to set — the SDK defaults to the
 cloud-hosted CopilotKit Intelligence. The platform adapters stay direct — the runtime that owns the Channel starts each
@@ -411,7 +411,7 @@ do.
 
 > **PDFs and images need a vision/document-capable model.** The default
 > `openai/gpt-5.5` reads both natively through this path, as do recent Claude
-> (`anthropic/claude-sonnet-4-6`) and Gemini (`google/gemini-2.5-*`) models.
+> (`anthropic/claude-sonnet-4-6`) and Gemini (`google/gemini-3.8-flash`) models.
 > An older text-only model will ignore the attached document.
 
 Try it: drop a CSV and say _"chart revenue by month"_, _"diagram this incident

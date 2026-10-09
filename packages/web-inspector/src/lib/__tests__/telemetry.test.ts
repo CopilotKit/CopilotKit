@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MockInstance } from "vitest";
 
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { resolve as resolvePath } from "node:path";
 
 import {
   TELEMETRY_DOCS_URL,
@@ -12,6 +12,8 @@ import {
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
   track,
+  trackHomeFeaturePromptClicked,
+  trackLearningSetupPromptClicked,
   trackInspectorOpened,
   trackTalkToEngineerClicked,
   trackThreadsEmptyEnabledViewed,
@@ -32,10 +34,7 @@ import {
   hasTelemetryDisclosureBeenShown,
   isTelemetryOptedOut,
   loadAnnouncementPulsedTimestamp,
-  loadAnnouncementReadTimestamp,
   markTelemetryDisclosureShown,
-  saveAnnouncementPulsedTimestamp,
-  saveAnnouncementReadTimestamp,
   setTelemetryOptOut,
 } from "../persistence.js";
 
@@ -45,9 +44,8 @@ import {
 let fetchMock: MockInstance<typeof fetch>;
 let consoleInfoSpy: MockInstance<typeof console.info>;
 const webInspectorPackage = JSON.parse(
-  readFileSync(resolve(process.cwd(), "package.json"), "utf8"),
+  readFileSync(resolvePath(process.cwd(), "package.json"), "utf8"),
 ) as { version: string };
-
 beforeEach(() => {
   // Each test starts from a clean localStorage so distinct-ID + opt-out
   // + disclosure-shown flags don't leak across cases.
@@ -83,12 +81,9 @@ describe("track()", () => {
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe(TELEMETRY_INGEST_URL);
     expect(init?.method).toBe("POST");
-    expect((init?.headers as Record<string, string>)["Content-Type"]).toBe(
-      "application/json",
-    );
-    expect(
-      (init?.headers as Record<string, string>)["X-CopilotKit-Telemetry-Id"],
-    ).toMatch(/^[0-9a-f-]{36}$/);
+    const headers = new Headers(init?.headers);
+    expect(headers.get("Content-Type")).toBe("application/json");
+    expect(headers.get("X-CopilotKit-Telemetry-Id")).toMatch(/^[0-9a-f-]{36}$/);
 
     // Ben confirmed shape (telemetry-sink-ingest/index.ts:127-134):
     // package is a top-level object { name, version? }, NOT inside properties.
@@ -143,7 +138,7 @@ describe("track()", () => {
 
     expect(() => track(TELEMETRY_EVENTS.threadsTabClicked)).not.toThrow();
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((done) => setTimeout(done, 0));
   });
 
   it("does not send when fetch is unavailable (SSR / pre-fetch environment)", async () => {
@@ -472,6 +467,50 @@ describe("typed helpers", () => {
   });
 });
 
+it("tracks feature prompt clicks with the onboarding run ID", async () => {
+  trackHomeFeaturePromptClicked({
+    feature_id: "a2ui",
+    onboarding_run_id: "21bcf98aa5fd4e6287c0d0b5efc46217",
+  });
+  await Promise.resolve();
+
+  const [, init] = fetchMock.mock.calls[0]!;
+  const body = JSON.parse(String(init?.body)) as {
+    event: string;
+    properties: Record<string, unknown>;
+  };
+  expect(body).toMatchObject({
+    event: "oss.inspector.home_feature_prompt_clicked",
+    properties: {
+      feature_id: "a2ui",
+      onboarding_run_id: "21bcf98aa5fd4e6287c0d0b5efc46217",
+      group_key: "home",
+      leaf_key: "home",
+    },
+  });
+});
+
+it("tracks Learning setup prompt clicks with the onboarding run ID", async () => {
+  trackLearningSetupPromptClicked({
+    outcome: "success",
+    onboarding_run_id: "21bcf98aa5fd4e6287c0d0b5efc46217",
+  });
+  await Promise.resolve();
+
+  const [, init] = fetchMock.mock.calls[0]!;
+  const body = JSON.parse(String(init?.body)) as {
+    event: string;
+    properties: Record<string, unknown>;
+  };
+  expect(body).toMatchObject({
+    event: "oss.inspector.learning_setup_prompt_clicked",
+    properties: {
+      outcome: "success",
+      onboarding_run_id: "21bcf98aa5fd4e6287c0d0b5efc46217",
+    },
+  });
+});
+
 // ─── Event catalogue ────────────────────────────────────────────────────────
 
 describe("event catalogue", () => {
@@ -492,10 +531,11 @@ describe("event catalogue", () => {
     ]);
   });
 
-  it("holds twenty-seven event names, all under the owned oss.inspector prefix", () => {
+  it("holds forty-three event names, all under the owned oss.inspector prefix", () => {
     const names = Object.values(TELEMETRY_EVENTS) as string[];
 
-    expect(names).toHaveLength(27);
+    expect(names).toHaveLength(43);
+    expect(names).toContain("oss.inspector.home_feature_prompt_clicked");
     expect(names.filter((name) => !name.startsWith("oss.inspector."))).toEqual(
       [],
     );
@@ -571,88 +611,6 @@ describe("distinct ID lifecycle", () => {
  * by host and survives. Everything the read state has to do is a consequence
  * of that asymmetry.
  */
-function moveToAnotherLocalhostPort(): void {
-  window.localStorage.clear();
-}
-
-/** A browser that blocks cookies: writes are dropped, reads come back empty. */
-function blockCookies(): void {
-  Object.defineProperty(document, "cookie", {
-    get: () => "",
-    set: () => {},
-    configurable: true,
-  });
-}
-
-describe("announcement read state", () => {
-  it("reports nothing read before anything is read", () => {
-    expect(loadAnnouncementReadTimestamp()).toBeNull();
-  });
-
-  it("stays read after moving to another localhost port", () => {
-    saveAnnouncementReadTimestamp("2026-08-19T10:00:00.000Z");
-
-    moveToAnotherLocalhostPort();
-
-    expect(loadAnnouncementReadTimestamp()).toBe("2026-08-19T10:00:00.000Z");
-  });
-
-  it("reports the announcement it was last given, so a newer one reads as unread", () => {
-    saveAnnouncementReadTimestamp("2026-08-19T10:00:00.000Z");
-    saveAnnouncementReadTimestamp("2026-08-20T10:00:00.000Z");
-
-    moveToAnotherLocalhostPort();
-
-    expect(loadAnnouncementReadTimestamp()).toBe("2026-08-20T10:00:00.000Z");
-  });
-
-  it("degrades to per-port memory when cookies are blocked", () => {
-    blockCookies();
-
-    expect(() =>
-      saveAnnouncementReadTimestamp("2026-08-19T10:00:00.000Z"),
-    ).not.toThrow();
-    // Still remembered on the port the developer is working on…
-    expect(loadAnnouncementReadTimestamp()).toBe("2026-08-19T10:00:00.000Z");
-
-    // …and re-armed on the next one, which is the documented degradation.
-    moveToAnotherLocalhostPort();
-    expect(loadAnnouncementReadTimestamp()).toBeNull();
-  });
-
-  it("ignores a malformed stored value instead of throwing", () => {
-    document.cookie = "cpk_inspector_announcements=%7Bnot-json";
-
-    expect(loadAnnouncementReadTimestamp()).toBeNull();
-  });
-
-  it("does not throw when cookie access itself throws", () => {
-    // Sandboxed documents throw on `document.cookie` rather than returning
-    // an empty string, which must degrade to the mirror just as quietly.
-    Object.defineProperty(document, "cookie", {
-      get: () => {
-        throw new DOMException("SecurityError");
-      },
-      set: () => {
-        throw new DOMException("SecurityError");
-      },
-      configurable: true,
-    });
-
-    expect(() =>
-      saveAnnouncementReadTimestamp("2026-08-19T10:00:00.000Z"),
-    ).not.toThrow();
-    expect(loadAnnouncementReadTimestamp()).toBe("2026-08-19T10:00:00.000Z");
-  });
-
-  it("does not throw in SSR (window undefined)", () => {
-    vi.stubGlobal("window", undefined);
-
-    expect(() => saveAnnouncementReadTimestamp("ts")).not.toThrow();
-    expect(() => loadAnnouncementReadTimestamp()).not.toThrow();
-  });
-});
-
 // ─── Pulse suppression (per browser tab) ────────────────────────────────────
 
 describe("announcement pulse suppression", () => {
@@ -663,17 +621,17 @@ describe("announcement pulse suppression", () => {
   // Deliberately the timestamp and not a boolean: a boolean would swallow a
   // newly published announcement for the rest of the tab's life.
   it("records which announcement the tab pulsed for", () => {
-    saveAnnouncementPulsedTimestamp("2026-08-19T10:00:00.000Z");
+    window.sessionStorage.setItem(
+      "cpk:inspector:pulsed",
+      "2026-08-19T10:00:00.000Z",
+    );
     expect(loadAnnouncementPulsedTimestamp()).toBe("2026-08-19T10:00:00.000Z");
 
-    saveAnnouncementPulsedTimestamp("2026-08-20T10:00:00.000Z");
+    window.sessionStorage.setItem(
+      "cpk:inspector:pulsed",
+      "2026-08-20T10:00:00.000Z",
+    );
     expect(loadAnnouncementPulsedTimestamp()).toBe("2026-08-20T10:00:00.000Z");
-  });
-
-  it("is not shared with the read state, which outlives the tab", () => {
-    saveAnnouncementPulsedTimestamp("2026-08-19T10:00:00.000Z");
-
-    expect(loadAnnouncementReadTimestamp()).toBeNull();
   });
 
   it("does not throw when sessionStorage is unavailable", () => {
@@ -686,7 +644,6 @@ describe("announcement pulse suppression", () => {
       },
     });
 
-    expect(() => saveAnnouncementPulsedTimestamp("ts")).not.toThrow();
     // Losing the suppression costs one extra pulse, never correctness.
     expect(loadAnnouncementPulsedTimestamp()).toBeNull();
   });
@@ -706,21 +663,6 @@ describe("legacy announcement read state", () => {
     clearLegacyAnnouncementReadState();
 
     expect(window.localStorage.getItem(LEGACY_KEY)).toBeNull();
-    expect(loadAnnouncementReadTimestamp()).toBeNull();
-  });
-
-  it("cannot resurrect the value once a new announcement is read", () => {
-    window.localStorage.setItem(
-      LEGACY_KEY,
-      JSON.stringify({ timestamp: "2026-08-01T10:00:00.000Z" }),
-    );
-
-    clearLegacyAnnouncementReadState();
-    saveAnnouncementReadTimestamp("2026-08-20T10:00:00.000Z");
-    clearLegacyAnnouncementReadState();
-
-    expect(window.localStorage.getItem(LEGACY_KEY)).toBeNull();
-    expect(loadAnnouncementReadTimestamp()).toBe("2026-08-20T10:00:00.000Z");
   });
 
   it("is safe on every startup, with or without a value to remove", () => {

@@ -177,7 +177,7 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
     When generating or reasoning about test scripts, always use this schema and ensure your output is relevant to the PR and test context provided by the user.
     """
     # Define the model
-    model = ChatOpenAI(model="gpt-4o-mini")
+    model = ChatOpenAI(model="gpt-5-mini")
     # Define config for the model
     if config is None:
         config = RunnableConfig(recursion_limit=25)

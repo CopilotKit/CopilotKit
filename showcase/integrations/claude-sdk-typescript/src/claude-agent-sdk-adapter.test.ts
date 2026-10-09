@@ -1,15 +1,18 @@
+import { EventType } from "@ag-ui/core";
 import type { RunAgentInput } from "@ag-ui/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DISPLAY_FLIGHT_TOOL_SCHEMA,
   buildDisplayFlightOperations,
 } from "./agent/a2ui-fixed-prompt";
+import { SET_NOTES_TOOL_SCHEMA } from "./agent/shared-state-read-write-prompt";
 
 const mocks = vi.hoisted(() => ({
   adapterConfigs: [] as Array<Record<string, unknown>>,
   runInputs: [] as unknown[],
   createSdkMcpServer: vi.fn(),
   sdkTool: vi.fn(),
+  runOnSubscribe: null as null | (() => Promise<object[]>),
 }));
 
 vi.mock("@ag-ui/claude-agent-sdk", () => ({
@@ -23,8 +26,24 @@ vi.mock("@ag-ui/claude-agent-sdk", () => ({
     run(input: unknown) {
       mocks.runInputs.push(input);
       return {
-        subscribe({ complete }: { complete: () => void }) {
-          complete();
+        subscribe({
+          next,
+          error,
+          complete,
+        }: {
+          next: (event: object) => void;
+          error: (error: unknown) => void;
+          complete: () => void;
+        }) {
+          void (async () => {
+            try {
+              const events = (await mocks.runOnSubscribe?.()) ?? [];
+              for (const event of events) next(event);
+              complete();
+            } catch (cause) {
+              error(cause);
+            }
+          })();
         },
       };
     }
@@ -140,6 +159,7 @@ describe("Claude Agent SDK MCP tool wiring", () => {
     mocks.runInputs.length = 0;
     mocks.createSdkMcpServer.mockReset();
     mocks.sdkTool.mockReset();
+    mocks.runOnSubscribe = null;
     mocks.sdkTool.mockImplementation(
       (
         name: string,
@@ -229,5 +249,73 @@ describe("Claude Agent SDK MCP tool wiring", () => {
         { updateDataModel: { value: flight } },
       ],
     });
+  });
+
+  it("registers set_notes through MCP and emits its updated state", async () => {
+    const emit = vi.fn();
+    const nextState = {
+      preferences: { name: "Mochi" },
+      notes: ["Prefers concise answers"],
+    };
+    const executeTool = vi.fn(async () => ({
+      resultText: JSON.stringify({ status: "ok", count: 1 }),
+      state: nextState,
+    }));
+    let toolResult: { content: Array<{ type: string; text: string }> } | null =
+      null;
+
+    mocks.runOnSubscribe = async () => {
+      const serverConfig = mocks.createSdkMcpServer.mock.calls[0]?.[0] as {
+        tools: Array<{
+          handler: (args: Record<string, unknown>) => Promise<{
+            content: Array<{ type: string; text: string }>;
+          }>;
+        }>;
+      };
+      toolResult = await serverConfig.tools[0]!.handler({
+        notes: ["Prefers concise answers"],
+      });
+      return [
+        {
+          type: EventType.TOOL_CALL_RESULT,
+          toolCallId: "tool-1",
+          messageId: "tool-result-1",
+          content: toolResult.content[0]!.text,
+        },
+      ];
+    };
+
+    await runWithClaudeAgentSdk({
+      input: { ...plainInput(), state: { preferences: { name: "Mochi" } } },
+      emit,
+      runId: "run-1",
+      threadId: "thread-1",
+      systemPrompt: "Use set_notes.",
+      toolSchemas: [SET_NOTES_TOOL_SCHEMA],
+      initialState: { preferences: { name: "Mochi" }, notes: [] },
+      model: "claude-sonnet-4.6",
+      executeTool,
+    });
+
+    expect(mocks.adapterConfigs[0]).toMatchObject({
+      allowedTools: ["mcp__copilotkit__set_notes"],
+    });
+    expect(executeTool).toHaveBeenCalledWith(
+      "set_notes",
+      { notes: ["Prefers concise answers"] },
+      { preferences: { name: "Mochi" }, notes: [] },
+      emit,
+    );
+    expect(JSON.parse(toolResult!.content[0]!.text)).toEqual({
+      status: "ok",
+      count: 1,
+    });
+    expect(emit).toHaveBeenCalledWith({
+      type: EventType.STATE_SNAPSHOT,
+      snapshot: nextState,
+    });
+    expect(emit).toHaveBeenCalledWith(
+      expect.objectContaining({ type: EventType.TOOL_CALL_RESULT }),
+    );
   });
 });

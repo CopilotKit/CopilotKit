@@ -1142,3 +1142,38 @@ describe("pb-client", () => {
     );
   });
 });
+
+describe("fleet observation endpoint", () => {
+  it("posts an authenticated replay identity and propagates endpoint rejection", async () => {
+    const request = {
+      jobId: "job000000000001",
+      key: "d6:x/chat",
+      fingerprint: "a".repeat(64),
+    };
+    const calls: RequestInit[] = [];
+    const fetchImpl = makeFetch((url, init) => {
+      if (url.includes("auth-with-password"))
+        return new Response(JSON.stringify({ token: "tok" }));
+      expect(url).toBe("http://pb/api/fleet/observations/apply");
+      calls.push(init!);
+      return new Response(
+        JSON.stringify({ data: { code: "identity_conflict" } }),
+        { status: 409 },
+      );
+    });
+    const pb = createPbClient({
+      url: "http://pb",
+      email: "e",
+      password: "p",
+      logger,
+      fetchImpl,
+    });
+    await expect(pb.applyFleetObservation!(request)).rejects.toMatchObject({
+      statusCode: 409,
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].body).toBe(JSON.stringify(request));
+    expect(new Headers(calls[0].headers).get("Authorization")).toBe("tok");
+  });
+});

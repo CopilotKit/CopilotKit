@@ -1,3 +1,9 @@
+import { notificationTestId } from "./notification-fixture.js";
+vi.mock("../lib/notification-loader.js", async () => {
+  const { fetchNotificationFixture } =
+    await import("./notification-fixture.js");
+  return { loadNotificationFeed: fetchNotificationFixture };
+});
 // Launcher error signal (OSS-903)
 //
 // Same discipline as launcher-signal.spec.ts, whose helpers this suite mirrors:
@@ -33,9 +39,9 @@ import { TELEMETRY_EVENTS, TELEMETRY_INGEST_URL } from "../lib/telemetry.js";
 
 const RUNTIME_URL = "https://runtime.error-signal.test";
 const AGENT_ID = "error-signal-agent";
-const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
+const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/notifications/v1.json";
 const INSPECTOR_STATE_KEY = "cpk:inspector:state";
-const PULSED_SESSION_KEY = "cpk:inspector:pulsed";
+const PULSED_SESSION_KEY = "cpk:inspector:notification-pulsed-id";
 const TIMESTAMP = "2026-08-01T09:00:00.000Z";
 
 // The contract, not an implementation detail: an error beats faster than
@@ -578,6 +584,7 @@ afterEach(() => {
 async function setup(options: Options = {}): Promise<Harness> {
   document.body.replaceChildren();
   window.localStorage.clear();
+  document.cookie = "cpk_inspector_notifications_v1=; Max-Age=0; Path=/";
   window.sessionStorage.clear();
   stubMatchMedia(options.reducedMotion === true);
   if (options.optedOut) {
@@ -703,6 +710,11 @@ async function setup(options: Options = {}): Promise<Harness> {
   }
 
   const inspector = new WebInspectorElement();
+  inspector.notificationContext = {
+    development: true,
+    framework: "react",
+    sdkVersion: "1.70.2",
+  };
   document.body.append(inspector);
   inspector.core = core;
   // A configured runtime that answered its handshake: the baseline every
@@ -725,6 +737,7 @@ async function setup(options: Options = {}): Promise<Harness> {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     window.localStorage.clear();
+    document.cookie = "cpk_inspector_notifications_v1=; Max-Age=0; Path=/";
     window.sessionStorage.clear();
     document.body.replaceChildren();
     document.getElementById("cpk-inspector-brand-fonts")?.remove();
@@ -1159,7 +1172,9 @@ test("a beat deferred because another signal owns the dot runs when that clears"
 
   expect(pulsing(context.inspector)).toBe(true);
   // Spent only now that it has actually been shown.
-  expect(window.sessionStorage.getItem(PULSED_SESSION_KEY)).toBe(TIMESTAMP);
+  expect(
+    JSON.parse(window.sessionStorage.getItem(PULSED_SESSION_KEY) ?? "[]"),
+  ).toContain(notificationTestId(TIMESTAMP));
 });
 
 test("the one pending slot goes to the more urgent beat, and loses nothing", async () => {
@@ -1244,7 +1259,7 @@ test("a thread failure names its own class on the launcher and its entry", async
     root(context.inspector)
       .querySelector('button[data-inspector-menu-key="threads"]')
       ?.getAttribute("aria-label"),
-  ).toBe("Threads, thread loading error");
+  ).toBe("Rich Threads, thread loading error");
 });
 
 // The contract this test guards CHANGED with the pill: "nothing overlays the
@@ -1257,10 +1272,11 @@ test("nothing stays over the host application once the gesture has finished", as
   await armConnectionFailure(context);
 
   const button = requireElement(launcher(context.inspector));
-  // No tooltip, still: a developer who deliberately ships the Inspector to
-  // production must not leak internal failure detail to their end users, and
-  // the pill carries a fixed failure *class*, never a message.
-  expect(button.getAttribute("title")).toBeNull();
+  // The hover title is deliberately stable product copy. A developer who
+  // ships the Inspector to production still cannot leak internal failure
+  // detail through it; the pill carries a fixed failure *class*, never a
+  // message.
+  expect(button.getAttribute("title")).toBe("CopilotKit Inspector");
 
   // Mid-gesture the pill is on the page and says its piece: the failure class
   // twice over and only twice — once visibly on the pill and once in the live
@@ -2477,7 +2493,7 @@ test("reading the landing view clears the unread event, not the how-to-fix card"
   expect(launcherDot(context.inspector)).toBeNull();
 });
 
-test("a Learning failure names itself and lands on Learning", async () => {
+test("a legacy Memory failure does not masquerade as a Learning failure", async () => {
   const context = await setup({ intelligence: true });
   // The store is only reached from the view, so visiting it once is what makes
   // the latch reachable at all. This mirrors how a developer gets here.
@@ -2491,22 +2507,8 @@ test("a Learning failure names itself and lands on Learning", async () => {
 
   await context.failMemory("Failed to load memories: 500");
 
-  expect(dotSubject(context.inspector)).toBe("memory");
-  expect(launcherName(context.inspector)).toContain("learning error");
-  await context.advance(ERROR_BEAT_MS);
-  expect(pillHeading(context.inspector)).toBe("Failed to load learning data");
-
-  await context.activate(pill(context.inspector));
-  expect(currentMenu(context.inspector)).toBe("memories");
-  // Learning keeps its own error display rather than the shared banner that
-  // run and tool use, so this asserts what the view actually renders: the
-  // store's message, and the advice line from the shared guidance table.
-  const view = root(context.inspector).textContent;
-  expect(view).toContain("Failed to load memories: 500");
-  expect(view).toContain("Intelligence is connected");
-  // Advice is not a claim about this view, so nothing here promises a
-  // highlight — and there is none to promise.
-  expect(view).not.toContain("highlighted below");
+  expect(dotSubject(context.inspector)).toBeNull();
+  expect(launcherName(context.inspector)).not.toContain("learning error");
 });
 
 test("a Learning failure arms nothing while the view has never been opened", async () => {
@@ -2520,7 +2522,7 @@ test("a Learning failure arms nothing while the view has never been opened", asy
   expect(markers(context.inspector)).toEqual([]);
 });
 
-test("a resolved Learning failure stays unread until Learning renders", async () => {
+test("a resolved legacy Memory failure leaves Learning unread state alone", async () => {
   const context = await setup({ intelligence: true });
   await context.press(launcher(context.inspector));
   await context.activate(
@@ -2530,11 +2532,11 @@ test("a resolved Learning failure stays unread until Learning renders", async ()
   );
   await context.closePanel();
   await context.failMemory("Failed to load memories: 500");
-  expect(dotSubject(context.inspector)).toBe("memory");
+  expect(dotSubject(context.inspector)).toBeNull();
 
   await context.failMemory(null);
 
-  expect(dotSubject(context.inspector)).toBe("memory");
+  expect(dotSubject(context.inspector)).toBeNull();
   await context.press(launcher(context.inspector));
   expect(currentMenu(context.inspector)).toBe("memories");
   await context.closePanel();

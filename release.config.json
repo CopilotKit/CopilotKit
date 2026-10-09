@@ -7,6 +7,7 @@
         "@copilotkit/agentcore-runner",
         "@copilotkit/core",
         "@copilotkit/markdown-renderer",
+        "@copilotkit/mcp-apps-renderer",
         "@copilotkit/react-core",
         "@copilotkit/react-native",
         "@copilotkit/react-textarea",
@@ -23,6 +24,11 @@
       ],
       "versionSource": "@copilotkit/react-core",
       "sharedVersion": true
+    },
+    "learning": {
+      "packages": ["@copilotkit/learning"],
+      "versionSource": "@copilotkit/learning",
+      "sharedVersion": false
     },
     "angular": {
       "packages": ["@copilotkit/angular"],
@@ -43,6 +49,18 @@
       ],
       "versionSource": "@copilotkit/channels",
       "sharedVersion": true
+    },
+    "intelligence-langgraph": {
+      "packages": ["@copilotkit/intelligence-langgraph"],
+      "sourcePaths": ["packages/intelligence-delivery-core"],
+      "versionSource": "@copilotkit/intelligence-langgraph",
+      "sharedVersion": false
+    },
+    "intelligence-mastra": {
+      "packages": ["@copilotkit/intelligence-mastra"],
+      "sourcePaths": ["packages/intelligence-delivery-core"],
+      "versionSource": "@copilotkit/intelligence-mastra",
+      "sharedVersion": false
     }
   }
 }

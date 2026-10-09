@@ -20,6 +20,7 @@ import {
   packPackage,
   workspaceDependencyClosure,
 } from "./lib/pack-workspace.js";
+import { loadPublishedChannelsManifest } from "./lib/channels-registry.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -80,30 +81,10 @@ function packLocalFamily(tarballDir: string): {
   return { manifests, tarballs };
 }
 
-function loadRegistryManifest(name: string, version: string): PackedManifest {
-  try {
-    return JSON.parse(
-      capture("npm", ["view", `${name}@${version}`, "--json"]),
-    ) as PackedManifest;
-  } catch (error) {
-    const stderr =
-      typeof error === "object" && error !== null && "stderr" in error
-        ? String(error.stderr)
-        : "";
-    if (stderr.includes("E404")) {
-      throw new Error(
-        `registry is missing ${name}@${version}; publish channels-core and every adapter before publishing @copilotkit/channels`,
-        { cause: error },
-      );
-    }
-    throw error;
-  }
-}
-
-function loadRegistrySnapshot(tarballDir: string): {
+async function loadRegistrySnapshot(tarballDir: string): Promise<{
   manifests: Map<string, PackedManifest>;
   tarballs: Map<string, string>;
-} {
+}> {
   const umbrellaName = "@copilotkit/channels";
   const { manifest: umbrella, tarball } = packPackage(umbrellaName, tarballDir);
   const manifests = new Map<string, PackedManifest>([[umbrellaName, umbrella]]);
@@ -115,7 +96,12 @@ function loadRegistrySnapshot(tarballDir: string): {
       throw new Error(`packed umbrella is missing ${name}`);
     }
 
-    manifests.set(name, loadRegistryManifest(name, version));
+    manifests.set(
+      name,
+      await loadPublishedChannelsManifest(name, version, {
+        lookup: () => capture("npm", ["view", `${name}@${version}`, "--json"]),
+      }),
+    );
   }
 
   return {
@@ -237,7 +223,7 @@ void [createChannel, slack, teams, discord, telegram, whatsapp, view];
   );
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const registryMode = process.argv.includes("--registry");
   const temp = mkdtempSync(join(tmpdir(), "channels-umbrella-"));
   const tarballDir = join(temp, "tarballs");
@@ -247,7 +233,7 @@ function main(): void {
 
   try {
     const { manifests, tarballs } = registryMode
-      ? loadRegistrySnapshot(tarballDir)
+      ? await loadRegistrySnapshot(tarballDir)
       : packLocalFamily(tarballDir);
     const problems = validatePackedManifests(manifests);
     if (problems.length) {
@@ -277,9 +263,7 @@ function main(): void {
   }
 }
 
-try {
-  main();
-} catch (error) {
+main().catch((error) => {
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;
-}
+});

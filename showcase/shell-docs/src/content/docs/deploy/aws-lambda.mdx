@@ -26,7 +26,7 @@ The handler code below is the same for both streaming paths; only the event shap
 
 ## Function URL with response streaming
 
-Response streaming requires three things: a Function URL with its invoke mode set to `RESPONSE_STREAM`, a handler wrapped in `awslambda.streamifyResponse`, and a Node.js managed runtime (Node.js 18 or later).
+Response streaming requires three things: a Function URL with its invoke mode set to `RESPONSE_STREAM`, a handler wrapped in `awslambda.streamifyResponse`, and a Node.js managed runtime of version 20 or later. AWS supports response streaming from Node.js 18, but `@copilotkit/runtime` requires Node.js 20.
 
 ### 1. The handler
 

@@ -76,8 +76,8 @@ export default defineConfig({
           process.env.INTELLIGENCE_API_URL ?? "http://localhost:7250",
         INTELLIGENCE_GATEWAY_WS_URL:
           process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:7253",
-        INTELLIGENCE_API_KEY:
-          process.env.INTELLIGENCE_API_KEY ??
+        CPK_INTELLIGENCE_API_KEY:
+          process.env.CPK_INTELLIGENCE_API_KEY ??
           "cpk_sPRVSEED_seed0privat0longtoken00",
         INTELLIGENCE_USER_ID:
           process.env.INTELLIGENCE_USER_ID ?? "jordan-beamson",

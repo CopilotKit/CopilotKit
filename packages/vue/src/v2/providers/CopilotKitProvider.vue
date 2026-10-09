@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { GENERATE_SANDBOXED_UI_DESCRIPTION } from "@copilotkit/shared";
 import {
   computed,
+  h,
   onMounted,
   provide,
   ref,
@@ -10,13 +12,17 @@ import {
 } from "vue";
 import { z } from "zod";
 import type { AbstractAgent } from "@ag-ui/client";
+import { ToolCallStatus } from "@copilotkit/core";
 import type {
   CopilotKitCoreErrorCode,
   CopilotKitCoreSubscriber,
   FrontendTool,
 } from "@copilotkit/core";
 import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
-import type { RuntimeLicenseStatus } from "@copilotkit/shared";
+import type {
+  RuntimeEntitlementResponse,
+  RuntimeLicenseStatus,
+} from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { CopilotKitCoreVue } from "../lib/vue-core";
 import { createA2UIMessageRenderer } from "../components/A2UIMessageRenderer";
@@ -49,8 +55,8 @@ import type {
   SandboxFunction,
   VueActivityMessageRenderer,
   VueFrontendTool,
-  VueHumanInTheLoop,
   VueToolCallRenderer,
+  VueToolCallRendererRenderProps,
 } from "../types";
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
@@ -69,6 +75,10 @@ const RENDER_ACTIVITY_MESSAGES_STABLE_WARNING =
   "renderActivityMessages must be a stable array.";
 const SANDBOX_FUNCTIONS_STABLE_WARNING =
   "openGenerativeUI.sandboxFunctions must be a stable array.";
+// Matches the message React's `useHumanInTheLoop` rejects with, so an aborted
+// interrupt reads the same across frameworks (see #5554).
+const HUMAN_IN_THE_LOOP_ABORTED_MESSAGE =
+  "Human-in-the-loop interaction aborted";
 const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
 
 - Use a minimal, flat aesthetic. Avoid drop shadows and gradients — rely on subtle borders (1px solid, light gray like #e5e7eb) to define surfaces.
@@ -79,20 +89,6 @@ const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follo
 - Use CSS Grid or Flexbox for layout. Ensure the UI looks good at any width.
 - Minimal transitions (150ms) for hover/focus states only. No decorative animations.
 - Keep the UI focused and dense — avoid excessive padding. Use compact spacing (8–12px gaps, 10–14px padding in controls).`;
-
-const GENERATE_SANDBOXED_UI_DESCRIPTION =
-  "Generate sandboxed UI. " +
-  "IMPORTANT: The generated code runs in a sandboxed iframe WITHOUT same-origin access. " +
-  "Do NOT use localStorage, sessionStorage, document.cookie, IndexedDB, or fetch/XMLHttpRequest to same-origin URLs. " +
-  "To communicate with the host application, use Websandbox.connection.remote.<functionName>(args) which returns a Promise.\n\n" +
-  "You CAN use external libraries from CDNs by including <script> or <link> tags in the HTML <head> (e.g., Chart.js, D3, Three.js, x-data-spreadsheet, etc.). " +
-  "CDN resources load normally inside the sandbox.\n\n" +
-  "PARAMETER ORDER IS CRITICAL — generate parameters in exactly this order:\n" +
-  "1. initialHeight + placeholderMessages (shown to user while generating)\n" +
-  "2. css (all styles FIRST — the user sees a placeholder until CSS is complete)\n" +
-  "3. html (streams in live — the user watches the UI build as HTML is generated)\n" +
-  "4. jsFunctions (reusable helper functions)\n" +
-  "5. jsExpressions (applied one-by-one — the user sees each expression take effect)";
 
 const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   headers: () => ({}),
@@ -227,29 +223,99 @@ watch(
   { immediate: true },
 );
 
+/**
+ * A human-in-the-loop tool call from the `humanInTheLoop` prop that is waiting
+ * on the user. Keyed by tool call id so parallel interrupts on the same tool
+ * stay independent.
+ */
+type PendingHumanInTheLoop = {
+  resolve: (result: unknown) => void;
+  detachAbort?: () => void;
+};
+
+const pendingHumanInTheLoop = new Map<string, PendingHumanInTheLoop>();
+
+/** Removes a pending interaction and detaches its abort listener. */
+const takePendingHumanInTheLoop = (key: string) => {
+  const pending = pendingHumanInTheLoop.get(key);
+  if (!pending) return undefined;
+  pending.detachAbort?.();
+  pendingHumanInTheLoop.delete(key);
+  return pending;
+};
+
 const processedHumanInTheLoop = computed(() => {
   const tools: FrontendTool[] = [];
   const renderToolCalls: VueToolCallRenderer<unknown>[] = [];
 
   for (const tool of props.humanInTheLoop) {
     tools.push({
+      type: "human-in-the-loop",
       name: tool.name,
       description: tool.description,
       parameters: tool.parameters,
       followUp: tool.followUp,
       ...(tool.agentId && { agentId: tool.agentId }),
-      handler: async () => {
-        console.warn(
-          `Human-in-the-loop tool '${tool.name}' called but no interactive handler is set up.`,
-        );
-        return undefined;
+      // Keep the tool call pending until the render calls `respond`, matching
+      // the `useHumanInTheLoop` composable. Resolving immediately made the HITL
+      // UI flash and disappear without ever waiting for the user.
+      handler: async (_args, context) => {
+        const signal = context?.signal;
+        const key = context?.toolCall?.id ?? tool.name;
+
+        return new Promise((resolve, reject) => {
+          // Already aborted before the handler ran — reject so core records an
+          // explicit error tool result rather than silently resolving empty.
+          if (signal?.aborted) {
+            reject(new Error(HUMAN_IN_THE_LOOP_ABORTED_MESSAGE));
+            return;
+          }
+
+          const pending: PendingHumanInTheLoop = { resolve };
+          pendingHumanInTheLoop.set(key, pending);
+
+          if (signal) {
+            const onAbort = () => {
+              pendingHumanInTheLoop.delete(key);
+              reject(new Error(HUMAN_IN_THE_LOOP_ABORTED_MESSAGE));
+            };
+            signal.addEventListener("abort", onAbort, { once: true });
+            pending.detachAbort = () => {
+              signal.removeEventListener("abort", onAbort);
+            };
+          }
+        });
       },
     });
     if (tool.render) {
+      const ToolComponent = tool.render;
+      const render: VueToolCallRenderer<unknown>["render"] = (
+        renderProps: VueToolCallRendererRenderProps<unknown>,
+      ) => {
+        const key = renderProps.toolCallId ?? tool.name;
+        return h(ToolComponent as Parameters<typeof h>[0], {
+          ...renderProps,
+          // `renderProps.name` is the tool that was actually invoked. It equals
+          // `tool.name` for a named registration; for a wildcard (`"*"`) it is
+          // the only place the real name exists.
+          name: tool.name === "*" ? renderProps.name : tool.name,
+          description: tool.description || "",
+          agentId: tool.agentId,
+          // `respond` is live only while the tool is executing — the one phase
+          // with a promise waiting on the user.
+          respond:
+            renderProps.status === ToolCallStatus.Executing
+              ? async (result: unknown) => {
+                  takePendingHumanInTheLoop(key)?.resolve(result);
+                }
+              : undefined,
+        });
+      };
+
       renderToolCalls.push({
         name: tool.name,
         args: tool.parameters ?? z.any(),
-        render: tool.render,
+        render,
         ...(tool.agentId && { agentId: tool.agentId }),
       } as VueToolCallRenderer<unknown>);
     }
@@ -295,6 +361,10 @@ const allRenderCustomMessages = computed(
 const runtimeA2UIEnabled = ref(false);
 const runtimeOpenGenerativeUIEnabled = ref(false);
 const runtimeLicenseStatus = ref<RuntimeLicenseStatus | undefined>(undefined);
+const runtimeEntitlements = ref<RuntimeEntitlementResponse | undefined>(
+  undefined,
+);
+const runtimeEntitlementRetryPending = ref(false);
 const openGenerativeUIActive = computed(
   () => runtimeOpenGenerativeUIEnabled.value || !!props.openGenerativeUI,
 );
@@ -402,6 +472,7 @@ const createCopilotKit = () => {
           : "auto",
     headers: mergedHeaders.value,
     credentials: props.credentials,
+    messageFilter: props.messageFilter,
     properties: resolvedProperties.value,
     agents__unsafe_dev_only: mergedAgents.value,
     tools: allTools.value,
@@ -461,15 +532,14 @@ watch(
         runtimeA2UIEnabled.value = core.a2uiEnabled;
         runtimeOpenGenerativeUIEnabled.value = core.openGenerativeUIEnabled;
         runtimeLicenseStatus.value = core.licenseStatus;
+        runtimeEntitlements.value = core.runtimeEntitlements;
+        runtimeEntitlementRetryPending.value =
+          core.runtimeEntitlementRetryPending;
         triggerRef(copilotkit);
       },
     });
     const sub5 = core.subscribe({
-      onError: (event: {
-        error: Error;
-        code: CopilotKitCoreErrorCode;
-        context: Record<string, any>;
-      }) => {
+      onError: (event) => {
         void props.onError?.({
           error: event.error,
           code: event.code,
@@ -521,6 +591,7 @@ function syncRuntimeConfig() {
   );
   copilotkit.value.setHeaders(mergedHeaders.value);
   copilotkit.value.setCredentials(props.credentials);
+  copilotkit.value.setMessageFilter(props.messageFilter);
   copilotkit.value.setProperties(resolvedProperties.value);
   copilotkit.value.setAgents__unsafe_dev_only(mergedAgents.value);
   copilotkit.value.setDebug(props.debug);
@@ -532,6 +603,7 @@ watch(
     () => chatApiEndpoint.value,
     () => mergedHeaders.value,
     () => props.credentials,
+    () => props.messageFilter,
     () => resolvedProperties.value,
     () => mergedAgents.value,
     () => props.useSingleEndpoint,
@@ -558,6 +630,9 @@ onMounted(() => {
   runtimeOpenGenerativeUIEnabled.value =
     copilotkit.value.openGenerativeUIEnabled;
   runtimeLicenseStatus.value = copilotkit.value.licenseStatus;
+  runtimeEntitlements.value = copilotkit.value.runtimeEntitlements;
+  runtimeEntitlementRetryPending.value =
+    copilotkit.value.runtimeEntitlementRetryPending;
   didMountRef.value = true;
 });
 
@@ -635,23 +710,72 @@ provide(CopilotKitKey, {
 provide(SandboxFunctionsKey, sandboxFunctions);
 provide(MARKDOWN_RENDERER_KEY, props.markdownRenderer);
 
-// License context — driven by server-reported `/info` license status.
-const licenseContextValue = computed<LicenseContextValue>(() =>
-  createLicenseContextValue(runtimeLicenseStatus.value),
+// License context — driven by structured and legacy Runtime authority.
+const retryableRuntimeEntitlementFailure = computed(
+  () =>
+    runtimeEntitlements.value?.status !== "ready" &&
+    runtimeEntitlements.value?.error.retryable === true,
 );
+const hasNonReadyRuntimeEntitlement = computed(
+  () =>
+    runtimeEntitlements.value !== undefined &&
+    runtimeEntitlements.value.status !== "ready",
+);
+const hasLegacyRuntimeEntitlementFallback = computed(
+  () =>
+    runtimeLicenseStatus.value === "valid" ||
+    runtimeLicenseStatus.value === "expiring",
+);
+const runtimeEntitlementRetryInProgress = computed(
+  () =>
+    retryableRuntimeEntitlementFailure.value &&
+    runtimeEntitlementRetryPending.value &&
+    !hasLegacyRuntimeEntitlementFallback.value,
+);
+// Only a terminal failure denies features. A retryable failure (a timeout,
+// a network error, a 5xx) says nothing about what the project may use.
+const terminalRuntimeEntitlementFailure = computed(
+  () =>
+    hasNonReadyRuntimeEntitlement.value &&
+    !retryableRuntimeEntitlementFailure.value &&
+    !hasLegacyRuntimeEntitlementFallback.value,
+);
+const licenseContextValue = computed<LicenseContextValue>(() => {
+  const runtimeLicenseContext = createLicenseContextValue(
+    runtimeEntitlementRetryInProgress.value
+      ? undefined
+      : runtimeLicenseStatus.value,
+    runtimeEntitlements.value,
+  );
+  if (!terminalRuntimeEntitlementFailure.value) {
+    return runtimeLicenseContext;
+  }
+
+  return {
+    ...runtimeLicenseContext,
+    checkFeature: () => false,
+    getLimit: () => null,
+  };
+});
 provide(LicenseContextKey, licenseContextValue);
 
+const runtimeLicenseWarningStatus = computed(() =>
+  runtimeEntitlementRetryInProgress.value
+    ? undefined
+    : (licenseContextValue.value.status ?? undefined),
+);
 const showNoLicenseBanner = computed(
-  () => runtimeLicenseStatus.value === "none" && !resolvedPublicKey.value,
+  () =>
+    runtimeLicenseWarningStatus.value === "none" && !resolvedPublicKey.value,
 );
 const showExpiredBanner = computed(
-  () => runtimeLicenseStatus.value === "expired",
+  () => runtimeLicenseWarningStatus.value === "expired",
 );
 const showInvalidBanner = computed(
-  () => runtimeLicenseStatus.value === "invalid",
+  () => runtimeLicenseWarningStatus.value === "invalid",
 );
 const showExpiringBanner = computed(
-  () => runtimeLicenseStatus.value === "expiring",
+  () => runtimeLicenseWarningStatus.value === "expiring",
 );
 </script>
 

@@ -26,7 +26,6 @@ export interface CatalogMetadata {
   unsupported: number;
   /** Cells for docs-only features — excluded from wired/stub/unshipped/unsupported. */
   docs_only: number;
-  generated_at: string;
 }
 
 export interface CatalogData {

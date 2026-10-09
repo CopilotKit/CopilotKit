@@ -31,7 +31,6 @@ export const DEFAULT_MCP_APPS_CONFIG: Readonly<Required<MCPAppsConfig>> = {
     logging: {},
   },
   hostContext: {
-    theme: "light",
     platform: "web",
   },
 };

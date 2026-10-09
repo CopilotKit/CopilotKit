@@ -7,16 +7,17 @@ hideTOC: true
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
-<IntelligenceOnboardingPrompt
-  feature="learning"
-  surface="docs_aws_strands_quickstart"
-/>
+## Start with your coding agent
+
+Use this prompt to connect your AWS Strands agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
+
+<PageAgentPrompt />
 
 ## Prerequisites
 
 Before you begin, you'll need the following:
 
-- An OpenAI API key
+- An OpenAI or Anthropic API key
 - Node.js 20+
 - Python 3.12+ (Python agents only)
 - Your favorite package manager
@@ -25,9 +26,9 @@ Before you begin, you'll need the following:
 
 <Steps>
     <Step>
-        ### Create a free account
+        ### Set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_aws_strands_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence to get a license key. You'll use it later to enable persistent threads and the inspector.
+        <SignupLink surface="docs_aws_strands_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. Cloud-hosted setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create it below.
     </Step>
 
     <Step>
@@ -82,8 +83,46 @@ Before you begin, you'll need the following:
                 OPENAI_API_KEY=your_openai_api_key
                 ```
 
-                <Callout type="info" title="What about other models?">
-                  The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by Strands.
+                <ApiKeyHint provider="openai" />
+
+                <Callout type="info" title="Using Anthropic instead">
+                  Add `ANTHROPIC_API_KEY` to `agent/.env`, then swap the model:
+
+                  <Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
+                      <Tab value="Python">
+                          In `agent/pyproject.toml`, change `strands-agents[OpenAI]` to
+                          `strands-agents[OpenAI,anthropic]` and run `uv sync`. In
+                          `agent/main.py`, replace the `OpenAIModel(...)` block:
+
+                          ```python title="agent/main.py"
+                          from strands.models.anthropic import AnthropicModel
+
+                          model = AnthropicModel(
+                              client_args={"api_key": os.getenv("ANTHROPIC_API_KEY", "")},
+                              model_id="claude-sonnet-4-6",
+                              max_tokens=8192,  # required
+                          )
+                          ```
+                      </Tab>
+                      <Tab value="TypeScript">
+                          Run `npm install @anthropic-ai/sdk` in `agent/`. In
+                          `agent/src/agent.ts`, delete the `OPENAI_API_KEY` check and replace
+                          the `new OpenAIModel(...)` block:
+
+                          ```typescript title="agent/src/agent.ts"
+                          import { AnthropicModel } from "@strands-agents/sdk/models/anthropic";
+
+                          const model = new AnthropicModel({
+                            apiKey: process.env.ANTHROPIC_API_KEY,
+                            modelId: "claude-sonnet-4-6",
+                            maxTokens: 8192,
+                          });
+                          ```
+                      </Tab>
+                  </Tabs>
+
+                  The dynamic A2UI tool still calls OpenAI, so keep `OPENAI_API_KEY` if you
+                  use it.
                 </Callout>
             </Step>
             <Step>
@@ -177,8 +216,43 @@ Before you begin, you'll need the following:
                 export OPENAI_API_KEY=your_openai_api_key
                 ```
 
-                <Callout type="info" title="What about other models?">
-                  This example uses OpenAI's GPT-4o, but you can modify it to use any language model supported by Strands.
+                <ApiKeyHint provider="openai" />
+
+                <Callout type="info" title="Using Anthropic instead">
+                  Set `ANTHROPIC_API_KEY`, then use this model in the next step:
+
+                  <Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
+                      <Tab value="Python">
+                          ```bash
+                          uv add "strands-agents[anthropic]"
+                          ```
+
+                          ```python title="main.py"
+                          from strands.models.anthropic import AnthropicModel
+
+                          model = AnthropicModel(
+                              client_args={"api_key": os.getenv("ANTHROPIC_API_KEY", "")},
+                              model_id="claude-sonnet-4-6",
+                              max_tokens=8192,  # required
+                          )
+                          ```
+                      </Tab>
+                      <Tab value="TypeScript">
+                          ```bash
+                          npm install @anthropic-ai/sdk
+                          ```
+
+                          ```typescript title="main.ts"
+                          import { AnthropicModel } from "@strands-agents/sdk/models/anthropic";
+
+                          const model = new AnthropicModel({
+                            apiKey: process.env.ANTHROPIC_API_KEY,
+                            modelId: "claude-sonnet-4-6",
+                            maxTokens: 8192,
+                          });
+                          ```
+                      </Tab>
+                  </Tabs>
                 </Callout>
             </Step>
             <Step>
@@ -283,7 +357,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.2
                 ```
             </Step>
             <Step>
@@ -305,7 +379,7 @@ Before you begin, you'll need the following:
                   },
                   // [!code highlight:8]
                   intelligence: new CopilotKitIntelligence({
-                    apiKey: process.env.INTELLIGENCE_API_KEY!,
+                    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
                   }),
                   // Threads are per-user. Without this, every visitor shares one history.
                   identifyUser: (request) => ({
@@ -323,18 +397,23 @@ Before you begin, you'll need the following:
                 export const POST = handler;
                ```
 
-                The runtime reads the license key from step 1. Add it to the app that serves
-                this route:
+                From this frontend app directory, connect the runtime to an Intelligence project:
 
-                ```plaintext title=".env.local"
-                INTELLIGENCE_API_KEY=your_license_key
+                ```bash title="Terminal"
+                npx copilotkit@latest project select
+                ```
+
+                The command writes the server-side project API key to `.env`. The runtime reads it here:
+
+                ```plaintext title=".env"
+                CPK_INTELLIGENCE_API_KEY=cpk-...
                 ```
 
                 <Callout type="info" title="Running without the Intelligence Platform?">
                   Drop the `intelligence` and `identifyUser` options and the runtime falls back
                   to SSE mode with an in-memory runner. Chat still works, but Threads and the
                   Inspector stay locked and the key is never read. See
-                  [Connect your runtime to Intelligence](/premium/connect-your-runtime) for the
+                  [Connect your runtime to Intelligence](/intelligence/quickstart) for the
                   full constructor and how to confirm the key is in use.
                 </Callout>
             </Step>
@@ -343,8 +422,25 @@ Before you begin, you'll need the following:
 
                 Wrap your application with the CopilotKit provider:
 
+                ```tsx title="app/providers.tsx"
+                "use client";
+
+                import { CopilotKit } from "@copilotkit/react-core/v2";
+
+                export function Providers({ children }: { children: React.ReactNode }) {
+                  return (
+                    <CopilotKit runtimeUrl="/api/copilotkit" agent="strands_agent" useSingleEndpoint={false}>
+                      {children}
+                    </CopilotKit>
+                  );
+                }
+                ```
+
+                `app/layout.tsx` is a server component and cannot import the provider
+                directly, so it renders your client file instead:
+
                 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { Providers } from "./providers"; // [!code highlight]
                 import "@copilotkit/react-core/v2/styles.css";
                 import './globals.css';
 
@@ -355,9 +451,9 @@ Before you begin, you'll need the following:
                     <html lang="en">
                       <body>
                         {/* [!code highlight:3] */}
-                        <CopilotKit runtimeUrl="/api/copilotkit" agent="strands_agent" useSingleEndpoint={false}>
+                        <Providers>
                           {children}
-                        </CopilotKit>
+                        </Providers>
                       </body>
                     </html>
                   );
@@ -370,6 +466,8 @@ Before you begin, you'll need the following:
               Add the CopilotSidebar component to your page:
 
               ```tsx title="app/page.tsx"
+              "use client"; // [!code highlight]
+
               import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
               export default function Page() {

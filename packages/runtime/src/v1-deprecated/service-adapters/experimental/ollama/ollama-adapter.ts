@@ -43,21 +43,31 @@ import type {
   CopilotRuntimeChatCompletionResponse,
 } from "../../service-adapter";
 import { randomId, randomUUID } from "@copilotkit/shared";
+import { createOpenAI } from "@ai-sdk/openai";
+import type { LanguageModel } from "ai";
 
 const DEFAULT_MODEL = "llama3:latest";
 
+const DEFAULT_BASE_URL = "http://127.0.0.1:11434";
+
 interface OllamaAdapterOptions {
   model?: string;
+  /**
+   * Base URL of the Ollama server. Defaults to `http://127.0.0.1:11434`.
+   */
+  baseUrl?: string;
 }
 
 export class ExperimentalOllamaAdapter implements CopilotServiceAdapter {
   public model: string;
   public provider = "ollama";
+  private baseUrl: string;
   public get name() {
     return "OllamaAdapter";
   }
 
   constructor(options?: OllamaAdapterOptions) {
+    this.baseUrl = options?.baseUrl ?? DEFAULT_BASE_URL;
     if (options?.model) {
       this.model = options.model;
     } else {
@@ -99,5 +109,20 @@ export class ExperimentalOllamaAdapter implements CopilotServiceAdapter {
     return {
       threadId: request.threadId || randomUUID(),
     };
+  }
+
+  /**
+   * Ollama exposes an OpenAI-compatible API at `/v1`, so the model is built
+   * from the OpenAI provider pointed at the Ollama server. Without it the
+   * runtime rebuilds a bare "ollama/<model>" string and fails with
+   * `Unknown provider "ollama"`. Ollama ignores the key; a non-empty value is
+   * required only because the OpenAI client insists on one.
+   */
+  getLanguageModel(): LanguageModel {
+    const provider = createOpenAI({
+      baseURL: `${this.baseUrl.replace(/\/$/, "")}/v1`,
+      apiKey: "ollama",
+    });
+    return provider(this.model);
   }
 }

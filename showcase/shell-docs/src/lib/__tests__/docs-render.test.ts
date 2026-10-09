@@ -1,8 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs";
 import path from "path";
-import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("../registry", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -15,19 +13,16 @@ vi.mock("../registry", async (importOriginal) => {
 import {
   buildFrameworkNav,
   buildFrameworkOnlyNav,
-  CONTENT_DIR,
+  buildRootSurfaceNav,
   inlineSnippets,
   loadDoc,
-  readIcon,
+  navAncestorBreadcrumbsForSlug,
+  normalizeSidebarNav,
   readTitle,
   SNIPPET_MAP,
   SNIPPETS_DIR,
 } from "../docs-render";
 import type { NavNode } from "../docs-render";
-import { buildCookbookNavTree } from "../cookbook-nav";
-import { navTreeToPageTree } from "../page-tree-bridge";
-import { buildReferencePageTree } from "../reference-items";
-import { getDocsFolder, getIntegrations } from "../registry";
 
 let tempDir = "";
 
@@ -98,28 +93,6 @@ function groupPageEntries(
   }
 
   return [];
-}
-
-function sectionPages(navTree: NavNode[], section: string): string[] {
-  const pages: string[] = [];
-  let inSection = false;
-  for (const node of navTree) {
-    if (node.type === "section") {
-      inSection = node.title === section;
-      continue;
-    }
-    if (!inSection) continue;
-    if (node.type === "page") pages.push(node.title);
-  }
-  return pages;
-}
-
-function collectMdxFiles(dir: string): string[] {
-  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const filePath = path.join(dir, entry.name);
-    if (entry.isDirectory()) return collectMdxFiles(filePath);
-    return entry.isFile() && entry.name.endsWith(".mdx") ? [filePath] : [];
-  });
 }
 
 describe("inlineSnippets", () => {
@@ -199,98 +172,14 @@ describe("inlineSnippets", () => {
 
 describe("loadDoc", () => {
   it("resolves clean URLs to files stored under route-group folders", () => {
-    const doc = loadDoc("integrations/aws-strands/telemetry");
+    // llamaindex is an `authored` integration, so this file is served content
+    // rather than a copy the root page shadows. The aws-strands equivalent
+    // this used to assert on was deleted as a never-served duplicate.
+    const doc = loadDoc("integrations/llamaindex/telemetry");
 
-    expect(doc?.filePath).toContain(
-      "integrations/aws-strands/(other)/telemetry/index.mdx",
+    expect(doc?.filePath.split(path.sep).join("/")).toContain(
+      "integrations/llamaindex/(other)/telemetry/index.mdx",
     );
-  });
-
-  it("keeps the Threads overview and headless implementation on separate routes", () => {
-    expect(loadDoc("threads")?.fm.title).toBe("Rich Threads");
-    expect(loadDoc("headless-threads")?.fm.title).toBe("Headless Threads");
-    expect(loadDoc("integrations/mastra/threads")?.fm.title).toBe(
-      "Rich Threads",
-    );
-    expect(loadDoc("integrations/mastra/headless-threads")?.fm.title).toBe(
-      "Headless Threads",
-    );
-  });
-
-  it("keeps the approved overview assets and activation journey in order", () => {
-    const overview = fs.readFileSync(
-      path.join(SNIPPETS_DIR, "shared/threads/overview.mdx"),
-      "utf8",
-    );
-
-    const screenshot = overview.indexOf("support-desk-threads.png");
-    const gettingStarted = overview.indexOf("## Get started");
-    const why = overview.indexOf("## Why use CopilotKit Rich Threads?");
-    const diagram = overview.indexOf("threads-diagram-light.png");
-
-    expect(screenshot).toBeGreaterThan(-1);
-    expect(screenshot).toBeLessThan(gettingStarted);
-    expect(gettingStarted).toBeLessThan(why);
-    expect(why).toBeLessThan(diagram);
-    expect(overview).toContain("npx copilotkit@latest init");
-    expect(overview).toContain("Build and verify this with a coding agent");
-    expect(overview).toContain("Threads-capable CLI starters already include");
-    expect(overview).toContain("Book time with a CopilotKit engineer");
-    expect(overview).toContain("## Sync existing conversations");
-    expect(overview).toContain("threads-diagram-dark.png");
-  });
-
-  it("links locked Inspector users to a complete Rich Threads Runtime repair journey", () => {
-    const runtimeEndpoints = loadDoc("backend/runtime-endpoints")?.source ?? "";
-    const inspector = loadDoc("inspector")?.source ?? "";
-
-    expect(runtimeEndpoints).toContain("## Enable Rich Threads routes");
-    expect(runtimeEndpoints).toContain('Remove `mode: "single-route"`');
-    expect(runtimeEndpoints).toContain(
-      'import { CopilotKitProvider } from "@copilotkit/react-core/v2";',
-    );
-    expect(runtimeEndpoints).toContain("`useSingleEndpoint={false}`");
-    expect(runtimeEndpoints).toContain("`identifyUser`");
-    expect(runtimeEndpoints).toContain("GET, POST, PATCH, and DELETE");
-    expect(runtimeEndpoints).toContain('"list": true');
-    expect(runtimeEndpoints).toContain('"inspect": true');
-    expect(inspector).toContain(
-      "[Enable Rich Threads routes](/backend/runtime-endpoints#enable-rich-threads-routes)",
-    );
-  });
-});
-
-describe("readIcon", () => {
-  it("only exposes page icons when frontmatter opts in with showIcon", () => {
-    const hiddenIconFile = path.join(tempDir, "hidden-icon.mdx");
-    const visibleIconFile = path.join(tempDir, "visible-icon.mdx");
-
-    fs.writeFileSync(
-      hiddenIconFile,
-      [
-        "---",
-        'title: "Hidden icon"',
-        'icon: "lucide/Bolt"',
-        "---",
-        "",
-        "Body",
-      ].join("\n"),
-    );
-    fs.writeFileSync(
-      visibleIconFile,
-      [
-        "---",
-        'title: "Visible icon"',
-        'icon: "lucide/Bolt"',
-        "showIcon: true",
-        "---",
-        "",
-        "Body",
-      ].join("\n"),
-    );
-
-    expect(readIcon(hiddenIconFile)).toBeNull();
-    expect(readIcon(visibleIconFile)).toBe("lucide/Bolt");
   });
 });
 
@@ -301,7 +190,7 @@ describe("readTitle", () => {
       filePath,
       [
         "---",
-        'title: "Threads"',
+        'title: "AG-UI Streams"',
         'nav_title: "Overview"',
         "---",
         "",
@@ -310,170 +199,35 @@ describe("readTitle", () => {
     );
 
     expect(readTitle(filePath)).toBe("Overview");
-    expect(loadDoc("threads")?.fm.title).toBe("Rich Threads");
-  });
-});
-
-describe("reference nav", () => {
-  it("renders the Reference root entry with a book icon", () => {
-    const tree = buildReferencePageTree("v2");
-    const markup = renderToStaticMarkup(
-      React.createElement(React.Fragment, null, tree.name),
-    );
-
-    expect(markup).toContain("lucide-book-open");
-    expect(markup).toContain("Reference");
-  });
-});
-
-describe("migration docs", () => {
-  it("recommends CopilotKit from the v2 entrypoint instead of CopilotKitProvider", () => {
-    const snippet = fs.readFileSync(
-      path.join(SNIPPETS_DIR, "shared/troubleshooting/migrate-to-v2.mdx"),
-      "utf8",
-    );
-
-    expect(snippet).toContain(
-      "Keep the `<CopilotKit>` provider name, but import it from `@copilotkit/react-core/v2`.",
-    );
-    expect(snippet).toContain(
-      'import { CopilotKit, useAgent } from "@copilotkit/react-core/v2";',
-    );
-    expect(snippet).toContain(
-      'import { CopilotKit, CopilotPopup } from "@copilotkit/react-core/v2";',
-    );
-    expect(snippet).not.toContain("CopilotKitProvider");
-  });
-
-  it("keeps v2 reference pages aligned with the CopilotKit v2 entrypoint", () => {
-    const referenceIndex = fs.readFileSync(
-      path.join(CONTENT_DIR, "..", "reference/index.mdx"),
-      "utf8",
-    );
-    const componentReference = fs.readFileSync(
-      path.join(CONTENT_DIR, "..", "reference/components/CopilotKit.mdx"),
-      "utf8",
-    );
-
-    expect(referenceIndex).toContain(
-      'import { CopilotKit } from "@copilotkit/react-core/v2";',
-    );
-    expect(referenceIndex).not.toContain(
-      "CopilotKit is imported from the root package",
-    );
-    expect(referenceIndex).not.toContain(
-      "import `CopilotKit` from `@copilotkit/react-core`",
-    );
-    expect(componentReference).toContain("`@copilotkit/react-core/v2`");
-    expect(componentReference).not.toContain("not from the v2 subpackage");
-  });
-
-  it("does not recommend stale v2 package paths in authored docs", () => {
-    const authoredDocFiles = collectMdxFiles(CONTENT_DIR);
-    const allowedRootProviderImports = new Set([
-      path.join(CONTENT_DIR, "migrate/v2.mdx"),
-    ]);
-
-    const rootProviderImports = authoredDocFiles.filter((filePath) => {
-      if (allowedRootProviderImports.has(filePath)) return false;
-      return fs
-        .readFileSync(filePath, "utf8")
-        .includes('import { CopilotKit } from "@copilotkit/react-core";');
-    });
-
-    const oldV2StyleImports = [
-      ...authoredDocFiles,
-      ...collectMdxFiles(SNIPPETS_DIR),
-    ].filter((filePath) =>
-      fs
-        .readFileSync(filePath, "utf8")
-        .includes("@copilotkit/react-ui/v2/styles.css"),
-    );
-
-    expect(rootProviderImports).toEqual([]);
-    expect(oldV2StyleImports).toEqual([]);
-  });
-});
-
-describe("cookbook nav", () => {
-  it("uses the real Claude mark instead of a text placeholder", () => {
-    const claudeLogo = fs.readFileSync(
-      path.resolve(CONTENT_DIR, "../../../public/logos/claude.svg"),
-      "utf8",
-    );
-
-    expect(claudeLogo).toContain("<path");
-    expect(claudeLogo).not.toContain("<text");
-  });
-
-  it("renders overview and recipes as top-level entries without changing slugs", () => {
-    const navTree = buildCookbookNavTree();
-
-    expect(navTree).toHaveLength(7);
-    expect(navTree.map((node) => node.type)).toEqual([
-      "page",
-      "page",
-      "page",
-      "page",
-      "page",
-      "page",
-      "page",
-    ]);
-    expect(
-      navTree.map((node) =>
-        node.type === "page" ? [node.title, node.slug] : null,
-      ),
-    ).toEqual([
-      ["Overview", "cookbook/index"],
-      ["Daytona", "cookbook/daytona"],
-      ["Claude Managed Agents", "cookbook/claude-managed-agents"],
-      ["Oracle Agent Memory", "cookbook/oracle-agent-spec-memory"],
-      ["Arcade", "cookbook/arcade"],
-      ["Angular + Google ADK", "cookbook/angular-adk-agentic-app"],
-      ["OpenBox Governance", "cookbook/openbox-governed-copilotkit"],
-    ]);
-
-    const pageTree = navTreeToPageTree(navTree, "");
-    expect(pageTree.children.map((node) => node.type)).toEqual([
-      "page",
-      "page",
-      "page",
-      "page",
-      "page",
-      "page",
-      "page",
-    ]);
-    expect(
-      pageTree.children.map((node) => (node.type === "page" ? node.url : null)),
-    ).toEqual([
-      "/cookbook",
-      "/cookbook/daytona",
-      "/cookbook/claude-managed-agents",
-      "/cookbook/oracle-agent-spec-memory",
-      "/cookbook/arcade",
-      "/cookbook/angular-adk-agentic-app",
-      "/cookbook/openbox-governed-copilotkit",
-    ]);
-
-    const overview = pageTree.children[0];
-    if (overview?.type !== "page") throw new Error("expected Overview page");
-    const overviewMarkup = renderToStaticMarkup(
-      React.createElement(React.Fragment, null, overview.name),
-    );
-    expect(overviewMarkup).toContain("lucide-book-open");
-    expect(overviewMarkup).toContain("Overview");
+    expect(loadDoc("threads")?.fm.title).toBe("AG-UI Streams");
   });
 });
 
 describe("framework nav", () => {
-  it("leaves Slack and Teams platform guides ungated", () => {
-    const slack = loadDoc("frontends/slack");
-    const teams = loadDoc("frontends/teams");
+  it("derives breadcrumbs from the complete sidebar hierarchy", () => {
+    const navTree = buildRootSurfaceNav("built-in-agent");
 
-    expect(slack?.fm.earlyAccess).toBeUndefined();
-    expect(slack?.source).toContain("doc_type: tutorial");
-    expect(teams?.fm.earlyAccess).toBeUndefined();
-    expect(teams?.source).toContain("doc_type: tutorial");
+    expect(navAncestorBreadcrumbsForSlug(navTree, "frontend-tools")).toEqual([
+      { label: "Basics", href: null },
+    ]);
+    expect(navAncestorBreadcrumbsForSlug(navTree, "threads")).toEqual([
+      { label: "Intelligence", href: null },
+      { label: "Features", href: null },
+      { label: "AG-UI Streams", href: null },
+    ]);
+    expect(
+      navAncestorBreadcrumbsForSlug(navTree, "prebuilt-components"),
+    ).toEqual([
+      { label: "Basics", href: null },
+      { label: "Chat", href: null },
+    ]);
+    expect(
+      navAncestorBreadcrumbsForSlug(navTree, "custom-look-and-feel/slots"),
+    ).toEqual([
+      { label: "Basics", href: null },
+      { label: "Chat", href: null },
+      { label: "Custom Look and Feel", href: null },
+    ]);
   });
 
   it("does not publish a selectable WhatsApp guide before launch", () => {
@@ -498,191 +252,43 @@ describe("framework nav", () => {
     expect(hasSectionPage(navTree, "Platforms", "Slack")).toBe(false);
   });
 
-  it("shows the CLI page in generated and authored framework nav", () => {
-    const generatedNav = buildFrameworkNav(
-      "langgraph",
-      "LangGraph (Python)",
-      "langgraph-python",
+  it("preserves new authored Threads pages through sidebar normalization", () => {
+    const nav = structuredClone(buildRootSurfaceNav("built-in-agent"));
+    const threads = nav.find(
+      (node) => node.type === "group" && node.title === "Threads",
     );
-    const authoredNav = buildFrameworkOnlyNav("mastra");
-    const sharedFolderAuthoredNav = buildFrameworkOnlyNav("langgraph");
-
-    expect(hasPageTitle(generatedNav, "CopilotKit CLI")).toBe(true);
-    expect(hasPageTitle(authoredNav, "CopilotKit CLI")).toBe(true);
-    expect(hasPageTitle(sharedFolderAuthoredNav, "CopilotKit CLI")).toBe(true);
-  });
-
-  it("orders the Threads job routes consistently across framework modes", () => {
-    const generatedNav = buildFrameworkNav(
-      "langgraph",
-      "LangGraph (Python)",
-      "langgraph-python",
-    );
-    const expected = [
-      { title: "Overview", slug: "threads" },
-      {
-        title: "Threads Drawer",
-        slug: "prebuilt-components/copilot-threads-drawer",
-      },
-      { title: "Headless Threads", slug: "headless-threads" },
-      { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
-      { title: "Synchronize Thread History", slug: "threads-import" },
-      {
-        title: "Self-Managed Persistence",
-        slug: "threads-self-managed",
-      },
-      {
-        title: "Threads & Persistence Architecture",
-        slug: "premium/threads-explained",
-      },
-    ];
-    const withoutDrawer = expected.filter(
-      (entry) => entry.title !== "Threads Drawer",
-    );
-
-    expect(groupPageEntries(generatedNav, "Rich Threads")).toEqual(expected);
-
-    const authoredFolders = [
-      ...new Set(
-        getIntegrations()
-          .filter((integration) => integration.docs_mode === "authored")
-          .map((integration) => getDocsFolder(integration.slug)),
-      ),
-    ];
-
-    for (const folder of authoredFolders) {
-      expect(
-        groupPageEntries(buildFrameworkOnlyNav(folder), "Rich Threads"),
-      ).toEqual(folder === "deepagents" ? withoutDrawer : expected);
-    }
-  });
-
-  it("keeps the thread synchronization route while preserving source-specific guides", () => {
-    const generic = loadDoc("threads-import");
-    const adk = loadDoc("integrations/adk/threads-import");
-    const langgraph = loadDoc("integrations/langgraph/threads-import");
-
-    expect(generic?.fm.title).toBe("Import & Synchronize Thread History");
-    expect(adk?.fm.title).toBe("Synchronize ADK Threads");
-    expect(langgraph?.fm.title).toBe("Synchronize LangGraph Threads");
-    expect(generic && readTitle(generic.filePath)).toBe(
-      "Synchronize Thread History",
-    );
-    expect(adk && readTitle(adk.filePath)).toBe("Synchronize Thread History");
-    expect(langgraph && readTitle(langgraph.filePath)).toBe(
-      "Synchronize Thread History",
-    );
-
-    const generatedNav = buildFrameworkNav(
-      "langgraph",
-      "LangGraph (Python)",
-      "langgraph-python",
-    );
-    expect(groupPageEntries(generatedNav, "Rich Threads")).toContainEqual({
-      title: "Synchronize Thread History",
-      slug: "threads-import",
+    if (!threads || threads.type !== "group")
+      throw new Error("Missing Threads group");
+    threads.children.push({
+      type: "page",
+      title: "Custom thread UI",
+      slug: "custom-thread-ui",
     });
+    const normalized = normalizeSidebarNav(nav);
+    expect(groupPageEntries(normalized, "Threads")).toContainEqual({
+      title: "Custom thread UI",
+      slug: "custom-thread-ui",
+    });
+    expect(
+      navAncestorBreadcrumbsForSlug(normalized, "custom-thread-ui")?.map(
+        ({ label }) => label,
+      ),
+    ).toEqual(["Basics", "Threads"]);
   });
+});
 
-  it("documents destination credentials without claiming project metadata is imported", () => {
-    const genericDoc = loadDoc("threads-import");
-    const generic = genericDoc
-      ? inlineSnippets(genericDoc.source, "threads-import")
-      : "";
-    const adk = loadDoc("integrations/adk/threads-import")?.source ?? "";
-    const langgraph =
-      loadDoc("integrations/langgraph/threads-import")?.source ?? "";
-
-    for (const source of [generic, adk, langgraph]) {
-      expect(source).toContain(
-        "does not load `.env` or `.copilotkit/project.json` automatically",
-      );
-      expect(source).toContain('export INTELLIGENCE_API_URL="https://..."');
-      expect(source).toContain('export INTELLIGENCE_API_KEY="cpk_..."');
-      expect(source).toContain(
-        "does not need a CopilotKit Intelligence URL or API key",
-      );
-    }
-
-    expect(generic).toContain("durable LangGraph checkpointer");
-    expect(generic).toContain("durable ADK session service");
-    expect(adk).toContain("ADK session storage and analytics");
-    expect(langgraph).toContain("LangGraph or LangSmith storage and analytics");
-  });
-
-  it("keeps Drawer and Headless guidance applicable to starters and existing apps", () => {
-    const drawer = fs.readFileSync(
-      path.join(SNIPPETS_DIR, "shared/basics/copilot-threads-drawer.mdx"),
-      "utf8",
-    );
-    const headless = fs.readFileSync(
-      path.join(SNIPPETS_DIR, "shared/threads/headless-threads.mdx"),
-      "utf8",
-    );
-
-    expect(drawer).toContain(
-      "If your project was created from a CopilotKit CLI starter",
-    );
-    expect(drawer).toContain("add it to an existing CopilotKit application");
-    expect(drawer).toContain("Get a free developer account");
-    expect(drawer).toContain("## Set up the Threads Drawer");
-    expect(drawer).not.toContain(
-      "Start with the [Rich Threads overview](/threads)",
-    );
-
-    expect(headless).toContain(
-      "If your app came from a CopilotKit CLI starter",
-    );
-    expect(headless).toContain("adding a custom thread UI to an existing app");
-    expect(headless).toContain(
-      "Your `CopilotRuntime` must be connected to CopilotKit Intelligence",
-    );
-    expect(headless).not.toContain("npx copilotkit@latest init");
-  });
-
-  it("documents conditional future native persistence without claiming replication", () => {
-    const lifecycle = fs.readFileSync(
-      path.join(SNIPPETS_DIR, "shared/threads/threads-lifecycle.mdx"),
-      "utf8",
-    );
-    const architecture = loadDoc("premium/threads-explained")?.source ?? "";
-
-    for (const source of [lifecycle, architecture]) {
-      const normalized = source.replace(/\s+/g, " ");
-      expect(normalized).toContain("durable session service");
-      expect(normalized).toContain("rename");
-      expect(normalized).toContain("archive");
-      expect(normalized).toContain("delete");
-    }
-    expect(lifecycle).toContain("durable checkpointer");
-    expect(architecture).toContain("durable LangGraph checkpointer");
-    expect(lifecycle).toContain("general database replication");
-    expect(architecture).toContain("general replication link");
-  });
-
-  it("links the hosted Intelligence guide to the Rich Threads journey", () => {
-    const managed =
-      loadDoc("premium/managed-intelligence-platform")?.source ?? "";
-
-    expect(managed).toContain("[Rich Threads overview](/threads)");
-    expect(managed).toContain("[CopilotKit CLI](/cli)");
-    expect(managed).toContain("[Headless Threads](/headless-threads)");
-  });
-
-  it("uses the generated Intelligence section for authored framework nav", () => {
-    const navTree = buildFrameworkOnlyNav("ag2");
-
-    expect(navTree.some((node) => node.title === "Premium Features")).toBe(
-      false,
-    );
-    expect(navTree.some((node) => node.title === "Enterprise")).toBe(false);
-    expect(hasSectionPage(navTree, "Basics", "Headless Threads")).toBe(true);
-    expect(sectionPages(navTree, "Intelligence")).toEqual([
-      "CopilotKit Intelligence",
-      "Cloud-hosted CopilotKit Intelligence",
-      "Connect your runtime to Intelligence",
-      "Self-host CopilotKit Intelligence",
-      "CopilotKit Intelligence architecture",
-    ]);
-  });
+it("keeps the existing-thread guide discoverable in root and framework sidebars", () => {
+  const expected = {
+    title: "Bring your own thread system",
+    slug: "intelligence/bring-your-own-thread-system",
+  };
+  for (const nav of [
+    buildRootSurfaceNav("built-in-agent"),
+    buildFrameworkNav("langgraph", "LangGraph (Python)", "langgraph-python"),
+    buildFrameworkOnlyNav("ag2"),
+  ]) {
+    expect(
+      groupPageEntries(normalizeSidebarNav(nav), "AG-UI Streams"),
+    ).toContainEqual(expected);
+  }
 });

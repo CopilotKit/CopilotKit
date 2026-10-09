@@ -94,10 +94,12 @@ function BackgroundTaskCard({ content }: { content: BackgroundTaskContent }) {
             {text}
           </span>
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Running in the background — the conversation stays responsive while
-          this task works.
-        </p>
+        {working && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Running in the background — the conversation stays responsive while
+            this task works.
+          </p>
+        )}
       </div>
     </div>
   );

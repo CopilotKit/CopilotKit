@@ -146,20 +146,27 @@ describe("DepthChip", () => {
 
   // ── Unshipped / unsupported / stub / regression ──
 
-  it("renders '--' for unshipped status with dashed border", () => {
+  it("renders the not-shipped '·' for unshipped status with dashed border", () => {
     const { getByTestId } = render(<DepthChip depth={0} status="unshipped" />);
     const chip = getByTestId("depth-chip");
-    expect(chip.textContent).toBe("--");
+    // `·` not `--`: the old two-character filler collided with the ref-depth
+    // spacer's own `--`, and it is the same state the main grid's "no demo
+    // shipped" cell reports, so it must carry the same mark.
+    expect(chip.textContent).toBe("·");
     expect(chip.className).toContain("border-dashed");
     expect(chip.getAttribute("data-status")).toBe("unshipped");
   });
 
-  it("renders prohibited emoji for unsupported with descriptive tooltip", () => {
+  it("renders the hollow empty-set mark for unsupported with descriptive tooltip", () => {
     const { getByTestId } = render(
       <DepthChip depth={0} status="unsupported" />,
     );
     const chip = getByTestId("depth-chip");
-    expect(chip.textContent).toBe("\u{1F6AB}");
+    // Was `🚫` — an Emoji code point, which the browser paints RED from the
+    // colour-emoji font no matter what the CSS says. `∅` is text-presentation
+    // and hollow, so it leaves the verdict layer entirely.
+    expect(chip.textContent).toBe("∅");
+    expect(chip.className).toContain("bg-transparent");
     // Distinct attribute lets the matrix and tests differentiate from unshipped.
     expect(chip.getAttribute("data-status")).toBe("unsupported");
     expect(chip.getAttribute("title")).toBe("Not supported by this framework");

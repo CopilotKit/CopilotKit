@@ -82,6 +82,7 @@ print(f"✓ Stack: {stack_name}  |  Memory: {memory_id}")
 print(f"✓ aws-exports.json → localhost:3001")
 PYEOF
 
+# shellcheck source=/dev/null  # $ENV_FILE is resolved at runtime.
 set -a && source "$ENV_FILE" 2>/dev/null || true && set +a
 AGENT="$AGENT" STACK_NAME="$STACK_NAME" \
   docker compose -f "$SCRIPT_DIR/docker-compose.yml" up --watch "$@"

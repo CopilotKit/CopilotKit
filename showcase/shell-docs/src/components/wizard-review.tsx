@@ -1,0 +1,317 @@
+// wizard-review.tsx — the homepage setup wizard's final review panel: one
+// row per answer (whether the reader already has a project, frontend,
+// agent backend, features), stacked inside a single bordered panel with
+// hairline separators between them, each row a full navigation control back
+// to the step that answer came from.
+//
+// Boundary-neutral (no "use client"), same as `./docs-map-parts`, so it can
+// be rendered and tested on its own. This component holds no wizard state:
+// the four answers and the `onNavigate` callback are handed in by
+// `./setup-wizard`, which is the only place that knows "which step is
+// current" or "what has been picked so far" — see that file's header
+// comment. `onNavigate` is the same callback the progress rail uses
+// (`handleJump` in `setup-wizard.tsx`), so a row click animates as an
+// ordinary backward step rather than a special-cased jump.
+//
+// Rows over tiles: tiles side by side, each stretched to fill the card, used
+// to read as another set of choices rather than as a confirmation of what
+// was chosen — every tile held one short value in a lot of air. A single
+// row per answer, led by the same numbered circle the reader already knows
+// from the progress rail beside the card, reads instead as "here is your
+// answer to each step". The feature row summarizes its count and previews
+// the names so the panel stays compact as selections grow.
+//
+// These rows are never `PickGrid` itself, despite reusing its hover
+// treatment: they are never selected and never carry `aria-pressed`, since
+// they are navigation, not a choice. The whole row is the click target, and
+// the whole row's accessible name comes from `aria-label` ("Change project",
+// "Change frontend", "Change agent backend", "Change features"): rows that
+// all read "Change" in a screen reader's element list would be
+// indistinguishable, so each carries its own name even though the visible
+// word at the end of every row is the same, which is what keeps the
+// label-in-name rule intact (each label contains that visible word).
+//
+// `onNavigate` carries a `pointerActivated` flag — `event.detail > 0` on the
+// row's own click, computed here rather than handed the raw event — the
+// same shape `WizardNav`/`WizardRail` already report through their own
+// `on*` callbacks (see that file's header comment). `setup-wizard.tsx` uses
+// it to decide whether the step this row jumps to shows its heading's focus
+// ring; without it every row click reported as a keyboard activation
+// regardless of how the reader actually triggered it.
+//
+// The frontend and agent-backend marks come from `PickLogoMark` in
+// `./docs-map-parts`. The project row reuses the first step's icons.
+
+import React from "react";
+import { Check } from "lucide-react";
+
+import { PickLogoMark } from "@/components/docs-map-parts";
+import { PROJECT_ANSWER_ICONS } from "@/components/wizard-stepper-parts";
+import type { MapCapability, MapPick } from "@/lib/homepage-map";
+
+/** The panel wrapping every row: one hairline border around the whole
+ *  group, `divide-y` for the separators between rows, and `overflow-hidden`
+ *  so a row's hover fill never spills past the panel's own rounded
+ *  corners. Deliberately carries no `flex-1` — see `WizardReview`'s own
+ *  comment below for why that matters. */
+const PANEL_CLASS =
+  "shell-docs-radius-surface shrink-0 divide-y divide-[var(--border)] overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)]";
+
+/** One row: the same hover treatment an option tile uses (accent fill, no
+ *  border change needed since the panel's own border already frames the
+ *  group), full width so the row itself is the click target end to end. */
+const ROW_CLASS =
+  "grid grid-cols-[1.5rem_1fr_auto] sm:flex w-full cursor-pointer items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[var(--accent-dim)] focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none";
+
+/** The step number leading every row — the accent treatment, round rather
+ *  than the shared control radius: the same circle-on-accent look
+ *  `WizardRail` gives selected steps beside the card
+ *  (see `wizard-rail.tsx`), so the two read as the same numbers
+ *  rather than a fresh numbering scheme invented here. */
+const STEP_NUMBER_CLASS =
+  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--accent)] bg-[var(--accent-dim)] text-[11px] font-bold text-[var(--accent)]";
+
+/** The label column has a fixed width so values line up across rows. */
+const ROW_LABEL_CLASS =
+  "sm:w-28 shrink-0 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]";
+
+const NONE_VALUE = (
+  <span className="text-sm text-[var(--text-muted)]">None</span>
+);
+
+/** One row: step number, label, the answer's own content, and the quiet
+ *  "Change" affordance pinned to the row's trailing edge. Module-level
+ *  rather than a closure inside `WizardReview`: it captures nothing from
+ *  that component's scope. */
+function ReviewRow({
+  step,
+  kicker,
+  changeLabel,
+  description,
+  onChange,
+  children,
+}: {
+  step: number;
+  kicker: string;
+  changeLabel: string;
+  description?: string;
+  /** `pointerActivated` is `event.detail > 0` on this row's own click — see
+   *  the header comment above. */
+  onChange: (pointerActivated: boolean) => void;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={(event) => onChange(event.detail > 0)}
+      aria-label={changeLabel}
+      aria-description={description}
+      className={ROW_CLASS}
+    >
+      <span className={STEP_NUMBER_CLASS}>{step}</span>
+      <span className={ROW_LABEL_CLASS}>{kicker}</span>
+      <span className="order-4 col-span-3 sm:order-none flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1.5">
+        {children}
+      </span>
+      <span className="shrink-0 text-xs font-semibold text-[var(--text-muted)]">
+        Change
+      </span>
+    </button>
+  );
+}
+
+/** The frontend and agent-backend rows' value content: the mark beside the
+ *  name, in the colours it had on the step where it was chosen. */
+function PickValue({
+  name,
+  logo,
+}: {
+  name: string;
+  logo: MapPick["logo"];
+}): React.JSX.Element {
+  return (
+    <span className="flex items-center gap-2">
+      <PickLogoMark logo={logo} size={20} />
+      <span className="text-sm font-semibold text-[var(--text)]">{name}</span>
+    </span>
+  );
+}
+
+/** The project row's value content: the same icons the step itself shows
+ *  (`PROJECT_ANSWER_ICONS` in `wizard-stepper-parts.tsx`) beside the
+ *  answer, the same icon-beside-value shape `PickValue` above gives its
+ *  logo. The wording differs from the step on purpose: "Existing"/"New"
+ *  reads as a fact about the project once the reader is looking back at a
+ *  review of their answers. */
+function ProjectValue({
+  project,
+}: {
+  project: "yes" | "no";
+}): React.JSX.Element {
+  const Icon = PROJECT_ANSWER_ICONS[project];
+  return (
+    <span className="flex items-center gap-2">
+      <Icon
+        aria-hidden="true"
+        className="h-4 w-4 shrink-0 text-[var(--accent)]"
+      />
+      <span className="text-sm font-semibold text-[var(--text)]">
+        {project === "yes" ? "Existing" : "New"}
+      </span>
+    </span>
+  );
+}
+
+export interface WizardReviewProps {
+  /** `null` only in the unreachable case of arriving at the review step
+   *  without having answered the project question yet — `SetupWizard` never
+   *  actually lands here without an answer (see `landingStep` there), but
+   *  the type stays honest rather than asserting non-null for a case this
+   *  component cannot itself rule out. */
+  readonly project: "yes" | "no" | null;
+  /** `null` only in the same unreachable sense as `project` above, for the
+   *  frontend pick. */
+  readonly frontend: Pick<MapPick, "name" | "logo"> | null;
+  readonly backend: Pick<MapPick, "name" | "logo"> | null;
+  readonly backendFixed?: boolean;
+  readonly agent?: "yes" | "no" | null;
+  /** The selected features, already filtered to the reader's choices and in
+   *  display order — this component does not know about `featureIds`, only
+   *  the resulting list. Empty renders a muted "None"; the row still
+   *  navigates to the features step. */
+  readonly features: readonly Pick<MapCapability, "id" | "title" | "icon">[];
+  /** The same callback `WizardRail` uses (`handleJump` in
+   *  `setup-wizard.tsx`): 1 for the project question, 2 for frontend, 3 for
+   *  agent backend, 4 for features, plus the `pointerActivated` flag every
+   *  other navigation path already reports (see the header comment above).
+   *  Which row maps to which step number is fixed layout, not wizard state,
+   *  so it is hard-coded here — but how navigation itself works is entirely
+   *  the caller's concern. */
+  readonly onNavigate: (step: number, pointerActivated: boolean) => void;
+}
+
+/** Review rows keep their natural height so the card body can scroll them. */
+export function WizardReview({
+  project,
+  frontend,
+  backend,
+  backendFixed = false,
+  agent,
+  features,
+  onNavigate,
+}: WizardReviewProps): React.JSX.Element {
+  const featureNames = features.map((feature) => feature.title).join(" · ");
+  const previewNames = features
+    .slice(0, 2)
+    .map((feature) => feature.title)
+    .join(" · ");
+  const featurePreview =
+    features.length > 2
+      ? `${previewNames} · +${features.length - 2} more`
+      : previewNames;
+  return (
+    <div className={PANEL_CLASS}>
+      {backendFixed && (
+        <ReviewRow
+          step={1}
+          kicker="Setup"
+          changeLabel="Change agent starting point"
+          onChange={(pointer) => onNavigate(0, pointer)}
+        >
+          <span className="text-sm font-semibold">
+            {agent === "yes" ? "Existing agent" : "New agent"} ·{" "}
+            {project === "yes" ? "Existing app" : "New app"}
+          </span>
+        </ReviewRow>
+      )}
+      {!backendFixed && (
+        <ReviewRow
+          step={1}
+          kicker="Project"
+          changeLabel="Change project"
+          onChange={(pointerActivated) => onNavigate(1, pointerActivated)}
+        >
+          {project ? <ProjectValue project={project} /> : NONE_VALUE}
+        </ReviewRow>
+      )}
+      <ReviewRow
+        step={2}
+        kicker="Frontend"
+        changeLabel="Change frontend"
+        onChange={(pointerActivated) => onNavigate(2, pointerActivated)}
+      >
+        {frontend ? (
+          <PickValue name={frontend.name} logo={frontend.logo} />
+        ) : (
+          NONE_VALUE
+        )}
+      </ReviewRow>
+      {!backendFixed && (
+        <ReviewRow
+          step={3}
+          kicker="Agent backend"
+          changeLabel="Change agent backend"
+          onChange={(pointerActivated) => onNavigate(3, pointerActivated)}
+        >
+          {backend ? (
+            <PickValue name={backend.name} logo={backend.logo} />
+          ) : (
+            NONE_VALUE
+          )}
+        </ReviewRow>
+      )}
+      <ReviewRow
+        step={backendFixed ? 3 : 4}
+        kicker="Features"
+        changeLabel="Change features"
+        description={
+          features.length
+            ? `${features.length} selected: ${featureNames}`
+            : "None selected"
+        }
+        onChange={(pointerActivated) => onNavigate(4, pointerActivated)}
+      >
+        {features.length > 0 ? (
+          <span className="wizard-review-feature-summary flex w-full min-w-0 items-baseline gap-2">
+            <span className="shrink-0 text-sm font-semibold text-[var(--text)]">
+              {features.length} selected
+            </span>
+            <span
+              className="wizard-review-feature-preview min-w-0 truncate text-xs text-[var(--text-muted)]"
+              title={featureNames}
+            >
+              {featurePreview}
+            </span>
+          </span>
+        ) : (
+          NONE_VALUE
+        )}
+      </ReviewRow>
+      {backendFixed && (
+        <div className="grid grid-cols-[1.5rem_1fr_auto] sm:flex items-center gap-3 px-4 py-3.5">
+          <span
+            tabIndex={0}
+            aria-label={`You're using ${backend?.name ?? "this backend"}!`}
+            className={`${STEP_NUMBER_CLASS} group relative`}
+          >
+            <Check className="h-3.5 w-3.5" aria-hidden="true" />
+            <span
+              role="tooltip"
+              className="pointer-events-none absolute bottom-full left-0 z-20 mb-2 hidden w-max rounded-md bg-[var(--text)] px-2 py-1 text-xs font-normal text-[var(--bg-surface)] group-hover:block group-focus-visible:block"
+            >
+              You're using {backend?.name ?? "this backend"}!
+            </span>
+          </span>
+          <span className={ROW_LABEL_CLASS}>Agent backend</span>
+          <span className="order-4 col-span-3 sm:order-none flex min-w-0 flex-1">
+            {backend ? (
+              <PickValue name={backend.name} logo={backend.logo} />
+            ) : (
+              NONE_VALUE
+            )}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}

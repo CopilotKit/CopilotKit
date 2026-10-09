@@ -40,6 +40,12 @@
  *   V2 docs: https://docs.copilotkit.ai/
  *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
+ * @copilotkit/react-core — CatchAllActionRenderPropsWait:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
  * @copilotkit/react-core — CatchAllFrontendAction:
  *   No 1:1 v2 replacement is available.
  *   Related v2 docs (Tool-based generative UI): https://docs.copilotkit.ai/generative-ui/tool-based
@@ -74,6 +80,7 @@
  */
 
 import { ActionInputAvailability } from "@copilotkit/runtime-client-gql";
+import type { WebMCPToolConfig } from "@copilotkit/core";
 import type {
   Action,
   Parameter,
@@ -202,6 +209,23 @@ export type CatchAllActionRenderProps<T extends Parameter[] | [] = []> =
       name: string;
     });
 
+/**
+ * Render props for a catch-all action that waits for a response. Same as
+ * {@link ActionRenderPropsWait} — including `respond` while executing — plus
+ * the `name` of the tool call being handled, since one catch-all render serves
+ * every tool.
+ */
+export type CatchAllActionRenderPropsWait<T extends Parameter[] | [] = []> =
+  | (CompleteStateWait<T> & {
+      name: string;
+    })
+  | (ExecutingStateWait<T> & {
+      name: string;
+    })
+  | (InProgressStateWait<T> & {
+      name: string;
+    });
+
 export type FrontendActionAvailability =
   | "disabled"
   | "enabled"
@@ -220,6 +244,12 @@ export type FrontendAction<
   available?: FrontendActionAvailability;
   pairedAction?: string;
   followUp?: boolean;
+  /**
+   * Also expose this action to browser agents through the WebMCP API
+   * (`document.modelContext`). `true` uses default annotations;
+   * `{ annotations }` provides WebMCP annotations.
+   */
+  webmcp?: boolean | WebMCPToolConfig;
 } & (
     | {
         render?:
@@ -248,8 +278,29 @@ export type FrontendAction<
 
 export type CatchAllFrontendAction = {
   name: "*";
-  render: (props: CatchAllActionRenderProps<any>) => React.ReactElement;
-};
+} & (
+  | {
+      render: (props: CatchAllActionRenderProps<any>) => React.ReactElement;
+      /** @deprecated use renderAndWaitForResponse instead */
+      renderAndWait?: never;
+      renderAndWaitForResponse?: never;
+    }
+  | {
+      render?: never;
+      /** @deprecated use renderAndWaitForResponse instead */
+      renderAndWait?: (
+        props: CatchAllActionRenderPropsWait<any>,
+      ) => React.ReactElement;
+      /**
+       * Handle every tool call that has no dedicated action with one
+       * human-in-the-loop render: the call stays pending until `respond` is
+       * called. Use `name` to tell the calls apart.
+       */
+      renderAndWaitForResponse?: (
+        props: CatchAllActionRenderPropsWait<any>,
+      ) => React.ReactElement;
+    }
+);
 
 export type RenderFunctionStatus = ActionRenderProps<any>["status"];
 

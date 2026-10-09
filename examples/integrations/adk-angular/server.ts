@@ -15,10 +15,10 @@ const runtime = new CopilotRuntime({
     }),
   },
   // --- copilotkit:intelligence (remove this block to opt out) ---
-  ...(process.env.COPILOTKIT_LICENSE_TOKEN
+  ...(process.env.CPK_INTELLIGENCE_API_KEY
     ? {
         intelligence: new CopilotKitIntelligence({
-          apiKey: process.env.INTELLIGENCE_API_KEY ?? "",
+          apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
           ...(process.env.INTELLIGENCE_API_URL
             ? { apiUrl: process.env.INTELLIGENCE_API_URL }
             : {}),
@@ -31,7 +31,6 @@ const runtime = new CopilotRuntime({
         // must correspond to a user that exists in CopilotKit Intelligence;
         // an unknown id (like this literal) can make thread operations fail.
         identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
-        licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
       }
     : { runner: new InMemoryAgentRunner() }),
   // --- /copilotkit:intelligence ---
@@ -43,14 +42,22 @@ const runtime = new CopilotRuntime({
 // the runtime to PORT too would collide the two processes on one port.
 const port = 8200;
 
+// This runtime is unauthenticated, and `cors: true` below accepts any origin.
+// With no host argument Node binds every interface, so a fresh clone served it
+// to the whole local network while this banner said "localhost". Bind loopback
+// by default; RUNTIME_HOST is the deliberate opt-out (another device, or a
+// container). The banner interpolates the same value, so the printed address
+// follows the bound address instead of being a fixed string.
+const host = process.env.RUNTIME_HOST ?? "127.0.0.1";
+
 createServer(
   createCopilotNodeListener({
     runtime,
     basePath: "/api/copilotkit",
     cors: true,
   }),
-).listen(port, () => {
+).listen(port, host, () => {
   console.log(
-    `Copilot Runtime listening at http://localhost:${port}/api/copilotkit`,
+    `Copilot Runtime listening at http://${host}:${port}/api/copilotkit`,
   );
 });

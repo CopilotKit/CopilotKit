@@ -33,10 +33,17 @@ one **skin** per route segment `/[skin]/...`. The registered set lives in
   cart and orders mirrored to `localStorage` per shopper): a filterable shelf, a
   `book/<slug>` page, a cart, and an assistant that recommends from what it
   remembers about you.
+- **`exec`** — "Vantage", Cascade Industries' executive reporting desk.
+  **REST-backed** (`/api/exec/v1/*`): conversational dashboard composition —
+  agent-rendered a2ui metric blocks pinned to live CEO/CFO dashboards, with a
+  teachable `UNEXPLAINED_VARIANCE` board-pack publish gate.
 
 All of them run behind the **same** `Skin` contract on purpose. Every skin gets
-the same inset frame, shared chat panel, tool-activity lines, suggestion pills,
-and full-region canvas from the shell. The contract is substrate-agnostic:
+the same inset frame, shared chat panel, tool-activity lines and suggestion pills
+from the shell. The shared canvas region is there for every skin too, but a skin
+only fills it if it supplies a `CanvasSurface` — `bookstore` and `exec` do not
+(`exec` renders its a2ui blocks inline in the transcript instead; see the `exec`
+entry below). The contract is substrate-agnostic:
 changing a skin's data substrate requires **no change to the contract and no
 change to the shell** — and both substrates are live, so the claim has evidence on
 either side. `grep -l 'useData:' src/skins/*/skin.tsx` names the skins that hold
@@ -87,12 +94,14 @@ this app pins `packageManager: pnpm@10.10.0`).
 `agent/uv.lock` pins the matching Python canaries for the same reason — see the
 note in `agent/pyproject.toml` for what silently breaks without them.
 
-**`pnpm dev` alone is not enough for `banking`.** Six of the seven skins run
+**`pnpm dev` alone is not enough for `banking` or `myelin`.** Eight of the ten skins run
 their agent in-process, so `OPENAI_API_KEY` plus an SSE runtime is all they need.
 Banking's agent is a Python LangChain deep agent in `agent/`, reached over AG-UI
 as an ordinary `HttpAgent` on :8124 (`src/skins/banking/agent.ts` explains why the
 whole agent moved out of process). Without it the app still boots and the
 dashboard still renders — only sending a message to the DEFAULT skin fails.
+`myelin`'s agent is out of process the same way: a Google ADK agent in
+`agent-myelin/`, reached over AG-UI on :8125 (see `agent-myelin/README.md`).
 
 For the self-hosted memory path, `./run-demo.sh` starts everything in one command
 (embedder, Intelligence stack, the agent, the dev server) and is safe to re-run;
@@ -119,7 +128,7 @@ under `/<id>` exactly as before.
 `src/lib/locked-skin.ts` validates the value against `skinIds` from
 `src/shell/skins-config.ts`, so the supported set is exactly the registered set —
 currently `banking`, `airline`, `logistics`, `keel`, `people`, `commerce`,
-`bookstore`, and automatically any skin added later.
+`bookstore`, `exec`, `myelin`, `ledgerline`, and automatically any skin added later.
 
 Use it for a URL that goes to one prospect, one booth, or one pilot, so the app
 reads as a product rather than as a multi-tenant demo harness. An unrecognised id
@@ -158,9 +167,10 @@ any of them can be walked end to end and any of them is a fair reference.
 `bookstore` hits every beat it claims and skips two deliberately — multimodal
 ingest and teach-a-procedure — which its own beat map
 (`src/skins/bookstore/suggestions.ts`) records rather than hides, so read those two
-blanks as a scope decision. `people` and `commerce` were authored beat-first;
-`logistics`, `airline` and `keel` were raised to the bar afterwards, so read those
-three commit by commit if you need to do the same to an EXISTING skin. The per-beat
+blanks as a scope decision. `people`, `commerce` and `exec` were authored
+beat-first; `logistics`, `airline` and `keel` were raised to the bar afterwards,
+so read those three commit by commit if you need to do the same to an EXISTING
+skin. The per-beat
 coverage matrix, and the one-line commands that derive it instead of trusting it,
 are in [CLAUDE.md](./CLAUDE.md).
 
@@ -183,11 +193,11 @@ The banking skin doubles as a CopilotKit feature tour. Notable beats:
   no saved procedure, watches you clear one, and (in Intelligence mode) recalls
   it on a later thread. See `docs/teach-mode/`.
 
-### `people` and `commerce` — authored beat-first
+### `people`, `commerce` and `exec` — authored beat-first
 
-Both are built against the beat list from the start. Their beat maps are written
-out at the top of their own `src/skins/<id>/suggestions.ts`, one suggestion pill
-per beat in demo order.
+All three are built against the beat list from the start. Their beat maps are
+written out at the top of their own `src/skins/<id>/suggestions.ts`, one
+suggestion pill per beat in demo order.
 
 - **`people`** ("Rowan") — a People Ops command center over `/api/people/v1/*`.
   Its teachable gate is approving an **out-of-band** compensation request (422
@@ -201,6 +211,14 @@ per beat in demo order.
   floor** (422 `BELOW_MARGIN_FLOOR`), unlocked by a margin waiver filed under a
   justifying code. It is also the reference for a four-lever navigation — status,
   exception class, sort and top-N all arrive from the query string.
+- **`exec`** ("Vantage") — Cascade Industries' executive reporting desk over
+  `/api/exec/v1/*`. Its signature interaction is **conversational dashboard
+  composition**: agent-rendered a2ui metric blocks pinned to live CEO/CFO
+  dashboards, rather than a report canvas — it is one of the skins (with
+  `bookstore`) that omits `CanvasSurface`. Its teachable gate is publishing a
+  board pack while a metric's variance is unexplained (422
+  `UNEXPLAINED_VARIANCE`), unlocked by a variance narrative filed under a
+  justifying code.
 
 ### `logistics`, `airline` and `keel`
 
@@ -236,7 +254,8 @@ which re-keys the cart and the forwarded identity, but **do not present it as
 memory isolation**: those forwarded properties frequently do not reach the server's
 `identifyUser` on a run, so both shoppers read the same memory bucket and the
 switch re-scopes nothing. That caveat is app-wide, not this skin's — see the CAVEAT
-block in `.env.example`. The shelf's four filters (genre, format, price cap, sort)
+block in `.env.example`. The ORGANIZATION switcher beside it does re-scope, and is
+the one to use for an isolation story. The shelf's four filters (genre, format, price cap, sort)
 are real URL levers the agent confirms before pulling, the card number typed at
 checkout never leaves the browser (only the last four digits reach the order), and
 the cart is mirrored to `localStorage` so a mid-demo hard reload proves the thread
@@ -249,7 +268,7 @@ requirement for its memory and stored-procedure beats are at the top of
 
 By default the runtime is pure OSS — the teach-a-workflow loop works within a
 single conversation, but nothing persists across threads or restarts. When
-`INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL`, and `INTELLIGENCE_API_KEY`
+`INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL`, and `CPK_INTELLIGENCE_API_KEY`
 are all set (`src/app/api/copilotkit/[[...slug]]/route.ts`), the runtime builds
 in Intelligence mode: the agent gains durable long-term memory via the
 `recall_memory` / `save_memory` tools, so a demonstrated procedure — every skin
@@ -265,8 +284,20 @@ Memory is stored under a resolved end-user id (each skin's
 `intelligence/user-id.ts`), but **the on-screen user/operator/shopper switchers do
 not drive that id in practice** — the client's `properties` frequently do not reach
 the server's `identifyUser` on a run, so the personas collapse into one default
-bucket. Recall is demoable; per-user isolation is not. Read the CAVEAT block in
-`.env.example` before showing a switcher as a memory boundary.
+bucket. Recall is demoable; per-PERSONA isolation is not.
+
+**Per-ORGANIZATION isolation is**, in every skin, through the organization button
+in the app's own chrome (`src/shell/governance-popover.tsx`). It sets a cookie, so
+it reaches `identifyUser` on every request rather than only on runs that carry a
+body, and the shared route namespaces the bucket under it (`acme:keel-demo-user`).
+Teach as one organization, ask as the other, nothing comes back; switch back and it
+recalls. Threads scope the same way. The same panel also selects the memory policy
+the server applies per request, and carries a control that forgets what the demo
+taught, in both organizations at once.
+
+The single authority for which switcher does what is the note above
+`IdentifyRunUser` in `src/shell/agent-registry.ts`; read it before showing any
+switcher as a memory boundary.
 
 ## Screenshots
 
@@ -289,10 +320,11 @@ pnpm test:e2e:ogui       # open generative UI suite
 pnpm test:self-learning  # the memory CI gate
 ```
 
-There is no `typecheck` script, and **`pnpm build` is not a substitute for
-`pnpm typecheck`**: `next build` type-checks only what the app's module
-graph reaches, so it never visits the test files, and Vitest transpiles without
-type-checking at all. `tsconfig.json` includes them; only `tsc --noEmit` looks.
+**`pnpm build` and `pnpm test:unit` are not a substitute for `pnpm typecheck`**:
+`next build` type-checks only what the app's module graph reaches, so it never
+visits the test files, and Vitest transpiles without type-checking at all.
+`tsconfig.json` includes them; only `pnpm typecheck` (`tsc --noEmit`) looks at
+everything, which is why it is listed above as the only full check.
 
 ## Tech
 

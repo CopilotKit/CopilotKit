@@ -5,8 +5,10 @@ import {
 } from "./channel-activation-config";
 import type { ChannelActivationConfig } from "./channel-activation-config";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
+import { startThreadLockHeartbeat } from "../intelligence-platform/thread-lock-heartbeat";
 import { telemetry } from "../telemetry";
 import type { AnalyticsEvents } from "../telemetry";
+import type { TelemetryCapture } from "../telemetry/telemetry-client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type {
   AgentSubscriber,
@@ -335,6 +337,8 @@ export interface ChannelManagerArgs {
    * activation engine is used, so transport-level drops surface in the managed
    * path (not just activation-level events). */
   log?: (msg: string, meta?: unknown) => void;
+  /** Runtime-scoped telemetry capture. Defaults to the process singleton. */
+  telemetry?: TelemetryCapture;
   /**
    * Initial delay (ms) before a "still down" log while a managed session is
    * disconnected. Later reminders back off exponentially to a 15-minute cap,
@@ -691,6 +695,9 @@ async function runCanonicalChannelAgent(
         userId: args.userId,
         deliveryId: args.deliveryId,
       });
+  // The platform starts the lock's TTL when it handles the request, so time
+  // the lifetime from the send rather than from the response.
+  const lockRequestedAt = Date.now();
   const lock = await intelligence.ɵacquireThreadLock({
     threadId: args.threadId,
     runId: args.runId,
@@ -715,7 +722,6 @@ async function runCanonicalChannelAgent(
   );
   let stopPromise: Promise<boolean | undefined> | undefined;
   let heartbeatError: unknown;
-  let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
   const stopCanonicalRun = (): void => {
     stopPromise ??= Promise.resolve()
       .then(() =>
@@ -735,28 +741,33 @@ async function runCanonicalChannelAgent(
     stopCanonicalRun();
   };
   args.signal?.addEventListener("abort", abortCanonicalRun, { once: true });
-  heartbeatTimer = setInterval(() => {
-    intelligence
-      .ɵrenewThreadLock({
+  const heartbeat = startThreadLockHeartbeat({
+    renew: (signal) =>
+      intelligence.ɵrenewThreadLock({
         threadId: canonicalThreadId,
         runId: canonicalRunId,
         ttlSeconds: lockTtlSeconds,
         ...(lockKeyPrefix !== undefined ? { lockKeyPrefix } : {}),
-      })
-      .catch((error: unknown) => {
-        if (heartbeatTimer === undefined) return;
-        clearInterval(heartbeatTimer);
-        heartbeatTimer = undefined;
-        heartbeatError = error;
-        try {
-          args.agent.abortRun();
-        } catch {
-          // The runner stop below remains the authoritative cancellation path.
-        }
-        stopCanonicalRun();
-      });
-  }, lockHeartbeatIntervalSeconds * 1_000);
-  heartbeatTimer.unref?.();
+        signal,
+      }),
+    intervalMs: lockHeartbeatIntervalSeconds * 1_000,
+    fallbackTtlSeconds: lockTtlSeconds,
+    initialTtlSeconds:
+      lock.ttlSeconds === undefined
+        ? undefined
+        : lock.ttlSeconds - (Date.now() - lockRequestedAt) / 1_000,
+
+    unref: true,
+    onLost: (error) => {
+      heartbeatError = error;
+      try {
+        args.agent.abortRun();
+      } catch {
+        // The runner stop below remains the authoritative cancellation path.
+      }
+      stopCanonicalRun();
+    },
+  });
 
   try {
     await new Promise<void>((resolve, reject) => {
@@ -831,10 +842,7 @@ async function runCanonicalChannelAgent(
     });
   } finally {
     args.signal?.removeEventListener("abort", abortCanonicalRun);
-    if (heartbeatTimer !== undefined) {
-      clearInterval(heartbeatTimer);
-      heartbeatTimer = undefined;
-    }
+    heartbeat.stop();
     // Always release the product thread lock from the Runtime side. Gateway
     // may also release on terminal AG-UI ingestion; cleanup is idempotent and
     // covers runner paths that never stream terminal events (or lose them).
@@ -1126,6 +1134,7 @@ export class ChannelManager implements ChannelsControl {
   private readonly activateChannel: ActivateChannelEngine;
   private readonly mintRuntimeInstanceId: () => string;
   private readonly log?: (msg: string, meta?: unknown) => void;
+  private readonly telemetry: TelemetryCapture;
   private readonly stopHandleTimeoutMs: number;
   private readonly reconnectLogIntervalMs: number;
 
@@ -1143,6 +1152,7 @@ export class ChannelManager implements ChannelsControl {
     this.lockKeyPrefix = args.lockKeyPrefix;
     this.channels = args.channels;
     this.log = args.log;
+    this.telemetry = args.telemetry ?? telemetry;
     // When using the default engine, forward the manager's log DOWN to the
     // launcher/transport (via defaultActivateChannel's log param) so a
     // transport-level drop is observable in the managed path. `this.log` is read
@@ -1700,7 +1710,7 @@ export class ChannelManager implements ChannelsControl {
       | "oss.runtime.channel_session_recovered",
   >(event: K, props: AnalyticsEvents[K]): void {
     try {
-      void telemetry.capture(event, props).catch(() => {});
+      void this.telemetry.capture(event, props).catch(() => {});
     } catch {
       // Swallow — a telemetry transport must not take the session with it.
     }

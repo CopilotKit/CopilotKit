@@ -83,6 +83,8 @@ This is a starter template for building AI agents using [Microsoft Agent Framewo
    cd ..
    ```
 
+   To use another model, also set `COPILOTKIT_AGENT_MODEL` (default `openai:gpt-5-mini`), e.g. `dotnet user-secrets set COPILOTKIT_AGENT_MODEL "anthropic:claude-sonnet-4-5"`, plus `ANTHROPIC_API_KEY` or `GOOGLE_API_KEY` for the `anthropic` or `google` provider.
+
 3. Start the development server:
 
    ```bash
@@ -104,7 +106,7 @@ This is a starter template for building AI agents using [Microsoft Agent Framewo
 ## Running a Channel
 
 `channel-host.mts` mounts the same agent as an Intelligence Channel
-(Slack, Teams). It requires `INTELLIGENCE_API_KEY` and a declared Channel in
+(Slack, Teams). It requires `CPK_INTELLIGENCE_API_KEY` and a declared Channel in
 `.copilotkit/channels.json` — set both up with `copilotkit init` or
 `copilotkit channels add`, which write that file and the credentials your
 `.env` needs, then:
@@ -249,7 +251,7 @@ dotnet run
 
 ### OpenAI API Key Issues
 
-If the agent fails to start with "OPENAI_API_KEY not found":
+If the agent fails to start with "OPENAI_API_KEY not found" (or "ANTHROPIC_API_KEY not found" / "GOOGLE_API_KEY not found" when `COPILOTKIT_AGENT_MODEL` names that provider), set that key:
 
 ```bash
 cd agent

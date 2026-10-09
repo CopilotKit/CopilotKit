@@ -18,7 +18,12 @@ import {
   bumpPackages,
   findCrossScopePins,
 } from "./lib/versions.js";
-import { ALL_SCOPES, loadConfig, resolveScopes } from "./lib/config.js";
+import {
+  ALL_SCOPES,
+  LEARNING_PREVIEW,
+  loadConfig,
+  resolveScopes,
+} from "./lib/config.js";
 
 // Valid scopes come from release.config.json — the single source of truth.
 const VALID_SCOPES = Object.keys(loadConfig().scopes);
@@ -59,7 +64,7 @@ function main() {
 
   if (!selector) {
     console.error(
-      `Usage: bump-prerelease.ts --scope <${[...VALID_SCOPES, ALL_SCOPES].join("|")}> [--suffix <label>]`,
+      `Usage: bump-prerelease.ts --scope <${[...VALID_SCOPES, ALL_SCOPES, LEARNING_PREVIEW].join("|")}> [--suffix <label>]`,
     );
     process.exit(1);
   }
@@ -70,7 +75,7 @@ function main() {
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     console.error(
-      `Usage: bump-prerelease.ts --scope <${[...VALID_SCOPES, ALL_SCOPES].join("|")}> [--suffix <label>]`,
+      `Usage: bump-prerelease.ts --scope <${[...VALID_SCOPES, ALL_SCOPES, LEARNING_PREVIEW].join("|")}> [--suffix <label>]`,
     );
     process.exit(1);
   }
