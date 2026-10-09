@@ -43,15 +43,12 @@ def resolve_model() -> str:
 
     ``COPILOTKIT_AGENT_MODEL`` (anthropic only) wins and overrides every model
     site in the agent; then ``CLAUDE_MODEL``, then ``ANTHROPIC_MODEL``, then
-    the default. A dotted marketing name in ``CLAUDE_MODEL`` /
-    ``ANTHROPIC_MODEL`` (e.g. ``claude-sonnet-4.6``) is normalized to the API
-    id (``claude-sonnet-4-6``).
+    the default. A dotted marketing name from any of them (e.g.
+    ``claude-sonnet-4.6``) is normalized to the API id (``claude-sonnet-4-6``).
     """
-    from_spec = _agent_model_from_env()
-    if from_spec:
-        return from_spec
     raw = (
-        os.getenv("CLAUDE_MODEL")
+        _agent_model_from_env()
+        or os.getenv("CLAUDE_MODEL")
         or os.getenv("ANTHROPIC_MODEL")
         or DEFAULT_CLAUDE_MODEL
     )
