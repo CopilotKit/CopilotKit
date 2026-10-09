@@ -6,18 +6,36 @@
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "node --test tools/intelligence-smoke/*.test.mjs"
+        "command": "node --test tools/intelligence-smoke/*.test.mjs tools/intelligence-smoke/rich-threads/*.test.mjs tools/intelligence-smoke/rich-threads/rows/*.test.mjs"
       },
       "cache": false
     },
     "run": {
       "executor": "nx:run-commands",
-      "options": { "command": "node tools/intelligence-smoke/run.mjs" },
+      "options": {
+        "command": "node tools/intelligence-smoke/run.mjs"
+      },
       "cache": false
     },
     "lint": {
       "executor": "nx:run-commands",
-      "options": { "command": "oxlint tools/intelligence-smoke" }
+      "options": {
+        "command": "oxlint tools/intelligence-smoke"
+      }
+    },
+    "rich-threads": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/intelligence-smoke/rich-threads/run.mjs"
+      },
+      "cache": false
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "oxfmt --write tools/intelligence-smoke/rich-threads tools/intelligence-smoke/project.json"
+      },
+      "cache": false
     }
   }
 }
