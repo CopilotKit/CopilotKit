@@ -310,6 +310,37 @@ it("waits for a generic active agent run after history connection resolves", asy
   await finishRun();
 });
 
+it("releases a queued send when a generic active agent run fails", async () => {
+  const { agent, runs, finish, submit, finishRun } = await setupReplay(
+    "ordinary",
+    true,
+  );
+  await finish();
+  agent.isRunning = true;
+
+  const subscribe = agent.subscribe.bind(agent);
+  let failActiveRun: (() => void) | undefined;
+  vi.spyOn(agent, "subscribe").mockImplementation((observer) => {
+    if (observer.onRunFailed) {
+      failActiveRun = () => {
+        agent.isRunning = false;
+        observer.onRunFailed?.({
+          error: new Error("Active run failed"),
+        } as Parameters<NonNullable<typeof observer.onRunFailed>>[0]);
+      };
+      return { unsubscribe: vi.fn() } as any;
+    }
+    return subscribe(observer);
+  });
+  await submit("Send after failed run");
+  expect(runs).toHaveLength(0);
+
+  await act(async () => failActiveRun?.());
+  await waitFor(() => expect(runs).toHaveLength(1));
+  expect(runs[0]?.messages.at(-1)?.content).toBe("Send after failed run");
+  await finishRun();
+});
+
 it("does not dispatch a queued prompt after the chat unmounts", async () => {
   const { runs, submit, unmount } = await setupReplay();
   await submit();

@@ -884,7 +884,10 @@ export function CopilotChat({
             subscription?.unsubscribe();
             resolve();
           };
-          subscription = agent.subscribe({ onRunFinalized: finish });
+          subscription = agent.subscribe({
+            onRunFinalized: finish,
+            onRunFailed: finish,
+          });
           // Close the check/subscribe race if the run finalized while the
           // subscription was being installed.
           if (!agent.isRunning) finish();
