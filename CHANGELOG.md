@@ -47,7 +47,7 @@ history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
   capture after mount.
   To keep starting capture yourself with `startTrajectory()`, add
   `autoStart: false`, for example `learning={{ onError, autoStart: false
-  }}`.
+}}`.
   a `learning` object without `trajectoryId` now starts capture after mount.
   To keep starting capture yourself with `startTrajectory()`, add `autoStart: false`,
   for example `learning={{ onError, autoStart: false }}`.
