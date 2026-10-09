@@ -122,8 +122,10 @@ describe("CopilotChat - static suggestions with available:'always'", () => {
     agent.emit(runFinishedEvent());
     agent.complete();
 
+    // Use textContent check because the streaming renderer splits text across
+    // per-segment <span>s — getByText can't match the full string in one element.
     await waitFor(() => {
-      expect(screen.getByText("Hello! How can I help?")).toBeDefined();
+      expect(document.body.textContent).toContain("Hello! How can I help?");
     });
 
     // After the run, the static "always" config repopulates them.
@@ -168,8 +170,10 @@ describe("CopilotChat - static suggestions with available:'always'", () => {
     agent.emit(runFinishedEvent());
     agent.complete();
 
+    // Use textContent check because the streaming renderer splits text across
+    // per-segment <span>s — getByText can't match the full string in one element.
     await waitFor(() => {
-      expect(screen.getByText("Hello! How can I help?")).toBeDefined();
+      expect(document.body.textContent).toContain("Hello! How can I help?");
     });
 
     await waitFor(

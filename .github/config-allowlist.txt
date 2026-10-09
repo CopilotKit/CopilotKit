@@ -94,6 +94,7 @@ packages/intelligence-delivery-core/tsdown.config.ts
 packages/intelligence-langgraph/tsdown.config.ts
 packages/intelligence-mastra/tsdown.config.ts
 packages/learning/tsdown.config.ts
+packages/markdown-renderer/tsdown.config.ts
 packages/mcp-apps-renderer/tsdown.config.ts
 packages/react-core/tsdown.config.ts
 packages/react-native/tsdown.config.ts

@@ -291,6 +291,10 @@ function provenance(
   return { kind, path, selector };
 }
 
+function posixRepoPath(root: string, absolutePath: string): string {
+  return relative(root, absolutePath).replaceAll("\\", "/");
+}
+
 function declarationName(node: ts.Node): string | undefined {
   if (
     (ts.isClassDeclaration(node) ||
@@ -347,7 +351,7 @@ function resolveModule(
   if (!match) {
     throw new Error(`Cannot resolve ${specifier} from ${fromPath}`);
   }
-  return relative(root, match);
+  return posixRepoPath(root, match);
 }
 
 function findExportedDeclaration(

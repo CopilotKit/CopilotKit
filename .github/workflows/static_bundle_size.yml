@@ -15,7 +15,9 @@ permissions:
   contents: read
 
 env:
-  NODE_OPTIONS: "--max-old-space-size=4096"
+  # core:build exceeds the default 4096 MB heap on CI and OOMs; bump to the
+  # repo's known-good value (used by the e2e workflow).
+  NODE_OPTIONS: "--max-old-space-size=8192"
   NX_VERBOSE_LOGGING: true
 
 jobs:
