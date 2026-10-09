@@ -451,6 +451,32 @@ describe("app context in an agent run", () => {
     }
   });
 
+  it("puts the state note before the context in the one system message", async () => {
+    const model = new CapturingFakeListChatModel({ responses: ["ok"] });
+    const agent = createAgent({
+      model,
+      tools: [],
+      systemPrompt: "You are a helpful assistant.",
+      stateSchema: z.object({ liked: z.array(z.string()).optional() }),
+      middleware: [createCopilotkitMiddleware({ exposeState: ["liked"] })],
+    });
+
+    await agent.invoke({
+      messages: [new HumanMessage("hi")],
+      liked: ["tea"],
+      copilotkit: { context: "route=/dashboard" },
+    } as any);
+
+    const [received] = model.receivedMessages;
+    expect(received.map((m) => m._getType())).toEqual(["system", "human"]);
+    const [system] = systemContents(received);
+    expect(system.indexOf("You are a helpful assistant.")).toBe(0);
+    expect(system.indexOf("Current agent state:")).toBeGreaterThan(0);
+    expect(system.indexOf("App Context:\nroute=/dashboard")).toBeGreaterThan(
+      system.indexOf("Current agent state:"),
+    );
+  });
+
   it("returns the request unchanged when context is empty", async () => {
     const request = makeRequest({
       state: { messages: [], copilotkit: { context: [] } },
