@@ -113,73 +113,13 @@
   display: none;
 }
 
-/* Tool calls collapse to the newest one per turn. Each message sits in its own
-   wrapper under .copilotKitMessages: a line is hidden when a later line follows
-   it in its message or the next message carries one, and a message that held
-   only hidden lines collapses with it. The arrow (data-ll-tools="open" on the
-   list) shows every line again. */
-.theme-ledgerline
-  .copilotKitMessages:not([data-ll-tools="open"])
-  [data-testid="ledgerline-tool-line"]:has(
-    ~ [data-testid="ledgerline-tool-line"]
-  ),
-.theme-ledgerline
-  .copilotKitMessages:not([data-ll-tools="open"])
-  > :has([data-testid="ledgerline-tool-line"]):has(
-    + * [data-testid="ledgerline-tool-line"]
-  )
-  [data-testid="ledgerline-tool-line"] {
-  display: none;
+/* Tool runs collapse to their newest line (useToolRunCollapse in tools.tsx). */
+.theme-ledgerline .ll-tool-expand::after {
+  content: attr(data-more);
 }
-.theme-ledgerline
-  .copilotKitMessages:not([data-ll-tools="open"])
-  > :has([data-testid="ledgerline-tool-line"]):has(
-    + * [data-testid="ledgerline-tool-line"]
-  ):not(
-    :has(
-      .copilotKitAssistantMessage
-        > :not(
-          [data-testid="ledgerline-tool-line"],
-          [data-testid="copilot-assistant-toolbar"]
-        )
-    )
-  ) {
-  display: none;
-}
-/* The arrow shows on a line with earlier lines before it in the turn. */
-.theme-ledgerline
-  [data-testid="ledgerline-tool-line"]
-  ~ [data-testid="ledgerline-tool-line"]
-  .ll-tool-expand,
-.theme-ledgerline
-  .copilotKitMessages
-  > :has([data-testid="ledgerline-tool-line"])
-  + *
-  [data-testid="ledgerline-tool-line"]
-  .ll-tool-expand {
-  display: flex;
-}
-.theme-ledgerline
-  .copilotKitMessages
-  [data-testid="ledgerline-tool-line"]:has(
-    ~ [data-testid="ledgerline-tool-line"]
-  )
-  .ll-tool-expand,
-.theme-ledgerline
-  .copilotKitMessages
-  > :has([data-testid="ledgerline-tool-line"]):has(
-    + * [data-testid="ledgerline-tool-line"]
-  )
-  .ll-tool-expand {
-  display: none;
-}
-.theme-ledgerline
-  .copilotKitMessages[data-ll-tools="open"]
-  .ll-tool-expand
-  svg {
+.theme-ledgerline .ll-tool-expand[data-open="true"] svg {
   transform: rotate(180deg);
 }
-/* The newest line shimmers while nothing has come after it yet. */
 @keyframes ll-tool-shimmer {
   from {
     background-position: 100% 0;
@@ -188,14 +128,7 @@
     background-position: -100% 0;
   }
 }
-.theme-ledgerline
-  .copilotKitMessages
-  > :not(:has(~ * .copilotKitMessage))
-  .copilotKitAssistantMessage
-  > [data-testid="ledgerline-tool-line"]:not(
-    :has(~ :not([data-testid="copilot-assistant-toolbar"]))
-  )
-  .ll-tool-label {
+.theme-ledgerline [data-ll-live] .ll-tool-label {
   background: linear-gradient(
       90deg,
       hsl(var(--ink)) 0%,
