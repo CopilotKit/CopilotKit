@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, test, expect } from "vitest";
 import {
   createD6ServiceEnumerator,
   createE2eSmokeServiceEnumerator,
@@ -27,6 +27,7 @@ import type { DiscoverySource } from "../../probes/types.js";
 import type { RailwayServiceInfo } from "../../probes/discovery/railway-services.js";
 import type { EnumerateContext } from "./job-producer.js";
 import type { Logger } from "../../types/index.js";
+import { z } from "zod";
 import { e2eFullDriver } from "../../probes/drivers/d6-all-pills.js";
 
 /**
@@ -961,4 +962,135 @@ describe("createServiceEnumerator — Railway-GQL resilience policy", () => {
     policy = "stale-on-error";
     await expect(enumerate(CTX)).rejects.toBe(outage);
   });
+});
+
+/** A promise whose settlement order is controlled by the test. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+/** Isolated public fleet enumerator for policy-transition races. */
+function setupCatalogGeneration(freshFails = false) {
+  const old = deferred<RailwayServiceInfo[]>();
+  const replacement = deferred<RailwayServiceInfo[]>();
+  const error = new DiscoverySourceBackendError(
+    "generation",
+    "unavailable",
+    503,
+  );
+  const env = { REQUEST: "old" };
+  const requests: string[] = [];
+  const source: DiscoverySource<RailwayServiceInfo> = {
+    name: "generation",
+    configSchema: z.object({}),
+    cachePolicy: (ctx) =>
+      ctx.env.REQUEST === "fresh" ? "fresh-only" : "stale-on-error",
+    async enumerate(ctx) {
+      requests.push(ctx.env.REQUEST ?? "");
+      if (ctx.env.REQUEST === "old") return old.promise;
+      if (ctx.env.REQUEST === "replacement") return replacement.promise;
+      if (ctx.env.REQUEST === "fresh" && !freshFails)
+        return [svc({ name: "showcase-fresh" })];
+      throw error;
+    },
+  };
+  const catalog = createD6ServiceEnumerator({
+    source,
+    env,
+    fetchImpl: globalThis.fetch,
+    logger: SILENT_LOGGER,
+    retrySchedule: [],
+  });
+  const enumerate = async (request: string) => {
+    env.REQUEST = request;
+    return catalog(CTX);
+  };
+  return { old, replacement, error, requests, enumerate };
+}
+
+test.each([
+  { freshFails: false, oldFirst: false },
+  { freshFails: false, oldFirst: true },
+  { freshFails: true, oldFirst: false },
+  { freshFails: true, oldFirst: true },
+])(
+  "catalog generation revokes A: fresh failure=$freshFails, A finishes before C=$oldFirst",
+  async ({ freshFails, oldFirst }) => {
+    const { old, error, requests, enumerate } =
+      setupCatalogGeneration(freshFails);
+    const a = enumerate("old");
+    if (freshFails) await expect(enumerate("fresh")).rejects.toBe(error);
+    else
+      expect((await enumerate("fresh")).map((job) => job.serviceSlug)).toEqual([
+        "fresh",
+      ]);
+    if (oldFirst) {
+      old.resolve([svc({ name: "showcase-old" })]);
+      expect((await a).map((job) => job.serviceSlug)).toEqual(["old"]);
+    }
+    const c = enumerate("outage");
+    const observedC = c.then(
+      (value) => ({ value }),
+      (reason) => ({ error: reason }),
+    );
+    if (!oldFirst) {
+      old.resolve([svc({ name: "showcase-old" })]);
+      expect((await a).map((job) => job.serviceSlug)).toEqual(["old"]);
+    }
+
+    expect(await observedC).toEqual({ error });
+    expect(requests).toEqual(["old", "fresh", "outage"]);
+    await expect(enumerate("outage")).rejects.toBe(error);
+  },
+);
+
+test("revoked catalog success cannot overwrite a replacement catalog", async () => {
+  const { old, replacement, enumerate } = setupCatalogGeneration();
+  const a = enumerate("old");
+  await enumerate("fresh");
+  const c = enumerate("replacement");
+  replacement.resolve([svc({ name: "showcase-current" })]);
+  await c;
+  old.resolve([svc({ name: "showcase-old" })]);
+
+  expect((await a).map((job) => job.serviceSlug)).toEqual(["old"]);
+  expect((await enumerate("outage")).map((job) => job.serviceSlug)).toEqual([
+    "current",
+  ]);
+});
+
+test("revoked catalog failure cannot fall back to a replacement catalog", async () => {
+  const { old, replacement, error, enumerate } = setupCatalogGeneration();
+  const a = enumerate("old");
+  await enumerate("fresh");
+  const c = enumerate("replacement");
+  replacement.resolve([svc({ name: "showcase-current" })]);
+  await c;
+  old.reject(error);
+
+  await expect(a).rejects.toBe(error);
+  expect((await enumerate("outage")).map((job) => job.serviceSlug)).toEqual([
+    "current",
+  ]);
+});
+
+test("ordinary catalog calls preserve independent enumeration and stale fallback", async () => {
+  const { old, replacement, requests, enumerate } = setupCatalogGeneration();
+  const a = enumerate("old");
+  const b = enumerate("replacement");
+  expect(requests).toEqual(["old", "replacement"]);
+  old.resolve([svc({ name: "showcase-old" })]);
+  await a;
+  replacement.resolve([svc({ name: "showcase-current" })]);
+
+  expect((await b).map((job) => job.serviceSlug)).toEqual(["current"]);
+  expect((await enumerate("outage")).map((job) => job.serviceSlug)).toEqual([
+    "current",
+  ]);
 });
