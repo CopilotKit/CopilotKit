@@ -4,7 +4,7 @@
  * The compiled brand stylesheet + Plus Jakarta Sans are fed to
  * `createChannel({ render })`, and Takumi resolves the classes when it rasterizes.
  *
- * The JSX evaluates to a React element (host tags under the channels pragma),
+ * The JSX evaluates to host markup under the channels pragma,
  * which `thread.post` rasterizes to an image.
  */
 export interface MrrCardProps {

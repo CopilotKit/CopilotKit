@@ -9,9 +9,9 @@
  * in `app/index.ts`.
  */
 import { readThreadTool } from "./read-thread.js";
+import { renderChartTool } from "./render-chart.js";
+import { renderDiagramTool } from "./render-diagram.js";
 import { renderTableTool } from "./render-table.js";
-import { renderMrrTool } from "./render-mrr.js";
-import { renderCarouselTool } from "./render-carousel.js";
 import { issueCardTool, issueListTool, pageListTool } from "./render-tools.js";
 import {
   showIncidentTool,
@@ -19,7 +19,6 @@ import {
   showLinksTool,
 } from "./showcase-tools.js";
 import { confirmWriteTool } from "../human-in-the-loop/index.js";
-import { showcaseTools } from "../showcase/index.js";
 import type { ChannelTool } from "@copilotkit/channels";
 
 /**
@@ -32,9 +31,9 @@ import type { ChannelTool } from "@copilotkit/channels";
  */
 export const appTools: ChannelTool[] = [
   readThreadTool,
+  renderChartTool,
+  renderDiagramTool,
   renderTableTool,
-  renderMrrTool,
-  renderCarouselTool,
   issueCardTool,
   issueListTool,
   pageListTool,
@@ -42,16 +41,13 @@ export const appTools: ChannelTool[] = [
   showStatusTool,
   showLinksTool,
   confirmWriteTool,
-  // Showcase features (each also has a slash command in app/commands): PR
-  // review radar, weekly OSS pulse, Linear cycle standup.
-  ...showcaseTools,
 ];
 
 export {
   readThreadTool,
+  renderChartTool,
+  renderDiagramTool,
   renderTableTool,
-  renderMrrTool,
-  renderCarouselTool,
   issueCardTool,
   issueListTool,
   pageListTool,

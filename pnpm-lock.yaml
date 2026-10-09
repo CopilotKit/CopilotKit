@@ -391,6 +391,9 @@ importers:
       '@tanstack/ai-openai':
         specifier: ^0.17.1
         version: 0.17.1(@tanstack/ai@0.42.0(@opentelemetry/api@1.9.0))(ws@8.21.3)(zod@3.25.76)
+      playwright:
+        specifier: ^1.49.0
+        version: 1.59.1
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -404,6 +407,9 @@ importers:
       '@notionhq/notion-mcp-server':
         specifier: ^2.2.1
         version: 2.2.1(@cfworker/json-schema@4.1.1)(js-yaml@4.1.1)
+      '@tailwindcss/cli':
+        specifier: 4.1.18
+        version: 4.1.18
       '@types/node':
         specifier: ^22.10.0
         version: 22.19.11
@@ -413,9 +419,9 @@ importers:
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
-      playwright:
-        specifier: ^1.49.0
-        version: 1.59.1
+      tailwindcss:
+        specifier: 4.1.18
+        version: 4.1.18
       tsx:
         specifier: ^4.19.2
         version: 4.21.0
