@@ -592,9 +592,23 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
   }, [hasSelfManagedAgents, resolvedPublicKey]);
 
-  // Resolve headers from function or static object
-  const headers =
+  // A header function can return a new object on every call. Read it on
+  // every render so a new token is visible. Keep the same object when the
+  // values do not change, so the connect effect does not run again.
+  const rawHeaders =
     typeof headersProp === "function" ? headersProp() : headersProp;
+  const headersSignature = JSON.stringify(
+    Object.keys(rawHeaders)
+      .sort()
+      .map((key) => [key, rawHeaders[key]]),
+  );
+  const stableHeadersRef = useRef(rawHeaders);
+  const headersSignatureRef = useRef(headersSignature);
+  if (headersSignatureRef.current !== headersSignature) {
+    headersSignatureRef.current = headersSignature;
+    stableHeadersRef.current = rawHeaders;
+  }
+  const headers = stableHeadersRef.current;
 
   // Merge a provided publicApiKey into headers (without overwriting an explicit header).
   const mergedHeaders = useMemo(() => {
