@@ -406,7 +406,11 @@ describe("Trajectory capture with the real Phoenix client", () => {
     const input = document.querySelector("input")!;
     button.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
     input.value = "alice@example.com";
+    const editedAt = Date.now();
     input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(beforeSend).not.toHaveBeenCalledWith(
+      expect.objectContaining({ name: "input" }),
+    );
     const requestBody = '{"email":"alice@example.com"}';
     const appResponse = await fetch("/api/orders/42?token=visible#details", {
       method: "POST",
@@ -422,6 +426,18 @@ describe("Trajectory capture with the real Phoenix client", () => {
       expect(beforeSend).toHaveBeenCalledWith(
         expect.objectContaining({ name: "network" }),
       ),
+    );
+    // Typeahead responses must not flush text before its trailing deadline.
+    expect(beforeSend).not.toHaveBeenCalledWith(
+      expect.objectContaining({ name: "input" }),
+    );
+    await vi.advanceTimersByTimeAsync(editedAt + 299 - Date.now());
+    expect(beforeSend).not.toHaveBeenCalledWith(
+      expect.objectContaining({ name: "input" }),
+    );
+    await vi.advanceTimersByTimeAsync(1);
+    expect(beforeSend).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "input", timestamp: editedAt + 300 }),
     );
     // A runtime request made while capture is active must not capture itself.
     await fetch(
@@ -473,23 +489,6 @@ describe("Trajectory capture with the real Phoenix client", () => {
           },
         }),
         expect.objectContaining({
-          name: "input",
-          value: {
-            eventType: "input",
-            route: "/users/alice/orders",
-            url: currentUrl,
-            seq: SEQ_BASE + 3,
-            target: {
-              tag: "input",
-              role: null,
-              action: null,
-              text: "",
-              attributes: { name: "email", type: "email" },
-              value: "alice@example.com",
-            },
-          },
-        }),
-        expect.objectContaining({
           name: "network",
           value: expect.objectContaining({
             transport: "fetch",
@@ -497,7 +496,7 @@ describe("Trajectory capture with the real Phoenix client", () => {
             url: `${location.origin}/api/orders/42?token=[redacted]#details`,
             route: "/api/orders/42",
             status: 201,
-            seq: SEQ_BASE + 4,
+            seq: SEQ_BASE + 3,
             completedAt: expect.any(Number),
             durationMs: expect.any(Number),
             request: {
@@ -523,6 +522,23 @@ describe("Trajectory capture with the real Phoenix client", () => {
               },
             },
           }),
+        }),
+        expect.objectContaining({
+          name: "input",
+          value: {
+            eventType: "input",
+            route: "/users/alice/orders",
+            url: currentUrl,
+            seq: SEQ_BASE + 4,
+            target: {
+              tag: "input",
+              role: null,
+              action: null,
+              text: "",
+              attributes: { name: "email", type: "email" },
+              value: "alice@example.com",
+            },
+          },
         }),
       ],
     });

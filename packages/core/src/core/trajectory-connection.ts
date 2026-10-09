@@ -246,7 +246,11 @@ export class TrajectoryConnection {
   stop(): void {
     const session = this.session;
     if (!session) return;
-    // Best effort only: stop stays synchronous and never waits for an ACK.
+    // Drain settled input while this session can still enqueue it, before the
+    // best-effort transport flush. Stop stays synchronous and never waits for ACK.
+    const collector = session.collector;
+    session.collector = undefined;
+    collector?.stop();
     if (session.ready && session.connection)
       this.flush(session, session.connection);
     this.end(session, { status: "error", code: "CANCELLED" });
@@ -402,15 +406,17 @@ export class TrajectoryConnection {
     retryable = true,
   ): void {
     if (!this.current(session, connection)) return;
-    session.collector?.stop();
-    session.collector = undefined;
     if (session.ready && session.started) {
       // A new start during recovery must await a fresh join, not an old success.
       session.promise = new Promise((resolve) => {
         session.resolve = resolve;
       });
     }
+    // Closing capture may drain a pending edit; it must not reach a failed
+    // connection or fill a batch while recovery is discarding queued events.
     session.ready = false;
+    session.collector?.stop();
+    session.collector = undefined;
     this.discardQueue(session);
     // A discarded or unconfirmed link is sent again on the next run.
     session.linkedThreads.clear();

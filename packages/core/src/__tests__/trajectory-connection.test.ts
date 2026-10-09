@@ -5,6 +5,7 @@ import { from } from "rxjs";
 import { CopilotKitCore } from "../core";
 import type { CopilotKitCoreConfig } from "../core";
 import type { JsonValue, TrajectoryEvent } from "@copilotkit/learning";
+import * as Learning from "@copilotkit/learning";
 
 type Batch = {
   events: TrajectoryEvent<Record<string, JsonValue>>[];
@@ -1295,3 +1296,62 @@ class ChatAgent extends AbstractAgent {
     ]);
   }
 }
+
+/** Models the collector's pending browser edit at the Core/collector boundary. */
+function pendingInputOnStop() {
+  const create = Learning.createTrajectoryCollector;
+  let pending: TrajectoryEvent | undefined;
+  vi.spyOn(Learning, "createTrajectoryCollector").mockImplementation(
+    (options) => {
+      const collector = create(options);
+      return {
+        ...collector,
+        stop() {
+          const event = pending;
+          pending = undefined;
+          if (event) options.send(event);
+          collector.stop();
+        },
+      };
+    },
+  );
+  return () => {
+    pending = {
+      type: "CUSTOM",
+      name: "input",
+      timestamp: Date.now(),
+      value: { target: { value: "final pending edit" } },
+    };
+  };
+}
+
+it("drains pending collector input before explicit stop flushes and closes transport", async () => {
+  const edit = pendingInputOnStop();
+  const { core, channel } = await start();
+  edit();
+  core.stopTrajectory();
+  expect(names(channel)).toEqual(["page", "input"]);
+  expect(channel.pushes.at(-1)?.payload.events[0]?.value.target).toEqual({
+    value: "final pending edit",
+  });
+  expect(channel.left).toBe(true);
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it("discards pending input on failure before it can fill and send a batch, then reconnects cleanly", async () => {
+  const edit = pendingInputOnStop();
+  const { core, channel } = await start();
+  for (let i = 0; i < 49; i++) core.emitTrajectoryEvent("queued", { i });
+  edit();
+  channel.callbacks.get("phx_error")?.();
+  expect(names(channel)).toEqual(["page"]);
+  await vi.advanceTimersByTimeAsync(1000);
+  await authorize(1, "fresh-token");
+  const recovered = join(1);
+  await vi.advanceTimersByTimeAsync(2000);
+  expect(names(recovered)).toEqual(["page"]);
+  expect(recovered.pushes[0]?.payload.dropped).toBe(49);
+  persist(recovered);
+  core.stopTrajectory();
+  expect(vi.getTimerCount()).toBe(0);
+});

@@ -1,5 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createCollector } from "../collector";
+import type * as InputCapture from "../inputs";
+
+// jsdom cannot create trusted input; retain the real capture and lifecycle.
+vi.mock("../inputs", async (importOriginal) => {
+  const actual = await importOriginal<typeof InputCapture>();
+  return {
+    ...actual,
+    installInputCapture: (
+      params: Parameters<typeof actual.installInputCapture>[0],
+    ) => actual.installInputCapture({ ...params, isTrusted: () => true }),
+  };
+});
 import type { CollectorOptions, LearningBatch, LearningSink } from "../types";
 
 const NOW = 1_790_000_000_000;
@@ -19,6 +31,7 @@ beforeEach(() => {
 afterEach(() => {
   stopCurrent?.();
   stopCurrent = undefined;
+  document.body.innerHTML = "";
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -304,4 +317,61 @@ describe("createCollector", () => {
 
     expect(sends).toEqual([{ beacon: true }]);
   });
+});
+
+it.each(["emit", "stop", "pagehide"])(
+  "the batched collector flushes pending input before %s",
+  (action) => {
+    const { collector, batches } = setup();
+    document.body.innerHTML = "<input>";
+    collector.start({ trajectoryId: "input-session" });
+    const input = document.querySelector("input")!;
+    input.value = "final text";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    if (action === "emit") collector.emit("app.approved", {});
+    else if (action === "pagehide") window.dispatchEvent(new Event("pagehide"));
+    collector.stop();
+    const events = batches.flatMap((batch) => batch.events);
+    expect(events.map((event) => event.name)).toEqual([
+      "page",
+      "input",
+      ...(action === "emit" ? ["app.approved"] : []),
+    ]);
+    expect(events.map((event) => event.value.seq)).toEqual(
+      action === "emit" ? [1, 2, 3] : [1, 2],
+    );
+    expect(vi.getTimerCount()).toBe(0);
+  },
+);
+
+it("a reentrant stop/restart during input flush preserves the new batched session", () => {
+  const { collector, batches } = setup({
+    beforeSend(event) {
+      if (event.name === "input") {
+        collector.stop();
+        collector.start({ trajectoryId: "new-session" });
+      }
+      return event;
+    },
+  });
+  document.body.innerHTML = "<input>";
+  collector.start({ trajectoryId: "old-session" });
+  document.querySelector("input")!.value = "pending";
+  document
+    .querySelector("input")!
+    .dispatchEvent(new Event("input", { bubbles: true }));
+  collector.stop();
+  expect(collector.trajectoryId).toBe("new-session");
+  collector.emit("new.action", {});
+  collector.stop();
+  expect(
+    batches.map((batch) => [
+      batch.trajectoryId,
+      batch.events.map((event) => event.name),
+    ]),
+  ).toEqual([
+    ["old-session", ["page"]],
+    ["new-session", ["page", "new.action"]],
+  ]);
+  expect(vi.getTimerCount()).toBe(0);
 });

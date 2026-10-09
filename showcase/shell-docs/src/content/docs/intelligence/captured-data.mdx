@@ -68,6 +68,14 @@ Fetch duration ends when headers arrive. XHR duration ends at `loadend`. Network
 
 Your own events, sent with `emit()` or `emitTrajectoryEvent()`, use your names. The custom-sink integration also adds the open Thread.
 
+## Form edit timing
+
+Text edits are combined per field. After 300 ms without another edit, capture records the latest value once. A field commit, focus change, click, submit, navigation, developer event, or explicit stop records the pending edit sooner, before the action that follows it. An `input` event and a later `change` event with the same value do not create duplicate records.
+
+Checkboxes, radio buttons, select controls, and other discrete controls record changes immediately. Input-method composition waits for the completed text; a pause while choosing a composed character does not produce a partial edit. Network responses do not end a typing burst.
+
+This changes how often edits are recorded, not which fields or values are captured. The redaction and exclusion rules above still apply. Recorded edits use the normal delivery queue. Stopping connected capture attempts a final batch without waiting for a receipt; it does not guarantee persistence. When connected capture loses its gateway connection, it clears pending edits so they cannot appear in a later capture session.
+
 ## Batches
 
 The sink receives `{ trajectoryId, learningContainerIds, events, dropped }`.
