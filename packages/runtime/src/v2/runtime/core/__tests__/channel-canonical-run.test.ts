@@ -4,6 +4,7 @@ import { createChannel } from "@copilotkit/channels";
 import { EMPTY, Observable, of, throwError } from "rxjs";
 import { expect, test, vi } from "vitest";
 import { CopilotKitIntelligence } from "../../intelligence-platform";
+import { PlatformRequestError } from "../../intelligence-platform/client";
 import { AgentRunner } from "../../runner/agent-runner";
 import type {
   AgentRunnerConnectRequest,
@@ -61,22 +62,36 @@ class TestRunner extends AgentRunner {
 
 async function captureRunCanonical(
   runner: AgentRunner,
-  options: {
+  runtimeOptions: {
     intelligence?: CopilotKitIntelligence;
+    learning?: {
+      containerId:
+        | string
+        | ((input: {
+            surface: "channel";
+            threadId: string;
+            runId: string;
+            agentId: string;
+            userId: string;
+            deliveryId: string;
+          }) => string | null | Promise<string | null>);
+    };
     lockHeartbeatIntervalSeconds?: number;
     lockTtlSeconds?: number;
+    /** `ttlSeconds` returned by the mocked lock acquisition. */
+    acquiredTtlSeconds?: number;
   } = {},
 ): Promise<RunCanonical> {
   let captured: RunCanonical | undefined;
   const importer = async (): Promise<ChannelsIntelligenceModule> => ({
-    startChannelsOverRealtimeGateway: async (_channels, options) => {
-      captured = options.runCanonical;
+    startChannelsOverRealtimeGateway: async (_channels, startOptions) => {
+      captured = startOptions.runCanonical;
       return { metadata: {}, stop: async () => {} };
     },
   });
 
   const intelligence =
-    options.intelligence ??
+    runtimeOptions.intelligence ??
     new CopilotKitIntelligence({
       apiUrl: "https://runtime.example",
       wsUrl: "wss://runtime.example",
@@ -85,6 +100,9 @@ async function captureRunCanonical(
   vi.spyOn(intelligence, "ɵacquireThreadLock").mockResolvedValue({
     ...canonicalIdentity,
     joinToken: "join_token_not_used_by_channels",
+    ...(runtimeOptions.acquiredTtlSeconds !== undefined
+      ? { ttlSeconds: runtimeOptions.acquiredTtlSeconds }
+      : {}),
   });
   // Always mock cleanup/renew so unit tests never issue real HTTP to apiUrl.
   if (!vi.isMockFunction(intelligence.ɵcleanupThreadLock)) {
@@ -103,22 +121,25 @@ async function captureRunCanonical(
       apiKey: "cpk-42_short_long",
       projectId: 42,
       channelName: "support",
-      adapter: "slack",
       runtimeInstanceId: "rti_test",
     },
-    createChannel({ name: "support" }),
+    createChannel({ identifyUser: "platform", name: "support" }),
     importer,
     undefined,
     {
       runner,
       intelligence,
-      ...(options.lockHeartbeatIntervalSeconds !== undefined
+      ...(runtimeOptions.learning !== undefined
+        ? { learning: runtimeOptions.learning }
+        : {}),
+      ...(runtimeOptions.lockHeartbeatIntervalSeconds !== undefined
         ? {
-            lockHeartbeatIntervalSeconds: options.lockHeartbeatIntervalSeconds,
+            lockHeartbeatIntervalSeconds:
+              runtimeOptions.lockHeartbeatIntervalSeconds,
           }
         : {}),
-      ...(options.lockTtlSeconds !== undefined
-        ? { lockTtlSeconds: options.lockTtlSeconds }
+      ...(runtimeOptions.lockTtlSeconds !== undefined
+        ? { lockTtlSeconds: runtimeOptions.lockTtlSeconds }
         : {}),
     },
   );
@@ -150,6 +171,16 @@ function runArgs(
 }
 
 test("runCanonical rejects a RUN_ERROR event even when the runner completes", async () => {
+  const details = {
+    category: "validation",
+    provider: "slack",
+    operation: "chat.postMessage",
+    effectKind: "slack.message.create",
+    providerCode: "invalid_blocks",
+    validationMessages: ["invalid field at /blocks/2/elements/0/children"],
+    retryable: false,
+    deliveryId: "dlv_delivery_1",
+  } as const;
   const intelligence = new CopilotKitIntelligence({
     apiUrl: "https://runtime.example",
     wsUrl: "wss://runtime.example",
@@ -162,14 +193,35 @@ test("runCanonical rejects a RUN_ERROR event even when the runner completes", as
     of({
       type: EventType.RUN_ERROR,
       message: "agent failed",
-      code: "AGENT_FAILED",
+      code: "provider_call_failed",
+      category: "validation",
+      provider: "slack",
+      operation: "chat.postMessage",
+      effectKind: "slack.message.create",
+      providerCode: "invalid_blocks",
+      validationMessages: ["invalid field at /blocks/2/elements/0/children"],
+      retryable: false,
+      deliveryId: "dlv_delivery_1",
+      details,
+      cause: details,
     }),
   );
   const runCanonical = await captureRunCanonical(runner, { intelligence });
 
   await expect(runCanonical(runArgs())).rejects.toMatchObject({
     message: "agent failed",
-    code: "AGENT_FAILED",
+    name: "ChannelCanonicalRunError",
+    code: "provider_call_failed",
+    category: "validation",
+    provider: "slack",
+    operation: "chat.postMessage",
+    effectKind: "slack.message.create",
+    providerCode: "invalid_blocks",
+    validationMessages: ["invalid field at /blocks/2/elements/0/children"],
+    retryable: false,
+    deliveryId: "dlv_delivery_1",
+    details,
+    cause: details,
   });
   expect(cleanup).toHaveBeenCalledWith(canonicalIdentity);
 });
@@ -205,6 +257,7 @@ test("runCanonical renews the standard thread lock until the run settles", async
       threadId: canonicalIdentity.threadId,
       runId: canonicalIdentity.runId,
       ttlSeconds: 120,
+      signal: expect.any(AbortSignal),
     });
 
     completeRun?.();
@@ -245,6 +298,94 @@ test("runCanonical stops only its exact run when the delivery is superseded", as
   });
 });
 
+test("runCanonical keeps the run alive through a transient renewal failure", async () => {
+  vi.useFakeTimers();
+  try {
+    const intelligence = new CopilotKitIntelligence({
+      apiUrl: "https://runtime.example",
+      wsUrl: "wss://runtime.example",
+      apiKey: "cpk-42_short_long",
+    });
+    const renew = vi
+      .spyOn(intelligence, "ɵrenewThreadLock")
+      .mockRejectedValueOnce(
+        new PlatformRequestError("Intelligence platform error 500", 500, true),
+      )
+      .mockResolvedValue({ ttlSeconds: 120, status: "renewed" });
+    let completeRun: (() => void) | undefined;
+    const stopRun = vi.fn(async () => true);
+    const runner = new TestRunner(
+      () =>
+        new Observable<BaseEvent>((observer) => {
+          completeRun = () => observer.complete();
+        }),
+      stopRun,
+    );
+    const runCanonical = await captureRunCanonical(runner, {
+      intelligence,
+      lockHeartbeatIntervalSeconds: 1,
+      lockTtlSeconds: 120,
+    });
+
+    const running = runCanonical(runArgs());
+    // Failure at t=1s, retry succeeds at t=2s.
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(renew).toHaveBeenCalledTimes(2);
+
+    completeRun?.();
+    await expect(running).resolves.toBeDefined();
+    expect(stopRun).not.toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("runCanonical retries a failed first renewal within the lifetime set at acquisition", async () => {
+  vi.useFakeTimers();
+  try {
+    const intelligence = new CopilotKitIntelligence({
+      apiUrl: "https://runtime.example",
+      wsUrl: "wss://runtime.example",
+      apiKey: "cpk-42_short_long",
+    });
+    const renew = vi.spyOn(intelligence, "ɵrenewThreadLock");
+    for (let i = 0; i < 5; i++) {
+      renew.mockRejectedValueOnce(
+        new PlatformRequestError("Intelligence platform error 500", 500, true),
+      );
+    }
+    renew.mockResolvedValue({ ttlSeconds: 120, status: "renewed" });
+    let completeRun: (() => void) | undefined;
+    const stopRun = vi.fn(async () => true);
+    const runner = new TestRunner(
+      () =>
+        new Observable<BaseEvent>((observer) => {
+          completeRun = () => observer.complete();
+        }),
+      stopRun,
+    );
+    const runCanonical = await captureRunCanonical(runner, {
+      intelligence,
+      lockHeartbeatIntervalSeconds: 1,
+      lockTtlSeconds: 20,
+      acquiredTtlSeconds: 120,
+    });
+
+    const running = runCanonical(runArgs());
+    // Failures at t=1, 2, 4, 8 and 16s would exhaust the 20s fallback; the
+    // platform set 120s at acquisition, so the retry at t=24s still runs.
+    await vi.advanceTimersByTimeAsync(24_000);
+    expect(renew).toHaveBeenCalledTimes(6);
+    expect(stopRun).not.toHaveBeenCalled();
+
+    completeRun?.();
+    await expect(running).resolves.toBeDefined();
+    expect(stopRun).not.toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 test("runCanonical stops the standard runner when lock renewal fails", async () => {
   vi.useFakeTimers();
   try {
@@ -254,7 +395,7 @@ test("runCanonical stops the standard runner when lock renewal fails", async () 
       apiKey: "cpk-42_short_long",
     });
     vi.spyOn(intelligence, "ɵrenewThreadLock").mockRejectedValue(
-      new Error("thread lock lost"),
+      new PlatformRequestError("thread lock lost", 409, false),
     );
     let completeRun: (() => void) | undefined;
     const stopRun = vi.fn(async () => {
@@ -347,6 +488,34 @@ test("runCanonical acquires the standard lock and uses the runner project key", 
   // `buildRunStartedEvent` also re-stamps `input.threadId` from it, so both must hold.
   expect(request?.threadId).toBe(canonicalIdentity.threadId);
   expect(request?.input.threadId).toBe(canonicalIdentity.threadId);
+});
+
+test("runCanonical resolves one Learning Container ID for the Channel lock", async () => {
+  const intelligence = new CopilotKitIntelligence({
+    apiUrl: "https://runtime.example",
+    wsUrl: "wss://runtime.example",
+    apiKey: "cpk-42_short_long",
+  });
+  const containerId = vi.fn().mockResolvedValue("support-quality");
+  const runCanonical = await captureRunCanonical(new TestRunner(() => EMPTY), {
+    intelligence,
+    learning: { containerId },
+  });
+
+  await runCanonical(runArgs());
+
+  expect(containerId).toHaveBeenCalledOnce();
+  expect(containerId).toHaveBeenCalledWith({
+    surface: "channel",
+    threadId: canonicalIdentity.threadId,
+    runId: canonicalIdentity.runId,
+    agentId: "support-agent",
+    userId: "app-user-1",
+    deliveryId: "dlv_delivery_1",
+  });
+  expect(intelligence.ɵacquireThreadLock).toHaveBeenCalledWith(
+    expect.objectContaining({ learningContainerId: "support-quality" }),
+  );
 });
 
 test("runCanonical returns a deferred delivery error only after the runner records RUN_FINISHED", async () => {

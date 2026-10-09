@@ -33,7 +33,7 @@ from typing import Any
 from ag_ui.core import EventType, StateSnapshotEvent
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.ag_ui import StateDeps
+from pydantic_ai.ui import StateDeps
 from pydantic_ai.models.openai import OpenAIResponsesModel
 
 
@@ -79,7 +79,7 @@ _BASE_SYSTEM_PROMPT = (
 
 
 agent = Agent(
-    model=OpenAIResponsesModel("gpt-4o-mini"),
+    model=OpenAIResponsesModel("gpt-5-mini"),
     deps_type=StateDeps[SharedStateRWState],
     system_prompt=_BASE_SYSTEM_PROMPT,
 )

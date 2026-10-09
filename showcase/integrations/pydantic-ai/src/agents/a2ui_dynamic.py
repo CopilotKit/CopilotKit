@@ -16,7 +16,7 @@ Pattern:
   tool).
 
 PydanticAI notes:
-- `agent.to_ag_ui()` exposes StateDeps to tools via `ctx.deps`, but
+- the AG-UI adapter exposes StateDeps to tools via `ctx.deps`, but
   `StateDeps` carries ONLY a `state` field — it has no `copilotkit`
   attribute. The real forwarded conversation lives on the pydantic-ai
   `RunContext` itself, as `ctx.messages` (the `ModelMessage` history the
@@ -33,7 +33,7 @@ from textwrap import dedent
 
 from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.ag_ui import StateDeps
+from pydantic_ai.ui import StateDeps
 from pydantic_ai.messages import ModelRequest, ModelResponse
 from pydantic_ai.models.openai import OpenAIResponsesModel
 
@@ -139,7 +139,7 @@ def _part_content_to_text(content: object) -> str:
 
 
 agent = Agent(
-    model=OpenAIResponsesModel("gpt-4.1"),
+    model=OpenAIResponsesModel("gpt-5-mini"),
     deps_type=StateDeps[EmptyState],
     system_prompt=SYSTEM_PROMPT,
 )
@@ -199,7 +199,7 @@ def generate_a2ui(ctx: RunContext[StateDeps[EmptyState]]) -> str:
         )
 
     response = client.chat.completions.create(
-        model="gpt-4.1",
+        model="gpt-5-mini",
         messages=llm_messages,
         tools=[tool_schema],
         tool_choice={"type": "function", "function": {"name": "render_a2ui"}},

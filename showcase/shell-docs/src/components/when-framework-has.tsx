@@ -38,6 +38,7 @@ import { getIntegration } from "@/lib/registry";
  */
 type SupportedFlag =
   | "a2ui_pattern"
+  | "a2ui_agent_form"
   | "interrupt_pattern"
   | "thread_persistence_pattern"
   | "agent_config_pattern"

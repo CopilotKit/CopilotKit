@@ -5,14 +5,12 @@ import {
   input,
   linkedSignal,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
 import {
-  Check,
-  ChevronDown,
-  LoaderCircle,
-  LucideAngularModule,
-  Wrench,
-} from "lucide-angular";
+  LucideCheck,
+  LucideChevronDown,
+  LucideLoaderCircle,
+  LucideWrench,
+} from "@lucide/angular";
 
 import type { AngularToolCall, ToolRenderer } from "@copilotkit/angular";
 
@@ -26,7 +24,7 @@ type ToolEntry = {
 @Component({
   selector: "wildcard-tool-render",
   standalone: true,
-  imports: [CommonModule, LucideAngularModule],
+  imports: [LucideCheck, LucideChevronDown, LucideLoaderCircle, LucideWrench],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="copilot-tool-reasoning" data-testid="wildcard-tool-render">
@@ -38,31 +36,39 @@ type ToolEntry = {
         (click)="toggle()"
       >
         @if (isRunning()) {
-          <lucide-angular
-            [img]="LoaderCircleIcon"
-            [size]="14"
+          <svg
+            lucideLoaderCircle
+            size="14"
             class="copilot-tool-icon copilot-tool-icon--spin"
-          />
+            aria-hidden="true"
+          ></svg>
         } @else {
-          <lucide-angular
-            [img]="CheckIcon"
-            [size]="14"
+          <svg
+            lucideCheck
+            size="14"
             class="copilot-tool-icon copilot-tool-icon--complete"
-          />
+            aria-hidden="true"
+          ></svg>
         }
 
-        <lucide-angular [img]="WrenchIcon" [size]="14" class="copilot-tool-icon" />
+        <svg
+          lucideWrench
+          size="14"
+          class="copilot-tool-icon"
+          aria-hidden="true"
+        ></svg>
 
         <span class="copilot-tool-name">{{ toolName() }}</span>
         <span class="copilot-tool-status">{{ statusLabel() }}</span>
 
         @if (hasDetails()) {
-          <lucide-angular
-            [img]="ChevronDownIcon"
-            [size]="14"
+          <svg
+            lucideChevronDown
+            size="14"
             class="copilot-tool-chevron"
             [class.copilot-tool-chevron--open]="open()"
-          />
+            aria-hidden="true"
+          ></svg>
         }
       </button>
 
@@ -131,6 +137,11 @@ type ToolEntry = {
         width: 14px;
         height: 14px;
         flex: 0 0 14px;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 2;
       }
 
       .copilot-tool-icon--spin {
@@ -165,6 +176,11 @@ type ToolEntry = {
         height: 14px;
         flex: 0 0 14px;
         transition: transform 0.2s ease;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 2;
       }
 
       .copilot-tool-chevron--open {
@@ -227,11 +243,6 @@ type ToolEntry = {
 })
 export class WildcardToolRenderComponent implements ToolRenderer<WildcardToolArgs> {
   readonly toolCall = input.required<AngularToolCall<WildcardToolArgs>>();
-
-  protected readonly LoaderCircleIcon = LoaderCircle;
-  protected readonly CheckIcon = Check;
-  protected readonly ChevronDownIcon = ChevronDown;
-  protected readonly WrenchIcon = Wrench;
 
   protected readonly isRunning = computed(
     () => this.toolCall().status !== "complete",

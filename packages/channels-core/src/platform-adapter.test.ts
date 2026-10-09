@@ -10,6 +10,7 @@ describe("FakeAdapter", () => {
         got = t.userText;
       },
       onInteraction: () => {},
+      onWelcome: () => {},
       onCommand: () => {},
       onThreadStarted: () => {},
       onReaction: () => {},
@@ -30,6 +31,7 @@ describe("FakeAdapter", () => {
       onInteraction: (e) => {
         id = e.id;
       },
+      onWelcome: () => {},
       onCommand: () => {},
       onThreadStarted: () => {},
       onReaction: () => {},

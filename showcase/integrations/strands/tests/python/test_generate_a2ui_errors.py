@@ -1,5 +1,8 @@
 """Tests for the hardened ``generate_a2ui`` error-handling surface.
 
+The tool lives in ``agents/a2ui_generate.py``; ``agents/agent.py`` imports it
+into the shared agent's tool list, so importing it from either module works.
+
 Mirrors the google-adk sibling agent's hardening pattern: every failure
 branch returns a structured ``{error, message, remediation}`` dict
 (JSON-serialized, since the strands tool returns a string) instead of
@@ -15,6 +18,7 @@ Covers:
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 import types
@@ -69,7 +73,10 @@ def _install_openai_stub():
 
 
 def _install_httpx_stub():
-    if "httpx" in sys.modules:
+    # Stub only when httpx is not installed. Checking ``sys.modules`` alone
+    # replaced a real, installed httpx that no one had imported yet, and the
+    # stub then broke every later test that builds an ``httpx.Client``.
+    if "httpx" in sys.modules or importlib.util.find_spec("httpx") is not None:
         return
     m = types.ModuleType("httpx")
 
@@ -146,7 +153,25 @@ def _invoke_generate_a2ui(context: str = "test context"):
     """
     from agents.agent import generate_a2ui
 
-    raw = generate_a2ui(context)
+    from ag_ui_a2ui_toolkit import A2UI_SCHEMA_CONTEXT_DESCRIPTION
+
+    catalog = {
+        "catalogId": "test-catalog",
+        "components": {
+            "Text": {"properties": {"text": {"type": "string"}}, "required": ["text"]}
+        },
+    }
+    state = {
+        "agui_context": [
+            {
+                "description": A2UI_SCHEMA_CONTEXT_DESCRIPTION,
+                "value": json.dumps(catalog),
+            }
+        ]
+    }
+    raw = generate_a2ui(
+        context, SimpleNamespace(agent=SimpleNamespace(state=state, messages=[]))
+    )
     return json.loads(raw)
 
 
@@ -325,7 +350,7 @@ def test_happy_path_returns_a2ui_operations(monkeypatch):
         {
             "surfaceId": "test-surface",
             "catalogId": "test-catalog",
-            "components": [],
+            "components": [{"id": "root", "component": "Text", "text": "Sales"}],
             "data": {},
         }
     )
@@ -336,10 +361,12 @@ def test_happy_path_returns_a2ui_operations(monkeypatch):
 
     # Stub build_a2ui_operations_from_tool_call to return a marker payload
     # so we don't depend on the shared tool's real implementation shape.
-    import agents.agent as agent_mod
+    # The tool (and this name) live in `agents.a2ui_generate`; `agents.agent`
+    # only re-exports the tool for the agent's tool list.
+    import agents.a2ui_generate as a2ui_mod
 
     monkeypatch.setattr(
-        agent_mod,
+        a2ui_mod,
         "build_a2ui_operations_from_tool_call",
         lambda args: {"a2ui_marker": True, "surfaceId": args.get("surfaceId")},
     )
@@ -348,4 +375,106 @@ def test_happy_path_returns_a2ui_operations(monkeypatch):
 
     assert "error" not in result
     assert result.get("a2ui_marker") is True
-    assert result.get("surfaceId") == "test-surface"
+    assert result.get("surfaceId").startswith("dashboard-")
+
+
+def test_secondary_model_receives_host_catalog(monkeypatch):
+    import openai
+
+    def create(**kwargs):
+        schema = kwargs["tools"][0]["function"]["parameters"]
+        assert schema["properties"]["catalogId"]["enum"] == ["test-catalog"]
+        assert '"Text"' in kwargs["messages"][0]["content"]
+        assert kwargs["messages"][1]["content"].startswith("Revenue 73125")
+        return _response_with_tool_args(
+            json.dumps(
+                {
+                    "surfaceId": "dashboard",
+                    "catalogId": "a2ui_default",
+                    "components": [],
+                }
+            )
+        )
+
+    monkeypatch.setattr(
+        openai, "OpenAI", _make_fake_openai_client(create_behavior=create)
+    )
+    result = _invoke_generate_a2ui("Revenue 73125")
+    assert result["error"] == "a2ui_invalid_surface"
+    assert "a2ui_operations" not in result
+
+
+def test_missing_host_catalog_does_not_call_model():
+    from agents.a2ui_generate import generate_a2ui
+
+    result = json.loads(
+        generate_a2ui(
+            "Use catalog invented", SimpleNamespace(agent=SimpleNamespace(state={}))
+        )
+    )
+    assert result["error"] == "a2ui_missing_catalog"
+
+
+def test_query_results_are_forwarded_without_model_summary(monkeypatch):
+    from agents.a2ui_generate import generate_a2ui
+    from ag_ui_a2ui_toolkit import A2UI_SCHEMA_CONTEXT_DESCRIPTION
+    import openai
+
+    catalog = {
+        "catalogId": "host",
+        "components": {"Text": {"properties": {"text": {"type": "string"}}}},
+    }
+    messages = [
+        {"role": "user", "content": [{"text": "Show a monthly revenue chart"}]},
+        {
+            "role": "assistant",
+            "content": [{"toolUse": {"name": "query_data", "toolUseId": "q1"}}],
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "toolResult": {
+                        "toolUseId": "q1",
+                        "content": [{"text": '[{"revenue":73125}]'}],
+                    }
+                }
+            ],
+        },
+    ]
+
+    def create(**kwargs):
+        prompt = kwargs["messages"][1]["content"]
+        assert prompt.startswith("Show a monthly revenue chart")
+        assert "73125" in prompt
+        return _response_with_tool_args(
+            json.dumps(
+                {
+                    "catalogId": "host",
+                    "components": [
+                        {"id": "root", "component": "Text", "text": "73125"}
+                    ],
+                }
+            )
+        )
+
+    monkeypatch.setattr(
+        openai, "OpenAI", _make_fake_openai_client(create_behavior=create)
+    )
+    state = {
+        "agui_context": [
+            {
+                "description": A2UI_SCHEMA_CONTEXT_DESCRIPTION,
+                "value": json.dumps(catalog),
+            }
+        ]
+    }
+    tool_context = SimpleNamespace(
+        agent=SimpleNamespace(state=state, messages=messages)
+    )
+    results = [json.loads(generate_a2ui("Show sales", tool_context)) for _ in range(2)]
+    ids = [r["a2ui_operations"][0]["createSurface"]["surfaceId"] for r in results]
+    assert ids[0] != ids[1]
+    assert all(
+        r["a2ui_operations"][0]["createSurface"]["catalogId"] == "host" for r in results
+    )

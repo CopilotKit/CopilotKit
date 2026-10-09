@@ -13,10 +13,13 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { AIMOCK_CONTEXT } from "./model-factory";
 import { forwardingFetch } from "./header-forwarding.js";
-import { SUBAGENT_FAILURE_MARKER } from "./state";
+import {
+  SALES_TODOS_STATE_KEY,
+  SUBAGENT_FAILURE_MARKER,
+  salesTodosForCall,
+} from "./state";
 import {
   getWeatherImpl,
-  manageSalesTodosImpl,
   queryDataImpl,
   rollDiceImpl,
   scheduleMeetingImpl,
@@ -24,6 +27,7 @@ import {
 } from "./lib/tool-impls";
 import type { Flight } from "./lib/tool-impls";
 
+// @region[weather-tool-backend]
 export const getWeather = tool({
   name: "get_weather",
   description: "Get current weather for a location.",
@@ -32,6 +36,7 @@ export const getWeather = tool({
   }),
   callback: ({ location }) => JSON.stringify(getWeatherImpl(location)),
 });
+// @endregion[weather-tool-backend]
 
 export const queryData = tool({
   name: "query_data",
@@ -46,14 +51,49 @@ export const queryData = tool({
 export const manageSalesTodos = tool({
   name: "manage_sales_todos",
   description:
-    "Manage the sales pipeline by replacing the entire list of todos. ALWAYS provide the entire list, not just new items.",
+    "Replace the complete board todo list. CRITICAL: Read get_sales_todos first. Copy existing ids exactly; omit id only for new items. Preserve unchanged titles, descriptions, emoji and metadata. Use status pending/completed, not the legacy completed boolean.",
   inputSchema: z.object({
     todos: z
-      .array(z.record(z.string(), z.unknown()))
+      .array(
+        z
+          .object({
+            id: z
+              .string()
+              .optional()
+              .describe(
+                "Copy the existing id exactly. Omit only for a new todo.",
+              ),
+            title: z.string().describe("The task title."),
+            description: z
+              .string()
+              .optional()
+              .describe(
+                "The user's task description or note. Preserve on updates.",
+              ),
+            emoji: z.string().optional(),
+            status: z.enum(["pending", "completed"]).optional(),
+            stage: z.string().optional(),
+            value: z.number().optional(),
+            dueDate: z.string().optional(),
+            assignee: z.string().optional(),
+            completed: z
+              .boolean()
+              .optional()
+              .describe("Legacy input only; use status for board tasks."),
+            notes: z.string().optional().describe("Legacy description."),
+          })
+          .passthrough(),
+      )
       .describe("The complete updated list of sales todos."),
   }),
-  callback: ({ todos }) => {
-    const result = manageSalesTodosImpl(todos as never[]);
+  // The list is application state, so the tool keeps it in the agent's
+  // `appState`, which a configured SessionManager persists with the thread.
+  // The STATE_SNAPSHOT the adapter emits from the args only carries it to the UI.
+  callback: ({ todos }, context) => {
+    if (!context)
+      throw new Error("manage_sales_todos requires an agent context");
+    const result = salesTodosForCall(todos, context.toolUse.toolUseId);
+    context.agent.appState.set(SALES_TODOS_STATE_KEY, result);
     return `Sales todos updated. Tracking ${result.length} item(s).`;
   },
 });
@@ -62,7 +102,12 @@ export const getSalesTodos = tool({
   name: "get_sales_todos",
   description: "Get the current sales pipeline todos.",
   inputSchema: z.object({}),
-  callback: () => "Check the sales pipeline provided in the context.",
+  callback: (_input, context) => {
+    if (!context) throw new Error("get_sales_todos requires an agent context");
+    return JSON.stringify(
+      context.agent.appState.get(SALES_TODOS_STATE_KEY) ?? [],
+    );
+  },
 });
 
 export const scheduleMeeting = tool({
@@ -157,6 +202,7 @@ export const writeDocument = tool({
 
 // ---- Sub-agents ----------------------------------------------------------
 
+// @region[subagent-setup]
 const SUBAGENT_SYSTEM_PROMPTS: Record<string, string> = {
   research_agent:
     "You are a research sub-agent. Given a topic, produce a concise bulleted list of 3-5 key facts. No preamble, no closing.",
@@ -219,7 +265,9 @@ async function runSubagent(name: string, task: string): Promise<string> {
     return `${SUBAGENT_FAILURE_MARKER}${cls}`;
   }
 }
+// @endregion[subagent-setup]
 
+// @region[supervisor-delegation-tools]
 export const researchAgent = tool({
   name: "research_agent",
   description:
@@ -249,6 +297,7 @@ export const critiqueAgent = tool({
   }),
   callback: ({ task }) => runSubagent("critique_agent", task),
 });
+// @endregion[supervisor-delegation-tools]
 
 /** Full tool set for the shared showcase agent. */
 export const SHOWCASE_TOOLS = [

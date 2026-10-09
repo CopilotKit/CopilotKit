@@ -104,6 +104,14 @@ export class IntelligenceStateStore implements StateStore {
     delete: async (key: string): Promise<void> => {
       await this.post("/api/channels/kv/delete", { key });
     },
+    /** Atomically read and remove a one-use capability. */
+    consume: async <T>(key: string): Promise<T | undefined> => {
+      const { value } = await this.post<{ value: T | null }>(
+        "/api/channels/kv/consume",
+        { key },
+      );
+      return value === null ? undefined : value;
+    },
   };
 
   // Delegated to in-memory — see class doc for why these are not durable.

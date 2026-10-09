@@ -1,0 +1,46 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Bookstore — skin-scoped VALUES for the shell's shared token vocabulary
+   (names declared in src/app/globals.css; never invent new ones).
+
+   The shell owns the token NAMES; this skin owns only the VALUES. Warm paper
+   and deep sienna stand in for a used-bookshop counter — a cream canvas, a
+   burgundy/rust brand pair, and a muted forest green / brick red for the
+   positive/negative pair so status colors read as ink, not neon.
+
+   LIGHT-ONLY BY DESIGN. This skin ships no dark palette: it deliberately does
+   NOT set `--nw-dark-capable` and has no `.dark .theme-bookstore` block, so
+   src/hooks/use-theme.ts forces it to light regardless of stored preference.
+   Because of that, this skin's layout.tsx omits ThemeToggle rather than
+   shipping a control that would toggle nothing.
+   ────────────────────────────────────────────────────────────────────────── */
+.theme-bookstore {
+  /* Not 6px: --radius-sm is calc(--radius - 10px), which would go negative. */
+  --radius: 0.5rem;
+
+  --brand: 0 45% 33%;
+  --brand-indigo: 0 48% 26%;
+  --brand-violet: 38 70% 45%;
+  --brand-foreground: 0 0% 100%;
+  --brand-soft: 11 40% 92%;
+
+  --background: 43 100% 99%;
+  --foreground: 36 10% 10%;
+  --canvas: 40 45% 94%;
+  --surface: 43 100% 99%;
+  --surface-muted: 42 42% 91%;
+  --ink: 36 10% 10%;
+  --ink-muted: 36 10% 38%;
+  --hairline: 38 30% 84%;
+
+  --positive: 152 39% 30%;
+  --positive-soft: 152 40% 94%;
+  --negative: 7 57% 41%;
+  --negative-soft: 7 60% 95%;
+}
+
+/* Signature display type for headings that want a bookish, serif feel — a
+   plain utility class, not a new token, so it composes with the shared
+   vocabulary rather than extending it. */
+.theme-bookstore .bookstore-display {
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+}

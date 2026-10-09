@@ -1,5 +1,5 @@
 import type { IngressSink } from "@copilotkit/channels-core";
-import type { PlatformUser } from "@copilotkit/channels-ui";
+import type { ProviderActor } from "@copilotkit/channels-ui";
 import type { ChangeValue, ReplyTarget } from "./types.js";
 import type { HistoryStore } from "./history-store.js";
 import type { WhatsAppClient } from "./client.js";
@@ -12,6 +12,7 @@ export interface WebhookListenerArgs {
   sink: IngressSink;
   history: HistoryStore;
   phoneNumberId: string;
+  tenantId?: string;
   commandPrefix: string;
   client: Pick<WhatsAppClient, "downloadMedia" | "sendReadReceipt">;
   files: FileDeliveryConfig;
@@ -36,9 +37,20 @@ export async function handleWebhookValue(
       to: msg.from,
       phoneNumberId: args.phoneNumberId,
     };
-    const user: PlatformUser = { id: msg.from };
     const name = nameByWaId.get(msg.from);
-    if (name) user.name = name;
+    const actor: ProviderActor = {
+      id: msg.from,
+      kind: "human",
+      ...(name ? { name } : {}),
+    };
+    const conversationKey = conversationKeyOf(msg.from);
+    const identityContext = {
+      tenant: { id: args.tenantId ?? args.phoneNumberId },
+      installation: { id: args.phoneNumberId },
+      conversation: { id: conversationKey, kind: "direct" },
+      event: { id: msg.id, occurredAt: msg.timestamp },
+      raw: msg,
+    };
 
     // Acknowledge immediately: mark read + show a typing indicator so the user
     // sees activity during the (non-streaming) agent run. Best-effort — a
@@ -53,7 +65,11 @@ export async function handleWebhookValue(
     if (msg.type === "interactive") {
       const evt = decodeInteraction(msg, replyTarget);
       if (evt) {
-        if (name) evt.user = { id: msg.from, name };
+        evt.actor = actor;
+        evt.identityContext = {
+          ...identityContext,
+          trigger: "interaction",
+        };
         await args.sink.onInteraction(evt);
       }
       continue;
@@ -62,7 +78,6 @@ export async function handleWebhookValue(
     // 2. Text → command or turn.
     if (msg.type === "text" && msg.text?.body) {
       const body = msg.text.body;
-      const conversationKey = conversationKeyOf(msg.from);
       if (body.startsWith(args.commandPrefix)) {
         const rest = body.slice(args.commandPrefix.length);
         const space = rest.indexOf(" ");
@@ -78,7 +93,8 @@ export async function handleWebhookValue(
           text,
           conversationKey,
           replyTarget,
-          user,
+          actor,
+          identityContext: { ...identityContext, trigger: "command" },
           platform: "whatsapp",
         });
         continue;
@@ -115,7 +131,8 @@ export async function handleWebhookValue(
         },
         replyTarget,
         userText,
-        user,
+        actor,
+        identityContext: { ...identityContext, trigger: "message" },
         platform: "whatsapp",
       });
       continue;
@@ -123,7 +140,6 @@ export async function handleWebhookValue(
 
     // 3. Media → turn with multimodal content stored in history.
     if (MEDIA_TYPES.includes(msg.type as (typeof MEDIA_TYPES)[number])) {
-      const conversationKey = conversationKeyOf(msg.from);
       const mediaObj = (msg as unknown as Record<string, WhatsAppMediaRef>)[
         msg.type
       ];
@@ -159,7 +175,8 @@ export async function handleWebhookValue(
         },
         replyTarget,
         userText: caption,
-        user,
+        actor,
+        identityContext: { ...identityContext, trigger: "message" },
         platform: "whatsapp",
       });
       continue;

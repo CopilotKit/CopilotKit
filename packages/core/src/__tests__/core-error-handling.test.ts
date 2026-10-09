@@ -368,6 +368,7 @@ describe("CopilotKitCore error handling", () => {
         agentId: "agent-connect",
         transport: "rest",
       });
+      agent.threadId = "thread-connect";
 
       // Should resolve, not reject
       await core.connectAgent({ agent });
@@ -381,6 +382,7 @@ describe("CopilotKitCore error handling", () => {
         (e) => e.code === CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED,
       )!;
       expect(evt.context.agentId).toBe("agent-connect");
+      expect(evt.context.threadId).toBe("thread-connect");
 
       sub.unsubscribe();
     });

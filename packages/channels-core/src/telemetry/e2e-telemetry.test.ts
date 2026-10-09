@@ -39,6 +39,7 @@ describe("oss.channel.* end-to-end (real ChannelTelemetry, only network boundary
   it("flows configured -> started -> agent_run with anonymous_id + channel_session_id and no env config", async () => {
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => new FakeAgent(),
     });

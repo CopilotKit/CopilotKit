@@ -3,8 +3,16 @@
 import React from "react";
 
 /**
- * Step shape matches the `Step` TypedDict emitted by the Python deep agent's
- * custom `set_steps` tool (see `src/agents/gen_ui_agent.py`).
+ * Step shape this card renders.
+ *
+ * NOTE: nothing in this package emits it yet. `gen-ui-agent` has no route
+ * override in `src/app/api/copilotkit/route.ts`, so it proxies to the root
+ * sales agent (`src/agents/agent.py`) — which has no `set_steps` tool and no
+ * `steps` state slot. `set_steps` appears in zero Python files here. The cell
+ * is red on `main`; tracked in GH #6381. The fix is to port a
+ * `gen_ui_agent.py` (see `showcase/integrations/llamaindex/src/agents/
+ * gen_ui_agent.py` for the reference implementation) and repoint the route.
+ *
  * Status transitions: pending -> in_progress -> completed.
  */
 export type Step = {

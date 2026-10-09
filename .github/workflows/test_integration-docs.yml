@@ -4,17 +4,41 @@ on:
     branches: [main]
     paths:
       - "showcase/shell-docs/src/content/**"
+      - "scripts/validate-docs-deprecated-imports.mjs"
+      - "scripts/__tests__/validate-docs-deprecated-imports.test.mjs"
+      - "scripts/docs-deprecated-imports-baseline.json"
+      - "scripts/deprecations/**"
       - "showcase/shell-docs/model-allowlist.json"
+      - "packages/runtime/package.json"
+      - "showcase/integrations/*/docs/setup/**"
+      - "showcase/integrations/*/manifest.yaml"
+      - "showcase/scripts/bundle-setup-content.ts"
+      - "showcase/shell-docs/package.json"
+      - "showcase/shell-docs/package-lock.json"
       - "scripts/validate-doc-model-names.ts"
+      - "scripts/__tests__/validate-doc-model-names.test.ts"
       - "scripts/doc-tests/**"
+      - "tools/learned-skill-conformance/workspace-artifacts*.mjs"
       - ".github/workflows/test_integration-docs.yml"
   push:
     branches: [main]
     paths:
       - "showcase/shell-docs/src/content/**"
+      - "scripts/validate-docs-deprecated-imports.mjs"
+      - "scripts/__tests__/validate-docs-deprecated-imports.test.mjs"
+      - "scripts/docs-deprecated-imports-baseline.json"
+      - "scripts/deprecations/**"
       - "showcase/shell-docs/model-allowlist.json"
+      - "packages/runtime/package.json"
+      - "showcase/integrations/*/docs/setup/**"
+      - "showcase/integrations/*/manifest.yaml"
+      - "showcase/scripts/bundle-setup-content.ts"
+      - "showcase/shell-docs/package.json"
+      - "showcase/shell-docs/package-lock.json"
       - "scripts/validate-doc-model-names.ts"
+      - "scripts/__tests__/validate-doc-model-names.test.ts"
       - "scripts/doc-tests/**"
+      - "tools/learned-skill-conformance/workspace-artifacts*.mjs"
       - ".github/workflows/test_integration-docs.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
@@ -33,13 +57,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The validator's own tests. Until PE-418 nothing in CI ran them.
+      - run: pnpm exec vitest run scripts/__tests__/validate-doc-model-names.test.ts
       - run: pnpm tsx scripts/validate-doc-model-names.ts
+      # Fails when a page teaches a deprecated v1 symbol it did not teach
+      # before. v1 is still supported and documented on purpose, so this is a
+      # ratchet against a baseline rather than a ban — see the validator's
+      # header for why a ban reports 184 findings on a clean tree.
+      - run: pnpm nx run repo-scripts:validate-docs-deprecated-imports
 
   doc-tests:
     runs-on: depot-ubuntu-24.04-4
@@ -53,8 +84,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: pnpm
@@ -83,4 +114,8 @@ jobs:
           cat /tmp/aimock.log
           exit 1
       - run: pnpm tsx scripts/doc-tests/extract.ts
+      - name: Build checkout Runtime packages for JavaScript snippets
+        run: pnpm nx run @copilotkit/runtime:build
+      - name: Test docs dependency installation
+        run: pnpm nx run learned-skill-conformance:test-doc-dependencies
       - run: pnpm tsx scripts/doc-tests/run.ts

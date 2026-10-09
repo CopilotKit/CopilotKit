@@ -2,7 +2,7 @@ import type {
   InteractionEvent,
   IncomingReaction,
 } from "@copilotkit/channels-core";
-import type { PlatformUser } from "@copilotkit/channels-ui";
+import type { ProviderActor } from "@copilotkit/channels-ui";
 import { DM_SCOPE } from "./types.js";
 import type {
   ConversationKey,
@@ -64,19 +64,20 @@ export function deriveConversationKey(
 }
 
 /**
- * Map a Telegram `from` user to a PlatformUser.
+ * Map a Telegram `from` user to a ProviderActor.
  */
-export function toPlatformUser(from: {
+export function toProviderActor(from: {
   id: number;
   first_name?: string;
   last_name?: string;
   username?: string;
-}): PlatformUser | undefined {
+}): ProviderActor | undefined {
   if (!from) return undefined;
   const name =
     [from.first_name, from.last_name].filter(Boolean).join(" ") || undefined;
   return {
     id: String(from.id),
+    kind: "human",
     name,
     handle: from.username,
   };
@@ -126,15 +127,23 @@ export function decodeReaction(update: unknown): IncomingReaction[] {
     messageThreadId: mr.chat.is_forum ? mr.message_thread_id : undefined,
     conversationKey,
   };
-  const user = mr.user
+  const actor = mr.user
     ? {
         id: String(mr.user.id),
+        kind: "human" as const,
         name: mr.user.first_name,
         handle: mr.user.username,
       }
     : undefined;
   const base = {
-    user,
+    actor: actor ?? { id: "unknown", kind: "unknown" as const },
+    identityContext: telegramIdentityContext({
+      chat: mr.chat,
+      conversationKey,
+      trigger: "reaction",
+      eventId: String(mr.message_id),
+      raw: update,
+    }),
     conversationKey,
     replyTarget,
     messageId: String(mr.message_id),
@@ -209,13 +218,41 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     messageId: message.message_id,
   };
 
-  const user = from ? toPlatformUser(from) : undefined;
+  const actor = from ? toProviderActor(from) : undefined;
 
   return {
     id: cq.data as string,
     conversationKey,
     replyTarget,
     messageRef,
-    user,
+    actor: actor ?? { id: "unknown", kind: "unknown" },
+    identityContext: telegramIdentityContext({
+      chat: message.chat,
+      conversationKey,
+      trigger: "interaction",
+      eventId: String(cq.id ?? message.message_id),
+      raw,
+    }),
+  };
+}
+
+/** Build event-scoped Telegram identity facts without resolving a profile. */
+export function telegramIdentityContext(input: {
+  chat?: { id?: number | string; type?: string };
+  conversationKey: string;
+  trigger: string;
+  eventId?: string;
+  raw: unknown;
+}) {
+  return {
+    tenant: { id: String(input.chat?.id ?? "unknown") },
+    installation: { id: "telegram-bot" },
+    conversation: {
+      id: input.conversationKey,
+      kind: input.chat?.type,
+    },
+    trigger: input.trigger,
+    event: { id: input.eventId },
+    raw: input.raw,
   };
 }

@@ -101,6 +101,7 @@ describe("renderAdaptiveCard", () => {
   it("marks a multi <Select> ChoiceSet as isMultiSelect", () => {
     const card = renderAdaptiveCard([
       el("select", [], {
+        name: "owners",
         multi: true,
         onSelect: { id: "ck:pick" },
         options: [{ label: "One", value: "1" }],
@@ -108,6 +109,7 @@ describe("renderAdaptiveCard", () => {
     ]);
     expect(card.body[0]).toMatchObject({
       type: "Input.ChoiceSet",
+      id: "owners",
       isMultiSelect: true,
     });
   });
@@ -115,6 +117,7 @@ describe("renderAdaptiveCard", () => {
   it("renders <Select>/<Input> as body inputs", () => {
     const card = renderAdaptiveCard([
       el("select", [], {
+        name: "team",
         onSelect: { id: "ck:pick" },
         placeholder: "Choose",
         options: [
@@ -122,11 +125,15 @@ describe("renderAdaptiveCard", () => {
           { label: "Two", value: "2" },
         ],
       }),
-      el("input", [], { onSubmit: { id: "ck:txt" }, multiline: true }),
+      el("input", [], {
+        name: "reason",
+        onSubmit: { id: "ck:txt" },
+        multiline: true,
+      }),
     ]);
     expect(card.body[0]).toMatchObject({
       type: "Input.ChoiceSet",
-      id: "ck:pick",
+      id: "team",
       placeholder: "Choose",
       choices: [
         { title: "One", value: "1" },
@@ -135,9 +142,54 @@ describe("renderAdaptiveCard", () => {
     });
     expect(card.body[1]).toMatchObject({
       type: "Input.Text",
-      id: "ck:txt",
+      id: "reason",
       isMultiline: true,
     });
+  });
+
+  it("gives submitted fields stable names and collision-free fallbacks", () => {
+    const card = renderAdaptiveCard([
+      el("input", [], { name: "reason" }),
+      el("select", [], {
+        name: "owners",
+        options: [{ label: "Ada", value: "ada" }],
+      }),
+      el("input", []),
+      el("input", []),
+      el("button", [text("Submit")], {
+        onClick: { id: "ck:submit" },
+        value: "approve",
+      }),
+    ]);
+
+    expect(card.body.map((element) => element.id)).toEqual([
+      "reason",
+      "owners",
+      "input_3",
+      "input_4",
+    ]);
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        data: { ckActionId: "ck:submit", value: "approve" },
+      },
+    ]);
+  });
+
+  it("keeps form fields from overwriting Action.Submit routing data", () => {
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ckActionId" } }),
+      el("select", [], {
+        onSelect: { id: "value" },
+        options: [{ label: "One", value: "1" }],
+      }),
+    ]);
+
+    expect(card.body.map((element) => element.id)).toEqual([
+      "ckActionId_1",
+      "value_1",
+    ]);
   });
 
   it("renders a <Table> as a native Table with a header row", () => {

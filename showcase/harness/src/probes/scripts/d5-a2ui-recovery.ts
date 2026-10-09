@@ -99,10 +99,25 @@ const PROMPTS: Readonly<Record<string, { heal: string; exhaust: string }>> = {
     exhaust:
       "Render a dashboard that keeps failing validation so I can see the fallback.",
   },
+  "google-antigravity": {
+    heal: "Chart the Antigravity quarterly revenue board and repair a malformed first render.",
+    exhaust:
+      "Chart an Antigravity board that never passes validation so I can preview the fallback.",
+  },
   "langgraph-python": {
     heal: "Build my Q2 revenue summary and self-correct a malformed first attempt.",
     exhaust:
       "Build a report that fails every validation pass so I can preview the fallback.",
+  },
+  "crewai-crews": {
+    heal: "Build a CrewAI Q2 revenue summary and self-correct a malformed first attempt.",
+    exhaust:
+      "Build a CrewAI report that fails every validation pass so I can preview the fallback.",
+  },
+  "crewai-conversational-flows": {
+    heal: "Build a CrewAI Q2 revenue summary and self-correct a malformed first attempt.",
+    exhaust:
+      "Build a CrewAI report that fails every validation pass so I can preview the fallback.",
   },
   "langgraph-fastapi": {
     heal: "Put together a quarterly metrics overview and repair a malformed first attempt.",
@@ -123,6 +138,11 @@ const PROMPTS: Readonly<Record<string, { heal: string; exhaust: string }>> = {
     heal: "Generate the Vantage .NET quarterly revenue board and self-heal a malformed first render.",
     exhaust:
       "Generate a .NET board that fails every validation pass so I can preview the recovery fallback.",
+  },
+  "ms-agent-python": {
+    heal: "Draft the Q3 pipeline snapshot and auto-correct a malformed first render.",
+    exhaust:
+      "Generate a summary that fails every validation attempt so I can preview the fallback.",
   },
   strands: {
     heal: "Assemble a quarterly performance board and recover from a malformed first draft.",

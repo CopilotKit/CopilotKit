@@ -35,6 +35,10 @@ function fakeKvFetch(): FetchLike {
       });
     } else if (url.endsWith("/api/channels/kv/delete")) {
       map.delete(body.key);
+    } else if (url.endsWith("/api/channels/kv/consume")) {
+      const e = map.get(body.key);
+      map.delete(body.key);
+      payload = live(e) ? { value: e!.value } : { value: null };
     } else {
       throw new Error(`unexpected KV route: ${url}`);
     }

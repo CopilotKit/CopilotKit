@@ -1,0 +1,15 @@
+date,merchant,amount,city,card_last4,description
+2026-07-14,Ascend Air 4471,842.10,San Francisco,4242,AIRFARE SFO-AUS
+2026-07-14,Hotel Verrano,318.55,Austin,4242,LODGING 1 NIGHT
+2026-07-14,Cardinal & Ash,127.40,Austin,4242,CARD PURCHASE
+2026-07-15,Rideshare Co 88213,24.15,Austin,4242,GROUND TRANSPORT
+2026-07-15,Hotel Verrano,318.55,Austin,4242,LODGING 1 NIGHT
+2026-07-15,Bluebonnet Provisions,64.20,Austin,4242,CARD PURCHASE
+2026-07-15,The Copper Room,412.88,Austin,4242,CARD PURCHASE
+2026-07-16,Sundry Wellness Co,180.00,Austin,4242,CARD PURCHASE
+2026-07-16,Rideshare Co 90117,31.70,Austin,4242,GROUND TRANSPORT
+2026-07-16,Ascend Air 4472,842.10,Austin,4242,AIRFARE AUS-SFO
+2026-07-19,Streamly Monthly,17.99,San Francisco,4242,RECURRING SUBSCRIPTION
+2026-07-21,Marlowe's Tap House,88.30,San Francisco,4242,CARD PURCHASE
+2026-07-22,Northgate Pharmacy,42.15,San Francisco,4242,CARD PURCHASE
+2026-07-23,Quill & Bindery,56.00,San Francisco,4242,CARD PURCHASE

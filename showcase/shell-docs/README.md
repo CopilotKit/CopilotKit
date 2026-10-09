@@ -41,6 +41,31 @@ For repo-level CI parity, prefer Nx when a shell-docs target is available in the
 checkout and root dependencies are installed. For normal shell-docs local development, the
 npm commands above are the canonical path.
 
+### Test scope
+
+Keep the unit suite small and focused on reader actions: internal links and navigation
+entries resolve, redirects preserve old links, search results navigate by click and
+keyboard, framework selectors switch routes, tabs switch and persist, and prompt/page
+buttons copy usable text. Preserve parser/rendering error cases, auth/runtime-config
+safety, and dependency compatibility checks that keep documented commands usable.
+
+Do not add tests that pin prose, CSS classes, spacing, icons, page composition, search
+ranking, telemetry event detail, or every framework's example. Review content and appearance
+when changing them. Keep guidance checks tied to real API/version relationships.
+
+Local `test` and CI `test:ci` run the same suite with two workers. There is no quarantine
+manifest. The path-scoped `test_unit-shell-docs.yml` workflow installs only ShellDocs and
+the content generators, generates data once, typechecks, and runs the smoke suite.
+
+### Channels package compatibility
+
+After changing the shared Channels install recommendation, run
+`npm run test:channels-sdk` with Node.js 22 or later. This installs the published
+packages in a temporary directory, typechecks the complete Slack and Teams
+runner examples, and loads them with the documented `tsx` command. It needs npm
+registry access but no credentials; it does not start a connection or send a
+Slack message. Verify a real provider reply separately before a release.
+
 ## Authoring Recipes
 
 ### Showcase-Driven Framework Docs
@@ -55,7 +80,11 @@ To update showcase-driven docs:
    registry inputs.
 2. Edit shared/root MDX only when the change applies across generated frameworks.
 3. Add sparse framework overrides only for real framework-specific differences.
-4. Do not hand-edit generated files under `src/data/frameworks/`.
+4. Edit the landing-page record under `src/data/frameworks/` by hand. Despite an
+   older header on some of these files, nothing generates them — the script it
+   named does not exist in this repository. Only `docs_mode: generated` slugs
+   have a record here; an `authored` slug's landing page is its
+   `integrations/<docsFolder>/index.mdx`.
 5. Validate routes, sidebar state, search results, snippets, and framework switching.
 
 ### Authored Framework Docs
@@ -102,12 +131,6 @@ non-React frontend docs:
 
 Do not use "showcase-driven" as a proxy for frontend availability. Showcase derivation is an
 authoring/source detail; frontend applicability controls routing and sidebar inclusion.
-
-### AG-UI Mirrored Docs
-
-AG-UI protocol docs are authored upstream in `ag-ui-protocol/ag-ui`. The
-`src/content/ag-ui/` tree is a downstream mirror rendered on the CopilotKit docs host.
-Change AG-UI docs upstream first, then sync the mirror back into shell-docs.
 
 ## Top-Level Docs Symlink
 

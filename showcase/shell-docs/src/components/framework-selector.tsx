@@ -4,14 +4,16 @@
 // exposes frontend and agent backend as separate, simple dropdowns.
 
 import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { DEFAULT_FRAMEWORK, useFramework } from "./framework-provider";
-import { FrontendLogo } from "./frontend-logo";
+import { ComingSoonChannelLogo, FrontendLogo } from "./frontend-logo";
 import { FrameworkLogo } from "./icons/framework-icons";
 import { compareByDisplayOrder } from "@/lib/framework-order";
 import {
+  COMING_SOON_CHANNEL_OPTIONS,
   FRONTEND_OPTIONS,
   backendPathForCurrentPath,
   frontendFromPathname,
@@ -20,7 +22,10 @@ import {
   isFrontendOptionActive,
   shouldNavigateFrontendSelection,
 } from "@/lib/frontend-options";
-import type { FrontendId } from "@/lib/frontend-options";
+import type {
+  ComingSoonChannelOption,
+  FrontendId,
+} from "@/lib/frontend-options";
 
 export interface FrameworkOption {
   slug: string;
@@ -59,6 +64,36 @@ function SelectorAffordance({ active }: { active: boolean }) {
         strokeWidth={2}
       />
     </span>
+  );
+}
+
+export function ComingSoonChannelPickerOption({
+  option,
+}: {
+  option: ComingSoonChannelOption;
+}) {
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-disabled="true"
+      aria-selected={false}
+      disabled
+      className="shell-docs-radius-control flex w-full cursor-not-allowed items-center gap-2 px-2 py-1.5 text-[13px] text-[var(--text-muted)]"
+    >
+      <span
+        className="shell-docs-picker-icon-chip flex h-7 w-7 shrink-0 items-center justify-center"
+        aria-hidden="true"
+      >
+        <ComingSoonChannelLogo icon={option.icon} size={17} />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-left font-medium">
+        {option.name}
+      </span>
+      <span className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[10px] font-medium leading-none text-[var(--text-muted)]">
+        Coming soon
+      </span>
+    </button>
   );
 }
 
@@ -142,6 +177,18 @@ export function FrameworkSelector({
     setOpenMenu(null);
   }
 
+  function openCommunityFrameworks() {
+    try {
+      posthog?.capture("docs.frontend_picker.community_frameworks_clicked", {
+        from_frontend: effectiveFrontendId,
+        from_path: pathname,
+      });
+    } catch {
+      // Swallow - analytics is fire-and-forget.
+    }
+    setOpenMenu(null);
+  }
+
   function selectFramework(slug: string) {
     setStoredFramework(slug);
     try {
@@ -167,7 +214,7 @@ export function FrameworkSelector({
   }
 
   // Single flat list, ordered by the canonical display order. The
-  // category buckets ("Most Popular / Agent Frameworks / Intelligence Platform /
+  // category buckets ("Most Popular / Agent Frameworks / Intelligence /
   // Emerging") used to live here but partners read them as a tier
   // list — we now show every backend in one neutral list.
   const flatOptions = options
@@ -250,7 +297,7 @@ export function FrameworkSelector({
     >
       {isSidebar ? (
         <>
-          <div className="shell-docs-picker-group shell-docs-picker-group-selected shell-docs-picker-group-bordered space-y-0.5">
+          <div className="shell-docs-picker-group shell-docs-picker-group-selected shell-docs-picker-group-bordered">
             <button
               type="button"
               onClick={() =>
@@ -259,7 +306,7 @@ export function FrameworkSelector({
               aria-haspopup="listbox"
               aria-expanded={openMenu === "frontend"}
               aria-label={frontendMenuLabel}
-              className="shell-docs-picker-row group flex min-h-[52px] w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              className="shell-docs-picker-row group flex min-h-11 w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
               <span
                 className="shell-docs-picker-icon-chip flex h-8 w-8 shrink-0 items-center justify-center"
@@ -286,7 +333,7 @@ export function FrameworkSelector({
               aria-haspopup="listbox"
               aria-expanded={openMenu === "backend"}
               aria-label="Choose agent backend"
-              className="shell-docs-picker-row shell-docs-picker-row-divided group flex min-h-[52px] w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              className="shell-docs-picker-row shell-docs-picker-row-divided group flex min-h-11 w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
               <span
                 className="shell-docs-picker-icon-chip flex h-8 w-8 shrink-0 items-center justify-center"
@@ -370,6 +417,23 @@ export function FrameworkSelector({
                   </React.Fragment>
                 );
               })}
+              {COMING_SOON_CHANNEL_OPTIONS.map((option) => (
+                <ComingSoonChannelPickerOption
+                  key={option.id}
+                  option={option}
+                />
+              ))}
+              <div
+                role="separator"
+                className="mx-2 mb-1 mt-2 border-t border-[var(--border)]"
+              />
+              <Link
+                href="/community-frameworks"
+                onClick={openCommunityFrameworks}
+                className="shell-docs-radius-control flex w-full items-center px-2 py-1.5 text-[13px] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              >
+                Community frameworks →
+              </Link>
             </div>
           )}
 

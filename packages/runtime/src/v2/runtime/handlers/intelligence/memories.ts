@@ -1,9 +1,13 @@
-import type { CopilotRuntimeLike } from "../../core/runtime";
+import type {
+  CopilotIntelligenceRuntimeLike,
+  CopilotRuntimeLike,
+} from "../../core/runtime";
 import { isIntelligenceRuntime } from "../../core/runtime";
 import { logger } from "@copilotkit/shared";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
-import { PlatformRequestError } from "../../intelligence-platform/client";
+import { grantAllowsMemory, resolveWebMemory } from "../shared/memory-policy";
+import { platformErrorResponse } from "../shared/platform-error";
 
 interface MemoriesHandlerParams {
   runtime: CopilotRuntimeLike;
@@ -12,6 +16,24 @@ interface MemoriesHandlerParams {
 
 interface MemoryMutationParams extends MemoriesHandlerParams {
   memoryId: string;
+}
+
+async function resolveClientMemory(
+  runtime: CopilotIntelligenceRuntimeLike,
+  request: Request,
+) {
+  const user = await resolveIntelligenceUser({ runtime, request });
+  if (isHandlerResponse(user)) return user;
+  const access = await resolveWebMemory(runtime, request, user, "client");
+  if (isHandlerResponse(access)) return access;
+  // Unlike an agent run — which proceeds without Memory tools when the policy
+  // grants nothing — these routes exist ONLY to serve memories. A caller who
+  // asked for them and may not have them gets 403; an empty list would imply
+  // there are none, which is a different and false claim.
+  if (runtime.memory && !grantAllowsMemory(access.grant)) {
+    return errorResponse("Memory access denied", 403);
+  }
+  return access;
 }
 
 const MISSING_INTELLIGENCE_MESSAGE =
@@ -29,25 +51,11 @@ const MEMORY_SCOPES: ReadonlySet<string> = new Set(["user", "project"]);
 /**
  * Maps a thrown error to a `Response`.
  *
- * For a {@link PlatformRequestError}, forward only client-actionable **4xx**
- * statuses verbatim (e.g. 404 missing/wrong-scope memory, 409 conflict, 422
- * unprocessable) so a `useMemories` consumer can branch on them — a flat 500
- * would erase that distinction. A platform **5xx** (or any non-4xx / malformed
- * status) means the runtime is healthy but its dependency failed, so it surfaces
- * as `502 Bad Gateway` rather than echoing the upstream status as if the runtime
- * itself broke — and this also avoids a `new Response(..., { status })`
- * `RangeError` on an out-of-range status. Non-platform throws stay 500.
+ * The reasoning now lives with the implementation in
+ * `../shared/platform-error`, which the thread handlers share. This alias is
+ * kept so the many call sites below read the same as they always did.
  */
-function memoryErrorResponse(error: unknown, message: string): Response {
-  if (error instanceof PlatformRequestError) {
-    const { status } = error;
-    if (Number.isInteger(status) && status >= 400 && status <= 499) {
-      return errorResponse(message, status);
-    }
-    return errorResponse(message, 502);
-  }
-  return errorResponse(message, 500);
-}
+const memoryErrorResponse = platformErrorResponse;
 
 async function parseJsonBody(
   request: Request,
@@ -156,7 +164,7 @@ function parseRecallBody(
 }
 
 /**
- * Lists the resolved user's long-term memories via the Intelligence platform.
+ * Lists the resolved user's long-term memories via CopilotKit Intelligence.
  *
  * Mirrors {@link handleListThreads}: requires a `CopilotKitIntelligence`
  * runtime, resolves the user with `identifyUser` (never trusting a
@@ -176,11 +184,12 @@ export async function handleListMemories({
       const includeInvalidated =
         url.searchParams.get("includeInvalidated") === "true";
 
-      const user = await resolveIntelligenceUser({ runtime, request });
-      if (isHandlerResponse(user)) return user;
+      const access = await resolveClientMemory(runtime, request);
+      if (isHandlerResponse(access)) return access;
 
       const data = await runtime.intelligence.listMemories({
-        userId: user.id,
+        userId: access.user.id,
+        ...(runtime.memory ? { memoryGrant: access.grant } : {}),
         ...(includeInvalidated ? { includeInvalidated: true } : {}),
       });
 
@@ -235,11 +244,12 @@ export async function handleRecallMemories({
     const fields = parseRecallBody(body);
     if (isHandlerResponse(fields)) return fields;
 
-    const user = await resolveIntelligenceUser({ runtime, request });
-    if (isHandlerResponse(user)) return user;
+    const access = await resolveClientMemory(runtime, request);
+    if (isHandlerResponse(access)) return access;
 
     const data = await runtime.intelligence.recallMemories({
-      userId: user.id,
+      userId: access.user.id,
+      ...(runtime.memory ? { memoryGrant: access.grant } : {}),
       ...fields,
     });
 
@@ -285,16 +295,21 @@ export async function handleSubscribeToMemories({
 }: MemoriesHandlerParams): Promise<Response> {
   if (isIntelligenceRuntime(runtime)) {
     try {
-      const user = await resolveIntelligenceUser({ runtime, request });
-      if (isHandlerResponse(user)) return user;
+      const access = await resolveClientMemory(runtime, request);
+      if (isHandlerResponse(access)) return access;
 
       const credentials = await runtime.intelligence.ɵsubscribeToMemories({
-        userId: user.id,
+        userId: access.user.id,
+        ...(runtime.memory ? { memoryGrant: access.grant } : {}),
       });
 
       return Response.json({
-        joinToken: credentials.joinToken,
-        joinCode: credentials.joinCode,
+        ...(credentials.joinToken !== undefined
+          ? { joinToken: credentials.joinToken }
+          : {}),
+        ...(credentials.joinCode !== undefined
+          ? { joinCode: credentials.joinCode }
+          : {}),
         // Project-scoped credentials ride along only when the platform minted
         // them; omit both when absent (silent-degrade contract).
         ...(credentials.projectJoinToken !== undefined
@@ -331,11 +346,12 @@ export async function handleCreateMemory({
     const fields = parseMemoryBody(body);
     if (isHandlerResponse(fields)) return fields;
 
-    const user = await resolveIntelligenceUser({ runtime, request });
-    if (isHandlerResponse(user)) return user;
+    const access = await resolveClientMemory(runtime, request);
+    if (isHandlerResponse(access)) return access;
 
     const data = await runtime.intelligence.createMemory({
-      userId: user.id,
+      userId: access.user.id,
+      ...(runtime.memory ? { memoryGrant: access.grant } : {}),
       ...fields,
     });
     return Response.json(data, { status: 201 });
@@ -363,11 +379,12 @@ export async function handleUpdateMemory({
     const fields = parseMemoryBody(body);
     if (isHandlerResponse(fields)) return fields;
 
-    const user = await resolveIntelligenceUser({ runtime, request });
-    if (isHandlerResponse(user)) return user;
+    const access = await resolveClientMemory(runtime, request);
+    if (isHandlerResponse(access)) return access;
 
     const data = await runtime.intelligence.updateMemory({
-      userId: user.id,
+      userId: access.user.id,
+      ...(runtime.memory ? { memoryGrant: access.grant } : {}),
       id: memoryId,
       ...fields,
     });
@@ -391,10 +408,14 @@ export async function handleRemoveMemory({
     return errorResponse(MISSING_INTELLIGENCE_MESSAGE, 422);
   }
   try {
-    const user = await resolveIntelligenceUser({ runtime, request });
-    if (isHandlerResponse(user)) return user;
+    const access = await resolveClientMemory(runtime, request);
+    if (isHandlerResponse(access)) return access;
 
-    await runtime.intelligence.removeMemory({ userId: user.id, id: memoryId });
+    await runtime.intelligence.removeMemory({
+      userId: access.user.id,
+      id: memoryId,
+      ...(runtime.memory ? { memoryGrant: access.grant } : {}),
+    });
     return new Response(null, { status: 204 });
   } catch (error) {
     logger.error({ err: error }, "Error removing memory");

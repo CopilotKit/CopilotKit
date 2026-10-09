@@ -12,9 +12,8 @@
 import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 import { internalRuntimeErrorResponse } from "@/app/api/_shared/route-error";
 
@@ -27,9 +26,7 @@ const agents = {
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-ogui",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       // @region[minimal-runtime-flag]
       // @region[advanced-runtime-config]
       runtime: new CopilotRuntime({
@@ -40,9 +37,11 @@ export const POST = async (req: NextRequest) => {
         },
       }),
       // @endregion[advanced-runtime-config]
-      // @endregion[minimal-runtime-flag]
+      // @endregion[minimal-runtime-flag],
+      basePath: "/api/copilotkit-ogui",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     return internalRuntimeErrorResponse("/api/copilotkit-ogui", error);
   }

@@ -408,7 +408,7 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
 
 async def _workflow_factory():
     return FixedAGUIChatWorkflow(
-        llm=OpenAI(model="gpt-4o-mini", **_openai_kwargs),
+        llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
         frontend_tools=[_book_call_tool],
         backend_tools=[],
         system_prompt=(

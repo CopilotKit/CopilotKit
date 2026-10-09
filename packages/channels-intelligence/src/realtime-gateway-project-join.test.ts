@@ -20,11 +20,13 @@ function setup() {
     disconnect,
     onClose: vi.fn(),
     onStateChange: vi.fn(),
+    // A real session always reports this (undefined = the gateway said nothing).
+    providerStates: vi.fn(() => undefined),
   };
   connectRealtimeGatewayMock.mockReset();
   connectRealtimeGatewayMock.mockResolvedValue(session);
 
-  const channel = createChannel({ name: "support" });
+  const channel = createChannel({ identifyUser: "platform", name: "support" });
   channel.onMessage(async () => {});
 
   return {
@@ -63,7 +65,10 @@ test("joins the Gateway control topic with the delivery protocol", async () => {
       join: {
         protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_test",
-        channels: [{ channelName: "support", adapter: "slack" }],
+        channels: [
+          { channelName: "support", adapter: "slack" },
+          { channelName: "support", adapter: "teams" },
+        ],
       },
       webSocket,
     });

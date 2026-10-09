@@ -1,0 +1,4 @@
+.next
+node_modules
+mcp-server/node_modules
+npm-debug.log*

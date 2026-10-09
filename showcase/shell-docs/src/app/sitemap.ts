@@ -10,14 +10,12 @@
 //                                              override pages under
 //                                              src/content/docs/integrations/
 //   - Reference (/reference/<slug>)            from src/content/reference/
-//   - AG-UI (/ag-ui/<slug>)                    from src/content/ag-ui/
 //
 // Each entry's `lastModified` is resolved via resolveLastModified —
 // frontmatter `lastmod` first, then file mtime, then `new Date()`.
 
 import type { MetadataRoute } from "next";
 import {
-  getAgUiPages,
   getBareDocsPages,
   getBaseUrl,
   getFrameworkOverridePages,
@@ -49,11 +47,9 @@ import {
 } from "@/lib/registry";
 import { isGlobalDocsPath } from "@/lib/reserved-route-slugs";
 
-// Force-dynamic so the sitemap is regenerated per request and reads
-// the LIVE NEXT_PUBLIC_BASE_URL via getRuntimeConfig(). Without this
-// Next.js would statically prerender the sitemap at build time and
-// freeze whichever value `process.env.NEXT_PUBLIC_BASE_URL` had at
-// `next build` — defeating the runtime-config switch.
+// Force-dynamic so non-production base-URL overrides are read at request time.
+// In production getRuntimeConfig() locks generated URLs to the public
+// canonical docs origin, independent of build-time or runtime env drift.
 export const dynamic = "force-dynamic";
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -283,16 +279,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
   }
   // Reference index.
   pushUnique({ url: `${baseUrl}/reference`, lastModified: now });
-
-  // 5. AG-UI.
-  for (const { slug, filePath } of getAgUiPages()) {
-    pushUnique({
-      url: `${baseUrl}/ag-ui/${slug}`,
-      lastModified: resolveLastModified(filePath),
-    });
-  }
-  // AG-UI overview landing.
-  pushUnique({ url: `${baseUrl}/ag-ui`, lastModified: now });
 
   return entries;
 }

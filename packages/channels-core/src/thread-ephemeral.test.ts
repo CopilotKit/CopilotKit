@@ -6,10 +6,13 @@ async function runOnMessage(
   fake: FakeAdapter,
   fn: Parameters<ReturnType<typeof createChannel>["onMessage"]>[0],
 ) {
-  const channel = createChannel({ adapters: [fake] });
+  const channel = createChannel({ identifyUser: "platform", adapters: [fake] });
   channel.onMessage(fn);
   await channel.ɵruntime.start();
-  fake.emitTurn({ userText: "hi", user: { id: "U1" } });
+  fake.emitTurn({
+    userText: "hi",
+    actor: { id: "U1", kind: "human" },
+  });
   await new Promise((r) => setTimeout(r, 0));
 }
 
@@ -18,7 +21,7 @@ describe("Thread.postEphemeral", () => {
     const fake = new FakeAdapter({ nativeEphemeral: true });
     let res: unknown;
     await runOnMessage(fake, async ({ thread, message }) => {
-      res = await thread.postEphemeral(message.user, "psst", {
+      res = await thread.postEphemeral(message.actor, "psst", {
         fallbackToDM: false,
       });
     });
@@ -32,7 +35,7 @@ describe("Thread.postEphemeral", () => {
     const fake = new FakeAdapter({ nativeEphemeral: false });
     let res: unknown;
     await runOnMessage(fake, async ({ thread, message }) => {
-      res = await thread.postEphemeral(message.user, "psst", {
+      res = await thread.postEphemeral(message.actor, "psst", {
         fallbackToDM: true,
       });
     });
@@ -43,7 +46,7 @@ describe("Thread.postEphemeral", () => {
     const fake = new FakeAdapter({ nativeEphemeral: false });
     let res: unknown = "sentinel";
     await runOnMessage(fake, async ({ thread, message }) => {
-      res = await thread.postEphemeral(message.user, "psst", {
+      res = await thread.postEphemeral(message.actor, "psst", {
         fallbackToDM: false,
       });
     });

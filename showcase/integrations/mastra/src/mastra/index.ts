@@ -2,6 +2,7 @@ import { Mastra } from "@mastra/core/mastra";
 import { LibSQLStore } from "@mastra/libsql";
 import {
   weatherAgent,
+  beautifulChatAgent,
   headlessCompleteAgent,
   sharedStateReadWriteAgent,
   sharedStateStreamingAgent,
@@ -18,14 +19,18 @@ import {
   browserUseAgent,
   backgroundAgentsAgent,
   observationalMemoryAgent,
+  openGenUiAgent,
+  openGenUiAdvancedAgent,
 } from "./agents";
-import { ConsoleLogger, LogLevel } from "@mastra/core/logger";
+import type { LogLevel } from "@mastra/core/logger";
+import { ConsoleLogger } from "@mastra/core/logger";
 
 const LOG_LEVEL = (process.env.LOG_LEVEL as LogLevel) || "info";
 
 export const mastra = new Mastra({
   agents: {
     weatherAgent,
+    beautifulChatAgent,
     headlessCompleteAgent,
     sharedStateReadWriteAgent,
     sharedStateStreamingAgent,
@@ -42,6 +47,8 @@ export const mastra = new Mastra({
     browserUseAgent,
     backgroundAgentsAgent,
     observationalMemoryAgent,
+    openGenUiAgent,
+    openGenUiAdvancedAgent,
   },
   storage: new LibSQLStore({
     id: "mastra-storage",

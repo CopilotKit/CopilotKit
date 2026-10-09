@@ -18,6 +18,11 @@ builds and serves **docs.copilotkit.ai**:
 When you add a **guide page** under `showcase/shell-docs/src/content/docs/`, also update
 that section's `meta.json` so it appears in navigation.
 
+When the page is customer-facing Intelligence docs, follow
+`skills/intelligence-vocabulary/SKILL.md` before writing. One concept gets one
+approved name. Do not rename code identifiers, route slugs, env vars, or API
+fields to match that list.
+
 ### Hybrid docs architecture
 
 Framework docs are in a hybrid state while showcase coverage is being completed. The
@@ -52,14 +57,24 @@ Before editing framework docs, check the framework's `docs_mode`.
 
 - For **showcase-driven frameworks (`docs_mode: generated`)**, update the showcase inputs:
   integration manifests, demos, feature coverage, source regions, generated registry inputs,
-  shared/root MDX, and sparse framework overrides. Do not edit generated files under
-  `showcase/shell-docs/src/data/frameworks/` by hand.
+  shared/root MDX, and sparse framework overrides. The landing-page record under
+  `showcase/shell-docs/src/data/frameworks/` is the exception — edit it by hand. Some of
+  those files carry a header crediting `scripts/extract-framework-overviews.ts`, which does
+  not exist in this repository and never has.
 - For **authored frameworks (`docs_mode: authored`)**, update the framework MDX tree under
   `showcase/shell-docs/src/content/docs/integrations/<docsFolder>/` and its `meta.json`.
 - For **reference docs**, edit `showcase/shell-docs/src/content/reference/`. The v2
   reference navigation is generated from frontmatter, not `meta.json`.
 - For **snippets**, edit `showcase/shell-docs/src/content/snippets/`; snippets feed both
   shared/root pages and framework-specific pages.
+- When adding, renaming, or removing an Inspector pane, follow
+  `skills/inspector-docs/SKILL.md` so the matching docs Callout stays in sync.
+- When an Intelligence feature ships or Intelligence docs are added, renamed, or
+  removed, follow `skills/intelligence-docs/SKILL.md` so `/intelligence/overview`
+  stays in sync.
+- Inspector UI, chrome, and overlay work uses
+  `skills/inspector-workbench/SKILL.md`. Start the standalone lab and take
+  screenshots. Do not use a showcase app as the default host.
 - To **flip a framework to showcase-driven docs**, complete showcase coverage first, then
   change `docs_mode`, regenerate shell-docs data, and verify routes, sidebar entries, search
   results, snippets, and framework switching.
@@ -78,26 +93,8 @@ It exists for `cd docs` muscle memory, not as a separate docs app. The old
 content remains recoverable from the archive refs: `archive/docs-save-do-not-prune` and
 `archive/docs-retired-2026-06-17`.
 
-## 2. AG-UI protocol docs → upstream `ag-ui-protocol/ag-ui`
-
-The AG-UI protocol docs (the `showcase/shell-docs/src/content/ag-ui/` tree) are **not**
-authored in this repo. Their canonical source is the upstream repo
-**[`ag-ui-protocol/ag-ui`](https://github.com/ag-ui-protocol/ag-ui)** under its `docs/`
-directory, which publishes to **docs.ag-ui.com**.
-
-The `content/ag-ui/` copy here is a **downstream mirror** rendered on the CopilotKit docs
-host. To change AG-UI protocol docs, make the change upstream in `ag-ui-protocol/ag-ui`;
-it then needs to be synced back into the CopilotKit copy.
-
-> **Do not author AG-UI content changes directly in `content/ag-ui/`** — they would diverge
-> from upstream and never reach docs.ag-ui.com.
-
-**Caveat (known, out of scope here):** there is currently no automated sync for the
-`content/ag-ui/` mirror, so it can drift from upstream. Upstream is canonical — don't try to
-change that process as part of unrelated work.
-
 ## Quick decision
 
 - Changing a CopilotKit guide, reference, snippet, or framework page? → `showcase/shell-docs/src/content/`
-- Changing AG-UI protocol docs? → upstream `ag-ui-protocol/ag-ui`, then sync
+- Changing AG-UI protocol docs? → upstream `ag-ui-protocol/ag-ui`
 - Tempted to recreate `docs/content/docs/`? → stop, it's retired; use `showcase/shell-docs/`

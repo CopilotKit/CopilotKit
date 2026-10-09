@@ -5,7 +5,7 @@ import type { ComponentApi } from "@a2ui/web_core/v0_9";
 import { filterCatalog } from "../filter-catalog";
 // Namespace import of the package's SOURCE entry, used by the export test below.
 // Deliberately top-level: pulling in the root barrel transforms the whole
-// renderer graph (lit, markdown-it, zod), which takes longer than vitest's 5s
+// renderer graph (markdown-it, zod), which takes longer than vitest's 5s
 // default testTimeout on a cold cache. At module scope that cost is paid during
 // collection, which is not bounded by testTimeout.
 import * as packageEntry from "../../index";

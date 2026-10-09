@@ -10,12 +10,12 @@
 // weatherAgent produces plain text that `useJsonParser` parses as `null`,
 // leaving the dashboard empty — which is why D5 probes time out.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { getLocalAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
 import { withForwardedHeaders } from "@/mastra/_header_forwarding";
@@ -40,12 +40,12 @@ const runtime = new CopilotRuntime({
 export const POST = async (req: NextRequest) =>
   withForwardedHeaders(req, async () => {
     try {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        endpoint: "/api/copilotkit-byoc-hashbrown",
-        serviceAdapter: new ExperimentalEmptyAdapter(),
+      const copilotHandler = createCopilotRuntimeHandler({
         runtime,
+        basePath: "/api/copilotkit-byoc-hashbrown",
+        mode: "single-route",
       });
-      return await handleRequest(req);
+      return await copilotHandler(req);
     } catch (error: unknown) {
       const e = error as { message?: string; stack?: string };
       return NextResponse.json(

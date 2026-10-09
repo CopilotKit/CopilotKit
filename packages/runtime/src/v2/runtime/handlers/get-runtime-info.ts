@@ -1,5 +1,6 @@
 import type { AgentCapabilities } from "@ag-ui/core";
 import type { CopilotRuntimeLike } from "../core/runtime";
+import { hasLearningContainerConfiguration } from "../core/learning";
 import {
   isA2UIEnabled,
   isIntelligenceRuntime,
@@ -8,10 +9,12 @@ import {
 import type {
   AgentDescription,
   RuntimeInfo,
+  RuntimeEntitlementResponse,
   ThreadEndpointRuntimeInfo,
 } from "@copilotkit/shared";
 import type { RuntimeLicenseStatus } from "@copilotkit/shared";
 import { VERSION } from "../core/runtime";
+import { PlatformRequestError } from "../intelligence-platform/client";
 import { isTelemetryDisabled } from "../telemetry/telemetry-client";
 import { supportsLocalThreadEndpoints } from "../runner/agent-runner";
 
@@ -28,19 +31,102 @@ function resolveLicenseStatus(
   return "unknown";
 }
 
+/**
+ * Map the structured entitlement authority onto the legacy status consumed by
+ * older Core, React, and Angular thread surfaces. A ready managed entitlement
+ * is authoritative in both directions. Otherwise, preserve the legacy
+ * self-hosted license fallback. A retryable lookup without that fallback
+ * remains unknown until it resolves.
+ */
+function resolveCompatibilityLicenseStatus(
+  runtime: CopilotRuntimeLike,
+  runtimeEntitlements: RuntimeEntitlementResponse | undefined,
+): RuntimeLicenseStatus {
+  if (runtimeEntitlements?.status === "ready") {
+    if (
+      runtimeEntitlements.entitlement.source === "managedOrgSubscription" ||
+      runtimeEntitlements.entitlement.source ===
+        "awsMarketplaceDeploymentLicense"
+    ) {
+      return runtimeEntitlements.entitlement.active ? "valid" : "none";
+    }
+
+    if (runtimeEntitlements.entitlement.active) {
+      return "valid";
+    }
+  }
+
+  const legacyLicenseStatus = resolveLicenseStatus(runtime);
+  if (
+    legacyLicenseStatus === "none" &&
+    runtimeEntitlements?.status !== "ready" &&
+    runtimeEntitlements?.error.retryable
+  ) {
+    return "unknown";
+  }
+
+  return legacyLicenseStatus;
+}
+
 interface HandleGetRuntimeInfoParameters {
   runtime: CopilotRuntimeLike;
   request: Request;
   threadEndpointsEnabled?: boolean;
+  singleRouteResourceOperationsEnabled?: boolean;
+}
+
+/**
+ * Resolve structured Runtime entitlements for configured Intelligence runtimes.
+ *
+ * Dependency failures are deliberately converted to a stable unavailable
+ * diagnostic so `/info` remains an availability endpoint. The underlying
+ * error is not exposed because it may contain upstream response details.
+ */
+async function resolveRuntimeEntitlements(
+  runtime: CopilotRuntimeLike,
+): Promise<RuntimeEntitlementResponse | undefined> {
+  if (!isIntelligenceRuntime(runtime)) {
+    return undefined;
+  }
+
+  try {
+    return await runtime.intelligence.getRuntimeEntitlements();
+  } catch (error) {
+    if (error instanceof PlatformRequestError && error.retryable === false) {
+      return {
+        status: "misconfigured",
+        error: {
+          code: "runtime_entitlements_misconfigured",
+          message: "Runtime entitlement lookup is misconfigured",
+          retryable: false,
+        },
+      };
+    }
+
+    return {
+      status: "unavailable",
+      error: {
+        code: "runtime_entitlements_unavailable",
+        message: "Runtime entitlement lookup failed",
+        retryable: true,
+      },
+    };
+  }
 }
 
 export async function handleGetRuntimeInfo({
   runtime,
   request,
   threadEndpointsEnabled = true,
+  singleRouteResourceOperationsEnabled = false,
 }: HandleGetRuntimeInfoParameters) {
   try {
-    const agents = await resolveAgents(runtime.agents, request);
+    const runtimeEntitlementsPromise = resolveRuntimeEntitlements(runtime);
+    const webEnabled =
+      !isIntelligenceRuntime(runtime) || runtime.identifyUser !== undefined;
+    const agents = webEnabled
+      ? await resolveAgents(runtime.agents, request)
+      : {};
 
     const agentEntries = await Promise.all(
       Object.entries(agents).map(async ([name, agent]) => {
@@ -72,26 +158,40 @@ export async function handleGetRuntimeInfo({
 
     const agentsDict: Record<string, AgentDescription> =
       Object.fromEntries(agentEntries);
+    const runtimeEntitlements = await runtimeEntitlementsPromise;
 
     const runtimeInfo: RuntimeInfo = {
       version: VERSION,
       agents: agentsDict,
-      audioFileTranscriptionEnabled: !!runtime.transcriptionService,
+      audioFileTranscriptionEnabled:
+        webEnabled && !!runtime.transcriptionService,
       mode: runtime.mode,
       threadEndpoints: resolveThreadEndpointInfo(
         runtime,
-        threadEndpointsEnabled,
+        threadEndpointsEnabled && webEnabled,
       ),
+      ...(singleRouteResourceOperationsEnabled
+        ? {
+            singleRoute: {
+              resourceOperations: true,
+              threadEndpoints: resolveThreadEndpointInfo(runtime, webEnabled),
+            },
+          }
+        : {}),
       // Advertised unconditionally. Multi-route runtimes expose the dedicated
       // POST /agent/:agentId/suggest path; single-route clients fall back to a
       // client-side run (they don't construct the single-route envelope for
       // suggest). The flag lets multi-route clients detect the stateless path.
-      suggestions: true,
-      ...(isIntelligenceRuntime(runtime)
+      suggestions: webEnabled,
+      ...(isIntelligenceRuntime(runtime) && webEnabled
         ? {
             intelligence: {
               wsUrl: runtime.intelligence.ɵgetClientWsUrl(),
             },
+            inspectorMetadata: true,
+            ...(hasLearningContainerConfiguration(runtime)
+              ? { inspectorLearning: true }
+              : {}),
           }
         : {}),
       // Legacy flat flag, kept for older clients. The `a2ui` object below is
@@ -99,8 +199,8 @@ export async function handleGetRuntimeInfo({
       // boolean discards (see CopilotKit/CopilotKit#5369). Both go through the
       // shared isA2UIEnabled() predicate so an explicit `enabled: false`
       // disables a2ui here exactly as it does on the run path.
-      a2uiEnabled: isA2UIEnabled(runtime.a2ui),
-      ...(isA2UIEnabled(runtime.a2ui)
+      a2uiEnabled: webEnabled && isA2UIEnabled(runtime.a2ui),
+      ...(webEnabled && isA2UIEnabled(runtime.a2ui)
         ? {
             a2ui: {
               enabled: true,
@@ -108,10 +208,16 @@ export async function handleGetRuntimeInfo({
             },
           }
         : {}),
-      openGenerativeUIEnabled: !!runtime.openGenerativeUI,
+      openGenerativeUIEnabled: webEnabled && !!runtime.openGenerativeUI,
       ...(isIntelligenceRuntime(runtime)
-        ? { licenseStatus: resolveLicenseStatus(runtime) }
+        ? {
+            licenseStatus: resolveCompatibilityLicenseStatus(
+              runtime,
+              runtimeEntitlements,
+            ),
+          }
         : {}),
+      ...(runtimeEntitlements ? { runtimeEntitlements } : {}),
       telemetryDisabled: isTelemetryDisabled(),
     };
 

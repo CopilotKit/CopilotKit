@@ -19,7 +19,12 @@ describe("decodeInteraction", () => {
       id: "ck:abc123",
       conversationKey: "c1",
       replyTarget: { channelId: "c1", guildId: "g1" },
-      user: { id: "u1", name: "Ann", handle: "ann" },
+      actor: { id: "u1", kind: "human", name: "Ann", handle: "ann" },
+      identityContext: {
+        tenant: { id: "g1" },
+        conversation: { id: "c1", kind: "guild" },
+        trigger: "interaction",
+      },
       messageRef: { id: "m1", channelId: "c1" },
     });
   });

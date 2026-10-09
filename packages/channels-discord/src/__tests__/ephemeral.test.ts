@@ -22,7 +22,7 @@ it("DM-falls-back when fallbackToDM=true (usedFallback=true)", async () => {
   const { adapter, send } = makeAdapter();
   const res = await adapter.postEphemeral!(
     { channelId: "C1" },
-    { id: "U1" },
+    { id: "U1", kind: "human" },
     [{ type: "text", props: { value: "hi" } }],
     { fallbackToDM: true },
   );
@@ -34,7 +34,7 @@ it("returns null when fallbackToDM=false and no live interaction", async () => {
   const { adapter } = makeAdapter();
   const res = await adapter.postEphemeral!(
     { channelId: "C1" },
-    { id: "U1" },
+    { id: "U1", kind: "human" },
     [{ type: "text", props: { value: "hi" } }],
     { fallbackToDM: false },
   );

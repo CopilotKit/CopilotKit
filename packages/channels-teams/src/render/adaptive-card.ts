@@ -17,6 +17,11 @@ export interface AdaptiveCard {
 type CardElement = Record<string, unknown>;
 type CardAction = Record<string, unknown>;
 
+interface RenderContext {
+  nextFieldIndex: number;
+  usedFieldIds: Set<string>;
+}
+
 const SCHEMA = "http://adaptivecards.io/schemas/adaptive-card.json";
 const VERSION = "1.5";
 
@@ -41,7 +46,11 @@ const VERSION = "1.5";
 export function renderAdaptiveCard(ir: ChannelNode[]): AdaptiveCard {
   const body: CardElement[] = [];
   const actions: CardAction[] = [];
-  for (const node of ir) renderNode(node, body, actions);
+  const context: RenderContext = {
+    nextFieldIndex: 0,
+    usedFieldIds: new Set(["ckActionId", "value"]),
+  };
+  for (const node of ir) renderNode(node, body, actions, context);
 
   const card: AdaptiveCard = {
     type: "AdaptiveCard",
@@ -59,13 +68,15 @@ function renderNode(
   node: ChannelNode,
   body: CardElement[],
   actions: CardAction[],
+  context: RenderContext,
 ): void {
   if (typeof node.type !== "string") return; // non-intrinsic, already expanded
   const props = node.props ?? {};
   switch (node.type) {
     case "message":
       // The message container is not an element; flatten its children.
-      for (const child of childNodes(node)) renderNode(child, body, actions);
+      for (const child of childNodes(node))
+        renderNode(child, body, actions, context);
       return;
     case "header":
       body.push({
@@ -124,16 +135,19 @@ function renderNode(
       body.push(renderChart(node));
       return;
     case "actions":
-      for (const child of childNodes(node)) renderNode(child, body, actions);
+      for (const child of childNodes(node))
+        renderNode(child, body, actions, context);
       return;
     case "button":
       actions.push(renderButton(node));
       return;
     case "select":
-      body.push(renderSelect(node));
+      body.push(
+        renderSelect(node, fieldId(node, "onSelect", "select", context)),
+      );
       return;
     case "input":
-      body.push(renderInput(node));
+      body.push(renderInput(node, fieldId(node, "onSubmit", "input", context)));
       return;
     default:
       // Unknown intrinsic: skip (total renderer).
@@ -196,14 +210,14 @@ function renderButton(node: ChannelNode): CardAction {
   return action;
 }
 
-function renderSelect(node: ChannelNode): CardElement {
+function renderSelect(node: ChannelNode, id: string): CardElement {
   const props = node.props ?? {};
   const options =
     (props.options as { label: string; value: unknown }[] | undefined) ?? [];
   const { items } = clampArray(options, TEAMS_LIMITS.choices);
   const el: CardElement = {
     type: "Input.ChoiceSet",
-    id: idFromHandler(props.onSelect) ?? "select",
+    id,
     choices: items.map((o) => ({
       title: truncateText(String(o.label), TEAMS_LIMITS.choiceLabel),
       value: String(o.value),
@@ -215,15 +229,39 @@ function renderSelect(node: ChannelNode): CardElement {
   return el;
 }
 
-function renderInput(node: ChannelNode): CardElement {
+function renderInput(node: ChannelNode, id: string): CardElement {
   const props = node.props ?? {};
   const el: CardElement = {
     type: "Input.Text",
-    id: idFromHandler(props.onSubmit) ?? "input",
+    id,
   };
   if (props.placeholder) el.placeholder = String(props.placeholder);
   if (props.multiline) el.isMultiline = true;
   return el;
+}
+
+function fieldId(
+  node: ChannelNode,
+  handlerProp: "onSelect" | "onSubmit",
+  fallback: "select" | "input",
+  context: RenderContext,
+): string {
+  const props = node.props ?? {};
+  const index = ++context.nextFieldIndex;
+  const rawName = typeof props.name === "string" ? props.name.trim() : "";
+  const explicitName =
+    rawName && rawName !== "ckActionId" && rawName !== "value"
+      ? rawName
+      : undefined;
+  const base =
+    explicitName ?? idFromHandler(props[handlerProp]) ?? `${fallback}_${index}`;
+  let candidate = base;
+  let suffix = 1;
+  while (context.usedFieldIds.has(candidate)) {
+    candidate = `${base}_${suffix++}`;
+  }
+  context.usedFieldIds.add(candidate);
+  return candidate;
 }
 
 /** A `<Table>` → a native Adaptive Cards `Table` (1.5). */

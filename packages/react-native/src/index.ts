@@ -49,10 +49,18 @@ export { CopilotPopup } from "./CopilotPopup";
 export type { CopilotPopupProps, CopilotPopupHandle } from "./CopilotPopup";
 
 // The provider, platform-agnostic hooks (useAgent / useFrontendTool / ...),
-// core + AG-UI types, and the render-tool registry are re-exported from
-// "./headless" above (`export * from "./headless"`).
+// core + AG-UI types, and the render-tool hooks are re-exported from "./headless"
+// above (`export * from "./headless"`).
 //
-// Deliberately NOT re-exported (web-specific, from @copilotkit/react-core/v2):
-//   useRenderToolCall     — depends on DOM elements via DefaultToolCallRenderer
-//   useRenderCustomMessages / useRenderActivityMessage — web chat UI pipeline
+// Deliberately NOT re-exported — these genuinely render host DOM or link the
+// web chat-message stack, from @copilotkit/react-core/v2 (the fat entry):
 //   useDefaultRenderTool  — DefaultToolCallRenderer uses <div>, <svg>, etc.
+//   useRenderCustomMessages / useRenderActivityMessage — link @copilotkit/a2ui-renderer
+//
+// NOTE: useRenderToolCall is NOT in this list. It was excluded until 2026-07-23
+// on the stated grounds that it "depends on DOM via DefaultToolCallRenderer" —
+// which was never true of the hook itself; it was only reachable through the fat
+// /v2 entry, whose weight is the real hazard (#4893). PR #5883 moved it into
+// /v2/headless, and we consume it from there. Never import from bare
+// "@copilotkit/react-core/v2" in this package — the import-graph guard in
+// src/__tests__/headless-entry-surface.test.ts fails the build if you do.

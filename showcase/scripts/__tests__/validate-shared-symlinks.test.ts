@@ -6,6 +6,7 @@ import {
   scanAll,
   partition,
   loadBaseline,
+  expectedTargets,
 } from "../validate-shared-symlinks.js";
 
 // A fixture under fixtures/shared-symlinks models the single-source erosion
@@ -24,6 +25,13 @@ const FIXTURE_INTEGRATIONS = path.resolve(
 );
 
 describe("single-source symlink erosion guard", () => {
+  it("recognizes shared Python data as the only valid data target", () => {
+    const integrationDir = path.join(FIXTURE_INTEGRATIONS, "crewai-crews");
+    expect(expectedTargets(integrationDir, "data")).toEqual([
+      path.join(path.dirname(FIXTURE_INTEGRATIONS), "shared", "python", "data"),
+    ]);
+  });
+
   it("does NOT flag a proper symlink into shared/", () => {
     const erosions = scanIntegration(
       path.join(FIXTURE_INTEGRATIONS, "good-symlink"),

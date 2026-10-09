@@ -1,0 +1,53 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-block: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow: var(--shadow-xs);
+}
+.header {
+  display: grid;
+  grid-template-rows: auto auto;
+  align-items: start;
+  gap: 0.5rem;
+  padding-inline: 1.5rem;
+}
+.header:has(.action) {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.title {
+  font-weight: 600;
+  line-height: 1;
+}
+.description {
+  color: var(--cpki-color-muted-foreground);
+  font-size: 0.875rem;
+}
+.action {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  align-self: start;
+  justify-self: end;
+}
+.content,
+.footer {
+  padding-inline: 1.5rem;
+}
+.footer {
+  display: flex;
+  align-items: center;
+}
+
+/* Workspace card type: 14px/600 section title, 11px supporting copy (preview parity). */
+:global(:root[data-cpki-design='workspace']) .title {
+  font-size: var(--text-section);
+  line-height: 1.4;
+}
+:global(:root[data-cpki-design='workspace']) .description {
+  font-size: var(--text-caption);
+  line-height: 1.6;
+}

@@ -41,6 +41,7 @@ export {
 // binding from this entry under isolatedModules, breaking consumers.
 export { useAgent, UseAgentUpdate } from "./hooks/use-agent";
 export { useFrontendTool } from "./hooks/use-frontend-tool";
+export { useFrontendTools } from "./hooks/use-frontend-tools";
 export { useComponent } from "./hooks/use-component";
 export { useHumanInTheLoop } from "./hooks/use-human-in-the-loop";
 export {
@@ -79,6 +80,10 @@ export {
 // main /v2 entry.
 export { useRenderToolCall } from "./hooks/use-render-tool-call";
 export { defineToolCallRenderer } from "./types/defineToolCallRenderer";
+// The canonical tool-call renderer contract. Exported from the headless entry
+// because @copilotkit/react-native derives its public render-prop types from it
+// rather than declaring a parallel shape (which is how the two drifted before).
+export type { ReactToolCallRenderer } from "./types/react-tool-call-renderer";
 
 // Platform-agnostic types
 export type { ReactFrontendTool } from "./types/frontend-tool";

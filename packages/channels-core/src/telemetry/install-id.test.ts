@@ -12,6 +12,11 @@ class FakeDurableStore implements StateStore {
     get: async <T>(k: string) => this.map.get(k) as T | undefined,
     set: async <T>(k: string, v: T) => void this.map.set(k, v),
     delete: async (k: string) => void this.map.delete(k),
+    consume: async <T>(k: string): Promise<T | undefined> => {
+      const value = this.map.get(k) as T | undefined;
+      this.map.delete(k);
+      return value;
+    },
   };
   list = {} as StateStore["list"];
   lock = {} as StateStore["lock"];

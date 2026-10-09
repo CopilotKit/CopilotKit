@@ -57,6 +57,28 @@ The runnable Angular Showcase uses the same header shape:
 
 <AngularSnippet region="runtime-auth-headers" />
 
+## Send cookies to a cross-origin runtime
+
+To enable HTTP-only cookie authentication, set `credentials: "include"` and
+configure CORS on your runtime endpoint:
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      runtimeUrl: "https://runtime.example.com/api/copilotkit",
+      credentials: "include",
+    }),
+  ],
+};
+```
+
+Configure the runtime with `credentials: true` and the Angular app's exact
+origin. Credentialed CORS requests cannot use `*` as the allowed origin.
+
 ## Validate every runtime request
 
 Use the runtime adapter's request hook to reject missing, expired, or

@@ -134,8 +134,17 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
       parameters: z.object({
         location: z.string(),
       }),
-      render: ({ args }) => {
-        return <WeatherCard location={args.location} themeColor={themeColor} />;
+      render: ({ args, result }) => {
+        // `result` is the tool call's JSON result string once the run
+        // completes, and undefined while it is still in flight. The card
+        // reads every value it prints out of it.
+        return (
+          <WeatherCard
+            location={args.location}
+            themeColor={themeColor}
+            result={result}
+          />
+        );
       },
     },
     [themeColor],

@@ -12,9 +12,11 @@ fi
 # Restore dependencies quietly
 echo "🔧 Setting up C# agent..."
 dotnet restore --verbosity quiet > /dev/null 2>&1
+restore_exit=$?
 
-if [ $? -eq 0 ]; then
-    echo "✅ Agent setup complete"
-else
-    echo "⚠️  Setup completed with warnings (agent should still work)"
+if [ $restore_exit -ne 0 ]; then
+    echo "❌ dotnet restore failed. Run \"dotnet restore\" in the agent folder to see why."
+    exit $restore_exit
 fi
+
+echo "✅ Agent setup complete"

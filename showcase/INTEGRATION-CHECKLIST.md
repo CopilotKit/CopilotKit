@@ -30,6 +30,10 @@ A showcase "cell" is one (integration × feature) pair. The core invariant: **a 
 
 ### Value-test before merge (mandatory)
 
+This requirement applies to integration behavior, shared feature frontends,
+fixtures, and probes. For changes confined to the dashboard or to instructions,
+follow the [verification scope in AGENTS.md](./AGENTS.md#verification-scope-for-dashboard-changes).
+
 Run the real probe surface, not unit tests against fakes:
 
 ```
@@ -178,6 +182,7 @@ Several packages have different names in `examples/integrations/` vs `showcase/i
 | `showcase/integrations/` slug | `examples/integrations/` name | Why different                                             |
 | ----------------------------- | ----------------------------- | --------------------------------------------------------- |
 | `google-adk`                  | `adk`                         | Showcase prefixes with vendor for disambiguation          |
+| `google-antigravity`          | `antigravity`                 | Showcase prefixes with vendor for disambiguation          |
 | `langgraph-typescript`        | `langgraph-js`                | Showcase prefers full language name (`-typescript`)       |
 | `ms-agent-dotnet`             | `ms-agent-framework-dotnet`   | Showcase shortens `-framework-` out of the slug           |
 | `ms-agent-python`             | `ms-agent-framework-python`   | Same — shorter slug in showcase                           |

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, useSlots, watch } from "vue";
-import type { Component } from "vue";
+import { computed, onMounted, ref, useSlots, watch } from "vue";
+import type { Component, FunctionalComponent, VNodeChild } from "vue";
 import type {
   ActivityMessage,
   AssistantMessage,
@@ -9,12 +9,16 @@ import type {
   ToolMessage,
   UserMessage,
 } from "@ag-ui/core";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import {
+  DEFAULT_AGENT_ID,
+  commitRowKeyStore,
+  createRowKeyStore,
+  resolveRowRenderKeysById,
+} from "@copilotkit/shared";
 import type {
   InterruptRenderProps,
   VueCustomMessageRendererProps,
 } from "../../types";
-import { getThreadClone } from "../../hooks/use-agent";
 import { useCopilotKit } from "../../providers/useCopilotKit";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage.vue";
@@ -105,9 +109,9 @@ const resolvedAgentId = computed(
   () => config.value?.agentId ?? DEFAULT_AGENT_ID,
 );
 const resolvedThreadAgent = computed(() => {
-  const agentId = resolvedAgentId.value;
-  const registryAgent = copilotkit.value.getAgent(agentId);
-  return getThreadClone(registryAgent, config.value?.threadId) ?? registryAgent;
+  // Read the registry so this recomputes when agents are added or replaced.
+  void copilotkit.value.agents;
+  return copilotkit.value.getAgent(resolvedAgentId.value);
 });
 
 watch(
@@ -117,9 +121,8 @@ watch(
     () => copilotkit.value,
     () => copilotkit.value.runtimeConnectionStatus,
   ],
-  ([_agentId, threadId], _prev, onCleanup) => {
-    const registryAgent = copilotkit.value.getAgent(resolvedAgentId.value);
-    const agent = getThreadClone(registryAgent, threadId) ?? registryAgent;
+  (_values, _prev, onCleanup) => {
+    const agent = resolvedThreadAgent.value;
     if (!agent) return;
 
     const sub = agent.subscribe({
@@ -187,6 +190,24 @@ function deduplicateMessages(messages: Message[]): Message[] {
 const deduplicatedMessages = computed(() =>
   deduplicateMessages(props.messages),
 );
+
+// Stable per-row keys. Backends can re-key a message mid-stream, and keying
+// rows by the canonical id tears the row down on that swap (the HITL chat
+// flash). See @copilotkit/shared row-render-keys for the mechanism.
+const rowKeyStore = createRowKeyStore();
+const rowRenderKeys = computed(() =>
+  resolveRowRenderKeysById(rowKeyStore, deduplicatedMessages.value),
+);
+
+// Record what the DOM was patched with, never what a computed merely
+// evaluated: an anchor from an evaluation Vue never patches would re-key a
+// rendered row and tear it down.
+onMounted(() => commitRowKeyStore(rowKeyStore, deduplicatedMessages.value));
+watch(
+  deduplicatedMessages,
+  (messages) => commitRowKeyStore(rowKeyStore, messages),
+  { flush: "post" },
+);
 const lastMessage = computed(() => props.messages[props.messages.length - 1]);
 const showCursor = computed(
   () => props.isRunning && lastMessage.value?.role !== "reasoning",
@@ -241,9 +262,11 @@ function getMeta(
     ? Math.max(messageIdsInRun.indexOf(message.id), 0)
     : 0;
   const numberOfMessagesInRun = resolvedRunId ? messageIdsInRun.length : 1;
-  const stateSnapshot = resolvedRunId
-    ? core.getStateByRun(agentId, threadId, resolvedRunId)
-    : undefined;
+
+  // `getStateByRun` deep-clones the whole run state, so resolve it only when
+  // a consumer reads `stateSnapshot`, and at most once per meta object.
+  let stateSnapshot: unknown;
+  let stateSnapshotResolved = false;
 
   return {
     runId,
@@ -251,9 +274,36 @@ function getMeta(
     messageIndexInRun,
     numberOfMessagesInRun,
     agentId,
-    stateSnapshot,
+    get stateSnapshot() {
+      if (!stateSnapshotResolved) {
+        stateSnapshotResolved = true;
+        stateSnapshot = resolvedRunId
+          ? core.getStateByRun(agentId, threadId, resolvedRunId)
+          : undefined;
+      }
+      return stateSnapshot;
+    },
   };
 }
+
+// `Object.assign` onto the meta object keeps the lazy `stateSnapshot` getter.
+// A spread would call it.
+function getMessageSlotProps(
+  message: Message,
+  position: MessageMetaProps["position"],
+): MessageMetaProps {
+  return Object.assign(getMeta(message), { message, position });
+}
+
+// Calls a `#message-before` / `#message-after` slot with the meta object
+// itself. A template `<slot v-bind>` inside `v-for` goes through
+// `mergeProps`, which reads every key and so would clone the run state for
+// slots that never read `stateSnapshot`.
+const MessageMetaSlot: FunctionalComponent<{
+  render: (props: MessageMetaProps) => unknown;
+  slotProps: MessageMetaProps;
+}> = ({ render, slotProps }) => render(slotProps) as VNodeChild;
+MessageMetaSlot.props = ["render", "slotProps"];
 
 function getActivitySlotName(activityType: string): `activity-${string}` {
   return `activity-${activityType}`;
@@ -289,11 +339,7 @@ function resolveCustomMessageRenderer(
 
   return {
     renderer: selected.render as ResolvedCustomMessageRenderer["renderer"],
-    props: {
-      ...getMeta(message),
-      message,
-      position,
-    },
+    props: getMessageSlotProps(message, position),
   };
 }
 
@@ -345,18 +391,14 @@ function resolveToolMessage(
 
 <template>
   <div data-copilotkit class="cpk:flex cpk:flex-col" v-bind="$attrs">
-    <template v-for="message in deduplicatedMessages" :key="message.id">
-      <slot
+    <template
+      v-for="message in deduplicatedMessages"
+      :key="rowRenderKeys.get(message.id) ?? message.id"
+    >
+      <MessageMetaSlot
         v-if="componentSlots['message-before']"
-        name="message-before"
-        :message="message"
-        position="before"
-        :run-id="getMeta(message).runId"
-        :message-index="getMeta(message).messageIndex"
-        :message-index-in-run="getMeta(message).messageIndexInRun"
-        :number-of-messages-in-run="getMeta(message).numberOfMessagesInRun"
-        :agent-id="getMeta(message).agentId"
-        :state-snapshot="getMeta(message).stateSnapshot"
+        :render="componentSlots['message-before']"
+        :slot-props="getMessageSlotProps(message, 'before')"
       />
       <component
         v-else-if="resolveCustomMessageRenderer(message, 'before')"
@@ -439,17 +481,10 @@ function resolveToolMessage(
         </slot>
       </slot>
 
-      <slot
+      <MessageMetaSlot
         v-if="componentSlots['message-after']"
-        name="message-after"
-        :message="message"
-        position="after"
-        :run-id="getMeta(message).runId"
-        :message-index="getMeta(message).messageIndex"
-        :message-index-in-run="getMeta(message).messageIndexInRun"
-        :number-of-messages-in-run="getMeta(message).numberOfMessagesInRun"
-        :agent-id="getMeta(message).agentId"
-        :state-snapshot="getMeta(message).stateSnapshot"
+        :render="componentSlots['message-after']"
+        :slot-props="getMessageSlotProps(message, 'after')"
       />
       <component
         v-else-if="resolveCustomMessageRenderer(message, 'after')"

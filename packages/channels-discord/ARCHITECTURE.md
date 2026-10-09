@@ -185,7 +185,7 @@ members become `choices`).
 ### Sender / files
 
 `postFile` sends a file attachment via `channel.send({ files: [...] })`.
-Discord bots cannot read user email addresses; `PlatformUser.email` is
+Discord bots cannot read user email addresses; `ProviderActor.email` is
 always `undefined`.
 
 ## Preserved mechanics

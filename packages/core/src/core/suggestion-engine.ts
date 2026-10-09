@@ -1,5 +1,6 @@
 import type { AbstractAgent, Message, Tool } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
+import { ProxiedCopilotRuntimeAgent } from "../agent";
 import { randomUUID, partialJSONParse } from "@copilotkit/shared";
 import type { CopilotKitCore } from "./core";
 import type { CopilotKitCoreGetSuggestionsResult } from "./core";
@@ -242,6 +243,14 @@ export class SuggestionEngine {
         });
       } else {
         suggestionAgent = suggestionsProviderAgent.clone();
+        // A suggestion run gets a brand-new thread id, so no backend store can
+        // fill in history the client withheld. An app-level `messageFilter`
+        // trimmed for a persisted conversation would therefore leave the
+        // provider with only the tail of the seeded context and generate
+        // suggestions about nothing. The seeded messages ARE the context here.
+        if (suggestionAgent instanceof ProxiedCopilotRuntimeAgent) {
+          suggestionAgent.messageFilter = undefined;
+        }
       }
 
       suggestionAgent.threadId = suggestionId;

@@ -11,15 +11,15 @@
  * the attachment, then the regular fill+press flow sends both message +
  * attachment together.
  *
- * Aimock returns canned responses keyed off unique substrings. The
- * assertion verifies the assistant transcript references the attachment
- * (substring "image" / "document" present in the assistant's reply).
+ * AIMock returns canned responses keyed off the two exact sample prompts.
+ * Assertions require descriptions of the actual checked-in assets so a broad
+ * fallback or a fabricated fixture response cannot make the probe pass. This
+ * verifies deterministic fixture routing and the UI round trip; attachment
+ * bytes at the model boundary require the separate attachment-aware matcher.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
 export const SAMPLE_IMAGE_BUTTON_SELECTOR =
@@ -28,7 +28,16 @@ export const SAMPLE_PDF_BUTTON_SELECTOR =
   '[data-testid="multimodal-sample-pdf-button"]';
 
 const SAMPLE_BUTTON_TIMEOUT_MS = 5_000;
+/**
+ * How long the sample buttons may stay disabled after rendering. The demo
+ * enables them only once runtime discovery has resolved the agent (PNI-575):
+ * a click before that went to a provisional agent the chat never displays.
+ * Discovery is usually sub-second; a slow cold page load has taken ~15 s.
+ */
+const SAMPLE_BUTTON_READY_TIMEOUT_MS = 30_000;
 const ASSISTANT_TRANSCRIPT_TIMEOUT_MS = 5_000;
+const IMAGE_EXPECTED_PHRASE = "copilotkit logo";
+const PDF_EXPECTED_PHRASE = "copilotkit quickstart";
 
 /** Read concatenated assistant transcript text (lowercased). */
 async function readAssistantTranscript(page: Page): Promise<string> {
@@ -64,7 +73,8 @@ async function readAssistantTranscript(page: Page): Promise<string> {
 /** Click a sample-attachment button, throwing with a clear error if it
  *  isn't visible (proves the demo didn't render the sample buttons —
  *  a regression in their wiring would otherwise look like a generic
- *  "no response" failure). */
+ *  "no response" failure) or never becomes enabled (the demo's agent
+ *  never became ready). */
 async function clickSampleButton(page: Page, selector: string): Promise<void> {
   try {
     await page.waitForSelector(selector, {
@@ -74,6 +84,16 @@ async function clickSampleButton(page: Page, selector: string): Promise<void> {
   } catch {
     throw new Error(
       `multimodal: sample button ${selector} not visible — page failed to render the sample-attachment-buttons component`,
+    );
+  }
+  try {
+    await page.waitForSelector(`${selector}:enabled`, {
+      state: "visible",
+      timeout: SAMPLE_BUTTON_READY_TIMEOUT_MS,
+    });
+  } catch {
+    throw new Error(
+      `multimodal: sample button ${selector} stayed disabled for ${SAMPLE_BUTTON_READY_TIMEOUT_MS / 1000}s — the demo's agent never became ready (runtime discovery did not finish)`,
     );
   }
   const clickable = page as unknown as {
@@ -87,21 +107,21 @@ async function clickSampleButton(page: Page, selector: string): Promise<void> {
   await clickable.click(selector, { timeout: 5_000 });
 }
 
-/** Build the assertion for an image / pdf turn. Verifies the assistant
- *  transcript contains the expected modality-keyword. */
+/** Build the assertion for an image / pdf turn. */
 function buildModalityAssertion(
-  modalityKeyword: string,
+  modality: "image" | "pdf",
+  expectedPhrase: string,
 ): (page: Page) => Promise<void> {
   return async (page: Page): Promise<void> => {
     const deadline = Date.now() + ASSISTANT_TRANSCRIPT_TIMEOUT_MS;
     let lastTranscript = "";
     while (Date.now() < deadline) {
       lastTranscript = await readAssistantTranscript(page);
-      if (lastTranscript.includes(modalityKeyword)) return;
+      if (lastTranscript.includes(expectedPhrase)) return;
       await new Promise<void>((r) => setTimeout(r, 200));
     }
     throw new Error(
-      `multimodal: assistant transcript missing keyword "${modalityKeyword}" — got "${lastTranscript.slice(0, 200)}"`,
+      `multimodal: assistant transcript missing expected phrase "${expectedPhrase}" for ${modality} — got "${lastTranscript.slice(0, 200)}"`,
     );
   };
 }
@@ -137,14 +157,14 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
       preFill: preTurnAttachImage,
       skipSend: true,
       responseTimeoutMs: 60_000,
-      assertions: buildModalityAssertion("image"),
+      assertions: buildModalityAssertion("image", IMAGE_EXPECTED_PHRASE),
     },
     {
       input: "pdf-sample-button (auto-sent)",
       preFill: preTurnAttachPdf,
       skipSend: true,
       responseTimeoutMs: 60_000,
-      assertions: buildModalityAssertion("document"),
+      assertions: buildModalityAssertion("pdf", PDF_EXPECTED_PHRASE),
     },
   ];
 }

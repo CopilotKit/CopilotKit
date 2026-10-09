@@ -11,6 +11,7 @@ import { ɵInterruptState } from "@copilotkit/core";
 import type { ɵPendingInterrupt } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import { useAgent } from "./use-agent";
+import { INTERRUPT_EVENT_NAME } from "../types/interrupt";
 import type {
   InterruptEvent,
   InterruptRenderProps,
@@ -25,8 +26,6 @@ export type {
   InterruptHandlerProps,
   Interrupt,
 };
-
-const INTERRUPT_EVENT_NAME = "on_interrupt";
 
 /**
  * Normalized pending interrupt. `legacy` carries the custom-event payload;
@@ -173,7 +172,7 @@ export function useInterrupt<
 ): UseInterruptReturn<TRenderInChat> {
   /* eslint-enable @typescript-eslint/no-explicit-any */
   const { copilotkit } = useCopilotKit();
-  const { agent } = useAgent({ agentId: config.agentId });
+  const { agent } = useAgent({ agentId: config.agentId, updates: [] });
   const [pending, setPending] = useState<PendingInterrupt | null>(null);
   const pendingRef = useRef(pending);
   pendingRef.current = pending;
@@ -284,7 +283,10 @@ export function useInterrupt<
         } as Message);
       }
       try {
-        return await copilotkit.runAgent({ agent, resume: decision.resume });
+        return await copilotkit.runAgent({
+          agent,
+          resume: decision.resume,
+        });
       } catch (err) {
         console.error(
           "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
@@ -340,7 +342,10 @@ export function useInterrupt<
         } as Message);
       }
       try {
-        return await copilotkit.runAgent({ agent, resume: decision.resume });
+        return await copilotkit.runAgent({
+          agent,
+          resume: decision.resume,
+        });
       } catch (err) {
         console.error(
           "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",

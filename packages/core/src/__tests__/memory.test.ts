@@ -353,6 +353,26 @@ describe("memory store realtime", () => {
     return store;
   }
 
+  async function connectedProjectOnlyRealtimeStore() {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          projectJoinToken: "pjt-1",
+          projectJoinCode: "pjc-1",
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext(realtimeContext);
+    await flushEffects();
+    return store;
+  }
+
   /** A `project`-scoped `created` event as broadcast on the project channel. */
   function projectCreatedEvent(
     id: string,
@@ -603,6 +623,20 @@ describe("memory store realtime", () => {
     // Both channels are actually joined.
     expect(phoenix.sockets[0]?.channels[0]?.joinCount).toBeGreaterThan(0);
     expect(phoenix.sockets[1]?.channels[0]?.joinCount).toBeGreaterThan(0);
+
+    store.stop();
+  });
+
+  it("opens the project channel when personal Memory is denied", async () => {
+    const store = await connectedProjectOnlyRealtimeStore();
+
+    expect(phoenix.sockets).toHaveLength(1);
+    expect(phoenix.sockets[0]?.channels[0]?.topic).toBe(
+      "project_meta:memories:pjc-1",
+    );
+    expect(phoenix.sockets[0]?.opts.params).toMatchObject({
+      join_token: "pjt-1",
+    });
 
     store.stop();
   });

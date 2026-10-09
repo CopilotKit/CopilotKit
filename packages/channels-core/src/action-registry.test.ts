@@ -1,6 +1,11 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { ActionRegistry, ActionExpiredError } from "./action-registry.js";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import {
+  ActionRegistry,
+  ActionContinuationMismatchError,
+  ActionExpiredError,
+} from "./action-registry.js";
 import { InMemoryActionStore } from "./action-store.js";
+import type { ActionContinuationSnapshot } from "./action-store.js";
 import { MemoryStore } from "./state/memory-store.js";
 import { kvActionStore } from "./state/kv-action-store.js";
 import type { ChannelNode, InteractionContext } from "@copilotkit/channels-ui";
@@ -164,6 +169,193 @@ describe("ActionRegistry", () => {
       await expect(regBPrime.dispatch(id, ctx)).rejects.toBeInstanceOf(
         ActionExpiredError,
       );
+    });
+  });
+
+  describe("one-use HITL continuations", () => {
+    const continuation = {
+      channelName: "approvals",
+      conversationKey: "conv1",
+      threadId: "thread1",
+      runChainId: "run-chain-1",
+      initiator: {
+        user: { id: "user-1", name: "Alice" },
+        actor: { id: "actor-1", kind: "human" as const },
+      },
+    };
+
+    it("mints random capabilities and stores the trusted binding in the action snapshot", async () => {
+      const store = new InMemoryActionStore();
+      const reg = new ActionRegistry({ store, retentionMs: 60_000 });
+      reg.registerComponent("Confirm", Confirm as never);
+
+      const first = await reg.bindTree(
+        "Confirm",
+        { action: "approve" },
+        "conv1",
+        continuation,
+      );
+      const second = await reg.bindTree(
+        "Confirm",
+        { action: "approve" },
+        "conv1",
+        continuation,
+      );
+      const firstId = (
+        (first[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
+          id: string;
+        }
+      ).id;
+      const secondId = (
+        (second[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
+          id: string;
+        }
+      ).id;
+
+      expect(firstId).not.toBe(secondId);
+      expect(await store.get(firstId)).toMatchObject({
+        continuation: { ...continuation, actionId: firstId },
+      });
+    });
+
+    it("allows exactly one claimant across concurrent resume attempts", async () => {
+      const reg = new ActionRegistry({
+        store: new InMemoryActionStore(),
+        retentionMs: 60_000,
+      });
+      reg.registerComponent("Confirm", Confirm as never);
+      const tree = await reg.bindTree(
+        "Confirm",
+        { action: "approve" },
+        "conv1",
+        continuation,
+      );
+      const id = (
+        (tree[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
+          id: string;
+        }
+      ).id;
+
+      const outcomes = await Promise.allSettled([
+        reg.claimContinuation(id, continuation),
+        reg.claimContinuation(id, continuation),
+      ]);
+
+      expect(
+        outcomes.filter((outcome) => outcome.status === "fulfilled"),
+      ).toHaveLength(1);
+      expect(
+        outcomes.filter((outcome) => outcome.status === "rejected"),
+      ).toHaveLength(1);
+      expect(
+        (
+          outcomes.find(
+            (outcome) => outcome.status === "rejected",
+          ) as PromiseRejectedResult
+        ).reason,
+      ).toBeInstanceOf(ActionExpiredError);
+    });
+
+    it.each([
+      ["Channel", { channelName: "wrong" }],
+      ["conversation", { conversationKey: "wrong" }],
+      ["Thread", { threadId: "wrong" }],
+    ])(
+      "rejects a wrong %s binding without consuming the valid continuation",
+      async (_label, tampered) => {
+        const reg = new ActionRegistry({
+          store: new InMemoryActionStore(),
+          retentionMs: 60_000,
+        });
+        reg.registerComponent("Confirm", Confirm as never);
+        const tree = await reg.bindTree(
+          "Confirm",
+          { action: "approve" },
+          "conv1",
+          continuation,
+        );
+        const id = (
+          (tree[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
+            id: string;
+          }
+        ).id;
+
+        await expect(
+          reg.claimContinuation(id, { ...continuation, ...tampered }),
+        ).rejects.toBeInstanceOf(ActionContinuationMismatchError);
+        await expect(
+          reg.claimContinuation(id, continuation),
+        ).resolves.toMatchObject({
+          actionId: id,
+          runChainId: "run-chain-1",
+        });
+      },
+    );
+
+    it.each([
+      ["run chain", { runChainId: "" }],
+      ["action", { actionId: "ck:other" }],
+      [
+        "initiator actor",
+        { initiator: { ...continuation.initiator, actor: {} } },
+      ],
+    ])("rejects a snapshot with a tampered %s", async (_label, tampered) => {
+      const id = `ck:${globalThis.crypto.randomUUID()}`;
+      const store = new InMemoryActionStore();
+      const reg = new ActionRegistry({ store, retentionMs: 60_000 });
+      await store.put(id, {
+        path: [0, "onClick"],
+        conversationKey: "conv1",
+        continuation: {
+          ...continuation,
+          actionId: id,
+          ...tampered,
+        } as unknown as ActionContinuationSnapshot,
+      });
+
+      await expect(
+        reg.claimContinuation(id, continuation),
+      ).rejects.toBeInstanceOf(ActionContinuationMismatchError);
+    });
+
+    it("rejects a wrong random capability", async () => {
+      const reg = new ActionRegistry({
+        store: new InMemoryActionStore(),
+        retentionMs: 60_000,
+      });
+
+      await expect(
+        reg.claimContinuation("ck:wrong-capability", continuation),
+      ).rejects.toBeInstanceOf(ActionExpiredError);
+    });
+
+    it("expires with the action retention window", async () => {
+      vi.useFakeTimers();
+      try {
+        const reg = new ActionRegistry({
+          store: new InMemoryActionStore(),
+          retentionMs: 100,
+        });
+        reg.registerComponent("Confirm", Confirm as never);
+        const tree = await reg.bindTree(
+          "Confirm",
+          { action: "approve" },
+          "conv1",
+          continuation,
+        );
+        const id = (
+          (tree[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
+            id: string;
+          }
+        ).id;
+        vi.advanceTimersByTime(101);
+
+        await expect(
+          reg.claimContinuation(id, continuation),
+        ).rejects.toBeInstanceOf(ActionExpiredError);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

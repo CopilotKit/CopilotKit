@@ -16,8 +16,17 @@ import type {
   ReasoningMessageEndEvent,
   ReasoningEndEvent,
 } from "@ag-ui/client";
-import { EventType } from "@ag-ui/client";
+import { contentToText, EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
+import { createStateEventNormalizer } from "../state-delta";
+import {
+  aggregateRunUsage,
+  collectStandardRunFinishedDetails,
+  getNonEmptyString,
+  getTokenCount,
+  isRecord,
+} from "./usage";
+import type { AgentRunFinishedDetails } from "./usage";
 
 type ContentPartSource =
   | { type: "data"; value: string; mimeType: string }
@@ -135,6 +144,11 @@ function convertUserContent(
               mimeType: source.mimeType,
             },
           });
+        } else if (source.type === "file") {
+          // AG-UI 1.0 provider file handle: not a URL or inline data.
+          console.warn(
+            `[CopilotKit] Dropping a ${partType} part that references a provider file handle: it is not a URL or inline data, so it cannot be sent to the model here.`,
+          );
         } else if (source.type === "url") {
           parts.push({
             type: partType,
@@ -258,9 +272,13 @@ export function convertInputToTanStackAI(
         content:
           m.role === "user"
             ? convertUserContent(m.content)
-            : typeof m.content === "string"
-              ? m.content
-              : null,
+            : m.role === "tool"
+              ? // A tool result is a string or a list of parts; TanStack takes
+                // text here, so the text parts are concatenated.
+                contentToText(m.content)
+              : typeof m.content === "string"
+                ? m.content
+                : null,
       };
       if (m.role === "assistant" && "toolCalls" in m && m.toolCalls) {
         msg.toolCalls = m.toolCalls.map((tc) => ({
@@ -332,6 +350,8 @@ export async function* convertTanStackStream(
   stream: AsyncIterable<unknown>,
   abortSignal: AbortSignal,
   pendingInterrupts?: Interrupt[],
+  initialState?: unknown,
+  runFinishedDetails?: AgentRunFinishedDetails,
 ): AsyncGenerator<BaseEvent> {
   const messageId = randomUUID();
   const toolNamesById = new Map<string, string>();
@@ -344,6 +364,7 @@ export async function* convertTanStackStream(
   let reasoningRunOpen = false;
   let reasoningMessageOpen = false;
   let reasoningMessageId = randomUUID();
+  const normalizeStateEvent = createStateEventNormalizer(initialState);
 
   function* closeReasoningIfOpen(): Generator<BaseEvent> {
     if (reasoningMessageOpen) {
@@ -411,9 +432,11 @@ export async function* convertTanStackStream(
     }
 
     // Per-turn lifecycle markers are owned by the Agent wrapper, not forwarded.
-    if (type === "RUN_STARTED" || type === "RUN_FINISHED") {
+    if (type === "RUN_FINISHED") {
+      collectTanStackRunFinishedDetails(raw, runFinishedDetails);
       continue;
     }
+    if (type === "RUN_STARTED") continue;
 
     // Surface engine errors instead of dropping them: throw so the Agent
     // wrapper emits a terminal RUN_ERROR. Without this a failed run (e.g. a
@@ -491,7 +514,9 @@ export async function* convertTanStackStream(
           type: EventType.STATE_SNAPSHOT,
           snapshot: (parsedContent as Record<string, unknown>).snapshot,
         };
-        yield stateSnapshotEvent;
+        for (const event of normalizeStateEvent(stateSnapshotEvent)) {
+          yield event;
+        }
       }
 
       if (
@@ -504,7 +529,9 @@ export async function* convertTanStackStream(
           type: EventType.STATE_DELTA,
           delta: (parsedContent as Record<string, unknown>).delta as never,
         };
-        yield stateDeltaEvent;
+        for (const event of normalizeStateEvent(stateDeltaEvent)) {
+          yield event;
+        }
       }
 
       let serializedContent: string;
@@ -583,6 +610,53 @@ export async function* convertTanStackStream(
   }
 
   yield* closeReasoningIfOpen();
+}
+
+/** Normalizes legacy and standard TanStack usage into AG-UI token usage. */
+function collectTanStackRunFinishedDetails(
+  event: Record<string, unknown>,
+  details?: AgentRunFinishedDetails,
+): void {
+  if (!details) return;
+
+  const fallbackIdentity = {
+    provider: getNonEmptyString(event.provider),
+    model: getNonEmptyString(event.model),
+  };
+  collectStandardRunFinishedDetails(event, details, fallbackIdentity);
+
+  // TanStack's native finish reason becomes AG-UI terminal metadata.
+  if (typeof event.finishReason === "string") {
+    details.metadata = {
+      ...details.metadata,
+      finishReason: event.finishReason,
+    };
+  }
+
+  const usage = event.usage;
+
+  if (Array.isArray(usage)) {
+    return;
+  }
+
+  if (!isRecord(usage)) return;
+
+  const promptDetails = isRecord(usage.promptTokensDetails)
+    ? usage.promptTokensDetails
+    : {};
+  const completionDetails = isRecord(usage.completionTokensDetails)
+    ? usage.completionTokensDetails
+    : {};
+  aggregateRunUsage(details, [
+    {
+      ...fallbackIdentity,
+      inputTokens: getTokenCount(usage.promptTokens),
+      outputTokens: getTokenCount(usage.completionTokens),
+      totalTokens: getTokenCount(usage.totalTokens),
+      reasoningTokens: getTokenCount(completionDetails.reasoningTokens),
+      cachedInputTokens: getTokenCount(promptDetails.cachedTokens),
+    },
+  ]);
 }
 
 function safeParse(value: string): unknown {

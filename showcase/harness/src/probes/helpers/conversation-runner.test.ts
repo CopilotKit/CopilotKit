@@ -3239,6 +3239,40 @@ describe("waitForTurnComplete — data-copilot-running done-signal", () => {
     expect(result.text).toBe("fast reply");
   });
 
+  it("supports an explicit SSE completion signal for suspend/resume turns whose DOM run counter does not advance", async () => {
+    const staleDomStop: CopilotRunningState = {
+      attrPresent: true,
+      runningNow: false,
+      sawRunningTrue: true,
+      runStartCount: 2,
+      lastStoppedAtMs: 1,
+    };
+    const page = makeRunSignalPage({
+      sse: [3],
+      running: [staleDomStop],
+      cascade: [
+        { count: 3, text: "Choose a time" },
+        { count: 3, text: "Choose a time" },
+        { count: 3, text: "Choose a time" },
+      ],
+    });
+
+    const result = await waitForTurnComplete({
+      page,
+      turnIndex: 2,
+      settleMs: 20,
+      timeoutMs: 1_000,
+      maxTurnDurationMs: 500,
+      baselineCount: 2,
+      baselineRunStartCount: 2,
+      baselineRunsFinished: 2,
+      completionSignal: "sse",
+      pollIntervalMs: 5,
+    });
+
+    expect(result.text).toBe("Choose a time");
+  });
+
   it("(2) REAL BREAK STILL RED: silent multi-step hang (bubble painted + text settled, running STUCK TRUE, SSE never catches up) → done-signal-missing at the HARD timeout", async () => {
     // Bubble #1 paints, text settles, but the run NEVER finishes: running
     // stays `true` forever AND the SSE counter never catches up. DOM+text

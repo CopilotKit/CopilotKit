@@ -19,4 +19,69 @@
     <DemoCode file="src/agent/frontend-tools.ts" region="setup" />
 
   </Step>
+  <Step>
+    ### Call a frontend tool from a node with no model
+
+    A node does not need a model to call a frontend tool. Return an
+    `AIMessage` with a `tool_calls` entry. This example calls the
+    `change_background` tool that the frontend above registers. When the run
+    ends, CopilotKit runs the matching `useFrontendTool` handler in the
+    browser. Then it starts a follow-up run with the result as a
+    `ToolMessage`. Route that run to a node that reads the result, so the
+    graph does not call the tool again:
+
+    ```ts title="src/agent.ts"
+    import { randomUUID } from "node:crypto";
+    import { AIMessage, ToolMessage } from "@langchain/core/messages";
+    import { END, START, StateGraph } from "@langchain/langgraph";
+    import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+
+    type AgentState = typeof CopilotKitStateAnnotation.State;
+
+    // Ask the frontend to run `change_background`. No model call.
+    async function requestBackground(state: AgentState) {
+      return {
+        messages: [
+          new AIMessage({
+            content: "",
+            tool_calls: [
+              {
+                id: randomUUID(),
+                name: "change_background",
+                args: { background: "linear-gradient(135deg, #1e3a8a, #9333ea)" },
+                type: "tool_call",
+              },
+            ],
+          }),
+        ],
+      };
+    }
+
+    // Runs on the follow-up run, after the frontend returns the tool result.
+    async function confirm(state: AgentState) {
+      const result = state.messages.at(-1);
+      return {
+        messages: [new AIMessage(`The frontend returned: ${result?.content}`)],
+      };
+    }
+
+    export const graph = new StateGraph(CopilotKitStateAnnotation)
+      .addNode("request_background", requestBackground)
+      .addNode("confirm", confirm)
+      .addConditionalEdges(START, (state: AgentState) => {
+        const last = state.messages.at(-1);
+        return last && ToolMessage.isInstance(last)
+          ? "confirm"
+          : "request_background";
+      })
+      .addEdge("request_background", END)
+      .addEdge("confirm", END)
+      .compile();
+    ```
+
+    The tool call must be in the graph state. `copilotkitEmitToolCall` alone
+    only streams the call. At the end of the run, the messages from the graph
+    state replace the streamed ones, so the handler never runs.
+
+  </Step>
 </Steps>

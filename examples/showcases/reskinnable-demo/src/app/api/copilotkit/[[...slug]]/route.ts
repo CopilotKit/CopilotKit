@@ -1,0 +1,346 @@
+import {
+  CopilotRuntime,
+  createCopilotHonoHandler,
+  InMemoryAgentRunner,
+  CopilotKitIntelligence,
+} from "@copilotkit/runtime/v2";
+import type { IdentifyUserCallback } from "@copilotkit/runtime/v2";
+import { handle } from "hono/vercel";
+import { agentRegistry, agentIds } from "@/shell/agent-registry";
+import {
+  MEMORY_GRANT_COOKIE,
+  TENANT_COOKIE,
+  isDemoTenant,
+  postureById,
+  readRequestCookie,
+} from "@/shell/governance";
+import type { MemoryGrant } from "@/shell/governance";
+import { createSpreadsheetBridge } from "@/shell/attach/spreadsheet-model-format";
+import { defaultSkinId } from "@/shell/skins-config";
+
+// One BuiltInAgent per registered skin, keyed by the skin id (=== agentId). The
+// client's CopilotChatConfigurationProvider now sends agentId={skin.id}
+// ("banking" / "airline"), so the runtime must resolve each skin's agent by
+// that id — a single `default` agent would 404 the per-skin runs. Built once at
+// module load (the factories are cheap and stateless per process).
+function buildAgents() {
+  return Object.fromEntries(
+    agentIds.map((id) => [
+      id,
+      withSpreadsheetSupport(agentRegistry[id].createAgent()),
+    ]),
+  );
+}
+
+/**
+ * Rewrite a converted spreadsheet attachment to the PDF media type its bytes
+ * actually are, on the model leg only.
+ *
+ * `run` is public on `AbstractAgent`, and the runtime has already taken its copy
+ * of the input for persistence and for the echoed message snapshot by the time
+ * it calls this — so the swap reaches the model and nothing else. Doing it at
+ * the API-route level instead rewrites the body the runtime persists, and every
+ * chip in the transcript then reads PDF forever after (measured).
+ *
+ * ── WHY A PROTOTYPE AND NOT AN INSTANCE PROPERTY ────────────────────────────
+ * The runtime CLONES an agent per run, and `AbstractAgent.clone()` is
+ * `Object.create(Object.getPrototypeOf(this))` plus a fixed list of copied
+ * fields — `run` is not on that list. Assigning `agent.run = ...` therefore
+ * survives exactly until the first clone, after which the original `run` is back
+ * and the model receives the spreadsheet media type it cannot read. The failure
+ * is remote from the cause: the run dies with a bare "terminated" from the
+ * agent transport, which reads like a dead service rather than a bad payload.
+ *
+ * Splicing an extra prototype into the chain puts the override where `clone()`
+ * preserves it, and keeps this generic over every agent class the registry
+ * returns (banking's `HttpAgent`, everyone else's in-process agent).
+ */
+function withSpreadsheetSupport<T extends object>(agent: T): T {
+  type Observerish = {
+    next: (value: unknown) => void;
+    error: (err: unknown) => void;
+    complete: () => void;
+  };
+  type Streamish = {
+    subscribe: (observer: Observerish) => unknown;
+    constructor: new (subscribe: (observer: Observerish) => unknown) => unknown;
+  };
+
+  const base = Object.getPrototypeOf(agent) as {
+    run: (input: unknown) => Streamish;
+  };
+  const shim = Object.create(base) as typeof base;
+
+  shim.run = function run(this: T, input: unknown) {
+    // A bridge PER RUN, so the payloads it remembers cannot leak between runs.
+    const bridge = createSpreadsheetBridge();
+    const source = base.run.call(this, bridge.toModel(input));
+    // The stream's own class, reused rather than imported: rxjs is not a direct
+    // dependency of this app, and taking one just to map a stream would pin a
+    // second copy against the runtime's.
+    const Stream = source.constructor;
+    return new Stream((observer: Observerish) =>
+      source.subscribe({
+        next: (event) => observer.next(bridge.fromModel(event)),
+        error: (err) => observer.error(err),
+        complete: () => observer.complete(),
+      }),
+    ) as Streamish;
+  };
+
+  Object.setPrototypeOf(agent, shim);
+  return agent;
+}
+
+/**
+ * Self-learning backend (Phase C), env-gated.
+ *
+ * When the three Intelligence env vars below are all set, the runtime is built
+ * in Intelligence mode: the local `bankingAgent` still executes here (calling
+ * OpenAI), but every AG-UI event of every run is streamed over a Phoenix
+ * WebSocket to the Intelligence gateway for durable threads + self-learning
+ * ingestion (the `IntelligenceAgentRunner` does both — see
+ * packages/runtime/src/v2/runtime/runner/intelligence.ts). Officer actions the
+ * gateway later distills into `/knowledge` are what a fresh agent reads back to
+ * learn the over-limit unlock unaided.
+ *
+ * When ANY of the three is missing, the runtime falls back to the exact OSS
+ * path: a pure SSE `CopilotRuntime` + `InMemoryAgentRunner`, with no network
+ * dependency on an Intelligence stack. This is the default and must not regress.
+ *
+ *   INTELLIGENCE_API_URL          e.g. http://localhost:4201
+ *   INTELLIGENCE_GATEWAY_WS_URL   e.g. ws://localhost:4401
+ *   CPK_INTELLIGENCE_API_KEY          e.g. cpk_...
+ *   COPILOTKIT_LICENSE_TOKEN      (optional) read automatically by the runtime
+ */
+const intelligenceApiUrl = process.env.INTELLIGENCE_API_URL;
+const intelligenceWsUrl = process.env.INTELLIGENCE_GATEWAY_WS_URL;
+const intelligenceApiKey = process.env.CPK_INTELLIGENCE_API_KEY;
+
+const intelligenceEnabled = Boolean(
+  intelligenceApiUrl && intelligenceWsUrl && intelligenceApiKey,
+);
+
+/**
+ * Resolve a stable end-user identity for Intelligence requests, PER SKIN.
+ *
+ * The shared route hosts every skin's agent, so it must NOT know any single
+ * skin's identity scheme. Instead it reads the target agentId from the request
+ * URL (`/agent/:agentId/run|suggest|connect`), looks up that skin's optional
+ * `identifyUser` in the server agent registry, and delegates to it.
+ *
+ * Requests with NO agentId in the URL are app-level, not skin-scoped: the
+ * inspector's `/memories/list` + `/memories/recall` and `/info`. The app's
+ * DEFAULT skin owns app-level identity, so these delegate to
+ * `agentRegistry[defaultSkinId]?.identifyUser` — keeping the shell
+ * skin-agnostic (it asks whichever skin is `defaultSkinId`, never "banking" by
+ * name). This matters because the default skin's memory scope is exactly what
+ * the inspector must read: routing agentId-less requests through the generic
+ * identity instead would resolve a non-seeded id that 403s against the
+ * Intelligence stack in the demo's documented unpinned configuration.
+ *
+ * Note: this stays keyed to `defaultSkinId` even under `LOCK_SKIN`. On a deploy
+ * locked to a NON-default skin, the inspector's agentId-less requests therefore
+ * resolve a different scope than the running agent. Deliberate: the default
+ * resolver is the one whose scope is seeded, so switching to the locked skin's
+ * resolver would 403 or read empty on any skin without seed data. Today only
+ * `banking` ships real durable memory and it is also the default, so the two
+ * align in the configuration that matters. Revisit if a memory-bearing
+ * non-default skin is ever locked.
+ *
+ * A skin that contributes no resolver (e.g. airline, which has no memory), and
+ * the case where the default skin itself has no resolver, fall back to a
+ * generic, skin-agnostic identity.
+ *
+ * The client forwards the active user via CopilotKit `properties`
+ * (`{ userRole, userId }`), which the runtime places in the run body's
+ * `forwardedProps` (a run POST body is a RunAgentInput). We read both
+ * `forwardedProps` and a top-level `properties` for robustness.
+ *
+ * The generic fallback honors INTELLIGENCE_USER_ID / INTELLIGENCE_USER_NAME so
+ * CI/smokes (and backends that verify the asserted user is a seeded member)
+ * stay deterministic on a single pinned identity; otherwise it returns one
+ * stable demo id rather than minting random ids (random ids fragment threads).
+ */
+function agentIdFromUrl(url: string): string | undefined {
+  try {
+    const parsed = new URL(url);
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    const i = segments.lastIndexOf("agent");
+    if (i >= 0 && i + 1 < segments.length) {
+      return decodeURIComponent(segments[i + 1]!);
+    }
+    // THREAD ROUTES CARRY THE AGENT IN THE QUERY STRING, NOT THE PATH.
+    //
+    // Run/suggest/connect are `/agent/:agentId/...`, but the thread list is
+    // `/threads?agentId=<id>`. Reading only the path meant every thread-list
+    // request looked agentId-LESS and fell through to `defaultSkinId`'s
+    // resolver — i.e. banking's — so a non-default skin listed threads under
+    // banking's end-user id and got an empty array back. Its runs, which DO go
+    // through `/agent/:id/run`, resolved correctly, so threads were created
+    // under one identity and listed under another.
+    //
+    // The symptom is nasty precisely because nothing errors: the thread rail
+    // just says "No conversations yet" forever and a browser reload never
+    // restores the conversation, which reads as "this product doesn't persist
+    // threads" — the exact opposite of what the demo is trying to prove.
+    // Banking was immune only because it IS `defaultSkinId`; airline,
+    // logistics, keel and people were all affected.
+    const fromQuery = parsed.searchParams.get("agentId");
+    if (fromQuery) return fromQuery;
+  } catch {
+    // Malformed URL — treat as "no agentId" and fall back.
+  }
+  return undefined;
+}
+
+async function readForwardedProperties(
+  request: Request,
+): Promise<{ userRole?: string; userId?: string } | undefined> {
+  try {
+    const body = (await request.clone().json()) as {
+      forwardedProps?: { userRole?: string; userId?: string };
+      properties?: { userRole?: string; userId?: string };
+    } | null;
+    return body?.forwardedProps ?? body?.properties ?? undefined;
+  } catch {
+    // Non-JSON / bodyless request (e.g. GET /info, GET /memories) — no props.
+    return undefined;
+  }
+}
+
+function genericIdentity(): { id: string; name: string } {
+  const pinned = process.env.INTELLIGENCE_USER_ID;
+  if (pinned) {
+    return { id: pinned, name: process.env.INTELLIGENCE_USER_NAME ?? pinned };
+  }
+  return { id: "reskin-demo-user", name: "Reskinnable Demo User" };
+}
+
+/**
+ * ── THE DEMO'S STAND-IN FOR YOUR AUTH ───────────────────────────────────────
+ *
+ * Both callbacks below read a cookie off the raw `Request`. A real deployment
+ * reads a verified JWT or session in exactly these two places instead; the
+ * mechanism being demonstrated is unchanged — `identifyUser` and `memory.access`
+ * each receive the whole `Request`, so identity and policy come from something
+ * the SERVER can verify rather than from anything the client forwards.
+ *
+ * The tenant roster and the posture list live in `src/shell/governance.ts` so
+ * the popover that sets these cookies and the policy that reads them cannot
+ * drift apart.
+ */
+
+/** Resolved tenant for this request, or undefined when the demo is unscoped. */
+function demoTenant(request: Request): string | undefined {
+  const raw = readRequestCookie(request, TENANT_COOKIE);
+  return isDemoTenant(raw) ? raw : undefined;
+}
+
+/**
+ * Resolve this request's grant. `consumer` is threaded through so a posture can
+ * later close the browser's view while leaving the agent's recall intact; today
+ * every posture answers both callers the same, and the parameter documents that
+ * the runtime asks SEPARATELY rather than implying one answer covers both.
+ */
+function memoryGrant(
+  request: Request,
+  consumer: "agent" | "client",
+): MemoryGrant {
+  void consumer;
+  return postureById(readRequestCookie(request, MEMORY_GRANT_COOKIE)).grant;
+}
+
+const identifyUser: IdentifyUserCallback = async (request: Request) => {
+  const agentId = agentIdFromUrl(request.url);
+  // Skin-scoped routes resolve through their target skin; agentId-less
+  // app-level routes (/memories/*, /info) resolve through the default skin.
+  const resolve = agentId
+    ? agentRegistry[agentId]?.identifyUser
+    : agentRegistry[defaultSkinId]?.identifyUser;
+  const base = resolve
+    ? resolve(await readForwardedProperties(request))
+    : genericIdentity();
+
+  // Namespace the resolved id under the tenant. Two people with the SAME
+  // per-skin persona id in different tenants now land in different memory
+  // buckets, which is the property the whole isolation story rests on.
+  const tenant = demoTenant(request);
+  if (!tenant) return base;
+  return { id: `${tenant}:${base.id}`, name: `${base.name} (${tenant})` };
+};
+
+function createRuntime(): CopilotRuntime {
+  if (intelligenceEnabled) {
+    // Announce WHICH Intelligence backend this process resolved, exactly once at
+    // startup (createRuntime runs at module load). This app and the sibling
+    // banking demo vendor the same stack with identical seeded ids, so a human
+    // must be able to see at a glance that `pnpm dev` attached to THIS app's
+    // backend and not the neighbour's. Never log the api key or license token.
+    console.info(
+      `[reskinnable-demo] Intelligence: ${intelligenceApiUrl}  (memory enabled)`,
+    );
+    const intelligence = new CopilotKitIntelligence({
+      apiUrl: intelligenceApiUrl!,
+      wsUrl: intelligenceWsUrl!,
+      apiKey: intelligenceApiKey!,
+      // Required for the durable-memory demo: the platform's recall_memory /
+      // save_memory tools live at `${apiUrl}/mcp` and are attached to the local
+      // BuiltInAgent run via MCP middleware ONLY when this opt-in flag is set
+      // (see attachIntelligenceEnterpriseLearning in
+      // packages/runtime/.../handlers/shared/agent-utils.ts). Without it the
+      // agent has no memory tools and re-offers to record every over-limit charge.
+      enableEnterpriseLearning: true,
+    });
+
+    return new CopilotRuntime({
+      agents: buildAgents(),
+      intelligence,
+      identifyUser,
+      // ── THE CONTROL THE TENANT-ISOLATION STORY ACTUALLY RESTS ON ──────────
+      //
+      // Resolved per request, for each caller separately ("agent" = the memory
+      // MCP tools attached to a run, "client" = the browser-facing /memories
+      // routes), and IMMUTABLE once returned. The runtime serialises it onto
+      // the wire as `x-cpki-memory-grant` BEFORE the agent is handed its memory
+      // tools, so `project: "none"` is not an instruction the model may ignore
+      // — the write is not a capability it has.
+      //
+      // OMITTING THIS WHOLE OPTION IS NOT NEUTRAL. With no `memory` config the
+      // runtime falls back to `{ user: "read-write", project: "read-write" }`
+      // (packages/runtime/.../handlers/shared/memory-policy.ts) — both scopes
+      // open. Isolation is something you switch ON, which is the single most
+      // useful sentence to say out loud when someone asks how it is enforced.
+      memory: {
+        access: ({ request, consumer }) => memoryGrant(request, consumer),
+      },
+      // Opt in to the client-facing /memories/* proxy routes (default off) so the
+      // product web-inspector's Memory tab can list + recall memories in this
+      // demo. Only meaningful in Intelligence mode; does not affect the agent's
+      // own server-side recall_memory (that runs via the MCP path).
+      exposeMemoryRoutes: true,
+      licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
+      lockTtlSeconds: 30,
+      lockKeyPrefix: "northwind-lock",
+      lockHeartbeatIntervalSeconds: 12,
+      generateThreadNames: true,
+      a2ui: { injectA2UITool: false },
+      openGenerativeUI: { agents: agentIds },
+    });
+  }
+
+  // OSS default — pure SSE, no external Intelligence dependency.
+  return new CopilotRuntime({
+    agents: buildAgents(),
+    runner: new InMemoryAgentRunner(),
+    a2ui: { injectA2UITool: false },
+    openGenerativeUI: { agents: agentIds },
+  });
+}
+
+const runtime = createRuntime();
+
+const app = createCopilotHonoHandler({ runtime, basePath: "/api/copilotkit" });
+
+export const GET = handle(app);
+export const POST = handle(app);

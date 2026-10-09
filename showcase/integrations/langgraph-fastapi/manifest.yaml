@@ -71,6 +71,7 @@ features:
   - voice
   - agent-config
 a2ui_pattern: schema-loading
+a2ui_agent_form: langgraph-state-graph
 interrupt_pattern: native
 thread_persistence_pattern: langgraph
 agent_config_pattern: shared-state
@@ -564,3 +565,9 @@ demos:
       - src/app/demos/agent-config/use-agent-config.ts
       - src/app/demos/agent-config/config-types.ts
       - src/app/api/copilotkit-agent-config/route.ts
+
+# Starter VALIDATION ladder (dashboard). NOT the `starter:` key — that one
+# drives the public "Full Starter" section on the integration profile page.
+starter_validation:
+  path: examples/integrations/langgraph-fastapi
+  service: starter-langgraph-fastapi

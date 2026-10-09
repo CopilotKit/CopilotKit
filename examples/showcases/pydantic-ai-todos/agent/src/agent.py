@@ -6,7 +6,7 @@ The agent uses tools to create, read, update, and delete todos.
 """
 
 from pydantic_ai import Agent
-from pydantic_ai.ag_ui import StateDeps
+from pydantic_ai.ui import StateDeps
 from pydantic_ai.models.openai import OpenAIResponsesModel
 from dotenv import load_dotenv
 from models import TodoState
@@ -20,7 +20,7 @@ load_dotenv()
 # - deps_type: The type of dependencies/state passed to tools (StateDeps wraps TodoState for AG-UI)
 # - tools: Functions the agent can call to interact with the todo list
 agent = Agent(
-    model=OpenAIResponsesModel("gpt-4.1-mini"),
+    model=OpenAIResponsesModel("gpt-5-mini"),
     deps_type=StateDeps[TodoState],
     tools=tools,
 )

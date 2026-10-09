@@ -115,8 +115,10 @@ function messageContext(
     type: ActivityTypes.Message,
     text,
     attachments,
-    conversation: { id: "conv-1" },
-    from: { id: "user-1", name: "Sam" },
+    id: "event-1",
+    timestamp: new Date("2026-07-31T12:00:00.000Z"),
+    conversation: { id: "conv-1", tenantId: "tenant-1" },
+    from: { id: "user-1", name: "Sam", role: "user" },
     removeRecipientMention: () => text,
     getConversationReference: () => ({
       conversation: { id: "conv-1" },
@@ -152,6 +154,22 @@ describe("TeamsAdapter inbound files", () => {
     expect(sink.onTurn).toHaveBeenCalledTimes(1);
     const turn = sink.onTurn.mock.calls[0]![0];
     expect(turn.userText).toBe("chart this");
+    expect(turn.actor).toEqual({
+      id: "user-1",
+      kind: "human",
+      name: "Sam",
+    });
+    expect(turn.identityContext).toEqual(
+      expect.objectContaining({
+        tenant: { id: "tenant-1" },
+        conversation: { id: "conv-1", kind: "conversation" },
+        trigger: "message",
+        event: {
+          id: "event-1",
+          occurredAt: "2026-07-31T12:00:00.000Z",
+        },
+      }),
+    );
     expect(turn.contentParts).toBeDefined();
     // Leads with the user's text, then the decoded CSV as a text part.
     expect(turn.contentParts[0]).toEqual({ type: "text", text: "chart this" });

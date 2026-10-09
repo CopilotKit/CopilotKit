@@ -5,10 +5,9 @@ AG-UI run input's ``forwardedProps`` and composes its system prompt dynamically
 per turn.
 
 The CopilotKit provider's ``properties`` prop is wired through the runtime as
-``forwardedProps`` on each AG-UI run. Because Microsoft Agent Framework agents
-store their system prompt in ``default_options["instructions"]``, we subclass
-``AgentFrameworkAgent`` and intercept ``run`` to swap in a freshly-built
-instruction string for the duration of each invocation.
+``forwardedProps`` on each AG-UI run. We subclass ``AgentFrameworkAgent`` and
+prepend a request-local system message built from those properties. Each turn
+replaces the prior injected message instead of mutating the shared agent.
 
 Invalid or missing values fall back to the corresponding ``DEFAULT_*``
 constant -- this function never raises so the demo can't deadlock on a bad
@@ -20,6 +19,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from textwrap import dedent
 from typing import Any, Literal
+from uuid import uuid4
 
 from ag_ui.core import BaseEvent
 from agent_framework import Agent, BaseChatClient
@@ -98,9 +98,8 @@ def build_system_prompt(tone: str, expertise: str, response_length: str) -> str:
 class AgentConfigFrameworkAgent(AgentFrameworkAgent):
     """AgentFrameworkAgent that rebuilds its system prompt per request.
 
-    Overrides ``run`` to read ``forwardedProps`` from the AG-UI input
-    and temporarily replace the wrapped agent's ``instructions`` option before
-    delegating to the standard orchestrator chain.
+    Overrides ``run`` to read ``forwardedProps`` from the AG-UI input and add
+    the resulting instructions to a request-local system message.
     """
 
     async def run(  # type: ignore[override]
@@ -112,30 +111,42 @@ class AgentConfigFrameworkAgent(AgentFrameworkAgent):
             props["tone"], props["expertise"], props["response_length"]
         )
 
-        options = getattr(self.agent, "default_options", None)
-        if not isinstance(options, dict):
+        messages = input_data.get("messages")
+        if not isinstance(messages, list) or len(messages) == 0:
             async for event in super().run(input_data):
                 yield event
             return
 
-        previous_instructions = options.get("instructions")
-        options["instructions"] = system_prompt
-        try:
-            async for event in super().run(input_data):
-                yield event
-        finally:
-            if previous_instructions is None:
-                options.pop("instructions", None)
-            else:
-                options["instructions"] = previous_instructions
+        run_id = input_data.get("runId") or str(uuid4())
+        request_input = dict(input_data)
+        request_input["runId"] = run_id
+        request_input["messages"] = [
+            {
+                "id": f"{run_id}-agent-config",
+                "role": "system",
+                "content": system_prompt,
+            },
+            *[
+                message
+                for message in messages
+                if not (
+                    isinstance(message, dict)
+                    and isinstance(message.get("id"), str)
+                    and message["id"].endswith("-agent-config")
+                )
+            ],
+        ]
+
+        async for event in super().run(request_input):
+            yield event
 
 
 def create_agent_config_agent(chat_client: BaseChatClient) -> AgentConfigFrameworkAgent:
     """Instantiate the Agent Config demo agent.
 
     The base MS Agent Framework ``Agent`` carries only a neutral fallback
-    instruction. The real behavioural steering happens in the per-request
-    instruction string applied by ``AgentConfigFrameworkAgent.run``.
+    instruction. The real behavioural steering happens in the request-local
+    system message applied by ``AgentConfigFrameworkAgent.run``.
     """
     base_agent = Agent(
         client=chat_client,

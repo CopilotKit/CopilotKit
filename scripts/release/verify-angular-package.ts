@@ -13,9 +13,11 @@ import {
   createAngularConsumerManifest,
   createAngularConsumerSources,
   findPackageResolutions,
+  readAgUiClientDependency,
   readAngularSupportContract,
   validateAngularPackageManifest,
 } from "./lib/angular-package.js";
+import { createConsumerWorkspaceYaml } from "./lib/channels-umbrella.js";
 import type { DependencyNode } from "./lib/angular-package.js";
 import {
   packAngularArtifacts,
@@ -64,6 +66,13 @@ function writeConsumer(
   writeFileSync(
     join(consumerDir, "package.json"),
     `${JSON.stringify(manifest, null, 2)}\n`,
+  );
+  // The consumer installs outside the repo, so the root .npmrc's release-age
+  // exemptions do not reach it: a just-published @ag-ui or @copilotkit version
+  // would fail pnpm's 24h gate here while installing fine everywhere else.
+  writeFileSync(
+    join(consumerDir, "pnpm-workspace.yaml"),
+    createConsumerWorkspaceYaml(),
   );
   for (const [relativePath, contents] of createAngularConsumerSources()) {
     const output = join(consumerDir, relativePath);
@@ -143,12 +152,14 @@ function main(): void {
     siblingTarballs.delete(ANGULAR_PACKAGE);
 
     const support = readAngularSupportContract(packedManifest);
+    const agUiClient = readAgUiClientDependency(packedManifest);
     for (const entry of support.supportedMajors) {
       const consumerDir = join(temp, `angular-${entry.major}`);
       mkdirSync(consumerDir);
       writeConsumer(
         consumerDir,
         createAngularConsumerManifest({
+          agUiClient,
           angularTarball,
           packageManager,
           siblingTarballs,

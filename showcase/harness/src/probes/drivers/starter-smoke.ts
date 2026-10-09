@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { sanitizeErrorDesc } from "./sanitize.js";
 import {
@@ -5,6 +6,8 @@ import {
   starterToColumnSlug,
 } from "../helpers/starter-mapping.js";
 import type { StarterLevel } from "../helpers/starter-mapping.js";
+import { STARTER_ROW_LEVELS } from "../../shared/cell-model/live-status.js";
+import type { StarterRowLevel } from "../../shared/cell-model/live-status.js";
 import { parseSseEvents } from "../helpers/sse-interceptor.js";
 import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
@@ -158,7 +161,14 @@ export interface StarterSmokeAggregateSignal {
 export interface StarterSmokeLevelSignal {
   starterSlug: string;
   columnSlug: string;
-  level: StarterLevel;
+  /**
+   * The row-key segment this signal belongs to. During the Phase-0 dual-write
+   * this is EITHER a legacy smoke level (`health`/`agent`/`chat`/`interaction`)
+   * OR a ladder rung level (`shell`/`runtime`/`agentrun`) — two disjoint
+   * keyspaces written side by side, so the union is the honest type. It
+   * narrows back to the ladder levels alone when the dual-write is torn down.
+   */
+  level: StarterLevel | StarterRowLevel;
   /** The URL actually probed for this level. */
   url: string;
   /** Numeric HTTP status; absent on transport failure / timeout. */
@@ -227,8 +237,11 @@ if (STARTER_LEVELS.indexOf("agent") >= STARTER_LEVELS.indexOf("chat")) {
  */
 const FALLBACK_CHAT_AGENT_ID = "default";
 
+/** The header that selects the RECORDED aimock fixture for the chat POST. */
+const AIMOCK_CONTEXT_HEADER = "X-AIMock-Context";
+
 /**
- * The AG-UI run body for the chat rung. Shape matches
+ * Builds the AG-UI run body for the chat rung. Shape matches
  * `handleRunAgent` + the reference test
  * `packages/runtime/src/v2/runtime/__tests__/express-single-sse.test.ts`:
  * `{threadId, runId, messages, state, tools, context, forwardedProps}` — NO
@@ -236,16 +249,36 @@ const FALLBACK_CHAT_AGENT_ID = "default";
  * A single user "Hello" turn; the runtime answers with an AG-UI SSE stream.
  * The driver asserts only the stream SHAPE it requires (≥1 text-content delta
  * + terminal RUN_FINISHED + no RUN_ERROR), never a specific reply text.
+ *
+ * `threadId`/`runId` are FRESH UUIDs per chat-rung invocation, not constants.
+ * The ids were previously the literals `starter-smoke-thread` /
+ * `starter-smoke-run`, which made the `langgraph-js` chat rung permanently
+ * red: that starter fronts a real LangGraph Platform server, whose
+ * `POST /threads` validates `thread_id` as a UUID and answers a non-UUID with
+ * `HTTP 400 ZodError {validation:"uuid", path:["thread_id"]}`, surfaced to the
+ * probe as `RUN_ERROR ... Failed to create thread`. A UUID is a valid opaque
+ * thread id for every other starter, so this is uniformly safe across all 23.
+ *
+ * Fresh-per-invocation rather than stable-per-starter on purpose: LangGraph
+ * Platform PERSISTS thread state, so a fixed id would accumulate the probe's
+ * "Hello" turns in one ever-growing thread on every hourly run, and each run
+ * would answer with that history in context — the rung would stop testing a
+ * cold single-turn round-trip. Nothing downstream keys off the request body:
+ * probe/row keys come from `key_template: "starter_smoke:${name}"` and the
+ * starter→column slug remap, and the aimock fixture is matched by the
+ * `X-AIMock-Context` header, not by `threadId`.
  */
-const CHAT_RUN_BODY = JSON.stringify({
-  threadId: "starter-smoke-thread",
-  runId: "starter-smoke-run",
-  messages: [{ id: "u1", role: "user", content: "Hello" }],
-  state: {},
-  tools: [],
-  context: [],
-  forwardedProps: {},
-});
+function buildChatRunBody(): string {
+  return JSON.stringify({
+    threadId: randomUUID(),
+    runId: randomUUID(),
+    messages: [{ id: "u1", role: "user", content: "Hello" }],
+    state: {},
+    tools: [],
+    context: [],
+    forwardedProps: {},
+  });
+}
 
 /**
  * AG-UI text-content event types that carry a streamed assistant `delta`.
@@ -253,6 +286,54 @@ const CHAT_RUN_BODY = JSON.stringify({
  * is the combined-chunk variant some transports emit. Either, with a
  * non-empty `delta`, is proof the chat round-trip produced assistant text.
  */
+/**
+ * The EXACT request each ladder rung issues, exported so a contract test can
+ * assert each rung's user-visible tooltip against the request the driver
+ * actually sends — read from HERE, never from a prose table.
+ *
+ * That distinction is the whole guard. The legacy `interaction` rung was
+ * tooltipped "UI interactions work, no console errors" while issuing a bare
+ * `GET /`; a lint test comparing a table to a tooltip cannot catch that,
+ * because the table and the tooltip have the same author. Comparing the
+ * tooltip to the REQUEST can.
+ */
+export const STARTER_RUNG_REQUESTS = {
+  S1: { level: STARTER_ROW_LEVELS[0], method: "GET", pathTemplate: "/" },
+  S2: {
+    level: STARTER_ROW_LEVELS[1],
+    method: "GET",
+    pathTemplate: "/api/copilotkit/info",
+  },
+  S3: {
+    level: STARTER_ROW_LEVELS[2],
+    method: "POST",
+    pathTemplate: "/api/copilotkit/agent/<agentId>/run",
+    header: AIMOCK_CONTEXT_HEADER,
+  },
+} as const satisfies Record<
+  string,
+  {
+    level: StarterRowLevel;
+    method: string;
+    pathTemplate: string;
+    header?: string;
+  }
+>;
+
+/**
+ * The AG-UI event-ordering assertions S3 adds on top of the legacy `chat`
+ * rung's text-content check. Named, and reported BY NAME on failure, so the
+ * Phase-0 exit criterion can record "the first failing ordering assertion"
+ * per column rather than a generic red.
+ */
+export const S3_ORDERING_ASSERTIONS = [
+  "run-started-first",
+  "text-message-start-end-pairing",
+  "thread-run-id-echo",
+  "run-finished-last",
+] as const;
+export type S3OrderingAssertion = (typeof S3_ORDERING_ASSERTIONS)[number];
+
 const CHAT_TEXT_EVENT_TYPES = new Set([
   "TEXT_MESSAGE_CONTENT",
   "TEXT_MESSAGE_CHUNK",
@@ -367,6 +448,24 @@ export function createStarterSmokeDriver(
       let passed = 0;
       let worstClass: StarterFailureClass | undefined;
 
+      // ── PHASE 0 DUAL-WRITE ────────────────────────────────────────────────
+      //
+      // The ladder rungs are DERIVED FROM THE SAME OBSERVATIONS, not from extra
+      // requests. S1 reuses `interaction`'s response, S2 `agent`'s, S3 `chat`'s
+      // — so the dual-write costs ZERO additional HTTP calls against 12
+      // scale-to-zero services inside a 120s cap, and S1 comes out EXACTLY
+      // equal to `interaction` (same assertion, same request), which is what
+      // makes the cross-key datum check a real check rather than a comparison
+      // of two different observations.
+      //
+      // S2 and S3 add strictly stronger assertions on top of what their legacy
+      // counterparts already checked, so each may be RED where its legacy rung
+      // is green — never the reverse. Every such column is a finding to be
+      // explained, never a reason to weaken the assertion.
+      const observed: Partial<Record<StarterLevel, LevelOutcome>> = {};
+      let infoBody: string | undefined;
+      let chatBody: string | undefined;
+
       for (const level of STARTER_LEVELS) {
         const url = urlForLevel(level);
         // Short-circuit on an external (outer-timeout) abort BEFORE issuing a
@@ -451,6 +550,14 @@ export function createStarterSmokeDriver(
           }
         }
 
+        observed[level] = result;
+        if (level === "agent" && result.infoBody !== undefined) {
+          infoBody = result.infoBody;
+        }
+        if (level === "chat" && result.streamBody !== undefined) {
+          chatBody = result.streamBody;
+        }
+
         const state = result.ok ? "green" : "red";
         if (result.ok) {
           passed++;
@@ -485,6 +592,108 @@ export function createStarterSmokeDriver(
           },
           observedAt: ctx.now().toISOString(),
         });
+      }
+
+      // ── The three ladder rows, S1 -> S3, depth-ordered. ──────────────────
+      //
+      // Every key here is DISJOINT from every legacy key, so this is a genuine
+      // ADDITIVE dual-write: no legacy row is touched, and stopping the
+      // dual-write is a clean delete of three keyspaces. (S3 keys `agentrun`
+      // rather than reusing `chat` precisely because its assertion set is a
+      // strict SUPERSET of `chat`'s — writing it to `chat` would be an
+      // OVERWRITE that could flip the live, unflagged Chat row red and move its
+      // `fail_count` / `first_failure_at`, history that stopping the write does
+      // not restore.)
+      const emitRung = async (
+        level: StarterRowLevel,
+        url: string,
+        outcome: {
+          ok: boolean;
+          status?: number;
+          errorClass?: StarterFailureClass;
+          errorDesc?: string;
+          latencyMs: number;
+        },
+      ) => {
+        await sideEmit({
+          key: `starter:${columnSlug}/${level}`,
+          state: outcome.ok ? "green" : "red",
+          signal: {
+            starterSlug,
+            columnSlug,
+            level,
+            url,
+            status: outcome.status,
+            errorDesc: outcome.errorDesc,
+            errorClass: outcome.ok ? undefined : outcome.errorClass,
+            latencyMs: outcome.latencyMs,
+          },
+          observedAt: ctx.now().toISOString(),
+        });
+      };
+
+      // S1 `shell` — GET `/` -> 2xx. IDENTICAL to legacy `interaction`: same
+      // request, same assertion, same observation. The expected delta is
+      // exactly zero, and any difference is a defect in this derivation.
+      const s1 = observed.interaction;
+      if (s1) await emitRung(STARTER_RUNG_REQUESTS.S1.level, `${base}/`, s1);
+
+      // S2 `runtime` — legacy `agent` PLUS the strict agent-id resolution.
+      const s2Url = `${base}/api/copilotkit/info`;
+      const agentOutcome = observed.agent;
+      if (agentOutcome) {
+        if (!agentOutcome.ok) {
+          await emitRung(STARTER_RUNG_REQUESTS.S2.level, s2Url, agentOutcome);
+        } else {
+          const resolved =
+            infoBody === undefined
+              ? { ok: false as const, reason: "info body was not captured" }
+              : resolveAgentIdStrict(infoBody);
+          await emitRung(
+            STARTER_RUNG_REQUESTS.S2.level,
+            s2Url,
+            resolved.ok
+              ? agentOutcome
+              : {
+                  ok: false,
+                  status: agentOutcome.status,
+                  // A hard red, deliberately: an ambiguous or missing agents
+                  // map is a real configuration regression, not a transient
+                  // transport hiccup, so it must not earn soft-miss tolerance.
+                  errorClass: "smoke-failed",
+                  errorDesc: sanitizeErrorDesc(resolved.reason),
+                  latencyMs: agentOutcome.latencyMs,
+                },
+          );
+        }
+      }
+
+      // S3 `agentrun` — legacy `chat` PLUS the four AG-UI ordering assertions,
+      // folded into the SAME request rather than split into a rung of its own.
+      const chatOutcome = observed.chat;
+      if (chatOutcome) {
+        const s3Url = chatUrlFor(resolvedChatAgentId);
+        if (!chatOutcome.ok) {
+          await emitRung(STARTER_RUNG_REQUESTS.S3.level, s3Url, chatOutcome);
+        } else {
+          const failedAssertion =
+            chatBody === undefined ? null : verifyEventOrdering(chatBody);
+          await emitRung(
+            STARTER_RUNG_REQUESTS.S3.level,
+            s3Url,
+            failedAssertion === null
+              ? chatOutcome
+              : {
+                  ok: false,
+                  status: chatOutcome.status,
+                  errorClass: "smoke-failed",
+                  errorDesc: sanitizeErrorDesc(
+                    `ordering assertion failed: ${failedAssertion}`,
+                  ),
+                  latencyMs: chatOutcome.latencyMs,
+                },
+          );
+        }
       }
 
       const aggregateGreen = failed.length === 0;
@@ -525,6 +734,17 @@ interface LevelOutcome {
    * instead of probing a guessed `default`. Other rungs never set this.
    */
   resolvedAgentId?: string;
+  /**
+   * Agent rung only: the raw `/info` body, retained so the LADDER's S2 rung can
+   * apply its stricter agent-id resolution to the SAME observation instead of
+   * issuing a second request.
+   */
+  infoBody?: string;
+  /**
+   * Chat rung only: the raw SSE body, retained so the LADDER's S3 rung can run
+   * its event-ordering assertions over the SAME stream.
+   */
+  streamBody?: string;
 }
 
 /**
@@ -630,11 +850,11 @@ async function probeLevel(opts: {
             // header when no context is provided so the prior behaviour is
             // preserved for any starter without a scoped fixture context.
             ...(aimockContext && aimockContext.length > 0
-              ? { "X-AIMock-Context": aimockContext }
+              ? { [AIMOCK_CONTEXT_HEADER]: aimockContext }
               : {}),
           }
         : undefined,
-      body: isChat ? CHAT_RUN_BODY : undefined,
+      body: isChat ? buildChatRunBody() : undefined,
       signal: controller.signal,
       // `follow` transparently handles any host-level (e.g. https) redirect.
       redirect: "follow",
@@ -679,6 +899,7 @@ async function probeLevel(opts: {
           ),
           latencyMs,
           resolvedAgentId,
+          infoBody: body,
         };
       }
       const versionErr = verifyInfoVersion(body);
@@ -693,6 +914,7 @@ async function probeLevel(opts: {
           // the chat rung still targets the agent the starter registered
           // (truthful agentId), never a manufactured `default` 404.
           resolvedAgentId,
+          infoBody: body,
         };
       }
       // The chat rung targets the agent the starter actually registered (mastra
@@ -703,6 +925,9 @@ async function probeLevel(opts: {
         status: res.status,
         latencyMs,
         resolvedAgentId,
+        // Retained for the LADDER's S2 rung, which re-reads this SAME body
+        // under the stricter resolution rule rather than issuing a second GET.
+        infoBody: body,
       };
     }
 
@@ -728,9 +953,12 @@ async function probeLevel(opts: {
           errorClass: "smoke-failed",
           errorDesc: sanitizeErrorDesc(`chat ${chatErr}`),
           latencyMs,
+          streamBody: body,
         };
       }
-      return { ok: true, status: res.status, latencyMs };
+      // Retained for the LADDER's S3 rung, which runs its event-ordering
+      // assertions over this SAME stream rather than issuing a second POST.
+      return { ok: true, status: res.status, latencyMs, streamBody: body };
     }
 
     // health / interaction: require a 2xx. The health rung is a lightweight
@@ -955,6 +1183,126 @@ function resolveAgentId(body: string): string | null {
   for (const key of keys) {
     if (key.trim().length > 0) return key;
   }
+  return null;
+}
+
+/**
+ * S2's agent-id resolution, STRICTER than the legacy `agent` rung's.
+ *
+ * Rule, stated so a stale doc comment cannot red a healthy starter:
+ *   1. prefer the literal key `default`;
+ *   2. else, if the map has exactly ONE key, that key;
+ *   3. else RED with `agent-id-ambiguous`.
+ *
+ * The legacy `resolveAgentId` falls back to THE FIRST NON-EMPTY KEY, which
+ * silently picks an arbitrary agent for a multi-agent starter and reports
+ * green. Rule 3 makes that a stated failure instead. This IS a live behaviour
+ * change — staging predicts a zero delta (all nine starters that answer `/info`
+ * resolve `default`), but that is measured by the Phase-0 exit criterion, not
+ * assumed.
+ *
+ * Returns the resolved id, or a reason string naming why it could not resolve.
+ */
+export function resolveAgentIdStrict(
+  body: string,
+): { ok: true; agentId: string } | { ok: false; reason: string } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return { ok: false, reason: "info body is not JSON" };
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return { ok: false, reason: "info body is not a JSON object" };
+  }
+  const agents = (parsed as Record<string, unknown>)["agents"];
+  if (agents === null || typeof agents !== "object" || Array.isArray(agents)) {
+    return { ok: false, reason: "info response has no agents map" };
+  }
+  const keys = Object.keys(agents as Record<string, unknown>).filter(
+    (k) => k.trim().length > 0,
+  );
+  if (keys.length === 0) {
+    return { ok: false, reason: "info response has an empty agents map" };
+  }
+  if (keys.includes("default")) return { ok: true, agentId: "default" };
+  if (keys.length === 1) return { ok: true, agentId: keys[0] as string };
+  return {
+    ok: false,
+    reason: `agent-id-ambiguous: ${keys.length} agents and no \`default\` (${keys
+      .slice(0, 4)
+      .join(", ")})`,
+  };
+}
+
+/**
+ * S3's AG-UI event-ORDERING assertions, layered on top of the legacy `chat`
+ * rung's text-content check. Returns the FIRST failing assertion by name (so
+ * the Phase-0 exit criterion can record it per column), or null when the
+ * stream is well-ordered.
+ *
+ * Deliberately separate from `verifyChatStream`: that one answers "did the
+ * assistant produce text and finish", this one answers "did the protocol
+ * events arrive in a legal order". Keeping them apart is what lets a failure
+ * be reported by NAME rather than as a generic red.
+ */
+export function verifyEventOrdering(body: string): S3OrderingAssertion | null {
+  const events = parseSseEvents(body);
+  const types: string[] = [];
+  const payloads: Record<string, unknown>[] = [];
+  for (const ev of events) {
+    if (ev.kind !== "json") continue;
+    const type = ev.payload["type"];
+    if (typeof type !== "string") continue;
+    types.push(type);
+    payloads.push(ev.payload);
+  }
+
+  // 1. RUN_STARTED precedes the first text event.
+  const firstText = types.findIndex((t) => CHAT_TEXT_EVENT_TYPES.has(t));
+  const runStarted = types.indexOf("RUN_STARTED");
+  if (firstText >= 0 && (runStarted < 0 || runStarted > firstText)) {
+    return "run-started-first";
+  }
+
+  // 2. TEXT_MESSAGE_START / _END bracket the content. Checked only when the
+  //    stream uses the bracketed form at all — a pure *_CHUNK stream is a
+  //    legal shape that carries no START/END pair, and demanding one would red
+  //    a healthy starter for using the other encoding.
+  const hasStart = types.includes("TEXT_MESSAGE_START");
+  const hasEnd = types.includes("TEXT_MESSAGE_END");
+  if (hasStart || hasEnd) {
+    const start = types.indexOf("TEXT_MESSAGE_START");
+    const end = types.lastIndexOf("TEXT_MESSAGE_END");
+    if (start < 0 || end < 0 || start > end)
+      return "text-message-start-end-pairing";
+    if (firstText >= 0 && (firstText < start || firstText > end)) {
+      return "text-message-start-end-pairing";
+    }
+  }
+
+  // 3. threadId / runId are echoed on RUN_STARTED (the run is correlated to
+  //    the request the driver made).
+  if (runStarted >= 0) {
+    const p = payloads[runStarted] ?? {};
+    const threadId = p["threadId"];
+    const runId = p["runId"];
+    if (
+      typeof threadId !== "string" ||
+      threadId.length === 0 ||
+      typeof runId !== "string" ||
+      runId.length === 0
+    ) {
+      return "thread-run-id-echo";
+    }
+  }
+
+  // 4. RUN_FINISHED is the LAST protocol event in the stream.
+  const runFinished = types.lastIndexOf(RUN_FINISHED_EVENT_TYPE);
+  if (runFinished >= 0 && runFinished !== types.length - 1) {
+    return "run-finished-last";
+  }
+
   return null;
 }
 

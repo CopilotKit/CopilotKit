@@ -2,6 +2,9 @@ import type { Interrupt, ResumeEntry, RunAgentResult } from "@ag-ui/client";
 
 export type { Interrupt, ResumeEntry };
 
+/** Name of the legacy custom event agents emit to signal an interrupt. */
+export const INTERRUPT_EVENT_NAME = "on_interrupt";
+
 /** Legacy custom-event interrupt payload (agent emits a custom `on_interrupt` event). */
 export interface InterruptEvent<TValue = unknown> {
   name: string;

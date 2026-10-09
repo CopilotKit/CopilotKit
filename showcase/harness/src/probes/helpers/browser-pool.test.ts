@@ -669,6 +669,33 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     await pool.shutdown();
   });
 
+  it("can omit X-AIMock-Strict for explicit live fixture capture", async () => {
+    const { launchBrowser } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 5,
+      launchBrowser,
+      launchStaggerMs: 0,
+      aimockStrict: false,
+    });
+    await pool.init();
+
+    const ctx = await pool.acquire({
+      extraHTTPHeaders: {
+        "X-AIMock-Context": "slug-live",
+        "X-Test-Id": "d6-slug-live",
+      },
+    });
+    const headers = (ctx as unknown as FakeContext).__headers;
+    expect(headers).toEqual({
+      "X-AIMock-Context": "slug-live",
+      "X-Test-Id": "d6-slug-live",
+    });
+
+    await pool.release(ctx);
+    await pool.shutdown();
+  });
+
   // Double / unknown release is a no-op.
   it("double release is a no-op", async () => {
     const { launchBrowser } = makeFakeLauncher();

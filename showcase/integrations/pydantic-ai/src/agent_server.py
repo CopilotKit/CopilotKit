@@ -37,8 +37,10 @@ import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import —
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 from dotenv import load_dotenv
 
 # ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
@@ -60,6 +62,10 @@ install_global_httpx_hook()
 # the time the secondary call's outbound httpx hook fires, and aimock
 # can't match the right fixture for the request.
 install_executor_contextvar_propagation()
+
+# Imported below the hook install for the same reason as the agent modules:
+# nothing that pulls in PydanticAI may precede install_global_httpx_hook().
+from pydantic_ai.ui.ag_ui import AGUIAdapter
 
 from agents.agent import SalesTodosState, StateDeps, agent
 from agents.open_gen_ui_agent import agent as open_gen_ui_agent
@@ -132,78 +138,88 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+def mount_agent(path, agent_obj, state_type=None):
+    """Mount ``agent_obj`` at ``path`` as an AG-UI endpoint.
+
+    Replaces PydanticAI v1's ``agent.to_ag_ui()``, removed in v2.
+
+    ROUTING is deliberately identical to what ``AGUIApp`` produced — a Starlette
+    app whose only route is ``POST /`` — so every mount path, including its
+    trailing slash, resolves exactly as before and the TS routes that call these
+    as ``${AGENT_URL}/<path>/`` need no change.
+
+    Model INPUT is not identical, and deliberately so. v2's ``dispatch_request``
+    defaults to ``manage_system_prompt='server'``, so each agent's
+    ``system_prompt=`` and ``@agent.system_prompt`` now actually reach the model.
+    On v1 they never did: ``_agent_graph`` only emitted system parts ``if not
+    messages``, and the AG-UI bridge always supplied a non-empty history, so the
+    declared prompts were silently dead. Passing
+    ``manage_system_prompt='client'`` would restore literal v1 behaviour — i.e.
+    reinstate that bug — so we do not.
+
+    ``deps`` is built per request on purpose. v2's adapter assigns the client's
+    state onto ``deps.state`` (``pydantic_ai/ui/_adapter.py``) rather than
+    replacing the deps object as v1 did, so a single shared instance would let
+    concurrent runs overwrite each other's state mid-run.
+    """
+
+    async def endpoint(request: Request) -> Response:
+        deps = StateDeps(state_type()) if state_type is not None else None
+        return await AGUIAdapter.dispatch_request(request, agent=agent_obj, deps=deps)
+
+    sub = Starlette()
+    sub.router.add_route("/", endpoint, methods=["POST"], name="run_agent")
+    app.mount(path, sub)
+
+
 # ── Sub-path agents — mounted BEFORE the root catch-all ──────────────
 # Each demo-specific agent lives at its own sub-path. The matching
 # HttpAgent URL in the corresponding TS route points to that sub-path.
-app.mount("/open_gen_ui", open_gen_ui_agent.to_ag_ui())
-app.mount("/open_gen_ui_advanced", open_gen_ui_advanced_agent.to_ag_ui())
-app.mount(
-    "/a2ui_dynamic",
-    a2ui_dynamic_agent.to_ag_ui(deps=StateDeps(A2UIDynamicState())),
-)
-app.mount(
-    "/a2ui_fixed",
-    a2ui_fixed_agent.to_ag_ui(deps=StateDeps(A2UIFixedState())),
-)
-app.mount(
-    "/headless_complete",
-    headless_complete_agent.to_ag_ui(deps=StateDeps(HeadlessCompleteState())),
-)
-app.mount(
-    "/beautiful_chat",
-    beautiful_chat_agent.to_ag_ui(deps=StateDeps(BeautifulChatState())),
-)
+mount_agent("/open_gen_ui", open_gen_ui_agent)
+mount_agent("/open_gen_ui_advanced", open_gen_ui_advanced_agent)
+mount_agent("/a2ui_dynamic", a2ui_dynamic_agent, A2UIDynamicState)
+mount_agent("/a2ui_fixed", a2ui_fixed_agent, A2UIFixedState)
+mount_agent("/headless_complete", headless_complete_agent, HeadlessCompleteState)
+mount_agent("/beautiful_chat", beautiful_chat_agent, BeautifulChatState)
 
 # ── BYOC + multimodal + agent-config (PR #4271 demos) ────────────────
-app.mount("/byoc_json_render", byoc_json_render_agent.to_ag_ui())
-app.mount("/byoc_hashbrown", byoc_hashbrown_agent.to_ag_ui())
-app.mount("/multimodal", multimodal_agent.to_ag_ui())
-app.mount(
-    "/agent_config",
-    agent_config_agent.to_ag_ui(deps=StateDeps(AgentConfigState())),
-)
+mount_agent("/byoc_json_render", byoc_json_render_agent)
+mount_agent("/byoc_hashbrown", byoc_hashbrown_agent)
+mount_agent("/multimodal", multimodal_agent)
+mount_agent("/agent_config", agent_config_agent, AgentConfigState)
 
 # ── Shared state (read + write) and sub-agents ───────────────────────
-app.mount(
-    "/shared_state_read_write",
-    shared_state_read_write_agent.to_ag_ui(
-        deps=StateDeps(SharedStateRWState()),
-    ),
+mount_agent(
+    "/shared_state_read_write", shared_state_read_write_agent, SharedStateRWState
 )
-app.mount(
-    "/subagents",
-    subagents_agent.to_ag_ui(deps=StateDeps(SubagentsState())),
-)
+mount_agent("/subagents", subagents_agent, SubagentsState)
 
 # ── Tool-Based Generative UI — chart-viz system prompt ───────────────
-app.mount("/gen_ui_tool_based", gen_ui_tool_based_agent.to_ag_ui())
+mount_agent("/gen_ui_tool_based", gen_ui_tool_based_agent)
 
 # ── Reasoning trio (gpt-5 reasoning model) ───────────────────────────
 # Same reasoning agent backs both `agentic-chat-reasoning` and
 # `reasoning-default-render` (custom slot vs built-in slot).
-app.mount("/reasoning", reasoning_agent.to_ag_ui())
-app.mount(
-    "/tool_rendering_reasoning_chain",
-    tool_rendering_reasoning_chain_agent.to_ag_ui(),
-)
+mount_agent("/reasoning", reasoning_agent)
+mount_agent("/tool_rendering_reasoning_chain", tool_rendering_reasoning_chain_agent)
 
 # ── MCP Apps — no-tools agent; runtime mcpApps middleware injects tools
-app.mount("/mcp_apps", mcp_apps_agent.to_ag_ui())
+mount_agent("/mcp_apps", mcp_apps_agent)
 
 # ── In-Chat HITL — frontend-defined `book_call` tool via useHumanInTheLoop
 # The agent has no backend tools; the AG-UI bridge surfaces the
 # frontend-registered tool to the model on each run.
-app.mount("/hitl_in_chat", hitl_in_chat_agent.to_ag_ui())
+mount_agent("/hitl_in_chat", hitl_in_chat_agent)
 
 # ── Interrupt-adapted — scheduling demos (gen-ui-interrupt, interrupt-headless)
 # The `schedule_meeting` tool is defined on the frontend via `useFrontendTool`;
 # the backend agent has no tools and delegates entirely to the client.
-app.mount("/interrupt", interrupt_agent.to_ag_ui())
+mount_agent("/interrupt", interrupt_agent)
 
 # ── Main sales agent — mounted at root (catch-all) ───────────────────
 # Mounted LAST so the sub-path mounts above win for their specific paths.
-ag_ui_app = agent.to_ag_ui(deps=StateDeps(SalesTodosState()))
-app.mount("/", ag_ui_app)
+mount_agent("/", agent, SalesTodosState)
 
 
 def main():

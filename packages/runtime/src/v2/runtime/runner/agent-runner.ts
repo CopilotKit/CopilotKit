@@ -8,6 +8,8 @@ import type { Observable } from "rxjs";
 
 export interface AgentRunnerRunRequest {
   threadId: string;
+  /** Backend execution ID supplied by Intelligence for imported non-UUID sessions. */
+  backendThreadId?: string;
   agent: AbstractAgent;
   input: RunAgentInput;
   persistedInputMessages?: Message[];
@@ -17,6 +19,7 @@ export interface AgentRunnerRunRequest {
 
 export interface AgentRunnerConnectRequest {
   threadId: string;
+  agentId?: string;
   headers?: Record<string, string>;
   joinCode?: string;
 }

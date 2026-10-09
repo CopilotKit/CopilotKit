@@ -37,14 +37,14 @@ yourself; `runAgent` adds the explicit prompt for this turn.
 
 ## Understand the content mapping
 
-| Provider file | `AgentContentPart` |
-| --- | --- |
-| Image MIME type | `{ type: "image", source: { type: "data", value, mimeType } }` |
-| Audio MIME type | `{ type: "audio", source: ... }` |
-| Video MIME type | `{ type: "video", source: ... }` |
-| PDF | `{ type: "document", source: ... }` |
-| `text/*` | UTF-8 `{ type: "text", text }` |
-| Other binary type | A text note naming the attachment and MIME type |
+| Provider file     | `AgentContentPart`                                             |
+| ----------------- | -------------------------------------------------------------- |
+| Image MIME type   | `{ type: "image", source: { type: "data", value, mimeType } }` |
+| Audio MIME type   | `{ type: "audio", source: ... }`                               |
+| Video MIME type   | `{ type: "video", source: ... }`                               |
+| PDF               | `{ type: "document", source: ... }`                            |
+| `text/*`          | UTF-8 `{ type: "text", text }`                                 |
+| Other binary type | A text note naming the attachment and MIME type                |
 
 The binary `value` is base64. Whether the agent actually understands a media
 part depends on its selected model and framework. Choose a multimodal model and
@@ -69,13 +69,16 @@ in the conversation and have permission to read the file. Slack documents
 [`files:read`](https://api.slack.com/scopes/files%3Aread) as the scope that
 allows an app to download files from conversations it can access.
 
-The Intelligence-generated manifest does not currently request `files:read` or
-`files:write`. Before relying on files:
+The current Intelligence-generated manifest requests both `files:read` and
+`files:write`. If the app predates that manifest:
 
-1. Add `files:read` and `files:write` to the app's bot token scopes.
-2. Reinstall the app so the workspace grants the new scopes.
-3. Invite the app to the source conversation.
-4. Send a new file and verify the model receives it.
+1. Open the Channel in Intelligence, return to its Slack setup instructions,
+   and apply the generated manifest so both bot token scopes are present. See
+   [Configure the Channel in Intelligence](/channels/intelligence).
+2. Reinstall the app so the workspace grants the scopes.
+3. Copy the current Bot User OAuth token into Intelligence if Slack reissued it.
+4. Invite the app to the source conversation.
+5. Send a new file and verify the model receives it.
 
 If attachments are omitted or arrive as retrieval-failure notes:
 
@@ -102,38 +105,11 @@ Teams exposes files differently by surface:
 - Other group-chat file-upload shapes remain unsupported. Test every
   attachment shape your workflow accepts.
 
-The generated Teams package currently sets `supportsFiles` to `false` and does
-not request channel-message resource-specific consent. To enable the personal
-file picker and Graph-backed channel paths, edit the generated `manifest.json`
-before upload:
-
-```json title="manifest.json"
-{
-  "bots": [
-    {
-      "botId": "<your-azure-bot-app-id>",
-      "scopes": ["personal", "team", "groupChat"],
-      "supportsFiles": true,
-      "isNotificationOnly": false
-    }
-  ],
-  "authorization": {
-    "permissions": {
-      "resourceSpecific": [
-        {
-          "name": "ChannelMessage.Read.Group",
-          "type": "Application"
-        }
-      ]
-    }
-  }
-}
-```
-
-Merge those fields into the generated manifest rather than replacing the rest
-of it. Rebuild the zip with `manifest.json`, `color.png`, and `outline.png` at
-the archive root, then upload or reinstall it. A team owner grants the
-resource-specific permission during installation.
+The generated Teams package already declares the supported `personal` and
+`team` bot scopes, sets `supportsFiles: true`, and requests
+`ChannelMessage.Read.Group` resource-specific consent. Upload that generated
+package as-is. Do not add `groupChat`; managed group chats are not supported.
+A team owner grants the resource-specific permission during installation.
 
 For Graph-backed team-channel messages:
 
@@ -142,13 +118,19 @@ For Graph-backed team-channel messages:
   grants it during installation; it does not need tenant-admin Graph consent.
   Microsoft documents it as a
   [resource-specific consent permission](https://learn.microsoft.com/en-us/microsoftteams/platform/graph-api/rsc/resource-specific-consent).
-- Add the `Files.Read.All` application permission to the Entra app when you
-  need SharePoint-reference uploads. This additional permission requires tenant
-  admin consent.
+- `Files.Read.All` is an **application** permission and covers only one case:
+  a file uploaded to a Team channel, which arrives as a SharePoint reference
+  rather than as content. It requires tenant-admin consent, so Teams setup
+  offers it and defaults to skipping it. A tenant that already consented to the
+  broader `Files.ReadWrite.All` satisfies this without a second grant.
 
-Without the required consent, the text turn still runs but affected files are
-omitted or represented by a retrieval-failure note. Test personal chat, group
-chat, inline-media, pasted-image, and SharePoint-reference uploads separately.
+This permission is optional and its absence does not hold the connection back
+from reporting ready. Without it the text turn still runs and the message is
+still delivered; only the referenced file is omitted or represented by a
+retrieval-failure note. Files shared in a 1:1 chat and images pasted into a
+channel do not go through SharePoint and are unaffected. Test personal chat,
+standard/private team channels, inline media, pasted images, and
+SharePoint-reference uploads separately.
 
 </FrontendOnly>
 
@@ -181,19 +163,21 @@ asset in canonical Thread history.
 <FrontendOnly frontend="slack">
 
 Managed Slack uses Slack's external-upload flow and can send general file types.
-The generated manifest includes the `files:write` bot scope. Add that scope and
-reinstall if the Slack app predates the current manifest. Check `result.ok`,
-then verify the real Slack message when provider-side display matters.
+The generated manifest includes the `files:write` bot scope. Apply the current
+manifest and reinstall if the Slack app predates it. Check `result.ok`, then
+verify the real Slack message when provider-side display matters.
 
 </FrontendOnly>
 
 <FrontendOnly frontend="teams">
 
-Managed Teams outbound file delivery currently supports images only. It posts
-the image as an inline Bot Connector attachment. For CSV, PDF, and other
-non-image files, `postFile()` returns `ok: false` before a provider call. A
-confirmed Teams size rejection returns `teams_image_rejected` without ending
-the delivery, so the agent can still send a text fallback.
+Managed Teams supports general outbound files. In standard and private Team
+channels, Intelligence uploads the original bytes to the channel's SharePoint
+files area and sends a visible card or link. In personal chat, the same
+`postFile()` call starts Microsoft's native consent-card flow when required;
+acceptance completes the trusted upload and a decline remains a normal user
+choice. Images may use the inline Bot Connector path. Always check `result.ok`
+and send a text fallback when delivery is rejected.
 
 </FrontendOnly>
 

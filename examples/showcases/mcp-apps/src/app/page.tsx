@@ -159,7 +159,7 @@ const apps = [
 
 export default function MCPAppsDemo() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" showDevConsole="auto">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
       <AppLayout />
     </CopilotKitProvider>
   );

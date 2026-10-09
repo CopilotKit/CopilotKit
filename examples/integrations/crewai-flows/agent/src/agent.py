@@ -86,7 +86,7 @@ class SampleAgentFlow(Flow[AgentState]):
         response = await copilotkit_stream(
             completion(
                 # 1.1 Specify the model to use
-                model="openai/gpt-4o",
+                model="openai/gpt-5-mini",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     *self.state.messages,

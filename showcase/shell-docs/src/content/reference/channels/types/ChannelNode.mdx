@@ -16,7 +16,7 @@ type Renderable =
   | string
   | ChannelNode
   | ChannelNode[]
-  | { raw: unknown };
+  | { raw: unknown; provider?: "slack" | "teams" };
 ```
 
 Before `renderToIR`, `type` can be a named component or Fragment. After

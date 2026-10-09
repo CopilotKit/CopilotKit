@@ -15,13 +15,24 @@ export class DeliveryTestGateway implements RealtimeGatewaySession {
 
   push(event: string, payload: unknown): Promise<unknown> {
     this.controlPushes.push({ event, payload });
-    if (event === "claim" || event === "join_token") {
+    if (event === "claim") {
       const deliveryId = (payload as { deliveryId: string }).deliveryId;
       return Promise.resolve({
         result: "claimed",
         deliveryId,
         ownerGeneration: 1,
-        joinToken: `chj_${deliveryId}`,
+        joinToken: `chj_token_${deliveryId.slice(4)}`,
+        joinTokenExpiresAt: "2099-07-29T16:01:00.000Z",
+        deliveryExpiresAt: "2099-07-29T17:00:00.000Z",
+      });
+    }
+    if (event === "join_token") {
+      const deliveryId = (payload as { deliveryId: string }).deliveryId;
+      return Promise.resolve({
+        deliveryId,
+        ownerGeneration: 2,
+        joinToken: `chj_reconnect_${deliveryId.slice(4)}`,
+        joinTokenExpiresAt: "2099-07-29T16:01:00.000Z",
         deliveryExpiresAt: "2099-07-29T17:00:00.000Z",
       });
     }
@@ -70,6 +81,8 @@ export class DeliveryTestGateway implements RealtimeGatewaySession {
       protocol: "channel_delivery_v1",
       deliveryId: delivery.deliveryId,
       canonicalThreadId: delivery.canonicalThreadId,
+      channelName: delivery.channelName,
+      adapter: delivery.adapter,
     });
     const deadline = Date.now() + 1_000;
     while (this.leaves !== expectedLeaves) {
@@ -90,6 +103,7 @@ export function preparedDelivery(
     | {
         kind: "text";
         text?: string;
+        messageRef?: { id: string };
         files?: Extract<
           PreparedChannelDelivery["turn"]["input"],
           { kind: "text" }
@@ -99,6 +113,27 @@ export function preparedDelivery(
   // Packet contract requires `dlv_` + 8..128 charset chars.
   const idSuffix =
     suffix.length >= 8 ? suffix : `${suffix}_pad000`.slice(0, 12);
+  const normalizedInput: PreparedChannelDelivery["turn"]["input"] =
+    input.kind === "text"
+      ? {
+          ...input,
+          text: input.text ?? "",
+          messageRef: input.messageRef ?? {
+            id: `pref_v1_message_${idSuffix}`,
+          },
+          operation:
+            "operation" in input && input.operation
+              ? input.operation
+              : {
+                  kind: "created",
+                  logicalMessageId:
+                    "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+                  revisionId:
+                    "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
+                  mentioned: false,
+                },
+        }
+      : input;
   return {
     protocol: "channel_delivery_v1",
     deliveryId: `dlv_${idSuffix}`,
@@ -108,26 +143,19 @@ export function preparedDelivery(
     channelId: "channel_support",
     channelName: "support",
     adapter,
+    tenant: { id: `tenant_${idSuffix}` },
+    installation: { id: `installation_${idSuffix}` },
+    conversation: { id: `conversation_${idSuffix}`, kind: "thread" },
     turn: {
-      eventId: `event_${idSuffix}`,
+      eventId: `evt_${idSuffix}`,
       receivedAt: "2026-07-29T17:00:00.000Z",
-      input:
-        input.kind === "text" && !("operation" in input)
-          ? {
-              ...input,
-              operation: {
-                kind: "created",
-                logicalMessageId: `message_${idSuffix}`,
-                revisionId: `revision_${idSuffix}`,
-                mentioned: false,
-              },
-            }
-          : input,
+      input: normalizedInput,
       actor: {
         externalUserId: `user_${idSuffix}`,
         kind: "human",
         displayName: "Ada",
       },
+      raw: { deliveryKind: input.kind },
     },
   };
 }

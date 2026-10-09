@@ -6,33 +6,46 @@ description: Render a portable single- or multi-select control and understand it
 `Select` describes a list of string choices.
 
 ```tsx
-import { Actions, Select } from "@copilotkit/channels/ui";
+import { Actions, Button, Select } from "@copilotkit/channels/ui";
 
 <Actions>
   <Select
+    name="owner"
     placeholder="Choose an owner"
     options={[
       { label: "Payments", value: "payments" },
       { label: "Identity", value: "identity" },
     ]}
-    onSelect={async ({ action, thread }) => {
-      await thread.post(`Selected ${String(action.value)}.`);
+    onSelect={async (ctx) => {
+      await ctx.thread.post(`Selected ${String(ctx.action.value)}.`);
     }}
   />
+  <Button
+    value="assign"
+    onClick={async (ctx) => {
+      const owner = ctx.values?.owner;
+      if (owner !== undefined) {
+        await ctx.thread.post(`Selected ${String(owner)}.`);
+      }
+    }}
+  >
+    Assign
+  </Button>
 </Actions>;
 ```
 
 ## Props
 
-| Prop | Type | Description |
-| --- | --- | --- |
-| `options` | `{ label: string; value: string }[]` | Required choices. |
-| `placeholder` | `string` | Native placeholder text. |
-| `multi` | `boolean` | Allows multiple selections where the provider supports them. |
-| `onSelect` | `ClickHandler<string \| string[]>` | Selection callback. `multi` selections use a string array. |
+| Prop          | Type                                 | Description                                                                 |
+| ------------- | ------------------------------------ | --------------------------------------------------------------------------- |
+| `name`        | `string`                             | Stable field key used in Teams `ctx.values` when a Button submits the card. |
+| `options`     | `{ label: string; value: string }[]` | Required choices.                                                           |
+| `placeholder` | `string`                             | Native placeholder text.                                                    |
+| `multi`       | `boolean`                            | Allows multiple selections where the provider supports them.                |
+| `onSelect`    | `ClickHandler<string \| string[]>`   | Selection callback. `multi` selections use a string array.                  |
 
 Managed Slack emits a dispatching static select; `multi` becomes a
 `multi_static_select` input block. Managed Teams renders an Adaptive Card
-`Input.ChoiceSet`, but the managed Teams ingress currently routes only
-`Button` submissions and does not expose card field values. Do not use
-`Select.onSelect` as a required cross-provider managed workflow step today.
+`Input.ChoiceSet`. Slack invokes `Select.onSelect` when the selection is
+dispatched; Teams sends the selected field to the submitting Button in
+`ctx.values[name]`. Teams does not dispatch `Select.onSelect` independently.

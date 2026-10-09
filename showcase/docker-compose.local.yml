@@ -427,6 +427,17 @@ services:
     volumes:
       - ./integrations/google-adk/src:/app/src
 
+  google-antigravity:
+    <<: *integration-defaults
+    build: ./integrations/google-antigravity
+    image: showcase-google-antigravity:local
+    container_name: showcase-google-antigravity
+    ports:
+      - "3121:10000"
+    profiles: ["google-antigravity", "all"]
+    volumes:
+      - ./integrations/google-antigravity/src:/app/src
+
   mastra:
     <<: *integration-defaults
     build: ./integrations/mastra
@@ -448,6 +459,17 @@ services:
     profiles: ["crewai-crews", "all"]
     volumes:
       - ./integrations/crewai-crews/src:/app/src
+
+  crewai-conversational-flows:
+    <<: *integration-defaults
+    build: ./integrations/crewai-conversational-flows
+    image: showcase-crewai-conversational-flows:local
+    container_name: showcase-crewai-conversational-flows
+    ports:
+      - "3120:10000"
+    profiles: ["crewai-conversational-flows", "all"]
+    volumes:
+      - ./integrations/crewai-conversational-flows/src:/app/src
 
   pydantic-ai:
     <<: *integration-defaults

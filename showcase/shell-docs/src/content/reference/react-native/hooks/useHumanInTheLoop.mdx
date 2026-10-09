@@ -11,7 +11,7 @@ description: "React hook for interactive tools that pause agent execution and wa
   Re-exported from `@copilotkit/react-core/v2`, identical to the [React (V2) `useHumanInTheLoop`](/reference/v2/hooks/useHumanInTheLoop). The only difference is the import path.
 </Callout>
 
-This hook is built on top of `useFrontendTool` with an internally managed handler that resolves the tool call promise when `respond` is invoked. Use it for confirmation dialogs, approval workflows, form collection, or any scenario where a human must provide input before the agent can continue. The `render` component returns React Native elements that CopilotKit surfaces in the chat. See [`useRenderTool`](/reference/react-native/hooks/useRenderTool) for the underlying React Native render mechanism.
+This hook is built on top of `useFrontendTool` with an internally managed handler that resolves the tool call promise when `respond` is invoked. Use it for confirmation dialogs, approval workflows, form collection, or any scenario where a human must provide input before the agent can continue. The `render` component returns React Native elements that CopilotKit surfaces in the chat, through the same shared renderer registry [`useRenderTool`](/reference/react-native/hooks/useRenderTool) and `useFrontendTool` write to.
 
 ## Signature
 
@@ -315,7 +315,7 @@ function ExpenseApproval() {
 ## Related
 
 - [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool): for tools with automated handlers that do not require user interaction
-- [`useRenderTool`](/reference/react-native/hooks/useRenderTool): the React Native mechanism for rendering tool calls inline in chat
+- [`useRenderTool`](/reference/react-native/hooks/useRenderTool): register renderer-only tool call UI (named or wildcard)
 - [`ToolCallStatus`](#toolcallstatus): the status enum used across tool hooks
 - [React (V2) reference](/reference/v2/hooks/useHumanInTheLoop)
 

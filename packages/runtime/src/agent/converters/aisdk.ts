@@ -16,6 +16,89 @@ import type {
 } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
+import { createStateEventNormalizer } from "../state-delta";
+import { aggregateRunUsage, getTokenCount, tokenCountKeys } from "./usage";
+import type { AgentRunFinishedDetails, AgentRunUsage } from "./usage";
+
+/**
+ * Reads aggregate usage from an AI SDK finish part without inventing values
+ * when a provider omits a token count.
+ */
+export function getAISDKRunFinishedDetails(
+  part: Record<string, unknown>,
+  identity: { provider?: string; model?: string } = {},
+): AgentRunFinishedDetails {
+  const details: AgentRunFinishedDetails = {};
+
+  if (typeof part.finishReason === "string") {
+    details.metadata = { finishReason: part.finishReason };
+  }
+
+  if (
+    part.totalUsage === null ||
+    typeof part.totalUsage !== "object" ||
+    Array.isArray(part.totalUsage)
+  ) {
+    return details;
+  }
+
+  const totalUsage = part.totalUsage as Record<string, unknown>;
+  const counts: AgentRunUsage = {};
+
+  for (const key of tokenCountKeys) {
+    const value = getTokenCount(totalUsage[key]);
+    if (value !== undefined) {
+      counts[key] = value;
+    }
+  }
+
+  aggregateRunUsage(details, [{ ...identity, ...counts }]);
+
+  return details;
+}
+
+export function formatToolError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+  if (typeof error === "string") return error;
+  if (error === undefined || error === null) return "Unknown tool error";
+
+  try {
+    const serialized = JSON.stringify(error);
+    return serialized === undefined ? String(error) : serialized;
+  } catch {
+    return String(error);
+  }
+}
+
+/**
+ * Returns the AG-UI message id for an AI SDK `text-start` / `reasoning-start`
+ * part.
+ *
+ * Several providers number stream parts per response instead of giving them
+ * a unique id: @ai-sdk/anthropic and @ai-sdk/google use a block counter
+ * ("0", "1", ...) and @ai-sdk/openai-compatible always uses "txt-0" /
+ * "reasoning-0". Those ids repeat on every step and every run, so reusing
+ * them would append later replies to an earlier message. Only ids that look
+ * unique are kept.
+ */
+export function resolveStreamPartMessageId(providedId: unknown): string {
+  if (
+    typeof providedId !== "string" ||
+    providedId === "" ||
+    /^(\d+|(txt|reasoning|msg)-0)$/.test(providedId)
+  ) {
+    return randomUUID();
+  }
+  return providedId;
+}
 
 /**
  * Converts an AI SDK `fullStream` into AG-UI `BaseEvent` objects.
@@ -35,10 +118,13 @@ export async function* convertAISDKStream(
   fullStream: AsyncIterable<unknown>,
   abortSignal: AbortSignal,
   pendingInterrupts?: Interrupt[],
+  initialState?: unknown,
+  runFinishedDetails?: AgentRunFinishedDetails,
 ): AsyncGenerator<BaseEvent> {
   let messageId = randomUUID();
   let reasoningMessageId = randomUUID();
   let isInReasoning = false;
+  const normalizeStateEvent = createStateEventNormalizer(initialState);
 
   const toolCallStates = new Map<
     string,
@@ -82,6 +168,7 @@ export async function* convertAISDKStream(
   }
 
   try {
+    const warnedUnknownPartTypes = new Set<string>();
     for await (const part of fullStream) {
       const p = part as Record<string, unknown>;
 
@@ -98,13 +185,9 @@ export async function* convertAISDKStream(
         }
 
         case "reasoning-start": {
-          // Use SDK-provided id, or generate a fresh UUID if id is falsy/"0"
-          // to prevent consecutive reasoning blocks from sharing a messageId
-          const providedId = "id" in p ? p.id : undefined;
-          reasoningMessageId =
-            providedId && providedId !== "0"
-              ? (providedId as string)
-              : randomUUID();
+          reasoningMessageId = resolveStreamPartMessageId(
+            "id" in p ? p.id : undefined,
+          );
           const reasoningStartEvent: ReasoningStartEvent = {
             type: EventType.REASONING_START,
             messageId: reasoningMessageId,
@@ -174,13 +257,7 @@ export async function* convertAISDKStream(
         }
 
         case "text-start": {
-          // New text message starting - use the SDK-provided id
-          // Use randomUUID() if part.id is falsy or "0" to prevent message merging issues
-          const providedId = "id" in p ? p.id : undefined;
-          messageId =
-            providedId && providedId !== "0"
-              ? (providedId as string)
-              : randomUUID();
+          messageId = resolveStreamPartMessageId("id" in p ? p.id : undefined);
           break;
         }
 
@@ -319,6 +396,38 @@ export async function* convertAISDKStream(
           break;
         }
 
+        case "tool-error": {
+          const toolCallId = p.toolCallId as string | undefined;
+          if (!toolCallId) {
+            throw new Error("AI SDK tool-error is missing toolCallId");
+          }
+
+          // Interrupt tools do not execute on the server. Their result is
+          // supplied by the human on the resume run, so suppress this part.
+          if (
+            pendingInterrupts?.some(
+              (interrupt) => interrupt.toolCallId === toolCallId,
+            )
+          ) {
+            toolCallStates.delete(toolCallId);
+            break;
+          }
+
+          toolCallStates.delete(toolCallId);
+          const resultEvent: ToolCallResultEvent = {
+            type: EventType.TOOL_CALL_RESULT,
+            role: "tool",
+            messageId: randomUUID(),
+            toolCallId,
+            // A tool exception is a tool result from the model's perspective.
+            // Keeping the Error prefix consistent with the core tool runner
+            // lets both the client and the next model step see the failure.
+            content: `Error: ${formatToolError(p.error)}`,
+          };
+          yield resultEvent;
+          break;
+        }
+
         case "tool-result": {
           // AI SDK tool-result uses "output"; older versions used "result" — check both
           const toolResult =
@@ -338,7 +447,9 @@ export async function* convertAISDKStream(
                 type: EventType.STATE_SNAPSHOT,
                 snapshot,
               };
-              yield stateSnapshotEvent;
+              for (const event of normalizeStateEvent(stateSnapshotEvent)) {
+                yield event;
+              }
             }
           } else if (
             toolName === "AGUISendStateDelta" &&
@@ -352,7 +463,9 @@ export async function* convertAISDKStream(
                 type: EventType.STATE_DELTA,
                 delta,
               };
-              yield stateDeltaEvent;
+              for (const event of normalizeStateEvent(stateDeltaEvent)) {
+                yield event;
+              }
             }
           }
 
@@ -375,6 +488,9 @@ export async function* convertAISDKStream(
         }
 
         case "finish": {
+          if (runFinishedDetails) {
+            Object.assign(runFinishedDetails, getAISDKRunFinishedDetails(p));
+          }
           // Terminal — let the caller handle lifecycle
           return;
         }
@@ -393,9 +509,31 @@ export async function* convertAISDKStream(
           );
         }
 
-        default:
-          // Unknown event types are silently ignored
+        // These AI SDK fullStream parts carry metadata that has no AG-UI event
+        // equivalent. They are known and intentionally ignored; listing them
+        // keeps the default's warning for genuinely new parts.
+        case "start":
+        case "start-step":
+        case "finish-step":
+        case "text-end":
+        case "source":
+        case "file":
+        case "tool-output-denied":
+        case "raw":
           break;
+
+        default: {
+          // Parts come from the caller's own `ai` install, which can be newer
+          // than ours. Warn once per type and keep the run alive.
+          const unknownType = String(p.type);
+          if (!warnedUnknownPartTypes.has(unknownType)) {
+            warnedUnknownPartTypes.add(unknownType);
+            console.warn(
+              `[convertAISDKStream] Ignoring unhandled AI SDK stream part: ${unknownType}`,
+            );
+          }
+          break;
+        }
       }
     }
   } finally {

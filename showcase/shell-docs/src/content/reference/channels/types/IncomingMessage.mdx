@@ -11,37 +11,35 @@ description: The normalized provider message passed to Channels handlers, includ
 ```ts
 interface IncomingMessage {
   text: string;
-  user: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
   ref: MessageRef;
   platform: string;
   contentParts?: AgentContentPart[];
-  userKey?: string;
   eventId?: string;
   turnId?: string;
   deliveryId?: string;
 }
 ```
 
-| Field | Managed Slack and Teams behavior |
-| --- | --- |
-| `text` | Provider text after ingress normalization. |
-| `user` | Provider user id and available display fields. Treat it as an external identity. |
-| `ref` | In ordinary message handlers this may have an empty id; do not assume every inbound turn can be edited. |
-| `platform` | Native source: `"slack"` or `"teams"` for message deliveries. |
-| `contentParts` | Hydrated file/media parts when attachments were retrieved. |
-| `userKey` | Stable value returned by `store.identity`, when configured. |
-| `eventId` | Stable provider-event id for application idempotency. |
-| `turnId` | Managed turn correlation id. |
-| `deliveryId` | Managed lease/delivery correlation id. |
+| Field          | Managed Slack and Teams behavior                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------- |
+| `text`         | Provider text after ingress normalization.                                                              |
+| `user`         | Nullable application user returned by the Channel's `identifyUser` policy.                              |
+| `actor`        | Provider account that caused the event. It includes a required actor kind.                              |
+| `ref`          | In ordinary message handlers this may have an empty id; do not assume every inbound turn can be edited. |
+| `platform`     | Native source: `"slack"` or `"teams"` for message deliveries.                                           |
+| `contentParts` | Hydrated file/media parts when attachments were retrieved.                                              |
+| `eventId`      | Stable provider-event id for application idempotency.                                                   |
+| `turnId`       | Managed turn correlation id.                                                                            |
+| `deliveryId`   | Managed lease/delivery correlation id.                                                                  |
 
 ## Multimodal prompt
 
 ```ts
 const prompt = message.contentParts?.length
   ? [
-      ...(message.text
-        ? [{ type: "text" as const, text: message.text }]
-        : []),
+      ...(message.text ? [{ type: "text" as const, text: message.text }] : []),
       ...message.contentParts,
     ]
   : message.text;

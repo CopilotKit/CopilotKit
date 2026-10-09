@@ -4,7 +4,7 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install dependencies (no lockfile in this starter)
+# Install dependencies (no lockfile in this starter).
 COPY package.json ./
 RUN npm install
 

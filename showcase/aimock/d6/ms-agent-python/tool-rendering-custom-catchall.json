@@ -1,32 +1,32 @@
 {
   "_meta": {
-    "description": "D6 fixtures for ms-agent-python / tool-rendering-custom-catchall",
-    "sourceFile": "harness/fixtures/d5/tool-rendering.json",
-    "created": "2026-05-22"
+    "description": "D6 fixtures for ms-agent-python / tool-rendering-custom-catchall. Pills: 'Weather in SF' (get_weather/San Francisco), 'Find flights' (search_flights/SFO->JFK), 'Roll a d20' (5 sequential roll_d20 calls ending in 20), 'Chain tools' (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). Backend tools execute on LangGraph Python and return real JSON results, which the wildcard renderer surfaces in the result block. Mirrors the matcher/tool-call shape of d6/ms-agent-python/tool-rendering.json, with distinct toolCallIds to avoid cross-fixture leakage. PILL PROMPTS (must match suggestions.ts verbatim): \"What's the weather in San Francisco?\", \"Find flights from SFO to JFK.\", \"Roll a 20-sided die.\", \"Chain a few tools in this single turn: get the weather in Tokyo, search flights from SFO to Tokyo, and roll a d20.\"",
+    "sourceFile": "aimock/d6/langgraph-python/tool-rendering-custom-catchall.json (ported 1:1, context swapped)",
+    "created": "2026-05-22",
+    "updated": "2026-05-29"
   },
   "fixtures": [
     {
-      "_comment": "custom-catchall turn 1: weather in Tokyo \u2014 follow-up content after get_weather tool ran. MUST come before tool-emitting fixture (first-match-wins).",
+      "_comment": "d5-tool-rendering-custom-catchall probe — turn 2 narration after get_weather tool result. Scoped via toolCallId (per-leg) so it only matches the weather tool-result turn; ordered BEFORE the tool-emit sibling so first-match-wins picks narration when the tool result is present. Canonical phrase 'rendered through the custom wildcard catchall' is asserted by the probe (LGP-gold disjoint-prompts content guard).",
       "match": {
         "userMessage": "Forecast Tokyo through the wildcard renderer",
-        "toolCallId": "call_d5_get_weather_001",
+        "toolCallId": "call_trcc_get_weather_d5_001",
         "context": "ms-agent-python"
       },
       "response": {
-        "content": "Tokyo is 22\u00b0C and partly cloudy \u2014 rendered through the custom wildcard catchall."
+        "content": "Tokyo is 22°C and partly cloudy — the custom wildcard renderer should show the tool card above — rendered through the custom wildcard catchall."
       }
     },
     {
-      "_comment": "custom-catchall turn 1: weather in Tokyo \u2014 emit get_weather tool call. The custom wildcard renderer will catch this since there is no per-tool renderer registered.",
+      "_comment": "d5-tool-rendering-custom-catchall probe — turn 1 emit for get_weather (Tokyo). Disjoint userMessage from the default-catchall probe ('forecast for Tokyo' lowercase) so aimock's substring matcher cannot cross-route between catchall probes. The toolCallId-gated narration above fires after the backend tool result arrives.",
       "match": {
         "userMessage": "Forecast Tokyo through the wildcard renderer",
-        "hasToolResult": false,
         "context": "ms-agent-python"
       },
       "response": {
         "toolCalls": [
           {
-            "id": "call_d5_get_weather_001",
+            "id": "call_trcc_get_weather_d5_001",
             "name": "get_weather",
             "arguments": "{\"location\":\"Tokyo\"}"
           }
@@ -34,18 +34,18 @@
       }
     },
     {
-      "_comment": "custom-catchall turn 2: AAPL stock price \u2014 follow-up content after get_stock_price tool ran. MUST come before tool-emitting fixture.",
+      "_comment": "d5-tool-rendering-custom-catchall probe — turn 2 narration after get_stock_price tool result. Scoped via toolCallId (per-leg). Canonical phrase 'rendered through the custom wildcard catchall' is asserted by the probe; AAPL $338.37/-2.96% matches the canonical payload used across the tool-rendering family.",
       "match": {
         "userMessage": "Quote AAPL through the wildcard renderer",
-        "toolCallId": "call_d5_get_stock_price_001",
+        "toolCallId": "call_trcc_get_stock_price_d5_001",
         "context": "ms-agent-python"
       },
       "response": {
-        "content": "AAPL is trading at $338.37, down 2.96% on the day \u2014 rendered through the custom wildcard catchall."
+        "content": "AAPL is trading at $338.37, down 2.96% — rendered through the custom wildcard catchall renderer."
       }
     },
     {
-      "_comment": "custom-catchall turn 2: AAPL stock price \u2014 emit get_stock_price tool call. The custom wildcard renderer catches this as the second tool through the same testid. No hasToolResult gate (the Tokyo tool result from turn 1 makes hasToolResult permanently true here); the toolCallId narration fixture above wins after the stock tool result arrives.",
+      "_comment": "d5-tool-rendering-custom-catchall probe — turn 1 emit for get_stock_price (AAPL). Cross-tool pair with get_weather above; the probe asserts both tools render through the SAME custom-wildcard-card testid with distinct data-tool-name values. No hasToolResult gate (the prior turn's tool result makes hasToolResult permanently true here); the toolCallId-gated narration above wins after this tool result arrives.",
       "match": {
         "userMessage": "Quote AAPL through the wildcard renderer",
         "context": "ms-agent-python"
@@ -53,9 +53,211 @@
       "response": {
         "toolCalls": [
           {
-            "id": "call_d5_get_stock_price_001",
+            "id": "call_trcc_get_stock_price_d5_001",
             "name": "get_stock_price",
             "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Chain tools — follow-up after all 3 tools ran. Anchored on whichever of the 3 chain toolCallIds appears last in the request (LangGraph's ToolNode preserves tool_calls order). MUST come before the toolCalls-emitting fixture below so iteration 2 of the chain-tools loop hits this branch instead of re-emitting.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_trcc_chain_roll_001",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_trcc_chain_flights_001",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_trcc_chain_weather_001",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "_comment": "Chain tools — emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). No turnIndex/hasToolResult gate: in multi-pill demo sessions prior clicks leave tool results AND additional user turns in the thread; the toolCallId fixtures above eat iteration 2 via last-message tool_call_id gating.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_trcc_chain_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_trcc_chain_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_trcc_chain_roll_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":11}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Weather in SF — follow-up content after get_weather tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting. toolCallId chain keeps the fixture stateless across multi-pill thread history.",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "toolCallId": "call_trcc_weather_sf_001",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "content": "San Francisco is currently 68°F and sunny with light winds — rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "Weather in SF — first turn: emit get_weather tool call with location=San Francisco. The wildcard renderer paints [data-testid='custom-wildcard-card'][data-tool-name='get_weather'] with args containing 'San Francisco'.",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_trcc_weather_sf_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"San Francisco\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Find flights — follow-up content after search_flights ran. MUST come BEFORE the first-leg fixture below — the matcher is first-match-wins, and the second leg is uniquely identified by `toolCallId` (last message is a tool with this id), so it cannot accidentally swallow the first-leg request (whose last message is the user prompt). The result block of the wildcard card surfaces the tool execution JSON (which already contains 'United', 'Delta', 'JetBlue' from the Python backend); this narration is just to terminate the agent loop.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "toolCallId": "call_trcc_flights_sfo_jfk_001",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
+      }
+    },
+    {
+      "_comment": "Find flights — first turn: emit search_flights tool call (SFO -> JFK). Backend executes and returns the 3-flight result list; the wildcard renderer surfaces 'United'/'Delta'/'JetBlue' in the result block.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_trcc_flights_sfo_jfk_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Roll a d20 — exactly 5 sequential roll_d20 calls returning [7, 14, 3, 19, 20]. Chained by toolCallId so the sequence is stateless across thread history. Specific-toolCallId fixtures MUST come before the userMessage-only fixture below; first-match-wins. The 5th roll has value=20 so the result block of the 5th card surfaces \"value\":20.",
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_trcc_d20_seq_001",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_trcc_d20_seq_002",
+            "name": "roll_d20",
+            "arguments": "{\"value\":14}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_trcc_d20_seq_002",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_trcc_d20_seq_003",
+            "name": "roll_d20",
+            "arguments": "{\"value\":3}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_trcc_d20_seq_003",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_trcc_d20_seq_004",
+            "name": "roll_d20",
+            "arguments": "{\"value\":19}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_trcc_d20_seq_004",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_trcc_d20_seq_005",
+            "name": "roll_d20",
+            "arguments": "{\"value\":20}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_trcc_d20_seq_005",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "content": "Rolled the d20 five times — landed on 20 on the final roll."
+      }
+    },
+    {
+      "_comment": "First roll. Matches the initial user prompt (no prior d20 tool result in this chain yet). Comes after the toolCallId-chained fixtures above so iterations 2-6 of the loop hit those first. The multi-pill sequential e2e test clicks 'Find flights' first which leaves prior turns in the thread, so a new 'Roll a 20-sided die.' user message is no longer at turnIndex 0 — keep this fixture turnIndex-less. The toolCallId-chained fixtures still take precedence for iterations 2-6 because their last-message gate (role=tool with the chained id) only matches mid-chain — this fixture only matches when last-message.role=user.",
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_trcc_d20_seq_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":7}"
           }
         ]
       }

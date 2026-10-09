@@ -2,7 +2,7 @@ import { defineComponent } from "vue";
 import { screen, fireEvent, waitFor, cleanup } from "@testing-library/vue";
 import { afterEach, describe, expect, it } from "vitest";
 import { EventType } from "@ag-ui/client";
-import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput, RunErrorEvent } from "@ag-ui/client";
 import type { Observable } from "rxjs";
 import {
   MockStepwiseAgent,
@@ -174,9 +174,11 @@ describe("useAgent e2e", () => {
         expect(screen.getByTestId("status").textContent).toBe("running");
       });
 
-      await agent.emit({
+      const errorEvent: RunErrorEvent = {
         type: EventType.RUN_ERROR,
-      } as BaseEvent);
+        message: "The agent run failed",
+      };
+      await agent.emit(errorEvent);
       await agent.complete();
 
       await waitFor(() => {

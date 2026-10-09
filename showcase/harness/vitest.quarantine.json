@@ -23,12 +23,5 @@
     "`file` paths are relative to `showcase/harness/` and must match the path",
     "vitest reports, so that the exclude glob and the ratchet agree."
   ],
-  "quarantined": [
-    {
-      "file": "src/probes/frontend-matrix.test.ts",
-      "since": "2026-07-24",
-      "reason": "Asserts hard-coded per-frontend cell counts (react=660, angular=636) against `shell/src/data/frontend-catalog.json`, which is a GENERATED artifact. The catalog has since grown to 1302 runnable cells (react=664, angular=638), so the two literals are stale and the test fails with 'expected [ Array(664) ] to have a length of 660'. Not a product defect — the two assertions that actually express the test's stated intent ('without loss or duplication': length === metadata.runnable, and ids are unique) both PASS.",
-      "unquarantineWhen": "The per-frontend expectations are derived from the catalog instead of hard-coded, so adding a demo cell no longer breaks the test. Re-hard-coding fresh numbers only resets the clock — this test will drift again on the next catalog change."
-    }
-  ]
+  "quarantined": []
 }

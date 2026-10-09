@@ -13,6 +13,9 @@
       "dependsOn": ["^build"],
       "inputs": ["production", "^production"],
       "outputs": ["{projectRoot}/dist/**"]
+    },
+    "test": {
+      "inputs": ["test", "{projectRoot}/scripts/**"]
     }
   }
 }

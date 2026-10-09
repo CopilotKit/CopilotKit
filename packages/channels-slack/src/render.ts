@@ -32,3 +32,4 @@ export type {
 
 export { markdownToMrkdwn } from "./markdown-to-mrkdwn.js";
 export { autoCloseOpenMarkdown } from "./auto-close-streaming.js";
+export { slackFallbackText } from "./native-codec.js";

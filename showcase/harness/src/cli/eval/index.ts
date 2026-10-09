@@ -23,7 +23,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { loadConfig } from "../config.js";
-import { up, down, isRunning } from "../lifecycle.js";
+import { up, down, isRunning, healthCheck } from "../lifecycle.js";
 import { createLogger, reloadLogLevel } from "../../logger.js";
 
 // Sibling modules created by other blitz agents — imports written against
@@ -376,20 +376,26 @@ export async function runEval(opts: EvalOptions): Promise<void> {
   }
 
   // -- 6-7. Run tiered tests -------------------------------------------------
-  const healthySlugs = opts.ci
-    ? [...scopeResult.slugs]
-    : scopeResult.slugs.filter((s) => {
-        try {
-          const result = execFileSync(
-            "docker",
-            ["inspect", "--format={{.State.Health.Status}}", `showcase-${s}`],
-            { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
-          ).trim();
-          return result === "healthy";
-        } catch {
-          return false;
-        }
-      });
+  // Determine which in-scope slugs are healthy enough to test.
+  //
+  // In --ci mode the caller guarantees a running fleet, so trust every scope
+  // slug. Otherwise reuse the SAME HTTP health signal that up() already gates
+  // on (lifecycle.healthCheck) rather than `docker inspect
+  // .State.Health.Status`. The two signals disagree: up() polls the service's
+  // host-port /api/health, while the container's internal HEALTHCHECK curls
+  // localhost:10000 inside the container. On CI runners the docker-inspect
+  // status stayed non-"healthy" (still "starting", or the in-container probe
+  // never flips) even though up() had already confirmed the app serves
+  // requests — so the old gate rejected every slug up() had validated and no
+  // tier ever ran. healthCheck() covers both freshly-started and pre-existing
+  // containers and retries, keeping this gate consistent with startup.
+  let healthySlugs: string[];
+  if (opts.ci) {
+    healthySlugs = [...scopeResult.slugs];
+  } else {
+    const health = await healthCheck([...scopeResult.slugs]);
+    healthySlugs = scopeResult.slugs.filter((s) => health.get(s) === true);
+  }
 
   let tieredResult: TieredRunResult;
 

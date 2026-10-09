@@ -62,7 +62,7 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 load_dotenv()
 
-DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4.6"
+DEFAULT_ANTHROPIC_MODEL = "claude-opus-4-8"
 
 # Import shared tool implementations (via tools symlink -> ../../shared/python/tools)
 from tools import (

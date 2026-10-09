@@ -6,6 +6,16 @@
 import React from "react";
 import Link from "next/link";
 import {
+  CirclePause,
+  Cloud,
+  Code,
+  PanelLeft,
+  Rocket,
+  CircleDollarSign,
+  Server,
+  Share2,
+} from "lucide-react";
+import {
   Cards,
   Card,
   Accordions,
@@ -21,6 +31,7 @@ import {
 import { NewLookAndFeelPreview } from "@/components/react/component-previews/new-look-and-feel";
 import { FrameworkTabs } from "@/components/framework-tabs";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
+import { ChannelsIntegrationPicker } from "@/components/channels-integration-picker";
 import { SignupLink } from "@/components/react/signup-link";
 import {
   DocsTrackedCopy,
@@ -29,10 +40,11 @@ import {
 import { IframeSwitcher as RealIframeSwitcher } from "@/components/content";
 import { PropertyReference } from "@/components/property-reference";
 import { IntegrationGrid } from "@/components/integration-grid";
-import { DocsLandingNext } from "@/components/docs-landing-next";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { WhenAngularBackend } from "@/components/when-angular-backend";
 import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
+import { ApiKeyHint } from "@/components/api-key-hint";
+import { WebMCPSetupPrompt } from "@/components/webmcp-setup-prompt";
 import { DemoSource } from "@/components/demo-source";
 import { AngularFeatureCatalog } from "@/components/angular-feature-catalog";
 import { AngularSnippet } from "@/components/angular-snippet";
@@ -40,6 +52,10 @@ import { UnsupportedBox } from "@/components/snippet";
 import { getRegistry } from "@/lib/registry";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
 import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
+import {
+  IntelligenceFeatureCards,
+  IntelligenceOverview,
+} from "@/components/content/landing-pages/intelligence-overview";
 import { FrameworkSetup } from "@/lib/setup-concept";
 import {
   AdkIcon,
@@ -106,13 +122,13 @@ const Callout = DocsCallout;
 // Keeping this map alongside the stub definitions also makes the
 // mapping discoverable from a single place.
 const STUB_PARTIAL_MAP: Record<string, string> = {
-  Inspector: "shared/premium/inspector.mdx",
+  Inspector: "shared/intelligence/inspector.mdx",
   GenerativeUISpecsOverview: "shared/generative-ui-specs-overview.mdx",
   ToolRenderer: "shared/generative-ui/tool-rendering.mdx",
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
   A2UI: "shared/generative-ui/a2ui.mdx",
   HeadlessUI: "shared/basics/headless-ui.mdx",
-  Overview: "shared/premium/overview.mdx",
+  Overview: "shared/intelligence/overview.mdx",
   CommonIssues: "shared/troubleshooting/common-issues.mdx",
   ErrorDebugging: "shared/troubleshooting/error-debugging.mdx",
   DebugMode: "shared/troubleshooting/debug-mode.mdx",
@@ -121,7 +137,7 @@ const STUB_PARTIAL_MAP: Record<string, string> = {
   MigrateTo182: "shared/troubleshooting/migrate-to-1.8.2.mdx",
   MigrateTo1100: "shared/troubleshooting/migrate-to-1.10.X.mdx",
   MigrateToV2: "shared/troubleshooting/migrate-to-v2.mdx",
-  SelfHosting: "shared/premium/self-hosting.mdx",
+  SelfHosting: "shared/intelligence/self-hosting.mdx",
   CodingAgents: "shared/coding-agents.mdx",
   CustomAgent: "shared/backend/custom-agent.mdx",
   PrebuiltComponents: "shared/basics/prebuilt-components.mdx",
@@ -259,8 +275,45 @@ function warnSilentNull(component: string, reason: string): void {
   console.warn(`[mdx-registry] <${component}> rendered nothing — ${reason}`);
 }
 
+// `iconKey` values used by `<CTACards>` in content. These are lucide
+// names, not the framework keys in `customIcons`, so they need their own
+// lookup. An unlisted key renders the card with no icon rather than
+// throwing, which keeps a typo from blanking the page.
+export const ctaIcons: Record<string, React.ComponentType> = {
+  circlePause: CirclePause,
+  cloud: Cloud,
+  code: Code,
+  panelLeft: PanelLeft,
+  server: Server,
+  share2: Share2,
+};
+
+// Own keys only. A plain `iconKey in ctaIcons` also matches inherited
+// names (`toString`, `constructor`), which resolve to a non-component
+// and break the no-icon fallback above.
+export function ctaIconFor(
+  iconKey: string | undefined,
+): React.ComponentType | undefined {
+  if (!iconKey || !Object.hasOwn(ctaIcons, iconKey)) return undefined;
+  return ctaIcons[iconKey];
+}
+
+// Grid classes per authored `columns` value. Tailwind only emits classes
+// it can find as literal text, so each variant is spelled out instead of
+// interpolated from `columns`. `@container` matches the shared `<Cards>`
+// wrapper so the cards' own container queries resolve the same way.
+const CTA_GRID_COLUMNS: Record<number, string> = {
+  1: "grid-cols-1",
+  2: "grid-cols-1 sm:grid-cols-2",
+  3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+  4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+};
+
 export const docsComponents = {
+  Rocket,
+  CircleDollarSign,
   Callout,
+  ChannelsIntegrationPicker,
   Cards,
   Card,
   Accordions,
@@ -268,8 +321,10 @@ export const docsComponents = {
   PropertyReference,
   OpsPlatformCTA,
   SignupLink,
+  ApiKeyHint,
   DocsTrackedCopy,
   DocsTrackedLink,
+  WebMCPSetupPrompt,
   FeatureIntegrations: ({ feature }: { feature?: string }) => {
     if (!feature) {
       warnSilentNull("FeatureIntegrations", "no `feature` prop provided");
@@ -424,7 +479,6 @@ export const docsComponents = {
     </div>
   ),
   IntegrationGrid,
-  DocsLandingNext,
   // The base registration here works whenever the consumer passes
   // `framework` explicitly. The framework-scoped renderer (DocsPageView)
   // overrides this to inject `defaultFramework` from the URL — same
@@ -516,20 +570,30 @@ export const docsComponents = {
   SharedContent: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  // <Content framework="..." /> on the `deploy-agentcore` pages
-  // (langgraph/* + aws-strands) renders the shared AgentCore deploy
-  // partial at src/content/snippets/integrations/agentcore/index.mdx.
-  // Unlike the generic `stubWithPartial` stubs, this one threads the
-  // page's `framework` into the partial's MDX scope so the embedded
-  // `<AgentCoreCommandTabs framework={framework} />` collapses to the
-  // single relevant framework (Strands-only / LangGraph-only) instead
-  // of showing both. `stubWithPartial` can't do this — it discards
-  // props by design — so Content is a dedicated loader call. `scope`
-  // keys surface as bare identifiers in the partial (NOT `props.*`);
-  // see PartialLoader.
-  Content: ({ framework }: { framework?: string }) => (
+  // <Content framework="..." partial="..." /> renders a shared deploy
+  // partial and threads the page's `framework` into the partial's MDX
+  // scope so framework-aware bits inside it (e.g.
+  // `<AgentCoreCommandTabs framework={framework} />`, or the
+  // `href={`/${framework}/...`}` cards in the LangSmith partial) collapse
+  // to the single relevant framework instead of showing both. Unlike the
+  // generic `stubWithPartial` stubs, this one forwards props, so it's a
+  // dedicated loader call. `scope` keys surface as bare identifiers in
+  // the partial (NOT `props.*`); see PartialLoader.
+  //
+  // Used by the per-framework deploy wrappers:
+  //   - `deploy-agentcore` (langgraph/* + aws-strands) → defaults to
+  //     integrations/agentcore/index.mdx
+  //   - `deploy-langsmith` (deploy/* + langgraph/* + adk/*) → passes
+  //     partial="integrations/langsmith/index.mdx"
+  Content: ({
+    framework,
+    partial,
+  }: {
+    framework?: string;
+    partial?: string;
+  }) => (
     <PartialLoader
-      relativePath="integrations/agentcore/index.mdx"
+      relativePath={partial ?? "integrations/agentcore/index.mdx"}
       scope={{ framework }}
       components={
         docsComponents as unknown as Record<
@@ -578,6 +642,8 @@ export const docsComponents = {
   // features grid, architecture image, live demos) instead of being
   // dropped on the floor as a children-passthrough used to do.
   FrameworkOverview: MdxFrameworkOverview,
+  IntelligenceOverview,
+  IntelligenceFeatureCards,
   // Per-render override in DocsPageView binds `currentFramework` from
   // the URL — same closure pattern as MdxFrameworkOverview. The base
   // registration renders null when invoked without a framework slug
@@ -650,16 +716,55 @@ export const docsComponents = {
         />
       </div>
     ) : null,
-  CTACards: ({ children }: { children?: React.ReactNode }) => (
+  // `<CTACards columns={2} cards={[...]} />` is the shape every
+  // human-in-the-loop landing page authors. The previous stub accepted
+  // only `children`, so every call site rendered an empty grid and
+  // silently dropped its links. Four content files author the block and
+  // three of them are live pages: the pydantic-ai one is shadowed by the
+  // sibling `integrations/pydantic-ai/human-in-the-loop.mdx` leaf and
+  // renders nowhere. Same fallback contract as
+  // `EcosystemTable` below: render from the prop when it is supplied,
+  // otherwise wrap children so any legacy `<CTACards>...</CTACards>`
+  // authoring keeps working.
+  //
+  // Authored `href`s are root-relative docs paths. They only pick up the
+  // active framework prefix when the page-level `CTACards` override in
+  // `docs-page-view.tsx` resolves them, because the cards render through
+  // the `Card` imported here rather than the href-resolving `Card` in
+  // that page's component map.
+  CTACards: ({
+    cards,
+    columns = 2,
+    children,
+  }: {
+    cards?: Array<{
+      iconKey?: string;
+      title: string;
+      description?: string;
+      href: string;
+    }>;
+    columns?: number;
+    children?: React.ReactNode;
+  }) => (
     <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(2, 1fr)",
-        gap: "0.75rem",
-        marginBottom: "1rem",
-      }}
+      className={`not-prose @container my-6 grid gap-4 ${
+        CTA_GRID_COLUMNS[columns] ?? CTA_GRID_COLUMNS[2]
+      }`}
     >
-      {children}
+      {cards && cards.length > 0
+        ? cards.map((card) => {
+            const Icon = ctaIconFor(card.iconKey);
+            return (
+              <Card
+                key={card.href}
+                href={card.href}
+                title={card.title}
+                description={card.description}
+                icon={Icon ? <Icon /> : undefined}
+              />
+            );
+          })
+        : children}
     </div>
   ),
   AttributeCards: ({ children }: { children?: React.ReactNode }) => (
@@ -707,11 +812,12 @@ export const docsComponents = {
       {children}
     </div>
   ),
-  // `<EcosystemTable data={[...]} />` is used by
-  // `concepts/generative-ui-overview.mdx` to render a 4-column matrix
-  // of generative-UI approaches. There is no partial for this — the
-  // data is supplied inline by the page — so the stub returns a real
-  // table rendered from `props.data` instead of a `<div>`.
+  // `<EcosystemTable data={[...]} />` renders a 4-column matrix of
+  // generative-UI approaches from data the page supplies inline, so the
+  // stub returns a real table rendered from `props.data` instead of a
+  // `<div>`. No content file calls it today: it used to back
+  // `concepts/generative-ui-overview.mdx`, which no longer references
+  // it. Kept as the prop-or-children precedent `CTACards` follows.
   EcosystemTable: ({
     data,
     children,

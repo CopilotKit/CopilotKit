@@ -154,7 +154,8 @@ interface InteractionContext<TValue = unknown> {
   message: IncomingMessage;
   action: { id: string; value?: TValue };
   values: Record<string, unknown>;
-  user: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
   platform: string;
 }
 ```
@@ -163,7 +164,7 @@ interface InteractionContext<TValue = unknown> {
 from `value` — `<Button value={{ confirmed: true }} onClick={(ctx) => ctx.action.value?.confirmed}>`
 type-checks with no cast. `Select`/`Input` resolve the value to `string`.
 
-The structural types `Thread`, `IncomingMessage`, `PlatformUser`,
+The structural types `Thread`, `IncomingMessage`, `ApplicationUser`, `ProviderActor`,
 `MessageRef`, and `ClickHandler` are declared here for handler typing only —
 they're implemented at runtime by `@copilotkit/channels` and its adapters.
 `@copilotkit/channels-ui` has no runtime dependency on them.
@@ -192,6 +193,6 @@ Runtime: `renderToIR`, `Fragment`, `bind`, and the vocabulary
 (`Message`, `Header`, `Section`, `Markdown`, `Field`, `Fields`, `Context`,
 `Actions`, `Button`, `Select`, `Input`, `Image`, `Divider`).
 Types: `BotNode`, `BotChildren`, `ComponentFn`, `Renderable`, `Thread`,
-`InteractionContext`, `PlatformUser`, `IncomingMessage`, `MessageRef`,
+`InteractionContext`, `ApplicationUser`, `ProviderActor`, `IncomingMessage`, `MessageRef`,
 `ClickHandler`, and the per-component prop types (`MessageProps`,
 `ButtonProps`, `SelectProps`, `TableProps`, `TableColumn`, …).

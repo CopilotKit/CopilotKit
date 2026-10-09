@@ -75,7 +75,7 @@ const intelRuntimeWith1Channel = () =>
     agents: {},
     intelligence: intelligence(),
     identifyUser,
-    channels: [createChannel({ name: "support" })],
+    channels: [createChannel({ identifyUser: "platform", name: "support" })],
   });
 
 /**
@@ -193,8 +193,8 @@ describe("endpoint wrappers — managed channels propagation", () => {
       intelligence: intelligence(),
       identifyUser,
       channels: [
-        createChannel({ name: "support" }),
-        createChannel({ name: "support" }),
+        createChannel({ identifyUser: "platform", name: "support" }),
+        createChannel({ identifyUser: "platform", name: "support" }),
       ],
     });
 

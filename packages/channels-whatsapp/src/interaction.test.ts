@@ -22,12 +22,18 @@ describe("decodeInteraction", () => {
       },
     };
     const evt = decodeInteraction(msg, target);
-    expect(evt).toEqual({
+    expect(evt).toMatchObject({
       id: "ck:42",
       conversationKey: "whatsapp:15551234567",
       replyTarget: target,
       value: undefined,
-      user: { id: "15551234567" },
+      actor: { id: "15551234567", kind: "human" },
+      identityContext: {
+        tenant: { id: "PNID" },
+        installation: { id: "PNID" },
+        conversation: { id: "whatsapp:15551234567", kind: "direct" },
+        trigger: "interaction",
+      },
       messageRef: { id: "wamid.A", to: "15551234567", phoneNumberId: "PNID" },
     });
   });

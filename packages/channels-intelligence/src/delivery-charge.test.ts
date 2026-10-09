@@ -20,10 +20,11 @@ const delivery: PreparedChannelDelivery = {
     input: {
       kind: "text",
       text: "hello",
+      messageRef: { id: "pref_v1_message_charge_123" },
       operation: {
         kind: "created",
-        logicalMessageId: "message_charge",
-        revisionId: "revision_charge",
+        logicalMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+        revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
         mentioned: true,
       },
     },
@@ -45,7 +46,7 @@ test("charge client calls the delivery-scoped runtime route", async () => {
   const client = new ChannelDeliveryChargeClient({
     baseUrl: "https://api.example/",
     apiKey: "cpk-runtime",
-    fetch,
+    fetch: fetch as unknown as typeof globalThis.fetch,
   });
 
   await expect(client.charge(delivery.deliveryId)).resolves.toBeUndefined();

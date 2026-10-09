@@ -1,14 +1,20 @@
 import { NgComponentOutlet } from "@angular/common";
-import { Component, inject, input } from "@angular/core";
 import {
+  Component,
+  inject,
+  input,
+  ChangeDetectionStrategy,
+} from "@angular/core";
+import type {
   AssistantMessage,
   Message,
   ToolCall,
   ToolMessage,
 } from "@ag-ui/client";
 import type { AbstractAgent } from "@ag-ui/client";
+import { contentToText } from "@ag-ui/client";
 import { CopilotKit } from "./copilotkit";
-import {
+import type {
   FrontendToolConfig,
   HumanInTheLoopToolCall,
   HumanInTheLoopConfig,
@@ -136,6 +142,7 @@ export function pickToolCallHandler(
 @Component({
   selector: "copilot-render-tool-calls",
   imports: [NgComponentOutlet],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @for (toolCall of message().toolCalls ?? []; track toolCall.id) {
       @let renderConfig = pickRenderer(toolCall.function.name);
@@ -209,7 +216,7 @@ export class RenderToolCalls {
         name: toolCall.function.name,
         args,
         status: "complete",
-        result: message.content,
+        result: contentToText(message.content),
       };
     } else if (this.isLoading()) {
       return {
@@ -282,7 +289,7 @@ export class RenderToolCalls {
         name: toolCall.function.name,
         args,
         status: "complete",
-        result: message.content!,
+        result: contentToText(message.content),
         respond,
       };
     } else if (this.isLoading()) {

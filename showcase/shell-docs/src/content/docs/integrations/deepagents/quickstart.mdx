@@ -3,13 +3,13 @@ title: Quickstart
 description: Get started with Deep Agents and CopilotKit in minutes.
 icon: "lucide/Rocket"
 ---
-<OpsPlatformCTA
-  variant="card"
-  title="Ship Deep Agents to production"
-  body="Add persistent threads and the inspector with the Enterprise Intelligence Platform."
-  ctaLabel="Create a free account"
-  surface="docs_deepagents_quickstart"
-/>
+
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+## Start with your coding agent
+
+Use this prompt to connect your Deep Agents agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
+
+<PageAgentPrompt />
 
 ## Prerequisites
 
@@ -24,9 +24,9 @@ Before you begin, you'll need the following:
 
 <Steps>
     <Step>
-        ### Create a free account
+        ### Set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_deepagents_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads and the inspector.
+        <SignupLink surface="docs_deepagents_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. Cloud-hosted setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create it below.
     </Step>
 
     <Step>
@@ -269,16 +269,13 @@ Before you begin, you'll need the following:
 
         <Tabs groupId="deployment_method" items={['Deep Agent', 'FastAPI']}>
             <Tab value="Deep Agent">
-                ```tsx title="app/api/copilotkit/route.ts"
+                ```tsx title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
                 import {
-                    CopilotRuntime,
-                    ExperimentalEmptyAdapter,
-                    copilotRuntimeNextJSAppRouterEndpoint,
-                } from "@copilotkit/runtime";
+                  CopilotKitIntelligence,
+                  CopilotRuntime,
+                  createCopilotRuntimeHandler,
+                } from "@copilotkit/runtime/v2";
                 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
-                import { NextRequest } from "next/server";
-
-                const serviceAdapter = new ExperimentalEmptyAdapter();
 
                 const runtime = new CopilotRuntime({
                     agents: {
@@ -287,60 +284,108 @@ Before you begin, you'll need the following:
                             graphId: "sample_agent",
                             langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
                         }),
-                    }
+                    },
+                    // [!code highlight:8]
+                    intelligence: new CopilotKitIntelligence({
+                      apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+                    }),
+                    // Threads are per-user. Without this, every visitor shares one history.
+                    identifyUser: (request) => ({
+                      id: request.headers.get("x-user-id") ?? "anonymous",
+                      name: request.headers.get("x-user-name") ?? "Anonymous",
+                    }),
                 });
 
-                export const POST = async (req: NextRequest) => {
-                    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                        runtime,
-                        serviceAdapter,
-                        endpoint: "/api/copilotkit",
-                    });
+                const handler = createCopilotRuntimeHandler({
+                  runtime,
+                  basePath: "/api/copilotkit",
+                });
 
-                    return handleRequest(req);
-                };
+                export const GET = handler;
+                export const POST = handler;
                 ```
             </Tab>
             <Tab value="FastAPI">
-                ```tsx title="app/api/copilotkit/route.ts"
+                ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
                 import {
-                    CopilotRuntime,
-                    ExperimentalEmptyAdapter,
-                    copilotRuntimeNextJSAppRouterEndpoint,
-                } from "@copilotkit/runtime";
-                import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
-                import { NextRequest } from "next/server";
-
-                const serviceAdapter = new ExperimentalEmptyAdapter();
+                  CopilotKitIntelligence,
+                  CopilotRuntime,
+                  createCopilotRuntimeHandler,
+                } from "@copilotkit/runtime/v2";
+                import { HttpAgent } from "@ag-ui/client";
 
                 const runtime = new CopilotRuntime({
                     agents: {
-                        sample_agent: new LangGraphHttpAgent({
+                        sample_agent: new HttpAgent({
                             url: process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
                         }),
-                    }
+                    },
+                    // [!code highlight:8]
+                    intelligence: new CopilotKitIntelligence({
+                      apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+                    }),
+                    // Threads are per-user. Without this, every visitor shares one history.
+                    identifyUser: (request) => ({
+                      id: request.headers.get("x-user-id") ?? "anonymous",
+                      name: request.headers.get("x-user-name") ?? "Anonymous",
+                    }),
                 });
 
-                export const POST = async (req: NextRequest) => {
-                    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                        runtime,
-                        serviceAdapter,
-                        endpoint: "/api/copilotkit",
-                    });
+                const handler = createCopilotRuntimeHandler({
+                  runtime,
+                  basePath: "/api/copilotkit",
+                });
 
-                    return handleRequest(req);
-                };
+                export const GET = handler;
+                export const POST = handler;
                 ```
             </Tab>
         </Tabs>
+
+        From this frontend app directory, connect the runtime to an Intelligence project:
+
+        ```bash title="Terminal"
+        npx copilotkit@latest project select
+        ```
+
+        The command writes the server-side project API key to `.env`. The runtime reads it here:
+
+        ```plaintext title=".env"
+        CPK_INTELLIGENCE_API_KEY=cpk-...
+        ```
+
+        <Callout type="info" title="Running without the Intelligence Platform?">
+          Drop the `intelligence` and `identifyUser` options and the runtime falls back
+          to SSE mode with an in-memory runner. Chat still works, but Threads and the
+          Inspector stay locked and the key is never read. See
+          [Connect your runtime to Intelligence](/intelligence/quickstart) for the
+          full constructor and how to confirm the key is in use.
+        </Callout>
     </Step>
     <Step>
         ### Configure CopilotKit Provider
 
         Wrap your application with the CopilotKit provider:
 
-        ```tsx title="app/layout.tsx"
+        ```tsx title="app/providers.tsx"
+        "use client";
+
         import { CopilotKit } from "@copilotkit/react-core/v2";
+
+        export function Providers({ children }: { children: React.ReactNode }) {
+          return (
+            <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent" useSingleEndpoint={false}>
+              {children}
+            </CopilotKit>
+          );
+        }
+        ```
+
+        `app/layout.tsx` is a server component and cannot import the provider
+        directly, so it renders your client file instead:
+
+        ```tsx title="app/layout.tsx"
+        import { Providers } from "./providers";
         import "@copilotkit/react-core/v2/styles.css";
 
         // ...
@@ -349,14 +394,22 @@ Before you begin, you'll need the following:
             return (
                 <html lang="en">
                     <body>
-                        <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent">
+                        <Providers>
                             {children}
-                        </CopilotKit>
+                        </Providers>
                     </body>
                 </html>
             );
         }
         ```
+
+        <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
+          `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
+          same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
+          server of its own and an absolute `runtimeUrl` such as
+          `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
+          `/angular` and `/react-native` each show that setup.
+        </Callout>
     </Step>
     <Step>
         ### Add the chat interface
@@ -442,6 +495,9 @@ Before you begin, you'll need the following:
                 ```
             </Tab>
         </Tabs>
+    </Step>
+    <Step>
+        <OpenInspectorStep components={props.components} />
     </Step>
 
 </Steps>

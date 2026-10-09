@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getRuntimeConfig, type RuntimeConfig } from "./runtime-config.client";
+import { getRuntimeConfig } from "./runtime-config.client";
+import type { RuntimeConfig } from "./runtime-config.client";
 
 // shell-docs's vitest runs with `environment: "node"` (no jsdom) — we
 // simulate the browser by attaching a minimal `window` to globalThis
@@ -18,6 +19,7 @@ const FULL_CONFIG: RuntimeConfig = {
   googleAnalyticsTrackingId: "G-TEST",
   reb2bKey: "rb2b-key",
   reoKey: "reo-key",
+  clerkPublishableKey: "pk_live_shared",
 };
 
 describe("client getRuntimeConfig (shell-docs)", () => {
@@ -64,5 +66,6 @@ describe("client getRuntimeConfig (shell-docs)", () => {
     expect(cfg.googleAnalyticsTrackingId).toBe("");
     expect(cfg.reb2bKey).toBe("");
     expect(cfg.reoKey).toBe("");
+    expect(cfg.clerkPublishableKey).toBe("");
   });
 });

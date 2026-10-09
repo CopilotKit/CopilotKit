@@ -9,7 +9,7 @@ description: "Angular function for registering a renderer component for a tool c
 
 You call `registerRenderToolCall` inside an Angular injection context (a component or service constructor, or a field initializer). The renderer registers immediately. When the owning injector is destroyed, CopilotKit removes tool and renderer registrations with the same name and optional agent id.
 
-If you want to run a browser handler and render UI, use [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool) with its `component` field instead.
+If you want to run a browser handler and render UI, use [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool) with its `component` field instead. If the agent does not already have the tool and you only want it to display one of your components, use [`registerComponent`](/reference/angular/functions/registerComponent), which declares the tool from the frontend so nothing has to be added on the agent side.
 
 <Callout type="info">
   Import from the package root, `@copilotkit/angular`. There is no `/v2`
@@ -206,6 +206,11 @@ registerRenderToolCall({
 ## Related
 
 <Cards>
+  <Card
+    title="registerComponent"
+    description="Let the agent display one of your components, with no handler and nothing to add on the agent side."
+    href="/reference/angular/functions/registerComponent"
+  />
   <Card
     title="registerFrontendTool"
     description="Register a client-side tool with an async handler and an optional renderer component."

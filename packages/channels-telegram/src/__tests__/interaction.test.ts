@@ -127,7 +127,17 @@ describe("interaction", () => {
     expect(evt?.id).toBe("ck:abc");
     expect(evt?.conversationKey).toBe("tg:42:dm");
     expect(evt?.messageRef).toMatchObject({ chatId: 42, messageId: 99 });
-    expect(evt?.user).toMatchObject({ id: "7", name: "Ada", handle: "ada" });
+    expect(evt?.actor).toMatchObject({
+      id: "7",
+      kind: "human",
+      name: "Ada",
+      handle: "ada",
+    });
+    expect(evt?.identityContext).toMatchObject({
+      tenant: { id: "42" },
+      conversation: { id: "tg:42:dm", kind: "private" },
+      trigger: "interaction",
+    });
   });
   it("returns undefined for non-callback payloads", () => {
     expect(decodeInteraction({ message: {} })).toBeUndefined();

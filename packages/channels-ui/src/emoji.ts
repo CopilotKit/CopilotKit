@@ -15,45 +15,111 @@ export interface EmojiEntry {
   unicode: string;
   /** Slack shortcodes (no colons); index 0 is canonical, the rest are aliases. */
   slack: string[];
+  /** Microsoft Teams reaction id used by the Teams API Client. */
+  teams: string;
 }
 
 /** Starter set; unknown emoji pass through unnormalized as `rawEmoji`. */
 export const EMOJI_TABLE = [
-  { name: "thumbs_up", unicode: "👍", slack: ["+1", "thumbsup"] },
-  { name: "thumbs_down", unicode: "👎", slack: ["-1", "thumbsdown"] },
-  { name: "heart", unicode: "❤️", slack: ["heart"] },
-  { name: "fire", unicode: "🔥", slack: ["fire"] },
-  { name: "eyes", unicode: "👀", slack: ["eyes"] },
-  { name: "bug", unicode: "🐛", slack: ["bug"] },
+  {
+    name: "thumbs_up",
+    unicode: "👍",
+    slack: ["+1", "thumbsup"],
+    teams: "like",
+  },
+  {
+    name: "thumbs_down",
+    unicode: "👎",
+    slack: ["-1", "thumbsdown"],
+    teams: "no",
+  },
+  { name: "heart", unicode: "❤️", slack: ["heart"], teams: "heart" },
+  { name: "fire", unicode: "🔥", slack: ["fire"], teams: "fire" },
+  { name: "eyes", unicode: "👀", slack: ["eyes"], teams: "eyes" },
+  { name: "bug", unicode: "🐛", slack: ["bug"], teams: "bug" },
   {
     name: "check",
     unicode: "✅",
     slack: ["white_check_mark", "heavy_check_mark"],
+    teams: "2705_whiteheavycheckmark",
   },
-  { name: "cross", unicode: "❌", slack: ["x"] },
-  { name: "tada", unicode: "🎉", slack: ["tada"] },
-  { name: "rocket", unicode: "🚀", slack: ["rocket"] },
-  { name: "warning", unicode: "⚠️", slack: ["warning"] },
-  { name: "question", unicode: "❓", slack: ["question"] },
-  { name: "raised_hands", unicode: "🙌", slack: ["raised_hands"] },
-  { name: "clap", unicode: "👏", slack: ["clap"] },
-  { name: "pray", unicode: "🙏", slack: ["pray"] },
-  { name: "smile", unicode: "😄", slack: ["smile"] },
-  { name: "thinking", unicode: "🤔", slack: ["thinking_face"] },
+  { name: "cross", unicode: "❌", slack: ["x"], teams: "274c_crossmark" },
+  { name: "tada", unicode: "🎉", slack: ["tada"], teams: "1f389_partypopper" },
+  { name: "rocket", unicode: "🚀", slack: ["rocket"], teams: "launch" },
+  {
+    name: "warning",
+    unicode: "⚠️",
+    slack: ["warning"],
+    teams: "26a0_warningsign",
+  },
+  {
+    name: "question",
+    unicode: "❓",
+    slack: ["question"],
+    teams: "2753_blackquestionmarkornament",
+  },
+  {
+    name: "raised_hands",
+    unicode: "🙌",
+    slack: ["raised_hands"],
+    teams: "handsinair",
+  },
+  { name: "clap", unicode: "👏", slack: ["clap"], teams: "clappinghands" },
+  { name: "pray", unicode: "🙏", slack: ["pray"], teams: "foldedhands" },
+  {
+    name: "smile",
+    unicode: "😄",
+    slack: ["smile"],
+    teams: "grinningfacewithsmilingeyes",
+  },
+  { name: "thinking", unicode: "🤔", slack: ["thinking_face"], teams: "think" },
   // 🔄 (U+1F504) — the demo's "refresh" reaction (Teams delivers `1f504_refresh`).
-  { name: "refresh", unicode: "🔄", slack: ["arrows_counterclockwise"] },
+  {
+    name: "refresh",
+    unicode: "🔄",
+    slack: ["arrows_counterclockwise"],
+    teams: "1f504_refresh",
+  },
   // Classic Teams reactions with no existing canonical entry.
-  { name: "laugh", unicode: "😆", slack: ["laughing"] },
-  { name: "surprised", unicode: "😮", slack: ["open_mouth"] },
-  { name: "sad", unicode: "😢", slack: ["cry"] },
-  { name: "angry", unicode: "😠", slack: ["angry"] },
+  { name: "laugh", unicode: "😆", slack: ["laughing"], teams: "laugh" },
+  {
+    name: "surprised",
+    unicode: "😮",
+    slack: ["open_mouth"],
+    teams: "surprised",
+  },
+  { name: "sad", unicode: "😢", slack: ["cry"], teams: "cry" },
+  { name: "angry", unicode: "😠", slack: ["angry"], teams: "angry" },
 ] as const satisfies readonly {
   name: string;
   unicode: string;
   slack: string[];
+  teams: string;
 }[];
 
 export type KnownEmoji = (typeof EMOJI_TABLE)[number]["name"];
+
+/**
+ * Reactions with an explicitly supported Slack and Microsoft Teams mapping.
+ *
+ * Use these values when one handler must work unchanged across both managed
+ * providers. Other {@link EmojiValue} strings are provider-native extensions:
+ * branch on `thread.platform` before using them and expect an explicit provider
+ * error when that provider does not support the value.
+ */
+export const PORTABLE_REACTIONS = [
+  "thumbs_up",
+  "thumbs_down",
+  "heart",
+  "fire",
+  "eyes",
+  "refresh",
+  "thinking",
+  "tada",
+] as const satisfies readonly KnownEmoji[];
+
+/** A reaction known to work in both managed Slack and Microsoft Teams. */
+export type PortableReaction = (typeof PORTABLE_REACTIONS)[number];
 
 /**
  * Accepts a known canonical name (with autocomplete) or any string. Unknown
@@ -73,6 +139,7 @@ const byName = new Map<string, EmojiEntry>(
   EMOJI_TABLE.map((e) => [e.name, e as EmojiEntry]),
 );
 const slackToName = new Map<string, KnownEmoji>();
+const teamsToName = new Map<string, KnownEmoji>();
 const unicodeToName = new Map<string, KnownEmoji>();
 for (const e of EMOJI_TABLE) {
   unicodeToName.set(e.unicode, e.name);
@@ -80,6 +147,7 @@ for (const e of EMOJI_TABLE) {
   // trailing U+FE0F that the table stores) normalizes to the same name.
   unicodeToName.set(stripVs16(e.unicode), e.name);
   for (const code of e.slack) slackToName.set(code, e.name);
+  teamsToName.set(e.teams, e.name);
 }
 
 /**
@@ -96,11 +164,9 @@ export function toPlatformEmoji(
     : (slackToName.get(value) ?? unicodeToName.get(value));
   const entry = name ? byName.get(name) : undefined;
   if (!entry) return undefined;
-  // Teams/WhatsApp fall through to the unicode form here. That's inert today
-  // (both declare `supportsReactions: false`, so nothing sends outbound
-  // reactions through them). TODO: if outbound reactions to Teams land, Teams
-  // expects the `<codepoint>_<name>` token, not raw unicode — special-case it.
-  return platform === "slack" ? entry.slack[0] : entry.unicode;
+  if (platform === "slack") return entry.slack[0];
+  if (platform === "teams") return entry.teams;
+  return entry.unicode;
 }
 
 /**
@@ -153,6 +219,8 @@ export function normalizeEmoji(
 ): EmojiValue | undefined {
   if (platform === "slack") return slackToName.get(token);
   if (platform === "teams") {
+    const exact = teamsToName.get(token);
+    if (exact) return exact;
     // Modern Teams reactions: `<codepoint-hex>_<name>` — parse the leading hex
     // into its Unicode form, then look it up (bare or VS16-stripped).
     const hex = TEAMS_CODEPOINT.exec(token)?.[1];

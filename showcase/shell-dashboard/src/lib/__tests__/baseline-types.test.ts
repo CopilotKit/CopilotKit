@@ -183,8 +183,8 @@ describe("FEATURE_CATEGORIES", () => {
 /*  BASELINE_PARTNERS                                                  */
 /* ------------------------------------------------------------------ */
 describe("BASELINE_PARTNERS", () => {
-  it("has exactly 27 partners", () => {
-    expect(BASELINE_PARTNERS).toHaveLength(27);
+  it("has exactly 28 partners", () => {
+    expect(BASELINE_PARTNERS).toHaveLength(28);
   });
 
   it("each partner has name and slug", () => {

@@ -21,11 +21,12 @@ import { Actions, Button, Message, Section } from "@copilotkit/channels/ui";
 </Message>;
 ```
 
-| Prop | Type | Description |
-| --- | --- | --- |
+| Prop       | Type          | Description                      |
+| ---------- | ------------- | -------------------------------- |
 | `children` | `BotChildren` | Interactive Channels components. |
 
 Managed Slack renders an actions block. Managed Teams lifts `Button` children
 to the Adaptive Card's top-level actions. Use buttons for cross-provider managed
-workflows; managed Teams does not currently dispatch `Select.onSelect` or
-`Input.onSubmit` as independent callbacks.
+workflows. A Teams Button callback receives named Adaptive Card input fields in
+`ctx.values`; Teams does not dispatch `Select.onSelect` or `Input.onSubmit` as
+independent callbacks.

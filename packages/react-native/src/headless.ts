@@ -28,6 +28,10 @@
 // Must run before any CopilotKit code that relies on ReadableStream / fetch streaming.
 import "./polyfills";
 
+// Type-only, so both are erased and neither can run before the polyfills above.
+import type React from "react";
+import type { ReactToolCallRenderer } from "@copilotkit/react-core/v2/headless";
+
 // React Native provider (no web deps, no bottom-sheet, no expo native modules)
 export { CopilotKitProvider } from "./CopilotKitProvider";
 export type { CopilotKitNativeProviderProps } from "./CopilotKitProvider";
@@ -58,7 +62,11 @@ export {
   useCapabilities,
   defineToolCallRenderer,
   CopilotChatDefaultLabels,
-  type UseAgentUpdate,
+  // Runtime enum, not a type: it is passed BY VALUE to useAgent's `updates`
+  // option (`updates: [UseAgentUpdate.OnMessagesChanged]`). `export type` would
+  // strip the runtime binding and leave consumers unable to name a member.
+  // react-core's own headless entry exports it as a value for the same reason.
+  UseAgentUpdate,
   type UseInterruptConfig,
   type AgentContextInput,
   type JsonSerializable,
@@ -80,14 +88,27 @@ export {
   type RenderToolCompleteProps,
 } from "@copilotkit/react-core/v2/headless";
 
-// Re-export core types commonly needed
-export type {
+// Re-export core runtime ENUMS as values. Each of these is `export enum` in
+// @copilotkit/core, and each is the type of a prop or field a consumer has to
+// branch on — `status === ToolCallStatus.Executing`,
+// `status === CopilotKitCoreRuntimeConnectionStatus.Connected`. An enum-typed
+// field rejects a bare string literal, so a type-only re-export leaves the
+// member names unreachable and the field impossible to compare against.
+export {
+  ToolCallStatus,
   CopilotKitCoreRuntimeConnectionStatus,
   CopilotKitCoreErrorCode,
-  Suggestion,
-  FrontendTool,
-  ToolCallStatus,
 } from "@copilotkit/core";
+
+// Re-export core types commonly needed
+export type { Suggestion, FrontendTool } from "@copilotkit/core";
+
+// AbstractAgent is a runtime CLASS, not a type: it is the AG-UI extension point
+// consumers subclass (`class MyAgent extends AbstractAgent`) and test with
+// `instanceof`. @ag-ui/client is a dependency of this package rather than a peer,
+// so a consumer cannot reliably import the class from there directly — a
+// type-only re-export left the extension point unreachable from RN.
+export { AbstractAgent } from "@ag-ui/client";
 
 // Re-export AG-UI types for consumer convenience (matches web SDK surface)
 export type {
@@ -95,16 +116,88 @@ export type {
   AssistantMessage as AssistantMessageType,
   ToolCall,
   ToolMessage,
-  AbstractAgent,
   AgentCapabilities,
 } from "@ag-ui/client";
 
-// Render tool hook (React Native version with render registry integration).
-// No DOM and no chat-UI stack: the app supplies the renderers.
-export { useRenderTool } from "./hooks/useRenderTool";
-export type { UseRenderToolOptions } from "./hooks/useRenderTool";
-export {
-  RenderToolProvider,
-  useRenderToolRegistry,
-} from "./hooks/RenderToolContext";
-export type { RenderToolProps } from "./hooks/RenderToolContext";
+// Render tool registration — react-core's hooks THEMSELVES, not RN copies.
+//
+// DO NOT reintroduce a LOCAL hook under either name. RN once shipped its own
+// `useRenderTool` whose whole body forwarded to `useFrontendTool` — core's
+// OTHER hook, wearing this one's name — so `name: "*"` registered a frontend
+// tool literally called `*`. Core never advertised it (`buildFrontendTools`
+// filters that name out), but `*` IS core's catch-all handler name: a
+// display-only wildcard therefore auto-answered every otherwise-unanswered
+// tool call with an empty tool result and asked for a follow-up turn.
+//
+// PR #6533 converged both names onto react-core behind a temporary routing
+// shim; #6976 removed the shim, so these are now plain re-exports and this
+// package carries no render-tool implementation of its own.
+// src/__tests__/headless-entry-surface.test.ts asserts runtime identity for
+// both names and fails the build if any module in this entry's graph grows a
+// registry. Contract and migration notes:
+// /reference/react-native/hooks/useRenderTool.
+export { useRenderTool } from "@copilotkit/react-core/v2/headless";
+export type { RenderToolProps } from "@copilotkit/react-core/v2/headless";
+
+// Render tool consumption. react-core's hook is platform-agnostic — it pulls no
+// DOM and no chat-UI stack, and it returns ReactElement | null, which is exactly
+// what FlatList's renderItem requires. Use it to render a registered component
+// on any surface, chat or not.
+export { useRenderToolCall } from "@copilotkit/react-core/v2/headless";
+export type { ReactToolCallRenderer } from "@copilotkit/react-core/v2/headless";
+
+/**
+ * A tool-call render function whose return type is narrowed to React Native's
+ * `ReactElement | null`. Annotate a `useFrontendTool` renderer with it to have
+ * the compiler reject a return React Native cannot draw.
+ *
+ * `useFrontendTool`'s `render` is `ReactToolCallRenderer<T>["render"]`, i.e. a
+ * `React.ComponentType`, so it returns `ReactNode` — which means
+ * `render: ({ args }) => \`Weather in ${args.city}\`` typechecks and then throws
+ * *Text strings must be rendered within a `<Text>` component* on a device. This
+ * type is what rejects it at `check-types` instead. (core's `useRenderTool`
+ * already declares its own `render` as `ReactElement | null`, so the gap is
+ * `useFrontendTool`'s.)
+ *
+ * OPT-IN, and only that. It changes no hook signature: a renderer written
+ * inline in a `useFrontendTool` call is still checked against core's
+ * `ReactNode`-returning contract, and a bare string still compiles there. This
+ * type gives the narrowing back on renderers you annotate; it does not make the
+ * package safe.
+ *
+ * DERIVED from core's canonical `ReactToolCallRenderer` contract rather than
+ * declared separately: the props come from it unchanged through
+ * `React.ComponentProps`, and only the return type is React Native's. That is
+ * deliberate — the last time this package declared its own render-prop shape it
+ * drifted from the contract (`{ args: T; status: "executing" | "complete";
+ * result?: string }`: no `name`, no `toolCallId`, no in-progress arm, and `args`
+ * unconditionally complete). Deriving means a change to the contract changes
+ * this type with it, and `check-types` names every renderer that breaks.
+ *
+ * @typeParam T - The parsed tool arguments; the same `T` as `useFrontendTool`'s.
+ *
+ * @example
+ * ```tsx
+ * import { useFrontendTool } from "@copilotkit/react-native/headless";
+ * import type { FrontendToolRenderFunction } from "@copilotkit/react-native/headless";
+ * import { Text } from "react-native";
+ * import { z } from "zod";
+ *
+ * const renderWeather: FrontendToolRenderFunction<{ city: string }> = ({
+ *   args,
+ * }) => <Text>{args.city}</Text>;
+ *
+ * useFrontendTool({
+ *   name: "showWeather",
+ *   description: "Show the weather",
+ *   parameters: z.object({ city: z.string() }),
+ *   handler: async ({ city }) => city,
+ *   render: renderWeather,
+ * });
+ * ```
+ */
+export type FrontendToolRenderFunction<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> = (
+  props: React.ComponentProps<ReactToolCallRenderer<T>["render"]>,
+) => React.ReactElement | null;

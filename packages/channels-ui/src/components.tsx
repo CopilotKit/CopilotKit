@@ -27,6 +27,8 @@ interface WithChildren {
 export interface MessageProps extends WithChildren {
   /** Accent color (hex, e.g. `#27AE60`) for the message's colored rail. */
   accent?: string;
+  /** Plain-text notification and screen-reader summary for rich Slack output. */
+  fallbackText?: string;
   /**
    * Called when a user reacts to this message (add or remove). The first arg is
    * the emoji, e.g. `onReaction={(r) => r === "bug" ? triage() : ack()}`; the
@@ -88,6 +90,8 @@ export interface SelectOption {
   value: string;
 }
 export interface SelectProps {
+  /** Stable field key used when a provider submits this select with a form. */
+  name?: string;
   /**
    * Handler run on selection. `ctx.action.value` is the chosen option's `value`
    * (a `string`), or a `string[]` of chosen values when `multi` is set.
@@ -110,6 +114,7 @@ export interface InputProps {
   onSubmit?: ClickHandler<string>;
   placeholder?: string;
   multiline?: boolean;
+  /** Stable field key used when a provider submits this input with a form. */
   name?: string;
 }
 

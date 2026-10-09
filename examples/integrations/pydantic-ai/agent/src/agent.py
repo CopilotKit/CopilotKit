@@ -2,7 +2,7 @@ from pathlib import Path
 from textwrap import dedent
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.ag_ui import StateDeps
+from pydantic_ai.ui import StateDeps
 from ag_ui.core import EventType, StateSnapshotEvent
 from pydantic_ai.models.openai import OpenAIResponsesModel
 
@@ -29,7 +29,7 @@ class ProverbsState(BaseModel):
 # Agent
 # =====
 agent = Agent(
-    model=OpenAIResponsesModel("gpt-4.1-mini"),
+    model=OpenAIResponsesModel("gpt-5-mini"),
     deps_type=StateDeps[ProverbsState],
     system_prompt=dedent("""
     You are a helpful assistant that helps manage and discuss proverbs.

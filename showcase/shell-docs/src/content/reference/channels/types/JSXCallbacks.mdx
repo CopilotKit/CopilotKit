@@ -25,10 +25,10 @@ clicks return through the managed connection as message activities. A Teams
 | `Message` | `onReaction` | `(emoji, reaction)`                                                           |
 
 <Callout type="warn" title="Managed Teams control boundary">
-  Managed Teams currently dispatches `Button` submissions. Its renderer can
-  display `Select` and `Input` fields, but the managed ingress does not route
-  their callbacks or expose their submitted values. Use `Button.value` for
-  required cross-provider workflow data.
+  Managed Teams dispatches `Button` submissions. Named `Select` and `Input`
+  fields from the same Adaptive Card are available on that Button callback as
+  `ctx.values`, but Teams does not dispatch their `onSelect` or `onSubmit`
+  callbacks independently.
 </Callout>
 
 ## Portable component props
@@ -42,7 +42,7 @@ or omit a component when the native provider has no equivalent.
 | `Header`, `Section`, `Markdown`, `Context`, `Actions` | `children?`                                                                |
 | `Fields` / `Field`                                    | `children?`; `Field` also accepts `label?`                                 |
 | `Button`                                              | `value?`, `onClick?`, `url?`, `style?: "primary" \| "danger"`, `children?` |
-| `Select`                                              | `options`, `placeholder?`, `multi?`, `onSelect?`                           |
+| `Select`                                              | `name?`, `options`, `placeholder?`, `multi?`, `onSelect?`                  |
 | `Input`                                               | `name?`, `placeholder?`, `multiline?`, `onSubmit?`                         |
 | `Image`                                               | `url`, `alt?`                                                              |
 | `Divider`                                             | No props or children                                                       |
@@ -64,8 +64,9 @@ or omit a component when the native provider has no equivalent.
 | `action.id`    | `string`                  | Opaque action identifier.                                                                                             |
 | `action.value` | `TValue \| undefined`     | The control's round-tripped value. Guard it before use even when the component declares `value`.                      |
 | `values`       | `Record<string, unknown>` | Submitted form values.                                                                                                |
-| `user`         | `PlatformUser`            | Person who interacted.                                                                                                |
-| `platform`     | `string`                  | Adapter id. Managed interactions currently report `"intelligence"`.                                                   |
+| `user`         | `ApplicationUser \| null` | Application user selected by `identifyUser`.                                                                          |
+| `actor`        | `ProviderActor`           | Provider account that caused the interaction.                                                                         |
+| `platform`     | `string`                  | Normalized source provider, such as `"slack"` or `"teams"`.                                                           |
 | `openModal`    | function or `undefined`   | Capability-gated modal opener. Not part of the managed Slack/Teams realtime path.                                     |
 
 ```tsx title="decision.tsx"
@@ -131,14 +132,14 @@ function required(name: string): string {
 
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
-  provider: "slack",
+  identifyUser: "platform",
   agent: makeAgent,
   components: [Decision],
   store: { adapter: durableStateStore },
 });
 ```
 
-Use `provider: "teams"` for the Microsoft Teams Channel.
+The same Channel declaration handles managed Slack and Teams deliveries.
 
 Registration allows the action registry to rebuild the callback from the
 component name and serializable props. A durable `StateStore` is still required

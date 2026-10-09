@@ -19,4 +19,17 @@ describe("kvActionStore", () => {
     await store.delete("ck:abc");
     expect(await store.get("ck:abc")).toBeUndefined();
   });
+
+  it("consumes a snapshot once via state.kv", async () => {
+    const state = new MemoryStore();
+    const store = kvActionStore(state);
+    const snap = {
+      path: [0, "onClick"],
+      conversationKey: "c",
+    };
+    await store.put("ck:once", snap);
+
+    expect(await store.consume("ck:once")).toEqual(snap);
+    expect(await store.consume("ck:once")).toBeUndefined();
+  });
 });

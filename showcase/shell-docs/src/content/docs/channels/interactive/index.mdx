@@ -15,11 +15,13 @@ by hand.
 On Slack, Channels JSX renders as Block Kit. Button clicks return as
 `block_actions` events through the signed managed webhook.
 
-<Callout type="warn" title="Enable Slack Interactivity before testing buttons">
-  Slack interactions require **Interactivity** to be enabled in the Slack app
-  configuration. The generated manifest currently sets Interactivity to
-  disabled. Enable it in Slack, then reinstall the app before expecting button
-  callbacks.
+<Callout type="info" title="Use the current Slack manifest">
+  Newly generated Slack manifests enable **Interactivity** and configure the
+  managed callback URL. If the app was created from an older manifest, open the
+  Channel in Intelligence, return to its Slack setup instructions, apply the
+  generated manifest, and reinstall the app before testing buttons. After the
+  reinstall, use the current Bot User OAuth token in Intelligence in case Slack
+  reissued it. See [Configure the Channel in Intelligence](/channels/intelligence).
 </Callout>
 
 </FrontendOnly>
@@ -77,7 +79,9 @@ export function ApprovalCard({ summary }: { summary: string }) {
           onClick={async ({ thread, message, action }) => {
             const value = action.value;
             if (value === undefined) {
-              await thread.post("The approval value was missing. Please try again.");
+              await thread.post(
+                "The approval value was missing. Please try again.",
+              );
               return;
             }
 
@@ -105,7 +109,9 @@ export function ApprovalCard({ summary }: { summary: string }) {
           onClick={async ({ thread, message, action }) => {
             const value = action.value;
             if (value === undefined) {
-              await thread.post("The approval value was missing. Please try again.");
+              await thread.post(
+                "The approval value was missing. Please try again.",
+              );
               return;
             }
 
@@ -148,7 +154,7 @@ function required(name: string): string {
 
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
-  provider: "slack",
+  identifyUser: "platform",
   agent: makeAgent,
   components: [ApprovalCard],
 });
@@ -178,7 +184,7 @@ function required(name: string): string {
 
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
-  provider: "teams",
+  identifyUser: "platform",
   agent: makeAgent,
   components: [ApprovalCard],
 });
@@ -207,7 +213,8 @@ Managed deliveries cannot wait inside `thread.awaitChoice()`. The click arrives
 as a separate claimed delivery, so blocking the first delivery would prevent the
 approval from being processed.
 
-The safe flow is:
+For an agent that emits the SDK-supported `on_interrupt` event, the safe flow
+is:
 
 1. The agent emits an `on_interrupt` event.
 2. `channel.onInterrupt` posts the registered component and returns.
@@ -220,6 +227,17 @@ The selected agent framework decides how it emits and consumes the interrupt.
 Follow its [human-in-the-loop guide](/human-in-the-loop) for the agent-side
 interrupt; keep the Channel handler limited to portable presentation and
 `resume`.
+
+<Callout type="info" title="Framework interrupt support is not universal">
+  The validated managed path is a DeepAgent tool-driven approval that emits
+  `on_interrupt`, returns from delivery, then resumes from a later interaction.
+  For every other backend, follow its human-in-the-loop guide and run a real
+  provider test that confirms the interrupt reaches `onInterrupt`, the handler
+  returns, the later click calls `resume`, and the agent consumes the value. Do
+  not assume native AG-UI interrupts are portable. The default
+  `sanitizeAgentEvents` behavior repairs a known event-validation issue; it
+  does not add framework interrupt support by itself.
+</Callout>
 
 <Callout type="warn" title="Restart durability needs a StateStore">
   The managed realtime connection does not automatically persist SDK action
@@ -237,8 +255,11 @@ on the selected provider's app configuration:
 
 <FrontendOnly frontend="slack">
 
-- Slack can deliver buttons, selects, and inputs through Block Kit once
-  Interactivity is enabled for the app.
+- Slack can deliver buttons, selects, and inputs through Block Kit. Current
+  generated manifests enable Interactivity; for an older app, open the Channel
+  in Intelligence, apply the generated manifest from its Slack setup
+  instructions, and reinstall it. See
+  [Configure the Channel in Intelligence](/channels/intelligence).
 
 </FrontendOnly>
 
@@ -251,9 +272,8 @@ on the selected provider's app configuration:
 
 Other provider-specific features remain capability-gated:
 
-- Incoming reactions can be handled when Intelligence delivers them, but
-  adding or removing reactions from the SDK is not part of the managed
-  baseline.
+- Incoming reactions can be handled when Intelligence delivers them, and the
+  managed adapter supports adding or removing documented portable reactions.
 - Modal open/submit callbacks are direct-adapter capabilities, not part of the
   managed Slack or Teams realtime path.
 - Ephemeral messages, conversation titles, and suggested prompts may return

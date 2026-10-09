@@ -5,15 +5,15 @@ description: "Vue 3 composable for listing, managing, and syncing conversation t
 
 <OpsPlatformCTA
   variant="card"
-  title="useThreads needs an Enterprise Intelligence Platform project"
-  body="Sign up for a free account to get a public license key and start syncing threads."
-  ctaLabel="Create a free account"
+  title="useThreads needs a CopilotKit Intelligence project"
+  body="Connect your runtime to a cloud-hosted project to start syncing threads."
+  ctaLabel="Start cloud-hosted setup"
   surface="docs_reference_vue_use_threads"
 />
 
 ## Overview
 
-`useThreads` is a Vue 3 composable for managing conversation threads on the Enterprise Intelligence Platform. It fetches the thread list for a given agent, keeps it synchronized in realtime via the core thread store's realtime channel, and exposes mutation methods for renaming, archiving, and deleting threads.
+`useThreads` is a Vue 3 composable for managing conversation threads in CopilotKit Intelligence. It fetches the thread list for a given agent, keeps it synchronized in realtime via the core thread store's realtime channel, and exposes mutation methods for renaming, archiving, and deleting threads.
 
 Threads are sorted by recency — by `lastRunAt` when present, falling back to `updatedAt`, then `createdAt` (most recent first). The composable supports cursor-based pagination when a `limit` is provided. All inputs accept refs, computeds, or getters (`MaybeRefOrGetter`), so changing the thread context reactively re-fetches the list.
 
@@ -183,7 +183,7 @@ const { threads, hasMoreThreads, fetchMoreThreads } = useThreads({
 
 <Cards>
   <Card title="CopilotKitProvider" href="/reference/vue/components/CopilotKitProvider">
-    Configure the runtime URL and license key that power thread syncing.
+    Configure the runtime URL that powers thread syncing. For cloud-hosted Intelligence, keep `CPK_INTELLIGENCE_API_KEY` on the runtime server.
   </Card>
   <Card title="useAgent" href="/reference/vue/hooks/useAgent">
     Access and run the agent whose threads you are listing.

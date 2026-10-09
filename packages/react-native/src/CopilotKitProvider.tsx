@@ -9,10 +9,12 @@ import type {
   CopilotKitCoreReact as CopilotKitCoreReactInstance,
 } from "@copilotkit/react-core/v2/context";
 import { CopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
-import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
+import type {
+  CopilotKitCoreErrorCode,
+  CopilotKitMessageFilter,
+} from "@copilotkit/core";
 import type { DebugConfig, RuntimeLicenseStatus } from "@copilotkit/shared";
 import { createLicenseContextValue } from "@copilotkit/shared";
-import { RenderToolProvider } from "./hooks/RenderToolContext";
 
 export interface CopilotKitNativeProviderProps {
   children: ReactNode;
@@ -24,6 +26,33 @@ export interface CopilotKitNativeProviderProps {
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
   credentials?: RequestCredentials;
+  /**
+   * Rewrites the message list sent to runtime agents on every run.
+   *
+   * CopilotKit sends the whole thread each time. When your agent already
+   * stores the conversation, most of that payload is waste, and an agent that
+   * merges the inbound list with its own store can show the model every turn
+   * twice. Return the messages to send:
+   *
+   * ```tsx
+   * <CopilotKitProvider
+   *   runtimeUrl="/api/copilotkit"
+   *   messageFilter={(messages) => messages.slice(-1)}
+   * />
+   * ```
+   *
+   * The filter changes the request body only. The transcript the UI renders is
+   * untouched. Broken tool-call pairs are repaired before the request is sent,
+   * so a filter this blunt cannot strand a tool result mid-HITL.
+   *
+   * Agents reached through your CopilotRuntime honor this. An agent your app
+   * passes in directly does not, and neither Intelligence runs nor suggestion
+   * runs are ever filtered.
+   *
+   * Prefer a stable reference (`useCallback`). An inline arrow re-registers the
+   * filter on every render, which is harmless but needless.
+   */
+  messageFilter?: CopilotKitMessageFilter;
   /** Whether the runtime uses a single-route endpoint */
   useSingleEndpoint?: boolean;
   /** Custom properties forwarded to agents */
@@ -79,6 +108,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   runtimeUrl,
   headers: headersProp,
   credentials,
+  messageFilter,
   useSingleEndpoint,
   properties,
   onError,
@@ -115,6 +145,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
             : "auto",
       headers: stableHeaders,
       credentials,
+      messageFilter,
       properties: stableProperties,
       debug,
     });
@@ -140,6 +171,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     );
     copilotkit.setHeaders(stableHeaders);
     copilotkit.setCredentials(credentials);
+    copilotkit.setMessageFilter(messageFilter);
     copilotkit.setProperties(stableProperties);
     copilotkit.setDebug(debug);
   }, [
@@ -147,6 +179,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     useSingleEndpoint,
     stableHeaders,
     credentials,
+    messageFilter,
     stableProperties,
     debug,
     copilotkit,
@@ -232,7 +265,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   return (
     <CopilotKitContext.Provider value={contextValue}>
       <LicenseContext.Provider value={licenseContextValue}>
-        <RenderToolProvider>{children}</RenderToolProvider>
+        {children}
       </LicenseContext.Provider>
     </CopilotKitContext.Provider>
   );

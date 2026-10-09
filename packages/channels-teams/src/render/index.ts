@@ -10,3 +10,4 @@ export {
 } from "./adaptive-card.js";
 export { renderTeamsMarkdown } from "./markdown.js";
 export { createRunRenderer } from "../event-renderer.js";
+export { containsTeamsNative, renderTeamsNativeCard } from "../native-codec.js";
