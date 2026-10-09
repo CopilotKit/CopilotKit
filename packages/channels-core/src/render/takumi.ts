@@ -46,15 +46,10 @@ function toChildren(children: unknown): unknown[] {
 /**
  * Materialize a channels JSX tree to real React elements for Takumi.
  *
- * Under the channels JSX runtime, host tags (`<div>`) are already React
- * elements while component tags (`<MrrCard>`, your card) are
- * `ChannelNode`s — so a host card is a React element whose children may contain
- * component nodes. This walk (only reached on the image path, where react is
- * present):
- *  - React element → rebuilt with its children converted (so a component node
- *    nested inside a host card is materialized);
- *  - component `ChannelNode` → INVOKED, its output converted;
- *  - Fragment → React fragment; primitives pass through.
+ * Host and component nodes from the channels JSX runtime are converted here,
+ * after native rendering has classified the root. Existing React elements are
+ * rebuilt with converted children; channel component nodes are invoked, and
+ * fragments and primitives preserve their shape.
  */
 function toReact(node: unknown): unknown {
   if (node == null || typeof node === "boolean") return null;
@@ -89,8 +84,7 @@ function toReact(node: unknown): unknown {
         ...toChildren(children),
       );
     }
-    // A string-typed node shouldn't reach the image path (host tags are React
-    // elements); render defensively as a host tag.
+    // Host markup from the dependency-free channels JSX runtime.
     return h(
       type,
       key != null ? { ...rest, key } : rest,

@@ -117,13 +117,7 @@ export type ChannelProviderPayload =
       fileHandle: string;
     }
   | {
-      kind: "slack.image.create";
-      fileHandle: string;
-      altText: string;
-      share?: boolean;
-    }
-  | {
-      kind: "teams.image.create";
+      kind: "slack.image.create" | "teams.image.create";
       fileHandle: string;
       altText: string;
     };
@@ -256,6 +250,14 @@ export function assertDeliveryPacket(
     throw new TypeError("delivery payload is invalid");
   }
   if (deliveryPacketByteLength(value) > DELIVERY_PACKET_MAX_BYTES) {
+    if (
+      value.payload.kind.startsWith("teams.message.") &&
+      JSON.stringify(value.payload).includes("data:image/")
+    ) {
+      throw new RangeError(
+        "Teams card snapshots exceed the 64 KiB delivery packet limit. Reduce Render dimensions or post the image separately with thread.post(jsx).",
+      );
+    }
     throw new RangeError("delivery packet exceeds 64 KiB");
   }
 }
@@ -397,16 +399,6 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
         boundedString(value.fileHandle, 1, 128)
       );
     case "slack.image.create":
-      return (
-        hasExactFields(
-          value,
-          ["kind", "fileHandle", "altText", "share"],
-          ["share"],
-        ) &&
-        boundedString(value.fileHandle, 1, 128) &&
-        boundedString(value.altText, 1, 2_000) &&
-        (value.share === undefined || typeof value.share === "boolean")
-      );
     case "teams.image.create":
       return (
         hasExactFields(value, ["kind", "fileHandle", "altText"]) &&

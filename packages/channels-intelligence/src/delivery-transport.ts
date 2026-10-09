@@ -383,17 +383,11 @@ export class ClaimedChannelDelivery {
               `Channel provider effect failed with ${error ?? "provider_failed"}`,
             );
           }
-          const details = parseProviderDeliveryDetails(result.details);
-          // Slack can reject Block Kit slack_file before it finishes processing
-          // the upload. Direct Slack retries that post. Keep this delivery open
-          // so the adapter can send the same blocks again.
-          if (!isUnreadySlackFileDeliveryDetails(details)) {
-            this.effectsClosed = true;
-          }
+          this.effectsClosed = true;
           throw new ChannelProviderDeliveryError(
             error ?? "provider_failed",
             status,
-            details,
+            parseProviderDeliveryDetails(result.details),
           );
         }
         const capabilityError =
@@ -622,21 +616,16 @@ export class ClaimedChannelDelivery {
         // reconnects; permanent non-cleanup failures seal further effects
         // but leave the path open for terminal + stream.stop packets.
         const acknowledgement = await this.sendExactPacket(packet);
-        const sentPacket = this.unacknowledgedPacket ?? packet;
-        this.assertExactAcknowledgement(sentPacket, acknowledgement);
+        this.assertExactAcknowledgement(packet, acknowledgement);
         this.unacknowledgedPacket = undefined;
-        this.nextSeq = sentPacket.seq + 1;
+        this.nextSeq += 1;
         return acknowledgement.result;
       } catch (error) {
         this.unacknowledgedPacket = undefined;
-        const outOfOrder =
-          error instanceof RealtimeGatewayPushError &&
-          error.code === "packet_out_of_order";
         if (
           !isCleanupPacket &&
           !bestEffort &&
-          payload.kind !== "slack.thread.status" &&
-          !outOfOrder
+          payload.kind !== "slack.thread.status"
         ) {
           this.effectsClosed = true;
         }
@@ -691,20 +680,7 @@ export class ClaimedChannelDelivery {
         );
       } catch (error) {
         if (error instanceof ChannelDeliveryStoppedError) throw error;
-        // Redis nextSeq survives join. packet_out_of_order means the push seq
-        // does not match Redis, or the one packet slot is not applied yet.
-        // Rejoin and retry the exact packet. Do not reset seq, and do not
-        // probe other seq values — that mints new packet ids and can leave
-        // nextSeq at the last probe (8) so every later packet also fails.
-        const outOfOrder =
-          error instanceof RealtimeGatewayPushError &&
-          error.code === "packet_out_of_order";
-        if (error instanceof RealtimeGatewayPushError && !outOfOrder) {
-          throw error;
-        }
-        if (outOfOrder && attempt >= 1) {
-          throw error;
-        }
+        if (error instanceof RealtimeGatewayPushError) throw error;
         // Claim/join validation failures are permanent — do not thrash reconnect.
         if (
           error instanceof TypeError ||
@@ -728,7 +704,6 @@ export class ClaimedChannelDelivery {
           refreshed.capabilities,
         );
         pendingPacket = packet;
-        this.unacknowledgedPacket = pendingPacket;
         if (
           packet.payload.kind === "slack.stream.append" &&
           packet.payload.fullText !== undefined &&
@@ -738,7 +713,6 @@ export class ClaimedChannelDelivery {
         ) {
           const { fullText: _fullText, ...legacyPayload } = packet.payload;
           pendingPacket = { ...packet, payload: legacyPayload };
-          this.unacknowledgedPacket = pendingPacket;
         }
       }
     }
@@ -830,16 +804,6 @@ function parseProviderDeliveryDetails(
     return undefined;
   }
   return value as unknown as ChannelProviderDeliveryDetails;
-}
-
-/** Slack rejected a Block Kit slack_file because the upload is not ready yet. */
-export function isUnreadySlackFileDeliveryDetails(
-  details: ChannelProviderDeliveryDetails | undefined,
-): boolean {
-  if (details?.providerCode !== "invalid_blocks") return false;
-  return details.validationMessages.some((message) =>
-    message.includes("slack_file"),
-  );
 }
 
 function restorePreparedTriggerFiles(

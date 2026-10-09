@@ -1,6 +1,5 @@
 import type { ChannelNode } from "@copilotkit/channels-ui";
-import { isChannelComponent } from "@copilotkit/channels-ui";
-import { isReactElement } from "./detect.js";
+import { isChannelComponent, isHostElement } from "@copilotkit/channels-ui";
 
 const INTERACTIVE = new Set(["button", "select", "input", "actions"]);
 const NESTED_SNAPSHOT = new Set(["render", "carousel", "carouselCard"]);
@@ -93,7 +92,7 @@ function walkBannedValue(value: unknown): void {
   const props = typed.props ?? {};
 
   // Host tag on a React element: "button" is HTML, not Channels <Button>.
-  if (isReactElement(value) && typeof t === "string") {
+  if (isHostElement(value) && typeof t === "string") {
     walkBannedValue(props.children);
     return;
   }
@@ -192,7 +191,15 @@ function validateCarousel(node: ChannelNode): void {
 export function validateRenderTree(nodes: readonly ChannelNode[]): void {
   const visit = (node: ChannelNode, inCarousel: boolean): void => {
     const t = typeOf(node);
-    if (t === "render") validateRender(node);
+    if (isHostElement(node)) {
+      throw new Error(
+        "Wrap image JSX in <Render> to mix it with native channel components.",
+      );
+    }
+    if (t === "render") {
+      validateRender(node);
+      return;
+    }
     if (t === "carousel") validateCarousel(node);
     if (t === "carouselCard" && !inCarousel) {
       throw new Error(

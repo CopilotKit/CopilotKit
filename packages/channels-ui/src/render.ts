@@ -1,4 +1,4 @@
-import { Fragment } from "./ir.js";
+import { Fragment, isHostElement } from "./ir.js";
 import type { ChannelNode, Renderable } from "./ir.js";
 import { isNativeNode } from "./native.js";
 
@@ -13,7 +13,10 @@ function expand(node: unknown): ChannelNode[] {
   }
   if (Array.isArray(node)) return node.flatMap(expand);
   if (!isChannelNode(node)) return [];
-  if (node.type === Fragment) return expand(node.props.children);
+  if (isHostElement(node)) return [node];
+  if (node.type === Fragment || node.type === Symbol.for("react.fragment")) {
+    return expand(node.props.children);
+  }
   if (typeof node.type === "function") {
     const expanded = expand(
       (node.type as (p: Record<string, unknown>) => unknown)(node.props),

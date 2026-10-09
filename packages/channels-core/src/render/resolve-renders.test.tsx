@@ -1,7 +1,7 @@
 /** @jsxImportSource @copilotkit/channels-ui */
 import { describe, it, expect, vi } from "vitest";
 import { Message, Header, Render, Carousel } from "@copilotkit/channels-ui";
-import { renderToIR } from "@copilotkit/channels-ui";
+import { renderToIR, isHostElement } from "@copilotkit/channels-ui";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import { resolveRenders } from "./resolve-renders.js";
 import type { ResolvedRenderConfig } from "./config.js";
@@ -53,7 +53,7 @@ describe("resolveRenders", () => {
       $$typeof?: unknown;
     };
     expect(firstJsx.type).toBe("div");
-    expect(firstJsx.$$typeof).toBeDefined();
+    expect(isHostElement(firstJsx)).toBe(true);
     expect(stageFile).toHaveBeenCalledTimes(2);
     expect(stageFile).toHaveBeenNthCalledWith(1, {
       altText: "a",

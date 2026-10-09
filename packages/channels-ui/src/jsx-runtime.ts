@@ -1,74 +1,21 @@
-import { createRequire } from "node:module";
-import { Fragment } from "./ir.js";
+import { Fragment, HOST_ELEMENT } from "./ir.js";
 import type { ChannelNode } from "./ir.js";
 export { Fragment };
 
-/**
- * `react` is an OPTIONAL peer dependency, needed ONLY when you author host/
- * intrinsic tags (`<div>`, `<span>`, `<svg>`, …) in channel JSX. Those are app
- * markup for the image-render path, and are compiled to REAL React elements so
- * they're distinguishable (via `$$typeof`) from the string-typed channel
- * vocabulary (`{type: "section"}`, which stays native). Channel-component JSX
- * (`<Message>`, `<BarChart>`, …) is function-typed and never needs react — it
- * produces {@link ChannelNode}s. We resolve react's jsx-runtime lazily on first
- * host-tag use so channel-only, react-free deployments keep working.
- */
-type JsxFn = (type: unknown, props: unknown, key?: unknown) => unknown;
-let reactRuntime: { jsx: JsxFn; jsxs: JsxFn } | null | undefined;
-function react(): { jsx: JsxFn; jsxs: JsxFn } {
-  if (reactRuntime === undefined) {
-    try {
-      reactRuntime = createRequire(import.meta.url)("react/jsx-runtime");
-    } catch {
-      reactRuntime = null;
-    }
-  }
-  if (!reactRuntime) {
-    throw new Error(
-      "Rendering host elements (e.g. <div>) in channel JSX requires `react` — " +
-        "it is an optional peer dependency of @copilotkit/channels-ui used for the " +
-        "image-render path. Install `react` (and `takumi-js`) to post JSX as images.",
-    );
-  }
-  return reactRuntime;
-}
-
-function channelNode(
-  type: ChannelNode["type"],
-  props: Record<string, unknown> | null,
-  key?: string | number,
-): ChannelNode {
-  return { type, props: props ?? {}, key };
-}
-
-/**
- * A host tag (string type) → a real React element (image path); a component or
- * Fragment → a {@link ChannelNode} (native path, or peeked/converted to the
- * image path). The React element is typed as `ChannelNode` to keep
- * {@link JSX.Element} uniform — `thread.post` and the runtime detection classify
- * by the *runtime* value, so the compile-time type is intentionally loose.
- */
+/** Keep native JSX dependency-free; only the lazy image renderer needs React. */
 export function jsx(
   type: string | ((props: never) => unknown) | symbol,
   props: Record<string, unknown> | null,
   key?: string | number,
 ): ChannelNode {
-  if (typeof type === "string") {
-    return react().jsx(type, props, key) as ChannelNode;
-  }
-  return channelNode(type as ChannelNode["type"], props, key);
+  return {
+    type: type as ChannelNode["type"],
+    props: props ?? {},
+    key,
+    ...(typeof type === "string" ? { [HOST_ELEMENT]: true } : {}),
+  };
 }
-
-export function jsxs(
-  type: string | ((props: never) => unknown) | symbol,
-  props: Record<string, unknown> | null,
-  key?: string | number,
-): ChannelNode {
-  if (typeof type === "string") {
-    return react().jsxs(type, props, key) as ChannelNode;
-  }
-  return channelNode(type as ChannelNode["type"], props, key);
-}
+export const jsxs = jsx;
 
 /** What can nest inside a host tag: other elements, text, numbers, conditionals. */
 type HostChild =
@@ -99,9 +46,8 @@ export namespace JSX {
    * every function component's return type to be assignable to {@link Element}
    * — which breaks arbitrary app/React components (e.g. a presentational card
    * that returns a real `ReactElement`) authored directly as JSX
-   * under this pragma. Those are intentionally unbranded: `thread.post` peeks
-   * at their output at runtime and routes them to the image path (see
-   * `resolveArbitraryElement` in @copilotkit/channels-core render/detect).
+   * under this pragma. Those are intentionally unbranded: `thread.post` expands
+   * them once and routes host markup to the image path.
    */
   export type ElementType = string | symbol | ((props: never) => unknown);
   /** Tells TypeScript which prop receives nested children. */

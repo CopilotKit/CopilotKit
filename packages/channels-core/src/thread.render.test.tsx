@@ -49,6 +49,17 @@ const mixedUi = (
 );
 
 describe("Thread.post / update Render trees", () => {
+  it("rejects nested host markup instead of silently dropping it", async () => {
+    const adapter = new FakeAdapter();
+    await expect(
+      makeThread(adapter).post(
+        <Message>
+          <div>Preview</div>
+        </Message>,
+      ),
+    ).rejects.toThrow(/Wrap image JSX in <Render>/);
+    expect(adapter.posted).toHaveLength(0);
+  });
   it("posts a mixed Message+Render tree through stageFile, not postFile", async () => {
     const adapter = new FakeAdapter();
     const staged: string[] = [];
@@ -75,21 +86,20 @@ describe("Thread.post / update Render trees", () => {
     expect(collect(adapter.posted[0]!, "render")).toHaveLength(0);
   });
 
-  it("pings keepAlive before Takumi stages a Render tree", async () => {
+  it("does not bind application callbacks inside a snapshot", async () => {
     const adapter = new FakeAdapter();
-    const order: string[] = [];
-    adapter.keepAlive = async () => {
-      order.push("keep");
-    };
-    adapter.stageFile = async () => {
-      order.push("stage");
-      return { fileId: "F-staged" };
-    };
-    const thread = makeThread(adapter);
-
-    await thread.post(mixedUi);
-
-    expect(order).toEqual(["keep", "stage"]);
+    adapter.stageFile = async () => ({ fileId: "F-staged" });
+    const onClick = vi.fn();
+    const snapshot = createElement("button", { onClick }, "Preview");
+    const renderImage = vi.fn(
+      async (_node: unknown, _cfg: unknown) => new Uint8Array([1]),
+    );
+    await makeThread(adapter, renderImage).post(
+      <Render alt="preview">{snapshot as never}</Render>,
+    );
+    expect(renderImage.mock.calls[0]?.[0]).toBe(snapshot);
+    expect(snapshot.props.onClick).toBe(onClick);
+    expect(onClick).not.toHaveBeenCalled();
   });
 
   it("throws when stageFile is missing and the tree has Render", async () => {

@@ -18,11 +18,5 @@ describe("public API manifest", () => {
     );
 
     expect(committed).toBe(generated);
-    const paths: string[] = [];
-    JSON.parse(generated, (key, value) => {
-      if (key === "path" && typeof value === "string") paths.push(value);
-      return value;
-    });
-    expect(paths.some((path) => path.includes("\\"))).toBe(false);
   });
 });

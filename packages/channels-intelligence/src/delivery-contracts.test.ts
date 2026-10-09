@@ -76,34 +76,6 @@ test("accepts valid provider payload numbers without a cross-language digest", (
   expect(() => assertDeliveryPacket(numericPacket)).not.toThrow();
 });
 
-test("accepts an unshared Slack image stage packet", () => {
-  expect(() =>
-    assertDeliveryPacket({
-      ...packet(),
-      payload: {
-        kind: "slack.image.create",
-        fileHandle: "fileref_hat01",
-        altText: "Hat",
-        share: false,
-      },
-    }),
-  ).not.toThrow();
-});
-
-test("rejects Teams image create with a Slack share flag", () => {
-  expect(() =>
-    assertDeliveryPacket({
-      ...packet(),
-      payload: {
-        kind: "teams.image.create",
-        fileHandle: "fileref_hat01",
-        altText: "Hat",
-        share: false,
-      },
-    }),
-  ).toThrow("delivery payload is invalid");
-});
-
 test("accepts a distinct Teams final effect for priority rate gating", () => {
   expect(() =>
     assertDeliveryPacket({
@@ -299,4 +271,26 @@ test("rejects packets over 64 KiB", () => {
       },
     }),
   ).toThrow("delivery packet exceeds 64 KiB");
+});
+
+test("Teams inline images share the whole packet budget, including multiple slides", () => {
+  const image = {
+    type: "Image",
+    url: `data:image/png;base64,${"A".repeat(33 * 1024)}`,
+  };
+  const payload = {
+    kind: "teams.message.create",
+    text: "Preview",
+    cards: [{ type: "AdaptiveCard", body: [image] }],
+  };
+  expect(() => assertDeliveryPacket({ ...packet(), payload })).not.toThrow();
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: {
+        ...payload,
+        cards: [{ type: "AdaptiveCard", body: [image, image] }],
+      },
+    }),
+  ).toThrow(/64 KiB.*thread.post/);
 });

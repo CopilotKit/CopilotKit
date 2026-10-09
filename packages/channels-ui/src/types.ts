@@ -273,10 +273,9 @@ export type MessageReactionHandler = (
 ) => void | Promise<void>;
 
 /**
- * A React element (or React-element-shaped object) recognized structurally by
- * its `$$typeof` brand (see `resolveArbitraryElement` in
- * @copilotkit/channels-core render/detect). Channel-core routes these to the
- * image path.
+ * A React element (or React-element-shaped object) accepted by `thread.post`.
+ * Components are expanded before routing: native channel output stays native,
+ * while host markup becomes an image on a managed Slack or Teams channel.
  *
  * Deliberately structural and loose, mirroring Takumi's own `ReactElementLike`:
  * React's public `ReactElement` type does NOT declare `$$typeof` (it's an

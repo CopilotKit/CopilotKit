@@ -346,6 +346,9 @@ export interface StageFileArgs {
 }
 
 export interface PlatformAdapter {
+  /** Opt in to standalone JSX image posts. Managed Slack and Teams provide this. */
+  readonly supportsJsxImages?: boolean;
+
   readonly platform: string;
   readonly capabilities: SurfaceCapabilities;
   readonly ackDeadlineMs: number;
@@ -431,11 +434,6 @@ export interface PlatformAdapter {
    * Adapters that omit it leave image-hosting to the caller.
    */
   stageFile?(target: ReplyTarget, args: StageFileArgs): Promise<StagedFile>;
-  /**
-   * Optional best-effort ping before a long local render (Takumi). Managed
-   * Slack uses this so the Intelligence packet slot stays applied.
-   */
-  keepAlive?(target: ReplyTarget): Promise<void>;
   /**
    * Optional slash-command support. Called once on `start()` with the channel's
    * declared commands, so a surface that registers commands up front (e.g.

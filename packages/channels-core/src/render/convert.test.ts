@@ -4,6 +4,7 @@ import { PNG } from "pngjs";
 import { renderJsxToPng } from "./takumi.js";
 import { resolveArbitraryElement } from "./detect.js";
 import { defaultAllowImageUrl } from "./url-policy.js";
+import { renderToIR } from "@copilotkit/channels-ui";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 
 const cfg = {
@@ -48,12 +49,14 @@ function countPalettePixels(png: Buffer): number {
 describe("detect: host React elements vs string-typed channel vocab", () => {
   it("a host React element → image", () => {
     expect(
-      resolveArbitraryElement(createElement("div", null, "hi")),
+      resolveArbitraryElement(
+        renderToIR(createElement("div", null, "hi") as never),
+      ),
     ).toBeTruthy();
   });
   it("a string-typed channel node (<Section> output) → native", () => {
     expect(
-      resolveArbitraryElement({ type: "section", props: {} } as ChannelNode),
+      resolveArbitraryElement([{ type: "section", props: {} } as ChannelNode]),
     ).toBeNull();
   });
 });

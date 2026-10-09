@@ -254,12 +254,11 @@ export class Thread implements ThreadInterface {
       );
     }
     const g = this.deps.render ?? {};
-    await this.deps.adapter.keepAlive?.(this.deps.replyTarget);
     return resolveRenders(roots, {
       renderJsxToPng: this.deps.renderImage ?? defaultRenderImage,
       stageFile: (args) =>
         this.deps.adapter.stageFile!(this.deps.replyTarget, args),
-      defaultWidth: 800,
+      defaultWidth: g.width ?? 800,
       defaultHeight: g.height ?? 480,
       fonts: g.fonts,
       stylesheets: g.stylesheets,
@@ -316,9 +315,9 @@ export class Thread implements ThreadInterface {
     opts?: PostImageOptions,
   ): Promise<MessageRef> {
     return this.trackOperation(async () => {
-      const el = resolveArbitraryElement(ui);
-      if (el) return this.postImage(el, opts);
       const bound = await this.bindForPost(ui as Renderable);
+      const el = resolveArbitraryElement(bound.root);
+      if (el) return this.postImage(el, opts);
       const ir = await this.prepareNative(bound.root);
       const ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
       await this.bindReaction(ref.id, bound);
@@ -334,6 +333,11 @@ export class Thread implements ThreadInterface {
     node: unknown,
     opts?: PostImageOptions,
   ): Promise<MessageRef> {
+    if (!this.deps.adapter.supportsJsxImages) {
+      throw new Error(
+        "JSX image posts require a managed Slack or Teams channel.",
+      );
+    }
     // Fail fast BEFORE the (expensive) render if the surface can't upload files
     // at all — no point rasterizing a PNG we could never post.
     if (!this.deps.adapter.postFile) {
@@ -397,12 +401,12 @@ export class Thread implements ThreadInterface {
 
   update(ref: MessageRef, ui: Renderable): Promise<MessageRef> {
     return this.trackOperation(async () => {
-      if (resolveArbitraryElement(ui)) {
+      const bound = await this.bindForPost(ui);
+      if (resolveArbitraryElement(bound.root)) {
         throw new Error(
           "thread.update does not support arbitrary JSX (an image post can't be edited in place). Post a new image instead.",
         );
       }
-      const bound = await this.bindForPost(ui);
       const ir = await this.prepareNative(bound.root);
       await this.deps.adapter.update(ref, ir);
       await this.bindReaction(ref.id, bound);
@@ -520,11 +524,6 @@ export class Thread implements ThreadInterface {
     opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null> {
     return this.trackOperation(async () => {
-      if (resolveArbitraryElement(ui)) {
-        throw new Error(
-          "thread.postEphemeral does not support arbitrary JSX. Post an image with thread.post, or pass channel components.",
-        );
-      }
       const adapter = this.deps.adapter;
       if (!adapter.postEphemeral) {
         return {
@@ -532,9 +531,15 @@ export class Thread implements ThreadInterface {
           error: `${this.platform} does not support ephemeral messages`,
         };
       }
+      const bound = await this.bindForPost(ui);
+      if (resolveArbitraryElement(bound.root)) {
+        throw new Error(
+          "thread.postEphemeral does not support arbitrary JSX. Post an image with thread.post, or pass channel components.",
+        );
+      }
       // Ephemeral messages can't be reacted to, so any `onReaction` is dropped
       // (stripped by bindForPost) rather than registered.
-      const { root } = await this.bindForPost(ui);
+      const { root } = bound;
       return adapter.postEphemeral(this.deps.replyTarget, user, root, opts);
     });
   }
@@ -641,21 +646,22 @@ export class Thread implements ThreadInterface {
     if (this.supportsBlockingChoice === false) {
       return Promise.reject(new ChannelAwaitChoiceNotSupportedError());
     }
-    if (resolveArbitraryElement(ui)) {
-      return Promise.reject(
-        new Error(
-          "thread.awaitChoice does not support arbitrary JSX — it needs interactive channel components (e.g. Button/Select). Use thread.post to send an image.",
-        ),
-      );
-    }
     return this.trackOperation(async () => {
+      const bound = await this.bindForPost(ui);
+      if (resolveArbitraryElement(bound.root)) {
+        throw new Error(
+          "thread.awaitChoice does not support arbitrary JSX — use native channel components.",
+        );
+      }
+      const ir = await this.prepareNative(bound.root);
       const p = new Promise<T>((resolve) =>
         this.deps.registerWaiter(
           this.deps.conversationKey,
           resolve as (value: unknown) => void,
         ),
       );
-      await this.post(ui);
+      const ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
+      await this.bindReaction(ref.id, bound);
       return p;
     });
   }

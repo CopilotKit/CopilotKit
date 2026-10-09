@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { createElement } from "react";
-import { Message } from "@copilotkit/channels-ui";
+import { createElement, Fragment } from "react";
+import { Message, Button } from "@copilotkit/channels-ui";
 import { Thread } from "./thread.js";
 import type { ThreadDeps } from "./thread.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
@@ -178,4 +178,70 @@ describe("Thread.post image routing", () => {
     expect(filePosts[0]).toMatchObject({ filename: "image.png" });
     expect(ref.id).toBe("M2");
   });
+});
+
+describe("native posting compatibility", () => {
+  it("renders native components once per operation and never caches their output", async () => {
+    const adapter = new FakeAdapter();
+    const renderImage = vi.fn(async () => new Uint8Array());
+    const native = vi.fn((props: Record<string, unknown>) =>
+      Message({ children: String(props.title) }),
+    );
+    const ui = { type: native, props: { title: "First" } };
+    const thread = makeThread(adapter, renderImage);
+    await thread.post(ui);
+    expect(native).toHaveBeenCalledTimes(1);
+    ui.props.title = "Second";
+    await thread.update({ id: "m1" }, ui);
+    expect(native).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(adapter.updated[0]?.ir)).toContain("Second");
+    expect(renderImage).not.toHaveBeenCalled();
+  });
+
+  it("keeps React-wrapped native buttons interactive through post and update", async () => {
+    const adapter = new FakeAdapter();
+    const renderImage = vi.fn(async () => new Uint8Array());
+    const onClick = vi.fn();
+    const Card = () =>
+      Message({ children: Button({ children: "Approve", onClick }) });
+    const Wrapper = () =>
+      createElement(Fragment, null, createElement(Card as never));
+    const thread = makeThread(adapter, renderImage);
+    const ui = createElement(Wrapper);
+    await thread.post(ui);
+    await thread.update({ id: "m1" }, ui as never);
+    expect(renderImage).not.toHaveBeenCalled();
+    for (const ir of [adapter.posted[0], adapter.updated[0]?.ir]) {
+      expect(ir).toMatchObject([
+        {
+          type: "message",
+          props: {
+            children: [
+              {
+                type: "button",
+                props: { onClick: { id: expect.any(String) } },
+              },
+            ],
+          },
+        },
+      ]);
+    }
+  });
+});
+
+it("requires an image capability without changing direct postFile", async () => {
+  const adapter = new FakeAdapter();
+  adapter.supportsJsxImages = false;
+  const postFile = vi.fn(async () => ({ ok: true }));
+  adapter.postFile = postFile;
+  const renderImage = vi.fn(async () => new Uint8Array([1]));
+  const thread = makeThread(adapter, renderImage);
+  await expect(
+    thread.post(createElement("div", null, "Preview")),
+  ).rejects.toThrow(/managed Slack or Teams/);
+  expect(renderImage).not.toHaveBeenCalled();
+  expect(postFile).not.toHaveBeenCalled();
+  await expect(
+    thread.postFile({ bytes: new Uint8Array([1]), filename: "old.png" }),
+  ).resolves.toEqual({ ok: true });
 });
