@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { join } from "node:path";
 import { createCredentials } from "./credentials.mjs";
@@ -22,6 +22,56 @@ const imageReference = (image) =>
   image.digest
     ? `${image.repository}@${image.digest}`
     : `${image.repository}:${image.tag}`;
+
+/**
+ * Load candidate images into the node's containerd and wait for `ctr` to exit.
+ * `k3d image import` is avoided: it can report success before `ctr` has even
+ * started, because it reads Docker's not-yet-set exec exit code as 0, and then
+ * deletes the tarball under the pending import.
+ */
+export async function importCandidateImages({
+  candidate,
+  node,
+  directory,
+  run,
+}) {
+  const archive = join(directory, "candidate-images.tar");
+  const target = "/tmp/candidate-images.tar";
+  try {
+    await run(
+      "docker",
+      ["image", "save", "--output", archive, ...candidate.dockerImages],
+      { step: "candidate-save", timeoutMs: 600_000 },
+    );
+    await run("docker", ["cp", archive, `${node}:${target}`], {
+      step: "candidate-copy",
+      timeoutMs: 600_000,
+    });
+  } finally {
+    await rm(archive, { force: true });
+  }
+  // Same flags as k3d, so attestation manifests stay inspectable.
+  await run(
+    "docker",
+    [
+      "exec",
+      node,
+      "ctr",
+      "--namespace",
+      "k8s.io",
+      "images",
+      "import",
+      "--all-platforms",
+      target,
+    ],
+    { step: "candidate-import", timeoutMs: 600_000 },
+  );
+  // A failed import leaves the tarball to the cluster deletion in stop().
+  await run("docker", ["exec", node, "rm", "-f", target], {
+    step: "candidate-import-cleanup",
+    timeoutMs: 60_000,
+  });
+}
 
 /** Match imported content to Docker's config, manifest, or index image identity. */
 export async function verifyCandidateImports({ candidate, node, run }) {
@@ -492,11 +542,7 @@ export function createStack({
       );
       await owned();
       if (candidate) {
-        await run(
-          k3d,
-          ["image", "import", ...candidate.dockerImages, "--cluster", id],
-          { step: "candidate-import", timeoutMs: 600_000 },
-        );
+        await importCandidateImages({ candidate, node, directory, run });
         candidateImages = await verifyCandidateImports({
           candidate,
           node,

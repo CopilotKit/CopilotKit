@@ -13,7 +13,7 @@ https://github.com/user-attachments/assets/3c60c2b8-5ccd-42f0-817f-0e5e22398a48
 - **Human-in-the-Loop (HITL)** - Approve/reject AI actions before execution
 - **Generative UI** - Real-time tool execution feedback in chat
 - **Dynamic API Keys** - Pass API keys from frontend to agent at runtime
-- **Image Generation** - Using Gemini 3 and Nano Banana (gemini-2.5-flash-image)
+- **Image Generation** - Using Gemini 3 and Nano Banana 2 (gemini-3.1-flash-image)
 
 ## Demo Features
 
@@ -151,13 +151,13 @@ See [agent/DEPLOY.md](agent/DEPLOY.md) for detailed deployment guide.
 
 ## Tech Stack
 
-| Layer          | Technology                           |
-| -------------- | ------------------------------------ |
-| Frontend       | Next.js 16, React 19, Tailwind CSS 4 |
-| AI Integration | CopilotKit 1.10.6                    |
-| Agent          | Python, LangGraph 0.6.6              |
-| LLM            | Gemini 3 Pro Preview                 |
-| Image Gen      | Nano Banana (gemini-2.5-flash-image) |
+| Layer          | Technology                             |
+| -------------- | -------------------------------------- |
+| Frontend       | Next.js 16, React 19, Tailwind CSS 4   |
+| AI Integration | CopilotKit 1.10.6                      |
+| Agent          | Python, LangGraph 0.6.6                |
+| LLM            | Gemini 3 Pro Preview                   |
+| Image Gen      | Nano Banana 2 (gemini-3.1-flash-image) |
 
 ## Learn More
 
