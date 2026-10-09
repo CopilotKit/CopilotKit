@@ -35,7 +35,7 @@ test.each(["development", "production"])(
   },
 );
 
-test("passes the default anchor and follows later changes", async () => {
+test("passes the default anchor, follows changes and restores the default", async () => {
   const wrapper = mount(CopilotKitInspector, {
     props: { defaultAnchor: { horizontal: "left", vertical: "bottom" } },
   });
@@ -59,6 +59,12 @@ test("passes the default anchor and follows later changes", async () => {
     };
     expect(inspector.defaultAnchor).toEqual({
       horizontal: "left",
+      vertical: "top",
+    });
+
+    await wrapper.setProps({ defaultAnchor: undefined });
+    expect(inspector.defaultAnchor).toEqual({
+      horizontal: "right",
       vertical: "top",
     });
   } finally {

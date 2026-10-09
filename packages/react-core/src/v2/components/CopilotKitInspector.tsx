@@ -98,16 +98,15 @@ export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
   }, [core]);
 
   // Keyed on the corner, not the object, so an inline literal does not
-  // re-apply it on every render.
+  // re-apply it on every render. Removing the prop goes back to top right.
   const anchorHorizontal = defaultAnchor?.horizontal;
   const anchorVertical = defaultAnchor?.vertical;
   React.useEffect(() => {
-    if (inspectorRef.current && anchorHorizontal && anchorVertical) {
-      inspectorRef.current.defaultAnchor = {
-        horizontal: anchorHorizontal,
-        vertical: anchorVertical,
-      };
-    }
+    if (!inspectorRef.current) return;
+    inspectorRef.current.defaultAnchor =
+      anchorHorizontal && anchorVertical
+        ? { horizontal: anchorHorizontal, vertical: anchorVertical }
+        : { horizontal: "right", vertical: "top" };
   }, [anchorHorizontal, anchorVertical]);
 
   React.useEffect(() => {

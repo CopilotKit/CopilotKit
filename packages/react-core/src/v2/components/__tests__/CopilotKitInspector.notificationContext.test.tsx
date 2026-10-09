@@ -34,7 +34,7 @@ test.each(["development", "production"])(
   },
 );
 
-test("passes the default anchor and follows later changes", async () => {
+test("passes the default anchor, follows changes and restores the default", async () => {
   const { rerender } = render(
     <CopilotKitInspector
       defaultAnchor={{ horizontal: "left", vertical: "bottom" }}
@@ -60,6 +60,12 @@ test("passes the default anchor and follows later changes", async () => {
     | null;
   expect(inspector?.defaultAnchor).toEqual({
     horizontal: "left",
+    vertical: "top",
+  });
+
+  rerender(<CopilotKitInspector />);
+  expect(inspector?.defaultAnchor).toEqual({
+    horizontal: "right",
     vertical: "top",
   });
 });

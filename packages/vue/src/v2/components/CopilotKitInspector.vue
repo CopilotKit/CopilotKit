@@ -75,15 +75,16 @@ watch(
 );
 
 // Keyed on the corner, not the object, so an inline literal does not re-apply
-// it on every render.
+// it on every render. Removing the prop goes back to top right.
 watch(
   () =>
     props.defaultAnchor &&
     `${props.defaultAnchor.vertical}-${props.defaultAnchor.horizontal}`,
   () => {
-    if (inspector.value && props.defaultAnchor) {
-      inspector.value.defaultAnchor = { ...props.defaultAnchor };
-    }
+    if (!inspector.value) return;
+    inspector.value.defaultAnchor = props.defaultAnchor
+      ? { ...props.defaultAnchor }
+      : { horizontal: "right", vertical: "top" };
   },
 );
 
