@@ -290,6 +290,91 @@ describe("strict snapshot and policy validation", () => {
     ).toBe(true);
   });
   it.each([
+    "ghcr.io/fixture__images/nested/app",
+    "ghcr.io/fixture--images/nested/app",
+    "registry.example:5000/team/image__server",
+    "registry.example/team/image---server",
+  ])(
+    "classifies an approved immutable repository with Docker separators: %s",
+    (repository) => {
+      const image = `${repository}@sha256:${"a".repeat(64)}`;
+      const approvedPolicy = { ...policy, approvedImages: [image] };
+      expect(parseRailwayLifecyclePolicy(approvedPolicy)).toEqual({
+        ok: true,
+        value: approvedPolicy,
+      });
+      const snapshot = {
+        schemaVersion: 1,
+        runs: [
+          record({
+            services: [
+              { name: "app-api", serviceId: "service", expectedImage: image },
+            ],
+          }),
+        ],
+      };
+      expect(parseRunRecordsSnapshot(snapshot, approvedPolicy, NOW)).toEqual({
+        ok: true,
+        value: snapshot,
+      });
+      const result = classify({
+        policy: approvedPolicy,
+        evidence: { status: "valid", snapshot },
+        services: [observed({ image })],
+      });
+      expect(result.failures).toEqual([]);
+      expect(result.services[0].classification).toBe("owned-disposable");
+      expect(result.excludedServices).toEqual([
+        {
+          projectId: "project",
+          environmentId: "disposable-env",
+          serviceId: "service",
+        },
+      ]);
+    },
+  );
+  it.each([
+    `registry.example/team/image___server@sha256:${"a".repeat(64)}`,
+    `registry.example/team/-image@sha256:${"a".repeat(64)}`,
+    `registry.example/team/image-@sha256:${"a".repeat(64)}`,
+    `registry.example/_team/image@sha256:${"a".repeat(64)}`,
+    `registry.example/team_/image@sha256:${"a".repeat(64)}`,
+    `registry.example/team/image._server@sha256:${"a".repeat(64)}`,
+    "registry.example/team/image--server:latest",
+    "registry.example/team/image__server:1.0.0",
+    `registry.example/team/image--server@sha256:${"a".repeat(63)}`,
+    `registry.example/team/image__server@sha256:${"a".repeat(65)}`,
+    `registry.example/team/image--server@sha256:${"A".repeat(64)}`,
+    `image--server@sha256:${"a".repeat(64)}`,
+  ])("rejects a malformed or mutable approved image: %s", (image) => {
+    expect(
+      parseRailwayLifecyclePolicy({ ...policy, approvedImages: [image] }),
+    ).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-approved-image" }],
+    });
+  });
+  it("does not grant ownership for an unapproved pin with valid Docker separators", () => {
+    const image = `registry.example/team/image__server@sha256:${"a".repeat(64)}`;
+    const run = record({
+      services: [
+        { name: "app-api", serviceId: "service", expectedImage: image },
+      ],
+    });
+    expect(parse(run)).toMatchObject({
+      ok: false,
+      issues: [{ code: "unapproved-image" }],
+    });
+    const result = classify({
+      evidence: evidence(run),
+      services: [observed({ image })],
+    });
+    expect(result.excludedServices).toEqual([]);
+    expect(result.failures).toContainEqual(
+      expect.objectContaining({ code: "unapproved-image" }),
+    );
+  });
+  it.each([
     ["missing service ID", { services: [{ name: "api", expectedImage: PIN }] }],
     ["blank ID", { environmentId: " " }],
     ["foreign project", { projectId: "foreign" }],
