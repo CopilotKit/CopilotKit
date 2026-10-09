@@ -3,22 +3,13 @@
 import Image from "next/image";
 import React, { useEffect, useId, useRef, useState } from "react";
 import { Check, Copy, Eye, X } from "lucide-react";
-import type { PromptApp } from "@/lib/launch-prompt";
-import { launchPrompt } from "@/lib/launch-prompt";
 import {
   PROMPT_DESTINATION_HINT,
-  PROMPT_LAUNCH_NOTE,
-  PROMPT_LAUNCH_NOTE_MS,
   PROMPT_PHONE_HINT,
 } from "@/lib/prompt-guidance";
 import "./prompt-pill.css";
 
-export type PromptAction =
-  | "copy"
-  | "open_claude"
-  | "open_codex"
-  | "view_prompt"
-  | "copy_preview";
+export type PromptAction = "copy" | "view_prompt" | "copy_preview";
 
 export interface PromptPayload {
   text: string;
@@ -54,14 +45,12 @@ export function PromptPill({
   surface?: string;
 } & React.ComponentProps<"button">): React.JSX.Element {
   const [copied, setCopied] = useState(false);
-  const [launched, setLaunched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [preview, setPreview] = useState<PromptPayload | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLElement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const launchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const generation = useRef(0);
   const pending = useRef<PromptPayload | null>(null);
   const mounted = useRef(true);
@@ -73,20 +62,8 @@ export function PromptPill({
       mounted.current = false;
       generation.current += 1;
       if (timer.current) clearTimeout(timer.current);
-      if (launchTimer.current) clearTimeout(launchTimer.current);
     };
   }, []);
-
-  /** Shows or hides the app-click note; it hides itself after a while. */
-  function showLaunchNote(show: boolean): void {
-    if (launchTimer.current) clearTimeout(launchTimer.current);
-    launchTimer.current = null;
-    setLaunched(show);
-    if (!show) return;
-    launchTimer.current = setTimeout(() => {
-      if (mounted.current) setLaunched(false);
-    }, PROMPT_LAUNCH_NOTE_MS);
-  }
 
   useEffect(() => {
     if (preview) dialog.current?.showModal();
@@ -150,12 +127,11 @@ export function PromptPill({
     }
   }
 
-  /** Copy from a direct control; internal app writes do not create copy intents. */
+  /** Copy from a direct control. */
   function copyFromControl(
     payload: PromptPayload,
     action: "copy" | "copy_preview",
   ): void {
-    showLaunchNote(false);
     recordAction(payload, action);
     copy(payload, action);
   }
@@ -163,44 +139,12 @@ export function PromptPill({
   /** Show exactly the payload associated with this preview action. */
   function viewPrompt(): void {
     const payload = createPrompt();
-    showLaunchNote(false);
     recordAction(payload, "view_prompt");
     showPrompt(payload);
   }
 
-  /** Dispatch before any asynchronous clipboard operation loses activation. */
-  function openApp(app: PromptApp): void {
-    const payload = pending.current ?? createPrompt();
-    const action = app === "claude" ? "open_claude" : "open_codex";
-    recordAction(payload, action);
-    if (app === "claude" && payload.text.length > 5000) {
-      setMessage(
-        "This prompt is too long for the Claude app link. Copy it below.",
-      );
-      showPrompt(payload);
-      return;
-    }
-    try {
-      launchPrompt(app, payload.text);
-      setMessage(
-        `${app === "claude" ? "Claude" : "Codex"} launch requested. If it did not open, copy the prompt.`,
-      );
-    } catch {
-      setMessage("The app link could not open. Copy the prompt below.");
-      showPrompt(payload);
-    }
-    // The note says the prompt is copied, so it waits for the copy.
-    void copy(payload, action).then((ok) => {
-      if (ok && mounted.current) showLaunchNote(true);
-    });
-  }
-
   return (
-    <div
-      className="prompt-pill not-prose"
-      data-docs-copy-surface={surface}
-      data-launched={launched ? "" : undefined}
-    >
+    <div className="prompt-pill not-prose" data-docs-copy-surface={surface}>
       <div className="prompt-pill-dock" role="group" aria-label="Agent prompt">
         <button
           {...props}
@@ -218,41 +162,40 @@ export function PromptPill({
             <Copy aria-hidden="true" />
           )}
           <span>Copy Prompt</span>
+          {/* Say that the prompt belongs in a coding agent. Decoration only:
+              the logos open nothing, and a click on them copies (PE-381). */}
+          <span className="prompt-pill-logos" aria-hidden="true">
+            <span className="prompt-pill-divider" />
+            <Image
+              unoptimized
+              src="/images/prompt-claude.webp"
+              alt=""
+              width={18}
+              height={18}
+            />
+            <Image
+              unoptimized
+              src="/images/prompt-codex.webp"
+              alt=""
+              width={18}
+              height={18}
+            />
+          </span>
         </button>
-        <span className="prompt-pill-divider" aria-hidden="true" />
+        {/* A touch screen cannot hover to reveal the shelf, so View prompt
+            sits in the pill, as on the Intelligence Home. CSS shows this or
+            the shelf from the first paint; only one is ever displayed. */}
         <button
           type="button"
-          className="prompt-pill-app"
-          aria-label="Open in Claude Code"
-          title="Open in Claude Code"
-          onClick={() => openApp("claude")}
+          className="prompt-pill-view"
+          aria-label="View prompt"
+          title="View prompt"
+          onClick={viewPrompt}
         >
-          <Image
-            unoptimized
-            src="/images/prompt-claude.webp"
-            alt=""
-            width={18}
-            height={18}
-          />
-        </button>
-        <button
-          type="button"
-          className="prompt-pill-app"
-          aria-label="Open in Codex"
-          title="Open in Codex"
-          onClick={() => openApp("codex")}
-        >
-          <Image
-            unoptimized
-            src="/images/prompt-codex.webp"
-            alt=""
-            width={18}
-            height={18}
-          />
+          <Eye aria-hidden="true" />
         </button>
       </div>
       <div className="prompt-pill-shelf">
-        {launched && <p className="prompt-pill-note">{PROMPT_LAUNCH_NOTE}</p>}
         <button type="button" onClick={viewPrompt}>
           <Eye aria-hidden="true" />
           View prompt
@@ -284,12 +227,7 @@ export function PromptPill({
             value={preview.text}
             onFocus={(event) => event.currentTarget.select()}
           />
-          <p>
-            {message.startsWith("Copy blocked") ||
-            message.startsWith("This prompt")
-              ? message
-              : ""}
-          </p>
+          <p>{message.startsWith("Copy blocked") ? message : ""}</p>
           <button
             type="button"
             className="prompt-pill-dialog-copy"

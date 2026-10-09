@@ -6,7 +6,10 @@ import {
   INSPECTOR_DISMISSAL_MAX_DURATION_MS,
   INSPECTOR_DISMISSAL_MIRROR_KEY,
   loadInspectorDismissedUntil,
+  loadInspectorState,
+  saveInspectorDismissedForever,
   saveInspectorDismissedUntil,
+  saveInspectorState,
 } from "../persistence.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -50,7 +53,7 @@ test("expires the dismissal and removes its fallback state", () => {
   expect(document.cookie).not.toContain(`${INSPECTOR_DISMISSAL_COOKIE_NAME}=`);
 });
 
-test("limits Inspector dismissals to the supported one-week duration", () => {
+test("limits Inspector dismissals to the supported maximum duration", () => {
   const requestedUntil = NOW + INSPECTOR_DISMISSAL_MAX_DURATION_MS * 2;
   const maximumUntil = NOW + INSPECTOR_DISMISSAL_MAX_DURATION_MS;
   saveInspectorDismissedUntil(requestedUntil, NOW);
@@ -84,7 +87,35 @@ test("bounds an untrusted host cookie and rewrites both persistence layers", () 
   expect(loadInspectorDismissedUntil(NOW)).toBe(maximumUntil);
 });
 
-import { loadInspectorState, saveInspectorState } from "../persistence.js";
+test("renews a forever dismissal on every load instead of expiring", () => {
+  saveInspectorDismissedForever(NOW);
+
+  // Long past the original one-year deadline, the dismissal is still active
+  // and has been renewed to a full window from the new time.
+  const later = NOW + INSPECTOR_DISMISSAL_MAX_DURATION_MS * 3;
+  expect(loadInspectorDismissedUntil(later)).toBe(
+    later + INSPECTOR_DISMISSAL_MAX_DURATION_MS,
+  );
+  expect(
+    JSON.parse(
+      window.localStorage.getItem(INSPECTOR_DISMISSAL_MIRROR_KEY) ?? "null",
+    ),
+  ).toEqual({
+    until: later + INSPECTOR_DISMISSAL_MAX_DURATION_MS,
+    forever: true,
+  });
+});
+
+test("restores the Inspector only once both the cookie and mirror are cleared", () => {
+  saveInspectorDismissedForever(NOW);
+
+  document.cookie = `${INSPECTOR_DISMISSAL_COOKIE_NAME}=; Path=/; Max-Age=0`;
+  expect(loadInspectorDismissedUntil(NOW)).not.toBeNull();
+
+  document.cookie = `${INSPECTOR_DISMISSAL_COOKIE_NAME}=; Path=/; Max-Age=0`;
+  window.localStorage.removeItem(INSPECTOR_DISMISSAL_MIRROR_KEY);
+  expect(loadInspectorDismissedUntil(NOW)).toBeNull();
+});
 
 const KEY = "cpk:inspector:state";
 

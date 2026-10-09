@@ -10,6 +10,7 @@ import type { AbstractAgent, BaseEvent, RunStartedEvent } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
 import {
   finalizeRunEvents,
+  stripIntelligenceRoutingFields,
   AG_UI_CHANNEL_EVENT,
   phoenixExponentialBackoff,
   logger,
@@ -27,6 +28,12 @@ export interface IntelligenceAgentRunnerOptions {
   maxReconnectMs?: number;
   /** Max delay (ms) for channel rejoin backoff. @default 30_000 */
   maxRejoinMs?: number;
+  /**
+   * Interval (ms) between Phoenix heartbeats on the runner WebSocket. Keep it
+   * below the idle timeout of any proxy between the runtime and Intelligence.
+   * @default 15_000
+   */
+  heartbeatIntervalMs?: number;
 }
 
 export interface RunnerStartupBoundary {
@@ -106,6 +113,12 @@ export class IntelligenceAgentRunner extends AgentRunner {
    * socket.disconnect() in an onError handler will set
    * closeWasClean = true and reset the reconnect timer — permanently
    * killing retries.
+   *
+   * heartbeatIntervalMs — how often Phoenix pings the server
+   *   (default 15s). Phoenix's own default is 30s, which equals a common
+   *   reverse-proxy WebSocket idle timeout (e.g. Azure Application Gateway
+   *   behind AGIC), so a run that emits no events for 30s would have its
+   *   socket dropped by the proxy. The proxy timeout must exceed this value.
    */
   private createSocket(authToken = this.options.authToken): Socket {
     const socket = new Socket(this.options.url, {
@@ -118,6 +131,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
         1_000,
         this.options.maxRejoinMs ?? 30_000,
       ),
+      heartbeatIntervalMs: this.options.heartbeatIntervalMs ?? 15_000,
     });
     socket.connect();
     return socket;
@@ -382,7 +396,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
           state.hasJoined = true;
           startupBoundary?.resolveStartup();
           void this.executeAgentRun(request, state, threadId, (event) => {
-            observer.next(event);
+            observer.next(stripIntelligenceRoutingFields(event));
           });
         })
         .receive("error", (resp) => {
@@ -630,6 +644,8 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
     try {
       if (state.stopRequested) return;
+      const backendThreadId = request.backendThreadId ?? request.threadId;
+      request.agent.threadId = backendThreadId;
       await Promise.race([
         request.agent.runAgent(request.input, {
           onEvent: ({ event }: { event: BaseEvent }) => {
@@ -669,6 +685,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
       ensureRunStarted();
       const appended = finalizeRunEvents(currentEvents, {
         stopRequested: state.stopRequested,
+        protocolVersion: request.input.protocolVersion,
       });
       for (const event of appended) {
         pushCanonicalEvent(event);

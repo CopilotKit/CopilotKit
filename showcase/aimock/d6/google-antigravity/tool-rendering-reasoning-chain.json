@@ -1,0 +1,237 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-antigravity / tool-rendering-reasoning-chain. Each of the three pills drives a chained two-tool flow (stocks AAPL->MSFT, dice d20->d6, flights SFO->JFK then JFK weather) with a `reasoning` field on both tool legs, which aimock replays as Gemini thought parts and the adapter surfaces as REASONING_* events.",
+    "sourceFile": "d5-all.json",
+    "created": "2026-09-30",
+    "copiedFrom": "langgraph-python",
+    "googleAntigravityStaging": "Restaged from toolCallId chains onto turnIndex: the Antigravity Go harness never sends role:\"tool\" messages (see PARITY_NOTES.md), so leg k sits at turnIndex base+2k and the narration at base+4. The d5 probe and the e2e 'sequential pills' test run stocks, dice, flights in ONE thread, so the dice and flights ladders are repeated at offsets 5 and 10. Tool legs carry no `content`: see PARITY_NOTES.md for whether a text part on a tool leg moves the count."
+  },
+  "fixtures": [
+    {
+      "_comment": "Pill 1 'Compare two stocks', fresh thread AND first pill of the one-thread sequence (probe + sequential e2e test): get_stock_price(AAPL) at 0, get_stock_price(MSFT) at 2, narration at 4. The prompt also contains the bare 'AAPL' that tool-rendering.json stages at 0/2; this file sorts before tool-rendering.json ('-' < '.'), so it wins the turnIndex-0 tie, and 2/4 win outright. Every tool leg carries `reasoning` so each turn mounts a reasoning block.",
+      "match": {
+        "userMessage": "Compare AAPL and MSFT stocks",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "reasoning": "The user asked to compare AAPL and MSFT. I'll fetch AAPL first, then MSFT, then summarize the deltas in a single sentence so the comparison is the punchline.",
+        "toolCalls": [
+          {
+            "id": "call_rc_stock_aapl_t0",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Compare AAPL and MSFT stocks",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "reasoning": "AAPL quote is in hand. The user explicitly asked to compare AAPL with MSFT, so I'll fetch MSFT next and then summarize the side-by-side.",
+        "toolCalls": [
+          {
+            "id": "call_rc_stock_msft_t2",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"MSFT\",\"price_usd\":412.18,\"change_pct\":1.08}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Stocks narration. Supplies the e2e spec's 'AAPL is at' / 'MSFT is at' texts.",
+      "match": {
+        "userMessage": "Compare AAPL and MSFT stocks",
+        "context": "google-antigravity",
+        "turnIndex": 4
+      },
+      "response": {
+        "content": "AAPL is at $338.37 (-2.96% on the day) while MSFT is at $412.18 (+1.08%). MSFT is outpacing AAPL by roughly 4 points today — strong day for MSFT, rough one for AAPL."
+      }
+    },
+    {
+      "_comment": "Pill 2 'Chain of dice rolls', fresh thread: roll_dice(20) at 0, roll_dice(6) at 2, narration at 4. 'compare it to a smaller one' is unique to this pill.",
+      "match": {
+        "userMessage": "compare it to a smaller one",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "reasoning": "The user asked for a d20 roll and wants to compare it against a smaller die. I'll roll the d20 first, then chain a smaller die so the contrast in possible-value ranges is concrete and observable.",
+        "toolCalls": [
+          {
+            "id": "call_rc_dice_d20_t0",
+            "name": "roll_dice",
+            "arguments": "{\"sides\":20}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "compare it to a smaller one",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "reasoning": "Got the d20 result. The user explicitly asked to compare it to a smaller die — a d6 is a natural choice because its 1-6 range is what most people picture when they think 'die'. Rolling that next.",
+        "toolCalls": [
+          {
+            "id": "call_rc_dice_d6_t2",
+            "name": "roll_dice",
+            "arguments": "{\"sides\":6}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "compare it to a smaller one",
+        "context": "google-antigravity",
+        "turnIndex": 4
+      },
+      "response": {
+        "content": "The d20 came up 14, and a d6 for contrast landed on 4 — the d20's range is much wider, which is the whole point of the comparison."
+      }
+    },
+    {
+      "_comment": "Pill 2 as the SECOND pill of the one-thread sequence: the stocks chain leaves the thread at assistantCount 5 (2 round-trips + 1 answer), so the ladder is 5/7/9.",
+      "match": {
+        "userMessage": "compare it to a smaller one",
+        "context": "google-antigravity",
+        "turnIndex": 5
+      },
+      "response": {
+        "reasoning": "The user asked for a d20 roll and wants to compare it against a smaller die. I'll roll the d20 first, then chain a smaller die so the contrast in possible-value ranges is concrete and observable.",
+        "toolCalls": [
+          {
+            "id": "call_rc_dice_d20_t5",
+            "name": "roll_dice",
+            "arguments": "{\"sides\":20}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "compare it to a smaller one",
+        "context": "google-antigravity",
+        "turnIndex": 7
+      },
+      "response": {
+        "reasoning": "Got the d20 result. The user explicitly asked to compare it to a smaller die — a d6 is a natural choice because its 1-6 range is what most people picture when they think 'die'. Rolling that next.",
+        "toolCalls": [
+          {
+            "id": "call_rc_dice_d6_t7",
+            "name": "roll_dice",
+            "arguments": "{\"sides\":6}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "compare it to a smaller one",
+        "context": "google-antigravity",
+        "turnIndex": 9
+      },
+      "response": {
+        "content": "The d20 came up 14, and a d6 for contrast landed on 4 — the d20's range is much wider, which is the whole point of the comparison."
+      }
+    },
+    {
+      "_comment": "Pill 3 'Flights + destination weather', fresh thread: search_flights(SFO,JFK) at 0, get_weather(JFK) at 2, narration at 4. 'show me the weather there' is unique to this pill (the plain tool-rendering pill ends 'SFO to JFK.').",
+      "match": {
+        "userMessage": "show me the weather there",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "reasoning": "The user wants flights from SFO to JFK AND the destination weather. I'll call search_flights first, then chain get_weather on JFK so they have flight options and arrival conditions in one reply.",
+        "toolCalls": [
+          {
+            "id": "call_rc_flights_jfk_t0",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "show me the weather there",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "reasoning": "Flights are in hand. The user explicitly asked for the destination weather as part of the request, so pulling JFK weather next to round out the trip plan.",
+        "toolCalls": [
+          {
+            "id": "call_rc_weather_jfk_t2",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "show me the weather there",
+        "context": "google-antigravity",
+        "turnIndex": 4
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289). JFK is currently 68°F and sunny — easy travel weather on the receiving end."
+      }
+    },
+    {
+      "_comment": "Pill 3 as the THIRD pill of the one-thread sequence: stocks (0->5) and dice (5->10) leave the thread at assistantCount 10, so the ladder is 10/12/14.",
+      "match": {
+        "userMessage": "show me the weather there",
+        "context": "google-antigravity",
+        "turnIndex": 10
+      },
+      "response": {
+        "reasoning": "The user wants flights from SFO to JFK AND the destination weather. I'll call search_flights first, then chain get_weather on JFK so they have flight options and arrival conditions in one reply.",
+        "toolCalls": [
+          {
+            "id": "call_rc_flights_jfk_t10",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "show me the weather there",
+        "context": "google-antigravity",
+        "turnIndex": 12
+      },
+      "response": {
+        "reasoning": "Flights are in hand. The user explicitly asked for the destination weather as part of the request, so pulling JFK weather next to round out the trip plan.",
+        "toolCalls": [
+          {
+            "id": "call_rc_weather_jfk_t12",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "show me the weather there",
+        "context": "google-antigravity",
+        "turnIndex": 14
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289). JFK is currently 68°F and sunny — easy travel weather on the receiving end."
+      }
+    }
+  ]
+}

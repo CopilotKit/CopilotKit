@@ -28,7 +28,8 @@ import { openai } from "@/mastra/_header_forwarding";
 // Reads the catalog schema + generation guidelines the AG-UI bridge forwards
 // onto Mastra's request context, and flattens them into the inner call's system
 // prompt. In your own app, hand the inner call whatever description of your
-// catalog you want it to render against.
+// catalog you want it to render against. Copy the required a2ui-context.ts
+// companion from the example's Code tab when using this implementation.
 import { readForwardedA2uiContext, systemPromptFrom } from "./a2ui-context";
 
 /** Catalog the surface is pinned to when the model omits `catalogId`. */

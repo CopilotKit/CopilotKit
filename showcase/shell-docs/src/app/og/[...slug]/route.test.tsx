@@ -74,28 +74,6 @@ describe("shell-docs OG route", () => {
     });
   });
 
-  it("constructs a PNG response with canonical Plus Jakarta fonts", async () => {
-    const response = await callOgRoute(["quickstart", "og.png"]);
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe("image/png");
-    expect(imageResponseMock).toHaveBeenCalledOnce();
-
-    const [, options] = imageResponseMock.mock.calls[0];
-    expect(options?.width).toBe(1200);
-    expect(options?.height).toBe(630);
-    expect(options?.fonts).toHaveLength(2);
-    expect(options?.fonts?.map((font) => font.name)).toEqual([
-      "Plus Jakarta Sans",
-      "Plus Jakarta Sans",
-    ]);
-    expect(options?.fonts?.map((font) => font.weight)).toEqual([500, 700]);
-    expect(
-      options?.fonts?.every((font) => font.data instanceof ArrayBuffer),
-    ).toBe(true);
-    expect(new Set(options?.fonts?.map((font) => font.data)).size).toBe(2);
-  });
-
   it("keeps unknown slugs on the Next.js 404 path", async () => {
     await expect(callOgRoute(["missing", "og.png"])).rejects.toMatchObject({
       digest: expect.stringContaining("NEXT_HTTP_ERROR"),

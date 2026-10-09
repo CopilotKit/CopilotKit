@@ -1,0 +1,95 @@
+name: test / unit-shell-docs
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "showcase/shell-docs/**"
+      - "showcase/scripts/**"
+      - "showcase/harness/src/shared/**"
+      - "showcase/integrations/**"
+      - "showcase/angular/src/**"
+      - "showcase/shared/**"
+      - "showcase/features/**"
+      - "showcase/*.json"
+      - "examples/integrations/ms-agent-framework-dotnet/**"
+      - "examples/v1/travel/agent/uv.lock"
+      - "packages/runtime/package.json"
+      - ".github/workflows/test_unit-shell-docs.yml"
+  push:
+    branches: [main]
+    paths:
+      - "showcase/shell-docs/**"
+      - "showcase/scripts/**"
+      - "showcase/harness/src/shared/**"
+      - "showcase/integrations/**"
+      - "showcase/angular/src/**"
+      - "showcase/shared/**"
+      - "showcase/features/**"
+      - "showcase/*.json"
+      - "examples/integrations/ms-agent-framework-dotnet/**"
+      - "examples/v1/travel/agent/uv.lock"
+      - "packages/runtime/package.json"
+      - ".github/workflows/test_unit-shell-docs.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  docs:
+    name: shell-docs unit suite
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write # Depot runner OIDC auth.
+    env:
+      NODE_OPTIONS: "--max-old-space-size=4096"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            showcase/scripts/package-lock.json
+            showcase/shell-docs/package-lock.json
+
+      - name: Install content generator dependencies
+        working-directory: showcase/scripts
+        run: npm ci --ignore-scripts
+
+      - name: Install shell-docs dependencies
+        working-directory: showcase/shell-docs
+        run: npm ci --ignore-scripts
+
+      # The registry generator imports catalog-flatten from the harness. Resolve
+      # its js-yaml import using the standalone scripts install, as in Docker.
+      - name: Link harness module scope
+        run: ln -s ../scripts/node_modules showcase/harness/node_modules
+
+      - name: Generate docs data
+        working-directory: showcase/shell-docs
+        run: npm run pretypecheck
+
+      - name: Typecheck shell-docs
+        working-directory: showcase/shell-docs
+        run: npm run typecheck --ignore-scripts
+
+      # ShellDocs is outside the pnpm workspace and has no Nx target.
+      # Both test commands use the same suite; data was generated above.
+      - name: Run shell-docs smoke suite
+        working-directory: showcase/shell-docs
+        run: npm run test:ci

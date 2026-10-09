@@ -36,7 +36,7 @@ const determineModel = (): BuiltInAgentClassicConfig["model"] => {
     return "anthropic/claude-opus-4-8";
   }
   if (process.env.GOOGLE_API_KEY?.trim()) {
-    return "google/gemini-2.5-pro";
+    return "google/gemini-3.8-flash";
   }
   return "openai/gpt-5.2";
 };

@@ -198,9 +198,38 @@ describe("loadAllowlist", () => {
 
     expect(allowed.has("gpt-5.4")).toBe(true);
     expect(allowed.has("claude-sonnet-4-6")).toBe(true);
+    expect(allowed.has("gemini-3.8-flash")).toBe(true);
     expect(allowed.has("gemini-2.5-pro")).toBe(true);
     expect(allowed.has("command-r-plus")).toBe(true);
     expect(allowed.has("llama-4-scout")).toBe(true);
+  });
+
+  // Google limits the Gemini 2.5 models to keys that used them before, so a
+  // new key gets a 404. Docs may still name them; a starter may not pin them.
+  it("ships the Gemini 3.x ids and only recognizes the 2.5 ones", () => {
+    const allowlistPath = path.resolve(
+      __dirname,
+      "../../showcase/shell-docs/model-allowlist.json",
+    );
+    const ship = loadAllowlist(allowlistPath, "ship");
+    const all = loadAllowlist(allowlistPath, "all");
+
+    for (const name of [
+      "gemini-3.8-flash",
+      "gemini-3.5-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+    ]) {
+      expect(ship.has(name)).toBe(true);
+    }
+    for (const name of [
+      "gemini-2.5-pro",
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+    ]) {
+      expect(ship.has(name)).toBe(false);
+      expect(all.has(name)).toBe(true);
+    }
   });
 
   it("excludes the _comment field", () => {

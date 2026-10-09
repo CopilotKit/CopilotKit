@@ -37,6 +37,7 @@ export type RouteInfo =
   | { method: "agent/run"; agentId: string }
   | { method: "agent/suggest"; agentId: string }
   | { method: "agent/connect"; agentId: string }
+  | { method: "trajectory/connect"; trajectoryId: string }
   | { method: "agent/stop"; agentId: string; threadId: string }
   | { method: "info" }
   | { method: "inspector/metadata" }

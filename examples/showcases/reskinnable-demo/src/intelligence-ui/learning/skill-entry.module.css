@@ -1,0 +1,98 @@
+/* Skill rows (preview `skill-list` / `skill-entry`): one card, divider rows. */
+.list {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  list-style: none;
+  margin: 0;
+  overflow: hidden;
+  padding: 0;
+}
+.list > li + li {
+  border-top: 1px solid var(--border);
+}
+
+.row {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--foreground);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 12px;
+  min-height: 64px;
+  padding: 14px 18px;
+  text-align: left;
+  width: 100%;
+}
+.row:hover {
+  background: var(--muted);
+}
+.row:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+.mark {
+  align-items: center;
+  background: var(--learning);
+  border: 1px solid var(--learning-accent);
+  border-radius: 7px;
+  color: var(--learning-foreground);
+  display: flex;
+  flex: 0 0 32px;
+  height: 32px;
+  justify-content: center;
+}
+.mark svg {
+  height: 16px;
+  width: 16px;
+}
+
+.text {
+  display: grid;
+  flex: 1;
+  gap: 3px;
+  min-width: 0;
+}
+.text strong {
+  font-size: var(--text-body);
+  font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.text small {
+  color: var(--muted-foreground);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+/* A retired revision stays readable but stops competing with current ones. */
+.row[data-status='retired'] .text strong {
+  color: var(--muted-foreground);
+}
+
+.status {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.chevron {
+  color: var(--muted-foreground);
+  flex: 0 0 auto;
+  height: 14px;
+  width: 14px;
+}
+.row:hover .chevron {
+  color: var(--foreground);
+}
+
+@media (max-width: 600px) {
+  .row {
+    padding: 12px;
+  }
+  .status {
+    display: none;
+  }
+}

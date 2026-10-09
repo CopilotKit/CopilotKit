@@ -194,6 +194,19 @@ fix(server): missing entity on init
 - **test**: Adding missing or correcting existing tests
 - **chore**: Changes to the build process or auxiliary tools and libraries such as documentation generation
 
+### Breaking changes
+
+If your change can break code that works today, add `!` after the type and a `BREAKING CHANGE:` line with the migration steps:
+
+```
+feat(react-core)!: rename oldHook to newHook
+
+BREAKING CHANGE: oldHook is removed.
+Call newHook instead. It takes the same arguments.
+```
+
+Put the same marks in the pull request title and description. The release notes list these changes in a "Breaking Changes" section. See [VERSIONING.md](VERSIONING.md) for the full policy.
+
 ## Code of conduct
 
 Please note that this project is released with a Contributor Code of Conduct. By participating in this project you agree to abide by its terms.

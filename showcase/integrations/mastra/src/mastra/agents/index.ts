@@ -1051,8 +1051,9 @@ After you call the tool, send ONE short assistant message telling the user the d
  * for the async buffering path (`'resource'` throws); the trigger is UNOBSERVED
  * message-token SIZE (not turn count) with a reliable 600/300 floor (200/100
  * no-ops) — the demo pills send SIZABLE messages to trip it; a config object
- * requires an explicit model (default google/gemini-2.5-flash), pinned to the
- * forwarding `openai` so the Observer call routes through the header shim.
+ * requires an explicit model (the library default is a Gemini 2.5 Flash model,
+ * which a new Google API key cannot call), pinned to the forwarding `openai` so
+ * the Observer call routes through the header shim.
  */
 export const observationalMemoryAgent = new Agent({
   id: "observational-memory-agent",

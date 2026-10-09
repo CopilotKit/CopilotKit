@@ -37,6 +37,14 @@ const outputSpecifier = "./external-reexports";
  */
 const EXTERNAL_PACKAGES = ["@copilotkit/core", "@ag-ui/client"];
 
+/**
+ * Packages that only fill gaps: a name here is exported unless an
+ * EXTERNAL_PACKAGES surface already exports it. `@ag-ui/core/schemas` holds the
+ * zod validators that `@ag-ui/client` exported before AG-UI 1.0 moved them to a
+ * subpath, so existing imports of them keep working.
+ */
+const GAP_FILL_PACKAGES = ["@ag-ui/core/schemas"];
+
 const configPath = path.join(packageDir, "tsconfig.json");
 const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
 const parsedConfig = ts.parseJsonConfigFileContent(
@@ -45,7 +53,21 @@ const parsedConfig = ts.parseJsonConfigFileContent(
   packageDir,
 );
 
-const program = ts.createProgram([entryFile], {
+// Nothing in the entry imports the gap-fill packages, so load them explicitly.
+const gapFillFiles = GAP_FILL_PACKAGES.map((specifier) => {
+  const resolved = ts.resolveModuleName(
+    specifier,
+    entryFile,
+    parsedConfig.options,
+    ts.sys,
+  );
+  if (!resolved.resolvedModule) {
+    throw new Error(`could not resolve: ${specifier}`);
+  }
+  return resolved.resolvedModule.resolvedFileName;
+});
+
+const program = ts.createProgram([entryFile, ...gapFillFiles], {
   ...parsedConfig.options,
   noEmit: true,
   skipLibCheck: true,
@@ -135,7 +157,12 @@ for (const statement of entrySource.statements) {
   }
 
   const specifier = statement.moduleSpecifier?.text;
-  if (specifier && EXTERNAL_PACKAGES.includes(specifier)) continue;
+  if (
+    specifier &&
+    (EXTERNAL_PACKAGES.includes(specifier) ||
+      GAP_FILL_PACKAGES.includes(specifier))
+  )
+    continue;
   if (specifier === outputSpecifier) continue;
 
   if (statement.exportClause) {
@@ -180,6 +207,15 @@ for (const surface of surfaces) {
     const name = symbol.getName();
     nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
   }
+}
+
+const takenNames = new Set(nameCounts.keys());
+for (const specifier of GAP_FILL_PACKAGES) {
+  const symbols = moduleExports(resolve(specifier)).filter(
+    (symbol) => !takenNames.has(symbol.getName()),
+  );
+  for (const symbol of symbols) takenNames.add(symbol.getName());
+  surfaces.push({ specifier, symbols });
 }
 
 const sections = surfaces.map(({ specifier, symbols }) => {

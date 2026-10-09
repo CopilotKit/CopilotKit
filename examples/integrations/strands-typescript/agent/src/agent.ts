@@ -17,13 +17,17 @@ import type {
 } from "@ag-ui/aws-strands";
 import type { RunAgentInput } from "@ag-ui/core";
 import { Agent, tool } from "@strands-agents/sdk";
-import { OpenAIModel } from "@strands-agents/sdk/models/openai";
 import { parse } from "csv-parse/sync";
 import dotenv from "dotenv";
-import OpenAI from "openai";
+import type OpenAI from "openai";
 import { z } from "zod";
 
 import { forwardingFetch } from "./header-forwarding.js";
+import {
+  createChatCompletionsClient,
+  createStrandsModel,
+  resolveAgentModel,
+} from "./model.js";
 import {
   APP_CATALOG_ID,
   buildA2uiOperations,
@@ -176,18 +180,19 @@ const searchFlights = tool({
     ),
 });
 
-let openaiClient: OpenAI | undefined;
+// COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") picks the model
+// for BOTH model sites below; unset, both use MODEL_ID or gpt-4o on OpenAI.
+const agentModel = resolveAgentModel();
+const clientExtras = {
+  defaultHeaders: { "x-aimock-context": AIMOCK_CONTEXT },
+  fetch: forwardingFetch,
+};
 
-function getOpenAIClient(): OpenAI {
-  openaiClient ??= new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    ...(process.env.OPENAI_BASE_URL
-      ? { baseURL: process.env.OPENAI_BASE_URL }
-      : {}),
-    defaultHeaders: { "x-aimock-context": AIMOCK_CONTEXT },
-    fetch: forwardingFetch,
-  });
-  return openaiClient;
+let chatClient: OpenAI | undefined;
+
+function getChatClient(): OpenAI {
+  chatClient ??= createChatCompletionsClient(agentModel, clientExtras);
+  return chatClient;
 }
 
 const generateA2ui = tool({
@@ -196,8 +201,8 @@ const generateA2ui = tool({
     "Design and render a dashboard with A2UI components for the user's request.",
   inputSchema: z.object({ user_intent: z.string() }),
   callback: async ({ user_intent }) => {
-    const response = await getOpenAIClient().chat.completions.create({
-      model: process.env.MODEL_ID ?? "gpt-4o",
+    const response = await getChatClient().chat.completions.create({
+      model: agentModel.model,
       messages: [
         {
           role: "system",
@@ -219,25 +224,7 @@ const generateA2ui = tool({
   },
 });
 
-const apiKey = process.env.OPENAI_API_KEY;
-if (!apiKey) {
-  throw new Error(
-    "OPENAI_API_KEY is required. Add it to the starter's .env file.",
-  );
-}
-
-const model = new OpenAIModel({
-  apiKey,
-  modelId: process.env.MODEL_ID ?? "gpt-4o",
-  api: "chat",
-  clientConfig: {
-    ...(process.env.OPENAI_BASE_URL
-      ? { baseURL: process.env.OPENAI_BASE_URL }
-      : {}),
-    defaultHeaders: { "x-aimock-context": AIMOCK_CONTEXT },
-    fetch: forwardingFetch,
-  },
-});
+const model = createStrandsModel(agentModel, clientExtras);
 
 const config: StrandsAgentConfig = {
   stateContextBuilder: buildStatePrompt,

@@ -179,15 +179,18 @@ export function isValidDockMode(value: unknown): value is DockMode {
 // across ports on one host; localStorage is not.
 export const INSPECTOR_DISMISSAL_MIRROR_KEY = "cpk:inspector:dismissed_until";
 export const INSPECTOR_DISMISSAL_COOKIE_NAME = "cpk_inspector_dismissed_until";
-export const INSPECTOR_DISMISSAL_MAX_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+export const INSPECTOR_DISMISSAL_MAX_DURATION_MS = 365 * 24 * 60 * 60 * 1000;
 
-type InspectorDismissalPayload = Readonly<{ until: number }>;
+// `forever` marks an "Always hide" dismissal. Browsers cap cookie lifetimes
+// (Chrome at 400 days), so instead of a far-future deadline it is renewed to a
+// full MAX_DURATION window every time it is read and never expires.
+type InspectorDismissalPayload = Readonly<{ until: number; forever?: true }>;
 
 /** Return the active host-scoped Inspector dismissal deadline, if any. */
 export function loadInspectorDismissedUntil(
   now: number = Date.now(),
 ): number | null {
-  const until =
+  const payload =
     parseInspectorDismissalPayload(
       readCookie(INSPECTOR_DISMISSAL_COOKIE_NAME),
     ) ??
@@ -195,7 +198,12 @@ export function loadInspectorDismissedUntil(
       readLocalStorageItem(INSPECTOR_DISMISSAL_MIRROR_KEY),
     );
 
-  if (until === null) return null;
+  if (payload === null) return null;
+  if (payload.forever) {
+    saveInspectorDismissedForever(now);
+    return now + INSPECTOR_DISMISSAL_MAX_DURATION_MS;
+  }
+  const { until } = payload;
   if (until <= now) {
     clearInspectorDismissal();
     return null;
@@ -208,10 +216,20 @@ export function loadInspectorDismissedUntil(
   return until;
 }
 
+/** Persist a dismissal that renews itself on every load and never expires. */
+export function saveInspectorDismissedForever(now: number = Date.now()): void {
+  saveInspectorDismissedUntil(
+    now + INSPECTOR_DISMISSAL_MAX_DURATION_MS,
+    now,
+    true,
+  );
+}
+
 /** Persist a dismissal across browser sessions and localhost ports. */
 export function saveInspectorDismissedUntil(
   until: number,
   now: number = Date.now(),
+  forever = false,
 ): void {
   if (!Number.isFinite(until) || until <= now) {
     clearInspectorDismissal();
@@ -224,6 +242,7 @@ export function saveInspectorDismissedUntil(
   );
   const payload = JSON.stringify({
     until: boundedUntil,
+    ...(forever ? { forever: true } : {}),
   } satisfies InspectorDismissalPayload);
   const maxAgeSeconds = Math.max(1, Math.ceil((boundedUntil - now) / 1000));
   writeCookie(
@@ -240,14 +259,19 @@ export function clearInspectorDismissal(): void {
   removeLocalStorageItem(INSPECTOR_DISMISSAL_MIRROR_KEY);
 }
 
-/** Parse a finite deadline from either persistence layer. */
-function parseInspectorDismissalPayload(raw: string | null): number | null {
+/** Parse a finite deadline and forever flag from either persistence layer. */
+function parseInspectorDismissalPayload(
+  raw: string | null,
+): InspectorDismissalPayload | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<InspectorDismissalPayload>;
-    return typeof parsed.until === "number" && Number.isFinite(parsed.until)
-      ? parsed.until
-      : null;
+    if (typeof parsed.until !== "number" || !Number.isFinite(parsed.until)) {
+      return null;
+    }
+    return parsed.forever === true
+      ? { until: parsed.until, forever: true }
+      : { until: parsed.until };
   } catch {
     return null;
   }
