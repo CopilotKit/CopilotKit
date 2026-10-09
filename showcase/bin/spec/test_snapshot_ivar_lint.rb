@@ -10,8 +10,9 @@
 # spurious WARN/REFUSE findings on single-service promotes.
 #
 # The fix introduced four accessors — `fleet_staging`, `fleet_prod`,
-# `target_staging`, `target_prod` — and the convention is that ALL reads of
-# the four backing ivars go through one of those accessors. This lint test
+# `target_staging`, `target_prod` — and ordinary checks read the four backing
+# ivars only through those accessors. The listed initialization, ownership
+# filtering, and narrowing sites are explicit exceptions. This lint test
 # pins the convention as an executable invariant: any direct read of
 # `@staging_snapshot`, `@prod_snapshot`, `@full_staging_snapshot`, or
 # `@full_prod_snapshot` outside the explicit allowlist below FAILS the
@@ -44,43 +45,50 @@ class SnapshotIvarLintTest < Minitest::Test
     #
     # Categories (must remain in sync with bin/railway):
     #   - run             : initial @full_*_snapshot capture at promote start
+    #   - filter_disposable_snapshots!
+    #                      : complete-inventory read/replacement before full/target views exist
     #   - capture_snapshots
     #                      : the single test-seam assignment site
     #   - narrow_snapshots_to_single_service!
     #                      : the narrowing reads + writes of @{staging,prod}_snapshot
     #   - fleet_staging / fleet_prod / target_staging / target_prod
-    #                      : the four accessors themselves (the ONLY sanctioned reads)
+    #                      : the ONLY sanctioned reads for checks after views exist
     #   - comments        : block/inline comments that name the ivar in
     #                       prose (do not perform a read)
     ALLOWED_LINES = [
         # `run` — capture full-fleet view before optional narrowing.
-        '1547:@full_staging_snapshot = @staging_snapshot',
-        '1548:@full_prod_snapshot    = @prod_snapshot',
+        '1549:@full_staging_snapshot = @staging_snapshot',
+        '1550:@full_prod_snapshot    = @prod_snapshot',
+
+        # filter_disposable_snapshots! — validate the complete captured inventory
+        # and exclude verified owned services before full/target views exist.
+        '1571:snapshots = [[@staging_snapshot, STAGING_ENV_ID], [@prod_snapshot, PRODUCTION_ENV_ID]]',
+        '1636:@staging_snapshot, @prod_snapshot = snapshots.map do |snapshot, environment_id|',
 
         # Doc comment above narrow_snapshots_to_single_service!.
-        '1556:# Narrow @staging_snapshot and @prod_snapshot to only the named',
+        '1647:# Narrow @staging_snapshot and @prod_snapshot to only the named',
 
         # narrow_snapshots_to_single_service! — the WRITE site.
-        '1564:staging_match = (@staging_snapshot["services"] || []).select { |s| s["name"] == name }',
-        '1569:@staging_snapshot = @staging_snapshot.merge("services" => staging_match)',
-        '1570:prod_match = (@prod_snapshot["services"] || []).select { |s| s["name"] == name }',
-        '1571:@prod_snapshot = @prod_snapshot.merge("services" => prod_match)',
+        '1655:staging_match = (@staging_snapshot["services"] || []).select { |s| s["name"] == name }',
+        '1660:@staging_snapshot = @staging_snapshot.merge("services" => staging_match)',
+        '1661:prod_match = (@prod_snapshot["services"] || []).select { |s| s["name"] == name }',
+        '1662:@prod_snapshot = @prod_snapshot.merge("services" => prod_match)',
 
         # Doc comment above capture_snapshots.
-        '1575:# @staging_snapshot / @prod_snapshot directly.',
+        '1666:# @staging_snapshot / @prod_snapshot directly.',
 
         # capture_snapshots — single test-seam assignment site.
-        '1577:@staging_snapshot ||= SnapshotCommand.new(["--env", "staging", "--dry-run"]).build_snapshot(STAGING_ENV_ID)',
-        '1578:@prod_snapshot    ||= SnapshotCommand.new(["--env", "production", "--dry-run"]).build_snapshot(PRODUCTION_ENV_ID)',
+        '1668:@staging_snapshot ||= SnapshotCommand.new(["--env", "staging", "--dry-run"]).build_snapshot(STAGING_ENV_ID)',
+        '1669:@prod_snapshot    ||= SnapshotCommand.new(["--env", "production", "--dry-run"]).build_snapshot(PRODUCTION_ENV_ID)',
 
         # Doc comment above the accessor block (explains test seam).
-        '1602:# promote tests stub @staging_snapshot/@prod_snapshot directly',
+        '1693:# promote tests stub @staging_snapshot/@prod_snapshot directly',
 
-        # The four accessor bodies — the ONLY sanctioned reads.
-        '1614:@full_staging_snapshot || @staging_snapshot',
-        '1618:@full_prod_snapshot || @prod_snapshot',
-        '1622:@staging_snapshot',
-        '1626:@prod_snapshot',
+        # The four accessor bodies — the ONLY sanctioned reads for checks.
+        '1705:@full_staging_snapshot || @staging_snapshot',
+        '1709:@full_prod_snapshot || @prod_snapshot',
+        '1713:@staging_snapshot',
+        '1717:@prod_snapshot',
     ].freeze
 
     def setup
