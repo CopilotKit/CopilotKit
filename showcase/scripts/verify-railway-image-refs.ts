@@ -311,8 +311,8 @@ export interface FailureSummaryOutput {
  * Three failure classes (all REFUSE — none are warnings):
  *   1. shape violations (Violation[])
  *   2. SSOT->Railway drift (gateValidated SSOT services missing on Railway)
- *   3. Railway->SSOT drift (Railway services not in the SSOT, NOT
- *      opted out via gateIgnore)
+ *   3. Railway->SSOT drift (Railway services without an exact registered
+ *      name and service ID match or an allowed lifecycle exception)
  */
 export function summarizeFailures(
   input: FailureSummaryInput,
@@ -357,7 +357,7 @@ export function summarizeFailures(
     lines.push(`  ✗ [railway] ${name}`);
     lines.push(`    current:  <present on Railway, absent from SSOT>`);
     lines.push(
-      `    reason:   Railway service "${name}" is not in the SSOT. Either add it to SERVICES in showcase/scripts/railway-envs.ts (preferred), or mark an existing entry with gateIgnore: true if it is deliberately unmanaged by WS4.`,
+      `    reason:   Railway service "${name}" is not in the SSOT with its exact name and service ID. Reconcile both the recorded service name and service ID in SERVICES in showcase/scripts/railway-envs.ts with the intended permanent resource, or remove the unknown resource. gateIgnore controls image policy only for an already exact registered identity; it cannot grant inventory membership or coexist with gateValidated: true.`,
     );
   }
   for (const issue of lifecycleFailures) {
