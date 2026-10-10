@@ -339,6 +339,108 @@ describe("MCP Apps ui/request-display-mode (Vue surface)", () => {
     expect(contextChanges(spy)).toHaveLength(0);
   });
 
+  it("returns the current mode for the unsupported pip mode", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "dm-pip";
+    const iframe = await setupMCPActivity(agent, "Pip");
+    const spy = spyOnHostMessages(iframe);
+
+    const id = await requestMode(iframe, "pip");
+
+    expect(responseFor(spy, id)?.result).toEqual({ mode: "inline" });
+    expect(exitButton()).toBeNull();
+    expect(contextChanges(spy)).toHaveLength(0);
+  });
+
+  it("returns the CURRENT mode (not inline) when an unavailable mode is requested", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "dm-current";
+    const iframe = await setupMCPActivity(agent, "Current mode");
+    const spy = spyOnHostMessages(iframe);
+    await requestMode(iframe, "fullscreen");
+
+    const pipId = await requestMode(iframe, "pip");
+
+    // An unavailable request must not switch and answers with the mode still
+    // applied, so the surface stays fullscreen.
+    expect(responseFor(spy, pipId)?.result).toEqual({ mode: "fullscreen" });
+    expect(exitButton()).not.toBeNull();
+  });
+
+  it("grants fullscreen when the View declares it in appCapabilities", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "dm-declared";
+    const iframe = await setupMCPActivity(agent, "Declared grant");
+    const spy = spyOnHostMessages(iframe);
+    await sendInitialize(iframe, {
+      availableDisplayModes: ["inline", "fullscreen"],
+    });
+
+    const id = await requestMode(iframe, "fullscreen");
+
+    expect(responseFor(spy, id)?.result).toEqual({ mode: "fullscreen" });
+    expect(
+      await screen.findByRole("button", { name: "Exit fullscreen" }),
+    ).toBeDefined();
+    expect(contextChanges(spy).map((p) => p.displayMode)).toContain(
+      "fullscreen",
+    );
+  });
+
+  it("emits host-context-changed for widget-initiated changes (fullscreen then inline)", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "dm-roundtrip";
+    const iframe = await setupMCPActivity(agent, "Round trip");
+    const spy = spyOnHostMessages(iframe);
+
+    await requestMode(iframe, "fullscreen");
+    const backId = await requestMode(iframe, "inline");
+
+    expect(responseFor(spy, backId)?.result).toEqual({ mode: "inline" });
+    await waitFor(() => expect(exitButton()).toBeNull());
+    // The app SDK caches host context from the notification, not from the
+    // response, so a widget-initiated change must also emit it.
+    const changes = contextChanges(spy);
+    expect(changes.map((p) => p.displayMode)).toEqual(["fullscreen", "inline"]);
+    // Entering fullscreen advertises the surface; inline carries no dimensions.
+    expect(changes[0].containerDimensions).toEqual({
+      width: expect.any(Number),
+      height: expect.any(Number),
+    });
+    expect(changes[1].containerDimensions).toBeUndefined();
+  });
+
+  it("advertises displayMode and availableDisplayModes at ui/initialize", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "dm-initialize";
+    const iframe = await setupMCPActivity(agent, "Initialize");
+    const spy = spyOnHostMessages(iframe);
+
+    const id = await sendInitialize(iframe);
+
+    expect(responseFor(spy, id)?.result?.hostContext).toMatchObject({
+      displayMode: "inline",
+      availableDisplayModes: ["inline", "fullscreen"],
+    });
+  });
+
+  it("advertises containerDimensions and fills the iframe in fullscreen", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "dm-surface";
+    const iframe = await setupMCPActivity(agent, "Surface");
+    const spy = spyOnHostMessages(iframe);
+
+    await requestMode(iframe, "fullscreen");
+
+    const [entered] = contextChanges(spy);
+    expect(entered.displayMode).toBe("fullscreen");
+    expect(entered.containerDimensions).toEqual({
+      width: expect.any(Number),
+      height: expect.any(Number),
+    });
+    expect(iframe.style.height).toBe("100%");
+  });
+
   it("locks the page scroll while fullscreen and restores it on exit", async () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "dm-scroll";

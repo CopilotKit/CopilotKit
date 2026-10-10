@@ -1065,9 +1065,101 @@ test("grants fullscreen: exit button, top-layer dialog, frame filling the surfac
     dialog?.classList.contains("copilot-mcp-apps-container--fullscreen"),
   ).toBe(true);
   expect(frame.style.height).toBe("100%");
-  expect(contextChanges(postMessage).map((p) => p.displayMode)).toEqual([
-    "fullscreen",
+  // Entering fullscreen advertises the surface the widget gets.
+  expect(contextChanges(postMessage)).toEqual([
+    {
+      displayMode: "fullscreen",
+      containerDimensions: {
+        width: expect.any(Number),
+        height: expect.any(Number),
+      },
+    },
   ]);
+});
+
+test("returns the current mode for the unsupported pip mode", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { fixture, frame, postMessage } = await bootWidget(agent);
+
+  await requestDisplayMode(fixture, frame, "pip", "pip");
+
+  const response = outgoingMessages(postMessage).find(
+    (m) => m?.id === "pip" && "result" in m,
+  );
+  expect(response?.result).toEqual({ mode: "inline" });
+  expect(exitFullscreenButton(fixture)).toBeNull();
+  expect(contextChanges(postMessage)).toHaveLength(0);
+});
+
+test("returns the CURRENT mode (not inline) when an unavailable mode is requested", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { fixture, frame, postMessage } = await bootWidget(agent);
+  await requestDisplayMode(fixture, frame, "fs", "fullscreen");
+
+  await requestDisplayMode(fixture, frame, "pip", "pip");
+
+  // An unavailable request must not switch and answers with the mode still
+  // applied, so the surface stays fullscreen.
+  const response = outgoingMessages(postMessage).find(
+    (m) => m?.id === "pip" && "result" in m,
+  );
+  expect(response?.result).toEqual({ mode: "fullscreen" });
+  expect(exitFullscreenButton(fixture)).not.toBeNull();
+});
+
+test("grants fullscreen when the View declares it in appCapabilities", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { fixture, frame, postMessage } = await bootWidget(agent);
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    id: "init-both",
+    method: "ui/initialize",
+    params: {
+      appInfo: { name: "test", version: "1" },
+      appCapabilities: { availableDisplayModes: ["inline", "fullscreen"] },
+      protocolVersion: "2026-01-26",
+    },
+  });
+  await settle(fixture);
+
+  await requestDisplayMode(fixture, frame, "fs", "fullscreen");
+
+  const response = outgoingMessages(postMessage).find(
+    (m) => m?.id === "fs" && "result" in m,
+  );
+  expect(response?.result).toEqual({ mode: "fullscreen" });
+  expect(exitFullscreenButton(fixture)).not.toBeNull();
+  expect(contextChanges(postMessage).map((p) => p.displayMode)).toContain(
+    "fullscreen",
+  );
+});
+
+test("emits host-context-changed for widget-initiated changes (fullscreen then inline)", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { fixture, frame, postMessage } = await bootWidget(agent);
+
+  await requestDisplayMode(fixture, frame, "fs", "fullscreen");
+  await requestDisplayMode(fixture, frame, "back", "inline");
+
+  const response = outgoingMessages(postMessage).find(
+    (m) => m?.id === "back" && "result" in m,
+  );
+  expect(response?.result).toEqual({ mode: "inline" });
+  expect(exitFullscreenButton(fixture)).toBeNull();
+  // The app SDK caches host context from the notification, not from the
+  // response, so a widget-initiated change must also emit it; inline carries
+  // no dimensions.
+  const changes = contextChanges(postMessage);
+  expect(changes.map((p) => p.displayMode)).toEqual(["fullscreen", "inline"]);
+  expect(changes[0].containerDimensions).toEqual({
+    width: expect.any(Number),
+    height: expect.any(Number),
+  });
+  expect(changes[1].containerDimensions).toBeUndefined();
 });
 
 test("the exit button returns to inline, restores the reported height and notifies the widget", async () => {
