@@ -858,16 +858,39 @@ export function CopilotChat({
     const activeRunCompletionPromise = isRunCompletionAware(maybeAware)
       ? maybeAware.activeRunCompletionPromise
       : undefined;
-    if (agent.isRunning && activeRunCompletionPromise) {
-      try {
-        await activeRunCompletionPromise;
-      } catch (error) {
-        // The in-flight run rejected — proceed with the new send anyway,
-        // but log so a chronically-failing in-flight run is observable.
-        console.error(
-          "CopilotChat: in-flight run rejected while queuing send",
-          error,
-        );
+    if (agent.isRunning) {
+      if (activeRunCompletionPromise) {
+        try {
+          await activeRunCompletionPromise;
+        } catch (error) {
+          // The in-flight run rejected — proceed with the new send anyway,
+          // but log so a chronically-failing in-flight run is observable.
+          console.error(
+            "CopilotChat: in-flight run rejected while queuing send",
+            error,
+          );
+        }
+      } else {
+        // Generic AG-UI agents (including HttpAgent) do not expose the
+        // completion-promise contract. Their public lifecycle subscription is
+        // still enough to serialize a queued send behind an active run.
+        await new Promise<void>((resolve) => {
+          let subscription: ReturnType<typeof agent.subscribe> | undefined;
+          let settled = false;
+          const finish = () => {
+            if (settled) return;
+            settled = true;
+            subscription?.unsubscribe();
+            resolve();
+          };
+          subscription = agent.subscribe({
+            onRunFinalized: finish,
+            onRunFailed: finish,
+          });
+          // Close the check/subscribe race if the run finalized while the
+          // subscription was being installed.
+          if (!agent.isRunning) finish();
+        });
       }
     }
     return isCurrentSelection();
