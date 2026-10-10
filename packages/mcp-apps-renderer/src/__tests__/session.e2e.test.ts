@@ -1500,6 +1500,35 @@ describe("bindMcpApp ui/request-display-mode", () => {
     ]);
   });
 
+  it("keeps the inline height when the widget reports a size during fullscreen", async () => {
+    const agent = makeAgent();
+    const iframe = mount();
+    const { captured } = await bindAndConnect(iframe, agent);
+    await initialize(iframe);
+    const reportSize = async (width: number, height: number) => {
+      fromIframe(iframe, {
+        jsonrpc: "2.0",
+        method: "ui/notifications/size-changed",
+        params: { width, height },
+      });
+      await tick(20);
+    };
+    await reportSize(400, 300);
+
+    await requestMode(iframe, "fs", "fullscreen");
+    // The widget re-laid itself out for the viewport and reported that size.
+    await reportSize(1000, 800);
+    await requestMode(iframe, "back", "inline");
+
+    // The fullscreen-era size describes the fullscreen layout; inline must
+    // advertise the size the widget had while inline.
+    const changes = contextChanges(captured);
+    expect(changes[changes.length - 1]).toEqual({
+      displayMode: "inline",
+      containerDimensions: { width: 400, height: 300 },
+    });
+  });
+
   it("applies a host-initiated change through setDisplayMode", async () => {
     const agent = makeAgent();
     const iframe = mount();

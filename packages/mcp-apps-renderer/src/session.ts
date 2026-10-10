@@ -434,9 +434,11 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
   const hostDisplayModes = resolveHostDisplayModes(
     settings.hostContext.availableDisplayModes,
   );
-  // The last size the widget reported (`size-changed`): the inline surface
-  // follows the widget's own height, so this is what inline advertises back.
-  let lastReportedSize: { width?: number; height?: number } = {};
+  // The size the widget last reported (`size-changed`) while inline: the
+  // inline surface follows the widget's own height, so this is what inline
+  // advertises back. A size reported during fullscreen describes the
+  // fullscreen layout and must not stand in for the inline surface on exit.
+  let inlineReportedSize: { width?: number; height?: number } = {};
 
   /**
    * The inline surface: the width of the element that holds the dialog (it
@@ -452,8 +454,8 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
     const measured = holder
       ? Math.round(holder.getBoundingClientRect().width)
       : 0;
-    const width = measured > 0 ? measured : lastReportedSize.width;
-    const height = lastReportedSize.height;
+    const width = measured > 0 ? measured : inlineReportedSize.width;
+    const height = inlineReportedSize.height;
     if (width === undefined && height === undefined) return undefined;
     return {
       ...(width !== undefined ? { width } : {}),
@@ -985,7 +987,7 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
           width: typeof width === "number" ? width : undefined,
           height: typeof height === "number" ? height : undefined,
         };
-        lastReportedSize = size;
+        if (currentDisplayMode === "inline") inlineReportedSize = size;
         hooks?.onSizeChanged?.(size);
       };
       bridge.oninitialized = () => {
