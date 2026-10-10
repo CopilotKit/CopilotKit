@@ -71,6 +71,12 @@ export function defaultContainerDimensions(
  * iframe stays inside the dialog across transitions, so switching modes never
  * reloads the widget.
  *
+ * Opening a dialog runs the browser's dialog focusing steps, which move focus
+ * into it. That is wanted for `fullscreen` (the adapter then lands focus on
+ * its exit button) but not for `inline`: a widget arriving in the chat while
+ * the user types must not take the focus away from the composer, so the
+ * element focused before an inline `show()` gets it back.
+ *
  * The applied mode is recorded on `data-mcp-app-display-mode`, which is also
  * what tells a later call whether the dialog must be closed and reopened. Where
  * the top layer is unavailable (jsdom), the dialog is merely marked `open`.
@@ -92,10 +98,35 @@ export function ɵshowDialogForMode(
     dialog.getAttribute("data-mcp-app-display-mode") === "fullscreen";
   if (dialog.open && wasModal !== modal) dialog.close();
   if (!dialog.open) {
-    if (modal) dialog.showModal();
-    else dialog.show();
+    if (modal) {
+      dialog.showModal();
+    } else {
+      const focusedBefore = dialog.ownerDocument.activeElement;
+      dialog.show();
+      restoreFocus(dialog, focusedBefore);
+    }
   }
   dialog.setAttribute("data-mcp-app-display-mode", mode);
+}
+
+/** Give the focus back to what had it before an inline `show()` moved it. */
+function restoreFocus(
+  dialog: HTMLDialogElement,
+  focusedBefore: Element | null,
+) {
+  const doc = dialog.ownerDocument;
+  const focusedNow = doc.activeElement;
+  if (focusedNow === focusedBefore || !dialog.contains(focusedNow)) return;
+  if (
+    focusedBefore instanceof HTMLElement &&
+    focusedBefore.isConnected &&
+    focusedBefore !== doc.body
+  ) {
+    focusedBefore.focus({ preventScroll: true });
+  } else if (focusedNow instanceof HTMLElement) {
+    // Nothing had the focus: do not leave it inside the widget either.
+    focusedNow.blur();
+  }
 }
 
 // One lock for the whole page: with two widgets in fullscreen at once, the
