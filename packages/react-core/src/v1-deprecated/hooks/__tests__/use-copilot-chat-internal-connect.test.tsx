@@ -243,3 +243,49 @@ describe("useCopilotChatInternal – connectAgent guard", () => {
     );
   });
 });
+
+describe("useCopilotChatInternal – assistant timestamps", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRuntimeConnectionStatus =
+      CopilotKitCoreRuntimeConnectionStatus.Disconnected;
+    mockConnectAgent.mockResolvedValue(undefined);
+    mockAgent.threadId = undefined;
+    mockAgent.messages = [];
+    mockAgent.state = {};
+    mockAgent.isRunning = false;
+    mockConfigThreadId = "config-thread-id";
+    applyMocks();
+  });
+
+  it("preserves a new assistant timestamp through the coagent bridge renderer", () => {
+    const userMessage = { id: "user-1", role: "user", content: "Hello" };
+    mockAgent.messages = [userMessage];
+
+    const { result, rerender } = renderHook(() => useCopilotChatInternal(), {
+      wrapper: createWrapper(),
+    });
+
+    mockAgent.messages = [
+      userMessage,
+      { id: "assistant-1", role: "assistant", content: "Hi" },
+    ];
+    mockAgent.isRunning = true;
+    act(() => rerender());
+
+    const assistantMessage = result.current.messages.find(
+      (message) => message.id === "assistant-1",
+    );
+    expect(assistantMessage?.role).toBe("assistant");
+    if (!assistantMessage || assistantMessage.role !== "assistant") return;
+
+    expect(assistantMessage.timestamp).toEqual(expect.any(Number));
+    expect(Number.isFinite(assistantMessage.timestamp)).toBe(true);
+    expect(assistantMessage.generativeUI).toBeTypeOf("function");
+
+    const bridgeElement = assistantMessage.generativeUI?.();
+    expect(bridgeElement).toMatchObject({
+      props: { message: { timestamp: assistantMessage.timestamp } },
+    });
+  });
+});

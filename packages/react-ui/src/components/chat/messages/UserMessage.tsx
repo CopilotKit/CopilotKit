@@ -20,6 +20,8 @@
 
 import type { UserMessageProps } from "../props";
 import { AttachmentRenderer } from "../AttachmentRenderer";
+import { useChatContext } from "../ChatContext";
+import { MessageTimestamp } from "./MessageTimestamp";
 
 type UserMessageContent = NonNullable<UserMessageProps["message"]>["content"];
 
@@ -68,7 +70,9 @@ const getMediaParts = (content: UserMessageContent | undefined) => {
   }>;
 };
 
+/** Renders user text or attachments and the optional message timestamp. */
 export const UserMessage = (props: UserMessageProps) => {
+  const { showTimestamps } = useChatContext();
   const { message, ImageRenderer } = props;
   const content = message?.content;
 
@@ -82,6 +86,7 @@ export const UserMessage = (props: UserMessageProps) => {
     return (
       <div className="copilotKitMessage copilotKitUserMessage">
         <ImageRenderer image={legacyImage} content={textContent} />
+        {showTimestamps && <MessageTimestamp timestamp={message?.timestamp} />}
       </div>
     );
   }
@@ -93,6 +98,7 @@ export const UserMessage = (props: UserMessageProps) => {
     return (
       <div className="copilotKitMessage copilotKitUserMessage">
         {textContent}
+        {showTimestamps && <MessageTimestamp timestamp={message?.timestamp} />}
       </div>
     );
   }
@@ -103,6 +109,7 @@ export const UserMessage = (props: UserMessageProps) => {
       {mediaParts.map((part, index) => (
         <AttachmentRenderer key={index} type={part.type} source={part.source} />
       ))}
+      {showTimestamps && <MessageTimestamp timestamp={message?.timestamp} />}
     </div>
   );
 };
