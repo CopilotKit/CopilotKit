@@ -27,10 +27,10 @@ function createAgent(path = "/") {
 }
 
 // Register the same default agent under all shared names used by demo
-// pages. AG2's AGUIStream wraps a single ConversableAgent; most names
+// pages. AG2's AGUIStream wraps a single Agent; most names
 // proxy to the same backend process. Frontend-only variations (slots,
 // sidebar, CSS theming, headless chat, tool rendering wildcards, etc.)
-// all reuse the shared `agent.py` ConversableAgent under a unique
+// all reuse the shared `agent.py` Agent under a unique
 // registered name.
 const sharedAgentNames = [
   "agentic_chat",
@@ -40,7 +40,7 @@ const sharedAgentNames = [
   "shared-state-read",
   "shared-state-write",
   "shared-state-streaming",
-  // Frontend-only variants (Batch 1) — same ConversableAgent, different UI.
+  // Frontend-only variants (Batch 1) — same Agent, different UI.
   "prebuilt-sidebar",
   "prebuilt-popup",
   "chat-slots",
@@ -72,7 +72,7 @@ const reasoningAgentNames = [
 
 // Demos that own a dedicated FastAPI sub-app (mounted at a named path
 // in `agent_server.py`). Each gets its own HttpAgent pointed at that
-// path so its ContextVariables state slot is isolated from the shared
+// path so its `ctx.variables` state slot is isolated from the shared
 // default agent.
 const dedicatedAgents: Record<string, string> = {
   "shared-state-read-write": "/shared-state-read-write/",
