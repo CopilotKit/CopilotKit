@@ -628,10 +628,14 @@ describe("Text Message Re-render Prevention", () => {
 
     const firstMessageRenderCountAfterAllStreaming = renderCounts["msg-1"];
 
-    // THE KEY ASSERTION: The first message should NOT have re-rendered
-    // when the second message was streaming
+    // msg-2 joins msg-1's reply, so msg-1 re-renders at most once to hand
+    // over the toolbar...
+    expect(firstMessageRenderCountAfterSecondMessage).toBeLessThanOrEqual(
+      firstMessageRenderCountAfterInitial! + 1,
+    );
+    // ...and THE KEY ASSERTION: it does not re-render while msg-2 streams.
     expect(firstMessageRenderCountAfterAllStreaming).toBe(
-      firstMessageRenderCountAfterInitial,
+      firstMessageRenderCountAfterSecondMessage,
     );
 
     // Verify the second message did update (it should have rendered multiple times)
@@ -2276,19 +2280,11 @@ describe("Copy Button Re-render Prevention", () => {
       );
     };
 
-    const TrackedAssistantMessage: React.FC<{
-      message: AssistantMessage;
-      messages?: Message[];
-      isRunning?: boolean;
-    }> = ({ message, messages, isRunning }) => {
-      return (
-        <CopilotChatAssistantMessage
-          message={message}
-          messages={messages}
-          isRunning={isRunning}
-          copyButton={TrackedCopyButton as any}
-        />
-      );
+    // Per-message toolbars (the opt-out) so each message keeps its own copy
+    // button; set through slot props so rows skip turn tracking entirely.
+    const assistantMessageSlot = {
+      toolbarScope: "message" as const,
+      copyButton: TrackedCopyButton as any,
     };
 
     // Start with a completed message (isRunning=false so toolbar shows)
@@ -2306,7 +2302,7 @@ describe("Copy Button Re-render Prevention", () => {
           <CopilotChatMessageView
             messages={initialMessages}
             isRunning={false}
-            assistantMessage={TrackedAssistantMessage as any}
+            assistantMessage={assistantMessageSlot}
           />
         </CopilotChatConfigurationProvider>
       </CopilotKitProvider>,
@@ -2334,7 +2330,7 @@ describe("Copy Button Re-render Prevention", () => {
           <CopilotChatMessageView
             messages={messagesWithSecond}
             isRunning={false}
-            assistantMessage={TrackedAssistantMessage as any}
+            assistantMessage={assistantMessageSlot}
           />
         </CopilotChatConfigurationProvider>
       </CopilotKitProvider>,
