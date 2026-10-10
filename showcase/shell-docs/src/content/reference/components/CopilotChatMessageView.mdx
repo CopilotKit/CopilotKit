@@ -47,7 +47,8 @@ import "@copilotkit/react-core/v2/styles.css";
   `setState`. Each row is one virtualized row. The chat keeps a group's state
   under its `key`, so it survives the row leaving the window; it is dropped
   when the key stops appearing and cleared when the thread changes. Receives
-  the list after `transformMessages`. Place each message in at most one row,
+  the list after `transformMessages`, without the messages of subagents: those
+  render in their subagent groups. Place each message in at most one row,
   keep keys stable while the thread streams, define wrappers at module level,
   and pass a stable function.
   See [Grouping messages into one row](/custom-look-and-feel/slots#grouping-messages-into-one-row).
@@ -105,6 +106,32 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 
 ```tsx
 <CopilotChatMessageView userMessage="bg-gray-100 rounded-lg" />
+```
+
+</PropertyReference>
+
+<PropertyReference name="subagent" type="SlotProp<typeof CopilotChatSubagent>">
+  Slot for the group that shows the work of one subagent. Defaults to `CopilotChatSubagent`, which starts collapsed to a header with the name and status of the subagent, and opens on a click.
+  The slot gets `subagentRunId`, `subagent` (undefined when the agent did not announce it), `messages`, and `children` with the rendered messages of the group.
+  See [Subagent Activity](/multi-agent/subagent-activity).
+
+**As a replacement component:**
+
+```tsx
+<CopilotChatMessageView
+  subagent={({ subagent, children }) => (
+    <section className="my-subagent">
+      <h3>{subagent?.name ?? "Subagent"}</h3>
+      {children}
+    </section>
+  )}
+/>
+```
+
+**As a className:**
+
+```tsx
+<CopilotChatMessageView subagent="bg-muted rounded-lg" />
 ```
 
 </PropertyReference>

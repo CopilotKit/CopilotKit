@@ -4,5 +4,5 @@
   "frontend": {
     "kind": "universal"
   },
-  "pages": ["subagents"]
+  "pages": ["subagents", "subagent-activity"]
 }

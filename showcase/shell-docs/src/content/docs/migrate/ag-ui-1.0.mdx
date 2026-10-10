@@ -58,6 +58,13 @@ agent.subscribe({
 When the user stops a run, a 1.0 client receives `RUN_FINISHED` with `outcome: { type: "cancelled" }`.
 Before, the event had no outcome, which means success. Do not show a cancelled run as a failure.
 
+### Subagent messages show in groups
+
+If your agent attributes messages to subagents, CopilotChat no longer shows those messages in the main list.
+Each subagent gets its own group under the tool call that started it.
+Agents that send no subagent events show the same chat as before.
+See [Subagent Activity](/multi-agent/subagent-activity).
+
 ### Removed names
 
 AG-UI 1.0 removed these names, so CopilotKit no longer exports them:

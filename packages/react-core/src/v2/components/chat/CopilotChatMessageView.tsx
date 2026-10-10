@@ -17,6 +17,9 @@ import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import type { CopilotChatFeedbackMessage } from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage";
+import CopilotChatSubagent, {
+  SubagentLayoutContext,
+} from "./CopilotChatSubagent";
 import type {
   ActivityMessage,
   AssistantMessage,
@@ -26,7 +29,13 @@ import type {
   UserMessage,
 } from "@ag-ui/core";
 import { twMerge } from "tailwind-merge";
-import { useRenderActivityMessage, useRenderCustomMessages } from "../../hooks";
+import {
+  useRenderActivityMessage,
+  useRenderCustomMessages,
+  useSubagents,
+} from "../../hooks";
+import { ɵbuildSubagentLayout } from "@copilotkit/core";
+import type { ɵSubagentGroup, ɵSubagentLayout } from "@copilotkit/core";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import {
@@ -460,12 +469,47 @@ export function messageGroup<S>(
 
 const GROUP_ROW_KEY_PREFIX = "copilotkit-group:";
 
+/**
+ * Lists the messages in the order they render: each top-level message, then
+ * the subagent groups under its tool calls and the groups anchored after it.
+ * A group lists its own messages, then the groups nested in it.
+ */
+function subagentRenderOrder(
+  layout: ɵSubagentLayout,
+  rowMessages: readonly Message[],
+): Message[] {
+  const ordered: Message[] = [];
+  const visitGroup = (group: ɵSubagentGroup) => {
+    for (const message of group.messages) visitMessage(message);
+    for (const nested of layout.bySubagentRunId.get(group.subagentRunId) ??
+      []) {
+      visitGroup(nested);
+    }
+  };
+  const visitMessage = (message: Message) => {
+    ordered.push(message);
+    if (message.role !== "assistant") return;
+    for (const toolCall of message.toolCalls ?? []) {
+      for (const group of layout.byToolCallId.get(toolCall.id) ?? []) {
+        visitGroup(group);
+      }
+    }
+  };
+  rowMessages.forEach((message, index) => {
+    if (index === 0) layout.afterMessageId.get(null)?.forEach(visitGroup);
+    visitMessage(message);
+    layout.afterMessageId.get(message.id)?.forEach(visitGroup);
+  });
+  return ordered;
+}
+
 export type CopilotChatMessageViewProps = Omit<
   WithSlots<
     {
       assistantMessage: typeof CopilotChatAssistantMessage;
       userMessage: typeof CopilotChatUserMessage;
       reasoningMessage: typeof CopilotChatReasoningMessage;
+      subagent: typeof CopilotChatSubagent;
       cursor: typeof CopilotChatMessageView.Cursor;
       intelligenceIndicator: typeof IntelligenceIndicatorView;
     },
@@ -490,7 +534,8 @@ export type CopilotChatMessageViewProps = Omit<
        * message that renders on its own, and `messageGroup({ key, messages,
        * wrapper })` for messages that render together inside `wrapper` — a
        * collapsible block of tool calls, say. Receives the list after
-       * `transformMessages`. Each row is one virtualized row.
+       * `transformMessages`, minus the messages subagents produced: those
+       * render in their own subagent groups. Each row is one virtualized row.
        *
        * Return each message in at most one row. Tool-call cards still find
        * their results in the full list.
@@ -520,6 +565,7 @@ export function CopilotChatMessageView({
   assistantMessage,
   userMessage,
   reasoningMessage,
+  subagent,
   cursor,
   intelligenceIndicator,
   isRunning = false,
@@ -598,26 +644,45 @@ export function CopilotChatMessageView({
     [deduplicatedMessages, transformMessages],
   );
 
+  // Messages a subagent produced leave the main list and render as groups:
+  // under the tool call that started them, inside a parent group, or where
+  // their first message was. Built on the transformed list, so a transform
+  // can hide subagent messages too, and only top-level messages become rows.
+  const subagents = useSubagents();
+  const subagentLayout = useMemo(
+    () => ɵbuildSubagentLayout(transformedMessages, subagents),
+    [transformedMessages, subagents],
+  );
+  const topLevelMessages = subagentLayout.topLevel;
+
   // One entry per virtualized row. Without grouping, every message is its own.
   const rows = useMemo<MessageRow[]>(
     () =>
       groupMessages
-        ? groupMessages(transformedMessages)
-        : transformedMessages.map(messageRow),
-    [transformedMessages, groupMessages],
+        ? groupMessages(topLevelMessages)
+        : topLevelMessages.map(messageRow),
+    [topLevelMessages, groupMessages],
   );
 
-  // Every message that renders, in the order it renders, whether on its own
-  // row or inside a group. The message-level machinery below (row keys, the
-  // latest message, Intelligence anchors) reads this, not `rows`.
-  const renderedMessages = useMemo(
+  // The top-level messages in row order, whether on their own row or inside a
+  // group. Subagent groups that have no anchor open the first of them.
+  const rowMessages = useMemo(
     () =>
       groupMessages
         ? rows.flatMap((row) =>
             row.type === "group" ? row.messages : [row.message],
           )
-        : transformedMessages,
-    [rows, groupMessages, transformedMessages],
+        : topLevelMessages,
+    [rows, groupMessages, topLevelMessages],
+  );
+
+  // Every message that renders, in the order it renders, whether on its own
+  // row, inside a group or inside a subagent group. The message-level
+  // machinery below (row keys, the latest message, Intelligence anchors) reads
+  // this, not `rows`.
+  const renderedMessages = useMemo(
+    () => subagentRenderOrder(subagentLayout, rowMessages),
+    [subagentLayout, rowMessages],
   );
 
   // "Latest" means the last row on screen, not the last entry of `messages`:
@@ -793,6 +858,11 @@ export function CopilotChatMessageView({
     useMemo(
       () => resolveSlotComponent(reasoningMessage, CopilotChatReasoningMessage),
       [reasoningMessage],
+    );
+  const { Component: SubagentComponent, slotProps: subagentSlotProps } =
+    useMemo(
+      () => resolveSlotComponent(subagent, CopilotChatSubagent),
+      [subagent],
     );
 
   // ---------------------------------------------------------------------------
@@ -1005,6 +1075,16 @@ export function CopilotChatMessageView({
     // tool lookups) must keep using message.id.
     const rowKey = rowRenderKeys.get(message.id) ?? message.id;
 
+    // Groups with no anchor sit where their first message was; ones that came
+    // before any top-level message open the first row.
+    if (message.id === rowMessages[0]?.id) {
+      elements.push(
+        ...(subagentLayout.afterMessageId.get(null) ?? []).map(
+          renderSubagentGroup,
+        ),
+      );
+    }
+
     if (renderCustomMessage) {
       elements.push(
         <MemoizedCustomMessage
@@ -1091,6 +1171,12 @@ export function CopilotChatMessageView({
       );
     }
 
+    elements.push(
+      ...(subagentLayout.afterMessageId.get(message.id) ?? []).map(
+        renderSubagentGroup,
+      ),
+    );
+
     return elements.filter(Boolean) as React.ReactElement[];
   };
 
@@ -1116,6 +1202,27 @@ export function CopilotChatMessageView({
     ];
   };
 
+  const renderSubagentGroup = (group: ɵSubagentGroup): React.ReactElement => (
+    <SubagentComponent
+      key={`subagent-${group.subagentRunId}`}
+      subagentRunId={group.subagentRunId}
+      subagent={group.subagent}
+      messages={group.messages}
+      {...subagentSlotProps}
+    >
+      {group.messages.flatMap(renderMessageBlock)}
+      {subagentLayout.bySubagentRunId
+        .get(group.subagentRunId)
+        ?.map(renderSubagentGroup)}
+    </SubagentComponent>
+  );
+  // A fresh value each render is intended: the groups under a memoized
+  // assistant message must update when only the subagent's messages change.
+  const subagentContext = {
+    layout: subagentLayout,
+    renderGroup: renderSubagentGroup,
+  };
+
   // Build the flat element list only when we're not virtualizing (avoids
   // creating 500 React elements that we'd immediately discard).
   const messageElements: React.ReactElement[] = shouldVirtualize
@@ -1127,9 +1234,11 @@ export function CopilotChatMessageView({
   // ---------------------------------------------------------------------------
   if (children) {
     return (
-      <div data-copilotkit style={{ display: "contents" }}>
-        {children({ messageElements, messages, isRunning, interruptElement })}
-      </div>
+      <SubagentLayoutContext.Provider value={subagentContext}>
+        <div data-copilotkit style={{ display: "contents" }}>
+          {children({ messageElements, messages, isRunning, interruptElement })}
+        </div>
+      </SubagentLayoutContext.Provider>
     );
   }
 
@@ -1143,48 +1252,53 @@ export function CopilotChatMessageView({
   // Render — shared wrapper, conditional inner content (virtual vs flat)
   // ---------------------------------------------------------------------------
   return (
-    <div
-      data-copilotkit
-      data-testid="copilot-message-list"
-      className={twMerge("copilotKitMessages cpk:flex cpk:flex-col", className)}
-      {...props}
-    >
-      {shouldVirtualize ? (
-        // Virtual path: only visible items are in the DOM; outer div maintains
-        // total scroll height so the scrollbar reflects the full list size.
-        <div
-          style={{ height: virtualizer.getTotalSize(), position: "relative" }}
-        >
-          {virtualizer.getVirtualItems().map((virtualItem) => {
-            const row = rows[virtualItem.index]!;
-            return (
-              <div
-                key={rowKey(row)}
-                data-index={virtualItem.index}
-                ref={virtualizer.measureElement}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  transform: `translateY(${virtualItem.start}px)`,
-                }}
-              >
-                {renderRow(row)}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        messageElements
-      )}
-      {interruptElement}
-      {showCursor && (
-        <div className="cpk:mt-2">
-          {renderSlot(cursor, CopilotChatMessageView.Cursor, {})}
-        </div>
-      )}
-    </div>
+    <SubagentLayoutContext.Provider value={subagentContext}>
+      <div
+        data-copilotkit
+        data-testid="copilot-message-list"
+        className={twMerge(
+          "copilotKitMessages cpk:flex cpk:flex-col",
+          className,
+        )}
+        {...props}
+      >
+        {shouldVirtualize ? (
+          // Virtual path: only visible items are in the DOM; outer div maintains
+          // total scroll height so the scrollbar reflects the full list size.
+          <div
+            style={{ height: virtualizer.getTotalSize(), position: "relative" }}
+          >
+            {virtualizer.getVirtualItems().map((virtualItem) => {
+              const row = rows[virtualItem.index]!;
+              return (
+                <div
+                  key={rowKey(row)}
+                  data-index={virtualItem.index}
+                  ref={virtualizer.measureElement}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${virtualItem.start}px)`,
+                  }}
+                >
+                  {renderRow(row)}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          messageElements
+        )}
+        {interruptElement}
+        {showCursor && (
+          <div className="cpk:mt-2">
+            {renderSlot(cursor, CopilotChatMessageView.Cursor, {})}
+          </div>
+        )}
+      </div>
+    </SubagentLayoutContext.Provider>
   );
 }
 

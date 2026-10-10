@@ -98,6 +98,19 @@ export class MessagesComponent {
   CSS classes forwarded to the reasoning-message slot.
 </PropertyReference>
 
+### Subagent group slot inputs
+
+<PropertyReference name="subagentComponent" type="Type<any>">
+  Component class used for each subagent group. It gets the inputs `subagentRunId`, `subagent`, `messages`, `body` and `bodyContext` that it declares.
+</PropertyReference>
+
+<PropertyReference name="subagentTemplate" type="TemplateRef<any>">
+  Template used for each subagent group. Takes precedence over `subagentComponent`.
+  The context has the subagent as `$implicit`, plus `subagentRunId`, `messages`, `body` and `bodyContext`.
+  Render `body` with `bodyContext` to show the messages of the group.
+  See [Subagent Activity](/multi-agent/subagent-activity).
+</PropertyReference>
+
 ### Content after the message list
 
 <PropertyReference name="childrenComponent" type="Type<any>">
