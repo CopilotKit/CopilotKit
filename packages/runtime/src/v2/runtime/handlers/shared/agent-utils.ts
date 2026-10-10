@@ -31,6 +31,40 @@ type MiddlewareCapableAgent = AbstractAgent & {
   headers?: Record<string, string>;
 };
 
+/**
+ * Merge forwardable inbound request headers onto a per-request agent clone.
+ *
+ * Shared by the run path (`configureAgentForRequest` below) and the connect
+ * path (`handleConnectAgent`), so both clones carry the same header set.
+ *
+ * Forward eligible inbound headers onto the outgoing agent call under the
+ * runtime's resolved forwarding policy (`authorization` / custom `x-*`, with
+ * known infra/proxy/platform headers stripped by the default denylist —
+ * #5712), but let headers the server explicitly configured on the agent WIN
+ * on collision (case-insensitively): a server-set service-to-service token
+ * (e.g. an IAM bearer) must never be silently overridden by a
+ * browser/edge/platform-injected inbound header. See `mergeForwardableHeaders`
+ * for the casing/duplicate-key rationale and `shouldForwardHeader` for breadth.
+ */
+export function applyForwardedRequestHeaders(params: {
+  runtime: CopilotRuntimeLike;
+  request: Request;
+  agent: AbstractAgent;
+}): void {
+  const { runtime, request } = params;
+  const agent = params.agent as MiddlewareCapableAgent;
+  agent.headers = mergeForwardableHeaders(
+    agent.headers,
+    request,
+    // `forwardHeadersPolicy` is optional on the published `CopilotRuntimeLike`
+    // interface (non-breaking minor release). Concrete runtimes always set it;
+    // a policy-less external implementor falls back to the default resolved
+    // policy (default-on denylist) so behavior stays identical and never derefs
+    // undefined.
+    runtime.forwardHeadersPolicy ?? resolveForwardHeadersPolicy(undefined),
+  );
+}
+
 export interface RunAgentParameters {
   request: Request;
   runtime: CopilotRuntimeLike;
@@ -163,24 +197,9 @@ export function configureAgentForRequest(params: {
     }
   }
 
-  // Forward eligible inbound headers onto the outgoing agent call under the
-  // runtime's resolved forwarding policy (`authorization` / custom `x-*`, with
-  // known infra/proxy/platform headers stripped by the default denylist —
-  // #5712), but let headers the server explicitly configured on the agent WIN
-  // on collision (case-insensitively): a server-set service-to-service token
-  // (e.g. an IAM bearer) must never be silently overridden by a
-  // browser/edge/platform-injected inbound header. See `mergeForwardableHeaders`
-  // for the casing/duplicate-key rationale and `shouldForwardHeader` for breadth.
-  agent.headers = mergeForwardableHeaders(
-    agent.headers,
-    request,
-    // `forwardHeadersPolicy` is optional on the published `CopilotRuntimeLike`
-    // interface (non-breaking minor release). Concrete runtimes always set it;
-    // a policy-less external implementor falls back to the default resolved
-    // policy (default-on denylist) so behavior stays identical and never derefs
-    // undefined.
-    runtime.forwardHeadersPolicy ?? resolveForwardHeadersPolicy(undefined),
-  );
+  // Same header preparation as the connect path (`handleConnectAgent`):
+  // forward eligible inbound headers, server-configured headers win.
+  applyForwardedRequestHeaders({ runtime, request, agent });
 }
 
 /**

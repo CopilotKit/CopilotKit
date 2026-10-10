@@ -6,6 +6,7 @@ import type { RunAgentParameters as ConnectAgentParameters } from "./shared/agen
 import {
   parseConnectRequest,
   cloneAgentForRequest,
+  applyForwardedRequestHeaders,
 } from "./shared/agent-utils";
 
 export async function handleConnectAgent({
@@ -37,6 +38,12 @@ export async function handleConnectAgent({
     if (agent instanceof Response) {
       return agent;
     }
+
+    // Same header preparation as the run path (`configureAgentForRequest`):
+    // fold forwardable inbound headers (`authorization` / custom `x-*`) onto
+    // the clone, server-configured headers win. Without this the connect-path
+    // clone carries no inbound auth while the run-path clone does (#3170).
+    applyForwardedRequestHeaders({ runtime, request, agent });
 
     const connectRequest = await parseConnectRequest(request);
     if (connectRequest instanceof Response) {
