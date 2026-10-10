@@ -1458,7 +1458,6 @@ describe("bindMcpApp ui/request-display-mode", () => {
       { hostContext: { platform: "web", availableDisplayModes: ["inline"] } },
     );
 
-    session.setDisplayMode("pip");
     session.setDisplayMode("fullscreen");
     await tick(20);
 

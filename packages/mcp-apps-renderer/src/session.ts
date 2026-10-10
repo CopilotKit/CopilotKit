@@ -23,6 +23,7 @@ import { MCPAppsActivityContentSchema } from "./content-schema";
 import type { MCPAppsActivityContent } from "./content-schema";
 import {
   defaultContainerDimensions,
+  isHostDisplayMode,
   resolveHostDisplayModes,
 } from "./display-mode";
 import type {
@@ -370,9 +371,9 @@ export interface McpAppSession {
    * notifies the widget (`host-context-changed`) and fires
    * `onDisplayModeChange`. `containerDimensions` overrides the surface
    * advertised for the mode (the viewport, for `fullscreen`). A mode this
-   * host does not offer (`pip`, or `fullscreen` when the options narrowed the
-   * modes to `inline`) is ignored, so the widget is never told a mode the
-   * host cannot render.
+   * host does not offer (`fullscreen` when the options narrowed the modes to
+   * `inline`) is ignored, so the widget is never told a mode the host cannot
+   * render.
    */
   setDisplayMode(
     mode: McpAppsDisplayMode,
@@ -930,6 +931,7 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
         const declaredByApp =
           bridge?.getAppCapabilities()?.availableDisplayModes;
         const available =
+          isHostDisplayMode(mode) &&
           hostDisplayModes.includes(mode) &&
           (!declaredByApp || declaredByApp.includes(mode));
         if (available) applyDisplayMode(mode);

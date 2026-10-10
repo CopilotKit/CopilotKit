@@ -25,9 +25,10 @@ synchronous activity registration.
 
 `bindMcpApp` negotiates `ui/request-display-mode` for every frontend:
 
-- The host renders `inline` and `fullscreen` (`HOST_SUPPORTED_DISPLAY_MODES`);
-  `pip` is never granted. A request for an unavailable mode leaves the mode
-  untouched and answers with the mode still applied.
+- The host renders `inline` and `fullscreen` (`HOST_SUPPORTED_DISPLAY_MODES`),
+  and `McpAppsDisplayMode` carries only those two; `pip` exists in the spec but
+  is never granted. A request for an unavailable mode leaves the mode untouched
+  and answers with the mode still applied.
 - A mode the app did not list in `appCapabilities.availableDisplayModes` at
   `ui/initialize` is refused the same way. `options.hostContext.availableDisplayModes`
   narrows what the host offers (`inline` always stays).

@@ -6,18 +6,23 @@
 // means a `<CopilotKit>` app that never renders an MCP App still does not load
 // the ext-apps bundle.
 
-/** A display mode the ext-apps spec lets a widget request. */
-export type McpAppsDisplayMode = "inline" | "fullscreen" | "pip";
-
 /**
- * Display modes every CopilotKit frontend renders. `pip` is deliberately
- * absent: no frontend renders a picture-in-picture surface, so a widget asking
- * for it keeps its current mode.
+ * A display mode this host renders. The ext-apps spec also lets a widget ask
+ * for `pip`; no CopilotKit frontend renders a picture-in-picture surface, so
+ * that request keeps the current mode and the host API never carries it.
  */
+export type McpAppsDisplayMode = "inline" | "fullscreen";
+
+/** Display modes every CopilotKit frontend renders. */
 export const HOST_SUPPORTED_DISPLAY_MODES: readonly McpAppsDisplayMode[] = [
   "inline",
   "fullscreen",
 ];
+
+/** Whether a mode a widget asked for is one this host can render at all. */
+export function isHostDisplayMode(mode: unknown): mode is McpAppsDisplayMode {
+  return HOST_SUPPORTED_DISPLAY_MODES.includes(mode as McpAppsDisplayMode);
+}
 
 /** The surface a widget gets in a mode (host context `containerDimensions`). */
 export interface McpAppContainerDimensions {
