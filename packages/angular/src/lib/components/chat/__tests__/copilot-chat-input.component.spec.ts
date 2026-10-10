@@ -15,6 +15,9 @@ class ChatStateStub extends ChatState {
   inputValue = signal("");
   override readonly attachmentsEnabled = signal(false);
   override readonly attachmentsUploading = signal(false);
+  override readonly isRunning = signal(false);
+  override readonly canStop = signal(false);
+  override stopRun = vi.fn();
   submitInput = vi.fn((value: string) => this.inputValue.set(value));
   changeInput = vi.fn((value: string) => this.inputValue.set(value));
   addFile = vi.fn();
@@ -194,5 +197,80 @@ describe("CopilotChatInput", () => {
     fixture.componentInstance.handleStartTranscribe();
 
     expect(fixture.componentInstance.computedMode()).toBe("transcribe");
+  });
+
+  describe("while a run is in flight", () => {
+    const enter = () =>
+      component.handleKeyDown(new KeyboardEvent("keydown", { key: "Enter" }));
+
+    beforeEach(() => {
+      chatState.isRunning.set(true);
+      chatState.canStop.set(true);
+    });
+
+    // Same contract as React's CopilotChatInput: Enter with text sends (the
+    // chat queues it behind the run), while the button always stops.
+    it("routes Enter with text to send but the button to stop", () => {
+      component.handleValueChange("a brand new message");
+      expect(component.showStop()).toBe(true);
+      expect(component.sendButtonDisabled()).toBe(false);
+
+      enter();
+      expect(chatState.submitInput).toHaveBeenCalledWith("a brand new message");
+      expect(chatState.stopRun).not.toHaveBeenCalled();
+
+      component.handleValueChange("another message");
+      component.handleSendButtonClick();
+      expect(chatState.stopRun).toHaveBeenCalledOnce();
+      expect(chatState.submitInput).toHaveBeenCalledOnce();
+    });
+
+    it("stops on Enter when the composer is empty", () => {
+      enter();
+      expect(chatState.stopRun).toHaveBeenCalledOnce();
+      expect(chatState.submitInput).not.toHaveBeenCalled();
+    });
+
+    it("offers no stop while the chat cannot stop, such as on the welcome screen", () => {
+      chatState.canStop.set(false);
+      expect(component.showStop()).toBe(false);
+      expect(component.sendButtonDisabled()).toBe(true);
+
+      enter();
+      component.handleSendButtonClick();
+      expect(chatState.stopRun).not.toHaveBeenCalled();
+    });
+
+    it("renders the default button as Stop and keeps the textarea enabled", () => {
+      const fixture = TestBed.createComponent(CopilotChatInput);
+      fixture.detectChanges();
+      const host = fixture.nativeElement as HTMLElement;
+
+      const button = host.querySelector<HTMLButtonElement>(
+        'button[aria-label="Stop generating"]',
+      );
+      expect(button).not.toBeNull();
+      expect(button!.disabled).toBe(false);
+      expect(button!.querySelector("rect")?.getAttribute("fill")).toBe(
+        "currentColor",
+      );
+      expect(fixture.componentInstance.textAreaContext().disabled).toBe(false);
+
+      button!.click();
+      expect(chatState.stopRun).toHaveBeenCalledOnce();
+
+      chatState.isRunning.set(false);
+      fixture.detectChanges();
+      expect(
+        host.querySelector('button[aria-label="Send message"]'),
+      ).not.toBeNull();
+    });
+
+    it("passes stop and running state to a custom send button", () => {
+      const context = component.sendButtonContext();
+      expect(context.isRunning).toBe(true);
+      context.stop();
+      expect(chatState.stopRun).toHaveBeenCalledOnce();
+    });
   });
 });

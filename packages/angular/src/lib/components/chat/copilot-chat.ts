@@ -148,8 +148,14 @@ export class CopilotChat extends ChatState {
   override readonly attachmentsUploading = computed(() =>
     this.attachments().some((attachment) => attachment.status === "uploading"),
   );
+  override readonly isRunning = computed(() => this.agentStore().isRunning());
+  // Match React's shouldAllowStop: no Stop on the empty welcome screen.
+  override readonly canStop = computed(
+    () => this.isRunning() && this.messages().length > 0,
+  );
 
   private generatedThreadId: string = randomUUID();
+  private submissionQueue: Promise<void> = Promise.resolve();
 
   constructor() {
     super();
@@ -324,16 +330,37 @@ export class CopilotChat extends ChatState {
     }
   }
 
-  async submitInput(value: string): Promise<void> {
+  // Match React's enqueueSubmission: sends dispatch one at a time, so a second
+  // send queued during a run waits for the first send's run instead of
+  // aborting it. Both would otherwise wake on the same completion promise.
+  private enqueueSubmission(submit: () => Promise<void>): Promise<void> {
+    const pending = this.submissionQueue.then(submit).catch((error) => {
+      console.error("[CopilotKit] Queued submission failed:", error);
+    });
+    this.submissionQueue = pending;
+    return pending;
+  }
+
+  submitInput(value: string): Promise<void> {
     if (
       this.destroyRef.destroyed ||
       !value.trim() ||
       this.attachmentsUploading()
     )
-      return;
+      return Promise.resolve();
     const agent = this.agentStore().agent;
     const threadId = agent.threadId;
     this.inputValue.set("");
+    return this.enqueueSubmission(() =>
+      this.dispatchInput(value, agent, threadId),
+    );
+  }
+
+  private async dispatchInput(
+    value: string,
+    agent: AbstractAgent,
+    threadId: string,
+  ): Promise<void> {
     await this.waitForActiveRunToSettle(agent);
     if (
       this.destroyRef.destroyed ||
@@ -367,14 +394,22 @@ export class CopilotChat extends ChatState {
     }
   }
 
-  async selectSuggestion(
-    suggestion: Suggestion,
-    _index: number,
-  ): Promise<void> {
+  selectSuggestion(suggestion: Suggestion, _index: number): Promise<void> {
     const message = suggestion.message.trim();
-    if (this.destroyRef.destroyed || !message || suggestion.isLoading) return;
+    if (this.destroyRef.destroyed || !message || suggestion.isLoading)
+      return Promise.resolve();
     const agent = this.agentStore().agent;
     const threadId = agent.threadId;
+    return this.enqueueSubmission(() =>
+      this.dispatchSuggestion(message, agent, threadId),
+    );
+  }
+
+  private async dispatchSuggestion(
+    message: string,
+    agent: AbstractAgent,
+    threadId: string,
+  ): Promise<void> {
     await this.waitForActiveRunToSettle(agent);
     if (
       this.destroyRef.destroyed ||
@@ -393,6 +428,20 @@ export class CopilotChat extends ChatState {
 
   changeInput(value: string): void {
     this.inputValue.set(value);
+  }
+
+  override stopRun(): void {
+    const agent = this.agentStore().agent;
+    try {
+      this.copilotKit.core.stopAgent({ agent });
+    } catch (error) {
+      console.error("[CopilotKit] stopAgent failed:", error);
+      try {
+        agent.abortRun();
+      } catch (abortError) {
+        console.error("[CopilotKit] abortRun fallback failed:", abortError);
+      }
+    }
   }
 
   override async finishTranscription(audioBlob: Blob): Promise<void> {

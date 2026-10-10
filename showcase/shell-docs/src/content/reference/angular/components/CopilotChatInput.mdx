@@ -5,9 +5,11 @@ description: "Angular standalone component for chat input, tools, file upload, a
 
 ## Overview
 
-`CopilotChatInput` is the input area of the chat. It renders the textarea, the send button, an optional tools menu, an add-file button, and the audio transcription controls. It has three modes: `"input"` (the default textarea), `"transcribe"` (records audio and shows transcription controls), and `"processing"` (disables the textarea and send button while the agent runs).
+`CopilotChatInput` is the input area of the chat. It renders the textarea, the send button, an optional tools menu, an add-file button, and the audio transcription controls. It has three modes: `"input"` (the default textarea), `"transcribe"` (records audio and shows transcription controls), and `"processing"` (disables the textarea and send button when you set it through `mode`).
 
 `CopilotChatInput` requires a parent injector to provide `ChatState`. It reads that state through `injectChatState` and wires submission, value changes, transcription, and file uploads to it. Its outputs fire in addition to that built-in behavior, so you can observe interactions without disabling them.
+
+While `ChatState.isRunning()` is true, the send button becomes a Stop button. Clicking it calls `ChatState.stopRun()`. Enter with text still sends, and `CopilotChat` queues that message until the active run finishes. Enter on an empty textarea stops the run. Stop is offered only while `ChatState.canStop()` is true; `CopilotChat` sets it while a run is in flight and the transcript has messages. The textarea stays editable during a run.
 
 ## Usage
 
@@ -139,7 +141,7 @@ Each interactive piece can be replaced with a component class (`*Component`). Te
 These events fire in addition to the input's built-in handling, so you can observe interactions without replacing default behavior.
 
 <PropertyReference name="submitMessage" type="string">
-  Emitted with the trimmed message text when the user sends a message (Enter without Shift, or the send button).
+  Emitted with the trimmed message text when the user sends a message (Enter without Shift, or the send button when no run is in flight).
 </PropertyReference>
 
 <PropertyReference name="valueChange" type="string">
@@ -171,7 +173,7 @@ These events fire in addition to the input's built-in handling, so you can obser
 For deep customization, provide named `<ng-template>` elements inside `<copilot-chat-input>`. Each is read with `contentChild` and takes precedence over the corresponding `*Component` input. The send button and toolbar templates receive a typed context.
 
 <PropertyReference name="sendButton" type="TemplateRef<SendButtonContext>">
-  Custom send button. Context: `send: () => void`, `disabled: boolean`, `value: string`.
+  Custom send button. Context: `send: () => void`, `stop: () => void`, `isRunning: boolean` (true while the button acts as Stop), `disabled: boolean`, `value: string`.
 </PropertyReference>
 
 <PropertyReference name="toolbar" type="TemplateRef<ToolbarContext>">
