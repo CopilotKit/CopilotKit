@@ -228,17 +228,65 @@ Annotations are hints for browser agents, not security controls. Enforce authent
 
 If the tool does not appear, check the browser setup first, then verify that the tool has a description, `webmcp` is enabled, and the frontend tool is currently available.
 
+## Import page tools into CopilotKit
+
+The path above publishes CopilotKit tools onto the page for browser agents.
+
+Use `useWebmcpTools` (React and Vue) or `registerWebmcpTools` (Angular) to import page tools into CopilotKit. Then a CopilotKit agent can call tools that the page already registered on `document.modelContext`.
+
+<FrontendOnly frontend="react">
+
+```tsx
+import { useWebmcpTools } from "@copilotkit/react-core/v2";
+
+useWebmcpTools({
+  filter: (tool) => tool.name.startsWith("search"),
+});
+```
+
+</FrontendOnly>
+<FrontendOnly frontend="vue">
+
+```ts
+import { useWebmcpTools } from "@copilotkit/vue/v2";
+
+useWebmcpTools({
+  filter: (tool) => tool.name.startsWith("search"),
+});
+```
+
+</FrontendOnly>
+<FrontendOnly frontend="angular">
+
+```ts
+import { registerWebmcpTools } from "@copilotkit/angular";
+
+registerWebmcpTools({
+  filter: (tool) => tool.name.startsWith("search"),
+});
+```
+
+</FrontendOnly>
+
+`filter` receives the page tool and returns true to import it. Filter order is allow, then deny, then `filter`.
+
+Full steps: [Import page WebMCP tools](/webmcp-tools).
+
 ## Related
 
+- [Import page WebMCP tools](/webmcp-tools)
 - [Frontend tools](/frontend-tools)
 <FrontendOnly frontend="react">
 - [React `useFrontendTool` reference](/reference/hooks/useFrontendTool)
+- [React `useWebmcpTools` reference](/reference/hooks/useWebmcpTools)
 </FrontendOnly>
 <FrontendOnly frontend="vue">
 - [Vue `useFrontendTool` reference](/reference/vue/hooks/useFrontendTool)
+- [Vue `useWebmcpTools` reference](/reference/vue/hooks/useWebmcpTools)
 </FrontendOnly>
 <FrontendOnly frontend="angular">
 - [Angular `registerFrontendTool` reference](/reference/angular/functions/registerFrontendTool)
+- [Angular `registerWebmcpTools` reference](/reference/angular/functions/registerWebmcpTools)
 </FrontendOnly>
 - [WebMCP specification](https://webmachinelearning.github.io/webmcp/)
 - [Chrome WebMCP best practices](https://developer.chrome.com/docs/ai/webmcp/best-practices)

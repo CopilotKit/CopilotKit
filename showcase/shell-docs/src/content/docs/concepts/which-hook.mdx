@@ -18,6 +18,7 @@ Use this page as the quick map, then follow each hook to its full reference.
 | Hook | Use it when you want to |
 | --- | --- |
 | [`useFrontendTool`](/reference/hooks/useFrontendTool) | Give the agent a client-side tool to call (run logic in the browser), with optional inline UI. |
+| [`useWebmcpTools`](/reference/hooks/useWebmcpTools) | Import page WebMCP tools from `document.modelContext` so the CopilotKit agent can call them. |
 | [`useRenderTool`](/reference/hooks/useRenderTool) | Render the UI for a specific tool call by name (typed), without defining the tool's handler. |
 | [`useDefaultRenderTool`](/reference/hooks/useDefaultRenderTool) | Provide one wildcard renderer for any tool call that has no specific renderer. |
 | [`useComponent`](/reference/hooks/useComponent) | Register a React component as a named tool renderer (component-first generative UI). |
@@ -31,7 +32,9 @@ Start with the verb.
 
 - **"The agent should *run* something in my app."** Use [`useFrontendTool`](/reference/hooks/useFrontendTool).
   You define the tool's schema and handler; the agent calls it. Add a `render`
-  to also show inline UI for the call.
+  to also show inline UI for the call. If the page already registered those
+  tools on `document.modelContext`, use [`useWebmcpTools`](/reference/hooks/useWebmcpTools)
+  so you do not rewrite each handler.
 - **"The agent's tool call should *look* like something."** Use a render hook.
   Use [`useRenderTool`](/reference/hooks/useRenderTool) to render one named tool,
   [`useComponent`](/reference/hooks/useComponent) to bind a React component to a
@@ -60,6 +63,7 @@ tool with `useRenderTool` and never write a handler on the client.
 ## Related
 
 - [Frontend Tools](/frontend-tools): the full guide to `useFrontendTool`.
+- [Import page WebMCP tools](/webmcp-tools): let the agent call tools already on `document.modelContext`.
 - [Generative UI](/generative-ui/tool-rendering): rendering tool calls as rich UI.
 - [Human in the Loop](/human-in-the-loop): approval and interrupt patterns.
 - [Hooks reference](/reference): every v2 hook in detail.

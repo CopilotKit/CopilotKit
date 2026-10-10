@@ -132,6 +132,18 @@ describe("RunHandler tool registry ownership (#4952)", () => {
     expect(runHandler.tools).toHaveLength(0);
   });
 
+  it("removeTool of a hook tool leaves a provider tool of the same name", () => {
+    const runHandler = createRunHandler();
+    runHandler.initialize([{ name: "sayHello", description: "from props" }]);
+    runHandler.addTool({ name: "sayHello", description: "from hook" });
+
+    runHandler.removeTool("sayHello");
+
+    expect(runHandler.getTool({ toolName: "sayHello" })?.description).toBe(
+      "from props",
+    );
+  });
+
   it("removeTool without an agentId leaves an agent-scoped hook tool alone", () => {
     const runHandler = createRunHandler();
     runHandler.addTool({ name: "dup", description: "global" });
