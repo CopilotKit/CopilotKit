@@ -1,0 +1,147 @@
+---
+title: "initAgentStore"
+description: "Angular function that registers a self-managed HttpAgent under an agent id together with the agent-scoped components and tools it needs, in one call."
+---
+
+## Overview
+
+`initAgentStore` registers a self-managed [`HttpAgent`](/backend/ag-ui) under an `agentId`, together with everything that agent needs on the frontend: display-only components, frontend tools, tool-call renderers, and human-in-the-loop tools. Every registration is scoped to that `agentId`, and a fresh `threadId` is generated per call. Afterwards, [`injectAgentStore`](/reference/angular/functions/injectAgentStore) resolves the agent as usual.
+
+Without it, setting up a self-managed agent means constructing the `HttpAgent`, generating a thread id, merging the agent into the runtime's `selfManagedAgents` without dropping agents registered earlier, and then registering each tool with the matching `agentId`. `initAgentStore` collapses that into one declarative call.
+
+The function only requires an injection context, so it is placement-agnostic: call it from an environment initializer (for example in route-level `providers`), from a custom `injectXyz()` helper that wraps it, or from a component constructor or provider factory. Registered tools are removed when the surrounding injector is destroyed.
+
+<Callout type="info">
+  Import from the package root, `@copilotkit/angular`. `initAgentStore` must run in an injection context that has [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit) in scope. Self-managed agents are part of CopilotKit's [Enterprise Intelligence tier](/intelligence/intelligence-platform); see [Self-managed agents](/backend/self-managed-agents).
+</Callout>
+
+## Signature
+
+```ts
+import { initAgentStore } from "@copilotkit/angular";
+
+function initAgentStore(config: InitAgentStoreConfig): void;
+```
+
+## Parameters
+
+<PropertyReference name="config" type="InitAgentStoreConfig" required>
+  The agent setup object.
+
+  <PropertyReference name="agentId" type="string" required>
+    The id the agent is registered under. Chat components, `injectAgentStore`, and the registered tools use this id to address the agent.
+  </PropertyReference>
+
+  <PropertyReference name="url" type="string" required>
+    The AG-UI endpoint of the agent server the `HttpAgent` talks to.
+  </PropertyReference>
+
+  <PropertyReference name="components" type="RegisterComponentConfig[]">
+    Display-only components the agent can call to show them in the chat. Each entry is registered through [`registerComponent`](/reference/angular/functions/registerComponent) with this `agentId`.
+  </PropertyReference>
+
+  <PropertyReference name="frontendTools" type="FrontendToolConfig[]">
+    Browser-executed tools with a `handler`. Each entry is registered through [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool) with this `agentId`.
+  </PropertyReference>
+
+  <PropertyReference name="renderToolCalls" type="RenderToolCallConfig[]">
+    Renderers for tools the agent already has. Each entry is registered through [`registerRenderToolCall`](/reference/angular/functions/registerRenderToolCall) with this `agentId`.
+  </PropertyReference>
+
+  <PropertyReference name="humanInTheLoop" type="HumanInTheLoopConfig[]">
+    Tools that pause the agent until the user responds. Each entry is registered through [`registerHumanInTheLoop`](/reference/angular/functions/registerHumanInTheLoop) with this `agentId`.
+  </PropertyReference>
+
+  <PropertyReference name="createAgent" type="(agentConfig: HttpAgentConfig) => HttpAgent">
+    Maps the prepared agent config (`agentId`, `url`, and the generated `threadId`) onto the `HttpAgent` or subclass that gets registered. Defaults to `new HttpAgent(agentConfig)`. Use it to plug in an agent with custom headers, persistent context, or incremental message history.
+  </PropertyReference>
+</PropertyReference>
+
+## Return Value
+
+`initAgentStore` returns `void`. It registers the agent and its tools as a side effect. Calling it again with another `agentId` keeps the agents registered before.
+
+## Usage
+
+### Set up an agent per route
+
+```ts title="src/app/app.routes.ts"
+import { Routes } from "@angular/router";
+import { provideEnvironmentInitializer } from "@angular/core";
+import { initAgentStore } from "@copilotkit/angular";
+import { FlightsComponent } from "./flights/flights.component";
+import { FlightCardComponent } from "./flights/flight-card.component";
+import { flightCardSchema, loadFlightsTool } from "./flights/tools";
+
+export const routes: Routes = [
+  {
+    path: "flights",
+    component: FlightsComponent,
+    providers: [
+      provideEnvironmentInitializer(() =>
+        initAgentStore({
+          agentId: "flight-agent",
+          url: "http://localhost:9000/agent",
+          components: [
+            {
+              name: "show_flight",
+              description: "Show one flight from the search result.",
+              parameters: flightCardSchema,
+              component: FlightCardComponent,
+            },
+          ],
+          frontendTools: [loadFlightsTool],
+        }),
+      ),
+    ],
+  },
+];
+```
+
+Inside the route, read the agent with `injectAgentStore("flight-agent")`.
+
+### Customize the agent
+
+```ts
+import { HttpAgent, HttpAgentConfig } from "@ag-ui/client";
+
+class AuthenticatedAgent extends HttpAgent {
+  constructor(config: HttpAgentConfig) {
+    super({
+      ...config,
+      headers: { Authorization: `Bearer ${readToken()}` },
+    });
+  }
+}
+
+initAgentStore({
+  agentId: "flight-agent",
+  url: "http://localhost:9000/agent",
+  createAgent: (agentConfig) => new AuthenticatedAgent(agentConfig),
+});
+```
+
+## Related
+
+<Cards>
+  <Card
+    title="injectAgentStore"
+    description="Subscribe to the registered agent and read its messages, state, and run status as signals."
+    href="/reference/angular/functions/injectAgentStore"
+  />
+  <Card
+    title="registerComponent"
+    description="Register a component the agent can display, with nothing to add on the agent side."
+    href="/reference/angular/functions/registerComponent"
+  />
+  <Card
+    title="provideCopilotKit"
+    description="Configure the runtime connection and self-managed agents at application startup."
+    href="/reference/angular/functions/provideCopilotKit"
+  />
+  <Card
+    title="Self-managed agents"
+    description="Connect AG-UI agents that you host and secure yourself."
+    href="/backend/self-managed-agents"
+  />
+</Cards>
