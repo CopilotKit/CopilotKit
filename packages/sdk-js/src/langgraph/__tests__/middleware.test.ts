@@ -27,7 +27,11 @@ import {
   SystemMessage,
 } from "@langchain/core/messages";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
-import { createAgent, createMiddleware } from "langchain";
+import {
+  createAgent,
+  createMiddleware,
+  dynamicSystemPromptMiddleware,
+} from "langchain";
 
 import {
   copilotkitMiddleware,
@@ -543,6 +547,67 @@ describe("app context in an agent run", () => {
     const { messages } = await runTurns(1, "route=/dashboard");
 
     expect(systemContents(messages)).toEqual([]);
+  });
+
+  // The context lives only on request.systemMessage. A middleware listed after
+  // copilotkitMiddleware runs inside it, so it decides what reaches the model.
+  describe("with a second system-prompt middleware", () => {
+    const replaceSystemMessage = createMiddleware({
+      name: "ReplaceSystemMessage",
+      wrapModelCall: (request: any, handler: any) =>
+        handler({
+          ...request,
+          systemMessage: new SystemMessage("Replaced prompt."),
+        }),
+    });
+
+    async function systemSeenByModel(middleware: any[]) {
+      const model = new CapturingFakeListChatModel({ responses: ["ok"] });
+      const agent = createAgent({
+        model,
+        tools: [],
+        systemPrompt: "You are a helpful assistant.",
+        middleware,
+      });
+      await agent.invoke({
+        messages: [new HumanMessage("hi")],
+        copilotkit: { context: "route=/dashboard" },
+      } as any);
+      const [received] = model.receivedMessages;
+      expect(systemContents(received)).toHaveLength(1);
+      return systemContents(received)[0];
+    }
+
+    it("keeps the context when a later middleware appends to the prompt", async () => {
+      const system = await systemSeenByModel([
+        copilotkitMiddleware,
+        dynamicSystemPromptMiddleware(() => "Answer in French."),
+      ]);
+
+      expect(system).toContain("App Context:\nroute=/dashboard");
+      expect(system).toContain("Answer in French.");
+    });
+
+    it("keeps the context when an earlier middleware replaces the prompt", async () => {
+      const system = await systemSeenByModel([
+        replaceSystemMessage,
+        copilotkitMiddleware,
+      ]);
+
+      expect(system).toBe("Replaced prompt.\n\nApp Context:\nroute=/dashboard");
+    });
+
+    it("loses the context when a later middleware replaces the prompt", async () => {
+      // Known limit: older releases kept the context in a thread message, so it
+      // survived this. List copilotkitMiddleware after any middleware that
+      // replaces the system message.
+      const system = await systemSeenByModel([
+        copilotkitMiddleware,
+        replaceSystemMessage,
+      ]);
+
+      expect(system).toBe("Replaced prompt.");
+    });
   });
 });
 
