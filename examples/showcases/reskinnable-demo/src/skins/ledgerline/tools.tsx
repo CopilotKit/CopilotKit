@@ -9,7 +9,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useSkin } from "@/shell/skin-provider";
 import { useSkinHref } from "@/shell/skin-path";
-import { Check, ChevronRight, Loader2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Loader2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { API, useLedger } from "./data/client";
@@ -97,36 +97,48 @@ function ToolLine({
     : "";
   return (
     <div data-testid="ledgerline-tool-line" className="my-1">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex max-w-full items-center gap-1.5 text-left text-[13px] text-ink-muted hover:text-ink"
-      >
-        {pending ? (
-          <Loader2 className="h-3.5 w-3.5 flex-none animate-spin" />
-        ) : failed ? (
-          <X className="h-3.5 w-3.5 flex-none text-negative" />
-        ) : (
-          <Check className="h-3.5 w-3.5 flex-none text-positive" />
-        )}
-        <span className="font-medium text-ink">{label}</span>
-        {detail ? (
-          <span className="ll-mono truncate text-[12px] text-[hsl(var(--ll-faint))]">
-            {detail}
-          </span>
-        ) : null}
-        {failed ? (
-          <span className="ll-mono rounded-[5px] bg-negative-soft px-1.5 py-0.5 text-[11px] font-semibold text-negative">
-            {errorLabel}
-          </span>
-        ) : null}
-        <ChevronRight
-          className={cn(
-            "h-3 w-3 flex-none transition-transform",
-            open && "rotate-90",
+      <div className="flex max-w-full items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex max-w-full items-center gap-1.5 text-left text-[13px] text-ink-muted hover:text-ink"
+        >
+          {pending ? (
+            <Loader2 className="h-3.5 w-3.5 flex-none animate-spin" />
+          ) : failed ? (
+            <X className="h-3.5 w-3.5 flex-none text-negative" />
+          ) : (
+            <Check className="h-3.5 w-3.5 flex-none text-positive" />
           )}
-        />
-      </button>
+          <span className="ll-tool-label font-medium text-ink">{label}</span>
+          {detail ? (
+            <span className="ll-mono truncate text-[12px] text-[hsl(var(--ll-faint))]">
+              {detail}
+            </span>
+          ) : null}
+          {failed ? (
+            <span className="ll-mono rounded-[5px] bg-negative-soft px-1.5 py-0.5 text-[11px] font-semibold text-negative">
+              {errorLabel}
+            </span>
+          ) : null}
+          <ChevronRight
+            className={cn(
+              "h-3 w-3 flex-none transition-transform",
+              open && "rotate-90",
+            )}
+          />
+        </button>
+        {/* A run of tool calls shows only its newest line; this opens the run
+          (useToolRunCollapse sets data-ll-more on it and shows it). */}
+        <button
+          type="button"
+          aria-label="Show every tool call in this run"
+          data-testid="ledgerline-tool-expand"
+          className="ll-tool-expand hidden flex-none items-center gap-0.5 rounded-full bg-[hsl(var(--ll-faint)/0.12)] px-1.5 py-0.5 text-[11px] font-medium text-ink-muted hover:text-ink"
+        >
+          <ChevronDown className="h-3 w-3 transition-transform" />
+        </button>
+      </div>
       {open && typeof result === "string" ? (
         <pre className="ml-5 mt-1 max-h-48 overflow-auto whitespace-pre-wrap border-l border-hairline pl-3 text-[0.68rem] text-ink-muted">
           {result.length > 1500 ? `${result.slice(0, 1500)}...` : result}
@@ -145,7 +157,108 @@ function parseJson<T>(v: unknown): T | null {
   }
 }
 
+/**
+ * Collapses each run of tool calls (every tool line up to the next prose or
+ * card) to its newest line. Runs are found in document order across messages,
+ * and lines are hidden in the same frame they arrive, so the chat height does
+ * not jump. The newest line's arrow opens that run only.
+ */
+function useToolRunCollapse(): void {
+  useEffect(() => {
+    const LINE = '[data-testid="ledgerline-tool-line"]';
+    const open = new Set<string>();
+    const between = (a: Element, b: Element) => {
+      const r = document.createRange();
+      r.setStartAfter(a);
+      r.setEndBefore(b);
+      const frag = r.cloneContents();
+      return (
+        (frag.textContent ?? "").trim() !== "" ||
+        frag.querySelector(
+          "img, svg:not(button svg), [data-testid$='-card']",
+        ) !== null
+      );
+    };
+    const apply = () => {
+      const list = document.querySelector(
+        ".theme-ledgerline .copilotKitMessages",
+      );
+      if (!list) return;
+      const lines = [...list.querySelectorAll<HTMLElement>(LINE)];
+      const runs: HTMLElement[][] = [];
+      for (const line of lines) {
+        const run = runs[runs.length - 1];
+        const prev = run?.[run.length - 1];
+        if (run && prev && !between(prev, line)) run.push(line);
+        else runs.push([line]);
+      }
+      runs.forEach((run) => {
+        const key =
+          run[0]!
+            .closest("[data-message-id]")
+            ?.getAttribute("data-message-id") ?? String(lines.indexOf(run[0]!));
+        const isOpen = open.has(key);
+        run.forEach((line, i) => {
+          const last = i === run.length - 1;
+          line.style.display = last || isOpen ? "" : "none";
+          const btn = line.querySelector<HTMLButtonElement>(".ll-tool-expand");
+          if (!btn) return;
+          const show = last && run.length > 1;
+          btn.style.display = show ? "flex" : "";
+          btn.dataset.open = isOpen ? "true" : "";
+          btn.dataset.more = show
+            ? isOpen
+              ? "Hide"
+              : `+${run.length - 1}`
+            : "";
+          btn.onclick = show
+            ? (e) => {
+                e.stopPropagation();
+                if (open.has(key)) open.delete(key);
+                else open.add(key);
+                apply();
+              }
+            : null;
+        });
+      });
+      // A message that now shows nothing but hidden lines takes no room.
+      list
+        .querySelectorAll<HTMLElement>(".copilotKitAssistantMessage")
+        .forEach((m) => {
+          const own = [...m.querySelectorAll<HTMLElement>(LINE)];
+          const bare = (t: string | null) => (t ?? "").replace(/\s+/g, "");
+          const onlyLines =
+            own.length > 0 &&
+            own.every((l) => l.style.display === "none") &&
+            m.querySelector("[data-testid$='-card']") === null &&
+            bare(m.textContent) ===
+              own.map((l) => bare(l.textContent)).join("");
+          m.style.display = onlyLines ? "none" : "";
+        });
+      // The newest line shimmers while nothing has come after it yet.
+      const tail = lines[lines.length - 1];
+      lines.forEach((l) => l.removeAttribute("data-ll-live"));
+      if (tail) {
+        const r = document.createRange();
+        r.setStartAfter(tail);
+        r.setEnd(list, list.childNodes.length);
+        if ((r.toString() ?? "").trim() === "")
+          tail.setAttribute("data-ll-live", "");
+      }
+    };
+    const mo = new MutationObserver(apply);
+    mo.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+    apply();
+    return () => mo.disconnect();
+  }, []);
+}
+
 export function LedgerlineTools() {
+  useToolRunCollapse();
   const { data, refresh } = useLedger();
   const router = useRouter();
   const skin = useSkin();

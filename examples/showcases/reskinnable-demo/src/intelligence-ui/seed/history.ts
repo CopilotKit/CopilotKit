@@ -11,6 +11,7 @@
  */
 import type {
   DemoInsight,
+  GenUiRecord,
   DemoSkill,
   EvalCandidate,
   TraceStep,
@@ -42,8 +43,19 @@ interface Spec {
   readonly surface: "in_app" | "chatgpt";
   readonly ask: string;
   readonly reply: string;
+  /**
+   * Tool calls as [name, args, result, status, ui?]: `ui` is the generative UI
+   * the call drew (rendered by the trajectory view with Ledgerline's own
+   * component; a `reportId` prop is read from the ledger).
+   */
   readonly steps: readonly (
-    | readonly [string, Record<string, unknown>, unknown, "ok" | "error"]
+    | readonly [
+        string,
+        Record<string, unknown>,
+        unknown,
+        "ok" | "error",
+        GenUiRecord?,
+      ]
     | readonly ["think", string]
   )[];
   /** Manual path: [name, value] pairs recorded as AG-UI CUSTOM events. */
@@ -62,11 +74,12 @@ function build(spec: Spec): TrajectoryDetail {
     t += 2_000 + ((i * 917) % 1_800);
     if (s[0] === "think")
       return { id: `s${i + 1}`, kind: "thinking", text: String(s[1]), at: t };
-    const [name, args, result, status] = s as readonly [
+    const [name, args, result, status, ui] = s as readonly [
       string,
       Record<string, unknown>,
       unknown,
       "ok" | "error",
+      GenUiRecord?,
     ];
     return {
       id: `s${i + 1}`,
@@ -77,6 +90,7 @@ function build(spec: Spec): TrajectoryDetail {
       status,
       durationMs: 120 + ((i * 331) % 400),
       at: t,
+      ...(ui ? { ui } : {}),
     };
   });
   const replyAt = t + 3_000;
@@ -154,6 +168,16 @@ function build(spec: Spec): TrajectoryDetail {
     missingContext,
   };
 }
+
+/** The report card `getReport` draws, in the app or (over MCP) in ChatGPT. */
+const reportCard = (reportId: string): GenUiRecord => ({
+  component: "ReportCard",
+  props: { reportId },
+});
+const reportApp = (reportId: string): GenUiRecord => ({
+  component: "LedgerlineAppWidget",
+  props: { tool: "getReport", reportId },
+});
 
 const click = (action: string, route = "/reports/[id]", role = "button") =>
   ["click", { action, role, tag: "button", route, threadId: null }] as const;
@@ -242,6 +266,13 @@ const SPECS: Spec[] = [
         { employee: "Daniel Okafor", status: "submitted" },
         { count: 1, reports: [{ id: "EXP-2288", total: 350.6 }] },
         "ok",
+      ],
+      [
+        "getReport",
+        { reportId: "EXP-2288" },
+        { id: "EXP-2288", status: "submitted", total: 350.6 },
+        "ok",
+        reportCard("EXP-2288"),
       ],
     ],
   },
@@ -352,13 +383,20 @@ const SPECS: Spec[] = [
     surface: "chatgpt",
     ask: "Which Ledgerline reports are waiting for my approval?",
     reply:
-      "Eleven reports are waiting for you, $9,412.30 in total. The oldest is Sofia Lindqvist's Lisbon trip.",
+      "Eleven reports are waiting for you, $9,412.30 in total. The oldest is Sofia Lindqvist's Lisbon trip, shown in the Ledgerline card.",
     steps: [
       [
         "listReports",
         { status: "submitted" },
         { count: 11, total: 9412.3 },
         "ok",
+      ],
+      [
+        "getReport",
+        { reportId: "EXP-2295" },
+        { id: "EXP-2295", kind: "report-card", total: 1731 },
+        "ok",
+        reportApp("EXP-2295"),
       ],
     ],
   },
@@ -371,13 +409,14 @@ const SPECS: Spec[] = [
     surface: "in_app",
     ask: "Give me a one-line summary of Sofia Lindqvist's Lisbon trip report.",
     reply:
-      "**EXP-2295**: Lisbon design conference, Sep 14 to 17, **$1,731.00** across 6 lines.",
+      "**EXP-2295**: Lisbon design conference, Sep 14 to 17, **$1,731.00** across 3 lines.",
     steps: [
       [
         "getReport",
         { reportId: "EXP-2295" },
-        { id: "EXP-2295", lines: 6, total: 1731 },
+        { id: "EXP-2295", lines: 3, total: 1731 },
         "ok",
+        reportCard("EXP-2295"),
       ],
     ],
   },
@@ -445,6 +484,7 @@ const SPECS: Spec[] = [
         { reportId: "EXP-2305" },
         { id: "EXP-2305", status: "submitted", approver: "R. Alvarez" },
         "ok",
+        reportCard("EXP-2305"),
       ],
     ],
   },

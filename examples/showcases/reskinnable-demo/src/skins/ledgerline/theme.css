@@ -113,6 +113,37 @@
   display: none;
 }
 
+/* Tool runs collapse to their newest line (useToolRunCollapse in tools.tsx). */
+.theme-ledgerline .ll-tool-expand::after {
+  content: attr(data-more);
+}
+.theme-ledgerline .ll-tool-expand[data-open="true"] svg {
+  transform: rotate(180deg);
+}
+@keyframes ll-tool-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+.theme-ledgerline [data-ll-live] .ll-tool-label {
+  background: linear-gradient(
+      90deg,
+      hsl(var(--ink)) 0%,
+      hsl(var(--ink)) 40%,
+      hsl(var(--brand)) 50%,
+      hsl(var(--ink)) 60%,
+      hsl(var(--ink)) 100%
+    )
+    0 0 / 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: ll-tool-shimmer 1.4s linear infinite;
+}
+
 /* Reconcile board: a match landing, a sheet arriving, a result popping in. */
 @keyframes ll-landed {
   0% {

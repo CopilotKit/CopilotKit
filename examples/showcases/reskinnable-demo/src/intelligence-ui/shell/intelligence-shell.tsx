@@ -80,8 +80,16 @@ interface NavItem {
 
 const PRIMARY: readonly NavItem[] = [
   { icon: House, label: "Overview", to: `${INTELLIGENCE_BASE}/overview` },
-  { icon: Lightbulb, label: "Product Insights" },
-  { icon: ChartNoAxesCombined, label: "Product Analytics" },
+  {
+    icon: Lightbulb,
+    label: "Product Insights",
+    to: `${INTELLIGENCE_BASE}/insights`,
+  },
+  {
+    icon: ChartNoAxesCombined,
+    label: "Product Analytics",
+    to: `${INTELLIGENCE_BASE}/analytics`,
+  },
   {
     icon: GraduationCap,
     label: "Automatic Learning",

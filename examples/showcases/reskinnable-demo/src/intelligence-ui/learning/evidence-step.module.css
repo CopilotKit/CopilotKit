@@ -1,0 +1,400 @@
+/*
+ * The trajectory view's look (trajectory-view/index.html), for the evidence
+ * drawer. Tokens and rules are that page's own: .msg / .avatar / .a-bubble /
+ * .bubble for messages, .ev-card / .tile / .method / .status for events, and
+ * the .trace / .prod tones. Event facts sit under the title instead of in a
+ * right-hand column, because the drawer is a narrow column.
+ */
+.timeline {
+  --line-x: 13px;
+  --rail: 36px;
+  --mono: "Spline Sans Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --card: #ffffff;
+  --ink: #141021;
+  --ink-2: #57575b;
+  --ink-3: #838389;
+  --line-soft: #e9e9ef;
+  --bad: #e01e5a;
+  --bad-bg: #fdebf1;
+  --bubble: #14151a;
+  --bubble-ink: #ffffff;
+  --agent-bubble: #eaf1fc;
+  --agent-edge: #d5e2f5;
+  --agent-shadow: 0 1px 2px rgb(15 63 120 / 6%);
+  --shadow-sm: 0 1px 2px rgb(1 5 7 / 5%);
+  --k-brand: #0f3f78;
+  --k-brand-ink: #ffffff;
+  --trace: #75757d;
+  --trace-ink: #45454b;
+  --trace-card: #f6f6f8;
+  --trace-line: #e9e9ee;
+  --trace-tile: #e8e8ee;
+  --prod: #7c4ee4;
+  --prod-ink: #5b35b8;
+  --prod-card: #f7f4fd;
+  --prod-line: #ebe3f8;
+  --prod-tile: #ebe1fd;
+
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  list-style: none;
+  margin: 0;
+  min-width: 0;
+  padding: 2px 0 2px var(--rail);
+  position: relative;
+}
+
+:global(:root[data-cpki-theme="dark"]) .timeline {
+  --card: #1a1b21;
+  --ink: #f1f1f5;
+  --ink-2: #afafb7;
+  --ink-3: #85858f;
+  --line-soft: #25262e;
+  --bad: #ff6f93;
+  --bad-bg: rgb(255 80 130 / 13%);
+  --bubble: #ecebf4;
+  --bubble-ink: #14151a;
+  --agent-bubble: #17243a;
+  --agent-edge: #24354f;
+  --agent-shadow: 0 1px 2px rgb(0 0 0 / 30%);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
+  --k-brand: #7fb0f5;
+  --k-brand-ink: #0b1422;
+  --trace: #9d9da6;
+  --trace-ink: #d0d0d8;
+  --trace-card: #22232a;
+  --trace-line: #30313a;
+  --trace-tile: #2d2e36;
+  --prod: #b596ff;
+  --prod-ink: #d3c0ff;
+  --prod-card: #251f36;
+  --prod-line: #3a2f58;
+  --prod-tile: #342a4f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root[data-cpki-theme="system"]) .timeline {
+    --card: #1a1b21;
+    --ink: #f1f1f5;
+    --ink-2: #afafb7;
+    --ink-3: #85858f;
+    --line-soft: #25262e;
+    --bad: #ff6f93;
+    --bad-bg: rgb(255 80 130 / 13%);
+    --bubble: #ecebf4;
+    --bubble-ink: #14151a;
+    --agent-bubble: #17243a;
+    --agent-edge: #24354f;
+    --agent-shadow: 0 1px 2px rgb(0 0 0 / 30%);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
+    --k-brand: #7fb0f5;
+    --k-brand-ink: #0b1422;
+    --trace: #9d9da6;
+    --trace-ink: #d0d0d8;
+    --trace-card: #22232a;
+    --trace-line: #30313a;
+    --trace-tile: #2d2e36;
+    --prod: #b596ff;
+    --prod-ink: #d3c0ff;
+    --prod-card: #251f36;
+    --prod-line: #3a2f58;
+    --prod-tile: #342a4f;
+  }
+}
+
+/* The line that connects every event */
+.timeline::before {
+  background: var(--line-soft);
+  border-radius: 2px;
+  bottom: 10px;
+  content: "";
+  left: calc(var(--line-x) - 1px);
+  position: absolute;
+  top: 10px;
+  width: 2px;
+}
+
+.ms {
+  direction: ltr;
+  display: inline-block;
+  flex: none;
+  font-family: "Material Symbols Rounded";
+  font-feature-settings: "liga";
+  font-size: 20px;
+  font-style: normal;
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 400,
+    "GRAD" 0,
+    "opsz" 20;
+  font-weight: normal;
+  height: 1em;
+  letter-spacing: normal;
+  line-height: 1;
+  overflow: hidden;
+  text-transform: none;
+  user-select: none;
+  white-space: nowrap;
+  width: 1em;
+  -webkit-font-smoothing: antialiased;
+}
+
+.row {
+  min-width: 0;
+  position: relative;
+}
+
+.trace {
+  --tone: var(--trace);
+  --tone-ink: var(--trace-ink);
+  --tone-card: var(--trace-card);
+  --tone-line: var(--trace-line);
+  --tone-tile: var(--trace-tile);
+}
+
+.prod {
+  --tone: var(--prod);
+  --tone-ink: var(--prod-ink);
+  --tone-card: var(--prod-card);
+  --tone-line: var(--prod-line);
+  --tone-tile: var(--prod-tile);
+}
+
+/* ---------- Messages ---------- */
+.who {
+  align-items: baseline;
+  color: var(--ink-3);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 0 6px;
+}
+
+.who b {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+.num {
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+
+.agent {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.avatar {
+  background: var(--k-brand);
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px var(--card);
+  color: var(--k-brand-ink);
+  display: grid;
+  height: 26px;
+  left: calc(var(--line-x) - 13px - var(--rail));
+  place-items: center;
+  position: absolute;
+  top: 0;
+  width: 26px;
+}
+
+.avatar .ms {
+  font-size: 15px;
+  transform: rotate(45deg);
+}
+
+.aBubble {
+  background: var(--agent-bubble);
+  border: 1px solid var(--agent-edge);
+  border-radius: 16px 16px 16px 4px;
+  box-shadow: var(--agent-shadow);
+  color: var(--ink);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 10px 14px 12px;
+}
+
+.aBubble p {
+  font-size: 13px;
+  line-height: 1.65;
+  margin: 0 0 8px;
+}
+
+.aBubble p:last-child {
+  margin: 0;
+}
+
+.user {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.uNode {
+  background: var(--bubble);
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px var(--card);
+  color: var(--bubble-ink);
+  display: grid;
+  font-size: 10px;
+  font-weight: 700;
+  height: 26px;
+  left: calc(var(--line-x) - 13px - var(--rail));
+  letter-spacing: 0.02em;
+  place-items: center;
+  position: absolute;
+  top: 0;
+  width: 26px;
+}
+
+.bubble {
+  background: var(--bubble);
+  border-radius: 16px 16px 4px 16px;
+  color: var(--bubble-ink);
+  font-size: 13px;
+  line-height: 1.65;
+  max-width: 92%;
+  overflow-wrap: anywhere;
+  padding: 9px 14px;
+}
+
+/* ---------- Event cards ---------- */
+.event::before {
+  background: color-mix(in srgb, var(--tone) 28%, transparent);
+  border-radius: 1px;
+  content: "";
+  height: 1.5px;
+  left: calc(var(--line-x) - var(--rail));
+  position: absolute;
+  top: 21px;
+  width: calc(var(--rail) - var(--line-x));
+}
+
+.event::after {
+  background: var(--tone);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--card);
+  content: "";
+  height: 8px;
+  left: calc(var(--line-x) - 4px - var(--rail));
+  position: absolute;
+  top: 17px;
+  width: 8px;
+}
+
+.card {
+  align-items: start;
+  background: var(--tone-card);
+  border: 1px solid var(--tone-line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  min-width: 0;
+  padding: 8px 10px;
+}
+
+.tile {
+  background: var(--tone-tile);
+  border-radius: 8px;
+  color: var(--tone);
+  display: grid;
+  height: 28px;
+  place-items: center;
+  width: 28px;
+}
+
+.tile .ms {
+  font-size: 16px;
+}
+
+.main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.title {
+  align-items: baseline;
+  color: var(--ink);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  font-weight: 500;
+  gap: 2px 8px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.title .mono {
+  color: var(--tone-ink);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.detail {
+  color: var(--ink-2);
+  flex-basis: 100%;
+  font-weight: 400;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.method {
+  color: var(--tone-ink);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.meta {
+  color: var(--ink-3);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.bad {
+  color: var(--bad);
+}
+
+/* The event's facts (tag or summary, status, duration, time) wrap under the title. */
+.facts {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+
+.time {
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.status {
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+
+.statusBad {
+  background: var(--bad-bg);
+  border-radius: 9999px;
+  color: var(--bad);
+  font-weight: 600;
+  padding: 1px 7px;
+}

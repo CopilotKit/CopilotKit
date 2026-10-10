@@ -157,17 +157,17 @@
           });
           continue;
         }
-        const r = x.result || {};
+        const r = x.result && typeof x.result === "object" ? x.result : {};
         const err =
           x.status === "error"
-            ? [r.error, r.code].filter(Boolean).join(" ") || "error"
+            ? x.code || [r.error, r.code].filter(Boolean).join(" ") || "error"
             : "";
-        const rendered =
-          x.status !== "error" && typeof r.component === "string"
-            ? r.component
-            : x.status !== "error" && r.kind === "review-card"
-              ? "ReviewMatchesCard"
-              : null;
+        // The app's own generative UI, recorded with the step (TraceStep.ui).
+        const rendered = x.ui ? x.ui.component : null;
+        const resultText =
+          typeof x.result === "string"
+            ? x.result.replace(/^REJECTED:\s*/, "")
+            : "";
         items.push({
           at: x.at,
           e: {
@@ -180,8 +180,8 @@
             ms: x.durationMs ?? 0,
             name: x.name,
             summary: err
-              ? r.message
-                ? short(r.message, 90)
+              ? r.message || resultText
+                ? short(r.message || resultText, 90)
                 : err
               : Object.entries(x.args || {})
                   .map(([k, v]) => `${k}: ${short(v, 30)}`)
@@ -190,8 +190,8 @@
             args: x.args || {},
             result: x.result ?? null,
             rendered,
-            renderedProps:
-              r.props ?? (r.kind === "review-card" ? r : (x.args ?? {})),
+            renderedProps: x.ui ? x.ui.props : null,
+            genRef: x.ui ? `${th.threadId}:${x.id}` : null,
             raw,
           },
         });
@@ -281,7 +281,7 @@
           },
         };
       } else {
-        // Semantic product events (expense.cost_center_allocated, expense.report_approved, ...).
+        // Semantic product events (recon.validated, recon.period_closed, expense.report_approved, ...).
         e = {
           ...base,
           sub: "interaction",
@@ -333,6 +333,8 @@
       if (r > i && !events[r].gen && !between) {
         events[r].gen = e.rendered;
         events[r].genProps = e.renderedProps;
+        events[r].genRef = e.genRef;
+        events[r].genVia = e.name;
         continue;
       }
       const viaChatGpt = /ChatGPT/.test(e.traceLabel || "");
@@ -348,6 +350,8 @@
         icon: viaChatGpt ? "forum" : "smart_toy",
         gen: e.rendered,
         genProps: e.renderedProps,
+        genRef: e.genRef,
+        genVia: e.name,
       });
       split += 1;
       for (
@@ -358,6 +362,8 @@
         events[k].g = `${e.g}~${split}`;
       i += 1;
     }
+    for (const e of events)
+      if (e.genRef && e.genVia) VIA.set(e.genRef, e.genVia);
     return events;
   }
 
@@ -470,187 +476,51 @@
         `<li><span class="ms fine">check_circle</span><div><b>${esc(first)} completed it by hand</b><p>The reference path, ${dur(span)} in Ledgerline: ${esc([...new Set(steps)].join(" → "))}.</p><button class="linkbtn" type="button" data-jump="${esc(firstClick.eventId)}">Show event</button></div></li>`,
       );
     }
+    // Ledgerline's own milestones: a learned skill the agent ran, and the close itself.
+    for (const th of d.threads)
+      for (const x of th.agentTrace)
+        if (
+          x.name === "loadLearnedSkill" &&
+          x.status !== "error" &&
+          x.args &&
+          x.args.name
+        )
+          moments.push(
+            `<li><span class="ms fine">auto_awesome</span><div><b>Ran a learned skill</b><p><span class="mono">${esc(x.args.name)}</span>, published from Automatic Learning. Nobody had to step in.</p><button class="linkbtn" type="button" data-jump="${esc(`${th.threadId}:${x.id}`)}">Show step</button></div></li>`,
+          );
+    for (const th of d.threads)
+      for (const x of th.agentTrace) {
+        const r = x.result && typeof x.result === "object" ? x.result : {};
+        if (
+          (x.name === "reviewMatches" || x.name === "confirmMatches") &&
+          x.status !== "error" &&
+          r.closed
+        )
+          moments.push(
+            `<li><span class="ms fine">lock</span><div><b>Confirmed in the review card</b><p>${esc(plain(r.summary || "The cardholder confirmed and the month closed."))}</p><button class="linkbtn" type="button" data-jump="${esc(`${th.threadId}:${x.id}`)}">Show step</button></div></li>`,
+          );
+      }
     document.getElementById("tj-moments").innerHTML = moments.join("");
     return { first };
   }
 
   /*
-   * Ledgerline's generative UI, drawn from the props the tool call recorded:
-   * the close status card (showCloseStatus) and the review card (reviewMatches,
-   * in the app and as ChatGPT's MCP app widget). Same data and layout as the
-   * app's components, in Ledgerline's own look.
+   * Ledgerline's generative UI. Every recorded component is the app's own
+   * React component (src/skins/ledgerline), rendered from the recorded props by
+   * /intelligence/genui/<trajectory>/<step> (see src/intelligence-ui/genui).
+   * index.html gives each one a live iframe slot; nothing is re-drawn here.
    */
-  const DEPT = {
-    dept_eng: "Engineering",
-    dept_design: "Design",
-    dept_product: "Product",
-    dept_sales: "Sales",
-    dept_cs: "Customer Success",
-    dept_marketing: "Marketing",
-    dept_finance: "Finance",
-  };
-  const GL = {
-    6100: "Meals & entertainment",
-    6200: "Travel",
-    6250: "Lodging",
-    6300: "Rideshare & parking",
-    6420: "Software subscriptions",
-    6500: "Office supplies",
-    6610: "Events & offsites",
-    6700: "Coworking",
-  };
-  const KIND = {
-    split: ["call_split", "Split across departments"],
-    reclass: ["sell", "Coded to the wrong account"],
-    personal: ["person", "Personal charge"],
-    missing_receipt: ["receipt_long", "No receipt on file"],
-  };
-  const usd = (n) =>
-    `$${Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const icon = (n) => `<span class="ms" aria-hidden="true">${n}</span>`;
-  if (!document.getElementById("ll-gen-style")) {
-    const st = document.createElement("style");
-    st.id = "ll-gen-style";
-    st.textContent = `
-.ll-gen { --k-brand: #3157e6; --k-sel: #edf1fe; --k-sel-line: #c6d2fb; --k-ink: #0d1324; --k-muted: #5f6880; --k-line: #e4e7ee; --k-soft: #f7f8fb; font-size: 13px; }
-.ll-gen .ll-cap { display: flex; align-items: center; gap: 6px; padding: 7px 14px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.04em; color: var(--k-brand); background: var(--k-sel); border-bottom: 1px solid var(--k-sel-line); }
-.ll-gen .ll-cap .ms { font-size: 14px; }
-.ll-gen .ll-head { display: flex; justify-content: space-between; gap: 10px; padding: 12px 14px 8px; }
-.ll-gen .ll-title { font-weight: 700; display: flex; align-items: center; gap: 6px; }
-.ll-gen .ll-title .ms { font-size: 17px; color: var(--k-brand); }
-.ll-gen .ll-sub { font-size: 12px; color: var(--k-muted); margin-top: 2px; }
-.ll-gen .ll-amt { font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ll-gen .ll-prog { padding: 0 14px 10px; font-size: 11.5px; color: var(--k-muted); }
-.ll-gen .ll-prog .row { display: flex; justify-content: space-between; }
-.ll-gen .ll-bar { height: 6px; border-radius: 99px; background: #eceef3; margin-top: 5px; overflow: hidden; }
-.ll-gen .ll-bar i { display: block; height: 100%; border-radius: 99px; background: var(--k-brand); }
-.ll-gen .ll-bar i.full { background: #16a06a; }
-.ll-gen .ll-row { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: center; padding: 8px 14px; border-top: 1px solid var(--k-line); }
-.ll-gen .ll-ic { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; }
-.ll-gen .ll-ic .ms { font-size: 16px; }
-.ll-gen .ll-ic.auto { background: var(--k-sel); color: var(--k-brand); }
-.ll-gen .ll-ic.need { background: #fdf3e2; color: #b26a00; }
-.ll-gen .ll-ic.done { background: #e5f6ee; color: #16a06a; }
-.ll-gen .ll-line { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
-.ll-gen .ll-desc { font-family: var(--mono); font-size: 11.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ll-gen .ll-num { font-size: 12.5px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.ll-gen .ll-what { font-size: 12px; color: var(--k-muted); }
-.ll-gen .ll-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
-.ll-gen .ll-chip { font-size: 10.5px; font-weight: 600; border-radius: 4px; padding: 1px 5px; background: var(--k-sel); color: var(--k-brand); }
-.ll-gen .ll-chip.ok { background: #e5f6ee; color: #16a06a; }
-.ll-gen .ll-chip.need { background: #fdf3e2; color: #b26a00; }
-.ll-gen .ll-foot { padding: 9px 14px; border-top: 1px solid var(--k-line); background: var(--k-soft); font-size: 12px; color: var(--k-muted); display: flex; gap: 6px; align-items: center; }
-.ll-gen .ll-foot.ok { background: #e5f6ee; color: #16a06a; }
-.ll-gen .ll-foot .ms { font-size: 16px; }
-.ll-gen .ll-btn { margin-left: auto; font-weight: 600; font-size: 12px; padding: 5px 10px; border-radius: 7px; background: var(--k-brand); color: #fff; display: inline-flex; gap: 4px; align-items: center; }
-`;
-    document.head.append(st);
-  }
-  const cap = (name, via) =>
-    `<div class="ll-cap">${icon("widgets")}Generative UI · &lt;${esc(name)}&gt; · drawn by ${esc(via)}</div>`;
-  const resolutionText = (r) => {
-    if (!r) return ["Not cleared", []];
-    if (r.kind === "split")
-      return [
-        `Split ${r.lines.length} ways by attendees`,
-        r.lines.map(
-          (l) => `${DEPT[l.departmentId] || l.departmentId} ${usd(l.amount)}`,
-        ),
-      ];
-    if (r.kind === "reclass")
-      return [
-        "Reclass entry",
-        [`${r.fromAccount} to ${r.toAccount} ${GL[r.toAccount] || ""}`.trim()],
-      ];
-    if (r.kind === "personal")
-      return [
-        "Personal, repaid",
-        [
-          r.method === "payroll_deduction"
-            ? "Payroll deduction"
-            : "Card payment",
-        ],
-      ];
-    if (r.kind === "missing_receipt")
-      return ["Missing-receipt affidavit", [`Signed by ${r.attestedBy}`]];
-    return ["Cleared", []];
-  };
-  const LEDGERLINE_GEN = {
-    CloseStatusCard: (p) => {
-      const ex = p.exceptions || [];
-      const cleared = ex.filter((x) => x.status === "cleared").length;
-      const pct = p.closed
-        ? 100
-        : Math.round(((p.ready || 0) / Math.max(1, p.total || 0)) * 100);
-      return `<div class="k-card ll-gen">${cap("CloseStatusCard", "showCloseStatus")}
-        <div class="ll-head"><div><div class="ll-title">${icon(p.closed ? "lock" : "pending")}${esc(p.card.periodLabel)} close</div>
-        <div class="ll-sub">${esc(p.card.holder)} · Visa •• ${esc(p.card.last4)} · ${p.total} charges</div></div>
-        <div class="ll-amt">${usd(p.totalAmount)}</div></div>
-        <div class="ll-prog"><div class="row"><span>${p.closed ? "Closed" : `${p.ready} of ${p.total} ready to close`}</span><span>${cleared} of ${ex.length} exceptions cleared</span></div>
-        <div class="ll-bar"><i class="${pct === 100 ? "full" : ""}" style="width:${pct}%"></i></div></div>
-        <div class="ll-row"><span class="ll-ic auto">${icon("auto_awesome")}</span><div>
-          <div class="ll-line"><span class="ll-what" style="color:var(--k-ink);font-weight:500">${p.autoMatched.count} receipts auto-matched</span><span class="ll-num">${usd(p.autoMatched.amount)}</span></div>
-          <div class="ll-chips">${(p.autoMatched.notes || []).map((n) => `<span class="ll-chip">${esc(n)}</span>`).join("")}</div></div></div>
-        ${ex
-          .map((x) => {
-            const [ic, label] = KIND[x.kind] || ["info", x.kind];
-            const done = x.status === "cleared";
-            return `<div class="ll-row"><span class="ll-ic ${done ? "done" : "need"}">${icon(ic)}</span><div>
-              <div class="ll-line"><span class="ll-desc">${esc(x.descriptor)}</span><span class="ll-num">${usd(x.amount)}</span></div>
-              <div class="ll-line"><span class="ll-what">${esc(label)}</span><span class="ll-chip ${done ? "ok" : "need"}">${done ? "Cleared" : "Needs you"}</span></div></div></div>`;
-          })
-          .join("")}
-      </div>`;
-    },
-    ReviewMatchesCard: (p) => {
-      const pairs = p.pairs || [];
-      const ex = pairs.filter((x) => x.exception);
-      const auto = pairs.filter((x) => !x.exception);
-      const total = pairs.reduce((n, x) => n + x.transaction.amount, 0);
-      const autoTotal = auto.reduce((n, x) => n + x.transaction.amount, 0);
-      const notes = [];
-      for (const x of auto) {
-        const a = x.adjustment;
-        if (x.receipts && x.receipts.length > 1)
-          notes.push(`Split · ${x.receipts.length} receipts`);
-        if (a && a.kind === "gratuity") notes.push(`Tip ${usd(a.amount)}`);
-        if (a && a.kind === "fx_conversion")
-          notes.push(
-            `€${Number(a.receiptAmount).toFixed(2)} at ${Number(a.rate).toFixed(4)}`,
-          );
-      }
-      const o = p.outcome;
-      return `<div class="k-card ll-gen">${cap("ReviewMatchesCard", "reviewMatches")}
-        <div class="ll-head"><div><div class="ll-title">${icon("checklist")}Review the ${esc(p.card.periodLabel)} close</div>
-        <div class="ll-sub">${esc(p.card.holder)} · Visa •• ${esc(p.card.last4)} · ${pairs.length} charges</div></div>
-        <div class="ll-amt">${usd(total)}</div></div>
-        ${ex
-          .map((x) => {
-            const [ic] = KIND[x.exception] || ["info"];
-            const [title, chips] = resolutionText(x.resolution);
-            return `<div class="ll-row"><span class="ll-ic ${x.resolution ? "done" : "need"}">${icon(ic)}</span><div>
-              <div class="ll-line"><span class="ll-desc">${esc(x.transaction.descriptor)}</span><span class="ll-num">${usd(x.transaction.amount)}</span></div>
-              <div class="ll-chips"><span class="ll-what">${esc(title)}</span>${chips.map((c) => `<span class="ll-chip ok">${esc(c)}</span>`).join("")}</div></div></div>`;
-          })
-          .join("")}
-        <div class="ll-row"><span class="ll-ic auto">${icon("auto_awesome")}</span><div>
-          <div class="ll-line"><span class="ll-what" style="color:var(--k-ink);font-weight:500">${auto.length} receipts auto-matched</span><span class="ll-num">${usd(autoTotal)}</span></div>
-          <div class="ll-chips">${[...new Set(notes)]
-            .slice(0, 3)
-            .map((n) => `<span class="ll-chip">${esc(n)}</span>`)
-            .join("")}</div></div></div>
-        ${
-          o && o.ok
-            ? `<div class="ll-foot ok">${icon("check_circle")}${esc(o.summary)}</div>`
-            : `<div class="ll-foot">${icon("lock")}Nothing closes until the cardholder confirms.<span class="ll-btn">${icon("lock")}Confirm and close ${esc(p.card.periodLabel)}</span></div>`
+  const VIA = new Map();
+  const genericGen = (name, props, ref) =>
+    ref
+      ? {
+          real: true,
+          wide: name === "ReportTable",
+          props,
+          html: () =>
+            `<div class="gen-cap">${icon("widgets")}Generative UI · <b>&lt;${esc(name)}&gt;</b>${VIA.get(ref) ? ` · ${esc(VIA.get(ref))}` : ""}</div><div class="genui-slot" data-genui-slot="${esc(ID)}:${esc(ref)}" data-src="/intelligence/genui/${encodeURIComponent(ID)}/${encodeURIComponent(ref)}" data-title="${esc(name)}"></div>`,
         }
-      </div>`;
-    },
-  };
-
-  const genericGen = (name, props) =>
-    LEDGERLINE_GEN[name] && props && props.card
-      ? { props, html: () => LEDGERLINE_GEN[name](props) }
       : {
           props,
           html: () =>
