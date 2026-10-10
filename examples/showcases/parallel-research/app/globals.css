@@ -1,0 +1,11 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; color: #182327; background: #f6f8f7; }
+main { max-width: 860px; margin: 0 auto; padding: 32px 20px; }
+h1 { margin: 8px 0; font-size: clamp(28px, 4vw, 42px); }
+.eyebrow { color: #3b6761; font-weight: 650; }
+.notice { font-size: 13px; line-height: 1.5; max-width: 680px; color: #516461; }
+header { margin-bottom: 24px; }
+.sources { border: 1px solid #c8d5d1; border-radius: 12px; padding: 12px 16px; background: #fff; }
+.sources p { margin: 0 0 8px; }
+.sources ul { margin: 0; padding-left: 20px; }
+.sources a { color: #225c52; overflow-wrap: anywhere; text-decoration: underline; }
