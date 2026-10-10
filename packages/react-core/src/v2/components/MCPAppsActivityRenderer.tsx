@@ -125,6 +125,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       setIsLoading(true);
       setError(null);
       setContentError(null);
+      displayModeRef.current = "inline";
       setDisplayMode("inline");
 
       // The host owns the iframe: create + mount it here (bindMcpApp only
@@ -184,6 +185,10 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                 }
               },
               onDisplayModeChange: (mode) => {
+                // The ref follows the granted mode at once: a size the widget
+                // reports between this call and the next render already
+                // belongs to the new mode.
+                displayModeRef.current = mode;
                 if (mounted) setDisplayMode(mode);
               },
               onContentError: (err) => {

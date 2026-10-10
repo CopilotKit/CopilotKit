@@ -557,6 +557,59 @@ describe("MCP Apps ui/request-display-mode", () => {
     });
   });
 
+  it("ignores a size reported in the same batch as the fullscreen grant, before React re-rendered", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "rdm-inline-height-batched";
+    const iframe = await setupMCPActivity(agent, "rdm-inline-height-batched");
+    spyOnHostMessages(iframe);
+    const message = (data: Record<string, unknown>) =>
+      new MessageEvent("message", {
+        data: { jsonrpc: "2.0", ...data },
+        source: iframe.contentWindow,
+        origin: "",
+      });
+    await act(async () => {
+      window.dispatchEvent(
+        message({
+          method: "ui/notifications/size-changed",
+          params: { height: 300 },
+        }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(iframe.style.height).toBe("300px");
+
+    // The grant and the fullscreen-era size arrive in one batch: the adapter
+    // has not re-rendered in between, so it must already know the mode.
+    await act(async () => {
+      window.dispatchEvent(
+        message({
+          id: testId("req"),
+          method: "ui/request-display-mode",
+          params: { mode: "fullscreen" },
+        }),
+      );
+      await Promise.resolve();
+      window.dispatchEvent(
+        message({
+          method: "ui/notifications/size-changed",
+          params: { height: 800 },
+        }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(iframe.style.height).toBe("100%");
+
+    const closeButton = await screen.findByRole("button", {
+      name: "Exit fullscreen",
+    });
+    await act(async () => {
+      fireEvent.click(closeButton);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    await waitFor(() => expect(iframe.style.height).toBe("300px"));
+  });
+
   it("locks the background scroll while fullscreen and restores it on exit", async () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "rdm-scroll-lock";
