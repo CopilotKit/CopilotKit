@@ -810,11 +810,11 @@ jobs:
         with:
           node-version: 22
 
-      - name: Run showcase package Python unit tests
-        # Keep scope narrow: only showcase/integrations/*/tests/python/ directories
-        # (not e2e, not langgraph which has its own runtime). Each package has
-        # its own conftest.py that wires up import paths; we cd into the pkg
-        # dir so those apply.
+      - name: Run showcase package Python tests
+        # Keep scope narrow: showcase/integrations/*/tests/python/ directories
+        # and Strands tests/native/ (not e2e or langgraph's own runtime). Each
+        # package has its own conftest.py that wires up import paths; we cd into
+        # the pkg dir so those apply.
         #
         # Each package runs in its own virtual environment, which holds the
         # test deps plus that package's own `requirements.txt` (if present), so
@@ -908,6 +908,12 @@ jobs:
             # a conftest.py omits the sys.path setup. Mirrors the local dev
             # convention (`PYTHONPATH=. python ...` in package.json scripts).
             (cd "$pkg_dir" && env $pkg_extra_env PYTHONPATH=".:src:${PYTHONPATH:-}" "$pkg_python" -m pytest tests/python/ -v) || failed=1
+            if [ "$pkg" = "strands" ]; then
+              # A fresh process keeps tests/python/conftest.py's SDK substitutes
+              # out of the real SDK tool execution and session persistence gate.
+              echo "--- pytest native: $pkg ---"
+              (cd "$pkg_dir" && env PYTHONPATH=".:src:${PYTHONPATH:-}" "$pkg_python" -m pytest tests/native/ -v) || failed=1
+            fi
           done
           if [ "$found" -eq 0 ]; then
             echo "::warning::No showcase/integrations/*/tests/python/ directories found"
