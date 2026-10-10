@@ -1,8 +1,6 @@
 import type { CopilotKitCoreReact } from "./react-core";
-import {
-  TranscriptionErrorCode,
-  type TranscriptionErrorResponse,
-} from "@copilotkit/shared";
+import { TranscriptionErrorCode } from "@copilotkit/shared";
+import type { TranscriptionErrorResponse } from "@copilotkit/shared";
 
 export interface TranscriptionResult {
   text: string;
@@ -103,7 +101,7 @@ export async function transcribeAudio(
     });
   }
 
-  const headers: Record<string, string> = { ...core.headers };
+  const headers: Record<string, string> = { ...(await core.resolveHeaders()) };
   let response: Response;
 
   try {

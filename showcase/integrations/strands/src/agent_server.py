@@ -23,7 +23,7 @@ import sys
 # patch below — it does not pull ``strands`` into ``sys.modules``.
 import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import — bootstrap side effects)
 
-# HACK: strands-agents (still true on the pinned 1.54.0)
+# HACK: strands-agents (still true on the pinned 1.55.0)
 # unconditionally calls ``ThreadingInstrumentor().instrument()`` when its
 # Tracer is constructed (strands/telemetry/tracer.py). In combination with
 # strands' async model client dispatching work onto ThreadPoolExecutor, this
@@ -38,7 +38,7 @@ import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import —
 # Neutralize the instrument() call before strands imports the module.
 # Remove this block once ``strands-agents >= X.Y.Z`` is pinned in
 # requirements.txt, where X.Y.Z is the version that makes OTel
-# instrumentation opt-in. Verified against the wheel: 1.54.0 still calls
+# instrumentation opt-in. Verified against the wheel: 1.55.0 still calls
 # ``ThreadingInstrumentor().instrument()`` unconditionally in
 # ``strands/telemetry/tracer.py``.
 from opentelemetry.instrumentation.threading import (  # noqa: E402  (must precede ag_ui_strands / strands imports)

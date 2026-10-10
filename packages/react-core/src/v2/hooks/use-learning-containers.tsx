@@ -81,10 +81,8 @@ export function useLearningContainers({
   const runtimeUrlRef = useRef<string | null | undefined>(
     copilotkit.runtimeUrl,
   );
-  const headersRef = useRef<Record<string, string>>(copilotkit.headers ?? {});
   const runtimeFetchRef = useRef(copilotkit.ɵruntimeFetch);
   runtimeUrlRef.current = copilotkit.runtimeUrl;
-  headersRef.current = copilotkit.headers ?? {};
   runtimeFetchRef.current = copilotkit.ɵruntimeFetch;
 
   // Content-stable dependency: same items in same order → same key string.
@@ -98,7 +96,6 @@ export function useLearningContainers({
   // threadId changes are handled by Effect 2's cleanup.
   useEffect(() => {
     const runtimeUrl = copilotkit.runtimeUrl;
-    const headers = copilotkit.headers ?? {};
 
     /**
      * Fire-and-forget emit; errors must not surface in render.
@@ -118,7 +115,9 @@ export function useLearningContainers({
       recordAnnotation({
         fetch: copilotkit.ɵruntimeFetch,
         runtimeUrl,
-        headers,
+        // ɵruntimeFetch already resolves and overlays the current core
+        // headers at send time (#1937); no snapshot to pass here.
+        headers: {},
         type: "set_learning_containers",
         payload: { containers },
         threadId,
@@ -153,20 +152,21 @@ export function useLearningContainers({
   // Runs whenever threadId changes and on unmount.
   // The cleanup emits the reset for the OLD threadId before the new one takes
   // over (or on final unmount). We intentionally do NOT re-run this effect when
-  // runtimeUrl or headers change — we read the latest values via refs instead.
+  // runtimeUrl changes — we read the latest value via a ref instead.
   useEffect(() => {
     // Capture the threadId that was active when this effect ran.
     const capturedThreadId = threadId;
 
     return () => {
       const capturedRuntimeUrl = runtimeUrlRef.current;
-      const capturedHeaders = headersRef.current;
 
       if (capturedRuntimeUrl) {
         recordAnnotation({
           fetch: runtimeFetchRef.current,
           runtimeUrl: capturedRuntimeUrl,
-          headers: capturedHeaders,
+          // ɵruntimeFetch already resolves and overlays the current core
+          // headers at send time (#1937); no snapshot to pass here.
+          headers: {},
           type: "set_learning_containers",
           payload: { containers: DEFAULT_CONTAINERS },
           threadId: capturedThreadId,

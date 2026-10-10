@@ -360,10 +360,10 @@ describe("password-like fields", () => {
     input.setAttribute("value", "toggle-secret-2");
     type(input, "toggle-secret-2");
     input.click();
-    expect(other.map(({ name }) => name)).toEqual(["input", "input", "click"]);
+    expect(other.map(({ name }) => name)).toEqual(["input", "click"]);
     for (const { value } of other)
       expect(value.target).toMatchObject({ value: "[redacted]" });
-    expect(other[2]!.value.target).toMatchObject({
+    expect(other[1]!.value.target).toMatchObject({
       attributes: { value: "[redacted]" },
     });
     expect(JSON.stringify(other)).not.toContain("toggle-secret");
@@ -375,6 +375,7 @@ describe("password-like fields", () => {
       document.body.innerHTML = `<input type="text" autocomplete="${autocomplete}">`;
       const { other } = setup();
       type(document.querySelector("input")!, "autocomplete-secret");
+      window.dispatchEvent(new Event("pagehide"));
       expect(other[0]!.value.target).toMatchObject({ value: "[redacted]" });
     },
   );
@@ -383,6 +384,7 @@ describe("password-like fields", () => {
     document.body.innerHTML = '<input name="email" type="email">';
     const { other } = setup();
     type(document.querySelector("input")!, "alice@example.com");
+    window.dispatchEvent(new Event("pagehide"));
     expect(other[0]!.value.target).toMatchObject({
       value: "alice@example.com",
     });

@@ -78,17 +78,34 @@ This feature is only available when using CopilotKit's cloud-hosted service. To 
   The endpoint for the Copilot text to speech service.
 </PropertyReference>
 
-<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>)"  >
+<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>) | (() => Promise<Record<string, string>>)"  >
 Additional headers to be sent with runtime requests. Pass an object for static
-headers, or a function when headers need to be refreshed from current auth
-state.
+headers, or a function (sync or async) that builds them fresh. The function
+runs when each request is sent, so a refreshed token is always used.
+
+Cache inside the builder. Clerk's and Auth0's `getToken()` already cache. A
+builder that calls the network every time adds one call per request.
+
+If the builder throws or rejects, that request is not sent and `onError` gets
+`header_resolution_failed`.
+
+The legacy v1 `CopilotTask` / GraphQL path doesn't await an async builder: it
+sends that request without the builder's headers, and logs a one-time dev
+warning. A sync builder and a plain object both reach `CopilotTask` as
+expected.
+
+Core headers are also sent to any `selfManagedAgents` /
+`agents__unsafe_dev_only` agent, including ones on other origins. Don't put a
+bearer token in core headers if those agents point at a third party.
 
 For example:
 
 ```tsx
+const { getToken } = useAuth();
+
 <CopilotKit
   runtimeUrl="/api/copilotkit"
-  headers={() => ({ Authorization: `Bearer ${getToken()}` })}
+  headers={async () => ({ Authorization: `Bearer ${await getToken()}` })}
 >
   {children}
 </CopilotKit>

@@ -1,9 +1,9 @@
-import { openai } from "@ai-sdk/openai";
 import { Agent } from "@mastra/core/agent";
 import { weatherTool } from "@/mastra/tools";
 import { LibSQLStore } from "@mastra/libsql";
 import { z } from "zod";
 import { Memory } from "@mastra/memory";
+import { createLanguageModel } from "@/mastra/model";
 
 export const AgentState = z.object({
   proverbs: z.array(z.string()).default([]),
@@ -13,7 +13,9 @@ export const weatherAgent = new Agent({
   id: "weather-agent",
   name: "Weather Agent",
   tools: { weatherTool },
-  model: openai("gpt-5-mini"),
+  // COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this;
+  // unset, the agent uses gpt-5-mini.
+  model: createLanguageModel("openai:gpt-5-mini"),
   instructions: "You are a helpful assistant.",
   memory: new Memory({
     storage: new LibSQLStore({

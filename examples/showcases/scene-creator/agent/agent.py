@@ -79,7 +79,7 @@ def get_model(api_key: str = None):
 async def generate_image(
     prompt: str, input_images: List[str] = None, api_key: str = None
 ) -> str:
-    """Generate an image using Nano Banana (gemini-2.5-flash-image) via HTTP.
+    """Generate an image using Nano Banana 2 (gemini-3.1-flash-image) via HTTP.
 
     Args:
         prompt: The image generation prompt
@@ -91,7 +91,7 @@ async def generate_image(
     """
     if not api_key:
         api_key = os.getenv("GOOGLE_API_KEY")
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent"
 
     # Build parts array
     parts = []
@@ -176,7 +176,7 @@ async def edit_image(image_url: str, edit_prompt: str, api_key: str = None) -> s
     """
     if not api_key:
         api_key = os.getenv("GOOGLE_API_KEY")
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent"
 
     # Convert URL to file path
     file_path = get_image_path(image_url)
