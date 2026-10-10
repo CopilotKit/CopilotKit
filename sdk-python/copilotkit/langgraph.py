@@ -241,12 +241,23 @@ def copilotkit_customize_config(
             stacklevel=2,
         )
     if emit_tool_calls is not None and not isinstance(emit_tool_calls, bool):
-        logger.warning(
-            "`emit_tool_calls` only accepts booleans. Use AG-UI's "
-            "FilterToolCallsMiddleware for selective tool-call filtering; "
-            "treating the provided value as True."
+        # Preserve string/list metadata for callers on the deprecated v1 path.
+        # AG-UI does not honor legacy whitelists; users need middleware there.
+        is_legacy_filter = isinstance(emit_tool_calls, str) or (
+            isinstance(emit_tool_calls, list)
+            and all(isinstance(name, str) for name in emit_tool_calls)
         )
-        emit_tool_calls = True
+        logger.warning(
+            "`emit_tool_calls` only accepts booleans in the AG-UI path. "
+            "Use FilterToolCallsMiddleware for selective filtering. %s",
+            (
+                "Preserving the legacy filter for v1 compatibility."
+                if is_legacy_filter
+                else "Ignoring invalid non-boolean value."
+            ),
+        )
+        if not is_legacy_filter:
+            emit_tool_calls = None
 
     metadata = dict(base_config.get("metadata", {}) or {}) if base_config else {}
 

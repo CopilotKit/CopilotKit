@@ -49,11 +49,29 @@ class TestCustomizeConfigDoesNotMutateCallerMetadata:
         assert customized["metadata"]["copilotkit:emit-messages"] is False
         assert customized["metadata"] is not None
 
-    def test_non_bool_emit_tool_calls_warns_and_is_treated_as_true(self, caplog):
+    def test_legacy_list_emit_tool_calls_warns_and_keeps_filter(self, caplog):
         customized = copilotkit_customize_config(
             {},
             emit_tool_calls=["SearchTool"],  # type: ignore[arg-type]
         )
 
-        assert customized["metadata"]["copilotkit:emit-tool-calls"] is True
+        assert customized["metadata"]["copilotkit:emit-tool-calls"] == ["SearchTool"]
         assert "FilterToolCallsMiddleware" in caplog.text
+
+    def test_legacy_string_emit_tool_calls_warns_and_keeps_filter(self, caplog):
+        customized = copilotkit_customize_config(
+            {},
+            emit_tool_calls="SearchTool",  # type: ignore[arg-type]
+        )
+
+        assert customized["metadata"]["copilotkit:emit-tool-calls"] == "SearchTool"
+        assert "FilterToolCallsMiddleware" in caplog.text
+
+    def test_invalid_non_boolean_does_not_override_existing_filter(self, caplog):
+        customized = copilotkit_customize_config(
+            {"metadata": {"copilotkit:emit-tool-calls": False}},
+            emit_tool_calls=123,  # type: ignore[arg-type]
+        )
+
+        assert customized["metadata"]["copilotkit:emit-tool-calls"] is False
+        assert "Ignoring invalid non-boolean value" in caplog.text

@@ -85,12 +85,22 @@ export function copilotkitCustomizeConfig(
 
   let emitToolCalls = options?.emitToolCalls as unknown;
   if (emitToolCalls !== undefined && typeof emitToolCalls !== "boolean") {
+    // Retain the legacy whitelist in metadata for the deprecated v1 path.
+    // AG-UI only checks for false; use middleware for selective filtering there.
+    const isLegacyFilter =
+      typeof emitToolCalls === "string" ||
+      (Array.isArray(emitToolCalls) &&
+        emitToolCalls.every((name) => typeof name === "string"));
     console.warn(
-      "`emitToolCalls` only accepts booleans. Use AG-UI's " +
-        "FilterToolCallsMiddleware for selective tool-call filtering; " +
-        "treating the provided value as true.",
+      "`emitToolCalls` only accepts booleans in the AG-UI path. " +
+        "Use FilterToolCallsMiddleware for selective filtering. " +
+        (isLegacyFilter
+          ? "Preserving the legacy filter for v1 compatibility."
+          : "Ignoring invalid non-boolean value."),
     );
-    emitToolCalls = true;
+    if (!isLegacyFilter) {
+      emitToolCalls = undefined;
+    }
   }
 
   // Validate emitIntermediateState structure

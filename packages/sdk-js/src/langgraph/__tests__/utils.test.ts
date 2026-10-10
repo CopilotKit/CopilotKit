@@ -39,7 +39,7 @@ describe("copilotkitCustomizeConfig", () => {
     expect(result.metadata!["copilotkit:emit-tool-calls"]).toBe(false);
   });
 
-  it("warns and treats non-boolean emit-tool-calls values as true", () => {
+  it("warns but preserves legacy string and list filters in metadata", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     try {
@@ -52,11 +52,34 @@ describe("copilotkitCustomizeConfig", () => {
         { emitToolCalls: ["SearchTool", "FetchTool"] } as any,
       );
 
-      expect(stringResult.metadata!["copilotkit:emit-tool-calls"]).toBe(true);
-      expect(listResult.metadata!["copilotkit:emit-tool-calls"]).toBe(true);
+      expect(stringResult.metadata!["copilotkit:emit-tool-calls"]).toBe(
+        "SearchTool",
+      );
+      expect(listResult.metadata!["copilotkit:emit-tool-calls"]).toEqual([
+        "SearchTool",
+        "FetchTool",
+      ]);
       expect(warn).toHaveBeenCalledTimes(2);
       expect(warn).toHaveBeenCalledWith(
         expect.stringContaining("FilterToolCallsMiddleware"),
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("warns and leaves existing metadata unchanged for invalid values", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    try {
+      const result = copilotkitCustomizeConfig(
+        { metadata: { "copilotkit:emit-tool-calls": false } },
+        { emitToolCalls: 123 } as any,
+      );
+
+      expect(result.metadata!["copilotkit:emit-tool-calls"]).toBe(false);
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("Ignoring invalid non-boolean value"),
       );
     } finally {
       warn.mockRestore();
