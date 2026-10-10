@@ -202,7 +202,11 @@ export const MCPAppsActivityRenderer = defineComponent({
                   isLoading.value = false;
                 },
                 onSizeChanged: (size) => {
-                  if (mounted) iframeSize.value = size;
+                  // A size reported while fullscreen describes the fullscreen
+                  // layout, not the inline height to restore.
+                  if (mounted && displayMode.value === "inline") {
+                    iframeSize.value = size;
+                  }
                 },
                 onDisplayModeChange: (mode) => {
                   if (mounted) displayMode.value = mode;

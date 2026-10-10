@@ -1031,7 +1031,7 @@ const exitFullscreenButton = (fixture: { nativeElement: HTMLElement }) =>
     "button[aria-label='Exit fullscreen']",
   );
 
-test("advertises the display mode and the modes on offer at initialize", async () => {
+test("advertises displayMode and availableDisplayModes at ui/initialize", async () => {
   configureTestingModule();
   const agent = createAgent();
   const { postMessage } = await bootWidget(agent);
@@ -1045,7 +1045,7 @@ test("advertises the display mode and the modes on offer at initialize", async (
   });
 });
 
-test("grants fullscreen: exit button, top-layer dialog, frame filling the surface", async () => {
+test("grants fullscreen and replies with the applied mode", async () => {
   configureTestingModule();
   const agent = createAgent();
   const { fixture, frame, postMessage } = await bootWidget(agent);
@@ -1162,7 +1162,7 @@ test("emits host-context-changed for widget-initiated changes (fullscreen then i
   expect(changes[1].containerDimensions).toBeUndefined();
 });
 
-test("the exit button returns to inline, restores the reported height and notifies the widget", async () => {
+test("shows a close button in fullscreen; clicking it exits and notifies the widget", async () => {
   configureTestingModule();
   const agent = createAgent();
   const { fixture, frame, postMessage } = await bootWidget(agent);
@@ -1193,7 +1193,7 @@ test("the exit button returns to inline, restores the reported height and notifi
   ]);
 });
 
-test("Escape on the modal dialog returns to inline and notifies the widget", async () => {
+test("exits fullscreen on Escape and notifies the widget", async () => {
   configureTestingModule();
   const agent = createAgent();
   const { fixture, frame, postMessage } = await bootWidget(agent);
@@ -1215,7 +1215,7 @@ test("Escape on the modal dialog returns to inline and notifies the widget", asy
   ]);
 });
 
-test("refuses a mode the app did not declare and leaves the surface inline", async () => {
+test("does not switch to a mode the View did not declare in appCapabilities", async () => {
   configureTestingModule();
   const agent = createAgent();
   const { fixture, frame, postMessage } = await bootWidget(agent);
@@ -1242,7 +1242,40 @@ test("refuses a mode the app did not declare and leaves the surface inline", asy
   expect(contextChanges(postMessage)).toHaveLength(0);
 });
 
-test("locks the page scroll while fullscreen and restores it on exit", async () => {
+test("restores the inline height, not a size reported in fullscreen, when leaving fullscreen", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { fixture, frame, postMessage } = await bootWidget(agent);
+  const reportSize = async (height: number) => {
+    dispatchFrameMessage(frame, {
+      jsonrpc: "2.0",
+      method: "ui/notifications/size-changed",
+      params: { height },
+    });
+    await settle(fixture);
+  };
+  await reportSize(300);
+  expect(frame.style.height).toBe("300px");
+
+  await requestDisplayMode(fixture, frame, "fs", "fullscreen");
+  // The widget re-laid itself out for the viewport and reported that size.
+  await reportSize(800);
+  expect(frame.style.height).toBe("100%");
+  exitFullscreenButton(fixture)!.click();
+  await settle(fixture);
+  await settle(fixture);
+
+  // Both the DOM and the context the widget received describe the inline
+  // surface, not the fullscreen-era size.
+  expect(frame.style.height).toBe("300px");
+  const changes = contextChanges(postMessage);
+  expect(changes[changes.length - 1]).toEqual({
+    displayMode: "inline",
+    containerDimensions: { height: 300 },
+  });
+});
+
+test("locks the background scroll while fullscreen and restores it on exit", async () => {
   configureTestingModule();
   document.body.style.overflow = "";
   const agent = createAgent();

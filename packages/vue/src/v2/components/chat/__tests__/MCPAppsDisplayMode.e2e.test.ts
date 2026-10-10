@@ -259,7 +259,7 @@ describe("MCP Apps ui/request-display-mode (Vue surface)", () => {
     document.body.innerHTML = "";
   });
 
-  it("grants fullscreen: exit button, top-layer dialog, iframe filling the surface", async () => {
+  it("grants fullscreen and replies with the applied mode", async () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "dm-grant";
     const iframe = await setupMCPActivity(agent, "Fullscreen grant");
@@ -281,7 +281,7 @@ describe("MCP Apps ui/request-display-mode (Vue surface)", () => {
     ]);
   });
 
-  it("the exit button returns to inline and notifies the widget", async () => {
+  it("shows a close button in fullscreen; clicking it exits and notifies the widget", async () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "dm-exit-button";
     const iframe = await setupMCPActivity(agent, "Exit button");
@@ -304,7 +304,7 @@ describe("MCP Apps ui/request-display-mode (Vue surface)", () => {
     ]);
   });
 
-  it("Escape on the modal dialog returns to inline and notifies the widget", async () => {
+  it("exits fullscreen on Escape and notifies the widget", async () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "dm-escape";
     const iframe = await setupMCPActivity(agent, "Escape");
@@ -325,7 +325,7 @@ describe("MCP Apps ui/request-display-mode (Vue surface)", () => {
     ]);
   });
 
-  it("refuses a mode the app did not declare and leaves the surface inline", async () => {
+  it("does not switch to a mode the View did not declare in appCapabilities", async () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "dm-refuse";
     const iframe = await setupMCPActivity(agent, "Refusal");
@@ -441,7 +441,51 @@ describe("MCP Apps ui/request-display-mode (Vue surface)", () => {
     expect(iframe.style.height).toBe("100%");
   });
 
-  it("locks the page scroll while fullscreen and restores it on exit", async () => {
+  it("restores the inline height, not a size reported in fullscreen, when leaving fullscreen", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "dm-inline-height";
+    const iframe = await setupMCPActivity(agent, "Inline height");
+    const spy = spyOnHostMessages(iframe);
+    // A notification: no id, unlike the requests sendRequest builds.
+    const reportSize = async (height: number) => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          data: {
+            jsonrpc: "2.0",
+            method: "ui/notifications/size-changed",
+            params: { height },
+          },
+          source: iframe.contentWindow,
+          origin: "",
+        }),
+      );
+      await flushVueUpdates();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await flushVueUpdates();
+    };
+    await reportSize(300);
+    expect(iframe.style.height).toBe("300px");
+
+    await requestMode(iframe, "fullscreen");
+    // The widget re-laid itself out for the viewport and reported that size.
+    await reportSize(800);
+    expect(iframe.style.height).toBe("100%");
+    await fireEvent.click(
+      await screen.findByRole("button", { name: "Exit fullscreen" }),
+    );
+    await flushVueUpdates();
+
+    // Both the DOM and the context the widget received describe the inline
+    // surface, not the fullscreen-era size.
+    await waitFor(() => expect(iframe.style.height).toBe("300px"));
+    const changes = contextChanges(spy);
+    expect(changes[changes.length - 1]).toEqual({
+      displayMode: "inline",
+      containerDimensions: { height: 300 },
+    });
+  });
+
+  it("locks the background scroll while fullscreen and restores it on exit", async () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "dm-scroll";
     const iframe = await setupMCPActivity(agent, "Scroll lock");

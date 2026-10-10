@@ -1529,6 +1529,35 @@ describe("bindMcpApp ui/request-display-mode", () => {
     });
   });
 
+  it("measures the inline width on the nearest laid-out ancestor of the dialog", async () => {
+    const agent = makeAgent();
+    // The dialog's own holder collapses to zero width while the dialog is in
+    // the top layer (an inline-level custom element does); the ancestor that
+    // still has a width is the one to report.
+    const column = document.createElement("div");
+    const holder = document.createElement("span");
+    const dialog = document.createElement("dialog");
+    column.appendChild(holder);
+    holder.appendChild(dialog);
+    document.body.appendChild(column);
+    const iframe = document.createElement("iframe");
+    dialog.appendChild(iframe);
+    iframes.push(iframe);
+    column.getBoundingClientRect = () => ({ width: 640 }) as DOMRect;
+    const { captured } = await bindAndConnect(iframe, agent);
+    await initialize(iframe);
+
+    await requestMode(iframe, "fs", "fullscreen");
+    await requestMode(iframe, "back", "inline");
+
+    const changes = contextChanges(captured);
+    expect(changes[changes.length - 1]).toEqual({
+      displayMode: "inline",
+      containerDimensions: { width: 640 },
+    });
+    column.remove();
+  });
+
   it("applies a host-initiated change through setDisplayMode", async () => {
     const agent = makeAgent();
     const iframe = mount();

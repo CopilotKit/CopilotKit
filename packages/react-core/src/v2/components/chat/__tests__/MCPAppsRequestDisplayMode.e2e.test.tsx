@@ -505,6 +505,58 @@ describe("MCP Apps ui/request-display-mode", () => {
     expect(iframe.style.height).toBe("100%");
   });
 
+  it("restores the inline height, not a size reported in fullscreen, when leaving fullscreen", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "rdm-inline-height";
+    const iframe = await setupMCPActivity(agent, "rdm-inline-height");
+    const spy = spyOnHostMessages(iframe);
+    // A notification: no id, unlike the requests sendRequest builds.
+    const reportSize = async (height: number) => {
+      await act(async () => {
+        window.dispatchEvent(
+          new MessageEvent("message", {
+            data: {
+              jsonrpc: "2.0",
+              method: "ui/notifications/size-changed",
+              params: { height },
+            },
+            source: iframe.contentWindow,
+            origin: "",
+          }),
+        );
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+    };
+    await reportSize(300);
+    expect(iframe.style.height).toBe("300px");
+
+    await sendRequest(iframe, "ui/request-display-mode", {
+      mode: "fullscreen",
+    });
+    // The widget re-laid itself out for the viewport and reported that size.
+    await reportSize(800);
+    expect(iframe.style.height).toBe("100%");
+    const closeButton = await screen.findByRole("button", {
+      name: "Exit fullscreen",
+    });
+    await act(async () => {
+      fireEvent.click(closeButton);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    // Both the DOM and the context the widget received describe the inline
+    // surface, not the fullscreen-era size.
+    await waitFor(() => expect(iframe.style.height).toBe("300px"));
+    const notifications = notificationsFor(
+      spy,
+      "ui/notifications/host-context-changed",
+    );
+    expect(notifications[notifications.length - 1].params).toEqual({
+      displayMode: "inline",
+      containerDimensions: { height: 300 },
+    });
+  });
+
   it("locks the background scroll while fullscreen and restores it on exit", async () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "rdm-scroll-lock";

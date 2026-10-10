@@ -55,11 +55,18 @@ containing block an ancestor establishes, without ever reparenting the iframe;
 `ɵlockBodyScroll()` is the page-wide, ref-counted scroll lock behind a
 fullscreen widget.
 
-Escape exits fullscreen through the dialog's `cancel` event, which the browser
-only fires while focus is on the host side: a key pressed inside the sandboxed
-widget never leaves its iframe. The adapters therefore land focus on the exit
-button when fullscreen opens; once the user has clicked into the widget, the
-button (or the widget's own `requestDisplayMode("inline")`) is the way out.
+Opening a dialog moves the focus into it. `ɵshowDialogForMode` gives it back
+for `inline`, so a widget arriving while the user types never takes the focus
+away from the composer; only `fullscreen` takes it, and the adapters then land
+it on the exit button. Escape exits fullscreen through the dialog's `cancel`
+event, which the browser only fires while focus is on the host side: a key
+pressed inside the sandboxed widget never leaves its iframe. Once the user has
+clicked into the widget, the button (or the widget's own
+`requestDisplayMode("inline")`) is the way out.
+
+A size the widget reports while fullscreen describes the fullscreen layout: the
+session and the adapters keep only sizes reported inline, so leaving fullscreen
+restores and advertises the inline height.
 
 ## Script-tag / UMD usage
 

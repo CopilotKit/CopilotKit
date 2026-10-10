@@ -441,19 +441,23 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
   let inlineReportedSize: { width?: number; height?: number } = {};
 
   /**
-   * The inline surface: the width of the element that holds the dialog (it
-   * stays in normal flow while the dialog sits in the top layer, so it is
-   * measurable even when leaving fullscreen) and the height the widget last
-   * reported. Undefined when nothing is measurable (not laid out yet).
+   * The inline surface: the width of the nearest laid-out ancestor of the
+   * dialog (ancestors stay in normal flow while the dialog sits in the top
+   * layer, so this is measurable even when leaving fullscreen; an inline-level
+   * holder such as a custom element collapses to zero then, hence the climb)
+   * and the height the widget last reported. Undefined when nothing is
+   * measurable (not laid out yet).
    */
   const inlineContainerDimensions = ():
     | Partial<McpAppContainerDimensions>
     | undefined => {
-    const holder =
+    let measured = 0;
+    let holder: Element | null =
       iframe.closest("dialog")?.parentElement ?? iframe.parentElement;
-    const measured = holder
-      ? Math.round(holder.getBoundingClientRect().width)
-      : 0;
+    while (holder && measured === 0) {
+      measured = Math.round(holder.getBoundingClientRect().width);
+      holder = holder.parentElement;
+    }
     const width = measured > 0 ? measured : inlineReportedSize.width;
     const height = inlineReportedSize.height;
     if (width === undefined && height === undefined) return undefined;

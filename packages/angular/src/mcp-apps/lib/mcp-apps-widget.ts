@@ -274,10 +274,11 @@ export class CopilotMCPAppsWidget {
                   Number.isFinite(height) &&
                   height > 0
                 ) {
-                  this.reportedHeight = `${Math.ceil(Math.min(height, 5000))}px`;
-                  // In fullscreen the frame fills the surface; the reported
-                  // height is applied again when the widget returns inline.
+                  // A size reported while fullscreen describes the fullscreen
+                  // layout: the frame fills the surface there, and the inline
+                  // height restored on exit is the last one reported inline.
                   if (!untracked(this.fullscreen)) {
+                    this.reportedHeight = `${Math.ceil(Math.min(height, 5000))}px`;
                     frame.style.height = this.reportedHeight;
                   }
                 }

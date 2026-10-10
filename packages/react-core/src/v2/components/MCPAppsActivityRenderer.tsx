@@ -94,6 +94,10 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     contentRef.current = content;
     const agentRef = useRef(agent);
     agentRef.current = agent;
+    // Read by the size hook: a size the widget reports while fullscreen
+    // describes the fullscreen layout, not the inline height to restore.
+    const displayModeRef = useRef(displayMode);
+    displayModeRef.current = displayMode;
 
     // Host-initiated exit from fullscreen (close button or Escape). Routed
     // through the session so the host context is updated and the widget is
@@ -175,7 +179,9 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                 setIsLoading(false);
               },
               onSizeChanged: (size) => {
-                if (mounted) setIframeSize(size);
+                if (mounted && displayModeRef.current === "inline") {
+                  setIframeSize(size);
+                }
               },
               onDisplayModeChange: (mode) => {
                 if (mounted) setDisplayMode(mode);
