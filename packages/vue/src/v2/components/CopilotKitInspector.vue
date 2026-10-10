@@ -6,12 +6,13 @@ defineOptions({
 
 import { onMounted, onUnmounted, shallowRef, useAttrs, watch } from "vue";
 import type { ObjectDirective } from "vue";
-import type { WebInspectorElement } from "@copilotkit/web-inspector";
+import type { Anchor, WebInspectorElement } from "@copilotkit/web-inspector";
 import type { CopilotKitCoreVue } from "../lib/vue-core";
 import type { VueInspectorOpenRequest } from "../providers/keys";
 
 const props = defineProps<{
   core?: CopilotKitCoreVue | null;
+  defaultAnchor?: Anchor;
   openRequest?: VueInspectorOpenRequest | null;
 }>();
 
@@ -44,11 +45,16 @@ onMounted(() => {
 
       mod.defineWebInspector?.();
       configureInspector = (element, core) =>
-        mod.configureWebInspectorElement(element, core, {
-          development: process.env.NODE_ENV === "development",
-          framework: "vue",
-          sdkVersion,
-        });
+        mod.configureWebInspectorElement(
+          element,
+          core,
+          {
+            development: process.env.NODE_ENV === "development",
+            framework: "vue",
+            sdkVersion,
+          },
+          { defaultAnchor: props.defaultAnchor },
+        );
       inspectorTag.value = mod.WEB_INSPECTOR_TAG;
     })
     .catch((error: unknown) => {
@@ -65,6 +71,20 @@ watch(
   () => props.core,
   (core) => {
     if (inspector.value) inspector.value.core = core ?? null;
+  },
+);
+
+// Keyed on the corner, not the object, so an inline literal does not re-apply
+// it on every render. Removing the prop goes back to top right.
+watch(
+  () =>
+    props.defaultAnchor &&
+    `${props.defaultAnchor.vertical}-${props.defaultAnchor.horizontal}`,
+  () => {
+    if (!inspector.value) return;
+    inspector.value.defaultAnchor = props.defaultAnchor
+      ? { ...props.defaultAnchor }
+      : { horizontal: "right", vertical: "top" };
   },
 );
 

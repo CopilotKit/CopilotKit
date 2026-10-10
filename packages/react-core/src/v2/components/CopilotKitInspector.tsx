@@ -1,17 +1,20 @@
 import { version as sdkVersion } from "../../../package.json";
 import * as React from "react";
 import type { CopilotKitCore } from "@copilotkit/core";
-import type { WebInspectorElement } from "@copilotkit/web-inspector";
+import type { Anchor, WebInspectorElement } from "@copilotkit/web-inspector";
 import type { CopilotKitInspectorOpenRequest } from "./CopilotKitInspectorContext";
 
 export interface CopilotKitInspectorProps {
   core?: CopilotKitCore | null;
+  /** Corner the launcher starts in until the user drags it. */
+  defaultAnchor?: Anchor;
   onVisibilityChange?: (visible: boolean) => void;
   openRequest?: CopilotKitInspectorOpenRequest | null;
 }
 
 export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
   core,
+  defaultAnchor,
   openRequest,
   onVisibilityChange,
 }) => {
@@ -19,12 +22,14 @@ export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
   const inspectorRef = React.useRef<WebInspectorElement | null>(null);
   const latestCoreRef = React.useRef(core ?? null);
   const latestOpenRequestRef = React.useRef(openRequest);
+  const latestDefaultAnchorRef = React.useRef(defaultAnchor);
 
   const visibilityCallbackRef = React.useRef(onVisibilityChange);
   visibilityCallbackRef.current = onVisibilityChange;
 
   latestCoreRef.current = core ?? null;
   latestOpenRequestRef.current = openRequest;
+  latestDefaultAnchorRef.current = defaultAnchor;
 
   React.useEffect(() => {
     let mounted = true;
@@ -45,11 +50,16 @@ export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
         inspector = mountRef.current.ownerDocument.createElement(
           mod.WEB_INSPECTOR_TAG,
         ) as WebInspectorElement;
-        mod.configureWebInspectorElement(inspector, latestCoreRef.current, {
-          development: process.env.NODE_ENV === "development",
-          framework: "react",
-          sdkVersion,
-        });
+        mod.configureWebInspectorElement(
+          inspector,
+          latestCoreRef.current,
+          {
+            development: process.env.NODE_ENV === "development",
+            framework: "react",
+            sdkVersion,
+          },
+          { defaultAnchor: latestDefaultAnchorRef.current },
+        );
 
         inspector.addEventListener(
           "cpk-inspector-visibility-change",
@@ -86,6 +96,18 @@ export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
       inspectorRef.current.core = core ?? null;
     }
   }, [core]);
+
+  // Keyed on the corner, not the object, so an inline literal does not
+  // re-apply it on every render. Removing the prop goes back to top right.
+  const anchorHorizontal = defaultAnchor?.horizontal;
+  const anchorVertical = defaultAnchor?.vertical;
+  React.useEffect(() => {
+    if (!inspectorRef.current) return;
+    inspectorRef.current.defaultAnchor =
+      anchorHorizontal && anchorVertical
+        ? { horizontal: anchorHorizontal, vertical: anchorVertical }
+        : { horizontal: "right", vertical: "top" };
+  }, [anchorHorizontal, anchorVertical]);
 
   React.useEffect(() => {
     if (openRequest) {

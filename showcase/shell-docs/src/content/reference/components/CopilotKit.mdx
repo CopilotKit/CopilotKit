@@ -272,6 +272,21 @@ This is a CopilotKit Intelligence feature.
   server rendering.
 </PropertyReference>
 
+<PropertyReference name="inspectorDefaultAnchor" type="{ horizontal: &quot;left&quot; | &quot;right&quot;; vertical: &quot;top&quot; | &quot;bottom&quot; }" default="{ horizontal: &quot;right&quot;, vertical: &quot;top&quot; }">
+  The corner the Inspector launcher starts in. Use it when the default top-right
+  corner covers your own navigation. Once a user drags the launcher somewhere
+  else, that position is saved and wins over this option.
+
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  inspectorDefaultAnchor={{ horizontal: "left", vertical: "bottom" }}
+>
+  {children}
+</CopilotKit>
+```
+</PropertyReference>
+
 <PropertyReference name="debug" type="DebugConfig">
   Enable client-side debug logging for the AG-UI transport and event pipeline.
   Pass `true` for event and lifecycle summaries, or a config object with

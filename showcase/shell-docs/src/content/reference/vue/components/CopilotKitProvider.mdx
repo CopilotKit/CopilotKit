@@ -194,6 +194,21 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
   during SSR. In a Vue template, pass `:enable-inspector="false"` to disable it.
 </PropertyReference>
 
+<PropertyReference name="inspectorDefaultAnchor" type="{ horizontal: &quot;left&quot; | &quot;right&quot;; vertical: &quot;top&quot; | &quot;bottom&quot; }" default="{ horizontal: &quot;right&quot;, vertical: &quot;top&quot; }">
+  The corner the Inspector launcher starts in. Use it when the default top-right
+  corner covers your own navigation. Once a user drags the launcher somewhere
+  else, that position is saved and wins over this option.
+
+```vue
+<CopilotKitProvider
+  runtime-url="/api/copilotkit"
+  :inspector-default-anchor="{ horizontal: 'left', vertical: 'bottom' }"
+>
+  <App />
+</CopilotKitProvider>
+```
+</PropertyReference>
+
 <PropertyReference name="showDevConsole" type="boolean | &quot;auto&quot;">
   **Deprecated:** use `enableInspector`. This prop no longer controls the
   Inspector.

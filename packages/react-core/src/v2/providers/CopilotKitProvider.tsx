@@ -67,6 +67,7 @@ import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
 import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
 import { viewerTheme, filterCatalog, Catalog } from "@copilotkit/a2ui-renderer";
 import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
+import type { Anchor } from "@copilotkit/web-inspector";
 import { CopilotKitCoreReact } from "../lib/react-core";
 import type {
   ReactActivityMessageRenderer,
@@ -239,6 +240,13 @@ export interface CopilotKitProviderProps {
    */
   enableInspector?: boolean;
   /**
+   * Corner the Inspector launcher starts in. Once the user drags the launcher,
+   * its saved position wins.
+   *
+   * @default { horizontal: "right", vertical: "top" }
+   */
+  inspectorDefaultAnchor?: Anchor;
+  /**
    * Whether to automatically mount the Intelligence indicator in chat.
    *
    * @default true
@@ -404,6 +412,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   humanInTheLoop,
   openGenerativeUI,
   enableInspector,
+  inspectorDefaultAnchor,
   agentId,
   showIntelligenceIndicator = true,
   useSingleEndpoint,
@@ -1285,6 +1294,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
             {shouldRenderInspector ? (
               <CopilotKitInspector
                 core={copilotkit}
+                defaultAnchor={inspectorDefaultAnchor}
                 openRequest={inspectorOpenRequest}
                 onVisibilityChange={setInspectorVisible}
               />

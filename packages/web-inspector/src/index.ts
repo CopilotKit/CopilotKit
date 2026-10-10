@@ -6832,6 +6832,7 @@ export class WebInspectorElement extends LitElement {
   static properties = {
     core: { attribute: false },
     notificationContext: { attribute: false },
+    defaultAnchor: { attribute: false },
     autoAttachCore: { type: Boolean, attribute: "auto-attach-core" },
     _capabilitiesVersion: { state: true },
   } as const;
@@ -7075,6 +7076,11 @@ export class WebInspectorElement extends LitElement {
 
   /** Host package identity and development gate, set before connecting the element. */
   notificationContext: NotificationContext = { development: false };
+  /**
+   * Corner the launcher button starts in. Only used until the user drags it;
+   * a position saved from a drag wins.
+   */
+  defaultAnchor: Anchor = { horizontal: "right", vertical: "top" };
   private notificationFeed: NotificationFeed | null = null;
   private notificationState = emptyNotificationState();
   private notificationDocuments = new Map<string, string>();
@@ -11813,10 +11819,10 @@ export class WebInspectorElement extends LitElement {
     this.measureContext("button");
     this.measureContext("window");
 
-    this.contextState.button.anchor = { horizontal: "right", vertical: "top" };
+    this.contextState.button.anchor = this.resolveDefaultAnchor();
     this.contextState.button.anchorOffset = { x: EDGE_MARGIN, y: EDGE_MARGIN };
 
-    this.contextState.window.anchor = { horizontal: "right", vertical: "top" };
+    this.contextState.window.anchor = this.resolveDefaultAnchor();
     this.contextState.window.anchorOffset = { x: EDGE_MARGIN, y: EDGE_MARGIN };
 
     this.hydrateStateFromStorage();
@@ -11892,6 +11898,20 @@ export class WebInspectorElement extends LitElement {
     if (changed.has("notificationContext") || changed.has("core")) {
       this.ensureAnnouncementLoading();
       this.refreshNotifications();
+    }
+    // A later `defaultAnchor` moves the launcher too, unless the user dragged
+    // it. The first value is applied in `firstUpdated`.
+    if (
+      changed.has("defaultAnchor") &&
+      changed.get("defaultAnchor") !== undefined &&
+      !this.hasCustomPosition.button
+    ) {
+      this.contextState.button.anchor = this.resolveDefaultAnchor();
+      this.contextState.button.anchorOffset = {
+        x: EDGE_MARGIN,
+        y: EDGE_MARGIN,
+      };
+      this.applyAnchorPosition("button");
     }
     // Host shortcuts follow actual Inspector visibility, including dismissals.
     const visible = !this.isInspectorDismissed;
@@ -14891,6 +14911,12 @@ export class WebInspectorElement extends LitElement {
     }
   }
 
+  private resolveDefaultAnchor(): Anchor {
+    return isValidAnchor(this.defaultAnchor)
+      ? { ...this.defaultAnchor }
+      : { horizontal: "right", vertical: "top" };
+  }
+
   private hydrateStateFromStorage(): void {
     if (typeof document === "undefined" || typeof window === "undefined") {
       return;
@@ -14912,11 +14938,15 @@ export class WebInspectorElement extends LitElement {
 
     const persistedButton = persisted.button;
     if (persistedButton) {
-      if (isValidAnchor(persistedButton.anchor)) {
+      // The default corner is saved too, so a saved anchor only wins when the
+      // user dragged the button there. Otherwise `defaultAnchor` would never
+      // apply for anyone who had already opened the page.
+      const dragged = persistedButton.hasCustomPosition !== false;
+      if (dragged && isValidAnchor(persistedButton.anchor)) {
         this.contextState.button.anchor = persistedButton.anchor;
       }
 
-      if (isValidPosition(persistedButton.anchorOffset)) {
+      if (dragged && isValidPosition(persistedButton.anchorOffset)) {
         this.contextState.button.anchorOffset = persistedButton.anchorOffset;
       }
 
@@ -15149,9 +15179,10 @@ export class WebInspectorElement extends LitElement {
         this.hasCustomPosition.window = true;
         this.applyAnchorPosition(this.pointerContext);
       } else if (this.pointerContext === "button") {
-        // Snap button to nearest corner
-        this.snapButtonToCorner();
+        // Snap button to nearest corner. Flag it first: the snap persists
+        // state, and only a dragged corner may override `defaultAnchor`.
         this.hasCustomPosition.button = true;
+        this.snapButtonToCorner();
         if (this.draggedDuringInteraction) {
           this.ignoreNextButtonClick = true;
         }
@@ -22749,6 +22780,11 @@ export function defineWebInspector(
   defineElementOnce(registry, WEB_INSPECTOR_TAG, WebInspectorElement);
 }
 
+export type WebInspectorElementOptions = {
+  /** Corner the launcher starts in until the user drags it. Defaults to top right. */
+  defaultAnchor?: Anchor;
+};
+
 /**
  * Bind a host-owned core before an Inspector is connected to the DOM. Disabling
  * auto-attachment first prevents `connectedCallback` from briefly selecting a
@@ -22758,9 +22794,13 @@ export function configureWebInspectorElement(
   inspector: WebInspectorElement,
   core: CopilotKitCore | null,
   notificationContext: NotificationContext = { development: false },
+  options: WebInspectorElementOptions = {},
 ): WebInspectorElement {
   inspector.autoAttachCore = false;
   inspector.notificationContext = notificationContext;
+  if (options.defaultAnchor) {
+    inspector.defaultAnchor = options.defaultAnchor;
+  }
   inspector.core = core;
   return inspector;
 }
