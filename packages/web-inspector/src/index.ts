@@ -1,3 +1,5 @@
+/// <reference path="./types/css.d.ts" />
+/// <reference path="./types/svg.d.ts" />
 import { loadNotificationFeed } from "./lib/notification-loader.js";
 import { loadHudFeed } from "./lib/hud-loader.js";
 import { resolveHudContent } from "./lib/hud-config.js";
@@ -22,7 +24,7 @@ import { LitElement, css, html, nothing, render, unsafeCSS } from "lit";
 import type { TemplateResult } from "lit";
 import { marked } from "marked";
 import { styleMap } from "lit/directives/style-map.js";
-import tailwindStyles from "./styles/generated.css";
+import tailwindStyles from "./styles/generated.css?inline";
 import { notificationArticleStyles } from "./styles/notification-article.js";
 import inspectorLogoUrl from "./assets/inspector-logo.svg";
 import inspectorLogoKiteUrl from "./assets/inspector-logo-kite.svg";

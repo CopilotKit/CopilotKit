@@ -1,4 +1,4 @@
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, it, test, vi } from "vitest";
 
 import {
   clearInspectorDismissal,
@@ -6,8 +6,10 @@ import {
   INSPECTOR_DISMISSAL_MAX_DURATION_MS,
   INSPECTOR_DISMISSAL_MIRROR_KEY,
   loadInspectorDismissedUntil,
+  loadInspectorState,
   saveInspectorDismissedForever,
   saveInspectorDismissedUntil,
+  saveInspectorState,
 } from "../persistence.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -113,4 +115,75 @@ test("restores the Inspector only once both the cookie and mirror are cleared", 
   document.cookie = `${INSPECTOR_DISMISSAL_COOKIE_NAME}=; Path=/; Max-Age=0`;
   window.localStorage.removeItem(INSPECTOR_DISMISSAL_MIRROR_KEY);
   expect(loadInspectorDismissedUntil(NOW)).toBeNull();
+});
+
+const KEY = "cpk:inspector:state";
+
+function restoreLocalStorage(descriptor: PropertyDescriptor | undefined): void {
+  if (descriptor) {
+    Object.defineProperty(window, "localStorage", descriptor);
+    return;
+  }
+  Reflect.deleteProperty(window, "localStorage");
+}
+
+describe("loadInspectorState", () => {
+  it("returns persisted state when localStorage is available", () => {
+    const state = { isOpen: true, selectedMenu: "threads" };
+    window.localStorage.setItem(KEY, JSON.stringify(state));
+
+    expect(loadInspectorState(KEY)).toEqual(state);
+  });
+
+  it("returns null when window.localStorage is missing", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: undefined,
+    });
+
+    try {
+      expect(loadInspectorState(KEY)).toBeNull();
+    } finally {
+      restoreLocalStorage(descriptor);
+    }
+  });
+
+  it("returns null when localStorage has no getItem", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {},
+    });
+
+    try {
+      expect(loadInspectorState(KEY)).toBeNull();
+    } finally {
+      restoreLocalStorage(descriptor);
+    }
+  });
+});
+
+describe("saveInspectorState", () => {
+  it("writes state when localStorage is available", () => {
+    saveInspectorState(KEY, { isOpen: false });
+
+    expect(JSON.parse(window.localStorage.getItem(KEY) ?? "null")).toEqual({
+      isOpen: false,
+    });
+  });
+
+  it("does not throw when window.localStorage is missing", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: undefined,
+    });
+
+    try {
+      expect(() => saveInspectorState(KEY, { isOpen: true })).not.toThrow();
+    } finally {
+      restoreLocalStorage(descriptor);
+    }
+  });
 });

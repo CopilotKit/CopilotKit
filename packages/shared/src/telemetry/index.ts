@@ -1,5 +1,6 @@
 export * from "./telemetry-client";
 export * from "./sampling";
+export type * from "./events";
 export {
   firstNonBlankTelemetryId,
   lambdaClient,

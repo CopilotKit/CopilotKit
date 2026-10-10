@@ -9,7 +9,6 @@
     "target": "es6",
     "jsx": "react-jsx",
     "sourceMap": true,
-    "declarationDir": "./dist",
     "declaration": true
   }
 }
