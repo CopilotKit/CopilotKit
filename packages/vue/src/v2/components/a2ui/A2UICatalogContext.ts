@@ -47,6 +47,12 @@ function toCatalogJsonSchema(
   }
 
   return schemaToJsonSchema(schema as StandardSchemaV1, {
+    // Only the Zod v3 path below honors the caller's options: they are merged
+    // over the `$refStrategy: "none"` that `schemaToJsonSchema` injects, so a v3
+    // schema keeps today's inlined output in the caller's `target` dialect.
+    // Schemas that implement Standard JSON Schema (Zod v4, Valibot, ArkType)
+    // never reach this callback: `schemaToJsonSchema` converts them itself and
+    // always asks for `draft-07`, whatever `target` the caller passed.
     zodToJsonSchema: (zodSchema, injectedOptions) =>
       zodToJsonSchema(zodSchema as Parameters<typeof zodToJsonSchema>[0], {
         ...(injectedOptions as ZodToJsonSchemaOptions),
