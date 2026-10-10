@@ -26,6 +26,7 @@ import { uniqueId } from "./shared";
             type="button"
             class="chip"
             [class.selected]="selected().includes(option.value)"
+            [attr.aria-pressed]="selected().includes(option.value)"
             (click)="toggle(option.value)"
           >
             {{ option.label }}
