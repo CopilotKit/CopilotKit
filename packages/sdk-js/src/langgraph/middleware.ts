@@ -1,4 +1,4 @@
-import { createMiddleware, AIMessage, SystemMessage } from "langchain";
+import { createMiddleware, AIMessage } from "langchain";
 import type { InteropZodObject } from "@langchain/core/utils/types";
 import type {
   StandardJSONSchemaV1,
@@ -258,13 +258,7 @@ const buildStateNote = (
   return `Current agent state:\n${body}`;
 };
 
-const applyStateNote = (request: any, expose: ExposeStateOption): any => {
-  const note = buildStateNote(
-    (request.state ?? {}) as Record<string, unknown>,
-    expose,
-  );
-  if (!note) return request;
-
+const appendSystemNote = (request: any, note: string): any => {
   const existingMessage = request.systemMessage;
   if (existingMessage != null) {
     const separator = existingMessage.text === "" ? "" : "\n\n";
@@ -291,100 +285,114 @@ const applyStateNote = (request: any, expose: ExposeStateOption): any => {
   };
 };
 
-const createAppContextBeforeAgent = (state, runtime) => {
-  const messages = state.messages;
+const applyStateNote = (request: any, expose: ExposeStateOption): any => {
+  const note = buildStateNote(
+    (request.state ?? {}) as Record<string, unknown>,
+    expose,
+  );
+  return note ? appendSystemNote(request, note) : request;
+};
 
-  if (!messages || messages.length === 0) {
-    return;
-  }
+const APP_CONTEXT_PREFIX = "App Context:\n";
 
-  // Get app context from runtime
-  const properties = effectiveProperties(state);
-  const appContext = Object.prototype.hasOwnProperty.call(properties, "context")
-    ? properties.context
-    : runtime?.context;
+// LangGraph runtime context carries trusted run configuration (thread, tenant
+// and user ids) that must never reach the model, so only a CopilotKit carrier
+// inside it counts: an "ag-ui" or "copilotkit" namespace, or a legacy
+// unnamespaced carrier with an actions or context key. See #7077.
+const runtimeCarrierProperties = (
+  carrier: unknown,
+  namespace: "ag-ui" | "copilotkit",
+): Record<string, unknown> => {
+  if (!isPropertyBag(carrier)) return {};
+  const nested = carrier[namespace];
+  if (isPropertyBag(nested) && Object.keys(nested).length > 0) return nested;
+  if (
+    namespace === "copilotkit" &&
+    ("actions" in carrier || "context" in carrier)
+  )
+    return carrier;
+  return {};
+};
 
-  // Check if appContext is missing or empty
+// Interception bookkeeping alone does not make a state namespace present.
+const BOOKKEEPING_KEYS = new Set([
+  "interceptedToolCalls",
+  "originalAIMessageId",
+]);
+
+const definedProperties = (value: unknown): Record<string, unknown> =>
+  isPropertyBag(value)
+    ? Object.fromEntries(
+        Object.entries(value).filter(([, entry]) => entry !== undefined),
+      )
+    : {};
+
+// Each namespace comes from state, or from its runtime carrier when state has
+// none of it. CopilotKit then merges over AG-UI, as in the Python middleware.
+const contextNamespace = (
+  state: unknown,
+  runtimeContext: unknown,
+  namespace: "ag-ui" | "copilotkit",
+): Record<string, unknown> => {
+  const fromState = definedProperties(
+    isPropertyBag(state) ? state[namespace] : undefined,
+  );
+  return Object.keys(fromState).some((key) => !BOOKKEEPING_KEYS.has(key))
+    ? fromState
+    : definedProperties(runtimeCarrierProperties(runtimeContext, namespace));
+};
+
+const buildAppContextNote = (
+  state: unknown,
+  runtimeContext: unknown,
+): string | null => {
+  const properties = mergeProperties(
+    contextNamespace(state, runtimeContext, "ag-ui"),
+    contextNamespace(state, runtimeContext, "copilotkit"),
+  );
+  // Forwarded request headers are transport data, never model context.
+  const appContext = isPropertyBag(properties.context)
+    ? Object.fromEntries(
+        Object.entries(properties.context).filter(
+          ([key]) => key !== "copilotkit_forwarded_headers",
+        ),
+      )
+    : properties.context;
+
   const isEmptyContext =
     !appContext ||
     (typeof appContext === "string" && appContext.trim() === "") ||
     (typeof appContext === "object" && Object.keys(appContext).length === 0);
+  if (isEmptyContext) return null;
 
-  if (isEmptyContext) {
-    return;
-  }
-
-  // Create the context content
   const contextContent =
     typeof appContext === "string"
       ? appContext
       : JSON.stringify(appContext, null, 2);
-  const contextMessageContent = `App Context:\n${contextContent}`;
-  const contextMessagePrefix = "App Context:\n";
+  return `${APP_CONTEXT_PREFIX}${contextContent}`;
+};
 
-  // Helper to get message content as string
-  const getContentString = (msg: any): string | null => {
-    if (typeof msg.content === "string") return msg.content;
-    if (Array.isArray(msg.content) && msg.content[0]?.text)
-      return msg.content[0].text;
-    return null;
-  };
+const isAppContextMessage = (msg: any): boolean => {
+  const type = msg?._getType?.();
+  if (type !== "system" && type !== "developer") return false;
+  const content =
+    typeof msg.content === "string" ? msg.content : msg.content?.[0]?.text;
+  return typeof content === "string" && content.startsWith(APP_CONTEXT_PREFIX);
+};
 
-  // Find the first system/developer message (not our context message) to determine
-  // where to insert our context message (right after it)
-  let firstSystemIndex = -1;
-
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-    const type = msg._getType?.();
-    if (type === "system" || type === "developer") {
-      const content = getContentString(msg);
-      // Skip if this is our own context message
-      if (content?.startsWith(contextMessagePrefix)) {
-        continue;
-      }
-      firstSystemIndex = i;
-      break;
-    }
+// App context goes into the one leading system message, never a message of its
+// own: Anthropic and Gemini reject a second system message. Older releases
+// wrote an "App Context:" SystemMessage into the thread, so drop any such
+// message from the model's input too.
+const applyAppContextNote = (request: any): any => {
+  const messages = request.messages ?? [];
+  const keptMessages = messages.filter((msg: any) => !isAppContextMessage(msg));
+  if (keptMessages.length !== messages.length) {
+    request = { ...request, messages: keptMessages };
   }
 
-  // Check if our context message already exists
-  let existingContextIndex = -1;
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-    const type = msg._getType?.();
-    if (type === "system" || type === "developer") {
-      const content = getContentString(msg);
-      if (content?.startsWith(contextMessagePrefix)) {
-        existingContextIndex = i;
-        break;
-      }
-    }
-  }
-
-  // Create the context message
-  const contextMessage = new SystemMessage({ content: contextMessageContent });
-
-  let updatedMessages;
-
-  if (existingContextIndex !== -1) {
-    // Replace existing context message
-    updatedMessages = [...messages];
-    updatedMessages[existingContextIndex] = contextMessage;
-  } else {
-    // Insert after the first system message, or at position 0 if no system message
-    const insertIndex = firstSystemIndex !== -1 ? firstSystemIndex + 1 : 0;
-    updatedMessages = [
-      ...messages.slice(0, insertIndex),
-      contextMessage,
-      ...messages.slice(insertIndex),
-    ];
-  }
-
-  return {
-    ...state,
-    messages: updatedMessages,
-  };
+  const note = buildAppContextNote(request.state, request.runtime?.context);
+  return note ? appendSystemNote(request, note) : request;
 };
 
 /**
@@ -478,9 +486,11 @@ const buildMiddlewareInput = (
 
   stateSchema: copilotKitStateSchema as unknown as InteropZodObject,
 
-  // Inject frontend tools, surface user state, and forward x-aimock-* headers
+  // Inject frontend tools, surface user state and app context, and forward
+  // x-aimock-* headers
   wrapModelCall: async (request: any, handler: (req: any) => Promise<any>) => {
     request = applyStateNote(request, exposeState);
+    request = applyAppContextNote(request);
 
     // Forward x-aimock-* headers from the incoming AG-UI request
     const forwardedHeaders = getForwardedHeaders();
@@ -604,8 +614,6 @@ const buildMiddlewareInput = (
     }
     return handler(request);
   },
-
-  beforeAgent: createAppContextBeforeAgent,
 
   // Restore frontend tool calls to AIMessage before agent exits
   afterAgent: (state) => {

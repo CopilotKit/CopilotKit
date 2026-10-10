@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AIMessage, HumanMessage } from "@langchain/core/messages";
+import { AIMessage } from "@langchain/core/messages";
 import { StateGraph, START, END } from "@langchain/langgraph";
 import type { A2UIToolParams } from "@ag-ui/langgraph";
 
@@ -41,11 +41,15 @@ async function wrap(state: object) {
   });
   return received;
 }
-function context(state: object, runtime = {}) {
-  return middleware.beforeAgent(
-    { messages: [new HumanMessage("hello")], ...state },
-    runtime,
-  );
+// The App Context note the model sees, folded into its system prompt.
+async function context(state: object, runtime = {}) {
+  const request = { state, model: {}, tools: [], messages: [], runtime };
+  let received: { systemPrompt?: string } = request;
+  await middleware.wrapModelCall(request, async (req) => {
+    received = req;
+    return new AIMessage("ok");
+  });
+  return received.systemPrompt;
 }
 
 beforeEach(() => {
@@ -109,7 +113,7 @@ describe("effective AG-UI and CopilotKit properties", () => {
     };
     await wrap(state);
     expect(captured[0].defaultCatalogId).toBe("serialized");
-    expect(context(state).messages[0].content).toBe(
+    expect(await context(state)).toBe(
       "App Context:\n" + state["ag-ui"].context,
     );
   });
@@ -129,7 +133,7 @@ describe("effective AG-UI and CopilotKit properties", () => {
     expect(captured[0].defaultCatalogId).toBeUndefined();
   });
 
-  it("merges nested context while preserving conflicting scalar and array leaves", () => {
+  it("merges nested context while preserving conflicting scalar and array leaves", async () => {
     const state = {
       "ag-ui": {
         context: {
@@ -145,8 +149,7 @@ describe("effective AG-UI and CopilotKit properties", () => {
       },
     };
     const before = structuredClone(state);
-    const result = context(state);
-    expect(result.messages[0].content).toBe(
+    expect(await context(state)).toBe(
       "App Context:\n" +
         JSON.stringify(
           {
@@ -167,26 +170,92 @@ describe("effective AG-UI and CopilotKit properties", () => {
 
   it.each([null, false, "", []])(
     "does not resurrect AG-UI or runtime context after an explicit %j override",
-    (value) => {
+    async (value) => {
       expect(
-        context(
+        await context(
           { "ag-ui": { context: "base" }, copilotkit: { context: value } },
-          { context: "runtime" },
+          { context: { copilotkit: { context: "runtime" } } },
         ),
       ).toBeUndefined();
     },
   );
 
-  it("keeps serialized context atomic and preserves the runtime fallback", () => {
+  // Each namespace comes from state, or from its runtime carrier when state has
+  // none, before CopilotKit merges over AG-UI (the Python resolution order).
+  it.each([
+    [
+      "an AG-UI state value loses to a CopilotKit runtime carrier",
+      { "ag-ui": { context: "page" } },
+      { copilotkit: { context: "fresh" } },
+      "fresh",
+    ],
+    [
+      "an undefined state value counts as absent",
+      { "ag-ui": { context: "page" }, copilotkit: { context: undefined } },
+      { copilotkit: { context: "fresh" } },
+      "fresh",
+    ],
+    [
+      "interception bookkeeping alone counts as absent",
+      { copilotkit: { interceptedToolCalls: [], originalAIMessageId: "m" } },
+      { copilotkit: { context: "fresh" } },
+      "fresh",
+    ],
+    [
+      "a CopilotKit state namespace keeps its runtime carrier out",
+      { copilotkit: { actions: [] } },
+      { copilotkit: { context: "fresh" } },
+      undefined,
+    ],
+  ])(
+    "resolves context per namespace: %s",
+    async (_name, state, carrier, note) => {
+      expect(await context(state, { context: carrier })).toBe(
+        note && "App Context:\n" + note,
+      );
+    },
+  );
+
+  it.each([
+    ["state", { copilotkit: { context: "CTX" } }, {}],
+    ["a runtime carrier", {}, { context: { copilotkit: { context: "CTX" } } }],
+  ])(
+    "never renders forwarded headers from %s",
+    async (_name, state, runtime) => {
+      const value = {
+        page: "/dashboard",
+        copilotkit_forwarded_headers: { authorization: "Bearer secret" },
+      };
+      const swap = (carrier: object) =>
+        JSON.parse(
+          JSON.stringify(carrier).replace('"CTX"', JSON.stringify(value)),
+        );
+
+      expect(await context(swap(state), swap(runtime))).toBe(
+        "App Context:\n" + JSON.stringify({ page: "/dashboard" }, null, 2),
+      );
+    },
+  );
+
+  it("renders nothing when forwarded headers are the only context", async () => {
     expect(
-      context({
+      await context({
+        copilotkit: { context: { copilotkit_forwarded_headers: { a: "b" } } },
+      }),
+    ).toBeUndefined();
+  });
+
+  it("keeps serialized context atomic and reads only a namespaced runtime carrier", async () => {
+    expect(
+      await context({
         "ag-ui": { context: { base: 1 } },
         copilotkit: { context: '{"override":2}' },
-      }).messages[0].content,
+      }),
     ).toBe('App Context:\n{"override":2}');
-    expect(context({}, { context: "runtime" }).messages[0].content).toBe(
-      "App Context:\nruntime",
-    );
+    expect(
+      await context({}, { context: { copilotkit: { context: "runtime" } } }),
+    ).toBe("App Context:\nruntime");
+    expect(await context({}, { context: "runtime" })).toBeUndefined();
   });
 
   it.each(["ag-ui", "copilotkit"])(

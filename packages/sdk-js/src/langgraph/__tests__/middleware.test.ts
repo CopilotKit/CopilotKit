@@ -7,8 +7,10 @@
  *
  * - Frontend tools listed in `state.copilotkit.actions` reach the model
  *   alongside the agent's own tools. Empty actions = no change.
- * - App context from `state.copilotkit.context` (or runtime.context) becomes
- *   a SystemMessage `"App Context:\n<json>"`. Idempotent across re-runs.
+ * - App context from `state.copilotkit.context` (or a namespaced
+ *   runtime.context carrier, never the raw runtime.context) is appended to
+ *   the leading system message as `"App Context:\n<json>"`.
+ *   The model never sees a second system message.
  * - `afterModel` peels frontend tool calls off the last AIMessage so the
  *   ToolNode does not execute them; `afterAgent` re-attaches them.
  * - The opt-in `exposeState` knob surfaces user state into
@@ -25,7 +27,11 @@ import {
   SystemMessage,
 } from "@langchain/core/messages";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
-import { createAgent, createMiddleware } from "langchain";
+import {
+  createAgent,
+  createMiddleware,
+  dynamicSystemPromptMiddleware,
+} from "langchain";
 
 import {
   copilotkitMiddleware,
@@ -64,7 +70,7 @@ function systemContents(messages: any[]): string[] {
   const out: string[] = [];
   for (const m of messages) {
     if (m._getType?.() === "system") {
-      out.push(typeof m.content === "string" ? m.content : String(m.content));
+      out.push(typeof m.content === "string" ? m.content : m.text);
     }
   }
   return out;
@@ -406,61 +412,202 @@ describe("exposeState", () => {
 });
 
 // ---------------------------------------------------------------------------
-// beforeAgent — App Context injection
+// App Context — folded into the single leading system message
 // ---------------------------------------------------------------------------
 
-describe("beforeAgent", () => {
-  it("returns no update when context is empty", () => {
-    const state = {
-      messages: [new HumanMessage("hi")],
-      copilotkit: { context: [] },
-    };
-    const result = copilotkitMiddleware.beforeAgent(state, {} as any);
-    expect(result).toBeUndefined();
+describe("app context in an agent run", () => {
+  // Anthropic and Gemini accept one leading system instruction only, so the
+  // model must never see a second system message.
+  async function runTurns(turns: number, context: unknown) {
+    const model = new CapturingFakeListChatModel({
+      responses: Array.from({ length: turns }, () => "ok"),
+    });
+    const agent = createAgent({
+      model,
+      tools: [],
+      systemPrompt: "You are a helpful assistant.",
+      middleware: [copilotkitMiddleware],
+    });
+    let messages: any[] = [];
+    for (let turn = 0; turn < turns; turn++) {
+      const result = await agent.invoke({
+        messages: [...messages, new HumanMessage(`turn ${turn}`)],
+        copilotkit: { context },
+      } as any);
+      messages = result.messages;
+    }
+    return { model, messages };
+  }
+
+  it("sends exactly one system message, first, carrying prompt and context", async () => {
+    const { model } = await runTurns(2, [
+      { description: "viewer role", value: "admin" },
+    ]);
+
+    expect(model.receivedMessages).toHaveLength(2);
+    for (const received of model.receivedMessages) {
+      const types = received.map((m) => m._getType());
+      expect(types.filter((t) => t === "system")).toHaveLength(1);
+      expect(types[0]).toBe("system");
+      const [system] = systemContents(received);
+      expect(system.startsWith("You are a helpful assistant.\n\n")).toBe(true);
+      expect(system).toContain("App Context:\n");
+      expect(system).toContain("admin");
+    }
   });
 
-  it("injects an App Context SystemMessage into the message list", () => {
-    const state = {
+  it("puts the state note before the context in the one system message", async () => {
+    const model = new CapturingFakeListChatModel({ responses: ["ok"] });
+    const agent = createAgent({
+      model,
+      tools: [],
+      systemPrompt: "You are a helpful assistant.",
+      stateSchema: z.object({ liked: z.array(z.string()).optional() }),
+      middleware: [createCopilotkitMiddleware({ exposeState: ["liked"] })],
+    });
+
+    await agent.invoke({
       messages: [new HumanMessage("hi")],
-      copilotkit: {
-        context: [{ description: "viewer role", value: "admin" }],
-      },
-    };
+      liked: ["tea"],
+      copilotkit: { context: "route=/dashboard" },
+    } as any);
 
-    const result = copilotkitMiddleware.beforeAgent(state, {} as any);
-
-    expect(result).toBeDefined();
-    const sys = systemContents(result!.messages);
-    expect(sys.some((s) => s.startsWith("App Context:"))).toBe(true);
-    expect(sys.some((s) => s.includes("admin"))).toBe(true);
-  });
-
-  it("uses runtime.context when state.copilotkit.context is missing", () => {
-    const state = {
-      messages: [new HumanMessage("hi")],
-      copilotkit: {},
-    };
-    const runtime = { context: "route=/dashboard" };
-
-    const result = copilotkitMiddleware.beforeAgent(state, runtime as any);
-
-    const sys = systemContents(result!.messages);
-    expect(sys.some((s) => s.includes("/dashboard"))).toBe(true);
-  });
-
-  it("does not duplicate the App Context message across re-runs", () => {
-    const state = {
-      messages: [new HumanMessage("hi")],
-      copilotkit: { context: [{ description: "k", value: "v" }] },
-    };
-
-    const first = copilotkitMiddleware.beforeAgent(state, {} as any) ?? state;
-    const second = copilotkitMiddleware.beforeAgent(first, {} as any) ?? first;
-
-    const appContextMessages = systemContents(second.messages).filter((s) =>
-      s.startsWith("App Context:"),
+    const [received] = model.receivedMessages;
+    expect(received.map((m) => m._getType())).toEqual(["system", "human"]);
+    const [system] = systemContents(received);
+    expect(system.indexOf("You are a helpful assistant.")).toBe(0);
+    expect(system.indexOf("Current agent state:")).toBeGreaterThan(0);
+    expect(system.indexOf("App Context:\nroute=/dashboard")).toBeGreaterThan(
+      system.indexOf("Current agent state:"),
     );
-    expect(appContextMessages).toHaveLength(1);
+  });
+
+  it("returns the request unchanged when context is empty", async () => {
+    const request = makeRequest({
+      state: { messages: [], copilotkit: { context: [] } },
+    });
+
+    const { received } = await runWrap(copilotkitMiddleware, request);
+
+    expect(received.systemPrompt).toBeUndefined();
+  });
+
+  it("never puts a raw runtime.context into the prompt", async () => {
+    // LangGraph runtime context carries trusted run configuration (thread,
+    // tenant and user ids); it must not reach the model. See #7077.
+    for (const context of [
+      "route=/dashboard",
+      { thread_id: "t-1", user_id: "u-1" },
+    ]) {
+      const request = makeRequest({
+        state: { messages: [], copilotkit: {} },
+        runtime: { context },
+      });
+
+      const { received } = await runWrap(copilotkitMiddleware, request);
+
+      expect(received.systemPrompt).toBeUndefined();
+    }
+  });
+
+  it.each([
+    ["copilotkit", { copilotkit: { context: "route=/dashboard" } }],
+    ["ag-ui", { "ag-ui": { context: "route=/dashboard" } }],
+    ["legacy unnamespaced", { context: "route=/dashboard", user_id: "u-1" }],
+  ])(
+    "reads context from a %s runtime.context carrier when state has none",
+    async (_name, context) => {
+      const request = makeRequest({
+        state: { messages: [] },
+        runtime: { context },
+      });
+
+      const { received } = await runWrap(copilotkitMiddleware, request);
+
+      expect(systemPromptText(received)).toBe("App Context:\nroute=/dashboard");
+    },
+  );
+
+  it("drops an App Context message that an older release saved in the thread", async () => {
+    const request = makeRequest({
+      messages: [
+        new SystemMessage("App Context:\nstale"),
+        new HumanMessage("hi"),
+      ],
+      state: { messages: [], copilotkit: { context: "fresh" } },
+    });
+
+    const { received } = await runWrap(copilotkitMiddleware, request);
+
+    expect(systemContents(received.messages)).toEqual([]);
+    expect(systemPromptText(received)).toBe("App Context:\nfresh");
+  });
+
+  it("does not write the context into the thread's messages", async () => {
+    const { messages } = await runTurns(1, "route=/dashboard");
+
+    expect(systemContents(messages)).toEqual([]);
+  });
+
+  // The context lives only on request.systemMessage. A middleware listed after
+  // copilotkitMiddleware runs inside it, so it decides what reaches the model.
+  describe("with a second system-prompt middleware", () => {
+    const replaceSystemMessage = createMiddleware({
+      name: "ReplaceSystemMessage",
+      wrapModelCall: (request: any, handler: any) =>
+        handler({
+          ...request,
+          systemMessage: new SystemMessage("Replaced prompt."),
+        }),
+    });
+
+    async function systemSeenByModel(middleware: any[]) {
+      const model = new CapturingFakeListChatModel({ responses: ["ok"] });
+      const agent = createAgent({
+        model,
+        tools: [],
+        systemPrompt: "You are a helpful assistant.",
+        middleware,
+      });
+      await agent.invoke({
+        messages: [new HumanMessage("hi")],
+        copilotkit: { context: "route=/dashboard" },
+      } as any);
+      const [received] = model.receivedMessages;
+      expect(systemContents(received)).toHaveLength(1);
+      return systemContents(received)[0];
+    }
+
+    it("keeps the context when a later middleware appends to the prompt", async () => {
+      const system = await systemSeenByModel([
+        copilotkitMiddleware,
+        dynamicSystemPromptMiddleware(() => "Answer in French."),
+      ]);
+
+      expect(system).toContain("App Context:\nroute=/dashboard");
+      expect(system).toContain("Answer in French.");
+    });
+
+    it("keeps the context when an earlier middleware replaces the prompt", async () => {
+      const system = await systemSeenByModel([
+        replaceSystemMessage,
+        copilotkitMiddleware,
+      ]);
+
+      expect(system).toBe("Replaced prompt.\n\nApp Context:\nroute=/dashboard");
+    });
+
+    it("loses the context when a later middleware replaces the prompt", async () => {
+      // Known limit: older releases kept the context in a thread message, so it
+      // survived this. List copilotkitMiddleware after any middleware that
+      // replaces the system message.
+      const system = await systemSeenByModel([
+        copilotkitMiddleware,
+        replaceSystemMessage,
+      ]);
+
+      expect(system).toBe("Replaced prompt.");
+    });
   });
 });
 
