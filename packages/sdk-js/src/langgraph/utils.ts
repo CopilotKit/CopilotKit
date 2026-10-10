@@ -63,9 +63,9 @@ export function copilotkitCustomizeConfig(
    * - `emitMessages: boolean?`
    *   Configure how messages are emitted. By default, all messages are emitted. Pass false to
    *   disable emitting messages.
-   * - `emitToolCalls: boolean | string | string[]?`
+   * - `emitToolCalls: boolean?`
    *   Configure how tool calls are emitted. By default, all tool calls are emitted. Pass false to
-   *   disable emitting tool calls. Pass a string or list of strings to emit only specific tool calls.
+   *   disable emitting tool calls. For selective filtering, use AG-UI's FilterToolCallsMiddleware.
    * - `emitIntermediateState: IntermediateStateConfig[]?`
    *   Lets you emit tool calls as streaming LangGraph state.
    */
@@ -81,6 +81,26 @@ export function copilotkitCustomizeConfig(
     throw new CopilotKitMisuseError({
       message: "options must be an object when provided",
     });
+  }
+
+  let emitToolCalls = options?.emitToolCalls as unknown;
+  if (emitToolCalls !== undefined && typeof emitToolCalls !== "boolean") {
+    // Retain the legacy whitelist in metadata for the deprecated v1 path.
+    // AG-UI only checks for false; use middleware for selective filtering there.
+    const isLegacyFilter =
+      typeof emitToolCalls === "string" ||
+      (Array.isArray(emitToolCalls) &&
+        emitToolCalls.every((name) => typeof name === "string"));
+    console.warn(
+      "`emitToolCalls` only accepts booleans in the AG-UI path. " +
+        "Use FilterToolCallsMiddleware for selective filtering. " +
+        (isLegacyFilter
+          ? "Preserving the legacy filter for v1 compatibility."
+          : "Ignoring invalid non-boolean value."),
+    );
+    if (!isLegacyFilter) {
+      emitToolCalls = undefined;
+    }
   }
 
   // Validate emitIntermediateState structure
@@ -125,8 +145,8 @@ export function copilotkitCustomizeConfig(
       metadata["copilotkit:emit-tool-calls"] = true;
       metadata["copilotkit:emit-messages"] = true;
     } else {
-      if (options?.emitToolCalls !== undefined) {
-        metadata["copilotkit:emit-tool-calls"] = options.emitToolCalls;
+      if (emitToolCalls !== undefined) {
+        metadata["copilotkit:emit-tool-calls"] = emitToolCalls;
       }
       if (options?.emitMessages !== undefined) {
         metadata["copilotkit:emit-messages"] = options.emitMessages;

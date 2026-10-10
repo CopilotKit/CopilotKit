@@ -187,6 +187,12 @@ class TestNoneEmitMetadataValues:
         result = agent._dispatch_event(event)
         assert result is not None
 
+    def test_non_bool_emit_tool_calls_does_not_filter(self, agent):
+        """Legacy non-bool metadata keeps today's effective emit-all behavior."""
+        event = _make_tool_event({"copilotkit:emit-tool-calls": ["some_tool"]})
+        result = agent._dispatch_event(event)
+        assert result is not None
+
     def test_zero_emit_messages_does_not_filter(self, agent):
         """0 (falsy but not False) should not suppress text events (only False does)."""
         event = _make_text_event({"copilotkit:emit-messages": 0})
