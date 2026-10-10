@@ -1446,6 +1446,27 @@ describe("bindMcpApp ui/request-display-mode", () => {
     expect(session.getDisplayMode()).toBe("inline");
   });
 
+  it("ignores a host-initiated change to a mode the host does not offer", async () => {
+    const agent = makeAgent();
+    const iframe = mount();
+    const onDisplayModeChange = vi.fn();
+    const { session, captured } = await bindAndConnect(
+      iframe,
+      agent,
+      makeContent(),
+      { onDisplayModeChange },
+      { hostContext: { platform: "web", availableDisplayModes: ["inline"] } },
+    );
+
+    session.setDisplayMode("pip");
+    session.setDisplayMode("fullscreen");
+    await tick(20);
+
+    expect(session.getDisplayMode()).toBe("inline");
+    expect(onDisplayModeChange).not.toHaveBeenCalled();
+    expect(contextChanges(captured)).toHaveLength(0);
+  });
+
   it("applies a host-initiated change through setDisplayMode", async () => {
     const agent = makeAgent();
     const iframe = mount();

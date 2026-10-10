@@ -39,6 +39,8 @@ synchronous activity registration.
 - The adapter renders the mode: `hooks.onDisplayModeChange(mode)` tells it what
   was granted, `session.setDisplayMode("inline")` is the host-initiated exit
   (close button, Escape) and `session.getDisplayMode()` reads the current mode.
+  `setDisplayMode` is bound by the same offer: a mode the host does not render
+  is ignored, so the widget is never told about one.
 
 The bridge-free `/activity` entry ships the pieces the adapters need to render
 the surface without the bridge: `ɵshowDialogForMode(dialog, mode)` opens the

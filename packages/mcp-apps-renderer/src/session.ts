@@ -369,7 +369,10 @@ export interface McpAppSession {
    * or Escape, or a viewport resize while fullscreen. Updates the host context,
    * notifies the widget (`host-context-changed`) and fires
    * `onDisplayModeChange`. `containerDimensions` overrides the surface
-   * advertised for the mode (the viewport, for `fullscreen`).
+   * advertised for the mode (the viewport, for `fullscreen`). A mode this
+   * host does not offer (`pip`, or `fullscreen` when the options narrowed the
+   * modes to `inline`) is ignored, so the widget is never told a mode the
+   * host cannot render.
    */
   setDisplayMode(
     mode: McpAppsDisplayMode,
@@ -1025,6 +1028,9 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       pushFromContent(content);
     },
     setDisplayMode(mode, containerDimensions) {
+      // A host-initiated change is bound by what this host offers, like a
+      // widget request; the app declaration only limits widget requests.
+      if (!hostDisplayModes.includes(mode)) return;
       applyDisplayMode(mode, containerDimensions);
     },
     getDisplayMode() {
