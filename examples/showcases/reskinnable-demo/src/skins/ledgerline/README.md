@@ -1,67 +1,101 @@
-# Ledgerline: the Automatic Learning skin
+# Ledgerline: the Automatic Learning demo
 
-Ledgerline is a fictitious expense and corporate-card product. The company is Halcyon Labs; the user is Maya Chen, Finance Operations Lead. It has an in-app CopilotKit agent, an MCP server for ChatGPT, a product-trajectory recorder, a learning step, and published skills that the agent loads. It is the app half of the Automatic Learning demo. The Intelligence screens read the same `/api/learning/v1` API.
+Ledgerline is a fictitious expense and corporate-card product. The company is Halcyon Labs; the user is Maya Chen, Finance Operations Lead. It has an in-app CopilotKit agent, an MCP server for ChatGPT, a product-trajectory recorder, a learning step, and published skills that the agent loads. It ships with a mocked Intelligence console at `/intelligence` that reads the same `/api/learning/v1` API, so the whole demo runs from this one app with no Intelligence server.
+
+Everything is seeded and in memory. It looks real; it does not do the real things.
+
+## Set it up (for a person or a coding agent)
+
+Requirements: Node 22 or newer, pnpm 10, an OpenAI API key. For the ChatGPT part, `cloudflared` and a ChatGPT account that can add custom apps (developer mode).
+
+1. Clone `CopilotKit/CopilotKit` and go to the app. It is its own pnpm root: install here, not at the repo root.
+
+   ```bash
+   cd examples/showcases/reskinnable-demo
+   pnpm install
+   cp .env.example .env
+   ```
+
+2. In `.env`, set:
+
+   ```bash
+   OPENAI_API_KEY=sk-...
+   PRESENTER_RESET_ENABLED=true   # enables the sidebar Reset
+   ```
+
+   Nothing else is needed. `COPILOTKIT_LICENSE_TOKEN` and the `INTELLIGENCE_*` variables are optional: this skin's learning is its own pipeline.
+
+3. Run it. `pnpm dev` first bundles the ChatGPT MCP app, then starts Next.
+
+   ```bash
+   pnpm dev --port 3300 --hostname 127.0.0.1
+   ```
+
+4. Open:
+   - Ledgerline: http://127.0.0.1:3300/ledgerline
+   - Intelligence: http://127.0.0.1:3300/intelligence
+   - Benchline (the stand-in customer eval platform): http://127.0.0.1:3300/eval-platform
+
+5. Click **Reset** at the bottom of Ledgerline's sidebar, then OK. Do this before every run. Without the button: `curl -X POST http://127.0.0.1:3300/api/learning/v1/reset`.
+
+Check it works: click the pill "What's left for September close?". The agent answers with the three open cards (Priya 4417, Marcus 8820, Sofia 3391), four exceptions each. If a pill shows tool lines but never an answer, the OpenAI key is missing or wrong; the 401 is in the `pnpm dev` terminal.
+
+### ChatGPT (optional)
+
+1. Install cloudflared: `brew install cloudflared` (or see Cloudflare's docs for your OS).
+2. Click **Reset** in the sidebar. It starts a Cloudflare quick tunnel to this port and shows the public MCP URL (`https://<name>.trycloudflare.com/api/ledgerline/mcp`) with a Copy button. `GET http://127.0.0.1:3300/api/ledgerline/v1/dev/tunnel` returns it too.
+3. In ChatGPT, turn on developer mode, then add an app: **Create custom MCP server**, name `Ledgerline App`, the URL from step 2, Authentication **No authentication**, then **Connect**.
+4. In a chat, type `@Ledgerline` and pick **Ledgerline App**.
+
+A quick tunnel dies when the laptop sleeps, and the new one has a new URL. ChatGPT cannot change an app's URL, so create a new app on the new URL (rename the old one rather than deleting it). If only the tools changed, use **Refresh tools** on the app. There is no auth on the MCP server: stop the tunnel after the demo.
 
 ## The story: month-end card close
 
-1. Maya asks the agent to **match the 6 unmatched card transactions** on Priya Raman's Visa •• 4417 to their receipts for the September close. The agent works through `ledgerlineApi`, the integration API, in the open: a direct `PATCH /transactions/{id}` is refused ("Matches must be created inside a reconciliation session"); it finds the session endpoints, pairs the charges, and validation comes back **4 of 6** (`UNBALANCED` on the restaurant and the hotel). It stops and says plainly that nothing is ready for review.
-2. The same request fails in ChatGPT, over the MCP server. `reviewMatches` refuses to open a review card until every pair validates.
-3. Maya does it by hand on **Card close** (reached from the Overview's "Month-end close" card). She drags each receipt from the inbox onto its card charge (or uses a receipt's **Match** menu). The receipts are images the board renders, and what she reads on them is what the agent cannot: "SQ \*BLUEBOTTLE COFFEE SF" is Blue Bottle Coffee; the Nopa slip has a $24.80 tip written in pen; the hotel billed in euros; one United charge is two receipts; a posting date runs a day or two behind. The board adds the tip and the currency conversion to the pair as an adjustment and shows them as chips. **Validate matches** checks the session; a wrong receipt (the August Amazon order with the same total) fails with the reason inline. Then **Close September**.
-4. That work is captured as a **product trajectory**, linked to the failed **Threads** and their **agent traces**. The board's own API calls (open a session, one pair per charge with its adjustment, validate, close) are recorded with their route templates and body summaries: they ARE the recipe.
-5. **Learning** derives an **Insight**, the **Skill** (`match-card-receipts`: the exact session recipe plus the matching rules the pairs taught) and eval candidates. A reviewer publishes the Skill. Then Maya asks the agent to **match Marcus's unmatched transactions**, a different card with five different charges: the agent loads the skill, prepares all five matches (a tip, a euro airline ticket, a split order), validates them, and hands over the **Review 5 matches** card. Only her **Confirm** validates and closes the month. ChatGPT does the same with the MCP app card.
+Receipts match themselves (tips, foreign currency, split receipts). What is left on each card are four exceptions a person clears in a couple of clicks on the **Card close** board, but that an agent cannot work out from the API:
 
-The root cause is built in. The workflow (a reconciliation session; what goes in a pair; that a tip or a conversion is an `adjustment` and its shape) exists only on the Card close board, and the receipt details that decide a match are on the receipt images. `ledgerlineApi` gets a terse endpoint index and receipts as merchant, date, total and currency only. The agent never closes a period: `POST /reconciliation/sessions/{id}/close` answers `403 HUMAN_CONFIRMATION_REQUIRED` to it.
+- **FIGMA**: coded to the wrong account, in a soft-locked period, so it needs a reclass entry.
+- **TERRAIN EVENTS**: an offsite that must be split across departments by attendees.
+- **LYFT**: no receipt, so it needs an affidavit.
+- **UBER EATS**: a personal charge, so it needs a repayment.
 
-## Run it
+Each is its own workflow on the board (reclass entries, allocations, affidavits, repayments) that `ledgerlineApi` never describes, and editing the charge directly is refused (`PERIOD_SOFT_LOCKED`, `ALLOCATION_REQUIRED`, `RECEIPT_REQUIRED`, `NOT_EDITABLE`).
 
-From the app directory, with `OPENAI_API_KEY` and `PRESENTER_RESET_ENABLED=true` in `.env`:
+1. The in-app agent fails on the four exceptions, and so does ChatGPT over MCP.
+2. Maya clears them on the board, validates, and closes September.
+3. Intelligence shows the full-stack trajectory: both agent failures, her clicks, the network calls underneath, and the generative UI the agent drew.
+4. Automatic Learning turns it into an insight and the skill `close-card-exceptions`.
+5. The in-app agent and ChatGPT each close another card with the skill. Only a person's **Confirm** closes a month; `POST .../close` answers `403 HUMAN_CONFIRMATION_REQUIRED` to an agent.
 
-```bash
-pnpm dev --port 3300 --hostname 127.0.0.1
-```
+## Demo script
 
-Then open http://127.0.0.1:3300/ledgerline. It needs no Intelligence stack: this skin's learning is its own pipeline.
+| Step | Where        | Do                                                                                                                                                                                                                                             | Shows                                                                                                          |
+| ---- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 0    | Sidebar      | **Reset**, then OK                                                                                                                                                                                                                             | Seed data, no capture from today, no skill.                                                                    |
+| 1    | Ledgerline   | Pill **Close out Priya's September card**                                                                                                                                                                                                      | The close status card, one collapsed tool run (+N to expand), four refusals, and the agent opening Card close. |
+| 2    | ChatGPT      | New chat, `@Ledgerline App`, "Close out Priya's September card"                                                                                                                                                                                | The same four failures over MCP.                                                                               |
+| 3    | Card close   | FIGMA **Reclass**, **Post reclass**. TERRAIN EVENTS **Split**, **Split by attendees**, **Save split**. LYFT **Missing receipt**, **Request affidavit**. UBER EATS **Mark personal**, **Mark personal**. Then **Validate**, **Close September** | The manual close, captured. Wait for the green "September closed" banner.                                      |
+| 4    | Intelligence | **User Trajectories**, then "Close out Priya Raman's September card"                                                                                                                                                                           | Both agents' failures, her clicks and network calls, and the real Ledgerline cards inside the timeline.        |
+| 5    | Intelligence | **Automatic Learning**, **Ledgerline Expenses**, **Start manual run now**, **Analyze anyway**; then the **Skills** tab, `close-card-exceptions`, **Approve Skill**                                                                             | The insight, its evidence, and the published skill.                                                            |
+| 6    | Ledgerline   | **New chat**, pill **Close out Marcus's September card**, then **Confirm and close September**                                                                                                                                                 | The learned skill on a different card; the person's Confirm closes it.                                         |
+| 7    | ChatGPT      | New chat, `@Ledgerline App`, "Close out Sofia's September card", **Allow once**, then **Confirm and close September** in the card                                                                                                              | The same skill over MCP, ending in the MCP app's review card.                                                  |
 
-Pages:
+Optional, after step 5: **Product Analytics** and **Product Insights**; **Data export** (slice by space, group or user, then **API** or **MCP**); **Eval candidates**, then **Your eval platform** (Benchline); **Fine-tune**.
 
-- **Overview**: the Month-end close card, needs-attention list, weekly spend, spend by category, activity feed.
-- **Card close** (`reconciliation`): each card's unmatched charges beside its receipts inbox; drag to match, Validate matches, Close the month. A card switcher covers Priya's and Marcus's cards.
-- **Expense reports**: status tabs, category and department filters, search.
-- **Report detail**: steps, Policy panel, coding summary, **⋯ > Edit coding**, Approve, Reimburse, notes, activity.
-- **Approvals queue**: held reports first; reports with no hold approve from the row.
-- **Reimbursements**: ready to pay, and payment history.
-- **Cost centers**: budget type and owner per center, with budget meters.
-- **Policies**: the rules table, each rule's page (`/policies/POL-114`), and the handbook.
-- **People**.
-- **⌘K** opens a command palette for reports, people, cost centers and pages.
+Notes:
 
-Chat docks on the right and the threads drawer starts closed (the skin's `layoutDefaults`). The drawer is its own column to the right of the chat: opening it slides the chat and the app left and the app reflows narrower, so nothing covers the conversation. The drawer's open state is remembered per skin. Threads are titled from their first message, and the drawer shows only conversations since the last full reset (`threadList`), because without Intelligence the runtime can neither name nor delete threads. The CopilotKit Inspector launcher sits in the sidebar above Reset while this skin is open, so it never covers the chat header (`components/inspector-placement.ts`); a position you drag it to is kept.
+- If a click does nothing, click again: the first click right after a page loads sometimes misses.
+- Learning only counts the run once September is closed on the board (step 3). If Automatic Learning says "No new Threads", the close did not go through.
+- ChatGPT takes one to two minutes per answer.
+- Today's trajectories are captured live, so the failed, ChatGPT and replay trajectories only appear after you run those steps. Two weeks of earlier history are seeded.
+- **Restore reports** in the sidebar resets the reports and card close only; trajectories and published skills stay, so you can rerun steps 6 and 7.
 
-Sidebar controls:
+## The app
 
-- **Reset**: restores the seed, clears what learning captured, then checks the ChatGPT tunnel.
-- **Restore reports**: resets the expense reports and the card close only. Trajectories and published skills stay, so you can retry after learning.
-- **Skills: N live**: shows how many learned skills are published.
+Pages: **Overview** (the Month-end close card), **Card close** (each card's "Needs you" exceptions and auto-matched receipts; a switcher covers Priya, Marcus and Sofia), **Expense reports**, report detail, **Approvals**, **Reimbursements**, **Cost centers**, **Policies**, **People**, and **⌘K** for search.
 
-## Demo flow
+Chat docks on the right. In the chat, each run of tool calls collapses to its newest line until prose or a card arrives; the newest line shimmers while the agent works, and **+N** expands that run.
 
-| Step | Where                | Do                                                                                                              | Shows                                                                                     |
-| ---- | -------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| 0    | Sidebar              | **Reset**                                                                                                       | Seed data. No capture from today, no skill.                                               |
-| 1    | Chat                 | Pill **Match my 6 unmatched card transactions**                                                                 | Tool lines, `SESSION_REQUIRED`, a 4 of 6 validation, and an honest failure.               |
-| 2    | ChatGPT              | "Match the 6 unmatched card transactions on Priya Raman's Visa ending 4417."                                    | The same failure over MCP; no review card opens.                                          |
-| 3    | App                  | Overview **Month-end close**, then drag each receipt onto its charge, **Validate matches**, **Close September** | The manual close, captured. Drop the Aug 30 Amazon order first to show the inline reason. |
-| 4    | Intelligence screens | The trajectory, then Learn, then approve the Skill                                                              | The Insight, Skill and eval candidates, citing real eventIds.                             |
-| 5    | Chat                 | Pill **Match Marcus's unmatched transactions**                                                                  | The learned skill on a different card, then the Review 5 matches card; Confirm closes it. |
-| 6    | ChatGPT              | "Match Marcus Lee's unmatched card transactions (Visa ending 8820)."                                            | A refusal names the published skill; the MCP app review card; Confirm closes.             |
-
-The third pill, **What's left for September close?**, answers from `GET /cards` without starting any matching.
-
-### ChatGPT
-
-The MCP server is at `/api/ledgerline/mcp` (Streamable HTTP, stateless). **Reset** starts or reuses a `cloudflared` quick tunnel to this port and shows the public MCP URL with a Copy button. `GET` and `POST /api/ledgerline/v1/dev/tunnel` do the same and answer loopback requests only. The tunnel is port-scoped, so it never touches a tunnel to another port.
-
-The MCP tools have the same names and return the same JSON as the in-app tools: `ledgerlineApi`, `reviewMatches` (MCP app card), `listReports`, `getReport`, `searchPolicies`, `addNote` and `loadLearnedSkill`; `confirmMatches` is app-only, called by the review card's Confirm. `ledgerlineApi` is one dispatcher for both surfaces (`data/agent-api.ts`, index in `data/agent-api-index.ts`). `loadLearnedSkill` is always listed, so ChatGPT never needs a tool refresh. Once a skill is published, a failed `ledgerlineApi` call also names it.
+The MCP server is at `/api/ledgerline/mcp` (Streamable HTTP, stateless). Its tools have the same names and return the same JSON as the in-app tools (`ledgerlineApi`, `reviewMatches`, `listReports`, `getReport`, `searchPolicies`, `addNote`, `loadLearnedSkill`); `confirmMatches` is app-only, called by the review card's Confirm. `ledgerlineApi` is one dispatcher for both surfaces (`data/agent-api.ts`). Once a skill is published, a failed `ledgerlineApi` call also names it.
 
 ## Generative UI
 
@@ -101,11 +135,11 @@ Everything is held in memory, pinned on `globalThis`.
 
 ## Learning
 
-`POST /api/learning/v1/learn` reads the latest trajectory the agent failed and a person completed. The skill is always derived deterministically from the events, because an API recipe must be exact: the steps come from the recorded calls, and the matching rules from the pairs the person validated (descriptor examples, posting lag, the gratuity and fx_conversion adjustment shapes with the worked numbers, split receipts, and the stale receipt that failed). OpenAI (`LEARN_MODEL`, default `gpt-4.1`) writes the insight and two eval candidates; invented eventIds are dropped, and the negative eval case is always the deterministic one. If the call fails or cites nothing real, everything falls back to the deterministic derivation. The response says which path produced it (`derivedBy`).
+`POST /api/learning/v1/learn` reads the latest trajectory the agent failed and a person completed. The skill is always derived deterministically from the events, because an API recipe must be exact: the steps come from the calls the board made while the person cleared each exception (the reclass entry, the allocation split, the affidavit request, the personal repayment) and the validation that followed. OpenAI (`LEARN_MODEL`, default `gpt-4.1`) writes the insight and two eval candidates; invented eventIds are dropped, and the negative eval case is always the deterministic one. If the call fails or cites nothing real, everything falls back to the deterministic derivation. The response says which path produced it (`derivedBy`).
 
 ## What is demo-only
 
-- All data is seeded and in memory: 40 reports, two cards with 11 unmatched September charges and 16 receipts (`data/recon-seed.ts`; which receipt settles which charge lives server-side in `data/recon-store.ts`), two earlier trajectories, and a static eval suite with 10 cases at a 0.6 pass rate.
+- All data is seeded and in memory: 40 reports, three cards with their September charges, receipts and four exceptions each (`data/recon-seed.ts`, with the board's rules server-side in `data/recon-store.ts`), two weeks of earlier trajectories, and a static eval suite with 10 cases at a 0.6 pass rate.
 - The receipts are rendered markup (`components/receipt.tsx`), not photographs.
 - The recorder is shaped like the draft contract; it is not the shipped recorder.
 - The ChatGPT link to a trajectory is by time and caller.
