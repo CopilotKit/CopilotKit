@@ -29,15 +29,59 @@
  * A service is treated as LAGGING on a plain digest MISMATCH
  * (`deployedDigest !== latestDigest`). A precise "how long has it been
  * lagging?" signal is not cheaply available from a single Railway read, so v1
- * uses the mismatch alone. The 15-minute cadence itself provides the debounce:
- * a service that is mid-redeploy (its new deployment not yet SUCCESS) simply
- * matches on the next cycle, and re-running the staging redeploy is idempotent
- * (it just triggers another redeploy of an image that is already `:latest`), so
- * a transient duplicate is harmless. A deployed digest that cannot be resolved
- * (no SUCCESS deployment / no `meta.imageDigest`) is recorded as an ERROR and
- * SURFACED — it is NOT silently counted as up-to-date and it is NOT redeployed
- * (re-deploying on that ambiguous signal would risk churn without a clear win),
- * but it never masquerades as a healthy "current with :latest" service.
+ * uses the mismatch alone. Re-running the staging redeploy is idempotent (it
+ * just triggers another redeploy of an image that is already `:latest`), so a
+ * transient duplicate remediation is harmless. A deployed digest that cannot be
+ * resolved (no SUCCESS deployment / no `meta.imageDigest`) is recorded as an
+ * ERROR and SURFACED — it is NOT silently counted as up-to-date and it is NOT
+ * redeployed (re-deploying on that ambiguous signal would risk churn without a
+ * clear win), but it never masquerades as a healthy "current with :latest"
+ * service.
+ *
+ * ── Debounce (WINDOWED — why a single blip must not page, but flapping must) ──
+ * The fail-loud "unconfirmed" verdict is DEBOUNCED over a SLIDING WINDOW of the
+ * most recent reconcile cycles. A service pages when it has been unconfirmed on
+ * at least `DEFAULT_DEBOUNCE_THRESHOLD` (N=2) of the last `DEFAULT_DEBOUNCE_WINDOW`
+ * (M=3) cycles — an N-of-M window, NOT N strictly-consecutive cycles. Both N and
+ * M are env-overridable (`RECONCILE_DEBOUNCE_THRESHOLD` / `RECONCILE_DEBOUNCE_WINDOW`).
+ * With the N=2/M=3 default:
+ *   • a SINGLE-cycle blip `[x, ., .]` = 1/3 → stays silent (debounced);
+ *   • TWO CONSECUTIVE `[x, x]` = 2/2 → pages on the 2nd cycle;
+ *   • FLAPPING `[x, ., x]` = 2/3 → pages on the 3rd cycle.
+ * The window is what makes flapping page: a purely consecutive counter reset to
+ * zero on every intervening healthy cycle, so a service that was unconfirmed
+ * every OTHER cycle never reached the threshold and NEVER paged — real drift that
+ * flaps was silently missed. The window remembers the last M outcomes (including
+ * the healthy ones), so an every-other-cycle flap reaches 2/3 and pages.
+ *
+ * The single-cycle blips this must still suppress: chiefly the redeploy race on a
+ * service that keeps exactly one SUCCESS deployment at a time (e.g.
+ * `harness-workers`) — mid-redeploy the prior SUCCESS has flipped to REMOVED
+ * while the new one is still in-progress, so the deployed digest resolves to
+ * null for exactly one cycle; and the transient Railway-read classes (an HTTP
+ * 500, a request timeout, a platform "deploys paused" blip). All of these land
+ * in the `unconfirmed` set, so the debounce is applied UNIFORMLY at the verdict
+ * level rather than per-cause. A condition that PERSISTS or FLAPS — genuine
+ * producer/consumer drift (the PR #5352 stale-image class) or a sustained outage
+ * — reaches N-of-M and pages, so real drift is never silenced. Remediation of a
+ * genuine lag is NOT debounced (it is idempotent and self-heals every cycle);
+ * only the fail-loud page + non-zero exit wait for the N-of-M window.
+ *
+ * The per-service sliding window must survive BETWEEN stateless scheduled runs,
+ * so the workflow persists it via `actions/cache` (a tiny JSON file whose path is
+ * passed as `RECONCILE_DEBOUNCE_STATE`) — see `applyDebounce`,
+ * `loadDebounceState`/`saveDebounceState`, and the cache restore/save steps in
+ * showcase_reconcile_staging.yml. An OLD-shape cache entry from before this change
+ * (the pre-windowed `{svc: number}` count) is treated as an empty window — one
+ * cycle of extra delay, never a throw.
+ *
+ * ── Local / no-state runs FAIL LOUD ─────────────────────────────────────────
+ * A local/manual one-shot `npx tsx reconcile-staging.ts` has NO persistable state
+ * backend (`RECONCILE_DEBOUNCE_STATE` is unset), so cross-run debouncing is
+ * meaningless — each run stands alone. Such a run therefore uses N=1/M=1
+ * (page on the FIRST unconfirmed cycle) so it fails loud (exit 1) on real drift
+ * instead of maxing the window at 1/3 and always exiting 0. Only the stateful CI
+ * path debounces; see `main`.
  *
  * The newest running digest is the newest SUCCESS deployment BY `createdAt`
  * (descending) — Railway's `deployments()` connection order is not contracted,
@@ -49,10 +93,11 @@
  * remediation redeploy CLEANLY fixed it (no failures, no drops). A cleanly
  * remediated lag still posts an INFORMATIONAL Slack alert (alert-AND-remediate)
  * yet exits 0. Any service that is NOT confirmed current or cleanly remediated
- * — for ANY reason — lands in the single `unconfirmed` set, which drives BOTH a
- * Slack alert naming the services + the reason AND a non-zero exit. There are
- * no scattered per-cause special-cases: the exit code and the alert are derived
- * from that one set.
+ * — for ANY reason — lands in the single `unconfirmed` set, which (once it has
+ * reached the N-of-M debounce window — see the Debounce note above) drives
+ * BOTH a Slack alert naming the services + the reason AND a non-zero exit. There
+ * are no scattered per-cause special-cases: the exit code and the alert are both
+ * derived from the debounced subset of that one set (`pageableUnconfirmed`).
  *
  * A service is NOT confirmed current when:
  *   • it is LAGGING (`deployed !== latest`) and its remediation redeploy did
@@ -70,15 +115,21 @@
  *   • a per-service Railway/GHCR read threw;
  *   • the in-scope set was EMPTY (`emptyScope`, i.e. `services.length === 0` — a
  *     run that checked nothing is NOT green, mirroring the autoUpdates gate's
- *     zero-checked floor). NOTE: an all-errored run (scope non-empty but every
- *     service faulted) is NOT `emptyScope` — each faulted service contributes
- *     its own entry to the `unconfirmed` set via `errors`.
+ *     zero-checked floor). Like every unconfirmed condition it is DEBOUNCED: the
+ *     `(scope)` entry pages + red-exits only once it has reached the
+ *     N-of-M window (a single-cycle empty scope stays silent). NOTE: an all-errored
+ *     run (scope non-empty but every service faulted) is NOT `emptyScope` — each
+ *     faulted service contributes its own entry to the `unconfirmed` set via
+ *     `errors`.
  *
  * A LAGGING service whose remediation redeploy CLEARLY succeeded (no failures,
  * no drops) is confirmed-in-progress: the run still posts an informational
  * alert (alert-AND-remediate) but exits 0, and it will match `:latest` on the
- * next cycle. An UNDELIVERED alert alongside a lag also fails loud (see
- * `alerted`).
+ * next cycle. An UNDELIVERED alert alongside a lag also fails loud, but it too
+ * is DEBOUNCED: the undelivered-alert condition is folded into the invariant set
+ * under the synthetic `(alert)` key, so a single transient Slack non-2xx on a
+ * benign remediated lag does NOT red the first cycle — it pages only once it
+ * reaches the N-of-M window (see `alerted` / `reconcileStaging`).
  *
  * `alerted` reflects ACTUAL delivery: it is true only when the Slack webhook
  * POST returned 2xx. A missing webhook, a non-2xx response, or a thrown request
@@ -92,13 +143,35 @@
  * SLACK_WEBHOOK_OSS_ALERTS (incoming webhook for the alert — the SAME secret
  * showcase_build.yml posts its failure alerts through).
  *
- * Exit code: 0 on a clean reconcile (including a fully-remediated lag). A hard
- * operator/config error (missing Railway token, unreachable Railway), a
- * systemic failure, a partial redeploy failure, or an undelivered lag alert all
- * fail loud with a non-zero exit (see the fail-loud contract above).
+ * Exit code: 0 on a clean reconcile (including a fully-remediated lag), and on
+ * any below-window cycle whose unconfirmed condition has not YET reached N-of-M.
+ * A partial redeploy failure, a redeploy that threw, a per-service read fault, or
+ * an undelivered lag alert fail loud with a non-zero exit ONLY once the condition
+ * has reached the N-of-M window (see the Debounce note and the fail-loud contract
+ * above). A per-service Railway read that ERRORS — an unreachable API, an HTTP
+ * 500, a request timeout, a "deploys paused" blip — is caught per-service and
+ * folded into that same debounced `errors`/`unconfirmed` set, so it too pages
+ * only once it reaches the N-of-M window; a TOTAL Railway outage therefore exits
+ * 0 on the early cycles and pages on cycle 2 (intended — transient Railway faults
+ * were among the false pages this debounce suppresses). The ONE thing NOT
+ * debounced is a hard config error — a MISSING/INVALID Railway TOKEN — which
+ * exits 1 immediately from `getRailwayToken`/`main` before the reconcile decision
+ * core runs.
+ *
+ * ── Known limitation (OUT of scope here — separate follow-up) ────────────────
+ * A PERSISTENT lag whose remediation redeploy is ACCEPTED (`runRedeploy` reports
+ * a `status:"ok"` record for it every cycle) but never actually CONVERGES —
+ * `:latest` keeps out-running the deployed digest — is treated as remediated each
+ * cycle and does NOT escalate: the per-service record reads ok, so the service is
+ * confirmed-in-progress rather than unconfirmed, and it never enters the debounce
+ * window. Detecting a redeploy that is accepted-but-non-converging needs a
+ * distinct signal (e.g. tracking how many consecutive cycles a service has been
+ * lagging DESPITE an accepted redeploy) and is deliberately not addressed here.
  */
 
 import { fileURLToPath } from "url";
+import { promises as fs } from "fs";
+import { dirname } from "path";
 import {
   CI_BUILT_SERVICES,
   ENV_ID_BY_NAME,
@@ -116,6 +189,106 @@ import { makeLiveRedeploy, runRedeploy } from "./redeploy-env";
 import type { RedeployServiceRecord } from "./redeploy-env";
 
 // ── Pure decision core (unit-tested without network) ───────────────────────
+
+/**
+ * Default debounce THRESHOLD (N) for the fail-loud "unconfirmed" verdict: a
+ * service pages only once it has been unconfirmed on at least N of the last M
+ * (`DEFAULT_DEBOUNCE_WINDOW`) reconcile cycles — a sliding N-of-M window, not N
+ * strictly-consecutive cycles. At the 15-minute cadence, N=2/M=3 keeps a single
+ * blip silent while paging on either two consecutive OR a two-of-three flap
+ * within ~45 min. Overridable at runtime via `RECONCILE_DEBOUNCE_THRESHOLD` (see
+ * `main`). The pure library default (`reconcileStaging`) is N=1/M=1 — "no
+ * debounce, page on the first cycle" — so the invariant unit tests exercise the
+ * raw verdict; production wires these constants.
+ */
+export const DEFAULT_DEBOUNCE_THRESHOLD = 2;
+
+/**
+ * Default debounce WINDOW (M): the size of the sliding window of recent cycles
+ * over which the threshold (N) is counted. A service pages when it was
+ * unconfirmed on ≥N of the last M cycles. M=3 with N=2 pages on two consecutive
+ * cycles AND on a two-of-three flap. Overridable via `RECONCILE_DEBOUNCE_WINDOW`
+ * (see `main`); clamped to be ≥N so a misconfigured window can never make paging
+ * impossible.
+ */
+export const DEFAULT_DEBOUNCE_WINDOW = 3;
+
+/**
+ * Per-service SLIDING WINDOW of the last M reconcile outcomes, carried BETWEEN
+ * scheduled runs. Keyed by SSOT service key (or a synthetic label like
+ * `(scope)`/`(alert)`); the value is a bounded list (length ≤ M) of the most
+ * recent outcomes, oldest→newest, where `true` = UNCONFIRMED that cycle and
+ * `false` = confirmed. Unlike the old consecutive counter, a service is NOT
+ * dropped the moment it is confirmed once — a `false` is appended so the window
+ * remembers the healthy cycle (this is what lets a flap reach N-of-M). A service
+ * whose window holds NO `true` is dropped (absent). Persisted as a small JSON
+ * object via `actions/cache`.
+ */
+export type DebounceWindows = Record<string, boolean[]>;
+
+/**
+ * Coerce a persisted/prior window value into a clean bounded boolean[]. A
+ * non-array (chiefly the OLD `{svc: number}` count shape from before the windowed
+ * change, but also any garbage) becomes an empty window — a one-cycle delay, not
+ * a throw. Non-boolean elements are dropped and the result is trimmed to the M
+ * most recent entries.
+ */
+function normalizeWindow(w: unknown, window: number): boolean[] {
+  if (!Array.isArray(w)) return [];
+  const bools = w.filter((x): x is boolean => typeof x === "boolean");
+  return bools.slice(-window);
+}
+
+/**
+ * The debounce decision, pure and unit-testable. Given the PRIOR per-service
+ * sliding windows and THIS cycle's `unconfirmed` set, returns:
+ *   • `nextWindows` — the windows to persist for the next cycle. For every
+ *     service that is EITHER unconfirmed this cycle OR already had a prior
+ *     window, the current outcome is appended (`true` if unconfirmed this cycle,
+ *     else `false`) and the window is trimmed to the last `window` (M) entries.
+ *     A service whose resulting window holds no `true` is dropped (absent) so the
+ *     state stays bounded. A single service may appear in `unconfirmed` more than
+ *     once (different reasons); it advances its window ONCE.
+ *   • `pageable` — the subset of `unconfirmed` (this cycle's entries, all reasons
+ *     kept) whose service has now been unconfirmed on ≥ `threshold` (N) of the
+ *     last M cycles. This is the set that drives the Slack page + non-zero exit.
+ *     Below N-of-M the entry is retained in `unconfirmed` for logging but does
+ *     not page. (The window's `true` count only ever rises on an unconfirmed
+ *     cycle, so the cycle a service crosses N is always a cycle it is unconfirmed
+ *     — a service confirmed THIS cycle is never newly pageable.)
+ */
+export function applyDebounce(args: {
+  unconfirmed: UnconfirmedService[];
+  priorWindows: DebounceWindows;
+  threshold: number;
+  window: number;
+}): { nextWindows: DebounceWindows; pageable: UnconfirmedService[] } {
+  const { unconfirmed, priorWindows, threshold, window } = args;
+  const unconfirmedServices = new Set(unconfirmed.map((u) => u.service));
+  // Advance the window for every service in play: those unconfirmed this cycle
+  // AND those merely carrying a prior window (they get a `false` so the window
+  // remembers the healthy cycle — the flap-detection linchpin).
+  const tracked = new Set<string>([
+    ...Object.keys(priorWindows),
+    ...unconfirmedServices,
+  ]);
+  const nextWindows: DebounceWindows = {};
+  const pageableServices = new Set<string>();
+  for (const svc of tracked) {
+    const prior = normalizeWindow(priorWindows[svc], window);
+    const next = [...prior, unconfirmedServices.has(svc)].slice(-window);
+    const unconfirmedCount = next.filter(Boolean).length;
+    // Drop a service whose window no longer records ANY unconfirmed cycle.
+    if (unconfirmedCount === 0) continue;
+    nextWindows[svc] = next;
+    if (unconfirmedCount >= threshold) pageableServices.add(svc);
+  }
+  // pageable ⊆ this cycle's unconfirmed entries (keeping all reasons, in order);
+  // a service pageable-by-window but confirmed this cycle has no reason entry and
+  // is naturally excluded.
+  const pageable = unconfirmed.filter((u) => pageableServices.has(u.service));
+  return { nextWindows, pageable };
+}
 
 /**
  * A resolved (service, deployedDigest, latestDigest) tuple for one staging
@@ -178,6 +351,34 @@ export interface ReconcileDeps {
   postSlackAlert: (text: string) => Promise<boolean>;
   /** Progress logger. Defaults to console.log. */
   log?: (line: string) => void;
+  /**
+   * Debounce THRESHOLD (N) for the fail-loud "unconfirmed" verdict — a service
+   * pages when unconfirmed on ≥N of the last M (`debounceWindow`) cycles (see
+   * `applyDebounce`). Defaults to 1 so the invariant unit tests exercise the raw
+   * verdict. Production wires `DEFAULT_DEBOUNCE_THRESHOLD` (2).
+   */
+  debounceThreshold?: number;
+  /**
+   * Debounce WINDOW (M): the sliding-window size over which the threshold (N) is
+   * counted. Defaults to `debounceThreshold` (i.e. N-of-N = strictly
+   * consecutive) when omitted, so a caller that sets only the threshold keeps the
+   * simple consecutive behavior; production wires `DEFAULT_DEBOUNCE_WINDOW` (3)
+   * to catch flapping. Clamped to ≥N internally.
+   */
+  debounceWindow?: number;
+  /**
+   * Load the PRIOR per-service sliding windows persisted by the previous
+   * scheduled run (via `actions/cache`). Returns {} when there is no prior
+   * state. When omitted, prior windows default to {} (each cycle stands alone —
+   * only meaningful with a N=1/M=1 immediate policy, i.e. the local no-state run).
+   */
+  loadDebounceState?: () => Promise<DebounceWindows>;
+  /**
+   * Persist the UPDATED per-service sliding windows for the next scheduled run to
+   * read. Called once per cycle, before the run exits, so the window survives
+   * between stateless runs. When omitted, state is not saved.
+   */
+  saveDebounceState?: (windows: DebounceWindows) => Promise<void>;
 }
 
 /**
@@ -213,16 +414,37 @@ export interface ReconcileSummary {
    */
   redeployReport: RedeployReport | null;
   /**
-   * THE INVARIANT SET: every in-scope service NOT positively confirmed current,
-   * with its reason. A run is green iff this is empty. The exit code and the
-   * alert are both derived from it (see `reconcileExitCode` / the header
-   * contract) — there are no separate per-cause special-cases.
+   * THE INVARIANT SET: every in-scope service NOT positively confirmed current
+   * this cycle, with its reason — PLUS the synthetic `(alert)` entry when a lag
+   * was remediated but its Slack alert did not deliver. This is the RAW,
+   * pre-debounce set: it is surfaced for logging (an operator sees a condition
+   * building toward a page), but the exit code and the Slack page are derived
+   * from the DEBOUNCED subset (`pageableUnconfirmed`), not from this set — a
+   * single-cycle blip is present here yet does not red the run. There are no
+   * separate per-cause special-cases: every non-green cause flows through here.
    */
   unconfirmed: UnconfirmedService[];
   /**
+   * THE DEBOUNCED INVARIANT SET: the subset of `unconfirmed` whose service has
+   * been unconfirmed on ≥N of the last M cycles and therefore actually PAGES this
+   * cycle. The Slack alert and the exit code are derived from THIS set, not the
+   * raw `unconfirmed` — a single-cycle blip is present in `unconfirmed` (for
+   * logging) but absent here (debounced). With the default N=1/M=1 this equals
+   * `unconfirmed`.
+   */
+  pageableUnconfirmed: UnconfirmedService[];
+  /**
+   * The per-service sliding windows to persist for the next cycle (the output of
+   * `applyDebounce`). Threaded out for the CI log so an operator can see a
+   * below-window service being debounced (e.g. "1/2 within a 3-cycle window").
+   */
+  debounceWindows: DebounceWindows;
+  /**
    * True when the in-scope set was empty (`services.length === 0`) — the run
-   * checked nothing, which is NOT green. Recorded as its own field for the
-   * alert text; it also contributes an entry to `unconfirmed`.
+   * checked nothing, which is NOT green. Recorded as its own field for the alert
+   * text; it also contributes a `(scope)` entry to `unconfirmed`, which is
+   * DEBOUNCED like every other condition (it pages only once it reaches the
+   * N-of-M window).
    */
   emptyScope: boolean;
 }
@@ -286,16 +508,21 @@ export function stagingReconcileServices(): string[] {
 
 /**
  * Compute the ONE invariant set — every in-scope service NOT positively
- * confirmed current, with its reason — from the raw reconcile facts. This is
- * the single place the "not confirmed current" cases from the header contract
- * are enumerated; the exit code and the alert both derive from its result.
+ * confirmed current, with its reason — from the raw reconcile facts. This is the
+ * single place the "not confirmed current" cases from the header contract are
+ * enumerated. It returns the RAW (pre-debounce) set; `reconcileStaging` then
+ * DEBOUNCES it (via `applyDebounce`) and the exit code and the Slack page derive
+ * from that debounced subset (`pageableUnconfirmed`), so a single-cycle blip
+ * surfaced here does not itself red the run.
  *
  * Sources of "unconfirmed":
  *   • per-service digest-read faults (`errors`) — null/unresolvable deployed
  *     digest, null/empty GHCR `:latest`, a thrown read, or a bogus SSOT key;
  *   • a remediation redeploy that THREW before reporting (`redeployError`) —
  *     every lagging service is unconfirmed (remediation did not run to a
- *     result), so the invariant still alerts + exits non-zero (A17);
+ *     result), so once that condition reaches the N-of-M debounce window the
+ *     invariant pages + exits non-zero (A17). A below-threshold throw cycle is
+ *     debounced: it neither red-exits nor posts an (empty) alert;
  *   • a lagging service NOT positively confirmed remediated — it lacks a
  *     `status:"ok"` per-service record in `redeployReport.records` (it was
  *     dropped/skipped, or its own redeploy failed). This is matched
@@ -455,16 +682,19 @@ export function buildReconcileAlert(args: {
 }
 
 /**
- * The scheduled run's exit code, derived purely from the ONE invariant. Fail
- * loud (non-zero) whenever any in-scope service is unconfirmed, or when a lag
- * was found but its alert never delivered; 0 only when every service was
- * confirmed current (or a lag was cleanly remediated AND its alert delivered).
- * See the invariant in the file header.
+ * The scheduled run's exit code, derived PURELY from the debounced invariant set
+ * (`pageableUnconfirmed`). Fail loud (non-zero) iff at least one condition has
+ * reached the N-of-M debounce window and is therefore pageable this cycle; 0
+ * otherwise. A below-window blip — a transient read fault, a one-cycle
+ * redeploy race, a redeploy that threw, or a benign remediated lag whose
+ * informational alert got a transient non-2xx — is present in `unconfirmed` (for
+ * logging) but not yet in `pageableUnconfirmed`, so it does NOT red the run until
+ * it reaches N-of-M. An undelivered lag alert is itself folded into the invariant set
+ * under the `(alert)` key (see `reconcileStaging`), so it too is debounced rather
+ * than reding the very first cycle. See the invariant in the file header.
  */
 export function reconcileExitCode(summary: ReconcileSummary): number {
-  if (summary.unconfirmed.length > 0) return 1;
-  if (summary.lagging.length > 0 && !summary.alerted) return 1;
-  return 0;
+  return summary.pageableUnconfirmed.length > 0 ? 1 : 0;
 }
 
 /**
@@ -475,10 +705,16 @@ export function reconcileExitCode(summary: ReconcileSummary): number {
  * `unconfirmed` entries (they never mask another service's lag and never read
  * as a healthy "current" service). A lag is remediated by a scoped redeploy; a
  * redeploy that fails or drops a lagging service, and an empty in-scope set,
- * also land in `unconfirmed`. A single Slack alert names the unconfirmed
- * services + reasons and the lag/remediation outcome, and the exit code is
- * derived from the same set. All I/O is injected via `deps` so the decision →
- * action wiring is unit-tested offline.
+ * also land in `unconfirmed`. That raw set is then DEBOUNCED over a sliding
+ * N-of-M window (`applyDebounce`): a condition pages + red-exits only once it has
+ * been unconfirmed on ≥N of the last M cycles, so a single-cycle blip stays
+ * silent while a flap (unconfirmed every other cycle) still pages. A single Slack
+ * alert names the PAGEABLE (debounced) unconfirmed services + reasons and the
+ * lag/remediation outcome, and the exit code is derived from the same debounced
+ * set — a below-window cycle never red-exits and never posts an
+ * empty/invalid alert, even when the redeploy throws or the Slack POST returns
+ * non-2xx. All I/O is injected via `deps` so the decision → action wiring is
+ * unit-tested offline.
  */
 export async function reconcileStaging(
   deps: ReconcileDeps,
@@ -586,28 +822,109 @@ export async function reconcileStaging(
     confirmedCurrent,
   });
 
-  // Alert whenever the run is not a clean silent no-op: any unconfirmed service
-  // (fail-loud) OR any lag (informational alert-AND-remediate). A single alert
-  // covers both.
+  // ── DEBOUNCE the fail-loud verdict over a sliding N-of-M window ─────────────
+  // A single-cycle blip (the harness-workers redeploy race, a transient Railway
+  // HTTP 500 / timeout, a platform "deploys paused" hiccup) all surface as
+  // `unconfirmed` and clear by the next cycle — they must NOT page. Only a
+  // condition that is unconfirmed on ≥N of the last M cycles (genuine drift that
+  // persists OR flaps every other cycle, a sustained outage) pages. Applied
+  // uniformly at the verdict level rather than per-cause. Remediation of a real
+  // lag already ran ABOVE and is unaffected — only the page + non-zero exit wait
+  // for the window. Threshold defaults to N=1/M=1 (no debounce) for the pure/test
+  // path; production wires DEFAULT_DEBOUNCE_THRESHOLD/DEFAULT_DEBOUNCE_WINDOW. The
+  // window is clamped to ≥N so a misconfigured M can never make paging impossible.
+  const threshold = deps.debounceThreshold ?? 1;
+  const window = Math.max(deps.debounceWindow ?? threshold, threshold);
+  const priorWindows = (await deps.loadDebounceState?.()) ?? {};
+  // First debounce pass over the base invariant set → the subset that PAGES this
+  // cycle. The Slack page names ONLY these: a below-window blip is retained in
+  // `unconfirmed` for logging but is never named in the page.
+  const { pageable: pageableBase } = applyDebounce({
+    unconfirmed,
+    priorWindows,
+    threshold,
+    window,
+  });
+
+  // Alert whenever the run has something to SAY this cycle — derived from the
+  // DEBOUNCED set (not raw `lagging`):
+  //   • a PAGEABLE (debounced) unconfirmed condition → the fail-loud page, OR
+  //   • a lag we have an actual redeploy RESULT for → the informational
+  //     alert-AND-remediate notice. Remediation is NOT debounced (it self-heals
+  //     every cycle), so this notice fires the cycle a lag is remediated.
+  // A below-threshold blip whose redeploy THREW carries no report and nothing
+  // pageable, so it says nothing this cycle: we skip the post rather than emit an
+  // empty/invalid Slack payload (the old bypass posted "" and red-exited).
   let alerted = false;
-  if (unconfirmed.length > 0 || lagging.length > 0) {
-    if (unconfirmed.length > 0) {
+  let alertAttempted = false;
+  if (
+    pageableBase.length > 0 ||
+    (lagging.length > 0 && redeployReport !== null)
+  ) {
+    if (pageableBase.length > 0) {
       log(
-        `\n${unconfirmed.length} staging service(s) NOT confirmed current (of ${services.length} in scope).`,
+        `\n${pageableBase.length} staging service(s) NOT confirmed current on ${threshold}+ of the last ${window} cycles (of ${services.length} in scope).`,
       );
     }
-    alerted = await deps.postSlackAlert(
-      buildReconcileAlert({
-        lagging,
-        redeployReport,
-        unconfirmed,
-        scope: services.length,
-      }),
-    );
+    const alertText = buildReconcileAlert({
+      lagging,
+      redeployReport,
+      unconfirmed: pageableBase,
+      scope: services.length,
+    });
+    // Never POST an empty/invalid payload. The fire condition above already
+    // guarantees a non-empty body (a page renders the unconfirmed section; a lag
+    // with a report renders the lagging section) — this is a belt-and-suspenders
+    // guard so no future path can slip an empty alert through.
+    if (alertText !== "") {
+      alertAttempted = true;
+      alerted = await deps.postSlackAlert(alertText);
+    }
   } else {
     log(
       `\nAll ${pairs.length} checked staging service(s) current with :latest.`,
     );
+  }
+
+  // An UNDELIVERED lag alert is itself a fail-loud condition (a drift notice we
+  // could not deliver), but it is DEBOUNCED like every other verdict so a single
+  // transient Slack non-2xx on a benign remediated lag does NOT red the run on
+  // cycle 1. Fold it into the invariant set under its own synthetic `(alert)` key
+  // and re-derive the debounced verdict from `priorWindows`, so the exit code
+  // stays a pure function of the debounced set (see `reconcileExitCode`). Because
+  // `applyDebounce` keys off `priorWindows` (not the first pass's output), the
+  // base services get identical windows in both passes — only `(alert)` is added.
+  const unconfirmedFinal: UnconfirmedService[] = [...unconfirmed];
+  if (alertAttempted && !alerted && lagging.length > 0) {
+    unconfirmedFinal.push({
+      service: "(alert)",
+      reason:
+        "a lagging service was remediated but the Slack drift alert did not deliver (non-2xx) — failing loud (once persisted) so the notice is not silently lost",
+    });
+  }
+  const { nextWindows, pageable: pageableUnconfirmed } = applyDebounce({
+    unconfirmed: unconfirmedFinal,
+    priorWindows,
+    threshold,
+    window,
+  });
+  // Persist the updated windows BEFORE returning so the window survives to the
+  // next stateless scheduled run (the caller exits right after this returns).
+  await deps.saveDebounceState?.(nextWindows);
+
+  // Log any unconfirmed service still being debounced (below the N-of-M window)
+  // so an operator can see it building toward a page rather than a silent gap.
+  const debounced = unconfirmedFinal.filter(
+    (u) => !pageableUnconfirmed.some((p) => p.service === u.service),
+  );
+  if (debounced.length > 0) {
+    for (const u of debounced) {
+      const w = nextWindows[u.service] ?? [];
+      const trues = w.filter(Boolean).length;
+      log(
+        `  debounced (${trues}/${threshold} unconfirmed within the last ${w.length}/${window} cycles, not yet paging): ${u.service}: ${u.reason}`,
+      );
+    }
   }
 
   return {
@@ -617,7 +934,9 @@ export async function reconcileStaging(
     redeployed,
     alerted,
     redeployReport,
-    unconfirmed,
+    unconfirmed: unconfirmedFinal,
+    pageableUnconfirmed,
+    debounceWindows: nextWindows,
     emptyScope,
   };
 }
@@ -801,9 +1120,122 @@ async function livePostSlackAlert(text: string): Promise<boolean> {
   }
 }
 
+/**
+ * The debounce state file path, from `RECONCILE_DEBOUNCE_STATE` (set by the
+ * workflow to a path inside the `actions/cache`-backed directory). Null when
+ * unset — a local/manual one-shot run then has NO persistable state backend, so
+ * `main` switches it to an immediate N=1/M=1 policy (fail loud on the first
+ * unconfirmed cycle) rather than debouncing against state it cannot keep. In CI
+ * the env is always set so the sliding window persists between cycles.
+ */
+function debounceStatePath(): string | null {
+  const p = (process.env.RECONCILE_DEBOUNCE_STATE || "").trim();
+  return p === "" ? null : p;
+}
+
+/**
+ * Read the prior per-service sliding windows. Returns {} on the first run, a
+ * cache miss, or an unparseable/malformed file — a fresh start, never a throw (a
+ * bad state file must not take down the self-heal). Only the windowed shape
+ * (a boolean[] per service) is accepted; an OLD-shape entry from before the
+ * windowed change (the pre-windowed `{svc: number}` count) or any other garbage
+ * is treated as an empty window (dropped) — a one-cycle delay, never a throw.
+ */
+async function liveLoadDebounceState(path: string): Promise<DebounceWindows> {
+  try {
+    const raw = await fs.readFile(path, "utf8");
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      parsed === null ||
+      typeof parsed !== "object" ||
+      Array.isArray(parsed)
+    ) {
+      return {};
+    }
+    const out: DebounceWindows = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!Array.isArray(v)) continue; // old numeric shape / garbage → empty window
+      const bools = v.filter((x): x is boolean => typeof x === "boolean");
+      if (bools.length > 0) out[k] = bools; // applyDebounce trims to the window
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** Persist the updated sliding windows for the next scheduled cycle to read. */
+async function liveSaveDebounceState(
+  path: string,
+  windows: DebounceWindows,
+): Promise<void> {
+  await fs.mkdir(dirname(path), { recursive: true });
+  await fs.writeFile(path, JSON.stringify(windows), "utf8");
+}
+
+/**
+ * The runtime debounce threshold (N): `RECONCILE_DEBOUNCE_THRESHOLD` when it
+ * parses to a positive integer, else `DEFAULT_DEBOUNCE_THRESHOLD` (2).
+ */
+function resolveDebounceThreshold(): number {
+  const raw = (process.env.RECONCILE_DEBOUNCE_THRESHOLD || "").trim();
+  if (raw !== "") {
+    const n = Number.parseInt(raw, 10);
+    if (Number.isInteger(n) && n >= 1) return n;
+  }
+  return DEFAULT_DEBOUNCE_THRESHOLD;
+}
+
+/**
+ * The runtime debounce window (M): `RECONCILE_DEBOUNCE_WINDOW` when it parses to
+ * a positive integer, else `DEFAULT_DEBOUNCE_WINDOW` (3). Clamped to ≥N so a
+ * window smaller than the threshold (which could never page) fails safe — it
+ * still pages — rather than silently disabling the fail-loud verdict.
+ */
+function resolveDebounceWindow(threshold: number): number {
+  const raw = (process.env.RECONCILE_DEBOUNCE_WINDOW || "").trim();
+  let w = DEFAULT_DEBOUNCE_WINDOW;
+  if (raw !== "") {
+    const n = Number.parseInt(raw, 10);
+    if (Number.isInteger(n) && n >= 1) w = n;
+  }
+  return Math.max(w, threshold);
+}
+
+/**
+ * The resolved runtime debounce policy: the state-file path (or null) plus the
+ * N-of-M window `main` wires into `reconcileStaging`.
+ */
+export interface DebouncePolicy {
+  statePath: string | null;
+  threshold: number;
+  window: number;
+}
+
+/**
+ * Resolve the runtime debounce policy from the environment. This is the single
+ * seam that decides CI-debounced vs local-fail-loud, kept pure + exported so the
+ * local fail-loud selection is unit-testable without going near the network:
+ *   • CI (a `RECONCILE_DEBOUNCE_STATE` backend is configured): the configured
+ *     N-of-M window applies (`RECONCILE_DEBOUNCE_THRESHOLD` /
+ *     `RECONCILE_DEBOUNCE_WINDOW`, defaulting to 2-of-3), so the per-service
+ *     sliding window persists between cycles and a single blip stays silent.
+ *   • Local/manual one-shot (NO state backend): an immediate N=1/M=1 policy — a
+ *     run with no persistable state cannot debounce across runs, so it FAILS
+ *     LOUD (exit 1) on the first unconfirmed cycle instead of maxing the window
+ *     at 1/M and always exiting 0 (the regression this closes).
+ */
+export function resolveDebouncePolicy(): DebouncePolicy {
+  const statePath = debounceStatePath();
+  if (statePath === null) return { statePath: null, threshold: 1, window: 1 };
+  const threshold = resolveDebounceThreshold();
+  return { statePath, threshold, window: resolveDebounceWindow(threshold) };
+}
+
 async function main(): Promise<void> {
   const token = getRailwayToken();
   const redeploy = makeLiveRedeploy(token);
+  const { statePath, threshold, window } = resolveDebouncePolicy();
 
   const deps: ReconcileDeps = {
     fetchDeployedDigest: (serviceId, environmentId) =>
@@ -824,6 +1256,17 @@ async function main(): Promise<void> {
       };
     },
     postSlackAlert: livePostSlackAlert,
+    debounceThreshold: threshold,
+    debounceWindow: window,
+    // Only wire cross-run persistence when a state path is configured (CI). A
+    // local run without it carries no state — each cycle stands alone (and runs
+    // the immediate N=1/M=1 policy above so drift fails loud).
+    loadDebounceState: statePath
+      ? () => liveLoadDebounceState(statePath)
+      : undefined,
+    saveDebounceState: statePath
+      ? (windows) => liveSaveDebounceState(statePath, windows)
+      : undefined,
   };
 
   console.log(
@@ -831,8 +1274,16 @@ async function main(): Promise<void> {
   );
   const summary = await reconcileStaging(deps);
   console.log(
-    `\nchecked=${summary.checked} lagging=${summary.lagging.length} errors=${summary.errors.length} redeployed=${summary.redeployed} alerted=${summary.alerted} unconfirmed=${summary.unconfirmed.length} emptyScope=${summary.emptyScope}`,
+    `\nchecked=${summary.checked} lagging=${summary.lagging.length} errors=${summary.errors.length} redeployed=${summary.redeployed} alerted=${summary.alerted} unconfirmed=${summary.unconfirmed.length} pageable=${summary.pageableUnconfirmed.length} threshold=${threshold} window=${window} emptyScope=${summary.emptyScope}`,
   );
+  if (
+    summary.unconfirmed.length > 0 &&
+    summary.pageableUnconfirmed.length < summary.unconfirmed.length
+  ) {
+    console.log(
+      `debounce state: ${JSON.stringify(summary.debounceWindows)} (services unconfirmed on fewer than ${threshold} of the last ${window} cycles are suppressed this cycle)`,
+    );
+  }
   if (summary.errors.length > 0) {
     for (const e of summary.errors) {
       console.error(`  digest-read error: ${e.service}: ${e.error}`);
@@ -843,18 +1294,13 @@ async function main(): Promise<void> {
   if (code !== 0) {
     // Fail loud so the scheduled run goes RED and the alert isn't the only
     // signal (see the invariant in the file header). Every non-green cause
-    // flows through the ONE `unconfirmed` set, so report it directly.
-    if (summary.unconfirmed.length > 0) {
-      console.error(
-        `${summary.unconfirmed.length} staging service(s) NOT confirmed current (alerted=${summary.alerted}):`,
-      );
-      for (const u of summary.unconfirmed) {
-        console.error(`  unconfirmed: ${u.service}: ${u.reason}`);
-      }
-    } else if (summary.lagging.length > 0 && !summary.alerted) {
-      console.error(
-        `lag detected (${summary.lagging.join(", ")}) but the Slack alert did not deliver.`,
-      );
+    // flows through the ONE debounced `pageableUnconfirmed` set — including an
+    // undelivered lag alert (the `(alert)` key) — so report it directly.
+    console.error(
+      `${summary.pageableUnconfirmed.length} staging service(s) NOT confirmed current on ${threshold}+ of the last ${window} cycles (alerted=${summary.alerted}):`,
+    );
+    for (const u of summary.pageableUnconfirmed) {
+      console.error(`  unconfirmed: ${u.service}: ${u.reason}`);
     }
   }
   // The run is green ONLY when every in-scope service was confirmed current
