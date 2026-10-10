@@ -58,7 +58,7 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const copilotEndpoint = createCopilotEndpoint({
+const copilotEndpoint = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -95,7 +95,7 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const copilotEndpoint = createCopilotEndpoint({
+const copilotEndpoint = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -144,7 +144,7 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const copilotEndpoint = createCopilotEndpoint({
+const copilotEndpoint = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
