@@ -21,6 +21,15 @@ import {
 } from "./constants";
 import { MCPAppsActivityContentSchema } from "./content-schema";
 import type { MCPAppsActivityContent } from "./content-schema";
+import {
+  defaultContainerDimensions,
+  isHostDisplayMode,
+  resolveHostDisplayModes,
+} from "./display-mode";
+import type {
+  McpAppContainerDimensions,
+  McpAppsDisplayMode,
+} from "./display-mode";
 
 /** Structural shape of an ag-ui activity message (avoids a hard type import). */
 interface ActivityLike {
@@ -160,6 +169,13 @@ export interface McpAppSessionHooks {
   onSandboxReady?(): void;
   /** The fetched resource metadata (e.g. prefersBorder) is available. */
   onResource?(resource: FetchedResource): void;
+  /**
+   * The display mode changed, whether the widget asked for it
+   * (`ui/request-display-mode`) or the host did (`setDisplayMode`). The widget
+   * has already been told through its host context; the adapter only renders
+   * the surface for the mode (a modal `<dialog>` for `fullscreen`).
+   */
+  onDisplayModeChange?(mode: McpAppsDisplayMode): void;
   /**
    * FATAL setup failure (resource fetch, bridge connect, sandbox timeout).
    * The session cannot serve this widget; the host keeps showing the error
@@ -349,6 +365,23 @@ export interface McpAppSession {
    * value is not forwarded and surfaces through `onContentError`.
    */
   syncContent(content: MCPAppsActivityContent): void;
+  /**
+   * Host-initiated display-mode change: the adapter's fullscreen close button
+   * or Escape, or a viewport resize while fullscreen. Updates the host context,
+   * notifies the widget (`host-context-changed`) and fires
+   * `onDisplayModeChange`. `containerDimensions` overrides the surface
+   * advertised for the mode (the viewport for `fullscreen`, the holder's width
+   * and the widget's last reported height for `inline`). A mode this
+   * host does not offer (`fullscreen` when the options narrowed the modes to
+   * `inline`) is ignored, so the widget is never told a mode the host cannot
+   * render.
+   */
+  setDisplayMode(
+    mode: McpAppsDisplayMode,
+    containerDimensions?: Partial<McpAppContainerDimensions>,
+  ): void;
+  /** The display mode currently applied. */
+  getDisplayMode(): McpAppsDisplayMode;
   /** Disconnect the bridge and release listeners. Does NOT remove the iframe. */
   teardown(): void;
 }
@@ -395,6 +428,88 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
   let disposed = false;
   let ready = false;
   let bridge: AppBridge | null = null;
+  let currentDisplayMode: McpAppsDisplayMode = "inline";
+  // The modes a widget may obtain here: what the frontends render, narrowed by
+  // an explicit `hostContext.availableDisplayModes` in the options.
+  const hostDisplayModes = resolveHostDisplayModes(
+    settings.hostContext.availableDisplayModes,
+  );
+  // The size the widget last reported (`size-changed`) while inline: the
+  // inline surface follows the widget's own height, so this is what inline
+  // advertises back. A size reported during fullscreen describes the
+  // fullscreen layout and must not stand in for the inline surface on exit.
+  let inlineReportedSize: { width?: number; height?: number } = {};
+
+  /**
+   * The inline surface: the width of the nearest laid-out ancestor of the
+   * dialog (ancestors stay in normal flow while the dialog sits in the top
+   * layer, so this is measurable even when leaving fullscreen; an inline-level
+   * holder such as a custom element collapses to zero then, hence the climb)
+   * and the height the widget last reported. Undefined when nothing is
+   * measurable (not laid out yet).
+   */
+  const inlineContainerDimensions = ():
+    | Partial<McpAppContainerDimensions>
+    | undefined => {
+    let measured = 0;
+    let holder: Element | null =
+      iframe.closest("dialog")?.parentElement ?? iframe.parentElement;
+    while (holder && measured === 0) {
+      measured = Math.round(holder.getBoundingClientRect().width);
+      holder = holder.parentElement;
+    }
+    const width = measured > 0 ? measured : inlineReportedSize.width;
+    const height = inlineReportedSize.height;
+    if (width === undefined && height === undefined) return undefined;
+    return {
+      ...(width !== undefined ? { width } : {}),
+      ...(height !== undefined ? { height } : {}),
+    };
+  };
+
+  /**
+   * The full host context for a display mode. ext-apps `setHostContext`
+   * replaces its cached context (it only diffs to decide what to notify), so
+   * every update passes the whole context, not just the changed fields.
+   *
+   * The app SDK merges every `host-context-changed` into its cached context
+   * and the protocol has no way to unset a field, so leaving fullscreen must
+   * advertise the inline surface rather than omit `containerDimensions`:
+   * otherwise the widget keeps the viewport size it was given for fullscreen.
+   */
+  const hostContextFor = (
+    mode: McpAppsDisplayMode,
+    containerDimensions?: Partial<McpAppContainerDimensions>,
+  ): Record<string, unknown> => {
+    const dims =
+      containerDimensions ??
+      (mode === "fullscreen"
+        ? defaultContainerDimensions(mode)
+        : inlineContainerDimensions());
+    return {
+      // The theme follows CopilotKit's dark selector (a `.dark` ancestor)
+      // unless the host configured one explicitly.
+      theme: iframe.closest(".dark") ? "dark" : "light",
+      ...settings.hostContext,
+      availableDisplayModes: [...hostDisplayModes],
+      displayMode: mode,
+      ...(dims ? { containerDimensions: dims } : {}),
+    };
+  };
+
+  /**
+   * Apply a display mode: remember it, advertise it to the widget and let the
+   * adapter render it. The single path for widget-initiated and host-initiated
+   * changes, so both end in the same `host-context-changed` notification.
+   */
+  const applyDisplayMode = (
+    mode: McpAppsDisplayMode,
+    containerDimensions?: Partial<McpAppContainerDimensions>,
+  ) => {
+    currentDisplayMode = mode;
+    bridge?.setHostContext(hostContextFor(mode, containerDimensions));
+    if (!disposed) hooks?.onDisplayModeChange?.(mode);
+  };
   let pendingToolInput: Record<string, unknown> | undefined;
   let pendingToolResult: CallToolResult | undefined;
   // Self-driving mode (messageId set): dedup keys so a re-emitted activity with
@@ -664,14 +779,9 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
         settings.hostCapabilities,
         // Seed the host context at construction so it is already in place when
         // the widget's ui/initialize is handled (deterministic, not a race).
-        {
-          hostContext: {
-            // The theme follows CopilotKit's dark selector (a `.dark`
-            // ancestor) unless the host configured one explicitly.
-            theme: iframe.closest(".dark") ? "dark" : "light",
-            ...settings.hostContext,
-          },
-        },
+        // It carries the display mode and the modes on offer, so a widget can
+        // negotiate `ui/request-display-mode` from initialize onwards.
+        { hostContext: hostContextFor(currentDisplayMode) },
       );
 
       // Sandbox handshake: on proxy ready, load the widget HTML into the inner
@@ -851,6 +961,25 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
         );
       };
 
+      // ui/request-display-mode: grant a mode only when this host renders it
+      // AND, when the app declared `appCapabilities.availableDisplayModes` at
+      // initialize, the app listed it too. An unavailable request leaves the
+      // mode untouched and answers with the mode still applied, not a
+      // hardcoded fallback. The widget learns the new mode through
+      // `host-context-changed` (its SDK caches host context from that
+      // notification, not from this response), which `applyDisplayMode` emits.
+      bridge.onrequestdisplaymode = async ({ mode }) => {
+        if (disposed) return { mode: currentDisplayMode };
+        const declaredByApp =
+          bridge?.getAppCapabilities()?.availableDisplayModes;
+        const available =
+          isHostDisplayMode(mode) &&
+          hostDisplayModes.includes(mode) &&
+          (!declaredByApp || declaredByApp.includes(mode));
+        if (available) applyDisplayMode(mode);
+        return { mode: currentDisplayMode };
+      };
+
       // --- App -> host notifications ---
       bridge.onsizechange = (p) => {
         if (disposed) return;
@@ -858,10 +987,12 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
           width?: number;
           height?: number;
         };
-        hooks?.onSizeChanged?.({
+        const size = {
           width: typeof width === "number" ? width : undefined,
           height: typeof height === "number" ? height : undefined,
-        });
+        };
+        if (currentDisplayMode === "inline") inlineReportedSize = size;
+        hooks?.onSizeChanged?.(size);
       };
       bridge.oninitialized = () => {
         if (disposed) return;
@@ -941,6 +1072,15 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       // (rendered from an external messages list).
       if (messageId && activityInStore()) return;
       pushFromContent(content);
+    },
+    setDisplayMode(mode, containerDimensions) {
+      // A host-initiated change is bound by what this host offers, like a
+      // widget request; the app declaration only limits widget requests.
+      if (!hostDisplayModes.includes(mode)) return;
+      applyDisplayMode(mode, containerDimensions);
+    },
+    getDisplayMode() {
+      return currentDisplayMode;
     },
     teardown() {
       closeSession();

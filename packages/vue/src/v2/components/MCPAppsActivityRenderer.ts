@@ -5,10 +5,11 @@ import type { VueActivityMessageRendererProps } from "../types";
 import { useCopilotKit } from "../providers/useCopilotKit";
 
 // The app<->host protocol (ext-apps AppBridge, sandbox proxy, request queue,
-// ui/message + open-link handlers, tool input/result) lives in the shared,
-// framework-agnostic package. This file is now a THIN Vue adapter over it: it
-// owns the iframe (create/mount/size/remove) and wires the session's reactive
-// hooks to Vue refs; all protocol logic is `bindMcpApp`.
+// ui/message + open-link handlers, tool input/result, request-display-mode)
+// lives in the shared, framework-agnostic package. This file is now a THIN Vue
+// adapter over it: it owns the iframe (create/mount/size/remove) and the
+// display surface (a native <dialog> for inline/fullscreen), and wires the
+// session's reactive hooks to Vue refs; all protocol logic is `bindMcpApp`.
 //
 // The lightweight activity surface (type + content schema + follow-up runner)
 // is re-exported from the package's bridge-free `/activity` entry, so importing
@@ -26,7 +27,14 @@ export type {
   ɵMcpFollowUpHost,
 } from "@copilotkit/mcp-apps-renderer/activity";
 
-import type { MCPAppsActivityContent } from "@copilotkit/mcp-apps-renderer/activity";
+import {
+  ɵlockBodyScroll,
+  ɵshowDialogForMode,
+} from "@copilotkit/mcp-apps-renderer/activity";
+import type {
+  MCPAppsActivityContent,
+  McpAppsDisplayMode,
+} from "@copilotkit/mcp-apps-renderer/activity";
 // Type-only imports: erased at build, so they never pull the ext-apps bridge
 // into the bundle. Only the dynamic import() below does, and only lazily.
 import type {
@@ -39,7 +47,7 @@ import type {
  *
  * Renders MCP Apps UI in a sandboxed iframe with full protocol support.
  * Fetches resource content on-demand via proxied MCP requests. The Vue shell
- * owns the iframe; `bindMcpApp` owns the protocol.
+ * owns the iframe and the display surface; `bindMcpApp` owns the protocol.
  */
 export const MCPAppsActivityRenderer = defineComponent({
   name: "MCPAppsActivityRenderer",
@@ -66,7 +74,8 @@ export const MCPAppsActivityRenderer = defineComponent({
   },
   setup(props) {
     const { copilotkit } = useCopilotKit();
-    const containerRef = ref<HTMLDivElement | null>(null);
+    const containerRef = ref<HTMLDialogElement | null>(null);
+    const exitButtonRef = ref<HTMLButtonElement | null>(null);
     // UI-only state: plain refs are fine (no agent-bound payload crosses here).
     const error = ref<Error | null>(null);
     // Recoverable: an activity update the content schema rejected, from the
@@ -75,6 +84,10 @@ export const MCPAppsActivityRenderer = defineComponent({
     const contentError = ref<Error | null>(null);
     const isLoading = ref(true);
     const iframeSize = ref<{ width?: number; height?: number }>({});
+    // The display mode the session granted. The session owns the negotiation
+    // (grant/refuse + host-context notification); this adapter only renders
+    // the surface for the mode, fed by the onDisplayModeChange hook below.
+    const displayMode = ref<McpAppsDisplayMode>("inline");
     // shallowRef for externally-owned objects: the session, the iframe element
     // and the fetched resource must never be wrapped in a reactive proxy (the
     // resource crosses into the widget, and proxies are not clone-safe).
@@ -86,6 +99,13 @@ export const MCPAppsActivityRenderer = defineComponent({
     // the agent's activity stream and pushes tool input/result itself (this
     // adapter does not forward store-backed activities).
     const messageId = computed(() => props.message?.id);
+
+    // Host-initiated exit from fullscreen (close button or Escape). Routed
+    // through the session so the host context is updated and the widget is
+    // notified, exactly like a widget-initiated change.
+    const exitFullscreen = () => {
+      sessionRef.value?.setDisplayMode("inline");
+    };
 
     // Create the sandbox iframe and bind the MCP session. Re-binds only when the
     // widget identity (resourceUri/serverHash/serverId) or the agent/host/message
@@ -120,6 +140,7 @@ export const MCPAppsActivityRenderer = defineComponent({
         error.value = null;
         contentError.value = null;
         iframeSize.value = {};
+        displayMode.value = "inline";
         fetchedResource.value = null;
 
         // The host owns the iframe: create + mount it here (bindMcpApp only
@@ -181,7 +202,14 @@ export const MCPAppsActivityRenderer = defineComponent({
                   isLoading.value = false;
                 },
                 onSizeChanged: (size) => {
-                  if (mounted) iframeSize.value = size;
+                  // A size reported while fullscreen describes the fullscreen
+                  // layout, not the inline height to restore.
+                  if (mounted && displayMode.value === "inline") {
+                    iframeSize.value = size;
+                  }
+                },
+                onDisplayModeChange: (mode) => {
+                  if (mounted) displayMode.value = mode;
                 },
                 onContentError: (err) => {
                   if (mounted) contentError.value = err;
@@ -214,20 +242,54 @@ export const MCPAppsActivityRenderer = defineComponent({
       { immediate: true, flush: "post" },
     );
 
-    // Size the iframe when the widget reports a new content size.
+    // Open the <dialog> surface for the granted mode: inline in normal flow,
+    // fullscreen in the browser top layer. The iframe lives inside the dialog
+    // and is never reparented, so toggling modes keeps the widget's state.
+    // While fullscreen, the page scroll is locked behind the widget (shared
+    // with the other widgets on the page) and the advertised surface follows
+    // viewport resizes; focus and Escape come from the modal dialog itself.
     watch(
-      iframeSize,
-      (size) => {
+      [containerRef, displayMode],
+      ([dialog, mode], _old, onCleanup) => {
+        if (!dialog) return;
+        ɵshowDialogForMode(dialog, mode);
+        if (mode !== "fullscreen") return;
+        // Escape reaches the modal dialog only while focus is on the host
+        // side; inside the sandboxed widget the key never leaves the iframe.
+        // Landing focus on the exit button makes Escape work from entry on.
+        exitButtonRef.value?.focus();
+        const onResize = () => sessionRef.value?.setDisplayMode("fullscreen");
+        window.addEventListener("resize", onResize);
+        const releaseScrollLock = ɵlockBodyScroll();
+        onCleanup(() => {
+          window.removeEventListener("resize", onResize);
+          releaseScrollLock();
+        });
+      },
+      { immediate: true, flush: "post" },
+    );
+
+    // Size the iframe. In fullscreen it fills the surface; inline it follows
+    // the size the widget reports, back to the initial height when the widget
+    // never reported one (so leaving fullscreen never keeps the 100%).
+    watch(
+      [iframeSize, displayMode],
+      ([size, mode]) => {
         const iframe = iframeRef.value;
         if (!iframe) return;
+        if (mode === "fullscreen") {
+          iframe.style.minWidth = "100%";
+          iframe.style.width = "100%";
+          iframe.style.height = "100%";
+          return;
+        }
         if (size.width !== undefined) {
           // Use minWidth with min() to allow expansion but cap at 100%
           iframe.style.minWidth = `min(${size.width}px, 100%)`;
           iframe.style.width = "100%";
         }
-        if (size.height !== undefined) {
-          iframe.style.height = `${size.height}px`;
-        }
+        iframe.style.height =
+          size.height !== undefined ? `${size.height}px` : "100px";
       },
       { deep: true },
     );
@@ -259,24 +321,91 @@ export const MCPAppsActivityRenderer = defineComponent({
       };
     });
 
+    const isFullscreen = computed(() => displayMode.value === "fullscreen");
+
+    // The widget surface is a native <dialog>: inline neutralizes the UA dialog
+    // styles so it renders as an in-flow block, fullscreen fills the viewport
+    // from the top layer. Escape on the modal dialog fires `cancel`, mapped to
+    // the host-initiated exit so the widget is notified like for the button.
     return () =>
       h(
-        "div",
+        "dialog",
         {
           ref: containerRef,
-          style: {
-            width: "100%",
-            height:
-              iframeSize.value.height !== undefined
-                ? `${iframeSize.value.height}px`
-                : "auto",
-            minHeight: "100px",
-            overflow: "hidden",
-            position: "relative",
-            ...borderStyle.value,
+          "aria-label": isFullscreen.value ? "Fullscreen widget" : undefined,
+          onCancel: (event: Event) => {
+            event.preventDefault();
+            exitFullscreen();
           },
+          style: isFullscreen.value
+            ? {
+                position: "fixed",
+                inset: 0,
+                margin: 0,
+                padding: 0,
+                border: "none",
+                maxWidth: "none",
+                maxHeight: "none",
+                width: "100vw",
+                height: "100vh",
+                overflow: "auto",
+                zIndex: 2147483000,
+                // The chat's own background token, so the overlay does not
+                // flash white in dark mode.
+                background: "var(--background, #fff)",
+                color: "inherit",
+              }
+            : {
+                position: "static",
+                margin: 0,
+                padding: 0,
+                border: "none",
+                maxWidth: "none",
+                maxHeight: "none",
+                width: "100%",
+                height:
+                  iframeSize.value.height !== undefined
+                    ? `${iframeSize.value.height}px`
+                    : "auto",
+                minHeight: "100px",
+                overflow: "hidden",
+                background: "transparent",
+                color: "inherit",
+                ...borderStyle.value,
+              },
         },
         [
+          isFullscreen.value
+            ? h(
+                "button",
+                {
+                  ref: exitButtonRef,
+                  type: "button",
+                  "aria-label": "Exit fullscreen",
+                  onClick: exitFullscreen,
+                  style: {
+                    position: "absolute",
+                    top: "8px",
+                    right: "8px",
+                    zIndex: 1,
+                    width: "32px",
+                    height: "32px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 0,
+                    border: "none",
+                    borderRadius: "50%",
+                    background: "rgba(0, 0, 0, 0.6)",
+                    color: "#fff",
+                    fontSize: "18px",
+                    lineHeight: 1,
+                    cursor: "pointer",
+                  },
+                },
+                "×",
+              )
+            : null,
           isLoading.value
             ? h(
                 "div",

@@ -21,6 +21,53 @@ so a CommonJS root would emit a `require()` of an ES module and fail with
 ESM from any module system), and import the bridge-free `/activity` surface for
 synchronous activity registration.
 
+## Display modes
+
+`bindMcpApp` negotiates `ui/request-display-mode` for every frontend:
+
+- The host renders `inline` and `fullscreen` (`HOST_SUPPORTED_DISPLAY_MODES`),
+  and `McpAppsDisplayMode` carries only those two; `pip` exists in the spec but
+  is never granted. A request for an unavailable mode leaves the mode untouched
+  and answers with the mode still applied.
+- A mode the app did not list in `appCapabilities.availableDisplayModes` at
+  `ui/initialize` is refused the same way. `options.hostContext.availableDisplayModes`
+  narrows what the host offers (`inline` always stays).
+- `hostContext` carries `displayMode` and `availableDisplayModes` from
+  construction on, so the `ui/initialize` response already advertises them.
+  Every change, widget-initiated or host-initiated, goes through the same path
+  and reaches the widget as `ui/notifications/host-context-changed`, always
+  with `containerDimensions`: the viewport for `fullscreen`, and for `inline`
+  the width of the element holding the dialog plus the height the widget last
+  reported. The app SDK merges notifications into its cached context and the
+  protocol cannot unset a field, so leaving fullscreen advertises the inline
+  surface rather than dropping the fullscreen one.
+- The adapter renders the mode: `hooks.onDisplayModeChange(mode)` tells it what
+  was granted, `session.setDisplayMode("inline")` is the host-initiated exit
+  (close button, Escape) and `session.getDisplayMode()` reads the current mode.
+  `setDisplayMode` is bound by the same offer: a mode the host does not render
+  is ignored, so the widget is never told about one.
+
+The bridge-free `/activity` entry ships the pieces the adapters need to render
+the surface without the bridge: `ɵshowDialogForMode(dialog, mode)` opens the
+widget's native `<dialog>` in normal flow for `inline` and in the browser top
+layer (`showModal()`) for `fullscreen`, so it fills the viewport whatever
+containing block an ancestor establishes, without ever reparenting the iframe;
+`ɵlockBodyScroll()` is the page-wide, ref-counted scroll lock behind a
+fullscreen widget.
+
+Opening a dialog moves the focus into it. `ɵshowDialogForMode` gives it back
+for `inline`, so a widget arriving while the user types never takes the focus
+away from the composer; only `fullscreen` takes it, and the adapters then land
+it on the exit button. Escape exits fullscreen through the dialog's `cancel`
+event, which the browser only fires while focus is on the host side: a key
+pressed inside the sandboxed widget never leaves its iframe. Once the user has
+clicked into the widget, the button (or the widget's own
+`requestDisplayMode("inline")`) is the way out.
+
+A size the widget reports while fullscreen describes the fullscreen layout: the
+session and the adapters keep only sizes reported inline, so leaving fullscreen
+restores and advertises the inline height.
+
 ## Script-tag / UMD usage
 
 This package also ships a UMD build of the bridge-free `/activity` entry:
