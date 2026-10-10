@@ -35,8 +35,12 @@ synchronous activity registration.
 - `hostContext` carries `displayMode` and `availableDisplayModes` from
   construction on, so the `ui/initialize` response already advertises them.
   Every change, widget-initiated or host-initiated, goes through the same path
-  and reaches the widget as `ui/notifications/host-context-changed`;
-  `fullscreen` also advertises its `containerDimensions`.
+  and reaches the widget as `ui/notifications/host-context-changed`, always
+  with `containerDimensions`: the viewport for `fullscreen`, and for `inline`
+  the width of the element holding the dialog plus the height the widget last
+  reported. The app SDK merges notifications into its cached context and the
+  protocol cannot unset a field, so leaving fullscreen advertises the inline
+  surface rather than dropping the fullscreen one.
 - The adapter renders the mode: `hooks.onDisplayModeChange(mode)` tells it what
   was granted, `session.setDisplayMode("inline")` is the host-initiated exit
   (close button, Escape) and `session.getDisplayMode()` reads the current mode.

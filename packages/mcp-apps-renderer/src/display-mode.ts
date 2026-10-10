@@ -24,7 +24,11 @@ export function isHostDisplayMode(mode: unknown): mode is McpAppsDisplayMode {
   return HOST_SUPPORTED_DISPLAY_MODES.includes(mode as McpAppsDisplayMode);
 }
 
-/** The surface a widget gets in a mode (host context `containerDimensions`). */
+/**
+ * The surface a widget gets in a mode (host context `containerDimensions`).
+ * `fullscreen` advertises the viewport; `inline` advertises the holder's width
+ * and the height the widget last reported, each only when known.
+ */
 export interface McpAppContainerDimensions {
   width: number;
   height: number;
@@ -45,8 +49,8 @@ export function resolveHostDisplayModes(
 }
 
 /**
- * The surface advertised for a mode when the adapter reports none: the
- * viewport for `fullscreen`, nothing for `inline`.
+ * The viewport, which is the surface `fullscreen` advertises when the adapter
+ * reports none; nothing for `inline` (the session measures that one itself).
  */
 export function defaultContainerDimensions(
   mode: McpAppsDisplayMode,

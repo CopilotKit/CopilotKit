@@ -1466,6 +1466,40 @@ describe("bindMcpApp ui/request-display-mode", () => {
     expect(contextChanges(captured)).toHaveLength(0);
   });
 
+  it("advertises the inline surface when leaving fullscreen, replacing the viewport", async () => {
+    const agent = makeAgent();
+    const iframe = mount();
+    const { captured } = await bindAndConnect(iframe, agent);
+    await initialize(iframe);
+    // The widget reported its inline size; the element holding the dialog is
+    // not laid out in jsdom, so the reported width stands in for the holder's.
+    fromIframe(iframe, {
+      jsonrpc: "2.0",
+      method: "ui/notifications/size-changed",
+      params: { width: 400, height: 300 },
+    });
+    await tick(20);
+
+    await requestMode(iframe, "fs", "fullscreen");
+    await requestMode(iframe, "back", "inline");
+
+    // The app SDK merges each notification into its cached context, so the
+    // inline surface must be sent, not merely omitted after the viewport.
+    expect(contextChanges(captured)).toEqual([
+      {
+        displayMode: "fullscreen",
+        containerDimensions: {
+          width: expect.any(Number),
+          height: expect.any(Number),
+        },
+      },
+      {
+        displayMode: "inline",
+        containerDimensions: { width: 400, height: 300 },
+      },
+    ]);
+  });
+
   it("applies a host-initiated change through setDisplayMode", async () => {
     const agent = makeAgent();
     const iframe = mount();

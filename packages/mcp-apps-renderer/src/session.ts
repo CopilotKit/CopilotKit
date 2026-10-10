@@ -370,14 +370,15 @@ export interface McpAppSession {
    * or Escape, or a viewport resize while fullscreen. Updates the host context,
    * notifies the widget (`host-context-changed`) and fires
    * `onDisplayModeChange`. `containerDimensions` overrides the surface
-   * advertised for the mode (the viewport, for `fullscreen`). A mode this
+   * advertised for the mode (the viewport for `fullscreen`, the holder's width
+   * and the widget's last reported height for `inline`). A mode this
    * host does not offer (`fullscreen` when the options narrowed the modes to
    * `inline`) is ignored, so the widget is never told a mode the host cannot
    * render.
    */
   setDisplayMode(
     mode: McpAppsDisplayMode,
-    containerDimensions?: McpAppContainerDimensions,
+    containerDimensions?: Partial<McpAppContainerDimensions>,
   ): void;
   /** The display mode currently applied. */
   getDisplayMode(): McpAppsDisplayMode;
@@ -433,17 +434,52 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
   const hostDisplayModes = resolveHostDisplayModes(
     settings.hostContext.availableDisplayModes,
   );
+  // The last size the widget reported (`size-changed`): the inline surface
+  // follows the widget's own height, so this is what inline advertises back.
+  let lastReportedSize: { width?: number; height?: number } = {};
+
+  /**
+   * The inline surface: the width of the element that holds the dialog (it
+   * stays in normal flow while the dialog sits in the top layer, so it is
+   * measurable even when leaving fullscreen) and the height the widget last
+   * reported. Undefined when nothing is measurable (not laid out yet).
+   */
+  const inlineContainerDimensions = ():
+    | Partial<McpAppContainerDimensions>
+    | undefined => {
+    const holder =
+      iframe.closest("dialog")?.parentElement ?? iframe.parentElement;
+    const measured = holder
+      ? Math.round(holder.getBoundingClientRect().width)
+      : 0;
+    const width = measured > 0 ? measured : lastReportedSize.width;
+    const height = lastReportedSize.height;
+    if (width === undefined && height === undefined) return undefined;
+    return {
+      ...(width !== undefined ? { width } : {}),
+      ...(height !== undefined ? { height } : {}),
+    };
+  };
 
   /**
    * The full host context for a display mode. ext-apps `setHostContext`
    * replaces its cached context (it only diffs to decide what to notify), so
    * every update passes the whole context, not just the changed fields.
+   *
+   * The app SDK merges every `host-context-changed` into its cached context
+   * and the protocol has no way to unset a field, so leaving fullscreen must
+   * advertise the inline surface rather than omit `containerDimensions`:
+   * otherwise the widget keeps the viewport size it was given for fullscreen.
    */
   const hostContextFor = (
     mode: McpAppsDisplayMode,
-    containerDimensions?: McpAppContainerDimensions,
+    containerDimensions?: Partial<McpAppContainerDimensions>,
   ): Record<string, unknown> => {
-    const dims = containerDimensions ?? defaultContainerDimensions(mode);
+    const dims =
+      containerDimensions ??
+      (mode === "fullscreen"
+        ? defaultContainerDimensions(mode)
+        : inlineContainerDimensions());
     return {
       // The theme follows CopilotKit's dark selector (a `.dark` ancestor)
       // unless the host configured one explicitly.
@@ -462,7 +498,7 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
    */
   const applyDisplayMode = (
     mode: McpAppsDisplayMode,
-    containerDimensions?: McpAppContainerDimensions,
+    containerDimensions?: Partial<McpAppContainerDimensions>,
   ) => {
     currentDisplayMode = mode;
     bridge?.setHostContext(hostContextFor(mode, containerDimensions));
@@ -945,10 +981,12 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
           width?: number;
           height?: number;
         };
-        hooks?.onSizeChanged?.({
+        const size = {
           width: typeof width === "number" ? width : undefined,
           height: typeof height === "number" ? height : undefined,
-        });
+        };
+        lastReportedSize = size;
+        hooks?.onSizeChanged?.(size);
       };
       bridge.oninitialized = () => {
         if (disposed) return;

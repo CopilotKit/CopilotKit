@@ -1185,9 +1185,11 @@ test("the exit button returns to inline, restores the reported height and notifi
     frame.closest("dialog")?.getAttribute("data-mcp-app-display-mode"),
   ).toBe("inline");
   expect(frame.style.height).toBe("240px");
+  // Leaving fullscreen advertises the inline surface back (the reported
+  // height; no width, since jsdom lays nothing out).
   expect(contextChanges(postMessage)).toEqual([
     expect.objectContaining({ displayMode: "fullscreen" }),
-    { displayMode: "inline" },
+    { displayMode: "inline", containerDimensions: { height: 240 } },
   ]);
 });
 
