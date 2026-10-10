@@ -357,3 +357,13 @@ jobs:
           platforms: linux/amd64
           push: false
           build-args: ${{ steps.build-args.outputs.args }}
+          # Use the Docker Official Images ECR mirror to avoid Docker Hub pull limits in CI.
+          build-contexts: |
+            node:20-slim=docker-image://public.ecr.aws/docker/library/node:20-slim
+            node:22-slim=docker-image://public.ecr.aws/docker/library/node:22-slim
+            node:22-alpine=docker-image://public.ecr.aws/docker/library/node:22-alpine
+            node:22-bookworm-slim=docker-image://public.ecr.aws/docker/library/node:22-bookworm-slim
+            python:3.12.13=docker-image://public.ecr.aws/docker/library/python:3.12.13
+            python:3.12.13-slim=docker-image://public.ecr.aws/docker/library/python:3.12.13-slim
+            eclipse-temurin:21-jre=docker-image://public.ecr.aws/docker/library/eclipse-temurin:21-jre
+            maven:3-eclipse-temurin-21=docker-image://public.ecr.aws/docker/library/maven:3-eclipse-temurin-21
