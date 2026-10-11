@@ -51,6 +51,7 @@ const sharedAgentNames = [
   "tool-rendering-custom-catchall",
   "frontend_tools",
   "frontend-tools-async",
+  "threadid-frontend-tool-roundtrip",
   "hitl-in-app",
   "hitl-in-chat",
 ];
