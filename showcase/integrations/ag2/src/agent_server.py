@@ -33,6 +33,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import os
+from contextlib import asynccontextmanager
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -73,12 +75,25 @@ from agents.shared_state_read_write import (
 )
 from agents.subagents import subagents_app
 from agents.interrupt_agent import interrupt_app
+from agents.mcp_apps_server import mcp_apps_server
 from agents.reasoning_agent import reasoning_app
 from agents.tool_rendering_reasoning_chain import (
     tool_rendering_reasoning_chain_app,
 )
 
-app = FastAPI(title="AG2 Agent Server")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # Starlette does not run a mounted ASGI app's lifespan, and the MCP server's
+    # streamable-HTTP session manager must be entered before it can serve. Enter
+    # the MCPServer's own lifespan here so /mcp-apps-server/mcp works when the
+    # server is mounted into this app rather than run standalone.
+    async with mcp_apps_server._http.router.lifespan_context(mcp_apps_server._http):
+        yield
+
+
+app = FastAPI(title="AG2 Agent Server", lifespan=lifespan)
 
 
 # Serve /health via middleware so it short-circuits BEFORE route resolution.
@@ -158,6 +173,9 @@ app.mount("/declarative-gen-ui", a2ui_dynamic_app)
 app.mount("/a2ui-fixed-schema", a2ui_fixed_app)
 app.mount("/beautiful-chat", beautiful_chat_app)
 app.mount("/mcp-apps", mcp_apps_app)
+# The MCP server (AG2 `MCPServer` + `MCPApp`) the runtime's `mcpApps` config
+# points at. Endpoint: /mcp-apps-server/mcp.
+app.mount("/mcp-apps-server", mcp_apps_server)
 # IMPORTANT: mount /open-gen-ui-advanced BEFORE /open-gen-ui — Starlette
 # resolves mounts via prefix matching in registration order, so the shorter
 # prefix "/open-gen-ui" would shadow "/open-gen-ui-advanced" if it came first.

@@ -2,8 +2,8 @@
 
 This agent has no bespoke tools. The CopilotKit runtime (see
 `src/app/api/copilotkit-mcp-apps/route.ts`) is wired with
-``mcpApps: { servers: [...] }`` pointing at the public Excalidraw MCP
-server. The runtime auto-applies the MCP Apps middleware: it merges the
+``mcpApps: { servers: [...] }`` pointing at the AG2 MCP server in
+`mcp_apps_server.py` (``ag2.mcp`` ``MCPServer`` + ``MCPApp``). The runtime auto-applies the MCP Apps middleware: it merges the
 remote MCP server's tools into the agent's tool list at request time and
 emits the activity events that CopilotKit's built-in
 ``MCPAppsActivityRenderer`` renders inline as a sandboxed iframe.
@@ -21,7 +21,7 @@ from fastapi import FastAPI
 
 
 SYSTEM_PROMPT = """\
-You draw simple diagrams in Excalidraw via the MCP tool.
+You draw simple diagrams via the `create_view` MCP tool.
 
 SPEED MATTERS. Produce a correct-enough diagram fast; do not optimize
 for polish. Target: one tool call, done in seconds.
@@ -29,7 +29,8 @@ for polish. Target: one tool call, done in seconds.
 When the user asks for a diagram:
 1. Call `create_view` ONCE with 3-5 elements total: shapes + arrows +
    an optional title text.
-2. Use straightforward shapes (rectangle, ellipse, diamond) with plain
+2. Supported element types: rectangle, ellipse, diamond, arrow, text.
+   Use straightforward shapes (rectangle, ellipse, diamond) with plain
    `label` fields (`{"text": "...", "fontSize": 18}`) on them.
 3. Connect with arrows. Endpoints can be element centers or simple
    coordinates — you don't need edge anchors / fixedPoint bindings.
@@ -43,7 +44,6 @@ Every element needs a unique string `id` (e.g. `"b1"`, `"a1"`,
 120x80, 40-80px gap between shapes.
 
 Do NOT:
-- Call `read_me`. You already know the basic shape API.
 - Make multiple `create_view` calls.
 - Iterate or refine. Ship on the first shot.
 - Add decorative colors / fills / zone backgrounds unless the user
