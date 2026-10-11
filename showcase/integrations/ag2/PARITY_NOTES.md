@@ -60,8 +60,11 @@ the runtime middleware config doesn't leak into other cells.
 - `mcp-apps` — Backend (`src/agents/mcp_apps_agent.py`) is a no-tools
   `Agent`; the runtime route at
   `api/copilotkit-mcp-apps/route.ts` configures
-  `mcpApps.servers` pointing at the public Excalidraw MCP server, and
-  the runtime middleware injects MCP tools at request time.
+  `mcpApps.servers` pointing at the in-process AG2 MCP server
+  (`src/agents/mcp_apps_server.py`, an `ag2.mcp` `MCPApp` serving the
+  `ui://ag2/diagram` resource and a `create_view` tool, mounted by
+  `agent_server.py` at `/mcp-apps-server`), and the runtime middleware
+  injects MCP tools at request time. It needs the `ag2[mcp]` extra.
 - `open-gen-ui`, `open-gen-ui-advanced` — Backends are no-tools
   `Agent`s (`src/agents/open_gen_ui_agent.py` and
   `src/agents/open_gen_ui_advanced_agent.py`). Shared runtime route at
