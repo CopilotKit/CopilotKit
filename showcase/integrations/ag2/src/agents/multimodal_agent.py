@@ -32,7 +32,7 @@ SYSTEM_PROMPT = (
 multimodal_agent = Agent(
     "multimodal_assistant",
     prompt=SYSTEM_PROMPT,
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True, temperature=0.2),
+    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
 )
 
 multimodal_stream = AGUIStream(multimodal_agent)
