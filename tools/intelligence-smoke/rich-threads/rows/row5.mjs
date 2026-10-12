@@ -70,7 +70,7 @@ export function assertRestarts(receipts, owner) {
   assert.ok(Array.isArray(receipts), "Restart receipts required");
   for (const role of roles)
     assert.ok(
-      receipts.some((entry) => entry.role === role),
+      receipts.some((entry) => (entry.roles ?? [entry.role]).includes(role)),
       `Missing actual restart: ${role}`,
     );
   const names = new Set();
@@ -81,10 +81,24 @@ export function assertRestarts(receipts, owner) {
       "Refusing restart evidence from another resource owner",
     );
     assert.ok(
-      entry.service && !names.has(entry.service),
+      entry.service && !names.has(entry.serviceId ?? entry.service),
       "Duplicate/missing restart service",
     );
-    names.add(entry.service);
+    names.add(entry.serviceId ?? entry.service);
+    const logicalRoles = entry.roles ?? [entry.role];
+    assert.ok(
+      logicalRoles.length &&
+        new Set(logicalRoles).size === logicalRoles.length &&
+        logicalRoles.every((role) => roles.includes(role)),
+      "Invalid logical restart roles",
+    );
+    if (logicalRoles.length > 1) {
+      assert.ok(entry.serviceId, "Composite restart needs provider identity");
+      assert.ok(
+        logicalRoles.every((role) => entry.readyRoles?.includes(role)),
+        "Composite restart needs readiness for each logical role",
+      );
+    }
     assert.ok(
       entry.before?.instance && entry.after?.instance,
       "Missing process/container incarnation",

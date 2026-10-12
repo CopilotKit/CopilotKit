@@ -50,6 +50,8 @@ Browser observations have `{ identity, items, state, controls, evidence }`; `evi
 
 A receipt has `{ service, role, owner, before: { instance, store }, after: { instance, store }, ready }`. Required roles are `intelligence-api`, `intelligence-gateway`, `application-runtime`, and `native-backend`. Incarnations must change, durable store identifiers must remain identical, and readiness must succeed. Store identifiers must not contain credentials. A database-server restart is additional coverage, not required by this contract.
 
+The [Railway provider](../lifecycle/railway/README.md) accepts all logical roles in one restart batch. A composite receipt uses `serviceId`, `roles` and `readyRoles` instead of scalar `role`; each physical service occurs once, and every claimed logical role must have its own readiness result. API and gateway on the same composite must not be restarted separately.
+
 [ownedProcess](../rows/row5-process.mjs) creates and retains its own child handles, bounds readiness/shutdown and returns receipts. Its readiness callback receives the child PID/incarnation and should verify the owned endpoint. It never accepts an arbitrary PID or discovers global services. Container fixtures should similarly verify labels and immutable container identity before any restart. Never restart a shared daemon or staging service.
 
 The row retains pre-reload, post-reload, post-restart, resumed/continued and final-reload snapshots plus browser evidence and restart receipts. A failed assertion leaves earlier artifacts intact. Review partial artifacts together with the overall report; no individual equality check establishes the full row.

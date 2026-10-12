@@ -48,9 +48,18 @@ async function docker(args) {
 
 /** Recover an interrupted run using its receipt AND independently verified ownership. */
 export async function recoverEnvironment(
-  { receiptPath, dockerHost },
+  { receiptPath, dockerHost, config },
   dependencies = {},
 ) {
+  if (config?.provider === "railway") {
+    const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+    const { recoverRailwayEnvironment } =
+      await import("./railway/environment.mjs");
+    return recoverRailwayEnvironment(
+      { config, runId: receipt.runId },
+      dependencies,
+    );
+  }
   assert.match(dockerHost, /^unix:\/\//);
   const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
   assert.equal(receipt.version, 1);
@@ -341,6 +350,14 @@ export async function createEnvironment(
   { config, runId, frameworks, outputDir, signal },
   dependencies = {},
 ) {
+  if (config.provider === "railway") {
+    const { createRailwayEnvironment } =
+      await import("./railway/environment.mjs");
+    return createRailwayEnvironment(
+      { config, runId, frameworks, outputDir, signal },
+      dependencies,
+    );
+  }
   validate(config, frameworks);
   assert.ok(safe(runId), "Safe explicit run ID required");
   signal?.throwIfAborted();

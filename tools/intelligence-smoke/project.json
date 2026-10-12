@@ -36,6 +36,13 @@
         "command": "oxfmt --write tools/intelligence-smoke/rich-threads tools/intelligence-smoke/project.json"
       },
       "cache": false
+    },
+    "test-railway": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node --import tsx --test tools/intelligence-smoke/rich-threads/lifecycle/railway/*.test.mjs"
+      },
+      "cache": false
     }
   }
 }
