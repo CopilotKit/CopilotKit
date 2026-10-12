@@ -46,7 +46,7 @@ function prepared(): PreparedChannelDelivery {
 
 function replyTarget(
   session: ClaimedChannelDelivery,
-  adapter: "slack" | "teams" = "slack",
+  adapter: "slack" | "teams" | "discord" = "slack",
 ) {
   return {
     claimedDelivery: session,
@@ -386,6 +386,53 @@ describe("DeliveryAdapter.postFile", () => {
       expect.stringMatching(/^response_/),
       {
         kind: "teams.file.create",
+        fileHandle: "file_handle_01",
+        filename: "report.txt",
+        title: "Weekly report",
+      },
+    );
+  });
+
+  it("delivers a Discord image through the managed image effect", async () => {
+    const session = {
+      uploadFile: vi.fn().mockResolvedValue("file_handle_01"),
+      effect: vi.fn().mockResolvedValue({}),
+    } as unknown as ClaimedChannelDelivery;
+
+    await expect(
+      makeAdapter().postFile(replyTarget(session, "discord"), {
+        bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+        filename: "chart.png",
+        altText: "Line chart",
+      }),
+    ).resolves.toEqual({ ok: true, assetId: "file_handle_01" });
+    expect(session.effect).toHaveBeenCalledWith(
+      expect.stringMatching(/^response_/),
+      {
+        kind: "discord.image.create",
+        fileHandle: "file_handle_01",
+        altText: "Line chart",
+      },
+    );
+  });
+
+  it("delivers a general Discord file through the managed file effect", async () => {
+    const session = {
+      uploadFile: vi.fn().mockResolvedValue("file_handle_01"),
+      effect: vi.fn().mockResolvedValue({}),
+    } as unknown as ClaimedChannelDelivery;
+
+    await expect(
+      makeAdapter().postFile(replyTarget(session, "discord"), {
+        bytes: new TextEncoder().encode("report"),
+        filename: "report.txt",
+        title: "Weekly report",
+      }),
+    ).resolves.toEqual({ ok: true, assetId: "file_handle_01" });
+    expect(session.effect).toHaveBeenCalledWith(
+      expect.stringMatching(/^response_/),
+      {
+        kind: "discord.file.create",
         fileHandle: "file_handle_01",
         filename: "report.txt",
         title: "Weekly report",

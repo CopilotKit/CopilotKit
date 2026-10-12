@@ -27,6 +27,7 @@ import type {
   EphemeralResult,
 } from "@copilotkit/channels-ui";
 import { toPlatformEmoji } from "@copilotkit/channels-ui";
+import type { DiscordRespondToOptions } from "./types.js";
 import { DiscordConversationStore } from "./conversation-store.js";
 import type { DiscordHistoryMessage } from "./conversation-store.js";
 import { attachDiscordListener } from "./discord-listener.js";
@@ -54,6 +55,11 @@ export interface DiscordAdapterOptions {
   /** When set, slash commands register to this guild instantly (dev); else global. */
   guildId?: string;
   interruptEventNames?: ReadonlySet<string>;
+  /**
+   * Where the bot answers. Mirrors Slack's `respondTo`. Defaults to replying in
+   * a thread opened on the mentioned message.
+   */
+  respondTo?: DiscordRespondToOptions;
 }
 
 /**
@@ -223,6 +229,7 @@ export class DiscordAdapter implements PlatformAdapter {
       client: this.client as never,
       botUserId: () => this.botUserId, // read lazily — only known after `ready`
       commandPending: this.commandPending,
+      respondTo: this.opts.respondTo,
       onTurn: async (turn) => {
         // The conversation store reconstructs the full channel history each
         // turn — including the triggering message and ALL its attachments — so
