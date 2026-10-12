@@ -165,6 +165,32 @@ describe("bindMcpApp", () => {
     expect(iframe.srcdoc).toContain("sandbox-proxy-ready");
   });
 
+  it("uses the isolated resource path when the agent provides one", async () => {
+    const agent = makeAgent();
+    const ordinaryRun = vi.spyOn(agent, "runAgent");
+    const read = vi.fn(async (input: Parameters<typeof agent.runAgent>[0]) => ({
+      result: {
+        contents: [
+          {
+            uri: input?.forwardedProps?.__proxiedMCPRequest?.params?.uri,
+            mimeType: "text/html",
+            text: "<html>isolated</html>",
+          },
+        ],
+      },
+      newMessages: [],
+    }));
+    (
+      agent as typeof agent & { ɵrunMcpResourceRead: typeof read }
+    ).ɵrunMcpResourceRead = read;
+    await bindAndConnect(mount(), agent);
+    expect(read).toHaveBeenCalledOnce();
+    expect(
+      read.mock.calls[0]?.[0]?.forwardedProps?.__proxiedMCPRequest?.method,
+    ).toBe("resources/read");
+    expect(ordinaryRun).not.toHaveBeenCalled();
+  });
+
   it("proxies tools/call through the agent and returns the result to the iframe", async () => {
     const agent = makeAgent();
     const iframe = mount();

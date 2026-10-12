@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "concurrently \"next dev --turbopack\" \"cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload\"",
     "build": "next build",
+    "typecheck:json-render": "tsc --noEmit -p tsconfig.json-render-check.json",
     "start": "next start",
     "lint": "next lint",
     "test:e2e": "playwright test"
@@ -34,7 +35,8 @@
     "recharts": "^2.15.0",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.5.0",
-    "zod": "^3.24.0"
+    "zod": "^3.24.0",
+    "zod4": "npm:zod@4.4.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.0",

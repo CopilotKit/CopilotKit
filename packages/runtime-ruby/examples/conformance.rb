@@ -51,6 +51,10 @@ servlet = Class.new(WEBrick::HTTPServlet::AbstractServlet) do
     body.each { |part| buffer << part }
     body.close if body.respond_to?(:close)
     response.body = buffer
+    # Close each connection after its response. WEBrick checks for shutdown only
+    # between 0.5 s polls of an idle keep-alive socket, so while a client holds
+    # an idle kept-alive connection, each SIGTERM exit can wait up to 0.5 s.
+    response.keep_alive = false
   end
 end
 server.mount('/', servlet)

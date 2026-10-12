@@ -86,7 +86,7 @@ export function TallyTrigger({ items, tone, children }: TallyTriggerProps) {
     }
   }, []);
 
-  // Close on click-outside (same pattern as DepthLayer in composed-cell.tsx)
+  // Close on click-outside.
   useEffect(() => {
     if (!open) return;
     function handleClickOutside(e: MouseEvent) {

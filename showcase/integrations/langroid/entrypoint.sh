@@ -53,7 +53,7 @@ trap cleanup EXIT
 
 # Provider-agnostic startup diagnostic. langroid is multi-provider — the chat
 # model is selected via ``LANGROID_MODEL`` (e.g. ``gpt-5-mini``,
-# ``litellm/anthropic/claude-opus-4-8``, ``gemini/gemini-2.5-flash``). Whichever
+# ``litellm/anthropic/claude-opus-4-8``, ``gemini/gemini-3.8-flash``). Whichever
 # provider is picked, only THAT provider's API key is required.
 #
 # This block inspects ``LANGROID_MODEL`` (and the planner-only override
@@ -62,7 +62,7 @@ trap cleanup EXIT
 # bring the container up for local dev; set ``REQUIRE_LANGROID_API_KEY=1``
 # in production to fail-fast.
 # Map a langroid model string like ``gpt-5-mini`` (bare OpenAI name) or
-# ``gemini/gemini-2.5-flash`` to the env var that langroid's ``OpenAIGPT``
+# ``gemini/gemini-3.8-flash`` to the env var that langroid's ``OpenAIGPT``
 # client actually reads at request time. Mappings verified against
 # langroid's installed ``language_models/openai_gpt.py`` — in particular:
 #   * Bare OpenAI names (``gpt-*``, ``o1*``, ``o3*``, ``o4*``, anything with

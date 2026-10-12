@@ -19,16 +19,46 @@ export interface PublishablePackage {
   pkg: Record<string, any>;
 }
 
+/**
+ * The folders that hold releasable packages, searched in this order.
+ *
+ * `community/` holds community-maintained packages (see community/README.md).
+ * They are not pnpm workspace members, but they release through this same
+ * pipeline under their own scope, so every lookup here has to see them too.
+ */
+export const PACKAGE_ROOTS = ["packages", "community"] as const;
+
+/** Every package one level under a {@link PACKAGE_ROOTS} folder. */
+function listPackages(): PublishablePackage[] {
+  const found: PublishablePackage[] = [];
+  for (const root of PACKAGE_ROOTS) {
+    const rootDir = path.join(ROOT, root);
+    if (!fs.existsSync(rootDir)) continue;
+    for (const dir of fs.readdirSync(rootDir)) {
+      const pkgJsonPath = path.join(rootDir, dir, "package.json");
+      if (!fs.existsSync(pkgJsonPath)) continue;
+      const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
+      found.push({
+        name: pkg.name,
+        dir: path.join(rootDir, dir),
+        pkgJsonPath,
+        pkg,
+      });
+    }
+  }
+  return found;
+}
+
 /** Find a package directory by its npm name. */
 function findPackageDir(packageName: string): string {
-  const packagesDir = path.join(ROOT, "packages");
-  for (const dir of fs.readdirSync(packagesDir)) {
-    const pkgJsonPath = path.join(packagesDir, dir, "package.json");
-    if (!fs.existsSync(pkgJsonPath)) continue;
-    const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
-    if (pkg.name === packageName) return path.join(packagesDir, dir);
-  }
+  const match = listPackages().find((p) => p.name === packageName);
+  if (match) return match.dir;
   throw new Error(`Package not found: ${packageName}`);
+}
+
+/** Whether a package lives under `community/` rather than `packages/`. */
+export function isCommunityPackage(pkg: PublishablePackage): boolean {
+  return path.dirname(pkg.dir) === path.join(ROOT, "community");
 }
 
 /** Get the current version for a scope (reads from the scope's versionSource package). */
@@ -119,20 +149,10 @@ export function computePrereleaseVersion(
 /** Get all publishable packages in the order configured for a release scope. */
 export function getPackagesForScope(scope: ReleaseScope): PublishablePackage[] {
   const scopeConfig = getScopeConfig(scope);
-  const packagesDir = path.join(ROOT, "packages");
   const packagesByName = new Map<string, PublishablePackage>();
-
-  for (const dir of fs.readdirSync(packagesDir)) {
-    const pkgJsonPath = path.join(packagesDir, dir, "package.json");
-    if (!fs.existsSync(pkgJsonPath)) continue;
-
-    const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
-    packagesByName.set(pkg.name, {
-      name: pkg.name,
-      dir: path.join(packagesDir, dir),
-      pkgJsonPath,
-      pkg,
-    });
+  for (const pkg of listPackages()) {
+    // packages/ is listed first; keep its entry if a name ever appears twice.
+    if (!packagesByName.has(pkg.name)) packagesByName.set(pkg.name, pkg);
   }
 
   return scopeConfig.packages.map((name) => {
@@ -142,6 +162,27 @@ export function getPackagesForScope(scope: ReleaseScope): PublishablePackage[] {
     }
     return pkg;
   });
+}
+
+/**
+ * The community packages (those under `community/`) in the given scopes, in
+ * scope order, without duplicates. The publish workflow's root build only
+ * reaches `packages/**` through nx, so these are the packages it must build
+ * separately before they can be packed.
+ */
+export function getCommunityPackagesForScopes(
+  scopes: readonly ReleaseScope[],
+): PublishablePackage[] {
+  const seen = new Set<string>();
+  const result: PublishablePackage[] = [];
+  for (const scope of scopes) {
+    for (const pkg of getPackagesForScope(scope)) {
+      if (!isCommunityPackage(pkg) || seen.has(pkg.name)) continue;
+      seen.add(pkg.name);
+      result.push(pkg);
+    }
+  }
+  return result;
 }
 
 /** Bump all packages in a scope to a new version. For sharedVersion scopes, also updates internal deps. */

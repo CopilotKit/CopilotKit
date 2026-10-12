@@ -8,6 +8,7 @@ type Frame = [string | null, string | null, string, string, unknown];
 // reconnect timers, Core, and browser capture all use their real implementations.
 class BrowserSocket {
   static instances: BrowserSocket[] = [];
+  static closeDelayMs = 0;
   readyState = 0;
   bufferedAmount = 0;
   binaryType = "blob";
@@ -32,9 +33,15 @@ class BrowserSocket {
   }
 
   close(code = 1000) {
-    if (this.readyState === 3) return;
-    this.readyState = 3;
-    this.onclose?.({ code });
+    if (this.readyState >= 2) return;
+    this.readyState = 2;
+    const finish = () => {
+      this.readyState = 3;
+      this.onclose?.({ code });
+    };
+    if (BrowserSocket.closeDelayMs > 0) {
+      setTimeout(finish, BrowserSocket.closeDelayMs);
+    } else finish();
   }
 
   reply(frame: Frame, response: unknown = {}) {
@@ -85,6 +92,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
   BrowserSocket.instances = [];
+  BrowserSocket.closeDelayMs = 0;
   vi.stubGlobal("WebSocket", BrowserSocket);
   history.replaceState(null, "", "/deals");
   document.title = "";
@@ -234,6 +242,114 @@ describe("Trajectory capture with the real Phoenix client", () => {
     expect(socket.readyState).toBe(3);
   });
 
+  it("flushes pending text in a Phoenix batch before explicit stop closes the socket", async () => {
+    trustBrowserInput();
+    const socket = await start();
+    document.body.innerHTML = '<input name="notes">';
+    const input = document.querySelector("input")!;
+    input.value = "final unsent edit";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(299);
+    expect(socket.frames.some((frame) => frame[3] === "events")).toBe(false);
+
+    core.stopTrajectory();
+
+    const batches = socket.frames.filter((frame) => frame[3] === "events");
+    expect(batches).toHaveLength(1);
+    expect(batches[0]?.[4]).toEqual({
+      events: [
+        expect.objectContaining({
+          name: "page",
+          value: expect.objectContaining({ seq: SEQ_BASE }),
+        }),
+        expect.objectContaining({
+          name: "input",
+          timestamp: NOW + 299,
+          value: expect.objectContaining({
+            seq: SEQ_BASE + 1,
+            target: expect.objectContaining({ value: "final unsent edit" }),
+          }),
+        }),
+      ],
+      dropped: 0,
+    });
+    expect(
+      socket.frames.findIndex((frame) => frame[3] === "phx_leave"),
+    ).toBeGreaterThan(
+      socket.frames.findIndex((frame) => frame[3] === "events"),
+    );
+    expect(socket.readyState).toBe(3);
+    expect(core.trajectoryId).toBeNull();
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(socket.frames.filter((frame) => frame[3] === "events")).toEqual(
+      batches,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a pending edit lost during socket failure once without replaying its text", async () => {
+    trustBrowserInput();
+    const first = await start();
+    await vi.advanceTimersByTimeAsync(2_000);
+    acknowledgePage(first, SEQ_BASE);
+    document.body.innerHTML = '<input name="notes">';
+    const input = document.querySelector("input")!;
+    input.value = "discarded pending edit";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(100);
+
+    first.close(1006);
+
+    expect(core.trajectoryId).toBeNull();
+    expect(first.frames.filter((frame) => frame[3] === "events")).toHaveLength(
+      1,
+    );
+    await vi.advanceTimersByTimeAsync(1_000);
+    const second = getSocket(1);
+    expect(new URL(second.url).searchParams.get("join_token")).toBe(
+      "single-use-two",
+    );
+    second.open();
+    second.reply(second.frame("phx_join"));
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(second.frame("events")[4]).toEqual({
+      events: [
+        expect.objectContaining({
+          name: "page",
+          value: expect.objectContaining({ seq: SEQ_BASE + 1 }),
+        }),
+      ],
+      dropped: 1,
+    });
+    acknowledgePage(second, SEQ_BASE + 1);
+    core.emitTrajectoryEvent("order.recovered", { approved: true });
+    await vi.advanceTimersByTimeAsync(2_000);
+    const batches = second.frames.filter((frame) => frame[3] === "events");
+    expect(batches).toHaveLength(2);
+    expect(batches[1]?.[4]).toEqual({
+      events: [
+        expect.objectContaining({
+          name: "order.recovered",
+          value: { approved: true, seq: SEQ_BASE + 2 },
+        }),
+      ],
+      dropped: 0,
+    });
+    second.reply(batches[1]!, {
+      highestSeq: SEQ_BASE + 2,
+      accepted: 1,
+      rejected: 0,
+    });
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(second.frames.filter((frame) => frame[3] === "events")).toHaveLength(
+      2,
+    );
+    expect(
+      JSON.stringify(BrowserSocket.instances.map((socket) => socket.frames)),
+    ).not.toContain("discarded pending edit");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("obtains a fresh grant after loss and prevents old sockets from rejoining after stop", async () => {
     const first = await start();
     await vi.advanceTimersByTimeAsync(2_000);
@@ -281,6 +397,77 @@ describe("Trajectory capture with the real Phoenix client", () => {
     ]);
   });
 
+  it.each([0, 25])(
+    "never reconnects a consumed-token socket after a heartbeat timeout and stop (close delay %ims)",
+    async (closeDelayMs) => {
+      BrowserSocket.closeDelayMs = closeDelayMs;
+      const first = await start();
+      await vi.advanceTimersByTimeAsync(2_000);
+      acknowledgePage(first, SEQ_BASE);
+
+      // Leave Phoenix's heartbeat unanswered: its timeout calls SDK cleanup
+      // before scheduling its own reconnect, after disconnect() has returned.
+      await vi.advanceTimersByTimeAsync(58_000);
+      expect(first.frame("heartbeat")[2]).toBe("phoenix");
+      expect(core.trajectoryId).toBeNull();
+      expect(onError.mock.calls.map(([error]) => error.code)).toEqual([
+        "CONNECTION_LOST",
+      ]);
+
+      core.stopTrajectory();
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(BrowserSocket.instances).toHaveLength(1);
+      expect(first.readyState).toBe(3);
+      expect(core.trajectoryId).toBeNull();
+      expect(History.prototype.pushState).toBe(nativePushState);
+    },
+  );
+
+  it.each([0, 25])(
+    "recovers from a heartbeat timeout only with a fresh grant and socket (close delay %ims)",
+    async (closeDelayMs) => {
+      BrowserSocket.closeDelayMs = closeDelayMs;
+      const first = await start();
+      await vi.advanceTimersByTimeAsync(2_000);
+      acknowledgePage(first, SEQ_BASE);
+      await vi.advanceTimersByTimeAsync(58_000);
+      expect(first.frame("heartbeat")[2]).toBe("phoenix");
+      expect(core.trajectoryId).toBeNull();
+
+      await vi.advanceTimersByTimeAsync(500);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(BrowserSocket.instances).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(500);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(BrowserSocket.instances).toHaveLength(2);
+      expect(
+        BrowserSocket.instances.map((socket) =>
+          new URL(socket.url).searchParams.get("join_token"),
+        ),
+      ).toEqual(["single-use-one", "single-use-two"]);
+
+      const second = getSocket(1);
+      second.open();
+      second.reply(second.frame("phx_join"));
+      expect(core.trajectoryId).toBe(trajectoryId);
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(second.frame("events")[4]).toMatchObject({
+        events: [{ name: "page", value: { seq: SEQ_BASE + 1 } }],
+        dropped: 0,
+      });
+      acknowledgePage(second, SEQ_BASE + 1);
+
+      core.stopTrajectory();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(BrowserSocket.instances).toHaveLength(2);
+      expect(first.readyState).toBe(3);
+      expect(second.readyState).toBe(3);
+    },
+  );
+
   it("preserves full browser capture through REST authentication and Phoenix batches, then cleans up between sessions", async () => {
     trustBrowserInput();
     const beforeSend = vi.fn((event) => event);
@@ -327,7 +514,11 @@ describe("Trajectory capture with the real Phoenix client", () => {
     const input = document.querySelector("input")!;
     button.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
     input.value = "alice@example.com";
+    const editedAt = Date.now();
     input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(beforeSend).not.toHaveBeenCalledWith(
+      expect.objectContaining({ name: "input" }),
+    );
     const requestBody = '{"email":"alice@example.com"}';
     const appResponse = await fetch("/api/orders/42?token=visible#details", {
       method: "POST",
@@ -343,6 +534,18 @@ describe("Trajectory capture with the real Phoenix client", () => {
       expect(beforeSend).toHaveBeenCalledWith(
         expect.objectContaining({ name: "network" }),
       ),
+    );
+    // Typeahead responses must not flush text before its trailing deadline.
+    expect(beforeSend).not.toHaveBeenCalledWith(
+      expect.objectContaining({ name: "input" }),
+    );
+    await vi.advanceTimersByTimeAsync(editedAt + 299 - Date.now());
+    expect(beforeSend).not.toHaveBeenCalledWith(
+      expect.objectContaining({ name: "input" }),
+    );
+    await vi.advanceTimersByTimeAsync(1);
+    expect(beforeSend).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "input", timestamp: editedAt + 300 }),
     );
     // A runtime request made while capture is active must not capture itself.
     await fetch(
@@ -394,23 +597,6 @@ describe("Trajectory capture with the real Phoenix client", () => {
           },
         }),
         expect.objectContaining({
-          name: "input",
-          value: {
-            eventType: "input",
-            route: "/users/alice/orders",
-            url: currentUrl,
-            seq: SEQ_BASE + 3,
-            target: {
-              tag: "input",
-              role: null,
-              action: null,
-              text: "",
-              attributes: { name: "email", type: "email" },
-              value: "alice@example.com",
-            },
-          },
-        }),
-        expect.objectContaining({
           name: "network",
           value: expect.objectContaining({
             transport: "fetch",
@@ -418,7 +604,7 @@ describe("Trajectory capture with the real Phoenix client", () => {
             url: `${location.origin}/api/orders/42?token=[redacted]#details`,
             route: "/api/orders/42",
             status: 201,
-            seq: SEQ_BASE + 4,
+            seq: SEQ_BASE + 3,
             completedAt: expect.any(Number),
             durationMs: expect.any(Number),
             request: {
@@ -444,6 +630,23 @@ describe("Trajectory capture with the real Phoenix client", () => {
               },
             },
           }),
+        }),
+        expect.objectContaining({
+          name: "input",
+          value: {
+            eventType: "input",
+            route: "/users/alice/orders",
+            url: currentUrl,
+            seq: SEQ_BASE + 4,
+            target: {
+              tag: "input",
+              role: null,
+              action: null,
+              text: "",
+              attributes: { name: "email", type: "email" },
+              value: "alice@example.com",
+            },
+          },
         }),
       ],
     });

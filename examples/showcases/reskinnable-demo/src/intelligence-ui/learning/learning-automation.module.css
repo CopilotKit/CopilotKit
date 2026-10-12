@@ -1,0 +1,344 @@
+.schedule {
+  display: grid;
+  gap: var(--cpki-space-2);
+  min-width: 0;
+  align-content: start;
+}
+
+.headingRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cpki-space-2);
+}
+
+.headingRow h3,
+.explanation p {
+  margin: 0;
+}
+
+.headingRow h3 {
+  font-size: var(--cpki-font-size-1);
+  font-weight: 600;
+}
+
+.badge {
+  background: var(--cpki-color-surface-subtle);
+  border: 1px solid var(--cpki-color-border);
+  border-radius: var(--cpki-radius-control);
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-0);
+  padding: 2px 6px;
+}
+
+.scheduleValue {
+  font-size: var(--cpki-font-size-2);
+  font-weight: 500;
+}
+
+.meta,
+.form small,
+.explanation p {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-0);
+  line-height: 1.6;
+}
+
+.schedule > button {
+  justify-self: start;
+  margin-left: -8px;
+}
+
+.form {
+  display: grid;
+  gap: var(--cpki-space-5);
+}
+
+.notice {
+  background: var(--cpki-color-surface-subtle);
+  border-left: 2px solid var(--cpki-color-border-strong);
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-0);
+  line-height: 1.6;
+  margin: 0;
+  padding: var(--cpki-space-3);
+}
+
+.toggle {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--cpki-space-4);
+  cursor: pointer;
+}
+
+.toggle span,
+.fields label {
+  display: grid;
+  gap: var(--cpki-space-2);
+}
+
+.toggle input {
+  width: 20px;
+  height: 20px;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cpki-space-4);
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.fields legend {
+  margin-bottom: var(--cpki-space-3);
+  font-weight: 600;
+}
+
+.fields input,
+.fields select {
+  background: var(--cpki-color-background);
+  border: 1px solid var(--cpki-color-border-strong);
+  border-radius: var(--cpki-radius-control);
+  color: var(--cpki-color-foreground);
+  font: inherit;
+  min-width: 0;
+  min-height: 40px;
+  padding: var(--cpki-space-2);
+  width: 100%;
+}
+
+.fields:disabled {
+  opacity: 0.6;
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+.explanation {
+  display: grid;
+  gap: var(--cpki-space-2);
+}
+
+@media (max-width: 520px) {
+  .fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--cpki-space-2);
+}
+
+.projectSchedule {
+  margin: var(--cpki-space-5) var(--cpki-space-6) 0;
+  padding: var(--cpki-space-5);
+  border: 1px solid var(--cpki-color-border);
+  border-radius: var(--cpki-radius-panel);
+  background: var(--cpki-color-background);
+}
+.projectSchedule[data-presentation="embedded"] {
+  background: transparent;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+/* Settings summary: clock plate, schedule copy, source badge; action below. */
+.scheduleSummary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.scheduleMark {
+  align-items: center;
+  background: var(--learning);
+  border: 1px solid var(--learning-accent);
+  border-radius: 7px;
+  color: var(--learning-foreground);
+  display: flex;
+  flex: 0 0 32px;
+  height: 32px;
+  justify-content: center;
+}
+.scheduleMark svg {
+  height: 16px;
+  width: 16px;
+}
+.scheduleDetails {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.nextCheck {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+.nextCheck strong {
+  color: var(--foreground);
+  font-size: var(--text-body);
+  line-height: 1.45;
+  font-weight: 600;
+}
+.scheduleLabel {
+  color: var(--muted-foreground);
+  font-size: var(--text-control);
+}
+.scheduleSource {
+  font-size: var(--text-caption);
+  color: var(--muted-foreground);
+}
+.scheduleSource,
+.scheduleTimes,
+.scheduleRecurrence {
+  margin: 0;
+  line-height: 1.5;
+}
+.scheduleTimes {
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
+.scheduleControls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.scheduleControls > button {
+  flex-shrink: 0;
+}
+.confirmationTabs > [role="tablist"] {
+  display: none;
+}
+.scopeChoices {
+  display: grid;
+  gap: var(--cpki-space-4);
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.scopeChoices legend {
+  margin-bottom: var(--cpki-space-3);
+  font-weight: 600;
+}
+.scopeChoices label {
+  display: flex;
+  align-items: start;
+  gap: var(--cpki-space-2);
+  cursor: pointer;
+}
+.scopeChoices label span {
+  display: grid;
+  gap: var(--cpki-space-1);
+}
+.scopeChoices input {
+  margin-top: 4px;
+}
+.error {
+  color: var(--cpki-color-foreground);
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .projectSchedule {
+    margin: var(--cpki-space-4) var(--cpki-space-4) 0;
+    padding: var(--cpki-space-4);
+  }
+  .scheduleControls {
+    width: 100%;
+  }
+}
+
+.zoneNote {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cpki-space-1);
+  grid-column: 1 / -1;
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-0);
+}
+
+.zonePicker {
+  display: grid;
+  gap: var(--cpki-space-2);
+  min-width: 0;
+}
+/* A bounded list: the ScrollArea viewport scrolls with shared edge shadows. */
+.zoneScroll {
+  border: var(--cpki-border-width) solid var(--cpki-color-border);
+  border-radius: var(--radius-control);
+  max-height: 12rem;
+  overflow: hidden;
+}
+.zoneResults {
+  display: grid;
+}
+.zonePicker button {
+  justify-content: flex-start;
+  white-space: normal;
+  text-align: left;
+}
+
+.deliveryStatus {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--cpki-space-4);
+  margin: 0;
+}
+
+.scheduleManualAction section {
+  display: grid;
+  gap: var(--cpki-space-2);
+}
+.scheduleManualAction button svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: 0 0 0.875rem;
+}
+
+.recurrenceLine {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+/* Paused schedule: the instance has automatic analysis off. */
+.pausedNotice {
+  align-items: flex-start;
+  background: var(--warning-subtle);
+  border: 1px solid color-mix(in oklch, var(--warning) 24%, var(--border));
+  border-radius: var(--radius-control);
+  color: var(--foreground);
+  display: flex;
+  font-size: var(--text-control);
+  gap: 10px;
+  line-height: 1.6;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+}
+.pausedNotice > [data-slot="badge"] {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+.scheduleRecurrence {
+  color: var(--foreground);
+  font-size: var(--text-body);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.nextRun {
+  display: grid;
+  gap: 2px;
+}
+.scheduleTimes {
+  color: var(--cpki-color-muted-foreground);
+}

@@ -83,10 +83,8 @@ async function emitBatch(agent: MockStepwiseAgent, n: number) {
   for (const event of generateMessages(n)) {
     agent.emit(event);
   }
-  // Don't call agent.complete() — that terminates the Subject and subsequent
-  // agent.emit() calls would be silently dropped. runFinishedEvent() alone is
-  // sufficient to mark the run as done without closing the stream.
-  agent.emit(runFinishedEvent());
+  // Keep this run open so the test can deliver more events after the completed
+  // text messages. A terminal event would close the run's subscription.
 
   await waitFor(
     () => {
@@ -192,9 +190,8 @@ describe("CopilotChat perf — re-render regression", () => {
     const baselineCounts = new Map(renderCounts);
     expect(baselineCounts.size).toBeGreaterThan(0);
 
-    // Add one fresh assistant message in a second run
+    // Add one fresh assistant message after the completed text messages.
     const newMsgId = "perf-new-assistant-msg";
-    agent.emit(runStartedEvent());
     agent.emit(textChunkEvent(newMsgId, "A brand new message"));
     agent.emit(runFinishedEvent());
     agent.complete();
@@ -225,17 +222,18 @@ describe("CopilotChat perf — re-render regression", () => {
     agent.emit(stateSnapshotEvent({ counter: 2 }));
 
     // Flush React's update queue so all snapshot-triggered re-renders are
-    // committed before we inspect render counts. The Observable subscription
-    // ends after RUN_FINISHED so we cannot use a sentinel message to create a
-    // positive signal; act+tick is the idiomatic jsdom alternative.
+    // committed before we inspect render counts.
     await act(async () => {
       await new Promise<void>((r) => setTimeout(r, 50));
     });
+    expect(agent.state).toEqual({ counter: 2 });
 
     // None of the original 10 assistant messages should have re-rendered
     for (const [id, count] of baselineCounts) {
       expect(renderCounts.get(id)).toBe(count);
     }
+    agent.emit(runFinishedEvent());
+    agent.complete();
   });
 
   it("virtual path: renders only a window of messages above VIRTUALIZE_THRESHOLD", async () => {

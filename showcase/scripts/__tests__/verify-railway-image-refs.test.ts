@@ -20,11 +20,47 @@ import { SERVICES, repoNameFor } from "../railway-envs";
 import type { ServiceEntry } from "../railway-envs";
 
 describe("ServiceEntry gateIgnore field", () => {
-  it("is unset for every SSOT-managed service", () => {
+  it("is unset for every gate-managed service", () => {
     for (const [name, entry] of Object.entries(SERVICES)) {
+      if (!entry.gateValidated) continue;
       const gi = entry.gateIgnore;
       expect(gi === undefined || gi === false, `${name} gateIgnore`).toBe(true);
     }
+  });
+});
+
+describe("staging-only Intelligence services", () => {
+  const kept = [
+    "showcase-intelligence-api",
+    "showcase-intelligence-composite",
+    "showcase-intelligence-gateway",
+    "showcase-intelligence-gateway-proxy",
+    "showcase-intelligence-postgres",
+    "showcase-intelligence-redis",
+  ];
+  const toDelete = ["showcase-intelligence-init"];
+
+  it("acknowledges all six retained services without claiming a prod instance", () => {
+    for (const name of kept) {
+      const entry = SERVICES[name];
+      expect(entry, name).toBeDefined();
+      expect(Object.keys(entry.environments), name).toEqual(["staging"]);
+      expect(entry.ciBuilt, name).toBe(false);
+      expect(entry.gateValidated, name).toBe(false);
+      expect(entry.gateIgnore, name).toBe(true);
+      expect(entry.environments.staging.probe, name).toBe(false);
+    }
+    for (const name of toDelete) {
+      expect(SERVICES[name], name).toBeUndefined();
+    }
+  });
+
+  it("leaves no prod-missing finding for retained services and still flags init", () => {
+    const prodMissing = findMissingServices("prod", new Set());
+    for (const name of kept) expect(prodMissing).not.toContain(name);
+    expect(findUntrackedServices(new Set([...kept, ...toDelete]))).toEqual(
+      toDelete,
+    );
   });
 });
 
@@ -243,13 +279,13 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     ["harness", "showcase-harness"],
   ] as const;
 
-  it("has 43 services in the SSOT (31 showcase/infra + 12 starter-*)", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(43);
+  it("has 43 gate-managed services plus six staging-only Intelligence services", () => {
+    expect(Object.keys(SERVICES)).toHaveLength(49);
   });
 
   it("marks every gate-managed service gateValidated (no Phase-2 holdouts)", () => {
     const unvalidated = Object.entries(SERVICES)
-      .filter(([, entry]) => !entry.gateValidated)
+      .filter(([, entry]) => !entry.gateValidated && !entry.gateIgnore)
       .map(([name]) => name);
     expect(unvalidated).toEqual([]);
   });
@@ -270,15 +306,14 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
   it("findMissingServices treats every gateValidated service as a target, per the envs it declares", () => {
     // With nothing "present", every gateValidated service should appear in
     // the missing set for each env it DECLARES. The dual-env gateValidated
-    // services (30 showcase/infra + 12 starters) carry both prod and staging
-    // and are demanded in BOTH envs; the staging-only google-antigravity is
-    // demanded in staging alone.
+    // services (31 showcase/infra + 12 starters) carry both prod and staging
+    // and are demanded in BOTH envs.
     const missingProd = findMissingServices("prod", new Set<string>());
     const missingStaging = findMissingServices("staging", new Set<string>());
-    expect(missingProd).toHaveLength(42);
+    expect(missingProd).toHaveLength(43);
     expect(missingStaging).toHaveLength(43);
     expect(missingStaging).toContain("showcase-google-antigravity");
-    expect(missingProd).not.toContain("showcase-google-antigravity");
+    expect(missingProd).toContain("showcase-google-antigravity");
     // CrewAI Conversational Flows is now required in both envs.
     expect(missingStaging).toContain("showcase-crewai-conversational-flows");
     expect(missingProd).toContain("showcase-crewai-conversational-flows");

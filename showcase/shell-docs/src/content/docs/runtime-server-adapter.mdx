@@ -243,6 +243,23 @@ Deno.serve({ port: 4000 }, (request) => {
 
 ## Cloudflare Workers
 
+<Callout type="warn" title="Do not construct an agent at module scope">
+  Workers do not allow random values in global scope, and an agent generates a
+  thread ID when you construct it. An agent created at the top level of the module
+  stops the Worker from starting, with `Disallowed operation called within global
+  scope`. The examples below construct everything inside `fetch`. To create the
+  runtime once at module scope, pass `agents` as a factory. The runtime calls the
+  factory on each request:
+
+  ```ts
+  const runtime = new CopilotRuntime({
+    agents: () => ({
+      default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    }),
+  });
+  ```
+</Callout>
+
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing worker"]}>
 <Tab value="Multi-route">
 ```ts title="src/index.ts"

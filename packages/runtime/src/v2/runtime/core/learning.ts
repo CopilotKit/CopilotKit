@@ -38,7 +38,11 @@ export type GetLearningContainerId = (
   input: LearningContainerSelectorInput,
 ) => MaybePromise<string | null | undefined>;
 
-/** Trusted server context for assigning browser activity to Learning Spaces. */
+/**
+ * Context for assigning browser activity to Learning Spaces. The Runtime
+ * verifies `user`; the browser chooses `trajectoryId`, which is only checked
+ * to be a UUID.
+ */
 export interface TrajectoryLearningContainerSelectorInput {
   readonly trajectoryId: string;
   readonly user: CopilotRuntimeUser;
@@ -90,7 +94,8 @@ export async function resolveTrajectoryLearningContainerIds(
         "Trajectory Learning Container selection must be an array of at most 100 IDs",
       );
     }
-    return [...new Set(value.map(assertStableLearningContainerId))];
+    // Array.from visits holes in sparse arrays, so they fail validation.
+    return [...new Set(Array.from(value, assertStableLearningContainerId))];
   } finally {
     clearTimeout(timeout);
     signal?.removeEventListener("abort", onAbort);

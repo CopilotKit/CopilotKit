@@ -411,7 +411,7 @@ do.
 
 > **PDFs and images need a vision/document-capable model.** The default
 > `openai/gpt-5.5` reads both natively through this path, as do recent Claude
-> (`anthropic/claude-sonnet-4-6`) and Gemini (`google/gemini-2.5-*`) models.
+> (`anthropic/claude-sonnet-4-6`) and Gemini (`google/gemini-3.8-flash`) models.
 > An older text-only model will ignore the attached document.
 
 Try it: drop a CSV and say _"chart revenue by month"_, _"diagram this incident

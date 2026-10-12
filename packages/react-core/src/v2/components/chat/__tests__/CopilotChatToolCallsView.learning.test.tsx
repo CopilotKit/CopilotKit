@@ -31,6 +31,11 @@ const learning: LearningConfig = {
   sink: () => {},
   capture: { clicks: false, navigation: false, network: false },
 };
+// Tests that drive Trajectory changes themselves must not race the provider's
+// automatic start.
+const manualLearning: React.ComponentProps<
+  typeof CopilotKitProvider
+>["learning"] = { ...learning, autoStart: false };
 
 function CaptureControls({
   onCore,
@@ -60,7 +65,7 @@ describe("tool call capture attributes", () => {
   it("keeps one wrapper while learning is configured, whatever the Trajectory state", async () => {
     let core: CopilotKitCore | undefined;
     const view = render(
-      <CopilotKitProvider learning={learning} renderToolCalls={renderers}>
+      <CopilotKitProvider learning={manualLearning} renderToolCalls={renderers}>
         <CaptureControls
           onCore={(value) => {
             core = value;
@@ -77,10 +82,14 @@ describe("tool call capture attributes", () => {
     const initial = wrapper();
     expect(initial?.getAttribute("data-tool-call-id")).toBe("tool-1");
     expect(initial?.parentElement).toBe(screen.getByTestId("message"));
+    expect(core?.trajectoryId).toBeNull();
 
     await act(async () => {
-      await core?.startTrajectory({ trajectoryId: "traj-1" });
+      await expect(
+        core?.startTrajectory({ trajectoryId: "traj-1" }),
+      ).resolves.toMatchObject({ status: "started" });
     });
+    expect(core?.trajectoryId).toBe("traj-1");
     expect(wrapper()).toBe(initial);
     act(() => core?.stopTrajectory());
     expect(wrapper()).toBe(initial);
@@ -115,7 +124,7 @@ describe("tool call capture attributes", () => {
     let core: CopilotKitCore | undefined;
     render(
       <CopilotKitProvider
-        learning={learning}
+        learning={manualLearning}
         renderToolCalls={statefulRenderers}
       >
         <CaptureControls
@@ -132,12 +141,19 @@ describe("tool call capture attributes", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clicked 0" }));
 
     // Mirrors connection start, failure and reconnect: null -> id -> null -> id.
+    expect(core?.trajectoryId).toBeNull();
     await act(async () => {
-      await core?.startTrajectory({ trajectoryId: "traj-1" });
+      await expect(
+        core?.startTrajectory({ trajectoryId: "traj-1" }),
+      ).resolves.toMatchObject({ status: "started" });
     });
+    expect(core?.trajectoryId).toBe("traj-1");
     act(() => core?.stopTrajectory());
+    expect(core?.trajectoryId).toBeNull();
     await act(async () => {
-      await core?.startTrajectory({ trajectoryId: "traj-2" });
+      await expect(
+        core?.startTrajectory({ trajectoryId: "traj-2" }),
+      ).resolves.toMatchObject({ status: "started" });
     });
     expect(core?.trajectoryId).toBe("traj-2");
 

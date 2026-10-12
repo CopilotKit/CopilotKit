@@ -32,6 +32,11 @@ export function useSkin(): Skin {
   return ctx.skin;
 }
 
+/** The current skin, or null outside a SkinProvider (shell pieces rendered bare in tests). */
+export function useOptionalSkin(): Skin | null {
+  return useContext(SkinContext)?.skin ?? null;
+}
+
 export function useSkinData<T>(): T {
   const ctx = useContext(SkinContext);
   if (!ctx) throw new Error("useSkinData must be used within a SkinProvider");

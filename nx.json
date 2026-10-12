@@ -101,7 +101,8 @@
         "{projectRoot}/type-fixtures/**",
         "{workspaceRoot}/scripts/validate-dts-ambient.ts",
         "{workspaceRoot}/scripts/validate-dts-imports.ts",
-        "{workspaceRoot}/scripts/validate-optional-peer-entries.ts"
+        "{workspaceRoot}/scripts/validate-optional-peer-entries.ts",
+        "{workspaceRoot}/scripts/validate-module-scope-create-require.ts"
       ],
       "cache": true
     }

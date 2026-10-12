@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.ui import StateDeps
 from ag_ui.core import EventType, StateSnapshotEvent
-from pydantic_ai.models.openai import OpenAIResponsesModel
+from model import resolve_model
 
 # load environment variables
 from dotenv import load_dotenv
@@ -29,7 +29,9 @@ class ProverbsState(BaseModel):
 # Agent
 # =====
 agent = Agent(
-    model=OpenAIResponsesModel("gpt-5-mini"),
+    # COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this;
+    # unset, the agent uses gpt-5-mini.
+    model=resolve_model("openai:gpt-5-mini"),
     deps_type=StateDeps[ProverbsState],
     system_prompt=dedent("""
     You are a helpful assistant that helps manage and discuss proverbs.

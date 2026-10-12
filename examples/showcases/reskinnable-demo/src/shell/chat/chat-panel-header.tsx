@@ -1,6 +1,11 @@
 "use client";
 
-import { MessagesSquare, SquarePen } from "lucide-react";
+import {
+  MessagesSquare,
+  SquarePen,
+  PanelRightClose,
+  PanelRightOpen,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useSkin } from "@/shell/skin-provider";
@@ -70,7 +75,15 @@ export function ChatPanelHeader() {
           onClick={toggleInbox}
           testId="chat-inbox-toggle"
         >
-          <MessagesSquare className="h-[18px] w-[18px]" />
+          {skin.layoutDefaults?.inboxSide === "right" ? (
+            isInboxOpen ? (
+              <PanelRightClose className="h-[18px] w-[18px]" />
+            ) : (
+              <PanelRightOpen className="h-[18px] w-[18px]" />
+            )
+          ) : (
+            <MessagesSquare className="h-[18px] w-[18px]" />
+          )}
         </HeaderIconButton>
         <HeaderIconButton
           label="New conversation"

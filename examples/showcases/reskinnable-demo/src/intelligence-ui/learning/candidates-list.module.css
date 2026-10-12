@@ -1,0 +1,63 @@
+.sheetHead {
+  border-bottom: 1px solid var(--border);
+  padding: 20px 48px 16px 24px;
+}
+.sheetHead h2 {
+  color: var(--foreground);
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.sheetHead p {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  margin: 5px 0 0;
+}
+/* The review body scrolls between the fixed head and foot, with edge shadows. */
+.sheetScroll {
+  flex: 1;
+  min-height: 0;
+}
+.sheetBody {
+  color: var(--foreground);
+  font-size: 12px;
+  line-height: 1.65;
+  padding: 24px;
+}
+.sheetMeta {
+  color: var(--muted-foreground);
+  font-size: 10px;
+  margin: 0;
+}
+.sheetBody section {
+  border-top: 1px solid var(--border);
+  margin-top: 20px;
+  padding-top: 18px;
+}
+.sheetBody h3 {
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+.sheetBody p {
+  margin: 0 0 10px;
+}
+.sheetBody ul {
+  margin: 0;
+  padding-left: 20px;
+}
+.sheetFoot {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 16px 20px;
+}
+.sheetFoot p {
+  color: var(--destructive);
+  flex-basis: 100%;
+  font-size: 12px;
+  margin: 0;
+}
