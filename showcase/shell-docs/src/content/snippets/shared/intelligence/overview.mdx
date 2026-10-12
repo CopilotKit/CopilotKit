@@ -12,14 +12,15 @@ Connect an existing app in the [quickstart](/intelligence/quickstart), with setu
 
 <IntelligenceFeatureCards />
 
-## Already have LangGraph threads or ADK sessions?
+## Already have agent conversations?
 
 Connect your existing app to Intelligence and add AG-UI streams around your current agent. If you need earlier history, import it once:
 
 - [Import LangGraph threads](/langgraph-python/threads-import) from LangGraph Server / LangSmith deployments or Python FastAPI apps with durable persistence.
 - [Import Google ADK sessions](/google-adk/threads-import) from supported ADK database session stores or Vertex/Agent Engine session history.
+- Import AWS Strands conversations for [Python](/strands/threads-import) or [TypeScript](/strands-typescript/threads-import) from local session files.
 
-Import copies history; it does not establish ongoing database replication. Future CopilotKit-mediated runs persist to Intelligence and continue through native persistence when your agent remains connected to a durable LangGraph checkpointer or deployment, or an ADK session service with appropriate retention. Keep that native persistence in place.
+Import copies history; it does not establish ongoing database replication. Future CopilotKit-mediated runs persist to Intelligence and continue through native persistence when your agent remains connected to its durable framework storage. Keep that native persistence in place.
 
 [Skill delivery](/intelligence/learned-skills) combines published Skills from several Learning containers in one agent, with one request for each refresh.
 

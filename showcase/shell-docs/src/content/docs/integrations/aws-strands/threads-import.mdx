@@ -1,0 +1,174 @@
+---
+title: Add AG-UI Streams to Strands Conversations
+nav_title: Add to Existing Threads
+description: "Add Intelligence’s AG-UI streams to your existing agent conversations, with optional historical import for supported stores."
+icon: "lucide/Repeat"
+doc_type: how-to
+---
+
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+<span id="what-is-this" />
+
+## Add Intelligence to your existing app
+
+Give users reconnection, catch-up, and delivery across devices around your Strands agent. Follow the [Intelligence quickstart](/intelligence/quickstart) to connect your existing CopilotKit app and Runtime, then verify that a new conversation is saved. This enables AG-UI streams for runs through CopilotKit; no historical import is required.
+
+Keep your Strands agent and its durable storage connected so you can continue the same conversations after importing them. See [how streams work with framework storage](/intelligence/threads-explained#how-threads-work-with-framework-storage).
+
+## Include earlier conversations (optional)
+
+To let users reopen conversations recorded before Intelligence was connected, use the importer below to copy supported historical content. Importing does not enable live delivery or establish ongoing database replication, and it cannot recover history the source no longer exposes.
+
+The Strands importer reads saved single-agent conversations from local session files for Python or TypeScript. Direct import from S3 or AgentCore is not supported. It brings over saved messages, rich tool results, attachments, and agent state where available. Some interactive content, such as MCP app views, may not have been saved in the original history.
+
+The following prerequisites and commands apply only to that historical import. Use Threads Drawer or [Headless Threads](/headless-threads) to open imported and new conversations through the same UI.
+
+## Prerequisites
+
+- A CopilotKit app with CopilotKit Intelligence enabled.
+- Saved Strands conversations in a persistent store. In-memory conversations cannot be imported.
+- Access to the local session files and the Strands agent ID for the conversations you want to import.
+
+## Confirm the target project
+
+Choose the Intelligence project that will receive the history. Its app-api URL and project-scoped runtime key select the destination. You will export those values before importing.
+
+For a CLI-created app, you can select a cloud-hosted project:
+
+```bash title="Terminal"
+npx copilotkit@latest project select
+```
+
+The command updates the project selected for the current directory and writes its project-scoped runtime key to the app's generated `.env`.
+
+## Configure the source
+
+Choose the same language you use in the [Strands quickstart](/quickstart). Point the importer at the local session directory and select the agent whose conversations you want to import:
+
+<Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
+  <Tab value="Python">
+    ```bash title="Terminal"
+    export STRANDS_PY_IMPORT_SOURCE_ID="my-strands-app"
+    export STRANDS_PY_IMPORT_ROOT="/absolute/path/to/sessions"
+    export STRANDS_PY_IMPORT_FORMAT="records"
+    export STRANDS_PY_IMPORT_AGENT_IDS="support"
+    export STRANDS_PY_IMPORT_END_USER_ID="user-123"
+    ```
+
+    Choose the format your app saves:
+
+    - **Session records:** use `records` when the directory contains `session_<id>` folders with `session.json` and agent message files.
+    - **Snapshots:** use `snapshots` when it contains `session/<id>/scopes/agent/<id>/snapshots/snapshot_latest.json`. If your app uses a different namespace folder, set `STRANDS_PY_IMPORT_SNAPSHOT_NAMESPACE` to that folder name.
+
+    To select specific conversations, set `STRANDS_PY_IMPORT_SESSION_IDS="session-1,session-2"` to their native session IDs.
+  </Tab>
+  <Tab value="TypeScript">
+    ```bash title="Terminal"
+    export STRANDS_TS_IMPORT_SOURCE_ID="my-strands-app"
+    export STRANDS_TS_IMPORT_ROOT="/absolute/path/to/sessions"
+    export STRANDS_TS_IMPORT_LAYOUT="unified"
+    export STRANDS_TS_IMPORT_AGENT_IDS="support"
+    export STRANDS_TS_IMPORT_END_USER_ID="user-123"
+    ```
+
+    Choose the layout your app saves:
+
+    - **LocalFileStorage:** use `unified` when the directory contains `session/<id>/scopes/agent/<id>/snapshots/snapshot_latest.json`.
+    - **FileStorage:** use `legacy` when session ID folders sit directly inside the directory. For a custom namespace, point the root at that namespace folder and use `legacy`.
+
+    To select specific conversations, set `STRANDS_TS_IMPORT_SESSION_IDS="session-1,session-2"` to their native session IDs.
+  </Tab>
+</Tabs>
+
+Replace `support` with your native Strands agent ID. Import one agent per session; orchestrated multi-agent sessions are not supported.
+
+Set the end-user ID to the application user ID your Runtime returns from `identifyUser`, so that user can find the imported conversations. This assigns the selected conversations to that user: use a directory containing only their history or select their session IDs, and repeat for each user.
+
+The source ID is a name you choose for this store. Keep it the same when you import again, even if you move the files. Run the import while these conversations are idle. Snapshot imports include the latest saved view; they cannot recover messages already removed from it.
+
+## Run a dry run
+
+Preview the import before writing anything.
+
+<Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
+  <Tab value="Python">
+    ```bash title="Terminal"
+    npx copilotkit@latest import --source strands-python --dry-run
+    ```
+  </Tab>
+  <Tab value="TypeScript">
+    ```bash title="Terminal"
+    npx copilotkit@latest import --source strands-typescript --dry-run
+    ```
+  </Tab>
+</Tabs>
+
+The dry run counts conversations, reports conversations that cannot be imported, and estimates upload size. It does not need a CopilotKit Intelligence URL or API key.
+
+## Map Strands agents to CopilotKit agent IDs
+
+Map the native Strands agent ID reported by the dry run to the `agentId` your live CopilotKit runtime uses.
+
+```json title="agent-map.json"
+{
+  "support": "support-agent"
+}
+```
+
+Using the same `agentId` as live traffic keeps imported history and future conversations grouped together.
+
+## Prepare the CopilotKit Intelligence destination
+
+A real import needs the destination app-api URL and project-scoped runtime key. A CLI-created starter writes them to `.env`, but the importer reads the current process environment and does not load `.env` or `.copilotkit/project.json` automatically.
+
+Copy the generated values into your shell before importing:
+
+```bash title="Terminal"
+export INTELLIGENCE_API_URL="https://..."
+export CPK_INTELLIGENCE_API_KEY="cpk-..."
+```
+
+You can also pass the destination directly with `--api-url` and `--api-key` instead.
+
+## Import the conversations
+
+Run the import after the dry run and agent map look right.
+
+<Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
+  <Tab value="Python">
+    ```bash title="Terminal"
+    npx copilotkit@latest import --source strands-python --agent-map ./agent-map.json
+    ```
+  </Tab>
+  <Tab value="TypeScript">
+    ```bash title="Terminal"
+    npx copilotkit@latest import --source strands-typescript --agent-map ./agent-map.json
+    ```
+  </Tab>
+</Tabs>
+
+For self-hosted CopilotKit Intelligence, add `--api-url "$INTELLIGENCE_API_URL"` and `--api-key "$CPK_INTELLIGENCE_API_KEY"` to the command. Add `--yes` to skip the confirmation prompt.
+
+Conversations without an end-user ID are omitted by default. Set the end-user ID in the source configuration above before importing.
+
+## Verify the imported conversations
+
+Sign in as the application user whose ID you imported. Open the Threads Drawer, select an imported Strands conversation, and confirm that its history appears in the chat.
+
+## Re-run or replace
+
+Already-imported conversations are skipped by default.
+
+Use `--replace` to refresh them; running or continued conversations are left unchanged. Add the flag to the same import command above, keeping its source, agent map, and user selection.
+
+## Continue using Strands persistence
+
+Importing copies supported history; it does not establish ongoing database replication. Intelligence rename, archive, and delete operations affect only Intelligence records, leaving the native Strands records unchanged.
+
+Your app sends future conversations through CopilotKit to CopilotKit Intelligence. Keep the original Strands agent and its durable storage connected, and reopen the imported conversation from the Threads Drawer to pick up where you left off, including supported pending approvals and requests for input.
+
+- **Threads Drawer:** already included in CLI-created starters. Use the [Threads Drawer guide](/prebuilt-components/copilot-threads-drawer) to customize its ready-made thread UI.
+- **Headless Threads:** use the [Headless Threads guide](/headless-threads) only when you need a custom UI. Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.
+
+Open an imported conversation and send a follow-up to continue it.
