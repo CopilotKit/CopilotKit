@@ -14,6 +14,7 @@ This page describes the experimental self-hosted collector and its custom-sink i
 
 - Full URLs, including query strings and hashes, plus the page title and referrer.
 - Clicked element text and all attributes, plus live control values.
+- A short, cleaned name of each clicked control in `target.label`. See [Click labels](#click-labels).
 - Input, select, text area, and editable element values on input and change events.
 - Browser-visible request and response headers and bounded body snapshots.
 - Full agent message text in CopilotKit's custom-sink integration, unless `capture.agentText` is `false`.
@@ -48,7 +49,7 @@ Each event is an AG-UI `CUSTOM` event: `{ type: "CUSTOM", name, value, timestamp
 | --- | --- | --- |
 | `page` | `route`, `url`, `title`, `referrer` | Collector, at start |
 | `navigation` | `from`, `to`, `navigationType` | Collector |
-| `click` | `target` (`tag`, `role`, `action`, `text`, `attributes`, control values, `input`), `route`, `url` | Collector |
+| `click` | `target` (`tag`, `role`, `action`, `text`, `label`, `attributes`, control values, `input`), `route`, `url` | Collector |
 | `input` | `eventType`, `target` (element details and control values), `route`, `url` | Collector |
 | `network` | `transport`, `method`, `url`, `origin`, `route`, `status`, `durationMs`, `outcome`, `request`, `response` | Collector |
 | `thread.linked` | `threadId`, `agentId`, `hasMessages`, `reason` (custom sinks); `threadId` (connected capture) | Core |
@@ -67,6 +68,52 @@ Fetch body capture reads a cloned stream and leaves the app's response unchanged
 Fetch duration ends when headers arrive. XHR duration ends at `loadend`. Network events no longer include a `framework` classification.
 
 Your own events, sent with `emit()` or `emitTrajectoryEvent()`, use your names. The custom-sink integration also adds the open Thread.
+
+## Click labels
+
+Click events include `target.label`, a short name of the clicked control, such as `Approve` or `Switch to dark mode`. Automatic Learning shows this name to the model. Capture uses the first of these sources that gives a name:
+
+1. The text of the elements that `aria-labelledby` references, unless they are inside editable content or a `textbox`, `searchbox`, or `combobox`.
+2. `aria-label`.
+3. The caption of a submit, button, or reset input, or the `alt` text of an image input. The `<label>` text of a native checkbox or radio button is not used, because it is often user content such as a to-do item. Give these controls an `aria-label` or `data-copilotkit-action` instead.
+4. `title`, only on controls: buttons, links with `href`, `summary`, elements with a control role (below), and button-like inputs. Never on fields that hold a value.
+5. The text of a control named by its content: buttons, links with `href`, `summary`, and the roles `button`, `link`, `tab`, `menuitem`, `menuitemcheckbox`, `menuitemradio`, `option`, `checkbox`, `switch`, `radio`, and `treeitem`. An explicit `role` overrides the tag. Images inside the control count with their `alt`, an `svg` or `role="img"` element with its `aria-label` or plain `<title>`; capture does not read further into images. Inline formatting such as `b`, `em`, `mark`, or `span` joins words; other elements separate them.
+
+A clicked image, `svg`, or element with role `img`, `presentation`, or `none` uses its own `aria-labelledby`, `aria-label`, `alt`, or `<title>`. Without one, it takes the name of the nearest control around it.
+
+Text never comes from containers such as list items, rows, cells, dialogs, regions, `main`, or labels, or from links without `href`. A control gets no name from its text when the text looks like separate fields, as cards do:
+
+- The text is longer than 80 characters.
+- The control contains a heading, list, table, `article`, `section`, `blockquote`, a field, or more than one paragraph. One paragraph is allowed, and so are headings inside `summary`.
+- Two or more `div` elements hold text, directly or through inline elements, or three or more sibling elements each carry text.
+- The walk passes 1,000 nodes or 320 characters.
+
+Editable content and autocomplete suggestions (options and tree items in a popup that a combobox controls or owns, and `datalist` options) never contribute text. Script, style, template, `hidden`, and `aria-hidden="true"` content is skipped. Text assigned to a `<slot>` inside a web component is not read, so such controls need an `aria-label`. `aria-label` still applies to all of these.
+
+Capture can only recognize suggestion lists marked up with ARIA. For a custom suggestion list without these roles, add `data-copilotkit-ignore` or remove the label in `beforeSend`.
+
+Capture cleans the chosen name in this order:
+
+1. Remove invisible characters: Unicode default-ignorable code points, including bidi controls, zero-width characters, and soft hyphens.
+2. Apply the password and credential redaction above.
+3. Collapse whitespace.
+4. Replace remembered passwords again, also when they differ only in whitespace or invisible characters.
+5. Replace URLs (`scheme://…` and `www.…`) with `[url]`.
+6. Replace emails with `[email]`.
+7. Replace JWTs (`eyJ…`) with `[redacted]`, and also three dotted segments that are all 16 or more characters long, or all 8 or more characters long and each contain a digit. Dotted names such as `settings.notifications.preferences` stay.
+8. Replace runs of 24 or more letters, digits, and `_-+/=` that contain a digit with `[redacted]`.
+9. Cut names longer than 80 characters, counted as Unicode code points, and end them with `…`.
+
+Only the matching part is replaced. When no name remains, `label` is omitted. `text`, `attributes`, and control values stay raw.
+
+`data-copilotkit-action` gives a control an explicit name in `target.action`. To exclude a control, add `data-copilotkit-ignore`. To send clicks without labels, remove the field in `beforeSend`:
+
+```ts
+beforeSend: (event) => {
+  if (event.name === "click") delete (event.value.target as { label?: string }).label;
+  return event;
+},
+```
 
 ## Form edit timing
 
@@ -100,7 +147,7 @@ In code:
 
 In markup:
 
-- `data-copilotkit-action="deal.approve"` names a control. The name goes into `target.action`.
+- `data-copilotkit-action="deal.approve"` names a control explicitly. The name goes into `target.action`.
 - `data-copilotkit-ignore` excludes clicks and input events inside that element.
 
 Example: drop all network events for one service.

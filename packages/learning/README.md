@@ -15,6 +15,17 @@ Redaction runs on the first 16 KiB of a body, before the 4 KiB limit applies. Ev
 
 Use `capture`, `beforeSend`, `ignoreUrls`, and `data-copilotkit-ignore` for your app's exclusions. The deprecated `routes` option no longer masks or transforms paths.
 
+Click events also include `target.label`, a short, cleaned name of the clicked control. Automatic Learning shows this name to the model. It comes from the first of `aria-labelledby`, `aria-label`, the caption of a submit, button, reset, or image input, `title` (controls only), and the text of a control named by its content: buttons, links with `href`, `summary`, and roles such as `tab`, `menuitem`, or `option`. Images inside a control count with their `alt`, `aria-label`, or `<title>`, and a clicked icon without its own name takes the name of the control around it. Control text is not used when it looks like separate fields, as cards do: longer than 80 characters, containing headings, lists, tables, fields, or more than one paragraph, or split across two `div`s that hold text, directly or through inline elements, or three text-carrying siblings. Containers, editable content, ARIA autocomplete suggestions, text slotted into web components, and the `<label>` of a native checkbox or radio button (use `aria-label` or `data-copilotkit-action` there) never contribute their text; script, style, template, and hidden content is skipped. Invisible characters are removed, passwords and credentials become `[redacted]`, URLs `[url]`, emails `[email]`, and JWT or other token-like strings `[redacted]`. Other names are cut at 80 characters with `…`, and `label` is omitted when no name remains. Raw `text`, `attributes`, and values are unchanged. `data-copilotkit-action` gives a control an explicit name in `target.action`. To exclude a control or a suggestion list without ARIA roles, add `data-copilotkit-ignore`, or remove the label in `beforeSend`:
+
+```ts
+beforeSend: (event) => {
+  if (event.name === "click") delete (event.value.target as { label?: string }).label;
+  return event;
+},
+```
+
+See [Click labels](https://docs.copilotkit.ai/intelligence/captured-data#click-labels) for the full rules.
+
 Text edits are combined per field and recorded after a 300 ms pause. Committing or leaving the field, pressing Enter outside input-method composition, clicking, navigating, emitting a developer event, or stopping capture records the pending edit first. Paired `input` and `change` notifications for the same edit produce one record; a later user edit can record the same value again. Checkbox and select changes remain immediate. See [Form edit timing](https://docs.copilotkit.ai/intelligence/captured-data#form-edit-timing) for composition and delivery behavior.
 
 ## Authenticated Trajectories
