@@ -30,7 +30,7 @@
  *
  * const copilotKit = new CopilotRuntime();
  *
- * return new GoogleGenerativeAIAdapter({ model: "gemini-2.5-flash", apiVersion: "v1" });
+ * return new GoogleGenerativeAIAdapter({ model: "gemini-3.8-flash", apiVersion: "v1" });
  * ```
  */
 import { LangChainAdapter } from "../langchain/langchain-adapter";
@@ -52,7 +52,7 @@ interface GoogleGenerativeAIAdapterOptions {
   apiKey?: string;
 }
 
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-3.5-flash";
 const DEFAULT_API_VERSION: GoogleGenerativeAIAdapterOptions["apiVersion"] =
   "v1";
 let hasWarnedDefaultGoogleModel = false;

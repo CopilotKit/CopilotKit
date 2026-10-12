@@ -1,0 +1,257 @@
+/* Layout helpers for the new screens (Trajectories, Evals, Fine-tune), on the Intelligence
+ * workspace tokens (WORKSPACE-DESIGN.md): panels take --cpki-radius-panel, controls
+ * --radius-control, and colors come from the semantic roles so dark mode follows. */
+.badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.titleCell {
+  display: grid;
+  gap: 2px;
+}
+.mono {
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  color: var(--cpki-color-muted-foreground);
+}
+.note {
+  margin: 0;
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-1);
+  max-width: 60rem;
+}
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--cpki-color-border);
+}
+.tab,
+.tabActive {
+  padding: 10px 14px;
+  font-size: var(--cpki-font-size-1);
+  font-weight: 500;
+  color: var(--cpki-color-muted-foreground);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+.tabActive {
+  color: var(--cpki-color-foreground);
+  border-color: var(--cpki-color-foreground);
+}
+.count {
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  border: 1px solid var(--cpki-color-border);
+  padding: 0 6px;
+}
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: 16px;
+  align-items: start;
+}
+.stack {
+  display: grid;
+  gap: 12px;
+}
+.candidate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--cpki-radius-panel);
+  background: var(--card);
+}
+.candidate h3 {
+  margin: 4px 0 0;
+  font-size: var(--cpki-font-size-2);
+  font-weight: 600;
+}
+.checks {
+  list-style: disc;
+  margin: 10px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: var(--cpki-font-size-1);
+  color: var(--cpki-color-muted-foreground);
+}
+.evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.evidence a {
+  font-size: var(--cpki-font-size-0);
+  font-family: var(--cpki-font-mono);
+  color: var(--lilac-foreground);
+  background: var(--lilac-subtle);
+  border-radius: var(--radius-control);
+  padding: 2px 8px;
+  text-decoration: none;
+}
+.evidence a:hover {
+  text-decoration: underline;
+}
+.review {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.review > div {
+  display: flex;
+  gap: 6px;
+}
+.exportCard {
+  position: sticky;
+  top: 12px;
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--cpki-radius-panel);
+  background: var(--card);
+}
+.exportCard h3 {
+  margin: 0;
+  font-size: var(--cpki-font-size-2);
+}
+.target {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--background);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.target:hover:not(:disabled) {
+  background: var(--muted);
+}
+.target:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.target small {
+  display: block;
+  margin-top: 6px;
+  font-size: var(--cpki-font-size-0);
+  color: var(--cpki-color-muted-foreground);
+}
+.brandmark {
+  display: block;
+  width: auto;
+  max-width: 100%;
+}
+.generic {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.ftGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.ftTarget {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--cpki-radius-panel);
+  background: var(--card);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.ftTarget[aria-pressed="true"] {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+.ftLogo {
+  display: grid;
+  place-items: center;
+  height: 56px;
+  /* Brand marks keep the light plate they are drawn for, in either theme. */
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+.ftTarget b {
+  display: block;
+}
+.ftTarget small {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-0);
+}
+.example {
+  border: 1px solid var(--border);
+  border-radius: var(--cpki-radius-panel);
+  background: var(--card);
+  overflow: hidden;
+}
+.exampleHead {
+  padding: 8px 12px;
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  color: var(--cpki-color-muted-foreground);
+  border-bottom: 1px solid var(--cpki-color-border);
+}
+.exampleBody {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+}
+.msg {
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr);
+  gap: 10px;
+  font-size: var(--cpki-font-size-1);
+}
+.role {
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  text-transform: uppercase;
+  color: var(--cpki-color-muted-foreground);
+}
+.toolCall {
+  display: block;
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  color: var(--primary-text);
+}
+/* Brand marks keep the light plate they are drawn for, in either theme. */
+.logoPlate {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  background: #fff;
+  border-radius: var(--radius-control);
+}
+@media (max-width: 1100px) {
+  .split,
+  .ftGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .exportCard {
+    position: static;
+  }
+}

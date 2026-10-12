@@ -3,26 +3,18 @@
     "description": "D6 fixtures for google-antigravity / tool-rendering-default-catchall",
     "sourceFile": "d5-tool-rendering-default-catchall.ts",
     "created": "2026-05-22",
-    "copiedFrom": "langgraph-python"
+    "updated": "2026-10-05",
+    "copiedFrom": "langgraph-python",
+    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages. Measured on the native Gemini path (2026-10-05): the follow-up request after get_weather arrives as [user, assistant{tool_calls:[get_weather]}, assistant \"\"] -- no tool message, and the tool-call id is aimock's synthetic one, not the fixture's. hasToolResult/toolCallId therefore never fire here, so every leg is staged on turnIndex (aimock's count of assistant messages; the real flow adds 2 per tool round-trip). Deployed aimock (staging/prod) runs --proxy-only, which forces the STRICT turnIndex gate: a fixture whose turnIndex is not exactly the assistant count is rejected, and an untagged fixture matches at every position. Local stacks run without a proxy and use the relaxed rule (highest turnIndex <= assistant count wins). Every leg here is positioned so both rules give the same answer."
   },
   "fixtures": [
     {
-      "_comment": "tool-rendering-default-catchall — weather in Tokyo follow-up. After get_weather tool result returns, emit narrated content. MUST come before the tool-emitting fixture so iteration 2 hits this branch. The built-in default renderer renders [data-testid='copilot-tool-render'][data-tool-name='get_weather'] with a status pill [data-testid='copilot-tool-render-status'].",
-      "match": {
-        "userMessage": "forecast for Tokyo",
-        "toolCallId": "call_d6_dc_weather_001",
-        "context": "google-antigravity"
-      },
-      "response": {
-        "content": "Tokyo is 22°C and partly cloudy — the default catchall renderer displayed the tool card above."
-      }
-    },
-    {
-      "_comment": "tool-rendering-default-catchall — weather in Tokyo (first turn). Emits get_weather tool call that the built-in default catchall renderer handles.",
+      "_comment": "tool-rendering-default-catchall — leg 1: emit get_weather(Tokyo). `turnIndex: 0` pins the POSITION. The previous leg was untagged: under the strict gate deployed aimock uses, an untagged leg matches at EVERY position, so after each tool round-trip it re-emitted get_weather forever (the PNI-570/PNI-571 loop: thousands of cycles per staging stream). `toolName` keeps the leg out of requests from agents that do not declare get_weather. Registered BEFORE the turnIndex-0 fallback so it wins the tie whenever get_weather is declared. The built-in default renderer renders [data-testid='copilot-tool-render'][data-tool-name='get_weather'] with a status pill [data-testid='copilot-tool-render-status'].",
       "match": {
         "userMessage": "forecast for Tokyo",
         "toolName": "get_weather",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -35,11 +27,33 @@
       }
     },
     {
-      "_comment": "tool-rendering-default-catchall — weather in Tokyo fallback when no get_weather tool registered.",
+      "_comment": "tool-rendering-default-catchall — leg 2: narration after the get_weather result, at the measured follow-up position (assistant count 2). Replaces a toolCallId-gated follow-up that could never match (see _meta.googleAntigravityStaging).",
       "match": {
         "userMessage": "forecast for Tokyo",
-        "turnIndex": 0,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy — the default catchall renderer displayed the tool card above."
+      }
+    },
+    {
+      "_comment": "tool-rendering-default-catchall — leg 2 at assistant count 1, for a follow-up that carries only the tool-call turn. Without it the relaxed rule (local) falls back to leg 1 and calls get_weather again, and the strict rule (deployed) finds no match.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "context": "google-antigravity",
+        "turnIndex": 1
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy — the default catchall renderer displayed the tool card above."
+      }
+    },
+    {
+      "_comment": "tool-rendering-default-catchall — fallback for an agent that does not declare get_weather: narrated content, no tool call. Registered AFTER leg 1 so leg 1 wins the turnIndex-0 tie whenever get_weather IS declared.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."

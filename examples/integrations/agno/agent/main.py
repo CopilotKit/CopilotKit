@@ -8,10 +8,12 @@ import dotenv
 from agno.os import AgentOS
 from agno.os.interfaces.agui import AGUI
 
-from src.agent import agent
-
+# Load .env BEFORE importing the agent: it reads COPILOTKIT_AGENT_MODEL when
+# it builds its model at import time.
 dotenv.load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 dotenv.load_dotenv()
+
+from src.agent import agent  # noqa: E402
 
 # Build AgentOS and extract the app for serving
 agent_os = AgentOS(agents=[agent], interfaces=[AGUI(agent=agent)])

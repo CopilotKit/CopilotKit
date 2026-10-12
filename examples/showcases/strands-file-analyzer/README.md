@@ -1,5 +1,7 @@
 # File Investigator
 
+> **Hosted demo retirement:** This hosted demo is being retired from the public catalog. Source remains available for historical reference and local use. There is no replacement hosted deployment.
+
 AI-powered document analysis demo built with [CopilotKit](https://copilotkit.ai), [Strands Agents](https://strandsagents.com), and Amazon Bedrock.
 
 ## About This Project

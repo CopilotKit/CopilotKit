@@ -5,6 +5,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
 COPY . .
 RUN npx next build
+RUN npm run typecheck:json-render
 
 # Stage 2: Install agent (Strands TS) dependencies
 FROM node:22-slim AS agent-deps

@@ -25,6 +25,9 @@ export default defineConfig({
       // gen-ui-agent progress card: headline must follow the step data, not the
       // run lifecycle. Static render only.
       "src/app/demos/gen-ui-agent/InlineAgentStateCard.test.ts",
+      // multimodal sample button: sends to the agent registered after the
+      // sample loads, not one captured at click time (PNI-575). Fakes the core.
+      "src/app/demos/multimodal/sample-attachment-buttons.test.ts",
       // Voice capability must depend on its dedicated provider credential,
       // never the text-only AIMock configuration.
       "src/lib/transcription-service.test.ts",
@@ -34,6 +37,9 @@ export default defineConfig({
     hookTimeout: 30_000,
     environment: "node",
   },
+  // tsconfig keeps `jsx: "preserve"` for Next.js, which vite cannot parse;
+  // compile JSX here so tests can import the .tsx demo components.
+  oxc: { jsx: { runtime: "automatic" } },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

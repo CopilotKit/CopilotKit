@@ -35,6 +35,10 @@ vi.mock("../lib/notification-loader.js", () => ({
   loadNotificationFeed: vi.fn(async () => feed),
 }));
 import { loadNotificationFeed } from "../lib/notification-loader.js";
+// This suite never stubs fetch, so keep the HUD feed off the network too.
+vi.mock("../lib/hud-loader.js", () => ({
+  loadHudFeed: vi.fn(async () => null),
+}));
 
 afterEach(() => {
   document.body.replaceChildren();

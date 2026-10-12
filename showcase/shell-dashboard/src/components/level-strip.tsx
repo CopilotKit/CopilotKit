@@ -3,9 +3,7 @@
  * Per-integration L1-L4 strip: four badges showing Up / API (HTTP) / Chats / Tools.
  * Reads integration-scoped rows from the live-status map.
  *
- * No longer used by Coverage tab (overlay-column-header.tsx).
- * Still used by: feature-grid.tsx (Baseline tab legacy header),
- * packages-section.tsx.
+ * Used by FeatureGrid when overlay headers are disabled.
  */
 import { ToneChip } from "@/components/badges";
 import { keyFor } from "@/lib/live-status";

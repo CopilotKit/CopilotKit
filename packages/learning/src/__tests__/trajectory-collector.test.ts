@@ -134,6 +134,7 @@ describe("Trajectory capture contract", () => {
     const input = document.querySelector("input")!;
     input.value = "synthetic@example.com";
     input.dispatchEvent(new Event("input", { bubbles: true }));
+    vi.advanceTimersByTime(300);
     expect(send.mock.calls[0]?.[0].value).toMatchObject({
       route: "/deals",
       url: expect.stringContaining("?email="),
@@ -365,3 +366,107 @@ describe("Trajectory capture contract", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 });
+
+it.each(["custom", "click", "navigation", "stop", "pagehide"])(
+  "flushes pending text before %s",
+  (next) => {
+    const { collector, send } = setup();
+    document.body.innerHTML = '<input id="notes"><button>Approve</button>';
+    collector.start();
+    const input = document.querySelector("input")!;
+    input.value = "final notes";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(send.mock.calls.map(([event]) => event.name)).toEqual(["page"]);
+    if (next === "custom") collector.emit("order.approved", { total: 480 });
+    else if (next === "click") document.querySelector("button")!.click();
+    else if (next === "navigation") history.pushState(null, "", "/next");
+    else if (next === "pagehide") window.dispatchEvent(new Event("pagehide"));
+    else collector.stop();
+    const events = send.mock.calls.map(([event]) => event);
+    expect(events.map((event) => event.name)).toEqual([
+      "page",
+      "input",
+      ...(next === "custom"
+        ? ["order.approved"]
+        : next === "click" || next === "navigation"
+          ? [next]
+          : []),
+    ]);
+    expect(events[1]?.value).toMatchObject({
+      route: "/deals",
+      target: { value: "final notes" },
+    });
+    collector.stop();
+    vi.advanceTimersByTime(1000);
+    expect(send).toHaveBeenCalledTimes(events.length);
+  },
+);
+
+it("network capture does not flush or delay pending text in the trajectory collector", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = vi.fn(async () => new Response(null, { status: 204 }));
+  const { collector, send } = setup();
+  document.body.innerHTML = "<input>";
+  try {
+    collector.start();
+    const input = document.querySelector("input")!;
+    input.value = "pending search";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(100);
+
+    await fetch("/typeahead?q=pending");
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(send.mock.calls.map(([event]) => event.name)).toEqual([
+      "page",
+      "network",
+    ]);
+    await vi.advanceTimersByTimeAsync(199);
+    expect(send.mock.calls.map(([event]) => event.name)).toEqual([
+      "page",
+      "network",
+    ]);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(send.mock.calls.map(([event]) => event.name)).toEqual([
+      "page",
+      "network",
+      "input",
+    ]);
+    expect(send.mock.calls[2]?.[0]).toMatchObject({
+      timestamp: NOW + 300,
+      value: { target: { value: "pending search" } },
+    });
+  } finally {
+    collector.stop();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+it.each(["emit", "stop"])(
+  "a beforeSend stop/restart during %s cannot carry an old event into the new capture",
+  (action) => {
+    const { collector, send } = setup({
+      beforeSend(event) {
+        if (event.name === "input") {
+          collector.stop();
+          collector.start();
+        }
+        return event;
+      },
+    });
+    document.body.innerHTML = "<input>";
+    collector.start();
+    document.querySelector("input")!.value = "pending";
+    document
+      .querySelector("input")!
+      .dispatchEvent(new Event("input", { bubbles: true }));
+    if (action === "emit") collector.emit("old.action", {});
+    else collector.stop();
+    expect(send.mock.calls.map(([event]) => event.name)).toEqual([
+      "page",
+      "page",
+    ]);
+    collector.emit("new.action", {});
+    expect(send.mock.calls.at(-1)?.[0].name).toBe("new.action");
+  },
+);

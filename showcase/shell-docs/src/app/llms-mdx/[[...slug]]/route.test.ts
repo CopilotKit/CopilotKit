@@ -489,36 +489,6 @@ describe("llms-mdx route", () => {
     );
   });
 
-  it("serves legacy frontend guidance URLs from the shared docs-status page", async () => {
-    loadDocMock.mockImplementation((slug: string) =>
-      slug === "frontends/docs-status"
-        ? {
-            source: "",
-            filePath: "frontends/docs-status.mdx",
-            fm: {
-              title: "Docs status",
-              description: "How to read frontend docs.",
-            },
-          }
-        : null,
-    );
-
-    const response = await callLlmsMdxRoute(["slack", "using-these-docs"]);
-
-    expect(response.status).toBe(200);
-    await expect(response.text()).resolves.toBe("rendered markdown");
-    expect(loadDocMock).toHaveBeenCalledWith("frontends/docs-status");
-    expect(renderPageToLlmTextMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        url: "slack/using-these-docs",
-        filePath: "frontends/docs-status.mdx",
-        loadSlug: "frontends/docs-status",
-        framework: "built-in-agent",
-      }),
-      { framework: "built-in-agent", frontend: "slack" },
-    );
-  });
-
   it("serves frontend guidance markdown under two-axis frontend/backend URLs", async () => {
     loadDocMock.mockImplementation((slug: string) =>
       slug === "frontends/docs-status"

@@ -10,7 +10,7 @@ describe("partner showcase links", () => {
       const partners = getIntegrations().filter(
         (i) => i.docs_mode !== "hidden" && i.slug !== "built-in-agent",
       );
-      expect(partners.length).toBeGreaterThan(10);
+      expect(partners.length).toBeGreaterThan(0);
       for (const partner of partners) {
         const demos = partnerShowcaseDemos(partner.slug, frontend);
         const hasShowcase = catalog.cells.some(

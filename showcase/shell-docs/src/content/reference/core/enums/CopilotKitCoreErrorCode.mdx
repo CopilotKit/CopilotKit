@@ -34,6 +34,7 @@ enum CopilotKitCoreErrorCode {
   TRANSCRIPTION_AUTH_FAILED = "transcription_auth_failed",
   TRANSCRIPTION_NETWORK_ERROR = "transcription_network_error",
   SUBSCRIBER_CALLBACK_FAILED = "subscriber_callback_failed",
+  HEADER_RESOLUTION_FAILED = "header_resolution_failed",
 }
 ```
 
@@ -105,6 +106,11 @@ enum CopilotKitCoreErrorCode {
 
 <PropertyReference name="SUBSCRIBER_CALLBACK_FAILED" type="subscriber_callback_failed">
   A subscriber callback threw while handling an event.
+</PropertyReference>
+
+<PropertyReference name="HEADER_RESOLUTION_FAILED" type="header_resolution_failed">
+  The `headers` builder threw, rejected, or returned something other than an
+  object. The request was not sent. `error.cause` is the builder's error.
 </PropertyReference>
 
 ## Usage

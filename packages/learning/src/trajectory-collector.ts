@@ -53,7 +53,9 @@ export function createTrajectoryCollector(
   },
 ): TrajectoryCollector {
   let active = false;
+  let generation = 0;
   let uninstalls: (() => void)[] = [];
+  let flushInputs: (() => void) | undefined;
 
   const report = (code: string, message: string) => {
     try {
@@ -67,6 +69,9 @@ export function createTrajectoryCollector(
 
   const record = (name: string, value: JsonValue) => {
     if (!active) return;
+    const current = generation;
+    if (name !== "input" && name !== "network") flushInputs?.();
+    if (!active || generation !== current) return;
     let payload: TrajectoryEvent;
     try {
       const event: TrajectoryEvent = {
@@ -77,7 +82,7 @@ export function createTrajectoryCollector(
       };
       const kept =
         options.beforeSend === undefined ? event : options.beforeSend(event);
-      if (kept === null || !active) return;
+      if (kept === null || !active || generation !== current) return;
       if (
         kept.type !== "CUSTOM" ||
         typeof kept.name !== "string" ||
@@ -130,6 +135,12 @@ export function createTrajectoryCollector(
   };
 
   const stop = () => {
+    const current = generation;
+    const flush = flushInputs;
+    flushInputs = undefined;
+    flush?.();
+    if (generation !== current) return;
+    generation++;
     active = false;
     const installed = uninstalls;
     uninstalls = [];
@@ -140,6 +151,7 @@ export function createTrajectoryCollector(
     start() {
       if (active || typeof window === "undefined") return;
       active = true;
+      generation++;
       // Native callers can emit developer events without browser observers.
       if (typeof window.addEventListener !== "function") return;
       // One per session: fields seen and values typed are forgotten on stop().
@@ -155,7 +167,9 @@ export function createTrajectoryCollector(
           uninstalls.push(installNavigationCapture({ emit: capture, redact }));
         }
         if (options.capture?.inputs !== false) {
-          uninstalls.push(installInputCapture({ emit: capture, redact }));
+          const inputs = installInputCapture({ emit: capture, redact });
+          flushInputs = inputs.flush;
+          uninstalls.push(inputs);
         }
         if (options.capture?.network !== false) {
           uninstalls.push(

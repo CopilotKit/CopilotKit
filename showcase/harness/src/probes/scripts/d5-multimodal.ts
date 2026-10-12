@@ -28,6 +28,13 @@ export const SAMPLE_PDF_BUTTON_SELECTOR =
   '[data-testid="multimodal-sample-pdf-button"]';
 
 const SAMPLE_BUTTON_TIMEOUT_MS = 5_000;
+/**
+ * How long the sample buttons may stay disabled after rendering. The demo
+ * enables them only once runtime discovery has resolved the agent (PNI-575):
+ * a click before that went to a provisional agent the chat never displays.
+ * Discovery is usually sub-second; a slow cold page load has taken ~15 s.
+ */
+const SAMPLE_BUTTON_READY_TIMEOUT_MS = 30_000;
 const ASSISTANT_TRANSCRIPT_TIMEOUT_MS = 5_000;
 const IMAGE_EXPECTED_PHRASE = "copilotkit logo";
 const PDF_EXPECTED_PHRASE = "copilotkit quickstart";
@@ -66,7 +73,8 @@ async function readAssistantTranscript(page: Page): Promise<string> {
 /** Click a sample-attachment button, throwing with a clear error if it
  *  isn't visible (proves the demo didn't render the sample buttons —
  *  a regression in their wiring would otherwise look like a generic
- *  "no response" failure). */
+ *  "no response" failure) or never becomes enabled (the demo's agent
+ *  never became ready). */
 async function clickSampleButton(page: Page, selector: string): Promise<void> {
   try {
     await page.waitForSelector(selector, {
@@ -76,6 +84,16 @@ async function clickSampleButton(page: Page, selector: string): Promise<void> {
   } catch {
     throw new Error(
       `multimodal: sample button ${selector} not visible — page failed to render the sample-attachment-buttons component`,
+    );
+  }
+  try {
+    await page.waitForSelector(`${selector}:enabled`, {
+      state: "visible",
+      timeout: SAMPLE_BUTTON_READY_TIMEOUT_MS,
+    });
+  } catch {
+    throw new Error(
+      `multimodal: sample button ${selector} stayed disabled for ${SAMPLE_BUTTON_READY_TIMEOUT_MS / 1000}s — the demo's agent never became ready (runtime discovery did not finish)`,
     );
   }
   const clickable = page as unknown as {

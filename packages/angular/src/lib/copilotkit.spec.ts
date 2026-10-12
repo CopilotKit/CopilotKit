@@ -545,7 +545,13 @@ describe("CopilotKit", () => {
 
     expect(mockSetRuntimeUrl).toHaveBeenCalledWith("https://other");
     expect(mockSetRuntimeTransport).toHaveBeenCalledWith("single");
-    expect(mockSetHeaders).toHaveBeenCalledWith({ Authorization: "different" });
+    // The public-key default (from this test's `licenseKey`) is re-applied on
+    // every `updateRuntime({ headers })` call, not just at construction — a
+    // later headers change must not silently drop it.
+    expect(mockSetHeaders).toHaveBeenCalledWith({
+      Authorization: "different",
+      "X-CopilotCloud-Public-Api-Key": licenseKey,
+    });
     expect(mockSetProperties).toHaveBeenCalledWith({ locale: "en" });
     expect(mockSetAgents).toHaveBeenCalledWith({ a: {} });
   });

@@ -1,0 +1,185 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--cpki-z-index-dialog, 1200);
+  /* The workspace defines a neutral scrim; the base theme tints with ink. */
+  background: var(
+    --cpki-color-overlay-scrim,
+    color-mix(in srgb, var(--cpki-color-foreground, #023047) 34%, transparent)
+  );
+}
+
+.positioner {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--cpki-z-index-dialog, 1200) + 1);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  pointer-events: none;
+}
+
+.dialog {
+  box-sizing: border-box;
+  display: grid;
+  /* Header and footer size to content; the body takes the remaining height and
+   * scrolls. `minmax(0, 1fr)` (not the default `auto`) is what lets the body
+   * shrink below its content and trigger its own overflow, instead of growing
+   * past the capped dialog height and getting clipped on all sides. */
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 0;
+  width: min(100%, 520px);
+  max-height: min(720px, calc(100vh - 48px));
+  /* Nested menus and popovers portal into the dialog; do not clip them. */
+  overflow: visible;
+  border: 1px solid var(--cpki-color-border, #b8c7d1);
+  border-radius: 2px;
+  background: var(--cpki-color-surface, #ffffff);
+  box-shadow: none;
+  color: var(--cpki-color-foreground, #023047);
+  pointer-events: auto;
+  outline: none;
+}
+
+/* Wide preset for snippet-heavy dialogs (e.g. the runtime handoff): roomy on
+ * large viewports so code lines don't wrap, still capped to the viewport. */
+.dialog[data-size="lg"] {
+  width: min(100%, 880px);
+  max-height: min(860px, calc(100vh - 48px));
+}
+
+.header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  padding: 18px 20px 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.description {
+  margin: 4px 0 0;
+  color: var(--cpki-color-muted-foreground, #526575);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.closeButton {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--cpki-color-foreground, #023047);
+  cursor: pointer;
+  font: inherit;
+}
+
+.closeButton:hover {
+  background: var(--cpki-color-surface-muted, #f2f7f9);
+}
+
+.closeButton:focus-visible {
+  border-color: var(--cpki-color-focus-ring, #219ebc);
+  outline: 2px solid var(--cpki-color-focus-ring, #219ebc);
+  outline-offset: 2px;
+}
+
+.body {
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 20px 20px;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  border-top: 1px solid var(--cpki-color-border, #d6e0e7);
+  padding: 14px 20px;
+}
+
+/* Workspace scroll edges: the sticky header and footer lift with a shadow
+ * while the body hides content (a mask would fade the chrome itself). `:where`
+ * adds no specificity, so page dialog classes cascade as before. */
+:where(:root[data-cpki-design="workspace"]) :is(.header, .footer) {
+  position: relative;
+  z-index: 1;
+  transition: box-shadow 160ms ease;
+}
+:where(:root[data-cpki-design="workspace"])
+  .dialog:has(.body[data-scroll-top="true"])
+  .header {
+  box-shadow:
+    0 1px 0 var(--cpki-color-border),
+    0 8px 10px -8px var(--scroll-edge-shadow);
+}
+:where(:root[data-cpki-design="workspace"])
+  .dialog:has(.body[data-scroll-bottom="true"])
+  .footer {
+  box-shadow: 0 -8px 10px -8px var(--scroll-edge-shadow);
+}
+:where(:root[data-cpki-design="workspace"])
+  .dialog:not(:has(.footer))
+  .body[data-scroll-bottom="true"] {
+  box-shadow: inset 0 -14px 12px -12px var(--scroll-edge-shadow);
+}
+
+/* Workspace dialog composition (preview parity): 12px corners, roomy padding,
+ * 20px title, 12px description, and centered actions without a footer rule. */
+:where(:root[data-cpki-design="workspace"]) .dialog {
+  border-radius: var(--cpki-radius-overlay);
+}
+:root[data-cpki-design="workspace"] .header {
+  gap: 12px;
+  padding: 26px 28px 10px;
+}
+:root[data-cpki-design="workspace"] .title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+:root[data-cpki-design="workspace"] .description {
+  margin-top: 6px;
+  font-size: var(--text-control);
+  line-height: 1.6;
+}
+:root[data-cpki-design="workspace"] .body {
+  padding: 12px 28px 24px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+:root[data-cpki-design="workspace"] .footer {
+  justify-content: center;
+  border-top: 0;
+  padding: 0 28px 28px;
+}
+:root[data-cpki-design="workspace"] .closeButton {
+  margin: -8px -12px 0 0;
+  border-radius: var(--radius-control);
+  color: var(--cpki-color-muted-foreground);
+}
+:root[data-cpki-design="workspace"] .closeButton:hover {
+  color: var(--cpki-color-foreground);
+}
+@media (max-width: 520px) {
+  :root[data-cpki-design="workspace"] .header {
+    padding: 20px 20px 8px;
+  }
+  :root[data-cpki-design="workspace"] .body {
+    padding: 12px 20px 20px;
+  }
+  :root[data-cpki-design="workspace"] .footer {
+    padding: 0 20px 20px;
+  }
+}

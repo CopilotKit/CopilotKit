@@ -17,6 +17,7 @@ import { execAgent } from "@/skins/exec/agent";
 import { execIdentifyUser } from "@/skins/exec/intelligence/user-id";
 import { myelinAgent } from "@/skins/myelin/agent";
 import { myelinIdentifyUser } from "@/skins/myelin/intelligence/user-id";
+import { ledgerlineAgent } from "@/skins/ledgerline/agent";
 
 /**
  * Server-safe map of skin id → its server-side registration (agent factory +
@@ -193,6 +194,12 @@ const REGISTRATIONS: Record<string, AgentRegistration> = {
   exec: { createAgent: execAgent, identifyUser: execIdentifyUser },
   // Myelin's agent is Google ADK in Python (agent-myelin/, :8125) over AG-UI.
   myelin: { createAgent: myelinAgent, identifyUser: myelinIdentifyUser },
+  // Ledgerline has one persona (Maya Chen) and seeds no memory, so its
+  // resolver is a constant.
+  ledgerline: {
+    createAgent: ledgerlineAgent,
+    identifyUser: () => ({ id: "ledgerline-maya-chen", name: "Maya Chen" }),
+  },
 };
 
 /**

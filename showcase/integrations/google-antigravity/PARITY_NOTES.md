@@ -39,22 +39,34 @@ sets `GOOGLE_GEMINI_BASE_URL=http://aimock:4010` for the whole fleet, and
 `GeminiAPIEndpoint` pointed at aimock. With no base URL set, the same code
 calls Google's API with `GEMINI_API_KEY` (or the fleet's `GOOGLE_API_KEY`).
 
-The endpoint also carries a **static** `X-AIMock-Context: google-antigravity`
-header, because the harness — not this Python process — makes the model call.
-Python's usual per-request `ContextVar` header-forwarding hook
-(`_header_forwarding.py`, copied from google-adk for CVDIAG parity) can attach
-headers to the _agent_ hop, but those headers cannot cross into the Go
-subprocess's own HTTP call to aimock. Concretely this means:
+The harness, not this Python process, makes the model call, so the request's
+headers can only reach it on the endpoint. `agents/_common.py` therefore hands
+the adapter `endpoint` as a **callable** (supported from ag-ui-antigravity
+0.2.1). The adapter resolves it each time it builds a session, inside that
+conversation's first request, where `HeaderForwardingHTTPMiddleware` has
+captured the inbound `x-*` headers (PNI-576):
 
-- Per-request `X-AIMock-Strict` and `x-test-id` headers stop at the agent hop
-  and never reach the LLM hop. A fixture miss on the LLM hop therefore proxies
-  through to the real upstream provider instead of hard-failing the way strict
-  mode does elsewhere in showcase.
-- CVDIAG has no LLM-hop rows for this integration — only agent-hop rows —
-  since the LLM call itself is invisible to the Python-side middleware.
+- `X-AIMock-Context: google-antigravity` is always set, and wins over any
+  inbound value, so this package's fixtures are selected.
+- Inbound `X-AIMock-Strict`, `x-test-id` and `x-diag-*` are forwarded when
+  present, so a fixture miss under a strict probe fails instead of proxying to
+  the real provider, and the harness can find the run's model calls in
+  aimock's journal by `x-diag-run-id`. Other `x-*` headers (`x-forwarded-for`,
+  ...) are not forwarded, and ordinary demo traffic is never made strict.
+- The two Python-side Gemini calls (`subagents.py`, `a2ui_dynamic.py`) use the
+  same `aimock_headers()`.
 
-This is a deliberate, documented trade-off rather than an oversight; revisit
-if cells start flapping because of it.
+Verified against a local aimock in `--proxy-only` mode through the real agent
+server: a probe-style request's model call carried its strict, test and
+diagnostic headers; a strict fixture miss returned 503 with no proxy attempt;
+a non-strict miss still proxied.
+
+**Remaining limit:** headers are fixed per conversation. The SDK sets a
+conversation's model configuration when it starts, so later runs on the same
+thread keep the headers of the run that built the session. Probes use a fresh
+thread per conversation, and concurrent threads each get their own, so per-run
+correlation holds for probe traffic. There are still no backend-emitted CVDIAG
+rows for the model call itself: correlation comes from aimock's journal.
 
 ## Tool execution
 
@@ -210,12 +222,13 @@ aborts with `unknown_tool` instead of streaming the call through (see
 
 ## Operational
 
-`deployed: false`; no Railway service, no `showcase_deploy.yml` job, and no
-`railway-envs.ts` entry — the same posture Hermes shipped with until its
-adapter reached PyPI. CI build-check (`showcase_build_check.yml`) and
-on-demand E2E (`test_e2e-showcase-on-demand.yml`) are wired so every PR
-touching this package still builds the image and can run the shared
-Playwright specs against aimock on demand.
+`deployed: true`. The staging and production Railway instances are tracked in
+the Railway SSOT (`railway-envs.ts`), production runs the staging-tested image
+digest, and `showcase_build.yml` builds and pushes the image on changes to this
+package. CI build-check (`showcase_build_check.yml`) and on-demand E2E
+(`test_e2e-showcase-on-demand.yml`) are wired so every PR touching this
+package still builds the image and can run the shared Playwright specs against
+aimock on demand.
 
 **The on-demand E2E job runs the package's WHOLE `tests/e2e` directory** — its
 final step is a bare `BASE_URL=http://localhost:3000 npx playwright test
@@ -340,10 +353,12 @@ born-in-showcase package with no docs namespace.
 
 ## Documentation
 
-Until the package is deployed, the landing record links features to the
-package source on GitHub rather than to showcase URLs, omits per-feature demo
-links, and ships an empty `liveDemos` list (an embedded showcase iframe would
-404). Restore the showcase links and the live demo when `deployed` flips.
+The package is deployed and listed in the public showcase catalog, but its docs
+stay unpublished: the manifest keeps `docs_mode: hidden`, so shell-docs leaves
+the framework out of its selector, search, sitemap and LLM routes. Apart from
+`docs-links.json`, the docs surface below is not on `main` yet. When it lands with the docs, point the
+landing record's features at the showcase demos and fill its `liveDemos`
+before changing `docs_mode`.
 
 What exists for this integration's shell-docs surface:
 
@@ -433,7 +448,7 @@ all five pass; `headless-complete` is probed as `gen-ui-headless-complete`,
 | hitl-in-app                     | GREEN         | Frontend `request_user_approval` + in-app approval dialog. Escalate pill carries a second ladder at 3/5 for the spec's two-pill test.                                                                  |
 | gen-ui-tool-based               | GREEN         | Needed a `gen-ui-custom.json` fixture (missing from this package). The stray `gen-ui-tool-based.json` — open-gen-UI content emitting `generateSandboxedUi`, which nothing here declares — was deleted. |
 | tool-rendering                  | GREEN         | Owns all five pill prompts for the whole tool-rendering family; see the staging section below.                                                                                                         |
-| tool-rendering-default-catchall | GREEN         |                                                                                                                                                                                                        |
+| tool-rendering-default-catchall | GREEN         | Legs at turnIndex 0 (tool) and 1/2 (narration); green under the strict rule deployed aimock uses (see below).                                                                                          |
 | tool-rendering-custom-catchall  | GREEN         | Two probe turns at 0/2 and 3/5. Its four duplicate pill groups were removed — this file loads first alphabetically and was shadowing `tool-rendering.json`.                                            |
 | auth                            | GREEN         |                                                                                                                                                                                                        |
 | subagents                       | GREEN         | Supervisor chain restaged at turnIndex 0/2/4/6 (research → write → critique → answer).                                                                                                                 |
@@ -471,10 +486,12 @@ messages in the request — which the harness _does_ expose faithfully:
 **+2 per tool round-trip, +1 per plain text answer**, verified against the
 aimock journal on every cell. So each leg carries an absolute `turnIndex`:
 leg 1 of the first turn at 0, its narration at 2, leg 1 of the next turn at
-3, and so on. `sequenceIndex` was rejected deliberately: the LLM hop carries
-no `x-test-id` (see "LLM path"), so its counters would live in the
-`DEFAULT_TEST_ID` bucket forever and the second run against a warm aimock
-would silently skip the tool leg — a masked green.
+3, and so on. `sequenceIndex` was rejected deliberately: when these fixtures
+were written the LLM hop carried no `x-test-id`, so its counters would have
+lived in the `DEFAULT_TEST_ID` bucket forever and the second run against a
+warm aimock would silently skip the tool leg — a masked green. Probe traffic
+now forwards `x-test-id` (see "LLM path"), but only per conversation and only
+when the request carries it, so `turnIndex` stays the discriminator.
 
 **A leg needs EVERY absolute position it can be reached from.** `turnIndex` is
 a position _disambiguator_, not a reject gate (aimock's `selectByTurnIndex`):
@@ -505,16 +522,29 @@ never answers. Three consequences this package is built around:
   `tool-rendering.json`, since a `turnIndex` tie is broken by registration
   order.
 
+**Deployed aimock uses the strict rule.** Everything above describes the
+relaxed selection a local stack gets. Staging and production run aimock with
+`--proxy-only`, and a proxying aimock always applies the strict gate
+(`recordMatchOptions`): a fixture whose `turnIndex` is not exactly the
+assistant count is rejected, and an untagged fixture matches at every
+position. A leg must therefore sit on the exact positions the flow reaches,
+and an untagged tool leg loops forever on staging even when it terminates
+locally. That is how `tool-rendering-default-catchall` ran away on staging
+(PNI-570/PNI-571: three concurrent streams, +211 bytes per cycle, never
+ending). Reproduce staging's rule locally by setting
+`AIMOCK_STRICT_TURN_INDEX=1` on the stack's aimock container.
+
 What is _not_ staged on `turnIndex`: a handful of legs mirrored in from
 langgraph-python for tools no agent or page on this integration declares —
 `display_flight`, `write_document`, and Mastra's hyphenated `get-weather`.
 They are gated on `toolName`, which keeps them out of every candidate set
 here (the tool is never in `RunAgentInput.tools`), so they are inert rather
-than wrong. `tool-rendering-default-catchall.json` also still pairs a
-`toolCallId` narration with a `toolName` leg 1; it happens to terminate
-because its third entry — a `turnIndex: 0` text fallback — is the only
-at-or-behind candidate on the second iteration. Both are mirror residue worth
-cleaning up the next time that file is touched.
+than wrong. `tool-rendering-default-catchall.json` used to pair a
+`toolCallId` narration with an untagged `toolName` leg 1. It terminated
+locally only because its `turnIndex: 0` text fallback won the second
+iteration under the relaxed rule; under the strict rule the fallback was
+rejected and the untagged leg 1 answered every turn. It is now staged on
+`turnIndex` like the rest: leg 1 at 0, narration at 1 and 2.
 
 ### Backend tools the reference declares and this package needed too
 
