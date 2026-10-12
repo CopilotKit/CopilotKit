@@ -71,7 +71,9 @@ Capture retains full URLs, page titles, referrers, element text, attributes, con
   <Step>
     ### Name the actions that matter
 
-    Click events include the element's text, attributes, and control values. Add `data-copilotkit-action` for a stable action name:
+    Click events include the element's text, attributes, and control values, plus `label`: a short, cleaned name of the control, such as `Approve`. Automatic Learning shows this name to the model. It comes from `aria-labelledby`, `aria-label`, an input caption, `title` on controls, or a control's own short text, with emails, URLs, credentials, and tokens replaced. See [Click labels](/intelligence/captured-data#click-labels) for the rules and how to exclude it with `data-copilotkit-ignore` or `beforeSend`.
+
+    Add `data-copilotkit-action` for a stable, explicit action name:
 
     ```tsx
     <button data-copilotkit-action="deal.approve" onClick={approve}>
@@ -96,6 +98,7 @@ Click **Approve** inside a tool's UI in the chat. Your route logs a batch with a
       "role": null,
       "action": "deal.approve",
       "text": "Approve",
+      "label": "Approve",
       "attributes": { "data-copilotkit-action": "deal.approve" },
       "input": "pointer"
     },
