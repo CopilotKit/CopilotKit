@@ -13,6 +13,7 @@ import type {
   ActionContinuationContext,
   ActionContinuationBinding,
   ActionContinuationSnapshot,
+  ActionSnapshot,
   ActionStore,
 } from "./action-store.js";
 
@@ -165,6 +166,7 @@ export class ActionRegistry {
       platform: "slack",
       signal: new AbortController().signal,
     },
+    agentId?: string,
   ): Promise<ChannelNode[]> {
     const registered = this.components.get(componentName);
     const rendered = registered
@@ -182,6 +184,7 @@ export class ActionRegistry {
       registered?.requireKeys ?? false,
       renderContext.platform,
       interactiveKeys,
+      agentId,
     );
     return root;
   }
@@ -193,6 +196,7 @@ export class ActionRegistry {
     conversationKey: string,
     continuation: ActionContinuationContext | undefined,
     renderContext: ChannelComponentRenderContext,
+    agentId?: string,
   ): Promise<{
     root: ChannelNode[];
     onReaction?: MessageReactionHandler;
@@ -208,6 +212,7 @@ export class ActionRegistry {
       conversationKey,
       continuation,
       renderContext,
+      agentId,
     );
     const onReaction = takeMessageReaction(root);
     return {
@@ -234,6 +239,7 @@ export class ActionRegistry {
       platform: "slack",
       signal: new AbortController().signal,
     },
+    agentId?: string,
   ): Promise<{
     root: ChannelNode[];
     onReaction?: MessageReactionHandler;
@@ -268,6 +274,7 @@ export class ActionRegistry {
           platform: renderContext.platform,
           signal: renderContext.signal,
         },
+        agentId,
       );
     } else {
       root = renderToIR(ui);
@@ -281,6 +288,7 @@ export class ActionRegistry {
         false,
         renderContext.platform,
         new Set(),
+        agentId,
       );
     }
     const onReaction = takeMessageReaction(root);
@@ -304,6 +312,7 @@ export class ActionRegistry {
     requireKeys: boolean,
     platform: string,
     interactiveKeys: Set<string | number>,
+    agentId?: string,
     exactPath?: (string | number)[],
   ): Promise<void> {
     for (let i = 0; i < nodes.length; i++) {
@@ -360,6 +369,7 @@ export class ActionRegistry {
               ...(continuation
                 ? { continuation: { ...continuation, actionId: id } }
                 : {}),
+              ...(agentId !== undefined ? { agentId } : {}),
             },
             continuation ? this.retentionMs : undefined,
           );
@@ -378,6 +388,7 @@ export class ActionRegistry {
           requireKeys,
           platform,
           interactiveKeys,
+          agentId,
         );
       }
     }
@@ -394,6 +405,7 @@ export class ActionRegistry {
     requireKeys: boolean,
     platform: string,
     interactiveKeys: Set<string | number>,
+    agentId?: string,
   ): Promise<void> {
     if (isChannelNode(value)) {
       await this.walkNode(
@@ -406,6 +418,7 @@ export class ActionRegistry {
         requireKeys,
         platform,
         interactiveKeys,
+        agentId,
       );
       return;
     }
@@ -421,6 +434,7 @@ export class ActionRegistry {
         requireKeys,
         platform,
         interactiveKeys,
+        agentId,
       );
     }
   }
@@ -436,6 +450,7 @@ export class ActionRegistry {
     requireKeys: boolean,
     platform: string,
     interactiveKeys: Set<string | number>,
+    agentId?: string,
   ): Promise<void> {
     await this.walk(
       [node],
@@ -447,6 +462,7 @@ export class ActionRegistry {
       requireKeys,
       platform,
       interactiveKeys,
+      agentId,
       path,
     );
   }
@@ -492,6 +508,11 @@ export class ActionRegistry {
       action: { ...ctx.action, id, value: actionValue },
     });
     return value;
+  }
+
+  /** Load the persisted snapshot for a minted action id, if it is still live. */
+  async getSnapshot(id: string): Promise<ActionSnapshot | undefined> {
+    return this.store.get(id);
   }
 
   /** Read and validate one continuation capability without consuming it. */

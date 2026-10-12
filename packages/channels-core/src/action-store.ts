@@ -39,6 +39,8 @@ export interface ActionSnapshot {
   boundArgs?: unknown;
   conversationKey: string;
   continuation?: ActionContinuationSnapshot;
+  /** Named agent that posted this action, when the post happened during a run. */
+  agentId?: string;
 }
 /** @deprecated Configure `createChannel({ state })` instead. Action snapshots are stored via `StateStore.kv`. */
 export interface ActionStore {

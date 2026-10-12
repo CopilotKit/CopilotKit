@@ -15,7 +15,10 @@ import { CHANNEL_DELIVERY_PROTOCOL } from "./delivery-contracts.js";
 import { ChannelDeliveryTransport } from "./delivery-transport.js";
 import { DeliveryAdapter } from "./delivery-adapter.js";
 import type { CanonicalChannelRunArgs } from "./delivery-adapter.js";
-import { IntelligenceStateStore } from "./intelligence-state-store.js";
+import {
+  IntelligenceStateStore,
+  type FetchLike,
+} from "./intelligence-state-store.js";
 
 /** Project and declared Channel used for the Gateway join. */
 export interface ChannelRealtimeScope {
@@ -151,6 +154,9 @@ export async function startChannelsWithGatewayControl(
       ? new IntelligenceStateStore({
           baseUrl: opts.appApiBaseUrl,
           apiKey: opts.apiKey,
+          ...(opts.appApiFetch
+            ? { fetch: opts.appApiFetch as unknown as FetchLike }
+            : {}),
         })
       : undefined;
   const channel = channels[0]!;

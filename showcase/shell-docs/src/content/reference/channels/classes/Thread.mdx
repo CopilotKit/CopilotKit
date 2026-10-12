@@ -64,6 +64,7 @@ branch first on `ok`.
 | `tools`      | `ChannelTool[]`                 | Tools for this run only.                                                                                                |
 | `transcript` | `boolean \| { limit?: number }` | Optional SDK transcript bridge when `identifyUser` resolves a user and transcripts are configured.                      |
 | `memory`     | `{ user?, project? }`           | Per-run Intelligence Memory access. Each scope is `"none"`, `"read"`, or `"read-write"`; omission disables Memory.      |
+| `agentId`    | `string`                        | Named agent from `createChannel({ agents })`. Omit to use `"default"`. Required when the Channel has no default.        |
 
 ```ts title="channel.ts"
 channel.onMessage(async ({ thread, message }) => {

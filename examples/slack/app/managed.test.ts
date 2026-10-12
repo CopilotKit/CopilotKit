@@ -51,6 +51,14 @@ vi.mock("@copilotkit/runtime/v2", () => ({
 vi.mock("@copilotkit/runtime/v2/node", () => ({
   createCopilotNodeListener: fakes.createCopilotNodeListener,
 }));
+vi.mock("./agents.js", () => ({
+  httpAgentFactory: () => () => ({}),
+  siblingAgentRunUrl: (url: string) => url,
+  parseNamedAgentPrompt: (text: string) => ({
+    agentId: undefined,
+    prompt: text,
+  }),
+}));
 vi.mock("./tools/index.js", () => ({ appTools: [] }));
 vi.mock("./context/app-context.js", () => ({ appContext: [] }));
 vi.mock("./commands/index.js", () => ({ appCommands: [] }));

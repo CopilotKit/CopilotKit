@@ -13,6 +13,7 @@
  */
 import { defineChannelCommand } from "@copilotkit/channels";
 import type { ChannelCommand } from "@copilotkit/channels";
+import { parseNamedAgentPrompt } from "../agents.js";
 import { senderContext } from "../sender-context.js";
 import { IssueCard } from "../components/index.js";
 import { FileIssueModal } from "../modals/file-issue.js";
@@ -30,8 +31,10 @@ export const appCommands: ChannelCommand[] = [
         await thread.post("Usage: `/agent <your question>`");
         return;
       }
+      const picked = parseNamedAgentPrompt(text);
       await thread.runAgent({
-        prompt: text,
+        agentId: picked.agentId,
+        prompt: picked.prompt,
         context: senderContext(user, thread.platform),
       });
     },

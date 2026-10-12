@@ -6,6 +6,26 @@ export {
   isolateAgentInstance,
   resolveChannelConcurrency,
 } from "./create-channel.js";
+export {
+  canonicalAgentId,
+  checkpointThreadId,
+  resolveChannelAgents,
+} from "./resolve-channel-agents.js";
+export type {
+  ChannelAgentIds,
+  ChannelAgentSource,
+  ChannelRunAgentIdField,
+} from "./resolve-channel-agents.js";
+export {
+  ChannelAgentInterruptPendingError,
+  ChannelAgentResumeAmbiguousError,
+  ChannelAgentResumeNoneError,
+  ChannelDuplicateDefaultError,
+  ChannelInvalidAgentIdError,
+  ChannelNoDefaultAgentError,
+  ChannelUnknownAgentError,
+} from "./channel-agent-errors.js";
+
 // Applied to every Channel agent by default; exported for the adapter packages
 // and for anyone driving an agent outside a Channel.
 export { sanitizeAgentEventStream } from "./sanitize-agent-events.js";

@@ -1,0 +1,105 @@
+---
+title: Multiple agents
+icon: "lucide/Users"
+description: Run more than one named agent from the same Slack or Teams thread.
+doc_type: how-to
+---
+
+One Slack or Teams thread can talk to more than one agent. Support and billing
+can share the same chat. Each agent keeps its own graph and checkpoint.
+
+`thread.runAgent({ agentId })` runs one named agent per call.
+
+## Register agents
+
+Keep `agent` as the no-name default. Add extras in `agents`.
+
+```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+
+const channel = createChannel({
+  name: "triage",
+  identifyUser: "platform",
+  agent: makeSupport,
+  agents: {
+    billing: makeBilling,
+  },
+});
+```
+
+You can also use the same shape as `CopilotRuntime({ agents })`. Put the default
+under the key `"default"`. Do not pass both `agent` and `agents.default`.
+
+```ts title="channel.ts"
+const channel = createChannel({
+  name: "triage",
+  identifyUser: "platform",
+  agents: {
+    default: makeSupport,
+    billing: makeBilling,
+  },
+});
+```
+
+If you pass only extras and no default, every `runAgent` call must include
+`agentId`.
+
+## Pick an agent
+
+```ts title="channel.ts"
+channel.onMention(async ({ thread, message }) => {
+  await thread.runAgent({ prompt: message.text });
+  await thread.runAgent({ agentId: "billing", prompt: message.text });
+});
+```
+
+`runAgent()` with no `agentId` uses `"default"`. That is the same as
+`useAgent()` on the web runtime.
+
+The Slack example in `examples/slack` wires this up. Mentions run triage.
+Start a mention or DM with `search:` to run the named `search` agent on the
+same thread. You do not need a new slash command.
+
+Tools and context stay on the Channel, plus extras on this call. There is no
+per-agent tool list.
+
+## Shared chat, separate graphs
+
+The Slack or Teams transcript is one conversation. Both agents see those
+messages.
+
+The factory `threadId` is the checkpoint id:
+
+- `"default"` keeps today's id (`thr_abc`). Existing bots do not move.
+- `"billing"` gets `thr_abc::billing`.
+
+On managed Intelligence, the wire `agentId` is the Channel name for
+`"default"` (`triage`) and `triage:billing` for extras.
+
+```ts title="agent.ts"
+export function makeBilling(threadId: string) {
+  const agent = createAgentForYourFramework();
+  agent.threadId = threadId;
+  return agent;
+}
+```
+
+`thread.state()` is still one workflow blob per conversation.
+
+## Resume and approvals
+
+If one agent interrupts, `resume(value)` continues that agent.
+
+If two agents are waiting, pass the name:
+
+```ts
+await thread.resume(choice, { agentId: "billing" });
+```
+
+A click on a picker posted during that agent's interrupt is enough.
+`onInterrupt` also receives `agentId`.
+
+A second `runAgent` for an agent that is already waiting throws
+`channel_agent_interrupt_pending`. A different named agent can still run.
+
+Live overlapping turns still follow `store.concurrency` (default `"parallel"`).
